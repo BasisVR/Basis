@@ -43,6 +43,9 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     public static bool ReconnectEnabled = true;
     public static int ReconnectDelaySeconds = 5;
     public static int MaxReconnectAttempts = 10;
+    public static bool StrictMemoryCleanupEnabled = true;
+    public static float StrictMemoryCleanupDelaySeconds = 8f;
+    private static BasisHeadlessManagement ActiveInstance;
 
     private BasisHeadlessHealthCheck healthCheck;
     private CancellationTokenSource reconnectCts;
@@ -50,16 +53,23 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private bool hasLoadedStartupContent;
     private bool reconnectScheduled;
     private bool configuredAvatarApplied;
+    private bool strictMemoryCleanupInProgress;
+    private bool headlessAudioPolicyKnown;
+    private bool headlessAudioOff;
+    private bool headlessAudioControlReady;
 
     /// <summary>
     /// Scene change hook used in headless to aggressively strip visuals and free memory.
     /// </summary>
     private void OnSceneLoadeded(Scene arg0, Scene arg1)
     {
+        BasisDebug.Log($"Headless scene strip starting after active scene change: '{arg0.name}' -> '{arg1.name}'.", BasisDebug.LogTag.Device);
         RemoveAllMaterialTextures();
+        RemoveAllLightmapReferences();
+        RemoveSceneCubemapReferences();
         RemoveAllReflectionProbes();
         RemoveAllText();
-        Resources.UnloadUnusedAssets();
+        TriggerStrictMemoryCleanup("scene load");
     }
 
     /// <summary>
@@ -72,7 +82,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         foreach (Renderer renderer in renderers)
         {
-            foreach (Material mat in renderer.materials)
+            foreach (Material mat in renderer.sharedMaterials)
             {
                 if (mat == null || processedMats.Contains(mat))
                 {
@@ -85,6 +95,38 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         Debug.Log("All textures cleared from all materials.");
+    }
+
+    private static void RemoveMaterialTexturesFromRoot(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        HashSet<Material> processedMats = new HashSet<Material>();
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material[] materials = renderer.sharedMaterials;
+            for (int index = 0; index < materials.Length; index++)
+            {
+                Material mat = materials[index];
+                if (mat == null || processedMats.Contains(mat))
+                {
+                    continue;
+                }
+
+                ShaderUtilSafe.ClearAllKnownTextures(mat);
+                processedMats.Add(mat);
+            }
+        }
     }
 
     /// <summary>
@@ -100,9 +142,33 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         public static void ClearAllKnownTextures(Material material)
         {
+            if (material == null)
+            {
+                return;
+            }
+
+            string[] textureProperties = material.GetTexturePropertyNames();
+            if (textureProperties != null && textureProperties.Length > 0)
+            {
+                foreach (string prop in textureProperties)
+                {
+                    if (string.IsNullOrEmpty(prop))
+                    {
+                        continue;
+                    }
+
+                    if (material.GetTexture(prop) != null)
+                    {
+                        material.SetTexture(prop, null);
+                    }
+                }
+
+                return;
+            }
+
             foreach (string prop in commonTextureProps)
             {
-                if (material.HasProperty(prop))
+                if (material.HasProperty(prop) && material.GetTexture(prop) != null)
                 {
                     material.SetTexture(prop, null);
                 }
@@ -122,6 +188,55 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         Debug.Log("All reflection probes removed from scene.");
+    }
+
+    private void RemoveSceneCubemapReferences()
+    {
+        if (RenderSettings.skybox != null)
+        {
+            ShaderUtilSafe.ClearAllKnownTextures(RenderSettings.skybox);
+            RenderSettings.skybox = null;
+        }
+
+        try
+        {
+            Cubemap customReflection = RenderSettings.customReflection;
+            if (customReflection != null)
+            {
+                RenderSettings.customReflection = null;
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Unity can throw here when the slot is populated with an invalid/non-cubemap reference.
+        }
+    }
+
+    private void RemoveAllLightmapReferences()
+    {
+        Renderer[] renderers = FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            renderer.lightmapIndex = -1;
+            renderer.realtimeLightmapIndex = -1;
+        }
+
+        if (LightmapSettings.lightmaps != null && LightmapSettings.lightmaps.Length > 0)
+        {
+            LightmapSettings.lightmaps = Array.Empty<LightmapData>();
+        }
+
+        if (LightmapSettings.lightProbes != null)
+        {
+            LightmapSettings.lightProbes = null;
+        }
+
+        BasisDebug.Log("All baked lightmap references removed from scene.", BasisDebug.LogTag.Device);
     }
 
     /// <summary>
@@ -157,6 +272,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         bool defaultReconnectEnabled = ReconnectEnabled;
         int defaultReconnectDelaySeconds = ReconnectDelaySeconds;
         int defaultMaxReconnectAttempts = MaxReconnectAttempts;
+        bool defaultStrictMemoryCleanupEnabled = StrictMemoryCleanupEnabled;
 
         string envPassword = ReadEnvironmentString("Password");
         string envIp = ReadEnvironmentString("Ip");
@@ -170,6 +286,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         bool? envReconnectEnabled = ReadEnvironmentBool("ReconnectEnabled");
         int? envReconnectDelaySeconds = ReadEnvironmentInt("ReconnectDelaySeconds");
         int? envMaxReconnectAttempts = ReadEnvironmentInt("MaxReconnectAttempts");
+        bool? envStrictMemoryCleanupEnabled = ReadEnvironmentBool("StrictMemoryCleanupEnabled");
 
         XElement root = null;
         if (File.Exists(filePath))
@@ -192,7 +309,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
                 defaultHealthPath,
                 defaultReconnectEnabled,
                 defaultReconnectDelaySeconds,
-                defaultMaxReconnectAttempts);
+                defaultMaxReconnectAttempts,
+                defaultStrictMemoryCleanupEnabled);
         }
 
         Password = envPassword ?? root?.Element("Password")?.Value ?? defaultPassword;
@@ -207,6 +325,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         ReconnectEnabled = envReconnectEnabled ?? ReadXmlBool(root?.Element("ReconnectEnabled")?.Value, defaultReconnectEnabled);
         ReconnectDelaySeconds = Mathf.Max(1, envReconnectDelaySeconds ?? ReadXmlInt(root?.Element("ReconnectDelaySeconds")?.Value, defaultReconnectDelaySeconds));
         MaxReconnectAttempts = Mathf.Max(0, envMaxReconnectAttempts ?? ReadXmlInt(root?.Element("MaxReconnectAttempts")?.Value, defaultMaxReconnectAttempts));
+        StrictMemoryCleanupEnabled = envStrictMemoryCleanupEnabled ?? ReadXmlBool(root?.Element("StrictMemoryCleanupEnabled")?.Value, defaultStrictMemoryCleanupEnabled);
         NormalizeConfiguredAvatarFields();
     }
 
@@ -223,7 +342,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         string healthPath,
         bool reconnectEnabled,
         int reconnectDelaySeconds,
-        int maxReconnectAttempts)
+        int maxReconnectAttempts,
+        bool strictMemoryCleanupEnabled)
     {
         try
         {
@@ -239,7 +359,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
                 new XElement("HealthPath", BasisHeadlessHealthCheck.NormalizePath(healthPath)),
                 new XElement("ReconnectEnabled", reconnectEnabled),
                 new XElement("ReconnectDelaySeconds", reconnectDelaySeconds),
-                new XElement("MaxReconnectAttempts", maxReconnectAttempts)
+                new XElement("MaxReconnectAttempts", maxReconnectAttempts),
+                new XElement("StrictMemoryCleanupEnabled", strictMemoryCleanupEnabled)
             );
             new XDocument(defaultConfig).Save(filePath);
         }
@@ -376,12 +497,18 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         reconnectScheduled = false;
         configuredAvatarApplied = false;
         reconnectCts = new CancellationTokenSource();
+        ActiveInstance = this;
+        strictMemoryCleanupInProgress = false;
+        headlessAudioControlReady = false;
         BasisHeadlessRuntimeStatus.Reset();
         LoadOrCreateConfigXml();
         ApplyRuntimeConfiguration();
         BasisNetworkConnection.HeadlessReconnectSuppressed = false;
         BasisNetworkConnection.OnDisconnectedAfterReboot -= OnDisconnectedAfterReboot;
         BasisNetworkConnection.OnDisconnectedAfterReboot += OnDisconnectedAfterReboot;
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
+        ResetServerHeadlessAudioPolicy();
 
         if (BasisLocalPlayer.PlayerReady && BasisLocalPlayer.Instance != null)
         {
@@ -413,12 +540,18 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private void OnDestroy()
     {
         isShuttingDown = true;
+        if (ReferenceEquals(ActiveInstance, this))
+        {
+            ActiveInstance = null;
+        }
         BasisNetworkConnection.HeadlessReconnectSuppressed = true;
         BasisNetworkConnection.OnDisconnectedAfterReboot -= OnDisconnectedAfterReboot;
         BasisNetworkManagement.OnEnableInstanceCreate -= ConnectToNetwork;
         SceneManager.activeSceneChanged -= OnSceneLoadeded;
         CancelReconnectLoop();
         StopHealthEndpoint();
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+        ResetServerHeadlessAudioPolicy();
         BasisAudioClipPlayer.DeInitialize();
         BasisHeadlessRuntimeStatus.MarkStopping();
         BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
@@ -432,9 +565,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private void InitalizeLocalPlayerReadyNess()
     {
         EnsureHeadlessInput();
-
-        // If AudioClips directory has .wav files, stream a random one as voice audio
-        BasisAudioClipPlayer.TryInitialize();
+        headlessAudioControlReady = true;
+        ApplyServerHeadlessAudioPolicy();
 
         _ = ApplyConfiguredAvatarAsync();
     }
@@ -505,6 +637,11 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         {
             BasisDebug.Log($"Loading headless avatar from {avatarSource}: {avatarLocation} (mode {avatarLoadMode})", BasisDebug.LogTag.Avatar);
             await BasisLocalPlayer.Instance.CreateAvatar(avatarLoadMode, bundle);
+            if (BasisLocalPlayer.Instance.BasisAvatar != null)
+            {
+                RemoveMaterialTexturesFromRoot(BasisLocalPlayer.Instance.BasisAvatar.gameObject);
+            }
+            TriggerStrictMemoryCleanup("avatar load");
         }
         catch (Exception ex)
         {
@@ -513,6 +650,30 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     }
 
     private static bool TryResolveHeadlessAvatarSelection(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
+    {
+        if (TryResolveConfiguredHeadlessAvatar(out avatarLocation, out avatarLoadMode, out avatarPassword, out avatarSource))
+        {
+            return true;
+        }
+
+        if (TryResolveEmbeddedDefaultHeadlessAvatar(out avatarLocation, out avatarLoadMode, out avatarPassword, out avatarSource))
+        {
+            return true;
+        }
+
+        if (TryResolvePersistedHeadlessAvatar(out avatarLocation, out avatarLoadMode, out avatarPassword, out avatarSource))
+        {
+            return true;
+        }
+
+        avatarLocation = string.Empty;
+        avatarLoadMode = BasisPlayer.LoadModeLocal;
+        avatarPassword = string.Empty;
+        avatarSource = string.Empty;
+        return false;
+    }
+
+    private static bool TryResolveConfiguredHeadlessAvatar(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
     {
         if (!string.IsNullOrWhiteSpace(AvatarFileLocation))
         {
@@ -523,6 +684,52 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
             return true;
         }
 
+        avatarLocation = string.Empty;
+        avatarLoadMode = BasisPlayer.LoadModeLocal;
+        avatarPassword = string.Empty;
+        avatarSource = string.Empty;
+        return false;
+    }
+
+    private static bool TryResolveEmbeddedDefaultHeadlessAvatar(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
+    {
+        var embeddedKeys = EmbeddedItems.HardcodedKeys;
+        if (embeddedKeys != null)
+        {
+            List<Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys.ItemKey> eligibleAvatars = new List<Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys.ItemKey>();
+
+            foreach (var item in embeddedKeys)
+            {
+                if (item == null ||
+                    item.Mode != BundledContentHolder.Mode.Avatar ||
+                    string.IsNullOrWhiteSpace(item.Url))
+                {
+                    continue;
+                }
+
+                eligibleAvatars.Add(item);
+            }
+
+            if (eligibleAvatars.Count > 0)
+            {
+                var selectedAvatar = eligibleAvatars[new System.Random().Next(eligibleAvatars.Count)];
+                avatarLocation = selectedAvatar.Url;
+                avatarLoadMode = ResolveAvatarLoadMode(avatarLocation, BasisPlayer.LoadModeLocal);
+                avatarPassword = selectedAvatar.Pass ?? string.Empty;
+                avatarSource = "embedded default avatar";
+                return true;
+            }
+        }
+
+        avatarLocation = string.Empty;
+        avatarLoadMode = BasisPlayer.LoadModeLocal;
+        avatarPassword = string.Empty;
+        avatarSource = string.Empty;
+        return false;
+    }
+
+    private static bool TryResolvePersistedHeadlessAvatar(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
+    {
         if (BasisDataStore.LoadAvatar(
                 BasisLocalPlayer.LoadFileNameAndExtension,
                 BasisBeeConstants.DefaultAvatar,
@@ -603,6 +810,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
             return;
         }
 
+        ResetServerHeadlessAudioPolicy();
         reconnectScheduled = false;
         BasisHeadlessRuntimeStatus.MarkConnecting();
         BasisNetworkManagement.Instance.Ip = Ip;
@@ -614,10 +822,89 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         BasisMainMenu.Close();
     }
 
+    private void TriggerStrictMemoryCleanup(string reason)
+    {
+        if (!StrictMemoryCleanupEnabled || strictMemoryCleanupInProgress || isShuttingDown)
+        {
+            return;
+        }
+
+        strictMemoryCleanupInProgress = true;
+        BasisDebug.Log($"Headless strict memory cleanup scheduled after {reason} with {StrictMemoryCleanupDelaySeconds:F1}s delay.", BasisDebug.LogTag.Device);
+        _ = RunStrictMemoryCleanupAsync(reason);
+    }
+
+    private async Task RunStrictMemoryCleanupAsync(string reason)
+    {
+        try
+        {
+            await Task.Yield();
+            if (StrictMemoryCleanupDelaySeconds > 0f)
+            {
+                int delayMs = Mathf.Max(0, Mathf.RoundToInt(StrictMemoryCleanupDelaySeconds * 1000f));
+                if (delayMs > 0)
+                {
+                    BasisDebug.Log($"Headless strict memory cleanup waiting {StrictMemoryCleanupDelaySeconds:F1}s before unload for {reason}.", BasisDebug.LogTag.Device);
+                    await Task.Delay(delayMs);
+                }
+            }
+
+            if (isShuttingDown)
+            {
+                return;
+            }
+
+            BasisDebug.Log($"Headless strict memory cleanup starting unload pass for {reason}.", BasisDebug.LogTag.Device);
+            AsyncOperation unloadOperation = Resources.UnloadUnusedAssets();
+            while (!unloadOperation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            BasisDebug.Log($"Headless strict memory cleanup completed after {reason}.", BasisDebug.LogTag.Device);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogWarning($"Headless strict memory cleanup failed during {reason}: {ex.Message}", BasisDebug.LogTag.Device);
+        }
+        finally
+        {
+            strictMemoryCleanupInProgress = false;
+        }
+    }
+
+    public static void RequestStrictMemoryCleanup(string reason)
+    {
+        ActiveInstance?.TriggerStrictMemoryCleanup(reason);
+    }
+
+    public static void StripTextureReferencesFromRoot(GameObject root)
+    {
+        RemoveMaterialTexturesFromRoot(root);
+    }
+
     private void OnDisconnectedAfterReboot(DisconnectInfo disconnectInfo)
     {
         string message = TryReadDisconnectMessage(disconnectInfo);
         BasisHeadlessRuntimeStatus.MarkDisconnected(disconnectInfo, message);
+        ResetServerHeadlessAudioPolicy();
+
+        if (IsServerHeadlessDisallowMessage(message))
+        {
+            BasisNetworkConnection.HeadlessReconnectSuppressed = true;
+            BasisDebug.LogWarning("Headless client disconnected because headless connections are disallowed by server.", BasisDebug.LogTag.Networking);
+
+            if (!HealthCheckEnabled)
+            {
+                QuitHeadlessApplication();
+            }
+
+            return;
+        }
 
         if (!ShouldRetry(disconnectInfo))
         {
@@ -733,20 +1020,35 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         return message.IndexOf("reject", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               message.IndexOf("disallow", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("denied", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("auth", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("protocol", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    private static bool IsServerHeadlessDisallowMessage(string message)
+    {
+        return !string.IsNullOrWhiteSpace(message) &&
+               message.IndexOf("disallowed by server", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void QuitHeadlessApplication()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     private static string TryReadDisconnectMessage(DisconnectInfo disconnectInfo)
     {
         try
         {
-            if (disconnectInfo.AdditionalData != null &&
-                disconnectInfo.AdditionalData.TryGetString(out string message))
+            if (disconnectInfo.AdditionalData != null)
             {
-                return message;
+                return disconnectInfo.AdditionalData.PeekString();
             }
         }
         catch
@@ -760,11 +1062,48 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     public override void StopSDK()
     {
         isShuttingDown = true;
+        if (ReferenceEquals(ActiveInstance, this))
+        {
+            ActiveInstance = null;
+        }
         BasisNetworkConnection.HeadlessReconnectSuppressed = true;
         CancelReconnectLoop();
         StopHealthEndpoint();
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+        ResetServerHeadlessAudioPolicy();
         BasisHeadlessRuntimeStatus.MarkStopping();
         BasisDebug.Log(nameof(StopSDK), BasisDebug.LogTag.Device);
+    }
+
+    private void OnGlobalHeadlessAudioStateChanged(bool shouldDisableHeadlessAudio)
+    {
+        headlessAudioPolicyKnown = true;
+        headlessAudioOff = shouldDisableHeadlessAudio;
+        ApplyServerHeadlessAudioPolicy();
+    }
+
+    private void ResetServerHeadlessAudioPolicy()
+    {
+        headlessAudioPolicyKnown = false;
+        headlessAudioOff = false;
+        BasisAudioClipPlayer.DeInitialize();
+    }
+
+    private void ApplyServerHeadlessAudioPolicy()
+    {
+        if (!headlessAudioControlReady || !headlessAudioPolicyKnown)
+        {
+            BasisAudioClipPlayer.DeInitialize();
+            return;
+        }
+
+        if (headlessAudioOff)
+        {
+            BasisAudioClipPlayer.DeInitialize();
+            return;
+        }
+
+        BasisAudioClipPlayer.TryInitialize();
     }
 
     /// <inheritdoc/>
@@ -816,5 +1155,9 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         return $"{generatedName}";
     }
+}
+#else
+public class BasisHeadlessManagement : BasisBaseTypeManagement
+{
 }
 #endif

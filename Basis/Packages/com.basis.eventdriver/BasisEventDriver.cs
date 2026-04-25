@@ -24,7 +24,7 @@ using UnityEngine.InputSystem;
 public partial class BasisEventDriver : MonoBehaviour
 {
     // ── Platform flag (single #if, used as runtime bool everywhere else) ──
-    public static readonly bool IsServer =
+    public static readonly bool IsHeadlessClient =
 #if UNITY_SERVER
         true;
 #else
@@ -126,8 +126,11 @@ public partial class BasisEventDriver : MonoBehaviour
     public void OnEnable()
     {
         Instance = this;
-        if (!IsServer)
+        if (!IsHeadlessClient)
+        {
             Application.onBeforeRender += OnBeforeRender;
+        }
+
         BasisOpenLipSyncDriver.Initialize();
         BasisSceneFactory.Initalize();
         BasisObjectSyncDriver.Initalization();
@@ -151,7 +154,7 @@ public partial class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void OnDisable()
     {
-        if (!IsServer)
+        if (!IsHeadlessClient)
             Application.onBeforeRender -= OnBeforeRender;
     }
 
@@ -163,6 +166,7 @@ public partial class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void Update()
     {
+
         DeltaTime = Time.deltaTime;
         unscaledDeltaTime = Time.unscaledDeltaTime;
         realtimeSinceStartupAsDouble = Time.realtimeSinceStartupAsDouble;
@@ -178,9 +182,13 @@ public partial class BasisEventDriver : MonoBehaviour
             try { action.Invoke(); }
             catch (Exception ex) { Debug.LogError($"MainThread action failed: {ex}"); }
         }
+        // Player join/leave work is budgeted separately so a mass disconnect
+        // (hundreds of players at once) can't chain N synchronous GameObject.Destroy
+        // calls in a single frame and stall the renderer.
+        BasisNetworkHandleRemoval.ProcessLifecycleQueue(BasisNetworkHandleRemoval.LifecycleBudgetPerFrame);
         BasisNetworkManagement.SimulateNetworkCompute(unscaledDeltaTime);
         BasisObjectSyncDriver.ScheduleRemoteLerp(DeltaTime);
-        if (!IsServer)
+        if (!IsHeadlessClient)
             InputSystem.Update();
         timeSinceLastUpdate += DeltaTime;
     }
@@ -223,11 +231,6 @@ public partial class BasisEventDriver : MonoBehaviour
         ProfileEnd2(PROF_NET_FIRE_BEFORE_APPLY);
         ProfileBegin2();
         BasisNetworkManagement.SimulateNetworkApply();
-        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
-        ProfileBegin2();
-        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
-        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
-        ProfileEnd(PROF_NETWORK_APPLY);
 
         // ── Device management ──
         ProfileBegin(PROF_DEVICE_MANAGEMENT);
@@ -237,16 +240,6 @@ public partial class BasisEventDriver : MonoBehaviour
             BasisDeviceManagement.Instance.Simulate();
         }
         ProfileEnd(PROF_DEVICE_MANAGEMENT);
-
-        // ── Remote audio simulate ──
-        ProfileBegin(PROF_REMOTE_AUDIO_SIMULATE);
-        BasisRemoteAudioDriver.Simulate(DeltaTime);
-        ProfileEnd(PROF_REMOTE_AUDIO_SIMULATE);
-
-        // ── Nameplate schedule ──
-        ProfileBegin(PROF_NAMEPLATE_SCHEDULE);
-        BasisRemoteNamePlateDriver.ScheduleSimulate(TimeAsDouble);
-        ProfileEnd(PROF_NAMEPLATE_SCHEDULE);
 
         // ── BTween ──
         ProfileBegin(PROF_BTWEEN);
@@ -259,12 +252,6 @@ public partial class BasisEventDriver : MonoBehaviour
         {
             BasisLocalPlayer.Instance.FacialBlinkDriver.Simulate(TimeAsDouble);
             BasisLocalPlayer.Instance.LocalVisemeDriver.Apply();
-        }
-#if STEAMAUDIO_ENABLED
-        SteamAudioManager.Schedule();
-#endif
-        if (BasisLocalPlayer.PlayerReady)
-        {
             BasisLocalPlayer.Instance.Simulate(DeltaTime);
             BasisLocalCameraDriver.Instance.Simulate();
             BasisLocalPlayer.Instance.LocalHandDriver.Apply();
@@ -272,6 +259,26 @@ public partial class BasisEventDriver : MonoBehaviour
             BasisLocalPlayer.Instance.LocalEyeDriver.Apply();
         }
         ProfileEnd(PROF_LOCAL_PLAYER);
+
+        BasisNetworkManagement.CompleteRemoteBoneJobSystemJobs();
+        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
+        ProfileBegin2();
+        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
+        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
+        ProfileEnd(PROF_NETWORK_APPLY);
+
+        // ── Remote audio simulate ──
+        ProfileBegin(PROF_REMOTE_AUDIO_SIMULATE);
+        BasisRemoteAudioDriver.Simulate(DeltaTime);
+        ProfileEnd(PROF_REMOTE_AUDIO_SIMULATE);
+
+        // ── Nameplate schedule ──
+        ProfileBegin(PROF_NAMEPLATE_SCHEDULE);
+        BasisRemoteNamePlateDriver.ScheduleSimulate(TimeAsDouble);
+        ProfileEnd(PROF_NAMEPLATE_SCHEDULE);
+#if STEAMAUDIO_ENABLED
+        SteamAudioManager.Schedule();
+#endif
 
         // ── Remote face simulate (job schedule) ──
         ProfileBegin(PROF_REMOTE_FACE_SIMULATE);
@@ -294,12 +301,18 @@ public partial class BasisEventDriver : MonoBehaviour
         // ── BlendShape apply ──
         ProfileBegin(PROF_BLENDSHAPE_APPLY);
         BasisBlendShapeDriver.Apply();
-        BasisAvatarDriver.ScheduleReadBlendShapes();
+        if (BasisSettingsDefaults.LocalHeadBlendShapes.RawValue)
+        {
+            BasisAvatarDriver.ScheduleReadBlendShapes();
+        }
         ProfileEnd(PROF_BLENDSHAPE_APPLY);
 
         // ── JigglePhysics schedule ──
         ProfileBegin(PROF_JIGGLE_SCHEDULE);
-        JigglePhysics.ScheduleSimulate(fixedTimeAsDouble, TimeAsDouble, fixedDeltaTime);
+
+        fixedDeltaTime = Time.fixedDeltaTime;
+        JigglePhysics.ScheduleSimulate(TimeAsDouble, fixedDeltaTime);
+
         ProfileEnd(PROF_JIGGLE_SCHEDULE);
 
         // ── Network transmit (reads bone results via GetOutGoingMouth) ──
@@ -343,11 +356,14 @@ public partial class BasisEventDriver : MonoBehaviour
 
         // ── Shadow clone blendshapes ──
         ProfileBegin(PROF_SHADOW_CLONE);
-        BasisAvatarDriver.ApplyShadowCloneBlendShapes();
+        if (BasisSettingsDefaults.LocalHeadBlendShapes.RawValue)
+        {
+            BasisAvatarDriver.ApplyShadowCloneBlendShapes();
+        }
         ProfileEnd(PROF_SHADOW_CLONE);
 
         StateOfOnRenderBefore = true;
-        if (IsServer)
+        if (IsHeadlessClient)
         {
             OnBeforeRender();
         }
@@ -388,7 +404,6 @@ public partial class BasisEventDriver : MonoBehaviour
         BasisLocalMicrophoneDriver.StopProcessingThread();
 #endif
         BasisRemoteNamePlateDriver.Dispose();
-        await BasisPlayerSettingsManager.FlushAllNow();
     }
 
     /// <summary>
@@ -396,7 +411,7 @@ public partial class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void OnDrawGizmos()
     {
-        if (!IsServer && BasisLocalPlayer.PlayerReady)
+        if (!IsHeadlessClient && BasisLocalPlayer.PlayerReady)
         {
             BasisHintOffsetGizmos.DrawAll();
         }
@@ -404,11 +419,16 @@ public partial class BasisEventDriver : MonoBehaviour
 
     public void OnDrawGizmosSelected()
     {
-        if (IsServer) return;
+        if (IsHeadlessClient)
+        {
+            return;
+        }
+
         JigglePhysics.OnDrawGizmos();
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisPlayerInteract.DrawAll();
+            BasisLocalPlayer.Instance.BasisLocalFootDriver.DrawGizmos();
         }
     }
 

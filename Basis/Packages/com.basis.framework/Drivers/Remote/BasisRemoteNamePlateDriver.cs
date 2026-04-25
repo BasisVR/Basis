@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -18,6 +19,7 @@ namespace Basis.Scripts.UI.NamePlate
         public Color NormalColor;
         public Color IsTalkingColor;
         public Color OutOfRangeColor;
+        public Color FailedLoadColor = new Color(1f, 0.2f, 0.2f, 1f);
 
         [SerializeField] public static float transitionDuration = 0.3f;
         [SerializeField] public static float returnDelay = 0.4f;
@@ -25,6 +27,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static Color StaticNormalColor;
         public static Color StaticIsTalkingColor;
         public static Color StaticOutOfRangeColor;
+        public static Color StaticFailedLoadColor;
         public static float4 NormalColorFloat4;
 
         public TextMeshPro Text;
@@ -33,7 +36,6 @@ namespace Basis.Scripts.UI.NamePlate
         public Material OpaqueNamePlateMaterial;
 
         [HideInInspector] public Material SelectedNamePlateMaterial;
-        [HideInInspector] public Mesh RoundedCornersMesh;
 
         [Range(0f, 1f)] public float RoundEdges = 0.5f;
         public int CornerVertexCount = 8;
@@ -41,7 +43,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         public static bool NamePlateEnabled = true;
         public static bool NamePlateMenuOnly = false;
-        public static float NamePlateHalfWidth = 30f;
+        public static bool NamePlateHoverMenuOnly = false;
         public static float NamePlateSize = 1f;
         public static float NamePlateTransparency = 0.45f;
         private static bool lastMenuOpenState;
@@ -72,14 +74,13 @@ namespace Basis.Scripts.UI.NamePlate
 
             NamePlateEnabled = BasisSettingsDefaults.NPEnabled.RawValue;
             NamePlateMenuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
-            NamePlateHalfWidth = BasisSettingsDefaults.NPWidth.RawValue;
+            NamePlateHoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
             NamePlateSize = BasisSettingsDefaults.NPSize.RawValue;
             NamePlateTransparency = BasisSettingsDefaults.NPTransparency.RawValue;
             lastMenuOpenState = BasisMainMenu.Instance != null;
 
             UpdateCachedColors(NamePlateTransparency);
             PrecomputeCornerData();
-            RoundedCornersMesh = GenerateRoundedQuad(NamePlateHalfWidth, 4.5f, "Rounded NamePlate Quad");
         }
 
         private void UpdateCachedColors(float transparency)
@@ -87,6 +88,12 @@ namespace Basis.Scripts.UI.NamePlate
             StaticNormalColor = new Color(NormalColor.r, NormalColor.g, NormalColor.b, transparency);
             StaticIsTalkingColor = new Color(IsTalkingColor.r, IsTalkingColor.g, IsTalkingColor.b, transparency);
             StaticOutOfRangeColor = new Color(OutOfRangeColor.r, OutOfRangeColor.g, OutOfRangeColor.b, transparency);
+            // Guard against prefabs saved before FailedLoadColor existed — deserialization
+            // zeros the struct, which would render the failed plate invisible.
+            Color failedSource = (FailedLoadColor.r == 0f && FailedLoadColor.g == 0f && FailedLoadColor.b == 0f && FailedLoadColor.a == 0f)
+                ? new Color(1f, 0.2f, 0.2f, 1f)
+                : FailedLoadColor;
+            StaticFailedLoadColor = new Color(failedSource.r, failedSource.g, failedSource.b, transparency);
             NormalColorFloat4 = new float4(StaticNormalColor.r, StaticNormalColor.g, StaticNormalColor.b, StaticNormalColor.a);
         }
 
@@ -139,6 +146,7 @@ namespace Basis.Scripts.UI.NamePlate
         {
             if (!NamePlateEnabled) return false;
             if (!plate.IsVisible) return false;
+            if (plate.BasisRemotePlayer != null && plate.BasisRemotePlayer.IsEffectivelyBlocked) return false;
             if (NamePlateMenuOnly && BasisMainMenu.Instance == null) return false;
             return true;
         }
@@ -153,47 +161,35 @@ namespace Basis.Scripts.UI.NamePlate
             {
                 var plate = plates[i];
                 if (plate != null)
-                    plate.gameObject.SetActive(ShouldPlateBeActive(plate));
+                    plate.RefreshActiveState();
             }
         }
 
         /// <summary>
         /// Called by SettingsProviderNamePlate when nameplate settings change.
-        /// Re-reads settings and applies width, size, and transparency to all active plates.
+        /// Re-reads settings and applies size and transparency to all active plates.
         /// </summary>
         public void ApplyNamePlateSettingsFromUI()
         {
             bool enabled = BasisSettingsDefaults.NPEnabled.RawValue;
             bool menuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
-            float newWidth = BasisSettingsDefaults.NPWidth.RawValue;
+            bool hoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
             float newSize = BasisSettingsDefaults.NPSize.RawValue;
             float newTransparency = BasisSettingsDefaults.NPTransparency.RawValue;
 
-            bool meshChanged = !Mathf.Approximately(NamePlateHalfWidth, newWidth);
-
             NamePlateEnabled = enabled;
             NamePlateMenuOnly = menuOnly;
-            NamePlateHalfWidth = newWidth;
+            NamePlateHoverMenuOnly = hoverMenuOnly;
             NamePlateSize = newSize;
             NamePlateTransparency = newTransparency;
 
             UpdateCachedColors(newTransparency);
-
-            if (meshChanged)
-            {
-                RoundedCornersMesh = GenerateRoundedQuad(NamePlateHalfWidth, 4.5f, "Rounded NamePlate Quad");
-            }
 
             Vector3 scale = new Vector3(0.02f, 0.02f, 0.02f) * newSize;
             for (int i = 0; i < plates.Count; i++)
             {
                 var plate = plates[i];
                 if (plate == null) continue;
-
-                if (meshChanged && plate.bakedMesh != null)
-                {
-                    CombinePlateMesh(plate);
-                }
 
                 if (plate.Self != null)
                 {
@@ -207,12 +203,12 @@ namespace Basis.Scripts.UI.NamePlate
         }
 
         /// <summary>
-        /// Combines RoundedCornersMesh + plate's baked text mesh.
+        /// Combines a fitted rounded-quad background + plate's baked text mesh.
         /// Shared by initial creation and mesh rebuilds.
         /// </summary>
-        private void CombinePlateMesh(BasisRemoteNamePlate namePlate, bool setMaterials = false)
+        private void CombinePlateMesh(BasisRemoteNamePlate namePlate, Mesh roundedMesh, bool setMaterials = false)
         {
-            combineBuffer[0] = new CombineInstance { mesh = RoundedCornersMesh, transform = Matrix4x4.identity };
+            combineBuffer[0] = new CombineInstance { mesh = roundedMesh, transform = Matrix4x4.identity };
             combineBuffer[1] = new CombineInstance { mesh = namePlate.bakedMesh, transform = Matrix4x4.identity };
 
             Mesh combinedMesh = new Mesh { name = "CombinedNameplateMesh" };
@@ -241,13 +237,19 @@ namespace Basis.Scripts.UI.NamePlate
             Text.text = remotePlayer.DisplayName;
             Text.ForceMeshUpdate();
 
+            // Measure the baked text so the background fits its actual content.
+            Vector2 textSize = Text.GetRenderedValues(true);
+            const float horizontalPadding = 2f;
+            float halfWidth = (textSize.x * 0.5f) + horizontalPadding;
+
             Mesh textMesh = Instantiate(Text.mesh);
             FlipMesh(textMesh);
 
             namePlate.bakedMesh = textMesh;
             namePlate.Filter.sharedMesh = textMesh;
 
-            CombinePlateMesh(namePlate, setMaterials: true);
+            Mesh plateMesh = GenerateRoundedQuad(halfWidth, 4.5f, "Rounded NamePlate Quad");
+            CombinePlateMesh(namePlate, plateMesh, setMaterials: true);
             Text.gameObject.SetActive(false);
         }
 
@@ -456,7 +458,8 @@ namespace Basis.Scripts.UI.NamePlate
                 jobScheduled = false;
             }
 
-            ApplyPendingStructuralChanges();
+            if (pendingRemove.Count > 0 || pendingAdd.Count > 0)
+                ApplyPendingStructuralChanges();
 
             count = plates.Count;
             if (count == 0)
@@ -470,24 +473,35 @@ namespace Basis.Scripts.UI.NamePlate
             var inBuf = (writeBuffer == 0) ? inputA : inputB;
             var outBuf = (writeBuffer == 0) ? outputA : outputB;
 
-            // Gather inputs (still managed reads, but NO stall and tight struct write)
-            for (int i = 0; i < count; i++)
+            // Gather inputs via unsafe pointers to bypass NativeArray safety checks
+            unsafe
             {
-                var p = plates[i];
+                PlateInput* pIn = (PlateInput*)inBuf.GetUnsafePtr();
 
-                // Keep exactly your current semantics
-                var tc = p.GetTalkColorForJob();
-
-                inBuf[i] = new PlateInput
+                for (int i = 0; i < count; i++)
                 {
-                    isVisible = (ushort)(p.IsVisible ? 1 : 0),
-                    isPulsing = (ushort)(p.GetIsPulsingForJob() ? 1 : 0),
-                    startTime = p.GetTalkStartTimeForJob(),
-                    talkColor = new float4(tc.r, tc.g, tc.b, tc.a)
-                };
+                    var p = plates[i];
+                    bool pulsing = p.GetIsPulsingForJob();
 
-                // Optional: clear only the flag fields; job overwrites anyway
-                outBuf[i] = default;
+                    // Mid-pulse audibility recheck: if the player became inaudible
+                    // (mute, block, out-of-range, audio source unloaded, etc.) while
+                    // a pulse was in flight, snap the plate back to normal now
+                    // instead of letting the 0.7s hold+fade finish the transition.
+                    if (pulsing && !p.CanCurrentlyBeHeard())
+                    {
+                        p.ApplyColorFromJob(StaticNormalColor);
+                        p.StopPulseFromJob();
+                        pulsing = false;
+                    }
+
+                    pIn[i] = new PlateInput
+                    {
+                        isVisible = (ushort)p.IsVisibleRaw,
+                        isPulsing = (ushort)(pulsing ? 1 : 0),
+                        startTime = pulsing ? p.GetTalkStartTimeForJob() : 0,
+                        talkColor = pulsing ? p.GetTalkColorFloat4ForJob() : default
+                    };
+                }
             }
 
             var job = new NamePlatePulseJob
@@ -500,7 +514,17 @@ namespace Basis.Scripts.UI.NamePlate
                 outputs = outBuf
             };
 
-            handle = job.Schedule(count, 64);
+            // For small counts, run inline — job system scheduling overhead
+            // exceeds the trivial per-item computation (branch + lerp).
+            if (count <= 64)
+            {
+                job.Run(count);
+                handle = default;
+            }
+            else
+            {
+                handle = job.Schedule(count, 64);
+            }
             jobScheduled = true;
         }
 
@@ -528,21 +552,26 @@ namespace Basis.Scripts.UI.NamePlate
 
             var outBuf = (writeBuffer == 0) ? outputA : outputB;
 
-            for (int i = 0; i < count; i++)
+            unsafe
             {
-                var p = plates[i];
+                PlateOutput* pOut = (PlateOutput*)outBuf.GetUnsafeReadOnlyPtr();
 
-                if (outBuf[i].stopPulsing != 0)
-                    p.StopPulseFromJob();
-
-                if (outBuf[i].hasChange != 0)
+                for (int i = 0; i < count; i++)
                 {
-                    float4 c = outBuf[i].color;
-                    p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
-                }
+                    var p = plates[i];
+                    PlateOutput o = pOut[i];
 
-                // Update chat message timeout
-                p.UpdateChatTimeout();
+                    if (o.stopPulsing != 0)
+                        p.StopPulseFromJob();
+
+                    if (o.hasChange != 0)
+                    {
+                        float4 c = o.color;
+                        p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
+                    }
+
+                    p.UpdateChatTimeout();
+                }
             }
         }
 

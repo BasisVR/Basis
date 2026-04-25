@@ -1,4 +1,5 @@
 using Basis.Scripts.Animator_Driver;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
@@ -94,7 +95,6 @@ namespace Basis.Scripts.BasisCharacterController
         }
 
         public Vector2 Rotation;
-        public float RotationSpeed = 200;
         public bool HasEvents = false;
         public float pushPower = 1f;
         private const float CrouchDeltaCoefficient = 0.01f;
@@ -258,7 +258,7 @@ namespace Basis.Scripts.BasisCharacterController
             }
             else
             {
-                rotationAmount = Rotation.x * RotationSpeed * DeltaTime;
+                rotationAmount = Rotation.x * SMModuleControllerSettings.SmoothTurnSpeed * DeltaTime;
             }
 
 
@@ -316,7 +316,11 @@ namespace Basis.Scripts.BasisCharacterController
                 if (!LastWasGrounded)
                 {
                     float fallSpeed = Mathf.Abs(currentVerticalSpeed);
-                    landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect);
+                    // Suppress hip dip in FBT to avoid fighting real hip tracker data on landing.
+                    if (!(BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue))
+                    {
+                        landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect);
+                    }
                     JustLanded?.Invoke();
                     currentVerticalSpeed = 0f;
                 }
@@ -467,15 +471,19 @@ namespace Basis.Scripts.BasisCharacterController
 
             float halfHeight = finalHeight * 0.5f;
 
-            // Keep capsule bottom aligned with floor
+            // Offset the capsule down by skinWidth so the collider bottom
+            // (including its skin shell) sits flush with the floor instead
+            // of hovering skinWidth above it.
+            float skinCompensation = characterController.skinWidth;
+
             if (BasisLocalBoneDriver.HasEye)
             {
                 var outgoing = BasisLocalBoneDriver.EyeControl.OutGoingData.position;
-                characterController.center = new Vector3(outgoing.x, halfHeight, outgoing.z);
+                characterController.center = new Vector3(outgoing.x, halfHeight - skinCompensation, outgoing.z);
             }
             else
             {
-                characterController.center = new Vector3(0f, halfHeight, 0f);
+                characterController.center = new Vector3(0f, halfHeight - skinCompensation, 0f);
             }
 
             // Clamp stepOffset to something sane relative to height

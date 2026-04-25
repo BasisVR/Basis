@@ -47,6 +47,8 @@ namespace HVR.Basis.Comms
         private bool _eyeFollowDriverApplicable;
         private bool _trackingActive;
         private bool _eyeTrackingParametersActive;
+        public bool IsTrackingActive => _trackingActive;
+        public bool IsEyeTrackingParametersActive => _eyeTrackingParametersActive;
         private float _lastEyeParameterSampleTime = float.NegativeInfinity;
         private bool _registeredSourceAddresses;
         private FaceTrackingActivityRelay _activityRelay;
@@ -84,7 +86,11 @@ namespace HVR.Basis.Comms
             _eyeTrackingParametersActive = false;
             _lastEyeParameterSampleTime = float.NegativeInfinity;
 
-            acquisition.RegisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
+            if (_activityRelay != null)
+            {
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+                _activityRelay.OnTrackingActivityChanged += OnTrackingActivityUpdated;
+            }
             if (isWearer)
             {
                 acquisition.RegisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
@@ -147,13 +153,14 @@ namespace HVR.Basis.Comms
 
         private void OnDestroy()
         {
-            if (acquisition != null)
+            if (_activityRelay != null)
             {
-                acquisition.UnregisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
-                if (_registeredSourceAddresses)
-                {
-                    acquisition.UnregisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
-                }
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+            }
+
+            if (acquisition != null && _registeredSourceAddresses)
+            {
+                acquisition.UnregisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
             }
 
             ClearRemoteOverrides();
@@ -212,14 +219,8 @@ namespace HVR.Basis.Comms
             }
         }
 
-        private void OnTrackingActivityUpdated(int address, float value)
+        private void OnTrackingActivityUpdated(bool isTrackingActive)
         {
-            if (address != FaceTrackingActivityRelay.ActivityAddressId)
-            {
-                return;
-            }
-
-            bool isTrackingActive = value >= 0.5f;
             if (_trackingActive == isTrackingActive)
             {
                 return;
@@ -343,7 +344,18 @@ namespace HVR.Basis.Comms
 
         private void SetBuiltInEyeFollowDriverOverriden(bool value)
         {
+            if (!_eyeFollowDriverApplicable)
+            {
+                return;
+            }
+
             BasisLocalEyeDriver.Override = value;
+
+            BasisLocalPlayer localPlayer = BasisLocalPlayer.Instance;
+            if (localPlayer != null && localPlayer.FacialBlinkDriver != null)
+            {
+                localPlayer.FacialBlinkDriver.SetOverride(value);
+            }
         }
 
         private void SubmitCurrentEyeStateToNetwork()

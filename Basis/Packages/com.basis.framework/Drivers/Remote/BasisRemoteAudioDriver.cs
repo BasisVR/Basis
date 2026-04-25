@@ -16,12 +16,14 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Viseme (lip-sync) analysis driver processing audio samples each frame.
         /// </summary>
-        [SerializeReference] public BasisAudioAndVisemeDriver BasisAudioAndVisemeDriver = null;
+        [SerializeReference]
+        public BasisAudioAndVisemeDriver BasisAudioAndVisemeDriver = new BasisAudioAndVisemeDriver();
 
         /// <summary>
         /// Remote audio receiver that decodes and mixes network voice.
         /// </summary>
-        [SerializeReference] public BasisAudioReceiver BasisAudioReceiver = null;
+        [SerializeReference]
+        public BasisAudioReceiver BasisAudioReceiver = new BasisAudioReceiver();
 
         /// <summary>
         /// Optional callback invoked after audio is processed:
@@ -45,8 +47,8 @@ namespace Basis.Scripts.Drivers
             if (Initalized)
             {
                 int length = data.Length;
-                BasisAudioReceiver?.OnAudioFilterRead(data, channels, length);
-                BasisAudioAndVisemeDriver?.ProcessAudioSamples(data, channels, length);
+                BasisAudioReceiver.OnAudioFilterRead(data, channels, length);
+                BasisAudioAndVisemeDriver.ProcessAudioSamples(data, channels, length);
                 AudioData?.Invoke(data, channels);
             }
         }
@@ -57,6 +59,22 @@ namespace Basis.Scripts.Drivers
                 BasisAudioAndVisemeDriver.OnDestroy();
                 Drivers.Remove(BasisAudioAndVisemeDriver);
             }
+        }
+        /// <summary>
+        /// Resets this driver for object pooling without destroying the GameObject.
+        /// Performs the same cleanup as OnDestroy but keeps the component alive.
+        /// </summary>
+        public void ResetForPool()
+        {
+            Initalized = false;
+            if (BasisAudioAndVisemeDriver != null)
+            {
+                BasisAudioAndVisemeDriver.OnDestroy();
+                Drivers.Remove(BasisAudioAndVisemeDriver);
+            }
+            BasisAudioAndVisemeDriver = null;
+            BasisAudioReceiver = null;
+            AudioData = null;
         }
         /// <summary>
         /// Initializes the driver with a viseme processor and marks it ready.
@@ -79,6 +97,11 @@ namespace Basis.Scripts.Drivers
                 BasisAudioAndVisemeDriver VisemeDriver = Drivers[Index];
                 VisemeDriver.Simulate(DeltaTime);
             }
+
+            // Process all pending OpenLipSync contexts in a single batched
+            // background task. This replaces per-context Task.Run() which
+            // caused thread pool saturation with many players.
+            BasisOpenLipSyncContext.ProcessAllPending();
         }
         public static void Apply()
         {

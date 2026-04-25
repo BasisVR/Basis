@@ -1,8 +1,11 @@
+using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using GatorDragonGames.JigglePhysics;
 using System;
+using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
@@ -88,9 +91,17 @@ namespace Basis.Scripts.Drivers
 
             // Auto-detect bone refs and record TPose
             BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, RemotePlayer.BasisAvatar.transform, ref References);
-            References.RecordPoses(Player.BasisAvatar.Animator);
+            BasisAvatarModelCache.RecordPosesCached(References, Player.BasisAvatar.Animator);
 
-            // Initialize any jiggle rigs
+            // ── Capture T-pose bone rotations and bone transforms for the receiver ──
+            // This enables direct bone transform writes (no SetHumanPose needed).
+            CaptureReceiverBoneData(RemotePlayer);
+
+            // Initialize any jiggle rigs. Performance-limit enforcement lives in
+            // BasisAvatarPerformanceLimits.TrimExcessComponents (called earlier by
+            // BasisAvatarFactory.InitializePlayerAvatar), so by the time we get
+            // here the tree has already been trimmed to the allowed count — this
+            // loop just wires up whatever's left.
             var JiggleRigs = RemotePlayer.BasisAvatar.GetComponentsInChildren<JiggleRig>();
             int length = JiggleRigs.Length;
             for (int Index = 0; Index < length; Index++)
@@ -137,14 +148,15 @@ namespace Basis.Scripts.Drivers
                 InBoneDriver = false;
             }
 
-            // Register with the RemoteBoneJobSystem
+            // Register with the RemoteBoneJobSystem (including skeleton bones for job-based apply)
+            var receiver = RemotePlayer.NetworkReceiver;
             RemoteBoneJobSystem.AddRemotePlayer(
-                key: RemotePlayer.NetworkReceiver.playerId,
+                key: receiver.playerId,
                 remotePlayerRoot: RemotePlayer.BasisAvatar.Animator.transform,
                 head: RemotePlayer.RemoteAvatarDriver.References.head,
                 hips: RemotePlayer.RemoteAvatarDriver.References.Hips,
-                tposeHead: RemotePlayer.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Head],
-                tposeHips: RemotePlayer.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Hips],
+                tposeHead: RemotePlayer.RemoteAvatarDriver.References.TposeFromRoot[HumanBodyBones.Head],
+                tposeHips: RemotePlayer.RemoteAvatarDriver.References.TposeFromRoot[HumanBodyBones.Hips],
                 authoredCenterEyeWorld: BasisHelpers.ConvertFromLocalSpace(
                     BasisHelpers.AvatarPositionConversion(RemotePlayer.BasisAvatar.AvatarEyePosition),
                     RemotePlayer.BasisAvatar.Animator.transform.position
@@ -156,7 +168,9 @@ namespace Basis.Scripts.Drivers
                 NamePlate: RemotePlayer.RemoteNamePlate.Self,
                 AvatarScale: RemotePlayer.BasisAvatar.Animator.transform,
                 MouthTransform: RemotePlayer.MouthTransform,
-                TposedScale: RemotePlayer.RemoteAvatarDriver.AvatarInitalScale
+                TposedScale: RemotePlayer.RemoteAvatarDriver.AvatarInitalScale,
+                boneTPoseLocal: receiver.TposeLocalRotations,
+                boneTransforms: receiver.BoneTransforms
             );
             InBoneDriver = true;
 
@@ -166,8 +180,121 @@ namespace Basis.Scripts.Drivers
             SetupAvatarJiggleColliders();
             ResetAvatarAnimator();
 
-            // Fire optional callback
+            // Apply scale BEFORE hips: SetPositionAndRotation bakes the parent
+            // lossyScale into the hips localPosition, so the root must already be
+            // at its network scale when we snap the hips. If we skipped this, the
+            // avatar would spawn at prefab scale (1,1,1) and the hips would land
+            // under the wrong parent scale until UpdateAllAvatarsJob produced a
+            // HasScaleChange tick — visible as "scale wrong when a player joins".
+            receiver.GetLatestNetworkPose(out var networkPos, out var networkRot, out var networkScale);
+            RemotePlayer.BasisAvatar.Animator.transform.localScale = networkScale;
+            // Seed the job system's scale-tracking slots to the same value.
+            // Without this, the first UpdateAllAvatarsJob tick (before
+            // SetFrameInputs seeds the real interp window) would compute outScale
+            // from stale prev/target scales and ApplyAvatarScaleJob would clobber
+            // the value we just wrote.
+            BasisRemoteNetworkDriver.SeedScaleState(receiver.playerId, networkScale);
+            References.Hips.SetPositionAndRotation(networkPos, networkRot);
             CalibrationComplete?.Invoke();
+        }
+
+        /// <summary>
+        /// Captures T-pose local rotations and bone Transform references for all 54 humanoid bones.
+        /// Populates the receiver's TposeLocalRotations and BoneTransforms arrays so that
+        /// Apply() can write bone transforms directly without SetHumanPose.
+        /// Must be called while the avatar is in T-pose (before ResetAvatarAnimator).
+        /// </summary>
+        private void CaptureReceiverBoneData(BasisRemotePlayer remotePlayer)
+        {
+            var receiver = remotePlayer.NetworkReceiver;
+            var animator = remotePlayer.BasisAvatar.Animator;
+            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
+
+            // Dispose old data if re-calibrating
+            if (receiver.TposeLocalRotations.IsCreated)
+            {
+                receiver.TposeLocalRotations.Dispose();
+            }
+
+            receiver.TposeLocalRotations = new NativeArray<quaternion>(boneCount, Allocator.Persistent);
+            receiver.BoneTransforms = new Transform[boneCount];
+
+            // Check if T-pose local rotations are already cached for this avatar model.
+            // The rotations are deterministic per Avatar asset — only bone transforms are per-instance.
+            int cacheKey = BasisAvatarModelCache.GetKey(animator);
+            var cacheEntry = cacheKey != 0 ? BasisAvatarModelCache.GetOrCreate(cacheKey) : null;
+            bool hasCachedTpose = cacheEntry?.TposeLocal != null;
+
+            if (hasCachedTpose)
+            {
+                // Fast path: copy cached rotations, only resolve per-instance bone transforms
+                var cachedRotations = cacheEntry.TposeLocal.Rotations;
+                for (int slot = 0; slot < boneCount; slot++)
+                {
+                    int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
+                    var humanbone = (HumanBodyBones)boneEnum;
+
+                    receiver.TposeLocalRotations[slot] = cachedRotations[boneEnum];
+
+                    if (References.GetTransform(humanbone, out var transform))
+                    {
+                        receiver.BoneTransforms[slot] = transform;
+                    }
+                    else
+                    {
+                        receiver.BoneTransforms[slot] = null;
+                    }
+                }
+            }
+            else
+            {
+                // Slow path: read from TposeLocal dictionary, then cache for next time
+                for (int slot = 0; slot < boneCount; slot++)
+                {
+                    int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
+                    var humanbone = (HumanBodyBones)boneEnum;
+                    if (References.GetTransform(humanbone, out var transform))
+                    {
+                        if (References.TposeLocal.TryGetValue(humanbone, out var value))
+                        {
+                            receiver.TposeLocalRotations[slot] = value.rotation;
+                            receiver.BoneTransforms[slot] = transform;
+                        }
+                        else
+                        {
+                            receiver.TposeLocalRotations[slot] = quaternion.identity;
+                            receiver.BoneTransforms[slot] = null;
+                        }
+                    }
+                }
+
+                // Store T-pose local rotations in cache for other instances of this avatar
+                if (cacheEntry != null)
+                {
+                    int totalBones = (int)HumanBodyBones.LastBone;
+                    var rotations = new quaternion[totalBones];
+                    var positions = new Unity.Mathematics.float3[totalBones];
+                    for (int i = 0; i < totalBones; i++)
+                    {
+                        var bone = (HumanBodyBones)i;
+                        if (References.TposeLocal.TryGetValue(bone, out var coords))
+                        {
+                            rotations[i] = coords.rotation;
+                            positions[i] = coords.position;
+                        }
+                        else
+                        {
+                            rotations[i] = quaternion.identity;
+                            positions[i] = Unity.Mathematics.float3.zero;
+                        }
+                    }
+                    cacheEntry.TposeLocal = new BasisAvatarModelCache.TposeLocalData
+                    {
+                        Rotations = rotations,
+                        Positions = positions
+                    };
+                }
+            }
         }
 
         /// <summary>

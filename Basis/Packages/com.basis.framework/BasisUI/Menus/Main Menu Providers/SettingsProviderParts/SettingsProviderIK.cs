@@ -46,7 +46,7 @@ public static class SettingsProviderIK
         // --- Tab (replaces BasisTabBuilder) ---
         var tabPage = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
         var tabDesc = tabPage.Descriptor;
-        tabDesc.SetTitle("Body Tracking");
+        tabDesc.SetTitle(BasisLocalization.Get("settings.tab.bodytracking"));
         tabDesc.SetIcon(AddressableAssets.Sprites.Settings);
 
         // --- Group: "Body Tracking" (replaces tab.Group(...)) ---
@@ -54,15 +54,34 @@ public static class SettingsProviderIK
             PanelElementDescriptor.ElementStyles.Group,
             tabDesc.ContentParent);
 
-        ikGroup.SetTitle("Body Tracking");
-        ikGroup.SetDescription("Fine-tuning for avatar scaling, calibration, and IK smoothing");
+        ikGroup.SetTitle(BasisLocalization.Get("settings.tab.bodytracking"));
+        ikGroup.SetDescription(BasisLocalization.Get("settings.bodyTracking.description"));
         ikGroup.SetIcon(AddressableAssets.Sprites.Settings);
 
         var ikParent = ikGroup.ContentParent;
 
+        // --- Full-body tracking master toggle ---
+        var fbtEnabledToggle = PanelToggle.CreateNewEntry(ikParent);
+        fbtEnabledToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.fbt"));
+        fbtEnabledToggle.AssignBinding(BasisSettingsDefaults.EnableFBT);
+        fbtEnabledToggle.Descriptor.SetDescription(
+            "Master switch for hip / chest / foot / knee trackers. " +
+            "Turning this off immediately drops back to head + hands + foot IK. " +
+            "Re-enable and re-calibrate to use trackers again."
+        );
+
+        // --- OSC master toggle ---
+        var oscEnabledToggle = PanelToggle.CreateNewEntry(ikParent);
+        oscEnabledToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.osc"));
+        oscEnabledToggle.AssignBinding(BasisSettingsDefaults.EnableOSC);
+        oscEnabledToggle.Descriptor.SetDescription(
+            "Open Sound Control input on UDP 9000 / 9001 for face tracking " +
+            "and avatar parameters from external programs (VRCFT, etc)."
+        );
+
         // --- Seated Mode dropdown ---
         dropdownSeatedMode = PanelDropdown.CreateNewEntry(ikParent);
-        dropdownSeatedMode.Descriptor.SetTitle("Seated / Standing Mode");
+        dropdownSeatedMode.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.seatedMode"));
         dropdownSeatedMode.Descriptor.SetDescription(
             "Select the reference pose used for body scaling"
         );
@@ -71,7 +90,7 @@ public static class SettingsProviderIK
 
         // --- IK mode dropdown ---
         dropdownIKMode = PanelDropdown.CreateNewEntry(ikParent);
-        dropdownIKMode.Descriptor.SetTitle("Full Body IK Mode");
+        dropdownIKMode.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.ikMode"));
         dropdownIKMode.AssignEntries(new List<string> { "Eye Height", "Arm Distance" });
         dropdownIKMode.AssignBinding(BasisSettingsDefaults.IKMode);
         dropdownIKMode.Descriptor.SetDescription(
@@ -80,7 +99,7 @@ public static class SettingsProviderIK
 
         // --- IK Lock Mode dropdown ---
         dropdownIKLockMode = PanelDropdown.CreateNewEntry(ikParent);
-        dropdownIKLockMode.Descriptor.SetTitle("Spine Lock Mode");
+        dropdownIKLockMode.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.spineLockMode"));
         dropdownIKLockMode.AssignEntries(new List<string> { "Lock Hips", "Lock Head", "Lock Both" });
         dropdownIKLockMode.AssignBinding(BasisSettingsDefaults.IKLockMode);
         dropdownIKLockMode.Descriptor.SetDescription(
@@ -93,9 +112,9 @@ public static class SettingsProviderIK
 
         // --- Custom scale toggle ---
         var customScaleToggle = PanelToggle.CreateNewEntry(ikParent);
-        customScaleToggle.Descriptor.SetTitle("Custom Scale");
+        customScaleToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.customScale"));
         customScaleToggle.AssignBinding(BasisSettingsDefaults.CustomScale);
-        customScaleToggle.Descriptor.SetDescription("Enables manual override of automatic body scaling.");
+        customScaleToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.bodyTracking.customScale.description"));
 
         // --- Avatar scale slider ---
         var avatarScaleSlider = PanelSlider.CreateAndBind(
@@ -208,25 +227,35 @@ public static class SettingsProviderIK
         // Advanced IK toggle
         // ------------------
         var advancedToggle = PanelToggle.CreateNewEntry(tabDesc.ContentParent);
-        advancedToggle.Descriptor.SetTitle("Advanced IK Settings");
-        advancedToggle.Descriptor.SetDescription("Show advanced collider, shoulder, and spine tuning parameters.");
+        advancedToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.advanced"));
+        advancedToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.bodyTracking.advanced.description"));
         advancedToggle.AssignBinding(BasisSettingsDefaults.FBIKAdvancedVisible);
 
         var colliderGroup = PanelElementDescriptor.CreateNew(
             PanelElementDescriptor.ElementStyles.Group,
             tabDesc.ContentParent);
 
-        colliderGroup.SetTitle("IK Colliders & Tuning");
-        colliderGroup.SetDescription("Controls for IK collision detection and spine/shoulder tuning parameters");
+        colliderGroup.SetTitle(BasisLocalization.Get("settings.bodyTracking.colliders.title"));
+        colliderGroup.SetDescription(BasisLocalization.Get("settings.bodyTracking.colliders.description"));
         colliderGroup.SetIcon(AddressableAssets.Sprites.Settings);
 
         var colliderParent = colliderGroup.ContentParent;
 
         // --- Collider toggles ---
         var collisionsToggle = PanelToggle.CreateNewEntry(colliderParent);
-        collisionsToggle.Descriptor.SetTitle("Collisions Enabled");
+        collisionsToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.collisionsEnabled"));
         collisionsToggle.AssignBinding(BasisSettingsDefaults.FBIKCollisionsEnabled);
         collisionsToggle.Descriptor.SetDescription("Enables virtual capsule collision between elbows and chest to prevent arm clipping through the body.");
+
+        var footIKToggle = PanelToggle.CreateNewEntry(colliderParent);
+        footIKToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.footIk"));
+        footIKToggle.AssignBinding(BasisSettingsDefaults.FootIKEnabled);
+        footIKToggle.Descriptor.SetDescription("Enables procedural foot placement when standing still without foot trackers.");
+
+        var disableAnimInFBTToggle = PanelToggle.CreateNewEntry(colliderParent);
+        disableAnimInFBTToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.disableAnimFbt"));
+        disableAnimInFBTToggle.AssignBinding(BasisSettingsDefaults.DisableAnimationsInFBT);
+        disableAnimInFBTToggle.Descriptor.SetDescription("Suppresses jump and landing animations and the landing hip dip while full-body trackers are calibrated.");
 
         var protectElbowToggle = PanelToggle.CreateNewEntry(colliderParent);
         protectElbowToggle.Descriptor.SetTitle("Protect Elbow");
@@ -352,15 +381,15 @@ public static class SettingsProviderIK
     private static void BuildDebugSection(PanelElementDescriptor tabDesc)
     {
         var debugToggle = PanelToggle.CreateNewEntry(tabDesc.ContentParent);
-        debugToggle.Descriptor.SetTitle("Debug Info");
-        debugToggle.Descriptor.SetDescription("Show live height, scaling, and calibration data.");
+        debugToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.debugInfo"));
+        debugToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.bodyTracking.debugInfo.description"));
 
         var debugGroup = PanelElementDescriptor.CreateNew(
             PanelElementDescriptor.ElementStyles.Group,
             tabDesc.ContentParent);
 
-        debugGroup.SetTitle("Height & Calibration Debug");
-        debugGroup.SetDescription("Current values from the height driver and calibration system.");
+        debugGroup.SetTitle(BasisLocalization.Get("settings.bodyTracking.heightDebug.title"));
+        debugGroup.SetDescription(BasisLocalization.Get("settings.bodyTracking.heightDebug.description"));
         debugGroup.SetIcon(AddressableAssets.Sprites.Settings);
 
         var debugParent = debugGroup.ContentParent;
@@ -407,7 +436,7 @@ public static class SettingsProviderIK
 
         // Refresh button
         var refreshButton = PanelButton.CreateNew(debugParent);
-        refreshButton.Descriptor.SetTitle("Refresh Debug Data");
+        refreshButton.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.refreshDebug"));
         refreshButton.OnClicked += RefreshDebugData;
 
         RefreshDebugData();
@@ -505,6 +534,8 @@ public static class SettingsProviderIK
         // IK Collider & Tuning
         BasisSettingsDefaults.FBIKAdvancedVisible.ResetToDefault();
         BasisSettingsDefaults.FBIKCollisionsEnabled.ResetToDefault();
+        BasisSettingsDefaults.FootIKEnabled.ResetToDefault();
+        BasisSettingsDefaults.DisableAnimationsInFBT.ResetToDefault();
         BasisSettingsDefaults.FBIKProtectElbow.ResetToDefault();
         BasisSettingsDefaults.FBIKUseHandCapsule.ResetToDefault();
         BasisSettingsDefaults.FBIKChestRadius.ResetToDefault();

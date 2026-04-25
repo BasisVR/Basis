@@ -121,7 +121,20 @@ public static class BasisLoadHandler
         if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisTrackedBundleWrapper wrapper))
         {
             BasisDebug.Log($"Bundle On Disc Loading", BasisDebug.LogTag.Networking);
-            await wrapper.WaitForBundleLoadAsync();
+            if (wrapper.AssetBundle == null)
+            {
+                await BasisBeeManagement.HandleBundleAndMetaLoading(wrapper, report, cancellationToken, MaxDownloadSizeInMB);
+            }
+            else
+            {
+                await wrapper.WaitForBundleLoadAsync();
+            }
+
+            if (wrapper.AssetBundle == null)
+            {
+                BasisDebug.LogError("Scene bundle was not available after load attempt.");
+                return new Scene();
+            }
             BasisDebug.Log($"Bundle Loaded, Loading Scene", BasisDebug.LogTag.Networking);
             return await BasisBundleLoadAsset.LoadSceneFromBundleAsync(wrapper, makeActiveScene, report);
         }
@@ -209,6 +222,34 @@ public static class BasisLoadHandler
         return false;
     }
 
+    private static bool TryResolveStoredConnectorPath(BasisBEEExtensionMeta discInfo, out string connectorPath)
+    {
+        connectorPath = discInfo.StoredLocal.DownloadedConnectorFileLocation;
+        if (!string.IsNullOrWhiteSpace(connectorPath) && File.Exists(connectorPath))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+        {
+            string platformAwarePath = BasisIOManagement.GetConnectorCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+            if (File.Exists(platformAwarePath))
+            {
+                discInfo.StoredLocal.DownloadedConnectorFileLocation = platformAwarePath;
+                connectorPath = platformAwarePath;
+                return true;
+            }
+        }
+
+        connectorPath = null;
+        return false;
+    }
+
+    private static bool HasAnyCachedPayload(BasisBEEExtensionMeta discInfo)
+    {
+        return TryResolveStoredBeePath(discInfo, out _) || TryResolveStoredConnectorPath(discInfo, out _);
+    }
+
     private static bool TryLazyLoadDiscInfo(string metaUrl, string currentPlatform, out BasisBEEExtensionMeta info)
     {
         info = null;
@@ -234,7 +275,7 @@ public static class BasisLoadHandler
 
                 OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
 
-                if (!TryResolveStoredBeePath(discInfo, out _))
+                if (!HasAnyCachedPayload(discInfo))
                 {
                     continue;
                 }
@@ -282,7 +323,7 @@ public static class BasisLoadHandler
                         continue;
                     }
 
-                    if (TryResolveStoredBeePath(discInfo, out _))
+                    if (HasAnyCachedPayload(discInfo))
                     {
                         if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
                         {

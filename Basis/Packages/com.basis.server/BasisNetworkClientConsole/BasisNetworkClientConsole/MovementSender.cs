@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
@@ -18,11 +19,21 @@ namespace Basis.Network
         public static Vector3[] PlayersCurrentPosition;
         public static PlayerData[] ActivePlayerData;
 
+        // Animation timer — shared across all players, per-player phase offsets provide variety
+        private static readonly Stopwatch AnimTimer = Stopwatch.StartNew();
+
+        // Precomputed byte offsets into the packet for High quality
+        private static readonly int RotationRegionOffset = BasisAvatarBitPacking.WritePosition; // 12
+        private static readonly int HipsRotationOffset = BasisAvatarBitPacking.WritePosition
+            + BasisBoneRotationCompression.RotationBytes(BitQuality.High)
+            + BasisAvatarBitPacking.WriteScale;
+
         public struct PlayerData
         {
             public NetDataWriter Writer;
             public LocalAvatarSyncMessage Message;
             public byte SequenceByte;
+            public float PhaseOffset;
         }
 
         // Precompute compressed scale once; reused for all messages.
@@ -50,36 +61,42 @@ namespace Basis.Network
                 array = new byte[ClientManager.Size],
             };
 
-            // Build the static parts once (muscles default, scale default, rotation default)
-            WriteInitialPayload(ref message);
+            // Per-player random phase offset so idle animations aren't synchronized
+            float phase = (float)(Random.Shared.NextDouble() * MathF.PI * 2f);
+
+            // Build the full initial payload (position, bone rotations, scale, hips rotation)
+            WriteInitialPayload(ref message, phase);
 
             return new PlayerData
             {
                 Writer = new NetDataWriter(),
-                Message = message
+                Message = message,
+                PhaseOffset = phase,
             };
         }
 
-        private static void WriteInitialPayload(ref LocalAvatarSyncMessage message)
+        private static void WriteInitialPayload(ref LocalAvatarSyncMessage message, float phase)
         {
             // Make sure buffer is correct size for High
             int size = BasisAvatarBitPacking.ConvertToSize(BitQuality.High);
             if (message.array == null || message.array.Length != size)
                 message.array = new byte[size];
 
+            double time = AnimTimer.Elapsed.TotalSeconds;
+
             // 1) Position
             int offset = 0;
             WritePosition(Randomizer.GetRandomOffset(), ref message.array, ref offset);
 
-            // 2) Muscles: if you want “neutral pose”, leave zeros (or write defaults here)
+            // 2) Bone rotations: natural standing pose with idle animation
+            FakePoseGenerator.WriteBoneRotations(message.array, RotationRegionOffset, BitQuality.High, time, phase);
 
-            // 3) Scale: WRITE IT (this is what you’re missing)
+            // 3) Scale
             int scaleOffset = BasisAvatarBitPacking.WritePosition + BasisAvatarBitPacking.MuscleBytes(BitQuality.High);
             WriteScaleUShort(CompressedScale, message.array, scaleOffset);
 
-            // 4) Rotation: lives right after scale (7 bytes in your constants)
-            // int rotOffset = scaleOffset + BasisAvatarBitPacking.WriteScale;
-            // Write your compressed-rotation format there (don’t use 16-byte float quaternion here).
+            // 4) Hips rotation: slight body orientation
+            FakePoseGenerator.WriteCompressedHipsRotation(message.array, HipsRotationOffset, time, phase);
         }
         private static void WriteScaleUShort(ushort value, byte[] buffer, int byteOffset)
         {
@@ -90,14 +107,25 @@ namespace Basis.Network
         {
             if (peer == null) return;
 
+            double time = AnimTimer.Elapsed.TotalSeconds;
+            float phase = ActivePlayerData[index].PhaseOffset;
+
             // Update position
             PlayersCurrentPosition[index] += Randomizer.GetRandomOffset();
 
-            // Overwrite just the position region in the message buffer (first 12 bytes)
-            int offset = 0;
             var msg = ActivePlayerData[index].Message;
 
+            // 1) Position (first 12 bytes)
+            int offset = 0;
             WritePosition(PlayersCurrentPosition[index], ref msg.array, ref offset);
+
+            // 2) Animated bone rotations (natural pose + idle animation)
+            FakePoseGenerator.WriteBoneRotations(msg.array, RotationRegionOffset, BitQuality.High, time, phase);
+
+            // 3) Scale unchanged
+
+            // 4) Animated hips rotation
+            FakePoseGenerator.WriteCompressedHipsRotation(msg.array, HipsRotationOffset, time, phase);
 
             // Serialize and send — channel encodes quality (High) and no additional data
             var writer = ActivePlayerData[index].Writer;

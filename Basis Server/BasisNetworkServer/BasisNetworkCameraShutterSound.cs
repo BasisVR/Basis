@@ -25,6 +25,10 @@ namespace BasisNetworkServer
                     HandleCameraCountdown(reader, peer, eventType);
                     break;
 
+                case BasisNetworkCommons.EventType_PlayerTempBlock:
+                    BasisNetworkHandleTempBlock.HandleEvent(reader, peer, eventType);
+                    break;
+
                 default:
                     BNL.LogError($"Unknown EventsChannel event type: {eventType}");
                     reader.Recycle();

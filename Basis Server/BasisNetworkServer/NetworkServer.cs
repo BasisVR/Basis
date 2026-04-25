@@ -62,6 +62,8 @@ public static class NetworkServer
         HighQualityLength = BasisAvatarBitPacking.ConvertToSize(BitQuality.High);
         InitializePulseSettings();
         InitializeAuth();
+        BasisHeadlessConnectionPolicyManager.InitializeFromConfig(configuration.DisallowHeadless);
+        BasisNetworkServer.Security.BasisGlobalLockManager.InitializeFromConfig(configuration);
         SetupServer(configuration);
         SubscribeEvents(Configuration);
 

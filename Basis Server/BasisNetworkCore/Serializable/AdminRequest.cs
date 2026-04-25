@@ -55,6 +55,17 @@ namespace BasisNetworkCore.Serializable
 
             EnableShoutMode,    // admin: enable shout mode for a player (non-spatialized broadcast voice)
             DisableShoutMode,   // admin: disable shout mode for a player
+
+            GlobalToggleAvatars, // admin: toggle global avatar loading lock
+            GlobalToggleProps,   // admin: toggle global prop loading lock
+            GlobalToggleWorlds,  // admin: toggle global world loading lock
+            GlobalGetLockState,  // server→client: current global lock state
+            GlobalGetHeadlessAudioState, // server→client: current global headless audio state
+            SetGlobalHeadlessAudio, // admin: explicitly set headless audio clip playback state for headless clients
+            GlobalGetHeadlessDisallowState, // server→client: current global headless disallow state
+            SetGlobalHeadlessDisallow, // admin: explicitly allow/disallow headless client connections
+            SetGlobalOpusPacketLoss, // admin: set Opus FEC packet-loss percent (0..100) applied to every client's encoder
+            GlobalGetOpusPacketLossState, // server→client: current Opus FEC packet-loss percent
         }
     }
 }

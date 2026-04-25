@@ -149,9 +149,29 @@ public static class BasisNetworkModeration
     {
         if (ValidateString(message, nameof(message)))
         {
-            BasisMainMenu.Close();
-            BasisMainMenu.Open();
-            BasisMainMenu.Instance.OpenDialogue("admin", message, "ok", value => { });
+            // Remember whether the main menu was already open so we can return to the exact
+            // prior state when the user dismisses the popup, instead of dropping them back
+            // on a bare main menu (or a hotbar they weren't looking at).
+            bool menuWasAlreadyOpen = BasisMainMenu.Instance != null;
+
+            if (!menuWasAlreadyOpen)
+            {
+                BasisMainMenu.Open();
+            }
+            else if (BasisMainMenu.Instance.Dialogue)
+            {
+                // OpenDialogue refuses to stack; release the existing one first.
+                BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+            }
+
+            BasisMainMenu.Instance.OpenDialogue("admin", message, "ok", value =>
+            {
+                // If we opened the menu solely to show this popup, close it again on dismiss.
+                if (!menuWasAlreadyOpen)
+                {
+                    BasisMainMenu.Close();
+                }
+            });
             BasisDebug.LogError(message);
         }
     }
@@ -181,6 +201,22 @@ public static class BasisNetworkModeration
             case AdminRequestMode.EnableShoutMode:
             case AdminRequestMode.DisableShoutMode:
                 HandleShoutModeChanged(reader, mode == AdminRequestMode.EnableShoutMode);
+                break;
+
+            case AdminRequestMode.GlobalGetLockState:
+                HandleGlobalLockState(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetHeadlessAudioState:
+                HandleGlobalHeadlessAudioState(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetHeadlessDisallowState:
+                HandleGlobalHeadlessDisallowState(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetOpusPacketLossState:
+                HandleGlobalOpusPacketLossState(reader);
                 break;
 
             default:
@@ -427,6 +463,147 @@ public static class BasisNetworkModeration
     }
 
     #endregion
+
+    #region Global Lock State
+
+    /// <summary>
+    /// Current global lock state received from the server.
+    /// </summary>
+    public static bool GlobalAvatarsLocked { get; private set; }
+    public static bool GlobalPropsLocked { get; private set; }
+    public static bool GlobalWorldsLocked { get; private set; }
+
+    /// <summary>
+    /// Fired when the global lock state changes. Parameters: avatarsLocked, propsLocked, worldsLocked.
+    /// </summary>
+    public static event Action<bool, bool, bool> OnGlobalLockStateChanged;
+
+    /// <summary>
+    /// Current headless audio state received from the server.
+    /// True means headless clients should keep BasisAudioClipPlayer off.
+    /// </summary>
+    public static bool GlobalHeadlessAudioOff { get; private set; }
+
+    /// <summary>
+    /// Fired when the global headless audio state changes.
+    /// Parameter: headlessAudioOff.
+    /// </summary>
+    public static event Action<bool> OnGlobalHeadlessAudioStateChanged;
+
+    /// <summary>
+    /// Current headless connection policy received from the server.
+    /// True means headless clients are not allowed to remain connected.
+    /// </summary>
+    public static bool GlobalHeadlessDisallowed { get; private set; }
+
+    /// <summary>
+    /// Fired when the global headless disallow state changes.
+    /// Parameter: headlessDisallowed.
+    /// </summary>
+    public static event Action<bool> OnGlobalHeadlessDisallowStateChanged;
+
+    private static void HandleGlobalLockState(NetDataReader reader)
+    {
+        GlobalAvatarsLocked = reader.GetBool();
+        GlobalPropsLocked = reader.GetBool();
+        GlobalWorldsLocked = reader.GetBool();
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}", BasisDebug.LogTag.Networking);
+        OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global avatar loading.
+    /// </summary>
+    public static void GlobalToggleAvatars()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleAvatars);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global prop loading.
+    /// </summary>
+    public static void GlobalToggleProps()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleProps);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global world loading.
+    /// </summary>
+    public static void GlobalToggleWorlds()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleWorlds);
+    }
+
+    private static void HandleGlobalHeadlessAudioState(NetDataReader reader)
+    {
+        GlobalHeadlessAudioOff = reader.GetBool();
+        BasisDebug.Log($"Global headless audio state updated - Headless audio off: {GlobalHeadlessAudioOff}", BasisDebug.LogTag.Networking);
+        OnGlobalHeadlessAudioStateChanged?.Invoke(GlobalHeadlessAudioOff);
+    }
+
+    private static void HandleGlobalHeadlessDisallowState(NetDataReader reader)
+    {
+        GlobalHeadlessDisallowed = reader.GetBool();
+        BasisDebug.Log($"Global headless connection policy updated - Headless disallowed: {GlobalHeadlessDisallowed}", BasisDebug.LogTag.Networking);
+        OnGlobalHeadlessDisallowStateChanged?.Invoke(GlobalHeadlessDisallowed);
+    }
+
+    /// <summary>
+    /// Admin: Set headless audio clip playback state for headless clients.
+    /// </summary>
+    public static void SetGlobalHeadlessAudio(bool headlessAudioOff)
+    {
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalHeadlessAudio,
+            w => w.Put(headlessAudioOff));
+    }
+
+    /// <summary>
+    /// Admin: Allow or disallow headless clients from remaining connected.
+    /// </summary>
+    public static void SetGlobalHeadlessDisallow(bool headlessDisallowed)
+    {
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalHeadlessDisallow,
+            w => w.Put(headlessDisallowed));
+    }
+
+    /// <summary>
+    /// Last Opus FEC packet-loss percentage received from the server (0..100).
+    /// Admins can change it; every connected client applies the new value to its
+    /// local encoder on the fly via <see cref="LocalOpusSettings.SetPacketLossPercent"/>.
+    /// </summary>
+    public static int GlobalOpusPacketLossPercent { get; private set; } = 10;
+
+    /// <summary>Fired when the server-pushed Opus FEC packet-loss percentage changes.</summary>
+    public static event Action<int> OnGlobalOpusPacketLossChanged;
+
+    private static void HandleGlobalOpusPacketLossState(NetDataReader reader)
+    {
+        int percent = reader.GetByte();
+        GlobalOpusPacketLossPercent = percent;
+        LocalOpusSettings.SetPacketLossPercent(percent);
+        BasisDebug.Log($"Global Opus FEC packet-loss percent updated → {percent}%", BasisDebug.LogTag.Networking);
+        OnGlobalOpusPacketLossChanged?.Invoke(percent);
+    }
+
+    /// <summary>
+    /// Admin: Set the Opus FEC packet-loss percentage (0..100) applied to every
+    /// client's encoder. Higher values trade bitrate for better resilience on
+    /// lossy networks.
+    /// </summary>
+    public static void SetGlobalOpusPacketLoss(int percent)
+    {
+        if (percent < 0) percent = 0;
+        else if (percent > 100) percent = 100;
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalOpusPacketLoss,
+            w => w.Put((byte)percent));
+    }
+
+    #endregion
+
     public static bool TryTeleportToPlayer(ushort netId)
     {
         if (BasisNetworkPlayers.Players.TryGetValue(netId, out var player) && ValidateForAnimator(player))

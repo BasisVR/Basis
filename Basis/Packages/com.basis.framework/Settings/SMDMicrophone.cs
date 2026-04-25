@@ -58,13 +58,13 @@ public class SMDMicrophone : BasisSettingsBase
     private const string K_DN_MK = "DenoiseMakeupDb";
     private const string K_DN_WET = "DenoiseWet";
     private const string K_AGC_ON = "UseAGC";
-    private const string K_AGC_TR = "AgcTargetRms";
+    private const string K_AGC_TR = "AgcTargetRmsV2";
     private const string K_AGC_MG = "AgcMaxGainDb";
     private const string K_AGC_AT = "AgcAttack";
-    private const string K_AGC_RL = "AgcRelease";
+    private const string K_AGC_RL = "AgcReleaseV2";
     private const string K_NG_ON = "UseNoiseGate";
     private const string K_NG_TH = "NoiseGateThreshold";
-    private const string K_NG_AT = "NoiseGateAttack";
+    private const string K_NG_AT = "NoiseGateAttackV2";
     private const string K_NG_RL = "NoiseGateRelease";
     private const string K_TALK = "TalkMode";
 
@@ -81,13 +81,13 @@ public class SMDMicrophone : BasisSettingsBase
             DenoiseMakeupDb = 3f,
             DenoiseWet = 1f,
             UseAGC = false,
-            AgcTargetRms = 0.06f,
+            AgcTargetRms = 0.15f,
             AgcMaxGainDb = 8f,
             AgcAttack = 0.10f,
-            AgcRelease = 0.01f,
+            AgcRelease = 0.05f,
             UseNoiseGate = false,
             NoiseGateThreshold = 0.01f,
-            NoiseGateAttack = 0.10f,
+            NoiseGateAttack = 0.30f,
             NoiseGateRelease = 0.05f,
             TalkMode = BasisMicrophoneMode.OnActivation
         };

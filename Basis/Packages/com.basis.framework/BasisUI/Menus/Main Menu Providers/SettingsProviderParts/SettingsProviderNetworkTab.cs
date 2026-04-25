@@ -6,45 +6,81 @@ namespace Basis.BasisUI
 {
     public static class SettingsProviderNetworkTab
     {
+        [RuntimeInitializeOnLoadMethod]
+        static void Init()
+        {
+            // Seed the static fields from persisted settings
+            BasisNetworkManagement.MinCutoff = BasisSettingsDefaults.NetEuroMinCutoff.RawValue;
+            BasisNetworkManagement.Beta = BasisSettingsDefaults.NetEuroBeta.RawValue;
+            BasisNetworkManagement.DerivativeCutoff = BasisSettingsDefaults.NetEuroDerivativeCutoff.RawValue;
+
+            // Keep them in sync when the user changes a setting
+            BasisSettingsDefaults.NetEuroMinCutoff.OnChanged += v => BasisNetworkManagement.MinCutoff = v;
+            BasisSettingsDefaults.NetEuroBeta.OnChanged += v => BasisNetworkManagement.Beta = v;
+            BasisSettingsDefaults.NetEuroDerivativeCutoff.OnChanged += v => BasisNetworkManagement.DerivativeCutoff = v;
+        }
+
+        public static void BuildNetworkEuroFilterGroup(RectTransform container)
+        {
+            var euroGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            euroGroup.SetTitle(BasisLocalization.Get("settings.developer.euroFilter"));
+            euroGroup.SetDescription(BasisLocalization.Get("settings.developer.euroFilter.description"));
+
+            PanelSlider.CreateEntryAndBind(
+                euroGroup,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.network.euro.minCutoff"), 0.01f, 10f, false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.NetEuroMinCutoff);
+
+            PanelSlider.CreateEntryAndBind(
+                euroGroup,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.network.euro.beta"), 0f, 10f, false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.NetEuroBeta);
+
+            PanelSlider.CreateEntryAndBind(
+                euroGroup,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.network.euro.derivativeCutoff"), 0.1f, 10f, false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.NetEuroDerivativeCutoff);
+        }
+
         public static void BuildNetworkStatsGroup(RectTransform container, out NetworkStatsPanelUpdater updater)
         {
             var netGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            netGroup.SetTitle("Network & Statistics");
-            netGroup.SetDescription("Live connection and transmission diagnostics.");
+            netGroup.SetTitle(BasisLocalization.Get("settings.developer.netStats"));
+            netGroup.SetDescription(BasisLocalization.Get("settings.developer.netStats.description"));
 
             // Connection status
             var connectionField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
-            connectionField.SetTitle("Connection");
+            connectionField.SetTitle(BasisLocalization.Get("settings.network.connection"));
             connectionField.SetDescription("...");
 
             // Server info
             var serverField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
-            serverField.SetTitle("Server");
+            serverField.SetTitle(BasisLocalization.Get("settings.network.server"));
             serverField.SetDescription("...");
 
             // Ping / RTT
             var pingField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
-            pingField.SetTitle("Ping / RTT");
+            pingField.SetTitle(BasisLocalization.Get("settings.network.ping"));
             pingField.SetDescription("...");
 
             // Players
             var playersField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
-            playersField.SetTitle("Players");
+            playersField.SetTitle(BasisLocalization.Get("menu.provider.players"));
             playersField.SetDescription("...");
 
             // Transmission
             var transmissionField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
-            transmissionField.SetTitle("Transmission");
+            transmissionField.SetTitle(BasisLocalization.Get("menu.individualPlayer.transmission"));
             transmissionField.SetDescription("...");
 
             // Bandwidth
             var bandwidthField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
-            bandwidthField.SetTitle("Bandwidth");
+            bandwidthField.SetTitle(BasisLocalization.Get("settings.network.bandwidth"));
             bandwidthField.SetDescription("...");
 
             // Server Metadata
             var metaField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
-            metaField.SetTitle("Server Metadata");
+            metaField.SetTitle(BasisLocalization.Get("settings.network.serverMetadata"));
             metaField.SetDescription("...");
 
             // Create a holder GO for the updater MonoBehaviour

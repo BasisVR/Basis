@@ -1,4 +1,5 @@
 using System;
+using OpusSharp.Core.Interfaces;
 
 namespace OpusSharp.Core.Extensions
 {
@@ -14,7 +15,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="application">The application to set. Must be one of <see cref="OpusPredefinedValues.OPUS_APPLICATION_VOIP"/>, <see cref="OpusPredefinedValues.OPUS_APPLICATION_AUDIO"/> or <see cref="OpusPredefinedValues.OPUS_APPLICATION_RESTRICTED_LOWDELAY"/>.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetApplication(this OpusEncoder encoder, OpusPredefinedValues application)
+        public static void SetApplication(this IOpusEncoder encoder, OpusPredefinedValues application)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_APPLICATION, (int)application);
         }
@@ -26,7 +27,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's configured application.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static OpusPredefinedValues GetApplication(this OpusEncoder encoder)
+        public static OpusPredefinedValues GetApplication(this IOpusEncoder encoder)
         {
             var value = (int)OpusPredefinedValues.OPUS_AUTO;
             encoder.Ctl(EncoderCTL.OPUS_GET_APPLICATION, ref value);
@@ -40,7 +41,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="bitRate">The bitRate to set.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetBitRate(this OpusEncoder encoder, int bitRate)
+        public static void SetBitRate(this IOpusEncoder encoder, int bitRate)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_BITRATE, bitRate);
         }
@@ -52,7 +53,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's bitrate.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetBitRate(this OpusEncoder encoder)
+        public static int GetBitRate(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_BITRATE, ref value);
@@ -66,7 +67,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="maxBandwidth">The max bandwidth to set.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetMaxBandwidth(this OpusEncoder encoder, int maxBandwidth)
+        public static void SetMaxBandwidth(this IOpusEncoder encoder, int maxBandwidth)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_MAX_BANDWIDTH, maxBandwidth);
         }
@@ -78,7 +79,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's max bandwidth.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetMaxBandwidth(this OpusEncoder encoder)
+        public static int GetMaxBandwidth(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_MAX_BANDWIDTH, ref value);
@@ -92,7 +93,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="enabled">Whether to enable/disable the encoder's vbr.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetVbr(this OpusEncoder encoder, bool enabled)
+        public static void SetVbr(this IOpusEncoder encoder, bool enabled)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_VBR, enabled ? 1 : 0);
         }
@@ -104,7 +105,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the vbr is enabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetVbr(this OpusEncoder encoder)
+        public static bool GetVbr(this IOpusEncoder encoder)
         {
             var enabled = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_VBR, ref enabled);
@@ -118,7 +119,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="bandwidth">The bandwidth to set.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetBandwidth(this OpusEncoder encoder, OpusPredefinedValues bandwidth)
+        public static void SetBandwidth(this IOpusEncoder encoder, OpusPredefinedValues bandwidth)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_BANDWIDTH, (int)bandwidth);
         }
@@ -130,7 +131,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="complexity">The complexity to set between 1-10.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetComplexity(this OpusEncoder encoder, int complexity)
+        public static void SetComplexity(this IOpusEncoder encoder, int complexity)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_COMPLEXITY, complexity);
         }
@@ -142,7 +143,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's complexity.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetComplexity(this OpusEncoder encoder)
+        public static int GetComplexity(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_COMPLEXITY, ref value);
@@ -157,7 +158,7 @@ namespace OpusSharp.Core.Extensions
         /// <remarks>0: Disable in-band FEC (default). 1: In-band FEC enabled. If the packet loss rate is sufficiently high, Opus will automatically switch to SILK even at high rates to enable use of that FEC. 2: In-band FEC enabled, but does not necessarily switch to SILK if we have music.</remarks>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetInbandFec(this OpusEncoder encoder, int mode)
+        public static void SetInbandFec(this IOpusEncoder encoder, int mode)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_INBAND_FEC, mode);
         }
@@ -169,7 +170,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's configured use of forward error correction.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetInbandFec(this OpusEncoder encoder)
+        public static int GetInbandFec(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_INBAND_FEC, ref value);
@@ -183,7 +184,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="percent">The expected packet loss percentage value between 0-100.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetPacketLostPercent(this OpusEncoder encoder, int percent)
+        public static void SetPacketLostPercent(this IOpusEncoder encoder, int percent)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_PACKET_LOSS_PERC, percent);
         }
@@ -195,7 +196,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's packet loss percentage.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetPacketLostPercent(this OpusEncoder encoder)
+        public static int GetPacketLostPercent(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_PACKET_LOSS_PERC, ref value);
@@ -209,7 +210,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="enabled">Whether to enable the DTX or not.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetDtx(this OpusEncoder encoder, bool enabled)
+        public static void SetDtx(this IOpusEncoder encoder, bool enabled)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_DTX, enabled ? 1 : 0);
         }
@@ -221,7 +222,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether DTX is enabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetDtx(this OpusEncoder encoder)
+        public static bool GetDtx(this IOpusEncoder encoder)
         {
             var enabled = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_DTX, ref enabled);
@@ -235,7 +236,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="enabled">Whether to enable the constrained VBR or not.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetVbrConstraint(this OpusEncoder encoder, bool enabled)
+        public static void SetVbrConstraint(this IOpusEncoder encoder, bool enabled)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_VBR_CONSTRAINT, enabled ? 1 : 0);
         }
@@ -247,7 +248,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the constrained VBR is enabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetVbrConstraint(this OpusEncoder encoder)
+        public static bool GetVbrConstraint(this IOpusEncoder encoder)
         {
             var enabled = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_VBR_CONSTRAINT, ref enabled);
@@ -261,7 +262,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="channels">The number of channels to set.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetForceChannels(this OpusEncoder encoder, int channels)
+        public static void SetForceChannels(this IOpusEncoder encoder, int channels)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_FORCE_CHANNELS, channels);
         }
@@ -274,7 +275,7 @@ namespace OpusSharp.Core.Extensions
         /// <remarks>By default, this is set to <see cref="OpusPredefinedValues.OPUS_AUTO"/>.</remarks>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetForceChannels(this OpusEncoder encoder)
+        public static int GetForceChannels(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_FORCE_CHANNELS, ref value);
@@ -288,7 +289,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="signal">The signal type to set. Must be one of <see cref="OpusPredefinedValues.OPUS_AUTO"/>, <see cref="OpusPredefinedValues.OPUS_SIGNAL_VOICE"/> or <see cref="OpusPredefinedValues.OPUS_SIGNAL_MUSIC"/>.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetSignal(this OpusEncoder encoder, OpusPredefinedValues signal)
+        public static void SetSignal(this IOpusEncoder encoder, OpusPredefinedValues signal)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_SIGNAL, (int)signal);
         }
@@ -300,7 +301,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's signal type.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static OpusPredefinedValues GetSignal(this OpusEncoder encoder)
+        public static OpusPredefinedValues GetSignal(this IOpusEncoder encoder)
         {
             var value = (int)OpusPredefinedValues.OPUS_AUTO;
             encoder.Ctl(EncoderCTL.OPUS_GET_SIGNAL, ref value);
@@ -314,7 +315,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The total samples of delay added by the entire codec.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetLookahead(this OpusEncoder encoder)
+        public static int GetLookahead(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_LOOKAHEAD, ref value);
@@ -328,7 +329,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="depth">The LSB depth to set.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetLsbDepth(this OpusEncoder encoder, int depth)
+        public static void SetLsbDepth(this IOpusEncoder encoder, int depth)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_LSB_DEPTH, depth);
         }
@@ -340,7 +341,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's LSB depth.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetLsbDepth(this OpusEncoder encoder)
+        public static int GetLsbDepth(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_LSB_DEPTH, ref value);
@@ -354,7 +355,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="expertDuration">The frame duration to set. Must be one of <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_ARG"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_2_5_MS"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_5_MS"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_10_MS"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_20_MS"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_40_MS"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_60_MS"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_80_MS"/>, <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_100_MS"/> or <see cref="OpusPredefinedValues.OPUS_FRAMESIZE_120_MS"/></param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetExpertFrameDuration(this OpusEncoder encoder, OpusPredefinedValues expertDuration)
+        public static void SetExpertFrameDuration(this IOpusEncoder encoder, OpusPredefinedValues expertDuration)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_EXPERT_FRAME_DURATION, (int)expertDuration);
         }
@@ -366,7 +367,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's configured expert frame duration.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static OpusPredefinedValues GetExpertFrameDuration(this OpusEncoder encoder)
+        public static OpusPredefinedValues GetExpertFrameDuration(this IOpusEncoder encoder)
         {
             var value = (int)OpusPredefinedValues.OPUS_AUTO;
             encoder.Ctl(EncoderCTL.OPUS_GET_EXPERT_FRAME_DURATION, ref value);
@@ -380,7 +381,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="disabled">Whether to disable to encoder's prediction.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetPredictionDisabled(this OpusEncoder encoder, bool disabled)
+        public static void SetPredictionDisabled(this IOpusEncoder encoder, bool disabled)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_PREDICTION_DISABLED, disabled ? 1 : 0);
         }
@@ -392,7 +393,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the encoder's prediction is disabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetPredictionDisabled(this OpusEncoder encoder)
+        public static bool GetPredictionDisabled(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_PREDICTION_DISABLED, ref value);
@@ -407,7 +408,7 @@ namespace OpusSharp.Core.Extensions
         /// <remarks>I have no idea how this works even by looking at the source code, it seems to do something with speech but that's as far as I've gotten. (Sine)</remarks>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetInDtx(this OpusEncoder encoder)
+        public static int GetInDtx(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_IN_DTX, ref value);
@@ -421,7 +422,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="enabled">Whether to enable the QEXT extension or not.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetQext(this OpusEncoder encoder, bool enabled)
+        public static void SetQext(this IOpusEncoder encoder, bool enabled)
         {
             encoder.Ctl(EncoderCTL.OPUS_SET_QEXT, enabled ? 1 : 0);
         }
@@ -433,7 +434,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the QEXT extension is enabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetQext(this OpusEncoder encoder)
+        public static bool GetQext(this IOpusEncoder encoder)
         {
             var value = 0;
             encoder.Ctl(EncoderCTL.OPUS_GET_QEXT, ref value);
@@ -446,7 +447,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="encoder">The encoder state.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void Reset(this OpusEncoder encoder)
+        public static void Reset(this IOpusEncoder encoder)
         {
             encoder.Ctl(GenericCTL.OPUS_RESET_STATE);
         }
@@ -458,7 +459,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The final state of the codec's entropy coder.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static uint GetFinalRange(this OpusEncoder encoder)
+        public static uint GetFinalRange(this IOpusEncoder encoder)
         {
             var finalRange = 0u;
             encoder.Ctl(GenericCTL.OPUS_GET_FINAL_RANGE, ref finalRange);
@@ -472,7 +473,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's last bandpass.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static OpusPredefinedValues GetBandwidth(this OpusEncoder encoder)
+        public static OpusPredefinedValues GetBandwidth(this IOpusEncoder encoder)
         {
             var bandPass = 0;
             encoder.Ctl(GenericCTL.OPUS_GET_BANDWIDTH, ref bandPass);
@@ -486,7 +487,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The encoder's configured sample rate.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetSampleRate(this OpusEncoder encoder)
+        public static int GetSampleRate(this IOpusEncoder encoder)
         {
             var sampleRate = 0;
             encoder.Ctl(GenericCTL.OPUS_GET_SAMPLE_RATE, ref sampleRate);
@@ -500,7 +501,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="disabled">Whether to disable or not.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetPhaseInversionDisabled(this OpusEncoder encoder, bool disabled)
+        public static void SetPhaseInversionDisabled(this IOpusEncoder encoder, bool disabled)
         {
             encoder.Ctl(GenericCTL.OPUS_SET_PHASE_INVERSION_DISABLED, disabled ? 1 : 0);
         }
@@ -512,7 +513,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the phase inversion is disabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetPhaseInversionDisabled(this OpusEncoder encoder)
+        public static bool GetPhaseInversionDisabled(this IOpusEncoder encoder)
         {
             var disabled = 0;
             encoder.Ctl(GenericCTL.OPUS_GET_PHASE_INVERSION_DISABLED, ref disabled);

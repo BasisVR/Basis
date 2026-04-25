@@ -18,7 +18,7 @@ public static class BasisNetworkEvents
             case BasisNetworkCommons.ShoutVoiceChannel:
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ShoutVoice, Reader.AvailableBytes);
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleShoutAudioUpdate(Reader);
@@ -56,10 +56,19 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                // Deserialize on the main thread (preserves existing thread affinity),
+                // recycle the reader immediately, then enqueue the heavy
+                // CreateRemotePlayer work into the budgeted lifecycle queue.
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
-                    BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, BasisNetworkManagement.instantiationParameters);
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Reader.AvailableBytes);
+                    ServerReadyMessage srm = new ServerReadyMessage();
+                    srm.Deserialize(Reader);
                     Reader.Recycle();
+                    BasisNetworkHandleRemoval.LifecycleQueue.Enqueue(() =>
+                    {
+                        BasisRemotePlayerFactory.CreateRemotePlayer(srm, BasisNetworkManagement.instantiationParameters);
+                    });
                 });
                 break;
             case BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel:
@@ -71,9 +80,14 @@ public static class BasisNetworkEvents
                 //same as remote player but just used at the start
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
-                    //this one is called first and is also generally where the issues are.
-                    BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, BasisNetworkManagement.instantiationParameters);
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Reader.AvailableBytes);
+                    ServerReadyMessage srm = new ServerReadyMessage();
+                    srm.Deserialize(Reader);
                     Reader.Recycle();
+                    BasisNetworkHandleRemoval.LifecycleQueue.Enqueue(() =>
+                    {
+                        BasisRemotePlayerFactory.CreateRemotePlayer(srm, BasisNetworkManagement.instantiationParameters);
+                    });
                 });
                 break;
             case BasisNetworkCommons.GetCurrentOwnerRequestChannel:
@@ -117,7 +131,7 @@ public static class BasisNetworkEvents
                 break;
             case BasisNetworkCommons.VoiceChannel:
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, false);
@@ -125,7 +139,7 @@ public static class BasisNetworkEvents
                 break;
             case BasisNetworkCommons.VoiceLargeChannel:
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, true);
@@ -397,6 +411,15 @@ public static class BasisNetworkEvents
                                 BasisNetworkPIPCameraDriver.OnRemoteCountdown(countdownMsg);
                             });
                             break;
+                        case BasisNetworkCommons.EventType_PlayerTempBlock:
+                            ushort tempBlockSenderId = Reader.GetUShort();
+                            bool tempBlockIsBlocked = Reader.GetBool();
+                            Reader.Recycle();
+                            BasisDeviceManagement.EnqueueOnMainThread(() =>
+                            {
+                                BasisNetworkHandleTempBlock.OnRemoteTempBlockReceived(tempBlockSenderId, tempBlockIsBlocked);
+                            });
+                            break;
                         default:
                             BNL.LogError($"Unknown EventsChannel event type: {eventType}");
                             Reader.Recycle();
@@ -486,9 +509,9 @@ public static class BasisNetworkEvents
 #if UNITY_SERVER
             string reason = null;
             if (disconnectInfo.AdditionalData != null &&
-                disconnectInfo.AdditionalData.TryGetString(out string parsedReason))
+                !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
             {
-                reason = parsedReason;
+                reason = disconnectInfo.AdditionalData.PeekString();
             }
 
             if (!string.IsNullOrEmpty(reason))
@@ -510,8 +533,9 @@ public static class BasisNetworkEvents
                 BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
             }
 #else
-            if (disconnectInfo.AdditionalData != null && disconnectInfo.AdditionalData.TryGetString(out string Reason))
+            if (disconnectInfo.AdditionalData != null && !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
             {
+                string Reason = disconnectInfo.AdditionalData.PeekString();
                 BasisMainMenu.Open();
                 if (BasisMainMenu.Instance != null)
                 {

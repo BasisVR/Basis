@@ -11,7 +11,7 @@ public static class RemoveMissingScriptsEditor
         GameObject[] allObjects = GetAllChildren(Selection.gameObjects);
         int count = RemoveMissingScriptsFrom(allObjects);
         if (count == 0) return;
-        EditorUtility.DisplayDialog("Remove Missing Scripts", $"Removed {count} missing scripts.\n\nCheck console for details", "ok");
+        EditorUtility.DisplayDialog("Remove Missing Scripts", $"Removed {count} missing script(s).\n\nCheck console for details.", "OK");
     }
 
     [MenuItem("Assets/Editor Extensions/Remove Missing Scripts")]
@@ -33,7 +33,7 @@ public static class RemoveMissingScriptsEditor
         IEnumerable<string> allPrefabsPath = allPrefabGuids.Select(AssetDatabase.GUIDToAssetPath);
         IEnumerable<GameObject> allPrefabsObjects = allPrefabsPath.Select(AssetDatabase.LoadAssetAtPath<GameObject>);
         RemoveMissingScriptsFrom(allPrefabsObjects.ToArray());
-        Debug.Log($"Removed All Missing Scripts from Prefabs");
+        Debug.Log($"Removed all missing scripts from Prefabs");
     }
 
     private static int RemoveMissingScriptsFrom(params GameObject[] objects)
@@ -52,7 +52,7 @@ public static class RemoveMissingScriptsEditor
 
             if (EditorUtility.IsPersistent(current) && PrefabUtility.IsAnyPrefabInstanceRoot(current)) forceSave.Add(current);
 
-            Debug.Log($"Removed {missingCount} Missing Scripts from {current.gameObject.name}", current);
+            Debug.Log($"Removed {missingCount} missing script(s) from {current.gameObject.name}", current);
             removedCounter += missingCount;
         }
 

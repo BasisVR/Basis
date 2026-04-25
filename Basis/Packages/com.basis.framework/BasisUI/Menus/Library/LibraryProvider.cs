@@ -56,9 +56,9 @@ namespace Basis.BasisUI
             BasisNetworkManagement.OnlocalPermissionsChanged -= ProtectionValidation;
         }
 
-        public override string Title => "Library";
+        public override string Title => BasisLocalization.Get("menu.provider.library");
         public override string IconAddress => AddressableAssets.Sprites.Library;
-        public override int Order => 1; // after Settings
+        public override int Order => 2; // after Mute
         public override bool Hidden => false;
         private static protected bool IsProtected = false; // we use this to determine if the user is admin for admin related queries on the library provider
         public static BasisMenuPanel panel;
@@ -131,14 +131,14 @@ namespace Basis.BasisUI
             };
 
             // Attach per-tab refresh callbacks that only fetch and rebuild the associated tab when selected
-            tabGroup.AddTab("Props", AddressableAssets.Sprites.Items, async () => await RefreshTabAsync(Page.Prop, true), propsTab);
-            tabGroup.AddTab("Worlds", AddressableAssets.Sprites.World, async () => await RefreshTabAsync(Page.World, true), worldsTab);
-            tabGroup.AddTab("Avatars", AddressableAssets.Sprites.Avatars, async () => await RefreshTabAsync(Page.Avatar, true), avatarsTab);
-            tabGroup.AddTab("Instantiated", AddressableAssets.Sprites.List, async () => await RefreshTabAsync(Page.Instantiated, true), instantiatedTab);
+            tabGroup.AddTab(BasisLocalization.Get("library.tab.props"), AddressableAssets.Sprites.Items, async () => await RefreshTabAsync(Page.Prop, true), propsTab);
+            tabGroup.AddTab(BasisLocalization.Get("library.tab.worlds"), AddressableAssets.Sprites.World, async () => await RefreshTabAsync(Page.World, true), worldsTab);
+            tabGroup.AddTab(BasisLocalization.Get("library.tab.avatars"), AddressableAssets.Sprites.Avatars, async () => await RefreshTabAsync(Page.Avatar, true), avatarsTab);
+            tabGroup.AddTab(BasisLocalization.Get("library.tab.instantiated"), AddressableAssets.Sprites.List, async () => await RefreshTabAsync(Page.Instantiated, true), instantiatedTab);
 
             // create a search text field in the tab group extras area
             searchField = PanelTextField.CreateNew(TextFieldStyles.EntryWithNoTitle, tabGroup.ExtrasContainer);
-            searchField._placeholderLabel.text = "Search...";
+            searchField._placeholderLabel.text = BasisLocalization.Get("ui.search");
             searchField.Descriptor.SetSize(new Vector2(60, 80));
             searchField.OnValueChanged = async (val) =>
             {
@@ -209,7 +209,7 @@ namespace Basis.BasisUI
             // };
 
             // add our extra menu button items, this is the buttons below the panel content
-            addNewContentButton = tabGroup.AddExtraAction("Add New Content", async () => await LibraryProviderDialogAdd.PromptUserForNewContent(panel), new Vector2(70, 80));
+            addNewContentButton = tabGroup.AddExtraAction(BasisLocalization.Get("library.addNewContent"), async () => await LibraryProviderDialogAdd.PromptUserForNewContent(panel), new Vector2(70, 80));
 
             // set the current tab to the current page
             tabGroup.SetValue((int)_currentPage); // this will trigger the tab selection and associated content loading
@@ -303,7 +303,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            d.SetTitle("Props");
+            d.SetTitle(BasisLocalization.Get("library.tab.props"));
             d.ForceRebuild();
             return tab;
         }
@@ -313,7 +313,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            d.SetTitle("Worlds");
+            d.SetTitle(BasisLocalization.Get("library.tab.worlds"));
             d.ForceRebuild();
             return tab;
         }
@@ -323,7 +323,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            d.SetTitle("Avatars");
+            d.SetTitle(BasisLocalization.Get("library.tab.avatars"));
             d.ForceRebuild();
             return tab;
         }
@@ -333,7 +333,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateVerticalAlternate(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            d.SetTitle("Instantiated");
+            d.SetTitle(BasisLocalization.Get("library.tab.instantiated"));
             d.ForceRebuild();
             return tab;
         }
@@ -660,7 +660,7 @@ namespace Basis.BasisUI
                 }
                 else
                 {
-                    desc.SetTitle("Loading...");
+                    desc.SetTitle(BasisLocalization.Get("library.loading"));
                     desc.SetDescription(urlKey);
                     desc.ForceRebuild();
 
@@ -702,7 +702,7 @@ namespace Basis.BasisUI
 
         public static string PinnedText(BasisDataStoreItemKeys.ItemKey item)
         {
-            return item.PinnedSettings.IsPinned ? "Pinned" : "Pin";
+            return item.PinnedSettings.IsPinned ? BasisLocalization.Get("library.pinned") : BasisLocalization.Get("library.pin");
         }
 
         private static async Task HandleBadItem(BasisDataStoreItemKeys.ItemKey item)
@@ -735,7 +735,7 @@ namespace Basis.BasisUI
             Sprite targetSprite = null;   // target sprite
 
             // default string text for embedded item
-            string embedItem = "Emebbed item";
+            string embedItem = BasisLocalization.Get("library.embeddedItem");
 
             int spawnItemCount = BasisRuntimeSpawnRegistry.CountIgnoreCase(item.Url);
 
@@ -770,8 +770,8 @@ namespace Basis.BasisUI
 
             // Build overlay using DialogBox helper
             DialogBox<BasisDataStoreItemKeys.ItemKey> existingItemDialog = DialogBox<BasisDataStoreItemKeys.ItemKey>.Create(panel, overlaySize,
-                $"{LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)}{(spawnItemCount > 0 ? $" ({spawnItemCount} spawned)" : "" )}",
-                $"{(description.AssetBundleDescription.Length > 0 ? description.AssetBundleDescription : "No description was provided.")}",
+                $"{LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)}{(spawnItemCount > 0 ? $" {BasisLocalization.Get("library.spawnedCount", spawnItemCount)}" : "" )}",
+                $"{(description.AssetBundleDescription.Length > 0 ? description.AssetBundleDescription : BasisLocalization.Get("library.noDescription"))}",
                 ConvertItemKeyToAddressableSprite(item));
 
             // only items can be pinned as props
@@ -853,7 +853,7 @@ namespace Basis.BasisUI
                 // determine what the creation date text is gonna say
                 if (string.IsNullOrEmpty(creationDate))
                 {
-                    creationDate = "N/A";
+                    creationDate = BasisLocalization.Get("library.notAvailable");
                 }
                 else
                 {
@@ -870,7 +870,7 @@ namespace Basis.BasisUI
             // creation date and time
             PanelTextField createdInformationTextField = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, scrollablePage.Descriptor.ContentParent);
             createdInformationTextField._inputField.gameObject.SetActive(false); // disable the text input field box
-            createdInformationTextField.Descriptor.SetTitle("Creation Date");
+            createdInformationTextField.Descriptor.SetTitle(BasisLocalization.Get("library.creationDate"));
             createdInformationTextField.Descriptor.SetIcon(AddressableAssets.Sprites.Clock);
             createdInformationTextField.Descriptor.SetDescription($"{creationDate}");
 
@@ -884,14 +884,14 @@ namespace Basis.BasisUI
             // creation date and time
             PanelTextField platformIconsTextField = PanelTextField.CreateNew(TextFieldStyles.EntryVerticalHorizontalContent, scrollablePage.Descriptor.ContentParent);
             platformIconsTextField._inputField.gameObject.SetActive(false); // disable the text input field box
-            platformIconsTextField.Descriptor.SetTitle("Available Platforms");
+            platformIconsTextField.Descriptor.SetTitle(BasisLocalization.Get("library.availablePlatforms"));
             platformIconsTextField.Descriptor.SetIcon(AddressableAssets.Sprites.Computer);
             platformIconsTextField.Descriptor.SetHeight(130);
             platformIconsTextField.Descriptor.SetWidth(400);
 
             if (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
             {
-                platformIconsTextField.Descriptor.SetDescription($"All - Embedded Item");
+                platformIconsTextField.Descriptor.SetDescription(BasisLocalization.Get("library.allPlatformsEmbedded"));
             }
             else
             {
@@ -955,7 +955,7 @@ namespace Basis.BasisUI
             // creation date and time
             PanelTextField polygonTextField = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, grid.Descriptor.ContentParent);//scrollablePage.Descriptor.ContentParent);
             polygonTextField._inputField.gameObject.SetActive(false); // disable the text input field box
-            polygonTextField.Descriptor.SetTitle("Triangle Count");
+            polygonTextField.Descriptor.SetTitle(BasisLocalization.Get("library.triangleCount"));
             polygonTextField.Descriptor.SetIcon(AddressableAssets.Sprites.Polygons);
             polygonTextField.Descriptor.SetDescription($"{polygonCount}");
 
@@ -980,7 +980,7 @@ namespace Basis.BasisUI
             // creation date and time
             PanelTextField materialTextField = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, grid.Descriptor.ContentParent);//scrollablePage.Descriptor.ContentParent);
             materialTextField._inputField.gameObject.SetActive(false); // disable the text input field box
-            materialTextField.Descriptor.SetTitle("Material Count");
+            materialTextField.Descriptor.SetTitle(BasisLocalization.Get("library.materialCount"));
             materialTextField.Descriptor.SetIcon(AddressableAssets.Sprites.Materials);
             materialTextField.Descriptor.SetDescription($"{materialCount}");
 
@@ -1005,7 +1005,7 @@ namespace Basis.BasisUI
             // creation date and time
             PanelTextField bonesTextField = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, grid.Descriptor.ContentParent);//scrollablePage.Descriptor.ContentParent);
             bonesTextField._inputField.gameObject.SetActive(false); // disable the text input field box
-            bonesTextField.Descriptor.SetTitle("Bones Count");
+            bonesTextField.Descriptor.SetTitle(BasisLocalization.Get("library.bonesCount"));
             bonesTextField.Descriptor.SetIcon(AddressableAssets.Sprites.Bones);
             bonesTextField.Descriptor.SetDescription($"{boneCount}");
 
@@ -1029,8 +1029,8 @@ namespace Basis.BasisUI
 
             PanelPasswordField IDField = PanelPasswordField.CreateNew(PasswordFieldStyles.EntryVertical, scrollablePage.Descriptor.ContentParent);//accessibleItemDataTextField.Descriptor.ContentParent);
             IDField._placeholderField.text = "";
-            IDField.Descriptor.SetTitle("Unique Version:");
-            IDField.Descriptor.SetDescription("The unique version number of the basis bundle.");
+            IDField.Descriptor.SetTitle(BasisLocalization.Get("library.uniqueVersion"));
+            IDField.Descriptor.SetDescription(BasisLocalization.Get("library.uniqueVersion.description"));
             IDField.Descriptor.SetIcon(AddressableAssets.Sprites.Information);
             IDField.SetPassword(itemID);
             IDField.OnSubmit += (value) =>
@@ -1048,8 +1048,8 @@ namespace Basis.BasisUI
 
             PanelPasswordField urlField = PanelPasswordField.CreateNew(PasswordFieldStyles.EntryVertical, scrollablePage.Descriptor.ContentParent);//accessibleItemDataTextField.Descriptor.ContentParent);
             urlField._placeholderField.text = "";
-            urlField.Descriptor.SetTitle("BEE File Url:");
-            urlField.Descriptor.SetDescription("The direct link to the BEE file.");
+            urlField.Descriptor.SetTitle(BasisLocalization.Get("library.beeFileUrl"));
+            urlField.Descriptor.SetDescription(BasisLocalization.Get("library.beeFileUrl.description"));
             urlField.Descriptor.SetIcon(AddressableAssets.Sprites.Network);
             urlField.SetPassword(item.Url);
             urlField.OnSubmit += (value) =>
@@ -1067,8 +1067,8 @@ namespace Basis.BasisUI
 
             PanelPasswordField passField = PanelPasswordField.CreateNew(PasswordFieldStyles.EntryVertical, scrollablePage.Descriptor.ContentParent);//accessibleItemDataTextField.Descriptor.ContentParent);
             passField._placeholderField.text = "";
-            passField.Descriptor.SetTitle("BEE File Password:");
-            passField.Descriptor.SetDescription("This is the password that was generated with you BEE file.");
+            passField.Descriptor.SetTitle(BasisLocalization.Get("library.beeFilePassword"));
+            passField.Descriptor.SetDescription(BasisLocalization.Get("library.beeFilePassword.description"));
             passField.Descriptor.SetIcon(AddressableAssets.Sprites.Unlocked);
             passField.SetPassword(item.Pass);
             passField.OnSubmit += (value) =>
@@ -1142,7 +1142,7 @@ namespace Basis.BasisUI
                 // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
                 PanelDropdown contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.Entry, advancedActionsPanel.TabButtonParent);
                 List<string> contentSyncModeDisplayNames = GetNetworkTypeDisplayNames();
-                contentSyncModeDropDown.Descriptor.SetTitle("Network Type");
+                contentSyncModeDropDown.Descriptor.SetTitle(BasisLocalization.Get("library.networkType"));
                 contentSyncModeDropDown.Descriptor.SetDescription(GetNetworkTypeDescription(desiredNetworkType));
                 contentSyncModeDropDown.Descriptor.SetIcon(AddressableAssets.Sprites.Network);
                 contentSyncModeDropDown.AssignEntries(contentSyncModeDisplayNames);
@@ -1185,9 +1185,9 @@ namespace Basis.BasisUI
                 //content persistence toggle determines weather
                 PanelToggle contentPersistenceToggle = PanelToggle.CreateNew(advancedActionsPanel.TabButtonParent, PanelToggle.Styles.Entry);
                 contentPersistenceToggle.SetValueWithoutNotify(ephemeral);
-                contentPersistenceToggle.Descriptor.SetTitle("Ephemeral Mode");
+                contentPersistenceToggle.Descriptor.SetTitle(BasisLocalization.Get("library.ephemeralMode"));
                 contentPersistenceToggle.Descriptor.SetIcon(AddressableAssets.Sprites.HourGlass);
-                contentPersistenceToggle.Descriptor.SetDescription("This item will only be visible to people currently in the instance. Late joiners wont be able to see this.");
+                contentPersistenceToggle.Descriptor.SetDescription(BasisLocalization.Get("library.ephemeralMode.description"));
                 contentPersistenceToggle.Descriptor.SetSize(new Vector2(700, 80));
                 contentPersistenceToggle.OnValueChanged = (val) =>
                 {
@@ -1211,7 +1211,7 @@ namespace Basis.BasisUI
             //actionsPanel.Descriptor.SetWidth(900);
 
             PanelButton deletePanelButton = PanelButton.CreateNew(ButtonStyles.CancelButton, actionsPanel.TabButtonParent); //ButtonStyles.Cancel
-            deletePanelButton.Descriptor.SetTitle("Delete");
+            deletePanelButton.Descriptor.SetTitle(BasisLocalization.Get("library.delete"));
             deletePanelButton.Descriptor.SetWidth(220);
             deletePanelButton.Descriptor.SetHeight(60);
 
@@ -1249,7 +1249,7 @@ namespace Basis.BasisUI
 
             // Share button - only enabled when connected to a server
             PanelButton sharePanelButton = PanelButton.CreateNew(ButtonStyles.StandardButton, actionsPanel.TabButtonParent);
-            sharePanelButton.Descriptor.SetTitle("Share");
+            sharePanelButton.Descriptor.SetTitle(BasisLocalization.Get("library.share"));
             sharePanelButton.Descriptor.SetWidth(150);
             sharePanelButton.Descriptor.SetHeight(60);
             if (sharePanelButton.Descriptor.gameObject.TryGetComponent<Button>(out Button shareButtonComponent))
@@ -1300,7 +1300,7 @@ namespace Basis.BasisUI
                         // if the item is embedded dont interact
                         loadButtonComponent.interactable = !sameAvatar;
                     }
-                    loadPanelButton.Descriptor.SetTitle(sameAvatar ? "You are already in this avatar" : "Load");
+                    loadPanelButton.Descriptor.SetTitle(sameAvatar ? BasisLocalization.Get("library.alreadyInAvatar") : BasisLocalization.Get("library.load"));
                     break;
                 case BundledContentHolder.Mode.World:
                     bool worldAlreadyExists = spawnItemCount > 0;
@@ -1311,10 +1311,10 @@ namespace Basis.BasisUI
                         loadButtonComponent2.interactable = !worldAlreadyExists;
                     }
                     // you can only load one instance of a scene
-                    loadPanelButton.Descriptor.SetTitle(worldAlreadyExists ? "You can only load 1 instance of a scene." : "Load");
+                    loadPanelButton.Descriptor.SetTitle(worldAlreadyExists ? BasisLocalization.Get("library.sceneAlreadyLoaded") : BasisLocalization.Get("library.load"));
                     break;
                 case BundledContentHolder.Mode.Prop:
-                    loadPanelButton.Descriptor.SetTitle(replaceLoad ? "Despawn" : GetPropLoadButtonTitle(desiredNetworkType));
+                    loadPanelButton.Descriptor.SetTitle(replaceLoad ? BasisLocalization.Get("library.despawn") : GetPropLoadButtonTitle(desiredNetworkType));
                     break;
             }
 
@@ -1367,10 +1367,10 @@ namespace Basis.BasisUI
 
         #region NetworkType Descriptions
 
-        private static readonly Dictionary<BundledContentHolder.NetworkType, string> NetworkTypeDisplayNames = new()
+        private static Dictionary<BundledContentHolder.NetworkType, string> NetworkTypeDisplayNames => new()
         {
-            [BundledContentHolder.NetworkType.Local] = "Only Me",
-            [BundledContentHolder.NetworkType.Networked] = "Everyone (Instant)",
+            [BundledContentHolder.NetworkType.Local] = BasisLocalization.Get("library.networkType.local"),
+            [BundledContentHolder.NetworkType.Networked] = BasisLocalization.Get("library.networkType.networked"),
             // TODO: Re-enable once synchronized loading is fully working (late joiner + prop unload bugs)
             // [BundledContentHolder.NetworkType.Synchronized] = "Everyone (Wait & Spawn Together)",
         };
@@ -1404,13 +1404,13 @@ namespace Basis.BasisUI
             return networkType switch
             {
                 BundledContentHolder.NetworkType.Local =>
-                    "If the item is set to local, it will only be visible and interactive for you.",
+                    BasisLocalization.Get("library.networkType.local.description"),
                 BundledContentHolder.NetworkType.Networked =>
-                    "The item will be spawned on all connected players immediately.",
+                    BasisLocalization.Get("library.networkType.networked.description"),
                 BundledContentHolder.NetworkType.Synchronized =>
-                    "Downloads to all players, then spawns simultaneously once everyone is ready. Has a 5 minute timeout for slow connections.",
+                    BasisLocalization.Get("library.networkType.synchronized.description"),
                 _ =>
-                    "Unknown network type.",
+                    BasisLocalization.Get("library.networkType.unknown.description"),
             };
         }
 
@@ -1418,8 +1418,8 @@ namespace Basis.BasisUI
         {
             return networkType switch
             {
-                BundledContentHolder.NetworkType.Synchronized => "Sync Spawn",
-                _ => "Spawn",
+                BundledContentHolder.NetworkType.Synchronized => BasisLocalization.Get("library.syncSpawn"),
+                _ => BasisLocalization.Get("library.spawn"),
             };
         }
 
@@ -1790,7 +1790,7 @@ namespace Basis.BasisUI
             // set the title and description of the list entry
             itemTextInfo.Descriptor.SetTitle(title);
 
-            string createdDisplayName = "N/A";
+            string createdDisplayName = BasisLocalization.Get("library.notAvailable");
             if(!string.IsNullOrEmpty(itemKey.UUIDOfCreator))
             {
                 // this is not ideal todo revise.
@@ -1802,13 +1802,13 @@ namespace Basis.BasisUI
                 }
             }
 
-            itemTextInfo.Descriptor.SetDescription($"Created {LibraryProviderStrUtil.TimeAgoUtc(itemKey.SpawnedUtc)} ago by {createdDisplayName}"); // {description}
+            itemTextInfo.Descriptor.SetDescription(BasisLocalization.Get("library.instantiated.createdAgoBy", LibraryProviderStrUtil.TimeAgoUtc(itemKey.SpawnedUtc), createdDisplayName)); // {description}
 
             itemTextInfo.Descriptor.SetHeight(50);
             itemTextInfo.Descriptor.SetWidth(400);
 
             PanelButton selectItem = PanelButton.CreateNew(ButtonStyles.AcceptButton, itemListPanel.TabButtonParent);
-            selectItem.Descriptor.SetTitle(hasSelected ? "Deselect" : "Select");
+            selectItem.Descriptor.SetTitle(hasSelected ? BasisLocalization.Get("library.deselect") : BasisLocalization.Get("library.select"));
             selectItem.SetSize(new Vector2(200, 60));
 
             // determine if we can select this item
@@ -1838,7 +1838,7 @@ namespace Basis.BasisUI
             };
 
             PanelButton TeleportToItem = PanelButton.CreateNew(ButtonStyles.StandardButton, itemListPanel.TabButtonParent);
-            TeleportToItem.Descriptor.SetTitle("Teleport To");
+            TeleportToItem.Descriptor.SetTitle(BasisLocalization.Get("library.teleportTo"));
             TeleportToItem.SetSize(new Vector2(200, 60));
             // dont let the teleport button work for scenes yet
             if (TeleportToItem.Descriptor.gameObject.TryGetComponent<Button>(out Button teleportButtonComponent))
@@ -1876,7 +1876,7 @@ namespace Basis.BasisUI
             };
 
             PanelButton removeItem = PanelButton.CreateNew(ButtonStyles.CancelButton, itemListPanel.TabButtonParent);
-            removeItem.Descriptor.SetTitle("Remove");
+            removeItem.Descriptor.SetTitle(BasisLocalization.Get("library.remove"));
             removeItem.SetSize(new Vector2(200, 60));
 
             // only apply this to items that are spawned on the network

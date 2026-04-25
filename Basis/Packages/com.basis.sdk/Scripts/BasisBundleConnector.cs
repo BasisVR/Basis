@@ -23,6 +23,10 @@ public class BasisBundleConnector
         public long TrianglesCount;
         public long MaterialCount;
         public long BonesCount;
+        // Sum of GetRuntimeMemorySizeLong for unique textures referenced by avatar materials.
+        // Older bundles built before this field existed deserialize with 0, which the
+        // performance-limit evaluator treats as "unknown" and lets through.
+        public long TextureMemoryBytes;
         [SerializeField]
         public BasisComponentName[] ComponentNames;
     }

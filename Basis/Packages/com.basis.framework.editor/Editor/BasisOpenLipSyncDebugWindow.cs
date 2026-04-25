@@ -161,7 +161,8 @@ public class BasisOpenLipSyncDebugWindow : EditorWindow
         StatusLabel("Initialized", BasisLocalMicrophoneDriver.IsInitialize);
         EditorGUILayout.LabelField("Paused", BasisLocalMicrophoneDriver.isPaused.ToString());
         EditorGUILayout.LabelField("Device", BasisLocalMicrophoneDriver.MicrophoneDevice ?? "(none)");
-        EditorGUILayout.LabelField("Sample Rate", $"{BasisLocalMicrophoneDriver.SampleRate} Hz");
+        EditorGUILayout.LabelField("Sample Rate", $"{LocalOpusSettings.MicrophoneSampleRate} Hz");
+        EditorGUILayout.LabelField("Frame Length", $"{BasisLocalMicrophoneDriver.ProcessFrameLength} samples");
         EditorGUILayout.LabelField("Volume", $"{BasisLocalMicrophoneDriver.Volume:F3}");
 
         float rms = BasisLocalMicrophoneDriver.averageRms;

@@ -15,7 +15,7 @@ public class Configuration
     public bool UseNativeSockets = true;
     public bool NatPunchEnabled = false;
     public int PingInterval = 1500;
-    public int DisconnectTimeout = 6000;
+    public int DisconnectTimeout = 30000;
     public bool SimulatePacketLoss = false;
     public bool SimulateLatency = false;
     public int SimulationPacketLossChance = 10;
@@ -56,6 +56,13 @@ public class Configuration
     public bool DisableReadUnlessAdminPersistentFlag = false;
     public bool UseNetworkFinalCompression = false;
     public bool EnableBSRProfiling = false;
+    public bool DisallowHeadless = false;
+
+    // Global lockout defaults applied at server boot. Users need the matching
+    // basis.resource.lockbypass.{avatar,prop,world} permission to load while locked.
+    public bool AvatarsLocked = false;
+    public bool PropsLocked = false;
+    public bool WorldsLocked = true;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>

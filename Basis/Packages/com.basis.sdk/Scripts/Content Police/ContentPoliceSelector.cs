@@ -9,8 +9,9 @@ public class ContentPoliceSelector : ScriptableObject
     public AudioMixerGroup AudioMixer;
     [SerializeField] public List<string> selectedTypes = new();
 
-    // Runtime cache (not serialized)
+    // Runtime caches (not serialized)
     [NonSerialized] private HashSet<Type> _approvedTypes;
+    [NonSerialized] private HashSet<string> _approvedTypeNames;
     [NonSerialized] private bool _cacheBuilt;
 
     public HashSet<Type> ApprovedTypes
@@ -22,18 +23,32 @@ public class ContentPoliceSelector : ScriptableObject
         }
     }
 
+    /// <summary>
+    /// O(1) string lookup for approved type FullNames.
+    /// Use this instead of selectedTypes.Contains() which is O(n).
+    /// </summary>
+    public HashSet<string> ApprovedTypeNames
+    {
+        get
+        {
+            if (!_cacheBuilt) BuildCache();
+            return _approvedTypeNames;
+        }
+    }
+
     private void OnEnable() => BuildCache();
 
     private void BuildCache()
     {
         _approvedTypes = new HashSet<Type>();
+        _approvedTypeNames = new HashSet<string>(selectedTypes.Count, StringComparer.Ordinal);
         for (int i = 0; i < selectedTypes.Count; i++)
         {
             var typeName = selectedTypes[i];
             if (string.IsNullOrEmpty(typeName)) continue;
 
-            // Works if the string is AssemblyQualifiedName; if you only store FullName,
-            // you may need to search assemblies (slower) or store AssemblyQualifiedName instead.
+            _approvedTypeNames.Add(typeName);
+
             var t = Type.GetType(typeName, throwOnError: false);
             if (t != null) _approvedTypes.Add(t);
         }

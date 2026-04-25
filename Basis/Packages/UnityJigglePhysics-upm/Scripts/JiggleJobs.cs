@@ -167,7 +167,7 @@ public class JiggleJobs {
         freePointers.Clear();
     }
 
-    public void Simulate(double simulateTime, double realTime) {
+    public void Simulate(double simulateTime, double realTime, int timeIncrements) {
         if (_memoryBus.transformCount == 0) {
             _memoryBus.CommitTrees();
             _memoryBus.CommitColliders();
@@ -203,6 +203,7 @@ public class JiggleJobs {
         _memoryBus.CommitColliders();
 
         jobSimulate.UpdateArrays(_memoryBus);
+        jobSimulate.timeIncrements = timeIncrements;
         jobBulkTransformReset.UpdateArrays(_memoryBus);
         jobBulkTransformRead.UpdateArrays(_memoryBus);
         jobBulkPersonalColliderTransformRead.UpdateArrays(_memoryBus.personalColliders);
@@ -260,10 +261,18 @@ public class JiggleJobs {
         _memoryBus.ScheduleAdd(collider);
     }
 
+    public void ScheduleAddBatch(List<JiggleColliderSerializable> colliders) {
+        _memoryBus.ScheduleAddBatch(colliders);
+    }
+
     public void ScheduleRemove(JiggleColliderSerializable collider) {
         _memoryBus.ScheduleRemove(collider);
     }
-    
+
+    public void ScheduleRemoveBatch(List<JiggleColliderSerializable> colliders) {
+        _memoryBus.ScheduleRemoveBatch(colliders);
+    }
+
     public void GetColliders(out JiggleCollider[] personalColliders, out JiggleCollider[] sceneColliders, out int personalColliderCount, out int sceneColliderCount) {
         _memoryBus.GetColliders(out personalColliders, out sceneColliders, out personalColliderCount, out sceneColliderCount);
     }
@@ -315,7 +324,7 @@ public class JiggleJobs {
     }
     
     public int GetSceneColliderCount() {
-        return _memoryBus.personalColliderCount;
+        return _memoryBus.sceneColliderCount;
     }
 
     public void OnDrawGizmos() {

@@ -19,7 +19,7 @@ public static class BasisNetworkLifeCycle
     {
         BasisDebug.Log($"Initalizing Network Connection", BasisDebug.LogTag.Networking);
         BasisNetworkManagement.mainThreadId = Thread.CurrentThread.ManagedThreadId;
-        BasisRemoteNetworkDriver.Initialize(95, Unity.Collections.Allocator.Persistent);
+        BasisRemoteNetworkDriver.Initialize(Unity.Collections.Allocator.Persistent);
         BasisAudioRemoteSource.Initalize();
         BasisNetworkIdResolver.KnownIdMap.Clear();
         BasisNetworkIdResolver.PendingResolutions.Clear();
@@ -40,6 +40,7 @@ public static class BasisNetworkLifeCycle
 
         Management.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
         BasisJoinLeaveNotification.Create();
+        BasisNetworkHandleTempBlock.Initialize();
 #if !UNITY_SERVER
         BasisNetworkPIPCameraDriver.Create();
 #endif
@@ -139,6 +140,7 @@ public static class BasisNetworkLifeCycle
         // let the MonoBehaviour reset its Instance in OnDestroy; no direct assignment here
         BasisDebug.Log("BasisNetworkManagement has been successfully shutdown.", BasisDebug.LogTag.Networking);
         BasisJoinLeaveNotification.Shutdown();
+        BasisNetworkHandleTempBlock.Shutdown();
 #if !UNITY_SERVER
         BasisNetworkPIPCameraDriver.Shutdown();
 #endif

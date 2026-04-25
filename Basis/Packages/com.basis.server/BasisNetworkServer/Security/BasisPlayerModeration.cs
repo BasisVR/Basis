@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
+using BasisServerHandle;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static BasisPermissions.PermissionManager;
 
@@ -283,7 +284,6 @@ namespace BasisNetworkServer.Security
                     break;
 
                 case AdminRequestMode.TeleportAll:
-                case AdminRequestMode.TeleportPlayer:
                     Require(peer, PermNodes.ModerationTeleport, () =>
                     {
                         var writer = NetworkServer.RentWriter();
@@ -294,10 +294,56 @@ namespace BasisNetworkServer.Security
                     });
                     break;
 
+                case AdminRequestMode.TeleportPlayer:
+                    Require(peer, PermNodes.ModerationTeleport, () =>
+                    {
+                        ushort targetId = reader.GetUShort();
+                        if (!NetworkServer.AuthenticatedPeers.TryGetValue(targetId, out var targetPeer))
+                            return;
+
+                        var writer = NetworkServer.RentWriter();
+                        new AdminRequest().Serialize(writer, mode);
+                        writer.Put((ushort)peer.Id);
+                        NetworkServer.TrySend(targetPeer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+                        NetworkServer.ReturnWriter(writer);
+                    });
+                    break;
+
                 case AdminRequestMode.EnableShoutMode:
                 case AdminRequestMode.DisableShoutMode:
                     Require(peer, PermNodes.ModerationShout, () =>
                         HandleShoutMode(peer, reader, mode == AdminRequestMode.EnableShoutMode));
+                    break;
+
+                // ===== GLOBAL LOCK =====
+                case AdminRequestMode.GlobalToggleAvatars:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Avatar", BasisGlobalLockManager.ToggleAvatars()));
+                    break;
+
+                case AdminRequestMode.GlobalToggleProps:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Prop", BasisGlobalLockManager.ToggleProps()));
+                    break;
+
+                case AdminRequestMode.GlobalToggleWorlds:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "World", BasisGlobalLockManager.ToggleWorlds()));
+                    break;
+
+                case AdminRequestMode.SetGlobalHeadlessAudio:
+                    Require(peer, PermNodes.ModerationHeadlessAudio, () =>
+                        HandleHeadlessAudioSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalHeadlessDisallow:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleHeadlessDisallowSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalOpusPacketLoss:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleOpusPacketLossSet(peer, reader));
                     break;
 
                 // ===== PERMISSION EDIT =====
@@ -412,6 +458,92 @@ namespace BasisNetworkServer.Security
             ushort id = reader.GetUShort();
             Basis.Network.Server.Generic.BasisSavedState.SetShoutMode(id, enable);
             BasisServerHandle.BasisServerHandleEvents.BroadcastShoutModeState(id, enable);
+        }
+
+        private static void HandleGlobalToggle(NetPeer peer, string contentType, bool nowLocked)
+        {
+            string state = nowLocked ? "DISABLED" : "ENABLED";
+            string notification = $"{contentType} loading has been globally {state} by an admin.";
+            BNL.Log(notification);
+
+            // Notify the admin who toggled it
+            SendBackMessage(peer, $"{contentType} loading is now {state}.");
+
+            // Notify all clients about the change
+            var writer = NetworkServer.RentWriter();
+            new AdminRequest().Serialize(writer, AdminRequestMode.MessageAll);
+            writer.Put(notification);
+            NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.AdminChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
+            NetworkServer.ReturnWriter(writer);
+
+            // Broadcast updated lock state so clients track it
+            BasisGlobalLockManager.BroadcastLockState();
+        }
+
+        private static void HandleHeadlessAudioSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set headless audio clip playback: missing state value.");
+                return;
+            }
+
+            bool headlessAudioOff = reader.GetBool();
+            bool changed = BasisHeadlessAudioStateManager.SetHeadlessAudio(headlessAudioOff);
+            string state = headlessAudioOff ? "OFF" : "ON";
+            string notification = changed
+                ? $"Headless audio clip playback is now {state}."
+                : $"Headless audio clip playback was already {state}.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+            BasisHeadlessAudioStateManager.BroadcastState();
+        }
+
+        private static void HandleHeadlessDisallowSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set headless connection policy: missing state value.");
+                return;
+            }
+
+            bool disallowHeadless = reader.GetBool();
+            bool changed = BasisHeadlessConnectionPolicyManager.SetDisallowHeadless(disallowHeadless);
+            string state = disallowHeadless ? "DISALLOWED" : "ALLOWED";
+            string notification = changed
+                ? $"Headless clients are now {state}."
+                : $"Headless clients were already {state}.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+
+            if (disallowHeadless)
+            {
+                BasisHeadlessConnectionPolicyManager.DisconnectConnectedHeadlessPeers();
+            }
+
+            BasisHeadlessConnectionPolicyManager.BroadcastState();
+        }
+
+        private static void HandleOpusPacketLossSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set Opus packet loss: missing value byte.");
+                return;
+            }
+
+            int percent = reader.GetByte();
+            bool changed = BasisOpusPacketLossStateManager.SetPacketLossPercent(percent);
+            int applied = BasisOpusPacketLossStateManager.PacketLossPercent;
+            string notification = changed
+                ? $"Opus FEC packet-loss % is now {applied}."
+                : $"Opus FEC packet-loss % was already {applied}.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+            BasisOpusPacketLossStateManager.BroadcastState();
         }
 
         public static void SendBackMessage(NetPeer peer, string msg)

@@ -57,7 +57,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
         if (isBuilding)
         {
-            EditorGUILayout.HelpBox("Building… check the progress bar and Console output.", MessageType.Info);
+            EditorGUILayout.HelpBox("Building... check the progress bar and Console output.", MessageType.Info);
         }
     }
 
@@ -225,7 +225,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
             else
             {
                 // Future-proofing: new subclasses won't break the window
-                Debug.LogWarning($"Found BasisContentBase subclass not handled: {content.GetType().FullName} at {path}");
+                Debug.LogWarning($"Found unhandled BasisContentBase subclass: {content.GetType().FullName} at {path}");
             }
         }
 

@@ -15,8 +15,18 @@ namespace Cilbox
 	public class CilboxSceneBasis : Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
+			// Text Mesh Pro types
+			"TMPro.*",
+
 			// Basis types
-			"Basis.BasisImageDownloader",
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
+            "Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton",
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton+ClickEvent",
+			"Basis.BasisNetworkBehaviour",
+            "Basis.BasisImageDownloader",
 			"Basis.BasisNetworkBehaviour",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
@@ -38,6 +48,7 @@ namespace Cilbox
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
 			"System.Byte",
+			"System.SByte",
 			"System.Buffer",
 			"System.Char",
 			"System.Collections.Generic.*",
@@ -49,6 +60,7 @@ namespace Cilbox
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
+			"System.Float",
 			"System.Guid",
 			"System.IDisposable",
 			"System.Int*",
@@ -56,10 +68,14 @@ namespace Cilbox
 			"System.IO.BinaryWriter",
 			"System.IO.MemoryStream",
 			"System.IO.Stream",
+			"System.Long",
+			"System.ULong",
 			"System.Math",
 			"System.MathF",
 			"System.Object",
 			"System.Random",
+			"System.Short",
+			"System.Ushort",
 			"System.Single",
 			"System.String",
 			"System.StringComparison",
@@ -120,26 +136,33 @@ namespace Cilbox
 			"UnityEngine.Transform",
 			"UnityEngine.UI.*",
 			"UnityEngine.Vector*",
+            "UnityEngine.Application*",
+            "UnityEngine.RuntimePlatform*"
         };
 
-		static HashSet<String> whiteListFields = new HashSet<String>(){
-			// Basis fields
-			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
-			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
-			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
-
+        static HashSet<String> whiteListFields = new HashSet<String>(){
 			// Unity fields
 			"UnityEngine.Vector*.x",
-			"UnityEngine.Vector*.y",
-			"UnityEngine.Vector*.z",
-			"UnityEngine.Vector*.w",
+            "UnityEngine.Vector*.y",
+            "UnityEngine.Vector*.z",
+            "UnityEngine.Vector*.w",
+            "UnityEngine.Quaternion*",
 
 			// System fields
 			"System.Array.*",
-			"System.String.*",
-		};
+            "System.String.*",
+			
 
-		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
+			// Basis types
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",
+            "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
+            "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
+            "Basis.BasisNetworkBehaviour.CurrentOwnerId",
+            "Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+            "Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
+        };
+
+        static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
 
 		// This is called by CilboxUsage to decide of a type is allowed.
 		// If a type is allowed, by defalt it is all allowed.
@@ -204,6 +227,25 @@ namespace Cilbox
 
 			if( name.Contains( "Invoke" ) ) return false;
 
+			// UnityEngine.Application.OpenURL opens an arbitrary URL in the native
+			// browser — the exact payload behind the reported prop exploit. Deny it
+			// explicitly so this never works from cilbox regardless of how the
+			// Application type ends up whitelisted.
+			if( declaringType == typeof(UnityEngine.Application) && name == "OpenURL" )
+				return false;
+
+			// Redirect every UnityEngine.Object.Instantiate variant through the
+			// sanitizing shim so spawned prefabs are scrubbed (disallowed components
+			// destroyed, persistent UnityEvent listeners killed) while parked under a
+			// disabled host before they become active in hierarchy.
+			if( declaringType == typeof(UnityEngine.Object) &&
+				( name == "Instantiate" || name == "InstantiateAsync" ) )
+			{
+				mi = Basis.Shims.BasisCilboxInstantiateShim.ResolveShim(
+					usage, name, parametersIn, genericArgumentsIn, fullSignature );
+				return mi != null;
+			}
+
 			if( whiteListMethods.TryGetValue( declaringType, out var allowed ) )
 			{
 				if( !allowed.Contains( name ) ) return false;
@@ -212,29 +254,32 @@ namespace Cilbox
 			return true;
 		}
 
-        public override bool GetComponentTypeOverride(string sType, out Type t)
+        public override bool GetTypeOverride(string sType, out Type t)
         {
-			switch(sType)
-			{
-				case "UnityEngine.Video.VideoPlayer":
-					t = typeof(Basis.Shims.VideoPlayerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.ErrorEventHandlerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+EventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.EventHandlerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.FrameReadyEventHandlerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.TimeEventHandlerShim);
-					return true;
-				default:
-					t = null;
-					return false;
-			}
+            switch (sType)
+            {
+                case "UnityEngine.Video.VideoPlayer":
+                    t = typeof(Basis.Shims.VideoPlayerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.ErrorEventHandlerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+EventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.EventHandlerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.FrameReadyEventHandlerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.TimeEventHandlerShim);
+                    return true;
+                case "UnityEngine.Debug":
+                    t = typeof(Basis.Shims.BasisDebugPropsShim);
+                    return true;
+                default:
+                    t = null;
+                    return false;
+            }
         }
-	}
+    }
 }

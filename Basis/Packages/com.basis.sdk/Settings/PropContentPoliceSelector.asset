@@ -356,5 +356,5 @@ MonoBehaviour:
   - Cilbox.CilboxProxy
   - VolumetricAdditionalLight
   - UnityEngine.Rendering.Universal.UniversalAdditionalLightData
-  - BasisInteractableButton
+  - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton
   - GatorDragonGames.JigglePhysics.JiggleRig

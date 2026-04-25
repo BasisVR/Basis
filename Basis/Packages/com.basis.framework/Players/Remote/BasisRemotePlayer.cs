@@ -85,6 +85,18 @@ namespace Basis.Scripts.BasisSdk.Players
         public bool InAvatarRange = true;
 
         /// <summary>
+        /// Debounce state for avatar range transitions. View-cone and avatar-cap checks
+        /// can flip <c>pAvatarRange[i]</c> rapidly when the local player rotates or
+        /// crowds shift, which would otherwise trigger a burst of ReloadAvatar calls and
+        /// flash every affected player to the loading avatar. We require the new value to
+        /// remain stable for <see cref="AvatarRangeDebounceSeconds"/> before committing.
+        /// </summary>
+        [System.NonSerialized] public bool PendingRangeActive;
+        [System.NonSerialized] public bool PendingRangeTarget;
+        [System.NonSerialized] public float PendingRangeCommitTime;
+        public const float AvatarRangeDebounceSeconds = 0.5f;
+
+        /// <summary>
         /// Current mesh LOD level (0 = closest, 3 = furthest). Set by BasisTransmissionResults.
         /// Used to control pose update frequency — distant players update less often.
         /// </summary>
@@ -126,6 +138,79 @@ namespace Basis.Scripts.BasisSdk.Players
         /// Reset to null when a real avatar is successfully loaded.
         /// </summary>
         public string AvatarLoadErrorMessage;
+
+        /// <summary>
+        /// Terminal "give up" flag for avatar loading. Set when <see cref="BasisAvatarFactory.LoadAvatarRemote"/>
+        /// fails so we stop re-attempting on every range change. Cleared only when the
+        /// local user manually toggles Hide/Show Avatar for this player.
+        /// </summary>
+        [System.NonSerialized]
+        public bool HasFailedAvatarLoadGlobally;
+
+        /// <summary>
+        /// Runtime cache of the per-player block state, mirrored from
+        /// <see cref="BasisPlayerSettingsData.IsBlocked"/>. When true, this player's
+        /// audio, avatar, and nameplate are hidden on the local client.
+        /// Refreshed during avatar load and toggled by the user settings UI.
+        /// </summary>
+        public bool IsBlocked;
+
+        /// <summary>
+        /// Session-scoped "temp block" set when the remote side (this player) has blocked
+        /// the local player, delivered via EventType_PlayerTempBlock. Not persisted.
+        /// Combined with <see cref="IsBlocked"/> to determine effective visibility —
+        /// whichever side of the pair blocked first wins on both ends.
+        /// </summary>
+        public bool TempBlocked;
+
+        /// <summary>
+        /// Client-side performance gate: set when the avatar's metadata header tripped
+        /// one of the user's configured performance limits in
+        /// <see cref="Basis.Scripts.Avatar.BasisAvatarPerformanceLimits"/>. Unlike
+        /// <see cref="IsBlocked"/> this is automatically cleared when the user relaxes
+        /// the relevant limit (the settings bridge reloads the avatar). Not persisted.
+        /// </summary>
+        [System.NonSerialized]
+        public bool IsBlockedByPerformance;
+
+        /// <summary>
+        /// Human-readable reason string for the current performance block
+        /// (e.g. "Exceeds triangles limit (250k > 200k)"). Null when not blocked.
+        /// Drives nameplate / info panel messaging.
+        /// </summary>
+        [System.NonSerialized]
+        public string PerformanceBlockReason;
+
+        /// <summary>
+        /// Full per-player result of the last avatar performance pass — hard-block
+        /// status plus counts of components destroyed by each trim category. Filled
+        /// in after every successful load by <see cref="Basis.Scripts.Avatar.BasisAvatarFactory"/>
+        /// (trim categories) and <see cref="Basis.Scripts.Drivers.BasisRemoteAvatarDriver"/>
+        /// (jiggle rig ingestion). Read by the individual player menu so the local
+        /// user can see exactly what the filter did to this specific remote avatar.
+        /// </summary>
+        [System.NonSerialized]
+        public Basis.Scripts.Avatar.BasisAvatarPerformanceLimits.PerformanceInfo LastPerformanceInfo;
+
+        /// <summary>
+        /// Per-player override that tells the avatar performance filter to treat this
+        /// remote as if no limits were enabled. Set from the individual-player menu
+        /// so the local user can look at a specific avatar at full fidelity without
+        /// touching their global caps or the session-wide
+        /// <see cref="Basis.Scripts.Avatar.BasisAvatarPerformanceLimits.BypassAllLimits"/>
+        /// toggle. Deliberately <see cref="System.NonSerializedAttribute"/> — resets
+        /// to false every launch, every reconnect, and every fresh player join, so
+        /// there's no accidental "I forgot I disabled the filter for Alice".
+        /// </summary>
+        [System.NonSerialized]
+        public bool BypassPerformanceLimits;
+
+        /// <summary>
+        /// Effective block state: local persisted block OR remote session temp block.
+        /// Performance blocks are deliberately not folded in here because they don't
+        /// hide the player entirely — only swap the avatar mesh for the fallback.
+        /// </summary>
+        public bool IsEffectivelyBlocked => IsBlocked || TempBlocked;
 
         #endregion
 
@@ -212,9 +297,7 @@ namespace Basis.Scripts.BasisSdk.Players
                     AlwaysRequestedAvatar = BasisLoadedBundle;
                     AlwaysRequestedMode = CACM.loadMode;
 
-                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
-                    BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
-                    Vector3.zero, Quaternion.identity);
+                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,Vector3.zero, Quaternion.identity);
                 }
                 else
                 {
@@ -251,35 +334,106 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (IsLoadingAnAvatar)
             {
-                BasisDebug.LogWarning("We Loaded a Avatar While a Existing Avatar was loading!!", BasisDebug.LogTag.Remote);
+                return;
             }
             IsLoadingAnAvatar = true;
-            if (BasisLoadableBundle == null || string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
+            BasisPlayerSettingsData BasisPlayerSettingsData = default;
+            try
             {
-                AvatarLoadErrorMessage = "Avatar bundle was empty or null";
-                BasisDebug.LogError("trying to create Avatar with empty Bundle", BasisDebug.LogTag.Remote);
-                BasisLoadableBundle = BasisAvatarFactory.LoadingAvatar;
-                Mode = 0;
+                if (BasisLoadableBundle == null || string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
+                {
+                    AvatarLoadErrorMessage = "Avatar bundle was empty or null";
+                    BasisDebug.LogError("trying to create Avatar with empty Bundle", BasisDebug.LogTag.Remote);
+                    BasisLoadableBundle = BasisAvatarFactory.LoadingAvatar;
+                    Mode = 0;
+                }
+
+                // Fetch per-player visibility settings.
+                BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(UUID);
+
+                // The await above is file I/O — the player can disconnect and be destroyed
+                // mid-await. BasisAvatarFactory.CancelPlayerLoad can't help here because the
+                // per-player cancellation token is created inside LoadAvatarRemote, after
+                // this point. Bail before touching any Unity native members.
+                if (this == null)
+                {
+                    return;
+                }
+
+                IsBlocked = BasisPlayerSettingsData.IsBlocked;
+
+                // Remember last requested avatar and mode for potential reloads.
+                AlwaysRequestedAvatar = BasisLoadableBundle;
+                AlwaysRequestedMode = Mode;
+
+                bool effectivelyBlocked = IsEffectivelyBlocked;
+
+                // Pre-load performance gate. Inspect the metadata header and refuse to
+                // download/instantiate avatars that exceed any enabled limit. Skipped
+                // for the fallback/loading avatar itself — otherwise a silly MaxBones=0
+                // setting would block the fallback and leave the player headless.
+                // Also skipped when this player has the per-player session bypass
+                // enabled from the individual-player menu.
+                BasisAvatarPerformanceLimits.Result perfResult =
+                    (BasisAvatarFactory.IsLoadingAvatar(BasisLoadableBundle) || BypassPerformanceLimits)
+                        ? BasisAvatarPerformanceLimits.Result.Pass
+                        : BasisAvatarPerformanceLimits.Evaluate(BasisLoadableBundle.BasisBundleConnector);
+                IsBlockedByPerformance = perfResult.Blocked;
+                PerformanceBlockReason = perfResult.Blocked ? perfResult.Reason : null;
+
+                // Reset the per-player performance report for this load. Trim counts
+                // and jiggle ingestion stats are filled in later by BasisAvatarFactory
+                // and BasisRemoteAvatarDriver respectively. We record the hard-block
+                // result here so the individual-player menu has something to show even
+                // if the avatar never makes it past the Evaluate gate.
+                LastPerformanceInfo = new BasisAvatarPerformanceLimits.PerformanceInfo
+                {
+                    Blocked = perfResult.Blocked,
+                    BlockReason = perfResult.Reason,
+                };
+
+                if (BasisPlayerSettingsData.AvatarVisible && !effectivelyBlocked && !IsBlockedByPerformance && InAvatarRange && !HasFailedAvatarLoadGlobally)
+                {
+                    await BasisAvatarFactory.LoadAvatarRemote(this, Mode, BasisLoadableBundle, Vector3.zero, Quaternion.identity);
+                }
+                else if (!IsConsideredFallBackAvatar)
+                {
+                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,Vector3.zero, Quaternion.identity);
+                }
+
+                if (BasisAvatar != null)
+                {
+                    bool shouldBeActive = !effectivelyBlocked;
+                    if (BasisAvatar.gameObject.activeSelf != shouldBeActive)
+                    {
+                        BasisAvatar.gameObject.SetActive(shouldBeActive);
+                    }
+                }
+            }
+            finally
+            {
+                // Always release the guard, even if RequestPlayerSettings / LoadAvatarRemote
+                // throws — otherwise this player is permanently stuck and can never reload.
+                IsLoadingAnAvatar = false;
             }
 
-            // Fetch per-player visibility settings.
-            BasisPlayerSettingsData BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(UUID);
-
-            // Remember last requested avatar and mode for potential reloads.
-            AlwaysRequestedAvatar = BasisLoadableBundle;
-            AlwaysRequestedMode = Mode;
-
-            if (BasisPlayerSettingsData.AvatarVisible && InAvatarRange)
+            // Any terminal "pin to fallback" state must skip the range-based re-evaluation
+            // below — otherwise the mismatch check fires every iteration (fallback is the
+            // correct state for these, but the check reads it as drift) and ReloadAvatar
+            // recurses forever, hanging Unity. Applies to: block, global load failure,
+            // performance block, and the user hiding the avatar via the per-player menu.
+            if (IsEffectivelyBlocked || HasFailedAvatarLoadGlobally || IsBlockedByPerformance || !BasisPlayerSettingsData.AvatarVisible)
             {
-                await BasisAvatarFactory.LoadAvatarRemote(this, Mode, BasisLoadableBundle, Vector3.zero, Quaternion.identity);
+                return;
             }
-            else
+
+            // If state drifted during the load, re-evaluate immediately.
+            // Otherwise set cooldown to prevent oscillation.
+            bool stateMismatch = (InAvatarRange && IsConsideredFallBackAvatar) || (!InAvatarRange && !IsConsideredFallBackAvatar);
+            if (stateMismatch)
             {
-                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
-                    BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
-                    Vector3.zero, Quaternion.identity);
+                ReloadAvatar();
             }
-            IsLoadingAnAvatar = false;
         }
 
         #endregion

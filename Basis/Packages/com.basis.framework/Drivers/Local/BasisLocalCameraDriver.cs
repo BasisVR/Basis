@@ -1,6 +1,8 @@
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.TransformBinders;
 using SteamAudio;
 using UnityEngine;
@@ -88,14 +90,19 @@ namespace Basis.Scripts.Drivers
         public BasisLocalMicrophoneIconDriver microphoneIconDriver = new BasisLocalMicrophoneIconDriver();
 #endif
 
+        /// <summary>Driver for avatar preview camera and HUD display.</summary>
+        [SerializeField]
+        public BasisLocalAvatarPreviewDriver avatarPreviewDriver = new BasisLocalAvatarPreviewDriver();
+
         /// <summary>
         /// World forward vector of the active camera instance, or zero if no instance exists.
+        /// Derived from the cached <see cref="Rotation"/> to avoid a native transform PInvoke per call.
         /// </summary>
         public static Vector3 Forward()
         {
             if (HasInstance)
             {
-                return Instance.transform.forward;
+                return Rotation * Vector3.forward;
             }
             else
             {
@@ -110,7 +117,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.up;
+                return Rotation * Vector3.up;
             }
             else
             {
@@ -125,7 +132,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.right;
+                return Rotation * Vector3.right;
             }
             else
             {
@@ -186,6 +193,7 @@ namespace Basis.Scripts.Drivers
                 BasisLocalMicrophoneDriver.OnPausedAction += microphoneIconDriver.OnPausedEvent;
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio += microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence += microphoneIconDriver.MicrophoneNotTransmitting;
+                BasisNetworkModeration.OnShoutModeChanged += OnShoutModeChangedForIcon;
 #else
                 ParentOfUI.gameObject.SetActive(false);
 #endif
@@ -206,6 +214,8 @@ namespace Basis.Scripts.Drivers
             BasisLocalMicrophoneDriver.OnInitializedAction += OnMicrophoneDriverInitialized;
 #endif
 
+            avatarPreviewDriver.Initialize(this);
+
 #if STEAMAUDIO_ENABLED
             if (SteamAudioListener != null)
             {
@@ -219,6 +229,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void OnDestroy()
         {
+            avatarPreviewDriver.Cleanup();
             CameraInstance = null;
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             RenderPipelineManager.endCameraRendering -= EndCameraRendering;
@@ -227,6 +238,7 @@ namespace Basis.Scripts.Drivers
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateCameraScale;
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
+            BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
 #endif
             HasEvents = false;
             HasInstance = false;
@@ -249,9 +261,11 @@ namespace Basis.Scripts.Drivers
 #if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio -= microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence -= microphoneIconDriver.MicrophoneNotTransmitting;
+                BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
 #endif
                 HasEvents = false;
             }
+            avatarPreviewDriver.Cleanup();
         }
 
         /// <summary>
@@ -279,6 +293,13 @@ namespace Basis.Scripts.Drivers
                 microphoneIconDriver.Initalize(this);
             }
             microphoneIconDriver.HardEnableVisuals(initialized);
+        }
+
+        private void OnShoutModeChangedForIcon(ushort playerId, bool enabled)
+        {
+            if (BasisNetworkPlayer.LocalPlayer == null || playerId != BasisNetworkPlayer.LocalPlayer.playerId)
+                return;
+            microphoneIconDriver.OnShoutModeChanged();
         }
 #endif
 
@@ -394,6 +415,7 @@ namespace Basis.Scripts.Drivers
                         ParentOfUI.localPosition = localPos * BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
                     }
                 }
+                avatarPreviewDriver.Simulate();
             }
         }
 

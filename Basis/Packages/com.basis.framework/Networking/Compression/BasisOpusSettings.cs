@@ -15,6 +15,37 @@ public static class LocalOpusSettings
     public static float noiseGateThreshold = 0.01f;
     public static float silenceThreshold = 0.0007f;
     public static int rmsWindowSize = 10;
+
+    /// <summary>
+    /// Expected packet loss percentage used to tune Opus's in-band Forward Error
+    /// Correction (OPUS_SET_PACKET_LOSS_PERC). Higher values spend more bitrate
+    /// on redundant FEC data embedded in each packet, giving the decoder a better
+    /// chance of reconstructing a single-packet loss via decode_fec=true. Valid
+    /// range is 0..100; Opus recommends ~10 for moderate networks and up to ~30
+    /// for lossy ones. Set to 0 to effectively disable FEC. ~15% bitrate overhead
+    /// at the default value.
+    ///
+    /// Prefer <see cref="SetPacketLossPercent"/> for runtime changes so live encoders
+    /// pick up the new value via <see cref="OnPacketLossPercentChanged"/>.
+    /// </summary>
+    public static int PacketLossPercent = 10;
+
+    /// <summary>
+    /// Fired whenever <see cref="SetPacketLossPercent"/> changes the value. Live
+    /// encoders subscribe to re-issue OPUS_SET_PACKET_LOSS_PERC without having to
+    /// tear down the encoder.
+    /// </summary>
+    public static event Action<int> OnPacketLossPercentChanged;
+
+    /// <summary>Clamp, dedupe, and fire the change event.</summary>
+    public static void SetPacketLossPercent(int percent)
+    {
+        if (percent < 0) percent = 0;
+        else if (percent > 100) percent = 100;
+        if (PacketLossPercent == percent) return;
+        PacketLossPercent = percent;
+        OnPacketLossPercentChanged?.Invoke(percent);
+    }
     public static void SetDeviceAudioConfig(int maxFreq)
     {
         //    MicrophoneSampleRate = maxFreq;
@@ -68,8 +99,5 @@ public static class RemoteOpusSettings
     public static int SampleLength => NetworkSampleRate * Channels;
     //960 a single frame in opus. in unity it is 1024 for audio playback
     public static int FrameSize => Mathf.CeilToInt(SharedOpusSettings.DesiredDurationInSeconds * NetworkSampleRate);
-    public static int TotalFrameBufferSize => FrameSize * AdditionalStoredBufferData;
-
-    public static int AdditionalStoredBufferData = 16;
     public static int JitterBufferSize = 5;
 }

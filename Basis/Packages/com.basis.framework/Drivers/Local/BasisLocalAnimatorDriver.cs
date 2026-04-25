@@ -296,6 +296,10 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         private void JustJumped()
         {
+            if (BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
+            {
+                return;
+            }
             basisAnimatorVariableApply.BasisAnimatorVariables.IsJumping = true;
             //basisAnimatorVariableApply.UpdateJumpState();
         }
@@ -305,6 +309,10 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         private void JustLanded()
         {
+            if (BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
+            {
+                return;
+            }
             basisAnimatorVariableApply.UpdateIsLandingState();
         }
 

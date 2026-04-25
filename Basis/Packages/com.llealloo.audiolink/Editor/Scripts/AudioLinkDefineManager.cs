@@ -25,6 +25,8 @@ namespace AudioLink.Editor
             bool definesChanged = false;
 #if UNITY_6000_0_OR_NEWER
             var profile = BuildProfile.GetActiveBuildProfile();
+            if (profile == null && buildGroup == BuildTargetGroup.Unknown)
+                return;
             string[] defines = profile != null
                 ? profile.scriptingDefines
                 : PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(buildGroup)).Split(';');

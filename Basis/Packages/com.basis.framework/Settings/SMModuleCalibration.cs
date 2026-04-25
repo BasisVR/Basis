@@ -202,7 +202,6 @@ public class SMModuleCalibration : BasisSettingsBase
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        // Preserve your original "ToLower()" behavior (but avoid re-lowercasing optionValue)
         string key = matchedSettingName;
 
         switch (key)

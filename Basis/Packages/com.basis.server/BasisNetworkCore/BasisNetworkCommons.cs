@@ -10,7 +10,12 @@ namespace Basis.Network.Core
         public const int NetworkIntervalPoll = 2;
         public const int PingInterval = 1500;
         public const int ReceivePollingTime = 50000;
-        public const int PacketPoolSize = 4096;
+        /// <summary>
+        /// LiteNetLib packet pool size. Must be large enough to avoid allocating new NetPacket
+        /// objects during high-throughput send loops. With 1000 players at ~4M sends/sec,
+        /// packets cycle through pool rapidly. 65536 keeps the pool warm and avoids GC pressure.
+        /// </summary>
+        public const int PacketPoolSize = 65536;
         /// <summary>
         /// when adding a new message we need to increase this
         /// will function up to 64
@@ -134,6 +139,12 @@ namespace Basis.Network.Core
         public const byte EventType_CameraShutterSound = 0;
         /// <summary>Camera countdown started — remote clients replay the tick/shutter timing.</summary>
         public const byte EventType_CameraCountdown = 1;
+        /// <summary>
+        /// Session-scoped "temp block" notification. Sender tells a specific target peer
+        /// that it has (or has not) blocked them locally, so the target can mirror the
+        /// block and hide the sender's avatar/audio/nameplate on their client. Not persisted.
+        /// </summary>
+        public const byte EventType_PlayerTempBlock = 2;
 
         // ── Per-quality avatar channels (ushort playerID, for IDs >255) ──
         // Same layout as byte-ID channels: base + quality * 2 + hasAdditional

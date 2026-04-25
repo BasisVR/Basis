@@ -13,6 +13,9 @@ namespace Cilbox
 	public class CilboxPropBasis : Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
+			// Text Mesh Pro types
+			"TMPro.*",
+
 			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
@@ -24,29 +27,39 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
 			"Basis.Shims.*",
+            "Basis.BasisImageDownloader",
+			"Basis.IBasisImageDownload",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
 
 			// System types
+			"System.Action",
 			"System.Array",
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
 			"System.Buffer",
 			"System.Byte",
+			"System.SByte",
 			"System.Char",
 			"System.Collections.Generic.*",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
 			"System.DateTimeOffset",
 			"System.DayOfWeek",
+			"System.Delegate",
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
+			"System.Float",
 			"System.Int*",
+			"System.Long",
+			"System.ULong",
 			"System.Math",
 			"System.MathF",
 			"System.Object",
+			"System.Short",
+			"System.Ushort",
 			"System.Single",
 			"System.String",
 			"System.StringComparison",
@@ -107,6 +120,7 @@ namespace Cilbox
 			"UnityEngine.Vector*.y",
 			"UnityEngine.Vector*.z",
 			"UnityEngine.Vector*.w",
+			"UnityEngine.Quaternion*",
 
 			// System fields
 			"System.Array.*",
@@ -119,6 +133,7 @@ namespace Cilbox
             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+            "Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
         };
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
@@ -190,6 +205,27 @@ namespace Cilbox
 
 			if( name.Contains( "Invoke" ) ) return false;
 
+			// UnityEngine.Application.OpenURL opens an arbitrary URL in the native
+			// browser — the exact payload behind the reported prop exploit. Deny it
+			// explicitly so this never works from cilbox regardless of how the
+			// Application type ends up whitelisted.
+			if( declaringType == typeof(UnityEngine.Application) && name == "OpenURL" )
+				return false;
+
+			// UnityEngine.Object.Instantiate spawns a prefab tree verbatim, so the clone
+			// can carry UnityEvents that execute outside the sandbox (e.g. Button.onClick
+			// -> Application.OpenURL). Redirect every Instantiate variant through the
+			// sanitizing shim: it spawns under a disabled host, scrubs disallowed
+			// components via the prop content-police selector, and kills all persistent
+			// UnityEvent listeners before the clone becomes active in hierarchy.
+			if( declaringType == typeof(UnityEngine.Object) &&
+				( name == "Instantiate" || name == "InstantiateAsync" ) )
+			{
+				mi = Basis.Shims.BasisCilboxInstantiateShim.ResolveShim(
+					usage, name, parametersIn, genericArgumentsIn, fullSignature );
+				return mi != null;
+			}
+
 			if( methodWhitelist.TryGetValue( declaringType, out var allowed ) )
 			{
 				if( !allowed.Contains( name ) ) return false;
@@ -198,11 +234,10 @@ namespace Cilbox
 			return true;
 		}
 
-        public override bool GetComponentTypeOverride(string sType, out Type t)
+        public override bool GetTypeOverride(string sType, out Type t)
         {
 			switch(sType)
 			{
-				
 				case "UnityEngine.Video.VideoPlayer":
 					t = typeof(Basis.Shims.VideoPlayerShim);
 					return true;

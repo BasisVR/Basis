@@ -47,9 +47,9 @@ public partial class BasisProjectSetup : EditorWindow
 
     // Links
     private const string BASIS_SITE = "https://basisvr.org/";
-    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org/docs";
-    private const string BASIS_AVATARS = "https://docs.basisvr.org/docs/avatar";
-    private const string BASIS_WORLDS = "https://docs.basisvr.org/docs/world";
+    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org";
+    private const string BASIS_AVATARS = "https://docs.basisvr.org/en/docs/avatar";
+    private const string BASIS_WORLDS = "https://docs.basisvr.org/en/docs/world";
     private const string BASIS_DONATE = "https://opencollective.com/basis";
     private const string UNITY_HUB_ADD_MODULES = "https://docs.unity3d.com/hub/manual/AddModules.html";
 
@@ -87,9 +87,9 @@ public partial class BasisProjectSetup : EditorWindow
     private bool? _hasIl2cppStandalone;
     private bool? _hasIl2cppAndroid;
 
-    // Quality presets (1=Desktop, 2=Quest/Android)
-    private const int QUALITY_DESKTOP = 1;
-    private const int QUALITY_ANDROID = 2;
+    // Quality presets — must match indices in BasisQualitySettingsGuard
+    private const int QUALITY_DESKTOP = 0;
+    private const int QUALITY_ANDROID = 1;
 
     // Package manager state
     private bool? _metaXrInstalled;          // null = unknown (scanning), true/false known

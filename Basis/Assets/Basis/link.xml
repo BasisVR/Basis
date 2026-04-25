@@ -4,6 +4,7 @@
     <assembly fullname="Base128" preserve="all" />
     <assembly fullname="Basis Framework" preserve="all" />
     <assembly fullname="Basis.Network.Core" preserve="all" />
+    <assembly fullname="Basis.OpenLipSync.Runtime" preserve="all" />
     <assembly fullname="Basis.ZeroMessenger" preserve="all" />
     <assembly fullname="Basis.ZeroMessenger.Samples" preserve="all" />
     <assembly fullname="Basis.uLipSync.Runtime" preserve="all" />
@@ -40,6 +41,7 @@
     <assembly fullname="HVR.Basis.Comms.HVRUtility" preserve="all" />
     <assembly fullname="LiteNetLib" preserve="all" />
     <assembly fullname="MeaMod.DNS" preserve="all" />
+    <assembly fullname="Microsoft.ML.OnnxRuntime" preserve="all" />
     <assembly fullname="Newtonsoft.Json" preserve="all" />
     <assembly fullname="OpusSharp" preserve="all" />
     <assembly fullname="RNNoiseIntergration" preserve="all" />
@@ -126,6 +128,7 @@
     <assembly fullname="com.gator-dragon-games.jigglephysics" preserve="all" />
     <assembly fullname="mscorlib" preserve="all" />
     <assembly fullname="openvr_api" preserve="all" />
+    <assembly fullname="opus" preserve="all" />
     <assembly fullname="phonon" preserve="all" />
     <assembly fullname="phonon_fmod" preserve="all" />
     <assembly fullname="ucrtbased" preserve="all" />

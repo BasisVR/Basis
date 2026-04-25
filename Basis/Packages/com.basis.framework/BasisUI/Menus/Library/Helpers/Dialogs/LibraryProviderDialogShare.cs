@@ -14,7 +14,7 @@ namespace Basis.BasisUI
             actionsPanel.Descriptor.SetHeight(60);
 
             PanelButton noPanelButton = PanelButton.CreateNew(ButtonStyles.StandardButton, actionsPanel.TabButtonParent);
-            noPanelButton.Descriptor.SetTitle("No");
+            noPanelButton.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("ui.no"));
             noPanelButton.Descriptor.SetWidth(200);
             noPanelButton.Descriptor.SetHeight(60);
 
@@ -27,7 +27,7 @@ namespace Basis.BasisUI
             };
 
             PanelButton yesPanelButton = PanelButton.CreateNew(ButtonStyles.AcceptButton, actionsPanel.TabButtonParent);
-            yesPanelButton.Descriptor.SetTitle("Yes");
+            yesPanelButton.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("ui.yes"));
             yesPanelButton.Descriptor.SetWidth(200);
             yesPanelButton.Descriptor.SetHeight(60);
 
@@ -46,8 +46,8 @@ namespace Basis.BasisUI
         public static async Task<bool> PromptUserForShare(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, BasisBundleDescription description)
         {
             DialogBox<bool> shareDialog = DialogBox<bool>.Create(panel, new Vector2(650, 180),
-                $"Share {LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)}?",
-                $"Are you sure you want to share this {item.Mode} with everyone on the server?",
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.share.title", LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.share.body", item.Mode),
                 AddressableAssets.Sprites.Information,
                 true
             );

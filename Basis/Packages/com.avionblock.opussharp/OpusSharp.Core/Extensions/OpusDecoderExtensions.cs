@@ -1,4 +1,5 @@
 using System;
+using OpusSharp.Core.Interfaces;
 
 namespace OpusSharp.Core.Extensions
 {
@@ -15,7 +16,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="gain">The gain to set.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetGain(this OpusDecoder decoder, short gain)
+        public static void SetGain(this IOpusDecoder decoder, short gain)
         {
             decoder.Ctl(DecoderCTL.OPUS_SET_GAIN, gain);
         }
@@ -27,7 +28,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The gain for the opus decoder.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetGain(this OpusDecoder decoder)
+        public static int GetGain(this IOpusDecoder decoder)
         {
             var gain = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_GAIN, ref gain);
@@ -41,7 +42,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The last packet duration (in samples).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetLastPacketDuration(this OpusDecoder decoder)
+        public static int GetLastPacketDuration(this IOpusDecoder decoder)
         {
             var lastPacketDuration = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_LAST_PACKET_DURATION, ref lastPacketDuration);
@@ -55,7 +56,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The pitch of the last decoded frame if available.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetPitch(this OpusDecoder decoder)
+        public static int GetPitch(this IOpusDecoder decoder)
         {
             var pitch = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_PITCH, ref pitch);
@@ -69,7 +70,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="enabled">Whether to enable or disable the OSCE BWE module.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetOsceBwe(this OpusDecoder decoder, bool enabled)
+        public static void SetOsceBwe(this IOpusDecoder decoder, bool enabled)
         {
             decoder.Ctl(DecoderCTL.OPUS_SET_OSCE_BWE, enabled ? 1 : 0);
         }
@@ -81,7 +82,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the OSCE BWE module is enabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetOsceBwe(this OpusDecoder decoder)
+        public static bool GetOsceBwe(this IOpusDecoder decoder)
         {
             var value = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_OSCE_BWE, ref value);
@@ -95,7 +96,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="disabled">Whether to disable all found extensions in the padding area.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetIgnoreExtensions(this OpusDecoder decoder, bool disabled)
+        public static void SetIgnoreExtensions(this IOpusDecoder decoder, bool disabled)
         {
             decoder.Ctl(DecoderCTL.OPUS_SET_IGNORE_EXTENSIONS, disabled ? 1 : 0);
         }
@@ -107,7 +108,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the decoder is ignoring extensions.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetIgnoreExtensions(this OpusDecoder decoder)
+        public static bool GetIgnoreExtensions(this IOpusDecoder decoder)
         {
             var value = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_IGNORE_EXTENSIONS, ref value);
@@ -120,7 +121,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="decoder">The decoder state.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void Reset(this OpusDecoder decoder)
+        public static void Reset(this IOpusDecoder decoder)
         {
             decoder.Ctl(GenericCTL.OPUS_RESET_STATE);
         }
@@ -132,7 +133,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The final state of the codec's entropy coder.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static uint GetFinalRange(this OpusDecoder decoder)
+        public static uint GetFinalRange(this IOpusDecoder decoder)
         {
             var finalRange = 0u;
             decoder.Ctl(GenericCTL.OPUS_GET_FINAL_RANGE, ref finalRange);
@@ -146,7 +147,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The decoder's last bandpass.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static OpusPredefinedValues GetBandwidth(this OpusDecoder decoder)
+        public static OpusPredefinedValues GetBandwidth(this IOpusDecoder decoder)
         {
             var bandPass = 0;
             decoder.Ctl(GenericCTL.OPUS_GET_BANDWIDTH, ref bandPass);
@@ -160,7 +161,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>The decoder's configured sample rate.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static int GetSampleRate(this OpusDecoder decoder)
+        public static int GetSampleRate(this IOpusDecoder decoder)
         {
             var sampleRate = 0;
             decoder.Ctl(GenericCTL.OPUS_GET_SAMPLE_RATE, ref sampleRate);
@@ -174,7 +175,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="disabled">Whether to disable or not.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetPhaseInversionDisabled(this OpusDecoder decoder, bool disabled)
+        public static void SetPhaseInversionDisabled(this IOpusDecoder decoder, bool disabled)
         {
             decoder.Ctl(GenericCTL.OPUS_SET_PHASE_INVERSION_DISABLED, disabled ? 1 : 0);
         }
@@ -186,7 +187,7 @@ namespace OpusSharp.Core.Extensions
         /// <returns>Whether the phase inversion is disabled or not.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static bool GetPhaseInversionDisabled(this OpusDecoder decoder)
+        public static bool GetPhaseInversionDisabled(this IOpusDecoder decoder)
         {
             var disabled = 0;
             decoder.Ctl(GenericCTL.OPUS_GET_PHASE_INVERSION_DISABLED, ref disabled);

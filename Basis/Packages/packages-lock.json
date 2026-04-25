@@ -106,6 +106,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.textmeshpro": {
+      "version": "file:com.basis.textmeshpro",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.vehicles": {
       "version": "file:com.basis.vehicles",
       "depth": 0,
@@ -155,12 +161,6 @@
         "com.unity.burst": "1.4.11",
         "com.unity.mathematics": "1.2.5"
       }
-    },
-    "com.keviniglesias.basicmotions": {
-      "version": "file:com.keviniglesias.basicmotions",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
     },
     "com.llealloo.audiolink": {
       "version": "file:com.llealloo.audiolink",
@@ -220,7 +220,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
-      "version": "1.8.28",
+      "version": "1.8.29",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -249,7 +249,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.editorcoroutines": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {},
@@ -445,7 +445,7 @@
       }
     },
     "com.unity.test-framework.performance": {
-      "version": "3.2.0",
+      "version": "3.4.0",
       "depth": 2,
       "source": "registry",
       "dependencies": {

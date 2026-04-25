@@ -30,7 +30,7 @@ public class BasisSDKConstants
     public static readonly string AvatarDescription = "avatardescriptioninput";
     public static readonly string AvatarIcon = "avataricon";
     public static readonly string Avatarpassword = "avatarpassword";
-    public static readonly string AvatarDocumentationURL = "https://docs.basisvr.org/docs/avatar";
+    public static readonly string AvatarDocumentationURL = "https://docs.basisvr.org/en/docs/avatar";
     public static readonly string AvatarTestInEditor = "TestInEditor";
     public static readonly string AvatarAnimatorControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";
 
@@ -46,7 +46,7 @@ public class BasisSDKConstants
     public static readonly string PropIcon = "propicon";
     public static readonly string PropName = "propnameinput";
     public static readonly string PropDescription = "propdescriptioninput";
-    public static readonly string PropDocumentationURL = "https://docs.basisvr.org/docs/prop";
+    public static readonly string PropDocumentationURL = "https://docs.basisvr.org/en/docs/prop";
     #endregion
 
     #region Scene
@@ -54,7 +54,7 @@ public class BasisSDKConstants
     public static readonly string SceneIcon = "sceneicon";
     public static readonly string SceneName = "scenenameinput";
     public static readonly string SceneDescription = "scenedescriptioninput";
-    public static readonly string SceneDocumentationURL = "https://docs.basisvr.org/docs/scene";
+    public static readonly string SceneDocumentationURL = "https://docs.basisvr.org/en/docs/world";
     public static readonly string SpawnPointField = "spawnpointfield";
     public static readonly string MainCameraField = "maincamerafield";
     public static readonly string AudioMixerGroupField = "audiomixergroupfield";
@@ -82,7 +82,7 @@ public class BasisSDKConstants
         { BuildTarget.StandaloneOSX, "Mac" },
         { BuildTarget.StandaloneLinux64, "Linux" },
         { BuildTarget.Android, "Android" },
-        { BuildTarget.iOS, "IOS" },
+        { BuildTarget.iOS, "iOS" },
     };
     public static List<BuildTarget> OcclusionCullingTargets = new List<BuildTarget>
     {

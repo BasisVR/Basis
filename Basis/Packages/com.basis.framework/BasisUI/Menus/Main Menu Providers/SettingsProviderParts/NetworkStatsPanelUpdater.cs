@@ -1,5 +1,7 @@
 using Basis.Scripts.Networking;
 using Basis.Network.Core;
+using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using static SerializableBasis;
 
@@ -22,11 +24,49 @@ namespace Basis.BasisUI
         private float _updateTimer;
         private const float UpdateInterval = 0.25f;
 
+        private bool _richTextDisabled;
+        private int _updatesSincePopulated;
+        private bool _layoutFrozen;
+
+        private void DisableRichTextOnce()
+        {
+            if (_richTextDisabled) return;
+            _richTextDisabled = true;
+            // These panels only display plain-text stats — skip tag scanning.
+            ConnectionField?.DisableRichText();
+            ServerField?.DisableRichText();
+            PingField?.DisableRichText();
+            PlayersField?.DisableRichText();
+            TransmissionField?.DisableRichText();
+            BandwidthField?.DisableRichText();
+            MetaField?.DisableRichText();
+        }
+
+        private void FreezeLayoutOnce()
+        {
+            if (_layoutFrozen) return;
+            _layoutFrozen = true;
+            // After we've pushed a couple of ticks of text and the content has
+            // reached its max natural size, lock each field's layout. This
+            // stops the ContentSizeFitter cascade that otherwise rebuilds the
+            // whole settings tab's layout every SetDescription call.
+            // minHeight values are sized for the worst-case content per field.
+            ConnectionField?.FreezeLayoutSize(110f);
+            ServerField?.FreezeLayoutSize(110f);
+            PingField?.FreezeLayoutSize(130f);
+            PlayersField?.FreezeLayoutSize(220f);
+            TransmissionField?.FreezeLayoutSize(170f);
+            BandwidthField?.FreezeLayoutSize(170f);
+            MetaField?.FreezeLayoutSize(150f);
+        }
+
         private void Update()
         {
             _updateTimer += Time.unscaledDeltaTime;
             if (_updateTimer < UpdateInterval) return;
             _updateTimer = 0f;
+
+            DisableRichTextOnce();
 
             bool connected = BasisNetworkManagement.NetworkRunning;
             NetPeer peer = connected ? BasisNetworkManagement.LocalPlayerPeer : null;
@@ -83,12 +123,64 @@ namespace Basis.BasisUI
             if (PlayersField != null)
             {
                 int receiverCount = BasisNetworkPlayers.ReceiverCount;
-                int totalPlayers = BasisNetworkPlayers.Players.Count;
+                int totalPlayers = 0;
+                int headlessPlayers = 0;
+                Dictionary<string, int> platformCounts = new Dictionary<string, int>();
+                foreach (var entry in BasisNetworkPlayers.Players)
+                {
+                    totalPlayers++; // We could have players leave during the count so better to just count them all the same time.
+                    string playerPlatform = entry.Value?.Player?.PlayerPlatform;
+                    string aggregatePlatform = NormalizePlatformAggregate(playerPlatform, out bool isHeadless);
+
+                    if (isHeadless)
+                    {
+                        headlessPlayers++;
+                    }
+
+                    platformCounts[aggregatePlatform] = platformCounts.GetValueOrDefault(aggregatePlatform) + 1;
+
+                    
+                }
+                int realPlayers = totalPlayers - headlessPlayers;
                 ServerMetaDataMessage meta = BasisNetworkManagement.ServerMetaDataMessage;
                 int capacity = meta.PeerLimit;
-                PlayersField.SetDescription(
+                StringBuilder description = new StringBuilder(160);
+                description.Append(
                     $"Total: {totalPlayers} | Remote: {receiverCount}\n" +
+                    $"Real: {realPlayers} | Headless: {headlessPlayers}\n" +
                     $"Server Capacity: {capacity}");
+
+                if (platformCounts.Count > 0)
+                {
+                    description.Append("\nPlatforms: ");
+                    bool hasAppendedPlatform = false;
+
+                    AppendPlatformCount(description, platformCounts, "Windows", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "macOS", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Linux", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Android", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "iOS", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Windows Server", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Linux Server", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "macOS Server", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Headless", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Unknown", ref hasAppendedPlatform);
+
+                    foreach (KeyValuePair<string, int> platformCount in platformCounts)
+                    {
+                        if (hasAppendedPlatform)
+                        {
+                            description.Append(" | ");
+                        }
+
+                        description.Append(platformCount.Key);
+                        description.Append(":");
+                        description.Append(platformCount.Value);
+                        hasAppendedPlatform = true;
+                    }
+                }
+
+                PlayersField.SetDescription(description.ToString());
             }
 
             // Transmission
@@ -165,6 +257,18 @@ namespace Basis.BasisUI
                     $"Increase Rate: {meta.IncreaseRate:F4}\n" +
                     $"Slowest Send Rate: {meta.SlowestSendRate:F2}s");
             }
+
+            // Give the layout 2 ticks of real content to settle (bandwidth fills
+            // the second tick once deltas exist), then freeze. After this point,
+            // SetDescription calls above are leaf text changes that don't cascade.
+            if (!_layoutFrozen)
+            {
+                _updatesSincePopulated++;
+                if (_updatesSincePopulated >= 2)
+                {
+                    FreezeLayoutOnce();
+                }
+            }
         }
 
         private static string FormatBytes(long bytes)
@@ -179,6 +283,60 @@ namespace Basis.BasisUI
             if (bytesPerSec < 1024) return $"{bytesPerSec:F0} B/s";
             if (bytesPerSec < 1024 * 1024) return $"{bytesPerSec / 1024.0:F1} KB/s";
             return $"{bytesPerSec / (1024.0 * 1024.0):F2} MB/s";
+        }
+
+        private static string NormalizePlatformAggregate(string platform, out bool isHeadless)
+        {
+            isHeadless = false;
+            if (string.IsNullOrWhiteSpace(platform))
+            {
+                return "Unknown";
+            }
+
+            switch (platform)
+            {
+                case "WindowsServer":
+                    isHeadless = true;
+                    return "Windows Server";
+                case "LinuxServer":
+                    isHeadless = true;
+                    return "Linux Server";
+                case "OSXServer":
+                    isHeadless = true;
+                    return "macOS Server";
+                case "Headless":
+                    isHeadless = true;
+                    return "Headless";
+            }
+
+            return BasisIOManagement.NormalizeCachePlatformName(platform) switch
+            {
+                "StandaloneWindows64" => "Windows",
+                "StandaloneLinux64" => "Linux",
+                "StandaloneOSX" => "macOS",
+                "Android" => "Android",
+                "iOS" => "iOS",
+                _ => UserListProvider.GetPlatformLabel(platform)
+            };
+        }
+
+        private static void AppendPlatformCount(StringBuilder description, Dictionary<string, int> platformCounts, string platform, ref bool hasAppendedPlatform)
+        {
+            if (!platformCounts.TryGetValue(platform, out int count))
+            {
+                return;
+            }
+
+            if (hasAppendedPlatform)
+            {
+                description.Append(" | ");
+            }
+
+            description.Append(platform);
+            description.Append(": ");
+            description.Append(count);
+            hasAppendedPlatform = true;
+            platformCounts.Remove(platform);
         }
     }
 }

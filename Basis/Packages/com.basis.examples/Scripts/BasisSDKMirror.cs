@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -136,6 +137,8 @@ public class BasisSDKMirror : MonoBehaviour
 
         BasisDeviceManagement.OnBootModeChanged += BootModeChanged;
         BasisLocalCameraDriver.InstanceExists += Initialize;
+        BasisSettingsDefaults.MirrorQuality.OnChanged += OnMirrorQualityChanged;
+        BasisSettingsDefaults.UseMirrorQualityOverride.OnChanged += OnMirrorQualityOverrideChanged;
 
         if (BasisLocalCameraDriver.HasInstance)
             Initialize();
@@ -151,10 +154,14 @@ public class BasisSDKMirror : MonoBehaviour
     private void OnDestroy()
     {
         BasisDeviceManagement.OnBootModeChanged -= BootModeChanged;
+        BasisSettingsDefaults.MirrorQuality.OnChanged -= OnMirrorQualityChanged;
+        BasisSettingsDefaults.UseMirrorQualityOverride.OnChanged -= OnMirrorQualityOverrideChanged;
         Application.onBeforeRender -= OnBeforeRender;
     }
 
     private void BootModeChanged(string _) => StartCoroutine(ResetMirror());
+    private void OnMirrorQualityChanged(string _) => StartCoroutine(ResetMirror());
+    private void OnMirrorQualityOverrideChanged(bool _) => StartCoroutine(ResetMirror());
 
     private IEnumerator ResetMirror()
     {
@@ -202,6 +209,21 @@ public class BasisSDKMirror : MonoBehaviour
         IsActive = false;
         IsAbleToRender = false;
         InsideRendering = false;
+    }
+
+    private void GetEffectiveResolution(out int width, out int height)
+    {
+        if (BasisSettingsDefaults.UseMirrorQualityOverride.RawValue &&
+            int.TryParse(BasisSettingsDefaults.MirrorQuality.RawValue, out int overrideRes) && overrideRes > 0)
+        {
+            width = overrideRes;
+            height = overrideRes;
+        }
+        else
+        {
+            width = XSize;
+            height = YSize;
+        }
     }
 
     private void Initialize()
@@ -352,8 +374,16 @@ public class BasisSDKMirror : MonoBehaviour
         portalCamera.cullingMatrix = portalCamera.projectionMatrix * portalCamera.worldToCameraMatrix;
 
         // Clamp near/far
-        portalCamera.nearClipPlane = Mathf.Max(nearClipLimit, portalCamera.nearClipPlane);
-        portalCamera.farClipPlane = FarClipPlane;
+        if (BasisSettingsDefaults.UseCameraClipOverride.RawValue)
+        {
+            portalCamera.nearClipPlane = Mathf.Max(0.001f, BasisSettingsDefaults.CameraClipNear.RawValue);
+            portalCamera.farClipPlane = BasisSettingsDefaults.CameraClipFar.RawValue;
+        }
+        else
+        {
+            portalCamera.nearClipPlane = Mathf.Max(nearClipLimit, portalCamera.nearClipPlane);
+            portalCamera.farClipPlane = FarClipPlane;
+        }
 
         SubmitRenderRequest(portalCamera, portalCamera.targetTexture);
     }
@@ -405,7 +435,8 @@ public class BasisSDKMirror : MonoBehaviour
 
     private void CreatePortalCamera(Camera sourceCamera, StereoscopicEye eye, ref Camera portalCamera, ref RenderTexture portalTexture)
     {
-        var desc = new RenderTextureDescriptor(XSize, YSize, RenderTextureFormat.Default, depth)
+        GetEffectiveResolution(out int effectiveWidth, out int effectiveHeight);
+        var desc = new RenderTextureDescriptor(effectiveWidth, effectiveHeight, RenderTextureFormat.Default, depth)
         {
             msaaSamples = Mathf.Max(1, Antialiasing),
             sRGB = QualitySettings.activeColorSpace == ColorSpace.Linear,

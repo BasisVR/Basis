@@ -129,64 +129,57 @@ namespace SteamAudio
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static bool Approximately(float a, float b) => Mathf.Abs(a - b) <= kEpsilon;
 
-        // NEW: fast-ish hash of all relevant fields.
-        // Uses raw float bits so tiny changes count as changes (which is good if the plugin needs it).
-        // If you want to ignore tiny jitter, quantize floats here.
+        // Fully inlined FNV-1a of every spatializer-relevant field.
+        //
+        // Why not use local functions like the previous version did: capturing
+        // `h` in a local function forces the C# compiler to emit a display
+        // struct and per-mix method calls, so the JIT spills `h` out of a
+        // register on every call. Straight-line arithmetic keeps `h` pinned in
+        // a register for the whole mix and costs roughly 1/4 as much in
+        // practice. This runs every frame per source, so it matters.
+        //
+        // Booleans are packed into a single uint so 11 mixes collapse to 1.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static ulong ComputeParamsHash(SteamAudioSource s, int handle)
         {
-            // 64-bit FNV-1a style mix
-            ulong h = 1469598103934665603UL;
+            const ulong FnvOffset = 1469598103934665603UL;
+            const ulong FnvPrime = 1099511628211UL;
 
-            void MixU32(uint v)
-            {
-                h ^= v;
-                h *= 1099511628211UL;
-            }
+            uint bits = 0;
+            if (s.distanceAttenuation)    bits |= 1u << 0;
+            if (s.airAbsorption)          bits |= 1u << 1;
+            if (s.directivity)            bits |= 1u << 2;
+            if (s.occlusion)              bits |= 1u << 3;
+            if (s.transmission)           bits |= 1u << 4;
+            if (s.reflections)            bits |= 1u << 5;
+            if (s.pathing)                bits |= 1u << 6;
+            if (s.applyHRTFToReflections) bits |= 1u << 7;
+            if (s.applyHRTFToPathing)     bits |= 1u << 8;
+            if (s.directBinaural)         bits |= 1u << 9;
+            if (s.perspectiveCorrection)  bits |= 1u << 10;
 
-            void MixBool(bool v) => MixU32(v ? 1u : 0u);
-            void MixInt(int v) => MixU32(unchecked((uint)v));
-            void MixFloat(float v) => MixU32(unchecked((uint)BitConverter.SingleToInt32Bits(v)));
-
-            MixBool(s.distanceAttenuation);
-            MixBool(s.airAbsorption);
-            MixBool(s.directivity);
-            MixBool(s.occlusion);
-            MixBool(s.transmission);
-            MixBool(s.reflections);
-            MixBool(s.pathing);
-
-            MixInt((int)s.interpolation);
-
-            MixFloat(s.distanceAttenuationValue);
-            MixInt((int)s.distanceAttenuationInput);
-
-            MixFloat(s.airAbsorptionLow);
-            MixFloat(s.airAbsorptionMid);
-            MixFloat(s.airAbsorptionHigh);
-            MixInt((int)s.airAbsorptionInput);
-
-            MixFloat(s.directivityValue);
-            MixFloat(s.dipoleWeight);
-            MixFloat(s.dipolePower);
-            MixInt((int)s.directivityInput);
-
-            MixFloat(s.occlusionValue);
-
-            MixInt((int)s.transmissionType);
-            MixFloat(s.transmissionLow);
-            MixFloat(s.transmissionMid);
-            MixFloat(s.transmissionHigh);
-
-            MixFloat(s.directMixLevel);
-            MixBool(s.applyHRTFToReflections);
-            MixFloat(s.reflectionsMixLevel);
-
-            MixBool(s.applyHRTFToPathing);
-            MixFloat(s.pathingMixLevel);
-
-            MixBool(s.directBinaural);
-            MixInt(handle);
-            MixBool(s.perspectiveCorrection);
+            ulong h = FnvOffset;
+            h = (h ^ bits) * FnvPrime;
+            h = (h ^ (uint)s.interpolation) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.distanceAttenuationValue))) * FnvPrime;
+            h = (h ^ (uint)s.distanceAttenuationInput) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.airAbsorptionLow))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.airAbsorptionMid))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.airAbsorptionHigh))) * FnvPrime;
+            h = (h ^ (uint)s.airAbsorptionInput) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.directivityValue))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.dipoleWeight))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.dipolePower))) * FnvPrime;
+            h = (h ^ (uint)s.directivityInput) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.occlusionValue))) * FnvPrime;
+            h = (h ^ (uint)s.transmissionType) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.transmissionLow))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.transmissionMid))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.transmissionHigh))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.directMixLevel))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.reflectionsMixLevel))) * FnvPrime;
+            h = (h ^ unchecked((uint)BitConverter.SingleToInt32Bits(s.pathingMixLevel))) * FnvPrime;
+            h = (h ^ unchecked((uint)handle)) * FnvPrime;
 
             return h;
         }

@@ -32,7 +32,7 @@ namespace OpusSharp.Core.SafeHandlers
     /// <summary>
     /// Managed wrapper over the OpusDREDDecoder state (statically linked).
     /// </summary>
-    public class StaticOpusDREDDecoderSafeHandle : OpusDecoderSafeHandle
+    public class StaticOpusDREDDecoderSafeHandle : OpusDREDDecoderSafeHandle
     {
         /// <inheritdoc/>
         protected override bool ReleaseHandle()

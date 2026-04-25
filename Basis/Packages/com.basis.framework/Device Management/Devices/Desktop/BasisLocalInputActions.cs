@@ -51,6 +51,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScrollClick;
 
         public InputActionReference MoveLocalUpDown;
+        public InputActionReference OpenChat;
+        public InputActionReference ToggleMicMute;
         #endregion
 
         [Header("Sensitivity Settings")]
@@ -95,14 +97,22 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         #region Unity Lifecycle
 
+        // Enable Unity Input System internal optimizations once at app startup so every input path
+        // (desktop + XR) benefits. Previously these were in OnEnable and only fired for the desktop
+        // input component, leaving the XR path un-optimized.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ApplyInputSystemOptimizations()
+        {
+            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
+            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
+        }
+
         public void OnEnable()
         {
             if (BasisHelpers.CheckInstance(Instance))
             {
                 Instance = this;
             }
-            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
-            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
             BasisLocalCameraDriver.InstanceExists += SetupCamera;
             // Create user (or you may already have one from PlayerInput, etc.)
             var user = InputUser.CreateUserWithoutPairedDevices();
@@ -115,6 +125,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     InputUser.PerformPairingWithDevice(device, user);
                 }
             }
+
+            SettingsProviderKeyboardBindings.LoadBindingOverrides(Input.actions);
 
             if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
             {
@@ -185,6 +197,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
             MoveLocalUpDown.action.Enable();
+            OpenChat.action.Enable();
+            ToggleMicMute.action.Enable();
         }
 
         private void DisableActions()
@@ -206,6 +220,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MiddleMouseScroll?.action?.Disable();
             MiddleMouseScrollClick?.action?.Disable();
             MoveLocalUpDown?.action?.Disable();
+            OpenChat?.action?.Disable();
+            ToggleMicMute?.action?.Disable();
         }
 
         private void AddCallbacks()
@@ -256,6 +272,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             VRSwitch.action.performed += OnSwitchOpenVR;
             XRSwitch.action.performed += OnSwitchOpenXR;
 
+            OpenChat.action.performed += OnOpenChatPerformed;
+            OpenChat.action.canceled += OnOpenChatCancelled;
+
+            ToggleMicMute.action.performed += OnToggleMicMutePerformed;
+            ToggleMicMute.action.canceled += OnToggleMicMuteCancelled;
+
             BasisCursorManagement.OnCursorStateChange += OnCursorStateChanged;
         }
 
@@ -287,6 +309,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             SafeRemoveCallbacks(DesktopSwitch, OnSwitchDesktop, OnSwitchDesktop);
             SafeRemoveCallbacks(VRSwitch, OnSwitchOpenVR);
             SafeRemoveCallbacks(XRSwitch, OnSwitchOpenXR);
+            SafeRemoveCallbacks(OpenChat, OnOpenChatPerformed, OnOpenChatCancelled);
+            SafeRemoveCallbacks(ToggleMicMute, OnToggleMicMutePerformed, OnToggleMicMuteCancelled);
 
             BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
         }
@@ -446,6 +470,27 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         public void OnEscapeCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnOpenChatPerformed(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance.IsTyping() == false)
+            {
+                SettingsProvider.OpenToTab("settings.tab.chat");
+            }
+        }
+
+        public void OnOpenChatCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnToggleMicMutePerformed(InputAction.CallbackContext ctx)
+        {
+#if !BASIS_DISABLE_MICROPHONE
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+            BasisLocalMicrophoneDriver.ToggleIsPaused();
+#endif
+        }
+
+        public void OnToggleMicMuteCancelled(InputAction.CallbackContext ctx) { }
 
         public void OnTabPerformed(InputAction.CallbackContext ctx)
         {

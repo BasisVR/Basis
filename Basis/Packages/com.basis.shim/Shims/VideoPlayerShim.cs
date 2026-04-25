@@ -2,6 +2,7 @@ using UnityEngine;
 using Cilbox;
 using UnityEngine.Video;
 using Basis.BasisUI;
+using System;
 using System.Collections;
 
 namespace Basis.Shims
@@ -185,7 +186,35 @@ namespace Basis.Shims
 
                 if (url == videoPlayer.url) return;
                 if(hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
-                if (!url.StartsWith("https://")) return;
+                if (!url.StartsWith("https://") && !url.StartsWith("http://")) return;
+
+                Uri uri = null;
+                try
+                {
+                    uri = new Uri(url);
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"[VideoPlayerShim] Failed to parse URL: {e}", BasisDebug.LogTag.Shims);
+                }
+
+                if (BasisTrustedVideoUrls.IsTrusted(url))
+                {
+                    BasisDebug.Log($"[VideoPlayerShim] Auto-accepting trusted URL \"{url}\"", BasisDebug.LogTag.Shims);
+                    AutoDenyPendingUrlRequest();
+                    videoPlayer.url = url;
+                    if (playRequestedForPendingUrl)
+                    {
+                        playRequestedForPendingUrl = false;
+                        videoPlayer.Play();
+                    }
+                    if (prepareRequestedForPendingUrl)
+                    {
+                        prepareRequestedForPendingUrl = false;
+                        videoPlayer.Prepare();
+                    }
+                    return;
+                }
 
                 BasisDebug.Log($"[VideoPlayerShim] Requesting URL \"{url}\"", BasisDebug.LogTag.Shims);
 
@@ -195,42 +224,47 @@ namespace Basis.Shims
                 pendingConfirmedUrlRequestId++;
                 int requestId = pendingConfirmedUrlRequestId;
                 pendingUrlTimeoutCoroutine = StartCoroutine(ExpirePendingUrlRequest(requestId));
+
                 BasisMainMenu.Open();
-                BasisMainMenu.Instance.OpenDialogue(
-                    "Video Player URL",
-                    $"Do you want to load this video?\n{url}",
-                    "Accept",
-                    "Decline",
-                    accepted =>
+                BasisMenuURLPromptPanel.CreateNew(
+                    url,
+                    response =>
                     {
+                        BasisDebug.Log($"[VideoPlayerShim] URL Prompt Result: {(response.Accepted ? "Accepted" : "Declined")} {(response.RememberChoice ? "Remembered" : "")} {response.Scope}", BasisDebug.LogTag.Shims);
                         if (!hasPendingConfirmedUrl || pendingConfirmedUrl != url || pendingConfirmedUrlRequestId != requestId)
                         {
                             return;
                         }
-                        if (!accepted)
+                        if (!response.Accepted)
                         {
                             ClearPendingUrlRequest();
                             return;
                         }
-                        BasisDebug.Log($"[VideoPlayerShim] Setting URL to \"{url}\"", BasisDebug.LogTag.Shims);
-                        videoPlayer.url = url;
-                        hasPendingConfirmedUrl = false;
-                        pendingConfirmedUrl = string.Empty;
-                        if (pendingUrlTimeoutCoroutine != null)
+                        if(response.RememberChoice)
                         {
-                            StopCoroutine(pendingUrlTimeoutCoroutine);
-                            pendingUrlTimeoutCoroutine = null;
+                            switch (response.Scope)
+                            {
+                                case BasisMenuURLPromptPanel.RememberChoiceScope.URL:
+                                    BasisTrustedVideoUrls.Add(url);
+                                    break;
+                                case BasisMenuURLPromptPanel.RememberChoiceScope.Hostname:
+                                    BasisTrustedVideoUrls.Add(uri.Scheme + "://" + uri.Host + "/*");
+                                    break;
+                                case BasisMenuURLPromptPanel.RememberChoiceScope.Domain:
+                                    string[] parts = uri.Host.Split('.');
+                                    string domain;
+                                    if(parts.Length >= 2)
+                                    {
+                                        domain = parts[parts.Length - 2] + "." + parts[parts.Length - 1];
+                                    } else
+                                    {
+                                        domain = uri.Host;
+                                    }
+                                    BasisTrustedVideoUrls.Add(uri.Scheme + "://*." + domain + "/*");
+                                    break;
+                            }
                         }
-                        if (playRequestedForPendingUrl)
-                        {
-                            playRequestedForPendingUrl = false;
-                            videoPlayer.Play();
-                        }
-                        if (prepareRequestedForPendingUrl)
-                        {
-                            prepareRequestedForPendingUrl = false;
-                            videoPlayer.Prepare();
-                        }
+                        ApplyPendingUrl(url);
                     }
                 );
             }
@@ -336,6 +370,29 @@ namespace Basis.Shims
         //
         // URL Confirmation Logic
         //
+        private void ApplyPendingUrl(string url)
+        {
+            BasisDebug.Log($"[VideoPlayerShim] Setting URL to \"{url}\"", BasisDebug.LogTag.Shims);
+            videoPlayer.url = url;
+            hasPendingConfirmedUrl = false;
+            pendingConfirmedUrl = string.Empty;
+            if (pendingUrlTimeoutCoroutine != null)
+            {
+                StopCoroutine(pendingUrlTimeoutCoroutine);
+                pendingUrlTimeoutCoroutine = null;
+            }
+            if (playRequestedForPendingUrl)
+            {
+                playRequestedForPendingUrl = false;
+                videoPlayer.Play();
+            }
+            if (prepareRequestedForPendingUrl)
+            {
+                prepareRequestedForPendingUrl = false;
+                videoPlayer.Prepare();
+            }
+        }
+
         private void ClearPendingUrlRequest()
         {
             hasPendingConfirmedUrl = false;
