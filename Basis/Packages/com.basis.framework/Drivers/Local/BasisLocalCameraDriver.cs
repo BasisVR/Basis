@@ -69,10 +69,10 @@ namespace Basis.Scripts.Drivers
         public bool IsThirdPerson = false;
 
         /// <summary>Distance behind the avatar in meters (at 1x scale).</summary>
-        public float ThirdPersonDistance = 2.5f;
+        public float ThirdPersonDistance = 1.0f;
 
         /// <summary>Screen framing offset: X is horizontal (-1 to 1), Y is vertical (-1 to 1). e.g., X=0.3 puts the player on the left.
-        public Vector2 ThirdPersonFraming = new Vector2(-0.3f, 0.1f);
+        public Vector2 ThirdPersonFraming = new Vector2(-0.25f, 0.1f);
 
         /// <summary>How fast the camera tracks the player's position
         public float TrackingSmoothness = 30f;
