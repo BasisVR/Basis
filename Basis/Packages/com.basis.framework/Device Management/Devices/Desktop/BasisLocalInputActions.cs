@@ -53,6 +53,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MoveLocalUpDown;
         public InputActionReference OpenChat;
         public InputActionReference ToggleMicMute;
+        public InputActionReference ToggleThirdPerson;
         #endregion
 
         [Header("Sensitivity Settings")]
@@ -199,6 +200,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MoveLocalUpDown.action.Enable();
             OpenChat.action.Enable();
             ToggleMicMute.action.Enable();
+            ToggleThirdPerson?.action?.Enable();
         }
 
         private void DisableActions()
@@ -222,6 +224,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MoveLocalUpDown?.action?.Disable();
             OpenChat?.action?.Disable();
             ToggleMicMute?.action?.Disable();
+            ToggleThirdPerson?.action?.Disable();
         }
 
         private void AddCallbacks()
@@ -278,6 +281,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             ToggleMicMute.action.performed += OnToggleMicMutePerformed;
             ToggleMicMute.action.canceled += OnToggleMicMuteCancelled;
 
+            ToggleThirdPerson.action.performed += OnToggleThirdPersonPerformed;
+
             BasisCursorManagement.OnCursorStateChange += OnCursorStateChanged;
         }
 
@@ -311,6 +316,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             SafeRemoveCallbacks(XRSwitch, OnSwitchOpenXR);
             SafeRemoveCallbacks(OpenChat, OnOpenChatPerformed, OnOpenChatCancelled);
             SafeRemoveCallbacks(ToggleMicMute, OnToggleMicMutePerformed, OnToggleMicMuteCancelled);
+            SafeRemoveCallbacks(ToggleThirdPerson, OnToggleThirdPersonPerformed);
 
             BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
         }
@@ -491,6 +497,17 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         public void OnToggleMicMuteCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnToggleThirdPersonPerformed(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            if (BasisLocalCameraDriver.HasInstance)
+            {
+                BasisLocalCameraDriver.Instance.IsThirdPerson = !BasisLocalCameraDriver.Instance.IsThirdPerson;
+            }
+        }
 
         public void OnTabPerformed(InputAction.CallbackContext ctx)
         {

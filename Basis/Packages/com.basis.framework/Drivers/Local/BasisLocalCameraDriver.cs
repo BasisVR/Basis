@@ -64,6 +64,25 @@ namespace Basis.Scripts.Drivers
         public Vector3 DesktopMicrophoneViewportPosition = new(0.2f, 0.15f, 1f);
 
         public Vector3 MobileMicrophoneViewportPosition = new(0.5f, 0.1f, 1f);
+
+        /// <summary>True when the camera is in Third-Person mode.</summary>
+        public bool IsThirdPerson = false;
+
+        /// <summary>Distance behind the avatar in meters (at 1x scale).</summary>
+        public float ThirdPersonDistance = 2.5f;
+
+        /// <summary>Height above the avatar in meters (at 1x scale).</summary>
+        public float ThirdPersonHeight = 0.3f;
+
+        /// <summary>Interpolation speed for camera transitions.</summary>
+        public float ThirdPersonSmoothness = 12f;
+
+        /// <summary>Radius of the sphere cast used to prevent wall clipping.</summary>
+        public float CameraCollisionRadius = 0.15f;
+
+        /// <summary>Mask used for camera collision detection.</summary>
+        public LayerMask CameraCollisionMask;
+
         /// <summary>The desired far clipping plane from scene settings before avatar overriding.</summary>
         private float DesiredClipFar = 1000.0f;
         /// <summary>The desired near clipping plane from scene settings before avatar overriding.</summary>
@@ -186,6 +205,7 @@ namespace Basis.Scripts.Drivers
 
             // Set initial scale from player height and set the clip planes.
             UpdateCameraScale();
+            SetupCollisionMask();
 
             if (HasEvents == false)
             {
@@ -204,6 +224,8 @@ namespace Basis.Scripts.Drivers
                 BasisDeviceManagement.OnBootModeChanged += OnModeSwitch;
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateCameraScale;
                 BasisLocalPlayer.OnLocalAvatarChanged += UpdateCameraScale;
+
+                BasisLocalPlayer.AfterSimulateOnLate.AddAction(150, SimulateThirdPerson);
 
                 InstanceExists?.Invoke();
                 HasEvents = true;
@@ -236,6 +258,7 @@ namespace Basis.Scripts.Drivers
             BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateCameraScale;
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateCameraScale;
+            BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(150, SimulateThirdPerson);
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
             BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
@@ -258,6 +281,7 @@ namespace Basis.Scripts.Drivers
                 RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
                 RenderPipelineManager.endCameraRendering -= EndCameraRendering;
                 BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
+                BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(150, SimulateThirdPerson);
 #if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio -= microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence -= microphoneIconDriver.MicrophoneNotTransmitting;
@@ -352,6 +376,99 @@ namespace Basis.Scripts.Drivers
                 Camera.farClipPlane = Mathf.Clamp(DesiredClipFar, eyeHeightMeters * 128.0f, eyeHeightMeters * 8192.0f);
             }
         }
+        /// <summary>
+        /// Generates the collision mask for the camera in third-person mode.
+        /// </summary>
+        private void SetupCollisionMask()
+        {
+            int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
+            int playerLayer = LayerMask.NameToLayer("Player");
+            int localPlayerAvatar = LayerMask.NameToLayer("LocalPlayerAvatar");
+            int ignoredByInteractable = LayerMask.NameToLayer("IgnoredByInteractable");
+            int uiLayer = LayerMask.NameToLayer("UI");
+            int overlayUiLayer = LayerMask.NameToLayer("OverlayUI");
+
+            int allLayers = ~0;
+
+            CameraCollisionMask = allLayers &
+                ~(1 << ignoreRaycast) &
+                ~(1 << playerLayer) &
+                ~(1 << localPlayerAvatar) &
+                ~(1 << ignoredByInteractable) &
+                ~(1 << uiLayer) &
+                ~(1 << overlayUiLayer);
+        }
+
+        /// <summary>
+        /// Frame-rate independent damping for Vector3.
+        /// </summary>
+        public static Vector3 Damp(Vector3 current, Vector3 target, float lambda, float dt)
+        {
+            return Vector3.Lerp(target, current, Mathf.Exp(-lambda * dt));
+        }
+
+
+        /// <summary>
+        /// Converts a half-life (in seconds) to a lambda for the damping function.
+        /// </summary>
+        /// <param name="halfLife">The time (in seconds) it takes to reach 50% of the target.</param>
+        public static float GetDampRate(float halfLife)
+        {
+            return 0.69314718f / Mathf.Max(halfLife, 0.00001f);
+        }
+
+        /// <summary>
+        /// Orchestrates the third-person offset, scaling it by the avatar's height ratio
+        /// and performing a SphereCast to prevent the camera from clipping into geometry.
+        /// </summary>
+        private void SimulateThirdPerson()
+        {
+            if (!BasisDeviceManagement.IsUserInDesktop() || CameraInstance == null)
+            {
+                transform.localPosition = Vector3.zero;
+                return;
+            }
+
+            float smoothness = GetDampRate(ThirdPersonSmoothness);
+
+            if (!IsThirdPerson)
+            {
+                transform.localPosition = Damp(
+                    transform.localPosition,
+                    Vector3.zero,
+                    smoothness,
+                    Time.deltaTime);
+                return;
+            }
+
+            Transform parentTransform = transform.parent;
+            if (parentTransform == null) return;
+
+            // Scale the offset dynamically so it works seamlessly on child/giant avatars
+            float scale = BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
+            float scaledRadius = CameraCollisionRadius * scale;
+
+            Vector3 desiredLocalOffset = new Vector3(0, ThirdPersonHeight * scale, -ThirdPersonDistance * scale);
+
+            Vector3 origin = parentTransform.position;
+            Quaternion rotation = parentTransform.rotation;
+
+            Vector3 desiredWorldPos = origin + (rotation * desiredLocalOffset);
+            Vector3 direction = desiredWorldPos - origin;
+            float maxDistance = direction.magnitude;
+
+            if (Physics.SphereCast(origin, scaledRadius, direction.normalized, out RaycastHit hit, maxDistance, CameraCollisionMask, QueryTriggerInteraction.Ignore))
+            {
+                desiredWorldPos = hit.point + (hit.normal * scaledRadius);
+                desiredLocalOffset = Quaternion.Inverse(rotation) * (desiredWorldPos - origin);
+            }
+
+            transform.localPosition = Damp(
+                transform.localPosition,
+                desiredLocalOffset,
+                smoothness,
+                Time.deltaTime);
+        }
 
         /// <summary>
         /// URP callback after camera render: restores head scale to normal for this camera.
@@ -376,7 +493,10 @@ namespace Basis.Scripts.Drivers
             {
                 if (Camera.GetEntityId() == CameraInstanceID)
                 {
-                    BasisLocalAvatarDriver.ScaleheadToZero();
+                    if (!IsThirdPerson)
+                    {
+                        BasisLocalAvatarDriver.ScaleheadToZero();
+                    }
                 }
             }
         }
@@ -388,7 +508,7 @@ namespace Basis.Scripts.Drivers
                 this.transform.GetPositionAndRotation(out Position, out Rotation);
                 if (CameraData.allowXRRendering)
                 {
-                    #if !BASIS_DISABLE_MICROPHONE
+#if !BASIS_DISABLE_MICROPHONE
                     ParentOfUI.localPosition = microphoneIconDriver.CalculateClampedLocal(Camera, Position);
 #endif
                 }
