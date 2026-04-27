@@ -6,11 +6,9 @@ using Basis.Scripts.BasisSdk;
 using HVR.Basis.Comms;
 using HVR.Basis.Comms.OSC;
 using UnityEngine;
-using UnityEngine.Scripting.APIUpdating;
 
 namespace Basis.Shims
 {
-    [MovedFrom(true, null, null, "BasisOscShim")]
     [DisallowMultipleComponent]
     public class BasisOsc : CilboxShim
     {

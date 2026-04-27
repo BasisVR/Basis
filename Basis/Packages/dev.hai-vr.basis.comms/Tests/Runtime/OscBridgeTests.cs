@@ -369,8 +369,6 @@ namespace HVR.Basis.Comms.Tests
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscDataKind"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOsc"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOsc+OscValueEvent"), Is.True);
-            Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOscShim"), Is.True);
-            Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOscShim+OscValueEvent"), Is.True);
         }
 
         [Test]
@@ -809,6 +807,7 @@ namespace HVR.Basis.Comms.Tests
                 MethodInfo resolvePublishAddress = typeof(BasisOsc).GetMethod("ResolvePublishAddress", BindingFlags.NonPublic | BindingFlags.Instance);
                 Assert.That(resolvePublishAddress, Is.Not.Null);
 
+                // Absolute-looking paths that miss the scoped prefix on a segment boundary are intentionally treated as relative containment.
                 string resolved = (string)resolvePublishAddress.Invoke(shim, new object[] { "/prop/prop-one/parametersExtra" });
                 Assert.That(resolved, Is.EqualTo("/prop/prop-one/parameters/prop/prop-one/parametersExtra"));
             }
