@@ -54,6 +54,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference OpenChat;
         public InputActionReference ToggleMicMute;
         public InputActionReference ToggleThirdPerson;
+        public InputActionReference CameraZoomAction;
         #endregion
 
         [Header("Sensitivity Settings")]
@@ -200,7 +201,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MoveLocalUpDown.action.Enable();
             OpenChat.action.Enable();
             ToggleMicMute.action.Enable();
-            ToggleThirdPerson?.action?.Enable();
+            ToggleThirdPerson.action.Enable();
+            CameraZoomAction.action.Enable();
         }
 
         private void DisableActions()
@@ -225,6 +227,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             OpenChat?.action?.Disable();
             ToggleMicMute?.action?.Disable();
             ToggleThirdPerson?.action?.Disable();
+            CameraZoomAction?.action?.Disable();
         }
 
         private void AddCallbacks()
@@ -283,6 +286,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             ToggleThirdPerson.action.performed += OnToggleThirdPersonPerformed;
 
+            CameraZoomAction.action.performed += OnCameraZoom;
+            CameraZoomAction.action.canceled += OnCameraZoomCanceled;
+
             BasisCursorManagement.OnCursorStateChange += OnCursorStateChanged;
         }
 
@@ -317,6 +323,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             SafeRemoveCallbacks(OpenChat, OnOpenChatPerformed, OnOpenChatCancelled);
             SafeRemoveCallbacks(ToggleMicMute, OnToggleMicMutePerformed, OnToggleMicMuteCancelled);
             SafeRemoveCallbacks(ToggleThirdPerson, OnToggleThirdPersonPerformed);
+            SafeRemoveCallbacks(CameraZoomAction, OnCameraZoom, OnCameraZoomCanceled);
 
             BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
         }
@@ -508,6 +515,23 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisLocalCameraDriver.Instance.IsThirdPerson = !BasisLocalCameraDriver.Instance.IsThirdPerson;
             }
         }
+
+        public void OnCameraZoom(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            float zoomDelta = ctx.ReadValue<float>();
+
+            if (BasisLocalCameraDriver.HasInstance)
+            {
+                // "Normalize" the scroll wheel delta
+                float normalizedDelta = zoomDelta / 120.0f;
+                BasisLocalCameraDriver.Instance.ModifyCameraDistance(normalizedDelta);
+            }
+        }
+
+        public void OnCameraZoomCanceled(InputAction.CallbackContext ctx) { }
 
         public void OnTabPerformed(InputAction.CallbackContext ctx)
         {

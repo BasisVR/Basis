@@ -568,6 +568,8 @@ MonoBehaviour:
   MoveLocalUpDown: {fileID: -8761834997978577808, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   OpenChat: {fileID: 6276339513826019528, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   ToggleMicMute: {fileID: 6408654589139290635, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  ToggleThirdPerson: {fileID: 5255996632856729500, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  CameraZoomAction: {fileID: -6461621260778274687, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MouseSensitivity: 1
   JoystickSensitivity: 1
   KeyboardSensitivity: 5
