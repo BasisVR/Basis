@@ -71,17 +71,32 @@ namespace Basis.Scripts.Drivers
         /// <summary>Distance behind the avatar in meters (at 1x scale).</summary>
         public float ThirdPersonDistance = 2.5f;
 
-        /// <summary>Height above the avatar in meters (at 1x scale).</summary>
-        public float ThirdPersonHeight = 0.3f;
+        /// <summary>Screen framing offset: X is horizontal (-1 to 1), Y is vertical (-1 to 1). e.g., X=0.3 puts the player on the left.
+        public Vector2 ThirdPersonFraming = new Vector2(-0.3f, 0.1f);
 
-        /// <summary>Interpolation speed for camera transitions.</summary>
-        public float ThirdPersonSmoothness = 12f;
+        /// <summary>How fast the camera tracks the player's position
+        public float TrackingSmoothness = 30f;
+
+        /// <summary>How fast the camera rotates to match the player's look direction
+        public float RotationSmoothness = 24f;
 
         /// <summary>Radius of the sphere cast used to prevent wall clipping.</summary>
         public float CameraCollisionRadius = 0.15f;
 
         /// <summary>Mask used for camera collision detection.</summary>
         public LayerMask CameraCollisionMask;
+
+        private struct CameraParams
+        {
+            public Vector3 trackingPosition;
+            public Vector2 framing;
+            public float distance;
+            public float pitch;
+            public float yaw;
+        }
+
+        private CameraParams _currentCamParams;
+        private bool _wasThirdPerson = false;
 
         /// <summary>The desired far clipping plane from scene settings before avatar overriding.</summary>
         private float DesiredClipFar = 1000.0f;
@@ -400,11 +415,34 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Frame-rate independent damping for Vector3.
+        /// Frame-rate independent damping (exponential decay).
         /// </summary>
+        public static float Damp(float current, float target, float lambda, float dt)
+        {
+            return Mathf.LerpUnclamped(target, current, Mathf.Exp(-lambda * dt));
+        }
+
+        public static Vector2 Damp(Vector2 current, Vector2 target, float lambda, float dt)
+        {
+            return Vector2.LerpUnclamped(target, current, Mathf.Exp(-lambda * dt));
+        }
+
         public static Vector3 Damp(Vector3 current, Vector3 target, float lambda, float dt)
         {
-            return Vector3.Lerp(target, current, Mathf.Exp(-lambda * dt));
+            return Vector3.LerpUnclamped(target, current, Mathf.Exp(-lambda * dt));
+        }
+
+        public static Quaternion Damp(Quaternion current, Quaternion target, float lambda, float dt)
+        {
+            return Quaternion.SlerpUnclamped(target, current, Mathf.Exp(-lambda * dt));
+        }
+
+        /// <summary>
+        /// Special version for damping angles (degrees), preventing the 360-degree wrap-around glitch.
+        /// </summary>
+        public static float DampAngle(float current, float target, float lambda, float dt)
+        {
+            return Mathf.LerpAngle(current, target, 1.0f - Mathf.Exp(-lambda * dt));
         }
 
 
@@ -425,49 +463,89 @@ namespace Basis.Scripts.Drivers
         {
             if (!BasisDeviceManagement.IsUserInDesktop() || CameraInstance == null)
             {
-                transform.localPosition = Vector3.zero;
+                if (_wasThirdPerson)
+                {
+                    transform.localPosition = Vector3.zero;
+                    transform.localRotation = Quaternion.identity;
+                    _wasThirdPerson = false;
+                }
                 return;
             }
 
-            float smoothness = GetDampRate(ThirdPersonSmoothness);
-
-            if (!IsThirdPerson)
-            {
-                transform.localPosition = Damp(
-                    transform.localPosition,
-                    Vector3.zero,
-                    smoothness,
-                    Time.deltaTime);
-                return;
-            }
-
-            Transform parentTransform = transform.parent;
+            Transform parentTransform = transform.parent; // Typically the Eye/Head bone
             if (parentTransform == null) return;
 
-            // Scale the offset dynamically so it works seamlessly on child/giant avatars
+            float dt = Time.deltaTime;
             float scale = BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
-            float scaledRadius = CameraCollisionRadius * scale;
 
-            Vector3 desiredLocalOffset = new Vector3(0, ThirdPersonHeight * scale, -ThirdPersonDistance * scale);
+            // Target Variables
+            Vector3 targetTrackingPos = parentTransform.position;
+            float targetPitch = parentTransform.rotation.eulerAngles.x;
+            float targetYaw = parentTransform.rotation.eulerAngles.y;
+            float targetDistance = IsThirdPerson ? ThirdPersonDistance * scale : 0f;
+            Vector2 targetFraming = IsThirdPerson ? ThirdPersonFraming : Vector2.zero;
 
-            Vector3 origin = parentTransform.position;
-            Quaternion rotation = parentTransform.rotation;
-
-            Vector3 desiredWorldPos = origin + (rotation * desiredLocalOffset);
-            Vector3 direction = desiredWorldPos - origin;
-            float maxDistance = direction.magnitude;
-
-            if (Physics.SphereCast(origin, scaledRadius, direction.normalized, out RaycastHit hit, maxDistance, CameraCollisionMask, QueryTriggerInteraction.Ignore))
+            // Initialize params if we just switched INTO third person
+            if (IsThirdPerson && !_wasThirdPerson)
             {
-                desiredWorldPos = hit.point + (hit.normal * scaledRadius);
-                desiredLocalOffset = Quaternion.Inverse(rotation) * (desiredWorldPos - origin);
+                _currentCamParams = new CameraParams
+                {
+                    trackingPosition = targetTrackingPos,
+                    framing = targetFraming,
+                    distance = targetDistance,
+                    pitch = targetPitch,
+                    yaw = targetYaw
+                };
+                _wasThirdPerson = true;
             }
 
-            transform.localPosition = Damp(
-                transform.localPosition,
-                desiredLocalOffset,
-                smoothness,
-                Time.deltaTime);
+            // If we are fully back in first person, snap to parent and stop updating
+            if (!IsThirdPerson && _wasThirdPerson && _currentCamParams.distance < 0.05f)
+            {
+                transform.localPosition = Vector3.zero;
+                transform.localRotation = Quaternion.identity;
+                _wasThirdPerson = false;
+                return;
+            }
+
+            // We only simulate if we are in 3rd person OR smoothly transitioning back to 1st person
+            if (_wasThirdPerson)
+            {
+                // Smoothly blend the parameter space
+                _currentCamParams.trackingPosition = Damp(_currentCamParams.trackingPosition, targetTrackingPos, TrackingSmoothness, dt);
+                _currentCamParams.distance = Damp(_currentCamParams.distance, targetDistance, TrackingSmoothness, dt);
+                _currentCamParams.framing = Damp(_currentCamParams.framing, targetFraming, TrackingSmoothness, dt);
+
+                _currentCamParams.pitch = DampAngle(_currentCamParams.pitch, targetPitch, RotationSmoothness, dt);
+                _currentCamParams.yaw = DampAngle(_currentCamParams.yaw, targetYaw, RotationSmoothness, dt);
+
+                // Project onto picture plane
+                float tanFOVY = Mathf.Tan(0.5f * Mathf.Deg2Rad * CameraInstance.fieldOfView);
+                float tanFOVX = tanFOVY * CameraInstance.aspect;
+
+                Vector3 localOffset = new Vector3(
+                    _currentCamParams.distance * tanFOVX * _currentCamParams.framing.x,
+                    _currentCamParams.distance * tanFOVY * _currentCamParams.framing.y,
+                    _currentCamParams.distance
+                );
+
+                Quaternion desiredRotation = Quaternion.Euler(_currentCamParams.pitch, _currentCamParams.yaw, 0);
+                Vector3 desiredWorldPos = _currentCamParams.trackingPosition - (desiredRotation * localOffset);
+
+                // Wall collision detection
+                Vector3 direction = desiredWorldPos - _currentCamParams.trackingPosition;
+                float maxDistance = direction.magnitude;
+                float scaledRadius = CameraCollisionRadius * scale;
+
+                if (Physics.SphereCast(_currentCamParams.trackingPosition, scaledRadius, direction.normalized, out RaycastHit hit, maxDistance, CameraCollisionMask, QueryTriggerInteraction.Ignore))
+                {
+                    desiredWorldPos = hit.point + (hit.normal * scaledRadius);
+                }
+
+                // Apply final world transform (Overrides parent constraint)
+                transform.position = desiredWorldPos;
+                transform.rotation = desiredRotation;
+            }
         }
 
         /// <summary>
