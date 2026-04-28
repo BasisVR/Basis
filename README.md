@@ -94,6 +94,7 @@ This would not be possible without the following:
 - [unity](https://unity.com/)
 - [ionic icons](https://github.com/ionic-team/ionicons?ref=svgrepo.com)
 - [LiteNetLib](https://github.com/RevenantX/LiteNetLib)
+- [K4os.Compression.LZ4](https://github.com/MiloszKrajewski/K4os.Compression.LZ4)
 - [cilbox](https://github.com/cnlohr/cilbox)
 
 ## Third-Party Code and Trademarks
@@ -124,6 +125,7 @@ This project includes third-party software under the following licenses:
 - [Generator.Equals](https://github.com/diegofrata/Generator.Equals) - Copyright Diego Frata. See `Basis/Packages/org.basisvr.generator.equals/LICENSE`
 - [SimpleBase](https://github.com/ssg/SimpleBase) - Copyright Sedat Kapanoglu. See `Basis/Packages/org.basisvr.simplebase/LICENSE`
 - [ZeroMessenger](https://github.com/Cysharp/ZeroMessenger) - Copyright 2024 Annulus Games. See `Basis/Packages/com.basis.zeromessenger/LICENSE.md`
+- [K4os.Compression.LZ4](https://github.com/MiloszKrajewski/K4os.Compression.LZ4) - Copyright 2017 Milosz Krajewski. See `Basis/Packages/org.basisvr.k4os.compression.lz4/LICENSE`
 - [UnityJigglePhysics](https://github.com/naelstrof/UnityJigglePhysics) - MIT licensed upstream
 - [AudioLink](https://github.com/llealloo/vrc-udon-audio-link) - MIT licensed upstream
 - [cilbox](https://github.com/cnlohr/cilbox) - MIT licensed upstream

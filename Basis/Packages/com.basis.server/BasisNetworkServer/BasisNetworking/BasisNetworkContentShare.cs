@@ -1,5 +1,5 @@
 using Basis.Network.Core;
-using BasisNetworkServer.Security;
+using Basis.Network.Server.Generic;
 using BasisPermissions;
 using System.Collections.Concurrent;
 using System.Linq;
@@ -34,33 +34,41 @@ public static class BasisNetworkContentShare
             return;
         }
 
-        // Global lock check based on content type
-        bool isAdmin = PermissionIntegration.HasValidRequirement(peer, PermNodes.All);
-        if (!isAdmin)
+        // Global lock check based on content type: blocked when the content's
+        // lock is on AND the peer lacks the matching lockbypass permission.
+        bool blocked = false;
+        string contentName = "";
+        switch (msg.ContentType)
         {
-            bool blocked = false;
-            string contentName = "";
-            switch (msg.ContentType)
-            {
-                case ContentShareType.Avatar:
-                    blocked = BasisGlobalLockManager.AvatarsLocked;
-                    contentName = "Avatar";
-                    break;
-                case ContentShareType.Prop:
-                    blocked = BasisGlobalLockManager.PropsLocked;
-                    contentName = "Prop";
-                    break;
-                case ContentShareType.World:
-                    blocked = BasisGlobalLockManager.WorldsLocked;
-                    contentName = "World";
-                    break;
-            }
-            if (blocked)
-            {
-                BNL.Log($"{contentName} content sharing is globally disabled. Rejected from peer {peer.Id}");
-                BasisPlayerModeration.SendBackMessage(peer, $"{contentName} loading is currently disabled by an admin.");
-                return;
-            }
+            case ContentShareType.Avatar:
+                blocked = BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked &&
+                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassAvatar);
+                contentName = "Avatar";
+                break;
+            case ContentShareType.Prop:
+                blocked = BasisNetworkServer.Security.BasisGlobalLockManager.PropsLocked &&
+                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassProp);
+                contentName = "Prop";
+                break;
+            case ContentShareType.World:
+                blocked = BasisNetworkServer.Security.BasisGlobalLockManager.WorldsLocked &&
+                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassWorld);
+                contentName = "World";
+                break;
+        }
+        if (blocked)
+        {
+            BNL.Log($"{contentName} content sharing is globally disabled. Rejected from peer {peer.Id}");
+            BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, $"{contentName} loading is currently disabled by an admin.");
+            return;
+        }
+
+        string sharerUUID = string.Empty;
+        string sharerDisplayName = string.Empty;
+        if (BasisSavedState.GetLastPlayerMetaData(peer, out ClientMetaDataMessage sharerMeta))
+        {
+            sharerUUID = sharerMeta.playerUUID ?? string.Empty;
+            sharerDisplayName = sharerMeta.playerDisplayName ?? string.Empty;
         }
 
         ServerContentShareMessage serverMsg = new ServerContentShareMessage
@@ -69,6 +77,8 @@ public static class BasisNetworkContentShare
             {
                 playerID = (ushort)peer.Id
             },
+            SharerUUID = sharerUUID,
+            SharerDisplayName = sharerDisplayName,
             contentShareMessage = msg
         };
 

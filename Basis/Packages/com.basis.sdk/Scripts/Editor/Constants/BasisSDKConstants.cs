@@ -18,6 +18,8 @@ public class BasisSDKConstants
     public static readonly string AvatarAutomaticBlinkDetection = "AvatarAutomaticBlinkDetection";
     public static readonly string avatarEyePositionField = "AvatarEyePositionField";
     public static readonly string avatarMouthPositionField = "AvatarMouthPositionField";
+    public static readonly string EyeLivelinessField = "EyeLivelinessField";
+    public static readonly string EyeAttentivenessField = "EyeAttentivenessField";
     public static readonly string AvatarBuildBundle = "AvatarBuildBundle";
 
     public static readonly string animatorField = "AnimatorField";

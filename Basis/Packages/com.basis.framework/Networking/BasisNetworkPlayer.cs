@@ -54,6 +54,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
         }
         public ushort playerId {get; protected set; }
+        /// <summary>
+        /// Local realtime (Time.realtimeSinceStartup) at which this player was constructed.
+        /// Used to sort the players UI by arrival order and to display "joined Xs ago".
+        /// Captured here because the server doesn't send a join timestamp.
+        /// </summary>
+        public float JoinTime { get; protected set; } = Time.realtimeSinceStartup;
         public Dictionary<byte, ServerAvatarDataMessageQueue> NextMessages = new Dictionary<byte, ServerAvatarDataMessageQueue>();
         public struct ServerAvatarDataMessageQueue
         {

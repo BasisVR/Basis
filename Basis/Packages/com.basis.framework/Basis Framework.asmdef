@@ -43,7 +43,8 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "Unity.Burst.Cecil.dll",
-        "Unity.Collections.LowLevel.ILSupport.dll"
+        "Unity.Collections.LowLevel.ILSupport.dll",
+        "K4os.Compression.LZ4.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

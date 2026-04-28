@@ -5,6 +5,10 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Basis.Scripts.Drivers
@@ -106,6 +110,67 @@ namespace Basis.Scripts.Drivers
         /// <summary>Gizmo size for hand-related visuals (scaled by avatar height).</summary>
         public static float HandGizmoSize = 0.02f;
 
+        // ===== Burst/Jobs simulation backing store =====
+        // Per-frame inputs (incoming pose, has-tracker flags, target index, etc).
+        private NativeArray<BasisBoneSimInput> _simInputs;
+        // Per-frame outputs/persistent state (outgoing pose, last-run, world).
+        private NativeArray<BasisBoneSimState> _simStates;
+        // Cached target indices: _cachedTargetIndices[i] = array index of Controls[i].Target, or -1.
+        private int[] _cachedTargetIndices = Array.Empty<int>();
+
+        // Chain index arrays — built once after calibration.
+        // Spine chain runs first (serially). The four limb chains run in parallel after spine.
+        private NativeArray<int> _spineChainIndices;
+        private NativeArray<int> _leftArmChainIndices;
+        private NativeArray<int> _rightArmChainIndices;
+        private NativeArray<int> _leftLegChainIndices;
+        private NativeArray<int> _rightLegChainIndices;
+        // Any controls not in the standard skeleton chains — processed serially after spine.
+        private NativeArray<int> _otherChainIndices;
+
+        private bool _nativeAllocated;
+        private int _nativeCapacity;
+        private bool _chainsBuilt;
+
+        private static readonly BasisBoneTrackedRole[] SpineChainOrder =
+        {
+            BasisBoneTrackedRole.CenterEye,
+            BasisBoneTrackedRole.Head,
+            BasisBoneTrackedRole.Neck,
+            BasisBoneTrackedRole.Chest,
+            BasisBoneTrackedRole.Spine,
+            BasisBoneTrackedRole.Hips,
+            BasisBoneTrackedRole.Mouth,
+        };
+        private static readonly BasisBoneTrackedRole[] LeftArmChainOrder =
+        {
+            BasisBoneTrackedRole.LeftShoulder,
+            BasisBoneTrackedRole.LeftUpperArm,
+            BasisBoneTrackedRole.LeftLowerArm,
+            BasisBoneTrackedRole.LeftHand,
+        };
+        private static readonly BasisBoneTrackedRole[] RightArmChainOrder =
+        {
+            BasisBoneTrackedRole.RightShoulder,
+            BasisBoneTrackedRole.RightUpperArm,
+            BasisBoneTrackedRole.RightLowerArm,
+            BasisBoneTrackedRole.RightHand,
+        };
+        private static readonly BasisBoneTrackedRole[] LeftLegChainOrder =
+        {
+            BasisBoneTrackedRole.LeftUpperLeg,
+            BasisBoneTrackedRole.LeftLowerLeg,
+            BasisBoneTrackedRole.LeftFoot,
+            BasisBoneTrackedRole.LeftToes,
+        };
+        private static readonly BasisBoneTrackedRole[] RightLegChainOrder =
+        {
+            BasisBoneTrackedRole.RightUpperLeg,
+            BasisBoneTrackedRole.RightLowerLeg,
+            BasisBoneTrackedRole.RightFoot,
+            BasisBoneTrackedRole.RightToes,
+        };
+
         /// <summary>
         /// Discovers common tracked roles and assigns cached references (e.g., head, spine).
         /// </summary>
@@ -135,18 +200,16 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Simulates all bone controls for a frame using the given parent <paramref name="transform"/> and delta time.
-        /// Also draws gizmos when debug rendering is enabled.
+        /// Simulates all bone controls for a frame using the given parent matrix and delta time.
+        /// Runs the spine chain serially in a Burst job, then schedules four limb chains
+        /// (left/right arm, left/right leg) in parallel with a dependency on the spine chain.
+        /// Any non-skeleton bones are processed serially in an "other" chain.
         /// </summary>
         /// <param name="deltaTime">Time elapsed since last update (seconds).</param>
-        /// <param name="transform">Parent transform whose <see cref="Transform.localToWorldMatrix"/> seeds world computation.</param>
+        /// <param name="parentMatrix">Parent transform matrix that seeds world-space computation.</param>
         public void Simulate(float deltaTime, Matrix4x4 parentMatrix)
         {
-            // sequence all other devices to run at the same time
-            for (int Index = 0; Index < ControlsLength; Index++)
-            {
-                Controls[Index].ComputeMovementLocal(parentMatrix, deltaTime);
-            }
+            RunSimulation(parentMatrix, deltaTime, seedLastRunFromOutgoing: false);
             if (SMModuleDebugOptions.UseGizmos)
             {
                 DrawGizmos();
@@ -157,21 +220,274 @@ namespace Basis.Scripts.Drivers
         /// Simulates all bone controls but seeds their "last run" data from current outgoing data,
         /// effectively skipping interpolation/lerp for this frame.
         /// </summary>
-        /// <param name="transform">Parent transform for world calculations.</param>
+        /// <param name="parentMatrix">Parent transform matrix for world calculations.</param>
         public void SimulateWithoutLerp(Matrix4x4 parentMatrix)
         {
-            // sequence all other devices to run at the same time
-            float DeltaTime = Time.deltaTime;
-            for (int Index = 0; Index < ControlsLength; Index++)
-            {
-                Controls[Index].LastRunData.position = Controls[Index].OutGoingData.position;
-                Controls[Index].LastRunData.rotation = Controls[Index].OutGoingData.rotation;
-                Controls[Index].ComputeMovementLocal(parentMatrix, DeltaTime);
-            }
+            RunSimulation(parentMatrix, Time.deltaTime, seedLastRunFromOutgoing: true);
             if (SMModuleDebugOptions.UseGizmos)
             {
                 DrawGizmos();
             }
+        }
+
+        private void RunSimulation(Matrix4x4 parentMatrix, float deltaTime, bool seedLastRunFromOutgoing)
+        {
+            if (ControlsLength == 0)
+            {
+                return;
+            }
+
+            EnsureNativeAllocated();
+            if (!_chainsBuilt)
+            {
+                BuildChainData();
+            }
+
+            PackInputsAndStates(seedLastRunFromOutgoing);
+
+            float4x4 parentMatrix44 = parentMatrix;
+            quaternion parentRot = parentMatrix.rotation;
+
+            // Schedule: spine first; limb chains depend on spine; "other" depends on spine.
+            JobHandle spineHandle = default;
+            if (_spineChainIndices.IsCreated && _spineChainIndices.Length > 0)
+            {
+                spineHandle = MakeJob(_spineChainIndices, parentMatrix44, parentRot, deltaTime).Schedule();
+            }
+
+            JobHandle leftArmHandle = default;
+            JobHandle rightArmHandle = default;
+            JobHandle leftLegHandle = default;
+            JobHandle rightLegHandle = default;
+            JobHandle otherHandle = default;
+
+            if (_leftArmChainIndices.IsCreated && _leftArmChainIndices.Length > 0)
+            {
+                leftArmHandle = MakeJob(_leftArmChainIndices, parentMatrix44, parentRot, deltaTime).Schedule(spineHandle);
+            }
+            if (_rightArmChainIndices.IsCreated && _rightArmChainIndices.Length > 0)
+            {
+                rightArmHandle = MakeJob(_rightArmChainIndices, parentMatrix44, parentRot, deltaTime).Schedule(spineHandle);
+            }
+            if (_leftLegChainIndices.IsCreated && _leftLegChainIndices.Length > 0)
+            {
+                leftLegHandle = MakeJob(_leftLegChainIndices, parentMatrix44, parentRot, deltaTime).Schedule(spineHandle);
+            }
+            if (_rightLegChainIndices.IsCreated && _rightLegChainIndices.Length > 0)
+            {
+                rightLegHandle = MakeJob(_rightLegChainIndices, parentMatrix44, parentRot, deltaTime).Schedule(spineHandle);
+            }
+            if (_otherChainIndices.IsCreated && _otherChainIndices.Length > 0)
+            {
+                otherHandle = MakeJob(_otherChainIndices, parentMatrix44, parentRot, deltaTime).Schedule(spineHandle);
+            }
+
+            JobHandle armsCombined = JobHandle.CombineDependencies(leftArmHandle, rightArmHandle);
+            JobHandle legsCombined = JobHandle.CombineDependencies(leftLegHandle, rightLegHandle);
+            JobHandle limbsCombined = JobHandle.CombineDependencies(armsCombined, legsCombined);
+            JobHandle final = JobHandle.CombineDependencies(limbsCombined, otherHandle);
+            final.Complete();
+
+            UnpackStates();
+        }
+
+        private BasisBoneSimChainJob MakeJob(NativeArray<int> chain, float4x4 parentMatrix44, quaternion parentRot, float deltaTime)
+        {
+            return new BasisBoneSimChainJob
+            {
+                ChainIndices = chain,
+                Inputs = _simInputs,
+                States = _simStates,
+                ParentMatrix = parentMatrix44,
+                ParentRotation = parentRot,
+                DeltaTime = deltaTime,
+                TrackerSmooth = BasisLocalBoneControl.trackersmooth,
+                QuaternionLerp = BasisLocalBoneControl.QuaternionLerp,
+                QuaternionLerpFastMovement = BasisLocalBoneControl.QuaternionLerpFastMovement,
+                AngleBeforeSpeedup = BasisLocalBoneControl.AngleBeforeSpeedup,
+                PositionLerpAmount = BasisLocalBoneControl.PositionLerpAmount,
+            };
+        }
+
+        private void EnsureNativeAllocated()
+        {
+            if (_nativeAllocated && _nativeCapacity == ControlsLength)
+            {
+                return;
+            }
+
+            DisposeNative();
+            _simInputs = new NativeArray<BasisBoneSimInput>(ControlsLength, Allocator.Persistent);
+            _simStates = new NativeArray<BasisBoneSimState>(ControlsLength, Allocator.Persistent);
+            _cachedTargetIndices = new int[ControlsLength];
+            _nativeCapacity = ControlsLength;
+            _nativeAllocated = true;
+            _chainsBuilt = false;
+        }
+
+        private void BuildChainData()
+        {
+            // Cache target indices once. Targets are wired at calibration time.
+            for (int i = 0; i < ControlsLength; i++)
+            {
+                BasisLocalBoneControl c = Controls[i];
+                _cachedTargetIndices[i] = (c.Target != null) ? Array.IndexOf(Controls, c.Target) : -1;
+            }
+
+            DisposeChainArrays();
+
+            HashSet<int> covered = new HashSet<int>();
+            _spineChainIndices = BuildChainIndices(SpineChainOrder, covered);
+            _leftArmChainIndices = BuildChainIndices(LeftArmChainOrder, covered);
+            _rightArmChainIndices = BuildChainIndices(RightArmChainOrder, covered);
+            _leftLegChainIndices = BuildChainIndices(LeftLegChainOrder, covered);
+            _rightLegChainIndices = BuildChainIndices(RightLegChainOrder, covered);
+
+            // Any remaining controls (e.g. dynamically added via AddRange) go in "other".
+            List<int> other = new List<int>();
+            for (int i = 0; i < ControlsLength; i++)
+            {
+                if (!covered.Contains(i))
+                {
+                    other.Add(i);
+                }
+            }
+            _otherChainIndices = ToNativeIntArray(other);
+            _chainsBuilt = true;
+        }
+
+        private NativeArray<int> BuildChainIndices(BasisBoneTrackedRole[] order, HashSet<int> covered)
+        {
+            List<int> list = new List<int>(order.Length);
+            for (int i = 0; i < order.Length; i++)
+            {
+                int idx = Array.IndexOf(trackedRoles, order[i]);
+                if (idx >= 0 && idx < ControlsLength && covered.Add(idx))
+                {
+                    list.Add(idx);
+                }
+            }
+            return ToNativeIntArray(list);
+        }
+
+        private static NativeArray<int> ToNativeIntArray(List<int> list)
+        {
+            NativeArray<int> arr = new NativeArray<int>(list.Count, Allocator.Persistent);
+            for (int i = 0; i < list.Count; i++)
+            {
+                arr[i] = list[i];
+            }
+            return arr;
+        }
+
+        private unsafe void PackInputsAndStates(bool seedLastRunFromOutgoing)
+        {
+            // Direct pointers into NativeArray storage skip the per-index bounds and
+            // atomic-safety wrappers that the indexer goes through (significant in
+            // editor mode, small win in release).
+            BasisBoneSimInput* inputs = (BasisBoneSimInput*)_simInputs.GetUnsafePtr();
+            BasisBoneSimState* states = (BasisBoneSimState*)_simStates.GetUnsafePtr();
+            int len = ControlsLength;
+
+            for (int i = 0; i < len; i++)
+            {
+                BasisLocalBoneControl c = Controls[i];
+
+                // Input slot: write fields directly, no struct copy back through the indexer.
+                BasisBoneSimInput* inp = inputs + i;
+                int targetIdx = _cachedTargetIndices[i];
+                inp->IncomingPosition = c.IncomingData.position;
+                inp->IncomingRotation = c.IncomingData.rotation;
+                inp->InverseOffsetPosition = c.InverseOffsetFromBone.position;
+                inp->InverseOffsetRotation = c.InverseOffsetFromBone.rotation;
+                inp->ScaledOffset = c.ScaledOffset;
+                inp->TargetIndex = targetIdx;
+                inp->HasTracker = (c.HasTracked == BasisHasTracked.HasTracker) ? (byte)1 : (byte)0;
+                inp->UseInverseOffset = c.UseInverseOffset ? (byte)1 : (byte)0;
+                inp->HasVirtualOverride = c.HasVirtualOverride ? (byte)1 : (byte)0;
+                inp->HasTarget = (targetIdx >= 0) ? (byte)1 : (byte)0;
+
+                // State slot: same pattern.
+                BasisBoneSimState* st = states + i;
+                Vector3 outPos = c.OutGoingData.position;
+                Quaternion outRot = c.OutGoingData.rotation;
+                st->OutgoingPosition = outPos;
+                st->OutgoingRotation = outRot;
+                if (seedLastRunFromOutgoing)
+                {
+                    st->LastRunPosition = outPos;
+                    st->LastRunRotation = outRot;
+                }
+                else
+                {
+                    st->LastRunPosition = c.LastRunData.position;
+                    st->LastRunRotation = c.LastRunData.rotation;
+                }
+                st->OutgoingWorldPosition = c.OutgoingWorldData.position;
+                st->OutgoingWorldRotation = c.OutgoingWorldData.rotation;
+            }
+        }
+
+        private unsafe void UnpackStates()
+        {
+            // Read-only access to the state slots via raw pointer.
+            BasisBoneSimState* states = (BasisBoneSimState*)_simStates.GetUnsafeReadOnlyPtr();
+            int len = ControlsLength;
+
+            for (int i = 0; i < len; i++)
+            {
+                BasisLocalBoneControl c = Controls[i];
+                BasisBoneSimState* st = states + i;
+
+                c.OutGoingData.position = st->OutgoingPosition;
+                c.OutGoingData.rotation = st->OutgoingRotation;
+                c.LastRunData.position = st->LastRunPosition;
+                c.LastRunData.rotation = st->LastRunRotation;
+                c.OutgoingWorldData.position = st->OutgoingWorldPosition;
+                c.OutgoingWorldData.rotation = st->OutgoingWorldRotation;
+            }
+        }
+
+        /// <summary>
+        /// Forces the chain-index cache to be rebuilt on the next <see cref="Simulate"/>.
+        /// Call after any change that affects target wiring or controls membership.
+        /// </summary>
+        public void InvalidateChainData()
+        {
+            _chainsBuilt = false;
+        }
+
+        /// <summary>
+        /// Releases all native containers. Call when the driver is being torn down.
+        /// </summary>
+        public void Dispose()
+        {
+            DisposeChainArrays();
+            if (_simInputs.IsCreated) _simInputs.Dispose();
+            if (_simStates.IsCreated) _simStates.Dispose();
+            _nativeAllocated = false;
+            _nativeCapacity = 0;
+            _chainsBuilt = false;
+        }
+
+        private void DisposeNative()
+        {
+            DisposeChainArrays();
+            if (_simInputs.IsCreated) _simInputs.Dispose();
+            if (_simStates.IsCreated) _simStates.Dispose();
+            _nativeAllocated = false;
+            _nativeCapacity = 0;
+        }
+
+        private void DisposeChainArrays()
+        {
+            if (_spineChainIndices.IsCreated) _spineChainIndices.Dispose();
+            if (_leftArmChainIndices.IsCreated) _leftArmChainIndices.Dispose();
+            if (_rightArmChainIndices.IsCreated) _rightArmChainIndices.Dispose();
+            if (_leftLegChainIndices.IsCreated) _leftLegChainIndices.Dispose();
+            if (_rightLegChainIndices.IsCreated) _rightLegChainIndices.Dispose();
+            if (_otherChainIndices.IsCreated) _otherChainIndices.Dispose();
+            _chainsBuilt = false;
         }
 
         /// <summary>
@@ -241,6 +557,8 @@ namespace Basis.Scripts.Drivers
             Controls = Controls.Concat(newControls).ToArray();
             trackedRoles = trackedRoles.Concat(newRoles).ToArray();
             ControlsLength = Controls.Length;
+            // Force EnsureNativeAllocated and BuildChainData to re-run on the next Simulate.
+            _chainsBuilt = false;
         }
 
         /// <summary>
@@ -422,6 +740,8 @@ namespace Basis.Scripts.Drivers
             addToBone.Target = target;
             addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
             addToBone.ScaledOffset = addToBone.Offset;
+            // Target wiring affects chain index cache and target lookups — rebuild on next Simulate.
+            _chainsBuilt = false;
         }
 
         /// <summary>

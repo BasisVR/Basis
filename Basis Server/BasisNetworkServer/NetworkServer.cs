@@ -63,6 +63,7 @@ public static class NetworkServer
         InitializePulseSettings();
         InitializeAuth();
         BasisHeadlessConnectionPolicyManager.InitializeFromConfig(configuration.DisallowHeadless);
+        BasisNetworkServer.Security.BasisGlobalLockManager.InitializeFromConfig(configuration);
         SetupServer(configuration);
         SubscribeEvents(Configuration);
 
@@ -82,7 +83,11 @@ public static class NetworkServer
         BasisServerReductionSystemEvents.HighDistanceSq = Configuration.HighQualityDistance * Configuration.HighQualityDistance;
         BasisServerReductionSystemEvents.MediumDistanceSq = Configuration.MediumQualityDistance * Configuration.MediumQualityDistance;
         BasisServerReductionSystemEvents.LowDistanceSq = Configuration.LowQualityDistance * Configuration.LowQualityDistance;
+        BasisServerReductionSystemEvents.EnableAvatarBundleCompression = Configuration.EnableAvatarBundleCompression;
+        BasisServerReductionSystemEvents.AvatarBundleMinMessages = Configuration.AvatarBundleMinMessages;
+        BasisServerReductionSystemEvents.AvatarBundleMinBytes = Configuration.AvatarBundleMinBytes;
         BSRProfiler.Enabled = Configuration.EnableBSRProfiling;
+        BNL.Log($"[BSR] AvatarBundleCompression={Configuration.EnableAvatarBundleCompression} (minMsgs={Configuration.AvatarBundleMinMessages}, minBytes={Configuration.AvatarBundleMinBytes})");
     }
 
     private static void InitializeAuth()

@@ -133,7 +133,6 @@ namespace Basis.BasisUI
             PanelButton teleportHere = PanelButton.CreateNew(actionsGroup.ContentParent);
             teleportHere.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.teleportHere"));
             teleportHere.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.teleportHere.description"));
-            teleportHere.ButtonComponent.interactable = false;
             GuardedClick(
                 teleportHere,
                 "Teleport player to you?",
@@ -351,11 +350,21 @@ namespace Basis.BasisUI
             disallowHeadlessToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalHeadlessDisallowed);
             disallowHeadlessToggle.OnValueChanged += value => BasisNetworkModeration.SetGlobalHeadlessDisallow(value);
 
+            // Opus FEC packet-loss percent — broadcast to every client's encoder.
+            // 0 = no FEC, ~10 = moderate networks (default), ~30 = lossy. Higher
+            // values trade ~0.15–0.3× bitrate for better single-packet recovery.
+            PanelSlider opusPacketLossSlider = PanelSlider.CreateNew(PanelSlider.SliderStyles.Entry, lockGroup.ContentParent);
+            opusPacketLossSlider.SetSliderSettings(PanelSlider.SliderSettings.Percentage("Opus FEC loss %"));
+            opusPacketLossSlider.Descriptor.SetDescription("Sets OPUS_SET_PACKET_LOSS_PERC on every client's voice encoder. Higher = more bitrate spent on redundant FEC data, better recovery under packet loss.");
+            opusPacketLossSlider.SetValueWithoutNotify(BasisNetworkModeration.GlobalOpusPacketLossPercent);
+            opusPacketLossSlider.OnValueChanged += value => BasisNetworkModeration.SetGlobalOpusPacketLoss(Mathf.RoundToInt(value));
+
             controller.AvatarLockToggle = avatarLock;
             controller.PropLockToggle = propLock;
             controller.WorldLockToggle = worldLock;
             controller.HeadlessAudioToggle = headlessAudioToggle;
             controller.HeadlessDisallowToggle = disallowHeadlessToggle;
+            controller.OpusPacketLossSlider = opusPacketLossSlider;
 
             // Permissions section
             SettingsProviderPermissionsTab.BuildPermissionsUI(container, tab.gameObject);
@@ -427,6 +436,7 @@ namespace Basis.BasisUI
             public PanelToggle WorldLockToggle;
             public PanelToggle HeadlessAudioToggle;
             public PanelToggle HeadlessDisallowToggle;
+            public PanelSlider OpusPacketLossSlider;
 
             public BasisNetworkPlayer SelectedPlayer;
             private string _searchQuery = string.Empty;
@@ -454,6 +464,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged += OnGlobalHeadlessDisallowStateChanged;
+                BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
+                BasisNetworkModeration.OnGlobalOpusPacketLossChanged += OnGlobalOpusPacketLossChanged;
 
                 // On the very first activation PlayerListParent is still null (we race
                 // AdminTab()'s field assignment), so let this early-return. AdminTab()
@@ -469,6 +481,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
+                BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
             }
 
             private void OnDestroy()
@@ -478,6 +491,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
+                BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
 
                 ClearPlayerButtons();
             }
@@ -497,6 +511,11 @@ namespace Basis.BasisUI
             private void OnGlobalHeadlessDisallowStateChanged(bool headlessDisallowed)
             {
                 if (HeadlessDisallowToggle != null) HeadlessDisallowToggle.SetValueWithoutNotify(headlessDisallowed);
+            }
+
+            private void OnGlobalOpusPacketLossChanged(int percent)
+            {
+                if (OpusPacketLossSlider != null) OpusPacketLossSlider.SetValueWithoutNotify(percent);
             }
 
             private void OnRemotePlayersChanged(BasisNetworkPlayer _p1, BasisRemotePlayer _p2)

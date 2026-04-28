@@ -54,6 +54,7 @@ public partial class BasisEventDriver : MonoBehaviour
     const int PROF_NET_FIRE_BEFORE_APPLY = 1;
     const int PROF_NET_SIMULATE_APPLY = 2;
     const int PROF_NET_COMPLETE_REMOTE_LERP = 3;
+    const int PROF_NET_MICROPHONE = 4;
 
     // ── Partial method declarations (calls are stripped in non-editor builds) ──
     partial void ProfileLateUpdateInit();
@@ -117,12 +118,6 @@ public partial class BasisEventDriver : MonoBehaviour
     public static BasisEventDriver Instance;
 
     public static bool StateOfOnRenderBefore = false;
-
-    /// <summary>
-    /// Time For Jiggles
-    /// </summary>
-    private double accumulatedTime;
-    private double fixedTime;
 
     // ── Lifecycle ───────────────────────────────────────────────
 
@@ -226,17 +221,25 @@ public partial class BasisEventDriver : MonoBehaviour
         {
             OnBeforeRender();
         }
-
-        // ── Network apply group (sub-timed) ──
         ProfileBegin(PROF_NETWORK_APPLY);
-        ProfileBegin2();
-        BasisObjectSyncDriver.TransmitOwnedPickups(TimeAsDouble);
-        ProfileEnd2(PROF_NET_TRANSMIT_PICKUPS);
         ProfileBegin2();
         BasisLocalPlayer.FireJustBeforeNetworkApply();
         ProfileEnd2(PROF_NET_FIRE_BEFORE_APPLY);
         ProfileBegin2();
+        BasisObjectSyncDriver.TransmitOwnedPickups(TimeAsDouble);
+        ProfileEnd2(PROF_NET_TRANSMIT_PICKUPS);
+        ProfileBegin2();
+#if !UNITY_SERVER && !BASIS_DISABLE_MICROPHONE
+        BasisLocalMicrophoneDriver.MicrophoneUpdate();
+#endif
+        ProfileEnd2(PROF_NET_MICROPHONE);
+        ProfileBegin2();
         BasisNetworkManagement.SimulateNetworkApply();
+        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
+        ProfileBegin2();
+        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
+        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
+        ProfileEnd(PROF_NETWORK_APPLY);
 
         // ── Device management ──
         ProfileBegin(PROF_DEVICE_MANAGEMENT);
@@ -267,11 +270,6 @@ public partial class BasisEventDriver : MonoBehaviour
         ProfileEnd(PROF_LOCAL_PLAYER);
 
         BasisNetworkManagement.CompleteRemoteBoneJobSystemJobs();
-        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
-        ProfileBegin2();
-        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
-        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
-        ProfileEnd(PROF_NETWORK_APPLY);
 
         // ── Remote audio simulate ──
         ProfileBegin(PROF_REMOTE_AUDIO_SIMULATE);
@@ -315,17 +313,10 @@ public partial class BasisEventDriver : MonoBehaviour
 
         // ── JigglePhysics schedule ──
         ProfileBegin(PROF_JIGGLE_SCHEDULE);
-        var fixedDeltaTime = Time.fixedDeltaTime;
-        accumulatedTime += Time.deltaTime;
-        if (accumulatedTime > fixedDeltaTime)
-        {
-            while (accumulatedTime > fixedDeltaTime)
-            {
-                fixedTime += fixedDeltaTime;
-                accumulatedTime -= fixedDeltaTime;
-            }
-            JigglePhysics.ScheduleSimulate(fixedTime, TimeAsDouble, fixedDeltaTime);
-        }
+
+        fixedDeltaTime = Time.fixedDeltaTime;
+        JigglePhysics.ScheduleSimulate(TimeAsDouble, fixedDeltaTime);
+
         ProfileEnd(PROF_JIGGLE_SCHEDULE);
 
         // ── Network transmit (reads bone results via GetOutGoingMouth) ──
@@ -337,13 +328,6 @@ public partial class BasisEventDriver : MonoBehaviour
         ProfileBegin(PROF_JIGGLE_POSE);
         JigglePhysics.SchedulePose(TimeAsDouble);
         ProfileEnd(PROF_JIGGLE_POSE);
-
-        // ── Microphone ──
-        ProfileBegin(PROF_MICROPHONE);
-#if !UNITY_SERVER && !BASIS_DISABLE_MICROPHONE
-        BasisLocalMicrophoneDriver.MicrophoneUpdate();
-#endif
-        ProfileEnd(PROF_MICROPHONE);
 
         // ── Nameplate complete ──
         ProfileBegin(PROF_NAMEPLATE_COMPLETE);
@@ -520,6 +504,7 @@ public partial class BasisEventDriver : MonoBehaviour
             case PROF_NET_FIRE_BEFORE_APPLY:    BasisEventDriverProfilerData.Net_FireBeforeApplyMs = ms; break;
             case PROF_NET_SIMULATE_APPLY:       BasisEventDriverProfilerData.Net_SimulateNetworkApplyMs = ms; break;
             case PROF_NET_COMPLETE_REMOTE_LERP: BasisEventDriverProfilerData.Net_CompleteRemoteLerpMs = ms; break;
+            case PROF_NET_MICROPHONE:           BasisEventDriverProfilerData.MicrophoneMs = ms; break;
         }
     }
 

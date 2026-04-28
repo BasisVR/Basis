@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 namespace Basis.Scripts.Drivers
 {
@@ -29,6 +30,16 @@ namespace Basis.Scripts.Drivers
         /// Renderer containing blink blendshapes referenced by <see cref="blendShapeIndices"/>.
         /// </summary>
         public SkinnedMeshRenderer meshRenderer;
+
+        /// <summary>Left eye bone (null when the rig has no eye bones).</summary>
+        public Transform LeftEyeTransform;
+        /// <summary>Right eye bone (null when the rig has no eye bones).</summary>
+        public Transform RightEyeTransform;
+        /// <summary>True when both eye bones were resolved from the rig and calibration succeeded.</summary>
+        public bool HasEyeBones;
+        /// <summary>Per-eye calibration computed once at avatar setup; converts canonical yaw/pitch to rig-local rotation.</summary>
+        public BasisEyeCalibration calLeft;
+        public BasisEyeCalibration calRight;
 
         /// <summary>
         /// Blendshape indices on <see cref="meshRenderer"/> used for blinking.
@@ -65,6 +76,12 @@ namespace Basis.Scripts.Drivers
         {
             linkedPlayer = player;
             blendShapeIndices.Clear();
+
+            // Eye bones are not part of the network bone sync (LeftEye/RightEye are excluded
+            // in BasisBoneRotationCompression). They're driven locally from the eye floats
+            // produced by BasisRemoteFaceManagement / EyeTrackingBoneActuation. Calibrate
+            // here so ApplyEyeRotations can write rig-local rotations every frame.
+            InitializeEyes(player, avatar);
 
             if (avatar == null || avatar.FaceBlinkMesh == null || avatar.BlinkViseme == null)
             {
@@ -159,6 +176,73 @@ namespace Basis.Scripts.Drivers
             {
                 meshRenderer.SetBlendShapeWeight(idx, blendWeight);
             }
+        }
+
+        /// <summary>
+        /// Resolves the remote avatar's eye bones and computes per-eye calibration so
+        /// canonical yaw/pitch input can be transformed into rig-local rotation. Run
+        /// once per avatar at calibration time. Sets <see cref="HasEyeBones"/>.
+        /// </summary>
+        private void InitializeEyes(BasisPlayer player, BasisAvatar avatar)
+        {
+            HasEyeBones = false;
+            LeftEyeTransform = null;
+            RightEyeTransform = null;
+
+            if (avatar == null) return;
+            if (!(player is BasisRemotePlayer remote)) return;
+
+            var refs = remote.RemoteAvatarDriver?.References;
+            if (refs == null || refs.head == null) return;
+            if (!refs.HasLeftEye || !refs.HasRightEye) return;
+
+            LeftEyeTransform = refs.LeftEye;
+            RightEyeTransform = refs.RightEye;
+            calLeft = BasisLocalEyeDriver.CalibrateOneEye(LeftEyeTransform, refs.head);
+            calRight = BasisLocalEyeDriver.CalibrateOneEye(RightEyeTransform, refs.head);
+            HasEyeBones = true;
+        }
+
+        /// <summary>
+        /// Applies normalized eye look values to the remote avatar's eye bones.
+        /// Inputs are signed [-1, 1] where x is horizontal (yaw) and y is vertical
+        /// (pitch). Safe to call every frame; no-ops when <see cref="HasEyeBones"/> is false.
+        /// </summary>
+        /// <param name="vL">Vertical for the left eye (pitch, +up).</param>
+        /// <param name="hL">Horizontal for the left eye (yaw, +right).</param>
+        /// <param name="vR">Vertical for the right eye.</param>
+        /// <param name="hR">Horizontal for the right eye.</param>
+        public void ApplyEyeRotations(float vL, float hL, float vR, float hR)
+        {
+            if (!HasEyeBones) return;
+            if (LeftEyeTransform == null || RightEyeTransform == null) return;
+
+            ApplyOneEye(LeftEyeTransform, calLeft, hL, vL);
+            ApplyOneEye(RightEyeTransform, calRight, hR, vR);
+        }
+
+        private static void ApplyOneEye(Transform eye, BasisEyeCalibration cal, float x, float y)
+        {
+            x = SanitizeAndClamp(x);
+            y = SanitizeAndClamp(y);
+
+            // Match EyeTrackingBoneActuation.SetEyeRotation: asin maps the [-1, 1]
+            // input into a half-pi yaw/pitch range. Negate y so positive vertical
+            // means look up.
+            float xRad = math.asin(x);
+            float yRad = math.asin(-y);
+            quaternion yaw = quaternion.AxisAngle(new float3(0, 1, 0), xRad);
+            quaternion pitch = quaternion.AxisAngle(new float3(1, 0, 0), yRad);
+            quaternion canonical = math.mul(yaw, pitch);
+
+            quaternion rigOffset = math.mul(math.mul(cal.basis, canonical), cal.invBasis);
+            eye.localRotation = math.mul(cal.initialRotation, rigOffset);
+        }
+
+        private static float SanitizeAndClamp(float v)
+        {
+            if (!math.isfinite(v)) return 0f;
+            return math.clamp(v, -1f, 1f);
         }
     }
 }

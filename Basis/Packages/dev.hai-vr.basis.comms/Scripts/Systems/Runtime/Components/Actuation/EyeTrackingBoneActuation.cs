@@ -326,15 +326,17 @@ namespace HVR.Basis.Comms
             {
                 Receiver.RemotePlayer.RemoteFaceDriver.OverrideEye = true;
                 Receiver.RemotePlayer.RemoteFaceDriver.OverrideBlinking = true;
+                // Signed [-1, 1] — matches BasisRemoteFaceManagement's EyeOutput convention,
+                // which is what BasisRemoteFaceDriver.ApplyEyeRotations consumes (asin domain).
                 switch (side)
                 {
                     case EyeSide.Left:
-                        Receiver.EyesAndMouth[0] = (y + 1) / 2;
-                        Receiver.EyesAndMouth[1] = (x + 1) / 2;
+                        Receiver.EyesAndMouth[0] = y;
+                        Receiver.EyesAndMouth[1] = x;
                         break;
                     case EyeSide.Right:
-                        Receiver.EyesAndMouth[2] = (y + 1) / 2;
-                        Receiver.EyesAndMouth[3] = (x + 1) / 2;
+                        Receiver.EyesAndMouth[2] = y;
+                        Receiver.EyesAndMouth[3] = x;
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(side), side, null);
@@ -428,10 +430,10 @@ namespace HVR.Basis.Comms
                 return;
             }
 
-            Receiver.EyesAndMouth[0] = 0.5f;
-            Receiver.EyesAndMouth[1] = 0.5f;
-            Receiver.EyesAndMouth[2] = 0.5f;
-            Receiver.EyesAndMouth[3] = 0.5f;
+            Receiver.EyesAndMouth[0] = 0f;
+            Receiver.EyesAndMouth[1] = 0f;
+            Receiver.EyesAndMouth[2] = 0f;
+            Receiver.EyesAndMouth[3] = 0f;
         }
 
         private void ClearRemoteOverrides()

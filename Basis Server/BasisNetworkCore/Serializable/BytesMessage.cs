@@ -13,15 +13,26 @@ namespace Basis.Network.Core.Serializable
         {
             public bool Deserialize(NetDataReader reader, out byte[] Data)
             {
-                if (reader.TryGetUShort(out ushort msgLength))
+                if (!reader.TryGetUShort(out ushort msgLength))
                 {
-                    Data = new byte[msgLength];
-                    reader.GetBytes(Data, msgLength);
-                    return true;
+                    BNL.LogError("unable to read the size of the data");
+                    Data = null;
+                    return false;
                 }
-                BNL.LogError("unable to read the size of the data");
-                Data = null;
-                return false;
+
+                if (reader.AvailableBytes < msgLength)
+                {
+                    BNL.LogError($"BytesMessage: declared length {msgLength} exceeds available bytes {reader.AvailableBytes}; possible protocol mismatch or truncated packet.");
+                    Data = null;
+                    return false;
+                }
+
+                Data = new byte[msgLength];
+                if (msgLength > 0)
+                {
+                    reader.GetBytes(Data, msgLength);
+                }
+                return true;
             }
 
             public readonly void Serialize(NetDataWriter writer, byte[] Data)

@@ -38,6 +38,16 @@ public class BasisVoiceBuffer
     private int _encodedCount;
     private int _receivedSinceStart;
 
+    // App-layer voice packet loss tracking. LiteNetLib does not track loss on
+    // DeliveryMethod.Unreliable (which voice uses), so NetStatistics.PacketLoss
+    // is useless here. Instead we count incoming packets vs. detected missing
+    // sequences, halving the counters every DecayIntervalMs to keep the ratio
+    // weighted toward recent history.
+    private long _recentReceived;
+    private long _recentMissing;
+    private int _lastDecayTick;
+    private const int DecayIntervalMs = 5000; // ~5 s half-life
+
     public int InitialBufferDepth => RemoteOpusSettings.JitterBufferSize;
 
     // ==================== Decoded PCM frame queue ====================
@@ -60,6 +70,28 @@ public class BasisVoiceBuffer
     public bool Started => _started;
     public int EncodedBufferedCount { get { lock (_encodedLock) return _encodedCount; } }
     public int ReceivedSinceStart { get { lock (_encodedLock) return _receivedSinceStart; } }
+
+    /// <summary>
+    /// Rolling packet-loss ratio for incoming voice in the [0..1] range, weighted
+    /// toward the last ~5 s of traffic. 0 means no losses seen; 0.1 means ~10% of
+    /// expected packets were missing. Useful as an indicator that the network is
+    /// degraded enough to warrant bumping <see cref="LocalOpusSettings.PacketLossPercent"/>
+    /// (which drives Opus FEC aggressiveness on the encoder side).
+    /// </summary>
+    public float LossPercent01
+    {
+        get
+        {
+            long r, m;
+            lock (_encodedLock)
+            {
+                r = _recentReceived;
+                m = _recentMissing;
+            }
+            long total = r + m;
+            return total == 0 ? 0f : (float)m / total;
+        }
+    }
 
     // Decoded (playback) state
     public bool IsEmpty
@@ -106,7 +138,7 @@ public class BasisVoiceBuffer
         _decodedLengths = new int[MaxDecodedFrames];
         _decodedIsReal = new bool[MaxDecodedFrames];
         for (int i = 0; i < MaxDecodedFrames; i++)
-            _decoded[i] = new float[RemoteOpusSettings.FrameSize];
+            _decoded[i] = new float[RemoteOpusSettings.MaxFrameSize];
     }
 
     // ==================== Encoded packet API ====================
@@ -157,6 +189,49 @@ public class BasisVoiceBuffer
             _encoded[slot].SilenceUnits = silenceUnits;
             _encoded[slot].Occupied = true;
             _receivedSinceStart++;
+
+            DecayRecentIfDue();
+            _recentReceived++;
+        }
+    }
+
+    /// <summary>
+    /// Peek the packet that <see cref="TryConsumeEncoded"/> would next return WITHOUT
+    /// consuming or advancing state. After TryConsumeEncoded reports isMissing=true,
+    /// _nextPlaybackSeq already points at the packet AFTER the missing one; if that
+    /// packet is present, its FEC data can reconstruct the lost frame via
+    /// decoder.Decode(..., decode_fec:true).
+    /// </summary>
+    public bool TryPeekNextEncoded(out byte[] data, out int length)
+    {
+        data = null; length = 0;
+        if (!_started) return false;
+        lock (_encodedLock)
+        {
+            if (!_started) return false;
+            int slot = _nextPlaybackSeq & EncodedSlotMask;
+            if (_encoded[slot].Occupied && _encoded[slot].SequenceNumber == _nextPlaybackSeq)
+            {
+                data = _encoded[slot].Data;
+                length = _encoded[slot].Length;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // Caller must hold _encodedLock. Halves the rolling counters roughly every
+    // DecayIntervalMs so LossPercent01 tracks recent traffic instead of the full
+    // lifetime of the receiver.
+    private void DecayRecentIfDue()
+    {
+        int now = Environment.TickCount;
+        int elapsed = unchecked(now - _lastDecayTick);
+        if (elapsed >= DecayIntervalMs || elapsed < 0)
+        {
+            _recentReceived >>= 1;
+            _recentMissing >>= 1;
+            _lastDecayTick = now;
         }
     }
 
@@ -191,6 +266,8 @@ public class BasisVoiceBuffer
             {
                 isMissing = true;
                 _nextPlaybackSeq++;
+                DecayRecentIfDue();
+                _recentMissing++;
                 return true;
             }
 
@@ -289,6 +366,25 @@ public class BasisVoiceBuffer
     {
         lock (_encodedLock) ClearEncoded();
         ClearDecoded();
+    }
+
+    /// <summary>
+    /// Re-arm the initial-fill gate so <see cref="TryConsumeEncoded"/> waits for
+    /// <see cref="InitialBufferDepth"/> packets again before releasing playback.
+    /// Called by the receiver when it detects the sender has been idle long enough
+    /// (e.g. mic muted) that the pipeline has fully drained — without this, the
+    /// first post-resume packet would be released with only 20 ms of audio queued
+    /// and any arrival jitter on the next packet would underrun.
+    /// Keeps <c>_started</c> and <c>_nextPlaybackSeq</c> as-is: the sender's
+    /// sequence number is continuous across its mute, so playback resumes from
+    /// where it left off.
+    /// </summary>
+    public void RearmInitialBuffer()
+    {
+        lock (_encodedLock)
+        {
+            _receivedSinceStart = 0;
+        }
     }
 
     private void ClearEncoded()

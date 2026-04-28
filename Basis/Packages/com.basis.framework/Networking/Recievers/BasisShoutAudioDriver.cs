@@ -63,7 +63,7 @@ namespace Basis.Scripts.Networking.Receivers
 
             // Initialize the decoder
             BasisAudioReceiver.outputSampleRate = AudioSettings.outputSampleRate;
-            BasisAudioReceiver.silentData ??= new float[RemoteOpusSettings.FrameSize];
+            BasisAudioReceiver.silentData ??= new float[RemoteOpusSettings.MaxFrameSize];
 
 #if UNITY_IOS && !UNITY_EDITOR
             entry.Receiver.decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);

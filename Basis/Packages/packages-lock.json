@@ -249,7 +249,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.editorcoroutines": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {},
@@ -606,6 +606,12 @@
     },
     "org.basisvr.generator.equals": {
       "version": "file:org.basisvr.generator.equals",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "org.basisvr.k4os.compression.lz4": {
+      "version": "file:org.basisvr.k4os.compression.lz4",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

@@ -410,7 +410,7 @@ public static class BasisRemoteNetworkDriver
 
     /// <summary>
     /// Overrides the filtered hips position and rotation for a player so that
-    /// BulkCopyHipsAndScale (and thus ApplyHipsJob) picks up the override
+    /// ScheduleBulkCopyHipsAndScale (and thus ApplyHipsJob) picks up the override
     /// instead of the interpolated network data.
     /// Must be called after Apply() and before Schedule().
     /// </summary>
@@ -423,35 +423,115 @@ public static class BasisRemoteNetworkDriver
     }
 
     /// <summary>
-    /// Bulk-copy hips position, rotation, scale, and scale-change flag for a set of players.
-    /// Used by RemoteBoneJobSystem to populate job data without per-element indexing.
+    /// Burst job that gathers hips/scale/etc per-player data into packed dst arrays.
+    /// Each Execute(i) takes the i-th external player key and copies one slot.
+    /// </summary>
+    [BurstCompile]
+    struct BulkCopyHipsAndScaleJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<int> PlayerKeys;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> SrcPos;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> SrcRot;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> SrcScale;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<bool> SrcChange;
+
+        [WriteOnly] public NativeArray<float3> DstPos;
+        [WriteOnly] public NativeArray<quaternion> DstRot;
+        [WriteOnly] public NativeArray<float3> DstScale;
+        [WriteOnly] public NativeArray<byte> DstScaleChanged;
+
+        public void Execute(int i)
+        {
+            int idx = PlayerKeys[i];
+            DstPos[i] = SrcPos[idx];
+            DstRot[i] = SrcRot[idx];
+            DstScale[i] = SrcScale[idx];
+            DstScaleChanged[i] = SrcChange[idx] ? (byte)1 : (byte)0;
+        }
+    }
+
+    /// <summary>
+    /// Burst job that copies the filtered bone-rotation block for a player from the
+    /// network's per-player slot (indexed by external key) into the packed dst array
+    /// (indexed by player order in <paramref name="PlayerKeys"/>).
+    /// </summary>
+    [BurstCompile]
+    unsafe struct BulkCopySkeletonDeltasJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<int> PlayerKeys;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> SrcBoneRotations;
+        [WriteOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> Dst;
+        public int BoneCount;
+        public int CapacityFixed;
+
+        public void Execute(int playerIdx)
+        {
+            int playerKey = PlayerKeys[playerIdx];
+            if ((uint)playerKey >= (uint)CapacityFixed) return;
+
+            int bytes = BoneCount * UnsafeUtility.SizeOf<quaternion>();
+            quaternion* src = (quaternion*)SrcBoneRotations.GetUnsafeReadOnlyPtr() + playerKey * BoneCount;
+            quaternion* dst = (quaternion*)Dst.GetUnsafePtr() + playerIdx * BoneCount;
+            UnsafeUtility.MemCpy(dst, src, bytes);
+        }
+    }
+
+    /// <summary>
+    /// Schedules a Burst <see cref="BulkCopyHipsAndScaleJob"/> that gathers hips position,
+    /// rotation, scale, and scale-change flag for a set of players. Returning a JobHandle
+    /// (instead of doing the copy synchronously on main thread) lets the caller chain the
+    /// dependent apply jobs and gives the scheduler more in-flight work — important when
+    /// the caller's Complete() is otherwise about to block waiting on a single job.
     /// playerKeys[i] → internal SoA index; data is written to dst arrays at index i.
     /// </summary>
-    public static unsafe void BulkCopyHipsAndScale(
-        int[] playerKeys, int count,
+    public static JobHandle ScheduleBulkCopyHipsAndScale(
+        NativeArray<int> playerKeys, int count,
         NativeArray<float3> dstPos, NativeArray<quaternion> dstRot,
-        NativeArray<float3> dstScale, NativeArray<byte> dstScaleChanged)
-    {
-        if (!_initialized || count == 0) return;
-
-        float3* srcPos = (float3*)_ptrFilteredPositions;
-        quaternion* srcRot = (quaternion*)_ptrFilteredRotations;
-        float3* srcScale = (float3*)_ptrOutScales;
-        bool* srcChange = (bool*)_ptrScaleChange;
-
-        float3* dp = (float3*)dstPos.GetUnsafePtr();
-        quaternion* dr = (quaternion*)dstRot.GetUnsafePtr();
-        float3* ds = (float3*)dstScale.GetUnsafePtr();
-        byte* dc = (byte*)dstScaleChanged.GetUnsafePtr();
-
-        for (int i = 0; i < count; i++)
+        NativeArray<float3> dstScale, NativeArray<byte> dstScaleChanged,
+        JobHandle deps = default)
         {
-            int idx = playerKeys[i];
-            dp[i] = srcPos[idx];
-            dr[i] = srcRot[idx];
-            ds[i] = srcScale[idx];
-            dc[i] = srcChange[idx] ? (byte)1 : (byte)0;
-        }
+        if (!_initialized || count == 0) return deps;
+
+        int workers = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
+        int batch = math.max(1, count / workers);
+
+        return new BulkCopyHipsAndScaleJob
+        {
+            PlayerKeys = playerKeys,
+            SrcPos = _filteredPositions,
+            SrcRot = _filteredRotations,
+            SrcScale = _outScales,
+            SrcChange = _HasScaleChange,
+            DstPos = dstPos,
+            DstRot = dstRot,
+            DstScale = dstScale,
+            DstScaleChanged = dstScaleChanged,
+        }.Schedule(count, batch, deps);
+    }
+
+    /// <summary>
+    /// Schedules a Burst <see cref="BulkCopySkeletonDeltasJob"/> that copies the filtered
+    /// bone-rotation deltas from the network per-player slots into a packed dst array.
+    /// Replaces the per-frame main-thread MemCpy loop in RemoteBoneJobSystem.Schedule().
+    /// </summary>
+    public static JobHandle ScheduleBulkCopySkeletonDeltas(
+        NativeArray<int> playerKeys, int count,
+        NativeArray<quaternion> dst, int boneCount,
+        JobHandle deps = default)
+    {
+        if (!_initialized || count == 0) return deps;
+
+        int workers = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
+        int batch = math.max(1, count / workers);
+
+        return new BulkCopySkeletonDeltasJob
+        {
+            PlayerKeys = playerKeys,
+            SrcBoneRotations = _filteredBoneRotations,
+            BoneCount = boneCount,
+            CapacityFixed = FixedCapacity,
+            Dst = dst,
+        }.Schedule(count, batch, deps);
     }
 
     static IntPtr _ptrFilteredPositions;

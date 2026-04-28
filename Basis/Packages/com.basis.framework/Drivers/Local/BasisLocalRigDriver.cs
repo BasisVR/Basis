@@ -56,21 +56,21 @@ namespace Basis.Scripts.Drivers
         private BasisLocalPlayer localPlayer;
         private BasisTransformMapping basisTransformMapping;
 
-        private static readonly OneEuroFilterQuaternion fRotHips = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotHead = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotLeftFoot = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotRightFoot = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotChest = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotLeftLowerLeg = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotRightLowerLeg = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotLeftHand = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotRightHand = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotLeftLowerArm = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotRightLowerArm = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotLeftToe = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotRightToe = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotLeftShoulder = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
-        private static readonly OneEuroFilterQuaternion fRotRightShoulder = new OneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotHips = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotHead = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotLeftFoot = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotRightFoot = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotChest = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotLeftLowerLeg = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotRightLowerLeg = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotLeftHand = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotRightHand = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotLeftLowerArm = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotRightLowerArm = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotLeftToe = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotRightToe = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotLeftShoulder = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
+        private static readonly IKOneEuroFilterQuaternion fRotRightShoulder = new IKOneEuroFilterQuaternion(MinCutoff, Beta, DerivativeCutoff);
 
         private static readonly OneEuroFilterVector3 fPosHips = new OneEuroFilterVector3(MinCutoff, Beta, DerivativeCutoff);
         private static readonly OneEuroFilterVector3 fPosHead = new OneEuroFilterVector3(MinCutoff, Beta, DerivativeCutoff);
@@ -117,63 +117,6 @@ namespace Basis.Scripts.Drivers
         // Fallback smoothing when smoothing is ON but Euro is OFF
         [Range(0.01f, 60f)] public static float PositionSmoothingHz = 20f;
         [Range(0.01f, 60f)] public static float RotationSmoothingHz = 25f;
-        [Serializable]
-        public class OneEuroFilterQuaternion
-        {
-            public float minCutoff;
-            public float beta;
-            public float dCutoff;
-
-            private bool hasPrev;
-            private Quaternion prev;
-            private readonly OneEuroFilterVector3 vecFilter;
-
-            public OneEuroFilterQuaternion(float minCutoff, float beta, float dCutoff)
-            {
-                this.minCutoff = minCutoff;
-                this.beta = beta;
-                this.dCutoff = dCutoff;
-                vecFilter = new OneEuroFilterVector3(minCutoff, beta, dCutoff);
-            }
-
-            public void Reset() => hasPrev = false;
-
-            public Quaternion Filter(Quaternion q, double t)
-            {
-                if (!hasPrev)
-                {
-                    hasPrev = true;
-                    prev = q;
-                    return q;
-                }
-
-                vecFilter.minCutoff = minCutoff;
-                vecFilter.beta = beta;
-                vecFilter.dCutoff = dCutoff;
-
-                // shortest path
-                if (Quaternion.Dot(prev, q) < 0f)
-                    q = new Quaternion(-q.x, -q.y, -q.z, -q.w);
-
-                Quaternion delta = q * Quaternion.Inverse(prev);
-
-                delta.ToAngleAxis(out float angleDeg, out Vector3 axis);
-                if (angleDeg > 180f) angleDeg -= 360f;
-
-                float angleRad = angleDeg * Mathf.Deg2Rad;
-                Vector3 logVec = (axis.sqrMagnitude < 1e-12f) ? Vector3.zero : axis.normalized * angleRad;
-
-                Vector3 filteredLog = vecFilter.Filter(logVec, t);
-
-                float mag = filteredLog.magnitude;
-                Quaternion filteredDelta =
-                    (mag < 1e-12f) ? Quaternion.identity : Quaternion.AngleAxis(mag * Mathf.Rad2Deg, filteredLog / mag);
-
-                Quaternion outQ = filteredDelta * prev;
-                prev = outQ;
-                return outQ;
-            }
-        }
 
         public double timeAccumulator;
 

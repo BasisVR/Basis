@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
@@ -40,6 +41,122 @@ namespace Basis.BasisUI
         private static LineRenderer s_beaconLine;
         private static BasisNetworkPlayer s_beaconTarget;
         private static float s_beaconElapsed;
+
+        // Per-UUID volume snapshot taken when the user mutes via the panel,
+        // so unmute can restore the prior level instead of guessing 1.0.
+        // Session-only — block/unblock and persisted volume already handle long-term state.
+        private static readonly Dictionary<string, float> s_volumeBeforeMute = new Dictionary<string, float>();
+        private const float UnmuteFallbackVolume = 1.0f;
+
+        // ===== Shared player action helpers (used by this panel and UserListProvider rows) =====
+
+        /// <summary>
+        /// Toggle mute for the given player. When muting, the prior volume is snapshotted
+        /// per-UUID so unmute restores it; if no snapshot exists (e.g. they were already at 0),
+        /// unmute falls back to <see cref="UnmuteFallbackVolume"/>.
+        /// Returns the new muted state (true = now muted).
+        /// </summary>
+        public static async Task<bool> ToggleMute(BasisRemotePlayer player)
+        {
+            if (player == null) return false;
+
+            var s = await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+
+            float newVolume;
+            if (s.VolumeLevel > 0f)
+            {
+                s_volumeBeforeMute[player.UUID] = s.VolumeLevel;
+                newVolume = 0f;
+            }
+            else
+            {
+                newVolume = s_volumeBeforeMute.TryGetValue(player.UUID, out float prior) && prior > 0f
+                    ? prior
+                    : UnmuteFallbackVolume;
+            }
+
+            s.VolumeLevel = newVolume;
+            await BasisPlayerSettingsManager.SetPlayerSettings(s);
+
+            if (player.NetworkReceiver != null && player.NetworkReceiver.AudioReceiverModule != null)
+            {
+                player.NetworkReceiver.AudioReceiverModule.ChangeRemotePlayersVolumeSettings(
+                    player.IsEffectivelyBlocked ? 0f : newVolume);
+            }
+
+            return newVolume <= 0f;
+        }
+
+        /// <summary>
+        /// Synchronously checks whether the player's persisted volume is currently 0.
+        /// Reads the settings cache without going through the async request — used to
+        /// initialize button labels without waiting on disk I/O.
+        /// </summary>
+        public static async Task<bool> IsMutedAsync(BasisRemotePlayer player)
+        {
+            if (player == null) return false;
+            var s = await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+            return s.VolumeLevel <= 0f;
+        }
+
+        /// <summary>
+        /// Toggle the block state for the given player. If transitioning from unblocked → blocked,
+        /// shows a "Do you want to block this player?" confirmation dialog; cancelling leaves state
+        /// unchanged. Unblock has no confirmation (matches the toggle-off pattern used elsewhere).
+        /// Returns the new IsBlocked value.
+        /// </summary>
+        public static async Task<bool> ToggleBlockWithConfirmation(BasisRemotePlayer player)
+        {
+            if (player == null) return false;
+
+            var current = await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+
+            if (!current.IsBlocked)
+            {
+                var tcs = new TaskCompletionSource<bool>();
+                BasisMainMenu.Instance.OpenDialogue(
+                    BasisLocalization.Get("menu.individualPlayer.block.dialog.title"),
+                    BasisLocalization.Get("menu.individualPlayer.block.dialog.body", player.DisplayName),
+                    BasisLocalization.Get("menu.individualPlayer.blockButton"),
+                    BasisLocalization.Get("ui.cancel"),
+                    confirmed => tcs.SetResult(confirmed));
+
+                if (!await tcs.Task) return current.IsBlocked;
+            }
+
+            var s = await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+            s.IsBlocked = !s.IsBlocked;
+            await BasisPlayerSettingsManager.SetPlayerSettings(s);
+
+            player.IsBlocked = s.IsBlocked;
+
+            if (player.NetworkReceiver != null && player.NetworkReceiver.AudioReceiverModule != null)
+            {
+                player.NetworkReceiver.AudioReceiverModule.ChangeRemotePlayersVolumeSettings(
+                    player.IsEffectivelyBlocked ? 0f : s.VolumeLevel);
+            }
+
+            player.ReloadAvatar();
+
+            if (player.RemoteNamePlate != null)
+            {
+                if (player.IsEffectivelyBlocked)
+                {
+                    player.RemoteNamePlate.SetChatText(string.Empty);
+                }
+                player.RemoteNamePlate.RefreshActiveState();
+            }
+
+            // Mirror the block onto the other side so they also can't see/hear us
+            // (session-scoped temp block).
+            if (Basis.Scripts.Networking.BasisNetworkPlayers.PlayerToNetworkedPlayer(
+                    player, out BasisNetworkPlayer blockTargetNet))
+            {
+                BasisNetworkHandleTempBlock.SendTempBlock(blockTargetNet.playerId, s.IsBlocked);
+            }
+
+            return s.IsBlocked;
+        }
 
         /// <summary>
         /// Called each frame from BasisEventDriver.LateUpdate.
@@ -343,6 +460,23 @@ namespace Basis.BasisUI
                 PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("menu.individualPlayer.volumeOverride"), 0f, 1.5f, false, 2, ValueDisplayMode.percentageFromZero),
                 Binding);
 
+            // Slider runs 0..1.5; place green at the "100%" mark (t = 1/1.5) and red at 150%.
+            volumeSlider.FillColorGradient = new Gradient()
+            {
+                colorKeys = new[]
+                {
+                    new GradientColorKey(new Color(0.1f, 0.4f, 1.0f), 0f),
+                    new GradientColorKey(new Color(0.0f, 1.0f, 0.3f), 1f / 1.5f),
+                    new GradientColorKey(new Color(1.0f, 0.1f, 0.1f), 1f),
+                },
+                alphaKeys = new[]
+                {
+                    new GradientAlphaKey(1f, 0f),
+                    new GradientAlphaKey(1f, 1f),
+                }
+            };
+            volumeSlider.UseFillColorGradient = true;
+
             volumeSlider.SetValueWithoutNotify(settings.VolumeLevel);
 
             // ---- Create meter UI (Addressables sprite) ----
@@ -410,6 +544,21 @@ namespace Basis.BasisUI
                     remotePlayer.NetworkReceiver.AudioReceiverModule.ChangeRemotePlayersVolumeSettings(
                         remotePlayer.IsEffectivelyBlocked ? 0f : value);
                 }
+            };
+
+            // ---- Mute toggle (audio-only, separate from full block) ----
+            PanelButton muteBtn = PanelButton.CreateNew(audioGroup.ContentParent);
+            muteBtn.Descriptor.SetTitle(BasisLocalization.Get(settings.VolumeLevel <= 0f ? "menu.individualPlayer.unmute" : "menu.individualPlayer.mute"));
+            muteBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.mute.description"));
+
+            muteBtn.OnClicked += async () =>
+            {
+                bool nowMuted = await ToggleMute(remotePlayer);
+                muteBtn.Descriptor.SetTitle(BasisLocalization.Get(nowMuted ? "menu.individualPlayer.unmute" : "menu.individualPlayer.mute"));
+
+                // Pull the resolved volume back so the slider mirrors the helper's restore-from-snapshot logic.
+                var refreshed = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
+                volumeSlider.SetValueWithoutNotify(refreshed.VolumeLevel);
             };
 
             // ---- Highlight beacon controls ----
@@ -582,39 +731,8 @@ namespace Basis.BasisUI
 
             toggleBlockBtn.OnClicked += async () =>
             {
-                var s = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
-                s.IsBlocked = !s.IsBlocked;
-                await BasisPlayerSettingsManager.SetPlayerSettings(s);
-
-                if (remotePlayer == null) return;
-
-                toggleBlockBtn.Descriptor.SetTitle(BasisLocalization.Get(s.IsBlocked ? "menu.individualPlayer.unblock" : "menu.individualPlayer.blockButton"));
-                remotePlayer.IsBlocked = s.IsBlocked;
-
-                if (remotePlayer.NetworkReceiver != null && remotePlayer.NetworkReceiver.AudioReceiverModule != null)
-                {
-                    remotePlayer.NetworkReceiver.AudioReceiverModule.ChangeRemotePlayersVolumeSettings(
-                        remotePlayer.IsEffectivelyBlocked ? 0f : s.VolumeLevel);
-                }
-
-                remotePlayer.ReloadAvatar();
-
-                if (remotePlayer.RemoteNamePlate != null)
-                {
-                    if (remotePlayer.IsEffectivelyBlocked)
-                    {
-                        remotePlayer.RemoteNamePlate.SetChatText(string.Empty);
-                    }
-                    remotePlayer.RemoteNamePlate.RefreshActiveState();
-                }
-
-                // Mirror the block onto the other side of the pair so that when we
-                // block them, they also can't see/hear us (session-scoped temp block).
-                if (Basis.Scripts.Networking.BasisNetworkPlayers.PlayerToNetworkedPlayer(
-                        remotePlayer, out BasisNetworkPlayer blockTargetNet))
-                {
-                    BasisNetworkHandleTempBlock.SendTempBlock(blockTargetNet.playerId, s.IsBlocked);
-                }
+                bool nowBlocked = await ToggleBlockWithConfirmation(remotePlayer);
+                toggleBlockBtn.Descriptor.SetTitle(BasisLocalization.Get(nowBlocked ? "menu.individualPlayer.unblock" : "menu.individualPlayer.blockButton"));
             };
 
             var chatGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);

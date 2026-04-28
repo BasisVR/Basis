@@ -6,6 +6,7 @@ using Basis.Scripts.Drivers;
 using GatorDragonGames.JigglePhysics;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -107,12 +108,20 @@ namespace Basis.Scripts.Avatar
             try
             {
                 GameObject Output = null;
+                // Local-only: harvested by ContentPolice during the load walk and consumed by
+                // the local avatar driver during calibration. Keeping it on the stack means
+                // it's GC'd as soon as the load returns; nothing persists on BasisAvatar.
+                List<BasisHeadChop.HeadChopTarget> harvestedHeadChop = new List<BasisHeadChop.HeadChopTarget>();
 
                 switch (Mode)
                 {
                     case 2: // in-scene is instant, no gate needed
                         Output = BasisLoadableBundle.LoadableGameobject.InSceneItem;
                         Output.transform.SetPositionAndRotation(Position, Rotation);
+                        // In-scene avatars never run through ContentPolice, so do a one-shot
+                        // harvest+strip here — this is the only path where a dedicated walk
+                        // is needed. The strip keeps BasisHeadChop from persisting at runtime.
+                        HarvestAndStripHeadChop(Output, harvestedHeadChop);
                         break;
 
                     case 0:
@@ -130,7 +139,7 @@ namespace Basis.Scripts.Avatar
                             if (Mode == 0)
                             {
                                 BasisDebug.Log($"Requested Avatar was a AssetBundle Avatar {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
-                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token);
+                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token, MaxDownloadSizeInMB: 4L * 1024 * 1024 * 1024, HarvestedHeadChop: harvestedHeadChop);
                             }
                             else
                             {
@@ -140,7 +149,7 @@ namespace Basis.Scripts.Avatar
 
                                 // If LoadAsGameObjectsAsync doesn't accept a token, we still check before/after.
                                 Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
-                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
+                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar, harvestedHeadChop);
 
                                 token.ThrowIfCancellationRequested();
                             }
@@ -157,7 +166,7 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarMetaData = BasisLoadableBundle;
                 Player.AvatarLoadMode = Mode;
 
-                InitializePlayerAvatar(Player, Output);
+                InitializePlayerAvatar(Player, Output, harvestedHeadChop);
                 Player.AvatarSwitched();
             }
             catch (OperationCanceledException)
@@ -216,6 +225,10 @@ namespace Basis.Scripts.Avatar
                     case 2:
                         Output = BasisLoadableBundle.LoadableGameobject.InSceneItem;
                         Output.transform.SetPositionAndRotation(Position, Rotation);
+                        // In-scene path skips ContentPolice; strip BasisHeadChop so the
+                        // authoring component never persists on a remote avatar. Pass null
+                        // for the destination — remotes never harvest first-person targets.
+                        HarvestAndStripHeadChop(Output, null);
                         break;
 
                     case 0:
@@ -262,7 +275,7 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarMetaData = BasisLoadableBundle;
                 Player.AvatarLoadMode = Mode;
 
-                InitializePlayerAvatar(Player, Output);
+                InitializePlayerAvatar(Player, Output, null);
                 Player.AvatarLoadErrorMessage = null;
                 Player.AvatarSwitched();
             }
@@ -299,12 +312,12 @@ namespace Basis.Scripts.Avatar
         /// <param name="BasisPlayer">The player to assign the avatar to.</param>
         /// <param name="Position">Spawn position for the avatar.</param>
         /// <param name="Rotation">Spawn rotation for the avatar.</param>
-        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
         {
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
             GameObject Output = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject,
                 BasisLoadableBundle, true, BasisPlayer.ProgressReportAvatarLoad, Token,
-                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform, false, true, MaxDownloadSizeInMB);
+                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform, false, true, MaxDownloadSizeInMB, HarvestedHeadChop);
 
             BasisPlayer.ProgressReportAvatarLoad.ReportProgress(UniqueID, 100, "Setting Position");
             return Output;
@@ -321,7 +334,7 @@ namespace Basis.Scripts.Avatar
 
             if (inSceneLoadingAvatar.TryGetComponent(out BasisAvatar avatar))
             {
-                SetupPlayerAvatar(Player, avatar, isFallback: true);
+                SetupPlayerAvatar(Player, avatar, isFallback: true, headChop: null);
             }
             else
             {
@@ -336,7 +349,7 @@ namespace Basis.Scripts.Avatar
         /// references. The resulting trim counts are stashed on the remote player so
         /// the individual-player menu can show exactly what got removed.
         /// </summary>
-        private static void InitializePlayerAvatar(BasisPlayer Player, GameObject Output)
+        private static void InitializePlayerAvatar(BasisPlayer Player, GameObject Output, List<BasisHeadChop.HeadChopTarget> headChop)
         {
             if (Output.TryGetComponent(out BasisAvatar avatar))
             {
@@ -356,7 +369,7 @@ namespace Basis.Scripts.Avatar
                     // jiggle rig count is written later by RemoteCalibration.
                     remote.LastPerformanceInfo = trimInfo;
                 }
-                SetupPlayerAvatar(Player, avatar, isFallback: false);
+                SetupPlayerAvatar(Player, avatar, isFallback: false, headChop: headChop);
             }
         }
 
@@ -364,7 +377,7 @@ namespace Basis.Scripts.Avatar
         /// Configures a player with a specific avatar.
         /// Handles both local and remote player cases.
         /// </summary>
-        private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, bool isFallback)
+        private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, bool isFallback, List<BasisHeadChop.HeadChopTarget> headChop)
         {
             // Explicitly unregister old JiggleRigs synchronously. DeleteLastAvatar is async void
             // and GameObject.Destroy only fires OnDisable at end-of-frame, which races with the
@@ -388,7 +401,7 @@ namespace Basis.Scripts.Avatar
             switch (Player)
             {
                 case BasisLocalPlayer localPlayer:
-                    SetupLocalAvatar(localPlayer);
+                    SetupLocalAvatar(localPlayer, headChop);
                     break;
 
                 case BasisRemotePlayer remotePlayer:
@@ -429,7 +442,7 @@ namespace Basis.Scripts.Avatar
             {
                 GameObject data = GameObject.Instantiate(CachedLoadingAvatarPrefab, Position, Rotation, Player.transform);
 
-                InitializePlayerAvatar(Player, data);
+                InitializePlayerAvatar(Player, data, null);
                 Player.AvatarMetaData = BasisAvatarFactory.LoadingAvatar;
                 Player.AvatarLoadMode = 1;
                 Player.AvatarSwitched();
@@ -489,11 +502,40 @@ namespace Basis.Scripts.Avatar
         /// <summary>
         /// Configures local player avatars after instantiation.
         /// </summary>
-        public static void SetupLocalAvatar(BasisLocalPlayer Player)
+        public static void SetupLocalAvatar(BasisLocalPlayer Player, List<BasisHeadChop.HeadChopTarget> headChop)
         {
-            Player.LocalAvatarDriver.InitialLocalCalibration(Player);
+            Player.LocalAvatarDriver.InitialLocalCalibration(Player, headChop);
             Player.BasisAvatar.NotifyAvatarReady(true);
             BasisLocalAvatarDriver.CalibrationComplete?.Invoke();
+        }
+
+        /// <summary>
+        /// Mode 2 (in-scene) avatar bypasses ContentPolice, so this is the only place the
+        /// authoring <see cref="BasisHeadChop"/> components get processed for that path.
+        /// When <paramref name="destination"/> is non-null (local load), targets are appended;
+        /// the components themselves are always destroyed so BasisHeadChop never persists at
+        /// runtime — including on remote in-scene avatars where <paramref name="destination"/>
+        /// is null and only the strip happens.
+        /// </summary>
+        private static void HarvestAndStripHeadChop(GameObject root, List<BasisHeadChop.HeadChopTarget> destination)
+        {
+            if (root == null) return;
+            BasisHeadChop[] components = root.GetComponentsInChildren<BasisHeadChop>(true);
+            int length = components.Length;
+            for (int Index = 0; Index < length; Index++)
+            {
+                BasisHeadChop component = components[Index];
+                if (component == null) continue;
+                if (destination != null)
+                {
+                    BasisHeadChop.HeadChopTarget[] targets = component.Targets;
+                    if (targets != null && targets.Length > 0)
+                    {
+                        destination.AddRange(targets);
+                    }
+                }
+                UnityEngine.Object.DestroyImmediate(component);
+            }
         }
 
         // Avatar load concurrency gates. Three separate semaphores because each path has

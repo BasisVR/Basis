@@ -170,6 +170,16 @@ public static class BasisNetworkEvents
                 BasisNetworkHandleAvatar.HandleAvatarUpdate(Reader, channel);
                 Reader.Recycle();
                 break;
+            case BasisNetworkCommons.CompressedAvatarBundleChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.PlayerAvatar, Reader.AvailableBytes);
+                BasisNetworkHandleCompressedBundle.Handle(Reader);
+                Reader.Recycle();
+                break;
             case BasisNetworkCommons.SceneChannel:
                 if (ValidateSize(Reader, peer, channel) == false)
                 {

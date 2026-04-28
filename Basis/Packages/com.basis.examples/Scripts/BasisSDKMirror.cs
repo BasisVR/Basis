@@ -98,6 +98,7 @@ public class BasisSDKMirror : MonoBehaviour
     }
 
     private BasisMeshRendererCheck basisMeshRendererCheck;
+    private BasisGazeTarget gazeTarget;
     private Vector3 thisPosition;
     private Vector3 normal;
     private readonly Vector3 projectionDirection = -Vector3.forward;
@@ -176,6 +177,18 @@ public class BasisSDKMirror : MonoBehaviour
         if (basisMeshRendererCheck != null)
             basisMeshRendererCheck.Check -= VisibilityFlag;
 
+        DisposePortalResources();
+
+        if (gazeTarget != null)
+            gazeTarget.enabled = false;
+
+        IsActive = false;
+        IsAbleToRender = false;
+        InsideRendering = false;
+    }
+
+    private void DisposePortalResources()
+    {
         if (PortalTextureLeft)
         {
 #if UNITY_EDITOR
@@ -201,10 +214,6 @@ public class BasisSDKMirror : MonoBehaviour
         PortalTextureLeft = null;
         PortalTextureRight = null;
         LeftCamera = RightCamera = null;
-
-        IsActive = false;
-        IsAbleToRender = false;
-        InsideRendering = false;
     }
 
     private void GetEffectiveResolution(out int width, out int height)
@@ -224,6 +233,12 @@ public class BasisSDKMirror : MonoBehaviour
 
     private void Initialize()
     {
+        if (IsActive) return;
+
+        // Drop any stale cameras/textures from a prior init that didn't reach a clean teardown
+        // (e.g. resources orphaned across a Play-Mode domain reload).
+        DisposePortalResources();
+
         xFlip = Matrix4x4.Scale(new Vector3(-1f, 1f, 1f));
 
         var mainCamera = BasisLocalCameraDriver.Instance.Camera;
@@ -239,6 +254,13 @@ public class BasisSDKMirror : MonoBehaviour
         IsAbleToRender = Renderer.isVisible;
         IsActive = true;
         InsideRendering = false;
+
+        // Set up gaze target so the eye driver focuses on the player's reflection
+        if (gazeTarget == null)
+            gazeTarget = BasisHelpers.GetOrAddComponent<BasisGazeTarget>(gameObject);
+        gazeTarget.Priority = 2f;
+        gazeTarget.UseTransformPosition = false;
+        gazeTarget.enabled = true;
     }
     private static Vector3 TransformPoint(Vector3 position, Quaternion rotation, Vector3 pointLocal)
     {
@@ -250,6 +272,12 @@ public class BasisSDKMirror : MonoBehaviour
     }
     private void OnBeforeRender()
     {
+        // Self-heal after a Play-Mode domain reload (e.g. Test In Editor + reselect triggers
+        // an AssetDatabase.Refresh()): the camera driver's serialized HasEvents flag persists
+        // across the reload, so its InstanceExists event never re-fires for our subscription.
+        if (!IsActive && BasisLocalCameraDriver.HasInstance)
+            Initialize();
+
         if (!IsActive || !IsAbleToRender) return;
 
         Camera cam = null;
@@ -269,6 +297,16 @@ public class BasisSDKMirror : MonoBehaviour
 
         thisPosition = Renderer.transform.position;
         normal = Renderer.transform.TransformDirection(projectionDirection).normalized;
+
+        // Update gaze target: reflect the player's eye position across the mirror plane
+        if (gazeTarget != null)
+        {
+            Vector3 eyePos = BasisLocalCameraDriver.Position;
+            transform.GetPositionAndRotation(out Vector3 planePosWS, out Quaternion planeRotWS);
+            Vector3 eyeLocal = InverseTransformPoint(planePosWS, planeRotWS, eyePos);
+            Vector3 reflLocal = Vector3.Reflect(eyeLocal, Vector3.forward);
+            gazeTarget.FocusPoint = TransformPoint(planePosWS, planeRotWS, reflLocal);
+        }
 
         RenderBothEyes(cam);
 

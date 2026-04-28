@@ -42,11 +42,19 @@ public static class BasisRemoteFaceManagement
     /// <summary>Maximum time (in seconds) between randomized look-around events.</summary>
     public const float MaxLookAroundInterval = 6f;
 
-    /// <summary>Maximum horizontal offset (in normalized degrees) for random look targets.</summary>
-    public const float MaxHorizontalLook = 0.75f;
+    /// <summary>
+    /// Maximum horizontal eye target as sin(yaw). 0.34 ≈ sin(20°), so the random
+    /// idle look stays within ±20° horizontal — the new apply path runs asin on
+    /// this value (BasisRemoteFaceDriver.ApplyEyeRotations), not a linear muscle map.
+    /// </summary>
+    public const float MaxHorizontalLook = 0.34f;
 
-    /// <summary>Maximum vertical offset (in normalized degrees) for random look targets.</summary>
-    public const float MaxVerticalLook = 0.75f;
+    /// <summary>
+    /// Maximum vertical eye target as sin(pitch). 0.26 ≈ sin(15°). Vertical idle
+    /// range is intentionally tighter than horizontal — eyes tend to rotate less
+    /// vertically without accompanying head movement.
+    /// </summary>
+    public const float MaxVerticalLook = 0.26f;
 
     /// <summary>Speed multiplier controlling how quickly the eyes interpolate toward their target.</summary>
     public const float LookSpeed = 15;
@@ -131,15 +139,23 @@ public static class BasisRemoteFaceManagement
                 BasisRemoteFaceDriver Face = remote.RemoteFaceDriver;
 
                 // Always write eye floats (cheap, keeps state consistent across range transitions)
+                float[] eyes = receiver.EyesAndMouth;
                 if (!Face.OverrideEye)
                 {
                     EyeOutput e = pEyeOut[Index];
 
-                    float[] eyes = receiver.EyesAndMouth;
                     eyes[0] = e.vL;
                     eyes[1] = e.hL;
                     eyes[2] = e.vR;
                     eyes[3] = e.hR;
+                }
+
+                // Apply the eye floats to the actual eye bones. Eye bones are excluded
+                // from the network bone sync (BasisBoneRotationCompression.SyncBoneCount = 51),
+                // so without this write remote eyes would be frozen at calibration pose.
+                if (Face.HasEyeBones)
+                {
+                    Face.ApplyEyeRotations(eyes[0], eyes[1], eyes[2], eyes[3]);
                 }
 
                 // Skip blink blendshape mesh writes when there is no mesh to write to
@@ -355,8 +371,13 @@ public static class BasisRemoteFaceManagement
                 e.vL = math.lerp(e.vL, es.target.y, t01);
                 e.vR = math.lerp(e.vR, es.target.y, t01);
 
+                // Both eyes share the same horizontal target. The previous code negated
+                // hR — that compensated for non-calibrated eye bone orientations in the
+                // old muscle-based pipeline. The new BasisRemoteFaceDriver calibration
+                // already normalises canonical→rig per-eye, so a single signed yaw
+                // drives both eyes in the same world direction.
                 e.hL = math.lerp(e.hL, es.target.x, t01);
-                e.hR = math.lerp(e.hR, -es.target.x, t01);
+                e.hR = math.lerp(e.hR, es.target.x, t01);
 
                 if (math.abs(e.vL - es.target.y) < 0.01f && math.abs(e.hL - es.target.x) < 0.01f)
                     es.isLooking = 0;

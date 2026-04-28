@@ -220,7 +220,9 @@ namespace Basis.Scripts.Networking
 
             // Phase 2 (parallel): Audio decode + packet processing + window management +
             // interpolation + SoA writes. All per-receiver state, no shared-state conflicts.
-            if (receiverCount > 16)
+            // Threshold is low because Opus decode dominates per-receiver cost; Parallel.For
+            // overhead (~50us) pays for itself well before 16 receivers.
+            if (receiverCount > 4)
             {
                 s_parallelSnapshot = snapshot;
                 s_parallelDeltaTime = UnscaledDeltaTime;

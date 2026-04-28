@@ -303,18 +303,20 @@ public class BasisAvatarValidator
 
         ValidateTranslationDof(ref warnings, ref passes);
 
-        Renderer[] renderers = Avatar.GetComponentsInChildren<Renderer>(true);
+        var allNonEditorOnlyTransformsInAvatar = CollectAllNonEditorOnlyTransforms(Avatar);
+
+        Renderer[] renderers = GetComponentsInTransforms<Renderer>(allNonEditorOnlyTransformsInAvatar);
         foreach (Renderer r in renderers)
         {
             CheckTextures(r, ref warnings);
             CheckShaders(r, ref errors, ref warnings);
         }
 
-        SkinnedMeshRenderer[] smrs = Avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        SkinnedMeshRenderer[] smrs = GetComponentsInTransforms<SkinnedMeshRenderer>(allNonEditorOnlyTransformsInAvatar);
         foreach (SkinnedMeshRenderer smr in smrs)
             CheckMesh(smr, ref errors, ref warnings);
 
-        Transform[] transforms = Avatar.GetComponentsInChildren<Transform>(true);
+        Transform[] transforms = GetComponentsInTransforms<Transform>(allNonEditorOnlyTransformsInAvatar);
         Dictionary<string, int> nameCounts = new Dictionary<string, int>();
         foreach (Transform t in transforms)
         {
@@ -344,6 +346,32 @@ public class BasisAvatarValidator
         }
 
         return errors.Count == 0;
+    }
+
+    private List<Transform> CollectAllNonEditorOnlyTransforms(BasisAvatar avatar)
+    {
+        var results = new List<Transform> { avatar.transform };
+        CollectNonEditorOnlyTransformsRecursive(avatar.transform, results);
+        return results;
+    }
+
+    private void CollectNonEditorOnlyTransformsRecursive(Transform rootTransform, List<Transform> results)
+    {
+        foreach (Transform child in rootTransform)
+        {
+            if (!child.gameObject.CompareTag("EditorOnly"))
+            {
+                results.Add(child);
+                CollectNonEditorOnlyTransformsRecursive(child, results);
+            }
+        }
+    }
+
+    private T[] GetComponentsInTransforms<T>(List<Transform> transforms)
+    {
+        return transforms
+            .SelectMany(t => t.GetComponents<T>())
+            .ToArray();
     }
 
     private void FixAddOrAssignAnimator()

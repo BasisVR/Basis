@@ -20,6 +20,8 @@
             <engine:Button text="Mouth Position Toggle" name="AvatarMouthPositionButton" style="-unity-font-style: normal;"/>
             <engine:Vector2Field label="Eye Position" name="AvatarEyePositionField" style="-unity-font-style: normal;"/>
             <engine:Vector2Field label="Mouth Position" name="AvatarMouthPositionField" style="-unity-font-style: normal;"/>
+            <engine:Slider label="Eye Liveliness" name="EyeLivelinessField" low-value="0" high-value="1" value="0.5" show-input-field="true" style="-unity-font-style: normal;"/>
+            <engine:Slider label="Eye Attentiveness" name="EyeAttentivenessField" low-value="0" high-value="1" value="0.5" show-input-field="true" style="-unity-font-style: normal;"/>
         </engine:Foldout>
         <engine:Foldout text="Viseme Setup" name="visemesetup" value="false" style="-unity-text-align: upper-center; -unity-font-style: bold; background-color: rgba(0, 0, 0, 0.54); border-top-left-radius: 5px; border-top-right-radius: 5px; border-bottom-right-radius: 5px; border-bottom-left-radius: 5px; border-bottom-width: 10px; margin-bottom: 5px;">
             <engine:Button text="Avatar Automatic Viseme Detection" name="AvatarAutomaticVisemeDetection" style="-unity-font-style: normal;"/>

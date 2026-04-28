@@ -341,6 +341,21 @@ namespace BasisNetworkServer.Security
                         HandleHeadlessDisallowSet(peer, reader));
                     break;
 
+                case AdminRequestMode.SetGlobalOpusPacketLoss:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleOpusPacketLossSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetUserOpusBitrate:
+                    Require(peer, PermNodes.ModerationOpusBitrate, () =>
+                        HandleUserOpusBitrateSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalOpusFrameDuration:
+                    Require(peer, PermNodes.ModerationOpusBitrate, () =>
+                        HandleOpusFrameDurationSet(peer, reader));
+                    break;
+
                 // ===== PERMISSION EDIT =====
                 case AdminRequestMode.SetUserGroup:
                 case AdminRequestMode.SetUserNode:
@@ -448,6 +463,13 @@ namespace BasisNetworkServer.Security
             NetworkServer.ReturnWriter(writer);
         }
 
+        private static void HandleShoutMode(NetPeer peer, NetPacketReader reader, bool enable)
+        {
+            ushort id = reader.GetUShort();
+            Basis.Network.Server.Generic.BasisSavedState.SetShoutMode(id, enable);
+            BasisServerHandle.BasisServerHandleEvents.BroadcastShoutModeState(id, enable);
+        }
+
         private static void HandleGlobalToggle(NetPeer peer, string contentType, bool nowLocked)
         {
             string state = nowLocked ? "DISABLED" : "ENABLED";
@@ -514,11 +536,76 @@ namespace BasisNetworkServer.Security
             BasisHeadlessConnectionPolicyManager.BroadcastState();
         }
 
-        private static void HandleShoutMode(NetPeer peer, NetPacketReader reader, bool enable)
+        private static void HandleOpusPacketLossSet(NetPeer peer, NetPacketReader reader)
         {
-            ushort id = reader.GetUShort();
-            Basis.Network.Server.Generic.BasisSavedState.SetShoutMode(id, enable);
-            BasisServerHandle.BasisServerHandleEvents.BroadcastShoutModeState(id, enable);
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set Opus packet loss: missing value byte.");
+                return;
+            }
+
+            int percent = reader.GetByte();
+            bool changed = BasisOpusPacketLossStateManager.SetPacketLossPercent(percent);
+            int applied = BasisOpusPacketLossStateManager.PacketLossPercent;
+            string notification = changed
+                ? $"Opus FEC packet-loss % is now {applied}."
+                : $"Opus FEC packet-loss % was already {applied}.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+            BasisOpusPacketLossStateManager.BroadcastState();
+        }
+
+        private static void HandleUserOpusBitrateSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 6) // ushort + int
+            {
+                SendBackMessage(peer, "Failed to set user Opus bitrate: missing payload.");
+                return;
+            }
+
+            ushort targetId = reader.GetUShort();
+            int requested = reader.GetInt();
+
+            int applied = BasisUserOpusBitrateStateManager.SetBitrate(targetId, requested);
+
+            if (NetworkServer.AuthenticatedPeers.TryGetValue(targetId, out var targetPeer))
+            {
+                BasisUserOpusBitrateStateManager.SendOverrideToPeer(targetPeer, applied);
+            }
+
+            string notification = applied == 0
+                ? $"Cleared Opus bitrate override for player {targetId}."
+                : $"Opus bitrate override for player {targetId} is now {applied} bps.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+        }
+
+        private static void HandleOpusFrameDurationSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set Opus frame duration: missing value byte.");
+                return;
+            }
+
+            int requested = reader.GetByte();
+            if (!BasisOpusFrameDurationStateManager.IsAcceptedDuration(requested))
+            {
+                SendBackMessage(peer, $"Failed to set Opus frame duration: only 20 or 40 ms are accepted (got {requested}).");
+                return;
+            }
+
+            bool changed = BasisOpusFrameDurationStateManager.SetFrameDurationMs(requested);
+            int applied = BasisOpusFrameDurationStateManager.FrameDurationMs;
+            string notification = changed
+                ? $"Opus frame duration is now {applied} ms."
+                : $"Opus frame duration was already {applied} ms.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+            BasisOpusFrameDurationStateManager.BroadcastState();
         }
 
         public static void SendBackMessage(NetPeer peer, string msg)

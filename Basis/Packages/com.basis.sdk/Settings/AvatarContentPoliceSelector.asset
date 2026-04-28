@@ -195,3 +195,4 @@ MonoBehaviour:
   - Basis.Shims.BasisNetworkShim
   - Cilbox.CilboxProxy
   - Basis.Shims.BasisOsc
+  - Basis.Scripts.BasisSdk.BasisHeadChop

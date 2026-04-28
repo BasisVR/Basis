@@ -103,7 +103,8 @@ public class BasisSceneSDKInspector : Editor
             spawnGizmoButton.text = "Spawn Point Gizmo " + BoolToText(SpawnPointGizmoState);
             spawnGizmoButton.clicked += () => ClickedSpawnPointGizmoButton(spawnGizmoButton);
 
-            // Build options
+            // Content tags + build options
+            BasisSDKCommonInspector.CreateContentTagsFoldout(uiElementsRoot, BasisScene);
             BasisSDKCommonInspector.CreateBuildTargetOptions(uiElementsRoot);
             BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
 

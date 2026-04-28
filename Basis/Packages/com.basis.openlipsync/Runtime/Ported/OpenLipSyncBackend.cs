@@ -254,6 +254,16 @@ namespace OpenLipSync.Inference
             }
         }
 
+        // Cached input wrapper: DenseTensor + NamedOnnxValue + the int[] dims live
+        // for the lifetime of the steady-state shape, avoiding per-inference allocations.
+        // Rebuild only when shape OR the underlying array reference changes.
+        private DenseTensor<float> _cachedInputTensor;
+        private readonly NamedOnnxValue[] _runInputs = new NamedOnnxValue[1];
+        private int _cachedSeqLen = -1;
+        private int _cachedMelBands = -1;
+        private int _cachedInputSize = -1;
+        private float[] _cachedInputArrayRef;
+
         private void RunSequenceInference(float[] melSequenceFlat, int seqLen, int melBands, float[] destination, float[] inputBuffer = null)
         {
             if (_onnxSession == null || seqLen <= 0)
@@ -265,23 +275,38 @@ namespace OpenLipSync.Inference
             try
             {
                 int inputSize = seqLen * melBands;
-                // Use pre-allocated buffer when available to avoid per-inference GC allocation.
-                // DenseTensor's Memory<T> constructor accepts a slice, so the backing array
-                // can be larger than the tensor's element count.
+
                 float[] inputData;
                 if (inputBuffer != null && inputBuffer.Length >= inputSize)
                 {
                     inputData = inputBuffer;
-                    Array.Copy(melSequenceFlat, 0, inputData, 0, inputSize);
                 }
                 else
                 {
                     inputData = new float[inputSize];
-                    Array.Copy(melSequenceFlat, 0, inputData, 0, inputSize);
                 }
-                var inputTensor = new DenseTensor<float>(new Memory<float>(inputData, 0, inputSize), new[] { 1, seqLen, melBands });
+                Array.Copy(melSequenceFlat, 0, inputData, 0, inputSize);
 
-                using var results = _onnxSession.Run(new[] { NamedOnnxValue.CreateFromTensor("audio_features", inputTensor) });
+                // Rebuild the input tensor wrapper only when shape OR the backing
+                // array changes. In steady state none of these vary, so this is
+                // effectively zero allocation per inference.
+                if (_cachedInputTensor == null
+                    || _cachedSeqLen != seqLen
+                    || _cachedMelBands != melBands
+                    || _cachedInputSize != inputSize
+                    || !ReferenceEquals(_cachedInputArrayRef, inputData))
+                {
+                    _cachedInputTensor = new DenseTensor<float>(
+                        new Memory<float>(inputData, 0, inputSize),
+                        new[] { 1, seqLen, melBands });
+                    _runInputs[0] = NamedOnnxValue.CreateFromTensor("audio_features", _cachedInputTensor);
+                    _cachedSeqLen = seqLen;
+                    _cachedMelBands = melBands;
+                    _cachedInputSize = inputSize;
+                    _cachedInputArrayRef = inputData;
+                }
+
+                using var results = _onnxSession.Run(_runInputs);
 
                 var firstResult = results.First();
                 var outputTensor = firstResult.AsTensor<float>();
@@ -289,22 +314,25 @@ namespace OpenLipSync.Inference
 
                 int numVisemes = Math.Min(destination.Length, _numVisemes);
 
-                // Determine dimension layout without allocating closures.
-                int dimMode; // 1=1D, 2=2D, 3=3D
-                int lastIndex = 0;
+                // Compute the linear-buffer offset for the last-frame slice once,
+                // so the inner loops below are just sequential reads. Layout
+                // assumed for ORT: row-major / C-contiguous.
+                int outBase;
                 if (dims.Length == 3)
                 {
-                    dimMode = 3;
-                    lastIndex = dims[1] - 1;
+                    int lastIndex = dims[1] - 1;
+                    int rowStride = dims[2];
+                    outBase = lastIndex * rowStride;
                 }
                 else if (dims.Length == 2)
                 {
-                    dimMode = 2;
-                    lastIndex = dims[0] - 1;
+                    int lastIndex = dims[0] - 1;
+                    int rowStride = dims[1];
+                    outBase = lastIndex * rowStride;
                 }
                 else if (dims.Length == 1)
                 {
-                    dimMode = 1;
+                    outBase = 0;
                 }
                 else
                 {
@@ -312,11 +340,26 @@ namespace OpenLipSync.Inference
                     return;
                 }
 
+                // Get raw linear span once instead of paying for the multidim
+                // DenseTensor indexer (stride math + bounds check) per element.
+                ReadOnlySpan<float> outSpan;
+                if (outputTensor is DenseTensor<float> denseOut)
+                {
+                    outSpan = denseOut.Buffer.Span;
+                }
+                else
+                {
+                    // Fallback for non-DenseTensor implementations — copies once.
+                    outSpan = outputTensor.ToArray();
+                }
+
+                ReadOnlySpan<float> logits = outSpan.Slice(outBase, numVisemes);
+
                 if (_isMultiLabel)
                 {
                     for (int i = 0; i < numVisemes; i++)
                     {
-                        float x = dimMode == 3 ? outputTensor[0, lastIndex, i] : dimMode == 2 ? outputTensor[lastIndex, i] : outputTensor[i];
+                        float x = logits[i];
                         x = Math.Clamp(x, -50f, 50f);
                         destination[i] = 1f / (1f + MathF.Exp(-x));
                     }
@@ -326,14 +369,13 @@ namespace OpenLipSync.Inference
                     float maxLogit = float.MinValue;
                     for (int i = 0; i < numVisemes; i++)
                     {
-                        float v = dimMode == 3 ? outputTensor[0, lastIndex, i] : dimMode == 2 ? outputTensor[lastIndex, i] : outputTensor[i];
+                        float v = logits[i];
                         if (v > maxLogit) maxLogit = v;
                     }
                     float sum = 0f;
                     for (int i = 0; i < numVisemes; i++)
                     {
-                        float logit = dimMode == 3 ? outputTensor[0, lastIndex, i] : dimMode == 2 ? outputTensor[lastIndex, i] : outputTensor[i];
-                        float e = MathF.Exp(logit - maxLogit);
+                        float e = MathF.Exp(logits[i] - maxLogit);
                         destination[i] = e;
                         sum += e;
                     }

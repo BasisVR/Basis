@@ -39,6 +39,7 @@
     <assembly fullname="Generator.Equals.Runtime" preserve="all" />
     <assembly fullname="HVR.Basis.Comms" preserve="all" />
     <assembly fullname="HVR.Basis.Comms.HVRUtility" preserve="all" />
+    <assembly fullname="K4os.Compression.LZ4" preserve="all" />
     <assembly fullname="LiteNetLib" preserve="all" />
     <assembly fullname="MeaMod.DNS" preserve="all" />
     <assembly fullname="Microsoft.ML.OnnxRuntime" preserve="all" />

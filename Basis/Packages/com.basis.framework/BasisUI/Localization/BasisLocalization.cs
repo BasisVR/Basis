@@ -1,16 +1,22 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Basis.BasisUI
 {
     /// <summary>
     /// Lightweight key-value localization for Basis UI.
     ///
-    /// Language JSON files live in StreamingAssets/Basis/Languages/{code}.json
-    /// and use the same KeyValue list format as BasisSettingsSystem, so they
-    /// round-trip through UnityEngine.JsonUtility without custom parsing.
+    /// Language JSON files are loaded via Addressables using the
+    /// <see cref="LanguageLabel"/> label and use the same KeyValue list format
+    /// as BasisSettingsSystem, so they round-trip through
+    /// UnityEngine.JsonUtility without custom parsing. Going through Addressables
+    /// (instead of File.IO against StreamingAssets) is required because on
+    /// Android the APK packs StreamingAssets into a compressed archive and
+    /// Directory.GetFiles silently returns nothing — language discovery was
+    /// broken on mobile builds.
     ///
     /// Japanese (and other CJK languages) require a TMP font asset that includes
     /// the relevant glyph set. The default Basis TMP font only ships with Latin
@@ -21,10 +27,11 @@ namespace Basis.BasisUI
     public static class BasisLocalization
     {
         public const string DefaultLanguage = "en";
-        private const string LanguagesFolder = "Basis/Languages";
+        public const string LanguageLabel = "language";
 
         private static readonly Dictionary<string, string> _fallback = new();
         private static readonly Dictionary<string, string> _current = new();
+        private static readonly Dictionary<string, Dictionary<string, string>> _allTables = new(StringComparer.OrdinalIgnoreCase);
         private static readonly List<LanguageOption> _available = new();
         private static readonly HashSet<string> _missingKeys = new();
 
@@ -112,28 +119,21 @@ namespace Basis.BasisUI
             }
             _initialized = true;
 
-            DiscoverAvailableLanguages();
-            LoadTable(DefaultLanguage, _fallback);
+            LoadAllTables();
 
-            string languageCode;
-            if (BasisSettingsSystem.HasSaveData("language"))
-            {
-                languageCode = BasisSettingsSystem.LoadString("language", DefaultLanguage);
-            }
-            else
-            {
+            var languageCode = BasisSettingsSystem.LoadString("language", DefaultLanguage);
+            if (string.IsNullOrEmpty(languageCode))
                 languageCode = DetectSystemLanguage();
-            }
 
             SetLanguage(languageCode, notify: false);
         }
 
         /// <summary>
         /// Maps <see cref="Application.systemLanguage"/> to one of the
-        /// language codes that actually has a JSON file on disk. Unknown or
+        /// language codes found in the Addressable catalog. Unknown or
         /// unavailable system languages fall back to <see cref="DefaultLanguage"/>,
-        /// so dropping a new language file into StreamingAssets is enough to
-        /// make auto-detection pick it up — no code change required.
+        /// so dropping a new language file into the Addressable Languages
+        /// folder is enough to make auto-detection pick it up.
         /// </summary>
         private static string DetectSystemLanguage()
         {
@@ -142,9 +142,8 @@ namespace Basis.BasisUI
             {
                 case SystemLanguage.Japanese: candidate = "ja"; break;
                 case SystemLanguage.Korean: candidate = "ko"; break;
-                case SystemLanguage.ChineseSimplified: candidate = "zh-Hans"; break;
+                case SystemLanguage.ChineseSimplified or SystemLanguage.Chinese: candidate = "zh-Hans"; break;
                 case SystemLanguage.ChineseTraditional: candidate = "zh-Hant"; break;
-                case SystemLanguage.Chinese: candidate = "zh"; break;
                 case SystemLanguage.French: candidate = "fr"; break;
                 case SystemLanguage.German: candidate = "de"; break;
                 case SystemLanguage.Spanish: candidate = "es"; break;
@@ -229,9 +228,20 @@ namespace Basis.BasisUI
             }
 
             _current.Clear();
-            if (languageCode != DefaultLanguage)
+            if (!string.Equals(languageCode, DefaultLanguage, StringComparison.OrdinalIgnoreCase))
             {
-                LoadTable(languageCode, _current);
+                if (_allTables.TryGetValue(languageCode, out Dictionary<string, string> table))
+                {
+                    foreach (KeyValuePair<string, string> kv in table)
+                    {
+                        _current[kv.Key] = kv.Value;
+                    }
+                }
+                else
+                {
+                    BasisDebug.LogError($"[BasisLocalization] Language table not loaded for code \"{languageCode}\" — falling back to English. Check that the JSON file is in an Addressable group with the \"{LanguageLabel}\" label and that the Addressables content has been built.");
+                    languageCode = DefaultLanguage;
+                }
             }
 
             _currentLanguage = languageCode;
@@ -308,103 +318,107 @@ namespace Basis.BasisUI
             }
         }
 
-        private static string GetLanguagesDirectory()
+        /// <summary>
+        /// Loads every language TextAsset tagged with the
+        /// <see cref="LanguageLabel"/> Addressable label, parses each, and
+        /// caches the resulting tables plus the available-language dropdown.
+        ///
+        /// <para>Uses <c>WaitForCompletion</c> intentionally: language data is
+        /// local, tiny, and must be ready before any UI renders. The content
+        /// is copied into managed dictionaries so the Addressable handle is
+        /// released immediately after parsing.</para>
+        /// </summary>
+        private static void LoadAllTables()
         {
-            return Path.Combine(Application.streamingAssetsPath, LanguagesFolder);
-        }
-
-        private static void DiscoverAvailableLanguages()
-        {
+            _allTables.Clear();
+            _fallback.Clear();
             _available.Clear();
+
+            // English is always present even if its asset is missing, so
+            // Get(key) falls back to the raw key instead of returning empty.
             _available.Add(new LanguageOption(DefaultLanguage, "English"));
 
-            string dir = GetLanguagesDirectory();
-            if (!Directory.Exists(dir))
-            {
-                return;
-            }
-
-            string[] files;
+            AsyncOperationHandle<IList<TextAsset>> handle = Addressables.LoadAssetsAsync<TextAsset>(LanguageLabel, null);
+            IList<TextAsset> assets;
             try
             {
-                files = Directory.GetFiles(dir, "*.json");
+                assets = handle.WaitForCompletion();
             }
             catch (Exception e)
             {
-                BasisDebug.LogError($"[BasisLocalization] Failed to list languages in {dir}: {e}");
+                BasisDebug.LogError($"[BasisLocalization] Failed to load language Addressables (label \"{LanguageLabel}\"): {e}");
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
                 return;
             }
 
-            for (int i = 0; i < files.Length; i++)
+            if (handle.Status != AsyncOperationStatus.Succeeded || assets == null || assets.Count == 0)
             {
-                string code = Path.GetFileNameWithoutExtension(files[i]);
-                if (string.Equals(code, DefaultLanguage, StringComparison.OrdinalIgnoreCase))
+                BasisDebug.LogError($"[BasisLocalization] No assets found for Addressable label \"{LanguageLabel}\". Run \"Basis/Localization/Register Languages as Addressable\" and rebuild Addressables content.");
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+                return;
+            }
+
+            for (int i = 0; i < assets.Count; i++)
+            {
+                TextAsset asset = assets[i];
+                if (asset == null || string.IsNullOrEmpty(asset.text))
                 {
                     continue;
                 }
 
-                string nativeName = ReadNativeName(files[i], code);
-                _available.Add(new LanguageOption(code, nativeName));
-            }
-        }
-
-        private static string ReadNativeName(string filePath, string code)
-        {
-            try
-            {
-                string json = File.ReadAllText(filePath);
-                LanguageTable parsed = JsonUtility.FromJson<LanguageTable>(json);
-                if (parsed != null && !string.IsNullOrEmpty(parsed.nativeName))
+                LanguageTable parsed;
+                try
                 {
-                    return parsed.nativeName;
+                    parsed = JsonUtility.FromJson<LanguageTable>(asset.text);
                 }
-            }
-            catch (Exception e)
-            {
-                BasisDebug.LogError($"[BasisLocalization] Could not read nativeName from {filePath}: {e}");
-            }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"[BasisLocalization] Failed to parse language asset \"{asset.name}\": {e}");
+                    continue;
+                }
 
-            return code;
-        }
-
-        private static void LoadTable(string languageCode, Dictionary<string, string> target)
-        {
-            target.Clear();
-
-            string path = Path.Combine(GetLanguagesDirectory(), languageCode + ".json");
-            if (!File.Exists(path))
-            {
-                BasisDebug.LogError($"[BasisLocalization] Language file not found: {path}");
-                return;
-            }
-
-            LanguageTable parsed;
-            try
-            {
-                string json = File.ReadAllText(path);
-                parsed = JsonUtility.FromJson<LanguageTable>(json);
-            }
-            catch (Exception e)
-            {
-                BasisDebug.LogError($"[BasisLocalization] Failed to parse {path}: {e}");
-                return;
-            }
-
-            if (parsed == null || parsed.entries == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < parsed.entries.Count; i++)
-            {
-                LanguageEntry entry = parsed.entries[i];
-                if (entry == null || string.IsNullOrEmpty(entry.key))
+                if (parsed == null || string.IsNullOrEmpty(parsed.code))
                 {
                     continue;
                 }
 
-                target[entry.key] = entry.value ?? string.Empty;
+                Dictionary<string, string> table = new(parsed.entries?.Count ?? 0);
+                if (parsed.entries != null)
+                {
+                    for (int j = 0; j < parsed.entries.Count; j++)
+                    {
+                        LanguageEntry entry = parsed.entries[j];
+                        if (entry == null || string.IsNullOrEmpty(entry.key))
+                        {
+                            continue;
+                        }
+
+                        table[entry.key] = entry.value ?? string.Empty;
+                    }
+                }
+
+                _allTables[parsed.code] = table;
+
+                if (string.Equals(parsed.code, DefaultLanguage, StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (KeyValuePair<string, string> kv in table)
+                    {
+                        _fallback[kv.Key] = kv.Value;
+                    }
+                    continue;
+                }
+
+                string nativeName = string.IsNullOrEmpty(parsed.nativeName) ? parsed.code : parsed.nativeName;
+                _available.Add(new LanguageOption(parsed.code, nativeName));
             }
+
+            Addressables.Release(handle);
         }
 
         [Serializable]

@@ -64,6 +64,13 @@ namespace BasisNetworkCore.Serializable
             SetGlobalHeadlessAudio, // admin: explicitly set headless audio clip playback state for headless clients
             GlobalGetHeadlessDisallowState, // server→client: current global headless disallow state
             SetGlobalHeadlessDisallow, // admin: explicitly allow/disallow headless client connections
+            SetGlobalOpusPacketLoss, // admin: set Opus FEC packet-loss percent (0..100) applied to every client's encoder
+            GlobalGetOpusPacketLossState, // server→client: current Opus FEC packet-loss percent
+
+            SetUserOpusBitrate,           // admin: override a single user's Opus encoder bitrate (bps); 0 = clear override
+            UserOpusBitrateOverride,      // server→target user: their current bitrate override (0 = none)
+            SetGlobalOpusFrameDuration,   // admin: set the Opus frame duration in milliseconds (20 or 40)
+            GlobalGetOpusFrameDurationState, // server→client: current Opus frame duration in milliseconds
         }
     }
 }

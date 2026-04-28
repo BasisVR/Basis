@@ -21,6 +21,8 @@ public partial class BasisHandHeldCameraUI
     public Button Nameplates;
     public Button OverrideDesktopOutput;
     public Button Selfie;
+    public Button AutoLevelButton;
+    public Button VRStabilizationButton;
 
     [Space(10)]
     public GameObject focusCursor;
@@ -36,6 +38,8 @@ public partial class BasisHandHeldCameraUI
 
     public enum DepthMode { Auto, Manual }
     public DepthMode currentDepthMode = DepthMode.Auto;
+    public bool IsSelfieMode => selfieBool;
+    public Transform imagePreviewFlip;
 
     [Space(10)]
     /// <summary>
@@ -98,6 +102,7 @@ public partial class BasisHandHeldCameraUI
 
     [Space(10)]
     public GameObject cameraReference;
+    public GameObject uiOrientationReference;
     private bool selfieBool = false;
 
     public BasisHandHeldCamera HHC;
@@ -153,6 +158,8 @@ public partial class BasisHandHeldCameraUI
         AddIf(list, "Nameplates", Nameplates, BasisCameraButtonAction.ToggleNameplates);
         AddIf(list, "OverrideDesktopOutput", OverrideDesktopOutput, BasisCameraButtonAction.ToggleDesktopOutput);
         AddIf(list, "Selfie", Selfie, BasisCameraButtonAction.ToggleSelfie);
+        AddIf(list, "AutoLevel", AutoLevelButton, BasisCameraButtonAction.ToggleAutoLevel);
+        AddIf(list, "VRStabilization", VRStabilizationButton, BasisCameraButtonAction.ToggleVRHandheldSmoothing);
 
         AddIf(list, "DepthAuto", DepthModeAutoButton, BasisCameraButtonAction.DepthModeAuto);
         AddIf(list, "DepthManual", DepthModeManualButton, BasisCameraButtonAction.DepthModeManual);
@@ -235,6 +242,14 @@ public partial class BasisHandHeldCameraUI
 
             case BasisCameraButtonAction.ToggleSelfie:
                 button.onClick.AddListener(SelfieToggle);
+                break;
+
+            case BasisCameraButtonAction.ToggleAutoLevel:
+                button.onClick.AddListener(ToggleAutoLevel);
+                break;
+
+            case BasisCameraButtonAction.ToggleVRHandheldSmoothing:
+                button.onClick.AddListener(ToggleVRHandheldSmoothing);
                 break;
 
             case BasisCameraButtonAction.DepthModeAuto:
@@ -409,9 +424,34 @@ public partial class BasisHandHeldCameraUI
 
     private void SelfieToggle()
     {
-        if (cameraReference == null) return;
-        cameraReference.transform.rotation *= Quaternion.Euler(0, 180, 0);
         selfieBool = !selfieBool;
+
+        var interactable = HHC != null ? HHC.GetComponent<BasisHandHeldCameraInteractable>() : null;
+        interactable?.SetSelfieRotationEnabled(selfieBool);
+
+        if (imagePreviewFlip != null)
+        {
+            Vector3 scale = imagePreviewFlip.localScale;
+            scale.x = selfieBool ? -Mathf.Abs(scale.x) : Mathf.Abs(scale.x);
+            imagePreviewFlip.localScale = scale;
+        }
+    }
+    
+    private void ToggleAutoLevel()
+    {
+        if (HHC == null)
+            return;
+
+        HHC.useAutoLeveling = !HHC.useAutoLeveling;
+        BasisDebug.Log($"[AutoLevel] Auto leveling is now {(HHC.useAutoLeveling ? "ON" : "OFF")}");
+    }
+    private void ToggleVRHandheldSmoothing()
+    {
+        if (HHC == null)
+            return;
+
+        HHC.useVRHandheldSmoothing = !HHC.useVRHandheldSmoothing;
+        BasisDebug.Log($"[VRStabilization] VR handheld smoothing is now {(HHC.useVRHandheldSmoothing ? "ON" : "OFF")}");
     }
 
     public void SetDepthMode(DepthMode mode)

@@ -68,6 +68,9 @@ namespace Basis.Network.Core
         public float TimeSinceLastPacket { get; }
         public long RemoteTimeDelta { get; }
         public DateTime RemoteUtcTime => new DateTime(DateTime.UtcNow.Ticks + RemoteTimeDelta);
+        // Maximum UDP payload (no fragmentation) negotiated for this peer. Used by the
+        // avatar bundle compressor to size compressed payloads to fit one datagram.
+        public int Mtu { get; }
 
         // public readonly NetStatistics Statistics;
     }

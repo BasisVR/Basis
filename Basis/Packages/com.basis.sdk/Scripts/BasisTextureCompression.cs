@@ -32,7 +32,7 @@ public static class BasisTextureCompression
 
             if (madeCopy)
             {
-                UnityEngine.Object.Destroy(tex);
+                DestroySafe(tex);
             }
 
             tex = resized;
@@ -47,7 +47,7 @@ public static class BasisTextureCompression
         {
             if (madeCopy && tex != source)
             {
-                UnityEngine.Object.Destroy(tex);
+                DestroySafe(tex);
             }
         }
     }
@@ -64,8 +64,15 @@ public static class BasisTextureCompression
         tex.LoadImage(Convert.FromBase64String(pngBytes)); // Unity auto-resizes
 
         Texture2D clamped = EnforceMaxSize(tex);
-        UnityEngine.Object.Destroy(tex);
+        DestroySafe(tex);
         return clamped;
+    }
+
+    private static void DestroySafe(UnityEngine.Object o)
+    {
+        if (o == null) return;
+        if (Application.isPlaying) UnityEngine.Object.Destroy(o);
+        else UnityEngine.Object.DestroyImmediate(o);
     }
 
     /// <summary>

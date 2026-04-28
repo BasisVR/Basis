@@ -132,10 +132,10 @@ namespace Basis.Scripts.Drivers
             Player.FaceRenderer.Check += Player.UpdateFaceVisibility;
 
             // Blink + eyes
-            if (BasisRemoteFaceDriver.MeetsRequirements(RemotePlayer.BasisAvatar))
-            {
-                RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
-            }
+            // Initialize unconditionally — Initialize handles a missing blink mesh
+            // gracefully (sets BlinkingEnabled = false) and eye calibration still runs
+            // for avatars that only have eye bones.
+            RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
             // Renderer perf flags
             RemoteRenderMeshSettings(BasisLayerMapper.RemoteAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer);
 

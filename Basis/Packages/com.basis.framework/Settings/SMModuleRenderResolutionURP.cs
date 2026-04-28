@@ -1,5 +1,6 @@
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -71,6 +72,26 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             return;
         }
 #endif
+
+        // OpenVR caches the recommended eye texture size at init, so URP renderScale is the
+        // only knob that takes effect after launch. Drive XRSettings.eyeTextureResolutionScale
+        // directly so the slider actually resizes the eye textures at runtime, and pin URP
+        // renderScale to 1 to avoid stacking the two multipliers. Other modes (OpenXR, Desktop)
+        // keep using URP renderScale as before.
+        bool isOpenVR = string.Equals(BasisDeviceManagement.StaticCurrentMode, BasisConstants.OpenVRLoader, StringComparison.Ordinal);
+        if (isOpenVR)
+        {
+            if (!Mathf.Approximately(XRSettings.eyeTextureResolutionScale, RenderScale))
+            {
+                XRSettings.eyeTextureResolutionScale = RenderScale;
+            }
+            if (asset != null && asset.renderScale != 1f)
+            {
+                asset.renderScale = 1f;
+            }
+            return;
+        }
+
         // the system allows us to scale the render resolution correctly,
         // however gpu culling does not know about this
         if (asset.renderScale != RenderScale)

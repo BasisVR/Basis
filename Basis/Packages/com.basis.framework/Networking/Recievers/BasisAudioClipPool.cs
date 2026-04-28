@@ -7,6 +7,17 @@ public static class BasisAudioClipPool
 {
     private static int maxPooledClips = 16;//how many pooled sources.
 
+    /// <summary>
+    /// Multiplier applied to <see cref="SharedOpusSettings.DesiredDurationInSeconds"/>
+    /// when sizing newly-allocated <see cref="AudioClip"/>s. Acts as a secondary
+    /// playback buffer between the decoded PCM queue and Unity's AudioSource;
+    /// smaller = lower latency but tighter coupling to underrun, larger = more
+    /// memory + more headroom. Existing pooled clips keep their original size,
+    /// so callers should <see cref="Clear"/> the pool after lowering this if
+    /// they want the change to take effect immediately on next <see cref="Get"/>.
+    /// </summary>
+    public static int ClipBufferScalar = 2;
+
     private static Queue<AudioClip> pool = new Queue<AudioClip>();
 
     // Cached buffer for resetting clips — avoids allocating a new float[] per Get().
@@ -24,7 +35,6 @@ public static class BasisAudioClipPool
             if (_resetBuffer == null || _resetBuffer.Length < needed)
             {
                 _resetBuffer = new float[needed];
-                Array.Fill(_resetBuffer, 1.0f);
             }
 
             clip.SetData(_resetBuffer, 0);
@@ -33,10 +43,11 @@ public static class BasisAudioClipPool
         }
         else
         {
-            int clipFrames = Mathf.CeilToInt(SharedOpusSettings.DesiredDurationInSeconds * 4 * AudioSettings.outputSampleRate);
+            int scalar = Mathf.Max(1, ClipBufferScalar);
+            int clipFrames = Mathf.CeilToInt(SharedOpusSettings.DesiredDurationInSeconds * scalar * AudioSettings.outputSampleRate);
             return AudioClip.Create($"player [{LinkedPlayer}]", clipFrames, RemoteOpusSettings.Channels, AudioSettings.outputSampleRate, false, (buf) =>
             {
-                Array.Fill(buf, 1.0f);
+                Array.Clear(buf, 0, buf.Length);
             });
         }
     }

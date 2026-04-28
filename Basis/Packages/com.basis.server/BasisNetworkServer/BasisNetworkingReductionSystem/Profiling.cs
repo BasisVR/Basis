@@ -32,6 +32,17 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         private static long _preSerializations;
         private static long _preSerializationsSkipped;
 
+        // Compressed-avatar-bundle metrics. Public so the reduction system can Interlocked.Add
+        // from the parallel send loop. All only touched when Enabled is true.
+        public static long bundlesEmitted;
+        public static long bundleMessages;
+        public static long bundleRawBytes;
+        public static long bundleCompressedBytes;
+        public static long bundleDeflateTicks;
+        public static long bundleRetries;
+        public static long bundleFallbacks;
+        public static long bundleTailUncompressed;
+
         public static void IncrementPreSerializations()
         {
             if (!Enabled) return;
@@ -68,6 +79,16 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             double total = drain + process + distance + update + trigger;
 
+            // Bundle metrics — exchange even if zero so a flag flip is reflected immediately
+            long bEmit = Interlocked.Exchange(ref bundlesEmitted, 0);
+            long bMsg = Interlocked.Exchange(ref bundleMessages, 0);
+            long bRaw = Interlocked.Exchange(ref bundleRawBytes, 0);
+            long bComp = Interlocked.Exchange(ref bundleCompressedBytes, 0);
+            long bDeflate = Interlocked.Exchange(ref bundleDeflateTicks, 0);
+            long bRetry = Interlocked.Exchange(ref bundleRetries, 0);
+            long bFallback = Interlocked.Exchange(ref bundleFallbacks, 0);
+            long bTail = Interlocked.Exchange(ref bundleTailUncompressed, 0);
+
             BNL.Log($"\n[BSR Profile] {ticks} ticks, {msgs} msgs, {sends} sends, preSer {preSer}/{preSer + preSkip}");
             BNL.Log($"  drain:    {drain / ticks:F3} ms/tick ({drain / total * 100:F1}%)");
             BNL.Log($"  process:  {process / ticks:F3} ms/tick ({process / total * 100:F1}%)");
@@ -75,6 +96,23 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             BNL.Log($"  update:   {update / ticks:F3} ms/tick ({update / total * 100:F1}%)");
             BNL.Log($"  trigger:  {trigger / ticks:F3} ms/tick ({trigger / total * 100:F1}%)");
             BNL.Log($"  total:    {total / ticks:F3} ms/tick");
+
+            if (bEmit > 0 || bTail > 0 || bFallback > 0)
+            {
+                double ratio = bRaw > 0 ? (double)bComp / bRaw : 0;
+                double avgMsgsPerBundle = bEmit > 0 ? (double)bMsg / bEmit : 0;
+                double avgRawPerBundle = bEmit > 0 ? (double)bRaw / bEmit : 0;
+                double avgCompPerBundle = bEmit > 0 ? (double)bComp / bEmit : 0;
+                double deflateMs = bDeflate / MsToTick;
+                double avgDeflateUs = bEmit > 0 ? (deflateMs * 1000.0) / bEmit : 0;
+                double bundlesPerTick = (double)bEmit / ticks;
+                double retryRate = bEmit > 0 ? (double)bRetry / bEmit * 100.0 : 0;
+                long savedBytes = bRaw - bComp; // raw input vs compressed output
+                BNL.Log($"  bundles:  {bEmit} emitted ({bundlesPerTick:F2}/tick), {bMsg} msgs in bundles, {bTail} msgs tail-uncompressed, {bFallback} fallbacks");
+                BNL.Log($"            ratio {ratio:F3} ({(1 - ratio) * 100:F1}% saved on bundled bytes), avg {avgMsgsPerBundle:F1} msgs/bundle ({avgRawPerBundle:F0} B raw → {avgCompPerBundle:F0} B compressed)");
+                BNL.Log($"            deflate {deflateMs / ticks:F3} ms/tick ({deflateMs / total * 100:F1}% of tick), {avgDeflateUs:F1} µs/bundle, retries {bRetry} ({retryRate:F1}%)");
+                BNL.Log($"            saved ~{savedBytes / 1024.0:F1} KB this window before per-message wire overhead");
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -78,6 +79,10 @@ public class BasisLocalHandDriver
     private int _validJointCount;
     /// <summary>Managed mirror of _jointMapping for Apply sync.</summary>
     private int[] _taaToFlat;
+    /// <summary>Pre-resolved destination Quaternion[] (one of Current.Left*/Right*) per compact joint, set once in RebuildTransformAccess to avoid switch+div+mod each frame.</summary>
+    private Quaternion[][] _destFingerArrays;
+    /// <summary>Pre-resolved joint index (0..2) within the destination array per compact joint.</summary>
+    private int[] _destJointIndices;
 
     // --- Lifecycle ---
 
@@ -361,8 +366,15 @@ public class BasisLocalHandDriver
             _currentRotations = new NativeArray<quaternion>(_validJointCount, Allocator.Persistent);
             _jointMapping = new NativeArray<int>(_validJointCount, Allocator.Persistent);
 
+            _destFingerArrays = new Quaternion[_validJointCount][];
+            _destJointIndices = new int[_validJointCount];
             for (int i = 0; i < _validJointCount; i++)
-                _jointMapping[i] = _taaToFlat[i];
+            {
+                int flatIdx = _taaToFlat[i];
+                _jointMapping[i] = flatIdx;
+                _destFingerArrays[i] = GetCurrentFingerArray(flatIdx / 3);
+                _destJointIndices[i] = flatIdx % 3;
+            }
 
             SyncManagedCurrentToNative();
         }
@@ -375,7 +387,7 @@ public class BasisLocalHandDriver
     /// interpolation (grid lookup) → slerp + transform write.
     /// Call <see cref="Apply"/> later to complete.
     /// </summary>
-    public void Simulate(float DeltaTime)
+    public unsafe void Simulate(float DeltaTime)
     {
         if (_validJointCount == 0) return;
 
@@ -387,17 +399,19 @@ public class BasisLocalHandDriver
             SyncNativeCurrentToManaged();
         }
 
-        // Write percentages
-        _percentages[0] = new float2(LeftHand.ThumbPercentage.x, LeftHand.ThumbPercentage.y);
-        _percentages[1] = new float2(LeftHand.IndexPercentage.x, LeftHand.IndexPercentage.y);
-        _percentages[2] = new float2(LeftHand.MiddlePercentage.x, LeftHand.MiddlePercentage.y);
-        _percentages[3] = new float2(LeftHand.RingPercentage.x, LeftHand.RingPercentage.y);
-        _percentages[4] = new float2(LeftHand.LittlePercentage.x, LeftHand.LittlePercentage.y);
-        _percentages[5] = new float2(RightHand.ThumbPercentage.x, RightHand.ThumbPercentage.y);
-        _percentages[6] = new float2(RightHand.IndexPercentage.x, RightHand.IndexPercentage.y);
-        _percentages[7] = new float2(RightHand.MiddlePercentage.x, RightHand.MiddlePercentage.y);
-        _percentages[8] = new float2(RightHand.RingPercentage.x, RightHand.RingPercentage.y);
-        _percentages[9] = new float2(RightHand.LittlePercentage.x, RightHand.LittlePercentage.y);
+        // Vector2 and float2 share layout (two contiguous floats), so reinterpret-write
+        // through a raw pointer skips the NativeArray indexer's wrapper per element.
+        float2* p = (float2*)_percentages.GetUnsafePtr();
+        p[0] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.ThumbPercentage);
+        p[1] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.IndexPercentage);
+        p[2] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.MiddlePercentage);
+        p[3] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.RingPercentage);
+        p[4] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.LittlePercentage);
+        p[5] = UnsafeUtility.As<Vector2, float2>(ref RightHand.ThumbPercentage);
+        p[6] = UnsafeUtility.As<Vector2, float2>(ref RightHand.IndexPercentage);
+        p[7] = UnsafeUtility.As<Vector2, float2>(ref RightHand.MiddlePercentage);
+        p[8] = UnsafeUtility.As<Vector2, float2>(ref RightHand.RingPercentage);
+        p[9] = UnsafeUtility.As<Vector2, float2>(ref RightHand.LittlePercentage);
 
         // Job 1: bilinear interpolation from pose grid → target rotations
         var interpJob = new BasisFingerInterpolateJob
@@ -457,21 +471,29 @@ public class BasisLocalHandDriver
         }
     }
 
-    private void SyncManagedCurrentToNative()
+    private unsafe void SyncManagedCurrentToNative()
     {
-        for (int i = 0; i < _validJointCount; i++)
+        int len = _validJointCount;
+        if (len == 0) return;
+        quaternion* dst = (quaternion*)_currentRotations.GetUnsafePtr();
+        Quaternion[][] arrays = _destFingerArrays;
+        int[] indices = _destJointIndices;
+        for (int i = 0; i < len; i++)
         {
-            int flatIdx = _taaToFlat[i];
-            _currentRotations[i] = GetCurrentFingerArray(flatIdx / 3)[flatIdx % 3];
+            dst[i] = arrays[i][indices[i]];
         }
     }
 
-    private void SyncNativeCurrentToManaged()
+    private unsafe void SyncNativeCurrentToManaged()
     {
-        for (int i = 0; i < _validJointCount; i++)
+        int len = _validJointCount;
+        if (len == 0) return;
+        quaternion* src = (quaternion*)_currentRotations.GetUnsafeReadOnlyPtr();
+        Quaternion[][] arrays = _destFingerArrays;
+        int[] indices = _destJointIndices;
+        for (int i = 0; i < len; i++)
         {
-            int flatIdx = _taaToFlat[i];
-            GetCurrentFingerArray(flatIdx / 3)[flatIdx % 3] = _currentRotations[i];
+            arrays[i][indices[i]] = src[i];
         }
     }
 

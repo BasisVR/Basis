@@ -89,6 +89,7 @@ public class JiggleJobs {
     
     public void SetFixedDeltaTime(float fixedDeltaTime) {
         jobSimulate.SetFixedDeltaTime(fixedDeltaTime);
+        jobInterpolation.SetFixedDeltaTime(fixedDeltaTime);
         jobInputInterpolation.SetFixedDeltaTime(fixedDeltaTime);
     }
 
@@ -166,7 +167,7 @@ public class JiggleJobs {
         freePointers.Clear();
     }
 
-    public void Simulate(double simulateTime, double realTime) {
+    public void Simulate(double simulateTime, double realTime, int timeIncrements) {
         if (_memoryBus.transformCount == 0) {
             _memoryBus.CommitTrees();
             _memoryBus.CommitColliders();
@@ -202,6 +203,7 @@ public class JiggleJobs {
         _memoryBus.CommitColliders();
 
         jobSimulate.UpdateArrays(_memoryBus);
+        jobSimulate.timeIncrements = timeIncrements;
         jobBulkTransformReset.UpdateArrays(_memoryBus);
         jobBulkTransformRead.UpdateArrays(_memoryBus);
         jobBulkPersonalColliderTransformRead.UpdateArrays(_memoryBus.personalColliders);

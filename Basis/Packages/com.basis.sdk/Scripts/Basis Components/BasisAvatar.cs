@@ -34,6 +34,16 @@ namespace Basis.Scripts.BasisSdk
         public Vector2 AvatarMouthPosition;
 
         /// <summary>
+        /// How lively the avatar's eyes feel. Low values = calm and settled, high values = active and expressive.
+        /// </summary>
+        public float EyeLiveliness = 0.5f;
+
+        /// <summary>
+        /// How attentive the avatar's gaze feels. Low values = avoidant and wandering, high values = direct and focused.
+        /// </summary>
+        public float EyeAttentiveness = 0.5f;
+
+        /// <summary>
         /// Blend shape indices for facial viseme movement; -1 entries indicate unused slots.
         /// </summary>
         public int[] FaceVisemeMovement = new int[] { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };

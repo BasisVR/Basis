@@ -104,6 +104,15 @@ namespace Basis.Scripts.BasisCharacterController
         public Quaternion CurrentRotation;
         public CollisionFlags Flags;
         public float radius;
+
+        // Inputs of the last CalculateCharacterSize() call. CharacterController.height
+        // and .center are skipped when none of these have changed (bit-exact compare —
+        // not Vector3 ==, which uses an epsilon and would let sub-epsilon drift slip
+        // through and pop the collider once the drift accumulated past threshold).
+        private Vector3 _sizeCache_EyePos;
+        private bool _sizeCache_HasEye;
+        private float _sizeCache_Radius;
+        private bool _sizeCache_Valid;
         public Vector2 MovementVector { get; private set; }
         /// <summary>
         /// A value between 0 and 1 representing the relative speed of player movement.
@@ -449,7 +458,27 @@ namespace Basis.Scripts.BasisCharacterController
         }
         public void CalculateCharacterSize()
         {
-            float rawEyeHeight = BasisLocalBoneDriver.HasEye ? BasisLocalBoneDriver.EyeControl.OutGoingData.position.y : BasisHeightDriver.FallbackHeightInMeters;
+            bool hasEye = BasisLocalBoneDriver.HasEye;
+            Vector3 eyePos = hasEye
+                ? BasisLocalBoneDriver.EyeControl.OutGoingData.position
+                : default;
+
+            // Bit-exact change check — Vector3 == uses an epsilon (~9.99e-11 squared)
+            // which would silently swallow sub-epsilon eye drift; the height stays
+            // stale until the drift clears the threshold and then snaps, which reads
+            // as jitter. Component-wise float compares catch every bit change so the
+            // collider tracks the eye smoothly.
+            if (_sizeCache_Valid
+                && hasEye == _sizeCache_HasEye
+                && radius == _sizeCache_Radius
+                && eyePos.x == _sizeCache_EyePos.x
+                && eyePos.y == _sizeCache_EyePos.y
+                && eyePos.z == _sizeCache_EyePos.z)
+            {
+                return;
+            }
+
+            float rawEyeHeight = hasEye ? eyePos.y : BasisHeightDriver.FallbackHeightInMeters;
 
             // Validate tracking data
             if (float.IsNaN(rawEyeHeight) || float.IsInfinity(rawEyeHeight) || rawEyeHeight <= 0f)
@@ -476,10 +505,9 @@ namespace Basis.Scripts.BasisCharacterController
             // of hovering skinWidth above it.
             float skinCompensation = characterController.skinWidth;
 
-            if (BasisLocalBoneDriver.HasEye)
+            if (hasEye)
             {
-                var outgoing = BasisLocalBoneDriver.EyeControl.OutGoingData.position;
-                characterController.center = new Vector3(outgoing.x, halfHeight - skinCompensation, outgoing.z);
+                characterController.center = new Vector3(eyePos.x, halfHeight - skinCompensation, eyePos.z);
             }
             else
             {
@@ -492,6 +520,11 @@ namespace Basis.Scripts.BasisCharacterController
             maxStep = Mathf.Min(maxStep, finalHeight * 0.25f);
 
             characterController.stepOffset = Mathf.Min(characterController.stepOffset, maxStep);
+
+            _sizeCache_HasEye = hasEye;
+            _sizeCache_EyePos = eyePos;
+            _sizeCache_Radius = radius;
+            _sizeCache_Valid = true;
         }
     }
 }

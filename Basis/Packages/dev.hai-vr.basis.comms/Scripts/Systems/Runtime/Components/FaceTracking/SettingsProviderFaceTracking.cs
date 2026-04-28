@@ -22,21 +22,11 @@ namespace HVR.Basis.Comms
 
             RectTransform container = descriptor.ContentParent;
 
-            // ── Tracking Master Switches ──
-            PanelElementDescriptor trackingTogglesGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            trackingTogglesGroup.SetTitle("Tracking");
-            trackingTogglesGroup.SetDescription("Enable or disable face tracking and eye tracking on your avatar. Turning a feature off also collapses its diagnostics panel.");
-
-            PanelToggle toggleFaceTracking = PanelToggle.CreateNewEntry(trackingTogglesGroup.ContentParent);
-            toggleFaceTracking.Descriptor.SetTitle("Face Tracking");
-            toggleFaceTracking.Descriptor.SetDescription("Drive your avatar's facial blendshapes from face tracking data.");
-            toggleFaceTracking.AssignBinding(BasisSettingsDefaults.EnableFaceTracking);
-
-            PanelToggle toggleEyeTracking = PanelToggle.CreateNewEntry(trackingTogglesGroup.ContentParent);
-            toggleEyeTracking.Descriptor.SetTitle("Eye Tracking");
-            toggleEyeTracking.Descriptor.SetDescription("Drive your avatar's eye bones from eye tracking data. The natural eye look keeps running when disabled.");
-            toggleEyeTracking.AssignBinding(BasisSettingsDefaults.EnableEyeTracking);
+            // The Face Tracking / Eye Tracking master toggles live on the
+            // Body Tracking → Advanced page (SettingsProviderIK). This tab
+            // shows the diagnostics for whatever the user has enabled there;
+            // we subscribe to the bindings so the panels react to changes
+            // made from the other tab without forcing a panel reopen.
 
             // ── Collapsible Face Tracking Status ──
             PanelElementDescriptor faceTrackingSection = null;
@@ -66,8 +56,17 @@ namespace HVR.Basis.Comms
                 CreateFaceTrackingSection();
             }
 
-            toggleFaceTracking.OnValueChanged += on =>
+            System.Action<bool> faceHandler = null;
+            faceHandler = on =>
             {
+                // Container destroyed (settings panel closed) — drop the leak so
+                // we don't keep firing into stale closures.
+                if (container == null)
+                {
+                    BasisSettingsDefaults.EnableFaceTracking.OnChanged -= faceHandler;
+                    return;
+                }
+
                 if (faceTrackingSection != null)
                 {
                     Object.Destroy(faceTrackingSection.gameObject);
@@ -75,6 +74,7 @@ namespace HVR.Basis.Comms
                 }
                 if (on) CreateFaceTrackingSection();
             };
+            BasisSettingsDefaults.EnableFaceTracking.OnChanged += faceHandler;
 
             // ── Collapsible Eye Tracking Status ──
             PanelElementDescriptor eyeTrackingSection = null;
@@ -108,8 +108,15 @@ namespace HVR.Basis.Comms
                 CreateEyeTrackingSection();
             }
 
-            toggleEyeTracking.OnValueChanged += on =>
+            System.Action<bool> eyeHandler = null;
+            eyeHandler = on =>
             {
+                if (container == null)
+                {
+                    BasisSettingsDefaults.EnableEyeTracking.OnChanged -= eyeHandler;
+                    return;
+                }
+
                 if (eyeTrackingSection != null)
                 {
                     Object.Destroy(eyeTrackingSection.gameObject);
@@ -117,6 +124,7 @@ namespace HVR.Basis.Comms
                 }
                 if (on) CreateEyeTrackingSection();
             };
+            BasisSettingsDefaults.EnableEyeTracking.OnChanged += eyeHandler;
 
             // ── Section Toggles ──
             PanelElementDescriptor sectionTogglesGroup =

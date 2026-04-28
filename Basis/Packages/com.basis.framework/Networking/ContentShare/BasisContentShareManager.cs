@@ -198,7 +198,9 @@ public static class BasisContentShareManager
                 msg.ContentURL,
                 msg.UnlockPassword,
                 msg.ContentType,
-                serverMsg.playerIdMessage.playerID
+                serverMsg.playerIdMessage.playerID,
+                serverMsg.SharerUUID,
+                serverMsg.SharerDisplayName
             );
             if (ActiveSpheres.TryAdd(msg.SphereNetID, Sphere))
             {

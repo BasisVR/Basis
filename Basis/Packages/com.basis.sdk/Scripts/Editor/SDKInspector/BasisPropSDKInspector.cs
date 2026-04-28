@@ -71,7 +71,8 @@ public class BasisPropSDKInspector : Editor
             PropIconField.value = BasisProp.BasisBundleDescription.AssetBundleIcon;
             PropIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnIconFieldChanged);
 
-            // Build options
+            // Content tags + build options
+            BasisSDKCommonInspector.CreateContentTagsFoldout(uiElementsRoot, BasisProp);
             BasisSDKCommonInspector.CreateBuildTargetOptions(uiElementsRoot);
             BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
 

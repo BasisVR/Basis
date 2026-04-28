@@ -73,29 +73,6 @@ public struct TposeAndOffsetDataJob
 }
 
 /// <summary>
-/// Per-frame world-space inputs and precomputed rotations/scales consumed by the solver.
-/// </summary>
-public struct GeneratedTranslationalData
-{
-    /// <summary>World-space root position used as the avatar-local origin baseline.</summary>
-    public float3 rootWorld;
-    /// <summary>Head world position.</summary>
-    public float3 headWPos;
-    /// <summary>Hips world position.</summary>
-    public float3 hipsWPos;
-    /// <summary>Head world rotation.</summary>
-    public quaternion headWRot;
-    /// <summary>Hips world rotation.</summary>
-    public quaternion hipsWRot;
-    /// <summary>TPose-space reference rotation for the head.</summary>
-    public quaternion tposeHeadRot;
-    /// <summary>TPose-space reference rotation for the hips.</summary>
-    public quaternion tposeHipsRot;
-    /// <summary>Current world scale derived from the root transform.</summary>
-    public float3 nowScale;
-}
-
-/// <summary>
 /// Per-frame scale cache (scaled TPose and offsets) to avoid recomputing in downstream passes.
 /// </summary>
 public struct RemoteScaleCache
@@ -132,16 +109,27 @@ public struct RemoteFrameOutput
 }
 
 /// <summary>
-/// Core remote bone job: scales authoring offsets, composes head/hips transforms,
-/// computes derived joint positions, and writes a <see cref="RemoteFrameOutput"/>.
+/// Core remote bone job: reads gathered transform samples directly, scales authoring
+/// offsets, composes head/hips transforms, computes derived joint positions, and writes
+/// a <see cref="RemoteFrameOutput"/>. Folds in the SoA→AoS aggregation step so the
+/// gather→sim chain is one job shorter on the critical path.
 /// </summary>
 [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
 public struct BasisRemoteBoneJob : IJobParallelFor
 {
     /// <summary>Authoring-time TPose and offset data (unscaled).</summary>
     [ReadOnly] public NativeArray<TposeAndOffsetDataJob> Authoring;
-    /// <summary>Per-frame inputs (root/head/hips/tpose quats/scales).</summary>
-    [ReadOnly] public NativeArray<GeneratedTranslationalData> In;
+
+    // Per-frame gather outputs, consumed directly (no aggregation step).
+    [ReadOnly] public NativeArray<float3> RootPos;
+    [ReadOnly] public NativeArray<float3> RootScale;
+    [ReadOnly] public NativeArray<float3> HeadPos;
+    [ReadOnly] public NativeArray<quaternion> HeadRot;
+    [ReadOnly] public NativeArray<float3> HipsPos;
+    [ReadOnly] public NativeArray<quaternion> HipsRot;
+    [ReadOnly] public NativeArray<quaternion> TposeHeadRot;
+    [ReadOnly] public NativeArray<quaternion> TposeHipsRot;
+
     /// <summary>Per-frame pose outputs.</summary>
     [WriteOnly]
     public NativeArray<RemoteFrameOutput> Out;
@@ -158,26 +146,27 @@ public struct BasisRemoteBoneJob : IJobParallelFor
     public void Execute(int i)
     {
         var a = Authoring[i];
-        var f = In[i];
+        float3 nowScale = RootScale[i];
         var sc = GeneratedScales[i];
 
         // Scale TPose + offsets by current world scale
-        sc.tposeLocal_scaled_Hips = a.tposeLocal_unscaled_Hips * f.nowScale;
-        sc.tposeLocal_scaled_Mouth = a.tposeLocal_unscaled_Mouth * f.nowScale;
-        sc.offsets_scaled_Neck = a.offsets_unscaled_Neck * f.nowScale;
-        sc.offsets_scaled_Chest = a.offsets_unscaled_Chest * f.nowScale;
-        sc.offsets_scaled_Spine = a.offsets_unscaled_Spine * f.nowScale;
-        sc.offsets_scaled_CenterEye = a.offsets_unscaled_CenterEye * f.nowScale;
-        sc.offsets_scaled_Mouth = a.offsets_unscaled_Mouth * f.nowScale;
+        sc.tposeLocal_scaled_Hips = a.tposeLocal_unscaled_Hips * nowScale;
+        sc.tposeLocal_scaled_Mouth = a.tposeLocal_unscaled_Mouth * nowScale;
+        sc.offsets_scaled_Neck = a.offsets_unscaled_Neck * nowScale;
+        sc.offsets_scaled_Chest = a.offsets_unscaled_Chest * nowScale;
+        sc.offsets_scaled_Spine = a.offsets_unscaled_Spine * nowScale;
+        sc.offsets_scaled_CenterEye = a.offsets_unscaled_CenterEye * nowScale;
+        sc.offsets_scaled_Mouth = a.offsets_unscaled_Mouth * nowScale;
         GeneratedScales[i] = sc;
 
         // Compose world rotations (TPose→current)
-        quaternion headR = math.mul(f.headWRot, f.tposeHeadRot);
-        quaternion hipsR = math.mul(f.tposeHipsRot, f.hipsWRot);
+        quaternion headR = math.mul(HeadRot[i], TposeHeadRot[i]);
+        quaternion hipsR = math.mul(TposeHipsRot[i], HipsRot[i]);
 
         // Convert to avatar-local positions relative to rootWorld
-        float3 headP = f.headWPos - f.rootWorld;
-        float3 hipsP = f.hipsWPos - f.rootWorld;
+        float3 rootWorld = RootPos[i];
+        float3 headP = HeadPos[i] - rootWorld;
+        float3 hipsP = HipsPos[i] - rootWorld;
 
         // Forward chain from head using headR and scaled offsets
         float3 neckP = headP + math.mul(headR, sc.offsets_scaled_Neck);
@@ -187,7 +176,7 @@ public struct BasisRemoteBoneJob : IJobParallelFor
         float3 mouthP = headP + math.mul(headR, sc.offsets_scaled_Mouth);
 
 
-        float3 difference = SafeDivide(f.nowScale, a.TposeScale);
+        float3 difference = SafeDivide(nowScale, a.TposeScale);
 
         Out[i] = new RemoteFrameOutput
         {
@@ -338,65 +327,40 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
 }
 
 /// <summary>
-/// Aggregates all gathered transform samples and t-pose quaternions into
-/// a single per-avatar struct used by the main bone simulation.
+/// Burst IJobParallelFor that composes T-pose local rotation with the network delta into
+/// a final localRotation per bone. Splitting this off the transform-write path lets the
+/// math fully spread across worker threads — IJobParallelForTransform serializes bones
+/// inside each root hierarchy (51 bones per avatar on a single core), which made the
+/// combined apply job the heaviest in the pipeline.
 /// </summary>
 [BurstCompile]
-struct AgrigateTranslationalData : IJobParallelFor
+public struct ComputeSkeletonRotationsJob : IJobParallelFor
 {
-    /// <summary>Root world positions.</summary>
-    [ReadOnly] public NativeArray<float3> rootPos;
-    /// <summary>Root lossy scales.</summary>
-    [ReadOnly] public NativeArray<float3> rootScale;
-    /// <summary>Head world positions.</summary>
-    [ReadOnly] public NativeArray<float3> headPos;
-    /// <summary>Head world rotations.</summary>
-    [ReadOnly] public NativeArray<quaternion> headRot;
-    /// <summary>Hips world positions.</summary>
-    [ReadOnly] public NativeArray<float3> hipsPos;
-    /// <summary>Hips world rotations.</summary>
-    [ReadOnly] public NativeArray<quaternion> hipsRot;
-    /// <summary>TPose head quaternions.</summary>
-    [ReadOnly] public NativeArray<quaternion> tposeHeadRot;
-    /// <summary>TPose hips quaternions.</summary>
-    [ReadOnly] public NativeArray<quaternion> tposeHipsRot;
+    [ReadOnly] public NativeArray<quaternion> TposeLocal;
+    [ReadOnly] public NativeArray<quaternion> FilteredDeltas;
+    [WriteOnly] public NativeArray<quaternion> Rotations;
 
-    /// <summary>Combined output to be consumed by <see cref="BasisRemoteBoneJob"/>.</summary>
-    [WriteOnly]
-    public NativeArray<GeneratedTranslationalData> InOut;
-
-    /// <summary>Aggregates inputs into a single SoA element.</summary>
-    public void Execute(int i)
+    public void Execute(int index)
     {
-        InOut[i] = new GeneratedTranslationalData
-        {
-            rootWorld = rootPos[i],
-            headWPos = headPos[i],
-            hipsWPos = hipsPos[i],
-            headWRot = headRot[i],
-            hipsWRot = hipsRot[i],
-            tposeHeadRot = tposeHeadRot[i],
-            tposeHipsRot = tposeHipsRot[i],
-            nowScale = rootScale[i]
-        };
+        Rotations[index] = math.mul(TposeLocal[index], FilteredDeltas[index]);
     }
 }
 
 /// <summary>
-/// Burst job that composes T-pose local rotation with network delta and writes to bone transforms.
-/// Runs across ALL remote players' bones in a single flat TransformAccessArray for maximum parallelism.
+/// Burst job that writes precomputed bone localRotations to transforms. Now does only the
+/// transform side of the work — the quaternion multiply lives in <see cref="ComputeSkeletonRotationsJob"/>.
+/// Runs across ALL remote players' bones in a single flat TransformAccessArray.
 /// </summary>
 [BurstCompile]
 public struct ApplySkeletonRotationsJob : IJobParallelForTransform
 {
-    [ReadOnly] public NativeArray<quaternion> TposeLocal;
-    [ReadOnly] public NativeArray<quaternion> FilteredDeltas;
+    [ReadOnly] public NativeArray<quaternion> Rotations;
     [ReadOnly] public NativeArray<byte> ValidMask;
 
     public void Execute(int index, TransformAccess transform)
     {
         if (ValidMask[index] == 0) return;
-        transform.localRotation = math.mul(TposeLocal[index], FilteredDeltas[index]);
+        transform.localRotation = Rotations[index];
     }
 }
 
@@ -444,8 +408,6 @@ public static class RemoteBoneJobSystem
     // Persistent SoA
     /// <summary>Authoring TPose/offsets per avatar.</summary>
     static NativeList<TposeAndOffsetDataJob> sAuthoring;
-    /// <summary>Per-frame inputs per avatar.</summary>
-    static NativeList<GeneratedTranslationalData> sIn;
     /// <summary>Per-frame scale caches per avatar.</summary>
     static NativeList<RemoteScaleCache> sScale;
     /// <summary>Per-frame pose outputs per avatar.</summary>
@@ -485,6 +447,8 @@ public static class RemoteBoneJobSystem
     static NativeList<byte> sSkeletonValid;
     /// <summary>Filtered deltas copied from BasisRemoteNetworkDriver each frame.</summary>
     static NativeArray<quaternion> sSkeletonDeltas;
+    /// <summary>Precomputed local rotations (TposeLocal × FilteredDeltas) consumed by <see cref="ApplySkeletonRotationsJob"/>.</summary>
+    static NativeArray<quaternion> sSkeletonRotations;
     /// <summary>Dummy transform for null bone slots in the TAA.</summary>
     static Transform sDummyBone;
 
@@ -507,8 +471,9 @@ public static class RemoteBoneJobSystem
     static int[] sKeyToIndex;
     /// <summary>Reverse map: internal SoA index → external key. Used for O(1) swap-back removal.</summary>
     static readonly List<int> sIndexToKey = new List<int>();
-    /// <summary>Cached array snapshot of sIndexToKey for bounds-check-free indexing in Schedule.</summary>
-    static int[] sKeyArray = System.Array.Empty<int>();
+    /// <summary>Cached snapshot of sIndexToKey for bounds-check-free indexing in Schedule.
+    /// NativeArray (not int[]) so it can be passed directly to Burst bulk-copy jobs.</summary>
+    static NativeArray<int> sKeyArray;
     /// <summary>Pending job handle chain.</summary>
     static JobHandle sPending;
     /// <summary>Initialization flag.</summary>
@@ -524,7 +489,6 @@ public static class RemoteBoneJobSystem
         if (sInitialized) return;
 
         sAuthoring = new NativeList<TposeAndOffsetDataJob>(initialCapacity, Allocator.Persistent);
-        sIn = new NativeList<GeneratedTranslationalData>(initialCapacity, Allocator.Persistent);
         sScale = new NativeList<RemoteScaleCache>(initialCapacity, Allocator.Persistent);
         sOut = new NativeList<RemoteFrameOutput>(initialCapacity, Allocator.Persistent);
         sMouthPositions = new NativeList<float3>(initialCapacity, Allocator.Persistent);
@@ -564,7 +528,6 @@ public static class RemoteBoneJobSystem
         CompletePending();
 
         if (sAuthoring.IsCreated) sAuthoring.Dispose();
-        if (sIn.IsCreated) sIn.Dispose();
         if (sScale.IsCreated) sScale.Dispose();
         if (sOut.IsCreated) sOut.Dispose();
         if (sMouthPositions.IsCreated) sMouthPositions.Dispose();
@@ -584,9 +547,12 @@ public static class RemoteBoneJobSystem
         if (sSkeletonTpose.IsCreated) sSkeletonTpose.Dispose();
         if (sSkeletonValid.IsCreated) sSkeletonValid.Dispose();
         if (sSkeletonDeltas.IsCreated) sSkeletonDeltas.Dispose();
+        if (sSkeletonRotations.IsCreated) sSkeletonRotations.Dispose();
         if (sDummyBone != null) { UnityEngine.Object.Destroy(sDummyBone.gameObject); sDummyBone = null; }
 
         DisposeTempBuffers();
+
+        if (sKeyArray.IsCreated) sKeyArray.Dispose();
 
         if (sKeyToIndex != null) Array.Fill(sKeyToIndex, -1);
         sIndexToKey.Clear();
@@ -664,7 +630,6 @@ public static class RemoteBoneJobSystem
         EnsureTaaCapacity(idx + 1);
 
         sAuthoring.Add(a);
-        sIn.Add(default);
         sScale.Add(new RemoteScaleCache());
         sOut.Add(default);
         sMouthPositions.Add(default);
@@ -739,7 +704,6 @@ public static class RemoteBoneJobSystem
         {
             // Swap-back SoA
             sAuthoring[idx] = sAuthoring[last];
-            sIn[idx] = sIn[last];
             sScale[idx] = sScale[last];
             sOut[idx] = sOut[last];
             sMouthPositions[idx] = sMouthPositions[last];
@@ -798,7 +762,6 @@ public static class RemoteBoneJobSystem
         }
 
         sAuthoring.RemoveAt(last);
-        sIn.RemoveAt(last);
         sScale.RemoveAt(last);
         sOut.RemoveAt(last);
         sMouthPositions.RemoveAt(last);
@@ -886,11 +849,15 @@ public static class RemoteBoneJobSystem
 
     /// <summary>
     /// Schedules the entire simulation pipeline for the current set of avatars:
-    /// gather → aggregate → simulate → apply (nameplate/mouth).
+    /// gather → simulate → apply (nameplate/mouth/hips/skeleton).
     /// </summary>
-    /// <param name="batchSize">Job batch size for parallel loops.</param>
+    /// <param name="maxBatchSize">
+    /// Upper cap on <c>innerloopBatchCount</c> for the per-avatar IJobParallelFor.
+    /// The actual batch is <c>min(maxBatchSize, ceil(AuthoringLength / workerCount))</c>
+    /// so the job spreads across all worker threads instead of running on one.
+    /// </param>
     /// <returns>The final <see cref="JobHandle"/> for dependency chaining.</returns>
-    public static JobHandle Schedule(int batchSize = 64)
+    public static JobHandle Schedule(int maxBatchSize = 64)
     {
         if (!sInitialized)
         {
@@ -906,15 +873,25 @@ public static class RemoteBoneJobSystem
         // conflicting with the new BasisRemoteBoneJob (writer of sOut).
         CompletePending();
 
-        // Snapshot the key list into a plain array for bounds-check-free indexing.
-        // List<T>.get_Item has per-access bounds checks that the JIT cannot elide;
-        // array indexing in a counted loop is optimized away.
-        if (sKeyArray.Length < AuthoringLength)
+        // Snapshot the key list into a NativeArray for bounds-check-free indexing AND so
+        // it can be passed straight to Burst bulk-copy jobs.
+        if (!sKeyArray.IsCreated || sKeyArray.Length < AuthoringLength)
         {
-            sKeyArray = new int[Unity.Mathematics.math.max(AuthoringLength, 16)];
+            if (sKeyArray.IsCreated) sKeyArray.Dispose();
+            sKeyArray = new NativeArray<int>(
+                Unity.Mathematics.math.max(AuthoringLength, 16),
+                Allocator.Persistent,
+                NativeArrayOptions.UninitializedMemory);
         }
 
-        sIndexToKey.CopyTo(sKeyArray);
+        unsafe
+        {
+            int* dst = (int*)sKeyArray.GetUnsafePtr();
+            for (int i = 0; i < AuthoringLength; i++)
+            {
+                dst[i] = sIndexToKey[i];
+            }
+        }
 
         EnsureTempBuffers(AuthoringLength);
 
@@ -937,114 +914,147 @@ public static class RemoteBoneJobSystem
             hipsRot = sTmpHipsRot
         }.Schedule(sHips);
 
-        var deps = JobHandle.CombineDependencies(hRoot, hHead, hHips);
+        var gathers = JobHandle.CombineDependencies(hRoot, hHead, hHips);
 
-        // Aggregate into per-avatar input
-        var combine = new AgrigateTranslationalData
-        {
-            rootPos = sTmpRootPos,
-            rootScale = sTmpRootScale,
-            headPos = sTmpHeadPos,
-            headRot = sTmpHeadRot,
-            hipsPos = sTmpHipsPos,
-            hipsRot = sTmpHipsRot,
-            tposeHeadRot = sTPoseHeadRot.AsDeferredJobArray(),
-            tposeHipsRot = sTPoseHipsRot.AsDeferredJobArray(),
-            InOut = sIn.AsDeferredJobArray()
-        }.Schedule(AuthoringLength, batchSize, deps);
+        // Adaptive batch size — the whole point is to actually use multiple cores.
+        // With a fixed batchSize of 64 and ~50 avatars, IJobParallelFor packs the
+        // entire job into one chunk and one worker thread runs the lot.
+        // Divide the work by JobWorkerCount so each core gets a slice; cap at the
+        // caller-supplied maxBatchSize for very large avatar counts where per-batch
+        // dispatch overhead would otherwise add up.
+        int workerCount = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
+        int simBatch = math.max(1, math.min(maxBatchSize,
+            (AuthoringLength + workerCount - 1) / workerCount));
 
-        // Run bone simulation
+        // Run bone simulation directly off the gather outputs (SoA→AoS aggregation
+        // is folded into BasisRemoteBoneJob to remove a job dispatch from the
+        // critical path).
         var BoneSimulation = new BasisRemoteBoneJob
         {
             Authoring = sAuthoring.AsDeferredJobArray(),
-            In = sIn.AsDeferredJobArray(),
+            RootPos = sTmpRootPos,
+            RootScale = sTmpRootScale,
+            HeadPos = sTmpHeadPos,
+            HeadRot = sTmpHeadRot,
+            HipsPos = sTmpHipsPos,
+            HipsRot = sTmpHipsRot,
+            TposeHeadRot = sTPoseHeadRot.AsDeferredJobArray(),
+            TposeHipsRot = sTPoseHipsRot.AsDeferredJobArray(),
             GeneratedScales = sScale.AsDeferredJobArray(),
             Out = sOut.AsDeferredJobArray(),
             MouthPositions = sMouthPositions.AsDeferredJobArray()
-        }.Schedule(AuthoringLength, batchSize, combine);
+        }.Schedule(AuthoringLength, simBatch, gathers);
 
-        // Apply outputs
-        Vector3 CameraPosition = BasisLocalCameraDriver.Position;
-
-        var MappedNameplateApplyJob = new MappedNameplateApplyJob
-        {
-            CameraPosition = CameraPosition,
-            NamePlateIn = sOut.AsDeferredJobArray(),
-        }.Schedule(sNamePlate, BoneSimulation);
-
-        var ApplyMouthJob = new ApplyMouthJob
-        {
-            MouthRotation = sOut.AsDeferredJobArray(),
-        }.Schedule(sMouth, MappedNameplateApplyJob);
-
-        // ── Bulk-copy hips position/rotation and scale from the network driver ──
-        // One unsafe bulk copy replaces per-player main-thread SetPositionAndRotation.
-        BasisRemoteNetworkDriver.BulkCopyHipsAndScale(
+        // ── Schedule the hips/scale bulk copy as a Burst job instead of running it on
+        //    main thread. This puts the copy on a worker, frees main thread sooner, and
+        //    keeps more work in flight by the time Complete() blocks on main thread —
+        //    so main thread can pick up another pending job (work-stealing) instead of
+        //    sitting idle while ApplySkeletonRotationsJob runs alone on one worker.
+        var bulkHipsScaleJob = BasisRemoteNetworkDriver.ScheduleBulkCopyHipsAndScale(
             sKeyArray, AuthoringLength,
             sTmpHipsWorldPos, sTmpHipsWorldRot,
             sTmpAvatarScales, sTmpScaleChanged);
 
-        // Avatar scale must run BEFORE ApplyHipsJob: SetPositionAndRotation bakes
-        // the parent lossyScale into the hips' localPosition. If we change the
-        // avatar root scale after that, the hips world Y shifts by the scale delta
-        // (remote avatar renders slightly low).
+        // Apply pass — parallel branches.
+        //
+        //   scaleApplyJob ─┬─> nameplateJob
+        //                  ├─> mouthJob
+        //                  └─> hipsApplyJob
+        //   skeletonJob (independent)
+        //
+        // Avatar scale must run BEFORE any SetPositionAndRotation apply on a
+        // descendant of the avatar root: SetPositionAndRotation bakes the parent
+        // lossyScale into the child's localPosition. If we change avatar root
+        // scale after that, the child's world position shifts by the scale delta
+        // (remote avatar renders slightly low). Applies to hips, mouth, and the
+        // nameplate. Skeleton writes only localRotation, so it is unaffected and
+        // runs fully concurrently with everything else.
         var scaleApplyJob = new ApplyAvatarScaleJob
         {
             Scales = sTmpAvatarScales,
             HasChange = sTmpScaleChanged,
-        }.Schedule(sAvatarScale, ApplyMouthJob);
+        }.Schedule(sAvatarScale, bulkHipsScaleJob);
 
-        // Hips position + rotation (1 per player, parallel via TAA)
-        var hipsApplyJob = new ApplyHipsJob
-        {
-            Positions = sTmpHipsWorldPos,
-            Rotations = sTmpHipsWorldRot,
-        }.Schedule(sHips, scaleApplyJob);
-
-        // Schedule skeleton bone rotation apply job (all players' bones in parallel).
-        JobHandle skeletonJob = hipsApplyJob;
+        // Skeleton: split into a fully parallel compute pass + a transform-write pass.
+        //
+        // ComputeSkeletonRotationsJob (IJobParallelFor) does the math.mul across all
+        // 51×AuthoringLength bones with an adaptive batch size, so the multiplies
+        // saturate every worker. ApplySkeletonRotationsJob (IJobParallelForTransform)
+        // then writes the precomputed quaternions to the bone transforms; that pass
+        // is hierarchy-bound (51 bones per avatar are sequential within one worker),
+        // but it now does only a memory write, not a quaternion multiply.
+        //
+        // Inputs (sSkeletonTpose / sSkeletonValid / sSkeletonDeltas) are all filled
+        // on the main thread above. The compute pass has no job dep — it runs
+        // concurrently with scale / sim / hips / mouth / nameplate.
+        JobHandle skeletonJob = default;
         int totalBones = sSkeletonTpose.Length;
         if (totalBones > 0)
         {
-            // Ensure deltas buffer matches current size
+            // Ensure deltas + rotations buffers match current size
             if (!sSkeletonDeltas.IsCreated || sSkeletonDeltas.Length != totalBones)
             {
                 if (sSkeletonDeltas.IsCreated) sSkeletonDeltas.Dispose();
                 sSkeletonDeltas = new NativeArray<quaternion>(totalBones, Allocator.Persistent);
             }
-
-            // Bulk-copy filtered bone deltas from the network driver for all players.
-            // Uses UnsafeUtility.MemCpy per player instead of per-element indexing
-            // to avoid NativeArray safety check overhead (was 13% of main thread).
-            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
-            int bytesPerPlayer = boneCount * UnsafeUtility.SizeOf<quaternion>();
-            unsafe
+            if (!sSkeletonRotations.IsCreated || sSkeletonRotations.Length != totalBones)
             {
-                quaternion* dstBase = (quaternion*)sSkeletonDeltas.GetUnsafePtr();
-                for (int p = 0; p < AuthoringLength; p++)
-                {
-                    int playerKey = sKeyArray[p];
-                    quaternion* src = BasisRemoteNetworkDriver.GetFilteredBoneRotationsPtr(playerKey);
-                    if (src != null)
-                    {
-                        UnsafeUtility.MemCpy(
-                            dstBase + p * boneCount,
-                            src,
-                            bytesPerPlayer);
-                    }
-                }
+                if (sSkeletonRotations.IsCreated) sSkeletonRotations.Dispose();
+                sSkeletonRotations = new NativeArray<quaternion>(totalBones, Allocator.Persistent);
             }
 
-            skeletonJob = new ApplySkeletonRotationsJob
+            // Schedule the bone-delta bulk copy on a worker so it doesn't block main
+            // thread and adds an extra in-flight job for the scheduler to dispatch.
+            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
+            var bulkSkeletonJob = BasisRemoteNetworkDriver.ScheduleBulkCopySkeletonDeltas(
+                sKeyArray, AuthoringLength,
+                sSkeletonDeltas, boneCount);
+
+            // Adaptive batch — same reasoning as BoneSimulation: a fixed batch leaves
+            // small bone counts running on a single worker.
+            int boneBatch = math.max(1, math.min(maxBatchSize,
+                (totalBones + workerCount - 1) / workerCount));
+
+            var computeRotationsJob = new ComputeSkeletonRotationsJob
             {
                 TposeLocal = sSkeletonTpose.AsDeferredJobArray(),
                 FilteredDeltas = sSkeletonDeltas,
+                Rotations = sSkeletonRotations,
+            }.Schedule(totalBones, boneBatch, bulkSkeletonJob);
+
+            skeletonJob = new ApplySkeletonRotationsJob
+            {
+                Rotations = sSkeletonRotations,
                 ValidMask = sSkeletonValid.AsDeferredJobArray(),
-            }.Schedule(sSkeletonBones, hipsApplyJob);
+            }.Schedule(sSkeletonBones, computeRotationsJob);
         }
 
-        sPending = skeletonJob;
-        return skeletonJob;
+        Vector3 CameraPosition = BasisLocalCameraDriver.Position;
+        var simAndScale = JobHandle.CombineDependencies(BoneSimulation, scaleApplyJob);
+
+        var nameplateJob = new MappedNameplateApplyJob
+        {
+            CameraPosition = CameraPosition,
+            NamePlateIn = sOut.AsDeferredJobArray(),
+        }.Schedule(sNamePlate, simAndScale);
+
+        var mouthJob = new ApplyMouthJob
+        {
+            MouthRotation = sOut.AsDeferredJobArray(),
+        }.Schedule(sMouth, simAndScale);
+
+        // sHips TAA is shared with GatherHipsJob — combine that handle so Unity's
+        // TransformAccessArray safety system sees the chain.
+        var hipsApplyJob = new ApplyHipsJob
+        {
+            Positions = sTmpHipsWorldPos,
+            Rotations = sTmpHipsWorldRot,
+        }.Schedule(sHips, JobHandle.CombineDependencies(scaleApplyJob, hHips));
+
+        var pending = JobHandle.CombineDependencies(nameplateJob, mouthJob, hipsApplyJob);
+        pending = JobHandle.CombineDependencies(pending, skeletonJob);
+        sPending = pending;
+        return pending;
     }
 
     /// <summary>
@@ -1079,6 +1089,33 @@ public static class RemoteBoneJobSystem
             return false;
         }
         outgoing = ((float3*)sMouthPositions.GetUnsafeReadOnlyPtr())[idx];
+        return true;
+    }
+    /// <summary>
+    /// Returns the computed outgoing/world center-eye position and rotation for an avatar by key.
+    /// </summary>
+    /// <param name="key">Avatar key used when adding the player.</param>
+    /// <param name="position">On success, the center-eye world position.</param>
+    /// <param name="rotation">On success, the center-eye world rotation.</param>
+    /// <returns><c>true</c> if the key is found; otherwise <c>false</c>.</returns>
+    public static bool GetOutGoingCenterEye(int key, out float3 position, out quaternion rotation)
+    {
+        if ((uint)key >= (uint)sKeyToIndex.Length)
+        {
+            position = default;
+            rotation = default;
+            return false;
+        }
+        int idx = sKeyToIndex[key];
+        if (idx < 0)
+        {
+            position = default;
+            rotation = default;
+            return false;
+        }
+        var frame = sOut[idx];
+        position = frame.pos_CenterEye;
+        rotation = frame.rot_CenterEye;
         return true;
     }
 }
