@@ -179,7 +179,7 @@
                 },
                 {
                     "name": "ToggleThirdPerson",
-                    "type": "Value",
+                    "type": "Button",
                     "id": "d8dbf797-e000-4b29-bf4a-a382a2a772f4",
                     "expectedControlType": "",
                     "processors": "",
@@ -841,17 +841,6 @@
                     "path": "<Mouse>/scroll/y",
                     "interactions": "",
                     "processors": "",
-                    "groups": ";All",
-                    "action": "CameraZoom",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "c49556a4-1714-4702-bb68-366b847fc0a3",
-                    "path": "<Gamepad>/rightStick/y",
-                    "interactions": "",
-                    "processors": "StickDeadzone",
                     "groups": ";All",
                     "action": "CameraZoom",
                     "isComposite": false,

@@ -376,11 +376,11 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 {
                     sensitivity = KeyboardSensitivity;
                 }
-                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
+                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity, IsMonoStableInput(ctx.control.device));
             }
         }
 
-        public void OnLookAction(Vector2 delta, float sensitivity)
+        public void OnLookAction(Vector2 delta, float sensitivity, bool isMonoStable = false)
         {
             var lookDelta = delta * (deltaCoefficient * sensitivity);
             if (SMModuleControllerSettings.HasInvertedMouse)
@@ -390,6 +390,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (IsCrouchHeld)
             {
                 LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
+                lookDelta.y = 0f;
+            }
+            if (isMonoStable && canZoomCamera)
+            {
+                BasisLocalCameraDriver.Instance.ApplyZoom(lookDelta.y);
+                lookDelta.x = 0f;
                 lookDelta.y = 0f;
             }
             DesktopEyeInput?.SetLookRotationVector(lookDelta);
@@ -523,10 +529,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             {
                 BasisLocalCameraDriver.Instance.ToggleThirdPerson();
             }
-            else if (ctx.interaction is HoldInteraction && ctx.phase == InputActionPhase.Started)
-            {
-                // Todo: Handle zooming in/out when using a controller specifically
-            }
         }
 
         public void OnToggleThirdPersonCanceled(InputAction.CallbackContext ctx)
@@ -541,8 +543,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             float zoomDelta = ctx.ReadValue<float>() * 0.5f;
 
-            if (!canZoomCamera) zoomDelta = 0f
-            ;
+            if (!canZoomCamera) zoomDelta = 0f;
+
             // Disable zoom when interacting with UI
             if (DesktopEyeInput != null && DesktopEyeInput.HasRaycaster && DesktopEyeInput.BasisUIRaycast.HadRaycastUITarget)
                 zoomDelta = 0f;
