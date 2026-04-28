@@ -119,7 +119,7 @@ namespace Basis.Shims.Samples
 
             string payload = label + " OSC relay to linked player " + linkedPlayerId + ": " + MessageOrDefault(decoded);
             Debug.Log("Relaying OSC message to avatar owner: " + payload);
-            networkShim.SendCustomNetworkEvent(Encoding.UTF8.GetBytes(payload), DeliveryMethod.ReliableUnordered, null);
+            networkShim.SendCustomNetworkEvent(Encoding.UTF8.GetBytes(payload), DeliveryMethod.ReliableUnordered, new ushort[] { linkedPlayerId });
         }
 
         private static string BuildDecodedOscReport(OscMessage message, OscData[] arguments)
