@@ -179,12 +179,12 @@
                 },
                 {
                     "name": "ToggleThirdPerson",
-                    "type": "Button",
+                    "type": "Value",
                     "id": "d8dbf797-e000-4b29-bf4a-a382a2a772f4",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": true
                 },
                 {
                     "name": "CameraZoom",

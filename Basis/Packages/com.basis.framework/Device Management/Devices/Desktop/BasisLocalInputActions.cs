@@ -97,6 +97,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private const float deltaCoefficient = 0.1f;
 
+        private bool canZoomCamera = false;
+
         #region Unity Lifecycle
 
         // Enable Unity Input System internal optimizations once at app startup so every input path
@@ -285,6 +287,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             ToggleMicMute.action.canceled += OnToggleMicMuteCancelled;
 
             ToggleThirdPerson.action.performed += OnToggleThirdPerson;
+            ToggleThirdPerson.action.canceled += OnToggleThirdPersonCanceled;
 
             CameraZoomAction.action.performed += OnCameraZoom;
             CameraZoomAction.action.canceled += OnCameraZoomCanceled;
@@ -322,7 +325,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             SafeRemoveCallbacks(XRSwitch, OnSwitchOpenXR);
             SafeRemoveCallbacks(OpenChat, OnOpenChatPerformed, OnOpenChatCancelled);
             SafeRemoveCallbacks(ToggleMicMute, OnToggleMicMutePerformed, OnToggleMicMuteCancelled);
-            SafeRemoveCallbacks(ToggleThirdPerson, OnToggleThirdPerson);
+            SafeRemoveCallbacks(ToggleThirdPerson, OnToggleThirdPerson, OnToggleThirdPersonCanceled);
             SafeRemoveCallbacks(CameraZoomAction, OnCameraZoom, OnCameraZoomCanceled);
 
             BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
@@ -508,21 +511,27 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnToggleThirdPerson(InputAction.CallbackContext ctx)
         {
-
             if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
                 return;
 
             if (BasisLocalCameraDriver.HasInstance == false)
                 return;
 
+            canZoomCamera = true;
+
             if (ctx.interaction is TapInteraction && ctx.phase == InputActionPhase.Performed)
             {
                 BasisLocalCameraDriver.Instance.ToggleThirdPerson();
             }
-            else if (ctx.interaction is HoldInteraction && ctx.phase == InputActionPhase.Performed)
+            else if (ctx.interaction is HoldInteraction && ctx.phase == InputActionPhase.Started)
             {
                 // Todo: Handle zooming in/out when using a controller specifically
             }
+        }
+
+        public void OnToggleThirdPersonCanceled(InputAction.CallbackContext ctx)
+        {
+            canZoomCamera = false;
         }
 
         public void OnCameraZoom(InputAction.CallbackContext ctx)
@@ -532,6 +541,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             float zoomDelta = ctx.ReadValue<float>() * 0.5f;
 
+            if (!canZoomCamera) zoomDelta = 0f
+            ;
             // Disable zoom when interacting with UI
             if (DesktopEyeInput != null && DesktopEyeInput.HasRaycaster && DesktopEyeInput.BasisUIRaycast.HadRaycastUITarget)
                 zoomDelta = 0f;
