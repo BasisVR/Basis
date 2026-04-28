@@ -53,7 +53,7 @@ namespace Basis.Shims.Samples
             Debug.Log("Subscribed to " + ExplicitTestAddress + " and implicit \"" + ImplicitTestAddress + "\" on avatar local=" + avatar.IsOwnedLocally + ".");
         }
 
-        private void OnDisable()
+        private void OnDestroy()
         {
             if (osc != null)
             {
@@ -66,6 +66,7 @@ namespace Basis.Shims.Samples
                 networkShim.NetworkReady -= OnNetworkReady;
                 networkShim.NetworkMessageReceived -= OnNetworkMessageReceived;
             }
+            Debug.Log("BasisOscCilboxSubscriptionExample destroyed and unsubscribed from OSC and network events.");
         }
 
         private void OnExplicitTestTriggered(OscMessage message, OscData[] arguments)
@@ -117,7 +118,8 @@ namespace Basis.Shims.Samples
             }
 
             string payload = label + " OSC relay to linked player " + linkedPlayerId + ": " + MessageOrDefault(decoded);
-            networkShim.SendCustomNetworkEvent(Encoding.UTF8.GetBytes(payload), DeliveryMethod.ReliableSequenced, new[] { linkedPlayerId });
+            Debug.Log("Relaying OSC message to avatar owner: " + payload);
+            networkShim.SendCustomNetworkEvent(Encoding.UTF8.GetBytes(payload), DeliveryMethod.ReliableUnordered, null);
         }
 
         private static string BuildDecodedOscReport(OscMessage message, OscData[] arguments)

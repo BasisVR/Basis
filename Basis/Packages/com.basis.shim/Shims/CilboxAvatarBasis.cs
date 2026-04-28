@@ -281,13 +281,6 @@ namespace Cilbox
 				case "Basis.Scripts.BasisSdk.BasisAvatar+OnReady":
 					t = typeof(Basis.Shims.BasisAvatarShim.OnReady);
 					return true;
-				// Abusing the fact that TypeOverrides get the components added when none are attached to a gameobject.
-				case "Basis.Shims.BasisNetworkShim":
-					t = typeof(Basis.Shims.BasisNetworkShim);
-					return true;
-				case "Basis.Shim.BasisOsc":
-					t = typeof(Basis.Shims.BasisOsc);
-					return true;
 				default:
 					t = null;
 					return false;
