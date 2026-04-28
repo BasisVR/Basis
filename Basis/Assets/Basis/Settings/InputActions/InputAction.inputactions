@@ -817,9 +817,9 @@
                     "name": "",
                     "id": "c6ba1db7-2125-4f59-9fb4-175c24c55529",
                     "path": "<Keyboard>/f",
-                    "interactions": "",
+                    "interactions": "Tap,Hold",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "ToggleThirdPerson",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -828,9 +828,9 @@
                     "name": "",
                     "id": "f78d675f-0f4c-4a94-a97f-63e7eff52d1b",
                     "path": "<Gamepad>/select",
-                    "interactions": "",
+                    "interactions": "Tap,Hold",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "ToggleThirdPerson",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -841,7 +841,7 @@
                     "path": "<Mouse>/scroll/y",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "CameraZoom",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -852,7 +852,7 @@
                     "path": "<Gamepad>/rightStick/y",
                     "interactions": "",
                     "processors": "StickDeadzone",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "CameraZoom",
                     "isComposite": false,
                     "isPartOfComposite": false

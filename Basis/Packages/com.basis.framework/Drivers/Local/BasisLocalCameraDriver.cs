@@ -86,6 +86,13 @@ namespace Basis.Scripts.Drivers
         /// <summary>Mask used for camera collision detection.</summary>
         public LayerMask CameraCollisionMask;
 
+        public float ThirdPersonMinZoom = 0.5f;
+        public float ThirdPersonMaxZoom = 5.0f;
+        public float ThirdPersonZoomSensitivity = 1.5f;
+
+        public float ThirdPersonMinFoV = 50f;
+        public float ThirdPersonMaxFoV = 75f;
+
         private struct CameraParams
         {
             public Vector3 trackingPosition;
@@ -97,6 +104,10 @@ namespace Basis.Scripts.Drivers
 
         private CameraParams _currentCamParams;
         private bool _wasThirdPerson = false;
+        private float _currentThirdPersonDistance = 1.0f;
+        private bool _isOrbiting = false;
+        private float _orbitYawOffset = 0f;
+        private float _orbitPitchOffset = 0f;
 
         /// <summary>The desired far clipping plane from scene settings before avatar overriding.</summary>
         private float DesiredClipFar = 1000.0f;
@@ -414,6 +425,17 @@ namespace Basis.Scripts.Drivers
                 ~(1 << overlayUiLayer);
         }
 
+        public void ToggleThirdPerson()
+        {
+            IsThirdPerson = !IsThirdPerson;
+        }
+
+        public void SetOrbiting(bool orbiting)
+        {
+            _isOrbiting = orbiting;
+        }
+
+
         /// <summary>
         /// Frame-rate independent damping (exponential decay).
         /// </summary>
@@ -445,14 +467,42 @@ namespace Basis.Scripts.Drivers
             return Mathf.LerpAngle(current, target, 1.0f - Mathf.Exp(-lambda * dt));
         }
 
+        /// <summary>
+        /// </summary>
+        public void ApplyZoom(float zoomDelta)
+        {
+            // If scrolling out while in 1st person
+            if (!IsThirdPerson && zoomDelta < 0)
+            {
+                IsThirdPerson = true;
+                _currentThirdPersonDistance = ThirdPersonMinZoom + 0.1f;
+            }
+            else if (IsThirdPerson)
+            {
+                _currentThirdPersonDistance -= zoomDelta * ThirdPersonZoomSensitivity;
+
+                // If zoomed all the way in, return to first person
+                if (_currentThirdPersonDistance < ThirdPersonMinZoom)
+                {
+                    IsThirdPerson = false;
+                    _currentThirdPersonDistance = ThirdPersonMinZoom;
+                }
+                else if (_currentThirdPersonDistance > ThirdPersonMaxZoom)
+                {
+                    _currentThirdPersonDistance = ThirdPersonMaxZoom;
+                }
+            }
+        }
 
         /// <summary>
-        /// Converts a half-life (in seconds) to a lambda for the damping function.
         /// </summary>
-        /// <param name="halfLife">The time (in seconds) it takes to reach 50% of the target.</param>
-        public static float GetDampRate(float halfLife)
+        public void ApplyOrbit(float deltaYaw, float deltaPitch)
         {
-            return 0.69314718f / Mathf.Max(halfLife, 0.00001f);
+            _orbitYawOffset += deltaYaw;
+            _orbitPitchOffset -= deltaPitch; // Negative for standard non-inverted feel
+
+            // Prevent gimbal lock / looking inside the character's neck
+            _orbitPitchOffset = Mathf.Clamp(_orbitPitchOffset, -80f, 80f);
         }
 
         /// <summary>
@@ -461,6 +511,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         private void SimulateThirdPerson()
         {
+            // Disable third-person if in VR
             if (!BasisDeviceManagement.IsUserInDesktop() || CameraInstance == null)
             {
                 if (_wasThirdPerson)
@@ -472,18 +523,43 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            Transform parentTransform = transform.parent; // Typically the Eye/Head bone
+            Transform parentTransform = transform.parent;
             if (parentTransform == null) return;
 
             float dt = Time.deltaTime;
             float scale = BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
 
-            // Target Variables
+            // Release orbit offsets back to zero if orbit is cancelled
+            if (!_isOrbiting)
+            {
+                _orbitYawOffset = DampAngle(_orbitYawOffset, 0f, RotationSmoothness, dt);
+                _orbitPitchOffset = DampAngle(_orbitPitchOffset, 0f, RotationSmoothness, dt);
+            }
+
+            // Targets for tracking
             Vector3 targetTrackingPos = parentTransform.position;
-            float targetPitch = parentTransform.rotation.eulerAngles.x;
-            float targetYaw = parentTransform.rotation.eulerAngles.y;
-            float targetDistance = IsThirdPerson ? ThirdPersonDistance * scale : 0f;
-            Vector2 targetFraming = IsThirdPerson ? ThirdPersonFraming : Vector2.zero;
+            float targetPitch = parentTransform.rotation.eulerAngles.x + _orbitPitchOffset;
+            float targetYaw = parentTransform.rotation.eulerAngles.y + _orbitYawOffset;
+            float targetDistance = _currentThirdPersonDistance * scale;
+            Vector2 targetFraming = ThirdPersonFraming;
+
+            // In first person or returning to first person
+            if (!IsThirdPerson)
+            {
+                transform.localPosition = Damp(transform.localPosition, Vector3.zero, TrackingSmoothness, dt);
+                transform.localRotation = Quaternion.SlerpUnclamped(Quaternion.identity, transform.localRotation, Mathf.Exp(-RotationSmoothness * dt));
+
+                if (_wasThirdPerson && _currentCamParams.distance < 0.05f)
+                {
+                    transform.localPosition = Vector3.zero;
+                    transform.localRotation = Quaternion.identity;
+                    CameraInstance.fieldOfView = DefaultCameraFov;
+                    _wasThirdPerson = false;
+                    _orbitYawOffset = 0f;
+                    _orbitPitchOffset = 0f;
+                }
+                return;
+            }
 
             // Initialize params if we just switched INTO third person
             if (IsThirdPerson && !_wasThirdPerson)
@@ -499,15 +575,6 @@ namespace Basis.Scripts.Drivers
                 _wasThirdPerson = true;
             }
 
-            // If we are fully back in first person, snap to parent and stop updating
-            if (!IsThirdPerson && _wasThirdPerson && _currentCamParams.distance < 0.05f)
-            {
-                transform.localPosition = Vector3.zero;
-                transform.localRotation = Quaternion.identity;
-                _wasThirdPerson = false;
-                return;
-            }
-
             // We only simulate if we are in 3rd person OR smoothly transitioning back to 1st person
             if (_wasThirdPerson)
             {
@@ -518,6 +585,9 @@ namespace Basis.Scripts.Drivers
 
                 _currentCamParams.pitch = DampAngle(_currentCamParams.pitch, targetPitch, RotationSmoothness, dt);
                 _currentCamParams.yaw = DampAngle(_currentCamParams.yaw, targetYaw, RotationSmoothness, dt);
+
+                float zoomT = Mathf.InverseLerp(ThirdPersonMinZoom * scale, ThirdPersonMaxZoom * scale, _currentCamParams.distance);
+                CameraInstance.fieldOfView = Mathf.Lerp(ThirdPersonMinFoV, ThirdPersonMaxFoV, zoomT);
 
                 // Project onto picture plane
                 float tanFOVY = Mathf.Tan(0.5f * Mathf.Deg2Rad * CameraInstance.fieldOfView);
