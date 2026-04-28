@@ -97,8 +97,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private const float deltaCoefficient = 0.1f;
 
-        private bool IsOrbitingCamera = false;
-
         #region Unity Lifecycle
 
         // Enable Unity Input System internal optimizations once at app startup so every input path
@@ -363,7 +361,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisInputModuleHandler.Instance.IsTyping() == false)
             {
                 float sensitivity;
-                bool isGamepad = false;
                 if (ctx.control.device is Mouse)
                 {
                     sensitivity = MouseSensitivity;
@@ -371,36 +368,21 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 else if (IsMonoStableInput(ctx.control.device))
                 {
                     sensitivity = JoystickSensitivity;
-                    isGamepad = true;
                 }
                 else
                 {
                     sensitivity = KeyboardSensitivity;
                 }
-                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity, isGamepad);
+                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
             }
         }
-        public void OnLookAction(Vector2 delta, float sensitivity, bool isGamepad = false)
+
+        public void OnLookAction(Vector2 delta, float sensitivity)
         {
             var lookDelta = delta * (deltaCoefficient * sensitivity);
             if (SMModuleControllerSettings.HasInvertedMouse)
             {
                 lookDelta.y *= -1f;
-            }
-            // If the camera is orbiting, consume the delta (set to zero) so the avatar doesn't turn.
-            if (IsOrbitingCamera && BasisLocalCameraDriver.HasInstance)
-            {
-                if (isGamepad)
-                {
-                    BasisLocalCameraDriver.Instance.ApplyZoom(-lookDelta.y);
-                    BasisLocalCameraDriver.Instance.ApplyOrbit(-lookDelta.x, 0f);
-                }
-                else
-                {
-                    BasisLocalCameraDriver.Instance.ApplyOrbit(lookDelta.x, -lookDelta.y);
-                }
-                lookDelta.x = 0f;
-                lookDelta.y = 0f;
             }
             if (IsCrouchHeld)
             {
@@ -526,32 +508,20 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnToggleThirdPerson(InputAction.CallbackContext ctx)
         {
+
             if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
                 return;
 
             if (BasisLocalCameraDriver.HasInstance == false)
                 return;
 
-            // Toggle 3rd person on a tap
             if (ctx.interaction is TapInteraction && ctx.phase == InputActionPhase.Performed)
             {
-                IsOrbitingCamera = false;
-                BasisLocalCameraDriver.Instance.SetOrbiting(false);
                 BasisLocalCameraDriver.Instance.ToggleThirdPerson();
             }
-            // Orbit camera on hold
-            else if (ctx.interaction is HoldInteraction)
+            else if (ctx.interaction is HoldInteraction && ctx.phase == InputActionPhase.Performed)
             {
-                if (ctx.phase == InputActionPhase.Performed)
-                {
-                    IsOrbitingCamera = true;
-                    BasisLocalCameraDriver.Instance.SetOrbiting(true);
-                }
-                if (ctx.phase == InputActionPhase.Canceled)
-                {
-                    IsOrbitingCamera = false;
-                    BasisLocalCameraDriver.Instance.SetOrbiting(false);
-                }
+                // Todo: Handle zooming in/out when using a controller specifically
             }
         }
 
@@ -560,10 +530,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
                 return;
 
-            if (DesktopEyeInput != null && DesktopEyeInput.HasRaycaster && DesktopEyeInput.BasisUIRaycast.HadRaycastUITarget)
-                return;
+            float zoomDelta = ctx.ReadValue<float>() * 0.5f;
 
-            // Check if holding a physics object
+            // Disable zoom when interacting with UI
+            if (DesktopEyeInput != null && DesktopEyeInput.HasRaycaster && DesktopEyeInput.BasisUIRaycast.HadRaycastUITarget)
+                zoomDelta = 0f;
+
+            // Disable zoom when holding a physics object
             if (Basis.Scripts.BasisSdk.Interactions.BasisPlayerInteract.Instance != null && DesktopEyeInput != null)
             {
                 var interactSystem = Basis.Scripts.BasisSdk.Interactions.BasisPlayerInteract.Instance;
@@ -573,12 +546,10 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     if (input.input != null && input.input.UniqueDeviceIdentifier == DesktopEyeInput.UniqueDeviceIdentifier)
                     {
                         if (input.lastTarget != null && input.lastTarget.IsInteractingWith(DesktopEyeInput))
-                            return;
+                            zoomDelta = 0f;
                     }
                 }
             }
-
-            float zoomDelta = ctx.ReadValue<float>() * 0.5f;
 
             if (BasisLocalCameraDriver.HasInstance)
             {

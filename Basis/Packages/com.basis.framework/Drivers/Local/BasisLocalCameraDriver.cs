@@ -105,9 +105,6 @@ namespace Basis.Scripts.Drivers
         private CameraParams _currentCamParams;
         private bool _wasThirdPerson = false;
         private float _currentThirdPersonDistance = 1.0f;
-        private bool _isOrbiting = false;
-        private float _orbitYawOffset = 0f;
-        private float _orbitPitchOffset = 0f;
 
         /// <summary>The desired far clipping plane from scene settings before avatar overriding.</summary>
         private float DesiredClipFar = 1000.0f;
@@ -430,12 +427,6 @@ namespace Basis.Scripts.Drivers
             IsThirdPerson = !IsThirdPerson;
         }
 
-        public void SetOrbiting(bool orbiting)
-        {
-            _isOrbiting = orbiting;
-        }
-
-
         /// <summary>
         /// Frame-rate independent damping (exponential decay).
         /// </summary>
@@ -495,31 +486,20 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// </summary>
-        public void ApplyOrbit(float deltaYaw, float deltaPitch)
-        {
-            _orbitYawOffset += deltaYaw;
-            _orbitPitchOffset -= deltaPitch; // Negative for standard non-inverted feel
-
-            // Prevent gimbal lock / looking inside the character's neck
-            _orbitPitchOffset = Mathf.Clamp(_orbitPitchOffset, -80f, 80f);
-        }
-
-        /// <summary>
         /// Orchestrates the third-person offset, scaling it by the avatar's height ratio
         /// and performing a SphereCast to prevent the camera from clipping into geometry.
         /// </summary>
         private void SimulateThirdPerson()
         {
-            // Disable third-person if in VR
             if (!BasisDeviceManagement.IsUserInDesktop() || CameraInstance == null)
             {
-                if (_wasThirdPerson)
-                {
-                    transform.localPosition = Vector3.zero;
-                    transform.localRotation = Quaternion.identity;
-                    _wasThirdPerson = false;
-                }
+                SnapToFirstPerson();
+                return;
+            }
+
+            if (!IsThirdPerson)
+            {
+                SnapToFirstPerson();
                 return;
             }
 
@@ -529,93 +509,81 @@ namespace Basis.Scripts.Drivers
             float dt = Time.deltaTime;
             float scale = BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
 
-            // Release orbit offsets back to zero if orbit is cancelled
-            if (!_isOrbiting)
-            {
-                _orbitYawOffset = DampAngle(_orbitYawOffset, 0f, RotationSmoothness, dt);
-                _orbitPitchOffset = DampAngle(_orbitPitchOffset, 0f, RotationSmoothness, dt);
-            }
+            UpdateThirdPersonTargets(parentTransform, scale, dt);
+            ApplyThirdPersonTransform(scale);
+        }
 
-            // Targets for tracking
+        private void SnapToFirstPerson()
+        {
+            if (!_wasThirdPerson) return;
+
+            transform.localPosition = Vector3.zero;
+            transform.localRotation = Quaternion.identity;
+            CameraInstance.fieldOfView = DefaultCameraFov;
+
+            _wasThirdPerson = false;
+        }
+
+        private void UpdateThirdPersonTargets(Transform parentTransform, float scale, float dt)
+        {
             Vector3 targetTrackingPos = parentTransform.position;
-            float targetPitch = parentTransform.rotation.eulerAngles.x + _orbitPitchOffset;
-            float targetYaw = parentTransform.rotation.eulerAngles.y + _orbitYawOffset;
+            float targetPitch = parentTransform.rotation.eulerAngles.x;
+            float targetYaw = parentTransform.rotation.eulerAngles.y;
             float targetDistance = _currentThirdPersonDistance * scale;
-            Vector2 targetFraming = ThirdPersonFraming;
 
-            // In first person or returning to first person
-            if (!IsThirdPerson)
+            if (!_wasThirdPerson)
             {
-                transform.localPosition = Damp(transform.localPosition, Vector3.zero, TrackingSmoothness, dt);
-                transform.localRotation = Quaternion.SlerpUnclamped(Quaternion.identity, transform.localRotation, Mathf.Exp(-RotationSmoothness * dt));
-
-                if (_wasThirdPerson && _currentCamParams.distance < 0.05f)
-                {
-                    transform.localPosition = Vector3.zero;
-                    transform.localRotation = Quaternion.identity;
-                    CameraInstance.fieldOfView = DefaultCameraFov;
-                    _wasThirdPerson = false;
-                    _orbitYawOffset = 0f;
-                    _orbitPitchOffset = 0f;
-                }
-                return;
-            }
-
-            // Initialize params if we just switched INTO third person
-            if (IsThirdPerson && !_wasThirdPerson)
-            {
+                // Instant snap
                 _currentCamParams = new CameraParams
                 {
                     trackingPosition = targetTrackingPos,
-                    framing = targetFraming,
+                    framing = ThirdPersonFraming,
                     distance = targetDistance,
                     pitch = targetPitch,
                     yaw = targetYaw
                 };
                 _wasThirdPerson = true;
             }
-
-            // We only simulate if we are in 3rd person OR smoothly transitioning back to 1st person
-            if (_wasThirdPerson)
+            else
             {
-                // Smoothly blend the parameter space
+                // Smoothly damp parameters toward targets
                 _currentCamParams.trackingPosition = Damp(_currentCamParams.trackingPosition, targetTrackingPos, TrackingSmoothness, dt);
                 _currentCamParams.distance = Damp(_currentCamParams.distance, targetDistance, TrackingSmoothness, dt);
-                _currentCamParams.framing = Damp(_currentCamParams.framing, targetFraming, TrackingSmoothness, dt);
+                _currentCamParams.framing = Damp(_currentCamParams.framing, ThirdPersonFraming, TrackingSmoothness, dt);
 
                 _currentCamParams.pitch = DampAngle(_currentCamParams.pitch, targetPitch, RotationSmoothness, dt);
                 _currentCamParams.yaw = DampAngle(_currentCamParams.yaw, targetYaw, RotationSmoothness, dt);
-
-                float zoomT = Mathf.InverseLerp(ThirdPersonMinZoom * scale, ThirdPersonMaxZoom * scale, _currentCamParams.distance);
-                CameraInstance.fieldOfView = Mathf.Lerp(ThirdPersonMinFoV, ThirdPersonMaxFoV, zoomT);
-
-                // Project onto picture plane
-                float tanFOVY = Mathf.Tan(0.5f * Mathf.Deg2Rad * CameraInstance.fieldOfView);
-                float tanFOVX = tanFOVY * CameraInstance.aspect;
-
-                Vector3 localOffset = new Vector3(
-                    _currentCamParams.distance * tanFOVX * _currentCamParams.framing.x,
-                    _currentCamParams.distance * tanFOVY * _currentCamParams.framing.y,
-                    _currentCamParams.distance
-                );
-
-                Quaternion desiredRotation = Quaternion.Euler(_currentCamParams.pitch, _currentCamParams.yaw, 0);
-                Vector3 desiredWorldPos = _currentCamParams.trackingPosition - (desiredRotation * localOffset);
-
-                // Wall collision detection
-                Vector3 direction = desiredWorldPos - _currentCamParams.trackingPosition;
-                float maxDistance = direction.magnitude;
-                float scaledRadius = CameraCollisionRadius * scale;
-
-                if (Physics.SphereCast(_currentCamParams.trackingPosition, scaledRadius, direction.normalized, out RaycastHit hit, maxDistance, CameraCollisionMask, QueryTriggerInteraction.Ignore))
-                {
-                    desiredWorldPos = hit.point + (hit.normal * scaledRadius);
-                }
-
-                // Apply final world transform (Overrides parent constraint)
-                transform.position = desiredWorldPos;
-                transform.rotation = desiredRotation;
             }
+        }
+
+        private void ApplyThirdPersonTransform(float scale)
+        {
+            float zoomT = Mathf.InverseLerp(ThirdPersonMinZoom * scale, ThirdPersonMaxZoom * scale, _currentCamParams.distance);
+            CameraInstance.fieldOfView = Mathf.Lerp(ThirdPersonMinFoV, ThirdPersonMaxFoV, zoomT);
+
+            float tanFOVY = Mathf.Tan(0.5f * Mathf.Deg2Rad * CameraInstance.fieldOfView);
+            float tanFOVX = tanFOVY * CameraInstance.aspect;
+
+            Vector3 localOffset = new Vector3(
+                _currentCamParams.distance * tanFOVX * _currentCamParams.framing.x,
+                _currentCamParams.distance * tanFOVY * _currentCamParams.framing.y,
+                _currentCamParams.distance
+            );
+
+            Quaternion desiredRotation = Quaternion.Euler(_currentCamParams.pitch, _currentCamParams.yaw, 0);
+            Vector3 desiredWorldPos = _currentCamParams.trackingPosition - (desiredRotation * localOffset);
+
+            Vector3 direction = desiredWorldPos - _currentCamParams.trackingPosition;
+            float maxDistance = direction.magnitude;
+            float scaledRadius = CameraCollisionRadius * scale;
+
+            if (maxDistance > 0.001f && Physics.SphereCast(_currentCamParams.trackingPosition, scaledRadius, direction.normalized, out RaycastHit hit, maxDistance, CameraCollisionMask, QueryTriggerInteraction.Ignore))
+            {
+                desiredWorldPos = hit.point + (hit.normal * scaledRadius);
+            }
+
+            transform.position = desiredWorldPos;
+            transform.rotation = desiredRotation;
         }
 
         /// <summary>
