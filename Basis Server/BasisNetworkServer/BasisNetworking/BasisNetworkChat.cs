@@ -154,12 +154,7 @@ namespace BasisNetworkServer.BasisNetworking
 
                 // Apply word filter
                 text = FilterMessage(text);
-
-                // Truncate if too long after filtering (shouldn't grow, but be safe)
-                if (text.Length > 256)
-                {
-                    text = text.Substring(0, 256);
-                }
+                text = BasisChatSanitizer.Sanitize(text);
 
                 byte[] filtered = Encoding.UTF8.GetBytes(text);
                 chatMessage.payload = filtered;
