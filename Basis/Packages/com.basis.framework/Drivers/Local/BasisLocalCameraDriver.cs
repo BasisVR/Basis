@@ -71,7 +71,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>Distance behind the avatar in meters (at 1x scale).</summary>
         public float ThirdPersonDistance = 1.0f;
 
-        /// <summary>Screen framing offset: X is horizontal (-1 to 1), Y is vertical (-1 to 1). e.g., X=0.3 puts the player on the left.
+        /// <summary>Screen framing offset: X is horizontal (-1 to 1), Y is vertical (-1 to 1). e.g., X=0.3 puts the player on the right.
         public Vector2 ThirdPersonFraming = new Vector2(-0.25f, 0.1f);
 
         /// <summary>How fast the camera tracks the player's position
@@ -87,8 +87,8 @@ namespace Basis.Scripts.Drivers
         public LayerMask CameraCollisionMask;
 
         public float ThirdPersonMinZoom = 0.5f;
-        public float ThirdPersonMaxZoom = 5.0f;
-        public float ThirdPersonZoomSensitivity = 1.5f;
+        public float ThirdPersonMaxZoom = 2.0f;
+        public float ThirdPersonZoomSensitivity = 0.5f;
 
         public float ThirdPersonMinFoV = 50f;
         public float ThirdPersonMaxFoV = 75f;

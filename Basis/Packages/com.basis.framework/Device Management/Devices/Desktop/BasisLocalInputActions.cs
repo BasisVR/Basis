@@ -523,11 +523,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisLocalCameraDriver.HasInstance == false)
                 return;
 
-            canZoomCamera = true;
-
             if (ctx.interaction is TapInteraction && ctx.phase == InputActionPhase.Performed)
             {
                 BasisLocalCameraDriver.Instance.ToggleThirdPerson();
+            }
+            if (ctx.interaction is HoldInteraction && ctx.phase == InputActionPhase.Performed)
+            {
+                canZoomCamera = true;
             }
         }
 
