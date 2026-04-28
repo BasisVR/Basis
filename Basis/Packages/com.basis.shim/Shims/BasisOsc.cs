@@ -39,10 +39,8 @@ namespace Basis.Shims
             public bool ReceiveAll { get; internal set; }
             public bool CanPublish { get; internal set; }
             public int OnMessageListenerCount { get; internal set; }
-            public int PassiveExactCount { get; internal set; }
             public int ExactCallbackCount { get; internal set; }
             public int ExactValueCallbackCount { get; internal set; }
-            public int PassivePrefixCount { get; internal set; }
             public int PrefixCallbackCount { get; internal set; }
             public int PrefixValueCallbackCount { get; internal set; }
             public string[] ExactSubscriptions { get; internal set; } = Array.Empty<string>();
@@ -51,14 +49,10 @@ namespace Basis.Shims
             public string[] PrefixRegistrationLines { get; internal set; } = Array.Empty<string>();
         }
 
-        private readonly HashSet<string> subscribedAddresses = new HashSet<string>(StringComparer.Ordinal);
-        private readonly HashSet<string> subscribedPrefixes = new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<string, OscMessageEvent> exactCallbacks = new Dictionary<string, OscMessageEvent>(StringComparer.Ordinal);
         private readonly Dictionary<string, OscMessageEvent> prefixCallbacks = new Dictionary<string, OscMessageEvent>(StringComparer.Ordinal);
         private readonly Dictionary<string, OscValueEvent> exactValueCallbacks = new Dictionary<string, OscValueEvent>(StringComparer.Ordinal);
         private readonly Dictionary<string, OscValueEvent> prefixValueCallbacks = new Dictionary<string, OscValueEvent>(StringComparer.Ordinal);
-        private readonly Dictionary<string, HashSet<string>> exactAddressInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        private readonly Dictionary<string, HashSet<string>> prefixAddressInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<string>> exactCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<string>> prefixCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<string>> exactValueCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
@@ -103,25 +97,18 @@ namespace Basis.Shims
             BasisOscService.ClearSubscriptions(GetEntityId());
         }
 
-        public void Subscribe(string address)
-        {
-            string normalizedAddress = NormalizeSubscriptionAddress(address);
-            if (normalizedAddress != null)
-            {
-                subscribedAddresses.Add(normalizedAddress);
-                TrackInput(exactAddressInputs, normalizedAddress, address);
-                MarkInspectorStateDirty();
-                SyncQuerySubscriptions();
-            }
-        }
-
         public void Subscribe(string address, OscMessageEvent callback)
         {
-            string normalizedAddress = NormalizeSubscriptionAddress(address);
-            if (normalizedAddress != null)
+            Subscribe(address, callback, out _);
+        }
+
+        public void Subscribe(string address, OscMessageEvent callback, out string resolvedAddress)
+        {
+            resolvedAddress = NormalizeSubscriptionAddress(address);
+            if (resolvedAddress != null)
             {
-                AddCallback(exactCallbacks, normalizedAddress, callback);
-                TrackInput(exactCallbackInputs, normalizedAddress, address);
+                AddCallback(exactCallbacks, resolvedAddress, callback);
+                TrackInput(exactCallbackInputs, resolvedAddress, address);
                 MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
@@ -129,23 +116,16 @@ namespace Basis.Shims
 
         public void SubscribeValue(string address, OscValueEvent callback)
         {
-            string normalizedAddress = NormalizeSubscriptionAddress(address);
-            if (normalizedAddress != null)
-            {
-                AddCallback(exactValueCallbacks, normalizedAddress, callback);
-                TrackInput(exactValueCallbackInputs, normalizedAddress, address);
-                MarkInspectorStateDirty();
-                SyncQuerySubscriptions();
-            }
+            SubscribeValue(address, callback, out _);
         }
 
-        public void SubscribePrefix(string prefix)
+        public void SubscribeValue(string address, OscValueEvent callback, out string resolvedAddress)
         {
-            string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
-            if (normalizedPrefix != null)
+            resolvedAddress = NormalizeSubscriptionAddress(address);
+            if (resolvedAddress != null)
             {
-                subscribedPrefixes.Add(normalizedPrefix);
-                TrackInput(prefixAddressInputs, normalizedPrefix, prefix);
+                AddCallback(exactValueCallbacks, resolvedAddress, callback);
+                TrackInput(exactValueCallbackInputs, resolvedAddress, address);
                 MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
@@ -153,11 +133,16 @@ namespace Basis.Shims
 
         public void SubscribePrefix(string prefix, OscMessageEvent callback)
         {
-            string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
-            if (normalizedPrefix != null)
+            SubscribePrefix(prefix, callback, out _);
+        }
+
+        public void SubscribePrefix(string prefix, OscMessageEvent callback, out string resolvedAddress)
+        {
+            resolvedAddress = NormalizeSubscriptionAddress(prefix);
+            if (resolvedAddress != null)
             {
-                AddCallback(prefixCallbacks, normalizedPrefix, callback);
-                TrackInput(prefixCallbackInputs, normalizedPrefix, prefix);
+                AddCallback(prefixCallbacks, resolvedAddress, callback);
+                TrackInput(prefixCallbackInputs, resolvedAddress, prefix);
                 MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
@@ -165,11 +150,16 @@ namespace Basis.Shims
 
         public void SubscribePrefixValue(string prefix, OscValueEvent callback)
         {
-            string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
-            if (normalizedPrefix != null)
+            SubscribePrefixValue(prefix, callback, out _);
+        }
+
+        public void SubscribePrefixValue(string prefix, OscValueEvent callback, out string resolvedAddress)
+        {
+            resolvedAddress = NormalizeSubscriptionAddress(prefix);
+            if (resolvedAddress != null)
             {
-                AddCallback(prefixValueCallbacks, normalizedPrefix, callback);
-                TrackInput(prefixValueCallbackInputs, normalizedPrefix, prefix);
+                AddCallback(prefixValueCallbacks, resolvedAddress, callback);
+                TrackInput(prefixValueCallbackInputs, resolvedAddress, prefix);
                 MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
@@ -188,10 +178,8 @@ namespace Basis.Shims
             string normalizedAddress = NormalizeSubscriptionAddress(address);
             if (normalizedAddress != null)
             {
-                subscribedAddresses.Remove(normalizedAddress);
                 exactCallbacks.Remove(normalizedAddress);
                 exactValueCallbacks.Remove(normalizedAddress);
-                exactAddressInputs.Remove(normalizedAddress);
                 exactCallbackInputs.Remove(normalizedAddress);
                 exactValueCallbackInputs.Remove(normalizedAddress);
                 MarkInspectorStateDirty();
@@ -228,10 +216,8 @@ namespace Basis.Shims
             string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
             if (normalizedPrefix != null)
             {
-                subscribedPrefixes.Remove(normalizedPrefix);
                 prefixCallbacks.Remove(normalizedPrefix);
                 prefixValueCallbacks.Remove(normalizedPrefix);
-                prefixAddressInputs.Remove(normalizedPrefix);
                 prefixCallbackInputs.Remove(normalizedPrefix);
                 prefixValueCallbackInputs.Remove(normalizedPrefix);
                 MarkInspectorStateDirty();
@@ -265,14 +251,10 @@ namespace Basis.Shims
 
         public void ClearSubscriptions()
         {
-            subscribedAddresses.Clear();
-            subscribedPrefixes.Clear();
             exactCallbacks.Clear();
             prefixCallbacks.Clear();
             exactValueCallbacks.Clear();
             prefixValueCallbacks.Clear();
-            exactAddressInputs.Clear();
-            prefixAddressInputs.Clear();
             exactCallbackInputs.Clear();
             prefixCallbackInputs.Clear();
             exactValueCallbackInputs.Clear();
@@ -295,20 +277,16 @@ namespace Basis.Shims
                 ReceiveAll = ReceiveAll,
                 CanPublish = scope != OscScope.None && scope != OscScope.AvatarRemote,
                 OnMessageListenerCount = GetInvocationCount(OnMessage),
-                PassiveExactCount = subscribedAddresses.Count,
                 ExactCallbackCount = exactCallbacks.Count,
                 ExactValueCallbackCount = exactValueCallbacks.Count,
-                PassivePrefixCount = subscribedPrefixes.Count,
                 PrefixCallbackCount = prefixCallbacks.Count,
                 PrefixValueCallbackCount = prefixValueCallbacks.Count,
-                ExactSubscriptions = BuildSortedUnion(subscribedAddresses, exactCallbacks.Keys, exactValueCallbacks.Keys),
-                PrefixSubscriptions = BuildSortedUnion(subscribedPrefixes, prefixCallbacks.Keys, prefixValueCallbacks.Keys),
+                ExactSubscriptions = BuildSortedUnion(exactCallbacks.Keys, exactValueCallbacks.Keys),
+                PrefixSubscriptions = BuildSortedUnion(prefixCallbacks.Keys, prefixValueCallbacks.Keys),
                 ExactRegistrationLines = BuildRegistrationLines(
-                    exactAddressInputs, "Passive",
                     exactCallbacks, exactCallbackInputs, "Message Callback",
                     exactValueCallbacks, exactValueCallbackInputs, "Value Callback"),
                 PrefixRegistrationLines = BuildRegistrationLines(
-                    prefixAddressInputs, "Passive",
                     prefixCallbacks, prefixCallbackInputs, "Message Callback",
                     prefixValueCallbacks, prefixValueCallbackInputs, "Value Callback"),
             };
@@ -331,8 +309,7 @@ namespace Basis.Shims
         {
             string normalizedAddress = NormalizeSubscriptionAddress(address);
             return normalizedAddress != null &&
-                   (subscribedAddresses.Contains(normalizedAddress) ||
-                    exactCallbacks.ContainsKey(normalizedAddress) ||
+                   (exactCallbacks.ContainsKey(normalizedAddress) ||
                     exactValueCallbacks.ContainsKey(normalizedAddress));
         }
 
@@ -340,14 +317,18 @@ namespace Basis.Shims
         {
             string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
             return normalizedPrefix != null &&
-                   (subscribedPrefixes.Contains(normalizedPrefix) ||
-                    prefixCallbacks.ContainsKey(normalizedPrefix) ||
+                   (prefixCallbacks.ContainsKey(normalizedPrefix) ||
                     prefixValueCallbacks.ContainsKey(normalizedPrefix));
         }
 
         public void PublishValue(string address, OscData value)
         {
-            string resolvedAddress = ResolvePublishAddress(address);
+            PublishValue(address, value, out _);
+        }
+
+        public void PublishValue(string address, OscData value, out string resolvedAddress)
+        {
+            resolvedAddress = ResolvePublishAddress(address);
             if (resolvedAddress == null)
             {
                 return;
@@ -358,7 +339,12 @@ namespace Basis.Shims
 
         public void PublishValues(string address, OscData[] values)
         {
-            string resolvedAddress = ResolvePublishAddress(address);
+            PublishValues(address, values, out _);
+        }
+
+        public void PublishValues(string address, OscData[] values, out string resolvedAddress)
+        {
+            resolvedAddress = ResolvePublishAddress(address);
             if (resolvedAddress == null)
             {
                 return;
@@ -375,15 +361,10 @@ namespace Basis.Shims
             }
 
             string path = message.Path ?? string.Empty;
-            bool matched = ReceiveAll;
+            bool matched = ReceiveAll && IsWithinReceiveAllScope(path);
 
             OscMessageEvent callback = null;
             OscValueEvent valueCallback = null;
-
-            if (subscribedAddresses.Contains(path))
-            {
-                matched = true;
-            }
 
             if (exactCallbacks.TryGetValue(path, out OscMessageEvent exactCallback))
             {
@@ -398,14 +379,6 @@ namespace Basis.Shims
             }
 
             #region CollectPrefixCallbacks
-            foreach (string prefix in subscribedPrefixes)
-            {
-                if (IsPathWithinPrefix(path, prefix))
-                {
-                    matched = true;
-                }
-            }
-
             foreach (KeyValuePair<string, OscMessageEvent> entry in prefixCallbacks)
             {
                 if (IsPathWithinPrefix(path, entry.Key))
@@ -438,6 +411,17 @@ namespace Basis.Shims
             }
         }
 
+        private bool IsWithinReceiveAllScope(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            string receiveAllPrefix = GetReceiveAllPrefix();
+            return !string.IsNullOrEmpty(receiveAllPrefix) && IsPathWithinPrefix(path, receiveAllPrefix);
+        }
+
         private void SyncQuerySubscriptions()
         {
             if (!isActiveAndEnabled)
@@ -445,12 +429,10 @@ namespace Basis.Shims
                 return;
             }
 
-            HashSet<string> exactAddresses = new HashSet<string>(subscribedAddresses, StringComparer.Ordinal);
-            exactAddresses.UnionWith(exactCallbacks.Keys);
+            HashSet<string> exactAddresses = new HashSet<string>(exactCallbacks.Keys, StringComparer.Ordinal);
             exactAddresses.UnionWith(exactValueCallbacks.Keys);
 
-            HashSet<string> prefixAddresses = new HashSet<string>(subscribedPrefixes, StringComparer.Ordinal);
-            prefixAddresses.UnionWith(prefixCallbacks.Keys);
+            HashSet<string> prefixAddresses = new HashSet<string>(prefixCallbacks.Keys, StringComparer.Ordinal);
             prefixAddresses.UnionWith(prefixValueCallbacks.Keys);
 
             BasisOscService.UpdateSubscriptions(GetEntityId(), ReceiveAll, exactAddresses, prefixAddresses);
@@ -484,6 +466,16 @@ namespace Basis.Shims
                 default:
                     return AvatarParametersPrefix;
             }
+        }
+
+        private string GetReceiveAllPrefix()
+        {
+            if (TryGetOscScope(out OscScope scope, out _))
+            {
+                return GetDefaultSubscriptionPrefix(scope);
+            }
+
+            return AvatarParametersPrefix;
         }
 
         private static int GetInvocationCount(Delegate callback)
@@ -563,8 +555,6 @@ namespace Basis.Shims
         }
 
         private static string[] BuildRegistrationLines(
-            Dictionary<string, HashSet<string>> passiveInputs,
-            string passiveLabel,
             Dictionary<string, OscMessageEvent> messageCallbacks,
             Dictionary<string, HashSet<string>> messageInputs,
             string messageLabel,
@@ -573,24 +563,10 @@ namespace Basis.Shims
             string valueLabel)
         {
             List<string> lines = new List<string>();
-            AddRegistrationLines(lines, passiveInputs, passiveLabel);
             AddRegistrationLines(lines, messageCallbacks, messageInputs, messageLabel);
             AddRegistrationLines(lines, valueCallbacks, valueInputs, valueLabel);
             lines.Sort(StringComparer.Ordinal);
             return lines.ToArray();
-        }
-
-        private static void AddRegistrationLines(List<string> lines, Dictionary<string, HashSet<string>> inputs, string label)
-        {
-            if (inputs == null)
-            {
-                return;
-            }
-
-            foreach (KeyValuePair<string, HashSet<string>> entry in inputs)
-            {
-                AddInputLines(lines, label, entry.Key, entry.Value);
-            }
         }
 
         private static void AddRegistrationLines<TDelegate>(

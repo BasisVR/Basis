@@ -3,11 +3,12 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
+using Cilbox;
 using System;
 
 namespace Basis.Shims
 {
-    public class BasisNetworkShim : BasisNetworkBehaviour
+    public class BasisNetworkShim : BasisNetworkBehaviour, ICilboxShim
 	{
 		public delegate void NetworkReadyEvent();
 		public delegate void ServerOwnershipDestroyedEvent();

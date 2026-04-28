@@ -52,11 +52,9 @@ namespace Basis.Shims.Editor
             using (new EditorGUI.DisabledScope(true))
             {
                 EditorGUILayout.IntField("Exact Total", state.ExactSubscriptions.Length);
-                EditorGUILayout.IntField("Exact Passive", state.PassiveExactCount);
                 EditorGUILayout.IntField("Exact Message Callback Addresses", state.ExactCallbackCount);
                 EditorGUILayout.IntField("Exact Value Callback Addresses", state.ExactValueCallbackCount);
                 EditorGUILayout.IntField("Prefix Total", state.PrefixSubscriptions.Length);
-                EditorGUILayout.IntField("Prefix Passive", state.PassivePrefixCount);
                 EditorGUILayout.IntField("Prefix Message Callback Addresses", state.PrefixCallbackCount);
                 EditorGUILayout.IntField("Prefix Value Callback Addresses", state.PrefixValueCallbackCount);
             }

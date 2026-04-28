@@ -20,7 +20,7 @@ namespace Basis
 
 	public class SafeUtil
 	{
-
+		[Obsolete("Use GetComponent instead. This is a shim for the old system and should be removed at a later point.")]
 		public static BasisNetworkShim MakeNetworkable( object o )
 		{
 			if (o is not MonoBehaviour behaviour)
@@ -31,7 +31,7 @@ namespace Basis
 
 			return MakeNetworkable( behaviour );
 		}
-
+		[Obsolete("Use GetComponent instead. This is a shim for the old system and should be removed at a later point.")]
 		public static BasisNetworkShim MakeNetworkable( MonoBehaviour mb )
 		{
 			if( mb.gameObject.TryGetComponent<BasisNetworkShim>( out BasisNetworkShim bi ) ) return bi;

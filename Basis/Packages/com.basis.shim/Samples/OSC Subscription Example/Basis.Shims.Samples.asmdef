@@ -3,6 +3,9 @@
     "rootNamespace": "Basis.Shims.Samples",
     "references": [
         "BasisShims",
+        "Basis Framework",
+        "BasisSDK",
+        "BasisNetworkCore",
         "Cilbox",
         "HVR.Basis.Comms"
     ],

@@ -23,8 +23,8 @@
 		<type fullname="Basis.Shims.BasisOsc+OscValueEvent" preserve="all"/>
 		<type fullname="Basis.Shims.BasisDebugPropsShim" preserve="all"/>
 		<type fullname="Basis.BasisImageDownloader" preserve="all"/>
-		<type fullname="Basis.BasisUrl" preserve="all"/>
 		<type fullname="Basis.IBasisImageDownload" preserve="all"/>
+		<type fullname="Basis.BasisUrl" preserve="all"/>
 	</assembly>
 	<assembly fullname="HVR.Basis.Comms">
 		<type fullname="HVR.Basis.Comms.OSC.OscData" preserve="all"/>
@@ -40,6 +40,7 @@
 		<type fullname="System.Boolean" preserve="all"/>
 		<type fullname="System.Buffer" preserve="all"/>
 		<type fullname="System.Byte" preserve="all"/>
+		<type fullname="System.SByte" preserve="all"/>
 		<type fullname="System.Char" preserve="all"/>
 		<type fullname="System.Convert" preserve="all"/>
 		<type fullname="System.DateTime" preserve="all"/>
@@ -145,6 +146,8 @@
 		<type fullname="UnityEngine.UI.Button" preserve="all"/>
 	</assembly>
 	<assembly fullname="BasisExamples">
+		<type fullname="Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton" preserve="all"/>
+		<type fullname="Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton+ClickEvent" preserve="all"/>
 		<type fullname="BasisSDKMirror" preserve="all"/>
 		<type fullname="BasisSDKMirror+MirrorClearFlags" preserve="all"/>
 	</assembly>

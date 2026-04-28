@@ -3,6 +3,8 @@
     "rootNamespace": "",
     "references": [
         "HVR.Basis.Comms",
+        "Basis Framework",
+        "BasisNetworkCore",
         "BasisSDK",
         "BasisShims",
         "Cilbox",
