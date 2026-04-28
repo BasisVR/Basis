@@ -428,7 +428,7 @@ namespace Basis.Scripts.Drivers
             public float[] Values;
         }
         private static List<BasisShadowCloneBlendshapeSync> ShadowCloneSyncs = new();
-        private static void RemoveOldShadowClones()
+        public static void RemoveOldShadowClones()
         {
             for (int i = 0; i < ShadowCloneSyncs.Count; i++)
             {

@@ -151,6 +151,8 @@ public class BasisBeeExplorerWindow : EditorWindow
         {
             DrawField("Name", connector.BasisBundleDescription.AssetBundleName);
             DrawField("Description", connector.BasisBundleDescription.AssetBundleDescription);
+            var tags = connector.BasisBundleDescription.Tags;
+            DrawField("Tags", tags != null && tags.Length > 0 ? string.Join(", ", tags) : "(none)");
         }
         EditorGUILayout.EndVertical();
 
@@ -162,6 +164,7 @@ public class BasisBeeExplorerWindow : EditorWindow
         EditorGUI.indentLevel++;
         EditorGUILayout.Vector3Field("Center", connector.Bounds.center);
         EditorGUILayout.Vector3Field("Size", connector.Bounds.size);
+        EditorGUILayout.Vector3Field("Extents", connector.Bounds.extents);
         EditorGUI.indentLevel--;
 
         // Metadata
@@ -171,6 +174,7 @@ public class BasisBeeExplorerWindow : EditorWindow
         DrawField("Triangles", connector.MetaData.TrianglesCount.ToString("N0"));
         DrawField("Materials", connector.MetaData.MaterialCount.ToString("N0"));
         DrawField("Bones", connector.MetaData.BonesCount.ToString("N0"));
+        DrawField("Texture Memory", FormatByteSize(connector.MetaData.TextureMemoryBytes));
 
         if (connector.MetaData.ComponentNames != null && connector.MetaData.ComponentNames.Length > 0)
         {
@@ -247,6 +251,7 @@ public class BasisBeeExplorerWindow : EditorWindow
             DrawField("CRC", bundle.AssetBundleCRC.ToString());
             DrawField("Hash", bundle.AssetBundleHash);
             DrawField("Encrypted", bundle.IsEncrypted.ToString());
+            DrawField("Password", string.IsNullOrEmpty(bundle.Password) ? "(none)" : bundle.Password);
             DrawField("Size (bytes)", bundle.EndByte.ToString("N0"));
             EditorGUI.indentLevel--;
 
@@ -624,5 +629,17 @@ public class BasisBeeExplorerWindow : EditorWindow
     private static string SanitizePath(string input, char[] invalidChars)
     {
         return new string(input.Where(c => !invalidChars.Contains(c)).ToArray());
+    }
+
+    private static string FormatByteSize(long bytes)
+    {
+        if (bytes <= 0) return "0 bytes";
+        const double kb = 1024.0;
+        const double mb = kb * 1024.0;
+        const double gb = mb * 1024.0;
+        if (bytes >= gb) return $"{bytes:N0} bytes ({bytes / gb:F2} GB)";
+        if (bytes >= mb) return $"{bytes:N0} bytes ({bytes / mb:F2} MB)";
+        if (bytes >= kb) return $"{bytes:N0} bytes ({bytes / kb:F2} KB)";
+        return $"{bytes:N0} bytes";
     }
 }

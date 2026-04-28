@@ -240,7 +240,21 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         public static Result Evaluate(BasisBundleConnector connector)
         {
-            if (connector == null || !AnyHardLimitEnabled())
+            if (connector == null) return Result.Pass;
+            if (_bypassAllLimits) return Result.Pass;
+
+            // Content-tag block runs before perf checks because tag rejection is a
+            // stricter user intent than a perf threshold (the user explicitly opted
+            // out of this content category) and the comparison is cheap — small
+            // user blocklist × small authored tag list.
+            if (BasisContentTagFilter.AnyBlocked()
+                && connector.BasisBundleDescription != null
+                && BasisContentTagFilter.IsBlocked(connector.BasisBundleDescription.Tags, out string matchedTag))
+            {
+                return FailTag(matchedTag);
+            }
+
+            if (!AnyHardLimitEnabled())
             {
                 return Result.Pass;
             }
@@ -683,6 +697,11 @@ namespace Basis.Scripts.Avatar
         private static Result Fail(string metric, double actual, double limit)
         {
             return new Result(true, $"Exceeds {metric} limit ({Format(actual)} > {Format(limit)})");
+        }
+
+        private static Result FailTag(string tag)
+        {
+            return new Result(true, $"Blocked content tag '{tag}'");
         }
 
         private static string Format(double v)

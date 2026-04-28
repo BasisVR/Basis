@@ -1,4 +1,5 @@
 using Basis.Network.Core;
+using Basis.Network.Server.Generic;
 using BasisPermissions;
 using System.Collections.Concurrent;
 using System.Linq;
@@ -62,12 +63,22 @@ public static class BasisNetworkContentShare
             return;
         }
 
+        string sharerUUID = string.Empty;
+        string sharerDisplayName = string.Empty;
+        if (BasisSavedState.GetLastPlayerMetaData(peer, out ClientMetaDataMessage sharerMeta))
+        {
+            sharerUUID = sharerMeta.playerUUID ?? string.Empty;
+            sharerDisplayName = sharerMeta.playerDisplayName ?? string.Empty;
+        }
+
         ServerContentShareMessage serverMsg = new ServerContentShareMessage
         {
             playerIdMessage = new PlayerIdMessage
             {
                 playerID = (ushort)peer.Id
             },
+            SharerUUID = sharerUUID,
+            SharerDisplayName = sharerDisplayName,
             contentShareMessage = msg
         };
 

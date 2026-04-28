@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -248,6 +249,9 @@ namespace Basis.Scripts.Drivers
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateCameraScale;
                 BasisLocalPlayer.OnLocalAvatarChanged += UpdateCameraScale;
 
+                BasisSettingsDefaults.UseCameraClipOverride.OnChanged += OnClipOverrideToggleChanged;
+                BasisSettingsDefaults.CameraClipNear.OnChanged += OnClipBindingChangedFloat;
+                BasisSettingsDefaults.CameraClipFar.OnChanged += OnClipBindingChangedFloat;
                 BasisLocalPlayer.AfterSimulateOnLate.AddAction(150, SimulateThirdPerson);
 
                 InstanceExists?.Invoke();
@@ -281,6 +285,9 @@ namespace Basis.Scripts.Drivers
             BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateCameraScale;
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateCameraScale;
+            BasisSettingsDefaults.UseCameraClipOverride.OnChanged -= OnClipOverrideToggleChanged;
+            BasisSettingsDefaults.CameraClipNear.OnChanged -= OnClipBindingChangedFloat;
+            BasisSettingsDefaults.CameraClipFar.OnChanged -= OnClipBindingChangedFloat;
             BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(150, SimulateThirdPerson);
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
@@ -384,6 +391,15 @@ namespace Basis.Scripts.Drivers
         public void UpdateCameraScale(BasisHeightDriver.HeightModeChange HeightModeChange)
         {
             this.transform.localScale = Vector3.one * BasisHeightDriver.DeviceScale;
+            if (BasisSettingsDefaults.UseCameraClipOverride.RawValue)
+            {
+                // User has explicitly opted into raw clip values; bypass the eye-height clamp.
+                float overrideNear = Mathf.Max(BasisSettingsDefaults.CameraClipNear.RawValue, 1e-4f);
+                float overrideFar = Mathf.Max(BasisSettingsDefaults.CameraClipFar.RawValue, overrideNear + 1e-3f);
+                Camera.nearClipPlane = overrideNear;
+                Camera.farClipPlane = overrideFar;
+                return;
+            }
             // Ensure that the near clip plane is never far enough away that the avatar body clips through it.
             // Critically we need to avoid small player heights causing the UI to become unusable due to clipping.
             // At the same time, we need to pull in the far clip plane on mobile platforms to avoid depth buffer precision issues.
@@ -585,6 +601,9 @@ namespace Basis.Scripts.Drivers
             transform.position = desiredWorldPos;
             transform.rotation = desiredRotation;
         }
+
+        private void OnClipOverrideToggleChanged(bool _) => UpdateCameraScale();
+        private void OnClipBindingChangedFloat(float _) => UpdateCameraScale();
 
         /// <summary>
         /// URP callback after camera render: restores head scale to normal for this camera.

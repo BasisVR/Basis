@@ -71,9 +71,22 @@ public static class SMModuleAvatarPerformanceLimits
         // same debounced reconcile pass as a regular setting change.
         BasisAvatarPerformanceLimits.OnBypassChanged -= OnBypassChanged;
         BasisAvatarPerformanceLimits.OnBypassChanged += OnBypassChanged;
+
+        // Content-tag filter changes also flow into the perf reconcile pass —
+        // Evaluate now consults the tag list, so a freshly-blocked tag flips
+        // wouldBeBlocked for any loaded avatar carrying it (and the inverse on
+        // unblock), which DetermineAction maps to Reload exactly like a hard-block
+        // limit change.
+        BasisContentTagFilter.OnChanged -= OnTagFilterChanged;
+        BasisContentTagFilter.OnChanged += OnTagFilterChanged;
     }
 
     private static void OnBypassChanged()
+    {
+        ScheduleReconcile();
+    }
+
+    private static void OnTagFilterChanged()
     {
         ScheduleReconcile();
     }

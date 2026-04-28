@@ -61,8 +61,7 @@ namespace Basis.Scripts.UI.NamePlate
         private Vector3[] workNormals;
         private Vector2[] workUVs;
 
-        // Reusable combine buffer
-        private readonly CombineInstance[] combineBuffer = new CombineInstance[2];
+        private static bool _unicodeFallbacksEnsured;
 
         public void Awake()
         {
@@ -81,6 +80,99 @@ namespace Basis.Scripts.UI.NamePlate
 
             UpdateCachedColors(NamePlateTransparency);
             PrecomputeCornerData();
+            EnsureUnicodeFallbacksOnNameplateFont();
+        }
+
+        /// <summary>
+        /// Walks a per-script list of OS font candidates and adds the first installed
+        /// match per script to the nameplate font's fallback list. This lets display
+        /// names render glyphs the primary (Latin) font doesn't cover — Japanese,
+        /// Korean, Chinese, Arabic, Thai, Hebrew, Devanagari — instead of silently
+        /// dropping them. Scripts with no installed candidate degrade to "no glyph";
+        /// no crash. Per-family dedupe avoids loading the same atlas twice when a
+        /// font (e.g., Tahoma covers both Arabic and Hebrew) was added for an earlier
+        /// script in the chain.
+        /// </summary>
+        private void EnsureUnicodeFallbacksOnNameplateFont()
+        {
+            if (_unicodeFallbacksEnsured) return;
+            _unicodeFallbacksEnsured = true;
+
+            if (Text == null || Text.font == null) return;
+
+            var primary = Text.font;
+            if (primary.fallbackFontAssetTable == null)
+                primary.fallbackFontAssetTable = new List<TMP_FontAsset>();
+
+            var registered = new HashSet<string>();
+            string[][] scriptCandidates =
+            {
+                // Japanese — kanji, hiragana, katakana
+                new[] { "Yu Gothic UI", "Yu Gothic", "Meiryo UI", "Meiryo", "MS Gothic",
+                        "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+                        "Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", "TakaoGothic" },
+
+                // Korean — Hangul
+                new[] { "Malgun Gothic", "Gulim", "Dotum", "Batang",
+                        "Apple SD Gothic Neo", "AppleGothic",
+                        "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic" },
+
+                // Simplified Chinese — CN-style Han glyphs
+                new[] { "Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "SimSun",
+                        "PingFang SC", "Hiragino Sans GB", "STHeiti",
+                        "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC",
+                        "WenQuanYi Micro Hei" },
+
+                // Traditional Chinese — TW/HK-style Han glyphs
+                new[] { "Microsoft JhengHei UI", "Microsoft JhengHei", "PMingLiU", "MingLiU",
+                        "PingFang TC", "Heiti TC",
+                        "Noto Sans CJK TC", "Noto Sans TC" },
+
+                // Arabic
+                new[] { "Tahoma", "Segoe UI",
+                        "Geeza Pro", "Damascus",
+                        "Noto Sans Arabic", "Noto Naskh Arabic", "DejaVu Sans" },
+
+                // Thai
+                new[] { "Leelawadee UI", "Leelawadee",
+                        "Thonburi", "Sukhumvit Set",
+                        "Noto Sans Thai", "Loma" },
+
+                // Hebrew
+                new[] { "David CLM", "Arial Hebrew",
+                        "Tahoma", "Segoe UI", "Lucida Grande",
+                        "Noto Sans Hebrew", "DejaVu Sans" },
+
+                // Devanagari — Hindi, Marathi, Sanskrit
+                new[] { "Nirmala UI", "Mangal",
+                        "Devanagari MT", "Kohinoor Devanagari",
+                        "Noto Sans Devanagari", "Lohit Devanagari" },
+            };
+
+            foreach (string[] candidates in scriptCandidates)
+                AddFirstAvailableFallback(primary, candidates, registered);
+        }
+
+        private static void AddFirstAvailableFallback(TMP_FontAsset primary, string[] candidates, HashSet<string> registered)
+        {
+            foreach (string family in candidates)
+            {
+                // If a previous script already loaded this family, accept its glyph
+                // coverage for the current script too — avoids double-allocating the
+                // same atlas. Stop the search; we won't try worse candidates after a
+                // hit on the user's preferred chain.
+                if (registered.Contains(family)) return;
+
+                TMP_FontAsset fallback = null;
+                try { fallback = TMP_FontAsset.CreateFontAsset(family, "Regular"); }
+                catch { continue; }
+                if (fallback == null) continue;
+
+                fallback.name = "NamePlate Fallback (" + family + ")";
+                primary.fallbackFontAssetTable.Add(fallback);
+                registered.Add(family);
+                return;
+            }
         }
 
         private void UpdateCachedColors(float transparency)
@@ -206,31 +298,6 @@ namespace Basis.Scripts.UI.NamePlate
             SetAllPlateVisibility();
         }
 
-        /// <summary>
-        /// Combines a fitted rounded-quad background + plate's baked text mesh.
-        /// Shared by initial creation and mesh rebuilds.
-        /// </summary>
-        private void CombinePlateMesh(BasisRemoteNamePlate namePlate, Mesh roundedMesh, bool setMaterials = false)
-        {
-            combineBuffer[0] = new CombineInstance { mesh = roundedMesh, transform = Matrix4x4.identity };
-            combineBuffer[1] = new CombineInstance { mesh = namePlate.bakedMesh, transform = Matrix4x4.identity };
-
-            Mesh combinedMesh = new Mesh { name = "CombinedNameplateMesh" };
-            combinedMesh.CombineMeshes(combineBuffer, false);
-
-            namePlate.Filter.sharedMesh = combinedMesh;
-
-            if (setMaterials)
-            {
-                // NOTE: This allocates; ideally cache materials array on plate, but left as-is for compatibility.
-                namePlate.Renderer.materials = new Material[]
-                {
-                    SelectedNamePlateMaterial,
-                    namePlate.Renderer.material
-                };
-            }
-        }
-
         // ===========================
         // Text bake path
         // ===========================
@@ -246,14 +313,56 @@ namespace Basis.Scripts.UI.NamePlate
             const float horizontalPadding = 2f;
             float halfWidth = (textSize.x * 0.5f) + horizontalPadding;
 
-            Mesh textMesh = Instantiate(Text.mesh);
-            FlipMesh(textMesh);
-
-            namePlate.bakedMesh = textMesh;
-            namePlate.Filter.sharedMesh = textMesh;
-
             Mesh plateMesh = GenerateRoundedQuad(halfWidth, 4.5f, "Rounded NamePlate Quad");
-            CombinePlateMesh(namePlate, plateMesh, setMaterials: true);
+
+            // Walk textInfo.meshInfo for every populated sub-mesh — index 0 is the
+            // primary font, indices 1+ are fallback font atlases used when characters
+            // (e.g., kanji) aren't present in the primary font. Cloning only Text.mesh
+            // would silently drop those fallback glyphs because TMP places them on
+            // auto-generated TMP_SubMesh children, not on the main Text mesh.
+            var textInfo = Text.textInfo;
+            int subMeshLimit = 0;
+            int textPartCount = 0;
+            if (textInfo != null && textInfo.meshInfo != null)
+            {
+                subMeshLimit = math.min(textInfo.materialCount, textInfo.meshInfo.Length);
+                for (int i = 0; i < subMeshLimit; i++)
+                {
+                    if (textInfo.meshInfo[i].vertexCount > 0)
+                        textPartCount++;
+                }
+            }
+
+            int totalParts = 1 + textPartCount;
+            var combine = new CombineInstance[totalParts];
+            var materials = new Material[totalParts];
+
+            combine[0] = new CombineInstance { mesh = plateMesh, transform = Matrix4x4.identity };
+            materials[0] = SelectedNamePlateMaterial;
+
+            Mesh primaryFlipped = null;
+            int writeIdx = 1;
+            for (int i = 0; i < subMeshLimit; i++)
+            {
+                var info = textInfo.meshInfo[i];
+                if (info.vertexCount == 0 || info.mesh == null) continue;
+
+                Mesh subClone = Instantiate(info.mesh);
+                FlipMesh(subClone);
+
+                combine[writeIdx] = new CombineInstance { mesh = subClone, transform = Matrix4x4.identity };
+                materials[writeIdx] = info.material;
+                if (primaryFlipped == null) primaryFlipped = subClone;
+                writeIdx++;
+            }
+
+            Mesh combinedMesh = new Mesh { name = "CombinedNameplateMesh" };
+            combinedMesh.CombineMeshes(combine, false);
+
+            namePlate.bakedMesh = primaryFlipped;
+            namePlate.Filter.sharedMesh = combinedMesh;
+            namePlate.Renderer.materials = materials;
+
             Text.gameObject.SetActive(false);
         }
 

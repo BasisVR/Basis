@@ -177,6 +177,18 @@ public class BasisSDKMirror : MonoBehaviour
         if (basisMeshRendererCheck != null)
             basisMeshRendererCheck.Check -= VisibilityFlag;
 
+        DisposePortalResources();
+
+        if (gazeTarget != null)
+            gazeTarget.enabled = false;
+
+        IsActive = false;
+        IsAbleToRender = false;
+        InsideRendering = false;
+    }
+
+    private void DisposePortalResources()
+    {
         if (PortalTextureLeft)
         {
 #if UNITY_EDITOR
@@ -202,13 +214,6 @@ public class BasisSDKMirror : MonoBehaviour
         PortalTextureLeft = null;
         PortalTextureRight = null;
         LeftCamera = RightCamera = null;
-
-        if (gazeTarget != null)
-            gazeTarget.enabled = false;
-
-        IsActive = false;
-        IsAbleToRender = false;
-        InsideRendering = false;
     }
 
     private void GetEffectiveResolution(out int width, out int height)
@@ -228,6 +233,12 @@ public class BasisSDKMirror : MonoBehaviour
 
     private void Initialize()
     {
+        if (IsActive) return;
+
+        // Drop any stale cameras/textures from a prior init that didn't reach a clean teardown
+        // (e.g. resources orphaned across a Play-Mode domain reload).
+        DisposePortalResources();
+
         xFlip = Matrix4x4.Scale(new Vector3(-1f, 1f, 1f));
 
         var mainCamera = BasisLocalCameraDriver.Instance.Camera;
@@ -261,6 +272,12 @@ public class BasisSDKMirror : MonoBehaviour
     }
     private void OnBeforeRender()
     {
+        // Self-heal after a Play-Mode domain reload (e.g. Test In Editor + reselect triggers
+        // an AssetDatabase.Refresh()): the camera driver's serialized HasEvents flag persists
+        // across the reload, so its InstanceExists event never re-fires for our subscription.
+        if (!IsActive && BasisLocalCameraDriver.HasInstance)
+            Initialize();
+
         if (!IsActive || !IsAbleToRender) return;
 
         Camera cam = null;

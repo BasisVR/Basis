@@ -1901,6 +1901,9 @@ namespace Basis.BasisUI
                     return; // guard key stop here
                 }
 
+                // clear up front; network removals fire OnRegistryChanged.Removed async after a round-trip
+                PlacementManager.RemoveSelectionSpawnInstanceID(itemKey);
+
                 switch (itemKey.SpawnMethod)
                 {
                     case BasisRuntimeSpawnRegistry.SpawnMethod.Local:

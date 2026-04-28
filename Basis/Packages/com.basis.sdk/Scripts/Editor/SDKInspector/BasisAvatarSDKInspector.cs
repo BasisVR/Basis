@@ -396,6 +396,7 @@ public partial class BasisAvatarSDKInspector : Editor
         avatarAutomaticBlinkDetectionClick.clicked += AutomaticallyFindBlinking;
         AvatarTestInEditorClick.clicked += AvatarTestInEditorClickFunction;// unity editor window button
 
+        BasisSDKCommonInspector.CreateContentTagsFoldout(uiElementsRoot, Avatar);
         BasisSDKCommonInspector.CreateBuildTargetOptions(uiElementsRoot);
         BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
         BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
