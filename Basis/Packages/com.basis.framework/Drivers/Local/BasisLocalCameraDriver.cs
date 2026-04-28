@@ -507,13 +507,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         private void SimulateThirdPerson()
         {
-            if (!BasisDeviceManagement.IsUserInDesktop() || CameraInstance == null)
-            {
-                SnapToFirstPerson();
-                return;
-            }
-
-            if (!IsThirdPerson)
+            if (!IsThirdPerson || !BasisDeviceManagement.IsUserInDesktop())
             {
                 SnapToFirstPerson();
                 return;
@@ -533,8 +527,7 @@ namespace Basis.Scripts.Drivers
         {
             if (!_wasThirdPerson) return;
 
-            transform.localPosition = Vector3.zero;
-            transform.localRotation = Quaternion.identity;
+            transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity)
             CameraInstance.fieldOfView = DefaultCameraFov;
 
             _wasThirdPerson = false;
@@ -543,8 +536,9 @@ namespace Basis.Scripts.Drivers
         private void UpdateThirdPersonTargets(Transform parentTransform, float scale, float dt)
         {
             Vector3 targetTrackingPos = parentTransform.position;
-            float targetPitch = parentTransform.rotation.eulerAngles.x;
-            float targetYaw = parentTransform.rotation.eulerAngles.y;
+            Vector3 euler = parentTransform.rotation.eulerAngles;
+            float targetPitch = euler.x;
+            float targetYaw = euler.y;
             float targetDistance = _currentThirdPersonDistance * scale;
 
             if (!_wasThirdPerson)
@@ -598,8 +592,7 @@ namespace Basis.Scripts.Drivers
                 desiredWorldPos = hit.point + (hit.normal * scaledRadius);
             }
 
-            transform.position = desiredWorldPos;
-            transform.rotation = desiredRotation;
+            transform.SetPositionAndRotation(desiredWorldPos, desiredRotation)
         }
 
         private void OnClipOverrideToggleChanged(bool _) => UpdateCameraScale();
