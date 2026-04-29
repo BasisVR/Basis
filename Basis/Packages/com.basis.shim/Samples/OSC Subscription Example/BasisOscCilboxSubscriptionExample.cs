@@ -47,10 +47,10 @@ namespace Basis.Shims.Samples
             networkShim.NetworkReady += OnNetworkReady;
             networkShim.NetworkMessageReceived += OnNetworkMessageReceived;
 
-            osc.Subscribe(ExplicitTestAddress, OnExplicitTestTriggered);
-            osc.Subscribe(ImplicitTestAddress, OnImplicitTestTriggered);
+            osc.Subscribe(ExplicitTestAddress, OnExplicitTestTriggered, out string ExplicitAddress);
+            osc.Subscribe(ImplicitTestAddress, OnImplicitTestTriggered, out string ImplicitAddress);
 
-            Debug.Log("Subscribed to " + ExplicitTestAddress + " and implicit \"" + ImplicitTestAddress + "\" on avatar local=" + avatar.IsOwnedLocally + ".");
+            Debug.Log("Subscribed to " + ExplicitAddress + " and implicit \"" + ImplicitAddress + "\" on avatar local=" + avatar.IsOwnedLocally + ".");
         }
 
         private void OnDestroy()
