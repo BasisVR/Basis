@@ -461,6 +461,80 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
+        public void BasisOsc_Subscribe_LocalOnlyOnRemoteAvatar_DoesNotRegisterOrInvoke()
+        {
+            GameObject go = new GameObject("RemoteAvatarLocalOnlySubscribe");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = false;
+
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                int callCount = 0;
+
+                shim.Subscribe("Blocked", (message, arguments) => callCount++, true, out string resolvedAddress);
+
+                Assert.That(resolvedAddress, Is.Null);
+                Assert.That(shim.IsSubscribed("/avatar/public/Blocked"), Is.False);
+
+                publish.Invoke(null, new object[]
+                {
+                    OscMessage.FromRaw(new SimpleOSC.OSCMessage
+                    {
+                        path = "/avatar/public/Blocked",
+                        arguments = Array.Empty<object>()
+                    })
+                });
+
+                Assert.That(callCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BasisOsc_SubscribeValue_LocalOnlyOnRemoteAvatar_DoesNotRegisterOrInvoke()
+        {
+            GameObject go = new GameObject("RemoteAvatarLocalOnlyValueSubscribe");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = false;
+
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                bool called = false;
+
+                shim.SubscribeValue("Blocked", value => called = true, true, out string resolvedAddress);
+
+                Assert.That(resolvedAddress, Is.Null);
+                Assert.That(shim.IsSubscribed("/avatar/public/Blocked"), Is.False);
+
+                publish.Invoke(null, new object[]
+                {
+                    OscMessage.FromRaw(new SimpleOSC.OSCMessage
+                    {
+                        path = "/avatar/public/Blocked",
+                        arguments = new object[] { 1f }
+                    })
+                });
+
+                Assert.That(called, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
         public void BasisOsc_RemoteAvatarSubscription_RegistersNormalizedPublicAddressInNodeMap()
         {
             DestroySceneInstance();

@@ -102,9 +102,19 @@ namespace Basis.Shims
             Subscribe(address, callback, out _);
         }
 
+        public void Subscribe(string address, OscMessageEvent callback, bool localOnly)
+        {
+            Subscribe(address, callback, localOnly, out _);
+        }
+
         public void Subscribe(string address, OscMessageEvent callback, out string resolvedAddress)
         {
-            resolvedAddress = NormalizeSubscriptionAddress(address);
+            Subscribe(address, callback, false, out resolvedAddress);
+        }
+
+        public void Subscribe(string address, OscMessageEvent callback, bool localOnly, out string resolvedAddress)
+        {
+            resolvedAddress = NormalizeSubscriptionAddress(address, localOnly);
             if (resolvedAddress != null)
             {
                 AddCallback(exactCallbacks, resolvedAddress, callback);
@@ -119,9 +129,19 @@ namespace Basis.Shims
             SubscribeValue(address, callback, out _);
         }
 
+        public void SubscribeValue(string address, OscValueEvent callback, bool localOnly)
+        {
+            SubscribeValue(address, callback, localOnly, out _);
+        }
+
         public void SubscribeValue(string address, OscValueEvent callback, out string resolvedAddress)
         {
-            resolvedAddress = NormalizeSubscriptionAddress(address);
+            SubscribeValue(address, callback, false, out resolvedAddress);
+        }
+
+        public void SubscribeValue(string address, OscValueEvent callback, bool localOnly, out string resolvedAddress)
+        {
+            resolvedAddress = NormalizeSubscriptionAddress(address, localOnly);
             if (resolvedAddress != null)
             {
                 AddCallback(exactValueCallbacks, resolvedAddress, callback);
@@ -618,6 +638,11 @@ namespace Basis.Shims
 
         private string NormalizeSubscriptionAddress(string address)
         {
+            return NormalizeSubscriptionAddress(address, false);
+        }
+
+        private string NormalizeSubscriptionAddress(string address, bool localOnly)
+        {
             if (string.IsNullOrWhiteSpace(address))
             {
                 return null;
@@ -630,6 +655,11 @@ namespace Basis.Shims
                 if (!TryGetOscScope(out OscScope scope, out _))
                 {
                     return trimmed;
+                }
+
+                if (localOnly && scope == OscScope.AvatarRemote)
+                {
+                    return null;
                 }
 
                 if (scope == OscScope.AvatarRemote)
@@ -666,6 +696,11 @@ namespace Basis.Shims
             string defaultPrefix;
             if (TryGetOscScope(out OscScope defaultScope, out _))
             {
+                if (localOnly && defaultScope == OscScope.AvatarRemote)
+                {
+                    return null;
+                }
+
                 defaultPrefix = defaultScope == OscScope.AvatarRemote || defaultScope == OscScope.Prop || defaultScope == OscScope.Scene
                     ? AvatarPublicPrefix
                     : AvatarParametersPrefix;
