@@ -50,7 +50,7 @@ namespace Basis
         {
             if (HasNetworkID)
             {
-                BasisNetworkGenericMessages.UnregisterHandler(NetworkID);
+                BasisNetworkGenericMessages.UnregisterHandler(NetworkID, OnNetworkMessage);
             }
             BasisNetworkPlayer.OnLocalPlayerJoined -= OnLocalPlayerJoined;
             BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
@@ -74,15 +74,8 @@ namespace Basis
         {
             if (BasisNetworkConnection.LocalPlayerIsConnected)
             {
-                bool wassuccesful = TryGetNetworkGUIDIdentifier(out string NetworkGuidID);
-                if (wassuccesful == false)//this will happen to anything that has not got a GUID from the server
-                {
-                    //so if we dont get a GUID from the server lets make one!
-                    string FileNamePath = LowLevelGetHierarchyPath(this);
-                    AssignNetworkGUIDIdentifier(FileNamePath);
-
-                    wassuccesful = TryGetNetworkGUIDIdentifier(out NetworkGuidID);
-                }
+                bool wassuccesful = await TryEnsureNetworkGUIDIdentifierAsync();
+                string NetworkGuidID = clientIdentifier;
                 if (!wassuccesful)
                 {
                     BasisDebug.LogError("Was not sucessful at TryGetNetworkGUIDIdentifier NetworkGUID");
@@ -245,6 +238,121 @@ namespace Basis
             }
 
             return pathBuilder.ToString();
+        }
+        private async Task<bool> TryEnsureNetworkGUIDIdentifierAsync()
+        {
+            if (TryGetNetworkGUIDIdentifier(out _))
+            {
+                return true;
+            }
+
+            BasisAvatar basisAvatar = GetComponentInParent<BasisAvatar>();
+            if (basisAvatar != null)
+            {
+                await WaitForAvatarLinkedPlayerAsync(basisAvatar);
+                TryBuildAvatarScopedIdentifier(basisAvatar, this, out string avatarScopedIdentifier);
+                AssignNetworkGUIDIdentifier(avatarScopedIdentifier);
+                return TryGetNetworkGUIDIdentifier(out _);
+            }
+
+            AssignNetworkGUIDIdentifier(LowLevelGetHierarchyPath(this));
+            return TryGetNetworkGUIDIdentifier(out _);
+        }
+        private async Task WaitForAvatarLinkedPlayerAsync(BasisAvatar basisAvatar)
+        {
+            const int MaxFramesToWait = 30;
+            for (int frame = 0; frame < MaxFramesToWait; frame++)
+            {
+                if (TryResolveAvatarLinkedPlayerId(basisAvatar, out _))
+                {
+                    return;
+                }
+                await Task.Yield();
+            }
+        }
+        private static bool TryResolveAvatarLinkedPlayerId(BasisAvatar basisAvatar, out ushort linkedPlayerId)
+        {
+            if (basisAvatar != null)
+            {
+                if (basisAvatar.TryGetLinkedPlayer(out linkedPlayerId))
+                {
+                    return true;
+                }
+
+                BasisPlayer basisPlayer = basisAvatar.GetComponentInParent<BasisPlayer>();
+                if (basisPlayer != null && BasisNetworkPlayers.PlayerToNetworkedPlayer(basisPlayer, out BasisNetworkPlayer networkedPlayer))
+                {
+                    linkedPlayerId = networkedPlayer.playerId;
+                    return true;
+                }
+            }
+
+            linkedPlayerId = 0;
+            return false;
+        }
+        private static bool TryBuildAvatarScopedIdentifier(BasisAvatar basisAvatar, BasisNetworkContentBase behaviour, out string identifier)
+        {
+            if (!TryResolveAvatarLinkedPlayerId(basisAvatar, out ushort linkedPlayerId))
+            {
+                identifier = LowLevelGetHierarchyPath(behaviour);
+                return false;
+            }
+
+            StringBuilder pathBuilder = new StringBuilder();
+            pathBuilder.Append("BasisAvatar/");
+            pathBuilder.Append(linkedPlayerId);
+            string relativePath = GetRelativeAvatarPath(basisAvatar.transform, behaviour.transform);
+            if (!string.IsNullOrEmpty(relativePath))
+            {
+                pathBuilder.Append('/');
+                pathBuilder.Append(relativePath);
+            }
+            AppendComponentIdentifier(pathBuilder, behaviour);
+
+            identifier = pathBuilder.ToString();
+            return true;
+        }
+        private static string GetRelativeAvatarPath(Transform avatarRoot, Transform current)
+        {
+            if (current == null || current == avatarRoot)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder pathBuilder = new StringBuilder();
+            AppendRelativeAvatarPath(pathBuilder, avatarRoot, current);
+            if (pathBuilder.Length > 0 && pathBuilder[pathBuilder.Length - 1] == '/')
+            {
+                pathBuilder.Length--;
+            }
+            return pathBuilder.ToString();
+        }
+        private static void AppendRelativeAvatarPath(StringBuilder pathBuilder, Transform avatarRoot, Transform current)
+        {
+            if (current == null || current == avatarRoot)
+            {
+                return;
+            }
+
+            AppendRelativeAvatarPath(pathBuilder, avatarRoot, current.parent);
+
+            if (current == avatarRoot)
+            {
+                return;
+            }
+
+            pathBuilder.Append(current.name);
+            pathBuilder.Append(SiblingIndexIfNeeded(current));
+            pathBuilder.Append('/');
+        }
+        private static void AppendComponentIdentifier(StringBuilder pathBuilder, BasisNetworkContentBase behaviour)
+        {
+            Component[] components = behaviour.gameObject.GetComponents(behaviour.GetType());
+            int index = Array.IndexOf(components, behaviour);
+            pathBuilder.Append(':');
+            pathBuilder.Append(behaviour.GetType().FullName);
+            pathBuilder.Append('_');
+            pathBuilder.Append(index);
         }
         private static string SiblingIndexIfNeeded(Transform t)
         {
