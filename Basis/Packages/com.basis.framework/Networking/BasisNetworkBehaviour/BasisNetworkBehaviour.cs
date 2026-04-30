@@ -292,7 +292,7 @@ namespace Basis
                     return true;
                 }
 
-                BasisPlayer basisPlayer = basisAvatar.GetComponentInParent<BasisPlayer>();
+                BasisNetworkPlayer.AvatarToPlayer(basisAvatar, out BasisPlayer basisPlayer);
                 if (basisPlayer != null && BasisNetworkPlayers.PlayerToNetworkedPlayer(basisPlayer, out BasisNetworkPlayer networkedPlayer))
                 {
                     linkedPlayerId = networkedPlayer.playerId;
