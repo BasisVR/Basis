@@ -247,17 +247,29 @@ namespace Basis
                 return true;
             }
 
-            BasisAvatar basisAvatar = GetComponentInParent<BasisAvatar>();
+            BasisAvatar basisAvatar = ResolveBasisAvatar();
             if (basisAvatar != null)
             {
                 await WaitForAvatarLinkedPlayerAsync(basisAvatar);
-                TryBuildAvatarScopedIdentifier(basisAvatar, this, out string avatarScopedIdentifier);
-                AssignNetworkGUIDIdentifier(avatarScopedIdentifier);
-                return TryGetNetworkGUIDIdentifier(out _);
+                if (TryBuildAvatarScopedIdentifier(basisAvatar, this, out string avatarScopedIdentifier))
+                {
+                    AssignNetworkGUIDIdentifier(avatarScopedIdentifier);
+                    return TryGetNetworkGUIDIdentifier(out _);
+                }
+                else
+                {
+                    BasisDebug.LogError($"Failed to build avatar-scoped identifier for {this.gameObject.name}", BasisDebug.LogTag.Networking);
+                    return false;
+                }
             }
 
             AssignNetworkGUIDIdentifier(LowLevelGetHierarchyPath(this));
             return TryGetNetworkGUIDIdentifier(out _);
+        }
+        private BasisAvatar ResolveBasisAvatar()
+        {
+            GameObject avatarGameObject = BasisAvatar.GetGameObject(this);
+            return avatarGameObject != null ? avatarGameObject.GetComponent<BasisAvatar>() : null;
         }
         private async Task WaitForAvatarLinkedPlayerAsync(BasisAvatar basisAvatar)
         {
@@ -295,38 +307,26 @@ namespace Basis
         {
             if (!TryResolveAvatarLinkedPlayerId(basisAvatar, out ushort linkedPlayerId))
             {
-                identifier = LowLevelGetHierarchyPath(behaviour);
+                identifier = string.Empty;
                 return false;
             }
 
             StringBuilder pathBuilder = new StringBuilder();
             pathBuilder.Append("BasisAvatar/");
             pathBuilder.Append(linkedPlayerId);
-            string relativePath = GetRelativeAvatarPath(basisAvatar.transform, behaviour.transform);
-            if (!string.IsNullOrEmpty(relativePath))
+            if (behaviour.transform != null && behaviour.transform != basisAvatar.transform)
             {
                 pathBuilder.Append('/');
-                pathBuilder.Append(relativePath);
+                AppendRelativeAvatarPath(pathBuilder, basisAvatar.transform, behaviour.transform);
+                if (pathBuilder[pathBuilder.Length - 1] == '/')
+                {
+                    pathBuilder.Length--;
+                }
             }
             AppendComponentIdentifier(pathBuilder, behaviour);
 
             identifier = pathBuilder.ToString();
             return true;
-        }
-        private static string GetRelativeAvatarPath(Transform avatarRoot, Transform current)
-        {
-            if (current == null || current == avatarRoot)
-            {
-                return string.Empty;
-            }
-
-            StringBuilder pathBuilder = new StringBuilder();
-            AppendRelativeAvatarPath(pathBuilder, avatarRoot, current);
-            if (pathBuilder.Length > 0 && pathBuilder[pathBuilder.Length - 1] == '/')
-            {
-                pathBuilder.Length--;
-            }
-            return pathBuilder.ToString();
         }
         private static void AppendRelativeAvatarPath(StringBuilder pathBuilder, Transform avatarRoot, Transform current)
         {
