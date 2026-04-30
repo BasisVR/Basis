@@ -255,7 +255,7 @@ namespace Basis
             {
                 return true;
             }
-
+            // We use as avatar scoped identifier if possible to ensure consistency across sessions and clients, as the avatar's network GUID is guaranteed to be consistent for the same avatar regardless of load order or other factors, while a hierarchy-based identifier could change if the hierarchy changes or if objects are loaded in a different order on different clients.
             BasisAvatar basisAvatar = BasisAvatar.GetGameObject(this)?.GetComponent<BasisAvatar>();
             if (basisAvatar != null)
             {

@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
 using System;
@@ -71,11 +72,18 @@ namespace Basis.Scripts.Networking.Transmitters
         {
             LastLinkedAvatarIndex = (byte)((LastLinkedAvatarIndex + 1) % (byte.MaxValue + 1));
 
+            if (!BasisAvatarFactory.EnsureAvatarNetworkGUID(Player.BasisAvatar, out string avatarNetworkGuid))
+            {
+                BasisDebug.LogError("Unable to send avatar change because the local avatar has no network GUID.", BasisDebug.LogTag.Networking);
+                return;
+            }
+
             ClientAvatarChangeMessage ClientAvatarChangeMessage = new ClientAvatarChangeMessage
             {
                 byteArray = BasisBundleConversionNetwork.ConvertBasisLoadableBundleToBytes(Player.AvatarMetaData),
                 loadMode = Player.AvatarLoadMode,
                 LocalAvatarIndex = LastLinkedAvatarIndex,
+                AvatarNetworkGuid = avatarNetworkGuid,
             };
             lock (AvatarChangeWriterLock)
             {

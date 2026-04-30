@@ -367,6 +367,12 @@ namespace BasisServerHandle
             ClientAvatarChangeMessage.Deserialize(Reader);
             Reader.Recycle();
 
+            if (string.IsNullOrWhiteSpace(ClientAvatarChangeMessage.AvatarNetworkGuid))
+            {
+                BNL.LogError($"Rejected avatar change from peer {Peer.Id}: missing AvatarNetworkGuid.");
+                return;
+            }
+
             // Global avatar lock: reject network broadcast but still save state locally
             if (BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked)
             {
