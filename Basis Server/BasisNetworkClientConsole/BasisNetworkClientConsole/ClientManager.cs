@@ -3,6 +3,7 @@ using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Utilities;
+using System;
 using System.Text;
 using System.Threading;
 using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
@@ -54,6 +55,7 @@ namespace Basis.Network
                         byteArray = _cachedAvatarBytes,
                         loadMode = (byte)ConfigManager.AvatarLoadMode,
                         LocalAvatarIndex = 0,
+                        AvatarNetworkGuid = Guid.NewGuid().ToString("N"),
                     },
                     localAvatarSyncMessage = new LocalAvatarSyncMessage
                     {
@@ -110,6 +112,7 @@ namespace Basis.Network
                     byteArray = _cachedAvatarBytes,
                     loadMode = (byte)ConfigManager.AvatarLoadMode,
                     LocalAvatarIndex = 1,
+                    AvatarNetworkGuid = Guid.NewGuid().ToString("N"),
 
                 },
                 localAvatarSyncMessage = new LocalAvatarSyncMessage

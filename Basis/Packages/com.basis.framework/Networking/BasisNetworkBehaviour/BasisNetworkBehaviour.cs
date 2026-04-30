@@ -255,7 +255,7 @@ namespace Basis
             {
                 return true;
             }
-
+            // We use as avatar scoped identifier if possible to ensure consistency across sessions and clients, as the avatar's network GUID is guaranteed to be consistent for the same avatar regardless of load order or other factors, while a hierarchy-based identifier could change if the hierarchy changes or if objects are loaded in a different order on different clients.
             BasisAvatar basisAvatar = BasisAvatar.GetGameObject(this)?.GetComponent<BasisAvatar>();
             if (basisAvatar != null)
             {
@@ -351,18 +351,18 @@ namespace Basis
                 return;
             }
 
-            pathBuilder.Append(current.name);
-            pathBuilder.Append(SiblingIndexIfNeeded(current));
-            pathBuilder.Append('/');
+            pathBuilder.Append(current.name).
+            Append(SiblingIndexIfNeeded(current)).
+            Append('/');
         }
         private static void AppendComponentIdentifier(StringBuilder pathBuilder, BasisNetworkContentBase behaviour)
         {
             Component[] components = behaviour.gameObject.GetComponents(behaviour.GetType());
             int index = Array.IndexOf(components, behaviour);
-            pathBuilder.Append(':');
-            pathBuilder.Append(behaviour.GetType().FullName);
-            pathBuilder.Append('_');
-            pathBuilder.Append(index);
+            pathBuilder.Append(':').
+            Append(behaviour.GetType().FullName).
+            Append('_').
+            Append(index);
         }
         private static string SiblingIndexIfNeeded(Transform t)
         {

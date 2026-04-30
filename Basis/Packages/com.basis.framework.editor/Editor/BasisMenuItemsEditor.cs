@@ -283,7 +283,10 @@ public static class BasisMenuItemsEditor
             },
             localReadyMessage = new ReadyMessage()
         };
-        serverSideSyncPlayerMessage.localReadyMessage.clientAvatarChangeMessage = new ClientAvatarChangeMessage();
+        serverSideSyncPlayerMessage.localReadyMessage.clientAvatarChangeMessage = new ClientAvatarChangeMessage
+        {
+            AvatarNetworkGuid = BasisGenerateUniqueID.GenerateUniqueID(),
+        };
         serverSideSyncPlayerMessage.localReadyMessage.localAvatarSyncMessage = new LocalAvatarSyncMessage();
         if (BasisNetworkPlayers.Players.TryGetValue((ushort)BasisNetworkConnection.LocalPlayerPeer.Id, out BasisNetworkPlayer Player))
         {
