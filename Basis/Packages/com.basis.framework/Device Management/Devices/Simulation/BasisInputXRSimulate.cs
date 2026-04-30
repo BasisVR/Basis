@@ -68,6 +68,13 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
             Vector3 unscaledPos = localPos / sptds;          // normalize to player units
             Quaternion unscaledRot = localRot;
 
+            // Publish the unscaled pose so downstream consumers (constellation calibration,
+            // gizmos, anything else reading UnscaledDeviceCoord) see real data instead of
+            // the default Vector3.zero. Without this every sim'd tracker classifies as
+            // "tracker at world origin" and the FBIK calibrator dumps them all into Foot.
+            UnscaledDeviceCoord.position = unscaledPos;
+            UnscaledDeviceCoord.rotation = unscaledRot;
+
             // Scale into avatar space
             Vector3 scaledPos = unscaledPos * sptds;
 

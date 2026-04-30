@@ -235,6 +235,11 @@ public partial class BasisEventDriver : MonoBehaviour
         ProfileEnd2(PROF_NET_MICROPHONE);
         ProfileBegin2();
         BasisNetworkManagement.SimulateNetworkApply();
+        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
+        ProfileBegin2();
+        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
+        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
+        ProfileEnd(PROF_NETWORK_APPLY);
 
         // ── Device management ──
         ProfileBegin(PROF_DEVICE_MANAGEMENT);
@@ -265,11 +270,6 @@ public partial class BasisEventDriver : MonoBehaviour
         ProfileEnd(PROF_LOCAL_PLAYER);
 
         BasisNetworkManagement.CompleteRemoteBoneJobSystemJobs();
-        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
-        ProfileBegin2();
-        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
-        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
-        ProfileEnd(PROF_NETWORK_APPLY);
 
         // ── Remote audio simulate ──
         ProfileBegin(PROF_REMOTE_AUDIO_SIMULATE);

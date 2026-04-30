@@ -1,3 +1,5 @@
+using Basis.Scripts.TransformBinders.BoneControl;
+
 namespace Basis.BasisUI
 {
     public static class BasisSettingsDefaults
@@ -193,6 +195,8 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> Antialiasing = new("antialiasing", new BasisPlatformDefault<string>("msaa 2x"));
 
         public static BasisSettingsBinding<bool> DebugVisuals = new("debugvisuals", new BasisPlatformDefault<bool>(false));
+
+        public static BasisSettingsBinding<bool> TrackerGizmos = new("trackergizmos", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<bool> EnableStatistics = new("enablestatistics", new BasisPlatformDefault<bool>(false));
 
@@ -450,6 +454,13 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> JoinNotifications = new("joinnotifications", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> LeaveNotifications = new("leavenotifications", new BasisPlatformDefault<bool>(false));
 
+        // ---------------- CHAT ----------------
+        /// <summary>
+        /// Global kill switch for text chat. When true, incoming chat is dropped before
+        /// being applied to nameplates and local sends are short-circuited.
+        /// </summary>
+        public static BasisSettingsBinding<bool> ChatDisabled = new("chatdisabled", new BasisPlatformDefault<bool>(false));
+
         public static BasisSettingsBinding<bool> FalseBinding = new("falsebinding", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<bool> TrueBinding = new("truebinding", new BasisPlatformDefault<bool>(false));
@@ -656,6 +667,64 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> FBIKRightShoulderEuroRot = new("fbikrightshouldereurorot", new BasisPlatformDefault<bool>(false));
 
+        // ---------------- PER-BONE CALIBRATION ENABLE ----------------
+        // Defaults match the legacy BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker hardcode
+        // (true for FB tracker roles, false otherwise) — except the shoulders, which now
+        // default off so calibration ignores them unless the user opts in.
+        public static BasisSettingsBinding<bool> FBIKHipsUseCalibration = new("fbikhipsusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKHeadUseCalibration = new("fbikheadusecalibration", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKLeftFootUseCalibration = new("fbikleftfootusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKRightFootUseCalibration = new("fbikrightfootusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKChestUseCalibration = new("fbikchestusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKLeftLowerLegUseCalibration = new("fbikleftlowerlegusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKRightLowerLegUseCalibration = new("fbikrightlowerlegusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKLeftHandUseCalibration = new("fbiklefthandusecalibration", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKRightHandUseCalibration = new("fbikrighthandusecalibration", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKLeftLowerArmUseCalibration = new("fbikleftlowerarmusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKRightLowerArmUseCalibration = new("fbikrightlowerarmusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKLeftToeUseCalibration = new("fbiklefttoeusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKRightToeUseCalibration = new("fbikrighttoeusecalibration", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKLeftShoulderUseCalibration = new("fbikleftshoulderusecalibration", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKRightShoulderUseCalibration = new("fbikrightshoulderusecalibration", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>
+        /// Returns the per-role "use for calibration" binding, or null for roles that have
+        /// no UI entry (e.g. CenterEye, Neck, Spine, UpperArm/UpperLeg, Mouth).
+        /// </summary>
+        public static BasisSettingsBinding<bool> GetCalibrationBinding(BasisBoneTrackedRole role)
+        {
+            return role switch
+            {
+                BasisBoneTrackedRole.Hips => FBIKHipsUseCalibration,
+                BasisBoneTrackedRole.Head => FBIKHeadUseCalibration,
+                BasisBoneTrackedRole.LeftFoot => FBIKLeftFootUseCalibration,
+                BasisBoneTrackedRole.RightFoot => FBIKRightFootUseCalibration,
+                BasisBoneTrackedRole.Chest => FBIKChestUseCalibration,
+                BasisBoneTrackedRole.LeftLowerLeg => FBIKLeftLowerLegUseCalibration,
+                BasisBoneTrackedRole.RightLowerLeg => FBIKRightLowerLegUseCalibration,
+                BasisBoneTrackedRole.LeftHand => FBIKLeftHandUseCalibration,
+                BasisBoneTrackedRole.RightHand => FBIKRightHandUseCalibration,
+                BasisBoneTrackedRole.LeftLowerArm => FBIKLeftLowerArmUseCalibration,
+                BasisBoneTrackedRole.RightLowerArm => FBIKRightLowerArmUseCalibration,
+                BasisBoneTrackedRole.LeftToes => FBIKLeftToeUseCalibration,
+                BasisBoneTrackedRole.RightToes => FBIKRightToeUseCalibration,
+                BasisBoneTrackedRole.LeftShoulder => FBIKLeftShoulderUseCalibration,
+                BasisBoneTrackedRole.RightShoulder => FBIKRightShoulderUseCalibration,
+                _ => null,
+            };
+        }
+
+        /// <summary>
+        /// Replacement for the legacy BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker
+        /// hardcode in calibration paths. Returns true if the role is exposed in the
+        /// per-bone UI and the user has it enabled.
+        /// </summary>
+        public static bool IsRoleEnabledForCalibration(BasisBoneTrackedRole role)
+        {
+            BasisSettingsBinding<bool> binding = GetCalibrationBinding(role);
+            return binding != null && binding.RawValue;
+        }
+
         public static BasisSettingsBinding<string> VSyncCapFps = new("vsynccappedset", new BasisPlatformDefault<string>
         {
             windows = "120",
@@ -724,6 +793,16 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> RAReflections = new("ra_reflections", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> RAReflectionsMixLevel = new("ra_reflectionsmixlevel", new BasisPlatformDefault<float>(0.1f));
         public static BasisSettingsBinding<bool> RAApplyHRTFToReflections = new("ra_applyhrtftoreflections", new BasisPlatformDefault<bool>(false));
+
+        // Voice jitter buffer depth (in 20ms Opus frames). Lower = less latency,
+        // higher = more resilience to network jitter / packet loss before underrun.
+        public static BasisSettingsBinding<float> RAJitterBufferDepth = new("ra_jitterbufferdepth", new BasisPlatformDefault<float>(1f));
+
+        // Multiplier on the AudioClip pool's clip duration. Sits between the
+        // decoded PCM queue and Unity's AudioSource as a secondary playback
+        // buffer. Lower = less latency, higher = more headroom against
+        // mid-callback decoded-queue stalls.
+        public static BasisSettingsBinding<float> RAClipBufferScalar = new("ra_clipbufferscalar", new BasisPlatformDefault<float>(2f));
 
         public static BasisSettingsBinding<bool> FBIKEuroAll = new("euroall");
 
@@ -912,6 +991,7 @@ namespace Basis.BasisUI
             HDRSupport.LoadBindingValue();
             Antialiasing.LoadBindingValue();
             DebugVisuals.LoadBindingValue();
+            TrackerGizmos.LoadBindingValue();
             AvatarShowTrackerRoles.LoadBindingValue();
             DisableLogging.LoadBindingValue();
             BasisDebug.LoggingDisabled = DisableLogging.RawValue;
@@ -956,6 +1036,9 @@ namespace Basis.BasisUI
             // Notifications
             JoinNotifications.LoadBindingValue();
             LeaveNotifications.LoadBindingValue();
+
+            // Chat
+            ChatDisabled.LoadBindingValue();
 
             // UI
             AvatarPreview.LoadBindingValue();
@@ -1066,6 +1149,23 @@ namespace Basis.BasisUI
             FBIKRightShoulderEuroPos.LoadBindingValue();
             FBIKRightShoulderEuroRot.LoadBindingValue();
 
+            // Per-bone "use for calibration" toggles
+            FBIKHipsUseCalibration.LoadBindingValue();
+            FBIKHeadUseCalibration.LoadBindingValue();
+            FBIKLeftFootUseCalibration.LoadBindingValue();
+            FBIKRightFootUseCalibration.LoadBindingValue();
+            FBIKChestUseCalibration.LoadBindingValue();
+            FBIKLeftLowerLegUseCalibration.LoadBindingValue();
+            FBIKRightLowerLegUseCalibration.LoadBindingValue();
+            FBIKLeftHandUseCalibration.LoadBindingValue();
+            FBIKRightHandUseCalibration.LoadBindingValue();
+            FBIKLeftLowerArmUseCalibration.LoadBindingValue();
+            FBIKRightLowerArmUseCalibration.LoadBindingValue();
+            FBIKLeftToeUseCalibration.LoadBindingValue();
+            FBIKRightToeUseCalibration.LoadBindingValue();
+            FBIKLeftShoulderUseCalibration.LoadBindingValue();
+            FBIKRightShoulderUseCalibration.LoadBindingValue();
+
             // Global toggle
             FBIKEuroAll.LoadBindingValue();
 
@@ -1150,6 +1250,8 @@ namespace Basis.BasisUI
             RAReflections.LoadBindingValue();
             RAReflectionsMixLevel.LoadBindingValue();
             RAApplyHRTFToReflections.LoadBindingValue();
+            RAJitterBufferDepth.LoadBindingValue();
+            RAClipBufferScalar.LoadBindingValue();
 
             // UI Style Palette
             UIPaletteBG1.LoadBindingValue();
@@ -1169,6 +1271,11 @@ namespace Basis.BasisUI
             UIPaletteCaution.LoadBindingValue();
             UIPaletteDanger.LoadBindingValue();
             UIPaletteScrollbar.LoadBindingValue();
+
+            // Subscribers that read RawValue (Apply* in OnSettingsFinishedChanges)
+            // ran during Initalize before bindings were refreshed from the file —
+            // re-notify so they pick up the loaded values.
+            BasisSettingsSystem.NotifyFinishedChanges();
         }
     }
 }

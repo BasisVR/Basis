@@ -24,7 +24,22 @@ namespace Basis.BasisUI
             descriptor.SetDescription(BasisLocalization.Get("settings.nameplates.description"));
 
             RectTransform container = descriptor.ContentParent;
+            BuildNamePlateContent(container);
 
+            // ─────────────── RESET BUTTON ───────────────
+            SettingsProvider.AddResetPageButton(container, "settings.tab.nameplates", ResetNamePlateDefaults);
+
+            descriptor.ForceRebuild();
+            return tab;
+        }
+
+        /// <summary>
+        /// Builds the nameplate group + controls into <paramref name="container"/>
+        /// without adding a reset button. Used by the standalone tab and by the
+        /// merged Chat tab so both share one source of truth.
+        /// </summary>
+        public static void BuildNamePlateContent(RectTransform container)
+        {
             PanelElementDescriptor nameplateGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             nameplateGroup.SetTitle(BasisLocalization.Get("settings.nameplates.title"));
@@ -66,15 +81,9 @@ namespace Basis.BasisUI
                 sliderTransparency.Descriptor.SetActive(val);
                 nameplateGroup.ForceRebuild();
             };
-
-            // ─────────────── RESET BUTTON ───────────────
-            SettingsProvider.AddResetPageButton(container, "settings.tab.nameplates", ResetNamePlateDefaults);
-
-            descriptor.ForceRebuild();
-            return tab;
         }
 
-        private static void ResetNamePlateDefaults()
+        public static void ResetNamePlateDefaults()
         {
             BasisSettingsDefaults.NPEnabled.ResetToDefault();
             BasisSettingsDefaults.NPMenuOnly.ResetToDefault();

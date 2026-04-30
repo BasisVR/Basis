@@ -410,6 +410,9 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
             LocalBoneDriver.Dispose();
+            BasisLocalFootDriver.Dispose();
+            LocalRigDriver.CleanupBeforeContinue();
+            BasisAvatarDriver.RemoveOldShadowClones();
             BasisUILoadingBar.DeInitalize();
         }
 
@@ -499,9 +502,15 @@ namespace Basis.Scripts.BasisSdk.Players
         }
         /// <summary>
         /// Positions the avatar in a T-pose such that the head aligns to tracked head position/orientation (yaw only).
+        /// Drives the hips bone instead of the avatar root so calibration data tied to AvatarTransform stays valid.
         /// </summary>
         public void DriveTpose()
         {
+            if (BasisLocalAvatarDriver.Mapping.HasHips == false)
+            {
+                return;
+            }
+
             // World-space inputs
             var OutgoingWorldData = BasisLocalBoneDriver.HeadControl.OutgoingWorldData;
             Vector3 headPosWS = OutgoingWorldData.position;
@@ -514,7 +523,13 @@ namespace Basis.Scripts.BasisSdk.Players
                 flatFwd = Vector3.forward; // fallback
             }
             Quaternion desiredRotWS = Quaternion.LookRotation(flatFwd.normalized, Vector3.up);
-            AvatarTransform.SetPositionAndRotation(headPosWS, desiredRotWS);
+
+            // Offset the hips down by the head→hips delta in T-pose so the head bone lands on headPosWS.
+            Vector3 headTposeLocal = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
+            Vector3 hipsTposeLocal = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
+            Vector3 hipsWorldPos = headPosWS - desiredRotWS * (headTposeLocal - hipsTposeLocal);
+
+            BasisLocalAvatarDriver.Mapping.Hips.SetPositionAndRotation(hipsWorldPos, desiredRotWS);
         }
         public void Immobilize(bool immobilize)
         {

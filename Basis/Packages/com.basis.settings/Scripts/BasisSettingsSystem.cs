@@ -104,6 +104,19 @@ public static class BasisSettingsSystem
     {
         QualitySettings.SetQualityLevel(QualitySettings.GetQualityLevel(), true);
     }
+    /// <summary>
+    /// Re-fires <see cref="OnSettingsFinishedChanges"/> so subscribers that read
+    /// <c>BasisSettingsBinding.RawValue</c> can apply the loaded values. The first
+    /// firing inside <see cref="LoadAllSettings"/> happens before
+    /// <see cref="Basis.BasisUI.BasisSettingsDefaults.LoadAll"/> refreshes binding
+    /// RawValues from the dictionary, so subscribers there see static-init defaults.
+    /// Call this after LoadAll to re-notify with correct RawValues.
+    /// </summary>
+    public static void NotifyFinishedChanges()
+    {
+        OnSettingsFinishedChanges?.Invoke();
+        ForceQualityRefresh();
+    }
     public static bool HasSaveData(string uniqueSettingsName)
     {
         return settingsData.settings.TryGetValue(uniqueSettingsName, out var existing);
@@ -127,7 +140,14 @@ public static class BasisSettingsSystem
             changed = true;
         }
 
-        if (changed)
+        // Saving before LoadAllSettings has read the file would clobber user-saved
+        // values with the static-init binding defaults sitting in the dict. Update
+        // the in-memory dict so reads stay consistent, but defer disk + events
+        // until Initalize has run; LoadAllSettings will repopulate the dict from
+        // disk anyway. This also means a premature change is dropped on the floor,
+        // which is the right thing — callers (e.g. BasisLocalization auto-detect)
+        // must not race the load.
+        if (changed && _settingsLoaded)
         {
             SaveAllSettings();
             OnSettingChanged?.Invoke(uniqueSettingsName, value);

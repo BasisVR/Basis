@@ -21,6 +21,8 @@ public class BasisContentSphere : BasisInteractableObject
     public string UnlockPassword { get; private set; }
     public ContentShareType ContentType { get; private set; }
     public ushort CreatorPlayerID { get; private set; }
+    public string CreatorUUID { get; private set; }
+    public string CreatorDisplayName { get; private set; }
 
     /// <summary>
     /// Fired when any content sphere is interacted with.
@@ -37,13 +39,15 @@ public class BasisContentSphere : BasisInteractableObject
     public static float BobPhaseOffset = 0.05f;
     public static float RotationSpeed = 30f;
     public Texture2D texture;
-    public void Initialize(string sphereNetID, string contentURL, string unlockPassword, ContentShareType contentType, ushort creatorPlayerID)
+    public void Initialize(string sphereNetID, string contentURL, string unlockPassword, ContentShareType contentType, ushort creatorPlayerID, string creatorUUID, string creatorDisplayName)
     {
         SphereNetID = sphereNetID;
         ContentURL = contentURL;
         UnlockPassword = unlockPassword;
         ContentType = contentType;
         CreatorPlayerID = creatorPlayerID;
+        CreatorUUID = creatorUUID;
+        CreatorDisplayName = creatorDisplayName;
         InteractRange = 2f;
 
         _metaLoadCts = new CancellationTokenSource();
@@ -158,7 +162,27 @@ public class BasisContentSphere : BasisInteractableObject
         string typeName = GetContentTypeName();
         string title = $"Shared {typeName}";
 
-        string description = $"Save this shared {typeName.ToLower()} to your library?";
+        string sharerLine;
+        bool hasName = !string.IsNullOrEmpty(CreatorDisplayName);
+        bool hasUUID = !string.IsNullOrEmpty(CreatorUUID);
+        if (hasName && hasUUID)
+        {
+            sharerLine = $"Shared by {CreatorDisplayName} ({CreatorUUID})";
+        }
+        else if (hasName)
+        {
+            sharerLine = $"Shared by {CreatorDisplayName}";
+        }
+        else if (hasUUID)
+        {
+            sharerLine = $"Shared by {CreatorUUID}";
+        }
+        else
+        {
+            sharerLine = "Shared by an unknown player";
+        }
+
+        string description = $"{sharerLine}\n\nSave this shared {typeName.ToLower()} to your library?";
 
         BasisMainMenu.Open();
         BasisMainMenu.Instance.OpenDialogue(title, description, "Save", "Delete", value =>

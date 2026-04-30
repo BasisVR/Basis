@@ -37,11 +37,11 @@ namespace HVR.Osushi
                 }
                 catch (ThreadAbortException)
                 {
-                    BasisDebug.LogError($"ThreadAbortException", BasisDebug.LogTag.LocalNetwork);
+                  //  BasisDebug.LogError($"ThreadAbortException", BasisDebug.LogTag.LocalNetwork);
                 }
                 catch (ThreadInterruptedException)
                 {
-                    BasisDebug.LogError($"ThreadInterruptedException", BasisDebug.LogTag.LocalNetwork);
+                 //   BasisDebug.LogError($"ThreadInterruptedException", BasisDebug.LogTag.LocalNetwork);
                 }
                 catch (Exception e)
                 {
@@ -127,6 +127,14 @@ namespace HVR.Osushi
                 catch (HttpListenerException e)
                 {
                     BasisDebug.LogError($"HttpListener closed: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                    break;
+                }
+                catch (ThreadAbortException)
+                {
+                    break;
+                }
+                catch (ThreadInterruptedException)
+                {
                     break;
                 }
                 catch (Exception e)

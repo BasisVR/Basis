@@ -113,6 +113,9 @@ namespace Basis.BasisUI
         public Graphic FillGraphic;
         public Color FillColorMin = new Color(0.35f, 0.55f, 0.85f, 1f);
         public Color FillColorMax = new Color(0.25f, 0.8f, 0.5f, 1f);
+        [Tooltip("When set, the fill color is sampled from this gradient (t = normalized slider position) instead of lerping FillColorMin -> FillColorMax.")]
+        public Gradient FillColorGradient;
+        public bool UseFillColorGradient;
 
         public static class SliderStyles
         {
@@ -315,7 +318,9 @@ namespace Basis.BasisUI
             {
                 float range = SliderComponent.maxValue - SliderComponent.minValue;
                 float t = (range > 0f) ? (Value - SliderComponent.minValue) / range : 0f;
-                Color targetFillColor = Color.Lerp(FillColorMin, FillColorMax, t);
+                Color targetFillColor = (UseFillColorGradient && FillColorGradient != null)
+                    ? FillColorGradient.Evaluate(t)
+                    : Color.Lerp(FillColorMin, FillColorMax, t);
 
                 if (_isDragging)
                 {

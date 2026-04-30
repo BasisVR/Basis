@@ -486,11 +486,34 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 #if !BASIS_DISABLE_MICROPHONE
             if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
                 return;
-            BasisLocalMicrophoneDriver.ToggleIsPaused();
+
+            switch (SMDMicrophone.Current.TalkMode)
+            {
+                case SMDMicrophone.BasisMicrophoneMode.OnActivation:
+                    BasisLocalMicrophoneDriver.ToggleIsPaused();
+                    break;
+
+                case SMDMicrophone.BasisMicrophoneMode.PushToTalk:
+                    if (BasisLocalMicrophoneDriver.isPaused)
+                        BasisLocalMicrophoneDriver.ToggleIsPaused();
+                    break;
+            }
 #endif
         }
 
-        public void OnToggleMicMuteCancelled(InputAction.CallbackContext ctx) { }
+        public void OnToggleMicMuteCancelled(InputAction.CallbackContext ctx)
+        {
+#if !BASIS_DISABLE_MICROPHONE
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            if (SMDMicrophone.Current.TalkMode == SMDMicrophone.BasisMicrophoneMode.PushToTalk
+                && BasisLocalMicrophoneDriver.isPaused == false)
+            {
+                BasisLocalMicrophoneDriver.ToggleIsPaused();
+            }
+#endif
+        }
 
         public void OnTabPerformed(InputAction.CallbackContext ctx)
         {

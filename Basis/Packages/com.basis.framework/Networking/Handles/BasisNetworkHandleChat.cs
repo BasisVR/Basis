@@ -46,6 +46,10 @@ public static class BasisNetworkHandleChat
         {
             return;
         }
+        if (Basis.BasisUI.BasisSettingsDefaults.ChatDisabled.RawValue)
+        {
+            return;
+        }
         if (string.IsNullOrEmpty(message)) return;
 
         if (message.Length > MaxMessageLength)
@@ -93,6 +97,11 @@ public static class BasisNetworkHandleChat
     {
         ServerChatMessage serverChatMessage = new ServerChatMessage();
         serverChatMessage.Deserialize(reader);
+
+        if (Basis.BasisUI.BasisSettingsDefaults.ChatDisabled.RawValue)
+        {
+            return;
+        }
 
         ushort senderPlayerId = serverChatMessage.playerIdMessage.playerID;
         string message = string.Empty;

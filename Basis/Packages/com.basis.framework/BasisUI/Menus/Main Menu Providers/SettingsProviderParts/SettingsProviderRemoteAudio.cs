@@ -16,7 +16,67 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         static void Init()
         {
+            ApplyJitterBufferDepth();
+            ApplyClipBufferScalar();
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyRemoteAudioToAll;
+            BasisSettingsSystem.OnSettingsFinishedChanges += ApplyJitterBufferDepth;
+            BasisSettingsSystem.OnSettingsFinishedChanges += ApplyClipBufferScalar;
+        }
+
+        // Last applied jitter depth, so we only force a (disruptive) buffer reset
+        // on live receivers when the value actually changed. Initialized to the
+        // default so the first call from Init() is treated as a no-op change.
+        private static int _lastAppliedJitterDepth = -1;
+
+        /// <summary>
+        /// Pushes the user-chosen jitter buffer depth into <see cref="RemoteOpusSettings.JitterBufferSize"/>.
+        /// The encoded-packet release gate (<c>_receivedSinceStart &lt; InitialBufferDepth</c>)
+        /// is only consulted during the initial fill, so a mid-stream change wouldn't be
+        /// audible until the next mute→unmute cycle. To make the slider act NOW we also
+        /// <see cref="BasisVoiceBuffer.Reset"/> every live receiver, which costs a brief
+        /// (~100 ms) audio gap as the buffer refills at the new depth.
+        /// Clamped to 1 so we never disable the gate entirely.
+        /// </summary>
+        private static void ApplyJitterBufferDepth()
+        {
+            int depth = Mathf.Max(1, Mathf.RoundToInt(BasisSettingsDefaults.RAJitterBufferDepth.RawValue));
+            RemoteOpusSettings.JitterBufferSize = depth;
+
+            if (_lastAppliedJitterDepth == depth) return;
+            bool firstApply = _lastAppliedJitterDepth < 0;
+            _lastAppliedJitterDepth = depth;
+            if (firstApply) return; // startup — no live receivers to poke
+
+            foreach (var kvp in BasisNetworkPlayers.RemotePlayers)
+            {
+                BasisNetworkReceiver receiver = kvp.Value;
+                if (receiver?.AudioReceiverModule?.VoiceBuffer != null)
+                {
+                    receiver.AudioReceiverModule.VoiceBuffer.Reset();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Pushes the user-chosen clip-buffer scalar into <see cref="BasisAudioClipPool.ClipBufferScalar"/>,
+        /// clears the pool so newly-allocated clips pick up the new size, and swaps
+        /// the clip on every live receiver in place via <see cref="BasisAudioReceiver.ReloadClip"/>.
+        /// </summary>
+        private static void ApplyClipBufferScalar()
+        {
+            int scalar = Mathf.Max(1, Mathf.RoundToInt(BasisSettingsDefaults.RAClipBufferScalar.RawValue));
+            if (BasisAudioClipPool.ClipBufferScalar == scalar) return;
+            BasisAudioClipPool.ClipBufferScalar = scalar;
+            BasisAudioClipPool.Clear();
+
+            foreach (var kvp in BasisNetworkPlayers.RemotePlayers)
+            {
+                BasisNetworkReceiver receiver = kvp.Value;
+                if (receiver?.AudioReceiverModule != null && receiver.AudioReceiverModule.HasAudioSource)
+                {
+                    receiver.AudioReceiverModule.ReloadClip();
+                }
+            }
         }
 
         public static void BuildRemoteAudioUI(RectTransform container)
@@ -26,6 +86,15 @@ namespace Basis.BasisUI
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             listenerDampenGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.remotePlayers"));
             listenerDampenGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.remotePlayers.description"));
+
+            // Hearing Range (relocated from General). Lives here because it
+            // governs at what distance any remote player becomes audible.
+            // The "Limit Audio Sources" cap is an advanced control and lives
+            // in the Audio Source group below.
+            PanelSlider sliderHearingRange = PanelSlider.CreateEntryAndBind(
+                listenerDampenGroup,
+                PanelSlider.SliderSettings.Distance(BasisLocalization.Get("settings.general.hearingRange"), 25),
+                BasisSettingsDefaults.HearingRange);
 
             PanelSlider sliderListenerConeAngle = PanelSlider.CreateEntryAndBind(
                 listenerDampenGroup,
@@ -46,11 +115,56 @@ namespace Basis.BasisUI
                 listenerDampenGroup.ForceRebuild();
             };
 
+            // ─────────────── VOICE BUFFER GROUP (always visible) ───────────────
+            // Frames-of-audio buffered ahead of playback. Lower = less latency,
+            // higher = more resilience to packet jitter / loss before underrun.
+            // Buffer is 20 ms per frame, so 1 ≈ 20 ms.
+            PanelElementDescriptor voiceBufferGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            voiceBufferGroup.SetTitle("Voice Buffer");
+            voiceBufferGroup.SetDescription(
+                "How many 20 ms voice frames to buffer ahead of playback.\n" +
+                "Lower = less latency. Higher = smoother audio on jittery networks.\n" +
+                "Default: 1 (~20 ms).");
+
+            PanelSlider sliderJitterDepth = PanelSlider.CreateEntryAndBind(
+                voiceBufferGroup,
+                PanelSlider.SliderSettings.Advanced("Buffered Frames Target", 1f, 15f, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.RAJitterBufferDepth);
+            sliderJitterDepth.Descriptor.SetDescription(
+                "Each frame is 20 ms. 1 = ~20 ms (default, low latency, more dropouts).\n" +
+                "5 = ~100 ms. 15 = ~300 ms (max resilience).");
+
+            PanelSlider sliderClipBufferScalar = PanelSlider.CreateEntryAndBind(
+                voiceBufferGroup,
+                PanelSlider.SliderSettings.Advanced("Playback Clip Buffer", 2f, 8f, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.RAClipBufferScalar);
+            sliderClipBufferScalar.Descriptor.SetDescription(
+                "Multiplier on the per-player AudioClip length used by Unity's AudioSource.\n" +
+                "Lower = tighter coupling to the decoded queue (less latency, more sensitive\n" +
+                "to underruns). Default: 2. Live audio sources reload in place when changed.");
+
             // ─────────────── AUDIO SOURCE GROUP (advanced) ───────────────
             PanelElementDescriptor audioSourceGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             audioSourceGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.audioSource"));
             audioSourceGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.audioSource.description"));
+
+            PanelToggle toggleLimitAudio = PanelToggle.CreateNewEntry(audioSourceGroup);
+            toggleLimitAudio.AssignBinding(BasisSettingsDefaults.UseMaxAudioSources);
+            toggleLimitAudio.Descriptor.SetTitle(BasisLocalization.Get("settings.general.limitAudio"));
+
+            PanelSlider sliderMaxAudioSources = PanelSlider.CreateEntryAndBind(
+                audioSourceGroup,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.maxAudio"), 0, 250, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.MaxAudioSources);
+
+            sliderMaxAudioSources.Descriptor.SetActive(toggleLimitAudio.Value);
+            toggleLimitAudio.OnValueChanged += (val) =>
+            {
+                sliderMaxAudioSources.Descriptor.SetActive(val);
+                audioSourceGroup.ForceRebuild();
+            };
 
             PanelSlider sliderMinDistance = PanelSlider.CreateEntryAndBind(
                 audioSourceGroup,
@@ -324,7 +438,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
 
             PanelSlider sliderMaxTransmissionSurfaces = PanelSlider.CreateEntryAndBind(
                 transmissionGroup,
-                PanelSlider.SliderSettings.Advanced("Max Transmission Surfaces", 1f, 8f, true, 0, ValueDisplayMode.Raw),
+                PanelSlider.SliderSettings.Advanced("Transmission Surfaces", 1f, 8f, true, 0, ValueDisplayMode.Raw),
                 BasisSettingsDefaults.RAMaxTransmissionSurfaces);
 
             // Transmission sub-settings only visible when transmission is enabled
