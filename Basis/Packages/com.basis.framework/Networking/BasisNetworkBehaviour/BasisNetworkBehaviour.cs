@@ -351,18 +351,18 @@ namespace Basis
                 return;
             }
 
-            pathBuilder.Append(current.name);
-            pathBuilder.Append(SiblingIndexIfNeeded(current));
-            pathBuilder.Append('/');
+            pathBuilder.Append(current.name).
+            Append(SiblingIndexIfNeeded(current)).
+            Append('/');
         }
         private static void AppendComponentIdentifier(StringBuilder pathBuilder, BasisNetworkContentBase behaviour)
         {
             Component[] components = behaviour.gameObject.GetComponents(behaviour.GetType());
             int index = Array.IndexOf(components, behaviour);
-            pathBuilder.Append(':');
-            pathBuilder.Append(behaviour.GetType().FullName);
-            pathBuilder.Append('_');
-            pathBuilder.Append(index);
+            pathBuilder.Append(':').
+            Append(behaviour.GetType().FullName).
+            Append('_').
+            Append(index);
         }
         private static string SiblingIndexIfNeeded(Transform t)
         {
