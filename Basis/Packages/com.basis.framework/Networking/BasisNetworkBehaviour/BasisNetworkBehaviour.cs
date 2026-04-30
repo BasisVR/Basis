@@ -6,6 +6,7 @@ using Basis.Network.Core;
 using System;
 using System.Collections;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCommon;
@@ -30,6 +31,7 @@ namespace Basis
         public bool IsOwnedLocallyOnClient = false;
         public ushort CurrentOwnerId;
         public BasisNetworkPlayer currentOwnedPlayer;
+        private CancellationTokenSource destroyCancellationTokenSource = new CancellationTokenSource();
 
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
@@ -49,6 +51,13 @@ namespace Basis
         }
         public virtual void OnDestroy()
         {
+            if (!destroyCancellationTokenSource.IsCancellationRequested)
+            {
+                destroyCancellationTokenSource.Cancel();
+            }
+
+            destroyCancellationTokenSource.Dispose();
+
             if (HasNetworkID)
             {
                 BasisNetworkGenericMessages.UnregisterHandler(NetworkID, OnNetworkMessage);
@@ -247,10 +256,15 @@ namespace Basis
                 return true;
             }
 
-            BasisAvatar basisAvatar = ResolveBasisAvatar();
+            BasisAvatar basisAvatar = BasisAvatar.GetGameObject(this)?.GetComponent<BasisAvatar>();
             if (basisAvatar != null)
             {
-                await WaitForAvatarLinkedPlayerAsync(basisAvatar);
+                if (!await WaitForAvatarNetworkGUIDIdentifierAsync(basisAvatar))
+                {
+                    BasisDebug.LogError($"Stopped waiting for avatar network identifier while building avatar-scoped network identifier for {this.gameObject.name}.", BasisDebug.LogTag.Networking);
+                    return false;
+                }
+
                 if (TryBuildAvatarScopedIdentifier(basisAvatar, this, out string avatarScopedIdentifier))
                 {
                     AssignNetworkGUIDIdentifier(avatarScopedIdentifier);
@@ -266,54 +280,49 @@ namespace Basis
             AssignNetworkGUIDIdentifier(LowLevelGetHierarchyPath(this));
             return TryGetNetworkGUIDIdentifier(out _);
         }
-        private BasisAvatar ResolveBasisAvatar()
+        private async Task<bool> WaitForAvatarNetworkGUIDIdentifierAsync(BasisAvatar basisAvatar)
         {
-            GameObject avatarGameObject = BasisAvatar.GetGameObject(this);
-            return avatarGameObject != null ? avatarGameObject.GetComponent<BasisAvatar>() : null;
-        }
-        private async Task WaitForAvatarLinkedPlayerAsync(BasisAvatar basisAvatar)
-        {
-            const int MaxFramesToWait = 30;
-            for (int frame = 0; frame < MaxFramesToWait; frame++)
+            if (basisAvatar.TryGetNetworkGUIDIdentifier(out _))
             {
-                if (TryResolveAvatarLinkedPlayerId(basisAvatar, out _))
-                {
-                    return;
-                }
-                await Task.Yield();
-            }
-        }
-        private static bool TryResolveAvatarLinkedPlayerId(BasisAvatar basisAvatar, out ushort linkedPlayerId)
-        {
-            if (basisAvatar != null)
-            {
-                if (basisAvatar.TryGetLinkedPlayer(out linkedPlayerId))
-                {
-                    return true;
-                }
-
-                BasisPlayer basisPlayer = basisAvatar.GetComponentInParent<BasisPlayer>();
-                if (basisPlayer != null && BasisNetworkPlayers.PlayerToNetworkedPlayer(basisPlayer, out BasisNetworkPlayer networkedPlayer))
-                {
-                    linkedPlayerId = networkedPlayer.playerId;
-                    return true;
-                }
+                return true;
             }
 
-            linkedPlayerId = 0;
-            return false;
+            TaskCompletionSource<bool> avatarIdentifierAssigned = new TaskCompletionSource<bool>();
+            void OnClientIdentifierAssigned(string _)
+            {
+                avatarIdentifierAssigned.TrySetResult(true);
+            }
+
+            basisAvatar.OnClientIdentifierAssigned += OnClientIdentifierAssigned;
+            using (destroyCancellationTokenSource.Token.Register(() => avatarIdentifierAssigned.TrySetResult(false)))
+            {
+                try
+                {
+                    if (basisAvatar.TryGetNetworkGUIDIdentifier(out _))
+                    {
+                        return true;
+                    }
+
+                    bool assigned = await avatarIdentifierAssigned.Task;
+                    return assigned && basisAvatar.TryGetNetworkGUIDIdentifier(out _);
+                }
+                finally
+                {
+                    basisAvatar.OnClientIdentifierAssigned -= OnClientIdentifierAssigned;
+                }
+            }
         }
+
         private static bool TryBuildAvatarScopedIdentifier(BasisAvatar basisAvatar, BasisNetworkContentBase behaviour, out string identifier)
         {
-            if (!TryResolveAvatarLinkedPlayerId(basisAvatar, out ushort linkedPlayerId))
+            if (!basisAvatar.TryGetNetworkGUIDIdentifier(out string avatarIdentifier) || string.IsNullOrWhiteSpace(avatarIdentifier))
             {
                 identifier = string.Empty;
                 return false;
             }
 
             StringBuilder pathBuilder = new StringBuilder();
-            pathBuilder.Append("BasisAvatar/");
-            pathBuilder.Append(linkedPlayerId);
+            pathBuilder.Append(avatarIdentifier);
             if (behaviour.transform != null && behaviour.transform != basisAvatar.transform)
             {
                 pathBuilder.Append('/');
