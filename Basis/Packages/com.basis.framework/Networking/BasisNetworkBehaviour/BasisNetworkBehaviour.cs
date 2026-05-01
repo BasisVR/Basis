@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCommon;
+using System.Runtime.CompilerServices;
 namespace Basis
 {
     public abstract class BasisNetworkBehaviour : BasisNetworkContentBase
@@ -32,6 +33,8 @@ namespace Basis
         public ushort CurrentOwnerId;
         public BasisNetworkPlayer currentOwnedPlayer;
         private CancellationTokenSource destroyCancellationTokenSource = new CancellationTokenSource();
+        private bool isDestroyed;
+        private bool ownershipEventsRegistered;
 
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
@@ -51,27 +54,30 @@ namespace Basis
         }
         public virtual void OnDestroy()
         {
-            if (!destroyCancellationTokenSource.IsCancellationRequested)
+            isDestroyed = true;
+
+            if (destroyCancellationTokenSource != null && !destroyCancellationTokenSource.IsCancellationRequested)
             {
                 destroyCancellationTokenSource.Cancel();
             }
 
-            destroyCancellationTokenSource.Dispose();
-
             if (HasNetworkID)
             {
                 BasisNetworkGenericMessages.UnregisterHandler(NetworkID, OnNetworkMessage);
+                HasNetworkID = false;
             }
+            UnregisterOwnershipEvents();
+
+            destroyCancellationTokenSource?.Dispose();
+
             BasisNetworkPlayer.OnLocalPlayerJoined -= OnLocalPlayerJoined;
-            BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
-            BasisNetworkPlayer.OnOwnershipReleased -= LowLevelOwnershipReleased;
 
             BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
             BasisNetworkPlayer.OnPlayerLeft -= OnPlayerLeft;
         }
         public bool IsLocalOwner()
         {
-            if (HasNetworkID)
+            if (HasNetworkID && !IsTornDown())
             {
                 return IsOwnedLocallyOnServer;
             }
@@ -82,47 +88,83 @@ namespace Basis
         }
         private async void OnLocalPlayerJoined(BasisNetworkPlayer NetworkedPlayer, BasisLocalPlayer LocalPlayer)
         {
-            if (BasisNetworkConnection.LocalPlayerIsConnected)
+            if (!TryGetDestroyCancellationToken(out CancellationToken destroyToken))
             {
-                bool wassuccesful = await TryEnsureNetworkGUIDIdentifierAsync();
+                return;
+            }
+
+            try
+            {
+                if (!BasisNetworkConnection.LocalPlayerIsConnected)
+                {
+                    BasisDebug.LogError("LocalPlayer Is Not Connected Behaviour Cant Start");
+                    return;
+                }
+
+                bool wassuccesful = await TryEnsureNetworkGUIDIdentifierAsync(destroyToken);
+                ThrowIfTornDown(destroyToken);
                 string NetworkGuidID = clientIdentifier;
                 if (!wassuccesful)
                 {
                     BasisDebug.LogError("Was not sucessful at TryGetNetworkGUIDIdentifier NetworkGUID");
                     return;
                 }
-                BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
-                BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
 
                 Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
                 Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
                 Task[] tasks = new Task[] { IDResolverAsync, output };
 
                 await Task.WhenAll(tasks);
+                ThrowIfTornDown(destroyToken);
 
                 //convert GUID into Ushort for network transport.
-                BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
-                var InitalOwnershipStatus = await output;
+                BasisIdResolutionResult IDResolverResult = IDResolverAsync.Result;
+                BasisOwnershipResult InitalOwnershipStatus = output.Result;
                 if (InitalOwnershipStatus.Success)
                 {
                     CurrentOwnerId = InitalOwnershipStatus.PlayerId;
                     BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
                 }
-                HasNetworkID = IDResolverResult.Success;
-                NetworkID = IDResolverResult.Id;
-                if (HasNetworkID)
+                else
                 {
+                    CurrentOwnerId = 0;
+                    currentOwnedPlayer = null;
+                }
+
+                if (IDResolverResult.Success)
+                {
+                    NetworkID = IDResolverResult.Id;
+                    HasNetworkID = true;
+                    RegisterOwnershipEvents();
                     OnNetworkReady();
+                    ThrowIfTornDown(destroyToken);
                     BasisNetworkGenericMessages.RegisterHandler(NetworkID, OnNetworkMessage);
                 }
+                else
+                {
+                    ResetNetworkInitializationState();
+                }
             }
-            else
+            catch (OperationCanceledException)
             {
-                BasisDebug.LogError("LocalPlayer Is Not Connected Behaviour Cant Start");
+                CleanupNetworkInitialization();
+            }
+            catch (Exception exception)
+            {
+                CleanupNetworkInitialization();
+                if (!IsTornDown())
+                {
+                    BasisDebug.LogError($"Network behaviour initialization failed: {exception}", BasisDebug.LogTag.Networking);
+                }
             }
         }
         private void LowLevelOwnershipReleased(string uniqueEntityID)
         {
+            if (IsTornDown())
+            {
+                return;
+            }
+
             if (uniqueEntityID == clientIdentifier)
             {
                 OnServerOwnershipDestroyed();
@@ -130,6 +172,10 @@ namespace Basis
         }
         private void LowLevelOwnershipTransfer(string uniqueEntityID, ushort NetIdNewOwner, bool isOwner)
         {
+            if (IsTornDown())
+            {
+                return;
+            }
 
             if (uniqueEntityID == clientIdentifier)
             {
@@ -158,7 +204,7 @@ namespace Basis
         /// <param name="Recipients">if null everyone but self, you can include yourself to make it loop back over the network</param>
         public void SendCustomNetworkEvent(byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
         {
-            if (HasNetworkID)
+            if (HasNetworkID && !IsTornDown())
             {
                // BasisDebug.Log("Sening Out Custom Network Event");
                 BasisNetworkGenericMessages.OnNetworkMessageSend(NetworkID, buffer, DeliveryMethod, Recipients);
@@ -249,7 +295,7 @@ namespace Basis
 
             return pathBuilder.ToString();
         }
-        private async Task<bool> TryEnsureNetworkGUIDIdentifierAsync()
+        private async Task<bool> TryEnsureNetworkGUIDIdentifierAsync(CancellationToken cancellationToken)
         {
             if (TryGetNetworkGUIDIdentifier(out _))
             {
@@ -259,11 +305,12 @@ namespace Basis
             BasisAvatar basisAvatar = BasisAvatar.GetGameObject(this)?.GetComponent<BasisAvatar>();
             if (basisAvatar != null)
             {
-                if (!await WaitForAvatarNetworkGUIDIdentifierAsync(basisAvatar))
+                if (!await WaitForAvatarNetworkGUIDIdentifierAsync(basisAvatar, cancellationToken))
                 {
                     BasisDebug.LogError($"Stopped waiting for avatar network identifier while building avatar-scoped network identifier for {this.gameObject.name}.", BasisDebug.LogTag.Networking);
                     return false;
                 }
+                ThrowIfTornDown(cancellationToken);
 
                 if (TryBuildAvatarScopedIdentifier(basisAvatar, this, out string avatarScopedIdentifier))
                 {
@@ -280,21 +327,21 @@ namespace Basis
             AssignNetworkGUIDIdentifier(LowLevelGetHierarchyPath(this));
             return TryGetNetworkGUIDIdentifier(out _);
         }
-        private async Task<bool> WaitForAvatarNetworkGUIDIdentifierAsync(BasisAvatar basisAvatar)
+        private async Task<bool> WaitForAvatarNetworkGUIDIdentifierAsync(BasisAvatar basisAvatar, CancellationToken cancellationToken)
         {
             if (basisAvatar.TryGetNetworkGUIDIdentifier(out _))
             {
                 return true;
             }
 
-            TaskCompletionSource<bool> avatarIdentifierAssigned = new TaskCompletionSource<bool>();
+            TaskCompletionSource<bool> avatarIdentifierAssigned = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             void OnClientIdentifierAssigned(string _)
             {
                 avatarIdentifierAssigned.TrySetResult(true);
             }
 
             basisAvatar.OnClientIdentifierAssigned += OnClientIdentifierAssigned;
-            using (destroyCancellationTokenSource.Token.Register(() => avatarIdentifierAssigned.TrySetResult(false)))
+            using (cancellationToken.Register(() => avatarIdentifierAssigned.TrySetCanceled(cancellationToken)))
             {
                 try
                 {
@@ -395,19 +442,33 @@ namespace Basis
         public async void TakeOwnership()
         {
             //no need to use await ownership will get back here from lower level.
-            await TakeOwnershipAsync();
+            try
+            {
+                await TakeOwnershipAsync();
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
         /// <summary>
         /// actively takes ownership from another player
         /// </summary>
         /// <param name="Timout"></param>
         /// <returns></returns>
-        public async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timout = 5000)
+        public async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timout = 5000, CancellationToken cancellationToken = default)
         {
+            if (!TryGetDestroyCancellationToken(out CancellationToken destroyToken))
+            {
+                throw new OperationCanceledException();
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            ThrowIfTornDown(destroyToken);
             IsOwnedLocallyOnClient = true;
             CurrentOwnerId = BasisNetworkPlayer.LocalPlayer.playerId;
             currentOwnedPlayer = BasisNetworkPlayer.LocalPlayer;
             BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkConnection.LocalPlayerPeer.RemoteId, Timout);
+            ThrowIfTornDown(destroyToken);
             return Result;
         }
         /// <summary>
@@ -415,10 +476,89 @@ namespace Basis
         /// </summary>
         /// <param name="Timout"></param>
         /// <returns></returns>
-        public async Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(int Timout = 5000)
+        public async Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(int Timout = 5000, CancellationToken cancellationToken = default)
         {
+            if (!TryGetDestroyCancellationToken(out CancellationToken destroyToken))
+            {
+                throw new OperationCanceledException();
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            ThrowIfTornDown(destroyToken);
             BasisOwnershipResult Result = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(clientIdentifier, Timout);
+            ThrowIfTornDown(destroyToken);
             return Result;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsTornDown(CancellationToken cancellationToken = default)
+        {
+            return isDestroyed || cancellationToken.IsCancellationRequested || this == null;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ThrowIfTornDown(CancellationToken cancellationToken)
+        {
+            if (IsTornDown(cancellationToken))
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+        }
+        private bool TryGetDestroyCancellationToken(out CancellationToken cancellationToken)
+        {
+            cancellationToken = default;
+            if (isDestroyed || destroyCancellationTokenSource == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                cancellationToken = destroyCancellationTokenSource.Token;
+                return !cancellationToken.IsCancellationRequested;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+        }
+        private void RegisterOwnershipEvents()
+        {
+            if (ownershipEventsRegistered)
+            {
+                return;
+            }
+
+            BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
+            BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
+            ownershipEventsRegistered = true;
+        }
+        private void UnregisterOwnershipEvents()
+        {
+            if (!ownershipEventsRegistered)
+            {
+                return;
+            }
+
+            BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
+            BasisNetworkPlayer.OnOwnershipReleased -= LowLevelOwnershipReleased;
+            ownershipEventsRegistered = false;
+        }
+        private void CleanupNetworkInitialization()
+        {
+            if (HasNetworkID)
+            {
+                BasisNetworkGenericMessages.UnregisterHandler(NetworkID, OnNetworkMessage);
+            }
+            UnregisterOwnershipEvents();
+            ResetNetworkInitializationState();
+        }
+        private void ResetNetworkInitializationState()
+        {
+            HasNetworkID = false;
+            NetworkID = 0;
+            CurrentOwnerId = 0;
+            currentOwnedPlayer = null;
+            IsOwnedLocallyOnServer = false;
+            IsOwnedLocallyOnClient = false;
         }
         public virtual void OnNetworkReady()
         {
