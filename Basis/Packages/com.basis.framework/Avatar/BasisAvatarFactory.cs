@@ -76,34 +76,15 @@ namespace Basis.Scripts.Avatar
         {
             return string.IsNullOrEmpty(BasisLoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation);
         }
-        public static bool EnsureAvatarNetworkGUID(BasisAvatar avatar, out string guid)
+        public static bool AssignAvatarNetworkGUID(BasisAvatar avatar, ushort playerId)
         {
-            guid = string.Empty;
-            if (avatar == null)
-            {
-                return false;
-            }
-
-            if (avatar.TryGetNetworkGUIDIdentifier(out guid) && !string.IsNullOrWhiteSpace(guid))
-            {
-                return true;
-            }
-
-            guid = BasisGenerateUniqueID.GenerateUniqueID();
-            avatar.AssignNetworkGUIDIdentifier(guid);
-            return true;
+            return AssignAvatarNetworkGUID(avatar, $"BasisAvatar/{playerId}");
         }
         public static bool AssignAvatarNetworkGUID(BasisAvatar avatar, string guid)
         {
             if (avatar == null)
             {
                 BasisDebug.LogError("Unable to assign avatar network GUID because avatar is null.", BasisDebug.LogTag.Networking);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(guid))
-            {
-                BasisDebug.LogError("Unable to assign avatar network GUID because GUID is null or empty.", BasisDebug.LogTag.Networking);
                 return false;
             }
 
@@ -432,13 +413,9 @@ namespace Basis.Scripts.Avatar
             Player.BasisAvatar.Renders = avatar.GetComponentsInChildren<Renderer>(true);
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
 
-            if (Player.IsLocal)
+            if (!isFallback && Player is BasisRemotePlayer remoteWithReceiver && remoteWithReceiver.NetworkReceiver != null)
             {
-                EnsureAvatarNetworkGUID(avatar, out _);
-            }
-            else if (!isFallback && Player is BasisRemotePlayer remotePlayer)
-            {
-                AssignAvatarNetworkGUID(avatar, remotePlayer.CACM.AvatarNetworkGuid);
+                AssignAvatarNetworkGUID(avatar, remoteWithReceiver.NetworkReceiver.playerId);
             }
 
             switch (Player)

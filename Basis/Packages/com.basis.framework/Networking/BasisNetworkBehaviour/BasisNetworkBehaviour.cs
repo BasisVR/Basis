@@ -100,8 +100,8 @@ namespace Basis
                     BasisDebug.LogError("LocalPlayer Is Not Connected Behaviour Cant Start");
                     return;
                 }
-
-                bool wassuccesful = await TryEnsureNetworkGUIDIdentifierAsync(destroyToken);
+                BasisAvatar localPlayerAvatar = LocalPlayer?.BasisAvatar;
+                bool wassuccesful = await TryEnsureNetworkGUIDIdentifierAsync(destroyToken, localPlayerAvatar);
                 ThrowIfTornDown(destroyToken);
                 string NetworkGuidID = clientIdentifier;
                 if (!wassuccesful)
@@ -109,7 +109,6 @@ namespace Basis
                     BasisDebug.LogError("Was not sucessful at TryGetNetworkGUIDIdentifier NetworkGUID");
                     return;
                 }
-
                 Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
                 Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
                 Task[] tasks = new Task[] { IDResolverAsync, output };
@@ -295,24 +294,22 @@ namespace Basis
 
             return pathBuilder.ToString();
         }
-        private async Task<bool> TryEnsureNetworkGUIDIdentifierAsync(CancellationToken cancellationToken)
+        private async Task<bool> TryEnsureNetworkGUIDIdentifierAsync(CancellationToken cancellationToken, BasisAvatar localPlayer = null)
         {
             if (TryGetNetworkGUIDIdentifier(out _))
             {
                 return true;
             }
-            // We use as avatar scoped identifier if possible to ensure consistency across sessions and clients, as the avatar's network GUID is guaranteed to be consistent for the same avatar regardless of load order or other factors, while a hierarchy-based identifier could change if the hierarchy changes or if objects are loaded in a different order on different clients.
-            BasisAvatar basisAvatar = BasisAvatar.GetGameObject(this)?.GetComponent<BasisAvatar>();
-            if (basisAvatar != null)
+            if (IsUnderLocalPlayerAvatar(localPlayer))
             {
-                if (!await WaitForAvatarNetworkGUIDIdentifierAsync(basisAvatar, cancellationToken))
+                if (!await WaitForAvatarNetworkGUIDIdentifierAsync(localPlayer, cancellationToken))
                 {
                     BasisDebug.LogError($"Stopped waiting for avatar network identifier while building avatar-scoped network identifier for {this.gameObject.name}.", BasisDebug.LogTag.Networking);
                     return false;
                 }
                 ThrowIfTornDown(cancellationToken);
 
-                if (TryBuildAvatarScopedIdentifier(basisAvatar, this, out string avatarScopedIdentifier))
+                if (TryBuildAvatarScopedIdentifier(localPlayer, this, out string avatarScopedIdentifier))
                 {
                     AssignNetworkGUIDIdentifier(avatarScopedIdentifier);
                     return TryGetNetworkGUIDIdentifier(out _);
@@ -327,6 +324,7 @@ namespace Basis
             AssignNetworkGUIDIdentifier(LowLevelGetHierarchyPath(this));
             return TryGetNetworkGUIDIdentifier(out _);
         }
+        private bool IsUnderLocalPlayerAvatar(BasisAvatar basisAvatar) => basisAvatar != null && (basisAvatar.gameObject == this.gameObject|| basisAvatar.transform.IsChildOf(this.transform));
         private async Task<bool> WaitForAvatarNetworkGUIDIdentifierAsync(BasisAvatar basisAvatar, CancellationToken cancellationToken)
         {
             if (basisAvatar.TryGetNetworkGUIDIdentifier(out _))

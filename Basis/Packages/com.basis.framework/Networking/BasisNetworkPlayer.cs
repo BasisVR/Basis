@@ -1,4 +1,5 @@
 using Basis.Network.Core;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
@@ -99,6 +100,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 BasisAvatar basisAvatar = Player.BasisAvatar;
                // PoseHandler.GetHumanPose(ref HumanPose);
+                BasisAvatarFactory.AssignAvatarNetworkGUID(basisAvatar, playerId);
                 basisAvatar.LinkedPlayerID = playerId;
                 NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
                 NetworkBehaviourCount = NetworkBehaviours.Length;

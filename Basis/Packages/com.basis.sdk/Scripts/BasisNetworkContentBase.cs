@@ -13,6 +13,7 @@ public abstract class BasisNetworkContentBase : MonoBehaviour
 
     public virtual bool IsClientIdentifierAssigned { get; protected set; } = false;
 
+
     /// <summary>
     /// Attempts to get the currently assigned GUID identifier.
     /// </summary>

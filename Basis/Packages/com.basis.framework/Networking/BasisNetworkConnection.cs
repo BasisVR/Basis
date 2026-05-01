@@ -1,6 +1,5 @@
 using Basis.BasisUI;
 using Basis.Network.Core;
-using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -50,12 +49,6 @@ namespace Basis.Scripts.Networking
             var basisLocalPlayer = BasisLocalPlayer.Instance;
             basisLocalPlayer.UUID = uuid;
 
-            if (!BasisAvatarFactory.EnsureAvatarNetworkGUID(basisLocalPlayer.BasisAvatar, out string avatarNetworkGuid))
-            {
-                BasisDebug.LogError("Unable to start network connection because the local avatar has no network GUID.", BasisDebug.LogTag.Networking);
-                return;
-            }
-
             byte[] avatarBytes = BasisBundleConversionNetwork.ConvertBasisLoadableBundleToBytes(basisLocalPlayer.AvatarMetaData);
 
             if (isHostMode)
@@ -84,7 +77,6 @@ namespace Basis.Scripts.Networking
                     byteArray = avatarBytes,
                     loadMode = basisLocalPlayer.AvatarLoadMode,
                     LocalAvatarIndex = 0,
-                    AvatarNetworkGuid = avatarNetworkGuid,
                 },
                 playerMetaDataMessage = new ClientMetaDataMessage
                 {
