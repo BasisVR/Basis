@@ -1,8 +1,9 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Network.Core;
 using UnityEngine.InputSystem;
-public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
+public class BasisTestNetworkAvatarOverrideJump : BasisNetworkAvatarBehaviour
 {
     new public static bool VisibleInAvatarMenu = false;
     public BasisPlayer BasisPlayer;

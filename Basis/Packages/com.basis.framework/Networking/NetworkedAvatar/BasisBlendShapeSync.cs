@@ -1,6 +1,7 @@
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Behaviour;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Networking.Behaviour;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -24,7 +25,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     ///   OnWeightsReceived               — fires on remote side after decode
     ///   SyncedIndices / SyncedCount     — introspect what's being synced
     /// </summary>
-    public class BasisBlendShapeSync : BasisAvatarMonoBehaviour
+    public class BasisBlendShapeSync : BasisNetworkAvatarBehaviour
     {
         [Tooltip("SkinnedMeshRenderer to sync. If null, auto-detects from avatar FaceVisemeMesh.")]
         public SkinnedMeshRenderer TargetMesh;

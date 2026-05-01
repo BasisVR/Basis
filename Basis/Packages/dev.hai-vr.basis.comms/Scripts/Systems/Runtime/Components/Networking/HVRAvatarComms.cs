@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Network.Core;
 using UnityEngine;
 
@@ -10,7 +11,7 @@ namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Internal/HVR Avatar Comms")]
     [HelpURL("https://docs.hai-vr.dev/docs/basis/avatar-customization")]
-    public class HVRAvatarComms : BasisAvatarMonoBehaviour
+    public class HVRAvatarComms : BasisNetworkAvatarBehaviour
     {
         private const int AvatarMessageProcessingCarrier0 = 0;
         private const int VariableNetworkingCarrier = 1;

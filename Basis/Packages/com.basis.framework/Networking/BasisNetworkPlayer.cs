@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -138,7 +139,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
         }
         public int NetworkBehaviourCount = 0;
-        public BasisAvatarMonoBehaviour[] NetworkBehaviours;
+        public BasisNetworkAvatarBehaviour[] NetworkBehaviours;
         public void AvatarLoadComplete()
         {
             if (CheckForAvatar())
@@ -146,7 +147,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisAvatar basisAvatar = Player.BasisAvatar;
                // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
-                NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
+                NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisNetworkAvatarBehaviour>(true);
                 NetworkBehaviourCount = NetworkBehaviours.Length;
                 int length = NetworkBehaviours.Length;
                 if (length > 256)
