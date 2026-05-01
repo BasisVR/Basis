@@ -69,9 +69,6 @@ namespace Basis.Scripts.Drivers
         /// <summary>True when the camera is in Third-Person mode.</summary>
         public bool IsThirdPerson = false;
 
-        /// <summary>Distance behind the avatar in meters (at 1x scale).</summary>
-        public float ThirdPersonDistance = 1.0f;
-
         /// <summary>Screen framing offset: X is horizontal (-1 to 1), Y is vertical (-1 to 1). e.g., X=0.3 puts the player on the right.
         public Vector2 ThirdPersonFraming = new Vector2(-0.25f, 0.1f);
 
@@ -87,12 +84,12 @@ namespace Basis.Scripts.Drivers
         /// <summary>Mask used for camera collision detection.</summary>
         public LayerMask CameraCollisionMask;
 
-        public float ThirdPersonMinZoom = 0.5f;
-        public float ThirdPersonMaxZoom = 2.0f;
+        public float ThirdPersonMinZoomDist = 0.5f;
+        public float ThirdPersonMaxZoomDist = 3.0f;
         public float ThirdPersonZoomSensitivity = 0.5f;
 
-        public float ThirdPersonMinFoV = 50f;
-        public float ThirdPersonMaxFoV = 75f;
+        public float ThirdPersonMinZoomDistFoV = 75f;
+        public float ThirdPersonMaxZoomDistFoV = 50f;
 
         private struct CameraParams
         {
@@ -482,21 +479,21 @@ namespace Basis.Scripts.Drivers
             if (!IsThirdPerson && zoomDelta < 0)
             {
                 IsThirdPerson = true;
-                _currentThirdPersonDistance = ThirdPersonMinZoom + 0.1f;
+                _currentThirdPersonDistance = ThirdPersonMinZoomDist + 0.1f;
             }
             else if (IsThirdPerson)
             {
                 _currentThirdPersonDistance -= zoomDelta * ThirdPersonZoomSensitivity;
 
                 // If zoomed all the way in, return to first person
-                if (_currentThirdPersonDistance < ThirdPersonMinZoom)
+                if (_currentThirdPersonDistance < ThirdPersonMinZoomDist)
                 {
                     IsThirdPerson = false;
-                    _currentThirdPersonDistance = ThirdPersonMinZoom;
+                    _currentThirdPersonDistance = ThirdPersonMinZoomDist;
                 }
-                else if (_currentThirdPersonDistance > ThirdPersonMaxZoom)
+                else if (_currentThirdPersonDistance > ThirdPersonMaxZoomDist)
                 {
-                    _currentThirdPersonDistance = ThirdPersonMaxZoom;
+                    _currentThirdPersonDistance = ThirdPersonMaxZoomDist;
                 }
             }
         }
@@ -527,7 +524,7 @@ namespace Basis.Scripts.Drivers
         {
             if (!_wasThirdPerson) return;
 
-            transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity)
+            transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             CameraInstance.fieldOfView = DefaultCameraFov;
 
             _wasThirdPerson = false;
@@ -568,8 +565,7 @@ namespace Basis.Scripts.Drivers
 
         private void ApplyThirdPersonTransform(float scale)
         {
-            float zoomT = Mathf.InverseLerp(ThirdPersonMinZoom * scale, ThirdPersonMaxZoom * scale, _currentCamParams.distance);
-            CameraInstance.fieldOfView = Mathf.Lerp(ThirdPersonMinFoV, ThirdPersonMaxFoV, zoomT);
+            Quaternion desiredRotation = Quaternion.Euler(_currentCamParams.pitch, _currentCamParams.yaw, 0);
 
             float tanFOVY = Mathf.Tan(0.5f * Mathf.Deg2Rad * CameraInstance.fieldOfView);
             float tanFOVX = tanFOVY * CameraInstance.aspect;
@@ -580,19 +576,22 @@ namespace Basis.Scripts.Drivers
                 _currentCamParams.distance
             );
 
-            Quaternion desiredRotation = Quaternion.Euler(_currentCamParams.pitch, _currentCamParams.yaw, 0);
             Vector3 desiredWorldPos = _currentCamParams.trackingPosition - (desiredRotation * localOffset);
-
             Vector3 direction = desiredWorldPos - _currentCamParams.trackingPosition;
             float maxDistance = direction.magnitude;
             float scaledRadius = CameraCollisionRadius * scale;
 
+            float actualDistance = _currentCamParams.distance;
             if (maxDistance > 0.001f && Physics.SphereCast(_currentCamParams.trackingPosition, scaledRadius, direction.normalized, out RaycastHit hit, maxDistance, CameraCollisionMask, QueryTriggerInteraction.Ignore))
             {
                 desiredWorldPos = hit.point + (hit.normal * scaledRadius);
+                actualDistance = hit.distance;
             }
 
-            transform.SetPositionAndRotation(desiredWorldPos, desiredRotation)
+            float zoomT = Mathf.InverseLerp(ThirdPersonMinZoomDist * scale, ThirdPersonMaxZoomDist * scale, actualDistance);
+            CameraInstance.fieldOfView = Mathf.Lerp(ThirdPersonMinZoomDistFoV, ThirdPersonMaxZoomDistFoV, zoomT);
+
+            transform.SetPositionAndRotation(desiredWorldPos, desiredRotation);
         }
 
         private void OnClipOverrideToggleChanged(bool _) => UpdateCameraScale();
