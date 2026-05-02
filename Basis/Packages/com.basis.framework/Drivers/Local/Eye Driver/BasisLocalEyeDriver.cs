@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -164,9 +165,28 @@ public class BasisLocalEyeDriver
 
         IsEnabled = true;
 
+        BasisLocalEyeDriverService.Register(_serviceAdapter);
     }
+
+    private sealed class Adapter : IBasisLocalEyeDriver
+    {
+        public float Liveliness
+        {
+            get => BasisLocalEyeDriver.Liveliness;
+            set => BasisLocalEyeDriver.Liveliness = value;
+        }
+        public float Attentiveness
+        {
+            get => BasisLocalEyeDriver.Attentiveness;
+            set => BasisLocalEyeDriver.Attentiveness = value;
+        }
+        public void ApplyPersonality() => BasisLocalEyeDriver.ApplyPersonality();
+    }
+    private static readonly Adapter _serviceAdapter = new Adapter();
+
     public static void Dispose()
     {
+        BasisLocalEyeDriverService.Unregister(_serviceAdapter);
         if (_state.IsCreated)
         {
             handle.Complete();
