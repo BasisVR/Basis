@@ -34,6 +34,7 @@ com.cqf.urpvolumetricfog
 com.llealloo.audiolink
 com.xiph.rnnoise
 com.cnlohr.cilbox
+dev.hai-vr.basis.comms
 
 # VR / spatial-audio (Apache 2.0 / BSD-3).
 com.steam.steamaudio

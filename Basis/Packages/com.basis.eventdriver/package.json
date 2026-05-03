@@ -7,5 +7,15 @@
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.inputsystem": "1.19.0"
+  },
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1",
+    "com.basis.openlipsync": "0.2.0",
+    "com.basis.profilerintergration": "0.0.1",
+    "com.gator-dragon-games.jigglephysics": "16.0.0",
+    "com.steam.steamaudio": "0.0.1"
+  }
 }
