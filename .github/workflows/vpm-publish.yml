@@ -1,4 +1,4 @@
-name: VPM Weekly Publish
+name: VPM Publish
 
 on:
   schedule:
@@ -7,8 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       tag_override:
-        description: 'Tag override (default: vpm-YYYY-Www.RUN, ISO week + run number)'
+        description: 'Tag override (default: vpm-YYYY-Www.RUN). Required when stable=true.'
         required: false
+      stable:
+        description: 'Cut a stable (non-prerelease) release. Uses package.json versions as-is, no dev suffix.'
+        type: boolean
+        default: false
 
 # Serialize publishes so cron + manual dispatch can never race on the vpm branch.
 # Each run produces its own tag (vpm-YYYY-Www.RUN) so release-tag races aren't
@@ -41,16 +45,31 @@ jobs:
         env:
           TAG_OVERRIDE: ${{ inputs.tag_override }}
           RUN_NUMBER: ${{ github.run_number }}
+          STABLE: ${{ inputs.stable }}
         run: |
           set -euo pipefail
-          TAG="${TAG_OVERRIDE:-vpm-$(date -u +%G-W%V).${RUN_NUMBER}}"
-          # Suffix derived from week + run number: deterministic for re-runs
-          # of the same workflow run, fresh for each new run. Maintainers
-          # don't bump package.json — the cron snapshot does it for them.
-          SUFFIX="dev.$(date -u +%G.W%V).${RUN_NUMBER}"
+          if [ "${STABLE:-false}" = "true" ]; then
+            # Stable mode: package.json versions are shipped as-is. A tag
+            # override is mandatory so stable runs don't collide with the
+            # weekly cron's vpm-YYYY-Www.RUN namespace.
+            if [ -z "${TAG_OVERRIDE}" ]; then
+              echo "::error::stable=true requires tag_override (e.g. v1.2.3)"
+              exit 1
+            fi
+            TAG="${TAG_OVERRIDE}"
+            SUFFIX=""
+          else
+            # Weekly/dev mode: suffix derived from week + run number,
+            # deterministic for re-runs of the same workflow run, fresh for
+            # each new run. Maintainers don't bump package.json — the cron
+            # snapshot does it for them.
+            TAG="${TAG_OVERRIDE:-vpm-$(date -u +%G-W%V).${RUN_NUMBER}}"
+            SUFFIX="dev.$(date -u +%G.W%V).${RUN_NUMBER}"
+          fi
           {
             echo "tag=$TAG"
             echo "suffix=$SUFFIX"
+            echo "stable=${STABLE:-false}"
           } >> "$GITHUB_OUTPUT"
 
       # Stage the previous index for update-index to merge into.
@@ -92,6 +111,7 @@ jobs:
           REPO: ${{ github.repository }}
           SERVER_URL: ${{ github.server_url }}
           TAG: ${{ steps.meta.outputs.tag }}
+          STABLE: ${{ steps.meta.outputs.stable }}
         run: |
           set -euo pipefail
           BASE_URL="${SERVER_URL}/${REPO}/releases/download/${TAG}"
@@ -117,6 +137,10 @@ jobs:
             } > release-body.md
             cat release-body.md >> "$GITHUB_STEP_SUMMARY"
           else
+            if [ "${STABLE}" = "true" ]; then
+              echo "::error::stable=true but no new package versions were added — bump versions in package.json or use a fresh tag."
+              exit 1
+            fi
             echo "Re-run with no new versions; release and push will be skipped."
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
@@ -132,7 +156,7 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: VPM ${{ steps.meta.outputs.tag }}
           body_path: release-body.md
-          prerelease: true
+          prerelease: ${{ steps.meta.outputs.stable != 'true' }}
           files: out/artifacts/*.zip
           fail_on_unmatched_files: true
 
