@@ -19,13 +19,14 @@ com.basis.textmeshpro
 com.basis.visualtrackers
 
 # Re-distributed (sometimes tweaked) MIT/Apache/BSD
-# deps used by sdk, server, openlipsync, framework.
+# deps used by sdk, server, openlipsync, framework, hvr-comms.
 org.basisvr.newtonsoft.json
 org.basisvr.bouncycastle
 org.basisvr.k4os.compression.lz4
 org.basisvr.generator.equals
 org.basisvr.base128
 org.basisvr.simplebase
+nuget.meamod.dns
 
 # Unity-asset deps used by framework, eventdriver, shim.
 UnityJigglePhysics-upm

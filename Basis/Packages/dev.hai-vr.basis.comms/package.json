@@ -11,6 +11,7 @@
   "vpmDependencies": {
     "com.basis.framework": "0.0.1",
     "com.basis.sdk": "0.0.1",
-    "com.basis.server": "1.0.0"
+    "com.basis.server": "1.0.0",
+    "nuget.meamod.dns": "1.0.71"
   }
 }
