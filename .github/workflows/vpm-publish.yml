@@ -1,0 +1,157 @@
+name: VPM Weekly Publish
+
+on:
+  schedule:
+    # Saturday 14:00 UTC
+    - cron: '0 14 * * 6'
+  workflow_dispatch:
+    inputs:
+      tag_override:
+        description: 'Tag override (default: vpm-YYYY-Www, ISO week)'
+        required: false
+
+# Serialize publishes so cron + manual dispatch can never race on the
+# vpm branch or on the same release tag.
+concurrency:
+  group: vpm-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # release creation + push to the vpm branch
+
+env:
+  VPM_BRANCH: vpm
+  VPM_INDEX_FILE: vpm-repo.json
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compute tag and dev suffix
+        id: meta
+        env:
+          TAG_OVERRIDE: ${{ inputs.tag_override }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG_OVERRIDE:-vpm-$(date -u +%G-W%V)}"
+          # Suffix derived from week + run number: deterministic for re-runs
+          # of the same workflow run, fresh for each new run. Maintainers
+          # don't bump package.json — the cron snapshot does it for them.
+          SUFFIX="dev.$(date -u +%G.W%V).${RUN_NUMBER}"
+          {
+            echo "tag=$TAG"
+            echo "suffix=$SUFFIX"
+          } >> "$GITHUB_OUTPUT"
+
+      # Stage the previous index for update-index to merge into.
+      #   branch + non-empty file → normal merge
+      #   branch + missing/empty file → ABORT (corruption / accidental delete)
+      #   branch absent → first-run bootstrap
+      - name: Stage previous index
+        id: stage
+        run: |
+          set -euo pipefail
+          mkdir -p prev
+          if git ls-remote --exit-code --heads origin "$VPM_BRANCH" >/dev/null 2>&1; then
+            git fetch --depth=1 origin "$VPM_BRANCH"
+            git show "FETCH_HEAD:$VPM_INDEX_FILE" > "prev/$VPM_INDEX_FILE" 2>/dev/null \
+              || { echo "::error::$VPM_BRANCH branch exists but $VPM_INDEX_FILE is missing on it"; exit 1; }
+            [ -s "prev/$VPM_INDEX_FILE" ] \
+              || { echo "::error::$VPM_INDEX_FILE on $VPM_BRANCH is empty"; exit 1; }
+            echo "first_run=false" >> "$GITHUB_OUTPUT"
+          else
+            : > "prev/$VPM_INDEX_FILE"
+            echo "first_run=true" >> "$GITHUB_OUTPUT"
+            echo "First run: $VPM_BRANCH branch does not exist yet."
+          fi
+
+      - name: Build packages
+        env:
+          DEV_SUFFIX: ${{ steps.meta.outputs.suffix }}
+        run: python3 .github/scripts/vpmpackagegen.py build --dev-suffix "$DEV_SUFFIX" --out out
+
+      # Merge per-package metadata into the prior index. The added.txt lists
+      # zip filenames of newly-added entries — empty only if the workflow run
+      # is being re-attempted with the same run_number on the same source
+      # state (every entry already in the index from the prior attempt). In
+      # the normal weekly path, every package gets a fresh dev-suffixed
+      # version so all 29 are added.
+      - name: Generate new index
+        id: index
+        env:
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          BASE_URL="${SERVER_URL}/${REPO}/releases/download/${TAG}"
+          SELF_URL="https://raw.githubusercontent.com/${REPO}/${VPM_BRANCH}/${VPM_INDEX_FILE}"
+          python3 .github/scripts/vpmpackagegen.py update-index \
+            --require-superset \
+            --self-url "$SELF_URL" \
+            --added-list added.txt \
+            "prev/$VPM_INDEX_FILE" \
+            "$BASE_URL" \
+            out/meta > new-index.json
+          if [ -s added.txt ]; then
+            echo "Added $(wc -l < added.txt) package version(s)."
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Re-run with no new versions; release and push will be skipped."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Upload zips BEFORE pushing the index so the index never references
+      # a missing asset. Re-runs are safe — the action uploads to the
+      # existing release if the tag already exists, and the build is
+      # deterministic so identical bytes produce identical asset content.
+      - name: Create release and upload zips
+        if: steps.index.outputs.has_changes == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: VPM weekly ${{ steps.meta.outputs.tag }}
+          body: |
+            Automated weekly VPM build.
+            Versions: `${{ steps.meta.outputs.suffix }}` (semver prerelease).
+          prerelease: true
+          files: out/artifacts/*.zip
+          fail_on_unmatched_files: true
+
+      # Push the new index to the vpm branch in a fresh clone so we don't
+      # entangle the main checkout's worktree state.
+      - name: Publish to vpm branch
+        if: steps.index.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          FIRST_RUN: ${{ steps.stage.outputs.first_run }}
+        run: |
+          set -euo pipefail
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          URL="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+
+          if [ "$FIRST_RUN" = "true" ]; then
+            git init -q -b "$VPM_BRANCH" vpm-pub
+            git -C vpm-pub remote add origin "$URL"
+          else
+            git clone -q --depth 1 --branch "$VPM_BRANCH" --single-branch "$URL" vpm-pub
+          fi
+
+          cp new-index.json "vpm-pub/$VPM_INDEX_FILE"
+          cd vpm-pub
+          git add "$VPM_INDEX_FILE"
+          git commit -q -m "vpm: $TAG"
+          git push -u origin "$VPM_BRANCH"

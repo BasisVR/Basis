@@ -7,5 +7,10 @@
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "hideInEditor": false
+  "hideInEditor": false,
+  "license": "MIT",
+  "vpmDependencies": {
+    "org.basisvr.bouncycastle": "2.5.0",
+    "org.basisvr.newtonsoft.json": "13.0.3"
+  }
 }

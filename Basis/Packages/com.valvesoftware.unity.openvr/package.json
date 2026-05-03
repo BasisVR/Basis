@@ -25,6 +25,5 @@
   "author": "Valve Corporation",
   "hideInEditor": false,
   "homepage": "https://github.com/ValveSoftware/unity-xr-plugin",
-  "license": "BSD-3-Clause",
-  "_fingerprint": "43b7478e2106f9abaf9ebb4d8b400648"
+  "license": "BSD-3-Clause"
 }

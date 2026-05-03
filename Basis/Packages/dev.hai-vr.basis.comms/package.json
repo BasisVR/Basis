@@ -2,5 +2,6 @@
   "name": "dev.hai-vr.basis.comms",
   "displayName": "HVR Basis Comms",
   "version": "0.0.1",
-  "description": "HVR Basis Comms"
+  "description": "HVR Basis Comms",
+  "license": "MIT"
 }

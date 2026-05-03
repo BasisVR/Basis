@@ -1,0 +1,41 @@
+# Folders under Basis/Packages/ to publish as VPM packages.
+# One folder name per line. Lines starting with '#' and blank lines are ignored.
+# Consumed by .github/scripts/vpmpackagegen.py.
+
+# Basis-published packages
+com.basis.sdk
+com.basis.bundlemanagement
+com.basis.server
+com.basis.framework
+com.basis.framework.editor
+com.basis.openlipsync
+com.basis.common
+com.basis.eventdriver
+com.basis.profilerintergration
+com.basis.gizmos
+com.basis.settings
+com.basis.shim
+com.basis.textmeshpro
+com.basis.visualtrackers
+
+# Re-distributed (sometimes tweaked) MIT/Apache/BSD
+# deps used by sdk, server, openlipsync, framework.
+org.basisvr.newtonsoft.json
+org.basisvr.bouncycastle
+org.basisvr.k4os.compression.lz4
+org.basisvr.generator.equals
+org.basisvr.base128
+org.basisvr.simplebase
+
+# Unity-asset deps used by framework, eventdriver, shim.
+UnityJigglePhysics-upm
+com.avionblock.opussharp
+com.cqf.urpvolumetricfog
+com.llealloo.audiolink
+com.xiph.rnnoise
+com.cnlohr.cilbox
+
+# VR / spatial-audio (Apache 2.0 / BSD-3).
+com.steam.steamaudio
+com.steam.steamvr
+com.valvesoftware.unity.openvr
