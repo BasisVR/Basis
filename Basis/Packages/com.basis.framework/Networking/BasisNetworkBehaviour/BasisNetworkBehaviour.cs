@@ -316,6 +316,8 @@ namespace Basis
                 return true;
             }
             OwnerId = 0;
+            // if we dont have it cached locally we can ask the server to give it to us to cache and invoke any ownershipTransfer events.
+            RequestWhoIsOwnershipAsync();
             return false;
         }
 
