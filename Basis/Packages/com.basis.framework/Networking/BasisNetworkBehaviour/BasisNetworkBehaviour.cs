@@ -29,6 +29,9 @@ namespace Basis
         public bool IsOwnedLocallyOnClient = false;
         public ushort CurrentOwnerId;
         public BasisNetworkPlayer currentOwnedPlayer;
+
+        public DateTime RemoteUtcTime => BasisNetworkManagement.RemoteUtcTime();
+        public long RemoteDeltaTime => BasisNetworkManagement.RemoteTimeDelta();
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>

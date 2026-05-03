@@ -9,8 +9,6 @@ namespace Basis.Shims
 {
     public class BasisNetworkShim : BasisNetworkBehaviour
 	{
-        public DateTime NetworkTime => BasisNetworkManagement.RemoteUtcTime();
-        public long NetworkDeltaTime => BasisNetworkManagement.RemoteTimeDelta();
 		public delegate void NetworkReadyEvent();
 		public delegate void ServerOwnershipDestroyedEvent();
 		public delegate void OwnershipTransferEvent(BasisNetworkPlayer NewOwner);
