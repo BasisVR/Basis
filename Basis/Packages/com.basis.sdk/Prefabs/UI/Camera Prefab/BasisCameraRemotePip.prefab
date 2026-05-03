@@ -170,6 +170,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4b355e1b85093ad498ddcd545d771614, type: 3}
       insertIndex: -1
       addedObject: {fileID: -8591703167862994223}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4b355e1b85093ad498ddcd545d771614, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5024696988595838632}
   m_SourcePrefab: {fileID: 100100000, guid: 4b355e1b85093ad498ddcd545d771614, type: 3}
 --- !u!1 &4618425975380129956 stripped
 GameObject:
@@ -189,6 +192,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::BasisCameraRemotePip
   PlayerID: 0
+--- !u!114 &5024696988595838632
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4618425975380129956}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4c71224a0906ad4181ecaa7e38adda9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::BasisGazeTarget
+  Priority: 3
+  FocusPoint: {x: 0, y: 0, z: 0}
+  UseTransformPosition: 1
 --- !u!4 &5430251912966988318 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4b355e1b85093ad498ddcd545d771614, type: 3}

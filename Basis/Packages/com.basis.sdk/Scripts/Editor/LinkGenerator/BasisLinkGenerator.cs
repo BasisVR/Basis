@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEditor.Compilation;
 using System.Reflection;
@@ -67,32 +68,32 @@ namespace LinkerGenerator
             var guidAsmdefNameCache = new Dictionary<string, string>(StringComparer.Ordinal);
 
             // 1) Unity player assemblies (already excludes tests)
-            if (Cancelable("Link.xml", 0.03f, "Collecting Unity player assemblies...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.03f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.collectingPlayerAssemblies"))) return;
             AddUnityPlayerAssemblies(assemblies);
 
             // 2) Scan .dll file names (union, not target filtered) but exclude obvious editor/test names
-            if (Cancelable("Link.xml", 0.10f, "Scanning DLLs in Assets/...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.10f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.scanningAssets"))) return;
             AddDllNamesUnderRoot(ScanAssetsRoot, assemblies, progressBase: 0.10f, progressSpan: 0.22f);
 
-            if (Cancelable("Link.xml", 0.32f, "Scanning DLLs in Packages/...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.32f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.scanningPackages"))) return;
             AddDllNamesUnderRoot(ScanPackagesRoot, assemblies, progressBase: 0.32f, progressSpan: 0.22f);
 
             // 3) Parse .rsp references
-            if (Cancelable("Link.xml", 0.54f, "Parsing .rsp files...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.54f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.parsingRspFiles"))) return;
             AddRspAssemblyNames(ScanAssetsRoot, assemblies, progressBase: 0.54f, progressSpan: 0.08f);
             AddRspAssemblyNames(ScanPackagesRoot, assemblies, progressBase: 0.62f, progressSpan: 0.08f);
 
             // 4) Parse asmdefs (resolve GUID references, include precompiledReferences)
-            if (Cancelable("Link.xml", 0.70f, "Parsing .asmdef files (resolving GUID refs)...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.70f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.parsingAsmdefFiles"))) return;
             AddAsmdefReferences(ScanAssetsRoot, assemblies, guidAsmdefNameCache, progressBase: 0.70f, progressSpan: 0.10f);
             AddAsmdefReferences(ScanPackagesRoot, assemblies, guidAsmdefNameCache, progressBase: 0.80f, progressSpan: 0.10f);
 
             // 5) If cilbox is in the project, include assemblies for all whitelisted types
-            if (Cancelable("Link.xml", 0.90f, "Checking cilbox whitelisted types...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.90f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.checkingCilbox"))) return;
             AddCilboxWhitelistedTypeAssemblies(assemblies);
 
             // Final filtering pass (removes editor/test/invalid like GUID:...)
-            if (Cancelable("Link.xml", 0.92f, "Filtering + sorting assemblies...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.92f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.filteringAssemblies"))) return;
             var sorted = new List<string>(assemblies.Count);
             foreach (var a in assemblies)
             {
@@ -102,16 +103,16 @@ namespace LinkerGenerator
             }
             sorted.Sort(StringComparer.Ordinal);
 
-            if (Cancelable("Link.xml", 0.95f, "Building XML...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.95f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.buildingXml"))) return;
             string xml = BuildLinkerXml(sorted);
 
-            if (Cancelable("Link.xml", 0.97f, "Ensuring output folder exists...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.97f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.ensuringFolder"))) return;
             EnsureParentFolderExists(OutputLinkXml);
 
-            if (Cancelable("Link.xml", 0.985f, "Saving link.xml (only if changed)...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.985f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.savingLinkXml"))) return;
             bool wrote = WriteIfChanged(OutputLinkXml, xml);
 
-            if (Cancelable("Link.xml", 0.995f, "Importing link.xml...")) return;
+            if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.995f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.importingLinkXml"))) return;
             if (wrote)
                 AssetDatabase.ImportAsset(OutputLinkXml, ImportAssetOptions.ForceUpdate);
 
@@ -147,7 +148,7 @@ namespace LinkerGenerator
                 {
                     lastUi = now;
                     float p = Mathf.Clamp01(progressBase + progressSpan * 0.5f);
-                    if (EditorUtility.DisplayCancelableProgressBar("Link.xml", $"Checking DLL: {path}", p))
+                    if (EditorUtility.DisplayCancelableProgressBar(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), BasisEditorLocalization.Get("sdk.linkGenerator.progress.checkingDll", path), p))
                         throw new OperationCanceledException();
                 }
 
@@ -175,7 +176,7 @@ namespace LinkerGenerator
                 {
                     lastUi = now;
                     float p = Mathf.Clamp01(progressBase + progressSpan * 0.5f);
-                    if (EditorUtility.DisplayCancelableProgressBar("Link.xml", $"Parsing RSP: {rspPath}", p))
+                    if (EditorUtility.DisplayCancelableProgressBar(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), BasisEditorLocalization.Get("sdk.linkGenerator.progress.parsingRsp", rspPath), p))
                         throw new OperationCanceledException();
                 }
 
@@ -209,7 +210,7 @@ namespace LinkerGenerator
                 {
                     lastUi = now;
                     float p = Mathf.Clamp01(progressBase + progressSpan * 0.5f);
-                    if (EditorUtility.DisplayCancelableProgressBar("Link.xml", $"Parsing asmdef: {asmdefPath}", p))
+                    if (EditorUtility.DisplayCancelableProgressBar(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), BasisEditorLocalization.Get("sdk.linkGenerator.progress.parsingAsmdef", asmdefPath), p))
                         throw new OperationCanceledException();
                 }
 

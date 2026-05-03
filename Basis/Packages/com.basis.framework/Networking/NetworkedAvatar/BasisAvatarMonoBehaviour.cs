@@ -31,7 +31,6 @@ namespace Basis.Scripts.Behaviour
         /// data that came out of the server reduction system
         /// </summary>
         /// <param name="buffer"></param>
-        /// <param name="IsADifferentAvatarLocally">Indicates if the avatar worn matches or not</param>
         public virtual void OnNetworkMessageServerReductionSystem(byte[] buffer)
         {
            // BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageServerReductionSystem", this.gameObject, BasisDebug.LogTag.Avatar);

@@ -9,6 +9,10 @@ public class BasisOpenXRTracker : BasisInput
     public InputActionProperty Position;
     public InputActionProperty Rotation;
     public InputDevice InputDevice;
+
+    private InputAction _positionAction;
+    private InputAction _rotationAction;
+
     public void Initialize(InputDevice device, string usage, string UniqueID, string UnUniqueID, string subSystems)
     {
         InputDevice = device;
@@ -18,6 +22,9 @@ public class BasisOpenXRTracker : BasisInput
         Rotation = new InputActionProperty(new InputAction($"Rotation_{usage}", InputActionType.Value, $"<{layoutName}>{{{usage}}}/deviceRotation", expectedControlType: "Quaternion"));
         Position.action.Enable();
         Rotation.action.Enable();
+
+        _positionAction = Position.action;
+        _rotationAction = Rotation.action;
     }
     private void DisableInputActions()
     {
@@ -34,14 +41,14 @@ public class BasisOpenXRTracker : BasisInput
     }
     public override void RenderPollData()
     {
-        if (Position.action != null)
+        if (_positionAction != null)
         {
-            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, Position.action.ReadValue<Vector3>());
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _positionAction.ReadValue<Vector3>());
         }
 
-        if (Rotation.action != null)
+        if (_rotationAction != null)
         {
-            UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();
+            UnscaledDeviceCoord.rotation = _rotationAction.ReadValue<Quaternion>();
         }
 
         ConvertToScaledDeviceCoord();

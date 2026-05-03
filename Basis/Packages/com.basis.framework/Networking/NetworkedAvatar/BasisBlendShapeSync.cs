@@ -12,7 +12,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     /// Piggybacks on player movement (AdditionalAvatarData, Channel 2, unreliable).
     ///
     /// Automatically filters out viseme/blink/laughter blendshapes — those are
-    /// reconstructed remotely by uLipSync and BasisRemoteFaceManagement.
+    /// reconstructed remotely by OpenLipSync and BasisRemoteFaceManagement.
     /// Only face-tracking blendshapes are synced.
     ///
     /// Timing is driven by BasisBlendShapeDriver (Simulate/Apply pattern),
@@ -142,7 +142,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             if (avatar != null)
             {
-                // Exclude viseme shapes (reconstructed by remote uLipSync)
+                // Exclude viseme shapes (reconstructed by remote OpenLipSync)
                 if (TargetMesh == avatar.FaceVisemeMesh && avatar.FaceVisemeMovement != null)
                 {
                     for (int i = 0; i < avatar.FaceVisemeMovement.Length; i++)

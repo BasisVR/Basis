@@ -1,22 +1,17 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
-using System.Collections.Generic;
+using UnityEngine;
 namespace Basis.Scripts.Drivers
 {
     /// <summary>
-    /// Connects a lip-sync pipeline to an avatar's facial rig by mapping phonemes/visemes to
-    /// blendshapes and forwarding audio samples to the lip-sync engine.
-    /// Supports dual backends: OpenLipSync (ONNX neural, 15 visemes) for the first 30 players,
-    /// and uLipSync (MFCC, 6 phonemes) as fallback for the rest.
+    /// Connects an OpenLipSync (ONNX neural, 15 visemes) inference context to an avatar's
+    /// facial rig. Contexts are created lazily when the player enters viseme range and
+    /// released when they leave range, so only nearby players consume ONNX resources.
+    /// This scales to 1000+ players because distant players never allocate inference contexts.
     /// </summary>
     [System.Serializable]
     public class BasisAudioAndVisemeDriver
     {
-        /// <summary>
-        /// Smoothing amount used by uLipSync (implementation-specific).
-        /// </summary>
-        public int smoothAmount = 70;
-
         /// <summary>
         /// Per-viseme availability flags derived from <c>Avatar.FaceVisemeMovement</c>.
         /// </summary>
@@ -38,26 +33,43 @@ namespace Basis.Scripts.Drivers
         public BasisAvatar Avatar;
 
         /// <summary>
-        /// uLipSync core component that analyses incoming audio to phoneme weights.
-        /// Always initialized as fallback.
-        /// </summary>
-        public BasisUlipSync uLipSync = new BasisUlipSync();
-
-        /// <summary>
         /// OpenLipSync context for neural-network-based viseme processing (15 visemes).
-        /// Null if this player does not have an OpenLipSync slot.
+        /// Created lazily when the player enters viseme range. Null when out of range
+        /// or if the player doesn't have an OpenLipSync slot.
         /// </summary>
         public BasisOpenLipSyncContext openLipSyncContext;
 
         /// <summary>
-        /// True if this player is using OpenLipSync instead of uLipSync.
+        /// True when this driver currently holds an OpenLipSync inference context.
         /// </summary>
         public bool UseOpenLipSync;
 
         /// <summary>
-        /// Table mapping phoneme strings (e.g., "A", "E") to avatar blendshape indices.
+        /// True if this player's avatar supports OpenLipSync (has a viseme mesh).
+        /// The actual context is created lazily when they enter viseme range.
         /// </summary>
-        public List<BasisPhonemeBlendShapeInfo> phonemeBlendShapeTable = new List<BasisPhonemeBlendShapeInfo>();
+        public bool EligibleForOpenLipSync;
+
+        /// <summary>
+        /// Cached player entity ID, captured on the main thread during TryInitialize.
+        /// Used for lazy OpenLipSync slot acquisition which can be triggered from the
+        /// audio thread (where GetEntityId() cannot be called).
+        /// </summary>
+        private EntityId _cachedEntityId;
+
+        /// <summary>
+        /// Set by the audio thread when audio arrives while eligible for OpenLipSync
+        /// but no context exists yet. Checked by Simulate() on the main thread to
+        /// perform the actual context creation (which requires main thread access).
+        /// </summary>
+        private volatile bool _needsContext;
+
+        /// <summary>
+        /// Reference to the player's AudioSource. When disabled (player not speaking),
+        /// the OpenLipSync context is released back to the pool for other speakers.
+        /// Set by BasisAudioReceiver when the audio source is loaded.
+        /// </summary>
+        public AudioSource TrackedAudioSource;
 
         /// <summary>
         /// Tracks whether initialization completed successfully.
@@ -70,9 +82,9 @@ namespace Basis.Scripts.Drivers
         public int HashInstanceID = -1;
 
         /// <summary>
-        /// Attempts to configure lip-sync for the given player and avatar.
-        /// First tries to acquire an OpenLipSync slot (30-player cap), then always
-        /// initializes uLipSync as fallback.
+        /// Configures lip-sync for the given player and avatar. Records eligibility
+        /// for OpenLipSync but defers context creation until the player is within
+        /// viseme range (lazy allocation for 1000+ player scaling).
         /// </summary>
         public bool TryInitialize(BasisPlayer BasisPlayer)
         {
@@ -88,86 +100,42 @@ namespace Basis.Scripts.Drivers
             {
                 return false;
             }
+            if (Avatar.FaceVisemeMesh.sharedMesh == null)
+            {
+                return false;
+            }
             if (Avatar.FaceVisemeMesh.sharedMesh.blendShapeCount == 0)
             {
                 return false;
             }
 
-            // --- OpenLipSync slot acquisition ---
-            // Release any previous OpenLipSync slot
-            if (openLipSyncContext != null)
-            {
-                BasisOpenLipSyncDriver.ReleaseSlot(BasisPlayer.GetEntityId());
-                openLipSyncContext.Dispose();
-                openLipSyncContext = null;
-            }
+            // Cache entity ID on the main thread — needed later for lazy slot
+            // acquisition which can be triggered from the audio thread.
+            _cachedEntityId = BasisPlayer.GetEntityId();
 
-            // Always try OpenLipSync first; only fall back to uLipSync on failure
+            // Listen for slot evictions (e.g. MaxSlots lowered at runtime)
+            BasisOpenLipSyncDriver.OnSlotRevoked -= OnOpenLipSyncSlotRevoked;
+            BasisOpenLipSyncDriver.OnSlotRevoked += OnOpenLipSyncSlotRevoked;
+
+            // Release any previous context.
+            ReleaseOpenLipSyncContext();
+
+            // Check eligibility but DON'T create context yet (lazy allocation).
+            // Context will be created when the player enters viseme range.
             UseOpenLipSync = false;
+            EligibleForOpenLipSync = false;
             if (!BasisOpenLipSyncDriver.IsInitialized)
             {
                 BasisOpenLipSyncDriver.Initialize();
             }
-            if (BasisOpenLipSyncDriver.TryAcquireSlot(BasisPlayer.GetEntityId(), out uint ctxHandle))
-            {
-                openLipSyncContext = new BasisOpenLipSyncContext();
-                openLipSyncContext.Initialize(Avatar, ctxHandle);
-                UseOpenLipSync = true;
-            }
+            EligibleForOpenLipSync = BasisOpenLipSyncDriver.IsInitialized;
 
-            // --- uLipSync initialization (always, as fallback) ---
-            phonemeBlendShapeTable.Clear();
-            uLipSync.skinnedMeshRenderer = Avatar.FaceVisemeMesh;
-            uLipSync.sharedMesh = Avatar.FaceVisemeMesh.sharedMesh;
-            uLipSync.blendShapeCount = uLipSync.sharedMesh.blendShapeCount;
-            // Build viseme availability and phoneme mapping table
             BlendShapeCount = Avatar.FaceVisemeMovement.Length;
             HasViseme = new bool[BlendShapeCount];
-
             for (int Index = 0; Index < BlendShapeCount; Index++)
             {
-                if (Avatar.FaceVisemeMovement[Index] != -1)
-                {
-                    int FaceVisemeIndex = Avatar.FaceVisemeMovement[Index];
-                    HasViseme[Index] = true;
-
-                    // Map selected indices to uLipSync phoneme keys
-                    switch (Index)
-                    {
-                        case 10:
-                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "A", blendShape = FaceVisemeIndex });
-                            break;
-                        case 12:
-                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "I", blendShape = FaceVisemeIndex });
-                            break;
-                        case 14:
-                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "U", blendShape = FaceVisemeIndex });
-                            break;
-                        case 11:
-                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "E", blendShape = FaceVisemeIndex });
-                            break;
-                        case 13:
-                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "O", blendShape = FaceVisemeIndex });
-                            break;
-                        case 7:
-                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "S", blendShape = FaceVisemeIndex });
-                            break;
-                    }
-                }
-                else
-                {
-                    HasViseme[Index] = false;
-                }
+                HasViseme[Index] = Avatar.FaceVisemeMovement[Index] != -1;
             }
-
-            // Push mappings into uLipSyncBlendShape
-            uLipSync.CachedblendShapes.Clear();
-            for (int i = 0; i < phonemeBlendShapeTable.Count; i++)
-            {
-                var info = phonemeBlendShapeTable[i];
-                uLipSync.AddBlendShape(info.phoneme, info.blendShape);
-            }
-            uLipSync.BlendShapeInfos = uLipSync.CachedblendShapes.ToArray();
 
             // Wire visibility and lifetime callbacks (only once per renderer instance)
             if (Player != null && Player.FaceRenderer != null && HashInstanceID != Player.FaceRenderer.GetEntityId())
@@ -175,41 +143,98 @@ namespace Basis.Scripts.Drivers
                 Player.FaceRenderer.Check += UpdateFaceVisibility;
                 Player.FaceRenderer.DestroyCalled += TryShutdown;
             }
-            uLipSync.Initalize();
 
             UpdateFaceVisibility(Player.FaceIsVisible);
             WasSuccessful = true;
             return true;
         }
-        public void OnDestroy()
+
+        /// <summary>
+        /// Lazily acquires an OpenLipSync context for this player.
+        /// Called when audio arrives and the player is in viseme range.
+        /// </summary>
+        private bool TryAcquireOpenLipSyncContext()
         {
-            // Clean up OpenLipSync slot
+            if (!EligibleForOpenLipSync || Avatar == null) return false;
+            if (openLipSyncContext != null) return true; // already have one
+
+            if (BasisOpenLipSyncDriver.TryAcquireSlot(_cachedEntityId, out uint ctxHandle))
+            {
+                openLipSyncContext = new BasisOpenLipSyncContext();
+                openLipSyncContext.Initialize(Avatar, ctxHandle);
+                UseOpenLipSync = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Releases the OpenLipSync context back to the pool.
+        /// Called when the player leaves viseme range or on cleanup.
+        /// </summary>
+        private void ReleaseOpenLipSyncContext()
+        {
             if (openLipSyncContext != null)
             {
-                if (Player != null)
-                {
-                    BasisOpenLipSyncDriver.ReleaseSlot(Player.GetEntityId());
-                }
+                openLipSyncContext.ZeroVisemes();
+                BasisOpenLipSyncDriver.ReleaseSlot(_cachedEntityId);
                 openLipSyncContext.Dispose();
                 openLipSyncContext = null;
                 UseOpenLipSync = false;
             }
-            uLipSync.DisposeBuffers();
+        }
+
+        /// <summary>
+        /// Called by BasisOpenLipSyncDriver when this player's slot is forcefully revoked.
+        /// The backend context is already destroyed — just clean up the local state.
+        /// </summary>
+        private void OnOpenLipSyncSlotRevoked(EntityId entityId)
+        {
+            if (!entityId.Equals(_cachedEntityId) || openLipSyncContext == null) return;
+
+            openLipSyncContext.ZeroVisemes();
+            openLipSyncContext.Dispose();
+            openLipSyncContext = null;
+            UseOpenLipSync = false;
+        }
+
+        public void OnDestroy()
+        {
+            BasisOpenLipSyncDriver.OnSlotRevoked -= OnOpenLipSyncSlotRevoked;
+            ReleaseOpenLipSyncContext();
         }
         public void Simulate(float DeltaTime)
         {
-            if (uLipSyncEnabledState == false || !InVisemeRange)
+            if (FaceVisible == false || !InVisemeRange)
             {
+                // Player left viseme range — release the OpenLipSync context
+                // so the slot can be used by a closer player.
+                if (!InVisemeRange && openLipSyncContext != null)
+                {
+                    ReleaseOpenLipSyncContext();
+                }
                 return;
+            }
+
+            // Release context back to pool when audio source is inactive (player not speaking)
+            if (UseOpenLipSync && openLipSyncContext != null && TrackedAudioSource != null && !TrackedAudioSource.enabled)
+            {
+                ReleaseOpenLipSyncContext();
+            }
+
+            // Lazy context acquisition on the main thread.
+            // The audio thread sets _needsContext when non-silent audio arrives
+            // while in range but no OpenLipSync context exists yet.
+            if (_needsContext)
+            {
+                _needsContext = false;
+                TryAcquireOpenLipSyncContext();
             }
 
             if (UseOpenLipSync && openLipSyncContext != null)
             {
                 openLipSyncContext.Simulate(DeltaTime);
-            }
-            else
-            {
-                uLipSync.Simulate(DeltaTime);
             }
         }
         public void Apply()
@@ -217,10 +242,6 @@ namespace Basis.Scripts.Drivers
             if (UseOpenLipSync && openLipSyncContext != null)
             {
                 openLipSyncContext.Apply();
-            }
-            else
-            {
-                uLipSync.Apply();
             }
         }
         /// <summary>
@@ -233,23 +254,31 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Current enabled state of lip-sync processing based on face visibility.
+        /// Current enabled state of viseme processing based on face renderer visibility.
         /// </summary>
-        public bool uLipSyncEnabledState = true;
+        public bool FaceVisible = true;
 
         /// <summary>
         /// Set by BasisTransmissionResults: false when the player is too far away
         /// for lip-sync to be visually meaningful (beyond half the hearing range).
         /// Checked in Simulate and ProcessAudioSamples to skip expensive work.
+        /// Mutate via <see cref="BasisRemoteAudioDriver.SetVisemeRange"/> so the
+        /// active-driver list stays in sync.
         /// </summary>
         public volatile bool InVisemeRange = true;
 
+        // Slot in BasisRemoteAudioDriver.Drivers; -1 when not registered.
+        [System.NonSerialized] internal int RegisteredIndex = -1;
+
+        // Slot in BasisRemoteAudioDriver.ActiveDrivers; -1 when out of range.
+        [System.NonSerialized] internal int ActiveIndex = -1;
+
         /// <summary>
-        /// Callback that updates whether lip-sync is active based on face visibility.
+        /// Callback that updates whether viseme processing is active based on face visibility.
         /// </summary>
         private void UpdateFaceVisibility(bool State)
         {
-            uLipSyncEnabledState = State;
+            FaceVisible = State;
             openLipSyncContext?.SetFaceVisible(State);
         }
 
@@ -269,11 +298,12 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Forwards raw audio samples to the active lip-sync backend when enabled and initialized.
+        /// Forwards raw audio samples to the OpenLipSync context when enabled and initialized.
+        /// Lazily acquires an OpenLipSync context when the player first enters viseme range.
         /// </summary>
         public void ProcessAudioSamples(float[] data, int channels, int Length)
         {
-            if (uLipSyncEnabledState == false || !InVisemeRange)
+            if (FaceVisible == false || !InVisemeRange)
             {
                 return;
             }
@@ -283,13 +313,17 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
+            // Signal the main thread to acquire a pooled OpenLipSync context.
+            // ProcessAudioSamples is only called when the AudioSource is enabled
+            // (player is speaking), so any call here is a valid acquire signal.
+            if (EligibleForOpenLipSync && !UseOpenLipSync)
+            {
+                _needsContext = true;
+            }
+
             if (UseOpenLipSync && openLipSyncContext != null)
             {
                 openLipSyncContext.ProcessAudioSamples(data, channels, Length);
-            }
-            else
-            {
-                uLipSync.OnDataReceived(data, channels, Length);
             }
         }
 
@@ -298,19 +332,9 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void OnPausedEvent(bool IsPaused)
         {
-            if (IsPaused)
+            if (IsPaused && UseOpenLipSync && openLipSyncContext != null)
             {
-                if (UseOpenLipSync && openLipSyncContext != null)
-                {
-                    openLipSyncContext.ZeroVisemes();
-                }
-                else
-                {
-                    foreach (BasisPhonemeBlendShapeInfo blendshapeIndex in phonemeBlendShapeTable)
-                    {
-                        Avatar.FaceVisemeMesh.SetBlendShapeWeight(blendshapeIndex.blendShape, 0);
-                    }
-                }
+                openLipSyncContext.ZeroVisemes();
             }
         }
     }

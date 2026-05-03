@@ -2,7 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace HVR.Basis.Comms
+namespace HVR.Basis.Comms.Editor
 {
     [CustomEditor(typeof(StreamedAvatarFeatureAssist))]
     public class StreamedAvatarFeatureAssistEditor : UnityEditor.Editor

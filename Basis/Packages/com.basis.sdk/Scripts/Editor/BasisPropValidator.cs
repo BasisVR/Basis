@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -66,37 +67,37 @@ public class BasisPropValidator
 
         if (Prop == null)
         {
-            errors.Add(new BasisValidationIssue("Prop is missing.", ValidationCategory.Configuration, null));
+            errors.Add(new BasisValidationIssue(BasisEditorLocalization.Get("sdk.propValidator.propMissing"), ValidationCategory.Configuration, null));
             return false;
         }
-        passes.Add("Prop is assigned.");
+        passes.Add(BasisEditorLocalization.Get("sdk.propValidator.propAssigned"));
 
         // Check bundle name
         if (string.IsNullOrEmpty(Prop.BasisBundleDescription.AssetBundleName))
         {
             errors.Add(new BasisValidationIssue(
-                "Prop Name is empty.", ValidationCategory.Configuration,
+                BasisEditorLocalization.Get("sdk.propValidator.bundleName.empty"), ValidationCategory.Configuration,
                 FixSetDefaultBundleName,
-                "Set name from GameObject"
+                BasisEditorLocalization.Get("sdk.propValidator.bundleName.fix")
             ));
         }
         else
         {
-            passes.Add("Prop Name is set.");
+            passes.Add(BasisEditorLocalization.Get("sdk.propValidator.bundleName.set"));
         }
 
         // Check bundle description
         if (string.IsNullOrEmpty(Prop.BasisBundleDescription.AssetBundleDescription))
         {
             errors.Add(new BasisValidationIssue(
-                "Prop Description is empty.", ValidationCategory.Configuration,
+                BasisEditorLocalization.Get("sdk.propValidator.bundleDescription.empty"), ValidationCategory.Configuration,
                 FixSetDefaultDescription,
-                "Set default description"
+                BasisEditorLocalization.Get("sdk.propValidator.bundleDescription.fix")
             ));
         }
         else
         {
-            passes.Add("Prop Description is set.");
+            passes.Add(BasisEditorLocalization.Get("sdk.propValidator.bundleDescription.set"));
         }
 
         // Check for missing scripts
@@ -109,16 +110,16 @@ public class BasisPropValidator
             {
                 hasMissingScripts = true;
                 errors.Add(new BasisValidationIssue(
-                    $"Missing script references found on {child.gameObject.name}.",
+                    BasisEditorLocalization.Get("sdk.propValidator.missingScripts", child.gameObject.name),
                     ValidationCategory.MissingReference,
                     () => RemoveMissingScripts(Prop.gameObject),
-                    "Remove missing scripts"
+                    BasisEditorLocalization.Get("sdk.propValidator.missingScripts.fix")
                 ));
             }
         }
         if (!hasMissingScripts)
         {
-            passes.Add("No missing scripts.");
+            passes.Add(BasisEditorLocalization.Get("sdk.propValidator.missingScripts.passed"));
         }
 
         // Check colliders are on the Interactable layer
@@ -126,7 +127,7 @@ public class BasisPropValidator
         Collider[] colliders = Prop.GetComponentsInChildren<Collider>(true);
         if (colliders.Length == 0)
         {
-            passes.Add("No colliders to check.");
+            passes.Add(BasisEditorLocalization.Get("sdk.propValidator.colliders.none"));
         }
         else
         {
@@ -142,15 +143,15 @@ public class BasisPropValidator
             {
                 string names = string.Join(", ", wrongLayerColliders.ConvertAll(c => c.gameObject.name));
                 suggestions.Add(new BasisValidationIssue(
-                    $"Colliders not on the Interactable layer: {names}",
+                    BasisEditorLocalization.Get("sdk.propValidator.colliders.wrongLayer", names),
                     ValidationCategory.Configuration,
                     () => FixCollidersToInteractableLayer(Prop, interactableLayer),
-                    "Set all colliders to Interactable layer"
+                    BasisEditorLocalization.Get("sdk.propValidator.colliders.wrongLayer.fix")
                 ));
             }
             else
             {
-                passes.Add("All colliders are on the Interactable layer.");
+                passes.Add(BasisEditorLocalization.Get("sdk.propValidator.colliders.passed"));
             }
         }
 
@@ -161,7 +162,7 @@ public class BasisPropValidator
             if (assetBundleObject.UseCustomPassword && string.IsNullOrEmpty(assetBundleObject.UserSelectedPassword))
             {
                 errors.Add(new BasisValidationIssue(
-                    "Can not have custom password be empty!",
+                    BasisEditorLocalization.Get("sdk.propValidator.password.empty"),
                     ValidationCategory.Security, null
                 ));
             }
@@ -234,7 +235,7 @@ public class BasisPropValidator
         errorPanel.style.borderBottomWidth = 2;
         errorPanel.style.borderBottomColor = new StyleColor(Color.red);
 
-        errorMessageLabel = new Label("No Errors");
+        errorMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.error.empty"));
         errorMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         errorMessageLabel.style.whiteSpace = WhiteSpace.Normal;
         errorPanel.Add(errorMessageLabel);
@@ -264,7 +265,7 @@ public class BasisPropValidator
         passedPanel.style.borderBottomWidth = 2;
         passedPanel.style.borderBottomColor = new StyleColor(Color.green);
 
-        passedMessageLabel = new Label("No Passed Checks");
+        passedMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.passed.empty"));
         passedMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         passedPanel.Add(passedMessageLabel);
 
@@ -290,7 +291,7 @@ public class BasisPropValidator
         suggestionPanel.style.borderBottomWidth = 2;
         suggestionPanel.style.borderBottomColor = new StyleColor(Color.yellow);
 
-        Label header = new Label("Suggestions");
+        Label header = new Label(BasisEditorLocalization.Get("sdk.validator.suggestions.header"));
         header.style.unityFontStyleAndWeight = FontStyle.Bold;
         header.style.color = new StyleColor(Color.white);
         suggestionPanel.Add(header);

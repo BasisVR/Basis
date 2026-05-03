@@ -17,7 +17,7 @@ public partial class BasisProjectSetup : EditorWindow
 
     private enum PlatformChoice { Windows, Linux, Android }
     private enum FirstRunKind { None = 0, Avatar = 1, World = 2, Project = 3 }
-    private enum Tab { QuickStart, BuildModules, PlatformQuality, PlayXR, Docs, Scenes, About }
+    private enum Tab { Funding, BuildModules, PlatformQuality, PlayXR, Docs, Scenes }
 
     // Persisted prefs
     private const string PREF_LAST_PLATFORM = "BasisPlatformSwitcher_LastPlatform";
@@ -47,9 +47,9 @@ public partial class BasisProjectSetup : EditorWindow
 
     // Links
     private const string BASIS_SITE = "https://basisvr.org/";
-    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org/docs";
-    private const string BASIS_AVATARS = "https://docs.basisvr.org/docs/avatar";
-    private const string BASIS_WORLDS = "https://docs.basisvr.org/docs/world";
+    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org";
+    private const string BASIS_AVATARS = "https://docs.basisvr.org/en/docs/avatar";
+    private const string BASIS_WORLDS = "https://docs.basisvr.org/en/docs/world";
     private const string BASIS_DONATE = "https://opencollective.com/basis";
     private const string UNITY_HUB_ADD_MODULES = "https://docs.unity3d.com/hub/manual/AddModules.html";
 
@@ -87,9 +87,9 @@ public partial class BasisProjectSetup : EditorWindow
     private bool? _hasIl2cppStandalone;
     private bool? _hasIl2cppAndroid;
 
-    // Quality presets (1=Desktop, 2=Quest/Android)
-    private const int QUALITY_DESKTOP = 1;
-    private const int QUALITY_ANDROID = 2;
+    // Quality presets — must match indices in BasisQualitySettingsGuard
+    private const int QUALITY_DESKTOP = 0;
+    private const int QUALITY_ANDROID = 1;
 
     // Package manager state
     private bool? _metaXrInstalled;          // null = unknown (scanning), true/false known
@@ -112,7 +112,8 @@ public partial class BasisProjectSetup : EditorWindow
 
     private void OnEnable()
     {
-        _tab = (Tab)EditorPrefs.GetInt(PREF_TAB, (int)Tab.QuickStart);
+        _tab = (Tab)EditorPrefs.GetInt(PREF_TAB, (int)Tab.Funding);
+        if (!Enum.IsDefined(typeof(Tab), _tab)) _tab = Tab.Funding;
         _choice = (PlatformChoice)EditorPrefs.GetInt(PREF_LAST_PLATFORM, (int)PlatformChoice.Windows);
 
         if (!EditorPrefs.GetBool(PREF_HAS_OPENED, false))
@@ -137,12 +138,15 @@ public partial class BasisProjectSetup : EditorWindow
         _sceneInit = LoadSceneAsset(SCENE_INIT);
         _sceneDemo = LoadSceneAsset(SCENE_DEMO);
         _sceneInteractables = LoadSceneAsset(SCENE_INTERACTABLES);
+
+        OnFundingEnable();
     }
 
     private void OnDisable()
     {
         EditorApplication.update -= PollPackageOperations;
         EditorApplication.update -= Repaint;
+        OnFundingDisable();
     }
 
     // ────────────────────────────── IMGUI root ──────────────────────────────
@@ -161,7 +165,7 @@ public partial class BasisProjectSetup : EditorWindow
         }
 
         var newTab = (Tab)GUILayout.Toolbar((int)_tab,
-            new[] { "Quick Start", "Build & Modules", "Platform & Quality", "Play & XR", "Docs", "Scenes", "About" });
+            new[] { "Welcome", "Build & Modules", "Platform & Quality", "Play & XR", "Docs", "Scenes" });
         if (newTab != _tab)
         {
             _tab = newTab;
@@ -171,13 +175,12 @@ public partial class BasisProjectSetup : EditorWindow
         EditorGUILayout.Space(6);
         switch (_tab)
         {
-            case Tab.QuickStart: DrawTab_QuickStart(); break;
             case Tab.BuildModules: DrawTab_BuildModules(); break;
             case Tab.PlatformQuality: DrawTab_PlatformQuality(); break;
             case Tab.PlayXR: DrawTab_PlayXR(); break;
             case Tab.Docs: DrawTab_Docs(); break;
             case Tab.Scenes: DrawTab_Scenes(); break;
-            case Tab.About: DrawTab_About(); break;
+            case Tab.Funding: DrawTab_Funding(); break;
         }
 
         GUILayout.FlexibleSpace();
@@ -195,57 +198,6 @@ public partial class BasisProjectSetup : EditorWindow
 
     // ───────────────────────────────── TABS ─────────────────────────────────
 
-    private void DrawTab_QuickStart()
-    {
-        FoldoutBox("First Run & Docs", FOLD_QS_FIRST_RUN, () =>
-        {
-            EditorGUILayout.LabelField("Jump straight into the right docs.", EditorStyles.wordWrappedLabel);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Avatar Docs")) Application.OpenURL(BASIS_AVATARS);
-                if (GUILayout.Button("World Docs")) Application.OpenURL(BASIS_WORLDS);
-                if (GUILayout.Button("Getting Started")) Application.OpenURL(BASIS_GETTING_STARTED);
-                if (GUILayout.Button("basisvr.org")) Application.OpenURL(BASIS_SITE);
-            }
-
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("What are you setting up today?", EditorStyles.miniBoldLabel);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                DrawFirstRunRadio(FirstRunKind.Avatar, "Avatar");
-                DrawFirstRunRadio(FirstRunKind.World, "World");
-                DrawFirstRunRadio(FirstRunKind.Project, "Project");
-            }
-
-            if (GUI.changed)
-                EditorPrefs.SetInt(PREF_FIRST_RUN_KIND, (int)_firstRunKind);
-
-            if (_firstRunKind == FirstRunKind.Avatar || _firstRunKind == FirstRunKind.World)
-            {
-                EditorGUILayout.HelpBox(
-                    "Install Windows, Linux, and Android Build Support via Unity Hub. Use IL2CPP for best compatibility (required on Android).",
-                    MessageType.Info);
-            }
-        });
-
-        if (_firstRunKind == FirstRunKind.Avatar || _firstRunKind == FirstRunKind.World || _firstRunKind == FirstRunKind.Project)
-        {
-            EditorGUILayout.Space(6);
-            DrawFirstRunSteps(); // 🔧 new
-        }
-
-        FoldoutBox("How We Are Funded", FOLD_QS_FUNDING, () =>
-        {
-            EditorGUILayout.LabelField(
-                "BasisVR is sustained by community donations and collaborations. Funds are pooled to solve shared problems (networking, embodiment, tooling).",
-                EditorStyles.wordWrappedLabel);
-#if UNITY_2021_2_OR_NEWER
-            if (EditorGUILayout.LinkButton("Support Basis on Open Collective")) Application.OpenURL(BASIS_DONATE);
-#else
-            if (GUILayout.Button("Support Basis on Open Collective", EditorStyles.linkLabel)) Application.OpenURL(BASIS_DONATE);
-#endif
-        });
-    }
     private void DrawFirstRunSteps()
     {
         using (new EditorGUILayout.VerticalScope("box"))
@@ -606,21 +558,6 @@ public partial class BasisProjectSetup : EditorWindow
         FoldoutBox("Initial Scene & Build Setup", FOLD_SCENES_LIST, DrawInitialSceneAndBuildSetup);
     }
 
-    private void DrawTab_About()
-    {
-        FoldoutBox("About Basis", FOLD_ABOUT_INFO, () =>
-        {
-            EditorGUILayout.LabelField(
-                "Creator-First, Creative Freedom — Basis helps you stand up VR projects quickly.\n" +
-                "Open-Source (MIT). Strong systems for networking, input, and presence.",
-                EditorStyles.wordWrappedLabel);
-#if UNITY_2021_2_OR_NEWER
-            if (EditorGUILayout.LinkButton("Visit basisvr.org")) Application.OpenURL(BASIS_SITE);
-#else
-            if (GUILayout.Button("Visit basisvr.org", EditorStyles.linkLabel)) Application.OpenURL(BASIS_SITE);
-#endif
-        });
-    }
     private const string AsmdefRuntimeTemplate = @"{
   ""name"": ""YourGame.Runtime"",
     ""references"": [

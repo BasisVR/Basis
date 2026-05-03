@@ -3,9 +3,12 @@ using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Threading;
+using System.Threading.Tasks;
 using TMPro;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Basis.Scripts.UI.NamePlate
@@ -21,9 +24,11 @@ namespace Basis.Scripts.UI.NamePlate
         private int _isVisible = 1; // 1 = true, 0 = false
         public bool IsVisible
         {
-            get => Interlocked.CompareExchange(ref _isVisible, 1, 1) == 1;
-            private set => Interlocked.Exchange(ref _isVisible, value ? 1 : 0);
+            get => Volatile.Read(ref _isVisible) == 1;
+            private set => Volatile.Write(ref _isVisible, value ? 1 : 0);
         }
+        /// <summary>Raw int for job gather — avoids bool→ushort conversion.</summary>
+        internal int IsVisibleRaw => Volatile.Read(ref _isVisible);
 
         public bool HasProgressBarVisible = false;
         public Mesh bakedMesh;
@@ -65,6 +70,7 @@ namespace Basis.Scripts.UI.NamePlate
         private bool isPulsingTalk;
         private double talkStartTime;
         private Color talkColorCached;
+        private float4 talkColorFloat4;
         /// <summary>
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
@@ -91,11 +97,68 @@ namespace Basis.Scripts.UI.NamePlate
             {
                 gameObject.SetActive(false);
             }
+
+            _ = LoadBlockStateAsync();
+        }
+
+        /// <summary>
+        /// Re-evaluates and applies this nameplate's active state via
+        /// <see cref="BasisRemoteNamePlateDriver.ShouldPlateBeActive"/>.
+        /// </summary>
+        public void RefreshActiveState()
+        {
+            gameObject.SetActive(BasisRemoteNamePlateDriver.ShouldPlateBeActive(this));
+        }
+
+        /// <summary>
+        /// Reads the persisted block state for this player and refreshes the
+        /// nameplate's active state. Fire-and-forget from <see cref="Initalize"/>.
+        /// </summary>
+        private async Task LoadBlockStateAsync()
+        {
+            if (BasisRemotePlayer == null || string.IsNullOrEmpty(BasisRemotePlayer.UUID)) return;
+
+            var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(BasisRemotePlayer.UUID);
+            if (this == null || BasisRemotePlayer == null) return;
+
+            BasisRemotePlayer.IsBlocked = settings.IsBlocked;
+            RefreshActiveState();
         }
         private void SetPlateColor(Color c)
         {
+            // Failed-load state pins the plate to red regardless of what the caller asked for.
+            if (BasisRemotePlayer != null && BasisRemotePlayer.HasFailedAvatarLoadGlobally)
+            {
+                c = BasisRemoteNamePlateDriver.StaticFailedLoadColor;
+            }
             mpb.SetColor(ColorId, c);
             Renderer.SetPropertyBlock(mpb, 0);
+        }
+
+        /// <summary>
+        /// Immediately re-applies the plate color based on the current failed-load state.
+        /// Call when the player's <see cref="BasisRemotePlayer.HasFailedAvatarLoadGlobally"/>
+        /// flag changes so the visual updates without waiting for the next pulse tick.
+        /// </summary>
+        public void RefreshFailedStateColor()
+        {
+            if (mpb == null) return;
+            if (BasisRemotePlayer == null) return;
+
+            if (BasisRemotePlayer.HasFailedAvatarLoadGlobally)
+            {
+                // Kill any in-flight talking pulse so the job doesn't keep writing over red.
+                isPulsingTalk = false;
+                Color red = BasisRemoteNamePlateDriver.StaticFailedLoadColor;
+                SetPlateColor(red);
+                CurrentColor = red;
+            }
+            else
+            {
+                Color normal = BasisRemoteNamePlateDriver.StaticNormalColor;
+                SetPlateColor(normal);
+                CurrentColor = normal;
+            }
         }
         private void CreateChatTextDisplay()
         {
@@ -201,7 +264,7 @@ namespace Basis.Scripts.UI.NamePlate
         private void UpdateFaceVisibility(bool State)
         {
             IsVisible = State;
-            gameObject.SetActive(BasisRemoteNamePlateDriver.ShouldPlateBeActive(this));
+            RefreshActiveState();
 
             // If we get hidden, just stop the pulse (avoids Update doing work on hidden plate)
             if (!State)
@@ -210,18 +273,71 @@ namespace Basis.Scripts.UI.NamePlate
             }
         }
 
+        /// <summary>
+        /// Returns true when audio from this player is currently audible to the local
+        /// user. Main-thread only — touches Unity components (audio source volume).
+        /// </summary>
+        /// <remarks>
+        /// Covers every state that should prevent a talking pulse:
+        /// face-visibility, failed-load pin, block state (local or remote temp),
+        /// audio receiver presence, out-of-range (signalled by <c>HasAudioSource==false</c>,
+        /// since <see cref="Basis.Scripts.Networking.Receivers.BasisAudioReceiver.StopAudio"/>
+        /// fires on the out-of-range transition), and individual-player mute
+        /// (<c>audioSource.volume==0</c>, set by <c>ChangeRemotePlayersVolumeSettings</c>).
+        /// Continuous audio streams from speakers the user can't hear will repeatedly
+        /// fail this check and so never latch the pulse.
+        /// </remarks>
+        public bool CanCurrentlyBeHeard()
+        {
+            if (!IsVisible) return false;
+
+            var player = BasisRemotePlayer;
+            if (player == null) return false;
+            if (player.HasFailedAvatarLoadGlobally) return false;
+            if (player.IsEffectivelyBlocked) return false;
+
+            var receiver = player.NetworkReceiver;
+            if (receiver == null) return false;
+
+            var audio = receiver.AudioReceiverModule;
+            if (audio == null || !audio.HasAudioSource) return false;
+
+            var src = audio.audioSource;
+            if (src == null || src.volume <= 0f) return false;
+
+            return true;
+        }
+
         public void OnAudioReceived()
         {
+            // ── Network-thread fast path ──
+            // Fires at audio packet rate (~50Hz per speaker). Bail using only
+            // thread-safe reads — Unity component access (audioSource.volume) is
+            // deferred to the enqueued main-thread lambda below.
             if (!IsVisible) return;
+
+            var player = BasisRemotePlayer;
+            if (player == null) return;
+            if (player.HasFailedAvatarLoadGlobally) return;
+            if (player.IsEffectivelyBlocked) return;
+
+            var receiver = player.NetworkReceiver;
+            if (receiver == null) return;
+            var audio = receiver.AudioReceiverModule;
+            // HasAudioSource is volatile — false while out of range, not yet loaded, or unloaded.
+            if (audio == null || !audio.HasAudioSource) return;
 
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
                 if (this == null || !isActiveAndEnabled) return;
 
-                // pick the "talking" pulse color
-                talkColorCached = BasisRemotePlayer.OutOfRangeFromLocal
-                    ? BasisRemoteNamePlateDriver.StaticOutOfRangeColor
-                    : BasisRemoteNamePlateDriver.StaticIsTalkingColor;
+                // Re-check on the main thread: state may have changed during the
+                // enqueue + drain window, and this covers the volume check that
+                // can't be done safely off the main thread.
+                if (!CanCurrentlyBeHeard()) return;
+
+                talkColorCached = BasisRemoteNamePlateDriver.StaticIsTalkingColor;
+                talkColorFloat4 = new float4(talkColorCached.r, talkColorCached.g, talkColorCached.b, talkColorCached.a);
 
                 // Start pulse timeline
                 talkStartTime = Time.timeAsDouble;
@@ -233,7 +349,7 @@ namespace Basis.Scripts.UI.NamePlate
         }
         internal bool GetIsPulsingForJob() => isPulsingTalk;
         internal double GetTalkStartTimeForJob() => talkStartTime;
-        internal Color GetTalkColorForJob() => talkColorCached;
+        internal float4 GetTalkColorFloat4ForJob() => talkColorFloat4;
         internal void StopPulseFromJob()
         {
             isPulsingTalk = false;
@@ -241,6 +357,10 @@ namespace Basis.Scripts.UI.NamePlate
 
         internal void ApplyColorFromJob(Color c)
         {
+            if (BasisRemotePlayer != null && BasisRemotePlayer.HasFailedAvatarLoadGlobally)
+            {
+                c = BasisRemoteNamePlateDriver.StaticFailedLoadColor;
+            }
             SetPlateColor(c);
             CurrentColor = c;
         }
@@ -333,6 +453,11 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public override bool CanHover(BasisInput input)
         {
+            if (BasisRemoteNamePlateDriver.NamePlateHoverMenuOnly && BasisMainMenu.Instance == null)
+            {
+                return false;
+            }
+
             return InteractableEnabled &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&

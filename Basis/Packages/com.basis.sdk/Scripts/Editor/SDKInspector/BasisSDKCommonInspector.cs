@@ -1,10 +1,252 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using Basis.Editor.Localization;
 using UnityEditor;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 public static class BasisSDKCommonInspector
 {
+    // Source of truth for preset labels lives in BasisContentTagPresets so the client
+    // filter UI surfaces the same options creators see in this inspector.
+    private static string[] ContentTagPresets => BasisContentTagPresets.All;
+
+    public static void CreateContentTagsFoldout(VisualElement parent, BasisContentBase content)
+    {
+        if (content == null) return;
+        if (content.BasisBundleDescription == null)
+        {
+            content.BasisBundleDescription = new BasisBundleDescription();
+        }
+        if (content.BasisBundleDescription.Tags == null)
+        {
+            content.BasisBundleDescription.Tags = new string[0];
+        }
+
+        Foldout foldout = new Foldout
+        {
+            text = BasisEditorLocalization.Get("sdk.commonInspector.contentTags.foldout"),
+            value = false,
+        };
+        parent.Add(foldout);
+
+        Label help = new Label(BasisEditorLocalization.Get("sdk.commonInspector.contentTags.help"))
+        {
+            style =
+            {
+                whiteSpace = WhiteSpace.Normal,
+                marginBottom = 6,
+                opacity = 0.85f,
+            },
+        };
+        foldout.Add(help);
+
+        Label presetLabel = new Label(BasisEditorLocalization.Get("sdk.commonInspector.contentTags.presets")) { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 4 } };
+        foldout.Add(presetLabel);
+
+        for (int i = 0; i < ContentTagPresets.Length; i++)
+        {
+            string preset = ContentTagPresets[i];
+            Toggle toggle = new Toggle(preset)
+            {
+                value = ContainsTag(content.BasisBundleDescription.Tags, preset),
+            };
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                Undo.RecordObject(content, "Toggle Content Tag");
+                if (evt.newValue)
+                {
+                    content.BasisBundleDescription.Tags = AppendIfMissing(content.BasisBundleDescription.Tags, preset);
+                }
+                else
+                {
+                    content.BasisBundleDescription.Tags = RemoveTag(content.BasisBundleDescription.Tags, preset);
+                }
+                MarkContentDirty(content);
+            });
+            foldout.Add(toggle);
+        }
+
+        Label customLabel = new Label(BasisEditorLocalization.Get("sdk.commonInspector.contentTags.custom")) { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 8 } };
+        foldout.Add(customLabel);
+
+        VisualElement addRow = new VisualElement
+        {
+            style = { flexDirection = FlexDirection.Row, marginBottom = 4 },
+        };
+        TextField customField = new TextField
+        {
+            style = { flexGrow = 1, marginRight = 4 },
+        };
+        customField.textEdition.placeholder = BasisEditorLocalization.Get("sdk.commonInspector.contentTags.placeholder");
+        Button addButton = new Button { text = BasisEditorLocalization.Get("sdk.commonInspector.contentTags.add") };
+
+        VisualElement chipsRow = new VisualElement
+        {
+            style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap },
+        };
+
+        Action rebuildChips = null;
+        rebuildChips = () =>
+        {
+            chipsRow.Clear();
+            string[] tags = content?.BasisBundleDescription?.Tags;
+            if (tags == null) return;
+            for (int i = 0; i < tags.Length; i++)
+            {
+                string tag = tags[i];
+                if (IsPreset(tag)) continue; // presets render as toggles above
+                VisualElement chip = BuildTagChip(tag, () =>
+                {
+                    Undo.RecordObject(content, "Remove Content Tag");
+                    content.BasisBundleDescription.Tags = RemoveTag(content.BasisBundleDescription.Tags, tag);
+                    MarkContentDirty(content);
+                    rebuildChips();
+                });
+                chipsRow.Add(chip);
+            }
+        };
+
+        Action commitCustomTag = () =>
+        {
+            string raw = customField.value;
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            string trimmed = raw.Trim();
+            Undo.RecordObject(content, "Add Content Tag");
+            content.BasisBundleDescription.Tags = AppendIfMissing(content.BasisBundleDescription.Tags, trimmed);
+            MarkContentDirty(content);
+            customField.SetValueWithoutNotify(string.Empty);
+            rebuildChips();
+        };
+
+        addButton.clicked += () => commitCustomTag();
+        customField.RegisterCallback<KeyDownEvent>(evt =>
+        {
+            if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+            {
+                commitCustomTag();
+                evt.StopPropagation();
+            }
+        });
+
+        addRow.Add(customField);
+        addRow.Add(addButton);
+        foldout.Add(addRow);
+        foldout.Add(chipsRow);
+        rebuildChips();
+    }
+
+    private static VisualElement BuildTagChip(string label, Action onRemove)
+    {
+        VisualElement chip = new VisualElement
+        {
+            style =
+            {
+                flexDirection = FlexDirection.Row,
+                alignItems = Align.Center,
+                marginRight = 4,
+                marginBottom = 4,
+                paddingLeft = 6,
+                paddingRight = 2,
+                paddingTop = 2,
+                paddingBottom = 2,
+                backgroundColor = new StyleColor(new Color(0.27f, 0.31f, 0.40f, 1f)),
+                borderTopLeftRadius = 8,
+                borderTopRightRadius = 8,
+                borderBottomLeftRadius = 8,
+                borderBottomRightRadius = 8,
+            },
+        };
+        Label text = new Label(label) { style = { color = Color.white, marginRight = 4 } };
+        Button remove = new Button(() => onRemove?.Invoke())
+        {
+            text = "x",
+            style =
+            {
+                width = 18,
+                height = 18,
+                paddingLeft = 0,
+                paddingRight = 0,
+                paddingTop = 0,
+                paddingBottom = 0,
+                marginLeft = 0,
+                marginRight = 0,
+                marginTop = 0,
+                marginBottom = 0,
+                fontSize = 10,
+            },
+        };
+        chip.Add(text);
+        chip.Add(remove);
+        return chip;
+    }
+
+    private static bool ContainsTag(string[] tags, string candidate)
+    {
+        if (tags == null) return false;
+        for (int i = 0; i < tags.Length; i++)
+        {
+            if (string.Equals(tags[i], candidate, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    private static string[] AppendIfMissing(string[] tags, string tag)
+    {
+        if (tags == null)
+        {
+            return new[] { tag };
+        }
+        if (ContainsTag(tags, tag))
+        {
+            return tags;
+        }
+        var next = new string[tags.Length + 1];
+        Array.Copy(tags, next, tags.Length);
+        next[tags.Length] = tag;
+        return next;
+    }
+
+    private static string[] RemoveTag(string[] tags, string tag)
+    {
+        if (tags == null || tags.Length == 0) return tags ?? new string[0];
+        int kept = 0;
+        for (int i = 0; i < tags.Length; i++)
+        {
+            if (!string.Equals(tags[i], tag, StringComparison.OrdinalIgnoreCase)) kept++;
+        }
+        if (kept == tags.Length) return tags;
+        var next = new string[kept];
+        int j = 0;
+        for (int i = 0; i < tags.Length; i++)
+        {
+            if (!string.Equals(tags[i], tag, StringComparison.OrdinalIgnoreCase))
+            {
+                next[j++] = tags[i];
+            }
+        }
+        return next;
+    }
+
+    private static bool IsPreset(string tag)
+    {
+        for (int i = 0; i < ContentTagPresets.Length; i++)
+        {
+            if (string.Equals(ContentTagPresets[i], tag, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    private static void MarkContentDirty(BasisContentBase content)
+    {
+        EditorUtility.SetDirty(content);
+        if (PrefabUtility.IsPartOfPrefabInstance(content))
+        {
+            PrefabUtility.RecordPrefabInstancePropertyModifications(content);
+        }
+    }
+
     public static void CreateBuildOptionsDropdown(VisualElement parent)
     {
         BasisAssetBundleObject assetBundleObject =
@@ -13,17 +255,17 @@ public static class BasisSDKCommonInspector
 
         Foldout foldout = new Foldout
         {
-            text = "Build AssetBundle Options",
+            text = BasisEditorLocalization.Get("sdk.commonInspector.buildOptions.foldout"),
             value = false
         };
         parent.Add(foldout);
 
-        Toggle toggle = new Toggle("Use Custom Password")
+        Toggle toggle = new Toggle(BasisEditorLocalization.Get("sdk.commonInspector.useCustomPassword"))
         {
             value = assetBundleObject.UseCustomPassword
         };
 
-        TextField passwordField = new TextField("Password")
+        TextField passwordField = new TextField(BasisEditorLocalization.Get("sdk.commonInspector.password"))
         {
             value = assetBundleObject.UserSelectedPassword,
             isPasswordField = true // masks input
@@ -101,7 +343,7 @@ public static class BasisSDKCommonInspector
     {
         BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
         // Multi-select dropdown (Foldout with Toggles)
-        Foldout buildTargetFoldout = new Foldout { text = "Select Build Targets", value = false }; // Expanded by default
+        Foldout buildTargetFoldout = new Foldout { text = BasisEditorLocalization.Get("sdk.commonInspector.buildTargets.foldout"), value = false }; // Expanded by default
         parent.Add(buildTargetFoldout);
 
         foreach (var target in BasisSDKConstants.allowedTargets)

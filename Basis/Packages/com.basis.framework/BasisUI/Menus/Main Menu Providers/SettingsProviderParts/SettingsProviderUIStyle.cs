@@ -67,38 +67,38 @@ public static class SettingsProviderUIStyle
         PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
         PanelElementDescriptor descriptor = tab.Descriptor;
         descriptor.SetIcon(AddressableAssets.Sprites.Settings);
-        descriptor.SetTitle("UI Style");
+        descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.title"));
 
         RectTransform container = descriptor.ContentParent;
 
         // Background Colors
-        AddColorPicker(container, "Background 1", UiPaletteStyle.BackgroundColor1, BasisSettingsDefaults.UIPaletteBG1);
-        AddColorPicker(container, "Background 2", UiPaletteStyle.BackgroundColor2, BasisSettingsDefaults.UIPaletteBG2);
-        AddColorPicker(container, "Background 3", UiPaletteStyle.BackgroundColor3, BasisSettingsDefaults.UIPaletteBG3);
-        AddColorPicker(container, "Layer", UiPaletteStyle.LayerColor, BasisSettingsDefaults.UIPaletteLayer);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.background1"), UiPaletteStyle.BackgroundColor1, BasisSettingsDefaults.UIPaletteBG1);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.background2"), UiPaletteStyle.BackgroundColor2, BasisSettingsDefaults.UIPaletteBG2);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.background3"), UiPaletteStyle.BackgroundColor3, BasisSettingsDefaults.UIPaletteBG3);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.layer"), UiPaletteStyle.LayerColor, BasisSettingsDefaults.UIPaletteLayer);
 
         // UI Colors
-        AddColorPicker(container, "Accent", UiPaletteStyle.AccentColor, BasisSettingsDefaults.UIPaletteAccent);
-        AddColorPicker(container, "Button", UiPaletteStyle.ButtonColor, BasisSettingsDefaults.UIPaletteButton);
-        AddColorPicker(container, "Input Field", UiPaletteStyle.InputFieldColor, BasisSettingsDefaults.UIPaletteInputField);
-        AddColorPicker(container, "Scrollbar", UiPaletteStyle.Scrollbar, BasisSettingsDefaults.UIPaletteScrollbar);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.accent"), UiPaletteStyle.AccentColor, BasisSettingsDefaults.UIPaletteAccent);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.button"), UiPaletteStyle.ButtonColor, BasisSettingsDefaults.UIPaletteButton);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.inputField"), UiPaletteStyle.InputFieldColor, BasisSettingsDefaults.UIPaletteInputField);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.scrollbar"), UiPaletteStyle.Scrollbar, BasisSettingsDefaults.UIPaletteScrollbar);
 
         // Font Colors
-        AddColorPicker(container, "Font Primary", UiPaletteStyle.FontColor1, BasisSettingsDefaults.UIPaletteFont1);
-        AddColorPicker(container, "Font Secondary", UiPaletteStyle.FontColor2, BasisSettingsDefaults.UIPaletteFont2);
-        AddColorPicker(container, "Font Tertiary", UiPaletteStyle.FontColor3, BasisSettingsDefaults.UIPaletteFont3);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.fontPrimary"), UiPaletteStyle.FontColor1, BasisSettingsDefaults.UIPaletteFont1);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.fontSecondary"), UiPaletteStyle.FontColor2, BasisSettingsDefaults.UIPaletteFont2);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.fontTertiary"), UiPaletteStyle.FontColor3, BasisSettingsDefaults.UIPaletteFont3);
 
         // Status Colors
-        AddColorPicker(container, "Success", UiPaletteStyle.SuccessColor, BasisSettingsDefaults.UIPaletteSuccess);
-        AddColorPicker(container, "Caution", UiPaletteStyle.CautionColor, BasisSettingsDefaults.UIPaletteCaution);
-        AddColorPicker(container, "Danger", UiPaletteStyle.DangerColor, BasisSettingsDefaults.UIPaletteDanger);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.success"), UiPaletteStyle.SuccessColor, BasisSettingsDefaults.UIPaletteSuccess);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.caution"), UiPaletteStyle.CautionColor, BasisSettingsDefaults.UIPaletteCaution);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.danger"), UiPaletteStyle.DangerColor, BasisSettingsDefaults.UIPaletteDanger);
 
         // Other Colors
-        AddColorPicker(container, "White", UiPaletteStyle.WhiteColor, BasisSettingsDefaults.UIPaletteWhite);
-        AddColorPicker(container, "Black", UiPaletteStyle.BlackColor, BasisSettingsDefaults.UIPaletteBlack);
-        AddColorPicker(container, "Clear", UiPaletteStyle.ClearColor, BasisSettingsDefaults.UIPaletteClear);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.white"), UiPaletteStyle.WhiteColor, BasisSettingsDefaults.UIPaletteWhite);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.black"), UiPaletteStyle.BlackColor, BasisSettingsDefaults.UIPaletteBlack);
+        AddColorPicker(container, Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.clear"), UiPaletteStyle.ClearColor, BasisSettingsDefaults.UIPaletteClear);
 
-        SettingsProvider.AddResetPageButton(container, "UI Style", ResetUIStyleDefaults);
+        SettingsProvider.AddResetPageButton(container, "settings.tab.uistyle", ResetUIStyleDefaults);
         descriptor.ForceRebuild();
         return tab;
     }
@@ -134,12 +134,12 @@ public static class SettingsProviderUIStyle
 
         PanelSlider hueSlider = PanelSlider.CreateNew(content);
         hueSlider.SetSliderSettings(new PanelSlider.SliderSettings(
-            "Hue", "", 0, 360, true, 0, ValueDisplayMode.Degrees));
+            Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.hue"), "", 0, 360, true, 0, ValueDisplayMode.Degrees));
         hueSlider.SetValueWithoutNotify(Mathf.RoundToInt(h * 360));
 
         // Hex text field
         PanelTextField hexField = PanelTextField.CreateNewEntry(content);
-        hexField.Descriptor.SetTitle("Hex");
+        hexField.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("settings.uiStyle.hex"));
         hexField.AssignBinding(binding);
         if (hexField._inputField != null)
         {

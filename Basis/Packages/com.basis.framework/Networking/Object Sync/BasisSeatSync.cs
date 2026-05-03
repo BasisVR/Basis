@@ -172,6 +172,13 @@ public class BasisSeatSync : BasisNetworkBehaviour
 
     public override void OnDestroy()
     {
+        // Force-eject local player if they're still in this seat
+        if (IsLocallyEntered())
+        {
+            Stand();
+        }
+        // Clear any remote player position overrides
+        ClearCurrentRemote();
         BasisLocalPlayer.JustBeforeNetworkApply.RemoveAction(20, ProvideRemotePlayerTarget);
         if (Seat != null)
         {

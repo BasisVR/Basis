@@ -8,6 +8,8 @@ public enum BasisCameraButtonAction
     ToggleNameplates,
     ToggleDesktopOutput,
     ToggleSelfie,
+    ToggleAutoLevel,
+    ToggleVRHandheldSmoothing,
     DepthModeAuto,
     DepthModeManual
 }

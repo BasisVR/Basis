@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Concurrent;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
@@ -8,6 +10,33 @@ using UnityEngine;
 
 public static class BasisNetworkHandleRemoval
 {
+    // Pending player-lifecycle work (joins + leaves), drained on the main thread
+    // with a per-frame budget so a mass join/leave event can't stall the renderer.
+    // Single queue preserves temporal order between joins and leaves.
+    public static readonly ConcurrentQueue<Action> LifecycleQueue = new();
+
+    /// <summary>
+    /// Maximum number of join/leave actions to process per main-thread frame.
+    /// Tuned for ~1ms of work at ~60fps; raise for faster catch-up, lower for smoother frames.
+    /// </summary>
+    public static int LifecycleBudgetPerFrame = 20;
+
+    /// <summary>
+    /// Drains up to <paramref name="maxPerFrame"/> queued lifecycle actions on the main thread.
+    /// Called every Update from BasisEventDriver.
+    /// </summary>
+    public static int ProcessLifecycleQueue(int maxPerFrame)
+    {
+        int processed = 0;
+        while (processed < maxPerFrame && LifecycleQueue.TryDequeue(out Action action))
+        {
+            try { action.Invoke(); }
+            catch (Exception ex) { BasisDebug.LogError($"Lifecycle action failed: {ex}"); }
+            processed++;
+        }
+        return processed;
+    }
+
     public static void HandleDisconnection(NetPacketReader reader)
     {
         while (reader.AvailableBytes >= sizeof(ushort))
@@ -30,11 +59,9 @@ public static class BasisNetworkHandleRemoval
             return;
         }
 
-        // Queue removal on Unity's main thread
-        BasisDeviceManagement.EnqueueOnMainThread(() =>
-        {
-            HandleDisconnectIdImmediate(disconnectedID);
-        });
+        // Defer to the budgeted main-thread queue so a burst of disconnects doesn't
+        // chain N synchronous GameObject.Destroy / avatar-unload calls in one frame.
+        LifecycleQueue.Enqueue(() => HandleDisconnectIdImmediate(disconnectedID));
     }
 
     public static void HandleDisconnectIdImmediate(ushort disconnectedID)

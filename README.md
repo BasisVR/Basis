@@ -21,11 +21,9 @@ Our goal is to help equip VR Creators, so we can accelerate the growth of VR.
 
 <img src="./Basis/Images/Banner.png" alt="Banner" width="550" height="155">
 
-We are actively working on Basis. If you like what you see, please consider contributing to the GitHub in any way you can.
+We are actively working on Basis. If you like what you see, please consider contributing in any way you can.
 
  ## How you can Contribute
-
-After a year of development, we have only recently put Basis on GitHub, which means that while everything is operational, we still have to work on fixing plenty of bugs.
 
 Do you have a suggestion for improving Basis? Please fork the repo and create a pull request! You can also open an issue with the tag “improvement”.
 Not sure how to contribute, but still wanting to help out? Consider donating! We appreciate any help possible.
@@ -90,13 +88,13 @@ This would not be possible without the following:
 - [opussharp](https://github.com/AvionBlock/OpusSharp)
 - [opus](https://github.com/xiph/opus)
 - [Steam Audio](https://github.com/ValveSoftware/steam-audio)
-- [Kevin Iglesias Animations](https://www.keviniglesias.com/)
 - [Unity Starter Assets - ThirdPerson](https://assetstore.unity.com/packages/essentials/starter-assets-thirdperson-updates-in-new-charactercontroller-pa-196526)
 - [RNNoise](https://github.com/xiph/rnnoise?tab=BSD-3-Clause-1-ov-file)
 - [RNNoise.Net](https://github.com/Yellow-Dog-Man/RNNoise.Net)
 - [unity](https://unity.com/)
 - [ionic icons](https://github.com/ionic-team/ionicons?ref=svgrepo.com)
 - [LiteNetLib](https://github.com/RevenantX/LiteNetLib)
+- [K4os.Compression.LZ4](https://github.com/MiloszKrajewski/K4os.Compression.LZ4)
 - [cilbox](https://github.com/cnlohr/cilbox)
 
 ## Third-Party Code and Trademarks
@@ -127,12 +125,12 @@ This project includes third-party software under the following licenses:
 - [Generator.Equals](https://github.com/diegofrata/Generator.Equals) - Copyright Diego Frata. See `Basis/Packages/org.basisvr.generator.equals/LICENSE`
 - [SimpleBase](https://github.com/ssg/SimpleBase) - Copyright Sedat Kapanoglu. See `Basis/Packages/org.basisvr.simplebase/LICENSE`
 - [ZeroMessenger](https://github.com/Cysharp/ZeroMessenger) - Copyright 2024 Annulus Games. See `Basis/Packages/com.basis.zeromessenger/LICENSE.md`
+- [K4os.Compression.LZ4](https://github.com/MiloszKrajewski/K4os.Compression.LZ4) - Copyright 2017 Milosz Krajewski. See `Basis/Packages/org.basisvr.k4os.compression.lz4/LICENSE`
 - [UnityJigglePhysics](https://github.com/naelstrof/UnityJigglePhysics) - MIT licensed upstream
 - [AudioLink](https://github.com/llealloo/vrc-udon-audio-link) - MIT licensed upstream
 - [cilbox](https://github.com/cnlohr/cilbox) - MIT licensed upstream
 
 ### Other
-- [Kevin Iglesias Basic Motions v1](https://www.keviniglesias.com/) - v1 release. Note: v2 changed license terms; this project uses the v1 version
 - [HVRBasisNDMF](https://github.com/hai-vr/ndmf) - See upstream for license terms
 
 ### Trademarks

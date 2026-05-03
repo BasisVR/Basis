@@ -14,7 +14,7 @@
         </engine:Foldout>
         <engine:Label name="ErrorMessage" enabled="false" style="white-space: normal; color: rgb(255, 0, 0);" />
         <engine:VisualElement name="bundlebutton" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0.54); -unity-text-outline-color: rgb(24, 24, 24); -unity-text-outline-width: 0; border-bottom-color: rgba(0, 0, 0, 0); letter-spacing: 0; border-top-width: 0; border-right-width: 0; border-bottom-width: 10px; border-left-width: 0; border-left-color: rgba(0, 0, 0, 0); border-right-color: rgba(0, 0, 0, 0); border-top-color: rgba(0, 0, 0, 0); text-overflow: ellipsis; border-top-left-radius: 5px; border-top-right-radius: 5px; border-bottom-right-radius: 5px; border-bottom-left-radius: 5px; margin-bottom: 5px; background-size: 100% 200%; flex-direction: row;">
-            <engine:Button text="Create Prop Bee FIle" name="BuildButton" style="background-image: none; background-size: 20px 20%; background-position-x: left 0; background-position-y: center 0; -unity-background-scale-mode: stretch-to-fill; opacity: 1; flex-direction: row; flex-shrink: 5; flex-grow: 5;"/>
+            <engine:Button text="Create Prop .BEE File" name="BuildButton" style="background-image: none; background-size: 20px 20%; background-position-x: left 0; background-position-y: center 0; -unity-background-scale-mode: stretch-to-fill; opacity: 1; flex-direction: row; flex-shrink: 5; flex-grow: 5;"/>
         </engine:VisualElement>
     </engine:VisualElement>
 </engine:UXML>

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk;
 using UnityEngine;
@@ -5,7 +6,7 @@ using UnityEngine.SceneManagement;
 using static BundledContentHolder;
 public static class BasisBundleLoadAsset
 {
-    public static async Task<GameObject> LoadFromWrapper(GameObject DisabledGameobject,BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false)
+    public static async Task<GameObject> LoadFromWrapper(GameObject DisabledGameobject,BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
     {
         bool Incremented = false;
         if (BasisLoadableBundle.AssetBundle != null)
@@ -41,7 +42,8 @@ public static class BasisBundleLoadAsset
                             ChecksRequired.UseContentRemoval = UseContentRemoval;
                             ChecksRequired.RemoveColliders = DestroyColliders;
                             ChecksRequired.ChangeCollidersToCorrectLayer = ChangeColidersToCorrectLayer;
-                            GameObject CreatedCopy = ContentPoliceControl.ContentControl(DisabledGameobject,loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, LayerMask.NameToLayer("IgnoredByInteractable"));
+                            ChecksRequired.ScrubPersistentUnityEvents = true;
+                            GameObject CreatedCopy = ContentPoliceControl.ContentControl(DisabledGameobject,loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, LayerMask.NameToLayer("IgnoredByInteractable"), HarvestedHeadChop);
                             Incremented = BasisLoadableBundle.Increment();
                             string InstanceID = BasisGenerateUniqueID.GenerateUniqueID();
                             CreatedCopy.name = InstanceID + Incremented;
@@ -100,6 +102,7 @@ public static class BasisBundleLoadAsset
             {
                 ChecksRequired ChecksRequired = new ChecksRequired();
                 ChecksRequired.UseContentRemoval = true;
+                ChecksRequired.ScrubPersistentUnityEvents = true;
                 ContentPoliceControl.ContentControl(ChecksRequired, Selector.World, loadedScene, true);
                 AssignedIncrement = bundle.Increment();
                 if (MakeActiveScene)
@@ -108,6 +111,9 @@ public static class BasisBundleLoadAsset
                     BasisDebug.Log("Scene set as active: " + loadedScene.name);
                 }
                 BasisDebug.Log("Scene loaded: " + loadedScene.name + " (MakeActive=" + MakeActiveScene + ", Incremented=" + AssignedIncrement + ")");
+#if UNITY_BUNDLEUNLOAD
+                bundle.ReleaseBundleBackingStore();
+#endif
                 progressCallback.ReportProgress(UniqueID, 100, "loading scene"); // Set progress to 100 when done
                 return loadedScene;
             }

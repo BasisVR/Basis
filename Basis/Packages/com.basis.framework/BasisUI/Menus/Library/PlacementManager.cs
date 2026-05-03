@@ -375,8 +375,17 @@ namespace Basis.BasisUI
 
         public static void UpdateSelectionOutline()
         {
-            if (selectedGameObjectRef == null || selectionGameObjectRef == null || selectedInstance == null)
+            if (selectedInstance == null)
                 return;
+
+            // selected target was destroyed externally; self-heal so the outline doesn't linger
+            if (selectedGameObjectRef == null)
+            {
+                RemoveActiveSelection();
+                return;
+            }
+
+            if (selectionGameObjectRef == null) return;
 
             BasisBundleConnector connector = selectedInstance.bundleConnector;
             if (connector == null) return;
@@ -396,8 +405,6 @@ namespace Basis.BasisUI
 
         public static void RemoveActiveSelection()
         {
-            if (selectedInstance == null) return;
-
             try { BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(122, UpdateSelectionOutline); } catch { }
 
             if (selectionGameObjectRef != null)

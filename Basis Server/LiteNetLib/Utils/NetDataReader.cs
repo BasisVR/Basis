@@ -755,11 +755,18 @@ namespace LiteNetLib.Utils
         /// </summary>
         public string PeekString()
         {
+            // Defensive: callers (e.g., HandleDisconnectionReason) sometimes
+            // hand us a buffer that doesn't actually contain a length-prefixed
+            // string. Validate before reading so a malformed additional-data
+            // payload doesn't tip GetString into ArgumentOutOfRangeException.
+            if (AvailableBytes < 2) return string.Empty;
             ushort size = PeekUShort();
             if (size == 0)
                 return string.Empty;
 
             int actualSize = size - 1;
+            if (actualSize < 0 || _position + 2 + actualSize > _data.Length)
+                return string.Empty;
             return NetDataWriter.uTF8Encoding.GetString(_data, _position + 2, actualSize);
         }
 

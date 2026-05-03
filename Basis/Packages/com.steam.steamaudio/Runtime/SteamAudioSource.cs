@@ -180,6 +180,34 @@ namespace SteamAudio
         private IntPtr mCachedPathingProbes;
 
         private bool mCacheDirty = true;
+        private bool mInitialized = false;
+
+        // ── Deferred initialization ──────────────────────────────────
+        // iplSourceCreate is ~1ms per source. With 1k sources spawning,
+        // that's a 1s+ hitch. Awake does only a cheap transform cache;
+        // the heavy native init is queued and spread across frames.
+        private static readonly System.Collections.Generic.Queue<SteamAudioSource> s_pendingInit
+            = new System.Collections.Generic.Queue<SteamAudioSource>();
+
+        /// <summary>Max native source creations per frame. Tune to taste.</summary>
+        public static int InitBudgetPerFrame = 16;
+
+        /// <summary>
+        /// Call from SteamAudioManager.Update (or similar) to drain the init queue
+        /// over multiple frames instead of all-at-once in Awake.
+        /// </summary>
+        public static void ProcessPendingInits()
+        {
+            int budget = InitBudgetPerFrame;
+            while (budget > 0 && s_pendingInit.Count > 0)
+            {
+                var source = s_pendingInit.Dequeue();
+                // Unity fake-null: destroyed MonoBehaviours compare == null but aren't C# null.
+                if (source == null || source.mInitialized) continue;
+                source.HeavyInit();
+                budget--;
+            }
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void MarkCacheDirty()
@@ -189,10 +217,26 @@ namespace SteamAudio
 
         private void Awake()
         {
+            // Cheap: just cache transform. Heavy native init is deferred.
             if (transform != null)
             {
                 Transform = this.transform;
             }
+            if (mAudioSource == null)
+            {
+                TryGetComponent<AudioSource>(out mAudioSource);
+            }
+            s_pendingInit.Enqueue(this);
+        }
+
+        /// <summary>
+        /// Performs the expensive native initialization (iplSourceCreate, audio engine setup).
+        /// Called either from the frame-budgeted queue or on-demand via EnsureInitialized().
+        /// </summary>
+        private void HeavyInit()
+        {
+            if (mInitialized) return;
+            mInitialized = true;
 
             mSimulator = SteamAudioManager.Simulator;
 
@@ -207,16 +251,11 @@ namespace SteamAudio
                 mAudioEngineSource.Initialize(gameObject);
                 mAudioEngineSource.UpdateParameters(this);
             }
-            if (mAudioSource == null)
-            {
-                TryGetComponent<AudioSource>(out mAudioSource);
-            }
+
             mThis = GCHandle.Alloc(this);
 
-            // Default model cached once
             mDefaultAttenuationModel.type = DistanceAttenuationModelType.Default;
 
-            // Only set up curve attenuation callback when it's actually needed (and keep it ready)
             if (mSettings.audioEngine == AudioEngineType.Unity &&
                 distanceAttenuation &&
                 distanceAttenuationInput == DistanceAttenuationInput.CurveDriven &&
@@ -235,10 +274,28 @@ namespace SteamAudio
             }
 
             MarkCacheDirty();
+
+            // If OnEnable already fired before init completed, do the registration now.
+            if (isActiveAndEnabled && mSource != null)
+            {
+                mSource.AddToSimulator(mSimulator);
+                SteamAudioManager.AddSource(this);
+                IsUnityEngineUsed = SteamAudioSettings.Singleton.audioEngine == AudioEngineType.Unity;
+            }
+        }
+
+        /// <summary>
+        /// Forces immediate initialization if not yet done (e.g., code needs the source NOW).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void EnsureInitialized()
+        {
+            if (!mInitialized) HeavyInit();
         }
 
         private void Start()
         {
+            if (!mInitialized) return;
             if (mAudioEngineSource != null)
             {
                 mAudioEngineSource.UpdateParameters(this);
@@ -249,6 +306,8 @@ namespace SteamAudio
 
         private void OnDestroy()
         {
+            mInitialized = false;
+
             if (mAudioEngineSource != null)
             {
                 mAudioEngineSource.Destroy();
@@ -277,6 +336,9 @@ namespace SteamAudio
                 Transform = this.transform;
             }
 
+            // If deferred init hasn't run yet, skip — HeavyInit will register when it completes.
+            if (!mInitialized) return;
+
             mSource.AddToSimulator(mSimulator);
             SteamAudioManager.AddSource(this);
 
@@ -292,6 +354,7 @@ namespace SteamAudio
 
         private void OnDisable()
         {
+            if (!mInitialized) return;
             SteamAudioManager.RemoveSource(this);
             mSource.RemoveFromSimulator(mSimulator);
         }
@@ -307,17 +370,12 @@ namespace SteamAudio
 
         private void Update()
         {
-            // If you're chasing absolute perf: prefer "dirty update" over per-frame updates.
-            if (AllowsUpdateParameters && mAudioEngineSource != null)
-            {
-                ForceUpdate();
-            }
+            if (!mInitialized) return;
         }
         public void ForceUpdate()
         {
+            if (!mInitialized || mAudioEngineSource == null) return;
             mAudioEngineSource.UpdateParameters(this);
-            // If UpdateParameters can affect sim flags/models, dirty cache:
-            MarkCacheDirty();
         }
 
         private void OnDrawGizmosSelected()
@@ -396,6 +454,7 @@ namespace SteamAudio
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetInputs(SimulationFlags flags, Vector3 origin, Vector3 ahead, Vector3 up, Vector3 right, SteamAudioListener listener)
         {
+            if (!mInitialized) return;
             if (mCacheDirty)
             {
                 RebuildCache(listener);
@@ -462,16 +521,19 @@ namespace SteamAudio
 
         public SimulationOutputs GetOutputs(SimulationFlags flags)
         {
+            if (!mInitialized) return default;
             return mSource.GetOutputs(flags);
         }
 
         public Source GetSource()
         {
+            EnsureInitialized();
             return mSource;
         }
 
         public void UpdateOutputs(SimulationFlags flags)
         {
+            if (!mInitialized) return;
             var outputs = mSource.GetOutputs(flags);
 
             if (IsUnityEngineUsed && ((flags & SimulationFlags.Direct) != 0))

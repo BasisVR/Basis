@@ -240,6 +240,7 @@ namespace UnityEngine.Animations.Rigging
 
         // Misc
         [SyncSceneToStream, SerializeField] public Vector3 SpineBendNormal;
+        [SyncSceneToStream, SerializeField] public Vector3 PlayerUp;
 
         [SyncSceneToStream, SerializeField] public Vector3 ElbowBendPrefLeft;
         [SyncSceneToStream, SerializeField] public Vector3 ElbowBendPrefRight;
@@ -264,11 +265,11 @@ namespace UnityEngine.Animations.Rigging
         [SyncSceneToStream, SerializeField] public bool m_LeftToeEnabled;
         [SyncSceneToStream, SerializeField] public bool m_RightToeEnabled;
 
-        [SyncSceneToStream, SerializeField] bool m_LeftLowerLegEnabled;
-        [SyncSceneToStream, SerializeField] bool m_RightLowerLegEnabled;
+        [SyncSceneToStream, SerializeField] float m_LeftLowerLegEnabled;
+        [SyncSceneToStream, SerializeField] float m_RightLowerLegEnabled;
 
-        [SyncSceneToStream, SerializeField] bool m_HintLeftLowerLegEnabled;
-        [SyncSceneToStream, SerializeField] bool m_HintRightLowerLegEnabled;
+        [SyncSceneToStream, SerializeField] float m_HintLeftLowerLegEnabled;
+        [SyncSceneToStream, SerializeField] float m_HintRightLowerLegEnabled;
 
         [SyncSceneToStream, SerializeField] bool m_EnabledLeftHand;
         [SyncSceneToStream, SerializeField] bool m_EnabledRightHand;
@@ -331,6 +332,7 @@ namespace UnityEngine.Animations.Rigging
         public string PropertyChestPosition => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(ChestPosition));
         public string PropertyChestRotation => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(ChestRotation));
         public string BendNormalHeadProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(SpineBendNormal));
+        public string PlayerUpProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(PlayerUp));
         public string KneeBendPrefLeftProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(KneeBendPrefLeft));
         public string KneeBendPrefRightProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(KneeBendPrefRight));
         public string ElbowBendPrefLeftProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(ElbowBendPrefLeft));
@@ -391,14 +393,14 @@ namespace UnityEngine.Animations.Rigging
         public string StruggleEndFloatProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_StruggleEnd));
         public string MaxHipDeltaPropertyDegFloatProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_MaxHipDeltaDeg));
         public string MaxChestDeltaPropertyDegFloatProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_MaxChestDeltaDeg));
-        public bool HintWeightHead { get => m_HintHeadEnabled; set => m_HintHeadEnabled = value; }
+        public bool WeightChest { get => m_HintHeadEnabled; set => m_HintHeadEnabled = value; }
         public bool EnabledSpineIK { get => m_SpineIKEnabled; set => m_SpineIKEnabled = value; }
         public float IKLockMode { get => m_IKLockMode; set => m_IKLockMode = value; }
         public string IKLockModeFloatProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_IKLockMode));
-        public bool EnableLeftLowerLeg { get => m_HintLeftLowerLegEnabled; set => m_HintLeftLowerLegEnabled = value; }
-        public bool EnableLeftLeg { get => m_LeftLowerLegEnabled; set => m_LeftLowerLegEnabled = value; }
-        public bool EnableRightLowerLeg { get => m_HintRightLowerLegEnabled; set => m_HintRightLowerLegEnabled = value; }
-        public bool EnableRightLeg { get => m_RightLowerLegEnabled; set => m_RightLowerLegEnabled = value; }
+        public float EnableLeftLowerLeg { get => m_HintLeftLowerLegEnabled; set => m_HintLeftLowerLegEnabled = value; }
+        public float EnableLeftLeg { get => m_LeftLowerLegEnabled; set => m_LeftLowerLegEnabled = value; }
+        public float EnableRightLowerLeg { get => m_HintRightLowerLegEnabled; set => m_HintRightLowerLegEnabled = value; }
+        public float EnableRightLeg { get => m_RightLowerLegEnabled; set => m_RightLowerLegEnabled = value; }
         public bool LeftToeEnabled { get => m_LeftToeEnabled; set => m_LeftToeEnabled = value; }
         public bool RightToeEnabled { get => m_RightToeEnabled; set => m_RightToeEnabled = value; }
         public bool HintWeightLeftHand { get => m_HintLeftHandEnabled; set => m_HintLeftHandEnabled = value; }
@@ -464,8 +466,10 @@ namespace UnityEngine.Animations.Rigging
 
             m_Hips = null;
 
-            m_HintHeadEnabled = m_HintLeftLowerLegEnabled = m_HintRightLowerLegEnabled = true;
-            m_SpineIKEnabled = m_LeftLowerLegEnabled = m_RightLowerLegEnabled = true;
+            m_HintHeadEnabled = true;
+            m_HintLeftLowerLegEnabled = m_HintRightLowerLegEnabled = 1f;
+            m_SpineIKEnabled = true;
+            m_LeftLowerLegEnabled = m_RightLowerLegEnabled = 1f;
             m_IKLockMode = (float)BasisIKLockMode.LockHips;
 
             m_HintLeftHandEnabled = m_HintRightHandEnabled = true;
@@ -474,6 +478,7 @@ namespace UnityEngine.Animations.Rigging
             m_CalibratedRotationLeftHand = m_CalibratedRotationRightHand = Quaternion.identity;
 
             SpineBendNormal = Vector3.up;
+            PlayerUp = Vector3.up;
 
             PositionHips = Vector3.zero;
             RotationHips = Quaternion.identity;
@@ -675,7 +680,7 @@ namespace UnityEngine.Animations.Rigging
         {
             base.OnValidate();
             // force serialize dirty for animated bools
-            m_Data.HintWeightHead = m_Data.HintWeightHead;
+            m_Data.WeightChest = m_Data.WeightChest;
             m_Data.EnableLeftLowerLeg = m_Data.EnableLeftLowerLeg;
             m_Data.EnableRightLowerLeg = m_Data.EnableRightLowerLeg;
             m_Data.EnabledSpineIK = m_Data.EnabledSpineIK;
@@ -712,7 +717,7 @@ namespace UnityEngine.Animations.Rigging
   HandleLeftUpperArm, HandleLeftLowerArm, HandleLeftHand,
   HandleRightUpperArm, HandleRightLowerArm, HandleRightHand;
 
-        public Vector3Property targetPositionHead, TargetChestPosition, bendNormalHead, KneeBendPrefLeft, KneeBendPrefRight, ElbowBendPrefLeft, ElbowBendPrefRight,
+        public Vector3Property targetPositionHead, TargetChestPosition, bendNormalHead, playerUp, KneeBendPrefLeft, KneeBendPrefRight, ElbowBendPrefLeft, ElbowBendPrefRight,
 targetPositionLeftLowerLeg, hintPositionLeftLowerLeg,
 targetPositionRightLowerLeg, hintPositionRightLowerLeg,
 targetPositionHips,
@@ -747,10 +752,12 @@ o20, o54;
             targetOffsetRightToe, targetOffsetLeftShoulder, targetOffsetRightShoulder, targetOffsetLeftFoot,
             targetOffsetRightFoot, targetOffsetLeftHand, targetOffsetRightHand;
 
+        public FloatProperty
+enabledLeftLowerLeg, enabledRightLowerLeg,
+hintWeightLeftLowerLeg, hintWeightRightLowerLeg;
+
         public BoolProperty
 HasChestTracker, enabledSpineIK,
-hintWeightLeftLowerLeg, enabledLeftLowerLeg,
-hintWeightRightLowerLeg, enabledRightLowerLeg,
             enabledLeftShoulder, enabledRightShoulder,
 
 leftToeEnabled, RightToeEnabled,
@@ -866,6 +873,7 @@ w20, w54;
 
             float restDist = MinHeadSpineHeight.Get(stream);
             int lockMode = (int)ikLockMode.Get(stream);
+            Vector3 up = playerUp.Get(stream);
 
             // Lock mode determines how hips position relates to head position:
             // 0 = LockHips:  Hips are the anchor; apply hips directly, no head-relative clamping.
@@ -876,16 +884,22 @@ w20, w54;
                 case 0: // LockHips - hips are authoritative, skip head-relative clamping
                     break;
 
-                case 1: // LockHead - head is the anchor, derive hips below head
-                    hipsTargetPos = headTargetPos + Vector3.down * restDist;
+                case 1: // LockHead - head is the anchor; push hips down only if within restDist, allow sinking further
+                    {
+                        float gap = Vector3.Dot(headTargetPos - hipsTargetPos, up);
+                        if (gap < restDist)
+                        {
+                            hipsTargetPos -= up * (restDist - gap);
+                        }
+                    }
                     break;
 
                 default: // LockBoth (2) - original behavior: clamp hips relative to head
                     hipsTargetPos = AntiContortionist(headTargetPos, headTargetRot, hipsTargetPos, hipDesired, restDist);
-                    hipsTargetPos = MitigateSpineBuckling(headTargetPos, hipDesired, hipsTargetPos, restDist);
+                    hipsTargetPos = MitigateSpineBuckling(headTargetPos, hipDesired, hipsTargetPos, restDist, up);
                     float MaxBendDeg = maxBendDeg.Get(stream);
-                    hipsTargetPos = EnforceSpineBendLimit(headTargetPos, hipsTargetPos, MaxBendDeg);
-                    hipsTargetPos = ClampHipsAroundHead(headTargetPos, hipsTargetPos, restDist, minFactor.Get(stream), maxFactor.Get(stream));
+                    hipsTargetPos = EnforceSpineBendLimit(headTargetPos, hipsTargetPos, MaxBendDeg, up);
+                    hipsTargetPos = ClampHipsAroundHead(headTargetPos, hipsTargetPos, restDist, minFactor.Get(stream), maxFactor.Get(stream), up);
                     break;
             }
 
@@ -1056,13 +1070,13 @@ w20, w54;
 
             return axis / Mathf.Sqrt(mag2);
         }
-        static Vector3 ClampHipsAroundHead(Vector3 headPos, Vector3 hipsPos, float restDistance, float minFactor, float maxFactor)
+        static Vector3 ClampHipsAroundHead(Vector3 headPos, Vector3 hipsPos, float restDistance, float minFactor, float maxFactor, Vector3 playerUp)
         {
             Vector3 headToHips = hipsPos - headPos;
             float sqrMag = headToHips.sqrMagnitude;
             if (sqrMag < k_SqrEpsilon)
             {
-                return headPos + restDistance * minFactor * Vector3.down; // could also use previous frame’s axis
+                return headPos - restDistance * minFactor * playerUp;
             }
 
             // Use the head→hips direction as the "up" axis for the clamp
@@ -1088,7 +1102,7 @@ w20, w54;
 
             return headPos + vertical + lateral;
         }
-        static Vector3 EnforceSpineBendLimit(Vector3 headPos, Vector3 hipsPos, float maxBendDeg)
+        static Vector3 EnforceSpineBendLimit(Vector3 headPos, Vector3 hipsPos, float maxBendDeg, Vector3 playerUp)
         {
             if (maxBendDeg <= 0f)
             {
@@ -1102,7 +1116,7 @@ w20, w54;
                 return hipsPos;
             }
 
-            Vector3 up = Vector3.up;
+            Vector3 up = playerUp;
 
             // Decompose into vertical (along -up, hips below head) and lateral
             float verticalDot = Vector3.Dot(diff, -up); // positive if hips are "below" head
@@ -1163,7 +1177,7 @@ w20, w54;
         /// than rest pose, the FABRIK chain can buckle into unnatural S-curves. This pushes the
         /// hips downward to prevent oscillation. From HVR-IK's HIKSpineSolver.
         /// </summary>
-        static Vector3 MitigateSpineBuckling(Vector3 headPos, Quaternion hipsRot, Vector3 hipsPos, float restDistance)
+        static Vector3 MitigateSpineBuckling(Vector3 headPos, Quaternion hipsRot, Vector3 hipsPos, float restDistance, Vector3 playerUp)
         {
             Vector3 diff = hipsPos - headPos;
             float currentDist = diff.magnitude;
@@ -1178,7 +1192,7 @@ w20, w54;
             float compression = 1f - (currentDist / restDistance);
 
             float pushAmount = compression * tension * restDistance * 0.5f;
-            return hipsPos + Vector3.down * pushAmount;
+            return hipsPos - playerUp * pushAmount;
         }
         static Quaternion ClampRotation(Quaternion current, Quaternion reference, float maxAngleDeg)
         {
@@ -1249,7 +1263,7 @@ w20, w54;
 
                 if (axis.sqrMagnitude < k_SqrEpsilon)
                 {
-                    axis = Vector3.up;
+                    axis = playerUp.Get(stream);
                 }
             }
             axis = axis.normalized;
@@ -1377,7 +1391,7 @@ w20, w54;
             c1 = p1 + d1 * s;
             c2 = p2 + d2 * t;
         }
-        public static Vector3 CapsuleCapsuleResolve(Vector3 p1, Vector3 q1, float r1, Vector3 p2, Vector3 q2, float r2)
+        public static Vector3 CapsuleCapsuleResolve(Vector3 p1, Vector3 q1, float r1, Vector3 p2, Vector3 q2, float r2, Vector3 playerUp)
         {
             SegmentSegmentClosestPoints(p1, q1, p2, q2, out _, out _, out var c1, out var c2);
             Vector3 n = c1 - c2;
@@ -1391,9 +1405,9 @@ w20, w54;
             else
             {
                 Vector3 axis = (q2 - p2);
-                normal = Vector3.Normalize(Vector3.Cross(axis, Vector3.up));
+                normal = Vector3.Normalize(Vector3.Cross(axis, playerUp));
                 if (normal.sqrMagnitude < k_MinMag) normal = Vector3.Normalize(Vector3.Cross(axis, Vector3.right));
-                if (normal.sqrMagnitude < k_MinMag) normal = Vector3.up;
+                if (normal.sqrMagnitude < k_MinMag) normal = playerUp;
             }
 
             float d = Mathf.Sqrt(Mathf.Max(dSqr, 0f));
@@ -1429,14 +1443,14 @@ w20, w54;
 
             root.SetRotation(stream, swing * root.GetRotation(stream));
         }
-        public static Vector3 PushOutFromCapsule(Vector3 p, Vector3 a, Vector3 b, float radiusWithSkin)
+        public static Vector3 PushOutFromCapsule(Vector3 p, Vector3 a, Vector3 b, float radiusWithSkin, Vector3 playerUp)
         {
             Vector3 q = ClosestPointOnSegment(p, a, b);
             Vector3 qp = p - q;
             float dSqr = Vector3.Dot(qp, qp);
             if (dSqr >= radiusWithSkin * radiusWithSkin) return p;
             float d = Mathf.Sqrt(Mathf.Max(dSqr, k_SqrEpsilon));
-            Vector3 n = (d > 0f) ? (qp / d) : Vector3.up;
+            Vector3 n = (d > 0f) ? (qp / d) : playerUp;
             return q + n * radiusWithSkin;
         }
         /// <summary>
@@ -1450,7 +1464,7 @@ w20, w54;
         /// <param name="hint">The transform handle for the hint transform.</param>
         /// <param name="HasHint">The weight for which hint transform has an effect on IK calculations. This is a value in between 0 and 1.</param>
         /// <param name="targetOffset">The offset applied to the target transform.</param>
-        public void SolveTwoBone(AnimationStream stream, ReadWriteTransformHandle root, ReadWriteTransformHandle mid, ReadWriteTransformHandle tip, AffineTransform target, AffineTransform hint, bool HasHint, Quaternion targetOffset, Vector3 BendNormal)
+        public void SolveTwoBone(AnimationStream stream, ReadWriteTransformHandle root, ReadWriteTransformHandle mid, ReadWriteTransformHandle tip, AffineTransform target, AffineTransform hint, float hintWeight, Quaternion targetOffset, Vector3 BendNormal)
         {
             Vector3 aPosition = root.GetPosition(stream);
             Vector3 bPosition = mid.GetPosition(stream);
@@ -1461,6 +1475,8 @@ w20, w54;
 
             Vector3 tPosition = targetPos;
             Quaternion tRotation = targetRot * targetOffset;
+
+            bool hasHint = hintWeight > 0f;
 
             // Segment vectors
             Vector3 ab = bPosition - aPosition;
@@ -1474,30 +1490,33 @@ w20, w54;
             float maxReach = abLen + bcLen;
             float oldAbcAngle = TriangleAngle(acLen, abLen, bcLen);
             Vector3 atCorrected = tPosition - aPosition;
-            // Vector3 atCorrected = correctedTargetPos - aPosition;
             float atCorrectedLen = atCorrected.magnitude;
 
             float newAbcAngle = TriangleAngle(atCorrectedLen, abLen, bcLen);
 
             Vector3 axis;
-            if (HasHint)
+            if (hasHint)
             {
                 axis = Vector3.Cross(hint.translation - aPosition, bc);
 
                 if (axis.sqrMagnitude < k_SqrEpsilon)
-                {
-                    // use corrected vector, not raw tPosition
                     axis = Vector3.Cross(atCorrected, bc);
-                }
 
                 if (axis.sqrMagnitude < k_SqrEpsilon)
-                {
                     axis = BendNormal;
-                }
             }
             else
             {
                 axis = BendNormal;
+            }
+
+            // Near full extension the cross products above become unreliable.
+            // Blend toward BendNormal which is always stable (derived from hips rotation).
+            float extensionRatio = (maxReach > k_Epsilon) ? (atCorrectedLen / maxReach) : 0f;
+            if (extensionRatio > 0.9f)
+            {
+                float blend = Mathf.Clamp01((extensionRatio - 0.9f) / 0.1f);
+                axis = Vector3.Slerp(axis.normalized, BendNormal.normalized, blend);
             }
 
             axis = Vector3.Normalize(axis);
@@ -1514,11 +1533,10 @@ w20, w54;
 
             if (atCorrectedLen > k_Epsilon)
             {
-                // Swing root toward corrected target
                 root.SetRotation(stream, QuaternionExt.FromToRotation(ac, atCorrected) * root.GetRotation(stream));
             }
 
-            if (HasHint)
+            if (hasHint)
             {
                 float acSqrMag = ac.sqrMagnitude;
                 if (acSqrMag > 0f)
@@ -1535,7 +1553,12 @@ w20, w54;
 
                     if (abProj.sqrMagnitude > (maxReach * maxReach * 0.001f) && ahProj.sqrMagnitude > 0f)
                     {
+                        // Scale hint rotation by weight — matches Unity's TwoBoneIK approach.
+                        // At weight 1: full hint influence. At partial: proportionally less.
                         Quaternion hintR = QuaternionExt.FromToRotation(abProj, ahProj);
+                        hintR.x *= hintWeight;
+                        hintR.y *= hintWeight;
+                        hintR.z *= hintWeight;
                         hintR = QuaternionExt.NormalizeSafe(hintR);
                         root.SetRotation(stream, hintR * root.GetRotation(stream));
                     }
@@ -1545,9 +1568,10 @@ w20, w54;
             tip.SetRotation(stream, tRotation);
         }
         public Quaternion V4ToQuat(Vector4 v) => new Quaternion(v.x, v.y, v.z, v.w);
-        public void SolveLegs(AnimationStream stream, BoolProperty enabledProp, ReadWriteTransformHandle root, ReadWriteTransformHandle mid, ReadWriteTransformHandle tip, Vector3Property targetPosProp, Vector4Property targetRotProp, Vector3Property hintPosProp, Vector4Property hintRotProp, BoolProperty hintWeightProp, Quaternion targetOffset, Vector3Property bendNormalProp)
+        public void SolveLegs(AnimationStream stream, FloatProperty enabledProp, ReadWriteTransformHandle root, ReadWriteTransformHandle mid, ReadWriteTransformHandle tip, Vector3Property targetPosProp, Vector4Property targetRotProp, Vector3Property hintPosProp, Vector4Property hintRotProp, FloatProperty hintWeightProp, Quaternion targetOffset, Vector3Property bendNormalProp)
         {
-            if (!enabledProp.Get(stream))
+            float posWeight = enabledProp.Get(stream);
+            if (posWeight <= 0f)
             {
                 return;
             }
@@ -1557,14 +1581,37 @@ w20, w54;
                 return;
             }
 
+            // Save the pre-solve (animation) transforms so we can blend back toward them.
+            // Reading tip/mid/root positions BEFORE the solve gives us the true animation pose,
+            // not a stale IK-modified pose from a previous frame.
+            Vector3 origRootPos = root.GetPosition(stream);
+            Quaternion origRootRot = root.GetRotation(stream);
+            Vector3 origMidPos = mid.GetPosition(stream);
+            Quaternion origMidRot = mid.GetRotation(stream);
+            Vector3 origTipPos = tip.GetPosition(stream);
+            Quaternion origTipRot = tip.GetRotation(stream);
+
+            // Solve at full strength toward the IK target
             Quaternion tRot = V4ToQuat(targetRotProp.Get(stream));
             Quaternion hRot = V4ToQuat(hintRotProp.Get(stream));
+            float hintW = hintWeightProp.Get(stream);
 
             AffineTransform target = new AffineTransform(targetPosProp.Get(stream), tRot);
             AffineTransform hint = new AffineTransform(hintPosProp.Get(stream), hRot);
             Vector3 bendNormal = bendNormalProp.Get(stream);
 
-            SolveTwoBone(stream, root, mid, tip, target, hint, hintWeightProp.Get(stream), targetOffset, bendNormal);
+            SolveTwoBone(stream, root, mid, tip, target, hint, hintW, targetOffset, bendNormal);
+
+            // Blend the solved result back toward the original animation pose using the weight.
+            // At weight 1: fully IK. At weight 0.5: halfway. Near 0: almost pure animation.
+            if (posWeight < 1f)
+            {
+                root.SetPosition(stream, Vector3.Lerp(origRootPos, root.GetPosition(stream), posWeight));
+                root.SetRotation(stream, Quaternion.Slerp(origRootRot, root.GetRotation(stream), posWeight));
+                mid.SetRotation(stream, Quaternion.Slerp(origMidRot, mid.GetRotation(stream), posWeight));
+                tip.SetPosition(stream, Vector3.Lerp(origTipPos, tip.GetPosition(stream), posWeight));
+                tip.SetRotation(stream, Quaternion.Slerp(origTipRot, tip.GetRotation(stream), posWeight));
+            }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Apply(AnimationStream stream, ReadWriteTransformHandle h, Vector3Property p, Vector4Property r, Vector4Property o, BoolProperty sw)
@@ -1699,6 +1746,7 @@ w20, w54;
                 targetPositionHead = Vector3Property.Bind(animator, component, data.TargetPositionPropertyHead),
                 TargetChestPosition = Vector3Property.Bind(animator, component, data.PropertyChestPosition),
                 bendNormalHead = Vector3Property.Bind(animator, component, data.BendNormalHeadProperty),
+                playerUp = Vector3Property.Bind(animator, component, data.PlayerUpProperty),
 
                 KneeBendPrefLeft = Vector3Property.Bind(animator, component, data.KneeBendPrefLeftProperty),
                 KneeBendPrefRight = Vector3Property.Bind(animator, component, data.KneeBendPrefRightProperty),
@@ -1734,10 +1782,10 @@ w20, w54;
                 hintRotationRightHand = Vector4Property.Bind(animator, component, data.HintRotationPropertyRightHand),
                 enabledSpineIK = BoolProperty.Bind(animator, component, data.EnabledPropertySpineIK),
                 HasChestTracker = BoolProperty.Bind(animator, component, data.HintWeightBoolPropertyHead),
-                enabledLeftLowerLeg = BoolProperty.Bind(animator, component, data.EnabledPropertyLeftLowerLeg),
-                hintWeightLeftLowerLeg = BoolProperty.Bind(animator, component, data.HintWeightBoolPropertyLeftLowerLeg),
-                enabledRightLowerLeg = BoolProperty.Bind(animator, component, data.EnabledPropertyRightLowerLeg),
-                hintWeightRightLowerLeg = BoolProperty.Bind(animator, component, data.HintWeightBoolPropertyRightLowerLeg),
+                enabledLeftLowerLeg = FloatProperty.Bind(animator, component, data.EnabledPropertyLeftLowerLeg),
+                hintWeightLeftLowerLeg = FloatProperty.Bind(animator, component, data.HintWeightBoolPropertyLeftLowerLeg),
+                enabledRightLowerLeg = FloatProperty.Bind(animator, component, data.EnabledPropertyRightLowerLeg),
+                hintWeightRightLowerLeg = FloatProperty.Bind(animator, component, data.HintWeightBoolPropertyRightLowerLeg),
                 leftToeEnabled = BoolProperty.Bind(animator, component, data.LeftToeEnabledProperty),
                 RightToeEnabled = BoolProperty.Bind(animator, component, data.RightToeEnabledProperty),
                 enabledLeftHand = BoolProperty.Bind(animator, component, data.EnabledPropertyLeftHand),

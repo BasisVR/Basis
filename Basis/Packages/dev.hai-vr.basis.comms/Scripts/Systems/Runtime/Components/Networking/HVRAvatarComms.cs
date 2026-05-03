@@ -12,20 +12,28 @@ namespace HVR.Basis.Comms
     [HelpURL("https://docs.hai-vr.dev/docs/basis/avatar-customization")]
     public class HVRAvatarComms : BasisAvatarMonoBehaviour
     {
+        private const int AvatarMessageProcessingCarrier0 = 0;
+        private const int VariableNetworkingCarrier = 1;
+
         new public static bool VisibleInAvatarMenu = false;
         [HideInInspector] [SerializeField] private BasisAvatar avatar;
         [SerializeField] private bool isFromPrefab = false;
+
+        public HVRVariableStore VariableStore { get; private set; }
 
         private readonly Nethack _nethack;
 
         private bool _isWearer;
 
-        private readonly List<int> _addresses = new();
-        private readonly List<MutualizedInterpolationRange> _ranges = new();
+        internal readonly List<MutualizedInterpolationRangeStorage> _ranges = new();
         private readonly List<HVRNeedsInterpolationCallback> _needsInterpolation = new();
         private readonly List<HVRToSubmitLater> _toStoreLater = new();
+
         private AvatarMessageProcessing avatarMessageProcessing;
-        private StreamedAvatarFeature _streamedLateInit;
+        internal StreamedAvatarFeature _streamedLateInit;
+
+        private AvatarMessageProcessing variableNetworkingProcessing;
+        private HVRVariableNetworking _variableNetworking;
 
         public HVRAvatarComms()
         {
@@ -54,6 +62,15 @@ namespace HVR.Basis.Comms
         private void OnAvatarReady(bool isWearer)
         {
             _isWearer = isWearer;
+            if (isWearer)
+            {
+                VariableStore = AcquisitionService.SceneInstance.VariableStore;
+            }
+            else
+            {
+                VariableStore = new HVRVariableStore();
+            }
+
 
             var allInitializables = avatar.GetComponentsInChildren<IHVRInitializable>(true);
             foreach (var initializable in allInitializables)
@@ -83,13 +100,33 @@ namespace HVR.Basis.Comms
                 carrier.index = index;
             }
 
+            var holder = new GameObject("Generated__VariableNetworking")
+            {
+                transform = { parent = avatar.transform }
+            };
+            holder.SetActive(false);
+            _variableNetworking = holder.AddComponent<HVRVariableNetworking>();
+            _variableNetworking.isWearer = isWearer;
+            _variableNetworking.comms = this;
+            _variableNetworking.transmitter = carriers[VariableNetworkingCarrier];
+            holder.SetActive(true);
+
             var allInitializables = avatar.GetComponentsInChildren<IHVRInitializable>(true);
             foreach (var initializable in allInitializables)
             {
                 initializable.OnHVRReadyBothAvatarAndNetwork(isWearer);
             }
 
-            DeclareMutualizedInterpolator(isWearer, carriers[0]);
+            DeclareMutualizedInterpolator(isWearer, carriers[AvatarMessageProcessingCarrier0]);
+
+            variableNetworkingProcessing = AvatarMessageProcessing.ForFeature(carriers[VariableNetworkingCarrier], isWearer, avatar.LinkedPlayerID, _variableNetworking, true);
+        }
+
+        public void RequireVariable(HVRVariable variable)
+        {
+            if (_variableNetworking == null) throw new InvalidOperationException("Broke assumption: VariableNetworking is not yet initialized, it may have been called before OnHVRReadyBothAvatarAndNetwork was called?");
+
+            _variableNetworking.RequireVariable(variable);
         }
 
         private void DeclareMutualizedInterpolator(bool isWearer, HVRNetworkingCarrier carrier)
@@ -100,7 +137,7 @@ namespace HVR.Basis.Comms
             };
             holder.SetActive(false);
             _streamedLateInit = holder.AddComponent<StreamedAvatarFeature>();
-            _streamedLateInit.valueArraySize = (byte)_addresses.Count; // TODO: Sanitize count to be within bounds
+            _streamedLateInit.valueArraySize = (byte)_ranges.Count; // TODO: Sanitize count to be within bounds
             _streamedLateInit.transmitter = carrier;
             _streamedLateInit.isWearer = isWearer;
             _streamedLateInit.localIdentifier = 0;
@@ -141,6 +178,7 @@ namespace HVR.Basis.Comms
             // We want to send the initial packet when all BasisAvatarMonoBehaviours have been initialized.
             yield return null;
             avatarMessageProcessing.SendInitialPacket();
+            variableNetworkingProcessing.SendInitialPacket();
         }
 
         public MutualizedFeatureInterpolator NeedsMutualizedInterpolator(List<MutualizedInterpolationRange> inputRanges, CommsNetworking.InterpolatedDataChanged interpolatedDataChanged)
@@ -148,31 +186,34 @@ namespace HVR.Basis.Comms
             List<int> oursToMutualizedIndex = new();
             foreach (var inputRange in inputRanges)
             {
-                var address = inputRange.address;
-                if (!_addresses.Contains(address))
+                var address = inputRange.addressId;
+                var mutualizedIndex = _ranges.FindIndex(range => range.addressId == address);
+                if (mutualizedIndex == -1)
                 {
-                    _addresses.Add(address);
-                    _ranges.Add(new MutualizedInterpolationRange
+                    mutualizedIndex = _ranges.Count;
+                    _ranges.Add(new MutualizedInterpolationRangeStorage
                     {
-                        address = address,
+                        index = mutualizedIndex,
+                        addressId = address,
                         lower = inputRange.lower,
                         upper = inputRange.upper,
                     });
                 }
+                else
+                {
+                    var storedRange = _ranges[mutualizedIndex];
+                    if (inputRange.lower < storedRange.lower)
+                    {
+                        storedRange.lower = inputRange.lower;
+                    }
 
-                var mutualizedIndex = _addresses.IndexOf(address);
+                    if (inputRange.upper > storedRange.upper)
+                    {
+                        storedRange.upper = inputRange.upper;
+                    }
+                }
+
                 oursToMutualizedIndex.Add(mutualizedIndex);
-
-                var storedRange = _ranges[mutualizedIndex];
-                if (inputRange.lower < storedRange.lower)
-                {
-                    storedRange.lower = inputRange.lower;
-                }
-                if (inputRange.upper > storedRange.upper)
-                {
-                    storedRange.upper = inputRange.upper;
-                }
-                _ranges[mutualizedIndex] = storedRange;
             }
 
             _needsInterpolation.Add(new HVRNeedsInterpolationCallback
@@ -203,17 +244,35 @@ namespace HVR.Basis.Comms
 
         public void WhenNetworkMessageReceived(int carrierIndex, ushort remoteUser, byte[] buffer, DeliveryMethod deliveryMethod)
         {
-            if (carrierIndex == 0)
+            switch (carrierIndex)
             {
-                avatarMessageProcessing.OnNetworkMessageReceived(remoteUser, buffer, deliveryMethod);
+                case AvatarMessageProcessingCarrier0:
+                {
+                    avatarMessageProcessing.OnNetworkMessageReceived(remoteUser, buffer, deliveryMethod);
+                    break;
+                }
+                case VariableNetworkingCarrier:
+                {
+                    variableNetworkingProcessing.OnNetworkMessageReceived(remoteUser, buffer, deliveryMethod);
+                    break;
+                }
             }
         }
 
         public void WhenNetworkMessageServerReductionSystem(int carrierIndex, byte[] buffer)
         {
-            if (carrierIndex == 0)
+            switch (carrierIndex)
             {
-                avatarMessageProcessing.OnNetworkMessageServerReductionSystem(buffer);
+                case AvatarMessageProcessingCarrier0:
+                {
+                    avatarMessageProcessing.OnNetworkMessageServerReductionSystem(buffer);
+                    break;
+                }
+                case VariableNetworkingCarrier:
+                {
+                    variableNetworkingProcessing.OnNetworkMessageServerReductionSystem(buffer);
+                    break;
+                }
             }
         }
 

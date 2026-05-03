@@ -97,6 +97,37 @@ namespace Basis.BasisUI
         }
         
         /// <summary>
+        /// Splits an optional <c>url#base64password</c> fragment off the URL. If the
+        /// caller passed a non-empty <paramref name="rawPassword"/>, that takes
+        /// precedence over the fragment; otherwise the fragment is base64-decoded into
+        /// the returned password. Used by both the in-game add dialog and the admin
+        /// "default library" add path so the two stay in lockstep.
+        /// </summary>
+        public static void SplitUrlFragmentPassword(string rawUrl, string rawPassword, out string url, out string password)
+        {
+            url = (rawUrl ?? string.Empty).Trim();
+            password = (rawPassword ?? string.Empty).Trim();
+
+            int hashIndex = url.IndexOf('#');
+            if (hashIndex < 0) return;
+
+            string fragment = url.Substring(hashIndex + 1);
+            url = url.Substring(0, hashIndex);
+
+            if (string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(fragment))
+            {
+                try
+                {
+                    password = Encoding.UTF8.GetString(Convert.FromBase64String(fragment));
+                }
+                catch
+                {
+                    BasisDebug.LogWarning("InputValidation failure, failed to parse base64string fragment from url#pass entry.");
+                }
+            }
+        }
+
+        /// <summary>
         /// Validates a library entry and returns an EntryValidationResponse.
         /// </summary>
         /// <param name="rawUrl">raw url from user</param>
@@ -108,39 +139,10 @@ namespace Basis.BasisUI
             string rawPassword,
             BasisDataStoreItemKeys.ItemKey[] activeKeys)
         {
-            string url = (rawUrl ?? string.Empty).Trim();
-            string password = (rawPassword ?? string.Empty).Trim();
-
-            //BasisDebug.Log($"started as password = {password}");
+            SplitUrlFragmentPassword(rawUrl, rawPassword, out string url, out string password);
 
             if (string.IsNullOrEmpty(url))
                 return Fail(EntryValidationResult.EmptyUrl);
-
-            // Extract fragment password
-            int hashIndex = url.IndexOf('#');
-            if (hashIndex >= 0)
-            {
-                string fragment = url.Substring(hashIndex + 1);
-                url = url.Substring(0, hashIndex);
-
-                //BasisDebug.Log("found # processing password");
-                if (!string.IsNullOrEmpty(fragment))
-                {
-                    BasisDebug.Log($"fragment = {fragment}");
-                    try
-                    {
-                        // TODO: need some example test cases for this
-                        password = Encoding.UTF8.GetString(Convert.FromBase64String(fragment));
-
-                        //BasisDebug.Log($"setting password = {password}");
-                    }
-                    catch
-                    {
-                        // ignore invalid base64
-                        BasisDebug.LogWarning("InputValidation failure, failed to parse base64string fragment from url#pass entry.");
-                    }
-                }
-            }
 
             //BasisDebug.Log($"password is now = {password}");
 

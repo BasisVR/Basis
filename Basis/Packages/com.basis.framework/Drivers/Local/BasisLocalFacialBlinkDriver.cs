@@ -222,6 +222,32 @@ namespace Basis.Scripts.Drivers
                 }
             }
         }
+
+        public void SetOverride(bool value)
+        {
+            if (Override == value)
+            {
+                return;
+            }
+
+            Override = value;
+
+            if (value)
+            {
+                IsClosingBlink = false;
+                IsOpeningBlink = false;
+
+                for (int i = 0; i < blendShapeCount; i++)
+                {
+                    SafeSetBlendShape(blendShapeIndices[i], 0f);
+                }
+
+                return;
+            }
+
+            SetNextBlinkTime(Time.timeAsDouble);
+        }
+
         /// <summary>
         /// Unsubscribes from face visibility callbacks.
         /// </summary>

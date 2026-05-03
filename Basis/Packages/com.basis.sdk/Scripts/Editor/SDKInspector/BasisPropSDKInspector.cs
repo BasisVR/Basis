@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Helpers.Editor;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -44,10 +45,14 @@ public class BasisPropSDKInspector : Editor
             BasisPropValidator = new BasisPropValidator(BasisProp, rootElement);
 
             // Documentation button
-            Button docButton = DocumentationButton(rootElement, "Open Prop Documentation");
+            Button docButton = DocumentationButton(rootElement, BasisEditorLocalization.Get("sdk.prop.documentation.button"));
             docButton.clicked += delegate
             {
-                if (EditorUtility.DisplayDialog("Open Documentation", "Open Documentation", "Yes I want to open the documentation", "no send me back"))
+                if (EditorUtility.DisplayDialog(
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.title"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.body"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.yes"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.no")))
                 {
                     Application.OpenURL(BasisSDKConstants.PropDocumentationURL);
                 }
@@ -71,7 +76,8 @@ public class BasisPropSDKInspector : Editor
             PropIconField.value = BasisProp.BasisBundleDescription.AssetBundleIcon;
             PropIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnIconFieldChanged);
 
-            // Build options
+            // Content tags + build options
+            BasisSDKCommonInspector.CreateContentTagsFoldout(uiElementsRoot, BasisProp);
             BasisSDKCommonInspector.CreateBuildTargetOptions(uiElementsRoot);
             BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
 
@@ -125,7 +131,7 @@ public class BasisPropSDKInspector : Editor
             {
                 ImageBytes = BasisTextureCompression.ToPngBytes(Image);
             }
-            Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+            Debug.Log($"Building Prop Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
             (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
             EditorUtility.ClearProgressBar();
@@ -138,13 +144,13 @@ public class BasisPropSDKInspector : Editor
 
             if (success)
             {
-                resultLabel.text = "Build successful";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.success");
                 resultLabel.style.backgroundColor = Color.green;
                 resultLabel.style.color = Color.black;
             }
             else
             {
-                resultLabel.text = $"Build failed: {message}";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.failed", message);
                 resultLabel.style.backgroundColor = Color.red;
                 resultLabel.style.color = Color.black;
             }
@@ -153,9 +159,14 @@ public class BasisPropSDKInspector : Editor
         }
         else
         {
-            EditorUtility.DisplayDialog("Prop Build Error",
-                $"Please resolve the following issues before building:\n{string.Join("\n", errors.ConvertAll(e => e.Message))}",
-                "OK");
+            if (!EditorUtility.DisplayDialog(
+                    BasisEditorLocalization.Get("sdk.prop.buildError.title"),
+                    BasisEditorLocalization.Get("sdk.prop.buildError.body", string.Join("\n", errors.ConvertAll(e => e.Message))),
+                    BasisEditorLocalization.Get("sdk.common.dialog.ok"),
+                    BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation")))
+            {
+                Application.OpenURL(BasisSDKConstants.PropDocumentationURL);
+            }
         }
     }
 

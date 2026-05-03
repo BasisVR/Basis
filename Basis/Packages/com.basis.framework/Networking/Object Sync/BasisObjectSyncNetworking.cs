@@ -110,6 +110,17 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     public void ControlState()
     {
+        #if UNITY_SERVER
+        if (SelfTransform == null)
+        {
+            SelfTransform = transform;
+            if (SelfTransform == null)
+            {
+                BasisDebug.LogWarning($"Skipping object sync state update because transform is missing on '{name}'.", BasisDebug.LogTag.Networking);
+                return;
+            }
+        }
+        #endif
         //lets always just update the last data so going from here we have some reference of last.
         if (IsOwnedLocallyOnClient)
         {

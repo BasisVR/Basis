@@ -39,6 +39,7 @@ namespace Basis.Network.Core
             "basis.moderation.shout",         // 24
             "basis.permissions.view",         // 25
             "basis.permissions.edit",         // 26
+            "basis.moderation.headlessaudio", // 27
         };
 
         private static readonly Dictionary<string, int> NodeToIndex;

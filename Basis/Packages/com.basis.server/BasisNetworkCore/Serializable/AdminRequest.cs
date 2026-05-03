@@ -55,6 +55,41 @@ namespace BasisNetworkCore.Serializable
 
             EnableShoutMode,    // admin: enable shout mode for a player (non-spatialized broadcast voice)
             DisableShoutMode,   // admin: disable shout mode for a player
+
+            GlobalToggleAvatars, // admin: toggle global avatar loading lock
+            GlobalToggleProps,   // admin: toggle global prop loading lock
+            GlobalToggleWorlds,  // admin: toggle global world loading lock
+            GlobalGetLockState,  // server→client: current global lock state
+            GlobalGetHeadlessAudioState, // server→client: current global headless audio state
+            SetGlobalHeadlessAudio, // admin: explicitly set headless audio clip playback state for headless clients
+            GlobalGetHeadlessDisallowState, // server→client: current global headless disallow state
+            SetGlobalHeadlessDisallow, // admin: explicitly allow/disallow headless client connections
+            SetGlobalOpusPacketLoss, // admin: set Opus FEC packet-loss percent (0..100) applied to every client's encoder
+            GlobalGetOpusPacketLossState, // server→client: current Opus FEC packet-loss percent
+
+            SetUserOpusBitrate,           // admin: override a single user's Opus encoder bitrate (bps); 0 = clear override
+            UserOpusBitrateOverride,      // server→target user: their current bitrate override (0 = none)
+            SetGlobalOpusFrameDuration,   // admin: set the Opus frame duration in milliseconds (20 or 40)
+            GlobalGetOpusFrameDurationState, // server→client: current Opus frame duration in milliseconds
+
+            // ── Server config / whitelist (persisted to disk) ─────────────────
+            SetServerName,    // admin: set Configuration.ServerName + persist to config.xml. Payload: [string name]
+            SetServerMotd,    // admin: set Configuration.ServerMotd + persist to config.xml. Payload: [string motd]
+            SetWhitelistMode, // admin: set Configuration.BasisUserRestrictionMode + persist. Payload: [byte BasisUserRestrictionMode]
+            AddWhitelist,     // admin: add UUID to BasisWhiteList.txt. Payload: [string uuid]
+            RemoveWhitelist,  // admin: remove UUID from BasisWhiteList.txt. Payload: [string uuid]
+
+            GlobalToggleServers, // admin: toggle global server-share lock (BasisGlobalLockManager.ServersLocked).
+
+            // ── Default library (server-pushed library items, persisted to disk) ──
+            // Payload: [byte mode (0=Avatar,1=World,2=Prop)][string url][string password]
+            // Gated by PermNodes.ConfigurationEditor. Writes a new XML file under the
+            // server's defaultlibrary/ folder and rebroadcasts the updated list.
+            AddDefaultLibraryItem,
+
+            // Payload: [string url]
+            // Removes every defaultlibrary/ XML whose URL matches and rebroadcasts.
+            RemoveDefaultLibraryItem,
         }
     }
 }

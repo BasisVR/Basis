@@ -175,7 +175,17 @@ namespace OpenLipSync.Inference
             return Result.InvalidParam;
         }
 
+        public Result ProcessFrameFloat(uint context, ReadOnlySpan<float> audio, bool stereo, ref Frame frame)
+        {
+            return ProcessFrameFloatInternal(context, audio, stereo, ref frame);
+        }
+
         public Result ProcessFrameFloat(uint context, float[] audio, bool stereo, ref Frame frame)
+        {
+            return ProcessFrameFloatInternal(context, audio, stereo, ref frame);
+        }
+
+        private Result ProcessFrameFloatInternal(uint context, ReadOnlySpan<float> audio, bool stereo, ref Frame frame)
         {
             if (!_initialized || _onnxSession == null)
             {
@@ -215,7 +225,7 @@ namespace OpenLipSync.Inference
                 if (accFrames >= 5)
                 {
                     var melSeq = audioContext.GetMelSequence(out int seqLen);
-                    RunSequenceInference(melSeq, seqLen, audioContext.MelBands, audioContext.GetInferenceBuffer());
+                    RunSequenceInference(melSeq, seqLen, audioContext.MelBands, audioContext.GetInferenceBuffer(), audioContext.GetInferenceInputBuffer());
                     audioContext.UpdateLatestResults(audioContext.GetInferenceBuffer());
 
                     DebugInferenceRuns++;
@@ -230,6 +240,12 @@ namespace OpenLipSync.Inference
 
                 return Result.Success;
             }
+            catch (ObjectDisposedException)
+            {
+                // Expected during teardown — context disposed while thread pool task
+                // was still processing. Not an error.
+                return Result.Unknown;
+            }
             catch (Exception ex)
             {
                 Debug.LogWarning($"[OpenLipSync] ProcessFrameFloat error: {ex}");
@@ -238,7 +254,17 @@ namespace OpenLipSync.Inference
             }
         }
 
-        private void RunSequenceInference(float[] melSequenceFlat, int seqLen, int melBands, float[] destination)
+        // Cached input wrapper: DenseTensor + NamedOnnxValue + the int[] dims live
+        // for the lifetime of the steady-state shape, avoiding per-inference allocations.
+        // Rebuild only when shape OR the underlying array reference changes.
+        private DenseTensor<float> _cachedInputTensor;
+        private readonly NamedOnnxValue[] _runInputs = new NamedOnnxValue[1];
+        private int _cachedSeqLen = -1;
+        private int _cachedMelBands = -1;
+        private int _cachedInputSize = -1;
+        private float[] _cachedInputArrayRef;
+
+        private void RunSequenceInference(float[] melSequenceFlat, int seqLen, int melBands, float[] destination, float[] inputBuffer = null)
         {
             if (_onnxSession == null || seqLen <= 0)
             {
@@ -248,11 +274,39 @@ namespace OpenLipSync.Inference
 
             try
             {
-                var inputData = new float[seqLen * melBands];
-                Array.Copy(melSequenceFlat, 0, inputData, 0, seqLen * melBands);
-                var inputTensor = new DenseTensor<float>(inputData, new[] { 1, seqLen, melBands });
+                int inputSize = seqLen * melBands;
 
-                using var results = _onnxSession.Run(new[] { NamedOnnxValue.CreateFromTensor("audio_features", inputTensor) });
+                float[] inputData;
+                if (inputBuffer != null && inputBuffer.Length >= inputSize)
+                {
+                    inputData = inputBuffer;
+                }
+                else
+                {
+                    inputData = new float[inputSize];
+                }
+                melSequenceFlat.AsSpan(0, inputSize).CopyTo(inputData);
+
+                // Rebuild the input tensor wrapper only when shape OR the backing
+                // array changes. In steady state none of these vary, so this is
+                // effectively zero allocation per inference.
+                if (_cachedInputTensor == null
+                    || _cachedSeqLen != seqLen
+                    || _cachedMelBands != melBands
+                    || _cachedInputSize != inputSize
+                    || !ReferenceEquals(_cachedInputArrayRef, inputData))
+                {
+                    _cachedInputTensor = new DenseTensor<float>(
+                        new Memory<float>(inputData, 0, inputSize),
+                        new[] { 1, seqLen, melBands });
+                    _runInputs[0] = NamedOnnxValue.CreateFromTensor("audio_features", _cachedInputTensor);
+                    _cachedSeqLen = seqLen;
+                    _cachedMelBands = melBands;
+                    _cachedInputSize = inputSize;
+                    _cachedInputArrayRef = inputData;
+                }
+
+                using var results = _onnxSession.Run(_runInputs);
 
                 var firstResult = results.First();
                 var outputTensor = firstResult.AsTensor<float>();
@@ -260,20 +314,25 @@ namespace OpenLipSync.Inference
 
                 int numVisemes = Math.Min(destination.Length, _numVisemes);
 
-                Func<int, float> getLogit;
+                // Compute the linear-buffer offset for the last-frame slice once,
+                // so the inner loops below are just sequential reads. Layout
+                // assumed for ORT: row-major / C-contiguous.
+                int outBase;
                 if (dims.Length == 3)
                 {
-                    int lastT = dims[1] - 1;
-                    getLogit = i => outputTensor[0, lastT, i];
+                    int lastIndex = dims[1] - 1;
+                    int rowStride = dims[2];
+                    outBase = lastIndex * rowStride;
                 }
                 else if (dims.Length == 2)
                 {
-                    int lastRow = dims[0] - 1;
-                    getLogit = i => outputTensor[lastRow, i];
+                    int lastIndex = dims[0] - 1;
+                    int rowStride = dims[1];
+                    outBase = lastIndex * rowStride;
                 }
                 else if (dims.Length == 1)
                 {
-                    getLogit = i => outputTensor[i];
+                    outBase = 0;
                 }
                 else
                 {
@@ -281,11 +340,26 @@ namespace OpenLipSync.Inference
                     return;
                 }
 
+                // Get raw linear span once instead of paying for the multidim
+                // DenseTensor indexer (stride math + bounds check) per element.
+                ReadOnlySpan<float> outSpan;
+                if (outputTensor is DenseTensor<float> denseOut)
+                {
+                    outSpan = denseOut.Buffer.Span;
+                }
+                else
+                {
+                    // Fallback for non-DenseTensor implementations — copies once.
+                    outSpan = outputTensor.ToArray();
+                }
+
+                ReadOnlySpan<float> logits = outSpan.Slice(outBase, numVisemes);
+
                 if (_isMultiLabel)
                 {
                     for (int i = 0; i < numVisemes; i++)
                     {
-                        float x = getLogit(i);
+                        float x = logits[i];
                         x = Math.Clamp(x, -50f, 50f);
                         destination[i] = 1f / (1f + MathF.Exp(-x));
                     }
@@ -295,13 +369,13 @@ namespace OpenLipSync.Inference
                     float maxLogit = float.MinValue;
                     for (int i = 0; i < numVisemes; i++)
                     {
-                        float v = getLogit(i);
+                        float v = logits[i];
                         if (v > maxLogit) maxLogit = v;
                     }
                     float sum = 0f;
                     for (int i = 0; i < numVisemes; i++)
                     {
-                        float e = MathF.Exp(getLogit(i) - maxLogit);
+                        float e = MathF.Exp(logits[i] - maxLogit);
                         destination[i] = e;
                         sum += e;
                     }
@@ -331,14 +405,20 @@ namespace OpenLipSync.Inference
             }
         }
 
-        private static float[] ConvertStereoToMono(ReadOnlySpan<float> stereoAudio)
+        // Cached buffer for stereo-to-mono conversion — avoids per-call allocation.
+        private float[] _monoConvertBuffer;
+
+        private float[] ConvertStereoToMono(ReadOnlySpan<float> stereoAudio)
         {
-            var monoAudio = new float[stereoAudio.Length / 2];
-            for (int i = 0; i < monoAudio.Length; i++)
+            int monoLen = stereoAudio.Length / 2;
+            if (_monoConvertBuffer == null || _monoConvertBuffer.Length < monoLen)
+                _monoConvertBuffer = new float[monoLen];
+
+            for (int i = 0; i < monoLen; i++)
             {
-                monoAudio[i] = (stereoAudio[i * 2] + stereoAudio[i * 2 + 1]) * 0.5f;
+                _monoConvertBuffer[i] = (stereoAudio[i * 2] + stereoAudio[i * 2 + 1]) * 0.5f;
             }
-            return monoAudio;
+            return _monoConvertBuffer;
         }
 
         public void Dispose()

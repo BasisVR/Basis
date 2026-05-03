@@ -21,6 +21,9 @@ namespace OpenLipSync.Inference
         private readonly float[] _melSequence; // flat [maxFrames * melBands]
         private int _melFrameCount;
 
+        // Pre-allocated buffer for ONNX inference input (avoids per-frame float[] allocation)
+        private float[] _inferenceInputBuffer;
+
         public int MelBands => _melBands;
         public int AccumulatedMelFrames => _melFrameCount;
 
@@ -42,6 +45,9 @@ namespace OpenLipSync.Inference
             _maxMelFrames = 150;
             _melSequence = new float[_maxMelFrames * _melBands];
             _melFrameCount = 0;
+
+            // Pre-allocate inference input buffer at max size to avoid per-frame allocation
+            _inferenceInputBuffer = new float[_maxMelFrames * _melBands];
         }
 
         public void ProcessAudio(ReadOnlySpan<float> audioSamples)
@@ -76,13 +82,15 @@ namespace OpenLipSync.Inference
 
             if (_melFrameCount >= _maxMelFrames)
             {
-                // Shift left by one frame
-                Array.Copy(_melSequence, _melBands, _melSequence, 0, (_maxMelFrames - 1) * _melBands);
+                // Shift left by one frame. Span<T>.CopyTo handles overlapping ranges
+                // (memmove semantics) the same as Array.Copy.
+                _melSequence.AsSpan(_melBands, (_maxMelFrames - 1) * _melBands)
+                    .CopyTo(_melSequence.AsSpan(0));
                 _melFrameCount = _maxMelFrames - 1;
             }
 
             // Append new frame
-            Array.Copy(melFrame, 0, _melSequence, _melFrameCount * _melBands, bands);
+            melFrame.AsSpan(0, bands).CopyTo(_melSequence.AsSpan(_melFrameCount * _melBands));
             _melFrameCount++;
         }
 
@@ -98,6 +106,16 @@ namespace OpenLipSync.Inference
         public float[] GetInferenceBuffer()
         {
             return _probabilityBuffer;
+        }
+
+        /// <summary>
+        /// Returns a pre-allocated buffer for ONNX inference input data.
+        /// Sized for the maximum mel sequence (maxFrames * melBands).
+        /// Eliminates per-inference float[] allocation.
+        /// </summary>
+        public float[] GetInferenceInputBuffer()
+        {
+            return _inferenceInputBuffer;
         }
 
         public void UpdateLatestResults(float[] visemeProbs)

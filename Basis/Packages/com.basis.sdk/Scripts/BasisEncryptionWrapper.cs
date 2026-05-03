@@ -2,8 +2,12 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Org.BouncyCastle.Crypto.Digests;
+using Org.BouncyCastle.Crypto.Generators;
+using Org.BouncyCastle.Crypto.Parameters;
 
 public static partial class BasisEncryptionWrapper
 {
@@ -11,6 +15,26 @@ public static partial class BasisEncryptionWrapper
     private const int KeySize = 32;
     private const int IvSize = 16;
     public const int IterationSize = 10000;
+
+    // Format-compatible drop-in for `new Rfc2898DeriveBytes(password, salt, iters).GetBytes(outputBytes)`.
+    // Same algorithm (PBKDF2-HMAC-SHA1, UTF-8 password encoding), so output is byte-identical and existing
+    // bundles still decrypt. BouncyCastle's managed PBKDF2 is significantly faster on Mono/IL2CPP than
+    // .NET's Rfc2898DeriveBytes and avoids the multi-MB garbage the managed iteration loop produces.
+    private static byte[] DeriveKeyPbkdf2Sha1(string password, byte[] salt, int iterations, int outputBytes)
+    {
+        byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
+        try
+        {
+            var gen = new Pkcs5S2ParametersGenerator(new Sha1Digest());
+            gen.Init(passwordBytes, salt, iterations);
+            var keyParam = (KeyParameter)gen.GenerateDerivedMacParameters(outputBytes * 8);
+            return keyParam.GetKey();
+        }
+        finally
+        {
+            Array.Clear(passwordBytes, 0, passwordBytes.Length);
+        }
+    }
 
     // Progress/Status Messages
     private const string ProgressInitEncryption = "Initializing Encryption";
@@ -72,8 +96,7 @@ public static partial class BasisEncryptionWrapper
             rng.GetBytes(iv);
         }
 
-        using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
-        byte[] keyBytes = key.GetBytes(KeySize);
+        byte[] keyBytes = DeriveKeyPbkdf2Sha1(password.VP, salt, IterationSize, KeySize);
 
         using var aes = Aes.Create();
         aes.Key = keyBytes;
@@ -193,8 +216,7 @@ public static partial class BasisEncryptionWrapper
                     $"Failed to read header (salt/iv). ReadSalt={readSalt}/{SaltSize}, ReadIv={readIv}/{IvSize}.");
             }
 
-            using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
-            byte[] keyBytes = key.GetBytes(KeySize);
+            byte[] keyBytes = DeriveKeyPbkdf2Sha1(password.VP, salt, IterationSize, KeySize);
 
             using var aes = Aes.Create();
             aes.Key = keyBytes;
@@ -272,8 +294,7 @@ public static partial class BasisEncryptionWrapper
             rng.GetBytes(iv);
         }
 
-        using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
-        byte[] keyBytes = key.GetBytes(KeySize);
+        byte[] keyBytes = DeriveKeyPbkdf2Sha1(password.VP, salt, IterationSize, KeySize);
 
         using var aes = Aes.Create();
         aes.Key = keyBytes;

@@ -17,23 +17,22 @@ public static class BasisTextureCompression
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
 
-        bool madeCopy = false;
         Texture2D tex = source;
+        bool madeCopy = false;
 
-        if (!IsReadable(source))
+        if (!source.isReadable)
         {
             tex = MakeReadableCopy(source);
             madeCopy = true;
         }
 
-        // Enforce 512px maximum
         if (tex.width > MaxSize || tex.height > MaxSize)
         {
             Texture2D resized = EnforceMaxSize(tex);
 
             if (madeCopy)
             {
-                UnityEngine.Object.Destroy(tex);
+                DestroySafe(tex);
             }
 
             tex = resized;
@@ -48,7 +47,7 @@ public static class BasisTextureCompression
         {
             if (madeCopy && tex != source)
             {
-                UnityEngine.Object.Destroy(tex);
+                DestroySafe(tex);
             }
         }
     }
@@ -61,10 +60,19 @@ public static class BasisTextureCompression
     {
         if (pngBytes == null) throw new ArgumentNullException(nameof(pngBytes));
 
-        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         tex.LoadImage(Convert.FromBase64String(pngBytes)); // Unity auto-resizes
 
-        return EnforceMaxSize(tex);
+        Texture2D clamped = EnforceMaxSize(tex);
+        DestroySafe(tex);
+        return clamped;
+    }
+
+    private static void DestroySafe(UnityEngine.Object o)
+    {
+        if (o == null) return;
+        if (Application.isPlaying) UnityEngine.Object.Destroy(o);
+        else UnityEngine.Object.DestroyImmediate(o);
     }
 
     /// <summary>
@@ -88,26 +96,20 @@ public static class BasisTextureCompression
     // Internals
     // ───────────────────────────────────────────────
 
-    private static bool IsReadable(Texture2D tex)
-    {
-        try { _ = tex.GetPixel(0, 0); return true; }
-        catch { return false; }
-    }
-
     private static Texture2D MakeReadableCopy(Texture2D source)
     {
         int w = source.width;
         int h = source.height;
 
-        var rt = RenderTexture.GetTemporary(w, h);
+        var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
         var prev = RenderTexture.active;
 
         Graphics.Blit(source, rt);
         RenderTexture.active = rt;
 
         var readable = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        readable.ReadPixels(new Rect(0, 0, w, h), 0, 0);
-        readable.Apply();
+        readable.ReadPixels(new Rect(0, 0, w, h), 0, 0, false);
+        readable.Apply(false, false);
 
         RenderTexture.active = prev;
         RenderTexture.ReleaseTemporary(rt);
@@ -117,53 +119,55 @@ public static class BasisTextureCompression
     /// <summary>
     /// Ensures texture becomes a 512x512 square.
     /// First scales to fit inside 512, then pads if uneven.
+    /// Single Texture2D allocation, all scaling and padding happen on the GPU.
     /// </summary>
     private static Texture2D EnforceMaxSize(Texture2D tex)
     {
-        // Step 1 → scale down so the largest side is 512 (preserves aspect)
         int w = tex.width;
         int h = tex.height;
 
-        float scale = MaxSize / (float)Math.Max(w, h);
-        int newW = Mathf.RoundToInt(w * scale);
-        int newH = Mathf.RoundToInt(h * scale);
+        float scale = (float)MaxSize / Math.Max(w, h);
+        int newW = Math.Max(1, Mathf.RoundToInt(w * scale));
+        int newH = Math.Max(1, Mathf.RoundToInt(h * scale));
 
-        RenderTexture rtScaled = RenderTexture.GetTemporary(newW, newH);
-        Graphics.Blit(tex, rtScaled);
+        var result = new Texture2D(MaxSize, MaxSize, TextureFormat.RGBA32, false);
+        var prev = RenderTexture.active;
 
-        Texture2D scaled = new Texture2D(newW, newH, TextureFormat.RGBA32, false);
-
-        RenderTexture prev = RenderTexture.active;
-        RenderTexture.active = rtScaled;
-        scaled.ReadPixels(new Rect(0, 0, newW, newH), 0, 0);
-        scaled.Apply();
-        RenderTexture.active = prev;
-        RenderTexture.ReleaseTemporary(rtScaled);
-
-        // If it's already perfect square, return as is
+        // Fast path — source scales exactly to 512x512, no padding needed.
         if (newW == MaxSize && newH == MaxSize)
-            return scaled;
+        {
+            var rt = RenderTexture.GetTemporary(MaxSize, MaxSize, 0, RenderTextureFormat.ARGB32);
+            Graphics.Blit(tex, rt);
+            RenderTexture.active = rt;
+            result.ReadPixels(new Rect(0, 0, MaxSize, MaxSize), 0, 0, false);
+            result.Apply(false, false);
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            return result;
+        }
 
-        // Step 2 → create final 512x512 canvas & center the image
-        Texture2D finalTex = new Texture2D(MaxSize, MaxSize, TextureFormat.RGBA32, false);
+        // Pass 1: initialise the full 512x512 CPU pixel buffer to transparent
+        // by reading from a cleared RT. Avoids the managed Color[262144] allocation.
+        var rtClear = RenderTexture.GetTemporary(MaxSize, MaxSize, 0, RenderTextureFormat.ARGB32);
+        RenderTexture.active = rtClear;
+        GL.Clear(false, true, Color.clear);
+        result.ReadPixels(new Rect(0, 0, MaxSize, MaxSize), 0, 0, false);
+        RenderTexture.ReleaseTemporary(rtClear);
 
-        Color[] clear = new Color[MaxSize * MaxSize]; // transparent background
-        Array.Clear(clear, 0, clear.Length);
-        finalTex.SetPixels(clear);
+        // Pass 2: GPU-scale the source into an intermediate RT, then read the
+        // scaled pixels into the centre of the already-transparent output.
+        var rtScaled = RenderTexture.GetTemporary(newW, newH, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(tex, rtScaled);
+        RenderTexture.active = rtScaled;
 
         int offsetX = (MaxSize - newW) / 2;
         int offsetY = (MaxSize - newH) / 2;
+        result.ReadPixels(new Rect(0, 0, newW, newH), offsetX, offsetY, false);
+        result.Apply(false, false);
 
-        for (int y = 0; y < newH; y++)
-        {
-            for (int x = 0; x < newW; x++)
-            {
-                finalTex.SetPixel(x + offsetX, y + offsetY, scaled.GetPixel(x, y));
-            }
-        }
-
-        finalTex.Apply();
-        return finalTex;
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rtScaled);
+        return result;
     }
 
 }

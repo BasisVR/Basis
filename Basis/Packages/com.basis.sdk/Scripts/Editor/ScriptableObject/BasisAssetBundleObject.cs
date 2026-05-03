@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -44,7 +45,7 @@ public class BasisAssetBundleObjectEditor : Editor
         BasisAssetBundleObject assetBundleObject = (BasisAssetBundleObject)target;
 
         // Add a button to restore default values
-        if (GUILayout.Button("Restore Defaults"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("sdk.assetBundleObject.restoreDefaults")))
         {
             RestoreDefaults(assetBundleObject);
         }

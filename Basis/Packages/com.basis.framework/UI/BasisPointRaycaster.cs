@@ -253,17 +253,34 @@ namespace Basis.Scripts.UI
                 BasisPlayerInteract.Mask,
                 BasisPlayerInteract.TriggerInteraction);
 
-            // Search for the farthest distance here (closest to the original ray origin)
+            // Only colliders the forward raycast missed (origin-inside-collider case)
+            // should override the choice already made by UpdateClosestHitPreferOverlayUI.
+            // Skipping forward-known colliders preserves the OverlayUI preference when
+            // a non-overlay collider (e.g. a pickup) sits between the origin and the menu.
             float bestBackcastDistance = 0.0f;
             for (int i = 0; i < backcastHitCount; i++)
             {
                 RaycastHit hit = PhysicBackcastHits[i];
+                if (hit.collider == null)
+                    continue;
+                if (ColliderInForwardHits(hit.collider))
+                    continue;
                 if (hit.distance > bestBackcastDistance)
                 {
                     bestBackcastDistance = hit.distance;
                     ClosestRayCastHit = hit;
                 }
             }
+        }
+
+        private bool ColliderInForwardHits(Collider collider)
+        {
+            for (int i = 0; i < PhysicHitCount; i++)
+            {
+                if (PhysicHits[i].collider == collider)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>

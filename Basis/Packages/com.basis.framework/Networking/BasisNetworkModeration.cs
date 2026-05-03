@@ -4,6 +4,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
+using BasisNetworkCore.Security;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -145,13 +146,89 @@ public static class BasisNetworkModeration
             w => w.Put(uuid));
     }
 
+    // ── Server config / whitelist (admin) ────────────────────────────────────
+    // Each of these triggers a server-side write to config/config.xml or
+    // BasisWhiteList.txt so the change is durable across restarts.
+
+    public static void SetServerName(string name)
+    {
+        SendAdminRequest(AdminRequestMode.SetServerName, w => w.Put(name ?? string.Empty));
+    }
+
+    public static void SetServerMotd(string motd)
+    {
+        SendAdminRequest(AdminRequestMode.SetServerMotd, w => w.Put(motd ?? string.Empty));
+    }
+
+    public static void SetWhitelistMode(BasisUserRestrictionMode mode)
+    {
+        SendAdminRequest(AdminRequestMode.SetWhitelistMode, w => w.Put((byte)mode));
+    }
+
+    public static void AddWhitelist(string uuid)
+    {
+        if (!ValidateString(uuid, nameof(uuid))) return;
+        SendAdminRequest(AdminRequestMode.AddWhitelist, w => w.Put(uuid));
+    }
+
+    public static void RemoveWhitelist(string uuid)
+    {
+        if (!ValidateString(uuid, nameof(uuid))) return;
+        SendAdminRequest(AdminRequestMode.RemoveWhitelist, w => w.Put(uuid));
+    }
+
+    /// <summary>
+    /// Ask the server to persist a new default-library entry to disk and broadcast
+    /// it to every connected client. Mode follows BundledContentHolder.Mode:
+    /// 0=Avatar, 1=World, 2=Prop. Server-gated by PermNodes.ConfigurationEditor.
+    /// </summary>
+    public static void AddDefaultLibraryItem(byte mode, string url, string password)
+    {
+        if (!ValidateString(url, nameof(url))) return;
+        SendAdminRequest(AdminRequestMode.AddDefaultLibraryItem,
+            w => w.Put(mode),
+            w => w.Put(url),
+            w => w.Put(password ?? string.Empty));
+    }
+
+    /// <summary>
+    /// Ask the server to drop every default-library entry whose URL matches and
+    /// rebroadcast the updated list. Server-gated by PermNodes.ConfigurationEditor.
+    /// </summary>
+    public static void RemoveDefaultLibraryItem(string url)
+    {
+        if (!ValidateString(url, nameof(url))) return;
+        SendAdminRequest(AdminRequestMode.RemoveDefaultLibraryItem,
+            w => w.Put(url));
+    }
+
     public static void DisplayMessage(string message)
     {
         if (ValidateString(message, nameof(message)))
         {
-            BasisMainMenu.Close();
-            BasisMainMenu.Open();
-            BasisMainMenu.Instance.OpenDialogue("admin", message, "ok", value => { });
+            // Remember whether the main menu was already open so we can return to the exact
+            // prior state when the user dismisses the popup, instead of dropping them back
+            // on a bare main menu (or a hotbar they weren't looking at).
+            bool menuWasAlreadyOpen = BasisMainMenu.Instance != null;
+
+            if (!menuWasAlreadyOpen)
+            {
+                BasisMainMenu.Open();
+            }
+            else if (BasisMainMenu.Instance.Dialogue)
+            {
+                // OpenDialogue refuses to stack; release the existing one first.
+                BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+            }
+
+            BasisMainMenu.Instance.OpenDialogue("admin", message, "ok", value =>
+            {
+                // If we opened the menu solely to show this popup, close it again on dismiss.
+                if (!menuWasAlreadyOpen)
+                {
+                    BasisMainMenu.Close();
+                }
+            });
             BasisDebug.LogError(message);
         }
     }
@@ -181,6 +258,30 @@ public static class BasisNetworkModeration
             case AdminRequestMode.EnableShoutMode:
             case AdminRequestMode.DisableShoutMode:
                 HandleShoutModeChanged(reader, mode == AdminRequestMode.EnableShoutMode);
+                break;
+
+            case AdminRequestMode.GlobalGetLockState:
+                HandleGlobalLockState(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetHeadlessAudioState:
+                HandleGlobalHeadlessAudioState(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetHeadlessDisallowState:
+                HandleGlobalHeadlessDisallowState(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetOpusPacketLossState:
+                HandleGlobalOpusPacketLossState(reader);
+                break;
+
+            case AdminRequestMode.UserOpusBitrateOverride:
+                HandleUserOpusBitrateOverride(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetOpusFrameDurationState:
+                HandleGlobalOpusFrameDurationState(reader);
                 break;
 
             default:
@@ -427,6 +528,229 @@ public static class BasisNetworkModeration
     }
 
     #endregion
+
+    #region Global Lock State
+
+    /// <summary>
+    /// Current global lock state received from the server.
+    /// </summary>
+    public static bool GlobalAvatarsLocked { get; private set; }
+    public static bool GlobalPropsLocked { get; private set; }
+    public static bool GlobalWorldsLocked { get; private set; }
+    /// <summary>
+    /// True when the server has globally disabled saved-server sharing through
+    /// the content-share system. UIs that initiate server shares should disable
+    /// their share buttons while this is set.
+    /// </summary>
+    public static bool GlobalServersLocked { get; private set; }
+
+    /// <summary>
+    /// Fired when the global lock state changes. Parameters: avatarsLocked, propsLocked, worldsLocked, serversLocked.
+    /// </summary>
+    public static event Action<bool, bool, bool, bool> OnGlobalLockStateChanged;
+
+    /// <summary>
+    /// Current headless audio state received from the server.
+    /// True means headless clients should keep BasisAudioClipPlayer off.
+    /// </summary>
+    public static bool GlobalHeadlessAudioOff { get; private set; }
+
+    /// <summary>
+    /// Fired when the global headless audio state changes.
+    /// Parameter: headlessAudioOff.
+    /// </summary>
+    public static event Action<bool> OnGlobalHeadlessAudioStateChanged;
+
+    /// <summary>
+    /// Current headless connection policy received from the server.
+    /// True means headless clients are not allowed to remain connected.
+    /// </summary>
+    public static bool GlobalHeadlessDisallowed { get; private set; }
+
+    /// <summary>
+    /// Fired when the global headless disallow state changes.
+    /// Parameter: headlessDisallowed.
+    /// </summary>
+    public static event Action<bool> OnGlobalHeadlessDisallowStateChanged;
+
+    private static void HandleGlobalLockState(NetDataReader reader)
+    {
+        GlobalAvatarsLocked = reader.GetBool();
+        GlobalPropsLocked = reader.GetBool();
+        GlobalWorldsLocked = reader.GetBool();
+        // ServersLocked was added after the original three; older servers won't
+        // include it. Tolerate the short payload by leaving the existing value
+        // (defaults to false) when the bool isn't there.
+        if (reader.AvailableBytes >= 1) GlobalServersLocked = reader.GetBool();
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}", BasisDebug.LogTag.Networking);
+        OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked, GlobalServersLocked);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global avatar loading.
+    /// </summary>
+    public static void GlobalToggleAvatars()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleAvatars);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global prop loading.
+    /// </summary>
+    public static void GlobalToggleProps()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleProps);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global world loading.
+    /// </summary>
+    public static void GlobalToggleWorlds()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleWorlds);
+    }
+
+    /// <summary>
+    /// Admin: Toggle the global lock on saved-server sharing through the content-share system.
+    /// </summary>
+    public static void GlobalToggleServers()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleServers);
+    }
+
+    private static void HandleGlobalHeadlessAudioState(NetDataReader reader)
+    {
+        GlobalHeadlessAudioOff = reader.GetBool();
+        BasisDebug.Log($"Global headless audio state updated - Headless audio off: {GlobalHeadlessAudioOff}", BasisDebug.LogTag.Networking);
+        OnGlobalHeadlessAudioStateChanged?.Invoke(GlobalHeadlessAudioOff);
+    }
+
+    private static void HandleGlobalHeadlessDisallowState(NetDataReader reader)
+    {
+        GlobalHeadlessDisallowed = reader.GetBool();
+        BasisDebug.Log($"Global headless connection policy updated - Headless disallowed: {GlobalHeadlessDisallowed}", BasisDebug.LogTag.Networking);
+        OnGlobalHeadlessDisallowStateChanged?.Invoke(GlobalHeadlessDisallowed);
+    }
+
+    /// <summary>
+    /// Admin: Set headless audio clip playback state for headless clients.
+    /// </summary>
+    public static void SetGlobalHeadlessAudio(bool headlessAudioOff)
+    {
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalHeadlessAudio,
+            w => w.Put(headlessAudioOff));
+    }
+
+    /// <summary>
+    /// Admin: Allow or disallow headless clients from remaining connected.
+    /// </summary>
+    public static void SetGlobalHeadlessDisallow(bool headlessDisallowed)
+    {
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalHeadlessDisallow,
+            w => w.Put(headlessDisallowed));
+    }
+
+    /// <summary>
+    /// Last Opus FEC packet-loss percentage received from the server (0..100).
+    /// Admins can change it; every connected client applies the new value to its
+    /// local encoder on the fly via <see cref="LocalOpusSettings.SetPacketLossPercent"/>.
+    /// </summary>
+    public static int GlobalOpusPacketLossPercent { get; private set; } = 10;
+
+    /// <summary>Fired when the server-pushed Opus FEC packet-loss percentage changes.</summary>
+    public static event Action<int> OnGlobalOpusPacketLossChanged;
+
+    private static void HandleGlobalOpusPacketLossState(NetDataReader reader)
+    {
+        int percent = reader.GetByte();
+        GlobalOpusPacketLossPercent = percent;
+        LocalOpusSettings.SetPacketLossPercent(percent);
+        BasisDebug.Log($"Global Opus FEC packet-loss percent updated → {percent}%", BasisDebug.LogTag.Networking);
+        OnGlobalOpusPacketLossChanged?.Invoke(percent);
+    }
+
+    /// <summary>
+    /// Admin: Set the Opus FEC packet-loss percentage (0..100) applied to every
+    /// client's encoder. Higher values trade bitrate for better resilience on
+    /// lossy networks.
+    /// </summary>
+    public static void SetGlobalOpusPacketLoss(int percent)
+    {
+        if (percent < 0) percent = 0;
+        else if (percent > 100) percent = 100;
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalOpusPacketLoss,
+            w => w.Put((byte)percent));
+    }
+
+    /// <summary>
+    /// Local Opus bitrate (bps) currently overridden by the server for this client.
+    /// 0 means no override — the encoder uses <see cref="LocalOpusSettings.DefaultBitrate"/>.
+    /// </summary>
+    public static int LocalOpusBitrateOverride => LocalOpusSettings.BitrateOverride;
+
+    /// <summary>Fired when the server pushes a per-user bitrate override to this client.</summary>
+    public static event Action<int> OnLocalOpusBitrateOverrideChanged;
+
+    private static void HandleUserOpusBitrateOverride(NetDataReader reader)
+    {
+        int bps = reader.GetInt();
+        LocalOpusSettings.SetBitrateOverride(bps);
+        BasisDebug.Log(
+            bps > 0
+                ? $"Local Opus bitrate override updated → {bps} bps"
+                : "Local Opus bitrate override cleared (using default)",
+            BasisDebug.LogTag.Networking);
+        OnLocalOpusBitrateOverrideChanged?.Invoke(bps);
+    }
+
+    /// <summary>
+    /// Admin: Override (or clear) a single user's Opus encoder bitrate. Pass 0 to clear.
+    /// Targeted by netId (the runtime ushort player id).
+    /// </summary>
+    public static void SetUserOpusBitrate(ushort targetPlayerId, int bitrateBps)
+    {
+        if (bitrateBps < 0) bitrateBps = 0;
+        SendAdminRequest(
+            AdminRequestMode.SetUserOpusBitrate,
+            w => w.Put(targetPlayerId),
+            w => w.Put(bitrateBps));
+    }
+
+    /// <summary>Last Opus frame duration (ms) received from the server. 20 or 40.</summary>
+    public static int GlobalOpusFrameDurationMs { get; private set; } = 20;
+
+    /// <summary>Fired when the server-pushed Opus frame duration changes.</summary>
+    public static event Action<int> OnGlobalOpusFrameDurationChanged;
+
+    private static void HandleGlobalOpusFrameDurationState(NetDataReader reader)
+    {
+        int ms = reader.GetByte();
+        GlobalOpusFrameDurationMs = ms;
+        SharedOpusSettings.SetDesiredDurationInSeconds(ms / 1000f);
+        BasisDebug.Log($"Global Opus frame duration updated → {ms} ms", BasisDebug.LogTag.Networking);
+        OnGlobalOpusFrameDurationChanged?.Invoke(ms);
+    }
+
+    /// <summary>
+    /// Admin: Set the global Opus frame duration in milliseconds. Only 20 and 40 are accepted.
+    /// </summary>
+    public static void SetGlobalOpusFrameDuration(int ms)
+    {
+        if (ms != 20 && ms != 40)
+        {
+            BasisDebug.LogError($"SetGlobalOpusFrameDuration rejects {ms} — only 20 or 40 ms are supported.");
+            return;
+        }
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalOpusFrameDuration,
+            w => w.Put((byte)ms));
+    }
+
+    #endregion
+
     public static bool TryTeleportToPlayer(ushort netId)
     {
         if (BasisNetworkPlayers.Players.TryGetValue(netId, out var player) && ValidateForAnimator(player))

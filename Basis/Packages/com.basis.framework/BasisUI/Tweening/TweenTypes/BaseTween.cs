@@ -23,7 +23,7 @@ namespace Basis.BTween
 
         static BaseTween()
         {
-            BTweenManager.RegisterGroup(ProcessGroup);
+            BasisTweenManager.RegisterGroup(ProcessGroup);
         }
 
         private static void ProcessGroup(double currentTime)
@@ -101,8 +101,7 @@ namespace Basis.BTween
         /// </summary>
         public virtual bool Process(double currentTime)
         {
-            double percentage = BlendValue(currentTime);
-            if (percentage >= 1)
+            if (currentTime >= EndTime)
             {
                 Finish();
                 return true;

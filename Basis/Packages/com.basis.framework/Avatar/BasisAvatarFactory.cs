@@ -3,8 +3,10 @@ using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
+using GatorDragonGames.JigglePhysics;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -20,6 +22,16 @@ namespace Basis.Scripts.Avatar
     /// </summary>
     public static class BasisAvatarFactory
     {
+        /// <summary>
+        /// Cached prefab for the loading/fallback avatar. Loaded once, instantiated many times.
+        /// </summary>
+        private static GameObject CachedLoadingAvatarPrefab;
+
+        public static void Initalize()
+        {
+            var op = Addressables.LoadAssetAsync<GameObject>(LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation);
+            CachedLoadingAvatarPrefab = op.WaitForCompletion();
+        }
         /// <summary>
         /// Default loading avatar used as a fallback when no valid avatar is available.
         /// </summary>
@@ -76,34 +88,50 @@ namespace Basis.Scripts.Avatar
         /// <param name="Rotation">Spawn rotation for the avatar.</param>
         public static async Task LoadAvatarLocal(BasisLocalPlayer Player, byte Mode, BasisLoadableBundle BasisLoadableBundle, Vector3 Position, Quaternion Rotation)
         {
+            if (Player == null)
+            {
+                return;
+            }
+
             var token = ReplacePlayerLoadToken(Player);
 
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
-                await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
                 ClearPlayerLoadToken(Player, token);
                 return;
             }
 
             // Fallback can happen instantly, no restriction
-            RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
+            RemoveOldAvatarAndLoadFallback(Player, Position, Rotation);
             try
             {
                 GameObject Output = null;
+                // Local-only: harvested by ContentPolice during the load walk and consumed by
+                // the local avatar driver during calibration. Keeping it on the stack means
+                // it's GC'd as soon as the load returns; nothing persists on BasisAvatar.
+                List<BasisHeadChop.HeadChopTarget> harvestedHeadChop = new List<BasisHeadChop.HeadChopTarget>();
 
                 switch (Mode)
                 {
                     case 2: // in-scene is instant, no gate needed
                         Output = BasisLoadableBundle.LoadableGameobject.InSceneItem;
                         Output.transform.SetPositionAndRotation(Position, Rotation);
+                        // In-scene avatars never run through ContentPolice, so do a one-shot
+                        // harvest+strip here — this is the only path where a dedicated walk
+                        // is needed. The strip keeps BasisHeadChop from persisting at runtime.
+                        HarvestAndStripHeadChop(Output, harvestedHeadChop);
                         break;
 
                     case 0:
                     case 1:
                     default:
                         // Gate ONLY the actual load (download/addressables), NOT fallback.
-                        await _loadGate.WaitAsync(token);
+                        // ResolveGate picks between download / disc-load / addressable so
+                        // slow network downloads can't starve fast cached or in-memory loads.
+                        SemaphoreSlim gate = ResolveGate(Mode, BasisLoadableBundle);
+                        await gate.WaitAsync(token);
                         try
                         {
                             token.ThrowIfCancellationRequested();
@@ -111,7 +139,7 @@ namespace Basis.Scripts.Avatar
                             if (Mode == 0)
                             {
                                 BasisDebug.Log($"Requested Avatar was a AssetBundle Avatar {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
-                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token);
+                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token, MaxDownloadSizeInMB: 4L * 1024 * 1024 * 1024, HarvestedHeadChop: harvestedHeadChop);
                             }
                             else
                             {
@@ -121,14 +149,14 @@ namespace Basis.Scripts.Avatar
 
                                 // If LoadAsGameObjectsAsync doesn't accept a token, we still check before/after.
                                 Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
-                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
+                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar, harvestedHeadChop);
 
                                 token.ThrowIfCancellationRequested();
                             }
                         }
                         finally
                         {
-                            _loadGate.Release();
+                            gate.Release();
                         }
                         break;
                 }
@@ -138,7 +166,7 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarMetaData = BasisLoadableBundle;
                 Player.AvatarLoadMode = Mode;
 
-                InitializePlayerAvatar(Player, Output);
+                InitializePlayerAvatar(Player, Output, harvestedHeadChop);
                 Player.AvatarSwitched();
             }
             catch (OperationCanceledException)
@@ -150,7 +178,7 @@ namespace Basis.Scripts.Avatar
                 BasisDebug.LogError($"Loading avatar failed: {e}");
                 // Only fallback if this request is still the current one.
                 if (!token.IsCancellationRequested)
-                    await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                    LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
             }
             finally
             {
@@ -164,19 +192,31 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         public static async Task LoadAvatarRemote(BasisRemotePlayer Player, byte Mode, BasisLoadableBundle BasisLoadableBundle, Vector3 Position, Quaternion Rotation)
         {
+            // Caller may have been destroyed between scheduling this load and us running
+            // (e.g. disconnect during an earlier async step). Unity's overloaded == catches
+            // destroyed-but-not-yet-GCd objects.
+            if (Player == null)
+            {
+                return;
+            }
+
             var token = ReplacePlayerLoadToken(Player);
 
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
                 Player.AvatarLoadErrorMessage = "Avatar address was empty or null";
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
-                await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                MarkRemoteLoadFailed(Player);
+                LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
                 ClearPlayerLoadToken(Player, token);
                 return;
             }
 
-            // Instant fallback, not gated
-            RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
+            // Instant fallback while real avatar loads, skip if already on fallback
+            if (!Player.IsConsideredFallBackAvatar)
+            {
+                RemoveOldAvatarAndLoadFallback(Player, Position, Rotation);
+            }
             GameObject Output = null;
             try
             {
@@ -185,15 +225,28 @@ namespace Basis.Scripts.Avatar
                     case 2:
                         Output = BasisLoadableBundle.LoadableGameobject.InSceneItem;
                         Output.transform.SetPositionAndRotation(Position, Rotation);
+                        // In-scene path skips ContentPolice; strip BasisHeadChop so the
+                        // authoring component never persists on a remote avatar. Pass null
+                        // for the destination — remotes never harvest first-person targets.
+                        HarvestAndStripHeadChop(Output, null);
                         break;
 
                     case 0:
                     case 1:
                     default:
-                        await _loadGate.WaitAsync(token);
+                        SemaphoreSlim gate = ResolveGate(Mode, BasisLoadableBundle);
+                        await gate.WaitAsync(token);
                         try
                         {
                             token.ThrowIfCancellationRequested();
+
+                            // Player may have been destroyed while we were queued on the gate.
+                            // Treat that as a cancellation so the existing OCE branch handles
+                            // cleanup instead of letting Player.transform throw downstream.
+                            if (Player == null)
+                            {
+                                throw new OperationCanceledException(token);
+                            }
 
                             if (Mode == 0)
                             {
@@ -212,7 +265,7 @@ namespace Basis.Scripts.Avatar
                         }
                         finally
                         {
-                            _loadGate.Release();
+                            gate.Release();
                         }
                         break;
                 }
@@ -222,7 +275,7 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarMetaData = BasisLoadableBundle;
                 Player.AvatarLoadMode = Mode;
 
-                InitializePlayerAvatar(Player, Output);
+                InitializePlayerAvatar(Player, Output, null);
                 Player.AvatarLoadErrorMessage = null;
                 Player.AvatarSwitched();
             }
@@ -240,7 +293,10 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarLoadErrorMessage = $"Loading avatar failed: {e.Message}";
                 BasisDebug.LogError($"Loading avatar failed: {e}");
                 if (!token.IsCancellationRequested)
-                    await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                {
+                    MarkRemoteLoadFailed(Player);
+                    LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                }
             }
             finally
             {
@@ -256,12 +312,12 @@ namespace Basis.Scripts.Avatar
         /// <param name="BasisPlayer">The player to assign the avatar to.</param>
         /// <param name="Position">Spawn position for the avatar.</param>
         /// <param name="Rotation">Spawn rotation for the avatar.</param>
-        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken  Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
         {
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
             GameObject Output = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject,
                 BasisLoadableBundle, true, BasisPlayer.ProgressReportAvatarLoad, Token,
-                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform,false,true,MaxDownloadSizeInMB);
+                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform, false, true, MaxDownloadSizeInMB, HarvestedHeadChop);
 
             BasisPlayer.ProgressReportAvatarLoad.ReportProgress(UniqueID, 100, "Setting Position");
             return Output;
@@ -272,15 +328,13 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         /// <param name="Player">The player to assign the fallback avatar to.</param>
         /// <param name="LoadingAvatarToUse">The address of the fallback avatar.</param>
-        public static void RemoveOldAvatarAndLoadFallback(BasisPlayer Player, string LoadingAvatarToUse, Vector3 Position, Quaternion Rotation)
+        public static void RemoveOldAvatarAndLoadFallback(BasisPlayer Player, Vector3 Position, Quaternion Rotation)
         {
-            var op = Addressables.LoadAssetAsync<GameObject>(LoadingAvatarToUse);
-            var loadingAvatar = op.WaitForCompletion();
-            var inSceneLoadingAvatar = GameObject.Instantiate(loadingAvatar, Position, Rotation, Player.transform);
+            var inSceneLoadingAvatar = GameObject.Instantiate(CachedLoadingAvatarPrefab, Position, Rotation, Player.transform);
 
             if (inSceneLoadingAvatar.TryGetComponent(out BasisAvatar avatar))
             {
-                SetupPlayerAvatar(Player, avatar, inSceneLoadingAvatar, isFallback: true);
+                SetupPlayerAvatar(Player, avatar, isFallback: true, headChop: null);
             }
             else
             {
@@ -289,13 +343,34 @@ namespace Basis.Scripts.Avatar
         }
 
         /// <summary>
-        /// Initializes a player's avatar with the given prefab instance.
+        /// Initializes a player's avatar with the given prefab instance. For non-local
+        /// avatars, runs the performance-limit trim pass before setup so excess
+        /// components are gone before the avatar driver caches renderer/component
+        /// references. The resulting trim counts are stashed on the remote player so
+        /// the individual-player menu can show exactly what got removed.
         /// </summary>
-        private static void InitializePlayerAvatar(BasisPlayer Player, GameObject Output)
+        private static void InitializePlayerAvatar(BasisPlayer Player, GameObject Output, List<BasisHeadChop.HeadChopTarget> headChop)
         {
             if (Output.TryGetComponent(out BasisAvatar avatar))
             {
-                SetupPlayerAvatar(Player, avatar, Output, isFallback: false);
+                if (!Player.IsLocal)
+                {
+                    var remote = (BasisRemotePlayer)Player;
+                    // Per-player session bypass short-circuits the trim entirely,
+                    // mirroring the Evaluate skip in BasisRemotePlayer.CreateAvatar.
+                    // Leaving LastPerformanceInfo at its freshly-reset default lets
+                    // the UI show a clean "no filter applied" state for this player.
+                    var trimInfo = remote.BypassPerformanceLimits
+                        ? default(BasisAvatarPerformanceLimits.PerformanceInfo)
+                        : BasisAvatarPerformanceLimits.TrimExcessComponents(Output);
+
+                    // Only the success path (non-blocked, non-fallback) reaches here,
+                    // so CreateAvatar's freshly-reset LastPerformanceInfo has Blocked
+                    // = false and all counts = 0. Overwrite with the trim result; the
+                    // jiggle rig count is written later by RemoteCalibration.
+                    remote.LastPerformanceInfo = trimInfo;
+                }
+                SetupPlayerAvatar(Player, avatar, isFallback: false, headChop: headChop);
             }
         }
 
@@ -303,8 +378,19 @@ namespace Basis.Scripts.Avatar
         /// Configures a player with a specific avatar.
         /// Handles both local and remote player cases.
         /// </summary>
-        private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, GameObject rootObject, bool isFallback)
+        private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, bool isFallback, List<BasisHeadChop.HeadChopTarget> headChop)
         {
+            // Explicitly unregister old JiggleRigs synchronously. DeleteLastAvatar is async void
+            // and GameObject.Destroy only fires OnDisable at end-of-frame, which races with the
+            // new avatar's JiggleRig registration below. Doing it here keeps tree state consistent.
+            if (Player.BasisAvatar != null)
+            {
+                var oldRigs = Player.BasisAvatar.GetComponentsInChildren<JiggleRig>(true);
+                for (int i = 0; i < oldRigs.Length; i++)
+                {
+                    oldRigs[i].OnRemove();
+                }
+            }
             DeleteLastAvatar(Player);
             Player.IsConsideredFallBackAvatar = isFallback;
             Player.BasisAvatar = avatar;
@@ -316,7 +402,7 @@ namespace Basis.Scripts.Avatar
             switch (Player)
             {
                 case BasisLocalPlayer localPlayer:
-                    SetupLocalAvatar(localPlayer);
+                    SetupLocalAvatar(localPlayer, headChop);
                     break;
 
                 case BasisRemotePlayer remotePlayer:
@@ -326,18 +412,38 @@ namespace Basis.Scripts.Avatar
         }
 
         /// <summary>
+        /// Marks a remote player as permanently failed for this session's avatar load,
+        /// preventing range-change retries, and pushes the red failure color onto the nameplate.
+        /// Cleared only via the Hide/Show Avatar toggle in the individual player menu.
+        /// </summary>
+        public static void MarkRemoteLoadFailed(BasisRemotePlayer Player)
+        {
+            if (Player == null) return;
+            Player.HasFailedAvatarLoadGlobally = true;
+            if (Player.RemoteNamePlate != null)
+            {
+                Player.RemoteNamePlate.RefreshFailedStateColor();
+            }
+        }
+
+        /// <summary>
         /// Attempts to load the fallback avatar after a loading error.
         /// </summary>
-        public static async Task LoadAvatarAfterError(BasisPlayer Player, Vector3 Position, Quaternion Rotation)
+        public static void LoadAvatarAfterError(BasisPlayer Player, Vector3 Position, Quaternion Rotation)
         {
+            // Error paths reach here after an await — the player may already be destroyed.
+            // Accessing Player.transform on a destroyed object would throw a second
+            // MissingReferenceException while we're already handling the first one.
+            if (Player == null)
+            {
+                return;
+            }
+
             try
             {
-                ChecksRequired Required = new ChecksRequired(false, false, false,true);
-                InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
-                GameObject data = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
-                    LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
+                GameObject data = GameObject.Instantiate(CachedLoadingAvatarPrefab, Position, Rotation, Player.transform);
 
-                InitializePlayerAvatar(Player, data);
+                InitializePlayerAvatar(Player, data, null);
                 Player.AvatarMetaData = BasisAvatarFactory.LoadingAvatar;
                 Player.AvatarLoadMode = 1;
                 Player.AvatarSwitched();
@@ -368,7 +474,7 @@ namespace Basis.Scripts.Avatar
             {
                 if (Player.IsConsideredFallBackAvatar)
                 {
-                    AddressableResourceProcess.ReleaseGameobject(Player.BasisAvatar.gameObject);
+                    GameObject.Destroy(Player.BasisAvatar.gameObject);
                 }
                 else
                 {
@@ -391,22 +497,114 @@ namespace Basis.Scripts.Avatar
         public static void SetupRemoteAvatar(BasisRemotePlayer Player)
         {
             Player.RemoteAvatarDriver.RemoteCalibration(Player);
-            Player.BasisAvatar.OnAvatarReady?.Invoke(false);
-            Player.RemoteAvatarDriver.CalibrationComplete?.Invoke();
+            Player.BasisAvatar.NotifyAvatarReady(false);
         }
 
         /// <summary>
         /// Configures local player avatars after instantiation.
         /// </summary>
-        public static void SetupLocalAvatar(BasisLocalPlayer Player)
+        public static void SetupLocalAvatar(BasisLocalPlayer Player, List<BasisHeadChop.HeadChopTarget> headChop)
         {
-            Player.LocalAvatarDriver.InitialLocalCalibration(Player);
-            Player.BasisAvatar.OnAvatarReady?.Invoke(true);
+            Player.LocalAvatarDriver.InitialLocalCalibration(Player, headChop);
+            Player.BasisAvatar.NotifyAvatarReady(true);
             BasisLocalAvatarDriver.CalibrationComplete?.Invoke();
         }
 
-        private const int MaxConcurrentAvatarLoads = 50;
-        private static readonly SemaphoreSlim _loadGate = new(MaxConcurrentAvatarLoads, MaxConcurrentAvatarLoads);
+        /// <summary>
+        /// Mode 2 (in-scene) avatar bypasses ContentPolice, so this is the only place the
+        /// authoring <see cref="BasisHeadChop"/> components get processed for that path.
+        /// When <paramref name="destination"/> is non-null (local load), targets are appended;
+        /// the components themselves are always destroyed so BasisHeadChop never persists at
+        /// runtime — including on remote in-scene avatars where <paramref name="destination"/>
+        /// is null and only the strip happens.
+        /// </summary>
+        private static void HarvestAndStripHeadChop(GameObject root, List<BasisHeadChop.HeadChopTarget> destination)
+        {
+            if (root == null) return;
+            BasisHeadChop[] components = root.GetComponentsInChildren<BasisHeadChop>(true);
+            int length = components.Length;
+            for (int Index = 0; Index < length; Index++)
+            {
+                BasisHeadChop component = components[Index];
+                if (component == null) continue;
+                if (destination != null)
+                {
+                    BasisHeadChop.HeadChopTarget[] targets = component.Targets;
+                    if (targets != null && targets.Length > 0)
+                    {
+                        destination.AddRange(targets);
+                    }
+                }
+                UnityEngine.Object.DestroyImmediate(component);
+            }
+        }
+
+        // Avatar load concurrency gates. Three separate semaphores because each path has
+        // a completely different bottleneck:
+        //
+        //   _downloadGate    — bundle downloads from the network. Bandwidth-bound. Small
+        //                      default so each transfer runs at full speed instead of
+        //                      splitting bandwidth across N simultaneous loads.
+        //   _discGate        — bundle loads from the local disc cache. I/O + decryption +
+        //                      AssetBundle decompression. No network, so the gate can be
+        //                      wider, but not unlimited because the Unity AssetBundle API
+        //                      serialises heavily under the hood.
+        //   _addressableGate — built-in addressable instantiations. In-memory operations,
+        //                      the widest of the three.
+        //
+        // Defaults live in BasisSettingsDefaults and are pushed in via
+        // SMModuleAvatarLoadGates. Gates are field-swapped (not resized) when settings
+        // change, so in-flight loads continue on whichever semaphore they captured.
+        private static SemaphoreSlim _downloadGate = new(5, int.MaxValue);
+        private static SemaphoreSlim _discGate = new(15, int.MaxValue);
+        private static SemaphoreSlim _addressableGate = new(25, int.MaxValue);
+
+        /// <summary>
+        /// Replace the network-download gate with a new semaphore sized to
+        /// <paramref name="capacity"/>. In-flight loads that already captured the previous
+        /// semaphore will continue to use it and drain normally.
+        /// </summary>
+        public static void SetDownloadGateCapacity(int capacity)
+        {
+            if (capacity < 1) capacity = 1;
+            _downloadGate = new SemaphoreSlim(capacity, int.MaxValue);
+        }
+
+        /// <summary>
+        /// Replace the disc-load gate with a new semaphore sized to <paramref name="capacity"/>.
+        /// </summary>
+        public static void SetDiscGateCapacity(int capacity)
+        {
+            if (capacity < 1) capacity = 1;
+            _discGate = new SemaphoreSlim(capacity, int.MaxValue);
+        }
+
+        /// <summary>
+        /// Replace the addressable instantiation gate with a new semaphore sized to
+        /// <paramref name="capacity"/>.
+        /// </summary>
+        public static void SetAddressableGateCapacity(int capacity)
+        {
+            if (capacity < 1) capacity = 1;
+            _addressableGate = new SemaphoreSlim(capacity, int.MaxValue);
+        }
+
+        /// <summary>
+        /// Picks the appropriate semaphore for a given load mode. For Mode 0 (asset bundle)
+        /// we check <see cref="BasisLoadHandler.IsMetaDataOnDisc"/> so already-cached loads
+        /// use the disc gate instead of sitting behind slow network downloads.
+        /// </summary>
+        private static SemaphoreSlim ResolveGate(byte Mode, BasisLoadableBundle bundle)
+        {
+            if (Mode == 0)
+            {
+                bool cached = BasisLoadHandler.IsMetaDataOnDisc(
+                    bundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation,
+                    out _);
+                return cached ? _discGate : _downloadGate;
+            }
+            return _addressableGate;
+        }
 
         // Tracks the latest in-flight request per player (local/remote share this).
         private static readonly ConcurrentDictionary<int, CancellationTokenSource> _playerLoadCts = new();

@@ -18,8 +18,8 @@ namespace HVR.Basis.Comms
 
         public void Awake()
         {
-            _comms = HVRCommsUtil.GetAvatar(this).GetComponentInChildren<HVRAvatarComms>(true);
-            if(_comms == null)
+            _comms = HVRCommsUtil.GetComms(this);
+            if (_comms == null)
             {
                 BasisDebug.LogError("missing Comms Component network transmission of data for HVR related systems");
                 _networkReady = false;

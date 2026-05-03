@@ -18,12 +18,6 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.basis.corenetworking": {
-      "version": "file:com.basis.server",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.basis.eventdriver": {
       "version": "file:com.basis.eventdriver",
       "depth": 0,
@@ -94,6 +88,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.server": {
+      "version": "file:com.basis.server",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.settings": {
       "version": "file:com.basis.settings",
       "depth": 0,
@@ -102,6 +102,12 @@
     },
     "com.basis.shim": {
       "version": "file:com.basis.shim",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.basis.textmeshpro": {
+      "version": "file:com.basis.textmeshpro",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
@@ -117,14 +123,6 @@
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
-    },
-    "com.basis.zeromessenger": {
-      "version": "file:com.basis.zeromessenger",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.test-framework": "1.6.0"
-      }
     },
     "com.cnlohr.cilbox": {
       "version": "file:com.cnlohr.cilbox",
@@ -146,21 +144,6 @@
         "com.unity.mathematics": "1.0.0",
         "com.unity.collections": "2.0.0"
       }
-    },
-    "com.hecomi.basisulipsync": {
-      "version": "file:com.hecomi.ulipsync",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.burst": "1.4.11",
-        "com.unity.mathematics": "1.2.5"
-      }
-    },
-    "com.keviniglesias.basicmotions": {
-      "version": "file:com.keviniglesias.basicmotions",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
     },
     "com.llealloo.audiolink": {
       "version": "file:com.llealloo.audiolink",
@@ -220,7 +203,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
-      "version": "1.8.28",
+      "version": "1.8.29",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -249,7 +232,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.editorcoroutines": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {},
@@ -445,7 +428,7 @@
       }
     },
     "com.unity.test-framework.performance": {
-      "version": "3.2.0",
+      "version": "3.4.0",
       "depth": 2,
       "source": "registry",
       "dependencies": {
@@ -503,7 +486,7 @@
       }
     },
     "com.unity.xr.core-utils": {
-      "version": "2.5.3",
+      "version": "2.6.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -606,6 +589,12 @@
     },
     "org.basisvr.generator.equals": {
       "version": "file:org.basisvr.generator.equals",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "org.basisvr.k4os.compression.lz4": {
+      "version": "file:org.basisvr.k4os.compression.lz4",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

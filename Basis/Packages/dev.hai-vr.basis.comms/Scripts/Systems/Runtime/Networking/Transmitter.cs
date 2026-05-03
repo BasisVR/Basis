@@ -1,6 +1,5 @@
 ﻿using Basis.Scripts.Behaviour;
 using Basis.Network.Core;
-using UnityEngine;
 
 namespace HVR.Basis.Comms
 {

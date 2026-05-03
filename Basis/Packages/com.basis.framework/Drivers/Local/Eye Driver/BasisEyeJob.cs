@@ -6,14 +6,20 @@ using Unity.Mathematics;
 public struct BasisEyeJob : IJob
 {
     public float dt;
-    public float maxAngleRad;
-    public float holdMin, holdMax;
+    public float maxAngleDeg;
     public float saccadeMin, saccadeMax;
-    public float centerBias;
-    public float perEyeVarRad;
-    public bool occasionalCenterReturn;
-    public quaternion calLeftBasis, calLeftInvBasis;
-    public quaternion calRightBasis, calRightInvBasis;
+    public float perEyeVarDeg;
+
+    public BasisEyePersonality personality;
+    public BasisEyeCalibration calLeft, calRight;
+
+    public float2 headDeltaYP;
+
+    public bool hasGazeTarget;
+    public float2 gazeLeftEye, gazeRightEye, gazeMouth;
+    public float gazeMouthScale;
+    public bool gazeTargetChanged;
+
     public NativeArray<BasisEyeState> state;
 
     public void Execute()
@@ -22,14 +28,16 @@ public struct BasisEyeJob : IJob
 
         s.Update(
             dt,
-            math.radians(maxAngleRad),
-            holdMin, holdMax,
+            headDeltaYP,
+            math.radians(maxAngleDeg),
             saccadeMin, saccadeMax,
-            centerBias,
-           math.radians(perEyeVarRad),
-            occasionalCenterReturn,
-            calLeftBasis, calLeftInvBasis,
-            calRightBasis, calRightInvBasis
+            math.radians(perEyeVarDeg),
+            personality,
+            calLeft, calRight,
+            hasGazeTarget,
+            gazeLeftEye, gazeRightEye, gazeMouth,
+            gazeMouthScale,
+            gazeTargetChanged
         );
 
         state[0] = s;

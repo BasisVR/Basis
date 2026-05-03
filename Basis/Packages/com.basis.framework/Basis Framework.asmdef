@@ -43,7 +43,8 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "Unity.Burst.Cecil.dll",
-        "Unity.Collections.LowLevel.ILSupport.dll"
+        "Unity.Collections.LowLevel.ILSupport.dll",
+        "K4os.Compression.LZ4.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],
@@ -57,6 +58,11 @@
             "name": "com.basis.openxr",
             "expression": "",
             "define": "BASIS_HAS_OPENXR"
+        },
+        {
+            "name": "com.basis.mediapipe",
+            "expression": "",
+            "define": "BASIS_HAS_MEDIAPIPE"
         }
     ],
     "noEngineReferences": false

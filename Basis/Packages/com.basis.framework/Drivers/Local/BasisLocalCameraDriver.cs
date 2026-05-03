@@ -1,6 +1,9 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.TransformBinders;
 using SteamAudio;
 using UnityEngine;
@@ -88,14 +91,19 @@ namespace Basis.Scripts.Drivers
         public BasisLocalMicrophoneIconDriver microphoneIconDriver = new BasisLocalMicrophoneIconDriver();
 #endif
 
+        /// <summary>Driver for avatar preview camera and HUD display.</summary>
+        [SerializeField]
+        public BasisLocalAvatarPreviewDriver avatarPreviewDriver = new BasisLocalAvatarPreviewDriver();
+
         /// <summary>
         /// World forward vector of the active camera instance, or zero if no instance exists.
+        /// Derived from the cached <see cref="Rotation"/> to avoid a native transform PInvoke per call.
         /// </summary>
         public static Vector3 Forward()
         {
             if (HasInstance)
             {
-                return Instance.transform.forward;
+                return Rotation * Vector3.forward;
             }
             else
             {
@@ -110,7 +118,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.up;
+                return Rotation * Vector3.up;
             }
             else
             {
@@ -125,7 +133,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.right;
+                return Rotation * Vector3.right;
             }
             else
             {
@@ -186,6 +194,7 @@ namespace Basis.Scripts.Drivers
                 BasisLocalMicrophoneDriver.OnPausedAction += microphoneIconDriver.OnPausedEvent;
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio += microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence += microphoneIconDriver.MicrophoneNotTransmitting;
+                BasisNetworkModeration.OnShoutModeChanged += OnShoutModeChangedForIcon;
 #else
                 ParentOfUI.gameObject.SetActive(false);
 #endif
@@ -197,6 +206,10 @@ namespace Basis.Scripts.Drivers
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateCameraScale;
                 BasisLocalPlayer.OnLocalAvatarChanged += UpdateCameraScale;
 
+                BasisSettingsDefaults.UseCameraClipOverride.OnChanged += OnClipOverrideToggleChanged;
+                BasisSettingsDefaults.CameraClipNear.OnChanged += OnClipBindingChangedFloat;
+                BasisSettingsDefaults.CameraClipFar.OnChanged += OnClipBindingChangedFloat;
+
                 InstanceExists?.Invoke();
                 HasEvents = true;
             }
@@ -205,6 +218,8 @@ namespace Basis.Scripts.Drivers
             microphoneIconDriver.HardEnableVisuals(false);
             BasisLocalMicrophoneDriver.OnInitializedAction += OnMicrophoneDriverInitialized;
 #endif
+
+            avatarPreviewDriver.Initialize(this);
 
 #if STEAMAUDIO_ENABLED
             if (SteamAudioListener != null)
@@ -219,14 +234,19 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void OnDestroy()
         {
+            avatarPreviewDriver.Cleanup();
             CameraInstance = null;
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             RenderPipelineManager.endCameraRendering -= EndCameraRendering;
             BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateCameraScale;
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateCameraScale;
+            BasisSettingsDefaults.UseCameraClipOverride.OnChanged -= OnClipOverrideToggleChanged;
+            BasisSettingsDefaults.CameraClipNear.OnChanged -= OnClipBindingChangedFloat;
+            BasisSettingsDefaults.CameraClipFar.OnChanged -= OnClipBindingChangedFloat;
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
+            BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
 #endif
             HasEvents = false;
             HasInstance = false;
@@ -249,9 +269,11 @@ namespace Basis.Scripts.Drivers
 #if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio -= microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence -= microphoneIconDriver.MicrophoneNotTransmitting;
+                BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
 #endif
                 HasEvents = false;
             }
+            avatarPreviewDriver.Cleanup();
         }
 
         /// <summary>
@@ -279,6 +301,13 @@ namespace Basis.Scripts.Drivers
                 microphoneIconDriver.Initalize(this);
             }
             microphoneIconDriver.HardEnableVisuals(initialized);
+        }
+
+        private void OnShoutModeChangedForIcon(ushort playerId, bool enabled)
+        {
+            if (BasisNetworkPlayer.LocalPlayer == null || playerId != BasisNetworkPlayer.LocalPlayer.playerId)
+                return;
+            microphoneIconDriver.OnShoutModeChanged();
         }
 #endif
 
@@ -316,6 +345,15 @@ namespace Basis.Scripts.Drivers
         public void UpdateCameraScale(BasisHeightDriver.HeightModeChange HeightModeChange)
         {
             this.transform.localScale = Vector3.one * BasisHeightDriver.DeviceScale;
+            if (BasisSettingsDefaults.UseCameraClipOverride.RawValue)
+            {
+                // User has explicitly opted into raw clip values; bypass the eye-height clamp.
+                float overrideNear = Mathf.Max(BasisSettingsDefaults.CameraClipNear.RawValue, 1e-4f);
+                float overrideFar = Mathf.Max(BasisSettingsDefaults.CameraClipFar.RawValue, overrideNear + 1e-3f);
+                Camera.nearClipPlane = overrideNear;
+                Camera.farClipPlane = overrideFar;
+                return;
+            }
             // Ensure that the near clip plane is never far enough away that the avatar body clips through it.
             // Critically we need to avoid small player heights causing the UI to become unusable due to clipping.
             // At the same time, we need to pull in the far clip plane on mobile platforms to avoid depth buffer precision issues.
@@ -331,6 +369,9 @@ namespace Basis.Scripts.Drivers
                 Camera.farClipPlane = Mathf.Clamp(DesiredClipFar, eyeHeightMeters * 128.0f, eyeHeightMeters * 8192.0f);
             }
         }
+
+        private void OnClipOverrideToggleChanged(bool _) => UpdateCameraScale();
+        private void OnClipBindingChangedFloat(float _) => UpdateCameraScale();
 
         /// <summary>
         /// URP callback after camera render: restores head scale to normal for this camera.
@@ -394,6 +435,7 @@ namespace Basis.Scripts.Drivers
                         ParentOfUI.localPosition = localPos * BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
                     }
                 }
+                avatarPreviewDriver.Simulate();
             }
         }
 

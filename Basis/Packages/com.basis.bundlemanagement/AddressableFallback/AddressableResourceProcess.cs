@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Basis.Scripts.BasisSdk;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.ResourceProviders;
@@ -7,7 +9,7 @@ namespace Basis.Scripts.Addressable_Driver.Resource
 {
     public static class AddressableResourceProcess
     {
-        public static async Task<GameObject> LoadAsGameObjectsAsync(GameObject TempSpawnDisableGameobject,string loadstring,InstantiationParameters instantiationParameters, ChecksRequired Required, Selector Selector)
+        public static async Task<GameObject> LoadAsGameObjectsAsync(GameObject TempSpawnDisableGameobject,string loadstring,InstantiationParameters instantiationParameters, ChecksRequired Required, Selector Selector, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
         {
             UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> data = Addressables.LoadAssetAsync<GameObject>(loadstring);
 
@@ -15,7 +17,7 @@ namespace Basis.Scripts.Addressable_Driver.Resource
 
             if (result is GameObject resource)
             {
-                GameObject spawned = ContentPoliceControl.ContentControl(TempSpawnDisableGameobject, resource, Required, instantiationParameters.Position, instantiationParameters.Rotation, false, Vector3.zero, Selector, instantiationParameters.Parent, LayerMask.NameToLayer("IgnoredByInteractable"));
+                GameObject spawned = ContentPoliceControl.ContentControl(TempSpawnDisableGameobject, resource, Required, instantiationParameters.Position, instantiationParameters.Rotation, false, Vector3.zero, Selector, instantiationParameters.Parent, LayerMask.NameToLayer("IgnoredByInteractable"), HarvestedHeadChop);
                 return spawned;
             }
             else

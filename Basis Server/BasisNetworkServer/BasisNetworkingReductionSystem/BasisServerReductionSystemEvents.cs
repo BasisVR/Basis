@@ -1,8 +1,10 @@
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using BasisNetworkServer.BasisNetworking;
+using K4os.Compression.LZ4;
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,6 +21,21 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         public NetPeer FromPeer;
         public byte Sequence;
         public LocalAvatarSyncMessage AvatarMessage;
+    }
+
+    /// <summary>
+    /// Deferred avatar send recorded once per (sender,receiver) pair in the inner loop.
+    /// We keep a reference to the shared pre-serialized source plus the per-receiver
+    /// interval byte; the flush stage decides whether to compress these into one bundle
+    /// or replay each as an individual SendUnreliableRawMerge.
+    /// </summary>
+    public struct PendingAvatarSend
+    {
+        public byte[] Source;
+        public int Length;
+        public byte Channel;
+        public byte Interval;
+        public byte IntervalOffset; // 1 for byte-id, 2 for ushort-id
     }
 
     /// <summary>
@@ -93,6 +110,23 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Actual payload size stored in AvatarHigh.array (which may be larger if from ArrayPool).
         // Used for muscle-change comparison instead of .Length to handle pooled arrays correctly.
         public int HighArrayActualSize;
+
+        // Per-receiver bundle accumulator. Populated in UpdateCommunicationAndDistances
+        // and drained in FlushPendingForReceiver. Allocated lazily on first use.
+        // Only this player's own receive thread (one Parallel.For body) writes here,
+        // so no synchronization is needed.
+        public PendingAvatarSend[] PendingSends;
+        public int PendingCount;
+
+        // Scratch buffers reused tick-to-tick when emitting compressed bundles to this receiver.
+        // Avoids per-tick allocations in the deflate path. Sized by the flush logic.
+        public byte[] BundleRawScratch;
+        public byte[] BundleCompressedScratch;
+
+        // EMA of compressed/raw ratio observed for this receiver's bundles. Used by
+        // FlushPendingForReceiver to predict how many messages fit in one MTU-sized chunk
+        // so the first compress attempt usually succeeds with no retry. 0 = unseeded.
+        public float LastBundleRatio;
     }
 
     public partial class BasisServerReductionSystemEvents
@@ -115,6 +149,20 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         public static float BSRBaseMultiplier = 1.0f;
         public static float BSRSIncreaseRate = 0.01f;
         public static int BSRSMillisecondDefaultInterval = 50;
+
+        // Compressed avatar bundle settings (written from NetworkServer.InitializePulseSettings).
+        // When enabled, the per-receiver inner loop defers sends into PendingAvatarSend[] and
+        // flushes either as one deflated bundle on CompressedAvatarBundleChannel or as
+        // individual SendUnreliableRawMerge calls on the original quality channels.
+        public static bool EnableAvatarBundleCompression = false;
+        public static int AvatarBundleMinMessages = 4;
+        public static int AvatarBundleMinBytes = 300;
+        // Conservative headroom subtracted from peer.Mtu before checking if a compressed
+        // bundle fits in a single UDP datagram. Accounts for LiteNetLib unreliable header,
+        // optional packet-layer header, and merge length prefixes.
+        private const int BundleMtuHeadroom = 32;
+        // Bundle wire header: [count:1][rawLen:2-LE]
+        private const int BundleHeaderSize = 3;
         private static readonly double MsToTick = Stopwatch.Frequency / 1000.0;
 
         // Maintained incrementally via ProcessMessage/ProcessPendingRemovals instead of rebuilt every tick.
@@ -142,9 +190,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         };
 
         // Distance -> Quality thresholds (squared meters)
-        public static float HighDistanceSq = 9f;        // 3m
-        public static float MediumDistanceSq = 100f;    // 10m
-        public static float LowDistanceSq = 400f;       // 20m
+        public static float HighDistanceSq = 100f;      // 10m
+        public static float MediumDistanceSq = 900f;    // 30m
+        public static float LowDistanceSq = 2500f;      // 50m
 
         public static long intervalMs = 4;
         // Tick slicing: only process a subset of receivers each tick to spread the O(NÂ²) work.
@@ -243,73 +291,17 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             while (!cts.Token.IsCancellationRequested)
             {
                 long startTick = Stopwatch.GetTimestamp();
-                bool profiling = BSRProfiler.Enabled;
-                long phaseTick = profiling ? Stopwatch.GetTimestamp() : 0;
 
-                // Phase 1: Drain
-                // Swap to the back-buffer so inbound threads write to the cleared dictionary.
-                // No allocation per tick — just swap and drain.
-                _backMessages.Clear();
-                var batch = Interlocked.Exchange(ref currentMessages, _backMessages);
-                _backMessages = batch;
-                _messagesSnapshot.Clear();
-                foreach (var kvp in batch)
+                // One bad tick must not kill the thread. An unhandled throw here (e.g. an
+                // edge case during mass connect/recycle) would otherwise stop every future
+                // tick and silently freeze all avatar sync until server restart.
+                try
                 {
-                    _messagesSnapshot.Add(kvp.Value);
+                    RunTick(startTick);
                 }
-                if (profiling) { BSRProfiler.drainTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
-
-                // Phase 2: Process messages (static delegate avoids closure allocation per tick)
-                Parallel.ForEach(_messagesSnapshot, parallelOptions, s_processMessageAction);
-                if (profiling) { BSRProfiler.processTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
-
-                ProcessPendingRemovals();
-
-                // Phase 2.5: Distance cache update (runs at ~2Hz instead of every tick)
-                _distanceTickCounter++;
-                if (_distanceTickCounter >= DistanceUpdateIntervalTicks)
+                catch (Exception ex)
                 {
-                    _distanceTickCounter = 0;
-                    long distStart = profiling ? Stopwatch.GetTimestamp() : 0;
-                    UpdateDistanceCache();
-                    if (profiling) { BSRProfiler.distanceTicks += Stopwatch.GetTimestamp() - distStart; phaseTick = Stopwatch.GetTimestamp(); }
-                }
-
-                //Phase 3: Send loop
-                long now = Stopwatch.GetTimestamp();
-                UpdateCommunicationAndDistances(now);
-                if (profiling)
-                {
-                    BSRProfiler.updateTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp();
-                }
-
-                //Phase 4: Network I/O
-                BasisNetworkPIPCamera.UpdatePIPPositions(now);
-                if (NetworkServer.Server != null && NetworkServer.Server.manager != null)
-                {
-                    NetworkServer.Server.manager.TriggerUpdate();
-                }
-                if (profiling)
-                {
-                    BSRProfiler.triggerTicks += Stopwatch.GetTimestamp() - phaseTick;
-                    BSRProfiler.tickCount++;
-                    BSRProfiler.messagesProcessed += _messagesSnapshot.Count;
-                }
-
-                //Tick bookkeeping
-                long elapsedTicks = Stopwatch.GetTimestamp() - startTick;
-                double elapsedMs = elapsedTicks / MsToTick;
-
-                BSRProfiler.TryPrint();
-
-                // Adaptive slice count: if tick took > 3ms, increase slicing; if < 1ms, decrease.
-                if (elapsedMs > 3.0 && _sliceCount < 32)
-                {
-                    _sliceCount++;
-                }
-                else if (elapsedMs < 1.0 && _sliceCount > 1)
-                {
-                    _sliceCount--;
+                    BNL.LogError($"[BSR Tick] Unhandled exception: {ex}");
                 }
 
                 // Precise timing: coarse sleep for bulk wait, then spin to exact target.
@@ -328,6 +320,78 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     Thread.SpinWait(20);
                 }
+            }
+        }
+
+        private static void RunTick(long startTick)
+        {
+            bool profiling = BSRProfiler.Enabled;
+            long phaseTick = profiling ? Stopwatch.GetTimestamp() : 0;
+
+            // Phase 1: Drain
+            // Swap to the back-buffer so inbound threads write to the cleared dictionary.
+            // No allocation per tick — just swap and drain.
+            _backMessages.Clear();
+            var batch = Interlocked.Exchange(ref currentMessages, _backMessages);
+            _backMessages = batch;
+            _messagesSnapshot.Clear();
+            foreach (var kvp in batch)
+            {
+                _messagesSnapshot.Add(kvp.Value);
+            }
+            if (profiling) { BSRProfiler.drainTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
+
+            // Phase 2: Process messages (static delegate avoids closure allocation per tick)
+            Parallel.ForEach(_messagesSnapshot, parallelOptions, s_processMessageAction);
+            if (profiling) { BSRProfiler.processTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
+
+            ProcessPendingRemovals();
+
+            // Phase 2.5: Distance cache update (runs at ~2Hz instead of every tick)
+            _distanceTickCounter++;
+            if (_distanceTickCounter >= DistanceUpdateIntervalTicks)
+            {
+                _distanceTickCounter = 0;
+                long distStart = profiling ? Stopwatch.GetTimestamp() : 0;
+                UpdateDistanceCache();
+                if (profiling) { BSRProfiler.distanceTicks += Stopwatch.GetTimestamp() - distStart; phaseTick = Stopwatch.GetTimestamp(); }
+            }
+
+            //Phase 3: Send loop
+            long now = Stopwatch.GetTimestamp();
+            UpdateCommunicationAndDistances(now);
+            if (profiling)
+            {
+                BSRProfiler.updateTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp();
+            }
+
+            //Phase 4: Network I/O
+            BasisNetworkPIPCamera.UpdatePIPPositions(now);
+            if (NetworkServer.Server != null && NetworkServer.Server.manager != null)
+            {
+                NetworkServer.Server.manager.TriggerUpdate();
+            }
+            if (profiling)
+            {
+                BSRProfiler.triggerTicks += Stopwatch.GetTimestamp() - phaseTick;
+                BSRProfiler.tickCount++;
+                BSRProfiler.messagesProcessed += _messagesSnapshot.Count;
+            }
+
+            //Tick bookkeeping
+            long elapsedTicks = Stopwatch.GetTimestamp() - startTick;
+            double elapsedMs = elapsedTicks / MsToTick;
+
+            BSRProfiler.TryPrint();
+
+            // Adaptive slice count: if tick took > 3ms, increase slicing; if < 1ms, decrease.
+            if (elapsedMs > 3.0 && _sliceCount < 32)
+            {
+                _sliceCount++;
+            }
+            else if (elapsedMs < 1.0 && _sliceCount > 1)
+            {
+                _sliceCount--;
             }
         }
 
@@ -515,6 +579,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 return;
             }
 
+            bool bundlingEnabled = EnableAvatarBundleCompression;
+
             Parallel.For(start, end, parallelOptions, i =>
             {
                 var (id, state) = activeCopy[i];
@@ -526,6 +592,16 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     return;
                 }
+
+                // Per-receiver pending buffer: collect what would be sent this tick
+                // and decide compress-or-individual at the end. Lazily grown.
+                var pending = stateI.PendingSends;
+                if (pending == null)
+                {
+                    pending = new PendingAvatarSend[64];
+                    stateI.PendingSends = pending;
+                }
+                int pendingCount = 0;
 
                 // Thread-local send counter — no Interlocked in the hot loop
                 long localSends = 0;
@@ -575,7 +651,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     PlayerState stateJ = activeCopy[index].state;
 
                     // Lazy pre-serialization: skip if not serialized, mark needed for next tick
-                    if (stateJ.SerializedKeyframeLength[qi] == 0)
+                    int srcLen = stateJ.SerializedKeyframeLength[qi];
+                    byte[] srcArr = stateJ.SerializedKeyframe[qi];
+                    if (srcLen == 0 || srcArr == null)
                     {
                         MarkQualityUsed(ref stateJ.UsedQualities, qi);
                         continue;
@@ -584,7 +662,20 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     byte avatarChannel = stateJ.SmallId
                         ? BasisNetworkCommons.GetPlayerAvatarChannelForQuality(qi, stateJ.HasAdditionalData)
                         : BasisNetworkCommons.GetPlayerAvatarLargeChannelForQuality(qi, stateJ.HasAdditionalData);
-                    SendPreSerialized(peer, qi, startAtZeroInterval, avatarChannel, stateJ.SerializedKeyframe, stateJ.SerializedKeyframeLength, stateJ.SmallId);
+
+                    // Defer the send. Cheaper per-pair than SendUnreliableRawMerge:
+                    // a single struct write vs pool-rent + BlockCopy + enqueue.
+                    if (pendingCount == pending.Length)
+                    {
+                        Array.Resize(ref pending, pending.Length * 2);
+                        stateI.PendingSends = pending;
+                    }
+                    ref PendingAvatarSend p = ref pending[pendingCount++];
+                    p.Source = srcArr;
+                    p.Length = srcLen;
+                    p.Channel = avatarChannel;
+                    p.Interval = startAtZeroInterval;
+                    p.IntervalOffset = (byte)(stateJ.SmallId ? 1 : 2);
 
                     MarkQualityUsed(ref stateJ.UsedQualities, qi);
 
@@ -594,12 +685,260 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     localSends++;
                 }
 
+                stateI.PendingCount = pendingCount;
+                if (pendingCount > 0)
+                {
+                    FlushPendingForReceiver(stateI, peer, bundlingEnabled);
+                }
+
                 // One Interlocked.Add per receiver (not per send) — ~25 atomics/tick instead of ~32K
                 if (localSends > 0 && BSRProfiler.Enabled)
                 {
                     Interlocked.Add(ref BSRProfiler.SendCount, localSends);
                 }
             });
+        }
+
+        /// <summary>
+        /// Flushes the per-receiver PendingSends buffer to the wire. When bundling is
+        /// enabled and the receiver has at least <see cref="AvatarBundleMinMessages"/>
+        /// messages queued, packs them greedily into one or more MTU-sized deflated
+        /// bundles on <see cref="BasisNetworkCommons.CompressedAvatarBundleChannel"/>.
+        /// Any tail too small to bundle (or pathological pairs that won't compress)
+        /// gets replayed as individual unreliable sends on the original quality channel.
+        /// </summary>
+        private static void FlushPendingForReceiver(PlayerState stateI, NetPeer peer, bool bundlingEnabled)
+        {
+            int count = stateI.PendingCount;
+            if (count <= 0) return;
+            var pending = stateI.PendingSends;
+
+            int cursor = 0;
+            if (bundlingEnabled && count >= AvatarBundleMinMessages)
+            {
+                cursor = EmitGreedyBundles(stateI, peer, pending, count);
+            }
+
+            // Send anything not packed into a bundle (the tail < min, or all of pending
+            // when bundling is disabled / pathological no-fit). Equivalent to the
+            // pre-bundling path; LiteNetLib's merge buffer still packs these into UDP packets.
+            int tailSent = 0;
+            for (int i = cursor; i < count; i++)
+            {
+                ref PendingAvatarSend p = ref pending[i];
+                if (p.Length <= p.IntervalOffset) continue;
+                peer.SendUnreliableRawMerge(p.Source, 0, p.Length, p.Channel, p.IntervalOffset, p.Interval);
+                BasisNetworkStatistics.RecordOutbound(p.Channel, p.Length);
+                tailSent++;
+            }
+            // Profiler attribution: distinguish "tail of bundled receiver" (cursor > 0) from
+            // "fallback because bundling produced nothing" (cursor == 0 with bundling enabled).
+            if (BSRProfiler.Enabled && tailSent > 0)
+            {
+                Interlocked.Add(ref BSRProfiler.bundleTailUncompressed, tailSent);
+                if (bundlingEnabled && cursor == 0 && count >= AvatarBundleMinMessages)
+                {
+                    Interlocked.Increment(ref BSRProfiler.bundleFallbacks);
+                }
+            }
+            stateI.PendingCount = 0;
+        }
+
+        /// <summary>
+        /// Greedily packs as many pending messages as fit into MTU-sized compressed
+        /// bundles, emitting each on <see cref="BasisNetworkCommons.CompressedAvatarBundleChannel"/>.
+        /// Uses a per-receiver EMA of the compressed/raw ratio so the first deflate
+        /// attempt usually succeeds; on overshoot we shrink using the actual observed
+        /// ratio and retry once. Returns the index of the first not-yet-emitted entry —
+        /// callers send the [cursor, count) tail uncompressed.
+        /// </summary>
+        private static int EmitGreedyBundles(PlayerState stateI, NetPeer peer, PendingAvatarSend[] pending, int count)
+        {
+            int budget = peer.Mtu - BundleMtuHeadroom - BundleHeaderSize;
+            if (budget <= 0) return 0;
+
+            // Initial ratio guess: deflate Fastest on bit-packed avatar data observed ~0.6.
+            // Stays in [0.05, 0.95] so prediction never picks zero or full-budget chunks.
+            float ratio = stateI.LastBundleRatio;
+            if (ratio < 0.05f || ratio > 0.95f) ratio = 0.6f;
+
+            int cursor = 0;
+            // AvatarBundleMinMessages gates *starting* to bundle (caller already checked it for
+            // the first chunk). Inside the loop, individual chunks are sized by what fits in MTU;
+            // a chunk of only 1-2 large messages is still worthwhile if rawLen ≥ AvatarBundleMinBytes
+            // so the deflate header pays back. The outer condition just keeps the receiver tail of
+            // < min uncompressed (since uncompressed sends merge fine for tiny remainders).
+            while (count - cursor >= AvatarBundleMinMessages)
+            {
+                // Predict raw chunk size that would compress to ~budget * 0.95 (small safety
+                // margin so we don't waste a retry on near-MTU overshoots). Then walk pending
+                // accumulating sizes until we hit that target or run out of messages.
+                int targetRaw = (int)((budget * 0.95f) / ratio);
+                int chunkEnd = PickChunkEnd(pending, cursor, count, targetRaw);
+                if (chunkEnd <= cursor) break;
+
+                int rawLen = BuildRawForRange(stateI, pending, cursor, chunkEnd);
+                if (rawLen < AvatarBundleMinBytes) break;
+
+                if (TryDeflateAndEmit(stateI, peer, cursor, chunkEnd, rawLen, budget, out int compressedLen))
+                {
+                    UpdateRatioEMA(ref stateI.LastBundleRatio, compressedLen, rawLen, weightOnObserved: 0.3f);
+                    cursor = chunkEnd;
+                    ratio = stateI.LastBundleRatio;
+                    continue;
+                }
+
+                // Overshoot — recompute target using the actual ratio we just observed and
+                // retry with a smaller chunk. Heavier weight on the observed value: this
+                // receiver's payload likely just compresses worse than predicted.
+                UpdateRatioEMA(ref stateI.LastBundleRatio, compressedLen, rawLen, weightOnObserved: 0.7f);
+                float observed = (float)compressedLen / rawLen;
+                if (observed < 0.05f) observed = 0.05f;
+                if (observed > 0.99f) observed = 0.99f;
+
+                int retryTargetRaw = (int)((budget * 0.92f) / observed);
+                int retryEnd = PickChunkEnd(pending, cursor, chunkEnd, retryTargetRaw);
+                if (retryEnd >= chunkEnd) retryEnd = cursor + Math.Max(1, (chunkEnd - cursor) * 3 / 4);
+                if (retryEnd <= cursor) break;
+
+                int retryRawLen = BuildRawForRange(stateI, pending, cursor, retryEnd);
+                if (retryRawLen < AvatarBundleMinBytes) break;
+
+                if (BSRProfiler.Enabled) Interlocked.Increment(ref BSRProfiler.bundleRetries);
+                if (!TryDeflateAndEmit(stateI, peer, cursor, retryEnd, retryRawLen, budget, out int retryCompressed))
+                {
+                    // Two failures in a row — give up on bundling for this receiver this tick;
+                    // caller replays cursor..count uncompressed.
+                    break;
+                }
+
+                UpdateRatioEMA(ref stateI.LastBundleRatio, retryCompressed, retryRawLen, weightOnObserved: 0.5f);
+                cursor = retryEnd;
+                ratio = stateI.LastBundleRatio;
+            }
+            return cursor;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int PickChunkEnd(PendingAvatarSend[] pending, int cursor, int hardEnd, int targetRaw)
+        {
+            int chunkEnd = cursor;
+            int rawAccum = 0;
+            while (chunkEnd < hardEnd)
+            {
+                int entrySize = 3 + pending[chunkEnd].Length; // [chan:1][len:2][bytes]
+                // Always include at least one entry so the chunk grows; only break once
+                // adding the next would exceed the predicted budget.
+                if (chunkEnd > cursor && rawAccum + entrySize > targetRaw) break;
+                rawAccum += entrySize;
+                chunkEnd++;
+            }
+            return chunkEnd;
+        }
+
+        /// <summary>
+        /// Writes <c>[origChannel:1][len:2-LE][bytes (interval-patched)]</c> for each
+        /// pending entry in <c>[start, end)</c> into <c>stateI.BundleRawScratch</c>
+        /// (grown on demand) and returns the total bytes written.
+        /// </summary>
+        private static int BuildRawForRange(PlayerState stateI, PendingAvatarSend[] pending, int start, int end)
+        {
+            int upperBound = 0;
+            for (int i = start; i < end; i++) upperBound += 3 + pending[i].Length;
+
+            byte[] raw = stateI.BundleRawScratch;
+            if (raw == null || raw.Length < upperBound)
+            {
+                raw = new byte[Math.Max(upperBound, 4096)];
+                stateI.BundleRawScratch = raw;
+            }
+
+            int rawPos = 0;
+            for (int i = start; i < end; i++)
+            {
+                ref PendingAvatarSend p = ref pending[i];
+                int len = p.Length;
+                if (len <= p.IntervalOffset) continue;
+
+                raw[rawPos++] = p.Channel;
+                BinaryPrimitives.WriteUInt16LittleEndian(raw.AsSpan(rawPos, 2), (ushort)len);
+                rawPos += 2;
+                Buffer.BlockCopy(p.Source, 0, raw, rawPos, len);
+                // Patch the per-receiver interval byte in our copy (source is shared).
+                raw[rawPos + p.IntervalOffset] = p.Interval;
+                rawPos += len;
+            }
+            return rawPos;
+        }
+
+        /// <summary>
+        /// LZ4-compresses <c>stateI.BundleRawScratch[0..rawLen]</c> into the payload region of
+        /// <c>stateI.BundleCompressedScratch</c> (after the reserved bundle-header prefix),
+        /// emits one UDP datagram on CompressedAvatarBundleChannel if it fits the peer-MTU
+        /// budget, and reports the compressed payload length. On overshoot returns false
+        /// (caller retries with a smaller chunk). LZ4Codec.Encode is a single static call
+        /// with no allocations and no per-call setup — at high call rates this is ~10× cheaper
+        /// than DeflateStream, which allocates an internal window + hashtable on every Write.
+        /// </summary>
+        private static bool TryDeflateAndEmit(PlayerState stateI, NetPeer peer, int chunkStart, int chunkEnd, int rawLen, int budget, out int compressedLen)
+        {
+            compressedLen = 0;
+            byte[] raw = stateI.BundleRawScratch;
+            byte[] compressed = stateI.BundleCompressedScratch;
+            // LZ4 worst case is rawLen + (rawLen / 255) + 16 (returned by MaximumOutputSize).
+            int compCapacityNeeded = BundleHeaderSize + LZ4Codec.MaximumOutputSize(rawLen);
+            if (compressed == null || compressed.Length < compCapacityNeeded)
+            {
+                compressed = new byte[Math.Max(compCapacityNeeded, 4096)];
+                stateI.BundleCompressedScratch = compressed;
+            }
+
+            bool profiling = BSRProfiler.Enabled;
+            long deflateStart = profiling ? Stopwatch.GetTimestamp() : 0;
+
+            // Encode directly into the wire packet's payload region. Returns -1 if the
+            // destination span isn't large enough — shouldn't happen given the sizing above,
+            // but if it does we treat it as an overshoot and let the caller retry smaller.
+            compressedLen = LZ4Codec.Encode(
+                raw.AsSpan(0, rawLen),
+                compressed.AsSpan(BundleHeaderSize, compressed.Length - BundleHeaderSize),
+                LZ4Level.L00_FAST);
+
+            if (profiling) Interlocked.Add(ref BSRProfiler.bundleDeflateTicks, Stopwatch.GetTimestamp() - deflateStart);
+
+            if (compressedLen <= 0 || compressedLen > budget)
+            {
+                return false;
+            }
+
+            int wireLen = BundleHeaderSize + compressedLen;
+            int chunkCount = chunkEnd - chunkStart;
+            compressed[0] = (byte)Math.Min(chunkCount, 255);
+            BinaryPrimitives.WriteUInt16LittleEndian(compressed.AsSpan(1, 2), (ushort)Math.Min(rawLen, ushort.MaxValue));
+
+            peer.SendUnreliableRawMerge(compressed, 0, wireLen, BasisNetworkCommons.CompressedAvatarBundleChannel);
+            BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.CompressedAvatarBundleChannel, wireLen);
+
+            if (profiling)
+            {
+                Interlocked.Increment(ref BSRProfiler.bundlesEmitted);
+                Interlocked.Add(ref BSRProfiler.bundleMessages, chunkCount);
+                Interlocked.Add(ref BSRProfiler.bundleRawBytes, rawLen);
+                Interlocked.Add(ref BSRProfiler.bundleCompressedBytes, compressedLen);
+            }
+            return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void UpdateRatioEMA(ref float ema, int compressed, int raw, float weightOnObserved)
+        {
+            if (raw <= 0) return;
+            float observed = (float)compressed / raw;
+            if (observed < 0.05f) observed = 0.05f;
+            if (observed > 0.99f) observed = 0.99f;
+            float prev = ema;
+            if (prev < 0.05f || prev > 0.95f) prev = observed; // unseeded → adopt
+            ema = prev * (1f - weightOnObserved) + observed * weightOnObserved;
         }
 
         /// <summary>
@@ -624,31 +963,6 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 if (was == cur) return;
                 cur = was;
             }
-        }
-
-        /// <summary>
-        /// Sends a pre-serialized message directly into the merge buffer, patching the
-        /// interval byte after the copy to avoid racing on the shared source array.
-        /// Eliminates the intermediate NetDataWriter copy.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SendPreSerialized(NetPeer peer, int qi, byte interval, byte channel, byte[][] serializedArray, int[] lengthArray, bool smallId)
-        {
-            int len = lengthArray[qi];
-            byte[] src = serializedArray[qi];
-            if (src == null || len == 0)
-            {
-                return;
-            }
-
-            // Patch interval byte: offset 1 for byte playerID, offset 2 for ushort playerID
-            int intervalOffset = smallId ? 1 : 2;
-            if (len <= intervalOffset)
-            {
-                return;
-            }
-            peer.SendUnreliableRawMerge(src, 0, len, channel, intervalOffset, interval);
-            BasisNetworkStatistics.RecordOutbound(channel, len);
         }
 
         /// <summary>
@@ -844,6 +1158,19 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             }
             else
             {
+                // Peer-slot reuse: LiteNetLib recycles NetPeer ids after disconnect.
+                // If the incoming peer is a different instance, the stored Peer is the
+                // old disconnected one — sends to it silently no-op, so the new player
+                // would never receive avatar data. Refresh the Peer ref and treat the
+                // next frame as the first frame so the sequence-delta check doesn't
+                // drop it against the previous player's last sequence.
+                if (!ReferenceEquals(state.Peer, message.FromPeer))
+                {
+                    state.Peer = message.FromPeer;
+                    state.HasReceivedFirst = false;
+                    state.SmallId = id <= byte.MaxValue;
+                }
+
                 // Drop stale inbound packets (unreliable can deliver out of order)
                 if (state.HasReceivedFirst)
                 {
@@ -994,16 +1321,29 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         {
             if (msg.array == null)
             {
+                state.SerializedKeyframeLength[qi] = 0;
                 return;
             }
 
             var quality = (BitQuality)msg.DataQualityLevel;
+
+            // Guard: the message's quality must match the quality slot index.
+            // AvatarHigh may contain non-High quality data if the client sent a
+            // lower quality. Without this check, the payload would be sent on the
+            // wrong channel, causing size mismatches on the receiver (e.g. "Need 169, have 99").
+            if ((int)quality != qi)
+            {
+                state.SerializedKeyframeLength[qi] = 0;
+                return;
+            }
+
             int expectedPayload = BasisAvatarBitPacking.ConvertToSize(quality);
 
             // Skip if the array is undersized (e.g. client sent wrong quality level)
             if (msg.array.Length < expectedPayload)
             {
                 BNL.LogError($"[PreSerializeKeyframe] Array undersized for quality {quality}: got {msg.array.Length}, need {expectedPayload}. Skipping.");
+                state.SerializedKeyframeLength[qi] = 0;
                 return;
             }
 

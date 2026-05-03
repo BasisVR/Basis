@@ -208,6 +208,54 @@ public static class BasisNetworkPreloadResourceManagement
     }
 
     /// <summary>
+    /// Removes a disconnected peer from all active synchronized load sessions.
+    /// Decrements the expected peer count and triggers the spawn signal if
+    /// all remaining peers have already reported.
+    /// </summary>
+    public static void RemovePeer(int peerId)
+    {
+        List<string> completedSessions = null;
+
+        foreach (var kvp in ActiveSessions)
+        {
+            var session = kvp.Value;
+            session.ReadyPeers.Remove(peerId);
+            session.FailedPeers.Remove(peerId);
+
+            if (session.TotalPeerCount > 0)
+            {
+                session.TotalPeerCount--;
+            }
+
+            if (session.TotalPeerCount <= 0)
+            {
+                // No peers left, just clean up
+                session.TimeoutCts?.Cancel();
+                session.TimeoutCts?.Dispose();
+                ActiveSessions.TryRemove(kvp.Key, out _);
+            }
+            else if (session.IsComplete)
+            {
+                completedSessions ??= new List<string>();
+                completedSessions.Add(kvp.Key);
+            }
+        }
+
+        if (completedSessions != null)
+        {
+            foreach (var netId in completedSessions)
+            {
+                if (ActiveSessions.TryGetValue(netId, out var session))
+                {
+                    BNL.Log($"PreloadResourceManagement: All remaining peers reported for {netId} after peer {peerId} disconnected, sending spawn signal");
+                    session.TimeoutCts.Cancel();
+                    BroadcastSpawnSignal(netId);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Cleans up all active sessions. Called on server reset.
     /// </summary>
     public static void Reset()

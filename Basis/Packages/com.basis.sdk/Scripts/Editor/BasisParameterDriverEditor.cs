@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 using static BasisParameterDriver;
@@ -20,8 +21,9 @@ public class BasisParameterDriverEditor : Editor
 
         EditorGUI.BeginChangeCheck();
         bool localOnly = EditorGUILayout.Toggle(
-            new GUIContent("Local Only",
-                "When true, operations only run on the local instance (recommended for Add and Random)."),
+            new GUIContent(
+                BasisEditorLocalization.Get("sdk.parameterDriver.localOnly.label"),
+                BasisEditorLocalization.Get("sdk.parameterDriver.localOnly.tooltip")),
             driver.localOnly);
         if (EditorGUI.EndChangeCheck())
         {
@@ -32,8 +34,9 @@ public class BasisParameterDriverEditor : Editor
 
         EditorGUI.BeginChangeCheck();
         string debugString = EditorGUILayout.TextField(
-            new GUIContent("Debug Label",
-                "Optional label shown in the editor for identification."),
+            new GUIContent(
+                BasisEditorLocalization.Get("sdk.parameterDriver.debugLabel.label"),
+                BasisEditorLocalization.Get("sdk.parameterDriver.debugLabel.tooltip")),
             driver.debugString ?? "");
         if (EditorGUI.EndChangeCheck())
         {
@@ -46,7 +49,7 @@ public class BasisParameterDriverEditor : Editor
 
         // ── Operations header ─────────────────────────────────────────────
         if (driver.operations == null) driver.operations = Array.Empty<Operation>();
-        EditorGUILayout.LabelField($"Operations  ({driver.operations.Length})", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.parameterDriver.operations.header", driver.operations.Length), EditorStyles.boldLabel);
 
         // Sync foldout list
         while (_foldouts.Count < driver.operations.Length) _foldouts.Add(true);
@@ -61,7 +64,7 @@ public class BasisParameterDriverEditor : Editor
                 wordWrap  = true
             };
             emptyStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
-            GUILayout.Label("No operations — click '+ Add Operation' below.", emptyStyle);
+            GUILayout.Label(BasisEditorLocalization.Get("sdk.parameterDriver.operations.empty"), emptyStyle);
             GUILayout.Space(4);
         }
 
@@ -89,7 +92,7 @@ public class BasisParameterDriverEditor : Editor
 
         // ── Add button ────────────────────────────────────────────────────
         GUILayout.Space(4);
-        if (GUILayout.Button("+ Add Operation", GUILayout.Height(30)))
+        if (GUILayout.Button(BasisEditorLocalization.Get("sdk.parameterDriver.operations.add"), GUILayout.Height(30)))
         {
             Undo.RecordObject(driver, "Add Operation");
             var list = new List<Operation>(driver.operations) { new Operation() };
@@ -115,7 +118,7 @@ public class BasisParameterDriverEditor : Editor
         // ── Header row ────────────────────────────────────────────────────
         EditorGUILayout.BeginHorizontal();
 
-        string destLabel = string.IsNullOrEmpty(op.destination) ? "<destination>" : op.destination;
+        string destLabel = string.IsNullOrEmpty(op.destination) ? BasisEditorLocalization.Get("sdk.parameterDriver.destination.placeholder") : op.destination;
         _foldouts[i] = EditorGUILayout.Foldout(_foldouts[i], $" [{i}]  {destLabel}", true);
 
         GUILayout.Label(op.type.ToString().ToUpper(), EditorStyles.miniLabel, GUILayout.Width(58));
@@ -139,7 +142,7 @@ public class BasisParameterDriverEditor : Editor
 
             // Type
             EditorGUI.BeginChangeCheck();
-            var newType = (OperationType)EditorGUILayout.EnumPopup("Type", op.type);
+            var newType = (OperationType)EditorGUILayout.EnumPopup(BasisEditorLocalization.Get("sdk.parameterDriver.field.type"), op.type);
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(driver, "Change Operation Type");
@@ -149,7 +152,7 @@ public class BasisParameterDriverEditor : Editor
 
             // Destination
             EditorGUI.BeginChangeCheck();
-            string newDest = EditorGUILayout.TextField("Destination", op.destination ?? "");
+            string newDest = EditorGUILayout.TextField(BasisEditorLocalization.Get("sdk.parameterDriver.field.destination"), op.destination ?? "");
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(driver, "Change Destination");
@@ -163,7 +166,7 @@ public class BasisParameterDriverEditor : Editor
                 case OperationType.Set:
                 case OperationType.Add:
                     EditorGUI.BeginChangeCheck();
-                    float val = EditorGUILayout.FloatField("Value", op.value);
+                    float val = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.parameterDriver.field.value"), op.value);
                     if (EditorGUI.EndChangeCheck())
                     {
                         Undo.RecordObject(driver, "Change Value");
@@ -174,13 +177,17 @@ public class BasisParameterDriverEditor : Editor
 
                 case OperationType.Random:
                     EditorGUI.BeginChangeCheck();
-                    float minV    = EditorGUILayout.FloatField("Min Value", op.minValue);
-                    float maxV    = EditorGUILayout.FloatField("Max Value", op.maxValue);
+                    float minV    = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.parameterDriver.field.minValue"), op.minValue);
+                    float maxV    = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.parameterDriver.field.maxValue"), op.maxValue);
                     float chance  = EditorGUILayout.Slider(
-                        new GUIContent("Chance  (bool)", "Probability the bool is set to true."),
+                        new GUIContent(
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.chance.label"),
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.chance.tooltip")),
                         op.chance, 0f, 1f);
                     bool noRepeat = EditorGUILayout.Toggle(
-                        new GUIContent("Prevent Repeats  (int)", "Prevents the same int from being chosen twice in a row."),
+                        new GUIContent(
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.preventRepeats.label"),
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.preventRepeats.tooltip")),
                         op.preventRepeats);
                     if (EditorGUI.EndChangeCheck())
                     {
@@ -196,7 +203,9 @@ public class BasisParameterDriverEditor : Editor
                 case OperationType.Copy:
                     EditorGUI.BeginChangeCheck();
                     string src = EditorGUILayout.TextField(
-                        new GUIContent("Source", "Animator parameter to read from."),
+                        new GUIContent(
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.source.label"),
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.source.tooltip")),
                         op.source ?? "");
                     if (EditorGUI.EndChangeCheck())
                     {
@@ -209,7 +218,9 @@ public class BasisParameterDriverEditor : Editor
 
                     EditorGUI.BeginChangeCheck();
                     bool remap = EditorGUILayout.Toggle(
-                        new GUIContent("Remap Range", "Remap the source range to a different destination range."),
+                        new GUIContent(
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.remap.label"),
+                            BasisEditorLocalization.Get("sdk.parameterDriver.field.remap.tooltip")),
                         op.remapRange);
                     if (EditorGUI.EndChangeCheck())
                     {
@@ -222,10 +233,10 @@ public class BasisParameterDriverEditor : Editor
                     {
                         EditorGUI.indentLevel++;
                         EditorGUI.BeginChangeCheck();
-                        float srcMin = EditorGUILayout.FloatField("Source Min", op.sourceMin);
-                        float srcMax = EditorGUILayout.FloatField("Source Max", op.sourceMax);
-                        float dstMin = EditorGUILayout.FloatField("Dest Min",   op.destMin);
-                        float dstMax = EditorGUILayout.FloatField("Dest Max",   op.destMax);
+                        float srcMin = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.parameterDriver.field.sourceMin"), op.sourceMin);
+                        float srcMax = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.parameterDriver.field.sourceMax"), op.sourceMax);
+                        float dstMin = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.parameterDriver.field.destMin"),   op.destMin);
+                        float dstMax = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.parameterDriver.field.destMax"),   op.destMax);
                         if (EditorGUI.EndChangeCheck())
                         {
                             Undo.RecordObject(driver, "Change Remap Range");
