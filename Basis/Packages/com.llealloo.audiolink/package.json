@@ -10,7 +10,6 @@
   "unity": "2022.3",
   "description": "Audio reactive prefabs for VRChat",
   "gitDependencies": {},
-  "vpmDependencies": {},
   "legacyFolders": {
     "Assets\\AudioLink": ""
   },

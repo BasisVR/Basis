@@ -42,6 +42,14 @@ INDEX_TEMPLATE = {
     "packages": {},
 }
 
+GITHUB_ACTIONS = os.environ.get("GITHUB_ACTIONS") == "true"
+
+
+def warn(msg):
+    """Emit a workflow annotation under GitHub Actions, plain text otherwise."""
+    prefix = "::warning::" if GITHUB_ACTIONS else "warn: "
+    print(f"{prefix}{msg}", file=sys.stderr)
+
 
 def head_commit_datetime():
     """HEAD commit time as a zip date_time tuple, for reproducible builds."""
@@ -84,7 +92,7 @@ def parse_args():
     update.add_argument("--self-url", metavar="URL", default=None,
                         help="Override the index 'url' on first-run bootstrap.")
     update.add_argument("--added-list", metavar="FILE", default=None,
-                        help="Write zip filenames of newly-added entries to FILE.")
+                        help="Write TSV (name, version, zipname) of newly-added entries to FILE.")
 
     return p.parse_args()
 
@@ -175,9 +183,8 @@ def compute_vpm_dependencies(pkg_folder, packages, by_guid, by_name, by_dll, suf
     deps = {}
     for target in sorted(targets):
         if target not in package_set:
-            print(f"    warn: {pkg_folder} references {target} "
-                  f"(not in vpm-packages.txt), omitting from vpmDependencies",
-                  file=sys.stderr)
+            warn(f"{pkg_folder} references {target} "
+                 f"(not in vpm-packages.txt), omitting from vpmDependencies")
             continue
         data = json.loads((PACKAGES_DIR / target / "package.json").read_text(encoding="utf-8"))
         deps[data["name"]] = apply_dev_suffix(data["version"], suffix)
@@ -276,7 +283,7 @@ def cmd_build(args):
         if not NAME_RE.fullmatch(pkg_name):
             sys.exit(f"error: {pkg}: 'name' {pkg_name!r} contains invalid characters")
         if pkg_name != pkg_name.lower():
-            print(f"    warn: {pkg_name} should be lowercase", file=sys.stderr)
+            warn(f"{pkg_name} should be lowercase")
 
         print(f"==> {pkg_name} @ {pkg_version}")
 
@@ -304,9 +311,9 @@ def cmd_build(args):
             }
 
         if not modified.get("license"):
-            print(f"    warn: {pkg_name} has no 'license' field", file=sys.stderr)
+            warn(f"{pkg_name} has no 'license' field")
         if not has_license_file(pkg_dir):
-            print(f"    warn: {pkg_name} has no LICENSE file at package root", file=sys.stderr)
+            warn(f"{pkg_name} has no LICENSE file at package root")
 
         zip_path = artifacts_dir / f"{pkg_name}-{pkg_version}.zip"
         write_zip(zip_path, pkg_dir, modified, zip_dt)
@@ -363,9 +370,9 @@ def cmd_update_index(args):
 
     meta_files = sorted(meta_dir.glob("*.json"))
     if not meta_files:
-        print(f"warn: no *.json metadata files found in {meta_dir}", file=sys.stderr)
+        warn(f"no *.json metadata files found in {meta_dir}")
 
-    added_zips = []
+    added = []  # list of (name, version, zipname)
     skipped = 0
     for meta_path in meta_files:
         try:
@@ -391,7 +398,7 @@ def cmd_update_index(args):
         pkg_entry.setdefault("versions", {})[version] = meta_with_url
 
         print(f"add:   {name}@{version}", file=sys.stderr)
-        added_zips.append(zip_filename)
+        added.append((name, version, zip_filename))
 
     if args.require_superset:
         missing = input_pairs - collect_pairs(index)
@@ -402,11 +409,11 @@ def cmd_update_index(args):
 
     if args.added_list:
         Path(args.added_list).write_text(
-            "".join(f"{z}\n" for z in added_zips), encoding="utf-8"
+            "".join(f"{n}\t{v}\t{z}\n" for n, v, z in added), encoding="utf-8"
         )
 
     print(json.dumps(index, indent=2))
-    print(f"done. {len(added_zips)} added, {skipped} skipped", file=sys.stderr)
+    print(f"done. {len(added)} added, {skipped} skipped", file=sys.stderr)
 
 
 def main():
