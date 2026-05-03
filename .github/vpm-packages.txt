@@ -17,6 +17,7 @@ com.basis.settings
 com.basis.shim
 com.basis.textmeshpro
 com.basis.visualtrackers
+com.basis.examples
 
 # Re-distributed (sometimes tweaked) MIT/Apache/BSD
 # deps used by sdk, server, openlipsync, framework, hvr-comms.
