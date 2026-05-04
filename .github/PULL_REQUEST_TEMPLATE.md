@@ -11,6 +11,7 @@ All boxes below must be ticked before this PR can merge. If a check is genuinely
 - [ ] **No new `GetComponent` / `AddComponent` where avoidable** — Where unavoidable, the result is cached on a field. None of these calls run inside `Update`, `LateUpdate`, `FixedUpdate`, jobs, or other per-frame code paths.
 - [ ] **Per-frame work is scheduled through `BasisEventDriver`** — Any new per-frame work hooks into `BasisEventDriver` rather than adding standalone `Update` / `LateUpdate` / `FixedUpdate` callbacks on a MonoBehaviour.
 - [ ] **Considered jobification** — I asked whether this work can be moved to a Unity Job (Burst-compiled where possible). If it can, it is. If it cannot, the reason is in **Notes**.
+- [ ] **No needless `{ get; set; }` properties or access lockdowns** — Public fields are fine; Basis is meant to be read and modified freely, so don't wall things off `private`/`internal` without a real reason. Don't wrap a field in `{ get; set; }` when the accessors do nothing — property accessors have a real performance cost vs direct field access, and the lead maintainer prefers plain fields (or a method / setter-only property when only the setter needs logic) over a noop-getter pair. For `.Instance` singletons, callers reassigning `Type.Instance` is allowed; if that would break your code, log a warning or throw — don't block the assignment. Locking down access is not your call.
 <!-- required-checks-end -->
 
 ## Testing details

@@ -1,18 +1,14 @@
 namespace Basis.Scripts.BasisSdk.Players
 {
-    public interface IBasisLocalEyeDriver
-    {
-        float Liveliness { get; set; }
-        float Attentiveness { get; set; }
-        void ApplyPersonality();
-    }
-
-    // Use from sdk code; use BasisLocalEyeDriver from framework code.
-    // Framework's BasisLocalEyeDriver registers when present; otherwise the
-    // SDK editor preview registers a stand-in (gated by BASIS_FRAMEWORK_EXISTS
-    // so only one ever registers).
+    // SDK owns eye personality state. Framework's BasisLocalEyeDriver reads from
+    // here; set PersonalityDirty = true after any Liveliness/Attentiveness write
+    // so the driver knows to recompute its cached BasisEyePersonality.
+    // In normal runtime nothing changes after avatar load, so the dirty check
+    // stays a single bool read per frame.
     public static class BasisLocalEyeDriverService
     {
-        public static IBasisLocalEyeDriver Instance;
+        public static float Liveliness = 0.5f;
+        public static float Attentiveness = 0.5f;
+        public static bool PersonalityDirty;
     }
 }

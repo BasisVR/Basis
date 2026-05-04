@@ -378,8 +378,8 @@ public class BasisEyeDriverDebugWindow : EditorWindow
 
         EditorGUILayout.LabelField("Personality", EditorStyles.boldLabel);
         EditorGUI.indentLevel++;
-        EditorGUILayout.LabelField("Liveliness", $"{BasisLocalEyeDriver.Liveliness:F2}");
-        EditorGUILayout.LabelField("Attentiveness", $"{BasisLocalEyeDriver.Attentiveness:F2}");
+        EditorGUILayout.LabelField("Liveliness", $"{BasisLocalEyeDriverService.Liveliness:F2}");
+        EditorGUILayout.LabelField("Attentiveness", $"{BasisLocalEyeDriverService.Attentiveness:F2}");
         EditorGUI.indentLevel--;
 
         EditorGUILayout.Space(4);

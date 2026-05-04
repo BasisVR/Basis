@@ -9,7 +9,7 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
     // Avatar preview for projects without com.basis.framework. Compiled out when framework
     // is installed (gated via versionDefine BASIS_FRAMEWORK_EXISTS) — framework's real
     // BasisLocalPlayer registers itself with BasisLocalPlayerService at play-mode init.
-    internal sealed class BasisEditorPreviewLocalPlayer : IBasisLocalPlayer, IBasisLocalEyeDriver
+    internal sealed class BasisEditorPreviewLocalPlayer : IBasisLocalPlayer
     {
         private const string FallbackControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";
         private const string PreviewRootName = "BasisEditorPreviewRoot";
@@ -26,7 +26,6 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
         private static void Register()
         {
             BasisLocalPlayerService.Instance = _instance;
-            BasisLocalEyeDriverService.Instance = _instance;
             BasisLocalPlayerService.PlayerReady = true;
             BasisLocalPlayerService.OnLocalPlayerInitalized?.Invoke();
         }
@@ -89,10 +88,6 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
             StateChanged?.Invoke();
         }
 
-        // IBasisLocalEyeDriver — Phase 1 keeps no-op storage. Phase 3 will land a real driver.
-        public float Liveliness { get; set; } = 0.5f;
-        public float Attentiveness { get; set; } = 0.5f;
-        public void ApplyPersonality() { }
     }
 }
 #endif

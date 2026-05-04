@@ -47,17 +47,17 @@ public class BasisLocalEyeDriver
     public static JobHandle handle;
     public static bool HasEyeSchedule = false;
 
-    // Personality (set externally from avatar SDK)
-    public static float Liveliness = 0.5f; // 0 = settled, 1 = active eye movement.
-    public static float Attentiveness = 0.5f; // 0 = avoidant, 1 = direct sustained gaze.
+    // Personality is owned by BasisLocalEyeDriverService (SDK). Simulate()
+    // checks the dirty flag every frame and recomputes _personality only when
+    // the SDK side flips it. In normal runtime it never flips after init.
     private static BasisEyePersonality _personality;
 
-    /// <summary>
-    /// Recompute cached personality parameters from Liveliness and Attentiveness.
-    /// </summary>
-    public static void ApplyPersonality()
+    private static void RecomputePersonality()
     {
-        _personality = BasisEyePersonality.Compute(Liveliness, Attentiveness);
+        _personality = BasisEyePersonality.Compute(
+            BasisLocalEyeDriverService.Liveliness,
+            BasisLocalEyeDriverService.Attentiveness);
+        BasisLocalEyeDriverService.PersonalityDirty = false;
     }
 
     // === TUNABLE PARAMS FOR TARGET SCORING BEHAVIOR ===
@@ -151,7 +151,7 @@ public class BasisLocalEyeDriver
         calLeft = CalibrateOneEye(leftEyeTransform, _headRef);
         calRight = CalibrateOneEye(rightEyeTransform, _headRef);
 
-        ApplyPersonality();
+        RecomputePersonality();
 
         _currentTargetId = -1;
         _currentGazeTarget = null;
@@ -164,29 +164,10 @@ public class BasisLocalEyeDriver
         _headDeltaYP = float2.zero;
 
         IsEnabled = true;
-
-        BasisLocalEyeDriverService.Instance = _serviceAdapter;
     }
-
-    private sealed class Adapter : IBasisLocalEyeDriver
-    {
-        public float Liveliness
-        {
-            get => BasisLocalEyeDriver.Liveliness;
-            set => BasisLocalEyeDriver.Liveliness = value;
-        }
-        public float Attentiveness
-        {
-            get => BasisLocalEyeDriver.Attentiveness;
-            set => BasisLocalEyeDriver.Attentiveness = value;
-        }
-        public void ApplyPersonality() => BasisLocalEyeDriver.ApplyPersonality();
-    }
-    private static readonly Adapter _serviceAdapter = new Adapter();
 
     public static void Dispose()
     {
-        if (BasisLocalEyeDriverService.Instance == _serviceAdapter) BasisLocalEyeDriverService.Instance = null;
         if (_state.IsCreated)
         {
             handle.Complete();
@@ -248,6 +229,11 @@ public class BasisLocalEyeDriver
         {
             //   BasisDebug.Log("Not RUnning EYes");
             return;
+        }
+
+        if (BasisLocalEyeDriverService.PersonalityDirty)
+        {
+            RecomputePersonality();
         }
 
         SelectGazeTarget();
