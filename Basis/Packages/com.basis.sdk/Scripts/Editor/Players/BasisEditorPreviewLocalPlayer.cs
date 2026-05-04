@@ -49,11 +49,9 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
 
             _previewRoot = new GameObject(PreviewRootName) { hideFlags = HideFlags.DontSave };
             inSceneItem.transform.SetParent(_previewRoot.transform, worldPositionStays: false);
-            inSceneItem.transform.localPosition = Vector3.zero;
-            inSceneItem.transform.localRotation = Quaternion.identity;
+            inSceneItem.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
-            BasisAvatar avatar = inSceneItem.GetComponent<BasisAvatar>();
-            if (avatar == null)
+            if (!inSceneItem.TryGetComponent(out BasisAvatar avatar))
             {
                 Debug.LogError("[Basis SDK Preview] InSceneItem has no BasisAvatar component.");
                 DisposeActive();
