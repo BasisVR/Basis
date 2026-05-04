@@ -89,6 +89,20 @@ namespace Basis.Scripts.Device_Management
         public static event Action<string> OnBootModeChanged;
 
         /// <summary>
+        /// Fires before the active XR loader is deinitialised; subscribers should release graphics-device-scoped state. Argument: mode being torn down.
+        /// </summary>
+        public static event Action<string> BeforeLoaderTeardown;
+
+        /// <summary>
+        /// Fires after a new XR loader has started its subsystems; subscribers can re-publish graphics-device-scoped state. Argument: active loader name.
+        /// </summary>
+        public static event Action<string> AfterLoaderInitialized;
+
+        internal static void RaiseBeforeLoaderTeardown(string mode) => BeforeLoaderTeardown?.Invoke(mode);
+
+        internal static void RaiseAfterLoaderInitialized(string loaderName) => AfterLoaderInitialized?.Invoke(loaderName);
+
+        /// <summary>
         /// Delegate signature for <see cref="OnInitializationCompleted"/>.
         /// </summary>
         public delegate void InitializationCompletedHandler();
