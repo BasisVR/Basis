@@ -72,6 +72,14 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public float Z;
 
         /// <summary>
+        /// Screen-center aim reticle. The quad lives under the local camera so it
+        /// tracks aim for free; lifecycle is driven by <see cref="Initialize"/> and
+        /// <see cref="OnDestroy"/>. Toggle via <c>Reticle.SetEnabled(bool)</c>.
+        /// </summary>
+        [Header("Reticle")]
+        public BasisDesktopReticle Reticle = new BasisDesktopReticle();
+
+        /// <summary>
         /// Initializes the eye input system for desktop usage.
         /// Sets device coordinates, hooks into player events, and prepares tracking roles.
         /// </summary>
@@ -115,6 +123,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 HasEyeEvents = true;
             }
             LockEye();
+
+            Reticle?.Initialize();
         }
         public void LockEye()
         {
@@ -163,6 +173,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 HasEyeEvents = false;
                 BasisVirtualSpine.DeInitialize();
             }
+            // Reticle quad is parented under the camera (which outlives this GO),
+            // so we have to tear it down explicitly here.
+            Reticle?.Destroy();
             base.OnDestroy();
         }
 
@@ -347,5 +360,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
+
     }
 }
