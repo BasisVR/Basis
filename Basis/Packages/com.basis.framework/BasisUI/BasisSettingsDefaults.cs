@@ -1113,6 +1113,7 @@ namespace Basis.BasisUI
 
             // UI
             AvatarPreview.LoadBindingValue();
+            DesktopReticle.LoadBindingValue();
             MicrophoneIcon.LoadBindingValue();
             MicrophoneIconOffsetX.LoadBindingValue();
             MicrophoneIconOffsetY.LoadBindingValue();

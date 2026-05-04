@@ -161,6 +161,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     LookRotationLock.Add(nameof(BasisCursorManagement));
                     break;
             }
+
+            Reticle?.SetFocused(cursor == CursorLockMode.Locked);
         }
 
         /// <summary>

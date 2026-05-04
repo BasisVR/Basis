@@ -25,7 +25,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public float SizeMeters = 0.05f;
 
         [Header("Shape (UV space, 0..0.5 from quad center)")]
-        public float DotRadius = 0.07f;
+        public float DotRadius = 0.04f;
         public float RingInnerRadius = 0.1f;
         public float RingOuterRadius = 0.15f;
 
@@ -36,6 +36,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private GameObject _quadGO;
         private Material _material;
+
+        // Visibility is gated by two independent inputs: the user-facing
+        // setting toggle and cursor focus (hide while the cursor is unlocked
+        // for a menu). The quad is shown only when both are true.
+        private bool _userEnabled;
+        private bool _focused = true;
 
         private static readonly int IdDotRadius = Shader.PropertyToID("_DotRadius");
         private static readonly int IdRingInnerRadius = Shader.PropertyToID("_RingInnerRadius");
@@ -52,6 +58,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             _quadGO = GameObject.CreatePrimitive(PrimitiveType.Quad);
             _quadGO.name = "DesktopReticleQuad";
+            _quadGO.layer = LayerMask.NameToLayer("UI"); // Render feture puts UI layer on top of everything else.
             Object.Destroy(_quadGO.GetComponent<MeshCollider>());
 
             _quadGO.transform.SetParent(camTransform, false);
@@ -90,14 +97,27 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void SetEnabled(bool enabled)
         {
+            _userEnabled = enabled;
+            ApplyVisibility();
+        }
+
+        public void SetFocused(bool focused)
+        {
+            _focused = focused;
+            ApplyVisibility();
+        }
+
+        private void ApplyVisibility()
+        {
+            bool visible = _userEnabled && _focused;
             // Lazy init
-            if (enabled && _quadGO == null)
+            if (visible && _quadGO == null)
             {
                 Initialize();
             }
             if (_quadGO != null)
             {
-                _quadGO.SetActive(enabled);
+                _quadGO.SetActive(visible);
             }
         }
     }
