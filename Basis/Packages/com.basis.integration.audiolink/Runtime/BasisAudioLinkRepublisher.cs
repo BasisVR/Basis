@@ -18,18 +18,14 @@ namespace Basis.Integration.AudioLink
 
         private static void OnBootModeChanged(string mode)
         {
-            global::AudioLink.AudioLink[] instances = Object.FindObjectsByType<global::AudioLink.AudioLink>(FindObjectsSortMode.None);
-            for (int i = 0; i < instances.Length; i++)
+            global::AudioLink.AudioLink audioLink = Object.FindFirstObjectByType<global::AudioLink.AudioLink>();
+            if (audioLink == null || !audioLink.AudioLinkEnabled)
             {
-                global::AudioLink.AudioLink audioLink = instances[i];
-                if (audioLink == null || !audioLink.AudioLinkEnabled)
-                {
-                    continue;
-                }
-
-                audioLink.AudioLinkEnabled = false;
-                audioLink.AudioLinkEnabled = true;
+                return;
             }
+
+            audioLink.AudioLinkEnabled = false;
+            audioLink.AudioLinkEnabled = true;
         }
     }
 }
