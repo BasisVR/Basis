@@ -12,18 +12,11 @@ namespace Basis.Integration.AudioLink
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Subscribe()
         {
-            BasisDeviceManagement.AfterLoaderInitialized -= OnLoaderInitialized;
-            BasisDeviceManagement.AfterLoaderInitialized += OnLoaderInitialized;
-
             BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
             BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
         }
 
-        private static void OnLoaderInitialized(string loaderName) => Republish();
-
-        private static void OnBootModeChanged(string mode) => Republish();
-
-        private static void Republish()
+        private static void OnBootModeChanged(string mode)
         {
             global::AudioLink.AudioLink[] instances = Object.FindObjectsByType<global::AudioLink.AudioLink>(FindObjectsSortMode.None);
             for (int i = 0; i < instances.Length; i++)

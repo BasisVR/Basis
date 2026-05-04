@@ -82,7 +82,6 @@ namespace Basis.Scripts.Device_Management.Devices
             }
 
             BasisDebug.Log($"Found Loader {result}", BasisDebug.LogTag.Device);
-            BasisDeviceManagement.RaiseAfterLoaderInitialized(result);
             StartDevice(result);
         }
 
@@ -104,7 +103,6 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 if (xRManagerSettings.isInitializationComplete)
                 {
-                    BasisDeviceManagement.RaiseBeforeLoaderTeardown(BasisDeviceManagement.StaticCurrentMode);
                     xRManagerSettings.DeinitializeLoader();
                 }
             }
