@@ -1,4 +1,3 @@
-using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using UnityEngine;
 
@@ -27,37 +26,36 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         [Header("Shape (UV space, 0..0.5 from quad center)")]
         public float DotRadius = 0.07f;
-        public float RingInnerRadius = 0.125f;
-        public float RingOuterRadius = 0.20f;
+        public float RingInnerRadius = 0.1f;
+        public float RingOuterRadius = 0.15f;
 
         [Header("Colors")]
-        public Color DotColor  = new Color(1f, 1f, 1f, 0.85f);
-        public Color GapColor  = new Color(0f, 0f, 0f, 0.55f);
+        public Color DotColor = new Color(1f, 1f, 1f, 0.55f);
+        public Color GapColor = new Color(0f, 0f, 0f, 0.55f);
         public Color RingColor = new Color(1f, 1f, 1f, 0.20f);
 
         private GameObject _quadGO;
         private Material _material;
 
-        private static readonly int IdDotRadius       = Shader.PropertyToID("_DotRadius");
+        private static readonly int IdDotRadius = Shader.PropertyToID("_DotRadius");
         private static readonly int IdRingInnerRadius = Shader.PropertyToID("_RingInnerRadius");
         private static readonly int IdRingOuterRadius = Shader.PropertyToID("_RingOuterRadius");
-        private static readonly int IdDotColor        = Shader.PropertyToID("_DotColor");
-        private static readonly int IdGapColor        = Shader.PropertyToID("_GapColor");
-        private static readonly int IdRingColor       = Shader.PropertyToID("_RingColor");
+        private static readonly int IdDotColor = Shader.PropertyToID("_DotColor");
+        private static readonly int IdGapColor = Shader.PropertyToID("_GapColor");
+        private static readonly int IdRingColor = Shader.PropertyToID("_RingColor");
 
         public void Initialize()
         {
-            if (_quadGO != null) return; // idempotent — survive duplicate Initialize calls
+            if (_quadGO != null) return; // idempotent
 
-            Transform camTransform = BasisLocalCameraDriver.Instance.Camera.transform;
+            Transform camTransform = BasisLocalCameraDriver.Instance.transform;
 
             _quadGO = GameObject.CreatePrimitive(PrimitiveType.Quad);
             _quadGO.name = "DesktopReticleQuad";
             Object.Destroy(_quadGO.GetComponent<MeshCollider>());
 
             _quadGO.transform.SetParent(camTransform, false);
-            _quadGO.transform.localPosition = Vector3.forward * DistanceFromCamera;
-            _quadGO.transform.localRotation = Quaternion.identity;
+            _quadGO.transform.SetLocalPositionAndRotation(Vector3.forward * DistanceFromCamera, Quaternion.identity);
             _quadGO.transform.localScale = Vector3.one * SizeMeters;
 
             _material = new Material(Shader.Find(ShaderName));
@@ -74,8 +72,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             renderer.receiveShadows = false;
             renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
             renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-
-            SetEnabled(BasisSettingsDefaults.DesktopReticle.RawValue);
         }
 
         public void Destroy()
@@ -94,6 +90,11 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void SetEnabled(bool enabled)
         {
+            // Lazy init
+            if (enabled && _quadGO == null)
+            {
+                Initialize();
+            }
             if (_quadGO != null)
             {
                 _quadGO.SetActive(enabled);

@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -124,7 +125,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             }
             LockEye();
 
-            Reticle?.Initialize();
+            // SetEnabled lazy-inits
+            Reticle?.SetEnabled(BasisSettingsDefaults.DesktopReticle.RawValue);
         }
         public void LockEye()
         {
