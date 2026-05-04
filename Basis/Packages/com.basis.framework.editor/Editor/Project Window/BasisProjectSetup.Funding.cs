@@ -158,9 +158,10 @@ public partial class BasisProjectSetup : EditorWindow
         Rect title = new Rect(inner.x, inner.y, inner.width, 32);
         Rect sub = new Rect(inner.x, inner.y + 36, inner.width, inner.height - 36);
 
-        GUI.Label(title, "Welcome to Basis", _ocHeroStyle);
-        GUI.Label(sub, "Open-source VR framework, sustained by community donations through Open Collective. " +
-                       "Every dollar pays for more developer hours on Basis.", _ocSubheroStyle);
+        GUI.Label(title, Tr("projectSetup.funding.heroTitle", "Welcome to Basis"), _ocHeroStyle);
+        GUI.Label(sub, Tr("projectSetup.funding.heroSubtitle",
+            "Open-source VR framework, sustained by community donations through Open Collective. " +
+            "Every dollar pays for more developer hours on Basis."), _ocSubheroStyle);
     }
 
     private void DrawSupportMessageCard()
@@ -174,7 +175,8 @@ public partial class BasisProjectSetup : EditorWindow
 
         Rect inner = new Rect(padded.x + 14, padded.y + 8, padded.width - 26, padded.height - 16);
         GUI.Label(inner,
-            "More funding = more people working on Basis. Donations directly translate into contributor hours building, fixing, and improving the open-source VR framework.",
+            Tr("projectSetup.funding.supportMessage",
+                "More funding = more people working on Basis. Donations directly translate into contributor hours building, fixing, and improving the open-source VR framework."),
             _ocMessageStyle);
     }
 
@@ -188,11 +190,11 @@ public partial class BasisProjectSetup : EditorWindow
         DrawDonateButton(new Rect(x, row.y + 4, w, 32));
         x += w + spacing;
 
-        DrawPillButton(new Rect(x, row.y + 4, w, 32), "Open Page", () => Application.OpenURL(OC_PAGE));
+        DrawPillButton(new Rect(x, row.y + 4, w, 32), Tr("projectSetup.funding.openPage", "Open Page"), () => Application.OpenURL(OC_PAGE));
         x += w + spacing;
 
         DrawPillButton(new Rect(x, row.y + 4, w, 32),
-            _ocLoading ? "Refreshing..." : "Refresh",
+            _ocLoading ? Tr("projectSetup.funding.refreshing", "Refreshing...") : Tr("projectSetup.funding.refresh", "Refresh"),
             () => { if (!_ocLoading) _ = FetchOpenCollectiveAsync(); },
             disabled: _ocLoading);
     }
@@ -211,7 +213,7 @@ public partial class BasisProjectSetup : EditorWindow
         OcDrawBorder(rect, new Color(0.4f, 0.0f, 0.1f, 1f));
         EditorGUI.DrawRect(new Rect(rect.x + 1, rect.y + 1, rect.width - 2, 1), new Color(1, 1, 1, 0.30f));
 
-        GUI.Label(rect, "Donate to Basis", _ocDonateLabelStyle);
+        GUI.Label(rect, Tr("projectSetup.funding.donate", "Donate to Basis"), _ocDonateLabelStyle);
 
         EditorGUIUtility.AddCursorRect(rect, MouseCursor.Link);
         if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
@@ -258,19 +260,19 @@ public partial class BasisProjectSetup : EditorWindow
 
         DrawStatCard(new Rect(x, row.y, w, row.height),
             FormatMoney(_ocCollective.balance, _ocCollective.currency),
-            "Current Balance",
+            Tr("projectSetup.funding.statBalance", "Current Balance"),
             new Color(0.30f, 0.62f, 1.00f), new Color(0.45f, 0.95f, 0.85f));
         x += w + spacing;
 
         DrawStatCard(new Rect(x, row.y, w, row.height),
             FormatMoney(_ocCollective.yearlyIncome, _ocCollective.currency),
-            "Yearly Budget",
+            Tr("projectSetup.funding.statYearly", "Yearly Budget"),
             new Color(0.96f, 0.55f, 0.30f), new Color(1.00f, 0.85f, 0.20f));
         x += w + spacing;
 
         DrawStatCard(new Rect(x, row.y, w, row.height),
             _ocCollective.backersCount.ToString("N0"),
-            "Backers",
+            Tr("projectSetup.funding.statBackers", "Backers"),
             new Color(0.60f, 0.35f, 0.95f), new Color(1.00f, 0.45f, 0.78f));
     }
 
@@ -291,9 +293,13 @@ public partial class BasisProjectSetup : EditorWindow
         var goals = _ocCollective.GetGoals();
 
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("Funding Goals", _ocSectionHeaderStyle, GUILayout.Height(20));
+        EditorGUILayout.LabelField(Tr("projectSetup.funding.goalsHeader", "Funding Goals"), _ocSectionHeaderStyle, GUILayout.Height(20));
         GUILayout.FlexibleSpace();
-        EditorGUILayout.LabelField($"{goals.Count} goal{(goals.Count == 1 ? "" : "s")}",
+        EditorGUILayout.LabelField(string.Format(
+            goals.Count == 1
+                ? Tr("projectSetup.funding.goalsCount", "{0} goal")
+                : Tr("projectSetup.funding.goalsCountPlural", "{0} goals"),
+            goals.Count),
             EditorStyles.miniLabel, GUILayout.Width(80));
         EditorGUILayout.EndHorizontal();
         EditorGUILayout.Space(4);
@@ -309,8 +315,9 @@ public partial class BasisProjectSetup : EditorWindow
         if (goals.Count == 0)
         {
             EditorGUILayout.HelpBox(
-                "No goals are configured on the OpenCollective page yet. " +
-                "They can be set on opencollective.com under Settings > Goals.",
+                Tr("projectSetup.funding.noGoals",
+                    "No goals are configured on the OpenCollective page yet. " +
+                    "They can be set on opencollective.com under Settings > Goals."),
                 MessageType.None);
             return;
         }
@@ -340,7 +347,7 @@ public partial class BasisProjectSetup : EditorWindow
         Rect titleRect = new Rect(inner.x, inner.y, inner.width - 110, 18);
         Rect typeRect = new Rect(inner.x + inner.width - 110, inner.y, 110, 18);
         GUI.Label(titleRect, title, _ocGoalTitleStyle);
-        GUI.Label(typeRect, reached ? "REACHED" : FormatGoalType(goal.type).ToUpper(), _ocGoalTypeStyle);
+        GUI.Label(typeRect, reached ? Tr("projectSetup.funding.reached", "REACHED") : FormatGoalType(goal.type).ToUpper(), _ocGoalTypeStyle);
 
         Rect barRect = new Rect(inner.x, inner.y + 24, inner.width, 22);
         Color start = reached ? new Color(0.35f, 0.95f, 0.55f) : OC_FillStart;
@@ -349,7 +356,11 @@ public partial class BasisProjectSetup : EditorWindow
 
         Rect amountRect = new Rect(inner.x, inner.y + 52, inner.width, 14);
         string amountLine = target > 0
-            ? $"{FormatMoney(current, _ocCollective.currency)}  raised of  {FormatMoney(target, _ocCollective.currency)}  ({_ocTargetProgress[index] * 100f:F1}%)"
+            ? string.Format(
+                Tr("projectSetup.funding.amountLine", "{0}  raised of  {1}  ({2:F1}%)"),
+                FormatMoney(current, _ocCollective.currency),
+                FormatMoney(target, _ocCollective.currency),
+                _ocTargetProgress[index] * 100f)
             : FormatMoney(current, _ocCollective.currency);
         GUI.Label(amountRect, amountLine, _ocAmountStyle);
     }
@@ -384,27 +395,27 @@ public partial class BasisProjectSetup : EditorWindow
 
     private void DrawQuickStartSection()
     {
-        EditorGUILayout.LabelField("Quick Start", _ocSectionHeaderStyle);
+        EditorGUILayout.LabelField(Tr("projectSetup.funding.quickStart", "Quick Start"), _ocSectionHeaderStyle);
         EditorGUILayout.Space(2);
 
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            EditorGUILayout.LabelField("Jump straight into the right docs.", EditorStyles.wordWrappedLabel);
+            EditorGUILayout.LabelField(Tr("projectSetup.funding.quickStartBody", "Jump straight into the right docs."), EditorStyles.wordWrappedLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Avatar Docs")) Application.OpenURL(BASIS_AVATARS);
-                if (GUILayout.Button("World Docs")) Application.OpenURL(BASIS_WORLDS);
-                if (GUILayout.Button("Getting Started")) Application.OpenURL(BASIS_GETTING_STARTED);
-                if (GUILayout.Button("basisvr.org")) Application.OpenURL(BASIS_SITE);
+                if (GUILayout.Button(Tr("projectSetup.funding.linkAvatar", "Avatar Docs"))) Application.OpenURL(BASIS_AVATARS);
+                if (GUILayout.Button(Tr("projectSetup.funding.linkWorld", "World Docs"))) Application.OpenURL(BASIS_WORLDS);
+                if (GUILayout.Button(Tr("projectSetup.funding.linkGettingStarted", "Getting Started"))) Application.OpenURL(BASIS_GETTING_STARTED);
+                if (GUILayout.Button(Tr("projectSetup.funding.linkSite", "basisvr.org"))) Application.OpenURL(BASIS_SITE);
             }
 
             EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("What are you setting up today?", EditorStyles.miniBoldLabel);
+            EditorGUILayout.LabelField(Tr("projectSetup.funding.settingUp", "What are you setting up today?"), EditorStyles.miniBoldLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
-                DrawFirstRunRadio(FirstRunKind.Avatar, "Avatar");
-                DrawFirstRunRadio(FirstRunKind.World, "World");
-                DrawFirstRunRadio(FirstRunKind.Project, "Project");
+                DrawFirstRunRadio(FirstRunKind.Avatar, Tr("projectSetup.funding.kindAvatar", "Avatar"));
+                DrawFirstRunRadio(FirstRunKind.World, Tr("projectSetup.funding.kindWorld", "World"));
+                DrawFirstRunRadio(FirstRunKind.Project, Tr("projectSetup.funding.kindProject", "Project"));
             }
 
             if (GUI.changed)
@@ -413,7 +424,8 @@ public partial class BasisProjectSetup : EditorWindow
             if (_firstRunKind == FirstRunKind.Avatar || _firstRunKind == FirstRunKind.World)
             {
                 EditorGUILayout.HelpBox(
-                    "Install Windows, Linux, and Android Build Support via Unity Hub. Use IL2CPP for best compatibility (required on Android).",
+                    Tr("projectSetup.funding.installModulesHelp",
+                        "Install Windows, Linux, and Android Build Support via Unity Hub. Use IL2CPP for best compatibility (required on Android)."),
                     MessageType.Info);
             }
         }
@@ -436,13 +448,14 @@ public partial class BasisProjectSetup : EditorWindow
         Rect bodyRect = new Rect(inner.x, inner.y + 24, inner.width, 32);
         Rect linkRect = new Rect(inner.x, inner.y + inner.height - 26, 160, 26);
 
-        GUI.Label(titleRect, "About Basis", _ocSectionHeaderStyle);
+        GUI.Label(titleRect, Tr("projectSetup.funding.aboutTitle", "About Basis"), _ocSectionHeaderStyle);
         GUI.Label(bodyRect,
-            "Creator-First, Creative Freedom — Basis helps you stand up VR projects quickly. " +
-            "Open-Source (MIT). Strong systems for networking, input, and presence.",
+            Tr("projectSetup.funding.aboutBody",
+                "Creator-First, Creative Freedom — Basis helps you stand up VR projects quickly. " +
+                "Open-Source (MIT). Strong systems for networking, input, and presence."),
             _ocMessageStyle);
 
-        DrawPillButton(linkRect, "Visit basisvr.org", () => Application.OpenURL(BASIS_SITE));
+        DrawPillButton(linkRect, Tr("projectSetup.funding.visitSite", "Visit basisvr.org"), () => Application.OpenURL(BASIS_SITE));
     }
 
     private void DrawFundingFooter()
@@ -450,7 +463,9 @@ public partial class BasisProjectSetup : EditorWindow
         if (_ocLastFetchedUtc != DateTime.MinValue)
         {
             EditorGUILayout.LabelField(
-                $"Last updated {_ocLastFetchedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}    Source: {OC_API}",
+                string.Format(Tr("projectSetup.funding.lastUpdated", "Last updated {0}    Source: {1}"),
+                    _ocLastFetchedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
+                    OC_API),
                 EditorStyles.miniLabel);
         }
     }
@@ -583,14 +598,14 @@ public partial class BasisProjectSetup : EditorWindow
 
     private static string FormatGoalType(string type)
     {
-        if (string.IsNullOrEmpty(type)) return "Goal";
+        if (string.IsNullOrEmpty(type)) return Tr("projectSetup.funding.goalDefault", "Goal");
         switch (type.ToLowerInvariant())
         {
             case "yearlybudget":
-            case "yearly":   return "Yearly Budget";
+            case "yearly":   return Tr("projectSetup.funding.goalYearly", "Yearly Budget");
             case "monthlybudget":
-            case "monthly":  return "Monthly Budget";
-            case "balance":  return "Balance";
+            case "monthly":  return Tr("projectSetup.funding.goalMonthly", "Monthly Budget");
+            case "balance":  return Tr("projectSetup.funding.goalBalance", "Balance");
             default:         return type;
         }
     }
@@ -620,7 +635,7 @@ public partial class BasisProjectSetup : EditorWindow
         if (_ocLoading) return;
 
         _ocLoading = true;
-        _ocStatus = "Contacting opencollective.com...";
+        _ocStatus = Tr("projectSetup.funding.statusContacting", "Contacting opencollective.com...");
         Repaint();
 
         try
@@ -635,7 +650,7 @@ public partial class BasisProjectSetup : EditorWindow
 
             if (req.result != UnityWebRequest.Result.Success)
             {
-                _ocStatus = $"Request failed ({req.responseCode}): {req.error}";
+                _ocStatus = string.Format(Tr("projectSetup.funding.statusRequestFailed", "Request failed ({0}): {1}"), req.responseCode, req.error);
                 return;
             }
 
@@ -647,13 +662,13 @@ public partial class BasisProjectSetup : EditorWindow
             }
             catch (JsonException ex)
             {
-                _ocStatus = "Failed to parse JSON: " + ex.Message;
+                _ocStatus = string.Format(Tr("projectSetup.funding.statusParseFailed", "Failed to parse JSON: {0}"), ex.Message);
                 return;
             }
 
             if (parsed == null)
             {
-                _ocStatus = "OpenCollective returned an empty payload.";
+                _ocStatus = Tr("projectSetup.funding.statusEmptyPayload", "OpenCollective returned an empty payload.");
                 return;
             }
 
@@ -668,7 +683,7 @@ public partial class BasisProjectSetup : EditorWindow
         }
         catch (Exception ex)
         {
-            _ocStatus = "Error: " + ex.Message;
+            _ocStatus = string.Format(Tr("projectSetup.funding.statusError", "Error: {0}"), ex.Message);
             Debug.LogError("OpenCollective fetch error: " + ex);
         }
         finally

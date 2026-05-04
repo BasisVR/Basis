@@ -95,6 +95,10 @@ public static class BasisNetworkHandleRemoval
             // Clean up any shout audio for this player
             BasisShoutAudioDriver.RemovePlayer(disconnectedID);
 
+            // Notify avatar BasisAvatarMonoBehaviours that the network is going away
+            // before the avatar GameObject is destroyed below.
+            network.NotifyNetworkBehavioursTerminated();
+
             // Shutdown networking
             network.DeInitialize();
 

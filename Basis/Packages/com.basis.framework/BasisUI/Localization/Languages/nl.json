@@ -794,8 +794,8 @@
     { "key": "settings.developer.textureStats.description", "value": "Show texture, VRAM, and streaming mipmap statistics for the current avatar." },
     { "key": "settings.developer.assignedTrackers", "value": "Show Assigned Trackers" },
     { "key": "settings.developer.assignedTrackers.description", "value": "List every input device that has been assigned a tracked bone role." },
-    { "key": "settings.developer.didKey.description", "value": "Your DID — the long-lived identifier the server keys bans, permissions, and content shares against. Read-only; tap the eye icon to reveal." },
-    { "key": "settings.developer.didKey.field", "value": "DID" },
+    { "key": "settings.developer.didKey.description", "value": "Your UUID — the long-lived identifier the server keys bans, permissions, and content shares against. Read-only; tap the eye icon to reveal." },
+    { "key": "settings.developer.didKey.field", "value": "UUID" },
     { "key": "settings.developer.didKey.title", "value": "Identity Key" },
     { "key": "settings.moderator.description", "value": "Player list, kicks/bans, teleports, messaging, and shout-mode toggles." },
     { "key": "settings.moderator.title", "value": "Moderator" }

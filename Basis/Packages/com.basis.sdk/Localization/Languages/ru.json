@@ -265,6 +265,19 @@
     { "key": "sdk.linkGenerator.progress.buildingXml", "value": "Построение XML..." },
     { "key": "sdk.linkGenerator.progress.ensuringFolder", "value": "Проверка существования выходной папки..." },
     { "key": "sdk.linkGenerator.progress.savingLinkXml", "value": "Сохранение link.xml (только при изменениях)..." },
-    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "Импорт link.xml..." }
+    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "Импорт link.xml..." },
+
+    { "key": "projectSetup.window.title", "value": "Настройка проекта Basis" },
+    { "key": "projectSetup.header.title", "value": "Мастер проекта Basis" },
+    { "key": "projectSetup.header.subtitle", "value": "Создатель прежде всего • Творческая свобода\nOpen-Source (MIT) • Сеть • Ввод • Присутствие" },
+    { "key": "projectSetup.tab.welcome", "value": "Добро пожаловать" },
+    { "key": "projectSetup.tab.buildModules", "value": "Сборка и модули" },
+    { "key": "projectSetup.tab.platformQuality", "value": "Платформа и качество" },
+    { "key": "projectSetup.tab.playXR", "value": "Воспроизведение и XR" },
+    { "key": "projectSetup.tab.docs", "value": "Документация" },
+    { "key": "projectSetup.tab.scenes", "value": "Сцены" },
+    { "key": "projectSetup.firstRun.notice", "value": "Вы здесь впервые! Выберите, что вы настраиваете, проверьте модули сборки (включая IL2CPP) и выберите целевую платформу перед сборкой или запуском." },
+    { "key": "projectSetup.button.close", "value": "Закрыть" },
+    { "key": "projectSetup.language.label", "value": "Язык" }
   ]
 }

@@ -207,6 +207,12 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> TrackerGizmos = new("trackergizmos", new BasisPlatformDefault<bool>(false));
 
+        // Yellow line gizmo drawn between the two physical trackers of every
+        // active linked pair. Off by default; toggled separately from
+        // TrackerGizmos so a user debugging the pairing system can see only
+        // the link visualization without the tracker spheres cluttering the view.
+        public static BasisSettingsBinding<bool> LinkedTrackerLines = new("linkedtrackerlines", new BasisPlatformDefault<bool>(false));
+
         public static BasisSettingsBinding<bool> EnableStatistics = new("enablestatistics", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
@@ -494,179 +500,179 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<float> FBIKDerivativeCutoff = new("fbikderivativecutoff", new BasisPlatformDefault<float>(3f));
 
-        public static BasisSettingsBinding<float> FBIKPositionSmoothingHz =>
+        public static BasisSettingsBinding<float> FBIKPositionSmoothingHz =
             new("fbikpositionsmoothinghz", new BasisPlatformDefault<float>(20f));
 
-        public static BasisSettingsBinding<float> FBIKRotationSmoothingHz =>
+        public static BasisSettingsBinding<float> FBIKRotationSmoothingHz =
             new("fbikrotationsmoothinghz", new BasisPlatformDefault<float>(25f));
 
-        public static BasisSettingsBinding<float> FBIKSmoothingStrength =>
+        public static BasisSettingsBinding<float> FBIKSmoothingStrength =
             new("fbiksmoothingstrength", new BasisPlatformDefault<float>(1f));
 
         // ---------------- HIPS ----------------
-        public static BasisSettingsBinding<bool> FBIKHipsSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKHipsSmoothPos =
             new("fbikhipssmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKHipsSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKHipsSmoothRot =
             new("fbikhipssmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKHipsEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKHipsEuroPos =
             new("fbikhipseuropos", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> FBIKHipsEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKHipsEuroRot =
             new("fbikhipseurorot", new BasisPlatformDefault<bool>(true));
 
         // ---------------- HEAD ----------------
-        public static BasisSettingsBinding<bool> FBIKHeadSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKHeadSmoothPos =
             new("fbikheadsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKHeadSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKHeadSmoothRot =
             new("fbikheadsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKHeadEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKHeadEuroPos =
             new("fbikheadeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKHeadEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKHeadEuroRot =
             new("fbikheadeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- LEFT FOOT ----------------
-        public static BasisSettingsBinding<bool> FBIKLeftFootSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftFootSmoothPos =
             new("fbikleftfootsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftFootSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftFootSmoothRot =
             new("fbikleftfootsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftFootEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftFootEuroPos =
             new("fbikleftfooteuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftFootEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftFootEuroRot =
             new("fbikleftfooteurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- RIGHT FOOT ----------------
-        public static BasisSettingsBinding<bool> FBIKRightFootSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKRightFootSmoothPos =
             new("fbikrightfootsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightFootSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKRightFootSmoothRot =
             new("fbikrightfootsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightFootEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKRightFootEuroPos =
             new("fbikrightfooteuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightFootEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKRightFootEuroRot =
             new("fbikrightfooteurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- CHEST ----------------
-        public static BasisSettingsBinding<bool> FBIKChestSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKChestSmoothPos =
             new("fbikchestsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKChestSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKChestSmoothRot =
             new("fbikchestsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKChestEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKChestEuroPos =
             new("fbikchesteuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKChestEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKChestEuroRot =
             new("fbikchesteurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- LEFT LOWER LEG ----------------
-        public static BasisSettingsBinding<bool> FBIKLeftLowerLegSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerLegSmoothPos =
             new("fbikleftlowerlegsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftLowerLegSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerLegSmoothRot =
             new("fbikleftlowerlegsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftLowerLegEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerLegEuroPos =
             new("fbikleftlowerlegeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftLowerLegEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerLegEuroRot =
             new("fbikleftlowerlegeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- RIGHT LOWER LEG ----------------
-        public static BasisSettingsBinding<bool> FBIKRightLowerLegSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerLegSmoothPos =
             new("fbikrightlowerlegsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightLowerLegSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerLegSmoothRot =
             new("fbikrightlowerlegsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightLowerLegEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerLegEuroPos =
             new("fbikrightlowerlegeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightLowerLegEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerLegEuroRot =
             new("fbikrightlowerlegeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- LEFT HAND ----------------
-        public static BasisSettingsBinding<bool> FBIKLeftHandSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftHandSmoothPos =
             new("fbiklefthandsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftHandSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftHandSmoothRot =
             new("fbiklefthandsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftHandEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftHandEuroPos =
             new("fbikleftehandeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftHandEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftHandEuroRot =
             new("fbikleftehandeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- RIGHT HAND ----------------
-        public static BasisSettingsBinding<bool> FBIKRightHandSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKRightHandSmoothPos =
             new("fbikrighthandsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightHandSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKRightHandSmoothRot =
             new("fbikrighthandsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightHandEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKRightHandEuroPos =
             new("fbikrighthandeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightHandEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKRightHandEuroRot =
             new("fbikrighthandeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- LEFT LOWER ARM ----------------
-        public static BasisSettingsBinding<bool> FBIKLeftLowerArmSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerArmSmoothPos =
             new("fbikleftlowerarmsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftLowerArmSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerArmSmoothRot =
             new("fbikleftlowerarmsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftLowerArmEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerArmEuroPos =
             new("fbikleftlowerarmeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftLowerArmEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftLowerArmEuroRot =
             new("fbikleftlowerarmeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- RIGHT LOWER ARM ----------------
-        public static BasisSettingsBinding<bool> FBIKRightLowerArmSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerArmSmoothPos =
             new("fbikrightlowerarmsmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightLowerArmSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerArmSmoothRot =
             new("fbikrightlowerarmsmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightLowerArmEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerArmEuroPos =
             new("fbikrightlowerarmeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightLowerArmEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKRightLowerArmEuroRot =
             new("fbikrightlowerarmeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- LEFT TOE ----------------
-        public static BasisSettingsBinding<bool> FBIKLeftToeSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftToeSmoothPos =
             new("fbiklefttoesmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftToeSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftToeSmoothRot =
             new("fbiklefttoesmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftToeEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKLeftToeEuroPos =
             new("fbiklefttoeeuropos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKLeftToeEuroRot =>
+        public static BasisSettingsBinding<bool> FBIKLeftToeEuroRot =
             new("fbiklefttoeeurorot", new BasisPlatformDefault<bool>(false));
 
         // ---------------- RIGHT TOE ----------------
-        public static BasisSettingsBinding<bool> FBIKRightToeSmoothPos =>
+        public static BasisSettingsBinding<bool> FBIKRightToeSmoothPos =
             new("fbikrighttoesmoothpos", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightToeSmoothRot =>
+        public static BasisSettingsBinding<bool> FBIKRightToeSmoothRot =
             new("fbikrighttoesmoothrot", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FBIKRightToeEuroPos =>
+        public static BasisSettingsBinding<bool> FBIKRightToeEuroPos =
             new("fbikrighttoeeuropos", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<bool> FBIKRightToeEuroRot = new("fbikrighttoeeurorot", new BasisPlatformDefault<bool>(false));
@@ -862,6 +868,41 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> FBIKMaxChestDelta = new("fbikmaxchestdelta", new BasisPlatformDefault<float>(90f));
         public static BasisSettingsBinding<float> FBIKMaxHipDelta = new("fbikmaxhipdelta", new BasisPlatformDefault<float>(90f));
 
+        // Spine relax: per-axis bend distribution onto lumbar (spine) and thoracic (upperChest)
+        public static BasisSettingsBinding<float> FBIKSpineBendPitch = new("fbikspinebendpitch", new BasisPlatformDefault<float>(0.45f));
+        public static BasisSettingsBinding<float> FBIKSpineBendYaw = new("fbikspinebendyaw", new BasisPlatformDefault<float>(0.10f));
+        public static BasisSettingsBinding<float> FBIKSpineBendRoll = new("fbikspinebendroll", new BasisPlatformDefault<float>(0.35f));
+        public static BasisSettingsBinding<float> FBIKUpperChestBendPitch = new("fbikupperchestbendpitch", new BasisPlatformDefault<float>(0.25f));
+        public static BasisSettingsBinding<float> FBIKUpperChestBendYaw = new("fbikupperchestbendyaw", new BasisPlatformDefault<float>(0.30f));
+        public static BasisSettingsBinding<float> FBIKUpperChestBendRoll = new("fbikupperchestbendroll", new BasisPlatformDefault<float>(0.20f));
+        // Spine relax: hip hinge coupling
+        public static BasisSettingsBinding<float> FBIKHipHingeStartDeg = new("fbikhiphingestartdeg", new BasisPlatformDefault<float>(30f));
+        public static BasisSettingsBinding<float> FBIKHipHingeMaxAddDeg = new("fbikhiphingemaxadddeg", new BasisPlatformDefault<float>(15f));
+        // Spine relax: chest follow spring (velocity lag)
+        public static BasisSettingsBinding<float> FBIKChestSpringHz = new("fbikchestspringhz", new BasisPlatformDefault<float>(12f));
+        public static BasisSettingsBinding<float> FBIKChestSpringDamping = new("fbikchestspringdamping", new BasisPlatformDefault<float>(1f));
+        // Spine relax: asymmetric flexion clamps (apply to spine + upperChest contributions)
+        public static BasisSettingsBinding<float> FBIKSpineMaxForwardDeg = new("fbikspinemaxforwarddeg", new BasisPlatformDefault<float>(60f));
+        public static BasisSettingsBinding<float> FBIKSpineMaxBackwardDeg = new("fbikspinemaxbackwarddeg", new BasisPlatformDefault<float>(25f));
+        public static BasisSettingsBinding<float> FBIKSpineMaxLateralDeg = new("fbikspinemaxlateraldeg", new BasisPlatformDefault<float>(25f));
+        // Spine relax: squish-driven bend coupling
+        public static BasisSettingsBinding<float> FBIKSpineSquishBoost = new("fbikspinesquishboost", new BasisPlatformDefault<float>(0.5f));
+        // Spine relax: arm-swing chest follow (only when no chest tracker)
+        public static BasisSettingsBinding<float> FBIKChestArmSwingFactor = new("fbikchestarmswingfactor", new BasisPlatformDefault<float>(0.3f));
+        public static BasisSettingsBinding<float> FBIKChestArmSwingMaxDeg = new("fbikchestarmswingmaxdeg", new BasisPlatformDefault<float>(15f));
+        // Arm twist distribution: fraction of wrist/elbow roll absorbed by twist bones
+        public static BasisSettingsBinding<float> FBIKLowerArmTwistFraction = new("fbiklowerarmtwistfraction", new BasisPlatformDefault<float>(0.5f));
+        public static BasisSettingsBinding<float> FBIKUpperArmTwistFraction = new("fbikupperarmtwistfraction", new BasisPlatformDefault<float>(0.3f));
+
+        // Anatomy (Experimental) — opt-in IK refinements modeled on real biomechanics. All off
+        // by default because they change spine / shoulder / foot behavior in subtle ways that
+        // some users may prefer to tune manually via the existing per-axis sliders.
+        public static BasisSettingsBinding<bool> FBIKAnatDifferentialStiffness = new("fbikanatdiffstiffness", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKAnatShoulderSlide = new("fbikanatshoulderslide", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKAnatCervicalLordosis = new("fbikanatcervicallordosis", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKAnatPelvicTwistRouting = new("fbikanatpelvictwistrouting", new BasisPlatformDefault<bool>(false));
+
+
         // ---------------- TRACKER PAIRING (virtual midpoint) ----------------
         // Hides the pairing tuning sliders behind an advanced toggle so the
         // tracker linking page stays approachable for the common case.
@@ -987,6 +1028,7 @@ namespace Basis.BasisUI
             MainVolume.LoadBindingValue();
             MenuVolume.LoadBindingValue();
             WorldVolume.LoadBindingValue();
+            VoiceVolume.LoadBindingValue();
             AvatarVolume.LoadBindingValue();
             PropVolume.LoadBindingValue();
             MediaVolume.LoadBindingValue();
@@ -1009,6 +1051,15 @@ namespace Basis.BasisUI
             NoiseGateThreshold.LoadBindingValue();
             NoiseGateAttack.LoadBindingValue();
             NoiseGateRelease.LoadBindingValue();
+
+            // Audio Debug
+            AudioDebugEnabled.LoadBindingValue();
+            AudioDebugShowSource.LoadBindingValue();
+            AudioDebugShowVolume.LoadBindingValue();
+            AudioDebugShowRingBuffer.LoadBindingValue();
+            AudioDebugShowJitter.LoadBindingValue();
+            AudioDebugShowSilence.LoadBindingValue();
+            AudioDebugShowViseme.LoadBindingValue();
 
             // Input / Movement
             ControllerDeadZone.LoadBindingValue();
@@ -1047,21 +1098,32 @@ namespace Basis.BasisUI
             EnableOSC.LoadBindingValue();
             EnableFaceTracking.LoadBindingValue();
             EnableEyeTracking.LoadBindingValue();
+            FootIKEnabled.LoadBindingValue();
+            DisableAnimationsInFBT.LoadBindingValue();
+            LocalHeadBlendShapes.LoadBindingValue();
 
             // Rendering / Graphics
             QualityLevel.LoadBindingValue();
             ShadowQuality.LoadBindingValue();
             HDRSupport.LoadBindingValue();
             Antialiasing.LoadBindingValue();
+            UseBloomOverride.LoadBindingValue();
+            BloomIntensity.LoadBindingValue();
             ShowGizmos.LoadBindingValue();
             GizmoSkeletonLines.LoadBindingValue();
             GizmoCalibrationSpheres.LoadBindingValue();
             GizmoJiggleVisuals.LoadBindingValue();
             TrackerGizmos.LoadBindingValue();
+            LinkedTrackerLines.LoadBindingValue();
             AvatarShowTrackerRoles.LoadBindingValue();
             AvatarShowTextureStats.LoadBindingValue();
+            EnableStatistics.LoadBindingValue();
             DevDebugFaceTracking.LoadBindingValue();
             DevDebugEyeTracking.LoadBindingValue();
+            DevShowBuildInfo.LoadBindingValue();
+            DevShowConsole.LoadBindingValue();
+            DevShowEuroFilter.LoadBindingValue();
+            DevShowNetStats.LoadBindingValue();
             DisableLogging.LoadBindingValue();
             BasisDebug.LoggingDisabled = DisableLogging.RawValue;
             DisableLogging.OnChanged += value => BasisDebug.LoggingDisabled = value;
@@ -1093,6 +1155,42 @@ namespace Basis.BasisUI
             AvatarMeshLOD.LoadBindingValue();
             GlobalMeshLOD.LoadBindingValue();
 
+            // Performance Limits
+            UsePerfLimitTriangles.LoadBindingValue();
+            MaxPerfTriangles.LoadBindingValue();
+            UsePerfLimitBoundsSize.LoadBindingValue();
+            MaxPerfBoundsSize.LoadBindingValue();
+            UsePerfLimitTextureMemory.LoadBindingValue();
+            MaxPerfTextureMemoryMB.LoadBindingValue();
+            UsePerfLimitSkinnedMeshes.LoadBindingValue();
+            MaxPerfSkinnedMeshes.LoadBindingValue();
+            UsePerfLimitBasicMeshes.LoadBindingValue();
+            MaxPerfBasicMeshes.LoadBindingValue();
+            UsePerfLimitMaterialSlots.LoadBindingValue();
+            MaxPerfMaterialSlots.LoadBindingValue();
+            UsePerfLimitJiggleBones.LoadBindingValue();
+            MaxPerfJiggleBones.LoadBindingValue();
+            UsePerfLimitJiggleColliders.LoadBindingValue();
+            MaxPerfJiggleColliders.LoadBindingValue();
+            UsePerfLimitAnimators.LoadBindingValue();
+            MaxPerfAnimators.LoadBindingValue();
+            UsePerfLimitBones.LoadBindingValue();
+            MaxPerfBones.LoadBindingValue();
+            UsePerfLimitLights.LoadBindingValue();
+            MaxPerfLights.LoadBindingValue();
+            UsePerfLimitParticleSystems.LoadBindingValue();
+            MaxPerfParticleSystems.LoadBindingValue();
+            UsePerfLimitTrailRenderers.LoadBindingValue();
+            MaxPerfTrailRenderers.LoadBindingValue();
+            UsePerfLimitLineRenderers.LoadBindingValue();
+            MaxPerfLineRenderers.LoadBindingValue();
+            UsePerfLimitCloth.LoadBindingValue();
+            MaxPerfCloth.LoadBindingValue();
+            UsePerfLimitColliders.LoadBindingValue();
+            MaxPerfColliders.LoadBindingValue();
+            UsePerfLimitCilboxBehaviours.LoadBindingValue();
+            MaxPerfCilboxBehaviours.LoadBindingValue();
+
             // Networking
             AutoConnect.LoadBindingValue();
             NetEuroMinCutoff.LoadBindingValue();
@@ -1120,6 +1218,7 @@ namespace Basis.BasisUI
             TrueBinding.LoadBindingValue();
             LimitThreshold.LoadBindingValue();
             LimitKnee.LoadBindingValue();
+            DisableSeats.LoadBindingValue();
 
             // Global FBIK parameters
             FBIKMinCutoff.LoadBindingValue();
@@ -1271,10 +1370,41 @@ namespace Basis.BasisUI
             FBIKStruggleEnd.LoadBindingValue();
             FBIKMaxChestDelta.LoadBindingValue();
             FBIKMaxHipDelta.LoadBindingValue();
+            FBIKSpineBendPitch.LoadBindingValue();
+            FBIKSpineBendYaw.LoadBindingValue();
+            FBIKSpineBendRoll.LoadBindingValue();
+            FBIKUpperChestBendPitch.LoadBindingValue();
+            FBIKUpperChestBendYaw.LoadBindingValue();
+            FBIKUpperChestBendRoll.LoadBindingValue();
+            FBIKHipHingeStartDeg.LoadBindingValue();
+            FBIKHipHingeMaxAddDeg.LoadBindingValue();
+            FBIKChestSpringHz.LoadBindingValue();
+            FBIKChestSpringDamping.LoadBindingValue();
+            FBIKSpineMaxForwardDeg.LoadBindingValue();
+            FBIKSpineMaxBackwardDeg.LoadBindingValue();
+            FBIKSpineMaxLateralDeg.LoadBindingValue();
+            FBIKSpineSquishBoost.LoadBindingValue();
+            FBIKChestArmSwingFactor.LoadBindingValue();
+            FBIKChestArmSwingMaxDeg.LoadBindingValue();
+            FBIKLowerArmTwistFraction.LoadBindingValue();
+            FBIKUpperArmTwistFraction.LoadBindingValue();
+            FBIKAnatDifferentialStiffness.LoadBindingValue();
+            FBIKAnatShoulderSlide.LoadBindingValue();
+            FBIKAnatCervicalLordosis.LoadBindingValue();
+            FBIKAnatPelvicTwistRouting.LoadBindingValue();
 
             // Tracker pairing
             TrackerLinkingAdvancedVisible.LoadBindingValue();
             TrackerLinkingConnectorVisible.LoadBindingValue();
+            PairingSurprisePenalty.LoadBindingValue();
+            PairingSurpriseClamp.LoadBindingValue();
+            PairingEmaFloor.LoadBindingValue();
+            PairingMaxCorrectionStrength.LoadBindingValue();
+            PairingSoftSnapHalfLife.LoadBindingValue();
+            PairingLockstepTolerance.LoadBindingValue();
+            PairingEmaAlpha.LoadBindingValue();
+            PairingDistanceEmaAlpha.LoadBindingValue();
+            PairingWeightSmoothing.LoadBindingValue();
 
             // Remote Nameplate
             NPEnabled.LoadBindingValue();

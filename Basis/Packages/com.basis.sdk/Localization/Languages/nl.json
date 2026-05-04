@@ -265,6 +265,19 @@
     { "key": "sdk.linkGenerator.progress.buildingXml", "value": "XML bouwen..." },
     { "key": "sdk.linkGenerator.progress.ensuringFolder", "value": "Uitvoermap controleren..." },
     { "key": "sdk.linkGenerator.progress.savingLinkXml", "value": "link.xml opslaan (alleen indien gewijzigd)..." },
-    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "link.xml importeren..." }
+    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "link.xml importeren..." },
+
+    { "key": "projectSetup.window.title", "value": "Basis Project-instelling" },
+    { "key": "projectSetup.header.title", "value": "Basis Project-wizard" },
+    { "key": "projectSetup.header.subtitle", "value": "Maker-Eerst • Creatieve Vrijheid\nOpen-Source (MIT) • Netwerk • Invoer • Aanwezigheid" },
+    { "key": "projectSetup.tab.welcome", "value": "Welkom" },
+    { "key": "projectSetup.tab.buildModules", "value": "Build & Modules" },
+    { "key": "projectSetup.tab.platformQuality", "value": "Platform & Kwaliteit" },
+    { "key": "projectSetup.tab.playXR", "value": "Spelen & XR" },
+    { "key": "projectSetup.tab.docs", "value": "Docs" },
+    { "key": "projectSetup.tab.scenes", "value": "Scènes" },
+    { "key": "projectSetup.firstRun.notice", "value": "Eerste keer hier! Kies wat je instelt, controleer de build-modules (inclusief IL2CPP) en kies je doelplatform voordat je bouwt of op Afspelen drukt." },
+    { "key": "projectSetup.button.close", "value": "Sluiten" },
+    { "key": "projectSetup.language.label", "value": "Taal" }
   ]
 }

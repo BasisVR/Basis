@@ -76,10 +76,11 @@ public partial class BasisProjectSetup : EditorWindow
             if (!SupportsIl2cpp(group))
             {
                 EditorUtility.DisplayDialog(
-                    "IL2CPP Not Available",
-                    $"IL2CPP scripting backend is not available for {group}. " +
-                    $"Install the appropriate *Build Support (IL2CPP)* module via Unity Hub, some platforms wont have Il2cpp support.",
-                    "OK");
+                    Tr("projectSetup.platformQuality.il2cppNotAvailableTitle", "IL2CPP Not Available"),
+                    string.Format(Tr("projectSetup.platformQuality.il2cppNotAvailableBody",
+                        "IL2CPP scripting backend is not available for {0}. " +
+                        "Install the appropriate *Build Support (IL2CPP)* module via Unity Hub, some platforms wont have Il2cpp support."), group),
+                    Tr("projectSetup.dialog.ok", "OK"));
                 return;
             }
 
@@ -90,9 +91,9 @@ public partial class BasisProjectSetup : EditorWindow
             catch (Exception ex)
             {
                 EditorUtility.DisplayDialog(
-                    "Failed to Set IL2CPP",
-                    "Tried to set IL2CPP but Unity reported an error:\n" + ex.Message,
-                    "OK");
+                    Tr("projectSetup.platformQuality.failedIl2cppTitle", "Failed to Set IL2CPP"),
+                    string.Format(Tr("projectSetup.platformQuality.failedIl2cppBody", "Tried to set IL2CPP but Unity reported an error:\n{0}"), ex.Message),
+                    Tr("projectSetup.dialog.ok", "OK"));
                 return;
             }
         }
@@ -104,11 +105,10 @@ public partial class BasisProjectSetup : EditorWindow
 
         var backend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group));
         EditorUtility.DisplayDialog(
-            "Platform Applied",
-            $"Switched to: {group}/{target}\n" +
-            $"Quality: {desiredQuality}\n" +
-            $"Scripting Backend: {backend}",
-            "Nice");
+            Tr("projectSetup.platformQuality.platformAppliedTitle", "Platform Applied"),
+            string.Format(Tr("projectSetup.platformQuality.platformAppliedBody",
+                "Switched to: {0}/{1}\nQuality: {2}\nScripting Backend: {3}"), group, target, desiredQuality, backend),
+            Tr("projectSetup.platformQuality.nice", "Nice"));
     }
 
     private static void SetQualitySafe(int index)
@@ -136,20 +136,20 @@ public partial class BasisProjectSetup : EditorWindow
 
     private void DrawModuleAndBackendStatusRow()
     {
-        EditorGUILayout.LabelField("Installed Build Modules:", EditorStyles.miniBoldLabel);
+        EditorGUILayout.LabelField(Tr("projectSetup.buildModules.installedModules", "Installed Build Modules:"), EditorStyles.miniBoldLabel);
         EditorGUILayout.BeginHorizontal();
-        DrawBadge("Windows", _hasWin == true);
-        DrawBadge("Linux", _hasLinux == true);
-        DrawBadge("Android", _hasAndroid == true);
+        DrawBadge(Tr("projectSetup.platformQuality.windows", "Windows"), _hasWin == true);
+        DrawBadge(Tr("projectSetup.platformQuality.linux", "Linux"), _hasLinux == true);
+        DrawBadge(Tr("projectSetup.status.androidPlain", "Android"), _hasAndroid == true);
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Re-check")) RecheckBuildModulesAndBackends();
+        if (GUILayout.Button(Tr("projectSetup.buildModules.recheck", "Re-check"))) RecheckBuildModulesAndBackends();
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.Space(2);
-        EditorGUILayout.LabelField("IL2CPP Availability:", EditorStyles.miniBoldLabel);
+        EditorGUILayout.LabelField(Tr("projectSetup.buildModules.il2cppAvailability", "IL2CPP Availability:"), EditorStyles.miniBoldLabel);
         EditorGUILayout.BeginHorizontal();
-        DrawBadge("Standalone (Win/Linux)", _hasIl2cppStandalone == true);
-        DrawBadge("Android", _hasIl2cppAndroid == true);
+        DrawBadge(Tr("projectSetup.buildModules.il2cppStandalone", "Standalone (Win/Linux)"), _hasIl2cppStandalone == true);
+        DrawBadge(Tr("projectSetup.status.androidPlain", "Android"), _hasIl2cppAndroid == true);
         GUILayout.FlexibleSpace();
         EditorGUILayout.EndHorizontal();
 
@@ -159,31 +159,34 @@ public partial class BasisProjectSetup : EditorWindow
             if (!(_hasWin == true && _hasLinux == true && _hasAndroid == true))
             {
                 EditorGUILayout.HelpBox(
-                    "Avatar/World setup: install Windows, Linux, and Android Build Support via Unity Hub.",
+                    Tr("projectSetup.buildModules.warnAvatarWorldNeedsAll",
+                        "Avatar/World setup: install Windows, Linux, and Android Build Support via Unity Hub."),
                     MessageType.Warning);
             }
             if (!(_hasIl2cppStandalone == true && _hasIl2cppAndroid == true))
             {
                 EditorGUILayout.HelpBox(
-                    "Avatar/World setup: IL2CPP must be available for Standalone and Android. " +
-                    "Install *Build Support (IL2CPP)* modules in Unity Hub.",
+                    Tr("projectSetup.buildModules.warnAvatarWorldNeedsIl2cpp",
+                        "Avatar/World setup: IL2CPP must be available for Standalone and Android. " +
+                        "Install *Build Support (IL2CPP)* modules in Unity Hub."),
                     MessageType.Warning);
             }
         }
         else
         {
             if (_choice == PlatformChoice.Android && _hasAndroid != true)
-                EditorGUILayout.HelpBox("Android Build Support is missing. Install it in Unity Hub to build for Quest.", MessageType.Error);
+                EditorGUILayout.HelpBox(Tr("projectSetup.buildModules.errAndroidMissing", "Android Build Support is missing. Install it in Unity Hub to build for Quest."), MessageType.Error);
 
             if (_choice == PlatformChoice.Android && _hasIl2cppAndroid != true && _enforceIl2cpp)
-                EditorGUILayout.HelpBox("Android IL2CPP is not available. Install Android Build Support (includes IL2CPP) in Unity Hub.", MessageType.Error);
+                EditorGUILayout.HelpBox(Tr("projectSetup.buildModules.errAndroidIl2cppMissing", "Android IL2CPP is not available. Install Android Build Support (includes IL2CPP) in Unity Hub."), MessageType.Error);
         }
 
         if (Application.platform == RuntimePlatform.LinuxEditor)
         {
             EditorGUILayout.HelpBox(
-                "Running in Linux Editor. Some platform toolchains may not be available on this OS; " +
-                "the badges reflect what’s actually installed here.",
+                Tr("projectSetup.buildModules.linuxEditorNotice",
+                    "Running in Linux Editor. Some platform toolchains may not be available on this OS; " +
+                    "the badges reflect what’s actually installed here."),
                 MessageType.None);
         }
     }

@@ -265,6 +265,19 @@
     { "key": "sdk.linkGenerator.progress.buildingXml", "value": "Construindo XML..." },
     { "key": "sdk.linkGenerator.progress.ensuringFolder", "value": "Garantindo a existência da pasta de saída..." },
     { "key": "sdk.linkGenerator.progress.savingLinkXml", "value": "Salvando link.xml (apenas se modificado)..." },
-    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "Importando link.xml..." }
+    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "Importando link.xml..." },
+
+    { "key": "projectSetup.window.title", "value": "Configuração do Projeto Basis" },
+    { "key": "projectSetup.header.title", "value": "Assistente de Projeto Basis" },
+    { "key": "projectSetup.header.subtitle", "value": "Criador em Primeiro Lugar • Liberdade Criativa\nCódigo Aberto (MIT) • Rede • Entrada • Presença" },
+    { "key": "projectSetup.tab.welcome", "value": "Bem-vindo" },
+    { "key": "projectSetup.tab.buildModules", "value": "Build e Módulos" },
+    { "key": "projectSetup.tab.platformQuality", "value": "Plataforma e Qualidade" },
+    { "key": "projectSetup.tab.playXR", "value": "Reproduzir e XR" },
+    { "key": "projectSetup.tab.docs", "value": "Docs" },
+    { "key": "projectSetup.tab.scenes", "value": "Cenas" },
+    { "key": "projectSetup.firstRun.notice", "value": "Primeira vez aqui! Escolha o que você está configurando, verifique os módulos de build (incluindo IL2CPP) e selecione sua plataforma alvo antes de compilar ou pressionar Reproduzir." },
+    { "key": "projectSetup.button.close", "value": "Fechar" },
+    { "key": "projectSetup.language.label", "value": "Idioma" }
   ]
 }

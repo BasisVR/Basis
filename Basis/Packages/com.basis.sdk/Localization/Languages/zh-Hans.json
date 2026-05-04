@@ -265,6 +265,19 @@
     { "key": "sdk.linkGenerator.progress.buildingXml", "value": "正在构建 XML..." },
     { "key": "sdk.linkGenerator.progress.ensuringFolder", "value": "正在确保输出文件夹存在..." },
     { "key": "sdk.linkGenerator.progress.savingLinkXml", "value": "正在保存 link.xml（仅在更改时）..." },
-    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "正在导入 link.xml..." }
+    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "正在导入 link.xml..." },
+
+    { "key": "projectSetup.window.title", "value": "Basis 项目设置" },
+    { "key": "projectSetup.header.title", "value": "Basis 项目向导" },
+    { "key": "projectSetup.header.subtitle", "value": "创作者优先 • 创意自由\n开源 (MIT) • 网络 • 输入 • 临场感" },
+    { "key": "projectSetup.tab.welcome", "value": "欢迎" },
+    { "key": "projectSetup.tab.buildModules", "value": "构建与模块" },
+    { "key": "projectSetup.tab.platformQuality", "value": "平台与质量" },
+    { "key": "projectSetup.tab.playXR", "value": "运行与 XR" },
+    { "key": "projectSetup.tab.docs", "value": "文档" },
+    { "key": "projectSetup.tab.scenes", "value": "场景" },
+    { "key": "projectSetup.firstRun.notice", "value": "首次使用！请选择您要设置的内容，验证构建模块（包括 IL2CPP），然后在构建或按下播放之前选择目标平台。" },
+    { "key": "projectSetup.button.close", "value": "关闭" },
+    { "key": "projectSetup.language.label", "value": "语言" }
   ]
 }

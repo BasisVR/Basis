@@ -145,6 +145,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         captureCamera.targetTexture = renderTexture;
         captureCamera.gameObject.SetActive(true);
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+        BasisLocalCameraDriver.RenderSettingsApplied += SyncBackgroundFromMainCamera;
 
         // Notify network that PIP camera was created
         if (BasisNetworkConnection.LocalPlayerPeer != null)
@@ -189,6 +190,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         
 
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+        BasisLocalCameraDriver.RenderSettingsApplied -= SyncBackgroundFromMainCamera;
         OnPickupUse.RemoveListener( OnPickupUseCapture );
 
         base.OnDestroy();
@@ -214,6 +216,29 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         captureCamera.usePhysicalProperties = true;
         captureCamera.targetTexture = renderTexture;
         captureCamera.targetDisplay = 1;
+        SyncBackgroundFromMainCamera();
+    }
+
+    private void SyncBackgroundFromMainCamera()
+    {
+        if (BasisLocalCameraDriver.Instance == null) return;
+        Camera main = BasisLocalCameraDriver.Instance.Camera;
+        if (main == null) return;
+
+        captureCamera.clearFlags = main.clearFlags;
+        captureCamera.backgroundColor = main.backgroundColor;
+
+        bool hasMainSky = main.TryGetComponent(out Skybox mainSky) && mainSky.material != null;
+        bool hasCapSky = captureCamera.TryGetComponent(out Skybox capSky);
+        if (hasMainSky)
+        {
+            if (!hasCapSky) capSky = captureCamera.gameObject.AddComponent<Skybox>();
+            capSky.material = mainSky.material;
+        }
+        else if (hasCapSky)
+        {
+            capSky.material = null;
+        }
     }
 
     /// <summary>Instantiates a unique material used for the preview mesh.</summary>

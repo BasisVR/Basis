@@ -265,6 +265,19 @@
     { "key": "sdk.linkGenerator.progress.buildingXml", "value": "XML wird erstellt..." },
     { "key": "sdk.linkGenerator.progress.ensuringFolder", "value": "Ausgabeordner wird sichergestellt..." },
     { "key": "sdk.linkGenerator.progress.savingLinkXml", "value": "link.xml wird gespeichert (nur bei Änderungen)..." },
-    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "link.xml wird importiert..." }
+    { "key": "sdk.linkGenerator.progress.importingLinkXml", "value": "link.xml wird importiert..." },
+
+    { "key": "projectSetup.window.title", "value": "Basis Projekt-Setup" },
+    { "key": "projectSetup.header.title", "value": "Basis Projekt-Assistent" },
+    { "key": "projectSetup.header.subtitle", "value": "Creator-First • Kreative Freiheit\nOpen-Source (MIT) • Networking • Eingabe • Präsenz" },
+    { "key": "projectSetup.tab.welcome", "value": "Willkommen" },
+    { "key": "projectSetup.tab.buildModules", "value": "Build & Module" },
+    { "key": "projectSetup.tab.platformQuality", "value": "Plattform & Qualität" },
+    { "key": "projectSetup.tab.playXR", "value": "Play & XR" },
+    { "key": "projectSetup.tab.docs", "value": "Doku" },
+    { "key": "projectSetup.tab.scenes", "value": "Szenen" },
+    { "key": "projectSetup.firstRun.notice", "value": "Zum ersten Mal hier! Wähle aus, was du einrichtest, überprüfe die Build-Module (einschließlich IL2CPP) und wähle deine Zielplattform aus, bevor du baust oder Play drückst." },
+    { "key": "projectSetup.button.close", "value": "Schließen" },
+    { "key": "projectSetup.language.label", "value": "Sprache" }
   ]
 }

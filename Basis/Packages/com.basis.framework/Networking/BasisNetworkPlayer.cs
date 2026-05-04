@@ -140,8 +140,34 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public int NetworkBehaviourCount = 0;
         public BasisNetworkAvatarBehaviour[] NetworkBehaviours;
+        /// <summary>
+        /// Fires <see cref="BasisNetworkAvatarBehaviour.OnNetworkTerminated"/> on every behaviour
+        /// from the currently tracked avatar and clears the array. Call before the avatar
+        /// GameObject is destroyed (avatar swap, disconnect) so subclasses can release any
+        /// network-owned state while the references are still valid.
+        /// </summary>
+        public void NotifyNetworkBehavioursTerminated()
+        {
+            if (NetworkBehaviours == null)
+            {
+                return;
+            }
+            int length = NetworkBehaviours.Length;
+            for (int Index = 0; Index < length; Index++)
+            {
+                BasisNetworkAvatarBehaviour behaviour = NetworkBehaviours[Index];
+                if (behaviour != null)
+                {
+                    behaviour.OnNetworkUnassign();
+                }
+            }
+            NetworkBehaviours = null;
+            NetworkBehaviourCount = 0;
+        }
         public void AvatarLoadComplete()
         {
+            // Avatar swap: terminate behaviours from the prior avatar before re-collecting.
+            NotifyNetworkBehavioursTerminated();
             if (CheckForAvatar())
             {
                 BasisAvatar basisAvatar = Player.BasisAvatar;
