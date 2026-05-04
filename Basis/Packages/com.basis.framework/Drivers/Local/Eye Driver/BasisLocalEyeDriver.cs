@@ -47,7 +47,7 @@ public class BasisLocalEyeDriver
     public static JobHandle handle;
     public static bool HasEyeSchedule = false;
 
-    // Personality is owned by BasisLocalEyeDriverService (SDK). Simulate()
+    // Personality is owned by BasisLocalEyeDriverData (SDK). Simulate()
     // checks the dirty flag every frame and recomputes _personality only when
     // the SDK side flips it. In normal runtime it never flips after init.
     private static BasisEyePersonality _personality;
@@ -55,9 +55,9 @@ public class BasisLocalEyeDriver
     private static void RecomputePersonality()
     {
         _personality = BasisEyePersonality.Compute(
-            BasisLocalEyeDriverService.Liveliness,
-            BasisLocalEyeDriverService.Attentiveness);
-        BasisLocalEyeDriverService.PersonalityDirty = false;
+            BasisLocalEyeDriverData.Liveliness,
+            BasisLocalEyeDriverData.Attentiveness);
+        BasisLocalEyeDriverData.PersonalityDirty = false;
     }
 
     // === TUNABLE PARAMS FOR TARGET SCORING BEHAVIOR ===
@@ -231,7 +231,7 @@ public class BasisLocalEyeDriver
             return;
         }
 
-        if (BasisLocalEyeDriverService.PersonalityDirty)
+        if (BasisLocalEyeDriverData.PersonalityDirty)
         {
             RecomputePersonality();
         }

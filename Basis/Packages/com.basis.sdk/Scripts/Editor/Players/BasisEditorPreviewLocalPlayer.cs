@@ -8,7 +8,7 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
 {
     // Avatar preview for projects without com.basis.framework. Compiled out when framework
     // is installed (gated via versionDefine BASIS_FRAMEWORK_EXISTS) — framework's real
-    // BasisLocalPlayer registers itself with BasisLocalPlayerService at play-mode init.
+    // BasisLocalPlayer registers itself with BasisLocalPlayerData at play-mode init.
     internal sealed class BasisEditorPreviewLocalPlayer : IBasisLocalPlayer
     {
         private const string FallbackControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";
@@ -25,9 +25,8 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
         [InitializeOnLoadMethod]
         private static void Register()
         {
-            BasisLocalPlayerService.Instance = _instance;
-            BasisLocalPlayerService.PlayerReady = true;
-            BasisLocalPlayerService.OnLocalPlayerInitalized?.Invoke();
+            BasisLocalPlayerData.Instance = _instance;
+            BasisLocalPlayerData.RaiseLocalPlayerInitialized();
         }
 
         public Task CreateAvatarFromMode(BasisLoadMode LoadMode, BasisLoadableBundle BasisLoadableBundle)

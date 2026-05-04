@@ -276,8 +276,8 @@ public partial class BasisAvatarSDKInspector : Editor
         ValueChanged?.Invoke();
         if (Application.isPlaying)
         {
-            BasisLocalEyeDriverService.Liveliness = evt.newValue;
-            BasisLocalEyeDriverService.PersonalityDirty = true;
+            BasisLocalEyeDriverData.Liveliness = evt.newValue;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
         }
     }
     private void OnEyeAttentivenessChanged(ChangeEvent<float> evt)
@@ -288,8 +288,8 @@ public partial class BasisAvatarSDKInspector : Editor
         ValueChanged?.Invoke();
         if (Application.isPlaying)
         {
-            BasisLocalEyeDriverService.Attentiveness = evt.newValue;
-            BasisLocalEyeDriverService.PersonalityDirty = true;
+            BasisLocalEyeDriverData.Attentiveness = evt.newValue;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
         }
     }
     public void EventCallbackAnimator(ChangeEvent<UnityEngine.Object> evt, ref Animator Renderer)
@@ -654,7 +654,7 @@ public partial class BasisAvatarSDKInspector : Editor
 
     private static void RequestAvatarLoad(BasisAvatar avatar)
     {
-        if (BasisLocalPlayerService.PlayerReady)
+        if (BasisLocalPlayerData.PlayerReady)
         {
             BasisDebug.Log("Player Ready Loading", BasisDebug.LogTag.Editor);
             LoadAvatar(avatar);
@@ -663,14 +663,14 @@ public partial class BasisAvatarSDKInspector : Editor
         {
             ScheduledTestInEditorAvatar = avatar;
             BasisDebug.Log("Scheduling Load Avatar", BasisDebug.LogTag.Editor);
-            BasisLocalPlayerService.OnLocalPlayerInitalized -= LoadScheduledAvatar;
-            BasisLocalPlayerService.OnLocalPlayerInitalized += LoadScheduledAvatar;
+            BasisLocalPlayerData.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+            BasisLocalPlayerData.OnLocalPlayerInitalized += LoadScheduledAvatar;
         }
     }
 
     private static void LoadScheduledAvatar()
     {
-        BasisLocalPlayerService.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+        BasisLocalPlayerData.OnLocalPlayerInitalized -= LoadScheduledAvatar;
         if (ScheduledTestInEditorAvatar == null)
         {
             return;
@@ -727,7 +727,7 @@ public partial class BasisAvatarSDKInspector : Editor
             RemoteBeeFileLocation = BasisGenerateUniqueID.GenerateUniqueID()
         };
         BasisDebug.Log("Requesting Avatar Load", BasisDebug.LogTag.Editor);
-        await BasisLocalPlayerService.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
+        await BasisLocalPlayerData.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
         BasisDebug.Log("Avatar Load Complete", BasisDebug.LogTag.Editor);
     }
     private void ClearResultLabel()
