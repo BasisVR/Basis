@@ -2,5 +2,6 @@
   "name": "dev.hai-vr.basis.ndmf",
   "displayName": "HVR Basis NDMF Hook",
   "version": "0.0.1",
-  "description": "HVR Basis NDMF Hook"
+  "description": "HVR Basis NDMF Hook",
+  "license": "MIT"
 }

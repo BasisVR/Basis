@@ -44,6 +44,18 @@ namespace Basis.Scripts.Common
         public Transform rightHand;
         public bool HasrightHand;
 
+        // Twist bones — derived rig bones that absorb a fraction of wrist/elbow roll so the mesh
+        // doesn't pinch at the wrist when the hand twists. Not in HumanBodyBones; auto-detected
+        // by name pattern under the upper/lower arm transforms.
+        public Transform leftUpperArmTwist;
+        public bool HasleftUpperArmTwist;
+        public Transform leftLowerArmTwist;
+        public bool HasleftLowerArmTwist;
+        public Transform RightUpperArmTwist;
+        public bool HasRightUpperArmTwist;
+        public Transform RightLowerArmTwist;
+        public bool HasRightLowerArmTwist;
+
         public Transform LeftUpperLeg;
         public bool HasLeftUpperLeg;
         public Transform LeftLowerLeg;
@@ -158,6 +170,16 @@ namespace Basis.Scripts.Common
             references.rightHand = anim.GetBoneTransform(HumanBodyBones.RightHand);
             references.HasrightHand = BoolState(references.rightHand);
 
+            // Twist bones: not in HumanBodyBones, search children of upper/lower arm by name.
+            references.leftUpperArmTwist = FindTwistBone(references.leftUpperArm);
+            references.HasleftUpperArmTwist = BoolState(references.leftUpperArmTwist);
+            references.leftLowerArmTwist = FindTwistBone(references.leftLowerArm);
+            references.HasleftLowerArmTwist = BoolState(references.leftLowerArmTwist);
+            references.RightUpperArmTwist = FindTwistBone(references.RightUpperArm);
+            references.HasRightUpperArmTwist = BoolState(references.RightUpperArmTwist);
+            references.RightLowerArmTwist = FindTwistBone(references.RightLowerArm);
+            references.HasRightLowerArmTwist = BoolState(references.RightLowerArmTwist);
+
             references.LeftUpperLeg = anim.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
             references.HasLeftUpperLeg = BoolState(references.LeftUpperLeg);
             references.LeftLowerLeg = anim.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
@@ -253,6 +275,28 @@ namespace Basis.Scripts.Common
         public static bool BoolState(Transform Transform)
         {
             return Transform != null;
+        }
+
+        // Common rig naming conventions: ArmTwist, ForearmTwist, ArmRoll, etc. Picks the first
+        // direct child whose name (case-insensitive) contains "twist" or "roll". Returns null when
+        // the parent is missing or no matching child exists — caller treats as "no twist bone".
+        private static Transform FindTwistBone(Transform parent)
+        {
+            if (parent == null)
+                return null;
+            int count = parent.childCount;
+            for (int i = 0; i < count; i++)
+            {
+                var child = parent.GetChild(i);
+                if (child == null) continue;
+                string n = child.name;
+                if (n.IndexOf("twist", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    n.IndexOf("roll", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return child;
+                }
+            }
+            return null;
         }
         public bool GetTransform(HumanBodyBones bone, out Transform transform)
         {

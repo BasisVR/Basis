@@ -1,17 +1,14 @@
-using Basis.Scripts.Networking.NetworkedAvatar;
-using Basis.Scripts.BasisSdk;
 using Basis.Network.Core;
-using UnityEngine;
-namespace Basis.Scripts.Behaviour
+using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.NetworkedAvatar;
+
+namespace Basis.Scripts.Networking.Behaviour
 {
-    public abstract class BasisAvatarMonoBehaviour : MonoBehaviour
+    public abstract class BasisNetworkAvatarBehaviour : BasisAvatarMonoBehaviour
     {
-        // [HideInInspector]
-        public bool IsInitalized = false;
-        // [HideInInspector]
-        public byte MessageIndex;
         //  [HideInInspector]
         public BasisNetworkPlayer NetworkedPlayer;
+
         public void OnNetworkAssign(byte messageIndex, BasisNetworkPlayer Player)
         {
             MessageIndex = messageIndex;
@@ -19,22 +16,28 @@ namespace Basis.Scripts.Behaviour
             IsInitalized = true;
             OnNetworkReady(Player.IsLocal);
         }
-        public virtual void OnNetworkReady(bool IsLocallyOwned)
+
+        public void OnNetworkUnassign()
+        {
+            if (!IsInitalized)
+            {
+                return;
+            }
+            IsInitalized = false;
+            bool wasLocallyOwned = NetworkedPlayer != null && NetworkedPlayer.Player != null && NetworkedPlayer.Player.IsLocal;
+            OnNetworkTerminated(wasLocallyOwned);
+        }
+
+        public virtual void OnNetworkTerminated(bool WasLocallyOwned)
         {
 
         }
+
         public virtual void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
          //   BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageReceived", this.gameObject, BasisDebug.LogTag.Avatar);
         }
-        /// <summary>
-        /// data that came out of the server reduction system
-        /// </summary>
-        /// <param name="buffer"></param>
-        public virtual void OnNetworkMessageServerReductionSystem(byte[] buffer)
-        {
-           // BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageServerReductionSystem", this.gameObject, BasisDebug.LogTag.Avatar);
-        }
+
         /// <summary>
         /// this is used for sending Network Messages
         /// </summary>
@@ -52,6 +55,7 @@ namespace Basis.Scripts.Behaviour
                 BasisDebug.LogError("Network Is Not Ready!", this.gameObject, BasisDebug.LogTag.Avatar);
             }
         }
+
         /// <summary>
         /// this is used for sending Network Messages
         /// </summary>
@@ -67,6 +71,7 @@ namespace Basis.Scripts.Behaviour
                 BasisDebug.LogError("Network Is Not Ready!", this.gameObject, BasisDebug.LogTag.Avatar);
             }
         }
+
         public void ServerReductionSystemMessageSend(byte[] buffer = null)
         {
             if (IsInitalized)
@@ -78,21 +83,5 @@ namespace Basis.Scripts.Behaviour
                 BasisDebug.LogError("Network Is Not Ready!", this.gameObject, BasisDebug.LogTag.Avatar);
             }
         }
-        /// <summary>
-        /// Whether this behaviour type is visible in the Avatar SDK inspector's
-        /// Network Behaviours section. Subclasses shadow with <c>new public static bool VisibleInAvatarMenu = false;</c> to hide.
-        /// The inspector reads this per-type via reflection.
-        /// </summary>
-        public static bool VisibleInAvatarMenu = true;
-#if UNITY_EDITOR
-        /// <summary>
-        /// Called in-editor when this component is added via the Avatar SDK inspector.
-        /// Override to auto-configure serialized references (e.g., target meshes).
-        /// Stripped from player builds.
-        /// </summary>
-        /// <param name="avatarRoot">The GameObject containing the BasisAvatar component.</param>
-        /// <param name="avatar">The BasisAvatar component on the root.</param>
-        public virtual void OnEditorSetup(GameObject avatarRoot, BasisAvatar avatar) { }
-#endif
     }
 }

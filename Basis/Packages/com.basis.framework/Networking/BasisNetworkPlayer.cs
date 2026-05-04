@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -138,15 +139,41 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
         }
         public int NetworkBehaviourCount = 0;
-        public BasisAvatarMonoBehaviour[] NetworkBehaviours;
+        public BasisNetworkAvatarBehaviour[] NetworkBehaviours;
+        /// <summary>
+        /// Fires <see cref="BasisNetworkAvatarBehaviour.OnNetworkTerminated"/> on every behaviour
+        /// from the currently tracked avatar and clears the array. Call before the avatar
+        /// GameObject is destroyed (avatar swap, disconnect) so subclasses can release any
+        /// network-owned state while the references are still valid.
+        /// </summary>
+        public void NotifyNetworkBehavioursTerminated()
+        {
+            if (NetworkBehaviours == null)
+            {
+                return;
+            }
+            int length = NetworkBehaviours.Length;
+            for (int Index = 0; Index < length; Index++)
+            {
+                BasisNetworkAvatarBehaviour behaviour = NetworkBehaviours[Index];
+                if (behaviour != null)
+                {
+                    behaviour.OnNetworkUnassign();
+                }
+            }
+            NetworkBehaviours = null;
+            NetworkBehaviourCount = 0;
+        }
         public void AvatarLoadComplete()
         {
+            // Avatar swap: terminate behaviours from the prior avatar before re-collecting.
+            NotifyNetworkBehavioursTerminated();
             if (CheckForAvatar())
             {
                 BasisAvatar basisAvatar = Player.BasisAvatar;
                // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
-                NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
+                NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisNetworkAvatarBehaviour>(true);
                 NetworkBehaviourCount = NetworkBehaviours.Length;
                 int length = NetworkBehaviours.Length;
                 if (length > 256)

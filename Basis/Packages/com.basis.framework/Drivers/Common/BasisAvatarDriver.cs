@@ -231,19 +231,21 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.leftFoot, 0.015f);
             JiggleCreatorHelper(Mapping.rightFoot, 0.015f);
 
+            // Arms: upper-arm capsule + forearm capsule + hand tip sphere, all from one array.
+            JiggleCreatorHelperCapsule(new Transform[] { Mapping.leftUpperArm, Mapping.leftLowerArm, Mapping.leftHand }, 0.025f);
+            JiggleCreatorHelperCapsule(new Transform[] { Mapping.RightUpperArm, Mapping.RightLowerArm, Mapping.rightHand }, 0.025f);
+
             JiggleCreatorHelperCapsule(Mapping.LeftThumb);
             JiggleCreatorHelperCapsule(Mapping.LeftIndex);
             JiggleCreatorHelperCapsule(Mapping.LeftMiddle);
             JiggleCreatorHelperCapsule(Mapping.LeftRing);
             JiggleCreatorHelperCapsule(Mapping.LeftLittle);
-            JiggleCreatorHelper(Mapping.leftHand);
 
             JiggleCreatorHelperCapsule(Mapping.RightThumb);
             JiggleCreatorHelperCapsule(Mapping.RightIndex);
             JiggleCreatorHelperCapsule(Mapping.RightMiddle);
             JiggleCreatorHelperCapsule(Mapping.RightRing);
             JiggleCreatorHelperCapsule(Mapping.RightLittle);
-            JiggleCreatorHelper(Mapping.rightHand);
 
             // Batch-add all colliders at once to avoid O(n²) dedup in JiggleMemoryBus.
             // ScheduleAdd does a linear scan of pendingSceneColliderAdd for each call,

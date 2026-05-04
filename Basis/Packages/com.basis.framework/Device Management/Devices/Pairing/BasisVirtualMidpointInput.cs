@@ -43,6 +43,16 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
         // moving tracker briefly looks surprising relative to its at-rest baseline.
         private float _smoothedWA = 1f;
         private float _smoothedWB = 1f;
+        // Half of the rest-pose relative rotation between the two trackers,
+        // captured on the first frame: halfRest = Slerp(identity, A^-1*B, 0.5).
+        // We rotate aRot forward by halfRest and bRot backward by halfRest
+        // before slerping, so both endpoints land on the same predicted midpoint
+        // when the pair is rigid. Without this, a non-zero mounting offset means
+        // Slerp(aRot, bRot, t) depends on t — the midpoint drifts whenever the
+        // confidence-weighted blend ratio swings, and visibly flips when the
+        // pair rotates through orientations where the two raw quaternions cross
+        // hemispheres at different moments.
+        private Quaternion _halfRestOffset = Quaternion.identity;
 
         /// <summary>
         /// Set up this virtual as the merged proxy for the two partner trackers.
@@ -127,9 +137,10 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                 _emaVelB = 0f;
                 _smoothedWA = 1f;
                 _smoothedWB = 1f;
+                _halfRestOffset = ComputeHalfRestOffset(aRot, bRot);
                 _hasLastPositions = true;
                 mid = (a + b) * 0.5f;
-                midRot = SafeSlerp(aRot, bRot, 0.5f);
+                midRot = ProjectAndSlerp(aRot, bRot, 0.5f);
             }
             else
             {
@@ -206,7 +217,7 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                 // 50/50 midpoint as before, just without the binary fallback.
                 float tB = wB / weightSum;
                 mid = aSoft * (1f - tB) + bSoft * tB;
-                midRot = SafeSlerp(aRot, bRot, tB);
+                midRot = ProjectAndSlerp(aRot, bRot, tB);
 
                 // Update the velocity EMA only when the current sample isn't
                 // a clear outlier. Otherwise a sustained glitch would silently
@@ -234,15 +245,39 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             UpdateInputEvents(HasPlayerControlSupport: false, hasPlayerRaycastSupport: false);
         }
 
-        // Quaternion.Slerp is undefined if either input is the zero quaternion
-        // (default-initialized BasisCalibratedCoords ships with rotation =
-        // (0,0,0,0)), so guard against that. The blend ratio is the relative
-        // confidence weight of B — at 0.5 it's the geometric midpoint rotation.
-        private static Quaternion SafeSlerp(Quaternion a, Quaternion b, float t)
+        // Slerp the two tracker rotations after first projecting them into a
+        // common predicted-midpoint frame using the rest-pose offset captured at
+        // init. aRot * halfRest and bRot * halfRest^-1 both predict the same
+        // midpoint orientation when the pair is rigid, so the slerp output is
+        // independent of t in that case — no flip when tB swings during rotation.
+        private Quaternion ProjectAndSlerp(Quaternion aRot, Quaternion bRot, float t)
         {
-            if (a.x == 0f && a.y == 0f && a.z == 0f && a.w == 0f) a = Quaternion.identity;
-            if (b.x == 0f && b.y == 0f && b.z == 0f && b.w == 0f) b = Quaternion.identity;
-            return Quaternion.Slerp(a, b, t);
+            if (aRot.x == 0f && aRot.y == 0f && aRot.z == 0f && aRot.w == 0f) aRot = Quaternion.identity;
+            if (bRot.x == 0f && bRot.y == 0f && bRot.z == 0f && bRot.w == 0f) bRot = Quaternion.identity;
+            Quaternion midA = aRot * _halfRestOffset;
+            Quaternion midB = bRot * Quaternion.Inverse(_halfRestOffset);
+            // Force shortest-arc explicitly. Unity's Slerp does this internally,
+            // but by aligning the hemisphere here we also keep the output
+            // quaternion sign in a consistent hemisphere relative to midA across
+            // frames — defensive against any downstream code that ever inspects
+            // the raw quaternion components rather than the rotation it represents.
+            if (Quaternion.Dot(midA, midB) < 0f)
+            {
+                midB = new Quaternion(-midB.x, -midB.y, -midB.z, -midB.w);
+            }
+            return Quaternion.Slerp(midA, midB, t);
+        }
+
+        // Half of the rest-pose relative rotation A→B, i.e. the quaternion
+        // square root of (A^-1 * B). Slerp from identity at t=0.5 is exactly
+        // that square root and is well-defined for the full range of relative
+        // orientations the trackers can be mounted at.
+        private static Quaternion ComputeHalfRestOffset(Quaternion aRot, Quaternion bRot)
+        {
+            if (aRot.x == 0f && aRot.y == 0f && aRot.z == 0f && aRot.w == 0f) aRot = Quaternion.identity;
+            if (bRot.x == 0f && bRot.y == 0f && bRot.z == 0f && bRot.w == 0f) bRot = Quaternion.identity;
+            Quaternion delta = Quaternion.Inverse(aRot) * bRot;
+            return Quaternion.Slerp(Quaternion.identity, delta, 0.5f);
         }
 
         public override void ShowTrackedVisual()

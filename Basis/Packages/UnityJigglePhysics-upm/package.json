@@ -24,5 +24,6 @@
       "description": "The Built-In version of the debug drawing shaders and materials.",
       "path": "Samples~/ProceduralMaterials/BuiltIn"
     }
-  ]
+  ],
+  "license": "MIT"
 }

@@ -1460,6 +1460,11 @@ namespace Basis.BasisUI
             toggleTrackerGizmos.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.trackerGizmos.description"));
             toggleTrackerGizmos.AssignBinding(BasisSettingsDefaults.TrackerGizmos);
 
+            PanelToggle toggleLinkedTrackerLines = PanelToggle.CreateNewEntry(gizmosGroup.ContentParent);
+            toggleLinkedTrackerLines.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.linkedTrackerLines"));
+            toggleLinkedTrackerLines.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.linkedTrackerLines.description"));
+            toggleLinkedTrackerLines.AssignBinding(BasisSettingsDefaults.LinkedTrackerLines);
+
             // Hide sub-toggles when the master is off — they're meaningless without it
             // and shouldn't clutter the page.
             void RefreshGizmoSubVisibility(bool masterOn)
@@ -1468,6 +1473,7 @@ namespace Basis.BasisUI
                 toggleCalibrationSpheres.Descriptor.SetActive(masterOn);
                 toggleJiggleVisuals.Descriptor.SetActive(masterOn);
                 toggleTrackerGizmos.Descriptor.SetActive(masterOn);
+                toggleLinkedTrackerLines.Descriptor.SetActive(masterOn);
                 gizmosGroup.ForceRebuild();
             }
             RefreshGizmoSubVisibility(toggleShowGizmos.Value);

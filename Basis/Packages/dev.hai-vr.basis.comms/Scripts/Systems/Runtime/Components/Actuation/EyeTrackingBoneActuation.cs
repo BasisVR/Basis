@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Networking.Transmitters;
 using HVR.Basis.Comms.HVRUtility;
@@ -13,7 +14,7 @@ namespace HVR.Basis.Comms
 {
     [DefaultExecutionOrder(15010)] // Run after BasisEyeFollowBase
     [AddComponentMenu("HVR.Basis/Comms/Eye Tracking Bone Actuation")]
-    public class EyeTrackingBoneActuation : BasisAvatarMonoBehaviour, IHVRInitializable
+    public class EyeTrackingBoneActuation : BasisNetworkAvatarBehaviour, IHVRInitializable
     {
         new public static bool VisibleInAvatarMenu = false;
         private const string EyeLeftX = "FT/v2/EyeLeftX";

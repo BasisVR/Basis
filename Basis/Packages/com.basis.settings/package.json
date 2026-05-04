@@ -1,10 +1,17 @@
 {
-    "name": "com.basis.settings",
-    "version": "1.0.0",
-    "displayName": "Basis Settings",
-    "description": "Simple Settings Manager system",
-    "author": {
-        "name": "BasisVR",
-        "url": "https://github.com/BasisVR"
-    }
+  "name": "com.basis.settings",
+  "version": "1.0.0",
+  "displayName": "Basis Settings",
+  "description": "Simple Settings Manager system",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.ugui": "2.0.0"
+  },
+  "vpmDependencies": {
+    "com.basis.sdk": "0.0.1"
+  }
 }

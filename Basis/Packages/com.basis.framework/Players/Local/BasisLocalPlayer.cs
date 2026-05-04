@@ -25,7 +25,7 @@ namespace Basis.Scripts.BasisSdk.Players
     /// and signal readiness. Subscribe to events like <see cref="OnLocalPlayerInitalized"/>
     /// to know when the player has finished bootstrapping.
     /// </remarks>
-    public class BasisLocalPlayer : BasisPlayer
+    public class BasisLocalPlayer : BasisPlayer, IBasisLocalPlayer
     {
         /// <summary>
         /// Singleton-like reference to the active local player instance.
@@ -189,6 +189,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
+            BasisLocalPlayerData.Instance = this;
             PlayerPlatform = Application.platform.ToString();
 
 #if !BASIS_DISABLE_MICROPHONE
@@ -245,6 +246,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisUILoadingBar.Initalize();
             PlayerReady = true;
             OnLocalPlayerInitalized?.Invoke();
+            BasisLocalPlayerData.RaiseLocalPlayerInitialized();
         }
 
         /// <summary>
@@ -374,6 +376,11 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         public void OnDestroy()
         {
+            if (BasisLocalPlayerData.Instance == this)
+            {
+                BasisLocalPlayerData.Instance = null;
+                BasisLocalPlayerData.PlayerReady = false;
+            }
             if (HasEvents)
             {
                LocalVisemeDriver?.OnDestroy();

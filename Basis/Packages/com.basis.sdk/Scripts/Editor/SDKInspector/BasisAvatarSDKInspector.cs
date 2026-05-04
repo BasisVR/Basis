@@ -9,9 +9,7 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static BasisAvatarValidator;
-#if BASIS_FRAMEWORK_EXISTS
 using Basis.Scripts.BasisSdk.Players;
-#endif
 
 [CustomEditor(typeof(BasisAvatar))]
 public partial class BasisAvatarSDKInspector : Editor
@@ -140,6 +138,9 @@ public partial class BasisAvatarSDKInspector : Editor
             SetupItems();
             AvatarSDKVisemes.Initialize(this);
             SetupNetworkBehaviours();
+#if !BASIS_FRAMEWORK_EXISTS
+            rootElement.Add(Basis.Scripts.BasisSdk.Players.Editor.BasisEditorPreviewParametersFoldout.Create());
+#endif
             InspectorGuiCreated?.Invoke(this);
         }
         else
@@ -273,13 +274,11 @@ public partial class BasisAvatarSDKInspector : Editor
         Avatar.EyeLiveliness = evt.newValue;
         EditorUtility.SetDirty(Avatar);
         ValueChanged?.Invoke();
-#if BASIS_FRAMEWORK_EXISTS // To allow avatar creators to test their eye config in editor.
         if (Application.isPlaying)
         {
-            BasisLocalEyeDriver.Liveliness = evt.newValue;
-            BasisLocalEyeDriver.ApplyPersonality();
+            BasisLocalEyeDriverData.Liveliness = evt.newValue;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
         }
-#endif
     }
     private void OnEyeAttentivenessChanged(ChangeEvent<float> evt)
     {
@@ -287,13 +286,11 @@ public partial class BasisAvatarSDKInspector : Editor
         Avatar.EyeAttentiveness = evt.newValue;
         EditorUtility.SetDirty(Avatar);
         ValueChanged?.Invoke();
-#if BASIS_FRAMEWORK_EXISTS // To allow avatar creators to test their eye config in editor.
         if (Application.isPlaying)
         {
-            BasisLocalEyeDriver.Attentiveness = evt.newValue;
-            BasisLocalEyeDriver.ApplyPersonality();
+            BasisLocalEyeDriverData.Attentiveness = evt.newValue;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
         }
-#endif
     }
     public void EventCallbackAnimator(ChangeEvent<UnityEngine.Object> evt, ref Animator Renderer)
     {
@@ -627,6 +624,7 @@ public partial class BasisAvatarSDKInspector : Editor
 #endif
     public void AvatarTestInEditorClickFunction()
     {
+#if BASIS_FRAMEWORK_EXISTS
         if (!Application.isPlaying)
         {
             bool result = EditorUtility.DisplayDialog(
@@ -644,6 +642,10 @@ public partial class BasisAvatarSDKInspector : Editor
         {
             RequestAvatarLoad();
         }
+#else
+        // SDK preview runs in either edit or play mode — no play-mode prompt needed.
+        RequestAvatarLoad();
+#endif
     }
     public void RequestAvatarLoad()
     {
@@ -652,8 +654,7 @@ public partial class BasisAvatarSDKInspector : Editor
 
     private static void RequestAvatarLoad(BasisAvatar avatar)
     {
-#if BASIS_FRAMEWORK_EXISTS
-        if (BasisLocalPlayer.PlayerReady)
+        if (BasisLocalPlayerData.PlayerReady)
         {
             BasisDebug.Log("Player Ready Loading", BasisDebug.LogTag.Editor);
             LoadAvatar(avatar);
@@ -662,16 +663,14 @@ public partial class BasisAvatarSDKInspector : Editor
         {
             ScheduledTestInEditorAvatar = avatar;
             BasisDebug.Log("Scheduling Load Avatar", BasisDebug.LogTag.Editor);
-            BasisLocalPlayer.OnLocalPlayerInitalized -= LoadScheduledAvatar;
-            BasisLocalPlayer.OnLocalPlayerInitalized += LoadScheduledAvatar;
+            BasisLocalPlayerData.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+            BasisLocalPlayerData.OnLocalPlayerInitalized += LoadScheduledAvatar;
         }
-#endif
     }
 
     private static void LoadScheduledAvatar()
     {
-#if BASIS_FRAMEWORK_EXISTS
-        BasisLocalPlayer.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+        BasisLocalPlayerData.OnLocalPlayerInitalized -= LoadScheduledAvatar;
         if (ScheduledTestInEditorAvatar == null)
         {
             return;
@@ -680,12 +679,10 @@ public partial class BasisAvatarSDKInspector : Editor
         BasisAvatar avatar = ScheduledTestInEditorAvatar;
         ScheduledTestInEditorAvatar = null;
         LoadAvatar(avatar);
-#endif
     }
 
     private static async void LoadAvatar(BasisAvatar avatar)
     {
-#if BASIS_FRAMEWORK_EXISTS
         BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
 
         var jigglesToReset = new List<MonoBehaviour>();
@@ -730,9 +727,8 @@ public partial class BasisAvatarSDKInspector : Editor
             RemoteBeeFileLocation = BasisGenerateUniqueID.GenerateUniqueID()
         };
         BasisDebug.Log("Requesting Avatar Load", BasisDebug.LogTag.Editor);
-        await BasisLocalPlayer.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
+        await BasisLocalPlayerData.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
         BasisDebug.Log("Avatar Load Complete", BasisDebug.LogTag.Editor);
-#endif
     }
     private void ClearResultLabel()
     {

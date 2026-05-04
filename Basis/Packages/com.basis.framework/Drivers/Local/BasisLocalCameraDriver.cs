@@ -52,6 +52,14 @@ namespace Basis.Scripts.Drivers
         /// <summary>Raised after the instance is created and <see cref="OnEnable"/> finishes initial wiring.</summary>
         public static event Action InstanceExists;
 
+        /// <summary>Raised after main camera render settings (clearFlags, backgroundColor, skybox, clip planes) are applied from a scene.</summary>
+        public static event Action RenderSettingsApplied;
+
+        public static void RaiseRenderSettingsApplied()
+        {
+            RenderSettingsApplied?.Invoke();
+        }
+
         /// <summary>Optional input-lock helper for driving camera from input.</summary>
         public BasisLockToInput BasisLockToInput;
 

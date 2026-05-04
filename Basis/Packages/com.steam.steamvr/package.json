@@ -4,5 +4,5 @@
   "version": "0.0.2",
   "description": "SteamVR made by valve, trimmed for Basis (no Behaviour/Poser wrappers).",
   "hideInEditor": false,
-  "_fingerprint": "c33a831826e64c817176fc41ffcf8f4f773c3c40"
+  "license": "BSD-3-Clause"
 }

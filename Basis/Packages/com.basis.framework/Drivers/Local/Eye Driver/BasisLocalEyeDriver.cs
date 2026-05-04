@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -46,17 +47,17 @@ public class BasisLocalEyeDriver
     public static JobHandle handle;
     public static bool HasEyeSchedule = false;
 
-    // Personality (set externally from avatar SDK)
-    public static float Liveliness = 0.5f; // 0 = settled, 1 = active eye movement.
-    public static float Attentiveness = 0.5f; // 0 = avoidant, 1 = direct sustained gaze.
+    // Personality is owned by BasisLocalEyeDriverData (SDK). Simulate()
+    // checks the dirty flag every frame and recomputes _personality only when
+    // the SDK side flips it. In normal runtime it never flips after init.
     private static BasisEyePersonality _personality;
 
-    /// <summary>
-    /// Recompute cached personality parameters from Liveliness and Attentiveness.
-    /// </summary>
-    public static void ApplyPersonality()
+    private static void RecomputePersonality()
     {
-        _personality = BasisEyePersonality.Compute(Liveliness, Attentiveness);
+        _personality = BasisEyePersonality.Compute(
+            BasisLocalEyeDriverData.Liveliness,
+            BasisLocalEyeDriverData.Attentiveness);
+        BasisLocalEyeDriverData.PersonalityDirty = false;
     }
 
     // === TUNABLE PARAMS FOR TARGET SCORING BEHAVIOR ===
@@ -150,7 +151,7 @@ public class BasisLocalEyeDriver
         calLeft = CalibrateOneEye(leftEyeTransform, _headRef);
         calRight = CalibrateOneEye(rightEyeTransform, _headRef);
 
-        ApplyPersonality();
+        RecomputePersonality();
 
         _currentTargetId = -1;
         _currentGazeTarget = null;
@@ -163,8 +164,8 @@ public class BasisLocalEyeDriver
         _headDeltaYP = float2.zero;
 
         IsEnabled = true;
-
     }
+
     public static void Dispose()
     {
         if (_state.IsCreated)
@@ -228,6 +229,11 @@ public class BasisLocalEyeDriver
         {
             //   BasisDebug.Log("Not RUnning EYes");
             return;
+        }
+
+        if (BasisLocalEyeDriverData.PersonalityDirty)
+        {
+            RecomputePersonality();
         }
 
         SelectGazeTarget();
