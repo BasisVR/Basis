@@ -165,7 +165,7 @@ public class BasisLocalEyeDriver
 
         IsEnabled = true;
 
-        BasisLocalEyeDriverService.Register(_serviceAdapter);
+        BasisLocalEyeDriverService.Instance = _serviceAdapter;
     }
 
     private sealed class Adapter : IBasisLocalEyeDriver
@@ -186,7 +186,7 @@ public class BasisLocalEyeDriver
 
     public static void Dispose()
     {
-        BasisLocalEyeDriverService.Unregister(_serviceAdapter);
+        if (BasisLocalEyeDriverService.Instance == _serviceAdapter) BasisLocalEyeDriverService.Instance = null;
         if (_state.IsCreated)
         {
             handle.Complete();

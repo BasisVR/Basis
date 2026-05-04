@@ -276,8 +276,8 @@ public partial class BasisAvatarSDKInspector : Editor
         ValueChanged?.Invoke();
         if (Application.isPlaying)
         {
-            BasisLocalEyeDriverService.Liveliness = evt.newValue;
-            BasisLocalEyeDriverService.ApplyPersonality();
+            BasisLocalEyeDriverService.Instance.Liveliness = evt.newValue;
+            BasisLocalEyeDriverService.Instance.ApplyPersonality();
         }
     }
     private void OnEyeAttentivenessChanged(ChangeEvent<float> evt)
@@ -288,8 +288,8 @@ public partial class BasisAvatarSDKInspector : Editor
         ValueChanged?.Invoke();
         if (Application.isPlaying)
         {
-            BasisLocalEyeDriverService.Attentiveness = evt.newValue;
-            BasisLocalEyeDriverService.ApplyPersonality();
+            BasisLocalEyeDriverService.Instance.Attentiveness = evt.newValue;
+            BasisLocalEyeDriverService.Instance.ApplyPersonality();
         }
     }
     public void EventCallbackAnimator(ChangeEvent<UnityEngine.Object> evt, ref Animator Renderer)

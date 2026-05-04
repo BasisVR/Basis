@@ -189,7 +189,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
-            BasisLocalPlayerService.Register(this);
+            BasisLocalPlayerService.Instance = this;
             PlayerPlatform = Application.platform.ToString();
 
 #if !BASIS_DISABLE_MICROPHONE
@@ -246,7 +246,8 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisUILoadingBar.Initalize();
             PlayerReady = true;
             OnLocalPlayerInitalized?.Invoke();
-            BasisLocalPlayerService.RaiseLocalPlayerInitialized();
+            BasisLocalPlayerService.PlayerReady = true;
+            BasisLocalPlayerService.OnLocalPlayerInitalized?.Invoke();
         }
 
         /// <summary>
@@ -376,7 +377,11 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         public void OnDestroy()
         {
-            BasisLocalPlayerService.Unregister(this);
+            if (BasisLocalPlayerService.Instance == this)
+            {
+                BasisLocalPlayerService.Instance = null;
+                BasisLocalPlayerService.PlayerReady = false;
+            }
             if (HasEvents)
             {
                LocalVisemeDriver?.OnDestroy();

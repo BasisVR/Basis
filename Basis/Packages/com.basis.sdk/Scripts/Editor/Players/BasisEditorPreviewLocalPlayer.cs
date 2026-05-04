@@ -25,9 +25,10 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
         [InitializeOnLoadMethod]
         private static void Register()
         {
-            BasisLocalPlayerService.Register(_instance);
-            BasisLocalEyeDriverService.Register(_instance);
-            BasisLocalPlayerService.RaiseLocalPlayerInitialized();
+            BasisLocalPlayerService.Instance = _instance;
+            BasisLocalEyeDriverService.Instance = _instance;
+            BasisLocalPlayerService.PlayerReady = true;
+            BasisLocalPlayerService.OnLocalPlayerInitalized?.Invoke();
         }
 
         public Task CreateAvatarFromMode(BasisLoadMode LoadMode, BasisLoadableBundle BasisLoadableBundle)

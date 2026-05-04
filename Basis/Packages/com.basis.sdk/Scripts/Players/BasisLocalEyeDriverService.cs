@@ -13,26 +13,6 @@ namespace Basis.Scripts.BasisSdk.Players
     // so only one ever registers).
     public static class BasisLocalEyeDriverService
     {
-        public static IBasisLocalEyeDriver Instance { get; private set; }
-
-        public static void Register(IBasisLocalEyeDriver impl) => Instance = impl;
-        public static void Unregister(IBasisLocalEyeDriver impl)
-        {
-            if (Instance == impl) Instance = null;
-        }
-
-        public static float Liveliness
-        {
-            get => Instance.Liveliness;
-            set => Instance.Liveliness = value;
-        }
-
-        public static float Attentiveness
-        {
-            get => Instance.Attentiveness;
-            set => Instance.Attentiveness = value;
-        }
-
-        public static void ApplyPersonality() => Instance.ApplyPersonality();
+        public static IBasisLocalEyeDriver Instance;
     }
 }
