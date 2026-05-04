@@ -32,6 +32,15 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public BasisTouchInputDevice LeftInput;
         public BasisTouchInputDevice RightInput;
         public List<BasisTouchInputDevice> Inputs = new List<BasisTouchInputDevice>();
+
+        /// <summary>
+        /// Source Material for the desktop aim reticle quad. Cloned at runtime
+        /// by <see cref="BasisDesktopReticle"/>. Held on this MonoBehaviour
+        /// (rather than the runtime-AddComponent'd <see cref="BasisDesktopEye"/>)
+        /// so the inspector reference survives play-mode and the build pipeline
+        /// pulls the shader in as a real asset dependency.
+        /// </summary>
+        [SerializeField] public Material ReticleMaterial;
         /// <summary>
         /// Starts the Basis SDK for desktop mode.
         /// If no <see cref="BasisAvatarEyeInput"/> exists, it creates one and attaches it
@@ -51,6 +60,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 }
 
                 BasisAvatarEyeInput = gameObject.AddComponent<BasisDesktopEye>();
+                BasisAvatarEyeInput.Reticle.SourceMaterial = ReticleMaterial;
                 BasisAvatarEyeInput.Initialize(DesktopEye, nameof(BasisDesktopManagement));
                 BasisDeviceManagement.Instance.TryAdd(BasisAvatarEyeInput);
             }

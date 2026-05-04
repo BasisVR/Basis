@@ -1,17 +1,11 @@
-// URP — Procedural SDF reticle for desktop aim. Three concentric radial bands:
+// URP Procedural SDF reticle for desktop aim. Three concentric radial bands:
 //   1. Center dot                 (d <= _DotRadius)              — light fill
 //   2. Gap between dot and ring   (_DotRadius..._RingInnerRadius) — dark contrast layer
 //   3. Outer ring                 (_RingInnerRadius..._RingOuterRadius) — light fill
 // The dark gap gives the reticle a high-contrast outline so it stays readable
-// against any background without needing a color-inversion blend (which doesn't
-// behave correctly under URP HDR + Forward+ + post-processing).
-// ZTest Always so it's never occluded by world geometry. Premultiplied alpha
-// output paired with `Blend One OneMinusSrcAlpha`.
+// against any background.
 Shader "Custom/DesktopReticleOverlay"
 {
-    // Defaults below match BasisDesktopReticle.cs so a manually-created Material
-    // asset with this shader looks like the runtime reticle. The C# is still the
-    // source of truth — Initialize() always re-writes these via SetFloat/SetColor.
     Properties
     {
         _DotRadius      ("Dot Radius (UV)",                Range(0, 0.5)) = 0.07
@@ -23,14 +17,7 @@ Shader "Custom/DesktopReticleOverlay"
     }
     SubShader
     {
-        // Queue 5000 sits at the top of URP's transparent range
-        // (RenderQueueRange.transparent = 2501..5000 inclusive — anything above
-        // falls out of the transparent pass and never renders). Same queue as
-        // RayCastMaterial / RayCastHighlight; within a queue URP sorts back-to-front
-        // by camera distance, so the reticle (1m from camera) draws over raycast
-        // hits at typical interaction distance and gets overdrawn when the raycast
-        // hits something closer than 1m. A ScriptableRendererFeature injecting
-        // after the transparent queue would fix the close-aim case.
+        // Queue 5000 sits at the top of everything
         Tags { "Queue"="Overlay+1000" "RenderType"="Transparent" "RenderPipeline"="UniversalPipeline" "IgnoreProjector"="True" }
         Cull Off
         ZWrite Off

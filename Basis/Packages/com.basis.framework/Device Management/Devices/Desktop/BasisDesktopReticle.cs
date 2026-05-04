@@ -4,51 +4,32 @@ using UnityEngine;
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
     /// <summary>
-    /// Screen-center aim reticle owned by <see cref="BasisDesktopEye"/>. Plain
-    /// <c>[Serializable]</c> driver class (not a MonoBehaviour) so it serializes
-    /// inline on the desktop eye, mirroring the
-    /// <c>BasisLocalMicrophoneIconDriver</c> pattern.
-    ///
-    /// Renders a small SDF quad parented to the local camera transform so it
-    /// tracks aim for free, drawn with the always-on-top
+    /// Screen-center aim reticle owned by <see cref="BasisDesktopEye"/>. SDF
+    /// quad parented to the local camera, drawn with the always-on-top
     /// <c>Custom/DesktopReticleOverlay</c> shader. Three concentric bands
-    /// (dot, dark gap, outer ring) give it visibility against any background
-    /// without relying on color-inversion blending — that doesn't behave
-    /// correctly under URP HDR + Forward+ + post-processing.
+    /// (dot, dark gap, outer ring) keep it visible against most backgrounds.
+    ///
+    /// Visibility is gated by two independent inputs. User setting
+    /// (<see cref="SetEnabled"/>) and cursor focus (<see cref="SetFocused"/>,
+    /// off while the cursor is unlocked). Quad is shown only when
+    /// both are true.
     /// </summary>
     [System.Serializable]
     public class BasisDesktopReticle
     {
-        public const string ShaderName = "Custom/DesktopReticleOverlay";
-
         public float DistanceFromCamera = 1f;
         public float SizeMeters = 0.05f;
 
-        [Header("Shape (UV space, 0..0.5 from quad center)")]
-        public float DotRadius = 0.04f;
-        public float RingInnerRadius = 0.1f;
-        public float RingOuterRadius = 0.15f;
-
-        [Header("Colors")]
-        public Color DotColor = new Color(1f, 1f, 1f, 0.55f);
-        public Color GapColor = new Color(0f, 0f, 0f, 0.55f);
-        public Color RingColor = new Color(1f, 1f, 1f, 0.20f);
+        /// <summary>
+        /// Material cloned at <see cref="Initialize"/> time from
+        /// <see cref="BasisDesktopManagement"/> before the reticle is initialized.
+        /// </summary>
+        public Material SourceMaterial;
 
         private GameObject _quadGO;
         private Material _material;
-
-        // Visibility is gated by two independent inputs: the user-facing
-        // setting toggle and cursor focus (hide while the cursor is unlocked
-        // for a menu). The quad is shown only when both are true.
         private bool _userEnabled;
         private bool _focused = true;
-
-        private static readonly int IdDotRadius = Shader.PropertyToID("_DotRadius");
-        private static readonly int IdRingInnerRadius = Shader.PropertyToID("_RingInnerRadius");
-        private static readonly int IdRingOuterRadius = Shader.PropertyToID("_RingOuterRadius");
-        private static readonly int IdDotColor = Shader.PropertyToID("_DotColor");
-        private static readonly int IdGapColor = Shader.PropertyToID("_GapColor");
-        private static readonly int IdRingColor = Shader.PropertyToID("_RingColor");
 
         public void Initialize()
         {
@@ -58,20 +39,15 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             _quadGO = GameObject.CreatePrimitive(PrimitiveType.Quad);
             _quadGO.name = "DesktopReticleQuad";
-            _quadGO.layer = LayerMask.NameToLayer("UI"); // Render feture puts UI layer on top of everything else.
+            // Render feture puts UI layer on top of everything else.
+            _quadGO.layer = LayerMask.NameToLayer("UI");
             Object.Destroy(_quadGO.GetComponent<MeshCollider>());
 
             _quadGO.transform.SetParent(camTransform, false);
             _quadGO.transform.SetLocalPositionAndRotation(Vector3.forward * DistanceFromCamera, Quaternion.identity);
             _quadGO.transform.localScale = Vector3.one * SizeMeters;
 
-            _material = new Material(Shader.Find(ShaderName));
-            _material.SetFloat(IdDotRadius, DotRadius);
-            _material.SetFloat(IdRingInnerRadius, RingInnerRadius);
-            _material.SetFloat(IdRingOuterRadius, RingOuterRadius);
-            _material.SetColor(IdDotColor, DotColor);
-            _material.SetColor(IdGapColor, GapColor);
-            _material.SetColor(IdRingColor, RingColor);
+            _material = new Material(SourceMaterial);
 
             var renderer = _quadGO.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = _material;
