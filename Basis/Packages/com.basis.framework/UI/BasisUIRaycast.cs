@@ -208,20 +208,21 @@ namespace Basis.Scripts.UI
                 }
             }
 
-            _uiHitOrder.Sort((a, b) =>
-            {
-                int la = hits[a].collider.gameObject.layer;
-                int lb = hits[b].collider.gameObject.layer;
-                bool oa = la == OverlayUI;
-                bool ob = lb == OverlayUI;
-                if (oa != ob)
-                {
-                    return oa ? -1 : 1;
-                }
-                return hits[a].distance.CompareTo(hits[b].distance);
-            });
-
             int orderCount = _uiHitOrder.Count;
+            for (int i = 1; i < orderCount; i++)
+            {
+                int currentIndex = _uiHitOrder[i];
+                int insertIndex = i - 1;
+
+                while (insertIndex >= 0 && CompareUiHitOrder(hits, currentIndex, _uiHitOrder[insertIndex]) < 0)
+                {
+                    _uiHitOrder[insertIndex + 1] = _uiHitOrder[insertIndex];
+                    insertIndex--;
+                }
+
+                _uiHitOrder[insertIndex + 1] = currentIndex;
+            }
+
             for (int idx = 0; idx < orderCount; idx++)
             {
                 RaycastHit candidate = hits[_uiHitOrder[idx]];
@@ -250,6 +251,21 @@ namespace Basis.Scripts.UI
 
             // no collider with a hittable UI graphic this frame....
             HandleNoHit();
+        }
+
+        private static int CompareUiHitOrder(RaycastHit[] hits, int leftIndex, int rightIndex)
+        {
+            int leftLayer = hits[leftIndex].collider.gameObject.layer;
+            int rightLayer = hits[rightIndex].collider.gameObject.layer;
+            bool leftIsOverlay = leftLayer == OverlayUI;
+            bool rightIsOverlay = rightLayer == OverlayUI;
+
+            if (leftIsOverlay != rightIsOverlay)
+            {
+                return leftIsOverlay ? -1 : 1;
+            }
+
+            return hits[leftIndex].distance.CompareTo(hits[rightIndex].distance);
         }
 
         private void HandleNoHit()
