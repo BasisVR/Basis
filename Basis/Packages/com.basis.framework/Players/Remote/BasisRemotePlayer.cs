@@ -156,6 +156,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public bool IsBlocked;
 
         /// <summary>
+        /// Transient networked chat typing state for this remote player.
+        /// </summary>
+        public bool IsChatTyping;
+
+        /// <summary>
         /// Session-scoped "temp block" set when the remote side (this player) has blocked
         /// the local player, delivered via EventType_PlayerTempBlock. Not persisted.
         /// Combined with <see cref="IsBlocked"/> to determine effective visibility —

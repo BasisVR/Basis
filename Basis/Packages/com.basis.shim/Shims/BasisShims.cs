@@ -20,8 +20,9 @@ namespace Basis
 
 	public class SafeUtil
 	{
+		[Obsolete("Use GetComponent instead. This is a shim for the old system and should be removed at a later point.")]
 
-		public static BasisNetworkShim MakeNetworkable( object o )
+		public static IBasisNetworkShimCompatible MakeNetworkable( object o )
 		{
 			if (o is not MonoBehaviour behaviour)
 			{
@@ -31,9 +32,44 @@ namespace Basis
 
 			return MakeNetworkable( behaviour );
 		}
-
-		public static BasisNetworkShim MakeNetworkable( MonoBehaviour mb )
+		[Obsolete("Use GetComponent instead. This is a shim for the old system and should be removed at a later point.")]
+		public static IBasisNetworkShimCompatible MakeNetworkable( MonoBehaviour mb )
 		{
+			return MakeNetworkShim( mb );
+		}
+
+		public static IBasisNetworkShimCompatible MakeNetworkShim( object o )
+		{
+			if (o is not MonoBehaviour behaviour)
+			{
+				Debug.LogError( $"Object {o} is not a MonoBehaviour and cannot be made networkable." );
+				return null;
+			}
+
+			return MakeNetworkShim( behaviour );
+		}
+
+		public static IBasisNetworkShimCompatible MakeNetworkShim( MonoBehaviour mb )
+		{
+			GameObject avatar = BasisAvatar.GetGameObject( mb.gameObject );
+			if( avatar != null )
+			{
+				BasisAvatarNetworkShim[] avatarShims = avatar.GetComponents<BasisAvatarNetworkShim>();
+				foreach( BasisAvatarNetworkShim existingShim in avatarShims )
+				{
+					if( existingShim.IsAssignedTo( mb ) )
+					{
+						existingShim.EnsureNetworkAssigned();
+						return existingShim;
+					}
+				}
+
+				BasisAvatarNetworkShim avatarShim = avatar.AddComponent<BasisAvatarNetworkShim>();
+				avatarShim.AssignScriptOwner( mb );
+				avatarShim.EnsureNetworkAssigned();
+				return avatarShim;
+			}
+
 			if( mb.gameObject.TryGetComponent<BasisNetworkShim>( out BasisNetworkShim bi ) ) return bi;
 
 			return mb.gameObject.AddComponent<BasisNetworkShim>();

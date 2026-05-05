@@ -19,6 +19,9 @@ namespace Cilbox
 			"BasisNetworkCommon+EventTiming",
 			"BasisSDKMirror",
 			"BasisSDKMirror+MirrorClearFlags",
+			"HVR.Basis.Comms.OSC.OscData",
+			"HVR.Basis.Comms.OSC.OscDataKind",
+			"HVR.Basis.Comms.OSC.OscMessage",
 			"Basis.Shims.*",
 
 			// System IO
@@ -185,6 +188,7 @@ namespace Cilbox
 				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.LocalPlayer)).GetGetMethod().Name,
 				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.Player)).GetGetMethod().Name,
 				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.displayName)).GetGetMethod().Name,
+				"get_playerId",
 				} },
 			{ typeof(BasisLocalPlayer), new HashSet<string>{
 				nameof(BasisLocalPlayer.GetPositionAndRotation),

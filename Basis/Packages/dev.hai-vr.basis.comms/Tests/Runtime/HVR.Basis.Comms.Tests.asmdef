@@ -1,0 +1,26 @@
+{
+    "name": "HVR.Basis.Comms.Tests",
+    "rootNamespace": "",
+    "references": [
+        "HVR.Basis.Comms",
+        "Basis Framework",
+        "BasisNetworkCore",
+        "BasisSDK",
+        "BasisShims",
+        "Cilbox",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

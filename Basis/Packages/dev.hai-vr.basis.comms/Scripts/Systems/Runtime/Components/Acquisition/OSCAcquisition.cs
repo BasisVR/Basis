@@ -1,3 +1,4 @@
+using System;
 using Basis.Scripts.BasisSdk;
 using UnityEngine;
 
@@ -14,12 +15,14 @@ namespace HVR.Basis.Comms
         private OSCAcquisitionServer _acquisitionServer;
         private bool _alreadyInitialized;
         private FaceTrackingActivityRelay _activityRelay;
+        private EntityId _oscOwnerId;
 
         private void Awake()
         {
             if (avatar == null) avatar = HVRCommsUtil.GetAvatar(this);
             if (acquisitionService == null) acquisitionService = AcquisitionService.SceneInstance;
             _activityRelay = FaceTrackingActivityRelay.GetOrCreate(avatar);
+            _oscOwnerId = gameObject.GetEntityId();
 
             avatar.OnAvatarReady -= OnAvatarReady;
             avatar.OnAvatarReady += OnAvatarReady;
@@ -34,31 +37,27 @@ namespace HVR.Basis.Comms
 
             _acquisitionServer = OSCAcquisitionServer.SceneInstance;
             _acquisitionServer.SendWakeUpMessage(FakeWakeUpMessage);
-
-            _acquisitionServer.OnAddressUpdated -= OnAddressUpdated;
-            _acquisitionServer.OnAddressUpdated += OnAddressUpdated;
+            BasisOscService.RegisterAddressReceiver(_oscOwnerId, OnOscAddressUpdated);
+            BasisOscService.UpdateSubscriptions(_oscOwnerId, true, Array.Empty<string>(), Array.Empty<string>());
         }
 
         private void OnDestroy()
         {
-            avatar.OnAvatarReady -= OnAvatarReady;
-
-            if (_acquisitionServer != null)
-            {
-                _acquisitionServer.OnAddressUpdated -= OnAddressUpdated;
-            }
             if (avatar != null)
             {
                 avatar.OnAvatarReady -= OnAvatarReady;
             }
+
+            BasisOscService.UnregisterAddressReceiver(_oscOwnerId);
+            BasisOscService.ClearSubscriptions(_oscOwnerId);
         }
 
-        private void OnAddressUpdated(string address, float value)
+        private void OnOscAddressUpdated(int address, float value)
         {
             if (!isActiveAndEnabled) return;
 
             _activityRelay?.NotifySourceSample();
-            acquisitionService.Submit(HVRAddress.AddressToId(address), value);
+            acquisitionService.Submit(address, value);
         }
     }
 }

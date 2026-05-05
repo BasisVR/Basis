@@ -176,6 +176,7 @@ MonoBehaviour:
   - Basis.Shims.BasisAvatarShim
   - Basis.Shims.BasisNetworkShim
   - Cilbox.CilboxProxy
+  - Basis.Shims.BasisOsc
   - Basis.Scripts.BasisSdk.BasisHeadChop
   - HVR.Vixxy.HVRVixxyControl
   - HVR.Vixxy.HVRVixxyMenuItem

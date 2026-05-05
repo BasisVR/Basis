@@ -17,10 +17,13 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
 			"Basis.BasisNetworkBehaviour",
+			"Basis.Shims.IBasisNetworkShimCompatible",
+			"Basis.Shims.BasisOsc*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
+			"HVR.Basis.Comms.OSC*",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -332,7 +335,14 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
+			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnClient",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+			"Basis.BasisNetworkShim.CurrentOwnerId",
+			"Basis.BasisNetworkShim.IsOwnedLocallyOnClient",
+			"Basis.BasisNetworkShim.IsOwnedLocallyOnServer",
+			"Basis.Shims.BasisNetworkShim.CurrentOwnerId",
+			"Basis.Shims.BasisNetworkShim.IsOwnedLocallyOnClient",
+			"Basis.Shims.BasisNetworkShim.IsOwnedLocallyOnServer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
 		};
 
@@ -348,6 +358,7 @@ namespace Cilbox
 				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.Player)).GetGetMethod().Name,
 				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.LocalPlayer)).GetGetMethod().Name,
 				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.displayName)).GetGetMethod().Name,
+				"get_playerId",
 				} },
 			{ typeof(UnityEngine.GameObject),          new HashSet<string>{
 				nameof(UnityEngine.GameObject.SetActive),

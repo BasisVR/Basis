@@ -59,7 +59,9 @@ namespace HVR.Basis.Comms.OSC
             }, _byteBuffer);
         }
 
-        public List<SimpleOSC.OSCMessage> PullMessages()
+        // The UDP socket receives and decodes on a background thread; the main thread
+        // drains the decoded messages and performs all routing/callback dispatch.
+        public List<SimpleOSC.OSCMessage> DrainReceivedMessages()
         {
             _queue.Clear();
             _client.GetIncomingOSC(_queue);

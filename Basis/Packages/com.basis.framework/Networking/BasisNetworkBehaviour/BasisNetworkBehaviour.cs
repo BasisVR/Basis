@@ -12,6 +12,13 @@ namespace Basis
 {
     public abstract class BasisNetworkBehaviour : BasisNetworkContentBase
     {
+        public delegate void NetworkReadyEvent();
+        public delegate void ServerOwnershipDestroyedEvent();
+        public delegate void OwnershipTransferEvent(BasisNetworkPlayer NewOwner);
+        public delegate void NetworkMessageEvent(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod);
+        public delegate void PlayerJoinedEvent(BasisNetworkPlayer player);
+        public delegate void PlayerLeftEvent(BasisNetworkPlayer player);
+
         public bool HasNetworkID = false;
         private ushort networkID;
         public ushort NetworkID
@@ -29,6 +36,13 @@ namespace Basis
         public bool IsOwnedLocallyOnClient = false;
         public ushort CurrentOwnerId;
         public BasisNetworkPlayer currentOwnedPlayer;
+
+        public virtual NetworkReadyEvent NetworkReady { set; get; }
+        public virtual OwnershipTransferEvent OwnershipTransfer { set; get; }
+        public virtual ServerOwnershipDestroyedEvent ServerOwnershipDestroyed { set; get; }
+        public virtual NetworkMessageEvent NetworkMessageReceived { set; get; }
+        public virtual PlayerLeftEvent PlayerLeft { set; get; }
+        public virtual PlayerJoinedEvent PlayerJoined { set; get; }
 
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
@@ -59,7 +73,7 @@ namespace Basis
             BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
             BasisNetworkPlayer.OnPlayerLeft -= OnPlayerLeft;
         }
-        public bool IsLocalOwner()
+        public virtual bool IsLocalOwner()
         {
             if (HasNetworkID)
             {
@@ -153,7 +167,7 @@ namespace Basis
         /// <param name="buffer"></param>
         /// <param name="DeliveryMethod"></param>
         /// <param name="Recipients">if null everyone but self, you can include yourself to make it loop back over the network</param>
-        public void SendCustomNetworkEvent(byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
+        public virtual void SendCustomNetworkEvent(byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
         {
             if (HasNetworkID)
             {
@@ -274,7 +288,7 @@ namespace Basis
             }
             return string.Empty;
         }
-        public async void TakeOwnership()
+        public virtual async void TakeOwnership()
         {
             //no need to use await ownership will get back here from lower level.
             await TakeOwnershipAsync();
@@ -284,7 +298,7 @@ namespace Basis
         /// </summary>
         /// <param name="Timout"></param>
         /// <returns></returns>
-        public async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timout = 5000)
+        public virtual async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timout = 5000)
         {
             IsOwnedLocallyOnClient = true;
             CurrentOwnerId = BasisNetworkPlayer.LocalPlayer.playerId;
@@ -297,37 +311,41 @@ namespace Basis
         /// </summary>
         /// <param name="Timout"></param>
         /// <returns></returns>
-        public async Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(int Timout = 5000)
+        public virtual async Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(int Timout = 5000)
         {
             BasisOwnershipResult Result = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(clientIdentifier, Timout);
             return Result;
         }
+        public virtual void RequestOwnershipIfNone()
+        {
+            RequestWhoIsOwnershipAsync();
+        }
         public virtual void OnNetworkReady()
         {
-
+            NetworkReady?.Invoke();
         }
         /// <summary>
         /// back to no one owning it, (item no longer exists for example)
         /// </summary>
         public virtual void OnServerOwnershipDestroyed()
         {
-
+            ServerOwnershipDestroyed?.Invoke();
         }
         public virtual void OnOwnershipTransfer(BasisNetworkPlayer NetIdNewOwner)
         {
-
+            OwnershipTransfer?.Invoke(NetIdNewOwner);
         }
         public virtual void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
-
+            NetworkMessageReceived?.Invoke(PlayerID, buffer, DeliveryMethod);
         }
         public virtual void OnPlayerLeft(BasisNetworkPlayer player)
         {
-
+            PlayerLeft?.Invoke(player);
         }
         public virtual void OnPlayerJoined(BasisNetworkPlayer player)
         {
-
+            PlayerJoined?.Invoke(player);
         }
     }
 }

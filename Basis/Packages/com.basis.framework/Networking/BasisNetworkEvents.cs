@@ -450,6 +450,15 @@ public static class BasisNetworkEvents
                                 BasisNetworkHandleTempBlock.OnRemoteTempBlockReceived(tempBlockSenderId, tempBlockIsBlocked);
                             });
                             break;
+                        case BasisNetworkCommons.EventType_PlayerChatTyping:
+                            ushort typingSenderId = Reader.GetUShort();
+                            bool isTyping = Reader.GetBool();
+                            Reader.Recycle();
+                            BasisDeviceManagement.EnqueueOnMainThread(() =>
+                            {
+                                BasisNetworkHandleChatTyping.OnRemoteTypingStateReceived(typingSenderId, isTyping);
+                            });
+                            break;
                         default:
                             BNL.LogError($"Unknown EventsChannel event type: {eventType}");
                             Reader.Recycle();

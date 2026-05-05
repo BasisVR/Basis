@@ -101,6 +101,14 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         // a measurable per-call cost at 1k+ remotes. Subclasses still assign it
         // directly (Receiver/Transmitter/UnInitalized constructors).
         public ushort playerId;
+
+        // Compatibility for already-compiled Cilbox content that was built when
+        // playerId was an auto-property and emits a call to get_playerId().
+        public ushort get_playerId()
+        {
+            return playerId;
+        }
+
         /// <summary>
         /// Local realtime (Time.realtimeSinceStartup) at which this player was constructed.
         /// Used to sort the players UI by arrival order and to display "joined Xs ago".
@@ -163,6 +171,39 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             NetworkBehaviours = null;
             NetworkBehaviourCount = 0;
+        }
+        public bool TryRegisterNetworkBehaviour(BasisNetworkAvatarBehaviour behaviour)
+        {
+            if (behaviour == null)
+            {
+                return false;
+            }
+
+            if (NetworkBehaviours == null)
+            {
+                NetworkBehaviours = Array.Empty<BasisNetworkAvatarBehaviour>();
+                NetworkBehaviourCount = 0;
+            }
+
+            int existingIndex = Array.IndexOf(NetworkBehaviours, behaviour);
+            if (existingIndex >= 0)
+            {
+                behaviour.OnNetworkAssign((byte)existingIndex, this);
+                return true;
+            }
+
+            if (NetworkBehaviourCount > byte.MaxValue)
+            {
+                BasisDebug.LogError($"To Many Mono Behaviours on this Avatar only supports up to 256 was {NetworkBehaviourCount + 1}!");
+                return false;
+            }
+
+            int newIndex = NetworkBehaviourCount;
+            Array.Resize(ref NetworkBehaviours, newIndex + 1);
+            NetworkBehaviours[newIndex] = behaviour;
+            NetworkBehaviourCount = NetworkBehaviours.Length;
+            behaviour.OnNetworkAssign((byte)newIndex, this);
+            return true;
         }
         public void AvatarLoadComplete()
         {

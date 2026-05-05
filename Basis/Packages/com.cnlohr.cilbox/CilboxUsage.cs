@@ -42,12 +42,20 @@ using System.Reflection;
 
 namespace Cilbox
 {
-    public abstract class CilboxShim : MonoBehaviour {}
+	public interface CilboxShimI {}
+    public abstract class CilboxShim :  MonoBehaviour, CilboxShimI{}
 
 	public class CilboxUsage
 	{
 		private Cilbox box;
 		public CilboxUsage( Cilbox b ) { box = b; }
+
+        private static bool IsCilboxShimType(Type type)
+        {
+            return type != null &&
+                   (typeof(CilboxShim).IsAssignableFrom(type) ||
+                    typeof(CilboxShimI).IsAssignableFrom(type));
+        }
 
 		// This is after the type has been fully de-arrayed and de-templated.
 		String CheckTypeSecurity( String sType )
@@ -112,9 +120,9 @@ namespace Cilbox
 			{
 				GameObject gameObject = (o is GameObject) ? (GameObject)o : ((Component)o).gameObject;
 				Component component;
-				if(typeof(CilboxShim).IsAssignableFrom(t))
+				if(IsCilboxShimType(t))
 				{
-					Debug.Log($"OverrideGetComponentT: Overriding {t.FullName} with a CilboxShim component because it is abstract and assignable from CilboxShim" );
+					Debug.Log($"OverrideGetComponentT: Overriding {t.FullName} with a cilbox shim component because it is marked for cilbox shim handling." );
 					if(gameObject.TryGetComponent(t, out Component c)) {
 						component = c;
 					} else
@@ -171,9 +179,9 @@ namespace Cilbox
 			{
 				GameObject gameObject = (o is GameObject) ? (GameObject)o : ((Component)o).gameObject;
 				Component component;
-				if(typeof(CilboxShim).IsAssignableFrom(t))
+				if(IsCilboxShimType(t))
 				{
-					Debug.Log($"OverrideTryGetComponentT: Overriding {t.FullName} with a CilboxShim component because it is abstract and assignable from CilboxShim" );
+					Debug.Log($"OverrideTryGetComponentT: Overriding {t.FullName} with a cilbox shim component because it is marked for cilbox shim handling." );
 					if(gameObject.TryGetComponent(t, out Component c)) {
 						component = c;
 					} else

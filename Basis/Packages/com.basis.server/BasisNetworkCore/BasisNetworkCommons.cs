@@ -145,6 +145,8 @@ namespace Basis.Network.Core
         /// block and hide the sender's avatar/audio/nameplate on their client. Not persisted.
         /// </summary>
         public const byte EventType_PlayerTempBlock = 2;
+        /// <summary>Transient chat typing state for a remote player.</summary>
+        public const byte EventType_PlayerChatTyping = 3;
 
         // ── Per-quality avatar channels (ushort playerID, for IDs >255) ──
         // Same layout as byte-ID channels: base + quality * 2 + hasAdditional

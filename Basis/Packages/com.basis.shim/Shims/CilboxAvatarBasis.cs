@@ -10,6 +10,13 @@ namespace Cilbox
 		static readonly HashSet<string> extraWhiteListType = new HashSet<string>(){
 			// Avatar-specific Basis shim types
 			"Basis.Shims.BasisNet*", // Restrictive, only used as a type and for events.
+			"Basis.Shims.BasisNetworkShim+NetworkReadyEvent",
+			"Basis.Shims.BasisNetworkShim+ServerOwnershipDestroyedEvent",
+			"Basis.Shims.BasisNetworkShim+OwnershipTransferEvent",
+			"Basis.Shims.BasisNetworkShim+NetworkMessageEvent",
+			"Basis.Shims.BasisNetworkShim+PlayerJoinedEvent",
+			"Basis.Shims.BasisNetworkShim+PlayerLeftEvent",
+			"Basis.Shims.BasisAvatarNetworkShim",
 			"Basis.Shims.BasisAvatarShim",
 			"Basis.Shims.BasisAvatarShim+OnReady",
 			"Basis.Shims.BasisAvatarShim+AvatarReadyEvent",
@@ -21,6 +28,9 @@ namespace Cilbox
 		};
 
 		static readonly HashSet<string> extraWhiteListFields = new HashSet<string>(){
+			"Basis.Shims.BasisAvatarNetworkShim.CurrentOwnerId",
+			"Basis.Shims.BasisAvatarNetworkShim.IsOwnedLocallyOnServer",
+			"Basis.Shims.BasisAvatarNetworkShim.IsOwnedLocallyOnClient",
 			"Basis.Shims.BasisAvatarShim.Animator",
 			"Basis.Shims.BasisAvatarShim.FaceVisemeMesh",
 			"Basis.Shims.BasisAvatarShim.FaceBlinkMesh",
@@ -70,6 +80,12 @@ namespace Cilbox
 					return true;
 				case "Basis.Scripts.BasisSdk.BasisAvatar+OnReady":
 					t = typeof(Basis.Shims.BasisAvatarShim.OnReady);
+					return true;
+				case "Basis.BasisNetworkBehaviour":
+				case "Basis.BasisNetworkShim":
+				case "Basis.Shims.IBasisNetworkShimCompatible":
+				case "Basis.Shims.BasisNetworkShim":
+					t = typeof(Basis.Shims.BasisAvatarNetworkShim);
 					return true;
 				default:
 					t = null;

@@ -50,12 +50,14 @@ public static class BasisNetworkHandleChat
         {
             return;
         }
+        if (BasisNetworkConnection.LocalPlayerPeer == null)
+        {
+            return;
+        }
+        message = BasisChatSanitizer.Sanitize(message);
         if (string.IsNullOrEmpty(message)) return;
 
-        if (message.Length > MaxMessageLength)
-        {
-            message = message.Substring(0, MaxMessageLength);
-        }
+        BasisNetworkHandleChatTyping.SendTypingState(false);
 
         byte[] payload = Encoding.UTF8.GetBytes(message);
 
@@ -77,6 +79,11 @@ public static class BasisNetworkHandleChat
     /// </summary>
     public static void ClearChatMessage()
     {
+        if (BasisNetworkConnection.LocalPlayerPeer == null)
+        {
+            return;
+        }
+
         ChatMessage chatMessage = new ChatMessage
         {
             payload = Array.Empty<byte>(),
@@ -124,7 +131,7 @@ public static class BasisNetworkHandleChat
     /// Plays the chat notification audio clip through BasisDeviceManagement,
     /// matching the pattern used by other UI sounds (hover, press).
     /// </summary>
-    private static void PlayChatNotification()
+    public static void PlayChatNotification()
     {
         if (BasisDeviceManagement.Instance == null || BasisDeviceManagement.Instance.ChatNotificationUI == null)
         {

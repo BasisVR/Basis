@@ -3,11 +3,11 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
-using System;
+using Cilbox;
 
 namespace Basis.Shims
 {
-    public class BasisNetworkShim : BasisNetworkBehaviour
+    public class BasisNetworkShim : BasisNetworkBehaviour, IBasisNetworkShimCompatible, CilboxShimI
 	{
 		public delegate void NetworkReadyEvent();
 		public delegate void ServerOwnershipDestroyedEvent();
@@ -16,12 +16,17 @@ namespace Basis.Shims
 		public delegate void PlayerJoinedEvent(BasisNetworkPlayer player);
 		public delegate void PlayerLeftEvent(BasisNetworkPlayer player);
 
-		public NetworkReadyEvent             NetworkReady { set; get; }
-		public OwnershipTransferEvent        OwnershipTransfer { set; get; }
-		public ServerOwnershipDestroyedEvent ServerOwnershipDestroyed { set; get; }
-		public NetworkMessageEvent           NetworkMessageReceived { set; get; }
-		public PlayerLeftEvent               PlayerLeft { set; get; }
-		public PlayerJoinedEvent             PlayerJoined { set; get; }
+		public new NetworkReadyEvent NetworkReady { set; get; }
+		public new OwnershipTransferEvent OwnershipTransfer { set; get; }
+		public new ServerOwnershipDestroyedEvent ServerOwnershipDestroyed { set; get; }
+		public new NetworkMessageEvent NetworkMessageReceived { set; get; }
+		public new PlayerLeftEvent PlayerLeft { set; get; }
+		public new PlayerJoinedEvent PlayerJoined { set; get; }
+
+		bool IBasisNetworkShimCompatible.IsOwnedLocallyOnServer => IsOwnedLocallyOnServer;
+		bool IBasisNetworkShimCompatible.IsOwnedLocallyOnClient => IsOwnedLocallyOnClient;
+		ushort IBasisNetworkShimCompatible.CurrentOwnerId => CurrentOwnerId;
+		BasisNetworkPlayer IBasisNetworkShimCompatible.currentOwnedPlayer => currentOwnedPlayer;
 
         public override void OnNetworkReady()
         {
@@ -48,7 +53,7 @@ namespace Basis.Shims
 			PlayerJoined?.Invoke( player );
         }
 
-        public void RequestOwnershipIfNone()
+        public override void RequestOwnershipIfNone()
         {
 	        RequestWhoIsOwnershipAsync();
         }
