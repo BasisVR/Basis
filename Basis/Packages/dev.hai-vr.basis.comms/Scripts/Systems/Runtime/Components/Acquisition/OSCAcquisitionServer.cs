@@ -239,6 +239,25 @@ namespace HVR.Basis.Comms
             }
         }
 
+        internal void CopyDebugSubscriptionCounts(List<KeyValuePair<string, int>> exactCounts, List<KeyValuePair<string, int>> prefixCounts)
+        {
+            lock (_queryLock)
+            {
+                exactCounts.Clear();
+                prefixCounts.Clear();
+
+                foreach (KeyValuePair<string, int> count in _exactSubscriptionCounts)
+                {
+                    exactCounts.Add(count);
+                }
+
+                foreach (KeyValuePair<string, int> count in _prefixSubscriptionCounts)
+                {
+                    prefixCounts.Add(count);
+                }
+            }
+        }
+
         private string GetOscQueryResponse(string rawUrl)
         {
             lock (_queryLock)
