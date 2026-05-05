@@ -2,6 +2,7 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -293,9 +294,11 @@ public static class BasisAudioClipPlayer
             if (fileBytes.Length < 44)
                 return null;
 
-            if (fileBytes[0] != 'R' || fileBytes[1] != 'I' || fileBytes[2] != 'F' || fileBytes[3] != 'F')
+            ReadOnlySpan<byte> bytes = fileBytes;
+
+            if (bytes[0] != 'R' || bytes[1] != 'I' || bytes[2] != 'F' || bytes[3] != 'F')
                 return null;
-            if (fileBytes[8] != 'W' || fileBytes[9] != 'A' || fileBytes[10] != 'V' || fileBytes[11] != 'E')
+            if (bytes[8] != 'W' || bytes[9] != 'A' || bytes[10] != 'V' || bytes[11] != 'E')
                 return null;
 
             int pos = 12;
@@ -305,22 +308,22 @@ public static class BasisAudioClipPlayer
             int dataOffset = 0;
             int dataSize = 0;
 
-            while (pos < fileBytes.Length - 8)
+            while (pos < bytes.Length - 8)
             {
                 string chunkId = System.Text.Encoding.ASCII.GetString(fileBytes, pos, 4);
-                int chunkSize = BitConverter.ToInt32(fileBytes, pos + 4);
+                int chunkSize = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(pos + 4));
 
                 if (chunkId == "fmt ")
                 {
-                    int audioFormat = BitConverter.ToInt16(fileBytes, pos + 8);
+                    int audioFormat = BinaryPrimitives.ReadInt16LittleEndian(bytes.Slice(pos + 8));
                     if (audioFormat != 1)
                     {
                         BasisDebug.LogWarning("[AudioClipPlayer] Only PCM WAV files are supported.", BasisDebug.LogTag.Device);
                         return null;
                     }
-                    channels = BitConverter.ToInt16(fileBytes, pos + 10);
-                    sampleRate = BitConverter.ToInt32(fileBytes, pos + 12);
-                    bitsPerSample = BitConverter.ToInt16(fileBytes, pos + 22);
+                    channels = BinaryPrimitives.ReadInt16LittleEndian(bytes.Slice(pos + 10));
+                    sampleRate = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(pos + 12));
+                    bitsPerSample = BinaryPrimitives.ReadInt16LittleEndian(bytes.Slice(pos + 22));
                 }
                 else if (chunkId == "data")
                 {
@@ -346,14 +349,14 @@ public static class BasisAudioClipPlayer
                 for (int ch = 0; ch < channels; ch++)
                 {
                     int offset = dataOffset + (i * channels + ch) * bytesPerSample;
-                    if (offset + bytesPerSample > fileBytes.Length) break;
+                    if (offset + bytesPerSample > bytes.Length) break;
 
                     float sample = bitsPerSample switch
                     {
-                        8 => (fileBytes[offset] - 128) / 128f,
-                        16 => BitConverter.ToInt16(fileBytes, offset) / 32768f,
+                        8 => (bytes[offset] - 128) / 128f,
+                        16 => BinaryPrimitives.ReadInt16LittleEndian(bytes.Slice(offset)) / 32768f,
                         24 => DecodeInt24(fileBytes, offset) / 8388608f,
-                        32 => BitConverter.ToInt32(fileBytes, offset) / 2147483648f,
+                        32 => BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(offset)) / 2147483648f,
                         _ => 0f
                     };
                     sum += sample;

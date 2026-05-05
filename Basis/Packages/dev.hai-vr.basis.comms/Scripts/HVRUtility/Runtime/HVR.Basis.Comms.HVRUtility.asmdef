@@ -4,7 +4,6 @@
     "references": [
         "BasisSDK",
         "Unity.Mathematics",
-        "Basis.Network.Core",
         "Basis Framework",
         "BasisDebug"
     ],

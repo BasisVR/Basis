@@ -2,7 +2,7 @@
     "name": "Did",
     "rootNamespace": "",
     "references": [
-        "GUID:35842c4e425f4514d9214dae96875cef"
+        "Crypto"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

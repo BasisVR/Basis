@@ -285,7 +285,7 @@ namespace OpenLipSync.Inference
                 {
                     inputData = new float[inputSize];
                 }
-                Array.Copy(melSequenceFlat, 0, inputData, 0, inputSize);
+                melSequenceFlat.AsSpan(0, inputSize).CopyTo(inputData);
 
                 // Rebuild the input tensor wrapper only when shape OR the backing
                 // array changes. In steady state none of these vary, so this is

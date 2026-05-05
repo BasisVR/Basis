@@ -2,6 +2,7 @@ using System.Globalization;
 using Basis.BasisUI;
 using Basis.Scripts.Avatar;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 /// <summary>
 /// Settings bridge that forwards the three avatar-load concurrency sliders into

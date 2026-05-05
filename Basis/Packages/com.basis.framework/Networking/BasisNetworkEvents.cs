@@ -7,7 +7,9 @@ using Basis.Scripts.Profiler;
 using BasisNetworkClient;
 using BasisNetworkServer.BasisNetworking;
 using BasisPermissions;
+using K4os.Compression.LZ4;
 using System;
+using System.Buffers;
 using static SerializableBasis;
 public static class BasisNetworkEvents
 {
@@ -254,6 +256,24 @@ public static class BasisNetworkEvents
                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.UnloadResource, Reader.AvailableBytes);
                    await BasisNetworkGenericMessages.UnloadResourceMessage(Reader, deliveryMethod);
                     Reader.Recycle();
+                });
+                break;
+            case BasisNetworkCommons.ServerLibraryChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                {
+                    try
+                    {
+                        HandleServerLibraryReceive(Reader);
+                    }
+                    finally
+                    {
+                        Reader.Recycle();
+                    }
                 });
                 break;
             case BasisNetworkCommons.AdminChannel:
@@ -508,6 +528,63 @@ public static class BasisNetworkEvents
         }
         BasisDebug.Log("Completed");
     }
+    // Reused on the main thread (every ServerLibraryChannel receive enqueues onto
+    // it) — keeps the per-join NetDataReader allocation out of GC. Library messages
+    // arrive sequentially, so a single instance is enough.
+    private static NetDataReader _libraryPayloadReader;
+
+    private static void HandleServerLibraryReceive(NetPacketReader reader)
+    {
+        // Wire format from BasisNetworkServerLibrary:
+        //   [u16 rawLen][u16 compressedLen][bytes payload]
+        // compressedLen == 0 means the payload is the raw message bytes.
+        ushort rawLen = reader.GetUShort();
+        ushort compressedLen = reader.GetUShort();
+        if (rawLen == 0) return;
+
+        byte[] payload = ArrayPool<byte>.Shared.Rent(rawLen);
+        try
+        {
+            if (compressedLen == 0)
+            {
+                reader.GetBytes(payload, rawLen);
+            }
+            else
+            {
+                byte[] compressed = ArrayPool<byte>.Shared.Rent(compressedLen);
+                try
+                {
+                    reader.GetBytes(compressed, compressedLen);
+                    int decoded = LZ4Codec.Decode(
+                        compressed, 0, compressedLen,
+                        payload, 0, rawLen);
+                    if (decoded != rawLen)
+                    {
+                        BasisDebug.LogError(
+                            $"Server library decompression mismatch: expected {rawLen} bytes, got {decoded}");
+                        return;
+                    }
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(compressed);
+                }
+            }
+
+            NetDataReader payloadReader = _libraryPayloadReader ??= new NetDataReader();
+            payloadReader.SetSource(payload, 0, rawLen);
+            ServerLibraryMessage libraryMessage = new ServerLibraryMessage();
+            libraryMessage.Deserialize(payloadReader);
+            // Items array becomes BasisServerProvidedItems' source of truth — fine
+            // to release the byte buffer once Deserialize has copied strings out.
+            BasisServerProvidedItems.SetFromServer(libraryMessage.Items);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(payload);
+        }
+    }
+
     public static bool ValidateSize(NetPacketReader reader, NetPeer peer, byte channel)
     {
         if (reader.AvailableBytes == 0)
@@ -526,13 +603,9 @@ public static class BasisNetworkEvents
         if (disconnectInfo.Reason == DisconnectReason.RemoteConnectionClose)
         {
 #if UNITY_SERVER
-            string reason = null;
-            if (disconnectInfo.AdditionalData != null &&
-                !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
-            {
-                reason = disconnectInfo.AdditionalData.PeekString();
-            }
-
+            // PeekString is now defensive — a malformed additional-data payload
+            // returns "" instead of throwing. Read once and re-use.
+            string reason = disconnectInfo.AdditionalData?.PeekString();
             if (!string.IsNullOrEmpty(reason))
             {
                 if (canShowMenu)
@@ -552,9 +625,12 @@ public static class BasisNetworkEvents
                 BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
             }
 #else
-            if (disconnectInfo.AdditionalData != null && !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
+            // Read the reason once (PeekString is now defensive against
+            // malformed additional-data, but reading it twice still wastes a
+            // GetString call).
+            string Reason = disconnectInfo.AdditionalData?.PeekString();
+            if (!string.IsNullOrEmpty(Reason))
             {
-                string Reason = disconnectInfo.AdditionalData.PeekString();
                 BasisMainMenu.Open();
                 if (BasisMainMenu.Instance != null)
                 {

@@ -109,6 +109,24 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 goto Fail;
             }
 
+            // Hips local-position delta (vs TPose). Paired with the root pose so
+            // remotes can reproduce seated/IK-driven hips offsets from the local rig.
+            // The wire helper returns the namespace-local float3 POD struct (so server
+            // code can use it without Unity.Mathematics) — convert at this boundary.
+            if (!BasisUnityBitPackerExtensionsUnsafe.TryReadHipsDelta(ref data, ref offset, out var rawHipsDelta))
+            {
+                goto Fail;
+            }
+            basisAvatarBuffer.HipsLocalDelta = new Unity.Mathematics.float3(rawHipsDelta.x, rawHipsDelta.y, rawHipsDelta.z);
+
+            // Hips local-rotation delta (vs TPose). Required because Hips is
+            // excluded from the bone packet — without this slot the remote
+            // hips bone would never rotate independently of the root.
+            if (!BasisUnityBitPackerExtensionsUnsafe.TryReadCompressedQuaternionFromBytes(ref data, ref offset, out basisAvatarBuffer.HipsLocalRotation))
+            {
+                goto Fail;
+            }
+
             basisAvatarBuffer.Scale = BasisUnityBitPackerExtensionsUnsafe.DecompressScale(uScale);
             basisAvatarBuffer.SecondsInterval = secondsInterval;
             return true;

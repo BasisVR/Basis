@@ -4,6 +4,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 /// <summary>
 /// Settings bridge that forwards the performance-limit sliders/toggles into
@@ -291,5 +292,8 @@ public static class SMModuleAvatarPerformanceLimits
 
         BasisAvatarPerformanceLimits.UseLimitColliders = BasisSettingsDefaults.UsePerfLimitColliders.RawValue;
         BasisAvatarPerformanceLimits.LimitColliders = Mathf.Max(0, Mathf.RoundToInt(BasisSettingsDefaults.MaxPerfColliders.RawValue));
+
+        BasisAvatarPerformanceLimits.UseLimitCilboxBehaviours = BasisSettingsDefaults.UsePerfLimitCilboxBehaviours.RawValue;
+        BasisAvatarPerformanceLimits.LimitCilboxBehaviours = Mathf.Max(0, Mathf.RoundToInt(BasisSettingsDefaults.MaxPerfCilboxBehaviours.RawValue));
     }
 }

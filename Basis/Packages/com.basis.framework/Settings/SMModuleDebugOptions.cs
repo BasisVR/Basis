@@ -1,18 +1,32 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Basis.BasisUI;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Device_Management.Devices.Pairing;
 using Basis.Scripts.TransformBinders.BoneControl;
 
 public class SMModuleDebugOptions : BasisSettingsBase
 {
     public static bool UseGizmos = false;
     public static bool UseTrackerGizmos = false;
+    public static bool UseLinkedTrackerLines = false;
+
+    // Sub-toggles under ShowGizmos. Default true so the master switch alone restores
+    // the pre-split behavior (lines + spheres + jiggle render) for users who never
+    // touch the granular controls.
+    public static bool UseSkeletonLines = true;
+    public static bool UseCalibrationSpheres = true;
+    public static bool UseJiggleVisuals = true;
 
     // --- Canonical setting keys (from defaults) ---
-    private static string K_DEBUG_VISUALS => BasisSettingsDefaults.DebugVisuals.BindingKey;     // "debugvisuals"
-    private static string K_TRACKER_GIZMOS => BasisSettingsDefaults.TrackerGizmos.BindingKey;   // "trackergizmos"
+    private static string K_SHOW_GIZMOS => BasisSettingsDefaults.ShowGizmos.BindingKey;                       // "showgizmos"
+    private static string K_GIZMO_SKELETON_LINES => BasisSettingsDefaults.GizmoSkeletonLines.BindingKey;       // "gizmoskeletonlines"
+    private static string K_GIZMO_CALIB_SPHERES => BasisSettingsDefaults.GizmoCalibrationSpheres.BindingKey;   // "gizmocalibrationspheres"
+    private static string K_GIZMO_JIGGLE_VISUALS => BasisSettingsDefaults.GizmoJiggleVisuals.BindingKey;       // "gizmojigglevisuals"
+    private static string K_TRACKER_GIZMOS => BasisSettingsDefaults.TrackerGizmos.BindingKey;                  // "trackergizmos"
+    private static string K_LINKED_TRACKER_LINES => BasisSettingsDefaults.LinkedTrackerLines.BindingKey;      // "linkedtrackerlines"
 
     // Tracker → sphere gizmo ID. Only role-assigned trackers get a gizmo so the
     // visualization mirrors what's actually driving a body part.
@@ -21,8 +35,16 @@ public class SMModuleDebugOptions : BasisSettingsBase
     // Tracker → line gizmo ID, one segment from tracker pose to driven bone.
     private readonly Dictionary<BasisInput, int> _trackerLines = new Dictionary<BasisInput, int>();
 
+    // Virtual midpoint → line gizmo ID, one yellow segment from PartnerA to
+    // PartnerB so the user can see at a glance which physical trackers are
+    // currently merged into a virtual.
+    private readonly Dictionary<BasisVirtualMidpointInput, int> _linkLines = new Dictionary<BasisVirtualMidpointInput, int>();
+
     // Distinct from the rainbow bone gizmos so trackers stand out at a glance.
     private static readonly Color TrackerGizmoColor = new Color(0f, 1f, 1f, 1f);
+    // Yellow keeps the link line visually separate from the cyan tracker→bone
+    // line, so when both toggles are on it's still obvious which is which.
+    private static readonly Color LinkedTrackerLineColor = new Color(1f, 1f, 0f, 1f);
     private const float TrackerGizmoBaseSize = 0.04f;
     private const float TrackerLineBaseWidth = 0.005f;
 
@@ -38,24 +60,66 @@ public class SMModuleDebugOptions : BasisSettingsBase
     {
         BasisGizmoManager.OnUseGizmosChanged -= OnUseGizmosChanged;
         ClearTrackerGizmos();
+        ClearLinkLines();
         base.OnDestroy();
     }
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        if (matchedSettingName == K_DEBUG_VISUALS)
+        if (matchedSettingName == K_SHOW_GIZMOS)
         {
-            HandleDebugVisuals(optionValue);
+            HandleShowGizmos(optionValue);
+            return;
+        }
+
+        if (matchedSettingName == K_GIZMO_SKELETON_LINES)
+        {
+            if (bool.TryParse(optionValue, out UseSkeletonLines))
+            {
+                BasisLocalPlayer player = BasisLocalPlayer.Instance;
+                if (player != null && player.LocalBoneDriver != null)
+                {
+                    player.LocalBoneDriver.ApplySkeletonLineVisibility();
+                }
+            }
+            return;
+        }
+
+        if (matchedSettingName == K_GIZMO_CALIB_SPHERES)
+        {
+            if (bool.TryParse(optionValue, out UseCalibrationSpheres))
+            {
+                // Flag alone only gates per-frame UpdateSphereGizmo calls — the
+                // gizmo GameObjects need an explicit hide/show to actually
+                // appear/disappear in the scene.
+                BasisLocalPlayer player = BasisLocalPlayer.Instance;
+                if (player != null && player.LocalBoneDriver != null)
+                {
+                    player.LocalBoneDriver.ApplyCalibrationSphereVisibility();
+                }
+            }
+            return;
+        }
+
+        if (matchedSettingName == K_GIZMO_JIGGLE_VISUALS)
+        {
+            bool.TryParse(optionValue, out UseJiggleVisuals);
             return;
         }
 
         if (matchedSettingName == K_TRACKER_GIZMOS)
         {
             HandleTrackerGizmos(optionValue);
+            return;
+        }
+
+        if (matchedSettingName == K_LINKED_TRACKER_LINES)
+        {
+            HandleLinkedTrackerLines(optionValue);
         }
     }
 
-    private void HandleDebugVisuals(string optionValue)
+    private void HandleShowGizmos(string optionValue)
     {
         if (!bool.TryParse(optionValue, out bool selected))
         {
@@ -131,6 +195,31 @@ public class SMModuleDebugOptions : BasisSettingsBase
         // mid-session also get a gizmo without extra plumbing.
     }
 
+    private void HandleLinkedTrackerLines(string optionValue)
+    {
+        if (!bool.TryParse(optionValue, out bool selected))
+        {
+            return;
+        }
+
+#if UNITY_SERVER
+        selected = false;
+#endif
+
+        if (UseLinkedTrackerLines == selected)
+        {
+            return;
+        }
+
+        UseLinkedTrackerLines = selected;
+        if (!UseLinkedTrackerLines)
+        {
+            ClearLinkLines();
+        }
+        // Lines are created lazily in Update so new pairings appearing mid-session
+        // are picked up automatically.
+    }
+
     public override void ChangedSettings()
     {
     }
@@ -143,12 +232,13 @@ public class SMModuleDebugOptions : BasisSettingsBase
         {
             _trackerGizmos.Clear();
             _trackerLines.Clear();
+            _linkLines.Clear();
         }
     }
 
     private void Update()
     {
-        if (!UseGizmos || !UseTrackerGizmos)
+        if (!UseGizmos)
         {
             return;
         }
@@ -160,13 +250,27 @@ public class SMModuleDebugOptions : BasisSettingsBase
         }
 
         BasisObservableList<BasisInput> devices = manager.AllInputDevices;
-        int count = devices.Count;
 
         float scale = BasisHeightDriver.ScaledToMatchValue;
         if (scale <= 0f)
         {
             scale = 1f;
         }
+
+        if (UseTrackerGizmos)
+        {
+            UpdateTrackerGizmos(devices, scale);
+        }
+
+        if (UseLinkedTrackerLines)
+        {
+            UpdateLinkLines(devices, scale);
+        }
+    }
+
+    private void UpdateTrackerGizmos(BasisObservableList<BasisInput> devices, float scale)
+    {
+        int count = devices.Count;
         Vector3 size = Vector3.one * (TrackerGizmoBaseSize * scale);
 
         for (int i = 0; i < count; i++)
@@ -224,6 +328,48 @@ public class SMModuleDebugOptions : BasisSettingsBase
         }
     }
 
+    private void UpdateLinkLines(BasisObservableList<BasisInput> devices, float scale)
+    {
+        int count = devices.Count;
+        for (int i = 0; i < count; i++)
+        {
+            if (devices[i] is not BasisVirtualMidpointInput virt)
+            {
+                continue;
+            }
+            if (virt.PartnerA == null || virt.PartnerB == null)
+            {
+                // Mid-teardown — drop any stale line for this virtual.
+                if (_linkLines.TryGetValue(virt, out int orphanId))
+                {
+                    BasisGizmoManager.DestroyGizmo(orphanId);
+                    _linkLines.Remove(virt);
+                }
+                continue;
+            }
+
+            Vector3 aPos = virt.PartnerA.transform.position;
+            Vector3 bPos = virt.PartnerB.transform.position;
+
+            if (!_linkLines.TryGetValue(virt, out int lineId))
+            {
+                if (TryCreateLinkLine(virt, aPos, bPos, scale, out lineId))
+                {
+                    _linkLines[virt] = lineId;
+                }
+            }
+            else
+            {
+                BasisGizmoManager.UpdateLineGizmo(lineId, aPos, bPos);
+            }
+        }
+
+        if (_linkLines.Count > 0)
+        {
+            PruneStaleLinkLines(devices);
+        }
+    }
+
     private static void PruneStale(Dictionary<BasisInput, int> map, BasisObservableList<BasisInput> devices)
     {
         if (map.Count == 0)
@@ -278,10 +424,60 @@ public class SMModuleDebugOptions : BasisSettingsBase
         return BasisGizmoManager.CreateLineGizmo($"TrackerLink_{label}", out id, trackerPos, bonePos, TrackerLineBaseWidth * scale, TrackerGizmoColor);
     }
 
+    private static bool TryCreateLinkLine(BasisVirtualMidpointInput virt, Vector3 aPos, Vector3 bPos, float scale, out int id)
+    {
+        string label = virt.UniqueDeviceIdentifier ?? "pair";
+        return BasisGizmoManager.CreateLineGizmo($"PairLink_{label}", out id, aPos, bPos, TrackerLineBaseWidth * scale, LinkedTrackerLineColor);
+    }
+
+    private void PruneStaleLinkLines(BasisObservableList<BasisInput> devices)
+    {
+        List<BasisVirtualMidpointInput> stale = null;
+        foreach (KeyValuePair<BasisVirtualMidpointInput, int> kvp in _linkLines)
+        {
+            BasisVirtualMidpointInput virt = kvp.Key;
+            // The pairing service removes the virtual from AllInputDevices and
+            // calls Teardown (which clears PartnerA/PartnerB) before destroying
+            // the GameObject — either condition means our line is orphaned.
+            if (virt == null || virt.PartnerA == null || virt.PartnerB == null || !devices.Contains(virt))
+            {
+                (stale ??= new List<BasisVirtualMidpointInput>()).Add(virt);
+            }
+        }
+
+        if (stale == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < stale.Count; i++)
+        {
+            BasisVirtualMidpointInput virt = stale[i];
+            if (_linkLines.TryGetValue(virt, out int id))
+            {
+                BasisGizmoManager.DestroyGizmo(id);
+                _linkLines.Remove(virt);
+            }
+        }
+    }
+
     private void ClearTrackerGizmos()
     {
         ClearMap(_trackerGizmos);
         ClearMap(_trackerLines);
+    }
+
+    private void ClearLinkLines()
+    {
+        if (_linkLines.Count == 0)
+        {
+            return;
+        }
+        foreach (KeyValuePair<BasisVirtualMidpointInput, int> kvp in _linkLines)
+        {
+            BasisGizmoManager.DestroyGizmo(kvp.Value);
+        }
+        _linkLines.Clear();
     }
 
     private static void ClearMap(Dictionary<BasisInput, int> map)

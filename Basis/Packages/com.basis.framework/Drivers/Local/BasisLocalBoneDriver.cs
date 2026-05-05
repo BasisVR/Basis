@@ -24,6 +24,13 @@ namespace Basis.Scripts.Drivers
     [System.Serializable]
     public class BasisLocalBoneDriver
     {
+        /// <summary>
+        /// RGB scalar applied to each bone color before it becomes a calibration
+        /// sphere tint. The gizmo material is additive (One/One blend), so a
+        /// lower value means a less-blown-out sphere on the avatar.
+        /// </summary>
+        private const float CalibrationSphereTint = 0.25f;
+
         /// <summary>Cached control for the neck bone.</summary>
         public static BasisLocalBoneControl NeckControl;
 
@@ -210,10 +217,10 @@ namespace Basis.Scripts.Drivers
         public void Simulate(float deltaTime, Matrix4x4 parentMatrix)
         {
             RunSimulation(parentMatrix, deltaTime, seedLastRunFromOutgoing: false);
-            if (SMModuleDebugOptions.UseGizmos)
-            {
-                DrawGizmos();
-            }
+            // Gizmo drawing intentionally deferred to AfterSimulateOnRender —
+            // running it here would read bone Transform.position before Unity's
+            // Animator has updated bones for this frame, leaving the spheres a
+            // frame stale relative to the avatar.
         }
 
         /// <summary>
@@ -491,21 +498,63 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Draws gizmos for all controls using the current avatar scale.
+        /// Draws gizmos for all controls using the current avatar scale. Lines (skeleton) and
+        /// calibration spheres are gated by independent sub-toggles under the ShowGizmos master.
         /// </summary>
         public void DrawGizmos()
         {
-            for (int Index = 0; Index < ControlsLength; Index++)
+            if (SMModuleDebugOptions.UseSkeletonLines)
             {
-                DrawGizmos(Controls[Index]);
-            }
-            for (int i = 0; i < GizmoBones.Count; i++)
-            {
-                GizmoBone GizmoBone = GizmoBones[i];
-                if (GizmoBone.GizmoTransform != null)
+                for (int Index = 0; Index < ControlsLength; Index++)
                 {
-                    float ScaledDistance = BasisAvatarIKStageCalibration.MaxDistanceBeforeTrackerIsIrrelivant(GizmoBone.Control) * SMModuleCalibration.GetSphereScale(GizmoBone.Control) * BasisHeightDriver.ScaledToMatchValue;
-                    BasisGizmoManager.UpdateSphereGizmo(GizmoBone.GizmoReference, GizmoBone.GizmoTransform.position, Vector3.one * ScaledDistance);
+                    DrawGizmos(Controls[Index]);
+                }
+            }
+            if (SMModuleDebugOptions.UseCalibrationSpheres
+                && GizmoBones.Count > 0
+                && BasisAvatarIKStageCalibration.TryGetCalibrationVisualizationFrame(
+                    out Vector3 bodyOrigin,
+                    out Quaternion bodyRot,
+                    out float eyeHeight,
+                    out _))
+            {
+                // Body frame is recomputed every frame from the live HMD pose so
+                // the regions track wherever the player is now. The visualization
+                // helper picks snapshot priors when a calibration has run, default
+                // priors otherwise — either way the gizmos appear immediately.
+
+                for (int i = 0; i < GizmoBones.Count; i++)
+                {
+                    GizmoBone GizmoBone = GizmoBones[i];
+
+                    // Center of the acceptance region in body-local playspace:
+                    // X = lateral * eye, Y = vertical * eye, Z = 0 (depth is not
+                    // scored, so we anchor on the body-frame plane).
+                    Vector3 localOffset = new Vector3(
+                        GizmoBone.ExpectedLateral * eyeHeight,
+                        GizmoBone.ExpectedHeight * eyeHeight,
+                        0f);
+                    Vector3 worldPos = bodyOrigin + bodyRot * localOffset;
+
+                    // 3σ acceptance radius in each scoring axis × 2 = diameter for
+                    // the unit-diameter sphere mesh. Depth is unconstrained by
+                    // ScoreSampleAgainstRole, so we use the larger of the two
+                    // scoring axes — keeps the ellipsoid visible from any angle
+                    // without implying depth gates classification.
+                    float latDiameter = 6f * GizmoBone.LateralSigma * eyeHeight;
+                    float vertDiameter = 6f * GizmoBone.HeightSigma * eyeHeight;
+                    float depthDiameter = Mathf.Max(latDiameter, vertDiameter);
+
+                    // Per-bone CalibSphereScale stays useful as a visualization
+                    // size knob — multiplies all three axes uniformly.
+                    float vizMul = SMModuleCalibration.GetSphereScale(GizmoBone.Control);
+                    Vector3 scale = new Vector3(latDiameter, vertDiameter, depthDiameter) * vizMul;
+
+                    BasisGizmoManager.UpdateSphereGizmo(
+                        GizmoBone.GizmoReference,
+                        worldPos,
+                        bodyRot,
+                        scale);
                 }
             }
         }
@@ -657,20 +706,40 @@ namespace Basis.Scripts.Drivers
             FillOutBasicInformation(BasisBoneControl, role.ToString(), Color);
         }
 
+        // Priority for the per-frame gizmo render callback. Runs late so the
+        // Animator (PreLateUpdate) and any IK/movement effectors that mutate
+        // bone Transforms have already settled by the time we read them.
+        private const int RenderGizmosPriority = 250;
+
         /// <summary>
-        /// Subscribes to gizmo usage changes so this driver can create/update gizmos.
+        /// Subscribes to gizmo usage changes and the render-time callback so
+        /// this driver can create/update gizmos. Render-time is required so
+        /// gizmo position/rotation reflect the post-Animator bone Transforms
+        /// instead of last frame's stale values.
         /// </summary>
         public void InitializeGizmos()
         {
             BasisGizmoManager.OnUseGizmosChanged += UpdateGizmoUsage;
+            BasisLocalPlayer.AfterSimulateOnRender.AddAction(RenderGizmosPriority, RenderGizmos);
         }
 
         /// <summary>
-        /// Unsubscribes from gizmo usage changes.
+        /// Unsubscribes from gizmo usage changes and the render-time callback.
         /// </summary>
         public void DeInitializeGizmos()
         {
             BasisGizmoManager.OnUseGizmosChanged -= UpdateGizmoUsage;
+            BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(RenderGizmosPriority, RenderGizmos);
+        }
+
+        /// <summary>
+        /// Per-frame render-time gizmo refresh, gated by the master ShowGizmos
+        /// toggle so the no-op early out is cheap.
+        /// </summary>
+        private void RenderGizmos()
+        {
+            if (!SMModuleDebugOptions.UseGizmos) return;
+            DrawGizmos();
         }
 
         /// <summary>
@@ -681,20 +750,154 @@ namespace Basis.Scripts.Drivers
         public void UpdateGizmoUsage(bool State)
         {
             BasisDebug.Log("Running Bone Driver Gizmos", BasisDebug.LogTag.Gizmo);
+            if (!State)
+            {
+                // Manager wiped its pool when ShowGizmos went off — drop cached
+                // calibration-sphere IDs so DrawGizmos doesn't UpdateSphereGizmo
+                // a stale entry next frame.
+                GizmoBones.Clear();
+                return;
+            }
+
             float Size = BasisHeightDriver.ScaledToMatchValue;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 BasisLocalBoneControl Control = Controls[Index];
-                if (State)
+                Vector3 BonePosition = Control.OutgoingWorldData.position;
+                if (Control.HasTarget)
                 {
-                    Vector3 BonePosition = Control.OutgoingWorldData.position;
-                    if (Control.HasTarget)
+                    if (BasisGizmoManager.CreateLineGizmo(trackedRoles[Index].ToString(), out Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position, 0.05f * Size, Control.Color))
                     {
-                        if (BasisGizmoManager.CreateLineGizmo(trackedRoles[Index].ToString(), out Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position, 0.05f * Size, Control.Color))
-                        {
-                            Control.HasLineDraw = true;
-                        }
+                        Control.HasLineDraw = true;
                     }
+                }
+            }
+
+            // Lines are created visible — match the sub-toggle's current state.
+            ApplySkeletonLineVisibility();
+            RebuildCalibrationSpheres();
+        }
+
+        /// <summary>
+        /// Drops and recreates the per-role calibration spheres drawn around each
+        /// tracked avatar bone. Idempotent: safe to call from <see cref="UpdateGizmoUsage"/>
+        /// (when ShowGizmos turns on) and from
+        /// <see cref="BasisAvatarIKStageCalibration.FullBodyCalibration"/>
+        /// (so an avatar reload swaps to the new bone transforms). Skips creation
+        /// silently when the master ShowGizmos toggle is off — the toggle path will
+        /// call back in here once it's flipped on.
+        /// </summary>
+        public void RebuildCalibrationSpheres()
+        {
+            // DestroyGizmo on a stale ID logs a warning, so only call it when the
+            // manager's pool actually still holds the IDs we cached.
+            if (SMModuleDebugOptions.UseGizmos)
+            {
+                for (int i = 0; i < GizmoBones.Count; i++)
+                {
+                    BasisGizmoManager.DestroyGizmo(GizmoBones[i].GizmoReference);
+                }
+            }
+            GizmoBones.Clear();
+
+            if (!SMModuleDebugOptions.UseGizmos)
+            {
+                return;
+            }
+
+            // Pull the prior list via the visualization helper so we get either
+            // snapshot priors (when a calibration has run) or default-armReach
+            // priors (when it hasn't). Body frame from the helper is unused here
+            // — it's recomputed every frame in DrawGizmos so regions track the
+            // live HMD pose.
+            if (!BasisAvatarIKStageCalibration.TryGetCalibrationVisualizationFrame(
+                out _,
+                out _,
+                out _,
+                out IReadOnlyList<BasisAvatarIKStageCalibration.ConstellationDebug.DebugPrior> priors))
+            {
+                return;
+            }
+
+            // Build a role → bone-control lookup so each region picks up the
+            // matching bone's rainbow color. Some priors (e.g. arm roles) may
+            // not have a 1:1 control in the avatar; those fall through to a
+            // neutral tint instead of pulling a wrong color.
+            Dictionary<BasisBoneTrackedRole, BasisLocalBoneControl> controlByRole = new Dictionary<BasisBoneTrackedRole, BasisLocalBoneControl>(ControlsLength);
+            for (int i = 0; i < ControlsLength; i++)
+            {
+                controlByRole[trackedRoles[i]] = Controls[i];
+            }
+
+            for (int i = 0; i < priors.Count; i++)
+            {
+                BasisAvatarIKStageCalibration.ConstellationDebug.DebugPrior prior = priors[i];
+                // We deliberately do NOT skip disabled priors here. The body-tracking
+                // calibration toggles control whether the *classifier* tries to bind
+                // a tracker to a role, but for the visualization we want users to
+                // see the full acceptance map — including regions for roles they
+                // could opt in to (e.g. shoulders, which default off). Skipping them
+                // hides parts of the body the user might want to enable.
+
+                Color regionColor;
+                if (controlByRole.TryGetValue(prior.Role, out BasisLocalBoneControl Control))
+                {
+                    // GizmoMaterial uses additive blending — RGB intensity directly
+                    // controls brightness. Bone colors at full intensity stack
+                    // opaquely on top of the avatar, so dim them to keep regions
+                    // legible without drowning the view.
+                    regionColor = Control.Color * CalibrationSphereTint;
+                    regionColor.a = Control.Color.a;
+                }
+                else
+                {
+                    regionColor = new Color(CalibrationSphereTint, CalibrationSphereTint, CalibrationSphereTint, 1f);
+                }
+
+                AddCalibrationRegion(
+                    $"{prior.Role} Calibration Region",
+                    prior.Role,
+                    prior.ExpectedHeight,
+                    prior.ExpectedLateral,
+                    prior.HeightSigma,
+                    prior.LateralSigma,
+                    regionColor);
+            }
+
+            // Honor the sub-toggle's current state — gizmos are created visible,
+            // so hide them now if the user already had regions turned off.
+            ApplyCalibrationSphereVisibility();
+        }
+
+        /// <summary>
+        /// Toggles visibility on every cached calibration-sphere gizmo. Called by
+        /// <see cref="SMModuleDebugOptions"/> when the calibration-spheres sub-toggle
+        /// flips so the spheres actually appear and disappear in the scene.
+        /// </summary>
+        public void ApplyCalibrationSphereVisibility()
+        {
+            bool visible = SMModuleDebugOptions.UseCalibrationSpheres;
+            for (int i = 0; i < GizmoBones.Count; i++)
+            {
+                BasisGizmoManager.SetGizmoActive(GizmoBones[i].GizmoReference, visible);
+            }
+        }
+
+        /// <summary>
+        /// Toggles visibility on every per-control skeleton-line gizmo. Mirror of
+        /// <see cref="ApplyCalibrationSphereVisibility"/> — flag alone gates the
+        /// per-frame UpdateLineGizmo call, but the line GameObjects need an
+        /// explicit hide/show to actually appear/disappear.
+        /// </summary>
+        public void ApplySkeletonLineVisibility()
+        {
+            bool visible = SMModuleDebugOptions.UseSkeletonLines;
+            for (int i = 0; i < ControlsLength; i++)
+            {
+                BasisLocalBoneControl Control = Controls[i];
+                if (Control.HasLineDraw)
+                {
+                    BasisGizmoManager.SetGizmoActive(Control.LineDrawIndex, visible);
                 }
             }
         }
@@ -754,13 +957,22 @@ namespace Basis.Scripts.Drivers
         {
             return BasisHelpers.ConvertToLocalSpace(WorldSpace, Transform.position);
         }
+        /// <summary>
+        /// One per-role calibration region. Position/rotation/scale are all derived
+        /// from the captured body frame + prior data each frame in DrawGizmos —
+        /// the gizmo itself stores only the IDs and the prior values, not a bone
+        /// Transform, because the classifier scores tracker positions in body-local
+        /// playspace, not at the avatar's bone.
+        /// </summary>
         [System.Serializable]
         public class GizmoBone
         {
             public int GizmoReference;
-            public Transform GizmoTransform;
             public BasisBoneTrackedRole Control;
-
+            public float ExpectedHeight;   // ratio: y / eyeHeight at the role's expected position
+            public float ExpectedLateral;  // ratio: signed x / eyeHeight (+x = body right)
+            public float HeightSigma;      // 1σ in HeightRatio space
+            public float LateralSigma;     // 1σ in LateralRatio space
         }
         [SerializeField]
         public List<GizmoBone> GizmoBones = new List<GizmoBone>();
@@ -778,15 +990,27 @@ namespace Basis.Scripts.Drivers
                 BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
             }
         }
-        public void AddGizmo(string Name, Transform Transform, float Scale, Color Color, BasisBoneTrackedRole Bone)
+        /// <summary>
+        /// Creates a sphere-mesh gizmo whose non-uniform scale renders as an ellipsoid
+        /// representing one role's calibration acceptance region. The mesh is unit
+        /// diameter, so per-frame scale will be in meters across each axis.
+        /// </summary>
+        public void AddCalibrationRegion(string Name, BasisBoneTrackedRole role, float expectedHeight, float expectedLateral, float heightSigma, float lateralSigma, Color color)
         {
-            GizmoBone GizmoBone = new GizmoBone();
-            if (BasisGizmoManager.CreateSphereGizmo(Name, out int LinkedID, Transform.position, Scale, Color))
+            // Initial pose is a placeholder; DrawGizmos overwrites it next frame from
+            // ConstellationDebug.BodyOrigin/BodyRotation. Scale of 1 keeps the placeholder
+            // visually inert if the first DrawGizmos pass is delayed.
+            if (BasisGizmoManager.CreateSphereGizmo(Name, out int LinkedID, Vector3.zero, 1f, color))
             {
-                GizmoBone.GizmoReference = LinkedID;
-                GizmoBone.GizmoTransform = Transform;
-                GizmoBone.Control = Bone;
-                GizmoBones.Add(GizmoBone);
+                GizmoBones.Add(new GizmoBone
+                {
+                    GizmoReference = LinkedID,
+                    Control = role,
+                    ExpectedHeight = expectedHeight,
+                    ExpectedLateral = expectedLateral,
+                    HeightSigma = heightSigma,
+                    LateralSigma = lateralSigma,
+                });
             }
         }
     }

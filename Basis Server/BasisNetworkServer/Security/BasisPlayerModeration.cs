@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using BasisNetworkCore;
+using BasisNetworkCore.Security;
 using BasisPermissions;
 using System;
 using System.Collections.Concurrent;
@@ -8,6 +9,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
+using BasisNetworking.InitalData;
+using BasisNetworking.InitialData;
 using BasisServerHandle;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static BasisPermissions.PermissionManager;
@@ -331,6 +334,16 @@ namespace BasisNetworkServer.Security
                         HandleGlobalToggle(peer, "World", BasisGlobalLockManager.ToggleWorlds()));
                     break;
 
+                case AdminRequestMode.GlobalToggleServers:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Server share", BasisGlobalLockManager.ToggleServers()));
+                    break;
+
+                case AdminRequestMode.GlobalToggleThirdPerson:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Third-person camera", BasisGlobalLockManager.ToggleThirdPerson()));
+                    break;
+
                 case AdminRequestMode.SetGlobalHeadlessAudio:
                     Require(peer, PermNodes.ModerationHeadlessAudio, () =>
                         HandleHeadlessAudioSet(peer, reader));
@@ -366,9 +379,185 @@ namespace BasisNetworkServer.Security
                     Require(peer, PermNodes.PermissionsEdit, () =>
                         HandlePermissionEdit(mode, peer, reader));
                     break;
+
+                // ===== SERVER CONFIG =====
+                case AdminRequestMode.SetServerName:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                        SendBackMessage(peer, ApplyServerName(reader.GetString())));
+                    break;
+
+                case AdminRequestMode.SetServerMotd:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                        SendBackMessage(peer, ApplyServerMotd(reader.GetString())));
+                    break;
+
+                case AdminRequestMode.SetWhitelistMode:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                        SendBackMessage(peer, ApplyWhitelistMode(reader.GetByte())));
+                    break;
+
+                case AdminRequestMode.AddWhitelist:
+                    Require(peer, PermNodes.ModerationWhitelist, () =>
+                        SendBackMessage(peer, ApplyWhitelistAdd(reader.GetString())));
+                    break;
+
+                case AdminRequestMode.RemoveWhitelist:
+                    Require(peer, PermNodes.ModerationWhitelist, () =>
+                        SendBackMessage(peer, ApplyWhitelistRemove(reader.GetString())));
+                    break;
+
+                case AdminRequestMode.AddDefaultLibraryItem:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                    {
+                        byte itemMode = reader.GetByte();
+                        string itemUrl = reader.GetString();
+                        string itemPassword = reader.GetString();
+                        SendBackMessage(peer, ApplyAddDefaultLibraryItem(itemMode, itemUrl, itemPassword));
+                    });
+                    break;
+
+                case AdminRequestMode.RemoveDefaultLibraryItem:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                    {
+                        string removeUrl = reader.GetString();
+                        SendBackMessage(peer, ApplyRemoveDefaultLibraryItem(removeUrl));
+                    });
+                    break;
             }
 
             reader.Recycle();
+        }
+
+        // =========================
+        // Server-config admin operations
+        // =========================
+        // Each mutation updates the live Configuration field (read on the next info-query
+        // response, ServerMetaDataMessage, or connection check) and then persists the
+        // current state of Configuration to config/config.xml so the change survives a
+        // restart. SaveConfig is intentionally fire-and-forget on the calling thread —
+        // the XML is small and admin operations are rare.
+
+        private static string ApplyServerName(string newName)
+        {
+            if (newName == null) return "Name was null.";
+            if (newName.Length > BasisNetworkCommons.ServerInfoNameMaxLength)
+                newName = newName.Substring(0, BasisNetworkCommons.ServerInfoNameMaxLength);
+            NetworkServer.Configuration.ServerName = newName;
+            SaveConfig();
+            return $"Server name set to '{newName}'.";
+        }
+
+        private static string ApplyServerMotd(string newMotd)
+        {
+            if (newMotd == null) newMotd = string.Empty;
+            if (newMotd.Length > BasisNetworkCommons.ServerInfoMotdMaxLength)
+                newMotd = newMotd.Substring(0, BasisNetworkCommons.ServerInfoMotdMaxLength);
+            NetworkServer.Configuration.ServerMotd = newMotd;
+            SaveConfig();
+            return "Server MOTD updated.";
+        }
+
+        private static string ApplyWhitelistMode(byte mode)
+        {
+            if (!Enum.IsDefined(typeof(BasisUserRestrictionMode), mode))
+                return $"Unknown restriction mode value {mode}.";
+            BasisUserRestrictionMode parsed = (BasisUserRestrictionMode)mode;
+            NetworkServer.Configuration.BasisUserRestrictionMode = parsed;
+            SaveConfig();
+            return $"Restriction mode set to {parsed}.";
+        }
+
+        private static string ApplyWhitelistAdd(string uuid)
+        {
+            if (string.IsNullOrWhiteSpace(uuid)) return "UUID was empty.";
+            if (NetworkServer.Whitelist == null) return "Whitelist not initialized.";
+            // Fire-and-forget: BasisWhiteList.AddToWhitelistAsync appends one line and
+            // is safe to leave running while we report the operation back to the admin.
+            _ = NetworkServer.Whitelist.AddToWhitelistAsync(uuid);
+            return $"Added {uuid} to whitelist.";
+        }
+
+        private static string ApplyWhitelistRemove(string uuid)
+        {
+            if (string.IsNullOrWhiteSpace(uuid)) return "UUID was empty.";
+            if (NetworkServer.Whitelist == null) return "Whitelist not initialized.";
+            _ = NetworkServer.Whitelist.RemoveFromWhitelistAsync(uuid);
+            return $"Removed {uuid} from whitelist.";
+        }
+
+        private static string ApplyAddDefaultLibraryItem(byte mode, string url, string password)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return "URL was empty.";
+            // Mode is the client's BundledContentHolder.Mode: 0=Avatar, 1=World, 2=Prop.
+            if (mode > 2) return $"Unknown library mode {mode} (expected 0=Avatar, 1=World, 2=Prop).";
+
+            // Defensive split of `url#fragment` — if the admin pasted a copy-able share
+            // string with the password baked into the URL fragment, peel it off here so
+            // the password lands in the Password field instead of the URL field. The
+            // client UI normally splits this before sending, but this catches admins
+            // who skipped that path or used an older client.
+            int hashIndex = url.IndexOf('#');
+            if (hashIndex >= 0)
+            {
+                string fragment = url.Substring(hashIndex + 1);
+                url = url.Substring(0, hashIndex);
+                if (string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(fragment))
+                {
+                    try
+                    {
+                        password = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(fragment));
+                    }
+                    catch
+                    {
+                        // Fragment wasn't valid base64; leave password empty rather than
+                        // storing the raw fragment bytes.
+                    }
+                }
+            }
+
+            BasisDefaultLibraryConfiguration config = new BasisDefaultLibraryConfiguration
+            {
+                Mode = mode,
+                Url = url,
+                Password = password ?? string.Empty,
+            };
+
+            string written = BasisDefaultLibraryLoader.SaveItem(Configuration.DefaultLibraryFolderName, config);
+            if (string.IsNullOrEmpty(written))
+            {
+                return "Failed to persist default library entry — see server log.";
+            }
+
+            // Push the updated list to every connected client so the new entry shows
+            // up in their library immediately, not just on next connect.
+            BasisNetworkServerLibrary.BroadcastLibraryToAll();
+            return $"Default library entry added ({Path.GetFileName(written)}).";
+        }
+
+        private static string ApplyRemoveDefaultLibraryItem(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return "URL was empty.";
+
+            int removed = BasisDefaultLibraryLoader.RemoveItem(Configuration.DefaultLibraryFolderName, url);
+            if (removed <= 0)
+            {
+                return $"No default library entry matched URL '{url}'.";
+            }
+
+            BasisNetworkServerLibrary.BroadcastLibraryToAll();
+            return $"Removed {removed} default library entry(ies) for URL '{url}'.";
+        }
+
+        private static void SaveConfig()
+        {
+            try
+            {
+                NetworkServer.Configuration.SaveToXml(Configuration.GetDefaultPath());
+            }
+            catch (Exception e)
+            {
+                BNL.LogError($"Failed to persist server configuration: {e.Message}");
+            }
         }
 
         // =========================

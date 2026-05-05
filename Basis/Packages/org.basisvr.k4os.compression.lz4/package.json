@@ -7,5 +7,6 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com/@BasisVR"
   },
-  "repository": "https://github.com/BasisVR/UpmBuilds"
+  "repository": "https://github.com/BasisVR/UpmBuilds",
+  "license": "MIT"
 }

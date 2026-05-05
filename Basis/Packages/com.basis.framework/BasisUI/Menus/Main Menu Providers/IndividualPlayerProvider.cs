@@ -656,6 +656,7 @@ namespace Basis.BasisUI
                         if (perf.CollidersTrimmed > 0) parts.Add($"-{perf.CollidersTrimmed} colliders");
                         if (perf.JiggleRigsTrimmed > 0) parts.Add($"-{perf.JiggleRigsTrimmed} jiggle rigs");
                         if (perf.JiggleCollidersTrimmed > 0) parts.Add($"-{perf.JiggleCollidersTrimmed} jiggle colliders");
+                        if (perf.CilboxBehavioursTrimmed > 0) parts.Add($"-{perf.CilboxBehavioursTrimmed} cilbox behaviours");
                         description = BasisLocalization.Get("menu.individualPlayer.perfFilter.trimmedPrefix") + string.Join(", ", parts);
                     }
                     perfField.SetDescription(description);

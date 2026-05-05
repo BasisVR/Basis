@@ -432,7 +432,7 @@ public class BasisLocalHandDriver
             TargetRotations = _targetRotations,
             CurrentRotations = _currentRotations,
             JointMapping = _jointMapping,
-            LerpFactor = LerpSpeed * DeltaTime
+            LerpFactor = math.saturate(LerpSpeed * DeltaTime)
         };
         _fingerJobHandle = slerpJob.Schedule(_fingerTransforms, interpHandle);
         _hasScheduledJob = true;

@@ -11,13 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e8f2fe5c4bf5441592e5ab381d318aca, type: 3}
   m_Name: EmbeddedItemsCatalog
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   Entries:
   - Key:
       Mode: 2
       PlacementType: 1
       Url: Personal Mirror
-      Pass: 
+      Pass:
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 1
@@ -37,7 +37,7 @@ MonoBehaviour:
       Mode: 2
       PlacementType: 1
       Url: Photo Camera
-      Pass: 
+      Pass:
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 1
@@ -52,124 +52,4 @@ MonoBehaviour:
       m_Center: {x: 0.25, y: 0.15, z: 0.1}
       m_Extents: {x: 0, y: 0, z: 0}
     HasCustomSpawnOffset: 1
-    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
-  - Key:
-      Mode: 0
-      PlacementType: 0
-      Url: https://cdn.yewnyx.net/basis/2026-02-25/gymcat/c84a7ca0c5ce4912ab5584c2840036de20260225.BEE
-      Pass: 0da01980272efbe421b7ebd5d6831d657ed96f5e5317d2f88a6dfe9e7ef5ead8
-      EmbeddedSettings:
-        IsEmbedded: 1
-        SourceType: 0
-      PinnedSettings:
-        IsPinned: 0
-        NetworkType: 0
-        IsEphemeral: 1
-    HasCustomIconAddress: 0
-    IconAddress: 
-    HasCustomBounds: 0
-    Bounds:
-      m_Center: {x: 1, y: 1, z: 1}
-      m_Extents: {x: 0, y: 0, z: 0}
-    HasCustomSpawnOffset: 0
-    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
-  - Key:
-      Mode: 0
-      PlacementType: 0
-      Url: https://cdn.yewnyx.net/basis/2026-02-25/space/c74771ec2dd84ffda33d346ada25e39420260225.BEE
-      Pass: 878ac54af853e1a7d864520a34ae68e8b370cedd89a42c09cd016cf9eb41dbae
-      EmbeddedSettings:
-        IsEmbedded: 1
-        SourceType: 0
-      PinnedSettings:
-        IsPinned: 0
-        NetworkType: 0
-        IsEphemeral: 1
-    HasCustomIconAddress: 0
-    IconAddress: 
-    HasCustomBounds: 0
-    Bounds:
-      m_Center: {x: 1, y: 1, z: 1}
-      m_Extents: {x: 0, y: 0, z: 0}
-    HasCustomSpawnOffset: 0
-    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
-  - Key:
-      Mode: 0
-      PlacementType: 0
-      Url: https://cdn.yewnyx.net/basis/2026-02-25/spaceman/f78971c1c553483a9bbe155d60f14d4e20260225.BEE
-      Pass: 091b548e5e036a2d1829b41f829a0dab3f30a41d4d01eb9822b316fedb2934dd
-      EmbeddedSettings:
-        IsEmbedded: 1
-        SourceType: 0
-      PinnedSettings:
-        IsPinned: 0
-        NetworkType: 0
-        IsEphemeral: 1
-    HasCustomIconAddress: 0
-    IconAddress: 
-    HasCustomBounds: 0
-    Bounds:
-      m_Center: {x: 1, y: 1, z: 1}
-      m_Extents: {x: 0, y: 0, z: 0}
-    HasCustomSpawnOffset: 0
-    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
-  - Key:
-      Mode: 0
-      PlacementType: 0
-      Url: https://cdn.yewnyx.net/basis/2026-02-25/yun/e60b159bfa9d49b1a7f4480d5999ee0320260225.BEE
-      Pass: e250499a5a00ebe3ee0c5447ca41677e5a4c6d33d152fd77804a5963f384652e
-      EmbeddedSettings:
-        IsEmbedded: 1
-        SourceType: 0
-      PinnedSettings:
-        IsPinned: 0
-        NetworkType: 0
-        IsEphemeral: 1
-    HasCustomIconAddress: 0
-    IconAddress: 
-    HasCustomBounds: 0
-    Bounds:
-      m_Center: {x: 1, y: 1, z: 1}
-      m_Extents: {x: 0, y: 0, z: 0}
-    HasCustomSpawnOffset: 0
-    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
-  - Key:
-      Mode: 0
-      PlacementType: 0
-      Url: https://BasisFramework.b-cdn.net/Version2/Avatars/Public/leon3/2dc901c623344998a4bc07508fe1251a20260418.BEE
-      Pass: a323d55db09bc39461a90a43ac3ae58edaa69ebcec11ecab39a8f2859ea87ea1
-      EmbeddedSettings:
-        IsEmbedded: 1
-        SourceType: 0
-      PinnedSettings:
-        IsPinned: 0
-        NetworkType: 0
-        IsEphemeral: 1
-    HasCustomIconAddress: 0
-    IconAddress: 
-    HasCustomBounds: 0
-    Bounds:
-      m_Center: {x: 1, y: 1, z: 1}
-      m_Extents: {x: 0, y: 0, z: 0}
-    HasCustomSpawnOffset: 0
-    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
-  - Key:
-      Mode: 0
-      PlacementType: 0
-      Url: https://drive.google.com/uc?export=download&id=10pe5tC6Ah2LM6P9NnUFMo2nvTYvGSwCA
-      Pass: 43800ee3f6c319a16d4234141585bdb09b2b579df6d63a4c0e6b67595a76a409
-      EmbeddedSettings:
-        IsEmbedded: 1
-        SourceType: 0
-      PinnedSettings:
-        IsPinned: 0
-        NetworkType: 0
-        IsEphemeral: 1
-    HasCustomIconAddress: 0
-    IconAddress: 
-    HasCustomBounds: 0
-    Bounds:
-      m_Center: {x: 1, y: 1, z: 1}
-      m_Extents: {x: 0, y: 0, z: 0}
-    HasCustomSpawnOffset: 0
     SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}

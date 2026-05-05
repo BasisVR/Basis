@@ -310,6 +310,10 @@ namespace Basis.BasisUI
                     {
                         break;
                     }
+                    // Drive the screen-space-constant compensation off the LIVE camera FOV.
+                    // In third-person the FOV ramps with the zoom (50–75°); the matching
+                    // scaleFactor keeps the menu the same on-screen size as the user scrolls,
+                    // which is the existing 1p invariant.
                     float fieldOfView = BasisLocalCameraDriver.CameraInstance.fieldOfView;
                     float tanFOV = Mathf.Tan((Mathf.Deg2Rad * fieldOfView) / 2f);
 
@@ -348,8 +352,8 @@ namespace Basis.BasisUI
                         break;
                     }
                     BasisLocalCameraDriver.GetPositionAndRotation(out Vector3 CameraPosition, out Quaternion CameraRotation);
-                    Rotation = Quaternion.LookRotation(CameraRotation * Vector3.forward, Vector3.up);
-                    transform.SetPositionAndRotation(CameraPosition + VRRootOffset, Rotation);
+                    Quaternion floatingRotation = Quaternion.LookRotation(CameraRotation * Vector3.forward, Vector3.up);
+                    transform.SetPositionAndRotation(CameraPosition + VRRootOffset, floatingRotation);
                     break;
 
                 case PanelGroupRootMode.PlaySpaceStable:

@@ -41,7 +41,7 @@ public static class BasisOpenLipSyncDriver
 
             if (modelAsset == null)
             {
-                BasisDebug.Log("[OpenLipSync] No model found at " + ModelAddress + " - OpenLipSync disabled, using uLipSync fallback");
+                BasisDebug.Log("[OpenLipSync] No model found at " + ModelAddress + " - OpenLipSync disabled");
                 return;
             }
 
@@ -65,7 +65,7 @@ public static class BasisOpenLipSyncDriver
         }
         catch (Exception ex)
         {
-            BasisDebug.LogWarning($"[OpenLipSync] Initialization exception: {ex.Message} - falling back to uLipSync");
+            BasisDebug.LogWarning($"[OpenLipSync] Initialization exception: {ex.Message}");
             Shutdown();
         }
     }
@@ -158,7 +158,7 @@ public static class BasisOpenLipSyncDriver
 
     /// <summary>
     /// Fired when a slot is forcefully revoked (e.g. MaxSlots was lowered).
-    /// The listener should dispose its BasisOpenLipSyncContext and fall back to uLipSync.
+    /// The listener should dispose its BasisOpenLipSyncContext and stop producing visemes.
     /// The backend context is already destroyed before this fires — do NOT call ReleaseSlot.
     /// </summary>
     public static event Action<EntityId> OnSlotRevoked;

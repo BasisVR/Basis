@@ -210,18 +210,14 @@ MonoBehaviour:
       BasisRemoteVisemeAudioDriver: {fileID: 0}
       audioSource: {fileID: 0}
       visemeDriver:
-        smoothAmount: 70
-        HasViseme: 
+        HasViseme:
         BlendShapeCount: 0
         Player: {fileID: 0}
         Avatar: {fileID: 0}
-        uLipSync: {fileID: 0}
-        uLipSyncBlendShape: {fileID: 0}
-        phonemeBlendShapeTable: []
         FirstTime: 0
         WasSuccessful: 0
         HashInstanceID: -1
-        uLipSyncEnabledState: 1
+        FaceVisible: 1
       IsPlaying: 0
       pcmBuffer: []
       pcmLength: 0

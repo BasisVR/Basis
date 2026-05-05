@@ -64,6 +64,7 @@ namespace Basis
                 }
             }
             BasisLoadableLoader.LoadXML(Configuration.InitialResourcesFolderName);
+            BasisDefaultLibraryLoader.LoadXML(Configuration.DefaultLibraryFolderName);
 
             AppDomain.CurrentDomain.ProcessExit += async (sender, eventArgs) =>
             {

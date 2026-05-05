@@ -1,6 +1,7 @@
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Behaviour;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Networking.Behaviour;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,7 +13,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     /// Piggybacks on player movement (AdditionalAvatarData, Channel 2, unreliable).
     ///
     /// Automatically filters out viseme/blink/laughter blendshapes — those are
-    /// reconstructed remotely by uLipSync and BasisRemoteFaceManagement.
+    /// reconstructed remotely by OpenLipSync and BasisRemoteFaceManagement.
     /// Only face-tracking blendshapes are synced.
     ///
     /// Timing is driven by BasisBlendShapeDriver (Simulate/Apply pattern),
@@ -24,7 +25,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     ///   OnWeightsReceived               — fires on remote side after decode
     ///   SyncedIndices / SyncedCount     — introspect what's being synced
     /// </summary>
-    public class BasisBlendShapeSync : BasisAvatarMonoBehaviour
+    public class BasisBlendShapeSync : BasisNetworkAvatarBehaviour
     {
         [Tooltip("SkinnedMeshRenderer to sync. If null, auto-detects from avatar FaceVisemeMesh.")]
         public SkinnedMeshRenderer TargetMesh;
@@ -142,7 +143,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             if (avatar != null)
             {
-                // Exclude viseme shapes (reconstructed by remote uLipSync)
+                // Exclude viseme shapes (reconstructed by remote OpenLipSync)
                 if (TargetMesh == avatar.FaceVisemeMesh && avatar.FaceVisemeMovement != null)
                 {
                     for (int i = 0; i < avatar.FaceVisemeMovement.Length; i++)

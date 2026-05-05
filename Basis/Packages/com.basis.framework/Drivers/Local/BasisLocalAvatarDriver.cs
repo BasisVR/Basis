@@ -155,9 +155,10 @@ namespace Basis.Scripts.Drivers
             Networking.NetworkedAvatar.BasisNetworkAvatarCompressor.CaptureTPose();
 
             player.LocalBoneDriver.RemoveAllListeners();
-            BasisLocalEyeDriver.Liveliness = player.BasisAvatar.EyeLiveliness;
-            BasisLocalEyeDriver.Attentiveness = player.BasisAvatar.EyeAttentiveness;
-            BasisDebug.Log($"Eye Personality - Liveliness: {BasisLocalEyeDriver.Liveliness:F1} | Attentiveness: {BasisLocalEyeDriver.Attentiveness:F1}", BasisDebug.LogTag.Avatar);
+            BasisLocalEyeDriverData.Liveliness = player.BasisAvatar.EyeLiveliness;
+            BasisLocalEyeDriverData.Attentiveness = player.BasisAvatar.EyeAttentiveness;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
+            BasisDebug.Log($"Eye Personality - Liveliness: {BasisLocalEyeDriverData.Liveliness:F1} | Attentiveness: {BasisLocalEyeDriverData.Attentiveness:F1}", BasisDebug.LogTag.Avatar);
             BasisLocalEyeDriver.Initalize();
             LocalRenderMeshSettings(BasisLayerMapper.LocalAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, player.BasisAvatar.FaceVisemeMesh);
 

@@ -82,13 +82,15 @@ namespace OpenLipSync.Inference
 
             if (_melFrameCount >= _maxMelFrames)
             {
-                // Shift left by one frame
-                Array.Copy(_melSequence, _melBands, _melSequence, 0, (_maxMelFrames - 1) * _melBands);
+                // Shift left by one frame. Span<T>.CopyTo handles overlapping ranges
+                // (memmove semantics) the same as Array.Copy.
+                _melSequence.AsSpan(_melBands, (_maxMelFrames - 1) * _melBands)
+                    .CopyTo(_melSequence.AsSpan(0));
                 _melFrameCount = _maxMelFrames - 1;
             }
 
             // Append new frame
-            Array.Copy(melFrame, 0, _melSequence, _melFrameCount * _melBands, bands);
+            melFrame.AsSpan(0, bands).CopyTo(_melSequence.AsSpan(_melFrameCount * _melBands));
             _melFrameCount++;
         }
 

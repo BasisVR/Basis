@@ -34,7 +34,7 @@ namespace HVR.Basis.Comms
         // re-entered OnPacketReceived mid-iteration (e.g. buffered-message drains
         // during OnCalibration).
         private float _queuedSeconds;
-        private float[] current;
+        internal float[] current;
         private float[] previous;
         private float[] target;
         private byte[] _sendBuffer;

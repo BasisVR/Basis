@@ -7,6 +7,13 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
+    /// <summary>
+    /// Helpers for populating avatar diagnostics. The diagnostic content
+    /// (texture stats, tracker list, face/eye tracking) lives on the Developer
+    /// tab's Avatar Debug section; this class still hosts the "My Avatar" tab
+    /// itself (currently empty — kept as a placeholder so the tab name and
+    /// position are reserved) and the helpers Developer calls into.
+    /// </summary>
     public static class SettingsProviderAvatarStats
     {
         public static PanelTabPage AvatarStatsTab(PanelTabGroup tabGroup)
@@ -15,53 +22,9 @@ namespace Basis.BasisUI
             PanelElementDescriptor descriptor = tab.Descriptor;
             descriptor.SetIcon(AddressableAssets.Sprites.Settings);
             descriptor.SetTitle(BasisLocalization.Get("settings.tab.myavatar"));
-            descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.description"));
-
-            RectTransform container = descriptor.ContentParent;
-
-            PanelButton scanButton = PanelButton.CreateNew(container);
-            scanButton.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.scan"));
-            scanButton.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.scan.description"));
-            scanButton.OnClicked += () =>
-            {
-                Object.Destroy(scanButton.gameObject);
-                PopulateStats(container);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(container);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(tabGroup.Descriptor.ContentParent);
-                descriptor.ForceRebuild();
-            };
-
-            PanelElementDescriptor trackersGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            trackersGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.trackerRoles"));
-            trackersGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.trackerRoles.description"));
-
-            PanelToggle trackerRolesToggle = PanelToggle.CreateNewEntry(trackersGroup.ContentParent);
-            trackerRolesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.showTrackers"));
-            trackerRolesToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.showTrackers.description"));
-            trackerRolesToggle.AssignBinding(BasisSettingsDefaults.AvatarShowTrackerRoles);
-
-            PanelElementDescriptor trackerListGroup = null;
-            void CreateTrackerList()
-            {
-                trackerListGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-                trackerListGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.assignedTrackers"));
-                PopulateTrackerRoles(trackerListGroup);
-            }
-            if (BasisSettingsDefaults.AvatarShowTrackerRoles.RawValue) CreateTrackerList();
-            trackerRolesToggle.OnValueChanged += on =>
-            {
-                if (trackerListGroup != null)
-                {
-                    Object.Destroy(trackerListGroup.gameObject);
-                    trackerListGroup = null;
-                }
-                if (on) CreateTrackerList();
-                LayoutRebuilder.ForceRebuildLayoutImmediate(container);
-                descriptor.ForceRebuild();
-            };
-
             descriptor.ForceRebuild();
+
+            SettingsProvider.AvatarCustomizationBuilder(tab.Descriptor.ContentParent);
             return tab;
         }
 

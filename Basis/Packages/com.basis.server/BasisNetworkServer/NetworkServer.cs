@@ -22,6 +22,13 @@ public static class NetworkServer
     public static LNLNetManager Server;
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static Configuration Configuration;
+    /// <summary>
+    /// Allow-list consulted at <see cref="BasisServerHandle.BasisServerHandleEvents.OnNetworkAccepted"/>
+    /// when <see cref="Configuration.BasisUserRestrictionMode"/> is set to <c>WhiteList</c>.
+    /// File-backed (BasisWhiteList.txt under the config folder) so admin-panel mutations
+    /// persist across restarts.
+    /// </summary>
+    public static BasisNetworkServer.Security.BasisWhiteList Whitelist;
     // Cached snapshot rebuilt on connect/disconnect — avoids ToArray() alloc on every broadcast.
     private static volatile NetPeer[] _peerSnapshot = Array.Empty<NetPeer>();
     public static NetPeer[] PeerSnapshot => _peerSnapshot;
@@ -108,10 +115,13 @@ public static class NetworkServer
 
             Directory.CreateDirectory(configDir);
             PermissionIntegration.Init(Path.Combine(configDir, "permissions.xml"));
+            Whitelist = new BasisNetworkServer.Security.BasisWhiteList(Path.Combine(configDir, "BasisWhiteList.txt"));
         }
         else
         {
             PermissionIntegration.InitWithoutDisc();
+            // Best-effort in-memory whitelist when the host disabled disk support.
+            Whitelist = new BasisNetworkServer.Security.BasisWhiteList();
         }
     }
 

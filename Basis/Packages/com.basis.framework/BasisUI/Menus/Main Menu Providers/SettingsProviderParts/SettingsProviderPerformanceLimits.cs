@@ -232,6 +232,15 @@ public static class SettingsProviderPerformanceLimits
             BasisSettingsDefaults.MaxPerfAnimators,
             1, 32, true);
 
+        // Cilbox script behaviours: each CilboxProxy on a remote avatar is one
+        // sandboxed MonoBehaviour with its own per-frame Update/FixedUpdate tick.
+        AddLimitPair(runtime.ContentParent,
+            BasisLocalization.Get("settings.perf.cilboxBehaviours.toggle"),
+            BasisLocalization.Get("settings.perf.cilboxBehaviours.slider"),
+            BasisSettingsDefaults.UsePerfLimitCilboxBehaviours,
+            BasisSettingsDefaults.MaxPerfCilboxBehaviours,
+            0, 64, true);
+
         // ---------------- Content Tags ----------------
         // Sits at the bottom of the same tab so users see content-safety filters
         // alongside perf filters — same mental model ("block this avatar before it
@@ -326,5 +335,7 @@ public static class SettingsProviderPerformanceLimits
         BasisSettingsDefaults.MaxPerfCloth.ResetToDefault();
         BasisSettingsDefaults.UsePerfLimitColliders.ResetToDefault();
         BasisSettingsDefaults.MaxPerfColliders.ResetToDefault();
+        BasisSettingsDefaults.UsePerfLimitCilboxBehaviours.ResetToDefault();
+        BasisSettingsDefaults.MaxPerfCilboxBehaviours.ResetToDefault();
     }
 }

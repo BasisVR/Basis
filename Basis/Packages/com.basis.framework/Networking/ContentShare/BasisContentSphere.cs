@@ -1,9 +1,11 @@
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Networking;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -50,9 +52,42 @@ public class BasisContentSphere : BasisInteractableObject
         CreatorDisplayName = creatorDisplayName;
         InteractRange = 2f;
 
-        _metaLoadCts = new CancellationTokenSource();
-        _ = LoadMetadataImageAsync(_metaLoadCts.Token);
-        Label.text = GetContentTypeName();
+        // Server shares carry a connection string in ContentURL — there's no
+        // bundle to introspect, so skip the metadata fetch and just show the
+        // address as the label.
+        if (contentType == ContentShareType.Server)
+        {
+            ApplyServerLabel();
+        }
+        else
+        {
+            _metaLoadCts = new CancellationTokenSource();
+            _ = LoadMetadataImageAsync(_metaLoadCts.Token);
+            Label.text = GetContentTypeName();
+        }
+    }
+
+    private void ApplyServerLabel()
+    {
+        string display = ContentURL ?? string.Empty;
+        if (SavedServerStore.TryParseConnectionString(display, out string addr, out ushort port, out bool _, out string _))
+        {
+            display = $"{addr}:{port}";
+        }
+        if (Label != null) Label.text = $"{GetContentTypeName()}\n{display}";
+
+        if (Renderer != null)
+        {
+            // Solid type color, no atlas texture lookup needed.
+            texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, GetTypeColor());
+            texture.Apply();
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            Renderer.GetPropertyBlock(block, MaterialIndex);
+            block.SetTexture("_MainTex", texture);
+            block.SetTexture("_EmissionMap", texture);
+            Renderer.SetPropertyBlock(block, MaterialIndex);
+        }
     }
 
     private void Start()
@@ -165,9 +200,11 @@ public class BasisContentSphere : BasisInteractableObject
         string sharerLine;
         bool hasName = !string.IsNullOrEmpty(CreatorDisplayName);
         bool hasUUID = !string.IsNullOrEmpty(CreatorUUID);
+        // Render the UUID/DID at half size via TMP rich text — the full DID is
+        // long enough to wrap and dominate the dialog when shown at body size.
         if (hasName && hasUUID)
         {
-            sharerLine = $"Shared by {CreatorDisplayName} ({CreatorUUID})";
+            sharerLine = $"Shared by {CreatorDisplayName} <size=50%>({CreatorUUID})</size>";
         }
         else if (hasName)
         {
@@ -175,14 +212,25 @@ public class BasisContentSphere : BasisInteractableObject
         }
         else if (hasUUID)
         {
-            sharerLine = $"Shared by {CreatorUUID}";
+            sharerLine = $"Shared by <size=50%>{CreatorUUID}</size>";
         }
         else
         {
             sharerLine = "Shared by an unknown player";
         }
 
-        string description = $"{sharerLine}\n\nSave this shared {typeName.ToLower()} to your library?";
+        string description;
+        if (ContentType == ContentShareType.Server)
+        {
+            string addrLine = ContentURL ?? string.Empty;
+            if (SavedServerStore.TryParseConnectionString(addrLine, out string a, out ushort p, out bool _, out string _))
+                addrLine = $"{a}:{p}";
+            description = $"{sharerLine}\n\nAdd {addrLine} to your saved server list?";
+        }
+        else
+        {
+            description = $"{sharerLine}\n\nSave this shared {typeName.ToLower()} to your library?";
+        }
 
         BasisMainMenu.Open();
         BasisMainMenu.Instance.OpenDialogue(title, description, "Save", "Delete", value =>
@@ -200,6 +248,12 @@ public class BasisContentSphere : BasisInteractableObject
 
     private async void SaveToLibrary()
     {
+        if (ContentType == ContentShareType.Server)
+        {
+            SaveServerToSavedList();
+            return;
+        }
+
         BundledContentHolder.Mode mode;
         switch (ContentType)
         {
@@ -227,6 +281,39 @@ public class BasisContentSphere : BasisInteractableObject
         await BasisDataStoreItemKeys.AddNewKey(key);
         BasisDebug.Log($"Saved content sphere to library: {ContentURL} as {mode}", BasisDebug.LogTag.Networking);
     }
+
+    private void SaveServerToSavedList()
+    {
+        if (!SavedServerStore.TryParseConnectionString(ContentURL, out string address, out ushort port, out bool _, out string password))
+        {
+            BasisDebug.LogWarning($"Server share had unparseable connection string: {ContentURL}");
+            return;
+        }
+
+        List<SavedServerEntry> entries = SavedServerStore.Load();
+        // Skip duplicates by (address, port) so re-tapping the same orb (or
+        // accepting two overlapping shares) doesn't bloat the saved list.
+        foreach (SavedServerEntry existing in entries)
+        {
+            if (string.Equals(existing.Address, address, StringComparison.OrdinalIgnoreCase)
+                && existing.Port == port)
+            {
+                BasisDebug.Log($"Server share '{address}:{port}' already in saved list — skipping.");
+                return;
+            }
+        }
+
+        entries.Add(new SavedServerEntry
+        {
+            DisplayName = string.IsNullOrEmpty(CreatorDisplayName) ? string.Empty : $"Shared by {CreatorDisplayName}",
+            Address = address,
+            Port = port,
+            HasPassword = !string.IsNullOrEmpty(password),
+            Password = password ?? string.Empty,
+        });
+        SavedServerStore.Save(entries);
+        BasisDebug.Log($"Saved server share '{address}:{port}' from {CreatorDisplayName}.", BasisDebug.LogTag.Networking);
+    }
     public void RequestRemove()
     {
         BasisContentShareManager.RequestRemoveSphere(SphereNetID);
@@ -239,6 +326,7 @@ public class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Avatar: return new Color(0.3f, 0.5f, 1.0f, 1f);
             case ContentShareType.Prop: return new Color(0.3f, 1.0f, 0.5f, 1f);
             case ContentShareType.World: return new Color(1.0f, 0.6f, 0.2f, 1f);
+            case ContentShareType.Server: return new Color(0.8f, 0.4f, 1.0f, 1f);
             default: return Color.white;
         }
     }
@@ -250,6 +338,7 @@ public class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Avatar: return "Avatar";
             case ContentShareType.Prop: return "Prop";
             case ContentShareType.World: return "World";
+            case ContentShareType.Server: return "Server";
             default: return "Unknown";
         }
     }

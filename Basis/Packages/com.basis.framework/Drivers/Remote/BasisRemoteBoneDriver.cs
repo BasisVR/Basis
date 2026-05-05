@@ -163,12 +163,18 @@ public struct BasisRemoteBoneJob : IJobParallelFor
         quaternion headR = math.mul(HeadRot[i], TposeHeadRot[i]);
         quaternion hipsR = math.mul(TposeHipsRot[i], HipsRot[i]);
 
-        // Convert to avatar-local positions relative to rootWorld
-        float3 rootWorld = RootPos[i];
-        float3 headP = HeadPos[i] - rootWorld;
-        float3 hipsP = HipsPos[i] - rootWorld;
+        // World positions for downstream apply jobs. Previously this code
+        // subtracted rootWorld, which silently worked only because root
+        // never moved off origin in the old hips-as-world design. With the
+        // current root-as-derived design root actually moves, so subtracting
+        // would shift every consumer (mouth/nameplate/center-eye lookups —
+        // all of which feed SetPositionAndRotation) by -rootWorld. Use the
+        // gathered world positions directly.
+        float3 headP = HeadPos[i];
+        float3 hipsP = HipsPos[i];
 
-        // Forward chain from head using headR and scaled offsets
+        // Forward chain from head using headR and scaled offsets — already in
+        // world space because headP is world.
         float3 neckP = headP + math.mul(headR, sc.offsets_scaled_Neck);
         float3 chestP = neckP + math.mul(headR, sc.offsets_scaled_Chest);
         float3 spineP = chestP + math.mul(headR, sc.offsets_scaled_Spine);
@@ -365,11 +371,49 @@ public struct ApplySkeletonRotationsJob : IJobParallelForTransform
 }
 
 /// <summary>
-/// Burst job that writes hips world position and rotation for all remote players.
-/// Uses the existing sHips TransformAccessArray (1 entry per player).
+/// Burst job that writes the avatar root's world position and rotation for all remote
+/// players. Uses the sRoots TransformAccessArray (1 entry per player). Inputs are the
+/// derived root pose computed inline by <c>BulkCopyHipsAndDeriveJob</c> from the
+/// network's hips world pose + the local hips deltas — root rides along so the
+/// hips bone lands exactly at the high-precision world pose we received.
 /// </summary>
 [BurstCompile]
-public struct ApplyHipsJob : IJobParallelForTransform
+public struct ApplyRootJob : IJobParallelForTransform
+{
+    [ReadOnly] public NativeArray<float3> Positions;
+    [ReadOnly] public NativeArray<quaternion> Rotations;
+
+    public void Execute(int index, TransformAccess transform)
+    {
+        transform.SetPositionAndRotation(Positions[index], Rotations[index]);
+    }
+}
+
+// ComputeRootFromHipsJob was folded into BasisRemoteNetworkDriver.BulkCopyHipsAndDeriveJob.
+// One Burst dispatch per frame fans out all per-player network state AND derives
+// the root pose in a single pass, instead of three separate jobs round-tripping
+// through temp buffers. See ScheduleBulkCopyHipsAndDerive on the network driver.
+
+/// <summary>
+/// Burst job that writes the hips bone's WORLD position and rotation directly
+/// via <see cref="TransformAccess.SetPositionAndRotation"/>. The wire carries
+/// hips world at high precision (Position/Rotation slots), and applying it
+/// world-side bypasses any assumptions about the rig hierarchy — Unity's
+/// SetPositionAndRotation walks the actual parent chain (Animator → Armature →
+/// Hips, or any other layout) and computes the correct localPosition/local
+/// Rotation to land hips exactly at the received world pose.
+///
+/// Must be scheduled AFTER the root apply (rootApplyJob): the localPosition
+/// Unity derives for hips depends on the current parent transform, so the
+/// parent must already be in its final per-frame pose when this runs.
+///
+/// Hips is excluded from the bone-rotations packet (BONE_WRITE_ORDER), so this
+/// is the only writer of hips orientation. Other bones (chest, spine, etc.)
+/// are written by ApplySkeletonRotationsJob and chain off whatever local
+/// rotation Unity computes here.
+/// </summary>
+[BurstCompile]
+public struct ApplyHipsWorldJob : IJobParallelForTransform
 {
     [ReadOnly] public NativeArray<float3> Positions;
     [ReadOnly] public NativeArray<quaternion> Rotations;
@@ -420,6 +464,11 @@ public static class RemoteBoneJobSystem
     static NativeList<quaternion> sTPoseHeadRot;
     /// <summary>TPose hips quaternions per avatar.</summary>
     static NativeList<quaternion> sTPoseHipsRot;
+    /// <summary>TPose hips localPosition per avatar — base for the hips delta apply.</summary>
+    static NativeList<float3> sTPoseHipsLocalPos;
+    /// <summary>TPose hips localRotation per avatar — base for the hips rotation delta apply
+    /// (final hips.localRotation = this × received rotation delta).</summary>
+    static NativeList<quaternion> sTPoseHipsLocalRot;
 
     // Transform access arrays (roots / heads / hips)
     /// <summary>Root transforms per avatar.</summary>
@@ -460,19 +509,27 @@ public static class RemoteBoneJobSystem
     /// <summary>Temp head rotations.</summary>
     static NativeArray<quaternion> sTmpHeadRot, sTmpHipsRot;
 
-    // Hips + scale job data (populated from BasisRemoteNetworkDriver each frame)
+    // Hips world pose (populated from BasisRemoteNetworkDriver each frame).
+    // The wire's Position/Rotation slots carry hips world directly so the server
+    // reduction system reads hips for distance and the visually anchored bone
+    // gets the high-precision channel.
     static NativeArray<float3> sTmpHipsWorldPos;
     static NativeArray<quaternion> sTmpHipsWorldRot;
     static NativeArray<float3> sTmpAvatarScales;
     static NativeArray<byte> sTmpScaleChanged;
+    // Per-frame derived root world pose — written by the combined
+    // BulkCopyHipsAndDeriveJob in one pass alongside the hips world copy and
+    // scale. Input to ApplyRootJob. Computed such that
+    //   root.world × hips.local = hips.world (received).
+    static NativeArray<float3> sTmpRootDerivedPos;
+    static NativeArray<quaternion> sTmpRootDerivedRot;
 
     // Bookkeeping
     /// <summary>Map from external key → internal SoA index. Flat array indexed by ushort player ID; -1 = absent.</summary>
     static int[] sKeyToIndex;
-    /// <summary>Reverse map: internal SoA index → external key. Used for O(1) swap-back removal.</summary>
-    static readonly List<int> sIndexToKey = new List<int>();
-    /// <summary>Cached snapshot of sIndexToKey for bounds-check-free indexing in Schedule.
-    /// NativeArray (not int[]) so it can be passed directly to Burst bulk-copy jobs.</summary>
+    /// <summary>Reverse map: internal SoA index → external key. Maintained directly by Add/Remove,
+    /// so Schedule does not need to snapshot a managed List each frame. Sized to the high-water
+    /// mark of <see cref="AuthoringLength"/>; consumers always pair it with an explicit count.</summary>
     static NativeArray<int> sKeyArray;
     /// <summary>Pending job handle chain.</summary>
     static JobHandle sPending;
@@ -495,6 +552,8 @@ public static class RemoteBoneJobSystem
 
         sTPoseHeadRot = new NativeList<quaternion>(initialCapacity, Allocator.Persistent);
         sTPoseHipsRot = new NativeList<quaternion>(initialCapacity, Allocator.Persistent);
+        sTPoseHipsLocalPos = new NativeList<float3>(initialCapacity, Allocator.Persistent);
+        sTPoseHipsLocalRot = new NativeList<quaternion>(initialCapacity, Allocator.Persistent);
 
         sRoots = new TransformAccessArray(initialCapacity);
         sHeads = new TransformAccessArray(initialCapacity);
@@ -515,7 +574,7 @@ public static class RemoteBoneJobSystem
 
         sKeyToIndex = new int[65536];
         Array.Fill(sKeyToIndex, -1);
-        sIndexToKey.Clear();
+        EnsureKeyArrayCapacity(math.max(initialCapacity, 16));
 
         sInitialized = true;
     }
@@ -534,6 +593,8 @@ public static class RemoteBoneJobSystem
 
         if (sTPoseHeadRot.IsCreated) sTPoseHeadRot.Dispose();
         if (sTPoseHipsRot.IsCreated) sTPoseHipsRot.Dispose();
+        if (sTPoseHipsLocalPos.IsCreated) sTPoseHipsLocalPos.Dispose();
+        if (sTPoseHipsLocalRot.IsCreated) sTPoseHipsLocalRot.Dispose();
 
         if (sRoots.isCreated) sRoots.Dispose();
         if (sHeads.isCreated) sHeads.Dispose();
@@ -555,7 +616,6 @@ public static class RemoteBoneJobSystem
         if (sKeyArray.IsCreated) sKeyArray.Dispose();
 
         if (sKeyToIndex != null) Array.Fill(sKeyToIndex, -1);
-        sIndexToKey.Clear();
         sInitialized = false;
     }
 
@@ -584,7 +644,7 @@ public static class RemoteBoneJobSystem
     /// <param name="AvatarScale">Transform used for avatar scaling (if any).</param>
     /// <param name="MouthTransform">Mouth transform to be driven.</param>
     /// <returns>The provided <paramref name="key"/>.</returns>
-    public static int AddRemotePlayer(int key, Transform remotePlayerRoot, Transform head, Transform hips,BasisCalibratedCoords tposeHead, BasisCalibratedCoords tposeHips, float3 authoredCenterEyeWorld,float3 authoredMouthWorld, Transform NamePlate, Transform AvatarScale, Transform MouthTransform,float3 TposedScale,
+    public static int AddRemotePlayer(int key, Transform remotePlayerRoot, Transform head, Transform hips,BasisCalibratedCoords tposeHead, BasisCalibratedCoords tposeHips, float3 tposeHipsLocalPos, quaternion tposeHipsLocalRot, float3 authoredCenterEyeWorld,float3 authoredMouthWorld, Transform NamePlate, Transform AvatarScale, Transform MouthTransform,float3 TposedScale,
         NativeArray<quaternion> boneTPoseLocal = default, Transform[] boneTransforms = null)
     {
         if (!sInitialized) Initialize();
@@ -636,6 +696,8 @@ public static class RemoteBoneJobSystem
 
         sTPoseHeadRot.Add((quaternion)tposeHead.rotation);
         sTPoseHipsRot.Add((quaternion)tposeHips.rotation);
+        sTPoseHipsLocalPos.Add(tposeHipsLocalPos);
+        sTPoseHipsLocalRot.Add(tposeHipsLocalRot);
 
         sRoots.Add(remotePlayerRoot);
 
@@ -679,7 +741,8 @@ public static class RemoteBoneJobSystem
         }
 
         sKeyToIndex[key] = idx;
-        sIndexToKey.Add(key);
+        EnsureKeyArrayCapacity(idx + 1);
+        sKeyArray[idx] = key;
         AuthoringLength = sAuthoring.Length;
         return key;
     }
@@ -709,6 +772,8 @@ public static class RemoteBoneJobSystem
             sMouthPositions[idx] = sMouthPositions[last];
             sTPoseHeadRot[idx] = sTPoseHeadRot[last];
             sTPoseHipsRot[idx] = sTPoseHipsRot[last];
+            sTPoseHipsLocalPos[idx] = sTPoseHipsLocalPos[last];
+            sTPoseHipsLocalRot[idx] = sTPoseHipsLocalRot[last];
 
             sNamePlate.RemoveAtSwapBack(idx);
             sAvatarScale.RemoveAtSwapBack(idx);
@@ -719,9 +784,9 @@ public static class RemoteBoneJobSystem
             sHips.RemoveAtSwapBack(idx);
 
             // O(1) reverse lookup instead of iterating the dictionary
-            int movedKey = sIndexToKey[last];
+            int movedKey = sKeyArray[last];
             sKeyToIndex[movedKey] = idx;
-            sIndexToKey[idx] = movedKey;
+            sKeyArray[idx] = movedKey;
         }
         else
         {
@@ -767,8 +832,11 @@ public static class RemoteBoneJobSystem
         sMouthPositions.RemoveAt(last);
         sTPoseHeadRot.RemoveAt(last);
         sTPoseHipsRot.RemoveAt(last);
+        sTPoseHipsLocalPos.RemoveAt(last);
+        sTPoseHipsLocalRot.RemoveAt(last);
         sKeyToIndex[key] = -1;
-        sIndexToKey.RemoveAt(last);
+        // sKeyArray's slot at `last` is now stale, but consumers gate on AuthoringLength
+        // (count), so the unused tail slot is harmless. No truncation needed.
         AuthoringLength = sAuthoring.Length;
         return true;
     }
@@ -807,6 +875,8 @@ public static class RemoteBoneJobSystem
         AllocOrResize(ref sTmpHipsRot, count);
         AllocOrResize(ref sTmpHipsWorldPos, count);
         AllocOrResize(ref sTmpHipsWorldRot, count);
+        AllocOrResize(ref sTmpRootDerivedPos, count);
+        AllocOrResize(ref sTmpRootDerivedRot, count);
         AllocOrResize(ref sTmpAvatarScales, count);
         AllocOrResize(ref sTmpScaleChanged, count);
     }
@@ -824,6 +894,8 @@ public static class RemoteBoneJobSystem
         if (sTmpHipsRot.IsCreated) sTmpHipsRot.Dispose();
         if (sTmpHipsWorldPos.IsCreated) sTmpHipsWorldPos.Dispose();
         if (sTmpHipsWorldRot.IsCreated) sTmpHipsWorldRot.Dispose();
+        if (sTmpRootDerivedPos.IsCreated) sTmpRootDerivedPos.Dispose();
+        if (sTmpRootDerivedRot.IsCreated) sTmpRootDerivedRot.Dispose();
         if (sTmpAvatarScales.IsCreated) sTmpAvatarScales.Dispose();
         if (sTmpScaleChanged.IsCreated) sTmpScaleChanged.Dispose();
     }
@@ -845,6 +917,25 @@ public static class RemoteBoneJobSystem
             sAvatarScale.capacity = newCap;
             sMouth.capacity = newCap;
         }
+    }
+
+    /// <summary>
+    /// Grows the persistent reverse-key NativeArray, preserving existing entries.
+    /// Doubling growth so a steadily increasing avatar count amortises to O(1) per add.
+    /// </summary>
+    static void EnsureKeyArrayCapacity(int needed)
+    {
+        if (sKeyArray.IsCreated && sKeyArray.Length >= needed) return;
+
+        int newCap = math.max(needed, sKeyArray.IsCreated ? sKeyArray.Length * 2 : 16);
+        var next = new NativeArray<int>(newCap, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        if (sKeyArray.IsCreated)
+        {
+            int preserve = math.min(sKeyArray.Length, AuthoringLength);
+            if (preserve > 0) NativeArray<int>.Copy(sKeyArray, 0, next, 0, preserve);
+            sKeyArray.Dispose();
+        }
+        sKeyArray = next;
     }
 
     /// <summary>
@@ -873,25 +964,11 @@ public static class RemoteBoneJobSystem
         // conflicting with the new BasisRemoteBoneJob (writer of sOut).
         CompletePending();
 
-        // Snapshot the key list into a NativeArray for bounds-check-free indexing AND so
-        // it can be passed straight to Burst bulk-copy jobs.
-        if (!sKeyArray.IsCreated || sKeyArray.Length < AuthoringLength)
-        {
-            if (sKeyArray.IsCreated) sKeyArray.Dispose();
-            sKeyArray = new NativeArray<int>(
-                Unity.Mathematics.math.max(AuthoringLength, 16),
-                Allocator.Persistent,
-                NativeArrayOptions.UninitializedMemory);
-        }
-
-        unsafe
-        {
-            int* dst = (int*)sKeyArray.GetUnsafePtr();
-            for (int i = 0; i < AuthoringLength; i++)
-            {
-                dst[i] = sIndexToKey[i];
-            }
-        }
+        // sKeyArray is maintained directly by AddRemotePlayer / RemoveRemotePlayer,
+        // so no per-frame snapshot is needed. The previous code copied each entry
+        // out of a managed List<int> via List<T>.get_Item, which was the dominant
+        // cost of Schedule() — the indexer's bounds check showed up by name in the
+        // profiler.
 
         EnsureTempBuffers(AuthoringLength);
 
@@ -945,35 +1022,42 @@ public static class RemoteBoneJobSystem
             MouthPositions = sMouthPositions.AsDeferredJobArray()
         }.Schedule(AuthoringLength, simBatch, gathers);
 
-        // ── Schedule the hips/scale bulk copy as a Burst job instead of running it on
-        //    main thread. This puts the copy on a worker, frees main thread sooner, and
-        //    keeps more work in flight by the time Complete() blocks on main thread —
-        //    so main thread can pick up another pending job (work-stealing) instead of
-        //    sitting idle while ApplySkeletonRotationsJob runs alone on one worker.
-        var bulkHipsScaleJob = BasisRemoteNetworkDriver.ScheduleBulkCopyHipsAndScale(
+        // ── One Burst dispatch fans out ALL per-player network state and
+        //    derives the root pose in a single sequential pass:
+        //      • copies filtered hips world pos/rot
+        //      • copies scale + scale-change flag
+        //      • reads hips local deltas inline (no temp round-trip)
+        //      • reads cached TPose hips local pos/rot
+        //      • computes the derived root pose via the conjugate inverse math
+        //    Replaces what used to be three separate dispatches (bulk hips+scale,
+        //    bulk hips deltas, derive-root). At thousand-player scale this
+        //    saves dispatch overhead and keeps each player's data hot in cache.
+        var bulkAndDeriveJob = BasisRemoteNetworkDriver.ScheduleBulkCopyHipsAndDerive(
             sKeyArray, AuthoringLength,
+            sTPoseHipsLocalPos.AsDeferredJobArray(), sTPoseHipsLocalRot.AsDeferredJobArray(),
             sTmpHipsWorldPos, sTmpHipsWorldRot,
-            sTmpAvatarScales, sTmpScaleChanged);
+            sTmpAvatarScales, sTmpScaleChanged,
+            sTmpRootDerivedPos, sTmpRootDerivedRot);
 
         // Apply pass — parallel branches.
         //
         //   scaleApplyJob ─┬─> nameplateJob
         //                  ├─> mouthJob
-        //                  └─> hipsApplyJob
+        //                  └─> rootApplyJob ─> hipsWorldJob
         //   skeletonJob (independent)
         //
-        // Avatar scale must run BEFORE any SetPositionAndRotation apply on a
-        // descendant of the avatar root: SetPositionAndRotation bakes the parent
-        // lossyScale into the child's localPosition. If we change avatar root
-        // scale after that, the child's world position shifts by the scale delta
-        // (remote avatar renders slightly low). Applies to hips, mouth, and the
-        // nameplate. Skeleton writes only localRotation, so it is unaffected and
-        // runs fully concurrently with everything else.
+        // Avatar scale and the root pos/rot apply both write the avatar root transform
+        // (sAvatarScale and sRoots are the same Animator.transform), so they must be
+        // ordered. Scale also has to run BEFORE any SetPositionAndRotation on a
+        // descendant of the root (mouth, nameplate): SetPositionAndRotation bakes the
+        // parent lossyScale into the child's localPosition. If scale changed afterward,
+        // the child's world position would shift by the scale delta. Skeleton writes
+        // only localRotation and is unaffected.
         var scaleApplyJob = new ApplyAvatarScaleJob
         {
             Scales = sTmpAvatarScales,
             HasChange = sTmpScaleChanged,
-        }.Schedule(sAvatarScale, bulkHipsScaleJob);
+        }.Schedule(sAvatarScale, bulkAndDeriveJob);
 
         // Skeleton: split into a fully parallel compute pass + a transform-write pass.
         //
@@ -1043,15 +1127,35 @@ public static class RemoteBoneJobSystem
             MouthRotation = sOut.AsDeferredJobArray(),
         }.Schedule(sMouth, simAndScale);
 
-        // sHips TAA is shared with GatherHipsJob — combine that handle so Unity's
-        // TransformAccessArray safety system sees the chain.
-        var hipsApplyJob = new ApplyHipsJob
+        // Root pose is already derived (inline inside bulkAndDeriveJob), so
+        // we just write it to the root TAA. scaleApplyJob writes the same
+        // transform (sAvatarScale and sRoots are the same Animator transform),
+        // so it must finish first; hRoot is combined for the TAA safety system.
+        var rootApplyDeps = JobHandle.CombineDependencies(scaleApplyJob, hRoot);
+        var rootApplyJob = new ApplyRootJob
+        {
+            Positions = sTmpRootDerivedPos,
+            Rotations = sTmpRootDerivedRot,
+        }.Schedule(sRoots, rootApplyDeps);
+
+        // Hips world apply: writes hips.world.position/rotation directly via
+        // SetPositionAndRotation. Hierarchy-agnostic — Unity walks the actual
+        // parent chain so any Armature/intermediate node's transform is handled
+        // automatically. Must run AFTER rootApplyJob: SetPositionAndRotation
+        // computes hips.localPosition from the current parent (root) pose, so
+        // root must be in its final per-frame state first. Also depends on
+        // hHips (sHips TAA was read by GatherHipsJob) and on skeletonJob if
+        // present (defensive; sSkeletonBones doesn't include hips).
+        var hipsWorldDeps = JobHandle.CombineDependencies(hHips, rootApplyJob);
+        if (totalBones > 0) hipsWorldDeps = JobHandle.CombineDependencies(hipsWorldDeps, skeletonJob);
+        var hipsWorldJob = new ApplyHipsWorldJob
         {
             Positions = sTmpHipsWorldPos,
             Rotations = sTmpHipsWorldRot,
-        }.Schedule(sHips, JobHandle.CombineDependencies(scaleApplyJob, hHips));
+        }.Schedule(sHips, hipsWorldDeps);
 
-        var pending = JobHandle.CombineDependencies(nameplateJob, mouthJob, hipsApplyJob);
+        var pending = JobHandle.CombineDependencies(nameplateJob, mouthJob, rootApplyJob);
+        pending = JobHandle.CombineDependencies(pending, hipsWorldJob);
         pending = JobHandle.CombineDependencies(pending, skeletonJob);
         sPending = pending;
         return pending;
@@ -1092,13 +1196,35 @@ public static class RemoteBoneJobSystem
         return true;
     }
     /// <summary>
+    /// Resolves an avatar key to its dense index in <c>sOut</c> without reading the frame.
+    /// Used by callers that hand the index to a Burst job so the job can read frames directly.
+    /// Returns <c>false</c> when the system isn't initialized yet or the key is unknown.
+    /// </summary>
+    public static bool TryGetSOutIndex(int key, out int idx)
+    {
+        if (!sInitialized || sKeyToIndex == null || (uint)key >= (uint)sKeyToIndex.Length) { idx = -1; return false; }
+        idx = sKeyToIndex[key];
+        return idx >= 0;
+    }
+
+    /// <summary>
+    /// Returns <c>sOut</c> as a NativeArray for Burst-job consumption.
+    /// Returns a default (uncreated) NativeArray when the system isn't initialized yet —
+    /// callers must check <see cref="NativeArray{T}.IsCreated"/> before scheduling a
+    /// reader job. Only valid for the current frame; NativeList memory may move on
+    /// Add/RemoveAt so the array must be re-acquired each frame.
+    /// </summary>
+    public static NativeArray<RemoteFrameOutput> GetRemoteFrameArray()
+        => sInitialized && sOut.IsCreated ? sOut.AsArray() : default;
+
+    /// <summary>
     /// Returns the computed outgoing/world center-eye position and rotation for an avatar by key.
     /// </summary>
     /// <param name="key">Avatar key used when adding the player.</param>
     /// <param name="position">On success, the center-eye world position.</param>
     /// <param name="rotation">On success, the center-eye world rotation.</param>
     /// <returns><c>true</c> if the key is found; otherwise <c>false</c>.</returns>
-    public static bool GetOutGoingCenterEye(int key, out float3 position, out quaternion rotation)
+    public static unsafe bool GetOutGoingCenterEye(int key, out float3 position, out quaternion rotation)
     {
         if ((uint)key >= (uint)sKeyToIndex.Length)
         {
@@ -1113,7 +1239,10 @@ public static class RemoteBoneJobSystem
             rotation = default;
             return false;
         }
-        var frame = sOut[idx];
+        // Pointer access avoids NativeList<T>.get_Item — that indexer carries
+        // bounds + safety-handle overhead that shows up under the gaze loop's
+        // hot path when iterating many remote players.
+        var frame = ((RemoteFrameOutput*)Unity.Collections.LowLevel.Unsafe.NativeListUnsafeUtility.GetUnsafeReadOnlyPtr(sOut))[idx];
         position = frame.pos_CenterEye;
         rotation = frame.rot_CenterEye;
         return true;

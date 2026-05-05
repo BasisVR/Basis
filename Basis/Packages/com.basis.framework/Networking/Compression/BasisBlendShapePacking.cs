@@ -13,7 +13,7 @@ namespace Basis.Network.Core.Compression
     ///
     /// Quantization: Unity weight [0,100] → byte [0,255] (~0.4% precision, visually indistinguishable)
     /// Only face-tracking blendshapes are synced. Viseme/blink/laughter are excluded
-    /// because they are reconstructed remotely by uLipSync and BasisRemoteFaceManagement.
+    /// because they are reconstructed remotely by OpenLipSync and BasisRemoteFaceManagement.
     /// </summary>
     public static class BasisBlendShapePacking
     {

@@ -163,6 +163,12 @@ namespace Basis.Scripts.UI.NamePlate
                 // hit on the user's preferred chain.
                 if (registered.Contains(family)) return;
 
+                // Prefilter against the installed font list. CreateFontAsset emits an
+                // unconditional Debug.Log on miss, so on machines without (e.g.) the
+                // Hebrew system fonts each script's chain spammed the log even though
+                // the silent skip behavior was actually correct.
+                if (!IsFontInstalled(family)) continue;
+
                 TMP_FontAsset fallback = null;
                 try { fallback = TMP_FontAsset.CreateFontAsset(family, "Regular"); }
                 catch { continue; }
@@ -173,6 +179,38 @@ namespace Basis.Scripts.UI.NamePlate
                 registered.Add(family);
                 return;
             }
+        }
+
+        private static HashSet<string> _installedFontNamesLower;
+
+        private static bool IsFontInstalled(string family)
+        {
+            if (_installedFontNamesLower == null)
+            {
+                HashSet<string> set = new HashSet<string>();
+                try
+                {
+                    string[] names = Font.GetOSInstalledFontNames();
+                    if (names != null)
+                        foreach (string n in names)
+                            if (!string.IsNullOrEmpty(n)) set.Add(n.ToLowerInvariant());
+                }
+                catch
+                {
+                    // Some platforms (mobile/console) don't enumerate system fonts —
+                    // fall through to the empty set so we let TMP try anyway.
+                }
+                _installedFontNamesLower = set;
+            }
+
+            if (_installedFontNamesLower.Count == 0) return true;
+            string f = family.ToLowerInvariant();
+            if (_installedFontNamesLower.Contains(f)) return true;
+            // Style suffixes ("Arial Bold", "David CLM Regular") are common — accept
+            // any installed name that begins with the requested family.
+            foreach (string n in _installedFontNamesLower)
+                if (n.StartsWith(f)) return true;
+            return false;
         }
 
         private void UpdateCachedColors(float transparency)

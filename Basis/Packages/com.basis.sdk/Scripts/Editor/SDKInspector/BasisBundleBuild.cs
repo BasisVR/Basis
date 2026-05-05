@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -467,7 +468,7 @@ public static class BasisBundleBuild
             }
 
             Debug.Log("Starting BuildBundle...");
-            EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 0);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), 0);
 
             BuildTarget originalActiveTarget = EditorUserBuildSettings.activeBuildTarget;
 
@@ -518,7 +519,7 @@ public static class BasisBundleBuild
                 BasisDebug.Log("Adding " + result.Item2.EncyptedPath);
             }
 
-            EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 10);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), 10);
 
             BasisBundleConnector basisBundleConnector = new BasisBundleConnector(
                 generatedID,
@@ -539,16 +540,16 @@ public static class BasisBundleBuild
             byte[] EncryptedConnector =
                 await BasisEncryptionWrapper.EncryptToBytesAsync(UniqueID, BasisPassword, BasisbundleconnectorUnEncrypted, report);
 
-            EditorUtility.DisplayProgressBar("Starting Bundle Combining", "Starting Bundle Combining", 100);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.combine"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.combine"), 100);
 
             string FilePath = Path.Combine(buildOutDir, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
             await CombineFiles(FilePath, paths, EncryptedConnector);
 
-            EditorUtility.DisplayProgressBar("Saving Generated .BEE file", "Saving Generated .BEE file", 100);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.saveBee"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.saveBee"), 100);
 
             await AssetBundleBuilder.SaveFileAsync(buildOutDir, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
 
-            EditorUtility.DisplayProgressBar("Finished File Combining", "Finished File Combining", 100);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineDone"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineDone"), 100);
 
             DeleteFolders(buildOutDir);
 
@@ -701,7 +702,7 @@ public static class BasisBundleBuild
                             if (sw.ElapsedMilliseconds >= nextUiMs)
                             {
                                 float progress = (float)((double)bytesDone / (double)totalLen);
-                                EditorUtility.DisplayProgressBar("Combining Files", "Processing: " + Path.GetFileName(path), progress);
+                                EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineFiles"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineFiles.body", Path.GetFileName(path)), progress);
                                 nextUiMs = sw.ElapsedMilliseconds + 200;
                             }
                         }

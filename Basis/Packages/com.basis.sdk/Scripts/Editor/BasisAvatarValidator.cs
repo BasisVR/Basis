@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using System;
 using System.Collections.Generic;
@@ -83,7 +84,7 @@ public class BasisAvatarValidator
         errorPanel.style.borderBottomWidth = 2;
         errorPanel.style.borderBottomColor = new StyleColor(Color.red);
 
-        errorMessageLabel = new Label("No Errors");
+        errorMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.error.empty"));
         errorMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         errorMessageLabel.style.whiteSpace = WhiteSpace.Normal;
         errorPanel.Add(errorMessageLabel);
@@ -113,7 +114,7 @@ public class BasisAvatarValidator
         passedPanel.style.borderBottomWidth = 2;
         passedPanel.style.borderBottomColor = new StyleColor(Color.green);
 
-        passedMessageLabel = new Label("No Passed Checks");
+        passedMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.passed.empty"));
         passedMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         passedPanel.Add(passedMessageLabel);
 
@@ -176,10 +177,10 @@ public class BasisAvatarValidator
 
         if (Avatar == null)
         {
-            errors.Add(new BasisValidationIssue("Avatar is missing.", ValidationCategory.Configuration, null));
+            errors.Add(new BasisValidationIssue(BasisEditorLocalization.Get("sdk.avatarValidator.avatarMissing"), ValidationCategory.Configuration, null));
             return false;
         }
-        passes.Add("Avatar is assigned.");
+        passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.avatarAssigned"));
 
         Transform[] children = Avatar.gameObject.GetComponentsInChildren<Transform>(true);
         foreach (Transform child in children)
@@ -188,9 +189,9 @@ public class BasisAvatarValidator
             if (count > 0)
             {
                 warnings.Add(new BasisValidationIssue(
-                $"Missing script references found on {child.gameObject}. Click here to locate it.", ValidationCategory.MissingReference,
+                BasisEditorLocalization.Get("sdk.avatarValidator.missingScripts", child.gameObject), ValidationCategory.MissingReference,
                 () => RemoveMissingScripts(Avatar.gameObject),
-                "Remove missing scripts",
+                BasisEditorLocalization.Get("sdk.avatarValidator.missingScripts.fix"),
                 child.gameObject
                 ));
             }
@@ -198,12 +199,12 @@ public class BasisAvatarValidator
 
         if (Avatar.Animator != null)
         {
-            passes.Add("Animator is assigned.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.animator.assigned"));
 
             if (Avatar.Animator.runtimeAnimatorController != null)
             {
                 warnings.Add(new BasisValidationIssue(
-                    "Animator Controller exists. Verify it supports Basis before usage.", ValidationCategory.Configuration,
+                    BasisEditorLocalization.Get("sdk.avatarValidator.animator.controllerWarning"), ValidationCategory.Configuration,
                     null
                 ));
             }
@@ -211,74 +212,74 @@ public class BasisAvatarValidator
             if (Avatar.Animator.avatar == null)
             {
                 errors.Add(new BasisValidationIssue(
-                    "Animator exists but has no Avatar (Humanoid avatar not generated).", ValidationCategory.Configuration,
+                    BasisEditorLocalization.Get("sdk.avatarValidator.animator.noAvatar"), ValidationCategory.Configuration,
                     FixTryCreateHumanoidAvatarOnSourceModels,
-                    "Set source model(s) to Humanoid and Create Avatar"
+                    BasisEditorLocalization.Get("sdk.avatarValidator.animator.noAvatar.fix")
                 ));
             }
         }
         else
         {
             errors.Add(new BasisValidationIssue(
-                "Animator is missing.", ValidationCategory.MissingReference,
+                BasisEditorLocalization.Get("sdk.avatarValidator.animator.missing"), ValidationCategory.MissingReference,
                 FixAddOrAssignAnimator,
-                "Add or assign Animator"
+                BasisEditorLocalization.Get("sdk.avatarValidator.animator.missing.fix")
             ));
         }
 
         if (Avatar.BlinkViseme != null && Avatar.BlinkViseme.Length > 0)
-            passes.Add("BlinkViseme Meta Data is assigned.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.blinkViseme.assigned"));
         else
-            errors.Add(new BasisValidationIssue("BlinkViseme Meta Data is missing.", ValidationCategory.MissingReference, null));
+            errors.Add(new BasisValidationIssue(BasisEditorLocalization.Get("sdk.avatarValidator.blinkViseme.missing"), ValidationCategory.MissingReference, null));
 
         if (Avatar.FaceVisemeMovement != null && Avatar.FaceVisemeMovement.Length > 0)
-            passes.Add("FaceVisemeMovement Meta Data is assigned.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.faceVisemeMovement.assigned"));
         else
-            errors.Add(new BasisValidationIssue("FaceVisemeMovement Meta Data is missing.", ValidationCategory.MissingReference, null));
+            errors.Add(new BasisValidationIssue(BasisEditorLocalization.Get("sdk.avatarValidator.faceVisemeMovement.missing"), ValidationCategory.MissingReference, null));
 
         if (Avatar.FaceBlinkMesh != null)
-            passes.Add("FaceBlinkMesh is assigned.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.faceBlinkMesh.assigned"));
         else
             errors.Add(new BasisValidationIssue(
-                "FaceBlinkMesh is missing. Assign a skinned mesh.", ValidationCategory.MissingReference,
+                BasisEditorLocalization.Get("sdk.avatarValidator.faceBlinkMesh.missing"), ValidationCategory.MissingReference,
                 FixAssignFaceMeshesFromChildren,
-                "Auto-assign Face meshes"
+                BasisEditorLocalization.Get("sdk.avatarValidator.faceMeshes.fix")
             ));
 
         if (Avatar.FaceVisemeMesh != null)
-            passes.Add("FaceVisemeMesh is assigned.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.faceVisemeMesh.assigned"));
         else
             errors.Add(new BasisValidationIssue(
-                "FaceVisemeMesh is missing. Assign a skinned mesh.", ValidationCategory.MissingReference,
+                BasisEditorLocalization.Get("sdk.avatarValidator.faceVisemeMesh.missing"), ValidationCategory.MissingReference,
                 FixAssignFaceMeshesFromChildren,
-                "Auto-assign Face meshes"
+                BasisEditorLocalization.Get("sdk.avatarValidator.faceMeshes.fix")
             ));
 
         if (Avatar.AvatarEyePosition != Vector2.zero)
-            passes.Add("Avatar Eye Position is set.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.eyePosition.set"));
         else
-            errors.Add(new BasisValidationIssue("Avatar Eye Position is not set.", ValidationCategory.Configuration, null));
+            errors.Add(new BasisValidationIssue(BasisEditorLocalization.Get("sdk.avatarValidator.eyePosition.notSet"), ValidationCategory.Configuration, null));
 
         if (Avatar.AvatarMouthPosition != Vector2.zero)
-            passes.Add("Avatar Mouth Position is set.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.mouthPosition.set"));
         else
-            errors.Add(new BasisValidationIssue("Avatar Mouth Position is not set.", ValidationCategory.Configuration, null));
+            errors.Add(new BasisValidationIssue(BasisEditorLocalization.Get("sdk.avatarValidator.mouthPosition.notSet"), ValidationCategory.Configuration, null));
 
         if (string.IsNullOrEmpty(Avatar.BasisBundleDescription.AssetBundleName))
         {
             errors.Add(new BasisValidationIssue(
-                "Avatar Name is empty.", ValidationCategory.Configuration,
+                BasisEditorLocalization.Get("sdk.avatarValidator.bundleName.empty"), ValidationCategory.Configuration,
                 FixSetDefaultBundleName,
-                "Set name from GameObject"
+                BasisEditorLocalization.Get("sdk.avatarValidator.bundleName.fix")
             ));
         }
 
         if (string.IsNullOrEmpty(Avatar.BasisBundleDescription.AssetBundleDescription))
         {
             warnings.Add(new BasisValidationIssue(
-                "Avatar Description is empty.", ValidationCategory.Configuration,
+                BasisEditorLocalization.Get("sdk.avatarValidator.bundleDescription.empty"), ValidationCategory.Configuration,
                 FixSetDefaultDescription,
-                "Set default description"
+                BasisEditorLocalization.Get("sdk.avatarValidator.bundleDescription.fix")
             ));
         }
         BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
@@ -287,7 +288,7 @@ public class BasisAvatarValidator
             if(assetBundleObject.UseCustomPassword && (assetBundleObject.UserSelectedPassword == null ||  assetBundleObject.UserSelectedPassword == ""))
             {
                 errors.Add(new BasisValidationIssue(
-                    "The custom password is not allowed to be empty.",
+                    BasisEditorLocalization.Get("sdk.avatarValidator.password.empty"),
                     ValidationCategory.Security,
                     null));
             }
@@ -296,7 +297,7 @@ public class BasisAvatarValidator
         if (ReportIfNoIll2CPP())
         {
             warnings.Add(new BasisValidationIssue(
-                "IL2CPP may be missing. Check Unity Hub modules (Linux/Windows/Android IL2CPP commonly needed).", ValidationCategory.None,
+                BasisEditorLocalization.Get("sdk.avatarValidator.il2cpp.warning"), ValidationCategory.None,
                 null
             ));
         }
@@ -331,15 +332,15 @@ public class BasisAvatarValidator
             if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.doNotAutoRenameBones)
             {
                 errors.Add(new BasisValidationIssue(
-                    $"Duplicate name found: {entry.Key} ({entry.Value} times)", ValidationCategory.Configuration,
+                    BasisEditorLocalization.Get("sdk.avatarValidator.duplicateNames.error", entry.Key, entry.Value), ValidationCategory.Configuration,
                     FixDisableDoNotAutoRenameBones,
-                    "Allow auto-renaming bones"
+                    BasisEditorLocalization.Get("sdk.avatarValidator.duplicateNames.fix")
                 ));
             }
             else
             {
                 warnings.Add(new BasisValidationIssue(
-                    $"Duplicate name found; it will be renamed automatically: {entry.Key} ({entry.Value} times)", ValidationCategory.GameObject,
+                    BasisEditorLocalization.Get("sdk.avatarValidator.duplicateNames.warning", entry.Key, entry.Value), ValidationCategory.GameObject,
                     null
                 ));
             }
@@ -509,15 +510,15 @@ public class BasisAvatarValidator
         if (!anyDisabled)
         {
             warnings.Add(new BasisValidationIssue(
-                "Translation DoF is Enabled on one or more source models (Humanoid). This can cause retargeting issues.",
+                BasisEditorLocalization.Get("sdk.avatarValidator.translationDof.warning"),
                 ValidationCategory.GameObject,
                 FixTryCreateHumanoidAvatarOnSourceModels,
-                "Disable Translation DoF + Humanoid Avatar on source models"
+                BasisEditorLocalization.Get("sdk.avatarValidator.translationDof.fix")
             ));
         }
         else
         {
-            passes.Add("Translation DoF Disabled on source models.");
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.translationDof.passed"));
         }
     }
 
@@ -535,10 +536,10 @@ public class BasisAvatarValidator
             if (isErrorShader)
             {
                 errors.Add(new BasisValidationIssue(
-                    $"Material \"{mat.name}\" on \"{renderer.gameObject.name}\" is using an error/unsupported shader (pink).",
+                    BasisEditorLocalization.Get("sdk.avatarValidator.shader.error", mat.name, renderer.gameObject.name),
                     ValidationCategory.GameObject,
                     () => FixMaterialShaderFallback(mat),
-                    "Set shader fallback (URP Lit / Standard)"
+                    BasisEditorLocalization.Get("sdk.avatarValidator.shader.fix")
                 ));
                 continue;
             }
@@ -588,28 +589,28 @@ public class BasisAvatarValidator
             if (texImporter.maxTextureSize > MaxTextureSizeWithoutMipMaps && !texImporter.mipmapEnabled)
             {
                 warnings.Add(new BasisValidationIssue(
-                    $"Texture \"{tex.name}\" does not have Mip Maps enabled. This will negatively affect its performance ranking.",
+                    BasisEditorLocalization.Get("sdk.avatarValidator.texture.noMipMaps", tex.name),
                     ValidationCategory.Performance,
                     () => { texImporter.mipmapEnabled = true; texImporter.streamingMipmaps = true; texImporter.SaveAndReimport(); },
-                    $"Enable Mip Maps on \"{tex.name}\""
+                    BasisEditorLocalization.Get("sdk.avatarValidator.texture.noMipMaps.fix", tex.name)
                 ));
             }
             if (texImporter.mipmapEnabled && !texImporter.streamingMipmaps)
             {
                 warnings.Add(new BasisValidationIssue(
-                    $"Texture \"{tex.name}\" does not have Streaming Mip Maps enabled. This will negatively affect its performance ranking.",
+                    BasisEditorLocalization.Get("sdk.avatarValidator.texture.noStreamingMips", tex.name),
                     ValidationCategory.Performance,
                     () => { texImporter.streamingMipmaps = true; texImporter.SaveAndReimport(); },
-                    $"Enable Streaming Mip Maps on \"{tex.name}\""
+                    BasisEditorLocalization.Get("sdk.avatarValidator.texture.noStreamingMips.fix", tex.name)
                 ));
             }
             if (texImporter.maxTextureSize > MaxTextureSizeBeforeWarning)
             {
                 warnings.Add(new BasisValidationIssue(
-                    $"Texture \"{tex.name}\" is {texImporter.maxTextureSize} (should be <= {MaxTextureSizeBeforeWarning}). This will negatively affect its performance ranking.",
+                    BasisEditorLocalization.Get("sdk.avatarValidator.texture.tooLarge", tex.name, texImporter.maxTextureSize, MaxTextureSizeBeforeWarning),
                     ValidationCategory.Performance,
                     () => { texImporter.maxTextureSize = MaxTextureSizeBeforeWarning; texImporter.SaveAndReimport(); },
-                    $"Resize \"{tex.name}\" to {MaxTextureSizeBeforeWarning}"
+                    BasisEditorLocalization.Get("sdk.avatarValidator.texture.tooLarge.fix", tex.name, MaxTextureSizeBeforeWarning)
                 ));
             }
         }
@@ -621,18 +622,18 @@ public class BasisAvatarValidator
         if (skinnedMeshRenderer.sharedMesh == null)
         {
             Errors.Add(new BasisValidationIssue(
-                $"{skinnedMeshRenderer.gameObject.name} does not have a mesh assigned to its SkinnedMeshRenderer!",
+                BasisEditorLocalization.Get("sdk.avatarValidator.mesh.noMesh", skinnedMeshRenderer.gameObject.name),
                 ValidationCategory.GameObject, null));
             return;
         }
         var mesh = skinnedMeshRenderer.sharedMesh;
         if (mesh.triangles != null && mesh.triangles.Length / 3 > MaxTrianglesBeforeWarning)
             Warnings.Add(new BasisValidationIssue(
-                $"{skinnedMeshRenderer.gameObject.name} has more than {MaxTrianglesBeforeWarning} triangles. This will cause performance issues.",
+                BasisEditorLocalization.Get("sdk.avatarValidator.mesh.tooManyTriangles", skinnedMeshRenderer.gameObject.name, MaxTrianglesBeforeWarning),
                 ValidationCategory.Performance, null));
         if (mesh.vertices != null && mesh.vertices.Length > MeshVertices)
             Warnings.Add(new BasisValidationIssue(
-                $"{skinnedMeshRenderer.gameObject.name} has more vertices than can be properly rendered ({MeshVertices}). This will cause performance issues.",
+                BasisEditorLocalization.Get("sdk.avatarValidator.mesh.tooManyVertices", skinnedMeshRenderer.gameObject.name, MeshVertices),
                 ValidationCategory.Performance, null));
         if (mesh.blendShapeCount != 0)
         {
@@ -642,15 +643,15 @@ public class BasisAvatarValidator
                 ModelImporter modelImporter = AssetImporter.GetAtPath(assetPath) as ModelImporter;
                 if (modelImporter != null && !ModelImporterExtensions.IsLegacyBlendShapeNormalsEnabled(modelImporter))
                     Warnings.Add(new BasisValidationIssue(
-                        $"{assetPath} does not have legacy blendshapes enabled, which may increase file size.",
+                        BasisEditorLocalization.Get("sdk.avatarValidator.mesh.legacyBlendshapes", assetPath),
                         ValidationCategory.GameObject, null));
             }
         }
         if (skinnedMeshRenderer.allowOcclusionWhenDynamic == false)
             Errors.Add(new BasisValidationIssue(
-                "Dynamic Occlusion disabled on SkinnedMeshRenderer: " + skinnedMeshRenderer.gameObject.name,
+                BasisEditorLocalization.Get("sdk.avatarValidator.mesh.dynamicOcclusion", skinnedMeshRenderer.gameObject.name),
                 ValidationCategory.GameObject, FixEnableDynamicOcclusionAllSMR,
-                "Enable Dynamic Occlusion on all SMRs"));
+                BasisEditorLocalization.Get("sdk.avatarValidator.mesh.dynamicOcclusion.fix")));
     }
 
     public static bool ReportIfNoIll2CPP()
@@ -714,7 +715,7 @@ public class BasisAvatarValidator
         label.style.unityFontStyleAndWeight = FontStyle.Bold;
         label.style.whiteSpace = WhiteSpace.Normal;
 
-        Label header = new Label($"{category} Warnings");
+        Label header = new Label(BasisEditorLocalization.Get("sdk.validator.warnings.header", category));
         header.style.unityFontStyleAndWeight = FontStyle.Bold;
         header.style.color = new StyleColor(Color.white);
         panel.Add(header);
@@ -760,7 +761,7 @@ public class BasisAvatarValidator
                 if (i >= maxDisplayCount && uniqueMessages.Count > maxDisplayCount)
                 {
                     int remaining = uniqueMessages.Count - i;
-                    textLines.Add($"\n... + {remaining} more {category} warnings");
+                    textLines.Add(BasisEditorLocalization.Get("sdk.validator.warnings.more", remaining, category));
                     break;
                 }
                 textLines.Add($"- {uniqueMessages[i].Message}");
@@ -795,7 +796,7 @@ public class BasisAvatarValidator
             {
                 if (issue.Fix != null)
                 {
-                    string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? "Fix" : issue.FixLabel;
+                    string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? BasisEditorLocalization.Get("sdk.validator.fix.default") : issue.FixLabel;
                     AutoFixButton(buttonContainer, issue.Fix, actionTitle, false);
                 }
             }

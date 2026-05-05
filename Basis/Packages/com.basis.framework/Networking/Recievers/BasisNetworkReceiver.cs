@@ -184,7 +184,10 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         public void PostCompute()
         {
-            AudioReceiverModule?.ApplyAudioState();
+            // AudioReceiverModule is field-initialized at construction and never
+            // assigned null; the lifecycle guarantees this. Drop the ?. so the
+            // per-receiver hot path doesn't pay the null check.
+            AudioReceiverModule.ApplyAudioState();
         }
 
         /// <summary>
@@ -195,14 +198,20 @@ namespace Basis.Scripts.Networking.Receivers
         public void ComputeData(double unscaledDeltaTime)
         {
             // Audio decode is thread-safe (per-receiver decoder/buffers, no Unity API).
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.AudioDecode");
-            AudioReceiverModule?.DrainAndDecodeThreadSafe();
+#endif
+            AudioReceiverModule.DrainAndDecodeThreadSafe();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.EndSample();
+#endif
 
             if (!hasRequiredData) return;
 
             // 1) Pull network packets, drop stale, sort by sequence, then stage
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.PacketDrain");
+#endif
             if (System.Threading.Interlocked.Exchange(ref _pendingCount, 0) > 0)
             {
                 _pendingSort.Clear();
@@ -255,10 +264,14 @@ namespace Basis.Scripts.Networking.Receivers
                 }
                 StagedCount = _stagedRing.Count;
             }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.EndSample();
+#endif
 
             // 2) Ensure we have a valid interpolation window (Current -> Next)
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.BufferWindow");
+#endif
             if (!HasCurrentBuffer)
             {
                 TrySeedFirstFromStaging();
@@ -272,7 +285,9 @@ namespace Basis.Scripts.Networking.Receivers
             HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
             if (!HasBufferHolds)
             {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 UnityEngine.Profiling.Profiler.EndSample();
+#endif
                 return;
             }
 
@@ -289,10 +304,14 @@ namespace Basis.Scripts.Networking.Receivers
                 }
             }
             StagedCount = _stagedRing.Count;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.EndSample();
+#endif
 
             // 3) Advance time and slide the interpolation window forward as needed.
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.FrameInputs");
+#endif
             if (HasBufferHolds)
             {
                 double windowDuration = Next.ServerTimeSeconds - Current.ServerTimeSeconds;
@@ -357,13 +376,17 @@ namespace Basis.Scripts.Networking.Receivers
                         first.Position, last.Position,
                         first.Scale, last.Scale,
                         first.Rotation, last.Rotation,
+                        first.HipsLocalDelta, last.HipsLocalDelta,
+                        first.HipsLocalRotation, last.HipsLocalRotation,
                         first.BoneRotations, last.BoneRotations
                     );
                     IsDataReady = true;
                     SentLatest = false;
                 }
             }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.EndSample();
+#endif
         }
 
         /// <summary>
@@ -504,7 +527,7 @@ namespace Basis.Scripts.Networking.Receivers
                 hasEvents = false;
             }
 
-            AudioReceiverModule?.OnDestroy();
+            AudioReceiverModule.OnDestroy();
         }
 
         public void ReceiveNetworkAudio(ServerAudioSegmentMessage msg)

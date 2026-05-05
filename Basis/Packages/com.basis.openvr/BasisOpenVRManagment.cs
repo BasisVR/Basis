@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.XR;
 using Valve.VR;
 
 namespace Basis.Scripts.Device_Management.Devices.OpenVR
@@ -344,6 +345,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             IsSuspended = false;
             BasisLocalCameraDriver.AllowXRRenderering(true);
+            // Soft start keeps the SteamVR runtime alive, so the eye-texture scale baked
+            // in by ApplyRecommendedRenderResolution on initial StartSDK is still valid.
 
             // Re-enumerate all connected devices
             for (uint i = 0; i < 64; i++)
@@ -361,6 +364,9 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public override void StopSDK()
         {
             IsSuspended = false;
+            // Reset the persistent eye-texture multiplier so a subsequent OpenXR/Desktop
+            // session doesn't inherit OpenVR's headset-native scaling.
+            XRSettings.eyeTextureResolutionScale = 1f;
             SteamVR.SafeDispose();
 
             if (SteamVR_BehaviourGameobject != null)
@@ -411,6 +417,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             if (State)
             {
                 BasisDebug.Log("SteamVR SDK started successfully.");
+                ApplyRecommendedRenderResolution();
                 BasisCursorManagement.UnlockCursorBypassChecks("Forceful Unlock OPENVR");
             }
             else
@@ -418,6 +425,28 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 BasisDebug.Log("SteamVR SDK failed falling back.");
               await  BasisDeviceManagement.Instance.SwitchSetModeToDefault();
             }
+        }
+        /// <summary>
+        /// Pulls SteamVR's grown recommended render target (which factors in the lens
+        /// distortion overlap between eyes) and bakes it into XRSettings.eyeTextureResolutionScale
+        /// once at SteamVR init. The OpenVR XR plugin allocates eye textures at Unity's
+        /// default size — without this, Steam super-sampling and the per-headset native
+        /// resolution are silently ignored. After this runs the URP renderScale slider
+        /// behaves identically to OpenXR/Desktop: slider 1.0 = native recommended,
+        /// slider X = X × native.
+        /// </summary>
+        private void ApplyRecommendedRenderResolution()
+        {
+            if (SteamVR == null) return;
+            float recommendedMax = Mathf.Max(SteamVR.sceneWidth, SteamVR.sceneHeight);
+            float currentMax = Mathf.Max(XRSettings.eyeTextureWidth, XRSettings.eyeTextureHeight);
+            if (recommendedMax <= 0f || currentMax <= 0f) return;
+            float currentScale = XRSettings.eyeTextureResolutionScale;
+            if (currentScale <= 0f) currentScale = 1f;
+            float baseMax = currentMax / currentScale;
+            float scale = recommendedMax / baseMax;
+            XRSettings.eyeTextureResolutionScale = scale;
+            BasisDebug.Log($"OpenVR resolution: eye texture scaled {scale:F3}× to {SteamVR.sceneWidth}x{SteamVR.sceneHeight} (unity-base {baseMax})", BasisDebug.LogTag.Device);
         }
         public async Task<bool> WaitingUntilReady()
         {

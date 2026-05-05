@@ -42,6 +42,7 @@ public static class BasisBundleLoadAsset
                             ChecksRequired.UseContentRemoval = UseContentRemoval;
                             ChecksRequired.RemoveColliders = DestroyColliders;
                             ChecksRequired.ChangeCollidersToCorrectLayer = ChangeColidersToCorrectLayer;
+                            ChecksRequired.ScrubPersistentUnityEvents = true;
                             GameObject CreatedCopy = ContentPoliceControl.ContentControl(DisabledGameobject,loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, LayerMask.NameToLayer("IgnoredByInteractable"), HarvestedHeadChop);
                             Incremented = BasisLoadableBundle.Increment();
                             string InstanceID = BasisGenerateUniqueID.GenerateUniqueID();
@@ -101,6 +102,7 @@ public static class BasisBundleLoadAsset
             {
                 ChecksRequired ChecksRequired = new ChecksRequired();
                 ChecksRequired.UseContentRemoval = true;
+                ChecksRequired.ScrubPersistentUnityEvents = true;
                 ContentPoliceControl.ContentControl(ChecksRequired, Selector.World, loadedScene, true);
                 AssignedIncrement = bundle.Increment();
                 if (MakeActiveScene)

@@ -198,7 +198,7 @@ namespace Basis.Shims
                     BasisDebug.LogError($"[VideoPlayerShim] Failed to parse URL: {e}", BasisDebug.LogTag.Shims);
                 }
 
-                if (BasisTrustedVideoUrls.IsTrusted(url))
+                if (BasisTrustedUrls.IsTrusted(url))
                 {
                     BasisDebug.Log($"[VideoPlayerShim] Auto-accepting trusted URL \"{url}\"", BasisDebug.LogTag.Shims);
                     AutoDenyPendingUrlRequest();
@@ -245,10 +245,10 @@ namespace Basis.Shims
                             switch (response.Scope)
                             {
                                 case BasisMenuURLPromptPanel.RememberChoiceScope.URL:
-                                    BasisTrustedVideoUrls.Add(url);
+                                    BasisTrustedUrls.Add(url);
                                     break;
                                 case BasisMenuURLPromptPanel.RememberChoiceScope.Hostname:
-                                    BasisTrustedVideoUrls.Add(uri.Scheme + "://" + uri.Host + "/*");
+                                    BasisTrustedUrls.Add(uri.Scheme + "://" + uri.Host + "/*");
                                     break;
                                 case BasisMenuURLPromptPanel.RememberChoiceScope.Domain:
                                     string[] parts = uri.Host.Split('.');
@@ -260,7 +260,7 @@ namespace Basis.Shims
                                     {
                                         domain = uri.Host;
                                     }
-                                    BasisTrustedVideoUrls.Add(uri.Scheme + "://*." + domain + "/*");
+                                    BasisTrustedUrls.Add(uri.Scheme + "://*." + domain + "/*");
                                     break;
                             }
                         }

@@ -71,6 +71,27 @@ namespace BasisNetworkCore.Serializable
             UserOpusBitrateOverride,      // server→target user: their current bitrate override (0 = none)
             SetGlobalOpusFrameDuration,   // admin: set the Opus frame duration in milliseconds (20 or 40)
             GlobalGetOpusFrameDurationState, // server→client: current Opus frame duration in milliseconds
+
+            // ── Server config / whitelist (persisted to disk) ─────────────────
+            SetServerName,    // admin: set Configuration.ServerName + persist to config.xml. Payload: [string name]
+            SetServerMotd,    // admin: set Configuration.ServerMotd + persist to config.xml. Payload: [string motd]
+            SetWhitelistMode, // admin: set Configuration.BasisUserRestrictionMode + persist. Payload: [byte BasisUserRestrictionMode]
+            AddWhitelist,     // admin: add UUID to BasisWhiteList.txt. Payload: [string uuid]
+            RemoveWhitelist,  // admin: remove UUID from BasisWhiteList.txt. Payload: [string uuid]
+
+            GlobalToggleServers, // admin: toggle global server-share lock (BasisGlobalLockManager.ServersLocked).
+
+            GlobalToggleThirdPerson, // admin: toggle the global third-person camera disable (BasisGlobalLockManager.ThirdPersonDisabled). State is appended as the 5th bool in GlobalGetLockState.
+
+            // ── Default library (server-pushed library items, persisted to disk) ──
+            // Payload: [byte mode (0=Avatar,1=World,2=Prop)][string url][string password]
+            // Gated by PermNodes.ConfigurationEditor. Writes a new XML file under the
+            // server's defaultlibrary/ folder and rebroadcasts the updated list.
+            AddDefaultLibraryItem,
+
+            // Payload: [string url]
+            // Removes every defaultlibrary/ XML whose URL matches and rebroadcasts.
+            RemoveDefaultLibraryItem,
         }
     }
 }

@@ -10,12 +10,15 @@ using Basis.Scripts.Networking.Transmitters;
 using Basis.BasisUI;
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.NamePlate;
+using Basis.Scripts.Profiler;
 using GatorDragonGames.JigglePhysics;
 using SteamAudio;
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+namespace Basis.EventDriver
+{
 /// <summary>
 /// Central per-frame driver that coordinates device actions, networking compute/apply,
 /// physics scheduling for JigglePhysics, and various local simulation hooks.
@@ -252,7 +255,7 @@ public partial class BasisEventDriver : MonoBehaviour
 
         // ── BTween ──
         ProfileBegin(PROF_BTWEEN);
-        BTweenManager.Simulate(realtimeSinceStartupAsDouble);
+        BasisTweenManager.Simulate(realtimeSinceStartupAsDouble);
         ProfileEnd(PROF_BTWEEN);
 
         // ── Local player ──
@@ -262,8 +265,11 @@ public partial class BasisEventDriver : MonoBehaviour
             BasisLocalPlayer.Instance.FacialBlinkDriver.Simulate(TimeAsDouble);
             BasisLocalPlayer.Instance.LocalVisemeDriver.Apply();
             BasisLocalPlayer.Instance.Simulate(DeltaTime);
-            BasisLocalCameraDriver.Instance.Simulate();
+            // Complete the finger slerp job (TransformAccessArray write) before touching the
+            // camera transform, so SimulateThirdPerson never overlaps jobified transform access.
             BasisLocalPlayer.Instance.LocalHandDriver.Apply();
+            BasisLocalCameraDriver.Instance.SimulateThirdPerson(DeltaTime);
+            BasisLocalCameraDriver.Instance.Simulate();
             BasisLocalPlayer.Instance.LocalEyeDriver.Simulate(DeltaTime);
             BasisLocalPlayer.Instance.LocalEyeDriver.Apply();
         }
@@ -337,11 +343,12 @@ public partial class BasisEventDriver : MonoBehaviour
         BasisJoinLeaveNotification.Simulate(TimeAsDouble);
         IndividualPlayerProvider.SimulateBeacon(DeltaTime);
 
-        if (SMModuleDebugOptions.UseGizmos)
+        bool drawJiggle = SMModuleDebugOptions.UseGizmos && SMModuleDebugOptions.UseJiggleVisuals;
+        if (drawJiggle)
         {
             JigglePhysics.ScheduleRender();
         }
-        if (SMModuleDebugOptions.UseGizmos)
+        if (drawJiggle)
         {
             JigglePhysics.CompleteRender(proceduralMaterial, sphereMesh);
         }
@@ -450,7 +457,7 @@ public partial class BasisEventDriver : MonoBehaviour
         switch (section)
         {
             case PROF_REMOTE_AUDIO_SIMULATE:
-                BasisEventDriverProfilerData.RemoteAudioDriverCount = BasisRemoteAudioDriver.Drivers.Count;
+                BasisEventDriverProfilerData.RemoteAudioDriverCount = BasisRemoteAudioDriver.DriversCount;
                 break;
             case PROF_NAMEPLATE_COMPLETE:
                 BasisEventDriverProfilerData.NamePlateJobWasIncomplete = !BasisRemoteNamePlateDriver.handle.IsCompleted;
@@ -534,4 +541,5 @@ public partial class BasisEventDriver : MonoBehaviour
         BasisEventDriverProfilerData.OnBeforeRenderMs = _beforeRenderSW.Elapsed.TotalMilliseconds;
     }
 #endif
+}
 }

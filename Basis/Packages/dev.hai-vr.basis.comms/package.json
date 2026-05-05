@@ -1,6 +1,17 @@
 {
   "name": "dev.hai-vr.basis.comms",
-  "displayName": "HVR Basis Avatar Comms",
+  "displayName": "HVR Basis Comms",
   "version": "0.0.1",
-  "description": "HVR Basis Avatar Comms"
+  "description": "HVR Basis Comms",
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.addressables": "2.9.1",
+    "com.unity.mathematics": "1.3.3"
+  },
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1",
+    "com.basis.sdk": "0.0.1",
+    "com.basis.server": "1.0.0",
+    "nuget.meamod.dns": "1.0.71"
+  }
 }

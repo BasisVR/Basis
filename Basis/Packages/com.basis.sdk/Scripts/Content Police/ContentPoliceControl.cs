@@ -35,6 +35,10 @@ public static class ContentPoliceControl
 
             if (BundledContentHolder.Instance.GetSelector(Selector, out ContentPoliceSelector PoliceCheck))
             {
+                // Renderers harvested during the same walk that strips dangerous components,
+                // so shader prewarm runs without paying for a second GetComponentsInChildren.
+                List<Renderer> renderersForPrewarm = new List<Renderer>();
+
                 // BasisHeadChop is harvested during this walk so the local avatar driver
                 // doesn't need a second GetComponentsInChildren pass at calibration. Harvest
                 // is appended only when the caller passed a non-null collector — that way the
@@ -98,6 +102,37 @@ public static class ContentPoliceControl
                         case AudioSource source:
                             source.outputAudioMixerGroup = PoliceCheck.AudioMixer;
                             break;
+                        // Every Renderer subclass listed individually so future per-type
+                        // handling (e.g. particles needing different prewarm, sprite atlases
+                        // needing texture warmup, VFX assets needing graph compile) can be
+                        // wired into the existing case without restructuring the switch.
+                        case MeshRenderer meshRenderer:
+                            renderersForPrewarm.Add(meshRenderer);
+                            break;
+                        case SkinnedMeshRenderer skinnedMeshRenderer:
+                            renderersForPrewarm.Add(skinnedMeshRenderer);
+                            break;
+                        case ParticleSystemRenderer particleSystemRenderer:
+                            renderersForPrewarm.Add(particleSystemRenderer);
+                            break;
+                        case LineRenderer lineRenderer:
+                            renderersForPrewarm.Add(lineRenderer);
+                            break;
+                        case TrailRenderer trailRenderer:
+                            renderersForPrewarm.Add(trailRenderer);
+                            break;
+                        case BillboardRenderer billboardRenderer:
+                            renderersForPrewarm.Add(billboardRenderer);
+                            break;
+                        case SpriteRenderer spriteRenderer:
+                            renderersForPrewarm.Add(spriteRenderer);
+                            break;
+                        case UnityEngine.Tilemaps.TilemapRenderer tilemapRenderer:
+                            renderersForPrewarm.Add(tilemapRenderer);
+                            break;
+                        case UnityEngine.VFX.VFXRenderer vfxRenderer:
+                            renderersForPrewarm.Add(vfxRenderer);
+                            break;
                     }
                     // Check if the component is a MonoBehaviour and not in the approved list
                     if (component is UnityEngine.Component monoBehaviour)
@@ -110,6 +145,10 @@ public static class ContentPoliceControl
                         }
                     }
                 }
+
+                // Compile shader variants for everything we just walked before we set the clone
+                // active, so the first frame it's visible doesn't stall on a hitch.
+                BasisShaderPrewarm.Warm(renderersForPrewarm, SearchAndDestroy.name);
 
                 // Persistent UnityEvent listeners are the second attack surface:
                 // a Button.onClick wired in the editor to Application.OpenURL /
@@ -148,6 +187,9 @@ public static class ContentPoliceControl
             {
                 SearchAndDestroy = GameObject.Instantiate(SearchAndDestroy, Position, Rotation, Parent);
             }
+            // No content-removal walk happened, so a dedicated Renderer-typed walk is the only
+            // way to feed the prewarm here. Cheaper than the full Component[] walk above.
+            BasisShaderPrewarm.Warm(SearchAndDestroy.GetComponentsInChildren<Renderer>(true), SearchAndDestroy.name);
         }
         return SearchAndDestroy;
     }
@@ -173,6 +215,9 @@ public static class ContentPoliceControl
         }
 
         GameObject[] roots = targetScene.GetRootGameObjects();
+        // Renderers harvested across all roots during the same walk that strips dangerous
+        // components, so shader prewarm runs without paying for a second walk.
+        List<Renderer> renderersForPrewarm = new List<Renderer>();
         for (int RootIndex = 0; RootIndex < roots.Length; RootIndex++)
         {
             // Get ALL components in this subtree
@@ -202,6 +247,35 @@ public static class ContentPoliceControl
                             StripEventsFromLegacyAnimation(legacyAnimation);
                         }
                         break;
+                    // Every Renderer subclass listed individually — see the GameObject
+                    // overload for the future-proofing rationale.
+                    case MeshRenderer meshRenderer:
+                        renderersForPrewarm.Add(meshRenderer);
+                        break;
+                    case SkinnedMeshRenderer skinnedMeshRenderer:
+                        renderersForPrewarm.Add(skinnedMeshRenderer);
+                        break;
+                    case ParticleSystemRenderer particleSystemRenderer:
+                        renderersForPrewarm.Add(particleSystemRenderer);
+                        break;
+                    case LineRenderer lineRenderer:
+                        renderersForPrewarm.Add(lineRenderer);
+                        break;
+                    case TrailRenderer trailRenderer:
+                        renderersForPrewarm.Add(trailRenderer);
+                        break;
+                    case BillboardRenderer billboardRenderer:
+                        renderersForPrewarm.Add(billboardRenderer);
+                        break;
+                    case SpriteRenderer spriteRenderer:
+                        renderersForPrewarm.Add(spriteRenderer);
+                        break;
+                    case UnityEngine.Tilemaps.TilemapRenderer tilemapRenderer:
+                        renderersForPrewarm.Add(tilemapRenderer);
+                        break;
+                    case UnityEngine.VFX.VFXRenderer vfxRenderer:
+                        renderersForPrewarm.Add(vfxRenderer);
+                        break;
                 }
                 // Check if the component is a MonoBehaviour and not in the approved list
                 if (component is UnityEngine.Component monoBehaviour)
@@ -214,7 +288,15 @@ public static class ContentPoliceControl
                     }
                 }
             }
+
+            if (checks.ScrubPersistentUnityEvents)
+            {
+                ScrubDangerousPersistentListeners(roots[RootIndex], policeCheck);
+            }
         }
+
+        // Warm shaders for every renderer we just collected. One call per scene scrub.
+        BasisShaderPrewarm.Warm(renderersForPrewarm, targetScene.name);
     }
 
     // ------------------------------------------------------------------

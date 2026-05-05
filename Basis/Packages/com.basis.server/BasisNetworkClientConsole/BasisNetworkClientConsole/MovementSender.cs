@@ -24,9 +24,20 @@ namespace Basis.Network
 
         // Precomputed byte offsets into the packet for High quality
         private static readonly int RotationRegionOffset = BasisAvatarBitPacking.WritePosition; // 12
-        private static readonly int HipsRotationOffset = BasisAvatarBitPacking.WritePosition
-            + BasisBoneRotationCompression.RotationBytes(BitQuality.High)
-            + BasisAvatarBitPacking.WriteScale;
+        private static readonly int ScaleOffset = BasisAvatarBitPacking.WritePosition
+            + BasisBoneRotationCompression.RotationBytes(BitQuality.High);
+        // After flip: this is the HIPS WORLD rotation slot (was "body rotation"
+        // = root world rotation). 7-byte smallest-three quaternion.
+        private static readonly int HipsRotationOffset = ScaleOffset + BasisAvatarBitPacking.WriteScale;
+        // 6 bytes — 3 signed shorts at ±1m. Default zero bytes already decode
+        // to zero delta thanks to the signed encoding, so we don't need to
+        // write anything synthetic here for fake clients.
+        private static readonly int HipsLocalDeltaOffset = HipsRotationOffset + BasisAvatarBitPacking.WriteRotation;
+        // 7-byte smallest-three quaternion for hips local-rotation delta.
+        // Default zero bytes do NOT decode to identity (the encoding treats
+        // them as a saturated-low drop-X quat) — so the test client writes an
+        // explicit identity once at init.
+        private static readonly int HipsLocalRotationOffset = HipsLocalDeltaOffset + BasisAvatarBitPacking.WriteHipsDelta;
 
         public struct PlayerData
         {
@@ -84,7 +95,7 @@ namespace Basis.Network
 
             double time = AnimTimer.Elapsed.TotalSeconds;
 
-            // 1) Position
+            // 1) Position (after the recent flip this is the HIPS WORLD position)
             int offset = 0;
             WritePosition(Randomizer.GetRandomOffset(), ref message.array, ref offset);
 
@@ -92,11 +103,37 @@ namespace Basis.Network
             FakePoseGenerator.WriteBoneRotations(message.array, RotationRegionOffset, BitQuality.High, time, phase);
 
             // 3) Scale
-            int scaleOffset = BasisAvatarBitPacking.WritePosition + BasisAvatarBitPacking.MuscleBytes(BitQuality.High);
-            WriteScaleUShort(CompressedScale, message.array, scaleOffset);
+            WriteScaleUShort(CompressedScale, message.array, ScaleOffset);
 
-            // 4) Hips rotation: slight body orientation
+            // 4) Hips world rotation: slight body orientation
             FakePoseGenerator.WriteCompressedHipsRotation(message.array, HipsRotationOffset, time, phase);
+
+            // 5) Hips local-position delta — left as zero bytes; the receiver's
+            //    signed-short decode treats that as a zero delta, so no synthetic
+            //    write is required for fake clients.
+
+            // 6) Hips local-rotation delta — must be an explicit identity, since
+            //    smallest-three on all-zero bytes does NOT decode to identity.
+            //    Set once here; the test client never animates this channel.
+            WriteIdentityQuaternion(message.array, HipsLocalRotationOffset);
+        }
+
+        /// <summary>
+        /// Writes the identity quaternion (0,0,0,1) into a 7-byte smallest-three
+        /// slot. Identity has w as the largest component (= 1), so:
+        ///   index byte = 3 (drop w)
+        ///   three small components = 0 → quantized = midpoint = 32768
+        /// </summary>
+        private static void WriteIdentityQuaternion(byte[] dst, int offset)
+        {
+            // QuantizeSmall(0f) = midpoint = 32768 = 0x8000 → lo 0x00, hi 0x80
+            dst[offset] = 3;
+            dst[offset + 1] = 0x00;
+            dst[offset + 2] = 0x80;
+            dst[offset + 3] = 0x00;
+            dst[offset + 4] = 0x80;
+            dst[offset + 5] = 0x00;
+            dst[offset + 6] = 0x80;
         }
         private static void WriteScaleUShort(ushort value, byte[] buffer, int byteOffset)
         {

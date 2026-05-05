@@ -1,6 +1,7 @@
 using System;
 using Basis;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 namespace Basis.Scripts.Avatar
 {

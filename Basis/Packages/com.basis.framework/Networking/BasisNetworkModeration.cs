@@ -4,6 +4,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
+using BasisNetworkCore.Security;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -143,6 +144,62 @@ public static class BasisNetworkModeration
     {
         SendAdminRequest(AdminRequestMode.TeleportPlayer,
             w => w.Put(uuid));
+    }
+
+    // ── Server config / whitelist (admin) ────────────────────────────────────
+    // Each of these triggers a server-side write to config/config.xml or
+    // BasisWhiteList.txt so the change is durable across restarts.
+
+    public static void SetServerName(string name)
+    {
+        SendAdminRequest(AdminRequestMode.SetServerName, w => w.Put(name ?? string.Empty));
+    }
+
+    public static void SetServerMotd(string motd)
+    {
+        SendAdminRequest(AdminRequestMode.SetServerMotd, w => w.Put(motd ?? string.Empty));
+    }
+
+    public static void SetWhitelistMode(BasisUserRestrictionMode mode)
+    {
+        SendAdminRequest(AdminRequestMode.SetWhitelistMode, w => w.Put((byte)mode));
+    }
+
+    public static void AddWhitelist(string uuid)
+    {
+        if (!ValidateString(uuid, nameof(uuid))) return;
+        SendAdminRequest(AdminRequestMode.AddWhitelist, w => w.Put(uuid));
+    }
+
+    public static void RemoveWhitelist(string uuid)
+    {
+        if (!ValidateString(uuid, nameof(uuid))) return;
+        SendAdminRequest(AdminRequestMode.RemoveWhitelist, w => w.Put(uuid));
+    }
+
+    /// <summary>
+    /// Ask the server to persist a new default-library entry to disk and broadcast
+    /// it to every connected client. Mode follows BundledContentHolder.Mode:
+    /// 0=Avatar, 1=World, 2=Prop. Server-gated by PermNodes.ConfigurationEditor.
+    /// </summary>
+    public static void AddDefaultLibraryItem(byte mode, string url, string password)
+    {
+        if (!ValidateString(url, nameof(url))) return;
+        SendAdminRequest(AdminRequestMode.AddDefaultLibraryItem,
+            w => w.Put(mode),
+            w => w.Put(url),
+            w => w.Put(password ?? string.Empty));
+    }
+
+    /// <summary>
+    /// Ask the server to drop every default-library entry whose URL matches and
+    /// rebroadcast the updated list. Server-gated by PermNodes.ConfigurationEditor.
+    /// </summary>
+    public static void RemoveDefaultLibraryItem(string url)
+    {
+        if (!ValidateString(url, nameof(url))) return;
+        SendAdminRequest(AdminRequestMode.RemoveDefaultLibraryItem,
+            w => w.Put(url));
     }
 
     public static void DisplayMessage(string message)
@@ -480,11 +537,31 @@ public static class BasisNetworkModeration
     public static bool GlobalAvatarsLocked { get; private set; }
     public static bool GlobalPropsLocked { get; private set; }
     public static bool GlobalWorldsLocked { get; private set; }
+    /// <summary>
+    /// True when the server has globally disabled saved-server sharing through
+    /// the content-share system. UIs that initiate server shares should disable
+    /// their share buttons while this is set.
+    /// </summary>
+    public static bool GlobalServersLocked { get; private set; }
 
     /// <summary>
-    /// Fired when the global lock state changes. Parameters: avatarsLocked, propsLocked, worldsLocked.
+    /// Server-pushed third-person camera lockout. While true, the local desktop client must
+    /// hard-disable third-person (no toggle, no zoom). Mirrored to
+    /// <see cref="BasisLocalCameraDriver.AdminThirdPersonLocked"/> via
+    /// <see cref="OnGlobalThirdPersonDisabledChanged"/>.
     /// </summary>
-    public static event Action<bool, bool, bool> OnGlobalLockStateChanged;
+    public static bool GlobalThirdPersonDisabled { get; private set; }
+
+    /// <summary>
+    /// Fired when the global lock state changes. Parameters: avatarsLocked, propsLocked, worldsLocked, serversLocked.
+    /// </summary>
+    public static event Action<bool, bool, bool, bool> OnGlobalLockStateChanged;
+
+    /// <summary>
+    /// Fired when the third-person camera lockout flag changes. Separate from
+    /// <see cref="OnGlobalLockStateChanged"/> so existing 4-arg subscribers keep compiling.
+    /// </summary>
+    public static event Action<bool> OnGlobalThirdPersonDisabledChanged;
 
     /// <summary>
     /// Current headless audio state received from the server.
@@ -515,8 +592,24 @@ public static class BasisNetworkModeration
         GlobalAvatarsLocked = reader.GetBool();
         GlobalPropsLocked = reader.GetBool();
         GlobalWorldsLocked = reader.GetBool();
-        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}", BasisDebug.LogTag.Networking);
-        OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked);
+        // ServersLocked was added after the original three; older servers won't
+        // include it. Tolerate the short payload by leaving the existing value
+        // (defaults to false) when the bool isn't there.
+        if (reader.AvailableBytes >= 1) GlobalServersLocked = reader.GetBool();
+        // ThirdPersonDisabled appended after ServersLocked — same backward-compat trick.
+        // Only fire OnGlobalThirdPersonDisabledChanged if the flag actually flipped to keep
+        // listeners from doing redundant snap-to-first-person work every reconnect.
+        if (reader.AvailableBytes >= 1)
+        {
+            bool nextThirdPerson = reader.GetBool();
+            if (nextThirdPerson != GlobalThirdPersonDisabled)
+            {
+                GlobalThirdPersonDisabled = nextThirdPerson;
+                OnGlobalThirdPersonDisabledChanged?.Invoke(GlobalThirdPersonDisabled);
+            }
+        }
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}", BasisDebug.LogTag.Networking);
+        OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked, GlobalServersLocked);
     }
 
     /// <summary>
@@ -541,6 +634,23 @@ public static class BasisNetworkModeration
     public static void GlobalToggleWorlds()
     {
         SendAdminRequest(AdminRequestMode.GlobalToggleWorlds);
+    }
+
+    /// <summary>
+    /// Admin: Toggle the global lock on saved-server sharing through the content-share system.
+    /// </summary>
+    public static void GlobalToggleServers()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleServers);
+    }
+
+    /// <summary>
+    /// Admin: toggle the global third-person camera lockout. Server flips the flag,
+    /// persists it to config.xml, and broadcasts the new GlobalGetLockState payload.
+    /// </summary>
+    public static void GlobalToggleThirdPerson()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleThirdPerson);
     }
 
     private static void HandleGlobalHeadlessAudioState(NetDataReader reader)

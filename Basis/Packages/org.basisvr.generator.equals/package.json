@@ -8,5 +8,5 @@
     "registry": "https://npm.pkg.github.com/@BasisVR"
   },
   "repository": "https://github.com/BasisVR/UpmBuilds",
-  "_fingerprint": "1b9af076f13d77e00dfb383df4b8ce79"
+  "license": "MIT"
 }

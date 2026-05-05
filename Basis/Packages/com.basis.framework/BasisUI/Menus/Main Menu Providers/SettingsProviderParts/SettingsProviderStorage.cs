@@ -4,12 +4,14 @@ using UnityEngine;
 
 public static class SettingsProviderStorage
 {
-    public static PanelTabPage StorageTab(PanelTabGroup tabGroup)
+    private const string TabKey = "settings.tab.downloadsurls";
+
+    public static PanelTabPage DownloadsUrlsTab(PanelTabGroup tabGroup)
     {
         PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
         PanelElementDescriptor descriptor = tab.Descriptor;
         descriptor.SetIcon(AddressableAssets.Sprites.Settings);
-        descriptor.SetTitle(BasisLocalization.Get("settings.tab.downloadscache"));
+        descriptor.SetTitle(BasisLocalization.Get(TabKey));
 
         RectTransform container = descriptor.ContentParent;
 
@@ -67,8 +69,10 @@ public static class SettingsProviderStorage
             descriptor.ForceRebuild();
         };
 
-        // One reset button for this whole page
-        SettingsProvider.AddResetPageButton(container, "settings.tab.downloadscache", ResetStorageDefaults);
+        SettingsProviderTrustedUrls.Populate(container, TabKey);
+
+        // One reset button for this whole page (download limits, cache, trusted URLs)
+        SettingsProvider.AddResetPageButton(container, TabKey, ResetDefaults);
 
         descriptor.ForceRebuild();
         return tab;
@@ -153,12 +157,13 @@ public static class SettingsProviderStorage
         }
     }
 
-    private static void ResetStorageDefaults()
+    private static void ResetDefaults()
     {
         BasisSettingsDefaults.AvatarDownloadSize.ResetToDefault();
         BasisSettingsDefaults.CacheMaxSizeGB.ResetToDefault();
         BasisSettingsDefaults.MaxConcurrentAvatarDownloads.ResetToDefault();
         BasisSettingsDefaults.MaxConcurrentAvatarDiscLoads.ResetToDefault();
         BasisSettingsDefaults.MaxConcurrentAvatarAddressables.ResetToDefault();
+        SettingsProviderTrustedUrls.Reset();
     }
 }

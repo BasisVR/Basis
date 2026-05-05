@@ -25,7 +25,7 @@ namespace Basis.Scripts.BasisSdk.Players
     /// and signal readiness. Subscribe to events like <see cref="OnLocalPlayerInitalized"/>
     /// to know when the player has finished bootstrapping.
     /// </remarks>
-    public class BasisLocalPlayer : BasisPlayer
+    public class BasisLocalPlayer : BasisPlayer, IBasisLocalPlayer
     {
         /// <summary>
         /// Singleton-like reference to the active local player instance.
@@ -189,6 +189,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
+            BasisLocalPlayerData.Instance = this;
             PlayerPlatform = Application.platform.ToString();
 
 #if !BASIS_DISABLE_MICROPHONE
@@ -245,6 +246,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisUILoadingBar.Initalize();
             PlayerReady = true;
             OnLocalPlayerInitalized?.Invoke();
+            BasisLocalPlayerData.RaiseLocalPlayerInitialized();
         }
 
         /// <summary>
@@ -374,6 +376,11 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         public void OnDestroy()
         {
+            if (BasisLocalPlayerData.Instance == this)
+            {
+                BasisLocalPlayerData.Instance = null;
+                BasisLocalPlayerData.PlayerReady = false;
+            }
             if (HasEvents)
             {
                LocalVisemeDriver?.OnDestroy();
@@ -502,7 +509,7 @@ namespace Basis.Scripts.BasisSdk.Players
         }
         /// <summary>
         /// Positions the avatar in a T-pose such that the head aligns to tracked head position/orientation (yaw only).
-        /// Drives the hips bone instead of the avatar root so calibration data tied to AvatarTransform stays valid.
+        /// Drives the avatar root (AvatarTransform) so the head bone lands on the tracked head pose while the avatar holds T-pose.
         /// </summary>
         public void DriveTpose()
         {
@@ -524,12 +531,11 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             Quaternion desiredRotWS = Quaternion.LookRotation(flatFwd.normalized, Vector3.up);
 
-            // Offset the hips down by the head→hips delta in T-pose so the head bone lands on headPosWS.
+            // Offset the avatar root by the head's T-pose offset so the head bone lands on headPosWS.
             Vector3 headTposeLocal = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
-            Vector3 hipsTposeLocal = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
-            Vector3 hipsWorldPos = headPosWS - desiredRotWS * (headTposeLocal - hipsTposeLocal);
+            Vector3 avatarWorldPos = headPosWS - desiredRotWS * headTposeLocal;
 
-            BasisLocalAvatarDriver.Mapping.Hips.SetPositionAndRotation(hipsWorldPos, desiredRotWS);
+            AvatarTransform.SetPositionAndRotation(avatarWorldPos, desiredRotWS);
         }
         public void Immobilize(bool immobilize)
         {

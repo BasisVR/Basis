@@ -9,7 +9,14 @@ public static partial class SerializableBasis
     {
         Avatar = 0,
         Prop = 1,
-        World = 2
+        World = 2,
+        /// <summary>
+        /// A saved-server entry. ContentURL carries the connection string
+        /// (address[:port][#password]); UnlockPassword is unused for this type.
+        /// Receivers don't spawn an in-world orb — they get a confirmation
+        /// dialog asking whether to add the server to their saved list.
+        /// </summary>
+        Server = 3,
     }
 
     /// <summary>

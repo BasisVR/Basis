@@ -22,48 +22,43 @@ namespace Basis.Scripts.Networking
         }
         public static BasisNetworkPlayer CreateRemotePlayer(ServerReadyMessage ServerReadyMessage, InstantiationParameters instantiationParameters)
         {
-
             ClientAvatarChangeMessage avatarID = ServerReadyMessage.localReadyMessage.clientAvatarChangeMessage;
+            ushort playerId = ServerReadyMessage.playerIdMessage.playerID;
+            BasisNetworkPlayers.JoiningPlayers.TryAdd(playerId, 0);
 
-            if (avatarID.byteArray != null)
+            try
             {
-                BasisNetworkPlayers.JoiningPlayers.TryAdd(ServerReadyMessage.playerIdMessage.playerID, 0);
-
-                // Start both tasks simultaneously
                 BasisRemotePlayer remote = BasisPlayerFactory.CreateRemotePlayer(instantiationParameters, avatarID, ServerReadyMessage.localReadyMessage.playerMetaDataMessage);
-                BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(ServerReadyMessage.playerIdMessage.playerID);
-                // Continue with the rest of the code
+                BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(playerId);
                 RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage, avatarID.LocalAvatarIndex);
-                remote.LoadAvatarFromInitial(avatarID);
-                if (BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
+
+                if (avatarID.byteArray != null && avatarID.byteArray.Length > 0)
                 {
-                    //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
+                    remote.LoadAvatarFromInitial(avatarID);
                 }
-                else
+
+                if (!BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
                 {
-                    BasisNetworkHandleRemoval.HandleDisconnectId(ServerReadyMessage.playerIdMessage.playerID);
+                    BasisNetworkHandleRemoval.HandleDisconnectId(playerId);
                     if (BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
                     {
-                        BasisDebug.LogError($"Player Forcefully removed and readded with new Identity : {ServerReadyMessage.playerIdMessage.playerID}");
+                        BasisDebug.LogError($"Player Forcefully removed and readded with new Identity : {playerId}");
                     }
                     else
                     {
                         BasisDebug.LogError("Critical issue this should never occur this is after the fallback system");
+                        return null;
                     }
-                    return null;
                 }
-                //  BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
+
                 BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
                 BasisNetworkPlayer.OnPlayerJoined?.Invoke(BasisNetworkReceiver);
 
-                BasisNetworkPlayers.JoiningPlayers.TryRemove(ServerReadyMessage.playerIdMessage.playerID, out _);
-
                 return BasisNetworkReceiver;
             }
-            else
+            finally
             {
-                BasisDebug.LogError("Empty Avatar ID for Player fatal error! " + ServerReadyMessage.playerIdMessage.playerID);
-                return null;
+                BasisNetworkPlayers.JoiningPlayers.TryRemove(playerId, out _);
             }
         }
         public static void RemoteInitialization(BasisNetworkReceiver BasisNetworkReceiver, BasisRemotePlayer RemotePlayer, ServerReadyMessage ServerReadyMessage,byte LocalAvatarIndex)

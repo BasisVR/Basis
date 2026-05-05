@@ -23,7 +23,7 @@ namespace Basis.BTween
 
         static BaseTween()
         {
-            BTweenManager.RegisterGroup(ProcessGroup);
+            BasisTweenManager.RegisterGroup(ProcessGroup);
         }
 
         private static void ProcessGroup(double currentTime)

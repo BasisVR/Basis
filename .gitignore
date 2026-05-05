@@ -28,3 +28,7 @@
 # MacOS
 .DS_Store
 /Basis/.utmp
+
+# Python
+__pycache__/
+*.pyc

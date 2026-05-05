@@ -164,6 +164,12 @@ namespace Basis.Scripts.UI
 
                 if (EventSystem.currentSelectedGameObject.TryGetComponent(out CurrentSelectedTMP_InputField))
                 {
+                    CurrentSelectedInputField = null;
+                    if (BasisVirtualKeyboard.HasInstance)
+                    {
+                        BasisVirtualKeyboard.InputField = null;
+                        BasisVirtualKeyboard.TMPInputField = CurrentSelectedTMP_InputField;
+                    }
                     if (HasHoverONInput == false)
                     {
                         HasHoverONInput = true;
@@ -182,6 +188,12 @@ namespace Basis.Scripts.UI
                 {
                     if (EventSystem.currentSelectedGameObject.TryGetComponent(out CurrentSelectedInputField))
                     {
+                        CurrentSelectedTMP_InputField = null;
+                        if (BasisVirtualKeyboard.HasInstance)
+                        {
+                            BasisVirtualKeyboard.InputField = CurrentSelectedInputField;
+                            BasisVirtualKeyboard.TMPInputField = null;
+                        }
                         if (HasHoverONInput == false)
                         {
                             HasHoverONInput = true;
@@ -214,7 +226,9 @@ namespace Basis.Scripts.UI
         }
         public bool KeyboardRequired()
         {
-            return (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard || BasisDeviceManagement.IsCurrentModeVR() == false && BasisDeviceManagement.IsMobileHardware());
+            if (ForceKeyboard) return true;
+            if (TouchScreenKeyboard.isSupported) return false;
+            return BasisDeviceManagement.IsCurrentModeVR();
         }
 
         /// <summary>

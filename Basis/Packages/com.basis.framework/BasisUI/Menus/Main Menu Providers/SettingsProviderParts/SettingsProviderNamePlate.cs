@@ -1,5 +1,6 @@
 using Basis.Scripts.UI.NamePlate;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 namespace Basis.BasisUI
 {

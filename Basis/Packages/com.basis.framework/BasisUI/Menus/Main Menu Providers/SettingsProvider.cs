@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 namespace Basis.BasisUI
 {
@@ -36,6 +37,23 @@ namespace Basis.BasisUI
         /// When set by an external package, replaces the default My Avatar tab builder.
         /// </summary>
         public static Func<PanelTabGroup, PanelTabPage> MyAvatarTabOverride;
+
+        /// <summary>
+        /// External hook for the Developer tab's "Debug Face Tracking" section.
+        /// The comms package owns the face tracking pipeline types (relays, OSC,
+        /// blendshape actuation) and registers a builder here that populates the
+        /// passed-in container with live diagnostic fields.
+        /// </summary>
+        public static Action<RectTransform> FaceTrackingDebugBuilder;
+
+        /// <summary>
+        /// External hook for the Developer tab's "Debug Eye Tracking" section.
+        /// Same shape as <see cref="FaceTrackingDebugBuilder"/> - the comms
+        /// package registers a builder that populates the container.
+        /// </summary>
+        public static Action<RectTransform> EyeTrackingDebugBuilder;
+
+        public static Action<RectTransform> AvatarCustomizationBuilder;
 
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()

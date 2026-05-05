@@ -4,6 +4,7 @@ using SteamAudio;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 namespace Basis.BasisUI
 {
@@ -115,7 +116,7 @@ namespace Basis.BasisUI
                 listenerDampenGroup.ForceRebuild();
             };
 
-            // ─────────────── VOICE BUFFER GROUP (always visible) ───────────────
+            // ─────────────── VOICE BUFFER GROUP (advanced) ───────────────
             // Frames-of-audio buffered ahead of playback. Lower = less latency,
             // higher = more resilience to packet jitter / loss before underrun.
             // Buffer is 20 ms per frame, so 1 ≈ 20 ms.
@@ -511,7 +512,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             sliderLipSyncSlots.Descriptor.SetDescription(
                 "Number of concurrent OpenLipSync (neural viseme) instances.\n" +
                 "Higher = better lip sync on more players, but more CPU.\n" +
-                "Default: 30. Players beyond this use uLipSync fallback.");
+                "Default: 30. Players beyond this get no visemes until a slot frees up.");
 
             // Only show the slider when the limit toggle is enabled
             sliderLipSyncSlots.Descriptor.SetActive(toggleLimitLipSync.Value);
@@ -522,6 +523,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             };
 
             // Hide all advanced groups by default
+            voiceBufferGroup.SetActive(false);
             audioSourceGroup.SetActive(false);
             hrtfGroup.SetActive(false);
             propagationGroup.SetActive(false);
@@ -535,6 +537,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             advancedToggle.SetValueWithoutNotify(false);
             advancedToggle.OnValueChanged += (val) =>
             {
+                voiceBufferGroup.SetActive(val);
                 audioSourceGroup.SetActive(val);
                 hrtfGroup.SetActive(val);
                 propagationGroup.SetActive(val);

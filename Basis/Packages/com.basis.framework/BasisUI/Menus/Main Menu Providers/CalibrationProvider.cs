@@ -100,6 +100,49 @@ namespace Basis.BasisUI
             var bodyTrackingSettingsButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Default, container);
             bodyTrackingSettingsButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.bodyTrackingSettings"));
             bodyTrackingSettingsButton.OnClicked += () => SettingsProvider.OpenBodyTrackingTab();
+
+            // Reset Calibration (restores defaults for calibration-only state, including hidden pitch data)
+            var resetButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Default, container);
+            resetButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.reset"));
+            resetButton.Descriptor.SetDescription(BasisLocalization.Get("calibration.resetDescription"));
+            resetButton.OnClicked += PromptResetCalibration;
+        }
+
+        private void PromptResetCalibration()
+        {
+            BasisMainMenu.Instance.OpenDialogue(
+                BasisLocalization.Get("calibration.reset"),
+                BasisLocalization.Get("calibration.resetConfirm"),
+                BasisLocalization.Get("ui.reset"),
+                BasisLocalization.Get("ui.cancel"),
+                value =>
+                {
+                    if (!value)
+                    {
+                        return;
+                    }
+
+                    ResetCalibration();
+                });
+        }
+
+        private void ResetCalibration()
+        {
+            // Pitch calibration toggle (binding + module-static used by Calibrate())
+            BasisSettingsDefaults.PitchCalibration.ResetToDefault();
+            SMModuleCalibration.PitchCalibrationEnabled = BasisSettingsDefaults.PitchCalibration.RawValue;
+
+            // Captured pitch calibration result (hidden backend state)
+            BasisHeightDriver.HasPitchCalibratedHeight = false;
+            BasisHeightDriver.PitchCalibratedEyeHeight = BasisHeightDriver.FallbackHeightInMeters;
+
+            // Per-user additional height adjustment
+            BasisHeightDriver.AdditionalPlayerHeight = 0f;
+            BasisHeightDriver.ApplyScaleAndHeight();
+
+            // Refresh on-screen labels for the controls we just reset
+            HeightDescription.SetDescription($"{BasisHeightDriver.AdditionalPlayerHeight:F2}");
+            UpdatePitchToggleLabel();
         }
         /// <summary>
         /// tracker balls
@@ -330,15 +373,23 @@ namespace Basis.BasisUI
         {
             base.OnButtonCreated(button);
             BasisDeviceManagement.OnBootModeChanged += BootModeChanged;
-            BoundButton.OnInstanceReleased += () => BasisDeviceManagement.OnBootModeChanged -= BootModeChanged;
-            CheckUserForVR();
+            BasisSettingsDefaults.EnableFBT.OnChanged += FBTToggleChanged;
+            BoundButton.OnInstanceReleased += () =>
+            {
+                BasisDeviceManagement.OnBootModeChanged -= BootModeChanged;
+                BasisSettingsDefaults.EnableFBT.OnChanged -= FBTToggleChanged;
+            };
+            EvaluateButtonVisibility();
         }
 
-        private void BootModeChanged(string _) => CheckUserForVR();
+        private void BootModeChanged(string _) => EvaluateButtonVisibility();
+        private void FBTToggleChanged(bool _) => EvaluateButtonVisibility();
 
-        private void CheckUserForVR()
+        private void EvaluateButtonVisibility()
         {
-            BoundButton.gameObject.SetActive(!BasisDeviceManagement.IsUserInDesktop());
+            bool inVR = !BasisDeviceManagement.IsUserInDesktop();
+            bool fbtEnabled = BasisSettingsDefaults.EnableFBT.RawValue;
+            BoundButton.gameObject.SetActive(inVR && fbtEnabled);
         }
     }
 }

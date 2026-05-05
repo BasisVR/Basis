@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Device_Management.Devices.Pairing;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
@@ -154,6 +155,11 @@ namespace Basis.Scripts.Avatar
             BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
             BasisLocalPlayer.Instance.LocalRigDriver.RigLayer.active = true;
             BasisLocalPlayer.Instance.LocalAnimatorDriver.AssignHipsFBTracker();
+
+            // Refresh the per-role calibration spheres so they re-anchor to the
+            // newly stored avatar bone transforms. No-op when the ShowGizmos
+            // master toggle is off; the toggle path rebuilds when it flips on.
+            BasisLocalPlayer.Instance.LocalBoneDriver.RebuildCalibrationSpheres();
         }
 
         /// <summary>
@@ -241,6 +247,13 @@ namespace Basis.Scripts.Avatar
             bool[] sampleUsed = new bool[samples.Count];
             bool[] roleUsed = new bool[priors.Length];
             int assignedCount = 0;
+
+            // User-forced overrides come first. Each sample whose tracker (or, for a
+            // virtual midpoint, either physical half) has a stored role override is
+            // bound straight to that role and removed from the candidate pool — the
+            // classifier never scores it. This lets a user lock e.g. a problem hip
+            // tracker to Hips so calibration can't reassign it under any pose.
+            assignedCount += ApplyForcedRoleOverrides(samples, priors, sampleUsed, roleUsed);
             while (true)
             {
                 float bestScore = ConstellationAcceptThreshold;
@@ -254,9 +267,63 @@ namespace Basis.Scripts.Avatar
                     }
 
                     TrackerSample sample = samples[s];
+                    // A near-origin sample means the device never wrote a real pose into
+                    // UnscaledDeviceCoord (touch-only inputs, controllers polled before the
+                    // first render pose, etc.). At (0,0,0) body-local it scores well for
+                    // Toes and would silently win that role, flipping HasFBIKTrackers to
+                    // true and tricking the rig driver into engaging foot IK on legs that
+                    // have no real tracker.
+                    if (sample.NearOrigin)
+                    {
+                        continue;
+                    }
                     for (int r = 0; r < priors.Length; r++)
                     {
                         if (roleUsed[r])
+                        {
+                            continue;
+                        }
+
+                        // Secondary roles only release once their default counterpart is filled.
+                        // Hips anchors the torso/legs — Chest and LowerLeg wait on it so a stray
+                        // stomach or thigh tracker doesn't snipe its slot. Toes waits on Foot —
+                        // otherwise a single low tracker per side wins Toes and leaves
+                        // FootControl.HasTracked false, which kicks BasisLocalRigDriver into
+                        // procedural foot IK. Shoulder waits on LowerArm so the default elbow
+                        // tracker isn't lost to the tighter-to-the-body Shoulder prior.
+                        BasisBoneTrackedRole priorrole = priors[r].Role;
+                        if (priorrole == BasisBoneTrackedRole.Chest
+                            && !IsRolePreconditionMet(priors, roleUsed, BasisBoneTrackedRole.Hips))
+                        {
+                            continue;
+                        }
+                        if (priorrole == BasisBoneTrackedRole.LeftLowerLeg
+                            && !IsRolePreconditionMet(priors, roleUsed, BasisBoneTrackedRole.Hips))
+                        {
+                            continue;
+                        }
+                        if (priorrole == BasisBoneTrackedRole.RightLowerLeg
+                            && !IsRolePreconditionMet(priors, roleUsed, BasisBoneTrackedRole.Hips))
+                        {
+                            continue;
+                        }
+                        if (priorrole == BasisBoneTrackedRole.LeftToes
+                            && !IsRolePreconditionMet(priors, roleUsed, BasisBoneTrackedRole.LeftFoot))
+                        {
+                            continue;
+                        }
+                        if (priorrole == BasisBoneTrackedRole.RightToes
+                            && !IsRolePreconditionMet(priors, roleUsed, BasisBoneTrackedRole.RightFoot))
+                        {
+                            continue;
+                        }
+                        if (priorrole == BasisBoneTrackedRole.LeftShoulder
+                            && !IsRolePreconditionMet(priors, roleUsed, BasisBoneTrackedRole.LeftLowerArm))
+                        {
+                            continue;
+                        }
+                        if (priorrole == BasisBoneTrackedRole.RightShoulder
+                            && !IsRolePreconditionMet(priors, roleUsed, BasisBoneTrackedRole.RightLowerArm))
                         {
                             continue;
                         }
@@ -290,6 +357,93 @@ namespace Basis.Scripts.Avatar
             ComputeBestAnyFits(samples);
             ConstellationDebug.Status = $"{assignedCount} of {samples.Count} tracker(s) assigned";
             ConstellationDebug.HasSnapshot = true;
+        }
+
+        /// <summary>
+        /// Walks samples, applies any user-set role override for each tracker
+        /// directly (skipping the constellation scoring), and marks both the
+        /// sample and the chosen role as used so the greedy classifier can't
+        /// touch them. For virtual midpoint samples we also accept an override
+        /// recorded against either physical half — the user pairs trackers in
+        /// the UI by physical id, and the merged virtual is what calibration
+        /// sees, so we have to bridge between the two ids here.
+        /// </summary>
+        private static int ApplyForcedRoleOverrides(List<TrackerSample> samples, BoneRolePrior[] priors, bool[] sampleUsed, bool[] roleUsed)
+        {
+            int forced = 0;
+            for (int s = 0; s < samples.Count; s++)
+            {
+                if (sampleUsed[s]) continue;
+                TrackerSample sample = samples[s];
+                if (sample.Input == null) continue;
+                if (sample.NearOrigin) continue;
+
+                if (!TryResolveOverride(sample.Input, out BasisBoneTrackedRole forcedRole))
+                {
+                    continue;
+                }
+
+                int roleIdx = -1;
+                for (int r = 0; r < priors.Length; r++)
+                {
+                    if (priors[r].Role == forcedRole)
+                    {
+                        roleIdx = r;
+                        break;
+                    }
+                }
+                // Override targets a role the classifier wouldn't normally
+                // assign (toggled off, or off-list like Spine). The user
+                // explicitly asked for it, so honor the override and just skip
+                // the roleUsed bookkeeping — the classifier was never going to
+                // pick that role anyway.
+                if (roleIdx >= 0 && roleUsed[roleIdx])
+                {
+                    BasisDebug.Log($"FBIK constellation: override for '{sample.Input.UniqueDeviceIdentifier}' -> {forcedRole} skipped (role already taken by another override)", BasisDebug.LogTag.Input);
+                    continue;
+                }
+
+                BasisDebug.Log($"FBIK constellation: '{sample.Input.UniqueDeviceIdentifier}' -> {forcedRole} (forced override)", BasisDebug.LogTag.Input);
+                sample.Input.ApplyTrackerCalibration(forcedRole);
+                sampleUsed[s] = true;
+                if (roleIdx >= 0) roleUsed[roleIdx] = true;
+                HasFBIKTrackers = true;
+
+                // ConstellationDebug records the assignment with score=+inf to
+                // mark "this didn't go through scoring". Negative scores in the
+                // visualizer mean "tight fit"; +inf reads as "no fit needed".
+                RecordAssignment(s, forcedRole, float.PositiveInfinity);
+                forced++;
+            }
+            return forced;
+        }
+
+        /// <summary>
+        /// Resolves a user-set override for the given input. Plain inputs use
+        /// their own id. Virtual midpoints check both physical halves so an
+        /// override saved against either tracker before pairing still applies.
+        /// </summary>
+        private static bool TryResolveOverride(BasisInput input, out BasisBoneTrackedRole role)
+        {
+            if (BasisTrackerRoleOverride.TryGetOverride(input.UniqueDeviceIdentifier, out role))
+            {
+                return true;
+            }
+            if (input is BasisVirtualMidpointInput midpoint)
+            {
+                if (midpoint.PartnerA != null
+                    && BasisTrackerRoleOverride.TryGetOverride(midpoint.PartnerA.UniqueDeviceIdentifier, out role))
+                {
+                    return true;
+                }
+                if (midpoint.PartnerB != null
+                    && BasisTrackerRoleOverride.TryGetOverride(midpoint.PartnerB.UniqueDeviceIdentifier, out role))
+                {
+                    return true;
+                }
+            }
+            role = BasisBoneTrackedRole.CenterEye;
+            return false;
         }
 
         private static void CaptureSampleSnapshots(List<TrackerSample> samples)
@@ -416,6 +570,11 @@ namespace Basis.Scripts.Avatar
                 // headset to the player's torso.
                 if (input == hmdDevice) continue;
 
+                // Linked half of a tracker pair — the merged virtual midpoint device
+                // emits the sample for the pair, so the physical bases bail out here
+                // and never compete for a role on their own.
+                if (input.IsLinked) continue;
+
                 // Devices the matcher pinned to a role (HMD, named hand controllers) keep
                 // their role no matter what.
                 if (input.DeviceMatchSettings != null && input.DeviceMatchSettings.HasTrackedRole) continue;
@@ -493,21 +652,43 @@ namespace Basis.Scripts.Avatar
                 new BoneRolePrior(BasisBoneTrackedRole.Chest,          h: 0.78f, lat: 0f,                 hSigma: 0.08f, latSigma: 0.10f),
 
                 // Legs — toes near floor, feet just above, knees mid-shin.
-                new BoneRolePrior(BasisBoneTrackedRole.LeftToes,       h: 0.02f, lat: -0.10f,             hSigma: 0.04f, latSigma: 0.12f),
-                new BoneRolePrior(BasisBoneTrackedRole.RightToes,      h: 0.02f, lat: +0.10f,             hSigma: 0.04f, latSigma: 0.12f),
-                new BoneRolePrior(BasisBoneTrackedRole.LeftFoot,       h: 0.05f, lat: -0.10f,             hSigma: 0.08f, latSigma: 0.12f),
-                new BoneRolePrior(BasisBoneTrackedRole.RightFoot,      h: 0.05f, lat: +0.10f,             hSigma: 0.08f, latSigma: 0.12f),
-                new BoneRolePrior(BasisBoneTrackedRole.LeftLowerLeg,   h: 0.27f, lat: -0.10f,             hSigma: 0.10f, latSigma: 0.12f),
-                new BoneRolePrior(BasisBoneTrackedRole.RightLowerLeg,  h: 0.27f, lat: +0.10f,             hSigma: 0.10f, latSigma: 0.12f),
+                new BoneRolePrior(BasisBoneTrackedRole.LeftToes,       h: 0.02f, lat: -0.10f,             hSigma: 0.04f, latSigma: 0.07f),
+                new BoneRolePrior(BasisBoneTrackedRole.RightToes,      h: 0.02f, lat: +0.10f,             hSigma: 0.04f, latSigma: 0.07f),
+                new BoneRolePrior(BasisBoneTrackedRole.LeftFoot,       h: 0.05f, lat: -0.10f,             hSigma: 0.08f, latSigma: 0.07f),
+                new BoneRolePrior(BasisBoneTrackedRole.RightFoot,      h: 0.05f, lat: +0.10f,             hSigma: 0.08f, latSigma: 0.07f),
+                new BoneRolePrior(BasisBoneTrackedRole.LeftLowerLeg,   h: 0.27f, lat: -0.10f,             hSigma: 0.10f, latSigma: 0.07f),
+                new BoneRolePrior(BasisBoneTrackedRole.RightLowerLeg,  h: 0.27f, lat: +0.10f,             hSigma: 0.10f, latSigma: 0.07f),
 
                 // Arms in T-pose share approximate height; lateral position discriminates
                 // shoulder vs elbow vs (the implied hand controller out past the elbow).
                 // Lateral priors scale with measured reach so this works for any arm length.
-                new BoneRolePrior(BasisBoneTrackedRole.LeftShoulder,   h: 0.88f, lat: -armReach * 0.30f,  hSigma: 0.08f, latSigma: 0.10f),
-                new BoneRolePrior(BasisBoneTrackedRole.RightShoulder,  h: 0.88f, lat: +armReach * 0.30f,  hSigma: 0.08f, latSigma: 0.10f),
-                new BoneRolePrior(BasisBoneTrackedRole.LeftLowerArm,   h: 0.88f, lat: -armReach * 0.65f,  hSigma: 0.10f, latSigma: 0.10f),
-                new BoneRolePrior(BasisBoneTrackedRole.RightLowerArm,  h: 0.88f, lat: +armReach * 0.65f,  hSigma: 0.10f, latSigma: 0.10f),
+                //
+                // Lateral sigma is also scaled by armReach (×0.08) so the 3σ acceptance
+                // band can never cross the body midline. Shoulder/lower-arm trackers are
+                // physically anchored to one side of the body — letting them score
+                // against the opposite-side prior is just noise. Concretely with
+                // ×0.08: shoulder 3σ extent = armReach × [0.06, 0.54], lower-arm 3σ
+                // extent = armReach × [0.41, 0.89] — both clear of the midline for
+                // any armReach value.
+                new BoneRolePrior(BasisBoneTrackedRole.LeftShoulder,   h: 0.88f, lat: -armReach * 0.30f,  hSigma: 0.08f, latSigma: armReach * 0.08f),
+                new BoneRolePrior(BasisBoneTrackedRole.RightShoulder,  h: 0.88f, lat: +armReach * 0.30f,  hSigma: 0.08f, latSigma: armReach * 0.08f),
+                new BoneRolePrior(BasisBoneTrackedRole.LeftLowerArm,   h: 0.88f, lat: -armReach * 0.65f,  hSigma: 0.10f, latSigma: armReach * 0.12f),
+                new BoneRolePrior(BasisBoneTrackedRole.RightLowerArm,  h: 0.88f, lat: +armReach * 0.65f,  hSigma: 0.10f, latSigma: armReach * 0.12f),
             };
+        }
+
+        // Returns true when dependsOn is already taken, or isn't in the prior list at all
+        // (the toggle disabled it, so there's nothing for the dependent role to wait on).
+        private static bool IsRolePreconditionMet(BoneRolePrior[] priors, bool[] roleUsed, BasisBoneTrackedRole dependsOn)
+        {
+            for (int i = 0; i < priors.Length; i++)
+            {
+                if (priors[i].Role == dependsOn)
+                {
+                    return roleUsed[i];
+                }
+            }
+            return true;
         }
 
         private static float ScoreSampleAgainstRole(TrackerSample sample, BoneRolePrior prior)
@@ -644,6 +825,164 @@ namespace Basis.Scripts.Avatar
                     return 0;
             }
         }
+
+        // Cache for the default-armReach prior list. Rebuilt only when eyeHeight
+        // moves enough to change the armReach scaling — avoids per-frame allocs
+        // while still picking up calibration / scale changes.
+        private static readonly List<ConstellationDebug.DebugPrior> _defaultPriorsCache = new List<ConstellationDebug.DebugPrior>(16);
+        private static float _defaultPriorsArmReach = -1f;
+
+        /// <summary>
+        /// Returns the body-frame anchor and per-role priors used to render
+        /// calibration acceptance-region gizmos. Always prefers a live HMD pose
+        /// so the regions track wherever the player is now (rather than freezing
+        /// at the last calibration snapshot). Falls back to the snapshot frame if
+        /// no HMD device is available, or returns false if there's no usable
+        /// frame source at all.
+        /// </summary>
+        /// <param name="bodyOrigin">World-space anchor: HMD position projected to the floor.</param>
+        /// <param name="bodyRotation">Body forward rotation: HMD facing flattened to horizontal.</param>
+        /// <param name="eyeHeight">Eye height (meters), used to convert ratio-space priors to world distances.</param>
+        /// <param name="priors">Per-role priors. Snapshot priors when a calibration has run, default-armReach priors otherwise.</param>
+        public static bool TryGetCalibrationVisualizationFrame(
+            out Vector3 bodyOrigin,
+            out Quaternion bodyRotation,
+            out float eyeHeight,
+            out IReadOnlyList<ConstellationDebug.DebugPrior> priors)
+        {
+            // The classifier scores in playspace (real-world) ratios of
+            // PlayerEyeHeight. After it picks roles, each tracker pose is
+            // lifted onto the avatar via DeviceScale (BasisInput.ConvertToScaledDeviceCoord:
+            // scaledPos = OffsetCoords + unscaledPos * DeviceScale). The
+            // visualization mirrors that pipeline: priors stay cached against
+            // PlayerEyeHeight (real-world), but body anchor + region sizing
+            // get the same DeviceScale projection real trackers get post-
+            // classification. Without the multiply, regions sit at the player's
+            // real-world position (e.g. ~0.09 m world) instead of on the avatar.
+            float playerEye = Mathf.Max(BasisHeightDriver.PlayerEyeHeight, 1.0f);
+            float deviceScale = BasisHeightDriver.DeviceScale;
+            if (deviceScale <= 0f) deviceScale = 1f;
+            float worldEyeHeight = playerEye * deviceScale;
+
+            IReadOnlyList<ConstellationDebug.DebugPrior> resolvedPriors =
+                (ConstellationDebug.HasSnapshot && ConstellationDebug.Priors.Count > 0)
+                    ? (IReadOnlyList<ConstellationDebug.DebugPrior>)ConstellationDebug.Priors
+                    : BuildDefaultPriorsList(playerEye);
+
+            // Anchor on the HMD pose. Read passively from UnscaledDeviceCoord —
+            // we deliberately do NOT call LatePollData because that would
+            // re-run the device poll mid-render and stomp on height calibration
+            // (and anything else reading device state in the same frame).
+            // The cached value reflects the most recent normal frame poll, which
+            // is plenty fresh for visualization.
+            if (TryReadHmdPosePassive(out Vector3 hmdPosPlayspace, out Quaternion hmdRotPlayspace))
+            {
+                Vector3 fwd = hmdRotPlayspace * Vector3.forward;
+                fwd.y = 0f;
+                if (fwd.sqrMagnitude < 1e-4f)
+                {
+                    fwd = Vector3.forward;
+                }
+                fwd.Normalize();
+                Quaternion bodyRotPlayspace = Quaternion.LookRotation(fwd, Vector3.up);
+
+                // Lift HMD playspace → avatar-world. Multiplying by DeviceScale
+                // before the locomotion matrix matches BasisInput.ConvertToScaledDeviceCoord
+                // (scaledPos = OffsetCoords + unscaledPos * DeviceScale). The
+                // matrix carries position + rotation from teleport / smooth-move;
+                // its lossyScale stays 1 because avatar scale lives on the
+                // avatar transform inside the root, applied here via DeviceScale.
+                Matrix4x4 l2w = BasisLocalPlayer.localToWorldMatrix;
+                Vector3 hmdWorld = l2w.MultiplyPoint3x4(hmdPosPlayspace * deviceScale);
+                bodyRotation = l2w.rotation * bodyRotPlayspace;
+                bodyOrigin = new Vector3(hmdWorld.x, hmdWorld.y - worldEyeHeight, hmdWorld.z);
+                eyeHeight = worldEyeHeight;
+                priors = resolvedPriors;
+                return true;
+            }
+
+            // Last-ditch: snapshot frame lifted to world for the case where
+            // HMD pose isn't available (e.g., before device discovery).
+            if (ConstellationDebug.HasSnapshot)
+            {
+                Matrix4x4 l2w = BasisLocalPlayer.localToWorldMatrix;
+                bodyOrigin = l2w.MultiplyPoint3x4(ConstellationDebug.BodyOrigin * deviceScale);
+                bodyRotation = l2w.rotation * ConstellationDebug.BodyRotation;
+                eyeHeight = worldEyeHeight;
+                priors = ConstellationDebug.Priors;
+                return true;
+            }
+
+            bodyOrigin = Vector3.zero;
+            bodyRotation = Quaternion.identity;
+            eyeHeight = 1f;
+            priors = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Passive HMD pose read — same lookup as <see cref="TryGetHmdPose"/>
+        /// but without the <c>LatePollData()</c> call. Safe to invoke from
+        /// per-frame render paths since it never re-runs the device poll.
+        /// </summary>
+        private static bool TryReadHmdPosePassive(out Vector3 unscaledPos, out Quaternion unscaledRot)
+        {
+            BasisDeviceManagement manager = BasisDeviceManagement.Instance;
+            if (manager == null)
+            {
+                unscaledPos = Vector3.zero;
+                unscaledRot = Quaternion.identity;
+                return false;
+            }
+
+            BasisObservableList<BasisInput> devices = manager.AllInputDevices;
+            int count = devices.Count;
+            for (int i = 0; i < count; i++)
+            {
+                BasisInput input = devices[i];
+                if (input == null) continue;
+                if (!input.TryGetRole(out BasisBoneTrackedRole role)) continue;
+                if (role == BasisBoneTrackedRole.CenterEye || role == BasisBoneTrackedRole.Head)
+                {
+                    unscaledPos = input.UnscaledDeviceCoord.position;
+                    unscaledRot = input.UnscaledDeviceCoord.rotation;
+                    return true;
+                }
+            }
+
+            unscaledPos = Vector3.zero;
+            unscaledRot = Quaternion.identity;
+            return false;
+        }
+
+        private static IReadOnlyList<ConstellationDebug.DebugPrior> BuildDefaultPriorsList(float eyeHeight)
+        {
+            float armReach = ConstellationDefaultArmReachRatio * eyeHeight;
+            // Re-build only when armReach moves enough to matter — guards against
+            // every-frame allocations from the per-frame DrawGizmos path.
+            if (_defaultPriorsArmReach < 0f || Mathf.Abs(armReach - _defaultPriorsArmReach) > 0.001f)
+            {
+                _defaultPriorsCache.Clear();
+                BoneRolePrior[] built = BuildPriors(armReach);
+                for (int i = 0; i < built.Length; i++)
+                {
+                    BoneRolePrior p = built[i];
+                    _defaultPriorsCache.Add(new ConstellationDebug.DebugPrior
+                    {
+                        Role = p.Role,
+                        ExpectedHeight = p.ExpectedHeightRatio,
+                        ExpectedLateral = p.ExpectedLateralRatio,
+                        HeightSigma = p.HeightSigma,
+                        LateralSigma = p.LateralSigma,
+                        Enabled = Basis.BasisUI.BasisSettingsDefaults.IsRoleEnabledForCalibration(p.Role),
+                        AssignedSampleIndex = -1,
+                    });
+                }
+                _defaultPriorsArmReach = armReach;
+            }
+            return _defaultPriorsCache;
+        }
+
         /// <summary>
         /// Legacy ordered role list from the radius-based matcher. The constellation
         /// classifier no longer reads this — kept public for external consumers that
