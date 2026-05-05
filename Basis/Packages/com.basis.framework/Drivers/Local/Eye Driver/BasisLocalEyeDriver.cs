@@ -160,7 +160,7 @@ public class BasisLocalEyeDriver
         _prevGazeTarget = null;
         _prevHasGazeTarget = false;
         _gazeTargetChanged = false;
-        _prevHeadRot = BasisLocalCameraDriver.Rotation;
+        _prevHeadRot = BasisLocalCameraDriver.HeadRotation;
         _headDeltaYP = float2.zero;
 
         IsEnabled = true;
@@ -314,9 +314,9 @@ public class BasisLocalEyeDriver
     /// </summary>
     private static unsafe void SelectGazeTarget()
     {
-        float3 localHeadPos = BasisLocalCameraDriver.Position;
-        float3 localHeadFwd = BasisLocalCameraDriver.Forward();
-        quaternion localHeadRot = BasisLocalCameraDriver.Rotation;
+        float3 localHeadPos = BasisLocalCameraDriver.HeadPosition;
+        float3 localHeadFwd = BasisLocalCameraDriver.HeadForward();
+        quaternion localHeadRot = BasisLocalCameraDriver.HeadRotation;
         quaternion invLocalHeadRot = math.inverse(localHeadRot);
 
         // The job uses how much the head rotated to compensate the eye target.

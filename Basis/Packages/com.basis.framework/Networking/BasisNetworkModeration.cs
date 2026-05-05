@@ -545,9 +545,23 @@ public static class BasisNetworkModeration
     public static bool GlobalServersLocked { get; private set; }
 
     /// <summary>
+    /// Server-pushed third-person camera lockout. While true, the local desktop client must
+    /// hard-disable third-person (no toggle, no zoom). Mirrored to
+    /// <see cref="BasisLocalCameraDriver.AdminThirdPersonLocked"/> via
+    /// <see cref="OnGlobalThirdPersonDisabledChanged"/>.
+    /// </summary>
+    public static bool GlobalThirdPersonDisabled { get; private set; }
+
+    /// <summary>
     /// Fired when the global lock state changes. Parameters: avatarsLocked, propsLocked, worldsLocked, serversLocked.
     /// </summary>
     public static event Action<bool, bool, bool, bool> OnGlobalLockStateChanged;
+
+    /// <summary>
+    /// Fired when the third-person camera lockout flag changes. Separate from
+    /// <see cref="OnGlobalLockStateChanged"/> so existing 4-arg subscribers keep compiling.
+    /// </summary>
+    public static event Action<bool> OnGlobalThirdPersonDisabledChanged;
 
     /// <summary>
     /// Current headless audio state received from the server.
@@ -582,7 +596,19 @@ public static class BasisNetworkModeration
         // include it. Tolerate the short payload by leaving the existing value
         // (defaults to false) when the bool isn't there.
         if (reader.AvailableBytes >= 1) GlobalServersLocked = reader.GetBool();
-        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}", BasisDebug.LogTag.Networking);
+        // ThirdPersonDisabled appended after ServersLocked — same backward-compat trick.
+        // Only fire OnGlobalThirdPersonDisabledChanged if the flag actually flipped to keep
+        // listeners from doing redundant snap-to-first-person work every reconnect.
+        if (reader.AvailableBytes >= 1)
+        {
+            bool nextThirdPerson = reader.GetBool();
+            if (nextThirdPerson != GlobalThirdPersonDisabled)
+            {
+                GlobalThirdPersonDisabled = nextThirdPerson;
+                OnGlobalThirdPersonDisabledChanged?.Invoke(GlobalThirdPersonDisabled);
+            }
+        }
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}", BasisDebug.LogTag.Networking);
         OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked, GlobalServersLocked);
     }
 
@@ -616,6 +642,15 @@ public static class BasisNetworkModeration
     public static void GlobalToggleServers()
     {
         SendAdminRequest(AdminRequestMode.GlobalToggleServers);
+    }
+
+    /// <summary>
+    /// Admin: toggle the global third-person camera lockout. Server flips the flag,
+    /// persists it to config.xml, and broadcasts the new GlobalGetLockState payload.
+    /// </summary>
+    public static void GlobalToggleThirdPerson()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleThirdPerson);
     }
 
     private static void HandleGlobalHeadlessAudioState(NetDataReader reader)

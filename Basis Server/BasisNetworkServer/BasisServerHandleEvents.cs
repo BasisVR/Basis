@@ -754,18 +754,17 @@ namespace BasisServerHandle
         {
             try
             {
-                // Avatar Change State
-                if (!BasisSavedState.GetLastAvatarChangeState(peer, out var changeState))
+                ClientAvatarChangeMessage changeState;
+                bool haveAvatar = BasisSavedState.GetLastAvatarChangeState(peer, out changeState) && changeState.byteArray != null;
+                if (!haveAvatar)
                 {
-                    BNL.LogError($"Unable to get avatar change state for peer {peer.Id}; skipping in client list.");
-                    ServerReadyMessage = default;
-                    return false;
-                }
-                if (changeState.byteArray == null)
-                {
-                    BNL.LogError($"Avatar state for peer {peer.Id} has null byteArray; skipping in client list.");
-                    ServerReadyMessage = default;
-                    return false;
+                    BNL.Log($"No avatar state yet for peer {peer.Id}; sending placeholder spawn so the remote player is created on the joining client.");
+                    changeState = new ClientAvatarChangeMessage
+                    {
+                        loadMode = 0,
+                        byteArray = null,
+                        LocalAvatarIndex = 0
+                    };
                 }
 
                 int id = peer.Id;

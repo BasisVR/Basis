@@ -274,8 +274,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// <param name="Rotation"></param>
         public void GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation)
         {
-            Position = Player.BasisAvatar.Animator.rootPosition;
-            Rotation = Player.BasisAvatar.Animator.rootRotation;
+            Player.AvatarTransform.GetPositionAndRotation(out Position, out Rotation);
         }
 
         public async Task<bool> IsOwner(string IOwnThis)

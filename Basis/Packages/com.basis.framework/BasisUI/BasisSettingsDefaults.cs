@@ -272,6 +272,13 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> DesktopReticle = new("desktopreticle", new BasisPlatformDefault<bool>(false));
 
+        public static BasisSettingsBinding<bool> EnableThirdPersonCamera = new("enablethirdpersoncamera", new BasisPlatformDefault<bool>(true));
+
+        // True = listener stays at the player's head while third-person is active.
+        // False = listener follows the orbital camera (audio shifts behind the player on zoom).
+        // Only takes effect when the camera is currently in third-person mode.
+        public static BasisSettingsBinding<bool> AudioListenerFollowsHead = new("audiolistenerfollowshead", new BasisPlatformDefault<bool>(true));
+
         public static BasisSettingsBinding<string> MicrophoneIcon = new("microphoneicon", new BasisPlatformDefault<string>("alwaysvisible"));
 
         public static BasisSettingsBinding<float> MicrophoneIconOffsetX = new("microphoneiconoffsetx", new BasisPlatformDefault<float>(0f));
@@ -1212,6 +1219,8 @@ namespace Basis.BasisUI
             // UI
             AvatarPreview.LoadBindingValue();
             DesktopReticle.LoadBindingValue();
+            EnableThirdPersonCamera.LoadBindingValue();
+            AudioListenerFollowsHead.LoadBindingValue();
             MicrophoneIcon.LoadBindingValue();
             MicrophoneIconOffsetX.LoadBindingValue();
             MicrophoneIconOffsetY.LoadBindingValue();

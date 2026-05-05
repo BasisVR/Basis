@@ -230,7 +230,9 @@ public partial class BasisTransmissionResults
         distanceJob.SquaredHearingDistance = SMModuleDistanceBasedReductions.HearingRange;
         distanceJob.SquaredVoiceDistance = SMModuleDistanceBasedReductions.MicrophoneRange;
 
-        distanceJob.referencePosition = BasisLocalCameraDriver.Position;
+        // Range culling is keyed off the player's head, not the rendering camera, so
+        // third-person doesn't push avatars/audio out of range from behind the player.
+        distanceJob.referencePosition = BasisLocalCameraDriver.HeadPosition;
         distanceJob.ReductionMultiplier = SMModuleDistanceBasedReductions.MeshLod;
 
         distanceJob.HysteresisPercent = HysteresisPercent;

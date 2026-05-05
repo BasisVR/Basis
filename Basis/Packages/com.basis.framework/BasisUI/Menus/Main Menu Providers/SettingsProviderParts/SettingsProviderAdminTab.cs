@@ -1,3 +1,4 @@
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using BasisNetworkCore.Security;
 using System;
@@ -76,6 +77,15 @@ namespace Basis.BasisUI
             disallowHeadlessToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalHeadlessDisallowed);
             disallowHeadlessToggle.OnValueChanged += value => BasisNetworkModeration.SetGlobalHeadlessDisallow(value);
 
+            // Server-broadcast lock for the desktop third-person camera. The toggle sends
+            // GlobalToggleThirdPerson; the server flips, persists, and broadcasts the new
+            // GlobalGetLockState payload back to every connected client.
+            PanelToggle thirdPersonLock = PanelToggle.CreateNewEntry(lockGroup.ContentParent);
+            thirdPersonLock.Descriptor.SetTitle("Disable Third-Person Camera");
+            thirdPersonLock.Descriptor.SetDescription("Disables the desktop third-person camera for all connected players. Snaps anyone currently in third-person back to first-person.");
+            thirdPersonLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalThirdPersonDisabled);
+            thirdPersonLock.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleThirdPerson();
+
             PanelSlider opusPacketLossSlider = PanelSlider.CreateNew(PanelSlider.SliderStyles.Entry, lockGroup.ContentParent);
             opusPacketLossSlider.SetSliderSettings(PanelSlider.SliderSettings.Percentage("Opus FEC loss %"));
             opusPacketLossSlider.Descriptor.SetDescription("Sets OPUS_SET_PACKET_LOSS_PERC on every client's voice encoder. Higher = more bitrate spent on redundant FEC data, better recovery under packet loss.");
@@ -86,6 +96,7 @@ namespace Basis.BasisUI
             controller.PropLockToggle = propLock;
             controller.WorldLockToggle = worldLock;
             controller.ServerShareLockToggle = serverShareLock;
+            controller.ThirdPersonLockToggle = thirdPersonLock;
             controller.HeadlessAudioToggle = headlessAudioToggle;
             controller.HeadlessDisallowToggle = disallowHeadlessToggle;
             controller.OpusPacketLossSlider = opusPacketLossSlider;
@@ -339,6 +350,7 @@ namespace Basis.BasisUI
             public PanelToggle PropLockToggle;
             public PanelToggle WorldLockToggle;
             public PanelToggle ServerShareLockToggle;
+            public PanelToggle ThirdPersonLockToggle;
             public PanelToggle HeadlessAudioToggle;
             public PanelToggle HeadlessDisallowToggle;
             public PanelSlider OpusPacketLossSlider;
@@ -347,6 +359,8 @@ namespace Basis.BasisUI
             {
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged += OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalThirdPersonDisabledChanged -= OnGlobalThirdPersonDisabledChanged;
+                BasisNetworkModeration.OnGlobalThirdPersonDisabledChanged += OnGlobalThirdPersonDisabledChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
@@ -358,6 +372,7 @@ namespace Basis.BasisUI
             private void OnDisable()
             {
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalThirdPersonDisabledChanged -= OnGlobalThirdPersonDisabledChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
                 BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
@@ -366,6 +381,7 @@ namespace Basis.BasisUI
             private void OnDestroy()
             {
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalThirdPersonDisabledChanged -= OnGlobalThirdPersonDisabledChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
                 BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
@@ -377,6 +393,11 @@ namespace Basis.BasisUI
                 if (PropLockToggle != null) PropLockToggle.SetValueWithoutNotify(props);
                 if (WorldLockToggle != null) WorldLockToggle.SetValueWithoutNotify(worlds);
                 if (ServerShareLockToggle != null) ServerShareLockToggle.SetValueWithoutNotify(servers);
+            }
+
+            private void OnGlobalThirdPersonDisabledChanged(bool disabled)
+            {
+                if (ThirdPersonLockToggle != null) ThirdPersonLockToggle.SetValueWithoutNotify(disabled);
             }
 
             private void OnGlobalHeadlessAudioStateChanged(bool headlessAudioOff)

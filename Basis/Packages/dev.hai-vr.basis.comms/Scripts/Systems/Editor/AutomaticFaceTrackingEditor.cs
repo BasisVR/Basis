@@ -101,6 +101,11 @@ namespace HVR.Basis.Comms.Editor
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "AppData/LocalLow/VRChat/vrchat/OSC/usr_ba515000-89b1-4313-aa2d-ba51500ba515/Avatars"
             );
+#else
+            directory = Path.Combine(
+                Application.persistentDataPath,
+                "VRCFaceTracking/Avatars/usr_ba515000-89b1-4313-aa2d-ba51500ba515"
+            );
 #endif
             var destinationFileName = "avtr_00000000-89b1-4313-aa2d-000000000000.json";
             filePath = Path.Combine(directory, destinationFileName);

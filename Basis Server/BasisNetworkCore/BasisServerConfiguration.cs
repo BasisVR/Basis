@@ -87,6 +87,12 @@ public class Configuration
     /// </summary>
     public bool ServersLocked = false;
     /// <summary>
+    /// When true, the server tells every client to hard-disable the desktop third-person
+    /// camera. Toggled live via the admin panel and persisted to config.xml alongside the
+    /// other content lockouts. Default off so existing deployments behave as before.
+    /// </summary>
+    public bool ThirdPersonDisabled = false;
+    /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>
     /// <param name="filePath">Path to config file</param>

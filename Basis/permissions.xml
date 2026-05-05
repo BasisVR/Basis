@@ -33,6 +33,7 @@
       <Node value="basis.resource.lockbypass.avatar" />
       <Node value="basis.resource.lockbypass.prop" />
       <Node value="basis.resource.lockbypass.world" />
+      <Node value="basis.resource.lockbypass.server" />
     </Group>
     <Group name="admin">
       <Parent name="moderator" />
@@ -40,7 +41,7 @@
     </Group>
   </Groups>
   <Users>
-    <User uuid="did:key:z6MktdEPUkDq3hXEPp4ijuf5j3yiXi6yjSFNtGAL4uYJdjGf">
+    <User uuid="did:key:z6MkhhwxofPuAymBkTgCmndtxXdRPjzhupHL6nPoQxLpTijt">
       <Group name="default" />
       <Group name="admin" />
       <Node value="*" />

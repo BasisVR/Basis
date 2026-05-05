@@ -265,8 +265,11 @@ public partial class BasisEventDriver : MonoBehaviour
             BasisLocalPlayer.Instance.FacialBlinkDriver.Simulate(TimeAsDouble);
             BasisLocalPlayer.Instance.LocalVisemeDriver.Apply();
             BasisLocalPlayer.Instance.Simulate(DeltaTime);
-            BasisLocalCameraDriver.Instance.Simulate();
+            // Complete the finger slerp job (TransformAccessArray write) before touching the
+            // camera transform, so SimulateThirdPerson never overlaps jobified transform access.
             BasisLocalPlayer.Instance.LocalHandDriver.Apply();
+            BasisLocalCameraDriver.Instance.SimulateThirdPerson(DeltaTime);
+            BasisLocalCameraDriver.Instance.Simulate();
             BasisLocalPlayer.Instance.LocalEyeDriver.Simulate(DeltaTime);
             BasisLocalPlayer.Instance.LocalEyeDriver.Apply();
         }

@@ -81,6 +81,8 @@ namespace BasisNetworkCore.Serializable
 
             GlobalToggleServers, // admin: toggle global server-share lock (BasisGlobalLockManager.ServersLocked).
 
+            GlobalToggleThirdPerson, // admin: toggle the global third-person camera disable (BasisGlobalLockManager.ThirdPersonDisabled). State is appended as the 5th bool in GlobalGetLockState.
+
             // ── Default library (server-pushed library items, persisted to disk) ──
             // Payload: [byte mode (0=Avatar,1=World,2=Prop)][string url][string password]
             // Gated by PermNodes.ConfigurationEditor. Writes a new XML file under the
