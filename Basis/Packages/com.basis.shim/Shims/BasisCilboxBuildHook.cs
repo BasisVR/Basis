@@ -45,7 +45,7 @@ public class BasisCilboxBuildHook
         bool detachedFromParent = false;
         try
         {
-            temporaryScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            temporaryScene = SceneManager.CreateScene("BasisCilboxBuildTempScene", new CreateSceneParameters(LocalPhysicsMode.None));
             if (originalParent != null)
             {
                 prefabRoot.transform.SetParent(null, true);
@@ -107,7 +107,7 @@ public class BasisCilboxBuildHook
 
             if (temporaryScene.IsValid() && temporaryScene.isLoaded && (prefabRoot == null || prefabRoot.scene != temporaryScene))
             {
-                EditorSceneManager.CloseScene(temporaryScene, true);
+                SceneManager.UnloadSceneAsync(temporaryScene);
             }
 
             if (originalScene.IsValid() && originalScene.isLoaded)
