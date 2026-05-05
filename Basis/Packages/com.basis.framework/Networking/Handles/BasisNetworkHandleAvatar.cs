@@ -9,7 +9,7 @@ public static class BasisNetworkHandleAvatar
 {
     public static ConcurrentQueue<ServerSideSyncPlayerMessage> Message = new ConcurrentQueue<ServerSideSyncPlayerMessage>();
 
-    public static void HandleAvatarUpdate(NetPacketReader reader, byte channel)
+    public static void HandleAvatarUpdate(NetDataReader reader, byte channel)
     {
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, reader.AvailableBytes);
 

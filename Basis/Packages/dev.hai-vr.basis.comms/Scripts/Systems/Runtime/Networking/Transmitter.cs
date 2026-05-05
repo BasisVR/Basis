@@ -1,14 +1,14 @@
 ﻿using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Network.Core;
-using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
     internal class Transmitter : IHVRTransmitter
     {
-        private readonly BasisAvatarMonoBehaviour _behaviour;
+        private readonly BasisNetworkAvatarBehaviour _behaviour;
 
-        public Transmitter(BasisAvatarMonoBehaviour behaviour)
+        public Transmitter(BasisNetworkAvatarBehaviour behaviour)
         {
             _behaviour = behaviour;
         }

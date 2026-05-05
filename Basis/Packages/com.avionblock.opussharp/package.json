@@ -3,5 +3,5 @@
   "displayName": "avionblock opussharp",
   "version": "0.0.1",
   "description": "opus port by AvionBlock https://github.com/AvionBlock/OpusSharp",
-  "_fingerprint": "04d0e99b85b45c8f5180713910ee5e78ae542031"
+  "license": "MIT"
 }

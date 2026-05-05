@@ -13,8 +13,18 @@ public struct BasisVolumeAdjustmentJob : IJobParallelFor
     [NativeDisableParallelForRestriction]
     public NativeArray<float> processBufferArray;
 
-    /// <summary>Linear amplitude multiplier (already mapped from UI in driver).</summary>
+    /// <summary>End-of-frame amplitude multiplier (already mapped from UI in driver).</summary>
     public float Volume;
+
+    /// <summary>
+    /// Start-of-frame amplitude multiplier. Gain is linearly ramped from this
+    /// to <see cref="Volume"/> across <see cref="FrameLength"/> samples so UI
+    /// volume changes do not step between 20 ms frames (= audible click).
+    /// </summary>
+    public float VolumePrev;
+
+    /// <summary>Total samples in the processed frame (&gt;= 1). Used to drive the ramp.</summary>
+    public int FrameLength;
 
     /// <summary>Limiter threshold (e.g., 0.95) and soft knee width (e.g., 0.05).</summary>
     public float LimitThreshold;
@@ -22,7 +32,9 @@ public struct BasisVolumeAdjustmentJob : IJobParallelFor
 
     public void Execute(int index)
     {
-        float x = processBufferArray[index] * Volume;
+        float rampT = FrameLength > 1 ? (float)index / (FrameLength - 1) : 1f;
+        float gain = math.lerp(VolumePrev, Volume, rampT);
+        float x = processBufferArray[index] * gain;
 
         // Soft limiter:
         // Below (T): passthrough

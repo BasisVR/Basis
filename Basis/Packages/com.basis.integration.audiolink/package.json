@@ -1,0 +1,10 @@
+{
+  "name": "com.basis.integration.audiolink",
+  "displayName": "Basis AudioLink Integration",
+  "version": "0.0.1",
+  "description": "Re-publishes AudioLink globals after a Basis XR loader cycle so consumers that resolve _AudioTexture by global lookup keep working across Desktop/VR mode switches. Compiles only when both com.basis.framework and com.llealloo.audiolink are present.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  }
+}

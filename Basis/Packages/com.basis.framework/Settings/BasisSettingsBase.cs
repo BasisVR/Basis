@@ -1,5 +1,6 @@
 using System.Globalization;
 using UnityEngine;
+using Basis.Scripts.Settings;
 public abstract class BasisSettingsBase : MonoBehaviour
 {
     public virtual void Awake()

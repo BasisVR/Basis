@@ -291,6 +291,13 @@ public static class BasisStorageManagement
         }
         TryDeleteFile(beePath);
 
+        string connectorPath = meta.StoredLocal.DownloadedConnectorFileLocation;
+        if (string.IsNullOrEmpty(connectorPath) && string.IsNullOrWhiteSpace(meta.UniqueVersion) == false)
+        {
+            connectorPath = BasisIOManagement.GetConnectorCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+        }
+        TryDeleteFile(connectorPath);
+
         if (string.IsNullOrWhiteSpace(meta.UniqueVersion) == false)
         {
             string metaPath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);

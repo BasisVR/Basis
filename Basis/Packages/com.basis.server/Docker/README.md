@@ -51,6 +51,7 @@ Example snippet from a `config/config.xml` (values here might be defaults before
   <PeerLimit>1024</PeerLimit>
   <SetPort>4296</SetPort>
   <EnableConsole>true</EnableConsole>
+  <DisallowHeadless>false</DisallowHeadless>
   <!-- ... other settings ... -->
 </Configuration>
 ```
@@ -70,6 +71,7 @@ Commonly used environment variables:
 | `Password`           | `default_password`              | Connection password for clients. **Change this!** |
 | `EnableStatistics`   | `true`                          | Enables the statistics module.                    |
 | `EnableConsole`      | `false`                         | Enables the interactive server console (CLI).     |
+| `DisallowHeadless`   | `false`                         | Disconnects connected headless clients and blocks new ones. |
 
 A more comprehensive list of configurable settings can typically be found by inspecting the generated `config/config.xml` after an initial run, or by checking the server's internal documentation if available.
 

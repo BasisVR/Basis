@@ -7,8 +7,7 @@
         "BasisSerializer.OdinSerializer",
         "Unity.Mathematics",
         "BasisDebug",
-        "Unity.RenderPipelines.Core.Runtime",
-        "Basis Framework"
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [
         "Editor"
@@ -19,6 +18,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.basis.framework",
+            "expression": "",
+            "define": "BASIS_FRAMEWORK_EXISTS"
+        }
+    ],
     "noEngineReferences": false
 }

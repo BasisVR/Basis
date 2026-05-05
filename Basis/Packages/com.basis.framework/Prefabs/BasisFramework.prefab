@@ -84,8 +84,16 @@ MonoBehaviour:
   LocalAccessTransmitter:
     LastLinkedAvatarIndex: 0
     hasID: 0
+    playerId: 0
+    JoinTime: 0
     NetworkBehaviourCount: 0
     NetworkBehaviours: []
+    HasOverridenDestination: 0
+    OverridenPosition:
+      x: 0
+      y: 0
+      z: 0
+    OverridenRotation: {x: 0, y: 0, z: 0, w: 0}
     HasEvents: 0
     AudioTransmission:
       Local: {fileID: 0}
@@ -111,6 +119,7 @@ MonoBehaviour:
       BasisNetworkTransmitter:
         rid: -2
       TalkingPoints: 
+      ExcludedPoints: 
       LengthOfArrays: -1
       IndexChanged: 0
   references:
@@ -133,11 +142,11 @@ MonoBehaviour:
   NormalColor: {r: 0.25490198, g: 0.25490198, b: 0.25490198, a: 0.4509804}
   IsTalkingColor: {r: 0.3529412, g: 0.72156864, b: 0.90588236, a: 0.7490196}
   OutOfRangeColor: {r: 0.105882354, g: 0.23137255, b: 0.29411766, a: 0.7490196}
+  FailedLoadColor: {r: 1, g: 0.2, b: 0.2, a: 1}
   Text: {fileID: 4873537771675878447}
   TransParentNamePlateMaterial: {fileID: 2100000, guid: 69830dfb9aced8f43b4ec3faecb299e9, type: 2}
   OpaqueNamePlateMaterial: {fileID: 2100000, guid: 71743328d0464434ab9d1dc6c5df4e46, type: 2}
   SelectedNamePlateMaterial: {fileID: 2100000, guid: 71743328d0464434ab9d1dc6c5df4e46, type: 2}
-  RoundedCornersMesh: {fileID: 0}
   RoundEdges: 0.85
   CornerVertexCount: 8
   zOffset: 0.06
@@ -168,6 +177,7 @@ GameObject:
   - component: {fileID: 4245328840218215415}
   - component: {fileID: 947700616637325904}
   - component: {fileID: 4222888336659293539}
+  - component: {fileID: 3244661821366532348}
   m_Layer: 0
   m_Name: Modules
   m_TagString: Untagged
@@ -486,6 +496,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f50dc7f6c0e1f98499b7f745e8ba81cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::SMModuleCalibration
+--- !u!114 &3244661821366532348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3197856584617865972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd42373e464aed048bd891b65e60d79f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::SMModuleBloomOverrideURP
 --- !u!1 &6119941615115968628
 GameObject:
   m_ObjectHideFlags: 0
@@ -552,6 +574,10 @@ MonoBehaviour:
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MoveLocalUpDown: {fileID: -8761834997978577808, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  OpenChat: {fileID: 6276339513826019528, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  ToggleMicMute: {fileID: 6408654589139290635, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  ToggleThirdPerson: {fileID: 5255996632856729500, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  CameraZoomAction: {fileID: -6461621260778274687, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MouseSensitivity: 1
   JoystickSensitivity: 1
   KeyboardSensitivity: 5
@@ -886,8 +912,8 @@ MonoBehaviour:
   HoverUI: {fileID: 8300000, guid: 273db99ef8423064ebdc96442f286a95, type: 3}
   pressUI: {fileID: 8300000, guid: fa511589a725a1a4c98781edd2f0f176, type: 3}
   ChatNotificationUI: {fileID: 8300000, guid: ccdb6b8ce45691e4394eeef9fe8af29c, type: 3}
-  CameraShutterSound: {fileID: 8300000, guid: 273db99ef8423064ebdc96442f286a95, type: 3}
-  CameraCountdownTickSound: {fileID: 8300000, guid: 273db99ef8423064ebdc96442f286a95, type: 3}
+  CameraShutterSound: {fileID: 8300000, guid: 848ca0e3ce7b3d94ebe36ca3f3a19a6a, type: 3}
+  CameraCountdownTickSound: {fileID: 8300000, guid: 848ca0e3ce7b3d94ebe36ca3f3a19a6a, type: 3}
   AllInputDevices:
     _list: []
   BasisXRManagement:
@@ -908,7 +934,6 @@ MonoBehaviour:
   InputActions: {fileID: 761910860860970306}
   BasisDeviceNameMatcher: {fileID: 11400000, guid: 9b8e3db83cb310c40afaa430d0071a18, type: 2}
   ForcedDefault: 
-  LipSyncProfile: {fileID: 11400000, guid: 0beeb56a431ea1646bb55ff6c6fc5a62, type: 2}
   AutoSwapPreviousVRMode: 
   IsSoftSwapped: 0
   BasisNetworking: {fileID: 1872085853221644195}
@@ -985,6 +1010,7 @@ MonoBehaviour:
   LeftInput: {fileID: 0}
   RightInput: {fileID: 0}
   Inputs: []
+  ReticleMaterial: {fileID: 2100000, guid: d4f6c8a9e2b1408394c7e5f1a8b62d50, type: 2}
 --- !u!114 &-3061024371983229343
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1014,7 +1040,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsDeviceBooted: 0
   DeviceMode: 0
-  BasisHeadlessInput: {fileID: 0}
 --- !u!114 &8988764245560573337
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1037,12 +1062,14 @@ MonoBehaviour:
       RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
       DownloadedBeeFileLocation: 
+      DownloadedConnectorFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
         AssetBundleName: 
         AssetBundleDescription: 
         AssetBundleIcon: {fileID: 0}
+        Tags: []
       BasisBundleGenerated: []
       ImageBase64: 
       DateOfCreation: 
@@ -1053,6 +1080,7 @@ MonoBehaviour:
         TrianglesCount: 0
         MaterialCount: 0
         BonesCount: 0
+        TextureMemoryBytes: 0
         ComponentNames: []
   DefaultAvatar:
     UnlockPassword: 
@@ -1060,12 +1088,14 @@ MonoBehaviour:
       RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
       DownloadedBeeFileLocation: 
+      DownloadedConnectorFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
         AssetBundleName: 
         AssetBundleDescription: 
         AssetBundleIcon: {fileID: 0}
+        Tags: []
       BasisBundleGenerated: []
       ImageBase64: 
       DateOfCreation: 
@@ -1076,6 +1106,7 @@ MonoBehaviour:
         TrianglesCount: 0
         MaterialCount: 0
         BonesCount: 0
+        TextureMemoryBytes: 0
         ComponentNames: []
   UseAddressablesToLoadScene: 0
   UseSceneProvidedHere: 0

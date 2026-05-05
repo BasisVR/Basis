@@ -103,11 +103,19 @@ namespace Cilbox
 
 			if( declaringType == typeof(UnityEngine.GameObject) && name != "SetActive" ) return false;
 
+			// UnityEngine.Object.Instantiate spawns a prefab tree verbatim, bypassing
+			// host sanitization. A cilbox script can reference an unsanitized prefab
+			// from a serialized field and its UnityEvents (e.g. Button.onClick ->
+			// Application.OpenURL) execute outside the sandbox. Block all variants.
+			if( declaringType == typeof(UnityEngine.Object) &&
+				( name == "Instantiate" || name == "InstantiateAsync" ) )
+				return false;
+
 			if( name.Contains( "Invoke" ) ) return false;
 			return true;
 		}
 
-        public override bool GetComponentTypeOverride(string sType, out Type t)
+        public override bool GetTypeOverride(string sType, out Type t)
         {
 			t = null;
             return false;

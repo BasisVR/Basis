@@ -1,11 +1,5 @@
-using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Threading.Tasks;
 using Basis.BasisUI;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Command_Line_Args;
 using Basis.Scripts.Device_Management.Devices;
@@ -14,11 +8,18 @@ using Basis.Scripts.Player;
 using Basis.Scripts.TransformBinders;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
-using uLipSync;
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static Basis.Scripts.UI.UI_Panels.BasisDataStoreAvatarKeys;
 using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
+using Basis.Scripts.Settings;
 namespace Basis.Scripts.Device_Management
 {
     /// <summary>
@@ -28,6 +29,7 @@ namespace Basis.Scripts.Device_Management
     /// This MonoBehaviour is intended to exist exactly once in a scene. Use <see cref="Instance"/> for access.
     /// It initializes players, loads settings/bindings, restores previously connected devices, and manages XR lifecycle.
     /// </remarks>
+    [DefaultExecutionOrder(-1000)]
     public class BasisDeviceManagement : MonoBehaviour
     {
         /// <summary>
@@ -182,11 +184,6 @@ namespace Basis.Scripts.Device_Management
         public string ForcedDefault = string.Empty;
 
         /// <summary>
-        /// Optional LipSync profile used by audio-driven facial animation systems.
-        /// </summary>
-        public Profile LipSyncProfile;
-
-        /// <summary>
         /// The VR mode that was active before a soft swap switched to Desktop.
         /// Used to restore the correct VR mode when the headset is detected again.
         /// </summary>
@@ -217,6 +214,11 @@ namespace Basis.Scripts.Device_Management
             StaticCurrentMode = BasisConstants.None;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             BasisSettingsSystem.Initalize();
+            // Localization must initialize before BasisSettingsDefaults so that
+            // auto-detection can see an empty settings dict on first run — any
+            // earlier binding constructor would write "en" as a default and
+            // defeat the HasSaveData("language") check.
+            Basis.BasisUI.BasisLocalization.Initialize();
             BasisSettingsDefaults.LoadAll();
             try
             {
@@ -238,7 +240,6 @@ namespace Basis.Scripts.Device_Management
             BasisPlayerFactory.DeInitalize();
             StopAllDevices();
             UnsubscribeEvents();
-            BasisUlipSyncDriver.DisposeShared();
         }
         public void Simulate()
         {
@@ -263,10 +264,11 @@ namespace Basis.Scripts.Device_Management
         /// <returns>A task that completes when initialization and bindings load are finished.</returns>
         public async Task Initialize()
         {
+
+            BasisAvatarFactory.Initalize();
             BasisPlayerFactory.Initalize();
             BasisXRManagement.Initalize();
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
-            BasisUlipSyncDriver.Initialize(BasisDeviceManagement.Instance.LipSyncProfile);
 
             //legacy!!! delete in a few months!
             if (File.Exists(BasisDataStoreAvatarKeys.FilePath))
@@ -636,7 +638,7 @@ namespace Basis.Scripts.Device_Management
         {
             for (int i = AllInputDevices.Count - 1; i >= 0; i--)
             {
-                var device = AllInputDevices[i];
+                BasisInput device = AllInputDevices[i];
                 if (device != null && device.SubSystemIdentifier == subsystem && device.UniqueDeviceIdentifier == id)
                 {
                     CacheDevice(device);
@@ -732,6 +734,7 @@ namespace Basis.Scripts.Device_Management
             if (!HasEvents)
             {
                 OnInitializationCompleted += RunAfterInitialized;
+                BasisSettingsDefaults.EnableFBT.OnChanged += OnEnableFBTChanged;
                 HasEvents = true;
             }
         }
@@ -744,7 +747,22 @@ namespace Basis.Scripts.Device_Management
             if (HasEvents)
             {
                 OnInitializationCompleted -= RunAfterInitialized;
+                BasisSettingsDefaults.EnableFBT.OnChanged -= OnEnableFBTChanged;
                 HasEvents = false;
+            }
+        }
+
+        /// <summary>
+        /// Reacts to the master FBT toggle. Flipping it off immediately unassigns
+        /// any already-calibrated full-body trackers so the avatar drops back to
+        /// head + hands + foot IK. Flipping it on is a no-op — the user must run
+        /// calibration again to reassign trackers to roles.
+        /// </summary>
+        private void OnEnableFBTChanged(bool value)
+        {
+            if (!value)
+            {
+                UnassignFBTrackers();
             }
         }
 

@@ -858,25 +858,13 @@ MonoBehaviour:
     LerpSpeed: 22
     Poses: []
   LocalVisemeDriver:
-    smoothAmount: 70
-    HasViseme: 
+    HasViseme:
     BlendShapeCount: 0
     Player: {fileID: 0}
     Avatar: {fileID: 0}
-    uLipSync:
-      globalMultiplier: 0
-      MultipliedWeight: 0
-      finalWeight: 0
-      skinnedMeshRenderer: {fileID: 0}
-      sharedMesh: {fileID: 0}
-      CachedblendShapes: []
-      BlendShapeInfos: []
-      HasJob: 0
-      blendShapeCount: 0
-    phonemeBlendShapeTable: []
     WasSuccessful: 0
     HashInstanceID: -1
-    uLipSyncEnabledState: 1
+    FaceVisible: 1
   FacialBlinkDriver:
     Override: 0
     meshRenderer: {fileID: 0}

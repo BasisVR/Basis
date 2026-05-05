@@ -35,12 +35,14 @@ namespace Basis.Network.Core
         public delegate void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod);
         public delegate void OnConnectionRequest(ConnectionRequest request);
         public delegate void OnPeerConnected(NetPeer peer);
+        public delegate void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader);
 
         public event OnConnectionRequest ConnectionRequestEvent;
         public event OnPeerDisconnected PeerDisconnectedEvent;
         public event OnNetworkReceive NetworkReceiveEvent;
         public event OnNetworkError NetworkErrorEvent;
         public event OnPeerConnected PeerConnectedEvent;
+        public event OnNetworkReceiveUnconnected NetworkReceiveUnconnectedEvent;
     }
 
     public interface ConnectionRequest
@@ -68,6 +70,9 @@ namespace Basis.Network.Core
         public float TimeSinceLastPacket { get; }
         public long RemoteTimeDelta { get; }
         public DateTime RemoteUtcTime => new DateTime(DateTime.UtcNow.Ticks + RemoteTimeDelta);
+        // Maximum UDP payload (no fragmentation) negotiated for this peer. Used by the
+        // avatar bundle compressor to size compressed payloads to fit one datagram.
+        public int Mtu { get; }
 
         // public readonly NetStatistics Statistics;
     }
@@ -85,6 +90,7 @@ namespace Basis.Network.Core
         public void Start(IPAddress IPv4Address, IPAddress IPv6Address, int SetPort);
         public void Stop();
         public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer);
+        public bool SendUnconnectedMessage(NetDataWriter writer, IPEndPoint remoteEndPoint);
 
         public NetStatistics Statistics { get; }
 

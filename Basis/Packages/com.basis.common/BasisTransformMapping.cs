@@ -44,6 +44,18 @@ namespace Basis.Scripts.Common
         public Transform rightHand;
         public bool HasrightHand;
 
+        // Twist bones — derived rig bones that absorb a fraction of wrist/elbow roll so the mesh
+        // doesn't pinch at the wrist when the hand twists. Not in HumanBodyBones; auto-detected
+        // by name pattern under the upper/lower arm transforms.
+        public Transform leftUpperArmTwist;
+        public bool HasleftUpperArmTwist;
+        public Transform leftLowerArmTwist;
+        public bool HasleftLowerArmTwist;
+        public Transform RightUpperArmTwist;
+        public bool HasRightUpperArmTwist;
+        public Transform RightLowerArmTwist;
+        public bool HasRightLowerArmTwist;
+
         public Transform LeftUpperLeg;
         public bool HasLeftUpperLeg;
         public Transform LeftLowerLeg;
@@ -158,6 +170,16 @@ namespace Basis.Scripts.Common
             references.rightHand = anim.GetBoneTransform(HumanBodyBones.RightHand);
             references.HasrightHand = BoolState(references.rightHand);
 
+            // Twist bones: not in HumanBodyBones, search children of upper/lower arm by name.
+            references.leftUpperArmTwist = FindTwistBone(references.leftUpperArm);
+            references.HasleftUpperArmTwist = BoolState(references.leftUpperArmTwist);
+            references.leftLowerArmTwist = FindTwistBone(references.leftLowerArm);
+            references.HasleftLowerArmTwist = BoolState(references.leftLowerArmTwist);
+            references.RightUpperArmTwist = FindTwistBone(references.RightUpperArm);
+            references.HasRightUpperArmTwist = BoolState(references.RightUpperArmTwist);
+            references.RightLowerArmTwist = FindTwistBone(references.RightLowerArm);
+            references.HasRightLowerArmTwist = BoolState(references.RightLowerArmTwist);
+
             references.LeftUpperLeg = anim.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
             references.HasLeftUpperLeg = BoolState(references.LeftUpperLeg);
             references.LeftLowerLeg = anim.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
@@ -253,6 +275,28 @@ namespace Basis.Scripts.Common
         public static bool BoolState(Transform Transform)
         {
             return Transform != null;
+        }
+
+        // Common rig naming conventions: ArmTwist, ForearmTwist, ArmRoll, etc. Picks the first
+        // direct child whose name (case-insensitive) contains "twist" or "roll". Returns null when
+        // the parent is missing or no matching child exists — caller treats as "no twist bone".
+        private static Transform FindTwistBone(Transform parent)
+        {
+            if (parent == null)
+                return null;
+            int count = parent.childCount;
+            for (int i = 0; i < count; i++)
+            {
+                var child = parent.GetChild(i);
+                if (child == null) continue;
+                string n = child.name;
+                if (n.IndexOf("twist", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    n.IndexOf("roll", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return child;
+                }
+            }
+            return null;
         }
         public bool GetTransform(HumanBodyBones bone, out Transform transform)
         {
@@ -517,7 +561,14 @@ namespace Basis.Scripts.Common
         }
 
         // All captured bones (skip missing/null)
-        public Dictionary<HumanBodyBones, BasisCalibratedCoords> Tpose = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeFromRoot = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeLocal = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        /// <summary>
+        /// Root-relative positions at world scale (no division by localScale).
+        /// Unlike TposeFromRoot which uses InverseTransformPoint (divides by scale),
+        /// these give correct meter values regardless of the avatar root's localScale.
+        /// </summary>
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeWorld = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
         public Quaternion RootRotation; // rotation during calibration
         public Vector3 RootPosition;
         public Vector3 AvatarForwards;
@@ -529,7 +580,10 @@ namespace Basis.Scripts.Common
             RootRotation = animator.transform.rotation;
             RootPosition = animator.transform.position;
 
-            Tpose.Clear();
+            TposeFromRoot.Clear();
+            TposeWorld.Clear();
+
+            Quaternion invRootRot = Quaternion.Inverse(RootRotation);
 
             // Iterate all humanoid enum values except the sentinel LastBone
             for (int i = (int)HumanBodyBones.Hips; i < (int)HumanBodyBones.LastBone; i++)
@@ -538,25 +592,42 @@ namespace Basis.Scripts.Common
                 var t = animator.GetBoneTransform(bone);
                 if (t == null)
                 {
-                    Tpose[bone] = new BasisCalibratedCoords
+                    BasisCalibratedCoords zero = new BasisCalibratedCoords
                     {
                         position = Vector3.zero,
                         rotation = Quaternion.identity,
                     };
+                    TposeFromRoot[bone] = zero;
+                    TposeLocal[bone] = zero;
+                    TposeWorld[bone] = zero;
                     continue;
                 }
 
                 t.GetPositionAndRotation(out var wPos, out var wRot);
+                t.GetLocalPositionAndRotation(out var LPos, out var LRot);
 
                 // Position in animator-local space (handles parent translation & scaling)
                 Vector3 localPos = animator.transform.InverseTransformPoint(wPos);
 
                 // Rotation relative to animator root rotation
-                Quaternion localRot = Quaternion.Inverse(RootRotation) * wRot;
+                Quaternion localRot = invRootRot * wRot;
 
-                Tpose[bone] = new BasisCalibratedCoords
+                // World-scale root-relative position (root-aligned but NOT divided by localScale)
+                Vector3 worldScalePos = invRootRot * (wPos - RootPosition);
+
+                TposeFromRoot[bone] = new BasisCalibratedCoords
                 {
                     position = localPos,
+                    rotation = localRot
+                };
+                TposeLocal[bone] = new BasisCalibratedCoords
+                {
+                    position = LPos,
+                    rotation = LRot
+                };
+                TposeWorld[bone] = new BasisCalibratedCoords
+                {
+                    position = worldScalePos,
                     rotation = localRot
                 };
             }
@@ -584,7 +655,7 @@ namespace Basis.Scripts.Common
             upLocal = Vector3.up;
             rightLocal = Vector3.right;
 
-            if (refs == null || refs.Tpose == null || refs.Tpose.Count == 0)
+            if (refs == null || refs.TposeFromRoot == null || refs.TposeFromRoot.Count == 0)
                 return false;
 
             // ---------
@@ -593,7 +664,7 @@ namespace Basis.Scripts.Common
             static bool TryGet(BasisTransformMapping r, HumanBodyBones b, out Vector3 p)
             {
                 p = default;
-                if (r.Tpose.TryGetValue(b, out var c))
+                if (r.TposeFromRoot.TryGetValue(b, out var c))
                 {
                     p = c.position;
                     // Your RecordPoses stores missing bones as (0, identity). Treat that as invalid.

@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace HVR.Basis.Comms
 {
-    public class HVRCommsUtil
+    public static class HVRCommsUtil
     {
         public static T GetOrCreateSceneInstance<T>(ref T instance) where T : Component
         {
@@ -20,9 +20,17 @@ namespace HVR.Basis.Comms
             return instance;
         }
 
-        public static BasisAvatar GetAvatar(Component component)
+        public static BasisAvatar GetAvatar(Component anyComponentInsideAvatar)
         {
-            return component.GetComponentInParent<BasisAvatar>(true);
+            return anyComponentInsideAvatar.GetComponentInParent<BasisAvatar>(true);
+        }
+
+        public static HVRAvatarComms GetComms(Component anyComponentInsideAvatar)
+        {
+            var avatar = GetAvatar(anyComponentInsideAvatar);
+            if (avatar == null) return null;
+
+            return avatar.GetComponentInChildren<HVRAvatarComms>(true);
         }
 
         /// Semantically used to sanitize a serializable field of objects provided by an End User.<br/>
@@ -43,6 +51,18 @@ namespace HVR.Basis.Comms
 
             return structuresNullable;
         }
+
+        public static (List<T> matches, List<T> rest) Partition<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+        {
+            var matches = new List<T>();
+            var rest = new List<T>();
+            foreach (var item in source)
+            {
+                if (predicate(item)) matches.Add(item);
+                else rest.Add(item);
+            }
+            return (matches, rest);
+        }
     }
 
     [AddComponentMenu("HVR.Basis/Comms/Internal/Face Tracking Activity Relay")]
@@ -60,6 +80,12 @@ namespace HVR.Basis.Comms
         private bool _isWearer;
         private bool _isTrackingActive;
         private float _lastActivityTime = float.NegativeInfinity;
+
+        // Fired when tracking activity state changes. Scoped per-avatar (this relay
+        // is created per BasisAvatar), so local and remote subscribers never collide.
+        // Replaces routing via the shared AcquisitionService singleton, which caused
+        // remote players' activity state changes to fan-fire into local subscribers.
+        public event Action<bool> OnTrackingActivityChanged;
 
         public bool IsTrackingActive => _isTrackingActive;
 
@@ -112,7 +138,7 @@ namespace HVR.Basis.Comms
             {
                 new MutualizedInterpolationRange
                 {
-                    address = ActivityAddressId,
+                    addressId = ActivityAddressId,
                     lower = 0f,
                     upper = 1f,
                 }
@@ -166,9 +192,9 @@ namespace HVR.Basis.Comms
             bool stateChanged = _isTrackingActive != isTrackingActive;
             _isTrackingActive = isTrackingActive;
 
-            if (acquisition != null && (stateChanged || submitToNetwork))
+            if (stateChanged)
             {
-                acquisition.Submit(ActivityAddressId, isTrackingActive ? 1f : 0f);
+                OnTrackingActivityChanged?.Invoke(isTrackingActive);
             }
 
             if (submitToNetwork && _isWearer && featureInterpolator != null)

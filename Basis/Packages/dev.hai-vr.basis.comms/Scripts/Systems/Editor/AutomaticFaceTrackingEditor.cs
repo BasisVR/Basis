@@ -66,7 +66,6 @@ namespace HVR.Basis.Comms.Editor
             }
             else
             {
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
                 ResolveVRCFaceTrackingDummyFilePath(out _, out var filePath);
                 if (!File.Exists(filePath))
                 {
@@ -76,7 +75,6 @@ namespace HVR.Basis.Comms.Editor
                 {
                     CreateJSONFile();
                 }
-#endif
             }
         }
 
@@ -93,10 +91,22 @@ namespace HVR.Basis.Comms.Editor
 
         private static void ResolveVRCFaceTrackingDummyFilePath(out string directory, out string filePath)
         {
+#if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+            directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".steam/steam/steamapps/compatdata/438100/pfx/drive_c/users/steamuser/AppData/LocalLow/VRChat/VRChat/OSC/usr_ba515000-89b1-4313-aa2d-ba51500ba515/Avatars"
+            );
+#elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             directory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "AppData/LocalLow/VRChat/vrchat/OSC/usr_ba515000-89b1-4313-aa2d-ba51500ba515/Avatars"
             );
+#else
+            directory = Path.Combine(
+                Application.persistentDataPath,
+                "VRCFaceTracking/Avatars/usr_ba515000-89b1-4313-aa2d-ba51500ba515"
+            );
+#endif
             var destinationFileName = "avtr_00000000-89b1-4313-aa2d-000000000000.json";
             filePath = Path.Combine(directory, destinationFileName);
         }

@@ -1,0 +1,33 @@
+name: PR Checklist
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  checklist:
+    name: PR checklist complete
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify all checklist boxes are ticked
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$BODY" ]; then
+            echo "::error::PR body is empty. Fill out the PR template before this can merge."
+            exit 1
+          fi
+          SECTION=$(printf '%s\n' "$BODY" | awk '/required-checks-start/{flag=1; next} /required-checks-end/{flag=0} flag')
+          if [ -z "$SECTION" ]; then
+            echo "::error::Required-checks block missing. Restore the template's <!-- required-checks-start --> ... <!-- required-checks-end --> markers."
+            exit 1
+          fi
+          UNCHECKED=$(printf '%s\n' "$SECTION" | grep -cE '^\s*-\s*\[\s*\]' || true)
+          if [ "$UNCHECKED" -gt 0 ]; then
+            echo "::error::PR has $UNCHECKED unchecked required item(s). Tick every box in the Required checks block before merging."
+            echo "Unchecked items:"
+            printf '%s\n' "$SECTION" | grep -nE '^\s*-\s*\[\s*\]' || true
+            exit 1
+          fi
+          echo "All required checklist items are checked."

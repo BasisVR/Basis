@@ -38,12 +38,12 @@ public partial class BasisProjectSetup : EditorWindow
 
         try
         {
-            _pkgStatus = "Scanning packages…";
+            _pkgStatus = Tr("projectSetup.linux.statusScanning", "Scanning packages…");
             _pkgListReq = Client.List(true);
         }
         catch (Exception ex)
         {
-            _pkgStatus = "Package scan failed: " + ex.Message;
+            _pkgStatus = string.Format(Tr("projectSetup.linux.scanFailed", "Package scan failed: {0}"), ex.Message);
             _metaXrInstalled = null;
         }
     }
@@ -65,12 +65,14 @@ public partial class BasisProjectSetup : EditorWindow
                     }
                 }
                 _metaXrInstalled = found;
-                _pkgStatus = found ? "Detected com.meta.xr.sdk.core" : "Meta XR Core not installed";
+                _pkgStatus = found
+                    ? Tr("projectSetup.linux.detected", "Detected com.meta.xr.sdk.core")
+                    : Tr("projectSetup.linux.notInstalled", "Meta XR Core not installed");
             }
             else
             {
                 _metaXrInstalled = null;
-                _pkgStatus = "Package scan error: " + _pkgListReq?.Error?.message;
+                _pkgStatus = string.Format(Tr("projectSetup.linux.scanError", "Package scan error: {0}"), _pkgListReq?.Error?.message);
             }
 
             _pkgListReq = null;
@@ -82,12 +84,12 @@ public partial class BasisProjectSetup : EditorWindow
         {
             if (_pkgRemoveReq.Status == StatusCode.Success)
             {
-                _pkgStatus = "Removed com.meta.xr.sdk.core";
+                _pkgStatus = Tr("projectSetup.linux.removed", "Removed com.meta.xr.sdk.core");
                 _metaXrInstalled = false;
             }
             else
             {
-                _pkgStatus = "Remove failed: " + _pkgRemoveReq?.Error?.message;
+                _pkgStatus = string.Format(Tr("projectSetup.linux.removeFailed", "Remove failed: {0}"), _pkgRemoveReq?.Error?.message);
                 _metaXrInstalled = null;
                 BeginPackageScanIfNeeded();
             }
@@ -104,19 +106,20 @@ public partial class BasisProjectSetup : EditorWindow
 
         using (new EditorGUILayout.VerticalScope("box"))
         {
-            EditorGUILayout.LabelField("Linux Compatibility Check", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(Tr("projectSetup.linux.title", "Linux Compatibility Check"), EditorStyles.boldLabel);
 
-            var status = string.IsNullOrEmpty(_pkgStatus) ? "Ready" : _pkgStatus;
+            var status = string.IsNullOrEmpty(_pkgStatus) ? Tr("projectSetup.linux.statusReady", "Ready") : _pkgStatus;
             EditorGUILayout.LabelField(status, EditorStyles.miniLabel);
 
             if (!_metaXrInstalled.HasValue)
             {
                 EditorGUILayout.HelpBox(
-                    "Scanning for the Meta XR Core package (com.meta.xr.sdk.core)… some Oculus/Meta SDKs are not supported on Linux and can break imports.",
+                    Tr("projectSetup.linux.scanningHelp",
+                        "Scanning for the Meta XR Core package (com.meta.xr.sdk.core)… some Oculus/Meta SDKs are not supported on Linux and can break imports."),
                     MessageType.Info);
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Re-scan Packages")) { _metaXrInstalled = null; BeginPackageScanIfNeeded(); }
+                    if (GUILayout.Button(Tr("projectSetup.linux.rescan", "Re-scan Packages"))) { _metaXrInstalled = null; BeginPackageScanIfNeeded(); }
                 }
                 return;
             }
@@ -124,29 +127,30 @@ public partial class BasisProjectSetup : EditorWindow
             if (_metaXrInstalled.Value)
             {
                 EditorGUILayout.HelpBox(
-                    "You’re on Linux and the project contains Meta XR Core (com.meta.xr.sdk.core).\n" +
-                    "This package is not supported in Linux Editor and commonly causes import/compile issues.\n" +
-                    "It’s recommended to remove it here, then re-add it later from Windows if needed.",
+                    Tr("projectSetup.linux.warnInstalled",
+                        "You’re on Linux and the project contains Meta XR Core (com.meta.xr.sdk.core).\n" +
+                        "This package is not supported in Linux Editor and commonly causes import/compile issues.\n" +
+                        "It’s recommended to remove it here, then re-add it later from Windows if needed."),
                     MessageType.Warning);
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     GUI.enabled = _pkgRemoveReq == null;
-                    if (GUILayout.Button("Remove com.meta.xr.sdk.core"))
+                    if (GUILayout.Button(Tr("projectSetup.linux.removeButton", "Remove com.meta.xr.sdk.core")))
                     {
                         try
                         {
-                            _pkgStatus = "Removing com.meta.xr.sdk.core…";
+                            _pkgStatus = Tr("projectSetup.linux.removing", "Removing com.meta.xr.sdk.core…");
                             _pkgRemoveReq = Client.Remove(META_XR_CORE_PKG);
                         }
                         catch (Exception ex)
                         {
-                            _pkgStatus = "Remove start failed: " + ex.Message;
+                            _pkgStatus = string.Format(Tr("projectSetup.linux.removeStartFailed", "Remove start failed: {0}"), ex.Message);
                         }
                     }
                     GUI.enabled = true;
 
-                    if (GUILayout.Button("Re-scan Packages"))
+                    if (GUILayout.Button(Tr("projectSetup.linux.rescan", "Re-scan Packages")))
                     {
                         _metaXrInstalled = null;
                         BeginPackageScanIfNeeded();
@@ -156,10 +160,11 @@ public partial class BasisProjectSetup : EditorWindow
             else
             {
                 EditorGUILayout.HelpBox(
-                    "Linux check: Meta XR Core (com.meta.xr.sdk.core) is not installed. You’re good.",
+                    Tr("projectSetup.linux.notInstalledNotice",
+                        "Linux check: Meta XR Core (com.meta.xr.sdk.core) is not installed. You’re good."),
                     MessageType.None);
 
-                if (GUILayout.Button("Re-scan Packages"))
+                if (GUILayout.Button(Tr("projectSetup.linux.rescan", "Re-scan Packages")))
                 {
                     _metaXrInstalled = null;
                     BeginPackageScanIfNeeded();

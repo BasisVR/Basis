@@ -9,7 +9,14 @@ public static partial class SerializableBasis
     {
         Avatar = 0,
         Prop = 1,
-        World = 2
+        World = 2,
+        /// <summary>
+        /// A saved-server entry. ContentURL carries the connection string
+        /// (address[:port][#password]); UnlockPassword is unused for this type.
+        /// Receivers don't spawn an in-world orb — they get a confirmation
+        /// dialog asking whether to add the server to their saved list.
+        /// </summary>
+        Server = 3,
     }
 
     /// <summary>
@@ -69,22 +76,29 @@ public static partial class SerializableBasis
     }
 
     /// <summary>
-    /// Server wraps the client's ContentShareMessage with the sender's player ID.
+    /// Server wraps the client's ContentShareMessage with the sender's player ID
+    /// and authoritative identity (UUID + display name) resolved from saved state.
     /// </summary>
     public struct ServerContentShareMessage
     {
         public PlayerIdMessage playerIdMessage;
+        public string SharerUUID;
+        public string SharerDisplayName;
         public ContentShareMessage contentShareMessage;
 
         public void Deserialize(NetDataReader reader)
         {
             playerIdMessage.Deserialize(reader);
+            SharerUUID = reader.GetString();
+            SharerDisplayName = reader.GetString();
             contentShareMessage.Deserialize(reader);
         }
 
         public void Serialize(NetDataWriter writer)
         {
             playerIdMessage.Serialize(writer);
+            writer.Put(SharerUUID ?? string.Empty);
+            writer.Put(SharerDisplayName ?? string.Empty);
             contentShareMessage.Serialize(writer);
         }
     }

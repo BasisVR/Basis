@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -39,18 +40,18 @@ namespace Basis.BasisUI.Styling
             EditorGUILayout.EndHorizontal();
 
             bool hasStyle = Array.IndexOf(titles, property.stringValue) != -1;
-            if (!hasStyle) EditorGUILayout.HelpBox("Style not found in active styles.", MessageType.Warning);
+            if (!hasStyle) EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.uiStyle.id.notFound"), MessageType.Warning);
 
             EditorGUI.EndProperty();
 
-            EditorGUI.LabelField(position, "TODO: Fix BasisDocInspector_UI to not force IMGUI.");
+            EditorGUI.LabelField(position, BasisEditorLocalization.Get("sdk.uiStyle.id.todo"));
         }
 
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             if (property.propertyType != SerializedPropertyType.String)
             {
-                return new Label("StyleID Attribute should only be used on String fields.");
+                return new Label(BasisEditorLocalization.Get("sdk.uiStyle.id.notString"));
             }
 
             VisualElement root = new VisualElement();
@@ -82,7 +83,7 @@ namespace Basis.BasisUI.Styling
                     borderBottomRightRadius = 10,
                 }
             };
-            missingStyleWarning.tooltip = "This still is no longer found on the style list.";
+            missingStyleWarning.tooltip = BasisEditorLocalization.Get("sdk.uiStyle.id.tooltip");
             root.Add(missingStyleWarning);
 
             dropdown.RegisterValueChangedCallback(_ => RefreshList());

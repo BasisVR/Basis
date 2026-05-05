@@ -261,6 +261,8 @@ public struct BasisAvatarCapJob : IJob
 /// camera forward) keep AvatarRange = true. Players outside the cone
 /// have AvatarRange set to false, causing a fallback avatar.
 /// Scheduled after distance + cap jobs so it acts as a final filter.
+/// Uses hysteresis: players already visible use a wider exit threshold
+/// to prevent flickering when the camera wobbles near the cone boundary.
 /// </summary>
 [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Standard)]
 public struct BasisViewConeAvatarJob : IJobParallelFor
@@ -268,8 +270,11 @@ public struct BasisViewConeAvatarJob : IJobParallelFor
     public float3 ListenerPosition;
     public float3 ListenerForward;
     public float CosHalfCone;
+    /// <summary>Wider threshold for players that were visible last frame (lower cosine = wider angle).</summary>
+    public float CosHalfConeExit;
 
     [ReadOnly] public NativeArray<float3> TargetPositions;
+    [ReadOnly] public NativeArray<bool> PrevInAvatarRange;
 
     [NativeDisableParallelForRestriction]
     public NativeArray<bool> AvatarRange;
@@ -292,7 +297,9 @@ public struct BasisViewConeAvatarJob : IJobParallelFor
         float3 dir = toTarget * math.rsqrt(sqrMag);
         float dot = math.dot(ListenerForward, dir);
 
-        if (dot < CosHalfCone)
+        // Hysteresis: players already visible use a wider exit cone
+        float threshold = PrevInAvatarRange[i] ? CosHalfConeExit : CosHalfCone;
+        if (dot < threshold)
         {
             AvatarRange[i] = false;
         }

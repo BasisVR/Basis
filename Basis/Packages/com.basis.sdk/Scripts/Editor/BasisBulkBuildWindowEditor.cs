@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using System;
 using System.Collections.Generic;
@@ -39,7 +40,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
     public static void Open()
     {
         var w = GetWindow<BasisBulkBuildWindowEditor>();
-        w.titleContent = new GUIContent("Basis Bulk Build");
+        w.titleContent = new GUIContent(BasisEditorLocalization.Get("sdk.bulkBuild.window.title"));
         w.minSize = new Vector2(520, 420);
         w.Show();
     }
@@ -57,51 +58,51 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
         if (isBuilding)
         {
-            EditorGUILayout.HelpBox("Building… check the progress bar and Console output.", MessageType.Info);
+            EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.bulkBuild.building.help"), MessageType.Info);
         }
     }
 
     private void DrawHeader()
     {
-        EditorGUILayout.LabelField("Scan Prefabs", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.scanPrefabs.header"), EditorStyles.boldLabel);
 
         using (new EditorGUILayout.HorizontalScope())
         {
             searchFolder = (DefaultAsset)EditorGUILayout.ObjectField(
-                new GUIContent("Folder (optional)", "If set, only scans prefabs under this folder"),
+                new GUIContent(BasisEditorLocalization.Get("sdk.bulkBuild.folder.label"), BasisEditorLocalization.Get("sdk.bulkBuild.folder.tooltip")),
                 searchFolder,
                 typeof(DefaultAsset),
                 false);
 
-            typeFilter = (ContentTypeFilter)EditorGUILayout.EnumPopup(new GUIContent("Type"), typeFilter);
+            typeFilter = (ContentTypeFilter)EditorGUILayout.EnumPopup(new GUIContent(BasisEditorLocalization.Get("sdk.bulkBuild.type.label")), typeFilter);
         }
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            if (GUILayout.Button("Scan Project", GUILayout.Height(24)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("sdk.bulkBuild.scanProject"), GUILayout.Height(24)))
                 Scan();
 
-            if (GUILayout.Button("Select All", GUILayout.Height(24), GUILayout.Width(100)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("sdk.bulkBuild.selectAll"), GUILayout.Height(24), GUILayout.Width(100)))
                 SetAllSelected(true);
 
-            if (GUILayout.Button("Select None", GUILayout.Height(24), GUILayout.Width(100)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("sdk.bulkBuild.selectNone"), GUILayout.Height(24), GUILayout.Width(100)))
                 SetAllSelected(false);
         }
 
         if (entries.Count > 0)
         {
             int sel = entries.Count(e => e.selected);
-            EditorGUILayout.LabelField($"Found {entries.Count} item(s), {sel} selected.");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.foundCount", entries.Count, sel));
         }
         else
         {
-            EditorGUILayout.LabelField("No items scanned yet.");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.notScanned"));
         }
     }
 
     private void DrawList()
     {
-        EditorGUILayout.LabelField("Items", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.items.header"), EditorStyles.boldLabel);
 
         using (var sv = new EditorGUILayout.ScrollViewScope(scroll))
         {
@@ -109,7 +110,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
             if (entries.Count == 0)
             {
-                EditorGUILayout.HelpBox("Click 'Scan Project' to find Basis prefabs.", MessageType.None);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.bulkBuild.items.empty"), MessageType.None);
                 return;
             }
 
@@ -128,10 +129,10 @@ public class BasisBulkBuildWindowEditor : EditorWindow
                     using (new EditorGUILayout.VerticalScope())
                     {
                         EditorGUILayout.LabelField(e.displayName, EditorStyles.boldLabel);
-                        EditorGUILayout.LabelField($"{e.type} — {e.assetPath}", EditorStyles.miniLabel);
+                        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.entry.subline", e.type, e.assetPath), EditorStyles.miniLabel);
                     }
 
-                    if (GUILayout.Button("Ping", GUILayout.Width(60), GUILayout.Height(24)))
+                    if (GUILayout.Button(BasisEditorLocalization.Get("sdk.bulkBuild.ping"), GUILayout.Width(60), GUILayout.Height(24)))
                     {
                         var obj = AssetDatabase.LoadMainAssetAtPath(e.assetPath);
                         EditorGUIUtility.PingObject(obj);
@@ -144,20 +145,20 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
     private void DrawFooter()
     {
-        EditorGUILayout.LabelField("Build", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.build.header"), EditorStyles.boldLabel);
 
         int selectedCount = entries.Count(e => e.selected && PassesFilter(e));
         using (new EditorGUILayout.HorizontalScope())
         {
             using (new EditorGUI.DisabledScope(selectedCount == 0 || isBuilding))
             {
-                if (GUILayout.Button($"Build Selected ({selectedCount})", GUILayout.Height(28)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("sdk.bulkBuild.build.button", selectedCount), GUILayout.Height(28)))
                 {
                     _ = BuildSelectedAsync();
                 }
             }
 
-            if (GUILayout.Button("Clear Console", GUILayout.Height(28), GUILayout.Width(120)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("sdk.bulkBuild.clearConsole"), GUILayout.Height(28), GUILayout.Width(120)))
             {
                 var logEntries = Type.GetType("UnityEditor.LogEntries, UnityEditor.dll");
                 var clearMethod = logEntries?.GetMethod("Clear", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
@@ -165,10 +166,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
             }
         }
 
-        EditorGUILayout.HelpBox(
-            "Uses BasisAssetBundleObject.selectedTargets and the same password settings as your inspectors.\n" +
-            "Avatars/Props build via GameObjectBundleBuild. Scenes build via SceneBundleBuild.",
-            MessageType.Info);
+        EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.bulkBuild.help"), MessageType.Info);
     }
 
     private bool PassesFilter(Entry e)
@@ -225,7 +223,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
             else
             {
                 // Future-proofing: new subclasses won't break the window
-                Debug.LogWarning($"Found BasisContentBase subclass not handled: {content.GetType().FullName} at {path}");
+                Debug.LogWarning($"Found unhandled BasisContentBase subclass: {content.GetType().FullName} at {path}");
             }
         }
 
@@ -283,8 +281,8 @@ public class BasisBulkBuildWindowEditor : EditorWindow
                 var e = toBuild[i];
 
                 EditorUtility.DisplayProgressBar(
-                    "Basis Bulk Build",
-                    $"{i + 1}/{toBuild.Count} — {e.type}: {e.displayName}",
+                    BasisEditorLocalization.Get("sdk.bulkBuild.progress.title"),
+                    BasisEditorLocalization.Get("sdk.bulkBuild.progress.body", i + 1, toBuild.Count, e.type, e.displayName),
                     (float)i / toBuild.Count);
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(e.assetPath);

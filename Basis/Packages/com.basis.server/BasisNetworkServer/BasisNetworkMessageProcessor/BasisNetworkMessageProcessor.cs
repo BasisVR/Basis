@@ -18,7 +18,6 @@ public static class BasisNetworkMessageProcessor
     private static readonly ConcurrentDictionary<int, int> _peerErrorCounts = new();
 
     public static void ClearPeerErrors(int peerId) => _peerErrorCounts.TryRemove(peerId, out _);
-
     public static void ProcessMessage(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
         BasisNetworkStatistics.RecordInbound(channel, reader.AvailableBytes);

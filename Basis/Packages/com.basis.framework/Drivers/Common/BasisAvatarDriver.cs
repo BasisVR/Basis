@@ -2,6 +2,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System.Collections.Generic;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -230,25 +231,26 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.leftFoot, 0.015f);
             JiggleCreatorHelper(Mapping.rightFoot, 0.015f);
 
-            JiggleCreatorHelper(Mapping.LeftThumb);
-            JiggleCreatorHelper(Mapping.LeftIndex);
-            JiggleCreatorHelper(Mapping.LeftMiddle);
-            JiggleCreatorHelper(Mapping.LeftRing);
-            JiggleCreatorHelper(Mapping.LeftLittle);
-            JiggleCreatorHelper(Mapping.leftHand);
+            // Arms: upper-arm capsule + forearm capsule + hand tip sphere, all from one array.
+            JiggleCreatorHelperCapsule(new Transform[] { Mapping.leftUpperArm, Mapping.leftLowerArm, Mapping.leftHand }, 0.025f);
+            JiggleCreatorHelperCapsule(new Transform[] { Mapping.RightUpperArm, Mapping.RightLowerArm, Mapping.rightHand }, 0.025f);
 
-            JiggleCreatorHelper(Mapping.RightThumb);
-            JiggleCreatorHelper(Mapping.RightIndex);
-            JiggleCreatorHelper(Mapping.RightMiddle);
-            JiggleCreatorHelper(Mapping.RightRing);
-            JiggleCreatorHelper(Mapping.RightLittle);
-            JiggleCreatorHelper(Mapping.rightHand);
+            JiggleCreatorHelperCapsule(Mapping.LeftThumb);
+            JiggleCreatorHelperCapsule(Mapping.LeftIndex);
+            JiggleCreatorHelperCapsule(Mapping.LeftMiddle);
+            JiggleCreatorHelperCapsule(Mapping.LeftRing);
+            JiggleCreatorHelperCapsule(Mapping.LeftLittle);
 
-            //   BasisDebug.Log("Creating Collider Rigs");
-            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
-            {
-                JigglePhysics.AddJiggleCollider(Jiggle);
-            }
+            JiggleCreatorHelperCapsule(Mapping.RightThumb);
+            JiggleCreatorHelperCapsule(Mapping.RightIndex);
+            JiggleCreatorHelperCapsule(Mapping.RightMiddle);
+            JiggleCreatorHelperCapsule(Mapping.RightRing);
+            JiggleCreatorHelperCapsule(Mapping.RightLittle);
+
+            // Batch-add all colliders at once to avoid O(n²) dedup in JiggleMemoryBus.
+            // ScheduleAdd does a linear scan of pendingSceneColliderAdd for each call,
+            // so adding 32 colliders one-at-a-time when the pending list is large is expensive.
+            JigglePhysics.AddJiggleColliders(JiggleColliders);
         }
 
         /// <summary>
@@ -257,9 +259,63 @@ namespace Basis.Scripts.Drivers
         /// <param name="Parents">Transforms that will each receive a collider.</param>
         public void JiggleCreatorHelper(Transform[] Parents)
         {
-            foreach (Transform Parent in Parents)
+            int count = Parents.Length;
+            for (int i = 0; i < count; i++)
             {
-                JiggleCreatorHelper(Parent);
+                JiggleCreatorHelper(Parents[i]);
+            }
+        }
+
+        /// <summary>
+        /// Creates capsule jiggle colliders along consecutive bone pairs in an array (e.g. finger bones).
+        /// Each pair of consecutive transforms gets a capsule spanning the bone length.
+        /// The last bone in the array receives a sphere collider for the tip.
+        /// </summary>
+        /// <param name="Parents">Ordered bone transforms (e.g. proximal, intermediate, distal).</param>
+        /// <param name="Radius">Base radius for the capsule/sphere. Default is <c>0.005</c>.</param>
+        public void JiggleCreatorHelperCapsule(Transform[] Parents, float Radius = 0.005f)
+        {
+            int count = Parents.Length;
+            for (int i = 0; i < count; i++)
+            {
+                if (Parents[i] == null) continue;
+
+                if (i < count - 1 && Parents[i + 1] != null)
+                {
+                    float boneLength = Vector3.Distance(Parents[i].position, Parents[i + 1].position);
+                    Vector3 boneDir = (Parents[i + 1].position - Parents[i].position).normalized;
+
+                    // Determine which local axis best aligns with the bone direction.
+                    float dotX = Mathf.Abs(Vector3.Dot(boneDir, Parents[i].right));
+                    float dotY = Mathf.Abs(Vector3.Dot(boneDir, Parents[i].up));
+                    float dotZ = Mathf.Abs(Vector3.Dot(boneDir, Parents[i].forward));
+
+                    JiggleCollider.CapsuleAxis axis;
+                    if (dotX >= dotY && dotX >= dotZ) axis = JiggleCollider.CapsuleAxis.X;
+                    else if (dotY >= dotZ) axis = JiggleCollider.CapsuleAxis.Y;
+                    else axis = JiggleCollider.CapsuleAxis.Z;
+
+                    Vector3 lossyScale = Parents[i].lossyScale;
+                    float avgScale = (Mathf.Abs(lossyScale.x) + Mathf.Abs(lossyScale.y) + Mathf.Abs(lossyScale.z)) / 3f;
+
+                    JiggleColliders.Add(new JiggleColliderSerializable
+                    {
+                        collider = new JiggleCollider()
+                        {
+                            type = JiggleCollider.JiggleColliderType.Capsule,
+                            localToWorldMatrix = Parents[i].localToWorldMatrix,
+                            radius = Radius / avgScale,
+                            height = boneLength / avgScale,
+                            capsuleAxis = axis
+                        },
+                        transform = Parents[i]
+                    });
+                }
+                else
+                {
+                    // Tip bone: sphere collider for the fingertip.
+                    JiggleCreatorHelper(Parents[i], Radius);
+                }
             }
         }
 
@@ -275,18 +331,16 @@ namespace Basis.Scripts.Drivers
         {
             if (Parent != null)
             {
-                JiggleColliderSerializable jiggleColliderSerializable = new JiggleColliderSerializable
+                JiggleColliders.Add(new JiggleColliderSerializable
                 {
                     collider = new JiggleCollider()
                     {
                         type = JiggleCollider.JiggleColliderType.Sphere,
                         localToWorldMatrix = Parent.localToWorldMatrix,
-                        radius = Scale / (Parent.lossyScale.magnitude / 3) // Scaled radius
+                        radius = Scale / (Parent.lossyScale.magnitude / 3)
                     },
                     transform = Parent
-                };
-
-                JiggleColliders.Add(jiggleColliderSerializable);
+                });
             }
         }
 
@@ -295,11 +349,8 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void RemoveJiggleRigColliders()
         {
-            // BasisDebug.Log("Removed Collider Rigs");
-            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
-            {
-                JigglePhysics.RemoveJiggleCollider(Jiggle);
-            }
+            // Batch-remove all colliders at once to avoid O(n²) linear scans in JiggleMemoryBus.
+            JigglePhysics.RemoveJiggleColliders(JiggleColliders);
             JiggleColliders.Clear();
         }
         // Common albedo/main texture property names across built-in/URP/custom shaders.
@@ -379,7 +430,7 @@ namespace Basis.Scripts.Drivers
             public float[] Values;
         }
         private static List<BasisShadowCloneBlendshapeSync> ShadowCloneSyncs = new();
-        private static void RemoveOldShadowClones()
+        public static void RemoveOldShadowClones()
         {
             for (int i = 0; i < ShadowCloneSyncs.Count; i++)
             {
@@ -417,9 +468,9 @@ namespace Basis.Scripts.Drivers
                 {
                     LocalShadowClone.sharedMesh = source.sharedMesh;
                     blendShapeCount = source.sharedMesh.blendShapeCount;
-                    for (int i = 0; i < blendShapeCount; i++)
+                    for (int Index = 0; Index < blendShapeCount; Index++)
                     {
-                        LocalShadowClone.SetBlendShapeWeight(i, source.GetBlendShapeWeight(i));
+                        LocalShadowClone.SetBlendShapeWeight(Index, source.GetBlendShapeWeight(Index));
                     }
                 }
                 if (source.sharedMaterials != null)
@@ -444,20 +495,29 @@ namespace Basis.Scripts.Drivers
                 ShadowCloneSyncs.Add(new BasisShadowCloneBlendshapeSync(source, LocalShadowClone, blendShapeCount));
             }
         }
-        public static void ScheduleReadBlendShapes(float epsilon = 0.001f)
+        public static bool hasBlendShapeJobScheduled = false;
+        public static unsafe void ScheduleReadBlendShapes(float epsilon = 0.001f)
         {
             for (int s = 0; s < ShadowCloneSyncs.Count; s++)
             {
                 var sync = ShadowCloneSyncs[s];
 
                 if (sync.Source == null || sync.Clone == null)
+                {
                     continue;
-
+                }
+                if (hasBlendShapeJobScheduled)
+                {
+                    sync.Handle.Complete();
+                    hasBlendShapeJobScheduled = false;
+                }
                 int count = sync.Count;
 
-                for (int i = 0; i < count; i++)
+                float* pCurrent = (float*)sync.Current.GetUnsafePtr();
+                SkinnedMeshRenderer source = sync.Source;
+                for (int Index = 0; Index < count; Index++)
                 {
-                    sync.Current[i] = sync.Source.GetBlendShapeWeight(i);
+                    pCurrent[Index] = source.GetBlendShapeWeight(Index);
                 }
 
                 // Schedule job
@@ -471,11 +531,13 @@ namespace Basis.Scripts.Drivers
 
                 // Batch size can be tuned; 32 is a decent start
                 sync.Handle = job.Schedule(count, 32);
+                hasBlendShapeJobScheduled = true;
             }
         }
-        public static void ApplyShadowCloneBlendShapes()
+        public static unsafe void ApplyShadowCloneBlendShapes()
         {
-            for (int s = 0; s < ShadowCloneSyncs.Count; s++)
+            int syncCount = ShadowCloneSyncs.Count;
+            for (int s = 0; s < syncCount; s++)
             {
                 var sync = ShadowCloneSyncs[s];
 
@@ -483,24 +545,30 @@ namespace Basis.Scripts.Drivers
                 {
                     continue;
                 }
-
-                sync.Handle.Complete();
+                if (hasBlendShapeJobScheduled)
+                {
+                    sync.Handle.Complete();
+                    hasBlendShapeJobScheduled = false;
+                }
 
                 int count = sync.Count;
-                for (int i = 0; i < count; i++)
+                var clone = sync.Clone;
+                byte* changedMask = (byte*)sync.ChangedMask.GetUnsafeReadOnlyPtr();
+                float* previous = (float*)sync.Previous.GetUnsafeReadOnlyPtr();
+                for (int Index = 0; Index < count; Index++)
                 {
-                    if (sync.ChangedMask[i] != 0)
+                    if (changedMask[Index] != 0)
                     {
-                        sync.Clone.SetBlendShapeWeight(i, sync.Previous[i]);
+                        clone.SetBlendShapeWeight(Index, previous[Index]);
                     }
                 }
             }
         }
         private static bool TryGetFirstColor(Material mat, out Color value, out string foundProp)
         {
-            for (int i = 0; i < ColorProps.Length; i++)
+            for (int Index = 0; Index < ColorProps.Length; Index++)
             {
-                string p = ColorProps[i];
+                string p = ColorProps[Index];
                 if (mat.HasProperty(p))
                 {
                     value = mat.GetColor(p);

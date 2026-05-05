@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace HVR.Basis.Comms
+namespace HVR.Basis.Comms.Editor
 {
     [CustomEditor(typeof(BlendshapeActuationDefinitionFile))]
     public class BlendshapeActuationDefinitionFileEditor : UnityEditor.Editor

@@ -418,6 +418,10 @@ public static class BasisActionDriver
     public static void ToggleMicOnPrimaryReleaseIfNoHover(ref BasisInputState current, ref BasisInputState last)
     {
 #if !BASIS_DISABLE_MICROPHONE
+        // Desktop mute is handled by the rebindable ToggleMicMute action in BasisLocalInputActions.
+        // This path stays for VR so the primary controller release still toggles mute there.
+        if (BasisDeviceManagement.IsCurrentModeVR() == false)
+            return;
         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
         {
             switch (SMDMicrophone.Current.TalkMode)

@@ -10,7 +10,12 @@ namespace Basis.Network.Core
         public const int NetworkIntervalPoll = 2;
         public const int PingInterval = 1500;
         public const int ReceivePollingTime = 50000;
-        public const int PacketPoolSize = 4096;
+        /// <summary>
+        /// LiteNetLib packet pool size. Must be large enough to avoid allocating new NetPacket
+        /// objects during high-throughput send loops. With 1000 players at ~4M sends/sec,
+        /// packets cycle through pool rapidly. 65536 keeps the pool warm and avoids GC pressure.
+        /// </summary>
+        public const int PacketPoolSize = 65536;
         /// <summary>
         /// when adding a new message we need to increase this
         /// will function up to 64
@@ -134,6 +139,12 @@ namespace Basis.Network.Core
         public const byte EventType_CameraShutterSound = 0;
         /// <summary>Camera countdown started — remote clients replay the tick/shutter timing.</summary>
         public const byte EventType_CameraCountdown = 1;
+        /// <summary>
+        /// Session-scoped "temp block" notification. Sender tells a specific target peer
+        /// that it has (or has not) blocked them locally, so the target can mirror the
+        /// block and hide the sender's avatar/audio/nameplate on their client. Not persisted.
+        /// </summary>
+        public const byte EventType_PlayerTempBlock = 2;
 
         // ── Per-quality avatar channels (ushort playerID, for IDs >255) ──
         // Same layout as byte-ID channels: base + quality * 2 + hasAdditional
@@ -149,6 +160,51 @@ namespace Basis.Network.Core
         public const byte PlayerAvatarMediumAdditionalLargeChannel = 46;
         public const byte PlayerAvatarHighLargeChannel = 47;
         public const byte PlayerAvatarHighAdditionalLargeChannel = 48;
+
+        // ── Compressed avatar bundle (server → client only) ──────────────────
+        /// <summary>
+        /// Server-only outbound channel carrying multiple avatar quality messages
+        /// to a single receiver, LZ4-compressed into one UDP datagram that fits the peer MTU.
+        /// Wire format:
+        ///   [count:1][rawLen:2-LE][LZ4 block( [origChannel:1][msgLen:2-LE][bytes]* )]
+        /// Each inner [origChannel] is the byte-id or ushort-id avatar quality channel
+        /// the message would have been sent on individually (channels 6-13 / 41-48).
+        /// Compression: LZ4Codec.Encode at LZ4Level.L00_FAST (K4os.Compression.LZ4 1.3.x).
+        /// </summary>
+        public const byte CompressedAvatarBundleChannel = 52;
+
+        // ── Server-provided default library ──────────────────────────────────
+        /// <summary>
+        /// Server pushes a list of default library entries (avatars / props / worlds)
+        /// to each client on connect. Items live in the client's library only while
+        /// connected to that server and are cleared on disconnect.
+        /// </summary>
+        public const byte ServerLibraryChannel = 53;
+
+        // ── Server info unconnected query ────────────────────────────────────
+        // Out-of-band UDP probe: a client can hit the server's port without
+        // authenticating and get back a name/online/max/MOTD payload — same
+        // shape as a Minecraft server-list-ping. Travels via LiteNetLib's
+        // SendUnconnectedMessage so it never enters the channel/peer pipeline.
+        /// <summary>Magic header for the unconnected info query packet from the client.</summary>
+        public const uint ServerInfoQueryMagic = 0xBA515101u;
+        /// <summary>Magic header for the unconnected info response packet from the server.</summary>
+        public const uint ServerInfoResponseMagic = 0xBA515102u;
+        /// <summary>Wire-format version for the info query payload. Bump when the layout changes.</summary>
+        public const ushort ServerInfoProtocolVersion = 1;
+        /// <summary>Hard cap on the server name length the client/server will read or write.</summary>
+        public const int ServerInfoNameMaxLength = 64;
+        /// <summary>Hard cap on the MOTD length the client/server will read or write.</summary>
+        public const int ServerInfoMotdMaxLength = 256;
+        /// <summary>
+        /// Minimum total request size (in bytes) the server will accept on an
+        /// unconnected info query. Clients pad their query up to this size with
+        /// zeros so the response is never larger than the request — that removes
+        /// the bandwidth-amplification factor that makes UDP discovery protocols
+        /// attractive as DDoS reflectors. Worst-case response is ~340 bytes
+        /// (full-length name + MOTD), so 384 keeps the amp ratio &lt; 1.
+        /// </summary>
+        public const int ServerInfoMinRequestBytes = 384;
 
         /// <summary>
         /// Maps quality index (0‑3) + additional data presence → byte-ID channel.

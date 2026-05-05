@@ -1,8 +1,9 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Network.Core;
 using UnityEngine;
-public class BasisTestNetworkAvatar : BasisAvatarMonoBehaviour
+public class BasisTestNetworkAvatar : BasisNetworkAvatarBehaviour
 {
     new public static bool VisibleInAvatarMenu = false;
     public byte[] SubmittingData;

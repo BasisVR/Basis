@@ -4,41 +4,62 @@ using UnityEngine;
 
 public static class SettingsProviderStorage
 {
-    public static PanelTabPage StorageTab(PanelTabGroup tabGroup)
+    private const string TabKey = "settings.tab.downloadsurls";
+
+    public static PanelTabPage DownloadsUrlsTab(PanelTabGroup tabGroup)
     {
         PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
         PanelElementDescriptor descriptor = tab.Descriptor;
         descriptor.SetIcon(AddressableAssets.Sprites.Settings);
-        descriptor.SetTitle("Downloads & Cache");
+        descriptor.SetTitle(BasisLocalization.Get(TabKey));
 
         RectTransform container = descriptor.ContentParent;
 
         // Download limits
         PanelElementDescriptor downloadGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        downloadGroup.SetTitle("Download Limits");
-        downloadGroup.SetDescription("Configure download size limits.");
+        downloadGroup.SetTitle(BasisLocalization.Get("settings.storage.downloadLimits.title"));
+        downloadGroup.SetDescription(BasisLocalization.Get("settings.storage.downloadLimits.description"));
 
         PanelSlider avatarDownloadSize = PanelSlider.CreateEntryAndBind(
             downloadGroup.ContentParent,
-            PanelSlider.SliderSettings.Advanced("Avatar Download Size", 5, 1024, false, 0, ValueDisplayMode.MemorySize),
+            PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.storage.avatarDownloadSize"), 5, 1024, false, 0, ValueDisplayMode.MemorySize),
             BasisSettingsDefaults.AvatarDownloadSize);
+
+        // Concurrency gates for avatar loading. Three separate gates because the
+        // network / disc / in-memory paths each have a different bottleneck. Tuning
+        // these higher helps crowded rooms catch up faster; tuning downloads too high
+        // just splits bandwidth and makes everyone wait longer on the loading avatar.
+        PanelSlider maxDownloads = PanelSlider.CreateEntryAndBind(
+            downloadGroup.ContentParent,
+            PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.storage.maxDownloads"), 1, 32, true, 0, ValueDisplayMode.Raw),
+            BasisSettingsDefaults.MaxConcurrentAvatarDownloads);
+
+        PanelSlider maxDiscLoads = PanelSlider.CreateEntryAndBind(
+            downloadGroup.ContentParent,
+            PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.storage.maxDiscLoads"), 1, 64, true, 0, ValueDisplayMode.Raw),
+            BasisSettingsDefaults.MaxConcurrentAvatarDiscLoads);
+
+        PanelSlider maxAddressables = PanelSlider.CreateEntryAndBind(
+            downloadGroup.ContentParent,
+            PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.storage.maxAddressables"), 1, 128, true, 0, ValueDisplayMode.Raw),
+            BasisSettingsDefaults.MaxConcurrentAvatarAddressables);
 
         // Cache size limit slider (lightweight, no file I/O)
         PanelElementDescriptor limitGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        limitGroup.SetTitle("Cache Settings");
-        limitGroup.SetDescription("Set the maximum disk space for cached BEE files.");
+        limitGroup.SetTitle(BasisLocalization.Get("settings.storage.cache.title"));
+        limitGroup.SetDescription(BasisLocalization.Get("settings.storage.cache.description"));
 
         PanelSlider cacheSizeSlider = PanelSlider.CreateEntryAndBind(
             limitGroup.ContentParent,
-            PanelSlider.SliderSettings.Advanced("Max Cache Size (GB)", 1, 512, true, 0, ValueDisplayMode.Raw),
+            PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.storage.maxCacheSize"), 1, 512, true, 0, ValueDisplayMode.Raw),
             BasisSettingsDefaults.CacheMaxSizeGB);
 
         // Button to load and display all storage data on demand
         PanelButton loadDataButton = PanelButton.CreateNew(container);
-        loadDataButton.Descriptor.SetTitle("Load Storage Data");
-        loadDataButton.Descriptor.SetDescription("Scan disk for cached BEE files. This may take a moment.");
+        loadDataButton.Descriptor.SetTitle(BasisLocalization.Get("settings.storage.loadButton"));
+        loadDataButton.Descriptor.SetDescription(BasisLocalization.Get("settings.storage.loadButton.description"));
         loadDataButton.OnClicked += () =>
         {
             // Remove the load button itself
@@ -48,8 +69,10 @@ public static class SettingsProviderStorage
             descriptor.ForceRebuild();
         };
 
-        // One reset button for this whole page
-        SettingsProvider.AddResetPageButton(container, "Storage Settings", ResetStorageDefaults);
+        SettingsProviderTrustedUrls.Populate(container, TabKey);
+
+        // One reset button for this whole page (download limits, cache, trusted URLs)
+        SettingsProvider.AddResetPageButton(container, TabKey, ResetDefaults);
 
         descriptor.ForceRebuild();
         return tab;
@@ -66,27 +89,27 @@ public static class SettingsProviderStorage
         // Cache size info group
         PanelElementDescriptor infoGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        infoGroup.SetTitle("Cache Info");
+        infoGroup.SetTitle(BasisLocalization.Get("settings.storage.cacheInfo"));
 
         PanelPasswordField cacheInfoField = PanelPasswordField.CreateNew(infoGroup.ContentParent);
-        cacheInfoField.Descriptor.SetTitle("Total Cache Size");
+        cacheInfoField.Descriptor.SetTitle(BasisLocalization.Get("settings.storage.totalCacheSize"));
         cacheInfoField.SetPassword($"{sizeText} / {limitText}");
 
         PanelPasswordField fileCountField = PanelPasswordField.CreateNew(infoGroup.ContentParent);
-        fileCountField.Descriptor.SetTitle("Stored Files");
-        fileCountField.SetPassword($"{storedFiles.Count} files");
+        fileCountField.Descriptor.SetTitle(BasisLocalization.Get("settings.storage.storedFiles"));
+        fileCountField.SetPassword(BasisLocalization.Get("settings.storage.fileCount", storedFiles.Count));
 
         // Clear all cache button
         PanelButton clearAllButton = PanelButton.CreateNew(container);
-        clearAllButton.Descriptor.SetTitle("Clear All Cache");
-        clearAllButton.Descriptor.SetDescription("Delete all downloaded BEE files from disk.");
+        clearAllButton.Descriptor.SetTitle(BasisLocalization.Get("settings.storage.clearAll"));
+        clearAllButton.Descriptor.SetDescription(BasisLocalization.Get("settings.storage.clearAll.description"));
         clearAllButton.OnClicked += () =>
         {
             BasisMainMenu.Instance.OpenDialogue(
-                "Clear All Cache",
-                $"Delete all {storedFiles.Count} cached files ({sizeText})? This cannot be undone.",
-                "Clear All",
-                "Cancel",
+                BasisLocalization.Get("settings.storage.clearAll"),
+                BasisLocalization.Get("settings.storage.clearAll.confirm", storedFiles.Count, sizeText),
+                BasisLocalization.Get("settings.storage.clearAll.button"),
+                BasisLocalization.Get("ui.cancel"),
                 value =>
                 {
                     if (!value) return;
@@ -101,8 +124,8 @@ public static class SettingsProviderStorage
         {
             PanelElementDescriptor filesGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            filesGroup.SetTitle("Stored BEE Files");
-            filesGroup.SetDescription("Individual cached files. Click to delete.");
+            filesGroup.SetTitle(BasisLocalization.Get("settings.storage.storedBeeFiles"));
+            filesGroup.SetDescription(BasisLocalization.Get("settings.storage.storedBeeFiles.description"));
 
             foreach (var file in storedFiles)
             {
@@ -119,10 +142,11 @@ public static class SettingsProviderStorage
                 fileButton.OnClicked += () =>
                 {
                     BasisMainMenu.Instance.OpenDialogue(
-                        "Delete File",
-                        $"Delete cached file '{fileName}' ({size})?{(file.IsLoadedInMemory ? "\n\nWarning: This file is currently in use. Deleting it will unload the asset." : "")}",
-                        "Delete",
-                        "Cancel",
+                        BasisLocalization.Get("settings.storage.deleteFile"),
+                        BasisLocalization.Get("settings.storage.deleteFile.confirm", fileName, size) +
+                            (file.IsLoadedInMemory ? "\n\n" + BasisLocalization.Get("settings.storage.deleteFile.inUse") : ""),
+                        BasisLocalization.Get("library.delete"),
+                        BasisLocalization.Get("ui.cancel"),
                         value =>
                         {
                             if (!value) return;
@@ -135,9 +159,13 @@ public static class SettingsProviderStorage
         }
     }
 
-    private static void ResetStorageDefaults()
+    private static void ResetDefaults()
     {
         BasisSettingsDefaults.AvatarDownloadSize.ResetToDefault();
         BasisSettingsDefaults.CacheMaxSizeGB.ResetToDefault();
+        BasisSettingsDefaults.MaxConcurrentAvatarDownloads.ResetToDefault();
+        BasisSettingsDefaults.MaxConcurrentAvatarDiscLoads.ResetToDefault();
+        BasisSettingsDefaults.MaxConcurrentAvatarAddressables.ResetToDefault();
+        SettingsProviderTrustedUrls.Reset();
     }
 }

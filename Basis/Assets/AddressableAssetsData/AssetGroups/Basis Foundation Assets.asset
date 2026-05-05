@@ -41,11 +41,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0c9ffb72ecdca914b875fc177d06dd61
-    m_Address: Photo Camera
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0eada6da580205b4987e0befda25ca0a
     m_Address: BasisLoadingScenePrefab
     m_ReadOnly: 0
@@ -103,6 +98,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3a4a4d43bcc9b7643a340212d6fddeb9
     m_Address: OnScreenControls
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3a6a0256111058a7fdbbb8a14d7e1b73
+    m_Address: BasisDefaultTrustedUrls
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -254,6 +254,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9dd982448bb448cdb10be5d44e1b14e4
+    m_Address: EmbeddedItemsCatalog
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9ebe60fd8e87b4546aaf34254b33e227
     m_Address: Assets/Prefabs/UI/Indication.prefab
     m_ReadOnly: 0
@@ -289,6 +294,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ccc5b43e54e34744c8380962d9851736
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/AutoLevel.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: df4c5b7b152475f48adb88ead5775eb0
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/microphone-solid.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: eafa514b4dc421d4c8b01e7c6e3a627a
     m_Address: Packages/com.basisvr.openlipsync/OpenLipSync/config.json
     m_ReadOnly: 0
@@ -304,6 +319,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f184b79ab72cc224e94720390fb038c2
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/microphone-mute-solid.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f3e0631a93d0ade4d8aa6c53111ddf5e
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Linux.prefab
     m_ReadOnly: 0
@@ -312,6 +332,11 @@ MonoBehaviour:
   - m_GUID: f50fe7d1576f16645bb5246612e15366
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical -
       No Background.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f5a621a614146c940a89432358cefe4d
+    m_Address: Photo Camera
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

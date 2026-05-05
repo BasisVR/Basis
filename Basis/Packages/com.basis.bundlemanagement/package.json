@@ -7,5 +7,11 @@
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "_fingerprint": "bdafadab10017ecde7cc8a08c48df1931e60284e"
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.addressables": "2.9.1"
+  },
+  "vpmDependencies": {
+    "com.basis.sdk": "0.0.1"
+  }
 }

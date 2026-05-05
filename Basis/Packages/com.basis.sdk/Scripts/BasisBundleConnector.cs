@@ -23,6 +23,10 @@ public class BasisBundleConnector
         public long TrianglesCount;
         public long MaterialCount;
         public long BonesCount;
+        // Sum of GetRuntimeMemorySizeLong for unique textures referenced by avatar materials.
+        // Older bundles built before this field existed deserialize with 0, which the
+        // performance-limit evaluator treats as "unknown" and lets through.
+        public long TextureMemoryBytes;
         [SerializeField]
         public BasisComponentName[] ComponentNames;
     }
@@ -136,6 +140,12 @@ public class BasisBundleDescription
     public string AssetBundleName;//user friendly name of this asset.
     public string AssetBundleDescription;//the description of this asset
     public Texture2D AssetBundleIcon;//icon for this asset
+    // Creator-authored content tags (presets like "18+", "Horror" plus custom strings).
+    // Travels with the bundle metadata so clients can offer filtering. Honor system —
+    // accuracy is the creator's responsibility, there is no enforcement.
+    // Older bundles built before this field existed deserialize with null, which client
+    // filters should treat as "unknown / no tags declared".
+    public string[] Tags = new string[0];
     public BasisBundleDescription()
     {
 

@@ -1,3 +1,4 @@
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -36,6 +37,16 @@ namespace Basis.Scripts.Device_Management.Devices
         /// </summary>
         [SerializeField]
         public bool hasRoleAssigned;
+
+        /// <summary>
+        /// True when this device is half of an active tracker pair, i.e. its data is being
+        /// merged into a virtual midpoint device by the pairing service. Calibration skips
+        /// linked devices so the merged virtual claims the body role for the pair on its
+        /// own. Set/cleared by the pairing service when the partner virtual is created or
+        /// torn down.
+        /// </summary>
+        [SerializeField]
+        public bool IsLinked;
 
         /// <summary>
         /// The bone control this input drives (e.g., left hand, right foot).
@@ -394,6 +405,18 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <param name="Role">Role to assign to this device post-calibration.</param>
         public void ApplyTrackerCalibration(BasisBoneTrackedRole Role)
         {
+            // Respect the master FBT toggle and the per-bone "Use For Calibration"
+            // setting — if either is off for this role, drop the assignment so the
+            // existing non-tracker fallback (head + hands + foot IK) handles the bone.
+            if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(Role)
+                && (!Basis.BasisUI.BasisSettingsDefaults.EnableFBT.RawValue
+                    || !Basis.BasisUI.BasisSettingsDefaults.IsRoleEnabledForCalibration(Role)))
+            {
+                BasisDebug.Log($"ApplyTrackerCalibration skipped for {Role}: disabled in settings", BasisDebug.LogTag.Input);
+                UnAssignTracker();
+                return;
+            }
+
             UnAssignTracker();
             BasisDebug.Log($"ApplyTrackerCalibration {Role} to tracker {UniqueDeviceIdentifier}", BasisDebug.LogTag.Input);
             AssignRoleAndTracker(Role);
@@ -455,11 +478,41 @@ namespace Basis.Scripts.Device_Management.Devices
                 }
 
                 BasisDebug.Log($"Set Tracker State for tracker {UniqueDeviceIdentifier} with bone {Control.name} as {Control.HasTracked} | {Control.HasRigLayer}", BasisDebug.LogTag.Input);
+
+                // Recompute whether ANY FBIK trackers remain — the animator checks this
+                // flag to decide if it should drive legs. Without this, removing trackers
+                // at runtime leaves the animator suppressed forever.
+                BasisAvatarIKStageCalibration.HasFBIKTrackers = CheckAnyFBIKTrackersRemain();
             }
             else
             {
                 BasisDebug.LogError("Missing Controller Or Bone", BasisDebug.LogTag.Input);
             }
+        }
+
+        /// <summary>
+        /// Check if any full-body IK tracker bones still have an active tracker.
+        /// Used to update HasFBIKTrackers after removal.
+        /// </summary>
+        private static bool CheckAnyFBIKTrackersRemain()
+        {
+            return IsTracked(BasisLocalBoneDriver.LeftFootControl)
+                || IsTracked(BasisLocalBoneDriver.RightFootControl)
+                || IsTracked(BasisLocalBoneDriver.LeftLowerLegControl)
+                || IsTracked(BasisLocalBoneDriver.RightLowerLegControl)
+                || IsTracked(BasisLocalBoneDriver.LeftUpperLegControl)
+                || IsTracked(BasisLocalBoneDriver.RightUpperLegControl)
+                || IsTracked(BasisLocalBoneDriver.HipsControl)
+                || IsTracked(BasisLocalBoneDriver.ChestControl)
+                || IsTracked(BasisLocalBoneDriver.LeftLowerArmControl)
+                || IsTracked(BasisLocalBoneDriver.RightLowerArmControl)
+                || IsTracked(BasisLocalBoneDriver.LeftShoulderControl)
+                || IsTracked(BasisLocalBoneDriver.RightShoulderControl);
+        }
+
+        private static bool IsTracked(BasisLocalBoneControl control)
+        {
+            return control != null && control.HasTracked == BasisHasTracked.HasTracker;
         }
 
         /// <summary>

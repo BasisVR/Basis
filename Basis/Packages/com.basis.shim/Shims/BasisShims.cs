@@ -1,4 +1,5 @@
 using Basis.Shims;
+using Basis.Scripts.BasisSdk;
 using System;
 using UnityEngine.Networking;
 using UnityEngine;
@@ -38,6 +39,7 @@ namespace Basis
 			return mb.gameObject.AddComponent<BasisNetworkShim>();
 		}
 
+		[Obsolete("Use the direct interactable component instead. This is a shim for the old system and should be removed at a later point.")]
 		public static BasisInteractableShim MakeInteractable( object o )
 		{
 			// Actually needs to be CilboxProxies.
@@ -84,15 +86,15 @@ namespace Basis
 	{
 		System.Collections.Generic.HashSet< UnityWebRequest > InFlight = new System.Collections.Generic.HashSet< UnityWebRequest >();
 
-		public void DownloadImage( BasisUrl stringUrl, Action< IBasisImageDownload > callback )
+		public void DownloadImage( string stringUrl, Action< IBasisImageDownload > callback )
 		{
-			if( stringUrl.url.Substring(0, 7) != "http://" && stringUrl.url.Substring(0, 8) != "https://" )
+			if( stringUrl.Substring(0, 7) != "http://" && stringUrl.Substring(0, 8) != "https://" )
 			{
 				callback( new IBasisImageDownload( null, null, "Security Failure" ) );
 				return;
 			}
 
-			UnityWebRequest www = new UnityWebRequest( stringUrl.url );
+			UnityWebRequest www = new UnityWebRequest( stringUrl );
 
 			/////////////////////////////////////////////////////////////////
 			DownloadHandlerTexture dht = new DownloadHandlerTexture(true);

@@ -32,19 +32,20 @@ public class BasisHandCollisionVisualizer : MonoBehaviour
         Vector3 chestA = data.chest.position;
         Vector3 chestB = data.neck.position;
         float chestR = Mathf.Max(0f, data.ChestRadius + data.CollisionSkin);
+        Vector3 playerUp = data.PlayerUp.sqrMagnitude > 1e-6f ? data.PlayerUp.normalized : Vector3.up;
 
         // Draw chest capsule
         Gizmos.matrix = Matrix4x4.identity;
-        DrawCapsule(chestA, chestB, chestR, chestColor);
+        DrawCapsule(chestA, chestB, chestR, chestColor, playerUp);
 
         if (showLeftHand)
-            VisualizeHand(data, chestA, chestB, chestR, left: true);
+            VisualizeHand(data, chestA, chestB, chestR, left: true, playerUp);
 
         if (showRightHand)
-            VisualizeHand(data, chestA, chestB, chestR, left: false);
+            VisualizeHand(data, chestA, chestB, chestR, left: false, playerUp);
     }
 
-    private void VisualizeHand(BasisFullBodyData data, Vector3 chestA, Vector3 chestB, float chestR, bool left)
+    private void VisualizeHand(BasisFullBodyData data, Vector3 chestA, Vector3 chestB, float chestR, bool left, Vector3 playerUp)
     {
         Vector3 tgtPos;
         Vector3 hintPos;
@@ -71,12 +72,12 @@ public class BasisHandCollisionVisualizer : MonoBehaviour
         if (useCapsule)
         {
             // Draw hand capsule
-            DrawCapsule(hsLocal, heLocal, handR, handColor);
+            DrawCapsule(hsLocal, heLocal, handR, handColor, playerUp);
 
             // Compute collision the same way SolveHand does
             Vector3 correction = BasisFullIKConstraintJob.CapsuleCapsuleResolve(
                 hsLocal, heLocal, handR,
-                chestA, chestB, chestR
+                chestA, chestB, chestR, playerUp
             );
 
             if (correction.sqrMagnitude > 0f)
@@ -101,7 +102,7 @@ public class BasisHandCollisionVisualizer : MonoBehaviour
         {
             // Point-vs-capsule path (PushOutFromCapsule)
             Vector3 p = tgtPos;
-            Vector3 pushed = BasisFullIKConstraintJob.PushOutFromCapsule(p, chestA, chestB, chestR);
+            Vector3 pushed = BasisFullIKConstraintJob.PushOutFromCapsule(p, chestA, chestB, chestR, playerUp);
 
             // Draw original + pushed positions
             Gizmos.color = handColor;
@@ -118,7 +119,7 @@ public class BasisHandCollisionVisualizer : MonoBehaviour
         Gizmos.DrawLine(tgtPos, hintPos);
     }
 
-    private void DrawCapsule(Vector3 a, Vector3 b, float radius, Color color)
+    private void DrawCapsule(Vector3 a, Vector3 b, float radius, Color color, Vector3 playerUp)
     {
         Gizmos.color = color;
 
@@ -132,7 +133,7 @@ public class BasisHandCollisionVisualizer : MonoBehaviour
         }
 
         Vector3 dir = up / height;
-        Vector3 ortho = Vector3.Cross(dir, Vector3.up);
+        Vector3 ortho = Vector3.Cross(dir, playerUp);
         if (ortho.sqrMagnitude < 1e-6f)
             ortho = Vector3.Cross(dir, Vector3.right);
         ortho.Normalize();

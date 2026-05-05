@@ -41,24 +41,6 @@ MonoBehaviour:
   - SteamAudio.SteamAudioProbeBatch
   - SteamAudio.SteamAudioSource
   - SteamAudio.SteamAudioStaticMesh
-  - uLipSync.uLipSync
-  - uLipSync.uLipSyncAnimator
-  - uLipSync.uLipSyncAudioSource
-  - uLipSync.uLipSyncBakedDataPlayer
-  - uLipSync.uLipSyncBlendShape
-  - uLipSync.uLipSyncCalibrationAudioPlayer
-  - uLipSync.uLipSyncMicrophone
-  - uLipSync.uLipSyncTexture
-  - uLipSync.Timeline.uLipSyncTimelineEvent
-  - uLipSync.Debugging.DebugAudioPlayer
-  - uLipSync.Debugging.DebugDump
-  - DebugPrintLipSyncInfo
-  - uLipSync.uLipSyncExpressionVRM
-  - uLipSync.uLipSyncBlendShapeVRM
-  - uLipSyncExpressionVRMRuntimeSetupExample
-  - uLipSyncBlendShapeVRMRuntimeSetupExample
-  - uLipSyncBlendShapeRuntimeSetupExample
-  - uLipSync.CalibrationByKeyboardInput
   - UnityEngine.Animations.Rigging.BlendConstraint
   - UnityEngine.Animations.Rigging.ChainIKConstraint
   - UnityEngine.Animations.Rigging.DampedTransform
@@ -392,4 +374,7 @@ MonoBehaviour:
   - Basis.Media.BasisPrismVideoPlayerNetworked
   - Basis.BasisInteractableShim
   - Basis.BasisNetworkShim
-  - BasisInteractableButton
+  - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton
+  - Basis.Shims.VideoPlayerShim
+  - Basis.Shims.BasisNetworkShim
+  - Basis.Shims.BasisInteractableShim

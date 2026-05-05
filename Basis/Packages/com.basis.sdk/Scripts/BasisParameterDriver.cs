@@ -63,9 +63,11 @@ public class BasisParameterDriver : StateMachineBehaviour
     // Tracks previous int values per parameter hash for preventRepeats.
     private readonly Dictionary<int, int> _lastIntValues = new Dictionary<int, int>();
 
-    // Pre-computed parameter name hashes (populated once on first enter).
+    // Pre-computed parameter name hashes and types (populated once on first enter).
     private int[] _destHashes;
     private int[] _srcHashes;
+    private AnimatorControllerParameterType[] _destTypes;
+    private AnimatorControllerParameterType[] _srcTypes;
 
     // ------------------------------------------------------------------
     // StateMachineBehaviour callbacks
@@ -74,24 +76,39 @@ public class BasisParameterDriver : StateMachineBehaviour
     public override void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
         if (_destHashes == null)
-            BakeHashes();
+            Bake(animator);
 
         for (int i = 0; i < operations.Length; i++)
         {
-            Execute(animator, operations[i], _destHashes[i], _srcHashes[i]);
+            Execute(animator, operations[i], _destHashes[i], _srcHashes[i], _destTypes[i], _srcTypes[i]);
         }
     }
 
-    private void BakeHashes()
+    private void Bake(Animator animator)
     {
         _destHashes = new int[operations.Length];
         _srcHashes  = new int[operations.Length];
+        _destTypes  = new AnimatorControllerParameterType[operations.Length];
+        _srcTypes   = new AnimatorControllerParameterType[operations.Length];
+
+        // Snapshot the animator's parameters once — `animator.parameters` allocates a fresh
+        // array on every access, so avoid calling it in the hot path.
+        AnimatorControllerParameter[] parameters = animator.parameters;
+        var map = new Dictionary<int, AnimatorControllerParameterType>(parameters.Length);
+        for (int i = 0; i < parameters.Length; i++)
+            map[parameters[i].nameHash] = parameters[i].type;
+
         for (int i = 0; i < operations.Length; i++)
         {
-            _destHashes[i] = string.IsNullOrEmpty(operations[i].destination)
-                ? 0 : Animator.StringToHash(operations[i].destination);
-            _srcHashes[i]  = string.IsNullOrEmpty(operations[i].source)
-                ? 0 : Animator.StringToHash(operations[i].source);
+            Operation op = operations[i];
+
+            int destHash = string.IsNullOrEmpty(op.destination) ? 0 : Animator.StringToHash(op.destination);
+            int srcHash  = string.IsNullOrEmpty(op.source)      ? 0 : Animator.StringToHash(op.source);
+
+            _destHashes[i] = destHash;
+            _srcHashes[i]  = srcHash;
+            _destTypes[i]  = (destHash != 0 && map.TryGetValue(destHash, out var dt)) ? dt : (AnimatorControllerParameterType)0;
+            _srcTypes[i]   = (srcHash  != 0 && map.TryGetValue(srcHash,  out var st)) ? st : (AnimatorControllerParameterType)0;
         }
     }
 
@@ -99,13 +116,12 @@ public class BasisParameterDriver : StateMachineBehaviour
     // Execution
     // ------------------------------------------------------------------
 
-    private void Execute(Animator animator, Operation op, int destHash, int srcHash)
+    private void Execute(Animator animator, Operation op, int destHash, int srcHash, AnimatorControllerParameterType destType, AnimatorControllerParameterType srcType)
     {
         // 0 == unset; StringToHash never returns 0 for non-empty strings
         if (destHash == 0)
             return;
 
-        AnimatorControllerParameterType destType = GetParamType(animator, destHash);
         if (destType == 0)
         {
             BasisDebug.LogWarning($"[BasisParameterDriver] Destination parameter '{op.destination}' not found on animator.");
@@ -130,7 +146,7 @@ public class BasisParameterDriver : StateMachineBehaviour
                 break;
 
             case Operation.OperationType.Copy:
-                ExecuteCopy(animator, op, destHash, srcHash, destType);
+                ExecuteCopy(animator, op, destHash, srcHash, destType, srcType);
                 break;
         }
     }
@@ -167,12 +183,11 @@ public class BasisParameterDriver : StateMachineBehaviour
         }
     }
 
-    private void ExecuteCopy(Animator animator, Operation op, int destHash, int srcHash, AnimatorControllerParameterType destType)
+    private void ExecuteCopy(Animator animator, Operation op, int destHash, int srcHash, AnimatorControllerParameterType destType, AnimatorControllerParameterType srcType)
     {
         if (srcHash == 0)
             return;
 
-        AnimatorControllerParameterType srcType = GetParamType(animator, srcHash);
         if (srcType == 0)
         {
             Debug.LogWarning($"[BasisParameterDriver] Source parameter '{op.source}' not found on animator.", animator);
@@ -222,12 +237,5 @@ public class BasisParameterDriver : StateMachineBehaviour
     {
         if (Mathf.Approximately(inMin, inMax)) return outMin;
         return Mathf.Lerp(outMin, outMax, Mathf.InverseLerp(inMin, inMax, value));
-    }
-
-    private static AnimatorControllerParameterType GetParamType(Animator animator, int nameHash)
-    {
-        foreach (AnimatorControllerParameter p in animator.parameters)
-            if (p.nameHash == nameHash) return p.type;
-        return (AnimatorControllerParameterType)0;
     }
 }

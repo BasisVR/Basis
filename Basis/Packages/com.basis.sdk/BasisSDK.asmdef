@@ -3,8 +3,6 @@
     "rootNamespace": "",
     "references": [
         "Unity.Mathematics",
-        "LiteNetLib",
-        "BasisNetworkCore",
         "BasisDebug",
         "Unity.TextMeshPro",
         "Unity.Addressables",

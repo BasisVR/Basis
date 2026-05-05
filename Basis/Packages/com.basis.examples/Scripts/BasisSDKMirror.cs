@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -97,6 +98,7 @@ public class BasisSDKMirror : MonoBehaviour
     }
 
     private BasisMeshRendererCheck basisMeshRendererCheck;
+    private BasisGazeTarget gazeTarget;
     private Vector3 thisPosition;
     private Vector3 normal;
     private readonly Vector3 projectionDirection = -Vector3.forward;
@@ -135,6 +137,8 @@ public class BasisSDKMirror : MonoBehaviour
 
         BasisDeviceManagement.OnBootModeChanged += BootModeChanged;
         BasisLocalCameraDriver.InstanceExists += Initialize;
+        BasisSettingsDefaults.MirrorQuality.OnChanged += OnMirrorQualityChanged;
+        BasisSettingsDefaults.UseMirrorQualityOverride.OnChanged += OnMirrorQualityOverrideChanged;
 
         if (BasisLocalCameraDriver.HasInstance)
             Initialize();
@@ -150,10 +154,14 @@ public class BasisSDKMirror : MonoBehaviour
     private void OnDestroy()
     {
         BasisDeviceManagement.OnBootModeChanged -= BootModeChanged;
+        BasisSettingsDefaults.MirrorQuality.OnChanged -= OnMirrorQualityChanged;
+        BasisSettingsDefaults.UseMirrorQualityOverride.OnChanged -= OnMirrorQualityOverrideChanged;
         Application.onBeforeRender -= OnBeforeRender;
     }
 
     private void BootModeChanged(string _) => StartCoroutine(ResetMirror());
+    private void OnMirrorQualityChanged(string _) => StartCoroutine(ResetMirror());
+    private void OnMirrorQualityOverrideChanged(bool _) => StartCoroutine(ResetMirror());
 
     private IEnumerator ResetMirror()
     {
@@ -169,6 +177,18 @@ public class BasisSDKMirror : MonoBehaviour
         if (basisMeshRendererCheck != null)
             basisMeshRendererCheck.Check -= VisibilityFlag;
 
+        DisposePortalResources();
+
+        if (gazeTarget != null)
+            gazeTarget.enabled = false;
+
+        IsActive = false;
+        IsAbleToRender = false;
+        InsideRendering = false;
+    }
+
+    private void DisposePortalResources()
+    {
         if (PortalTextureLeft)
         {
 #if UNITY_EDITOR
@@ -194,14 +214,31 @@ public class BasisSDKMirror : MonoBehaviour
         PortalTextureLeft = null;
         PortalTextureRight = null;
         LeftCamera = RightCamera = null;
+    }
 
-        IsActive = false;
-        IsAbleToRender = false;
-        InsideRendering = false;
+    private void GetEffectiveResolution(out int width, out int height)
+    {
+        if (BasisSettingsDefaults.UseMirrorQualityOverride.RawValue &&
+            int.TryParse(BasisSettingsDefaults.MirrorQuality.RawValue, out int overrideRes) && overrideRes > 0)
+        {
+            width = overrideRes;
+            height = overrideRes;
+        }
+        else
+        {
+            width = XSize;
+            height = YSize;
+        }
     }
 
     private void Initialize()
     {
+        if (IsActive) return;
+
+        // Drop any stale cameras/textures from a prior init that didn't reach a clean teardown
+        // (e.g. resources orphaned across a Play-Mode domain reload).
+        DisposePortalResources();
+
         xFlip = Matrix4x4.Scale(new Vector3(-1f, 1f, 1f));
 
         var mainCamera = BasisLocalCameraDriver.Instance.Camera;
@@ -217,6 +254,13 @@ public class BasisSDKMirror : MonoBehaviour
         IsAbleToRender = Renderer.isVisible;
         IsActive = true;
         InsideRendering = false;
+
+        // Set up gaze target so the eye driver focuses on the player's reflection
+        if (gazeTarget == null)
+            gazeTarget = BasisHelpers.GetOrAddComponent<BasisGazeTarget>(gameObject);
+        gazeTarget.Priority = 2f;
+        gazeTarget.UseTransformPosition = false;
+        gazeTarget.enabled = true;
     }
     private static Vector3 TransformPoint(Vector3 position, Quaternion rotation, Vector3 pointLocal)
     {
@@ -228,6 +272,12 @@ public class BasisSDKMirror : MonoBehaviour
     }
     private void OnBeforeRender()
     {
+        // Self-heal after a Play-Mode domain reload (e.g. Test In Editor + reselect triggers
+        // an AssetDatabase.Refresh()): the camera driver's serialized HasEvents flag persists
+        // across the reload, so its InstanceExists event never re-fires for our subscription.
+        if (!IsActive && BasisLocalCameraDriver.HasInstance)
+            Initialize();
+
         if (!IsActive || !IsAbleToRender) return;
 
         Camera cam = null;
@@ -247,6 +297,16 @@ public class BasisSDKMirror : MonoBehaviour
 
         thisPosition = Renderer.transform.position;
         normal = Renderer.transform.TransformDirection(projectionDirection).normalized;
+
+        // Update gaze target: reflect the player's eye position across the mirror plane
+        if (gazeTarget != null)
+        {
+            Vector3 eyePos = BasisLocalCameraDriver.Position;
+            transform.GetPositionAndRotation(out Vector3 planePosWS, out Quaternion planeRotWS);
+            Vector3 eyeLocal = InverseTransformPoint(planePosWS, planeRotWS, eyePos);
+            Vector3 reflLocal = Vector3.Reflect(eyeLocal, Vector3.forward);
+            gazeTarget.FocusPoint = TransformPoint(planePosWS, planeRotWS, reflLocal);
+        }
 
         RenderBothEyes(cam);
 
@@ -331,8 +391,16 @@ public class BasisSDKMirror : MonoBehaviour
         portalCamera.cullingMatrix = portalCamera.projectionMatrix * portalCamera.worldToCameraMatrix;
 
         // Clamp near/far
-        portalCamera.nearClipPlane = Mathf.Max(nearClipLimit, portalCamera.nearClipPlane);
-        portalCamera.farClipPlane = FarClipPlane;
+        if (BasisSettingsDefaults.UseCameraClipOverride.RawValue)
+        {
+            portalCamera.nearClipPlane = Mathf.Max(0.001f, BasisSettingsDefaults.CameraClipNear.RawValue);
+            portalCamera.farClipPlane = BasisSettingsDefaults.CameraClipFar.RawValue;
+        }
+        else
+        {
+            portalCamera.nearClipPlane = Mathf.Max(nearClipLimit, portalCamera.nearClipPlane);
+            portalCamera.farClipPlane = FarClipPlane;
+        }
 
         SubmitRenderRequest(portalCamera, portalCamera.targetTexture);
     }
@@ -384,7 +452,8 @@ public class BasisSDKMirror : MonoBehaviour
 
     private void CreatePortalCamera(Camera sourceCamera, StereoscopicEye eye, ref Camera portalCamera, ref RenderTexture portalTexture)
     {
-        var desc = new RenderTextureDescriptor(XSize, YSize, RenderTextureFormat.Default, depth)
+        GetEffectiveResolution(out int effectiveWidth, out int effectiveHeight);
+        var desc = new RenderTextureDescriptor(effectiveWidth, effectiveHeight, RenderTextureFormat.Default, depth)
         {
             msaaSamples = Mathf.Max(1, Antialiasing),
             sRGB = QualitySettings.activeColorSpace == ColorSpace.Linear,
@@ -396,7 +465,7 @@ public class BasisSDKMirror : MonoBehaviour
 
         portalTexture = new RenderTexture(desc)
         {
-            name = $"__MirrorReflection{eye}_{GetInstanceID()}",
+            name = $"__MirrorReflection{eye}_{GetEntityId()}",
             anisoLevel = 0
         };
         portalTexture.Create();
@@ -414,7 +483,7 @@ public class BasisSDKMirror : MonoBehaviour
 
     private void CreateNewCamera(Camera sourceCamera, out Camera newCamera)
     {
-        GameObject camObj = new GameObject($"MirrorCam_{GetInstanceID()}_{sourceCamera.GetInstanceID()}", typeof(Camera));
+        GameObject camObj = new GameObject($"MirrorCam_{GetEntityId()}_{sourceCamera.GetEntityId()}", typeof(Camera));
         camObj.TryGetComponent<Camera>(out  newCamera);
         newCamera.enabled = false;
         newCamera.CopyFrom(sourceCamera);

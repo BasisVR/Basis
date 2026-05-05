@@ -31,11 +31,17 @@ namespace Basis.Network.Server.Generic
             foreach (var kvp in resolvedVoicePeers)
             {
                 List<NetPeer> peers = kvp.Value;
-                for (int i = peers.Count - 1; i >= 0; i--)
+                if (peers == null) continue;
+
+                lock (peers)
                 {
-                    if (peers[i].Id == id)
+                    for (int i = peers.Count - 1; i >= 0; i--)
                     {
-                        peers.RemoveAt(i);
+                        NetPeer p = peers[i];
+                        if (p != null && p.Id == id)
+                        {
+                            peers.RemoveAt(i);
+                        }
                     }
                 }
             }
@@ -62,11 +68,15 @@ namespace Basis.Network.Server.Generic
 
             if (voiceReceiversMessage.Users != null)
             {
-                for (int i = 0; i < voiceReceiversMessage.UsersLength; i++)
+                lock (peers)
                 {
-                    if (NetworkServer.AuthenticatedPeers.TryGetValue(voiceReceiversMessage.Users[i], out NetPeer found))
+                    peers.Clear();
+                    for (int i = 0; i < voiceReceiversMessage.UsersLength; i++)
                     {
-                        peers.Add(found);
+                        if (NetworkServer.AuthenticatedPeers.TryGetValue(voiceReceiversMessage.Users[i], out NetPeer found))
+                        {
+                            peers.Add(found);
+                        }
                     }
                 }
                 voiceReceiversMessage.ReturnPool();
@@ -113,9 +123,7 @@ namespace Basis.Network.Server.Generic
         /// </summary>
         public static List<NetPeer> GetOrCreateResolvedList(int clientId)
         {
-            var peers = resolvedVoicePeers.GetOrAdd(clientId, _ => new List<NetPeer>(64));
-            peers.Clear();
-            return peers;
+            return resolvedVoicePeers.GetOrAdd(clientId, _ => new List<NetPeer>(64));
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -220,7 +221,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             var refs = Player.RemoteAvatarDriver.References;
             Vector3 scale = Player.AvatarTransform.localScale;
             // grab T-pose dictionary once
-            var tpose = refs.Tpose;
+            var tpose = refs.TposeFromRoot;
             // pull out the leg joints you need
             var leftUpper = tpose[HumanBodyBones.LeftUpperLeg];
             var leftLower = tpose[HumanBodyBones.LeftLowerLeg];
@@ -426,6 +427,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #region Basis Integration
         public override bool CanHover(BasisInput input)
         {
+            if (!LocallyInSeat && BasisSettingsDefaults.DisableSeats.RawValue) return false;
             // Can only hover when not already hovering or interacting.
             return LocallyInSeat || CheckUsabilityWithState(input, BasisInteractInputState.Ignored) && IsSeatTakenByAnyone == false;
         }
@@ -435,6 +437,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
         public override bool CanInteract(BasisInput input)
         {
+            if (!LocallyInSeat && BasisSettingsDefaults.DisableSeats.RawValue) return false;
             return LocallyInSeat || CheckUsabilityWithState(input, BasisInteractInputState.Hovering) && IsSeatTakenByAnyone == false;
         }
 

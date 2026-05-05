@@ -286,6 +286,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private Vector3 useMagicNumberItemDelta;
 
         private float _previousDistance = 0;
+
+        private bool _pickupUseLastEffectiveState;
+        private bool _pickupUsePendingReleaseAfterUI;
         /// <summary>
         /// Unity start hook. Ensures references, allocates constraint, loads highlight material, and optionally builds the collider highlight mesh.
         /// </summary>
@@ -302,7 +305,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             InputConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
             InputConstraint.Enabled = false;
 
-            headPauseRequestName = $"{nameof(BasisPickupInteractable)}-{gameObject.GetInstanceID()}";
+            headPauseRequestName = $"{nameof(BasisPickupInteractable)}-{gameObject.GetEntityId()}";
 
             AsyncOperationHandle<Material> op = Addressables.LoadAssetAsync<Material>(k_LoadMaterialAddress);
             ColliderHighlightMat = op.WaitForCompletion();
@@ -498,6 +501,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Interacting);
                     RequiresUpdateLoop = true;
+                    _pickupUseLastEffectiveState = false;
+                    _pickupUsePendingReleaseAfterUI = false;
 
                     transform.GetPositionAndRotation(out Vector3 restPos, out Quaternion restRot);
                     InputConstraint.SetRestPositionAndRotation(restPos, restRot);
@@ -574,6 +579,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Ignored);
 
                     RequiresUpdateLoop = false;
+                    _pickupUseLastEffectiveState = false;
+                    _pickupUsePendingReleaseAfterUI = false;
                     // cleanup Desktop Manipulation since InputUpdate isnt run again till next pickup
                     targetOffset = Vector3.zero;
                     if (pauseHead)
@@ -753,27 +760,47 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
 
-            // Trigger state machine for OnPickupUse
-            bool State = HasState(interactingInput.Source.CurrentInputState, InputKey);
-            bool LastState = HasState(interactingInput.Source.LastInputState, InputKey);
-            if (State && LastState == false)
+            // Trigger state machine for OnPickupUse.
+            // Suppressed while the holding input is targeting UI (ray or direct touch) so
+            // clicking a UI panel with a pickup in hand doesn't fire the pickup's use action.
+            BasisInput useSource = interactingInput.Source;
+            bool uiActive =
+                (useSource.BasisUIRaycast != null && useSource.BasisUIRaycast.HadRaycastUITarget) ||
+                (BasisDirectTouch.Instance != null && BasisDirectTouch.Instance.IsDeviceTouching(useSource));
+            bool rawState = HasState(useSource.CurrentInputState, InputKey);
+
+            bool effectiveState;
+            if (uiActive)
             {
-                OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseDown);
+                // If the button is held while entering/on UI, require a release before the next use fire
+                // so dragging the hand off UI while still held doesn't phantom-fire UseDown.
+                if (rawState) _pickupUsePendingReleaseAfterUI = true;
+                effectiveState = false;
+            }
+            else if (_pickupUsePendingReleaseAfterUI)
+            {
+                if (!rawState) _pickupUsePendingReleaseAfterUI = false;
+                effectiveState = false;
             }
             else
             {
-                if (State == false && LastState)
-                {
-                    OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseUp);
-                }
-                else
-                {
-                    if (State)
-                    {
-                        OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpStillDown);
-                    }
-                }
+                effectiveState = rawState;
             }
+
+            bool lastEffective = _pickupUseLastEffectiveState;
+            if (effectiveState && !lastEffective)
+            {
+                OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseDown);
+            }
+            else if (!effectiveState && lastEffective)
+            {
+                OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseUp);
+            }
+            else if (effectiveState)
+            {
+                OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpStillDown);
+            }
+            _pickupUseLastEffectiveState = effectiveState;
 
             InputConstraint.UpdateSourcePositionAndRotation(0, inPos, inRot);
 

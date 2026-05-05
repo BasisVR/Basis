@@ -1,7 +1,7 @@
 {
-    "name": "com.basis.corenetworking",
+    "name": "com.basis.server",
     "version": "1.0.0",
-    "displayName": "BasisCoreNetworking",
+    "displayName": "Basis Server",
     "description": "Core networking default works with litenetlib",
     "author": {
         "name": "BasisVR",

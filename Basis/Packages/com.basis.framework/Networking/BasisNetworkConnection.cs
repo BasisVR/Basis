@@ -25,6 +25,10 @@ namespace Basis.Scripts.Networking
         public static NetworkClient NetworkClient { get; set; } = new NetworkClient();
         public static bool LocalPlayerIsConnected { get; set; }
         public static BasisNetworkServerRunner BasisNetworkServerRunner = null;
+#if UNITY_SERVER
+        public static bool HeadlessReconnectSuppressed { get; set; }
+        public static Action<DisconnectInfo> OnDisconnectedAfterReboot;
+#endif
         private static void LogErrorOutput(string msg) => BasisDebug.LogError(msg, BasisDebug.LogTag.Networking);
         private static void LogWarningOutput(string msg) => BasisDebug.LogWarning(msg);
         private static void LogOutput(string msg) => BasisDebug.Log(msg, BasisDebug.LogTag.Networking);
@@ -141,12 +145,18 @@ namespace Basis.Scripts.Networking
         private static void PeerConnectedEvent(NetPeer peer)
         {
             BasisDebug.Log("Success! Now setting up Networked Local Player");
+#if UNITY_SERVER
+            BasisHeadlessRuntimeStatus.MarkConnected();
+#endif
 
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
                 BasisDebug.Log("PeerConnectedEvent On MainThread");
                 try
                 {
+#if UNITY_SERVER
+                    Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.ResumeMovement();
+#endif
                     LocalPlayerPeer = peer;
                     ushort localPlayerID = (ushort)peer.RemoteId;
 
@@ -194,8 +204,22 @@ namespace Basis.Scripts.Networking
         {
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
+#if UNITY_SERVER
+                if (disconnectInfo.Reason == DisconnectReason.Timeout)
+                {
+                    string peerId = peer == null ? "null" : peer.RemoteId.ToString();
+                    BasisDebug.LogWarning($"Headless timeout diagnostic: peer={peerId}, localConnected={LocalPlayerIsConnected}, playerReady={BasisLocalPlayer.PlayerReady}, realtime={Time.realtimeSinceStartup:F1}s", BasisDebug.LogTag.Networking);
+                }
+                Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.StopMovement();
+#endif
                 BasisNetworkAvatarCompressor.Dispose();
                 await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, true, peer, disconnectInfo);
+#if UNITY_SERVER
+                if (!HeadlessReconnectSuppressed)
+                {
+                    OnDisconnectedAfterReboot?.Invoke(disconnectInfo);
+                }
+#endif
                 OnRebootComplete?.Invoke();
             });
         }

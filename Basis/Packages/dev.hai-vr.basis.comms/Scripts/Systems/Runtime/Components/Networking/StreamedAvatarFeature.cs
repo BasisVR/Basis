@@ -28,14 +28,20 @@ namespace HVR.Basis.Comms
         [NonSerialized] public byte localIdentifier;
 
         private readonly Queue<StreamedAvatarFeaturePayload> _queue = new Queue<StreamedAvatarFeaturePayload>();
-        private float[] current;
+        // Running sum of DeltaTime across queued payloads, updated on enqueue/dequeue.
+        // Replaces a per-frame `foreach (_queue)` which blew up with
+        // InvalidOperationException whenever something on the OnReceiver call chain
+        // re-entered OnPacketReceived mid-iteration (e.g. buffered-message drains
+        // during OnCalibration).
+        private float _queuedSeconds;
+        internal float[] current;
         private float[] previous;
         private float[] target;
+        private byte[] _sendBuffer;
         private float _deltaTime;
         private float _timeLeft;
         private bool _isOutOfTape;
         private bool _writtenThisFrame;
-        private bool _canSendNetworkData;
 
         public event InterpolatedDataChanged OnInterpolatedDataChanged;
         public delegate void InterpolatedDataChanged(float[] current);
@@ -43,14 +49,6 @@ namespace HVR.Basis.Comms
         private void Awake()
         {
             EnsureBuffers();
-            BasisNetworkConnection.NetworkClient.listener.PeerConnectedEvent += OnLocalPlayerPeerConnected;
-            BasisNetworkConnection.NetworkClient.listener.PeerDisconnectedEvent += OnLocalPlayerPeerDisconnected;
-        }
-
-        private void OnDestroy()
-        {
-            BasisNetworkConnection.NetworkClient.listener.PeerConnectedEvent -= OnLocalPlayerPeerConnected;
-            BasisNetworkConnection.NetworkClient.listener.PeerDisconnectedEvent -= OnLocalPlayerPeerDisconnected;
         }
 
         private void OnDisable()
@@ -93,17 +91,22 @@ namespace HVR.Basis.Comms
         public void QueueEvent(StreamedAvatarFeaturePayload message)
         {
             _queue.Enqueue(message);
+            _queuedSeconds += message.DeltaTime;
         }
 
         private void Update()
         {
             if (isWearer)
             {
-                if (!_canSendNetworkData)
+                if (BasisNetworkConnection.LocalPlayerIsConnected)
                 {
+                    OnSender();
+                }
+                else
+                {
+                    _timeLeft = 0;
                     return;
                 }
-                OnSender();
             }
             else
             {
@@ -117,12 +120,7 @@ namespace HVR.Basis.Comms
 
             if (_timeLeft > TransmissionDeltaSeconds)
             {
-                var toSend = new StreamedAvatarFeaturePayload
-                {
-                    DeltaTime = _timeLeft,
-                    FloatValues = PrioritizeLargeChanges ? target : current // Not copied: Process this message immediately
-                };
-                EncodeAndSubmit(toSend, null);
+                EncodeAndSubmit(_timeLeft, PrioritizeLargeChanges ? target : current, null);
                 if (PrioritizeLargeChanges)
                 {
                     // Order matters: Modify target after EncodeAndSubmit() executes.
@@ -137,40 +135,24 @@ namespace HVR.Basis.Comms
             }
         }
 
-        private void OnLocalPlayerConnectionStateChanged(bool isConnected)
-        {
-            _canSendNetworkData = isConnected;
-            if (!isConnected)
-            {
-                _timeLeft = 0;
-            }
-        }
-
-        private void OnLocalPlayerPeerConnected(NetPeer peer)
-        {
-            _canSendNetworkData = true;
-        }
-
-        private void OnLocalPlayerPeerDisconnected(NetPeer peer,DisconnectInfo disconnectInfo)
-        {
-            _canSendNetworkData = false;
-            _timeLeft = 0;
-        }
-
         private void OnReceiver()
         {
             var timePassed = Time.deltaTime;
             _timeLeft -= timePassed;
 
-            float totalQueueSeconds = 0;
-            foreach (StreamedAvatarFeaturePayload payload in _queue)
-            {
-                totalQueueSeconds += payload.DeltaTime;
-            }
+            // Snapshot the running sum once — its value is captured before we start consuming
+            // the queue so the throttling math matches the pre-existing behavior (compute the
+            // total up-front, then drain).
+            float totalQueueSeconds = _queuedSeconds;
             // Debug.Log($"Queue time is {totalQueueSeconds} seconds, size is {_queue.Count}");
 
             while (_timeLeft <= 0 && _queue.TryDequeue(out var eval))
             {
+                _queuedSeconds -= eval.DeltaTime;
+                // Drift guard: once fully drained, reset so tiny float errors can't accumulate.
+                if (_queue.Count == 0)
+                    _queuedSeconds = 0f;
+
                 // Debug.Log($"Unpacking delta {eval.DeltaTime} as {string.Join(',', eval.FloatValues.Select(f => $"{f}"))}");
                 var effectiveDeltaTime = _queue.Count <= 5 || totalQueueSeconds < 0.2f
                     ? eval.DeltaTime
@@ -227,6 +209,7 @@ namespace HVR.Basis.Comms
             if (TryDecode(subBuffer, out var result))
             {
                 _queue.Enqueue(result);
+                _queuedSeconds += result.DeltaTime;
             }
         }
 
@@ -236,16 +219,22 @@ namespace HVR.Basis.Comms
         //   - Delta Time (1 byte)
         //   - Float Values (valueArraySize bytes)
 
-        private void EncodeAndSubmit(StreamedAvatarFeaturePayload message, ushort[] recipientsNullable)
+        // Reused across sends: the avatar compressor consumes this buffer synchronously
+        // later in the same frame (ClearAdditional runs before the next Update), so a
+        // single per-instance buffer is safe.
+        private void EncodeAndSubmit(float deltaTime, float[] floatValues, ushort[] recipientsNullable)
         {
-            var buffer = new byte[HeaderBytes + valueArraySize];//3 + 256 = 259
+            if (_sendBuffer == null || _sendBuffer.Length != HeaderBytes + valueArraySize)
+                _sendBuffer = new byte[HeaderBytes + valueArraySize];
+
+            var buffer = _sendBuffer;
             buffer[0] = AvatarMessageProcessing.NewNet_WearerData;
             buffer[1] = localIdentifier;
-            buffer[2] = (byte)(message.DeltaTime / DeltaLocalIntToSeconds);
+            buffer[2] = (byte)(deltaTime / DeltaLocalIntToSeconds);
 
             for (var i = 0; i < current.Length; i++)
             {
-                buffer[HeaderBytes + i] = (byte)(message.FloatValues[i] * EncodingRange);
+                buffer[HeaderBytes + i] = (byte)(floatValues[i] * EncodingRange);
             }
             if (recipientsNullable == null || recipientsNullable.Length == 0)
             {
@@ -293,20 +282,12 @@ namespace HVR.Basis.Comms
 
         public void OnResyncEveryoneRequested()
         {
-            EncodeAndSubmit(new StreamedAvatarFeaturePayload
-            {
-                DeltaTime = DeltaTimeUsedForResyncs,
-                FloatValues = current
-            }, null);
+            EncodeAndSubmit(DeltaTimeUsedForResyncs, current, null);
         }
 
         public void OnResyncRequested(ushort[] whoAsked)
         {
-            EncodeAndSubmit(new StreamedAvatarFeaturePayload
-            {
-                DeltaTime = DeltaTimeUsedForResyncs,
-                FloatValues = current
-            }, whoAsked);
+            EncodeAndSubmit(DeltaTimeUsedForResyncs, current, whoAsked);
         }
 
         private void EnsureBuffers()

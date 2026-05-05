@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Basis.Scripts.BasisSdk;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using static BasisSerialization;
@@ -89,7 +90,7 @@ public static class BasisLoadHandler
             }
         }
     }
-    public static async Task<GameObject> LoadGameObjectBundle(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+    public static async Task<GameObject> LoadGameObjectBundle(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
     {
         await EnsureInitializationComplete();
 
@@ -102,7 +103,7 @@ public static class BasisLoadHandler
                 // ensure the bundle connector is updated from the wrapper
                 loadableBundle.BasisBundleConnector = wrapper.LoadableBundle.BasisBundleConnector;
 
-                return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject,wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer);
+                return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject,wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop);
             }
             catch (Exception ex)
             {
@@ -112,7 +113,7 @@ public static class BasisLoadHandler
             }
         }
 
-        return await HandleFirstBundleLoad(DisabledGameobject,loadableBundle, useContentRemoval, report, cancellationToken, Position, Rotation, Scale, ModifyScale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, MaxDownloadSizeInMB);
+        return await HandleFirstBundleLoad(DisabledGameobject,loadableBundle, useContentRemoval, report, cancellationToken, Position, Rotation, Scale, ModifyScale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, MaxDownloadSizeInMB, HarvestedHeadChop);
     }
     public static async Task<Scene> LoadSceneBundle(bool makeActiveScene, BasisLoadableBundle loadableBundle, BasisProgressReport report, CancellationToken cancellationToken, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
@@ -121,7 +122,20 @@ public static class BasisLoadHandler
         if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisTrackedBundleWrapper wrapper))
         {
             BasisDebug.Log($"Bundle On Disc Loading", BasisDebug.LogTag.Networking);
-            await wrapper.WaitForBundleLoadAsync();
+            if (wrapper.AssetBundle == null)
+            {
+                await BasisBeeManagement.HandleBundleAndMetaLoading(wrapper, report, cancellationToken, MaxDownloadSizeInMB);
+            }
+            else
+            {
+                await wrapper.WaitForBundleLoadAsync();
+            }
+
+            if (wrapper.AssetBundle == null)
+            {
+                BasisDebug.LogError("Scene bundle was not available after load attempt.");
+                return new Scene();
+            }
             BasisDebug.Log($"Bundle Loaded, Loading Scene", BasisDebug.LogTag.Networking);
             return await BasisBundleLoadAsset.LoadSceneFromBundleAsync(wrapper, makeActiveScene, report);
         }
@@ -143,7 +157,7 @@ public static class BasisLoadHandler
         return await BasisBundleLoadAsset.LoadSceneFromBundleAsync(wrapper, makeActiveScene, report);
     }
 
-    private static async Task<GameObject> HandleFirstBundleLoad(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false, bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+    private static async Task<GameObject> HandleFirstBundleLoad(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false, bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
     {
         BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
         {
@@ -160,7 +174,7 @@ public static class BasisLoadHandler
         try
         {
             await BasisBeeManagement.HandleBundleAndMetaLoading(wrapper, report, cancellationToken, MaxDownloadSizeInMB);
-            return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject, wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer);
+            return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject, wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop);
         }
         catch (Exception ex)
         {
@@ -209,6 +223,34 @@ public static class BasisLoadHandler
         return false;
     }
 
+    private static bool TryResolveStoredConnectorPath(BasisBEEExtensionMeta discInfo, out string connectorPath)
+    {
+        connectorPath = discInfo.StoredLocal.DownloadedConnectorFileLocation;
+        if (!string.IsNullOrWhiteSpace(connectorPath) && File.Exists(connectorPath))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+        {
+            string platformAwarePath = BasisIOManagement.GetConnectorCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+            if (File.Exists(platformAwarePath))
+            {
+                discInfo.StoredLocal.DownloadedConnectorFileLocation = platformAwarePath;
+                connectorPath = platformAwarePath;
+                return true;
+            }
+        }
+
+        connectorPath = null;
+        return false;
+    }
+
+    private static bool HasAnyCachedPayload(BasisBEEExtensionMeta discInfo)
+    {
+        return TryResolveStoredBeePath(discInfo, out _) || TryResolveStoredConnectorPath(discInfo, out _);
+    }
+
     private static bool TryLoadDiscInfoFromFile(string filePath, string expectedRemoteUrl, out BasisBEEExtensionMeta info)
     {
         info = null;
@@ -233,7 +275,7 @@ public static class BasisLoadHandler
             }
 
             OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
-            if (!TryResolveStoredBeePath(discInfo, out _))
+            if (!HasAnyCachedPayload(discInfo))
             {
                 return false;
             }
@@ -265,7 +307,7 @@ public static class BasisLoadHandler
                         continue;
                     }
 
-                    if (TryResolveStoredBeePath(discInfo, out _))
+                    if (HasAnyCachedPayload(discInfo))
                     {
                         if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
                         {

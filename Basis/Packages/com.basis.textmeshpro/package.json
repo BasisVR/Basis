@@ -1,0 +1,12 @@
+{
+  "name": "com.basis.textmeshpro",
+  "displayName": "Basis TextMeshPro Resources",
+  "version": "0.0.1",
+  "description": "TextMeshPro essential resources, shaders, fonts, and default assets. Derived from Unity's TextMeshPro package (com.unity.textmeshpro). Licensed under the Unity Companion License.",
+  "author": {
+    "name": "Unity Technologies",
+    "url": "https://unity.com"
+  },
+  "license": "LicenseRef-UnityCompanionLicense",
+  "hideInEditor": false
+}

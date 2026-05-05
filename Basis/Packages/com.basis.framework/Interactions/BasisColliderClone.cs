@@ -110,7 +110,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     break;
             }
 
-            primitive.SetActive(false);
+            if (primitive != null)
+            {
+                primitive.SetActive(false);
+            }
             return primitive;
         }
         public static Mesh CreateCapsuleMesh(float radius, float height, int segments)
