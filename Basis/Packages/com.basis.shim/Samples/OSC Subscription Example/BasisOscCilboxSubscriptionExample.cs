@@ -33,13 +33,7 @@ namespace Basis.Shims.Samples
             avatar = BasisAvatar.GetGameObject(this).GetComponent<BasisAvatar>();
             if (avatar == null)
             {
-                avatar = GetComponentInParent<BasisAvatar>();
-            }
-
-            if (avatar == null)
-            {
-                Debug.LogError("BasisOscCilboxSubscriptionExample requires a BasisAvatar component in its hierarchy.");
-                return;
+                Debug.Log("BasisOscCilboxSubscriptionExample did not find a BasisAvatar in the parent hierarchy.");
             }
 
             networkShim = this.gameObject.GetComponent<Basis.Shims.BasisNetworkShim>();
@@ -50,7 +44,7 @@ namespace Basis.Shims.Samples
             osc.Subscribe(ExplicitTestAddress, OnExplicitTestTriggered, out string ExplicitAddress);
             osc.Subscribe(ImplicitTestAddress, OnImplicitTestTriggered, out string ImplicitAddress);
 
-            Debug.Log("Subscribed to " + ExplicitAddress + " and implicit \"" + ImplicitAddress + "\" on avatar local=" + avatar.IsOwnedLocally + ".");
+            Debug.Log("Subscribed to " + ExplicitAddress + " and implicit \"" + ImplicitAddress + "\" on avatar local=" + avatar?.IsOwnedLocally + ".");
         }
 
         private void OnDestroy()
