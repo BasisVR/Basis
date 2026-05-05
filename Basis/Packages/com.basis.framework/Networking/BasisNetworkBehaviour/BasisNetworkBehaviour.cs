@@ -1,4 +1,3 @@
-using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -51,7 +50,7 @@ namespace Basis
         {
             if (HasNetworkID)
             {
-                BasisNetworkGenericMessages.UnregisterHandler(NetworkID, OnNetworkMessage);
+                BasisNetworkGenericMessages.UnregisterHandler(NetworkID);
             }
             BasisNetworkPlayer.OnLocalPlayerJoined -= OnLocalPlayerJoined;
             BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
@@ -75,8 +74,15 @@ namespace Basis
         {
             if (BasisNetworkConnection.LocalPlayerIsConnected)
             {
-                bool wassuccesful = await TryEnsureNetworkGUIDIdentifierAsync();
-                string NetworkGuidID = clientIdentifier;
+                bool wassuccesful = TryGetNetworkGUIDIdentifier(out string NetworkGuidID);
+                if (wassuccesful == false)//this will happen to anything that has not got a GUID from the server
+                {
+                    //so if we dont get a GUID from the server lets make one!
+                    string FileNamePath = LowLevelGetHierarchyPath(this);
+                    AssignNetworkGUIDIdentifier(FileNamePath);
+
+                    wassuccesful = TryGetNetworkGUIDIdentifier(out NetworkGuidID);
+                }
                 if (!wassuccesful)
                 {
                     BasisDebug.LogError("Was not sucessful at TryGetNetworkGUIDIdentifier NetworkGUID");
@@ -239,121 +245,6 @@ namespace Basis
             }
 
             return pathBuilder.ToString();
-        }
-        private async Task<bool> TryEnsureNetworkGUIDIdentifierAsync()
-        {
-            if (TryGetNetworkGUIDIdentifier(out _))
-            {
-                return true;
-            }
-
-            BasisAvatar basisAvatar = ResolveBasisAvatar();
-            if (basisAvatar != null)
-            {
-                await WaitForAvatarLinkedPlayerAsync(basisAvatar);
-                if (TryBuildAvatarScopedIdentifier(basisAvatar, this, out string avatarScopedIdentifier))
-                {
-                    AssignNetworkGUIDIdentifier(avatarScopedIdentifier);
-                    return TryGetNetworkGUIDIdentifier(out _);
-                }
-                else
-                {
-                    BasisDebug.LogError($"Failed to build avatar-scoped identifier for {this.gameObject.name}", BasisDebug.LogTag.Networking);
-                    return false;
-                }
-            }
-
-            AssignNetworkGUIDIdentifier(LowLevelGetHierarchyPath(this));
-            return TryGetNetworkGUIDIdentifier(out _);
-        }
-        private BasisAvatar ResolveBasisAvatar()
-        {
-            GameObject avatarGameObject = BasisAvatar.GetGameObject(this);
-            return avatarGameObject != null ? avatarGameObject.GetComponent<BasisAvatar>() : null;
-        }
-        private async Task WaitForAvatarLinkedPlayerAsync(BasisAvatar basisAvatar)
-        {
-            const int MaxFramesToWait = 30;
-            for (int frame = 0; frame < MaxFramesToWait; frame++)
-            {
-                if (TryResolveAvatarLinkedPlayerId(basisAvatar, out _))
-                {
-                    return;
-                }
-                await Task.Yield();
-            }
-        }
-        private static bool TryResolveAvatarLinkedPlayerId(BasisAvatar basisAvatar, out ushort linkedPlayerId)
-        {
-            if (basisAvatar != null)
-            {
-                if (basisAvatar.TryGetLinkedPlayer(out linkedPlayerId))
-                {
-                    return true;
-                }
-
-                BasisPlayer basisPlayer = basisAvatar.GetComponentInParent<BasisPlayer>();
-                if (basisPlayer != null && BasisNetworkPlayers.PlayerToNetworkedPlayer(basisPlayer, out BasisNetworkPlayer networkedPlayer))
-                {
-                    linkedPlayerId = networkedPlayer.playerId;
-                    return true;
-                }
-            }
-
-            linkedPlayerId = 0;
-            return false;
-        }
-        private static bool TryBuildAvatarScopedIdentifier(BasisAvatar basisAvatar, BasisNetworkContentBase behaviour, out string identifier)
-        {
-            if (!TryResolveAvatarLinkedPlayerId(basisAvatar, out ushort linkedPlayerId))
-            {
-                identifier = string.Empty;
-                return false;
-            }
-
-            StringBuilder pathBuilder = new StringBuilder();
-            pathBuilder.Append("BasisAvatar/");
-            pathBuilder.Append(linkedPlayerId);
-            if (behaviour.transform != null && behaviour.transform != basisAvatar.transform)
-            {
-                pathBuilder.Append('/');
-                AppendRelativeAvatarPath(pathBuilder, basisAvatar.transform, behaviour.transform);
-                if (pathBuilder[pathBuilder.Length - 1] == '/')
-                {
-                    pathBuilder.Length--;
-                }
-            }
-            AppendComponentIdentifier(pathBuilder, behaviour);
-
-            identifier = pathBuilder.ToString();
-            return true;
-        }
-        private static void AppendRelativeAvatarPath(StringBuilder pathBuilder, Transform avatarRoot, Transform current)
-        {
-            if (current == null || current == avatarRoot)
-            {
-                return;
-            }
-
-            AppendRelativeAvatarPath(pathBuilder, avatarRoot, current.parent);
-
-            if (current == avatarRoot)
-            {
-                return;
-            }
-
-            pathBuilder.Append(current.name);
-            pathBuilder.Append(SiblingIndexIfNeeded(current));
-            pathBuilder.Append('/');
-        }
-        private static void AppendComponentIdentifier(StringBuilder pathBuilder, BasisNetworkContentBase behaviour)
-        {
-            Component[] components = behaviour.gameObject.GetComponents(behaviour.GetType());
-            int index = Array.IndexOf(components, behaviour);
-            pathBuilder.Append(':');
-            pathBuilder.Append(behaviour.GetType().FullName);
-            pathBuilder.Append('_');
-            pathBuilder.Append(index);
         }
         private static string SiblingIndexIfNeeded(Transform t)
         {

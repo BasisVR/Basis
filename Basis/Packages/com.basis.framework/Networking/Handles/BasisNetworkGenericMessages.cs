@@ -35,54 +35,13 @@ public static class BasisNetworkGenericMessages
     private static readonly ThreadLocal<NetDataWriter> threadLocalWriter = new ThreadLocal<NetDataWriter>(() => new NetDataWriter());
     public static void RegisterHandler(ushort messageIndex, Action<ushort, byte[], DeliveryMethod> handler)
     {
-        if (handler == null)
-        {
-            return;
-        }
-
-        if (_handlers.TryGetValue(messageIndex, out var existingHandler))
-        {
-            foreach (Delegate existing in existingHandler.GetInvocationList())
-            {
-                if (existing.Equals(handler))
-                {
-                    TryDeliverDeferredMessages();
-                    return;
-                }
-            }
-
-            _handlers[messageIndex] = existingHandler + handler;
-        }
-        else
-        {
-            _handlers[messageIndex] = handler;
-        }
+        _handlers[messageIndex] = handler;
         TryDeliverDeferredMessages();
     }
 
     public static void UnregisterHandler(ushort messageIndex)
     {
         _handlers.Remove(messageIndex);
-    }
-    public static void UnregisterHandler(ushort messageIndex, Action<ushort, byte[], DeliveryMethod> handler)
-    {
-        if (handler == null)
-        {
-            return;
-        }
-
-        if (_handlers.TryGetValue(messageIndex, out var existingHandler))
-        {
-            existingHandler -= handler;
-            if (existingHandler == null)
-            {
-                _handlers.Remove(messageIndex);
-            }
-            else
-            {
-                _handlers[messageIndex] = existingHandler;
-            }
-        }
     }
 
     public static void HandleServerSceneDataMessage(NetPacketReader reader, DeliveryMethod deliveryMethod)
