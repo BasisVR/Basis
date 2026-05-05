@@ -213,6 +213,13 @@ public static class BasisLoadHandler
             string legacyPath = BasisIOManagement.GetLegacyBeeCacheFilePath(discInfo.UniqueVersion);
             if (File.Exists(legacyPath))
             {
+                if (TryMigrateFile(legacyPath, platformAwarePath))
+                {
+                    discInfo.StoredLocal.DownloadedBeeFileLocation = platformAwarePath;
+                    beePath = platformAwarePath;
+                    return true;
+                }
+
                 discInfo.StoredLocal.DownloadedBeeFileLocation = legacyPath;
                 beePath = legacyPath;
                 return true;
@@ -221,6 +228,35 @@ public static class BasisLoadHandler
 
         beePath = null;
         return false;
+    }
+
+    private static bool TryMigrateFile(string legacyPath, string platformAwarePath)
+    {
+        if (string.Equals(legacyPath, platformAwarePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        try
+        {
+            string targetDir = Path.GetDirectoryName(platformAwarePath);
+            if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+            {
+                Directory.CreateDirectory(targetDir);
+            }
+            File.Move(legacyPath, platformAwarePath);
+            BasisDebug.Log($"Migrated legacy cache file: {legacyPath} -> {platformAwarePath}", BasisDebug.LogTag.Event);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (File.Exists(platformAwarePath))
+            {
+                return true;
+            }
+            BasisDebug.LogWarning($"Failed migrating legacy cache file {legacyPath} -> {platformAwarePath}: {ex.Message}", BasisDebug.LogTag.Event);
+            return false;
+        }
     }
 
     private static bool TryResolveStoredConnectorPath(BasisBEEExtensionMeta discInfo, out string connectorPath)
@@ -294,7 +330,6 @@ public static class BasisLoadHandler
     {
         lock (_discInfoLock)
         {
-            string currentPlatform = BasisIOManagement.GetCurrentCachePlatform();
             BasisBEEExtensionMeta legacyCandidate = null;
 
             foreach (var discInfo in OnDiscData.Values)
@@ -413,8 +448,10 @@ public static class BasisLoadHandler
         string rootPath = BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
         string currentPlatformPath = BasisIOManagement.GenerateFolderPath(Path.Combine(BasisBeeConstants.AssetBundlesFolder, BasisIOManagement.GetCurrentCachePlatform()));
 
-        List<string> files = new List<string>();
-        files.AddRange(Directory.GetFiles(rootPath, $"*{BasisBeeConstants.BasisMetaExtension}", SearchOption.TopDirectoryOnly));
+        string[] legacyFiles = Directory.GetFiles(rootPath, $"*{BasisBeeConstants.BasisMetaExtension}", SearchOption.TopDirectoryOnly);
+        bool hasLegacy = legacyFiles.Length > 0;
+
+        List<string> files = new List<string>(legacyFiles);
 
         if (!string.Equals(rootPath, currentPlatformPath, StringComparison.OrdinalIgnoreCase) && Directory.Exists(currentPlatformPath))
         {
@@ -433,6 +470,15 @@ public static class BasisLoadHandler
                     byte[] fileData = await File.ReadAllBytesAsync(file);
                     BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
                     OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
+
+                    if (hasLegacy && !string.IsNullOrWhiteSpace(discInfo.UniqueVersion) && !string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform))
+                    {
+                        string canonicalMetaPath = BasisIOManagement.GetMetaCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+                        if (!string.Equals(file, canonicalMetaPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(canonicalMetaPath))
+                        {
+                            TryMigrateFile(file, canonicalMetaPath);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {

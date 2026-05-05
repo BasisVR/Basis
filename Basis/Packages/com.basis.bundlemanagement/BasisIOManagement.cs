@@ -48,7 +48,7 @@ public static class BasisIOManagement
 
     public static string GetConnectorCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
     {
-        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisConnectorExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+        return GenerateFilePath(BuildLegacyCacheFileName(uniqueVersion, BasisBeeConstants.BasisConnectorExtension), GetPlatformCacheFolder(downloadedPlatform));
     }
 
     public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
