@@ -62,29 +62,38 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
 
             FollowMovement.GetLocalPositionAndRotation(out Vector3 localPos, out Quaternion localRot);
 
-            float sptds = BasisHeightDriver.AvatarToPlayerRatioScaled;
+            // FollowMovement.localPos is placed in avatar-world coordinates (relative
+            // to playerRoot, which carries no scale itself — the avatar transform
+            // inside it carries ScaledToMatchValue). The classifier scores against
+            // PlayerEyeHeight in playspace pre-scale, so we divide by the avatar's
+            // transform scale to convert avatar-world → player-real-world for
+            // UnscaledDeviceCoord. AvatarToPlayerRatioScaled was the wrong factor
+            // — it's computed from unscaled metrics and stays at 1.0 regardless of
+            // SelectedScale, so simulator output broke the moment a user changed
+            // their avatar scale.
+            float avatarScale = BasisHeightDriver.ScaledToMatchValue;
+            if (avatarScale <= 0f) avatarScale = 1f;
 
-            // Interpret FollowMovement.localPos as "device local in player space" (unscaled)
-            Vector3 unscaledPos = localPos / sptds;          // normalize to player units
+            Vector3 unscaledPos = localPos / avatarScale;
             Quaternion unscaledRot = localRot;
 
             // Publish the unscaled pose so downstream consumers (constellation calibration,
-            // gizmos, anything else reading UnscaledDeviceCoord) see real data instead of
-            // the default Vector3.zero. Without this every sim'd tracker classifies as
-            // "tracker at world origin" and the FBIK calibrator dumps them all into Foot.
+            // gizmos, anything else reading UnscaledDeviceCoord) see real-world player-scale
+            // data. Without this every sim'd tracker would classify against bloated heights
+            // when the avatar is scaled larger than 1×.
             UnscaledDeviceCoord.position = unscaledPos;
             UnscaledDeviceCoord.rotation = unscaledRot;
 
-            // Scale into avatar space
-            Vector3 scaledPos = unscaledPos * sptds;
-
-            // Apply OffsetCoords as a rigid transform (THIS is the important bit)
-            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * scaledPos);
+            // ScaledDeviceCoord stays in avatar-world (the bone-IK consumers want world
+            // placement). Equivalent to unscaledPos × avatarScale = localPos, so we just
+            // pass through localPos with the rigid OffsetCoords transform applied.
+            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * localPos);
             ScaledDeviceCoord.rotation = OffsetCoords.rotation * unscaledRot;
 
             if (AccountForScale)
             {
-                // Be careful: this will scale again. Only keep this if you truly want a second scale layer.
+                // Optional second scale layer for callers that want avatar-relative
+                // positioning despite world placement. Off by default.
                 ScaledDeviceCoord.position *= BasisHeightDriver.AvatarToPlayerRatioScaled;
             }
 

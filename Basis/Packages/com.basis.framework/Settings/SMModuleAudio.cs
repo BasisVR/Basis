@@ -55,85 +55,75 @@ public class SMModuleAudio : BasisSettingsBase
         switch (matchedSettingName)
         {
             case var s when s == K_MAIN_VOLUME:
-                {
-                    if (SliderReadOption(optionValue, out float newMain))
-                    {
-                        ActiveMainVolume = Mathf.Clamp01(newMain / 100f);
-                        BasisDebug.Log($"setting main volume to {newMain}");
-                        MainVolume?.Invoke(ActiveMainVolume);
-
-                        // Main is global listener volume (not mixer)
-                        AudioListener.volume = ActiveMainVolume;
-                    }
-                    break;
-                }
-
+                if (SliderReadOption(optionValue, out float newMain)) ApplyMainVolume(newMain);
+                break;
             case var s when s == K_MENU_VOLUME:
-                {
-                    if (SliderReadOption(optionValue, out float newMenus))
-                    {
-                        BasisDebug.Log($"setting menu volume to {newMenus}");
-                        ActiveMenusVolume = ChangeVolume(newMenus, MIXER_MENU);
-                        MenusVolume?.Invoke(ActiveMenusVolume);
-                    }
-                    break;
-                }
-
+                if (SliderReadOption(optionValue, out float newMenus)) ApplyMenuVolume(newMenus);
+                break;
             case var s when s == K_WORLD_VOLUME:
-                {
-                    if (SliderReadOption(optionValue, out float newWorld))
-                    {
-                        BasisDebug.Log($"setting world volume to {newWorld}");
-                        ActiveWorldVolume = ChangeVolume(newWorld, MIXER_WORLD);
-                        WorldVolume?.Invoke(ActiveWorldVolume);
-                    }
-                    break;
-                }
-
+                if (SliderReadOption(optionValue, out float newWorld)) ApplyWorldVolume(newWorld);
+                break;
             case var s when s == K_VOICE_VOLUME:
-                {
-                    if (SliderReadOption(optionValue, out float newPlayer))
-                    {
-                        BasisDebug.Log($"setting VOICE volume to {newPlayer}");
-                        ActiveVoiceVolume = ChangeVolume(newPlayer, MIXER_VOICE);
-                        VoiceVolume?.Invoke(ActiveVoiceVolume);
-                    }
-                    break;
-                }
-
+                if (SliderReadOption(optionValue, out float newVoice)) ApplyVoiceVolume(newVoice);
+                break;
             case var s when s == K_AVATAR_VOLUME:
-                {
-                    if (SliderReadOption(optionValue, out float newAvatar))
-                    {
-                        BasisDebug.Log($"setting AVATAR volume to {newAvatar}");
-                        ActiveAvatarVolume = ChangeVolume(newAvatar, MIXER_AVATAR);
-                        AvatarVolume?.Invoke(ActiveAvatarVolume);
-                    }
-                    break;
-                }
-
+                if (SliderReadOption(optionValue, out float newAvatar)) ApplyAvatarVolume(newAvatar);
+                break;
             case var s when s == K_PROP_VOLUME:
-                {
-                    if (SliderReadOption(optionValue, out float newProp))
-                    {
-                        BasisDebug.Log($"setting PROP volume to {newProp}");
-                        ActivePropVolume = ChangeVolume(newProp, MIXER_PROP);
-                        PropVolume?.Invoke(ActivePropVolume);
-                    }
-                    break;
-                }
-
+                if (SliderReadOption(optionValue, out float newProp)) ApplyPropVolume(newProp);
+                break;
             case var s when s == K_MEDIA_VOLUME:
-                {
-                    if (SliderReadOption(optionValue, out float newVideo))
-                    {
-                        BasisDebug.Log($"setting media volume to {newVideo}");
-                        ActiveVideoVolume = Mathf.Clamp01(newVideo / 100f);
-                        VideoVolume?.Invoke(ActiveVideoVolume);
-                    }
-                    break;
-                }
+                if (SliderReadOption(optionValue, out float newVideo)) ApplyMediaVolume(newVideo);
+                break;
         }
+    }
+
+    public static void ApplyMainVolume(float sliderPercent)
+    {
+        ActiveMainVolume = Mathf.Clamp01(sliderPercent / 100f);
+        AudioListener.volume = ActiveMainVolume;
+        MainVolume?.Invoke(ActiveMainVolume);
+    }
+
+    public static void ApplyMenuVolume(float sliderPercent)
+    {
+        if (Instance == null) return;
+        ActiveMenusVolume = Instance.ChangeVolume(sliderPercent, MIXER_MENU);
+        MenusVolume?.Invoke(ActiveMenusVolume);
+    }
+
+    public static void ApplyWorldVolume(float sliderPercent)
+    {
+        if (Instance == null) return;
+        ActiveWorldVolume = Instance.ChangeVolume(sliderPercent, MIXER_WORLD);
+        WorldVolume?.Invoke(ActiveWorldVolume);
+    }
+
+    public static void ApplyVoiceVolume(float sliderPercent)
+    {
+        if (Instance == null) return;
+        ActiveVoiceVolume = Instance.ChangeVolume(sliderPercent, MIXER_VOICE);
+        VoiceVolume?.Invoke(ActiveVoiceVolume);
+    }
+
+    public static void ApplyAvatarVolume(float sliderPercent)
+    {
+        if (Instance == null) return;
+        ActiveAvatarVolume = Instance.ChangeVolume(sliderPercent, MIXER_AVATAR);
+        AvatarVolume?.Invoke(ActiveAvatarVolume);
+    }
+
+    public static void ApplyPropVolume(float sliderPercent)
+    {
+        if (Instance == null) return;
+        ActivePropVolume = Instance.ChangeVolume(sliderPercent, MIXER_PROP);
+        PropVolume?.Invoke(ActivePropVolume);
+    }
+
+    public static void ApplyMediaVolume(float sliderPercent)
+    {
+        ActiveVideoVolume = Mathf.Clamp01(sliderPercent / 100f);
+        VideoVolume?.Invoke(ActiveVideoVolume);
     }
 
     public override void ChangedSettings()

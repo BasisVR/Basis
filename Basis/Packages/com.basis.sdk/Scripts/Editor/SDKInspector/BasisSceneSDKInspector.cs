@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers.Editor;
 using UnityEditor;
@@ -45,10 +46,14 @@ public class BasisSceneSDKInspector : Editor
             BasisSceneValidator = new BasisSceneValidator(BasisScene, rootElement);
 
             // Documentation button
-            Button docButton = DocumentationButton(rootElement, "Open Scene Documentation");
+            Button docButton = DocumentationButton(rootElement, BasisEditorLocalization.Get("sdk.scene.documentation.button"));
             docButton.clicked += delegate
             {
-                if (EditorUtility.DisplayDialog("Open Documentation", "Proceed in opening the documentation in a web browser?", "Yes", "No"))
+                if (EditorUtility.DisplayDialog(
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.title"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.body"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.yes"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.no")))
                 {
                     Application.OpenURL(BasisSDKConstants.SceneDocumentationURL);
                 }
@@ -100,7 +105,7 @@ public class BasisSceneSDKInspector : Editor
 
             // Spawn point gizmo button
             Button spawnGizmoButton = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.SpawnPointGizmoButton);
-            spawnGizmoButton.text = "Spawn Point Gizmo " + BoolToText(SpawnPointGizmoState);
+            spawnGizmoButton.text = BasisEditorLocalization.Get("sdk.scene.spawnGizmo.label", BoolToText(SpawnPointGizmoState));
             spawnGizmoButton.clicked += () => ClickedSpawnPointGizmoButton(spawnGizmoButton);
 
             // Content tags + build options
@@ -153,12 +158,14 @@ public class BasisSceneSDKInspector : Editor
     private void ClickedSpawnPointGizmoButton(Button button)
     {
         SpawnPointGizmoState = !SpawnPointGizmoState;
-        button.text = "Spawn Point Gizmo " + BoolToText(SpawnPointGizmoState);
+        button.text = BasisEditorLocalization.Get("sdk.scene.spawnGizmo.label", BoolToText(SpawnPointGizmoState));
     }
 
     private static string BoolToText(bool value)
     {
-        return value ? "(On)" : "(Off)";
+        return value
+            ? BasisEditorLocalization.Get("sdk.scene.bool.on")
+            : BasisEditorLocalization.Get("sdk.scene.bool.off");
     }
 
     private void OnSceneGUI()
@@ -172,14 +179,14 @@ public class BasisSceneSDKInspector : Editor
         Handles.color = Color.green;
         Handles.DrawWireCube(spawnPoint.position, new Vector3(0.5f, 1.8f, 0.5f));
         Handles.ArrowHandleCap(0, spawnPoint.position, spawnPoint.rotation, 1f, EventType.Repaint);
-        Handles.Label(spawnPoint.position + Vector3.up * 2f, "Spawn Point",
+        Handles.Label(spawnPoint.position + Vector3.up * 2f, BasisEditorLocalization.Get("sdk.scene.spawnGizmo.handlesLabel"),
             new GUIStyle(GUI.skin.label) { normal = { textColor = Color.green }, fontStyle = FontStyle.Bold });
 
         // Draw respawn height plane
         Handles.color = new Color(1f, 0.3f, 0.3f, 0.3f);
         Vector3 respawnCenter = new Vector3(spawnPoint.position.x, BasisScene.RespawnHeight, spawnPoint.position.z);
         Handles.DrawWireCube(respawnCenter, new Vector3(10f, 0.01f, 10f));
-        Handles.Label(respawnCenter + Vector3.up * 0.5f, $"Respawn Height ({BasisScene.RespawnHeight})",
+        Handles.Label(respawnCenter + Vector3.up * 0.5f, BasisEditorLocalization.Get("sdk.scene.respawnHeight.handlesLabel", BasisScene.RespawnHeight),
             new GUIStyle(GUI.skin.label) { normal = { textColor = Color.red }, fontStyle = FontStyle.Bold });
     }
 
@@ -220,13 +227,13 @@ public class BasisSceneSDKInspector : Editor
 
             if (success)
             {
-                resultLabel.text = "Build successful";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.success");
                 resultLabel.style.backgroundColor = Color.green;
                 resultLabel.style.color = Color.black;
             }
             else
             {
-                resultLabel.text = $"Build failed: {message}";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.failed", message);
                 resultLabel.style.backgroundColor = Color.red;
                 resultLabel.style.color = Color.black;
             }
@@ -235,7 +242,11 @@ public class BasisSceneSDKInspector : Editor
         }
         else
         {
-            if (!EditorUtility.DisplayDialog("Scene Build Error", $"Please resolve the following issues, or consult the documentation. \n {string.Join("\n", errors.ConvertAll(e => e.Message))}", "OK", "Open Documentation"))
+            if (!EditorUtility.DisplayDialog(
+                    BasisEditorLocalization.Get("sdk.scene.buildError.title"),
+                    BasisEditorLocalization.Get("sdk.scene.buildError.body", string.Join("\n", errors.ConvertAll(e => e.Message))),
+                    BasisEditorLocalization.Get("sdk.common.dialog.ok"),
+                    BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation")))
             {
                 Application.OpenURL(BasisSDKConstants.SceneDocumentationURL);
             }

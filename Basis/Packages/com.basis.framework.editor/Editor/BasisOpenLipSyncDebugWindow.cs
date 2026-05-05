@@ -195,7 +195,7 @@ public class BasisOpenLipSyncDebugWindow : EditorWindow
         var driver = BasisLocalPlayer.Instance.LocalVisemeDriver;
         StatusLabel("Successful Init", driver.WasSuccessful);
         StatusLabel("Use OpenLipSync", driver.UseOpenLipSync);
-        StatusLabel("Enabled (face visible)", driver.uLipSyncEnabledState);
+        StatusLabel("Enabled (face visible)", driver.FaceVisible);
 
         if (driver.Avatar != null)
         {
@@ -214,26 +214,14 @@ public class BasisOpenLipSyncDebugWindow : EditorWindow
         }
         else
         {
-            EditorGUILayout.LabelField("Backend", "uLipSync (MFCC Fallback)");
+            EditorGUILayout.LabelField("Backend", "(no slot)");
 
-            if (!driver.UseOpenLipSync)
-            {
-                string reason = !BasisOpenLipSyncDriver.IsInitialized
-                    ? "Manager not initialized (model missing?)"
-                    : BasisOpenLipSyncDriver.ActiveSlotCount >= BasisOpenLipSyncDriver.MaxSlots
-                        ? "All 30 slots occupied"
-                        : "Slot acquisition failed";
-                EditorGUILayout.HelpBox($"Fallback reason: {reason}", MessageType.Info);
-            }
-        }
-
-        if (driver.phonemeBlendShapeTable != null && driver.phonemeBlendShapeTable.Count > 0)
-        {
-            EditorGUILayout.LabelField("uLipSync Phoneme Map:", EditorStyles.miniLabel);
-            foreach (var info in driver.phonemeBlendShapeTable)
-            {
-                EditorGUILayout.LabelField($"  {info.phoneme}", $"-> blendshape #{info.blendShape}");
-            }
+            string reason = !BasisOpenLipSyncDriver.IsInitialized
+                ? "Manager not initialized (model missing?)"
+                : BasisOpenLipSyncDriver.ActiveSlotCount >= BasisOpenLipSyncDriver.MaxSlots
+                    ? "All slots occupied"
+                    : "Slot acquisition failed";
+            EditorGUILayout.HelpBox($"No context: {reason}", MessageType.Info);
         }
     }
 

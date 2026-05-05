@@ -353,8 +353,9 @@ namespace Basis.Scripts.Avatar
         {
             if (Output.TryGetComponent(out BasisAvatar avatar))
             {
-                if (!Player.IsLocal && Player is BasisRemotePlayer remote)
+                if (!Player.IsLocal)
                 {
+                    var remote = (BasisRemotePlayer)Player;
                     // Per-player session bypass short-circuits the trim entirely,
                     // mirroring the Evaluate skip in BasisRemotePlayer.CreateAvatar.
                     // Leaving LastPerformanceInfo at its freshly-reset default lets

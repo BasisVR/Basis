@@ -33,6 +33,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         // Precomputed inverses of T-pose rotations — avoids math.inverse() per bone per frame
         static quaternion[] sInverseTposeLocalRotations;
 
+        // Cached TPose local position for the hips bone — used to compute the
+        // hips local-position delta we ship in the avatar packet tail. Captured
+        // once per CaptureTPose so we don't hit the TposeLocal dictionary every frame.
+        static Unity.Mathematics.float3 sTposeHipsLocalPos;
+
+        // Cached inverse of the TPose hips local rotation — used to compute the
+        // hips local-rotation delta (inverseTpose × currentLocal) per frame.
+        // Hips isn't in the bone packet, so this is what carries hips orientation
+        // independent of the root rotation.
+        static quaternion sInverseTposeHipsLocalRot;
+
         // Scratch buffer for 54 delta quaternions (indexed by slot in BONE_WRITE_ORDER)
         static NativeArray<quaternion> sBoneDeltas;
 
@@ -77,6 +88,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                     sTposeLocalRotations[Index] = quaternion.identity;
                     sInverseTposeLocalRotations[Index] = quaternion.identity;
                 }
+            }
+
+            if (BasisLocalAvatarDriver.Mapping.TposeLocal.TryGetValue(HumanBodyBones.Hips, out var hipsTpose))
+            {
+                sTposeHipsLocalPos = hipsTpose.position;
+                sInverseTposeHipsLocalRot = math.inverse((quaternion)hipsTpose.rotation);
+            }
+            else
+            {
+                sTposeHipsLocalPos = Unity.Mathematics.float3.zero;
+                sInverseTposeHipsLocalRot = quaternion.identity;
             }
 
             // Rebuild job arrays for the new avatar
@@ -151,12 +173,15 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             int offset = 0;
             if (BasisLocalAvatarDriver.Mapping.HasHips)
             {
-                Transform hips = BasisLocalAvatarDriver.Mapping.Hips;
-
-                hips.GetPositionAndRotation(out var hipsPos, out var hipsRot);
+                // Send the HIPS world pose in the high-precision Position/Rotation
+                // slots — hips is what's visually anchored and what the server's
+                // reduction system uses for distance/quality decisions. Root is
+                // derived on the receiver from this pose plus the hips local
+                // delta channels (see BulkCopyHipsAndDeriveJob in the receiver).
+                BasisLocalAvatarDriver.Mapping.Hips.GetPositionAndRotation(out var hipsWorldPos, out var hipsWorldRot);
 
                 // Position (hips world position)
-                BasisUnityBitPackerExtensionsUnsafe.WritePosition(hipsPos, ref AvatarData.LASM.array, ref offset);
+                BasisUnityBitPackerExtensionsUnsafe.WritePosition(hipsWorldPos, ref AvatarData.LASM.array, ref offset);
 
                 // Bone rotations — use Burst job if arrays are ready, otherwise fallback
                 if (sJobArraysReady)
@@ -172,7 +197,27 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisUnityBitPackerExtensionsUnsafe.CompressScale(ScaleTransform.localScale.y, ref AvatarData.LASM, ref offset);
 
                 // Hips world rotation
-                BasisUnityBitPackerExtensionsUnsafe.WriteCompressedQuaternionToBytes(hipsRot, ref AvatarData.LASM.array, ref offset);
+                BasisUnityBitPackerExtensionsUnsafe.WriteCompressedQuaternionToBytes(hipsWorldRot, ref AvatarData.LASM.array, ref offset);
+
+                // Hips local-position delta (vs TPose). Lets remotes track seated
+                // mode and other locally-driven hips overrides on top of the root sync.
+                Unity.Mathematics.float3 hipsLocalNow = BasisLocalAvatarDriver.Mapping.Hips.localPosition;
+                var hipsDelta = hipsLocalNow - sTposeHipsLocalPos;
+                Compression.float3 Insert = new Compression.float3
+                {
+                    x = hipsDelta.x,
+                    y = hipsDelta.y,
+                    z = hipsDelta.z
+                };
+                BasisUnityBitPackerExtensionsUnsafe.CompressHipsDelta(Insert, ref AvatarData.LASM.array, ref offset);
+
+                // Hips local-rotation delta (vs TPose). Carries hips orientation
+                // since Hips is excluded from the bone packet (BONE_WRITE_ORDER).
+                // delta = inverse(tposeLocalRot) × currentLocalRot — receiver
+                // recovers currentLocal as tposeLocalRot × delta.
+                quaternion hipsLocalRotNow = BasisLocalAvatarDriver.Mapping.Hips.localRotation;
+                quaternion hipsRotDelta = math.mul(sInverseTposeHipsLocalRot, hipsLocalRotNow);
+                BasisUnityBitPackerExtensionsUnsafe.WriteCompressedQuaternionToBytes(hipsRotDelta, ref AvatarData.LASM.array, ref offset);
             }
         }
 

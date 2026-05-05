@@ -11,6 +11,7 @@ using static AssetBundleBuilder.SerializableBuildReport;
 using System.Reflection;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Basis.Editor.Localization;
 
 public class BuildReportViewerWindow : EditorWindow
 {
@@ -29,8 +30,8 @@ public class BuildReportViewerWindow : EditorWindow
 
     public static async void GenerateWindow()
     {
-        BuildReportViewerWindow wnd = GetWindow<BuildReportViewerWindow>("Basis Bundle Report");
-        wnd.titleContent = new GUIContent("Basis Build Report Viewer");
+        BuildReportViewerWindow wnd = GetWindow<BuildReportViewerWindow>(BasisEditorLocalization.Get("sdk.buildReport.window.tabTitle"));
+        wnd.titleContent = new GUIContent(BasisEditorLocalization.Get("sdk.buildReport.window.title"));
         wnd.minSize = new Vector2(600, 400);
       await  wnd.GenerateReportUI();
     }
@@ -44,7 +45,7 @@ public class BuildReportViewerWindow : EditorWindow
         string reportDir = AssetBundleBuilder.ReportDirectoryPath;
         if (!Directory.Exists(reportDir))
         {
-            rootVisualElement.Add(new Label("No build reports directory found."));
+            rootVisualElement.Add(new Label(BasisEditorLocalization.Get("sdk.buildReport.noDirectory")));
             return;
         }
 
@@ -69,7 +70,7 @@ public class BuildReportViewerWindow : EditorWindow
 
         if (platformReports.Count == 0)
         {
-            var label = new Label("No build reports found.");
+            var label = new Label(BasisEditorLocalization.Get("sdk.buildReport.noReports"));
             label.style.color = Color.red;
             rootVisualElement.Add(label);
             return;
@@ -82,11 +83,11 @@ public class BuildReportViewerWindow : EditorWindow
 
         var platformSelectorContainer = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 4 } };
 
-        platformSelector = new PopupField<BuildTarget>("Platform", platformList, defaultTarget);
+        platformSelector = new PopupField<BuildTarget>(BasisEditorLocalization.Get("sdk.buildReport.platform"), platformList, defaultTarget);
         platformSelector.RegisterValueChangedCallback(evt => RefreshReportView(evt.newValue));
         platformSelectorContainer.Add(platformSelector);
 
-        removePlatformButton = new Button(() => RemoveSelectedPlatform()) { text = "Remove Platform", style = { marginLeft = 10 } };
+        removePlatformButton = new Button(() => RemoveSelectedPlatform()) { text = BasisEditorLocalization.Get("sdk.buildReport.removePlatform"), style = { marginLeft = 10 } };
         platformSelectorContainer.Add(removePlatformButton);
 
         rootVisualElement.Add(platformSelectorContainer);
@@ -100,9 +101,9 @@ public class BuildReportViewerWindow : EditorWindow
             contentBuilder();
         }
 
-        var summaryButton = new ToolbarButton(() => SwitchTab(() => tabContent.Add(BuildSummaryTab(platformReports[platformSelector.value])))) { text = "Summary" };
-        var packedAssetsButton = new ToolbarButton(() => SwitchTab(() => tabContent.Add(PackedAssetsTab(platformReports[platformSelector.value])))) { text = "Packed Assets" };
-        var advancedButton = new ToolbarButton(() => SwitchTab(() => tabContent.Add(AdvancedTab(platformReports[platformSelector.value])))) { text = "Advanced" };
+        var summaryButton = new ToolbarButton(() => SwitchTab(() => tabContent.Add(BuildSummaryTab(platformReports[platformSelector.value])))) { text = BasisEditorLocalization.Get("sdk.buildReport.tab.summary") };
+        var packedAssetsButton = new ToolbarButton(() => SwitchTab(() => tabContent.Add(PackedAssetsTab(platformReports[platformSelector.value])))) { text = BasisEditorLocalization.Get("sdk.buildReport.tab.packed") };
+        var advancedButton = new ToolbarButton(() => SwitchTab(() => tabContent.Add(AdvancedTab(platformReports[platformSelector.value])))) { text = BasisEditorLocalization.Get("sdk.buildReport.tab.advanced") };
 
         toolbar.Add(summaryButton);
         toolbar.Add(packedAssetsButton);
@@ -126,7 +127,7 @@ public class BuildReportViewerWindow : EditorWindow
         summaryBox.style.paddingLeft = 10;
         summaryBox.style.paddingTop = 10;
 
-        var title = new Label("Build Summary") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 14 } };
+        var title = new Label(BasisEditorLocalization.Get("sdk.buildReport.summary.header")) { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 14 } };
         summaryBox.Add(title);
 
         Color statusColor = report.summary.result switch
@@ -144,18 +145,18 @@ public class BuildReportViewerWindow : EditorWindow
             summaryBox.Add(line);
         }
 
-        AddLine("Result", report.summary.result.ToString(), statusColor);
-        AddLine("Total Size", FormatSize(report.summary.totalSize));
-        AddLine("Total Time", report.summary.totalTime.ToString("g"));
-        AddLine("Total Errors", report.summary.totalErrors.ToString());
-        AddLine("Total Warnings", report.summary.totalWarnings.ToString());
-        AddLine("Platform", report.summary.platform.ToString());
-        AddLine("Platform Group", report.summary.platformGroup.ToString());
-        AddLine("Time Of Completion", report.TimeTaken);
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.result"), report.summary.result.ToString(), statusColor);
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.totalSize"), FormatSize(report.summary.totalSize));
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.totalTime"), report.summary.totalTime.ToString("g"));
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.totalErrors"), report.summary.totalErrors.ToString());
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.totalWarnings"), report.summary.totalWarnings.ToString());
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.platform"), report.summary.platform.ToString());
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.platformGroup"), report.summary.platformGroup.ToString());
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.timeOfCompletion"), report.TimeTaken);
 
         if (!string.IsNullOrWhiteSpace(report.SummarizeErrors))
         {
-            var errorLabel = new Label("\nErrors Summary:\n" + report.SummarizeErrors);
+            var errorLabel = new Label(BasisEditorLocalization.Get("sdk.buildReport.summary.errorsHeader", report.SummarizeErrors));
             errorLabel.style.whiteSpace = WhiteSpace.Normal;
             errorLabel.style.color = Color.red;
             errorLabel.style.marginTop = 5;
@@ -180,7 +181,7 @@ public class BuildReportViewerWindow : EditorWindow
             scrollView.Clear();
             foreach (BasisPackedAssets packedAsset in report.packedAssets)
             {
-                var bundleFoldout = new Foldout { text = $"Bundle: {packedAsset.shortPath}", value = false };
+                var bundleFoldout = new Foldout { text = BasisEditorLocalization.Get("sdk.buildReport.bundle.label", packedAsset.shortPath), value = false };
 
                 var assetList = packedAsset.contents
                     .Where(info => string.IsNullOrEmpty(search) || info.sourceAssetPath.ToLower().Contains(search.ToLower()))
@@ -231,7 +232,7 @@ public class BuildReportViewerWindow : EditorWindow
     private VisualElement AdvancedTab(SerializableBuildReport report)
     {
         var scrollView = new ScrollView();
-        var stepsFoldout = new Foldout { text = "Build Steps", value = false };
+        var stepsFoldout = new Foldout { text = BasisEditorLocalization.Get("sdk.buildReport.steps.header"), value = false };
 
         foreach (var step in report.steps)
         {
@@ -248,7 +249,7 @@ public class BuildReportViewerWindow : EditorWindow
             stepsFoldout.Add(row);
         }
 
-        var messagesFoldout = new Foldout { text = "Build Messages", value = false };
+        var messagesFoldout = new Foldout { text = BasisEditorLocalization.Get("sdk.buildReport.messages.header"), value = false };
         var errors = new VisualElement();
         var warnings = new VisualElement();
         var infos = new VisualElement();
@@ -279,13 +280,13 @@ public class BuildReportViewerWindow : EditorWindow
         }
 
         if (errors.childCount > 0)
-            messagesFoldout.Add(new Foldout { text = "Errors", value = false, style = { unityFontStyleAndWeight = FontStyle.Bold } }.AddAndReturn(errors));
+            messagesFoldout.Add(new Foldout { text = BasisEditorLocalization.Get("sdk.buildReport.messages.errors"), value = false, style = { unityFontStyleAndWeight = FontStyle.Bold } }.AddAndReturn(errors));
         if (warnings.childCount > 0)
-            messagesFoldout.Add(new Foldout { text = "Warnings", value = false }.AddAndReturn(warnings));
+            messagesFoldout.Add(new Foldout { text = BasisEditorLocalization.Get("sdk.buildReport.messages.warnings"), value = false }.AddAndReturn(warnings));
         if (infos.childCount > 0)
-            messagesFoldout.Add(new Foldout { text = "Info Logs", value = false }.AddAndReturn(infos));
+            messagesFoldout.Add(new Foldout { text = BasisEditorLocalization.Get("sdk.buildReport.messages.infos"), value = false }.AddAndReturn(infos));
         if (messagesFoldout.childCount == 0)
-            messagesFoldout.Add(new Label("No build messages found."));
+            messagesFoldout.Add(new Label(BasisEditorLocalization.Get("sdk.buildReport.messages.empty")));
 
         scrollView.Add(stepsFoldout);
         scrollView.Add(messagesFoldout);
@@ -324,10 +325,10 @@ public class BuildReportViewerWindow : EditorWindow
 
         // Show confirmation dialog
         bool confirmDelete = EditorUtility.DisplayDialog(
-            "Confirm Delete",
-            $"Are you sure you want to delete the build report for {selectedPlatform}?",
-            "Yes",
-            "No"
+            BasisEditorLocalization.Get("sdk.buildReport.delete.title"),
+            BasisEditorLocalization.Get("sdk.buildReport.delete.body", selectedPlatform),
+            BasisEditorLocalization.Get("sdk.common.dialog.yes"),
+            BasisEditorLocalization.Get("sdk.common.dialog.no")
         );
 
         if (!confirmDelete)
@@ -349,7 +350,7 @@ public class BuildReportViewerWindow : EditorWindow
         if (platformReports.Count == 0)
         {
             rootVisualElement.Clear();
-            var label = new Label("No build reports found.");
+            var label = new Label(BasisEditorLocalization.Get("sdk.buildReport.noReports"));
             label.style.color = Color.red;
             rootVisualElement.Add(label);
             return;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Helpers.Editor;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -44,10 +45,14 @@ public class BasisPropSDKInspector : Editor
             BasisPropValidator = new BasisPropValidator(BasisProp, rootElement);
 
             // Documentation button
-            Button docButton = DocumentationButton(rootElement, "Open Prop Documentation");
+            Button docButton = DocumentationButton(rootElement, BasisEditorLocalization.Get("sdk.prop.documentation.button"));
             docButton.clicked += delegate
             {
-                if (EditorUtility.DisplayDialog("Open Documentation", "Proceed in opening the documentation in a web browser?", "Yes", "No"))
+                if (EditorUtility.DisplayDialog(
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.title"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.body"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.yes"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.no")))
                 {
                     Application.OpenURL(BasisSDKConstants.PropDocumentationURL);
                 }
@@ -139,13 +144,13 @@ public class BasisPropSDKInspector : Editor
 
             if (success)
             {
-                resultLabel.text = "Build successful";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.success");
                 resultLabel.style.backgroundColor = Color.green;
                 resultLabel.style.color = Color.black;
             }
             else
             {
-                resultLabel.text = $"Build failed: {message}";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.failed", message);
                 resultLabel.style.backgroundColor = Color.red;
                 resultLabel.style.color = Color.black;
             }
@@ -154,7 +159,11 @@ public class BasisPropSDKInspector : Editor
         }
         else
         {
-            if (!EditorUtility.DisplayDialog("Prop Build Error", $"Please resolve the following issues, or consult the documentation. \n {string.Join("\n", errors.ConvertAll(e => e.Message))}", "OK", "Open Documentation"))
+            if (!EditorUtility.DisplayDialog(
+                    BasisEditorLocalization.Get("sdk.prop.buildError.title"),
+                    BasisEditorLocalization.Get("sdk.prop.buildError.body", string.Join("\n", errors.ConvertAll(e => e.Message))),
+                    BasisEditorLocalization.Get("sdk.common.dialog.ok"),
+                    BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation")))
             {
                 Application.OpenURL(BasisSDKConstants.PropDocumentationURL);
             }

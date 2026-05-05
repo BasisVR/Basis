@@ -713,9 +713,9 @@ namespace Basis.BasisUI
             {
                 if (netPlayer.Player == null) return;
 
-                if (!netPlayer.Player.IsLocal && netPlayer.Player is BasisRemotePlayer remote)
+                if (!netPlayer.Player.IsLocal)
                 {
-                    IndividualPlayerProvider.remotePlayer = remote;
+                    IndividualPlayerProvider.remotePlayer = (BasisRemotePlayer)netPlayer.Player;
                     BasisMainMenu.OpenWithProvider(IndividualPlayerProvider.StaticTitle);
                 }
             }

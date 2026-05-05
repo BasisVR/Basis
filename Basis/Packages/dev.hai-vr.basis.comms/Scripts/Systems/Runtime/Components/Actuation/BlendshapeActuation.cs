@@ -254,7 +254,7 @@ namespace HVR.Basis.Comms
                     var (lower, upper) = _addressToStreamedLowerUpper[address];
                     return new MutualizedInterpolationRange
                     {
-                        address = address,
+                        addressId = address,
                         lower = lower,
                         upper = upper,
                     };

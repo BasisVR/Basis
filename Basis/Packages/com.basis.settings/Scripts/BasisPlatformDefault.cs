@@ -1,5 +1,7 @@
 using UnityEngine;
 
+namespace Basis.Scripts.Settings
+{
 [System.Serializable]
 public class BasisPlatformDefault<T>
 {
@@ -41,4 +43,5 @@ public class BasisPlatformDefault<T>
         other = defaultAll;
     }
 
+}
 }

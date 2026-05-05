@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System;
 using System.Globalization;
 using System.Linq;
+
+namespace Basis.Scripts.Settings
+{
 [Serializable]
 public class KeyValue
 {
@@ -316,4 +319,5 @@ public static class BasisSettingsSystem
     public static void SaveFloat(string key, float value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
 
     public static void SaveBool(string key, bool value) => SaveString(key, value ? "true" : "false");
+}
 }

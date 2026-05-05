@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -16,7 +17,7 @@ namespace Basis.BasisUI.Styling
             if (UiStyleSettings.GetActivePalette() != target)
             {
                 Button button = new Button(() => ((UiStylePalette)target).SetAsActive());
-                button.text = "Set as Active Palette";
+                button.text = BasisEditorLocalization.Get("sdk.uiStyle.palette.setActive");
                 root.Add(button);
             }
 
@@ -36,7 +37,7 @@ namespace Basis.BasisUI.Styling
             if (UiStyleSettings.GetActiveStyles() != target)
             {
                 Button button = new Button(() => ((UiStyleLibrary)target).SetAsActive());
-                button.text = "Set as Active Library";
+                button.text = BasisEditorLocalization.Get("sdk.uiStyle.library.setActive");
                 root.Add(button);
             }
 

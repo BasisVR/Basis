@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -48,6 +49,28 @@ namespace Basis.BasisUI
 
             // once we have the cache now invoke the task to build pinned providers
             PinnedItemProvider.RefreshPinnedProviders();
+
+            // Refresh the open library tab when the server's default library
+            // changes (push on connect, clear on disconnect).
+            BasisServerProvidedItems.OnChanged -= OnServerLibraryChanged;
+            BasisServerProvidedItems.OnChanged += OnServerLibraryChanged;
+        }
+
+        private static async void OnServerLibraryChanged()
+        {
+            if (panel == null || BasisMainMenu.ActiveMenuTitle != BasisLocalization.Get("menu.provider.library"))
+                return;
+
+            try
+            {
+                await CachedMetaData.PreloadMetaForItems(BasisServerProvidedItems.Items);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError(ex);
+            }
+
+            await RefreshCurrentTab();
         }
 
         public override void OnReleaseEvent()
@@ -295,6 +318,65 @@ namespace Basis.BasisUI
             }
         }
 
+        /// <summary>
+        /// Resolve the bundle's content type by fetching its meta-only payload and
+        /// inspecting <c>ComponentNames</c>. Returns <see cref="BundledContentHolder.Mode.Legacy"/>
+        /// when the URL is unreachable, the meta load fails, or the bundle predates
+        /// component-name metadata. Used by the in-game add dialog and the admin
+        /// "default library" add UI so they share one detection path.
+        /// </summary>
+        public static async Task<BundledContentHolder.Mode> TryDetectModeFromUrl(string url, string password)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return BundledContentHolder.Mode.Legacy;
+
+            BasisDataStoreItemKeys.ItemKey tempItem = new BasisDataStoreItemKeys.ItemKey
+            {
+                Pass = password ?? string.Empty,
+                Url = url,
+                Mode = 0,
+            };
+
+            BasisLoadableBundleWrapper tempWrapper = CreateNewWrapperFromItem(tempItem);
+            BasisProgressReport report = new BasisProgressReport();
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
+            bool isValid;
+            try
+            {
+                isValid = await BasisBeeManagement.HandleMetaOnlyLoad(tempWrapper.basisTrackedBundleWrapper, report, cts.Token);
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogWarning($"TryDetectModeFromUrl: meta-only load threw for {url}: {e.Message}");
+                return BundledContentHolder.Mode.Legacy;
+            }
+
+            if (!isValid) return BundledContentHolder.Mode.Legacy;
+
+            BasisLoadableBundleWrapper loaded = await LoadWrapperFromDisc(tempItem, tempWrapper);
+            BundledContentHolder.Mode itemType = BundledContentHolder.Mode.Legacy;
+            // MetaData is a struct (value type) so it can't appear in a ?. chain — gate
+            // up to BasisBundleConnector with ?., then read MetaData.ComponentNames directly.
+            var connector = loaded?.BasisLoadableBundle?.BasisBundleConnector;
+            if (connector != null)
+            {
+                var components = connector.MetaData.ComponentNames;
+                if (components != null)
+                {
+                    foreach (BasisBundleConnector.BasisComponentName comp in components)
+                    {
+                        switch (comp.Name?.ToLower())
+                        {
+                            case "basisprop": itemType = BundledContentHolder.Mode.Prop; break;
+                            case "basisavatar": itemType = BundledContentHolder.Mode.Avatar; break;
+                            case "basisscene": itemType = BundledContentHolder.Mode.World; break;
+                        }
+                    }
+                }
+            }
+            return itemType;
+        }
+
         #endregion
 
         #region PropsTab, WorldsTab, AvatarsTab, InstantiatedTab, BuildItemsList, ClearTabContent, RefreshTabAsync, RefreshCurrentTab
@@ -421,9 +503,18 @@ namespace Basis.BasisUI
             {
                 try
                 {
-                    // build data to be used
+                    // build data to be used — local persisted keys plus any
+                    // session-scoped entries pushed by the current server. When a URL
+                    // exists in both, the server-provided copy wins; this avoids
+                    // duplicate cards and lets the server author the canonical entry
+                    // (mode, password, presentation) for that URL.
+                    var serverItems = BasisServerProvidedItems.Items.Where(k => k.Mode == mode).ToList();
+                    var serverUrls = new HashSet<string>(
+                        serverItems.Select(k => k.Url ?? string.Empty),
+                        StringComparer.OrdinalIgnoreCase);
                     var data = BasisDataStoreItemKeys.DisplayKeys()
-                        .Where(k => k.Mode == mode)
+                        .Where(k => k.Mode == mode && !serverUrls.Contains(k.Url ?? string.Empty))
+                        .Concat(serverItems)
                         .ToList();
 
                     // Preload metadata for items in this tab so that filtering/sorting
@@ -625,7 +716,10 @@ namespace Basis.BasisUI
             }
             else
             {
-                if (item.EmbeddedSettings.IsEmbedded)
+                // Server-provided items aren't IsEmbedded (they're session-scoped, not
+                // hardcoded into the build), but they share the "you didn't add this
+                // yourself" status, so they get the embedded icon too.
+                if (item.EmbeddedSettings.IsEmbedded || BasisServerProvidedItems.IsServerProvided(item))
                 {
                     PanelImage embeddedIcon = PanelImage.CreateNew(buttonPanel.Descriptor);
                     embeddedIcon.SetIcon(AddressableAssets.GetSprite(AddressableAssets.Sprites.Embedded), true);
@@ -1215,10 +1309,13 @@ namespace Basis.BasisUI
             deletePanelButton.Descriptor.SetWidth(220);
             deletePanelButton.Descriptor.SetHeight(60);
 
-            // DISABLE THIS BUTTON IF ITEM IS EMBEDDED
+            // Embedded items can never be deleted. Server-provided items CAN — the
+            // click handler routes through the admin RemoveDefaultLibraryItem request,
+            // which the server enforces via PermNodes.ConfigurationEditor (non-admins
+            // get a "permission denied" reply popped via SendBackMessage).
+            bool isServerProvided = BasisServerProvidedItems.IsServerProvided(item);
             if (deletePanelButton.Descriptor.gameObject.TryGetComponent<Button>(out Button deleteButtonComponent))
             {
-                // if the item is embedded dont interact
                 deleteButtonComponent.interactable = !item.EmbeddedSettings.IsEmbedded;
             }
 
@@ -1233,12 +1330,23 @@ namespace Basis.BasisUI
 
                 if (result) // if they did close it lets close this window and refresh current tab
                 {
-                    // remove the item
-                    await BasisDataStoreItemKeys.RemoveKey(item);
-                    // just close the overlay instead.
-                    existingItemDialog.CloseWithResult(null);
-                    // refresh current tab
-                    await RefreshCurrentTab();
+                    if (isServerProvided)
+                    {
+                        // Server-default removal — the server's broadcast on success
+                        // triggers OnServerLibraryChanged → RefreshCurrentTab, so we
+                        // don't refresh manually here.
+                        BasisNetworkModeration.RemoveDefaultLibraryItem(item.Url);
+                        existingItemDialog.CloseWithResult(null);
+                    }
+                    else
+                    {
+                        // remove the item
+                        await BasisDataStoreItemKeys.RemoveKey(item);
+                        // just close the overlay instead.
+                        existingItemDialog.CloseWithResult(null);
+                        // refresh current tab
+                        await RefreshCurrentTab();
+                    }
                 }
                 else
                 {

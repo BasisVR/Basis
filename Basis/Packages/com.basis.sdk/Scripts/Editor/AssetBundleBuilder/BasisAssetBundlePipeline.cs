@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEngine;
@@ -141,7 +142,10 @@ public static class BasisAssetBundlePipeline
             {
                 OnBuildErrorPrefab?.Invoke(ex, asset, wasModified, settings.TemporaryStorage);
                 BasisBundleErrorHandler.HandleBuildError(ex, asset, wasModified, settings.TemporaryStorage);
-                EditorUtility.DisplayDialog("Failed To Build", "Please check the console for the full issue: " + ex, "OK");
+                EditorUtility.DisplayDialog(
+                    BasisEditorLocalization.Get("sdk.common.build.failedDialog.title"),
+                    BasisEditorLocalization.Get("sdk.common.build.failedDialog.body", ex),
+                    BasisEditorLocalization.Get("sdk.common.dialog.ok"));
             }
 
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;

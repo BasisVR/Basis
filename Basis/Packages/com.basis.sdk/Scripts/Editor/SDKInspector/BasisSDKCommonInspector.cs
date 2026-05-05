@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -25,12 +26,12 @@ public static class BasisSDKCommonInspector
 
         Foldout foldout = new Foldout
         {
-            text = "Content Tags",
+            text = BasisEditorLocalization.Get("sdk.commonInspector.contentTags.foldout"),
             value = false,
         };
         parent.Add(foldout);
 
-        Label help = new Label("Tag your content so users can filter what they see. Tags are stored inside the bee bundle and travel with the asset. Honor system — accuracy is your responsibility.")
+        Label help = new Label(BasisEditorLocalization.Get("sdk.commonInspector.contentTags.help"))
         {
             style =
             {
@@ -41,7 +42,7 @@ public static class BasisSDKCommonInspector
         };
         foldout.Add(help);
 
-        Label presetLabel = new Label("Presets") { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 4 } };
+        Label presetLabel = new Label(BasisEditorLocalization.Get("sdk.commonInspector.contentTags.presets")) { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 4 } };
         foldout.Add(presetLabel);
 
         for (int i = 0; i < ContentTagPresets.Length; i++)
@@ -67,7 +68,7 @@ public static class BasisSDKCommonInspector
             foldout.Add(toggle);
         }
 
-        Label customLabel = new Label("Custom Tags") { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 8 } };
+        Label customLabel = new Label(BasisEditorLocalization.Get("sdk.commonInspector.contentTags.custom")) { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 8 } };
         foldout.Add(customLabel);
 
         VisualElement addRow = new VisualElement
@@ -78,8 +79,8 @@ public static class BasisSDKCommonInspector
         {
             style = { flexGrow = 1, marginRight = 4 },
         };
-        customField.textEdition.placeholder = "Add a custom tag...";
-        Button addButton = new Button { text = "Add" };
+        customField.textEdition.placeholder = BasisEditorLocalization.Get("sdk.commonInspector.contentTags.placeholder");
+        Button addButton = new Button { text = BasisEditorLocalization.Get("sdk.commonInspector.contentTags.add") };
 
         VisualElement chipsRow = new VisualElement
         {
@@ -254,17 +255,17 @@ public static class BasisSDKCommonInspector
 
         Foldout foldout = new Foldout
         {
-            text = "Build AssetBundle Options",
+            text = BasisEditorLocalization.Get("sdk.commonInspector.buildOptions.foldout"),
             value = false
         };
         parent.Add(foldout);
 
-        Toggle toggle = new Toggle("Use Custom Password")
+        Toggle toggle = new Toggle(BasisEditorLocalization.Get("sdk.commonInspector.useCustomPassword"))
         {
             value = assetBundleObject.UseCustomPassword
         };
 
-        TextField passwordField = new TextField("Password")
+        TextField passwordField = new TextField(BasisEditorLocalization.Get("sdk.commonInspector.password"))
         {
             value = assetBundleObject.UserSelectedPassword,
             isPasswordField = true // masks input
@@ -342,7 +343,7 @@ public static class BasisSDKCommonInspector
     {
         BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
         // Multi-select dropdown (Foldout with Toggles)
-        Foldout buildTargetFoldout = new Foldout { text = "Select Build Targets", value = false }; // Expanded by default
+        Foldout buildTargetFoldout = new Foldout { text = BasisEditorLocalization.Get("sdk.commonInspector.buildTargets.foldout"), value = false }; // Expanded by default
         parent.Add(buildTargetFoldout);
 
         foreach (var target in BasisSDKConstants.allowedTargets)

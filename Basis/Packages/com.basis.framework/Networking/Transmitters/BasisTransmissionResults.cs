@@ -432,8 +432,10 @@ public partial class BasisTransmissionResults
                 audio.DirectionalDampeningMultiplier = pDampening != null ? pDampening[i] : 1f;
 
                 // Viseme distance cutoff: skip lip-sync for players beyond half
-                // the hearing distance — too far to see mouth shapes.
-                audio.visemeDriver.InVisemeRange = pDistanceSq[i] < visemeRangeSq;
+                // the hearing distance — too far to see mouth shapes. Routed
+                // through SetVisemeRange so BasisRemoteAudioDriver.ActiveDrivers
+                // stays in sync on transitions.
+                BasisRemoteAudioDriver.SetVisemeRange(audio.visemeDriver, pDistanceSq[i] < visemeRangeSq);
 
                 // Avatar range transition with debounce. Always runs (not gated on
                 // avatarChange) so a pending transition started on a previous tick can

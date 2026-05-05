@@ -34,6 +34,19 @@ public static class BasisRemoteNetworkDriver
     static NativeArray<quaternion> _prevRotations;
     static NativeArray<quaternion> _targetRotations;
 
+    // Hips local-position delta (vs TPose) — interpolated alongside the root
+    // pose so seated/IK overrides on the local rig reach remotes smoothly.
+    static NativeArray<float3> _prevHipsDelta;
+    static NativeArray<float3> _targetHipsDelta;
+    static NativeArray<float3> _outHipsDelta;
+
+    // Hips local-rotation delta (vs TPose). Carries hips orientation — hips is
+    // excluded from the bone packet's BONE_WRITE_ORDER so this is the only
+    // channel that reproduces twist/lean of the hips bone independent of root.
+    static NativeArray<quaternion> _prevHipsRotDelta;
+    static NativeArray<quaternion> _targetHipsRotDelta;
+    static NativeArray<quaternion> _outHipsRotDelta;
+
     static NativeArray<double> _interpolationTimes;
     static NativeArray<double> _deltaTimes;
 
@@ -102,6 +115,10 @@ public static class BasisRemoteNetworkDriver
     static IntPtr _ptrTargetRotations;
     static IntPtr _ptrPrevBoneRotations;
     static IntPtr _ptrTargetBoneRotations;
+    static IntPtr _ptrPrevHipsDelta;
+    static IntPtr _ptrTargetHipsDelta;
+    static IntPtr _ptrPrevHipsRotDelta;
+    static IntPtr _ptrTargetHipsRotDelta;
     static IntPtr _ptrPoseFilterSeeded;
     static IntPtr _ptrSkipBones;
 
@@ -140,6 +157,12 @@ public static class BasisRemoteNetworkDriver
             _targetScales[i] = new float3(1, 1, 1);
             _prevRotations[i] = quaternion.identity;
             _targetRotations[i] = quaternion.identity;
+            _prevHipsDelta[i] = float3.zero;
+            _targetHipsDelta[i] = float3.zero;
+            _outHipsDelta[i] = float3.zero;
+            _prevHipsRotDelta[i] = quaternion.identity;
+            _targetHipsRotDelta[i] = quaternion.identity;
+            _outHipsRotDelta[i] = quaternion.identity;
             _interpolationTimes[i] = 0.0;
             _deltaTimes[i] = 1.0 / 60.0;
             _outPositions[i] = float3.zero;
@@ -197,6 +220,10 @@ public static class BasisRemoteNetworkDriver
         _ptrTargetRotations = (IntPtr)_targetRotations.GetUnsafePtr();
         _ptrPrevBoneRotations = (IntPtr)_prevBoneRotations.GetUnsafePtr();
         _ptrTargetBoneRotations = (IntPtr)_targetBoneRotations.GetUnsafePtr();
+        _ptrPrevHipsDelta = (IntPtr)_prevHipsDelta.GetUnsafePtr();
+        _ptrTargetHipsDelta = (IntPtr)_targetHipsDelta.GetUnsafePtr();
+        _ptrPrevHipsRotDelta = (IntPtr)_prevHipsRotDelta.GetUnsafePtr();
+        _ptrTargetHipsRotDelta = (IntPtr)_targetHipsRotDelta.GetUnsafePtr();
         _ptrPoseFilterSeeded = (IntPtr)_poseFilterSeeded.GetUnsafePtr();
     }
 
@@ -277,6 +304,8 @@ public static class BasisRemoteNetworkDriver
         float3 prevPos, float3 targetPos,
         float3 prevScale, float3 targetScale,
         quaternion prevRot, quaternion targetRot,
+        float3 prevHipsDelta, float3 targetHipsDelta,
+        quaternion prevHipsRotDelta, quaternion targetHipsRotDelta,
         NativeArray<quaternion> prevBoneRots, NativeArray<quaternion> targetBoneRots)
     {
         if (!_initialized) return;
@@ -288,6 +317,10 @@ public static class BasisRemoteNetworkDriver
         ((float3*)(void*)_ptrTargetScales)[index] = targetScale;
         ((quaternion*)(void*)_ptrPrevRotations)[index] = prevRot;
         ((quaternion*)(void*)_ptrTargetRotations)[index] = targetRot;
+        ((float3*)(void*)_ptrPrevHipsDelta)[index] = prevHipsDelta;
+        ((float3*)(void*)_ptrTargetHipsDelta)[index] = targetHipsDelta;
+        ((quaternion*)(void*)_ptrPrevHipsRotDelta)[index] = prevHipsRotDelta;
+        ((quaternion*)(void*)_ptrTargetHipsRotDelta)[index] = targetHipsRotDelta;
 
         int bytes = BoneCount * UnsafeUtility.SizeOf<quaternion>();
         int baseOffset = index * BoneCount;
@@ -308,7 +341,7 @@ public static class BasisRemoteNetworkDriver
         int num = BasisNetworkPlayers.LargestNetworkReceiverID + 1;
         num = math.clamp(num, 0, FixedCapacity);
 
-        // 1) Raw interpolation (pos/scale/rot)
+        // 1) Raw interpolation (pos/scale/rot/hipsDelta/hipsRotDelta)
         var avatarJob = new UpdateAllAvatarsJob
         {
             PreviousPositions = _prevPositions,
@@ -317,12 +350,18 @@ public static class BasisRemoteNetworkDriver
             TargetScales = _targetScales,
             PreviousRotations = _prevRotations,
             TargetRotations = _targetRotations,
+            PreviousHipsDelta = _prevHipsDelta,
+            TargetHipsDelta = _targetHipsDelta,
+            PreviousHipsRotDelta = _prevHipsRotDelta,
+            TargetHipsRotDelta = _targetHipsRotDelta,
             InterpolationTimes = _interpolationTimes,
             HasScaleChange = _HasScaleChange,
             LastAppliedScales = _lastAppliedScales,
             OutputPositions = _outPositions,
             OutputScales = _outScales,
-            OutputRotations = _outRotations
+            OutputRotations = _outRotations,
+            OutputHipsDelta = _outHipsDelta,
+            OutputHipsRotDelta = _outHipsRotDelta
         }.Schedule(num, 128);
 
         // 2) Pose filtering (position + rotation) per player
@@ -409,9 +448,12 @@ public static class BasisRemoteNetworkDriver
     public static void GetPositionOutput(int index, out float3 outPos) => outPos = _filteredPositions[index];
 
     /// <summary>
-    /// Overrides the filtered hips position and rotation for a player so that
-    /// ScheduleBulkCopyHipsAndScale (and thus ApplyHipsJob) picks up the override
-    /// instead of the interpolated network data.
+    /// Overrides the filtered hips world position and rotation for a player so that
+    /// the combined BulkCopyHipsAndDeriveJob (and thus ApplyRootJob /
+    /// ApplyHipsWorldJob) pick up the override instead of the interpolated network
+    /// data. Position/Rotation in the pipeline are hips world (not root world) —
+    /// the override therefore teleports the visually anchored hips, and root is
+    /// derived from there.
     /// Must be called after Apply() and before Schedule().
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -423,30 +465,60 @@ public static class BasisRemoteNetworkDriver
     }
 
     /// <summary>
-    /// Burst job that gathers hips/scale/etc per-player data into packed dst arrays.
-    /// Each Execute(i) takes the i-th external player key and copies one slot.
+    /// Combined Burst job that does the entire pre-apply pre-compute pass for
+    /// one player in a single sequential pass:
+    ///   1. Copies filtered hips world pos/rot from the network's per-key slot
+    ///   2. Copies scale + scale-change flag
+    ///   3. Reads filtered hips local deltas (no separate temp buffer)
+    ///   4. Reads per-player TPose hips local pos/rot from caller-supplied arrays
+    ///   5. Derives the root world pose via inverse math (conjugate, not inverse)
+    /// Replaces what used to be three separate dispatches (BulkCopyHipsAndScale,
+    /// BulkCopyHipsLocalDeltas, ComputeRootFromHipsJob). Saves dispatch
+    /// overhead at thousand-player scale and removes a round-trip through two
+    /// persistent temp buffers, keeping each player's work in cache.
     /// </summary>
     [BurstCompile]
-    struct BulkCopyHipsAndScaleJob : IJobParallelFor
+    struct BulkCopyHipsAndDeriveJob : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int> PlayerKeys;
-        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> SrcPos;
-        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> SrcRot;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> SrcHipsWorldPos;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> SrcHipsWorldRot;
         [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> SrcScale;
         [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<bool> SrcChange;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> SrcHipsLocalPosDelta;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> SrcHipsLocalRotDelta;
+        [ReadOnly] public NativeArray<float3> TposeHipsLocalPos;
+        [ReadOnly] public NativeArray<quaternion> TposeHipsLocalRot;
 
-        [WriteOnly] public NativeArray<float3> DstPos;
-        [WriteOnly] public NativeArray<quaternion> DstRot;
-        [WriteOnly] public NativeArray<float3> DstScale;
+        [WriteOnly] public NativeArray<float3> DstHipsWorldPos;
+        [WriteOnly] public NativeArray<quaternion> DstHipsWorldRot;
+        [WriteOnly] public NativeArray<float3> DstScaleOut;
         [WriteOnly] public NativeArray<byte> DstScaleChanged;
+        [WriteOnly] public NativeArray<float3> DstRootPos;
+        [WriteOnly] public NativeArray<quaternion> DstRootRot;
 
         public void Execute(int i)
         {
-            int idx = PlayerKeys[i];
-            DstPos[i] = SrcPos[idx];
-            DstRot[i] = SrcRot[idx];
-            DstScale[i] = SrcScale[idx];
-            DstScaleChanged[i] = SrcChange[idx] ? (byte)1 : (byte)0;
+            int key = PlayerKeys[i];
+
+            // 1+2: hips world + scale fan-out
+            float3 hipsWorldPos = SrcHipsWorldPos[key];
+            quaternion hipsWorldRot = SrcHipsWorldRot[key];
+            float3 scale = SrcScale[key];
+            DstHipsWorldPos[i] = hipsWorldPos;
+            DstHipsWorldRot[i] = hipsWorldRot;
+            DstScaleOut[i] = scale;
+            DstScaleChanged[i] = SrcChange[key] ? (byte)1 : (byte)0;
+
+            // 3+4+5: derive root from hips world + local deltas + TPose
+            float3 hipsLocalPos = TposeHipsLocalPos[i] + SrcHipsLocalPosDelta[key];
+            quaternion hipsLocalRot = math.mul(TposeHipsLocalRot[i], SrcHipsLocalRotDelta[key]);
+
+            // conjugate, not inverse — every quaternion here is unit-length
+            quaternion rootRot = math.mul(hipsWorldRot, math.conjugate(hipsLocalRot));
+            float3 scaledLocal = scale * hipsLocalPos;
+            DstRootPos[i] = hipsWorldPos - math.mul(rootRot, scaledLocal);
+            DstRootRot[i] = rootRot;
         }
     }
 
@@ -477,37 +549,50 @@ public static class BasisRemoteNetworkDriver
     }
 
     /// <summary>
-    /// Schedules a Burst <see cref="BulkCopyHipsAndScaleJob"/> that gathers hips position,
-    /// rotation, scale, and scale-change flag for a set of players. Returning a JobHandle
-    /// (instead of doing the copy synchronously on main thread) lets the caller chain the
-    /// dependent apply jobs and gives the scheduler more in-flight work — important when
-    /// the caller's Complete() is otherwise about to block waiting on a single job.
+    /// Schedules a single Burst <see cref="BulkCopyHipsAndDeriveJob"/> that
+    /// fans out the network's per-player state (hips world pose, scale,
+    /// hips local deltas) into the apply pipeline's packed buffers AND
+    /// derives the root world pose in the same pass. Replaces the old
+    /// ScheduleBulkCopyHipsAndScale + ScheduleBulkCopyHipsLocalDeltas +
+    /// ComputeRootFromHipsJob trio — one dispatch instead of three, and no
+    /// round-trip through hips-delta temp buffers.
     /// playerKeys[i] → internal SoA index; data is written to dst arrays at index i.
+    /// TPose hips local pos/rot are passed in by the caller (per-player cache
+    /// owned by RemoteBoneJobSystem).
     /// </summary>
-    public static JobHandle ScheduleBulkCopyHipsAndScale(
+    public static JobHandle ScheduleBulkCopyHipsAndDerive(
         NativeArray<int> playerKeys, int count,
-        NativeArray<float3> dstPos, NativeArray<quaternion> dstRot,
+        NativeArray<float3> tposeHipsLocalPos, NativeArray<quaternion> tposeHipsLocalRot,
+        NativeArray<float3> dstHipsWorldPos, NativeArray<quaternion> dstHipsWorldRot,
         NativeArray<float3> dstScale, NativeArray<byte> dstScaleChanged,
+        NativeArray<float3> dstRootPos, NativeArray<quaternion> dstRootRot,
         JobHandle deps = default)
-        {
+    {
         if (!_initialized || count == 0) return deps;
 
         int workers = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
         int batch = math.max(1, count / workers);
 
-        return new BulkCopyHipsAndScaleJob
+        return new BulkCopyHipsAndDeriveJob
         {
             PlayerKeys = playerKeys,
-            SrcPos = _filteredPositions,
-            SrcRot = _filteredRotations,
+            SrcHipsWorldPos = _filteredPositions,
+            SrcHipsWorldRot = _filteredRotations,
             SrcScale = _outScales,
             SrcChange = _HasScaleChange,
-            DstPos = dstPos,
-            DstRot = dstRot,
-            DstScale = dstScale,
+            SrcHipsLocalPosDelta = _outHipsDelta,
+            SrcHipsLocalRotDelta = _outHipsRotDelta,
+            TposeHipsLocalPos = tposeHipsLocalPos,
+            TposeHipsLocalRot = tposeHipsLocalRot,
+            DstHipsWorldPos = dstHipsWorldPos,
+            DstHipsWorldRot = dstHipsWorldRot,
+            DstScaleOut = dstScale,
             DstScaleChanged = dstScaleChanged,
+            DstRootPos = dstRootPos,
+            DstRootRot = dstRootRot,
         }.Schedule(count, batch, deps);
     }
+
 
     /// <summary>
     /// Schedules a Burst <see cref="BulkCopySkeletonDeltasJob"/> that copies the filtered
@@ -591,6 +676,12 @@ public static class BasisRemoteNetworkDriver
         _targetScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _prevHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _targetHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _outHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _prevHipsRotDelta = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _targetHipsRotDelta = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _outHipsRotDelta = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _interpolationTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.ClearMemory);
         _deltaTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _outPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
@@ -627,6 +718,8 @@ public static class BasisRemoteNetworkDriver
         D(ref _prevPositions); D(ref _targetPositions);
         D(ref _prevScales); D(ref _targetScales);
         D(ref _prevRotations); D(ref _targetRotations);
+        D(ref _prevHipsDelta); D(ref _targetHipsDelta); D(ref _outHipsDelta);
+        D(ref _prevHipsRotDelta); D(ref _targetHipsRotDelta); D(ref _outHipsRotDelta);
         D(ref _interpolationTimes); D(ref _deltaTimes);
         D(ref _outPositions); D(ref _outScales); D(ref _outRotations);
         D(ref _filteredPositions); D(ref _filteredRotations);
@@ -651,10 +744,16 @@ public static class BasisRemoteNetworkDriver
         [ReadOnly] public NativeArray<float3> TargetScales;
         [ReadOnly] public NativeArray<quaternion> PreviousRotations;
         [ReadOnly] public NativeArray<quaternion> TargetRotations;
+        [ReadOnly] public NativeArray<float3> PreviousHipsDelta;
+        [ReadOnly] public NativeArray<float3> TargetHipsDelta;
+        [ReadOnly] public NativeArray<quaternion> PreviousHipsRotDelta;
+        [ReadOnly] public NativeArray<quaternion> TargetHipsRotDelta;
         [ReadOnly] public NativeArray<double> InterpolationTimes;
         [WriteOnly] public NativeArray<float3> OutputPositions;
         [WriteOnly] public NativeArray<float3> OutputScales;
         [WriteOnly] public NativeArray<quaternion> OutputRotations;
+        [WriteOnly] public NativeArray<float3> OutputHipsDelta;
+        [WriteOnly] public NativeArray<quaternion> OutputHipsRotDelta;
         public NativeArray<bool> HasScaleChange;
         public NativeArray<float3> LastAppliedScales;
 
@@ -667,6 +766,16 @@ public static class BasisRemoteNetworkDriver
             float3 outScale = math.lerp(PreviousScales[index], TargetScales[index], t);
             OutputScales[index] = outScale;
             OutputRotations[index] = math.normalize(math.nlerp(PreviousRotations[index], TargetRotations[index], t));
+            OutputHipsDelta[index] = math.lerp(PreviousHipsDelta[index], TargetHipsDelta[index], t);
+
+            // Shortest-path nlerp for the hips rotation delta — same approach
+            // as InterpolateBoneRotationsJob uses for per-bone deltas.
+            quaternion prevHipsRot = PreviousHipsRotDelta[index];
+            quaternion targetHipsRot = TargetHipsRotDelta[index];
+            if (math.dot(prevHipsRot.value, targetHipsRot.value) < 0f)
+                targetHipsRot.value = -targetHipsRot.value;
+            OutputHipsRotDelta[index] = math.normalize(math.nlerp(prevHipsRot, targetHipsRot, t));
+
             const float scaleEpsSq = 1e-10f;
             bool changed = math.lengthsq(outScale - LastAppliedScales[index]) > scaleEpsSq;
             HasScaleChange[index] = changed;

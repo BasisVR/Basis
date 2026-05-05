@@ -46,6 +46,12 @@ public static class BasisAnimationRiggingHelper
         data.RightLowerArm = Mapping.RightLowerArm;
         data.RightHand = Mapping.rightHand;
 
+        // Optional twist bones (auto-detected from rig hierarchy; null when not present)
+        data.LeftUpperArmTwist = Mapping.leftUpperArmTwist;
+        data.LeftLowerArmTwist = Mapping.leftLowerArmTwist;
+        data.RightUpperArmTwist = Mapping.RightUpperArmTwist;
+        data.RightLowerArmTwist = Mapping.RightLowerArmTwist;
+
         // Legs
         data.LeftUpperLeg = Mapping.LeftUpperLeg;
         data.LeftLowerLeg = Mapping.LeftLowerLeg;

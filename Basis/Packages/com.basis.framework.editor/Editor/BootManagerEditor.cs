@@ -49,7 +49,7 @@ namespace Basis.Scripts.Boot_Sequence
 #else
             bool enabled = PlayerPrefs.GetInt(BootSequenceKey, 1) != 0; // default on in builds
 #endif
-            BootSequence.WillBoot = enabled;
+            BasisBootSequence.WillBoot = enabled;
         }
     }
 }

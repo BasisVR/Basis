@@ -179,6 +179,57 @@ namespace Basis.Scripts.Networking.Compression
             float normalized = (float)value / BasisAvatarBitPacking.UShortRangeDifference;
             return normalized * (BasisAvatarBitPacking.MaxScale - BasisAvatarBitPacking.MinScale) + BasisAvatarBitPacking.MinScale;
         }
+
+        /// <summary>
+        /// Encodes a hips local-position delta (vs TPose) as 3 signed shorts
+        /// (transmitted as ushorts) clamped to ±<see cref="BasisAvatarBitPacking.HipsDeltaRange"/>
+        /// meters per axis. 6 bytes total — rides in the avatar packet tail so
+        /// seated/IK hips overrides reach remotes. Signed encoding means a
+        /// zero-byte tail (e.g. from a test client that doesn't fill the field)
+        /// decodes to zero delta rather than a clamped extreme.
+        ///
+        /// Takes this namespace's own <c>float3</c>
+        /// (<see cref="Basis.Scripts.Networking.Compression.float3"/>) — kept as a
+        /// plain POD struct so the wire layer doesn't drag a Unity.Mathematics
+        /// dependency into server-side callers. Unity-side callers convert from
+        /// <see cref="Unity.Mathematics.float3"/> at the call site.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CompressHipsDelta(Basis.Scripts.Networking.Compression.float3 delta, ref byte[] buffer, ref int offset)
+        {
+            float r = BasisAvatarBitPacking.HipsDeltaRange;
+            float scale = 32767f / r;
+            short sx = (short)math.clamp((int)math.round(Sanitize(delta.x, 0f) * scale), -32767, 32767);
+            short sy = (short)math.clamp((int)math.round(Sanitize(delta.y, 0f) * scale), -32767, 32767);
+            short sz = (short)math.clamp((int)math.round(Sanitize(delta.z, 0f) * scale), -32767, 32767);
+
+            WriteUShort((ushort)sx, ref buffer, ref offset);
+            WriteUShort((ushort)sy, ref buffer, ref offset);
+            WriteUShort((ushort)sz, ref buffer, ref offset);
+        }
+
+        /// <summary>
+        /// Decodes the 3 signed shorts written by <see cref="CompressHipsDelta"/>
+        /// back into this namespace's <c>float3</c> POD struct. Unity-side callers
+        /// convert into <see cref="Unity.Mathematics.float3"/> at the call site.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryReadHipsDelta(ref byte[] buffer, ref int offset, out Basis.Scripts.Networking.Compression.float3 delta)
+        {
+            delta = default;
+            if (!TryReadUShort(ref buffer, ref offset, out ushort ux)) return false;
+            if (!TryReadUShort(ref buffer, ref offset, out ushort uy)) return false;
+            if (!TryReadUShort(ref buffer, ref offset, out ushort uz)) return false;
+
+            float scale = BasisAvatarBitPacking.HipsDeltaRange / 32767f;
+            delta = new Basis.Scripts.Networking.Compression.float3
+            {
+                x = (short)ux * scale,
+                y = (short)uy * scale,
+                z = (short)uz * scale,
+            };
+            return true;
+        }
         private const float InvSqrt2 = 0.7071067811865475f; // 1/sqrt(2)
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

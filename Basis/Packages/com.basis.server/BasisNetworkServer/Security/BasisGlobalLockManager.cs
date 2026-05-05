@@ -15,10 +15,12 @@ namespace BasisNetworkServer.Security
         private static int _avatarsLocked;
         private static int _propsLocked;
         private static int _worldsLocked;
+        private static int _serversLocked;
 
         public static bool AvatarsLocked => Interlocked.CompareExchange(ref _avatarsLocked, 0, 0) == 1;
         public static bool PropsLocked => Interlocked.CompareExchange(ref _propsLocked, 0, 0) == 1;
         public static bool WorldsLocked => Interlocked.CompareExchange(ref _worldsLocked, 0, 0) == 1;
+        public static bool ServersLocked => Interlocked.CompareExchange(ref _serversLocked, 0, 0) == 1;
 
         /// <summary>
         /// Seed the initial lock state from the server configuration.
@@ -29,6 +31,7 @@ namespace BasisNetworkServer.Security
             Interlocked.Exchange(ref _avatarsLocked, config.AvatarsLocked ? 1 : 0);
             Interlocked.Exchange(ref _propsLocked, config.PropsLocked ? 1 : 0);
             Interlocked.Exchange(ref _worldsLocked, config.WorldsLocked ? 1 : 0);
+            Interlocked.Exchange(ref _serversLocked, config.ServersLocked ? 1 : 0);
         }
 
         /// <summary>
@@ -45,6 +48,11 @@ namespace BasisNetworkServer.Security
         /// Toggle world loading. Returns the new state (true = locked).
         /// </summary>
         public static bool ToggleWorlds() => Toggle(ref _worldsLocked);
+
+        /// <summary>
+        /// Toggle server-share dropping. Returns the new state (true = locked).
+        /// </summary>
+        public static bool ToggleServers() => Toggle(ref _serversLocked);
 
         private static bool Toggle(ref int field)
         {
@@ -69,6 +77,7 @@ namespace BasisNetworkServer.Security
             writer.Put(AvatarsLocked);
             writer.Put(PropsLocked);
             writer.Put(WorldsLocked);
+            writer.Put(ServersLocked);
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
         }
@@ -83,6 +92,7 @@ namespace BasisNetworkServer.Security
             writer.Put(AvatarsLocked);
             writer.Put(PropsLocked);
             writer.Put(WorldsLocked);
+            writer.Put(ServersLocked);
             NetworkServer.BroadcastMessageToClients(
                 writer,
                 BasisNetworkCommons.AdminChannel,

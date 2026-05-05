@@ -3,6 +3,7 @@ using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
 using BasisNetworkCore;
 using BasisNetworkCore.Pooling;
+using BasisNetworkCore.Security;
 using BasisNetworkServer;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
@@ -31,6 +32,7 @@ namespace BasisServerHandle
             NetworkServer.Listener.PeerDisconnectedEvent += HandlePeerDisconnected;
             NetworkServer.Listener.NetworkReceiveEvent += BasisNetworkMessageProcessor.ProcessMessage;
             NetworkServer.Listener.NetworkErrorEvent += OnNetworkError;
+            BasisServerInfoQuery.Subscribe();
         }
 
         public static void UnsubscribeServerEvents()
@@ -39,6 +41,7 @@ namespace BasisServerHandle
             NetworkServer.Listener.PeerDisconnectedEvent -= HandlePeerDisconnected;
             NetworkServer.Listener.NetworkReceiveEvent -= BasisNetworkMessageProcessor.ProcessMessage;
             NetworkServer.Listener.NetworkErrorEvent -= OnNetworkError;
+            BasisServerInfoQuery.Unsubscribe();
         }
 
         public static void StopWorker()
@@ -263,6 +266,19 @@ namespace BasisServerHandle
         {
             ushort PeerId = (ushort)newPeer.Id;
 
+            // Whitelist gate. Both auth paths (DID challenge + plain ReadyMessage) funnel
+            // through here with a verified UUID, so this is the single point that enforces
+            // BasisUserRestrictionMode.WhiteList on entry. Banlist is enforced separately
+            // at HandleConnectionRequest / BasisDIDAuthIdentity.ProcessConnection.
+            if (NetworkServer.Configuration.BasisUserRestrictionMode == BasisUserRestrictionMode.WhiteList
+                && NetworkServer.Whitelist != null
+                && !NetworkServer.Whitelist.IsWhitelisted(UUID))
+            {
+                BNL.Log($"Rejecting peer {PeerId} (UUID {UUID}) — not on whitelist.");
+                RejectWithReason(newPeer, "You are not on the whitelist.");
+                return;
+            }
+
             bool added = NetworkServer.AuthenticatedPeers.TryAdd(PeerId, newPeer);
             if (!added)
             {
@@ -331,6 +347,7 @@ namespace BasisServerHandle
                 SendRemoteSpawnMessage(newPeer, ReadyMessage);
 
                 BasisNetworkResourceManagement.SendOutAllResources(newPeer);
+                BasisNetworkServerLibrary.SendLibraryToPeer(newPeer);
                 BasisNetworkOwnership.SendOutOwnershipInformation(newPeer);
                 BasisNetworkPIPCamera.SendPIPStateToPeer(newPeer);
                 BasisNetworkContentShare.SendAllSpheresToPeer(newPeer);

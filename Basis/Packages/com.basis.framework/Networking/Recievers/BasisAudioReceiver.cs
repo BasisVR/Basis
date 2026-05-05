@@ -363,7 +363,7 @@ namespace Basis.Scripts.Networking.Receivers
                 audioSource.maxDistance = Distance;
         }
 
-        public async Task LoadAudioSource(BasisNetworkPlayer networkedPlayer, Transform MouthParent, float MaxDistance)
+        public async Task LoadAudioSource(BasisNetworkReceiver networkedPlayer, Transform MouthParent, float MaxDistance)
         {
             if (AudioSourceTransform == null || audioSource == null)
             {
@@ -389,7 +389,9 @@ namespace Basis.Scripts.Networking.Receivers
             try
             {
                 var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(networkedPlayer.Player.UUID);
-                bool tempBlocked = networkedPlayer.Player is BasisRemotePlayer rp && rp.TempBlocked;
+                // BasisAudioReceiver only ever wraps a remote player; use the pre-cast
+                // RemotePlayer field instead of repeating `is BasisRemotePlayer`.
+                bool tempBlocked = networkedPlayer.RemotePlayer.TempBlocked;
                 bool muted = settings.IsBlocked || tempBlocked;
                 ChangeRemotePlayersVolumeSettings(muted ? 0f : settings.VolumeLevel);
             }
@@ -599,6 +601,7 @@ namespace Basis.Scripts.Networking.Receivers
         {
             int frames = length / channels;
             double msThisCallback = 1000.0 * frames / outputSampleRate;
+            Span<float> output = data.AsSpan(0, length);
 
             if (VoiceBuffer.IsEmpty)
             {
@@ -616,14 +619,14 @@ namespace Basis.Scripts.Networking.Receivers
                         if (env < 0f) env = 0f;
                         float sample = last * env;
                         for (int c = 0; c < channels; c++)
-                            data[idx++] = sample;
+                            output[idx++] = sample;
                     }
                     _fadeEnvelope = env;
                     if (env <= 0f) _lastOutputSample = 0f;
                 }
                 else
                 {
-                    Array.Clear(data, 0, length);
+                    output.Clear();
                 }
 
                 _silentUsAccum += (long)(msThisCallback * 1000.0);
@@ -649,11 +652,11 @@ namespace Basis.Scripts.Networking.Receivers
 
             if (RemoteOpusSettings.NetworkSampleRate == _cachedOutputRate)
             {
-                ProcessNoResample(data, frames, channels);
+                ProcessNoResample(output, frames, channels);
             }
             else
             {
-                ProcessResample(data, frames, channels);
+                ProcessResample(output, frames, channels);
             }
         }
 
@@ -667,18 +670,19 @@ namespace Basis.Scripts.Networking.Receivers
             }
         }
 
-        private void ProcessNoResample(float[] data, int frames, int channels)
+        private void ProcessNoResample(Span<float> data, int frames, int channels)
         {
             EnsureCapacity(ref _inputScratch, frames);
             int read = VoiceBuffer.ReadPcm(_inputScratch, frames);
             bool underrun = read < frames;
 
+            Span<float> source = _inputScratch.AsSpan(0, frames);
             if (underrun)
             {
-                FadeFillUnderrun(_inputScratch, read, frames);
+                FadeFillUnderrun(source, read, frames);
             }
 
-            ApplyGainAndWrite(_inputScratch, data, frames, channels);
+            ApplyGainAndWrite(source, data, frames, channels);
 
             if (underrun)
             {
@@ -704,7 +708,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// when ReadPcm returns fewer samples than requested (queue ran dry mid
         /// callback) — a hard zero-fill at the boundary would be an audible click.
         /// </summary>
-        private static void FadeFillUnderrun(float[] buf, int read, int total)
+        private static void FadeFillUnderrun(Span<float> buf, int read, int total)
         {
             int fillLen = total - read;
             if (fillLen <= 0) return;
@@ -717,11 +721,11 @@ namespace Basis.Scripts.Networking.Receivers
             }
             if (fillLen > fadeLen)
             {
-                Array.Clear(buf, read + fadeLen, fillLen - fadeLen);
+                buf.Slice(read + fadeLen, fillLen - fadeLen).Clear();
             }
         }
 
-        private void ProcessResample(float[] data, int frames, int channels)
+        private void ProcessResample(Span<float> data, int frames, int channels)
         {
             // Persistent-phase linear interpolation. The virtual input stream is
             //   virtual[0]       = _resampleLastSample (carry from previous callback)
@@ -741,9 +745,11 @@ namespace Basis.Scripts.Networking.Receivers
 
             int read = VoiceBuffer.ReadPcm(_inputScratch, N);
             bool underrun = read < N;
+            Span<float> input = _inputScratch.AsSpan(0, N);
+            Span<float> resampled = _resampleScratch.AsSpan(0, frames);
             if (underrun)
             {
-                FadeFillUnderrun(_inputScratch, read, N);
+                FadeFillUnderrun(input, read, N);
             }
 
             double phase = _resamplePhase;
@@ -754,11 +760,11 @@ namespace Basis.Scripts.Networking.Receivers
                 int iHigh = iLow + 1;
 
                 float sLow = iLow <= 0 ? _resampleLastSample
-                           : (iLow - 1 < N ? _inputScratch[iLow - 1] : _resampleLastSample);
+                           : (iLow - 1 < N ? input[iLow - 1] : _resampleLastSample);
                 float sHigh = iHigh <= 0 ? _resampleLastSample
-                            : (iHigh - 1 < N ? _inputScratch[iHigh - 1] : sLow);
+                            : (iHigh - 1 < N ? input[iHigh - 1] : sLow);
 
-                _resampleScratch[f] = (float)(sLow + frac * (sHigh - sLow));
+                resampled[f] = (float)(sLow + frac * (sHigh - sLow));
                 phase += step;
             }
 
@@ -768,11 +774,11 @@ namespace Basis.Scripts.Networking.Receivers
             int lastIdx = consumedVirtual - 1;
             if (lastIdx >= 0 && lastIdx < N)
             {
-                _resampleLastSample = _inputScratch[lastIdx];
+                _resampleLastSample = input[lastIdx];
             }
             _resamplePhase = endPhase - consumedVirtual;
 
-            ApplyGainAndWrite(_resampleScratch, data, frames, channels);
+            ApplyGainAndWrite(resampled, data, frames, channels);
 
             if (underrun)
             {
@@ -788,7 +794,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// <see cref="_lastOutputSample"/> so a subsequent underrun callback
         /// can fade out from the last real sample instead of stepping to zero.
         /// </summary>
-        private void ApplyGainAndWrite(float[] source, float[] data, int frames, int channels)
+        private void ApplyGainAndWrite(ReadOnlySpan<float> source, Span<float> data, int frames, int channels)
         {
             float targetGain = DirectionalDampeningMultiplier * SMModuleAudio.ActiveMainVolume * _perPlayerVolume;
             if (!_gainPrimed)

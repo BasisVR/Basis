@@ -55,6 +55,13 @@ public static class BasisNetworkContentShare
                     !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassWorld);
                 contentName = "World";
                 break;
+            case ContentShareType.Server:
+                // ContentURL carries the connection string (address[:port][#password]).
+                // UnlockPassword is intentionally unused — receivers parse the URL directly.
+                blocked = BasisNetworkServer.Security.BasisGlobalLockManager.ServersLocked &&
+                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassServer);
+                contentName = "Server share";
+                break;
         }
         if (blocked)
         {

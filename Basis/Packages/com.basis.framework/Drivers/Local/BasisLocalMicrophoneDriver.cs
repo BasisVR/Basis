@@ -39,6 +39,12 @@ public static class BasisLocalMicrophoneDriver
     public const string SettingStartOn = "Unmuted";
     public const string SettingStartRememberLast = "Remember Last State";
 
+    public const string SettingMuteShutdown = "Shutdown Microphone";
+    public const string SettingMuteSuppress = "Keep Microphone Open";
+
+    private static bool IsSuppressMuteMode =>
+        Basis.BasisUI.BasisSettingsDefaults.MicMuteBehavior?.RawValue == SettingMuteSuppress;
+
     public static Action OnHasAudio;
     public static Action OnHasSilence;
 
@@ -108,13 +114,15 @@ public static class BasisLocalMicrophoneDriver
             isPaused = value;
             PlayerPrefs.SetInt(MicrophoneState, isPaused ? 1 : 0);
 
+            bool suppress = IsSuppressMuteMode;
+
             if (isPaused)
             {
-                StopSelectedMicrophone();
+                if (!suppress)
+                    StopSelectedMicrophone();
             }
-            else
+            else if (!suppress || !MicrophoneIsStarted)
             {
-                // Prefer snapshot device
                 string desired = SMDMicrophone.Current.Microphone;
                 if (string.IsNullOrEmpty(desired)) desired = _pendingDeviceWhenPaused;
                 if (string.IsNullOrEmpty(desired)) desired = MicrophoneDevice;
@@ -632,7 +640,7 @@ public static class BasisLocalMicrophoneDriver
 
             RollingRMS();
 
-            if (IsTransmitWorthy())
+            if (!isPaused && IsTransmitWorthy())
             {
                 OnHasAudio?.Invoke();
                 Interlocked.Exchange(ref _scheduleMainHasAudio, 1);

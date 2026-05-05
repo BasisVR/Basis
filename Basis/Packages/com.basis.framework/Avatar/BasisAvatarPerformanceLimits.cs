@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk;
 using GatorDragonGames.JigglePhysics;
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
+using Basis.Scripts.Settings;
 
 namespace Basis.Scripts.Avatar
 {
@@ -93,11 +94,14 @@ namespace Basis.Scripts.Avatar
             public int JiggleCollidersTrimmed;
             /// <summary>Jiggle rigs destroyed at driver ingestion (not by TrimExcessComponents).</summary>
             public int JiggleRigsTrimmed;
+            /// <summary>CilboxProxy script behaviours destroyed by the trim pass.</summary>
+            public int CilboxBehavioursTrimmed;
 
             public bool AnythingTrimmed =>
                 AnimatorsTrimmed > 0 || LightsTrimmed > 0 || ParticleSystemsTrimmed > 0
                 || TrailRenderersTrimmed > 0 || LineRenderersTrimmed > 0 || ClothTrimmed > 0
-                || CollidersTrimmed > 0 || JiggleCollidersTrimmed > 0 || JiggleRigsTrimmed > 0;
+                || CollidersTrimmed > 0 || JiggleCollidersTrimmed > 0 || JiggleRigsTrimmed > 0
+                || CilboxBehavioursTrimmed > 0;
         }
 
         // Component names as emitted by BasisBundleBuild.GenerateMetaData (= Type.Name).
@@ -107,6 +111,9 @@ namespace Basis.Scripts.Avatar
         private const string CompSkinnedMeshRenderer = "SkinnedMeshRenderer";
         private const string CompMeshFilter = "MeshFilter";
         private const string CompJiggleColliderExample = "JiggleColliderExample";
+        // CilboxProxy lives in the com.cnlohr.cilbox package; this assembly does not
+        // reference it, so the trim and metadata lookups go through the short type name.
+        private const string CompCilboxProxy = "CilboxProxy";
 
         // Flag pair per limit. Kept as simple static fields rather than a struct so the
         // settings bridge can patch one value at a time without having to copy + replace
@@ -158,6 +165,9 @@ namespace Basis.Scripts.Avatar
 
         public static bool UseLimitColliders;
         public static int LimitColliders;
+
+        public static bool UseLimitCilboxBehaviours;
+        public static int LimitCilboxBehaviours;
 
         /// <summary>
         /// Session-only "show me everything" switch. When true, <see cref="Evaluate"/>
@@ -224,7 +234,8 @@ namespace Basis.Scripts.Avatar
                 || UseLimitTrailRenderers
                 || UseLimitLineRenderers
                 || UseLimitCloth
-                || UseLimitColliders;
+                || UseLimitColliders
+                || UseLimitCilboxBehaviours;
         }
 
         /// <summary>
@@ -456,6 +467,10 @@ namespace Basis.Scripts.Avatar
                 UseLimitJiggleBones, LimitJiggleBones, protectedCount: 0, ref anyTighten))
                 return ReconcileAction.Reload;
 
+            if (!TryAccumulateTrim(GetComponentCount(names, CompCilboxProxy), lastInfo.CilboxBehavioursTrimmed,
+                UseLimitCilboxBehaviours, LimitCilboxBehaviours, protectedCount: 0, ref anyTighten))
+                return ReconcileAction.Reload;
+
             return anyTighten ? ReconcileAction.TrimInPlace : ReconcileAction.None;
         }
 
@@ -569,7 +584,41 @@ namespace Basis.Scripts.Avatar
                 info.JiggleRigsTrimmed = TrimComponents<JiggleRig>(root, LimitJiggleBones);
             }
 
+            // CilboxProxy is in the com.cnlohr.cilbox package which this assembly does
+            // not reference, so trim by short type name instead of generic component type.
+            if (UseLimitCilboxBehaviours)
+            {
+                info.CilboxBehavioursTrimmed = TrimComponentsByName(root, CompCilboxProxy, LimitCilboxBehaviours);
+            }
+
             return info;
+        }
+
+        /// <summary>
+        /// Walk every MonoBehaviour on the avatar tree and destroy instances whose
+        /// <see cref="Type.Name"/> matches <paramref name="typeName"/> beyond the
+        /// keep limit. Used for components living in packages this assembly cannot
+        /// reference at compile time (e.g. <c>CilboxProxy</c>).
+        /// </summary>
+        private static int TrimComponentsByName(GameObject root, string typeName, int limit)
+        {
+            MonoBehaviour[] all = root.GetComponentsInChildren<MonoBehaviour>(false);
+            int kept = 0;
+            int destroyed = 0;
+            for (int i = 0; i < all.Length; i++)
+            {
+                MonoBehaviour mb = all[i];
+                if (mb == null) continue;
+                if (mb.GetType().Name != typeName) continue;
+                if (kept < limit)
+                {
+                    kept++;
+                    continue;
+                }
+                UnityEngine.Object.DestroyImmediate(mb);
+                destroyed++;
+            }
+            return destroyed;
         }
 
         private static int TrimComponents<T>(GameObject root, int limit) where T : Component

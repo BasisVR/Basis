@@ -13,9 +13,23 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 51 (excludes Hips, Eyes, Jaw)
         public byte Sequence;
         public double ServerTimeSeconds;
+        // Position/Rotation carry the HIPS world pose (sent in the high-precision
+        // 12+7 byte slots). Root world is derived on the receiver from this pose
+        // plus the local deltas below — so the visually anchored bone gets the
+        // best precision and the server reduction system reads hips for distance.
         public quaternion Rotation = quaternion.identity;
         public float3 Scale = new float3(1f, 1f, 1f);
         public float3 Position = new float3(0f, 0f, 0f);
+        // Hips local-position delta vs the avatar's TPose hips local position.
+        // Combined with the network hips world pose, lets the receiver derive
+        // both the root world transform and the hips bone's local transform.
+        public float3 HipsLocalDelta = float3.zero;
+        // Hips local-rotation delta vs the avatar's TPose hips local rotation.
+        // Hips isn't in the bone-rotations packet (BONE_WRITE_ORDER excludes it),
+        // so this carries hips orientation independent of root.
+        // Encoded as inverse(tposeLocalRot) × currentLocalRot — applied as
+        // hips.localRotation = tposeLocalRot × delta on the receiver.
+        public quaternion HipsLocalRotation = quaternion.identity;
         /// <summary>
         /// 54 bone delta rotations (T-pose-relative, avatar-agnostic).
         /// Indexed by slot in BasisBoneRotationCompression.BONE_WRITE_ORDER.
@@ -57,6 +71,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             Rotation = quaternion.identity;
             Scale = new float3(1f, 1f, 1f);
             Position = new float3(0f, 0f, 0f);
+            HipsLocalDelta = float3.zero;
+            HipsLocalRotation = quaternion.identity;
             SecondsInterval = 0.01;
         }
 

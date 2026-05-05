@@ -244,9 +244,18 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisLocalInputActions.Instance.InputState.CopyTo(CurrentInputState);
             }
 
-            // Eye relative position
-            Vector3 tposeEyeWorld = BasisLocalBoneDriver.EyeControl.TposeLocalScaled.position;
-            Vector3 tposeHeadWorld = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
+            // Eye relative position. Read TposeLocal (unscaled) rather than
+            // TposeLocalScaled here: UnscaledDeviceCoord is the playspace
+            // pre-scale field the constellation classifier and CalculatePlayerEyeHeight
+            // read from, and the calibration system is supposed to operate in
+            // real-world / human scale only. Writing the avatar-scaled eye height
+            // into UnscaledDeviceCoord makes CapturePlayerHeight adopt it as
+            // PlayerEyeHeight, which feeds back into ScaledToMatchValue, which
+            // re-scales the avatar even larger next frame — divergent loop that
+            // ends with player heights of 12 m and tracker ratios above 2.
+            // DeviceScale projects the unscaled pose onto the avatar below.
+            Vector3 tposeEyeWorld = BasisLocalBoneDriver.EyeControl.TposeLocal.position;
+            Vector3 tposeHeadWorld = BasisLocalBoneDriver.HeadControl.TposeLocal.position;
             Vector3 neutralEyeFromHead = tposeEyeWorld - tposeHeadWorld;
 
             // Apply yaw/pitch with clamping
@@ -262,7 +271,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisLocalPlayer Player = BasisLocalPlayer.Instance;
                 var crouchMinimum = Player.LocalCharacterDriver.MinimumCrouchPercent;
                 float heightAdj = (1 - crouchMinimum) * Player.LocalCharacterDriver.CrouchBlend + crouchMinimum;
-                float headLocalY = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position.y;
+                // Match the space of tposeHeadWorld above (TposeLocal, pre-scale)
+                // so the subtraction is dimensionally consistent.
+                float headLocalY = BasisLocalBoneDriver.HeadControl.TposeLocal.position.y;
                 float crouchDelta = headLocalY * (1 - heightAdj);
                 tposeHeadWorld.y -= crouchDelta;
             }
@@ -277,8 +288,15 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, eyeWorld);
             UnscaledDeviceCoord.rotation = targetRot;
 
+            // Apply DeviceScale when projecting unscaled → scaled so the camera
+            // lands at the avatar's actual world head position (avatar may be
+            // scaled relative to the player). This matches BasisInput's base
+            // ConvertToScaledDeviceCoord. Skipping DeviceScale would force the
+            // previous version to write avatar-scaled positions directly into
+            // UnscaledDeviceCoord, restarting the calibration feedback loop.
+            float deviceScale = BasisHeightDriver.DeviceScale;
             ScaledDeviceCoord.rotation = OffsetCoords.rotation * UnscaledDeviceCoord.rotation;
-            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * UnscaledDeviceCoord.position);
+            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * (UnscaledDeviceCoord.position * deviceScale));
 
             ControlOnlyAsDevice();
             if (IsComputingRaycast)

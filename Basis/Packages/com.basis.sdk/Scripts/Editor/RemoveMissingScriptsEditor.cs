@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,7 +12,10 @@ public static class RemoveMissingScriptsEditor
         GameObject[] allObjects = GetAllChildren(Selection.gameObjects);
         int count = RemoveMissingScriptsFrom(allObjects);
         if (count == 0) return;
-        EditorUtility.DisplayDialog("Remove Missing Scripts", $"Removed {count} missing script(s).\n\nCheck console for details.", "OK");
+        EditorUtility.DisplayDialog(
+            BasisEditorLocalization.Get("sdk.removeMissingScripts.title"),
+            BasisEditorLocalization.Get("sdk.removeMissingScripts.body", count),
+            BasisEditorLocalization.Get("sdk.common.dialog.ok"));
     }
 
     [MenuItem("Assets/Editor Extensions/Remove Missing Scripts")]

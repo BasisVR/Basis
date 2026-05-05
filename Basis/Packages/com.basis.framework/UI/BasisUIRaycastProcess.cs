@@ -49,13 +49,19 @@ namespace Basis.Scripts.UI
                 return;
             }
 
-            int DevicesCount = Inputs.Count;
+            // Snapshot the field before iterating: a UI event raised inside this
+            // loop (e.g. a pointerUp that fires a dropdown OnValueChanged that
+            // mutates BasisDeviceManagement.AllInputDevices) replaces the Inputs
+            // field via AllInputDevices() callback. Indexing the new shorter
+            // list with the old cached count throws ArgumentOutOfRange.
+            List<BasisInput> snapshot = Inputs;
+            int DevicesCount = snapshot.Count;
             HasTarget = false;
             var EffectiveMouseAction = false;
 
             for (int Index = 0; Index < DevicesCount; Index++)
             {
-                BasisInput input = Inputs[Index];
+                BasisInput input = snapshot[Index];
                 if (input == null)
                 {
                     continue;
@@ -137,10 +143,12 @@ namespace Basis.Scripts.UI
                 EventSystem.current.SetSelectedGameObject(null, null);
             }
 
-            DevicesCount = Inputs.Count;
+            // Re-snapshot in case the first loop's events mutated the device list.
+            snapshot = Inputs;
+            DevicesCount = snapshot.Count;
             for (int Index = 0; Index < DevicesCount; Index++)
             {
-                BasisInput input = Inputs[Index];
+                BasisInput input = snapshot[Index];
                 if (input == null)
                     continue;
 

@@ -10,8 +10,13 @@ public class Configuration
     public const string ConfigFolderName = "config";
     public const string LogsFolderName = "logs";
     public const string InitialResourcesFolderName = "initialresources";
+    public const string DefaultLibraryFolderName = "defaultlibrary";
     public int PeerLimit = ushort.MaxValue;
     public ushort SetPort = 4296;
+    /// <summary>Display name returned by the unconnected server-info query — what shows up as the row title in a client server-list UI.</summary>
+    public string ServerName = "Basis Server";
+    /// <summary>Short MOTD returned alongside the server name in the info query response. Two short lines render cleanly in the list UI.</summary>
+    public string ServerMotd = "";
     public bool UseNativeSockets = true;
     public bool NatPunchEnabled = false;
     public int PingInterval = 1500;
@@ -75,6 +80,13 @@ public class Configuration
     public bool PropsLocked = false;
     public bool WorldsLocked = true;
     /// <summary>
+    /// When true, peers may not share saved-server entries through the content
+    /// share system. Toggled live via the admin panel and persisted to config.xml
+    /// alongside the other content lockouts. Default off so existing deployments
+    /// behave as before.
+    /// </summary>
+    public bool ServersLocked = false;
+    /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>
     /// <param name="filePath">Path to config file</param>
@@ -97,6 +109,36 @@ public class Configuration
         writer.Close();
 
         return defaultConfig;
+    }
+
+    /// <summary>
+    /// Persist this configuration back to <paramref name="filePath"/>. Used by the
+    /// admin panel to make in-game changes (server name, MOTD, whitelist mode)
+    /// survive a restart. Writes via a sibling temp file + atomic move so a crash
+    /// mid-write doesn't corrupt the live config.
+    /// </summary>
+    public void SaveToXml(string filePath)
+    {
+        var serializer = new XmlSerializer(typeof(Configuration));
+        string dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        string tempPath = filePath + ".tmp";
+        using (var writer = new StreamWriter(tempPath))
+        {
+            serializer.Serialize(writer, this);
+        }
+        if (File.Exists(filePath)) File.Replace(tempPath, filePath, null);
+        else File.Move(tempPath, filePath);
+    }
+
+    /// <summary>
+    /// Resolve the canonical config.xml path under <c>{BaseDirectory}/{ConfigFolderName}/config.xml</c>
+    /// — same path the bootstrappers (BasisServerConsole.Program / Unity host runner) read on startup.
+    /// </summary>
+    public static string GetDefaultPath()
+    {
+        return Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, ConfigFolderName, "config.xml");
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Basis.BasisUI;
 using HVR.Basis.Comms.OSC;
 using HVR.Osushi;
@@ -23,6 +24,8 @@ namespace HVR.Basis.Comms
 
         public event AddressUpdated OnAddressUpdated;
         public delegate void AddressUpdated(string address, float value);
+
+        internal Dictionary<string, int> _debugUpdates = new();
 
         private void OnEnable()
         {
@@ -98,6 +101,15 @@ namespace HVR.Basis.Comms
                     var arg = message.arguments[0];
                     if (arg is float floatValue)
                     {
+                        if (_debugUpdates.TryGetValue(message.path, out var count))
+                        {
+                            _debugUpdates[message.path] = count + 1;
+                        }
+                        else
+                        {
+                            _debugUpdates.Add(message.path, 1);
+                        }
+
                         var messagePath = message.path;
                         if (messagePath.StartsWith("/avatar/parameters/"))
                         {

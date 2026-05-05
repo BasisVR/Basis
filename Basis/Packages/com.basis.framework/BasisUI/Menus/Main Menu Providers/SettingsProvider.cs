@@ -1,11 +1,13 @@
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
+using BasisNetworkClient;
 using BasisPermissions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 namespace Basis.BasisUI
 {
@@ -28,9 +30,21 @@ namespace Basis.BasisUI
         public static readonly List<(string TabName, Func<PanelTabGroup, PanelTabPage> Builder)> ExternalTabs = new();
 
         /// <summary>
-        /// When set by an external package, replaces the default My Avatar tab builder.
+        /// External hook for the Developer tab's "Debug Face Tracking" section.
+        /// The comms package owns the face tracking pipeline types (relays, OSC,
+        /// blendshape actuation) and registers a builder here that populates the
+        /// passed-in container with live diagnostic fields.
         /// </summary>
-        public static Func<PanelTabGroup, PanelTabPage> MyAvatarTabOverride;
+        public static Action<RectTransform> FaceTrackingDebugBuilder;
+
+        /// <summary>
+        /// External hook for the Developer tab's "Debug Eye Tracking" section.
+        /// Same shape as <see cref="FaceTrackingDebugBuilder"/> — the comms
+        /// package registers a builder that populates the container.
+        /// </summary>
+        public static Action<RectTransform> EyeTrackingDebugBuilder;
+
+        public static Action<RectTransform> AvatarCustomizationBuilder;
 
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
@@ -118,15 +132,12 @@ namespace Basis.BasisUI
             AddLazyTab(tabGroup, "settings.tab.audio", () => AudioTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.microphone", () => MicrophoneTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.graphics", () => GraphicsTab(tabGroup));
+            AddLazyTab(tabGroup, "settings.tab.myavatar", () => SettingsProviderAvatarStats.AvatarStatsTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.controls", () => SettingsProviderControllerConfig.OpenControllerConfig(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.chat", () => ChatTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.bodytracking", () => SettingsProviderIK.IKTab(tabGroup));
-            AddLazyTab(tabGroup, "settings.tab.myavatar", () =>
-                MyAvatarTabOverride != null
-                    ? MyAvatarTabOverride(tabGroup)
-                    : SettingsProviderAvatarStats.AvatarStatsTab(tabGroup));
-            AddLazyTab(tabGroup, "settings.tab.downloadscache", () => SettingsProviderStorage.StorageTab(tabGroup));
-            AddLazyTab(tabGroup, "settings.tab.trustedurls", () => SettingsProviderTrustedUrls.TrustedUrlsTab(tabGroup));
+            AddLazyTab(tabGroup, "settings.tab.trackerlinking", () => SettingsProviderTrackerSettings.TrackerSettingsTab(tabGroup));
+            AddLazyTab(tabGroup, "settings.tab.downloadsurls", () => SettingsProviderStorage.DownloadsUrlsTab(tabGroup));
           //  AddLazyTab(tabGroup, "settings.tab.uistyle", () => SettingsProviderUIStyle.UIStyleTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.developer", () => DeveloperTab(tabGroup));
 
@@ -139,6 +150,10 @@ namespace Basis.BasisUI
                 AddLazyTab(tabGroup, ext.TabName, () => ext.Builder(tabGroup));
             }
 
+            if (BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PlayerModeration))
+            {
+                AddLazyTab(tabGroup, "settings.tab.moderator", () => SettingsProviderModeratorTab.ModeratorTab(tabGroup));
+            }
             if (BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsView))
             {
                 AddLazyTab(tabGroup, "settings.tab.admin", () => SettingsProviderAdminTab.AdminTab(tabGroup));
@@ -401,36 +416,43 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.MainVolume);
             sliderMainVolume.Descriptor.SetTitle(BasisLocalization.Get("settings.audio.masterVolume"));
             sliderMainVolume.Descriptor.SetDescription(BasisLocalization.Get("settings.audio.masterVolume.description"));
+            sliderMainVolume.SliderComponent.onValueChanged.AddListener(SMModuleAudio.ApplyMainVolume);
 
             PanelSlider sliderMenuVolume = PanelSlider.CreateEntryAndBind(
                 mixerGroup,
                 PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("settings.audio.menuVolume")),
                 BasisSettingsDefaults.MenuVolume);
+            sliderMenuVolume.SliderComponent.onValueChanged.AddListener(SMModuleAudio.ApplyMenuVolume);
 
             PanelSlider sliderWorldVolume = PanelSlider.CreateEntryAndBind(
                 mixerGroup,
                 PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("settings.audio.worldVolume")),
                 BasisSettingsDefaults.WorldVolume);
+            sliderWorldVolume.SliderComponent.onValueChanged.AddListener(SMModuleAudio.ApplyWorldVolume);
 
             PanelSlider sliderVideoVolume = PanelSlider.CreateEntryAndBind(
                 mixerGroup,
                 PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("settings.audio.mediaVolume")),
                 BasisSettingsDefaults.MediaVolume);
+            sliderVideoVolume.SliderComponent.onValueChanged.AddListener(SMModuleAudio.ApplyMediaVolume);
 
             PanelSlider sliderVoiceVolume = PanelSlider.CreateEntryAndBind(
                 mixerGroup,
                 PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("settings.audio.voiceVolume")),
                 BasisSettingsDefaults.VoiceVolume);
+            sliderVoiceVolume.SliderComponent.onValueChanged.AddListener(SMModuleAudio.ApplyVoiceVolume);
 
             PanelSlider sliderAvatarVolume = PanelSlider.CreateEntryAndBind(
                 mixerGroup,
                 PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("settings.audio.avatarVolume")),
                 BasisSettingsDefaults.AvatarVolume);
+            sliderAvatarVolume.SliderComponent.onValueChanged.AddListener(SMModuleAudio.ApplyAvatarVolume);
 
             PanelSlider sliderPropVolume = PanelSlider.CreateEntryAndBind(
                 mixerGroup,
                 PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("settings.audio.propVolume")),
                 BasisSettingsDefaults.PropVolume);
+            sliderPropVolume.SliderComponent.onValueChanged.AddListener(SMModuleAudio.ApplyPropVolume);
 
             // Remote Players (Spatial Audio) — also hosts Hearing Range and the
             // Audio Source cap, since both are "how do I hear other players" controls.
@@ -562,6 +584,20 @@ namespace Basis.BasisUI
                 BasisLocalMicrophoneDriver.SettingStartRememberLast,
             });
             dropdownMicStartBehavior.AssignBinding(BasisSettingsDefaults.MicStartBehavior);
+
+            PanelElementDescriptor muteBehaviorGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            muteBehaviorGroup.SetTitle(BasisLocalization.Get("settings.microphone.muteBehavior.title"));
+            muteBehaviorGroup.SetDescription(BasisLocalization.Get("settings.microphone.muteBehavior.description"));
+
+            PanelDropdown dropdownMicMuteBehavior = PanelDropdown.CreateNewEntry(muteBehaviorGroup);
+            dropdownMicMuteBehavior.Descriptor.SetTitle(BasisLocalization.Get("settings.microphone.muteBehavior"));
+            dropdownMicMuteBehavior.AssignEntries(new List<string>
+            {
+                BasisLocalMicrophoneDriver.SettingMuteShutdown,
+                BasisLocalMicrophoneDriver.SettingMuteSuppress,
+            });
+            dropdownMicMuteBehavior.AssignBinding(BasisSettingsDefaults.MicMuteBehavior);
 
             // -------------------- DSP SETTINGS --------------------
 
@@ -814,6 +850,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.MicrophoneDenoiser.ResetToDefault();
             BasisSettingsDefaults.UseAutomaticGain.ResetToDefault();
             BasisSettingsDefaults.MicrophoneMode.ResetToDefault();
+            BasisSettingsDefaults.MicMuteBehavior.ResetToDefault();
             BasisSettingsDefaults.MicrophoneIcon.ResetToDefault();
             BasisSettingsDefaults.MicrophoneIconOffsetX.ResetToDefault();
             BasisSettingsDefaults.MicrophoneIconOffsetY.ResetToDefault();
@@ -1381,20 +1418,85 @@ namespace Basis.BasisUI
             RectTransform container = descriptor.ContentParent;
 
 
+            // ---- Gizmos (master + per-gizmo sub-toggles) ----
+            PanelElementDescriptor gizmosGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            gizmosGroup.SetTitle(BasisLocalization.Get("settings.developer.gizmos.title"));
+            gizmosGroup.SetDescription(BasisLocalization.Get("settings.developer.gizmos.description"));
+
+            PanelToggle toggleShowGizmos = PanelToggle.CreateNewEntry(gizmosGroup.ContentParent);
+            toggleShowGizmos.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.showGizmos"));
+            toggleShowGizmos.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.showGizmos.description"));
+            toggleShowGizmos.AssignBinding(BasisSettingsDefaults.ShowGizmos);
+
+            PanelToggle toggleSkeletonLines = PanelToggle.CreateNewEntry(gizmosGroup.ContentParent);
+            toggleSkeletonLines.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.skeletonLines"));
+            toggleSkeletonLines.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.skeletonLines.description"));
+            toggleSkeletonLines.AssignBinding(BasisSettingsDefaults.GizmoSkeletonLines);
+
+            PanelToggle toggleCalibrationSpheres = PanelToggle.CreateNewEntry(gizmosGroup.ContentParent);
+            toggleCalibrationSpheres.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.calibrationSpheres"));
+            toggleCalibrationSpheres.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.calibrationSpheres.description"));
+            toggleCalibrationSpheres.AssignBinding(BasisSettingsDefaults.GizmoCalibrationSpheres);
+
+            PanelToggle toggleJiggleVisuals = PanelToggle.CreateNewEntry(gizmosGroup.ContentParent);
+            toggleJiggleVisuals.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.jiggleVisuals"));
+            toggleJiggleVisuals.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.jiggleVisuals.description"));
+            toggleJiggleVisuals.AssignBinding(BasisSettingsDefaults.GizmoJiggleVisuals);
+
+            PanelToggle toggleTrackerGizmos = PanelToggle.CreateNewEntry(gizmosGroup.ContentParent);
+            toggleTrackerGizmos.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.trackerGizmos"));
+            toggleTrackerGizmos.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.trackerGizmos.description"));
+            toggleTrackerGizmos.AssignBinding(BasisSettingsDefaults.TrackerGizmos);
+
+            PanelToggle toggleLinkedTrackerLines = PanelToggle.CreateNewEntry(gizmosGroup.ContentParent);
+            toggleLinkedTrackerLines.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.linkedTrackerLines"));
+            toggleLinkedTrackerLines.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.linkedTrackerLines.description"));
+            toggleLinkedTrackerLines.AssignBinding(BasisSettingsDefaults.LinkedTrackerLines);
+
+            // Hide sub-toggles when the master is off — they're meaningless without it
+            // and shouldn't clutter the page.
+            void RefreshGizmoSubVisibility(bool masterOn)
+            {
+                toggleSkeletonLines.Descriptor.SetActive(masterOn);
+                toggleCalibrationSpheres.Descriptor.SetActive(masterOn);
+                toggleJiggleVisuals.Descriptor.SetActive(masterOn);
+                toggleTrackerGizmos.Descriptor.SetActive(masterOn);
+                toggleLinkedTrackerLines.Descriptor.SetActive(masterOn);
+                gizmosGroup.ForceRebuild();
+            }
+            RefreshGizmoSubVisibility(toggleShowGizmos.Value);
+            toggleShowGizmos.OnValueChanged += RefreshGizmoSubVisibility;
+
+            // ---- Identity (DID) ----
+            // The user's DID/UUID is the long-lived id the server keys ban,
+            // permission, and content-share entries against. We render it through
+            // PanelPasswordField so the value is masked by default and the user
+            // has to tap the eye icon to reveal — same UX as a server password.
+            // Read-only because DIDs are persisted to PlayerPrefs and rotated
+            // through BasisDIDAuthIdentityClient, not edited inline.
+            PanelElementDescriptor didGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            didGroup.SetTitle(BasisLocalization.Get("settings.developer.didKey.title"));
+            didGroup.SetDescription(BasisLocalization.Get("settings.developer.didKey.description"));
+
+            PanelPasswordField didField = PanelPasswordField.CreateNewEntry(didGroup.ContentParent);
+            didField.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.didKey.field"));
+            if (didField._inputField != null) didField._inputField.readOnly = true;
+            try
+            {
+                didField.SetPassword(BasisDIDAuthIdentityClient.GetOrSaveDID() ?? string.Empty);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogWarning($"Failed to load DID for developer panel: {ex.Message}");
+                didField.SetPassword(string.Empty);
+            }
+
             PanelElementDescriptor debugGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             debugGroup.SetTitle(BasisLocalization.Get("settings.developer.visualHelpers.title"));
             debugGroup.SetDescription(BasisLocalization.Get("settings.developer.visualHelpers.description"));
-
-            PanelToggle toggleBoneTracking = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
-            toggleBoneTracking.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.boneTracking"));
-            toggleBoneTracking.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.boneTracking.description"));
-            toggleBoneTracking.AssignBinding(BasisSettingsDefaults.DebugVisuals);
-
-            PanelToggle toggleTrackerGizmos = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
-            toggleTrackerGizmos.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.trackerGizmos"));
-            toggleTrackerGizmos.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.trackerGizmos.description"));
-            toggleTrackerGizmos.AssignBinding(BasisSettingsDefaults.TrackerGizmos);
 
             PanelToggle toggleAvatarDistance = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
             toggleAvatarDistance.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.avatarDistance"));
@@ -1508,6 +1610,52 @@ namespace Basis.BasisUI
             toggleViseme.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.audioDebug.viseme.description"));
             toggleViseme.AssignBinding(BasisSettingsDefaults.AudioDebugShowViseme);
 
+            // Hide per-section sub-toggles when the master is off — same pattern
+            // as RefreshGizmoSubVisibility above. They don't drive any rendering
+            // unless the master is on, so leaving them visible just clutters the
+            // page.
+            void RefreshAudioDebugSubVisibility(bool masterOn)
+            {
+                toggleAudioSource.Descriptor.SetActive(masterOn);
+                toggleVolumeChain.Descriptor.SetActive(masterOn);
+                toggleRingBuffer.Descriptor.SetActive(masterOn);
+                toggleJitter.Descriptor.SetActive(masterOn);
+                toggleSilence.Descriptor.SetActive(masterOn);
+                toggleViseme.Descriptor.SetActive(masterOn);
+                audioDebugGroup.ForceRebuild();
+            }
+            RefreshAudioDebugSubVisibility(toggleAudioDebug.Value);
+            toggleAudioDebug.OnValueChanged += RefreshAudioDebugSubVisibility;
+
+            // ---- Avatar Debug (face/eye tracking diagnostics + texture and tracker info) ----
+            // The face / eye tracking section builders are owned by the comms
+            // package because they reference HVR types the framework can't see;
+            // the framework holds Action<RectTransform> hooks they register into.
+            PanelElementDescriptor avatarDebugGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            avatarDebugGroup.SetTitle(BasisLocalization.Get("settings.developer.avatarDebug.title"));
+            avatarDebugGroup.SetDescription(BasisLocalization.Get("settings.developer.avatarDebug.description"));
+
+            PanelToggle toggleDebugFace = PanelToggle.CreateNewEntry(avatarDebugGroup.ContentParent);
+            toggleDebugFace.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.debugFaceTracking"));
+            toggleDebugFace.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.debugFaceTracking.description"));
+            toggleDebugFace.AssignBinding(BasisSettingsDefaults.DevDebugFaceTracking);
+
+            PanelToggle toggleDebugEye = PanelToggle.CreateNewEntry(avatarDebugGroup.ContentParent);
+            toggleDebugEye.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.debugEyeTracking"));
+            toggleDebugEye.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.debugEyeTracking.description"));
+            toggleDebugEye.AssignBinding(BasisSettingsDefaults.DevDebugEyeTracking);
+
+            PanelToggle toggleTextureStats = PanelToggle.CreateNewEntry(avatarDebugGroup.ContentParent);
+            toggleTextureStats.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.textureStats"));
+            toggleTextureStats.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.textureStats.description"));
+            toggleTextureStats.AssignBinding(BasisSettingsDefaults.AvatarShowTextureStats);
+
+            PanelToggle toggleAssignedTrackers = PanelToggle.CreateNewEntry(avatarDebugGroup.ContentParent);
+            toggleAssignedTrackers.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.assignedTrackers"));
+            toggleAssignedTrackers.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.assignedTrackers.description"));
+            toggleAssignedTrackers.AssignBinding(BasisSettingsDefaults.AvatarShowTrackerRoles);
+
             // ---- Collapsible sections (toggled by section visibility) ----
             // Helper: collect all new children added to container by a builder call
             static List<GameObject> CollectNewChildren(RectTransform parent, int countBefore)
@@ -1571,6 +1719,80 @@ namespace Basis.BasisUI
                 if (on) CreateNetStats();
             };
 
+            // Avatar Debug — Face Tracking diagnostics
+            PanelElementDescriptor faceTrackingSection = null;
+            void CreateFaceTrackingSection()
+            {
+                if (FaceTrackingDebugBuilder == null)
+                {
+                    faceTrackingSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                    faceTrackingSection.SetTitle(BasisLocalization.Get("settings.developer.debugFaceTracking"));
+                    faceTrackingSection.SetDescription(BasisLocalization.Get("settings.developer.debugFaceTracking.unavailable"));
+                    return;
+                }
+                faceTrackingSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                faceTrackingSection.SetTitle(BasisLocalization.Get("settings.developer.debugFaceTracking"));
+                FaceTrackingDebugBuilder(faceTrackingSection.ContentParent);
+            }
+            if (BasisSettingsDefaults.DevDebugFaceTracking.RawValue) CreateFaceTrackingSection();
+            toggleDebugFace.OnValueChanged += on =>
+            {
+                if (faceTrackingSection != null) { UnityEngine.Object.Destroy(faceTrackingSection.gameObject); faceTrackingSection = null; }
+                if (on) CreateFaceTrackingSection();
+            };
+
+            // Avatar Debug — Eye Tracking diagnostics
+            PanelElementDescriptor eyeTrackingSection = null;
+            void CreateEyeTrackingSection()
+            {
+                if (EyeTrackingDebugBuilder == null)
+                {
+                    eyeTrackingSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                    eyeTrackingSection.SetTitle(BasisLocalization.Get("settings.developer.debugEyeTracking"));
+                    eyeTrackingSection.SetDescription(BasisLocalization.Get("settings.developer.debugEyeTracking.unavailable"));
+                    return;
+                }
+                eyeTrackingSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                eyeTrackingSection.SetTitle(BasisLocalization.Get("settings.developer.debugEyeTracking"));
+                EyeTrackingDebugBuilder(eyeTrackingSection.ContentParent);
+            }
+            if (BasisSettingsDefaults.DevDebugEyeTracking.RawValue) CreateEyeTrackingSection();
+            toggleDebugEye.OnValueChanged += on =>
+            {
+                if (eyeTrackingSection != null) { UnityEngine.Object.Destroy(eyeTrackingSection.gameObject); eyeTrackingSection = null; }
+                if (on) CreateEyeTrackingSection();
+            };
+
+            // Avatar Debug — Texture Statistics
+            PanelElementDescriptor textureStatsSection = null;
+            void CreateTextureStatsSection()
+            {
+                textureStatsSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                textureStatsSection.SetTitle(BasisLocalization.Get("settings.developer.textureStats"));
+                SettingsProviderAvatarStats.PopulateStatsInto(textureStatsSection.ContentParent);
+            }
+            if (BasisSettingsDefaults.AvatarShowTextureStats.RawValue) CreateTextureStatsSection();
+            toggleTextureStats.OnValueChanged += on =>
+            {
+                if (textureStatsSection != null) { UnityEngine.Object.Destroy(textureStatsSection.gameObject); textureStatsSection = null; }
+                if (on) CreateTextureStatsSection();
+            };
+
+            // Avatar Debug — Assigned Trackers list
+            PanelElementDescriptor assignedTrackersSection = null;
+            void CreateAssignedTrackersSection()
+            {
+                assignedTrackersSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                assignedTrackersSection.SetTitle(BasisLocalization.Get("settings.developer.assignedTrackers"));
+                SettingsProviderAvatarStats.PopulateTrackerRoles(assignedTrackersSection);
+            }
+            if (BasisSettingsDefaults.AvatarShowTrackerRoles.RawValue) CreateAssignedTrackersSection();
+            toggleAssignedTrackers.OnValueChanged += on =>
+            {
+                if (assignedTrackersSection != null) { UnityEngine.Object.Destroy(assignedTrackersSection.gameObject); assignedTrackersSection = null; }
+                if (on) CreateAssignedTrackersSection();
+            };
+
             SettingsProviderPlatform.BuildAutoSwapUI(container);
 
             // One reset button for this whole page
@@ -1597,7 +1819,10 @@ namespace Basis.BasisUI
 
         private static void ResetDeveloperDefaults()
         {
-            BasisSettingsDefaults.DebugVisuals.ResetToDefault();
+            BasisSettingsDefaults.ShowGizmos.ResetToDefault();
+            BasisSettingsDefaults.GizmoSkeletonLines.ResetToDefault();
+            BasisSettingsDefaults.GizmoCalibrationSpheres.ResetToDefault();
+            BasisSettingsDefaults.GizmoJiggleVisuals.ResetToDefault();
             BasisSettingsDefaults.TrackerGizmos.ResetToDefault();
             BasisSettingsDefaults.VisualState.SetValue("off");
             BasisSettingsDefaults.EnableStatistics.ResetToDefault();
@@ -1618,6 +1843,10 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.AudioDebugShowJitter.ResetToDefault();
             BasisSettingsDefaults.AudioDebugShowSilence.ResetToDefault();
             BasisSettingsDefaults.AudioDebugShowViseme.ResetToDefault();
+            BasisSettingsDefaults.DevDebugFaceTracking.ResetToDefault();
+            BasisSettingsDefaults.DevDebugEyeTracking.ResetToDefault();
+            BasisSettingsDefaults.AvatarShowTextureStats.ResetToDefault();
+            BasisSettingsDefaults.AvatarShowTrackerRoles.ResetToDefault();
             BasisSettingsDefaults.SwapMode.ResetToDefault();
         }
 

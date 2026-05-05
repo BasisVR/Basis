@@ -605,14 +605,26 @@ namespace SteamAudio
                 mSimulator.Commit();
             }
 
+            // Complete the in-flight GatherPoseJob BEFORE touching mListener's
+            // Transform. The job runs over mListenerTransforms (a TAA), and any
+            // managed Transform property access on the main thread will stall
+            // on the TAA's safety handle until the job finishes. Reading
+            // position/forward/up/right ahead of Complete() was the source of
+            // the per-frame Transform.get_position spike.
+            combined.Complete();
+
             var sharedInputs = new SimulationSharedInputs { };
 
             if (mListener != null)
             {
-                sharedInputs.listener.origin = Common.ConvertVector(mListener.position);
-                sharedInputs.listener.ahead = Common.ConvertVector(mListener.forward);
-                sharedInputs.listener.up = Common.ConvertVector(mListener.up);
-                sharedInputs.listener.right = Common.ConvertVector(mListener.right);
+                // One native interop call instead of four (position + 3 basis
+                // vectors). Each property accessor goes through a P/Invoke;
+                // forward/up/right additionally each fetch rotation internally.
+                mListener.GetPositionAndRotation(out var listenerPos, out var listenerRot);
+                sharedInputs.listener.origin = Common.ConvertVector(listenerPos);
+                sharedInputs.listener.ahead = Common.ConvertVector(listenerRot * UnityEngine.Vector3.forward);
+                sharedInputs.listener.up = Common.ConvertVector(listenerRot * UnityEngine.Vector3.up);
+                sharedInputs.listener.right = Common.ConvertVector(listenerRot * UnityEngine.Vector3.right);
             }
 
             sharedInputs.numRays = settings.realTimeRays;
@@ -624,10 +636,6 @@ namespace SteamAudio
             sharedInputs.pathingUserData = IntPtr.Zero;
 
             mSimulator.SetSharedInputs(SimulationFlags.Direct, sharedInputs);
-
-
-            // Complete before calling into Steam Audio (main-thread plugin calls)
-            combined.Complete();
 
             // --- Direct inputs from cached pose arrays ---
             unsafe

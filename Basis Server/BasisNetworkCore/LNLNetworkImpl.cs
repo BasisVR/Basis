@@ -41,7 +41,15 @@ namespace Basis.Network.Core
 
         void LiteNetLib.INetEventListener.OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, LiteNetLib.NetPacketReader reader, LiteNetLib.UnconnectedMessageType messageType)
         {
-            // unused
+            // Broadcast packets aren't part of the server-info contract — only respond to direct probes.
+            if (messageType != LiteNetLib.UnconnectedMessageType.BasicMessage) return;
+
+            NetPacketReader read = new NetPacketReader(reader);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            read.channel = 255;
+            read.method = DeliveryMethod.Unreliable;
+#endif
+            NetworkReceiveUnconnectedEvent?.Invoke(remoteEndPoint, read);
         }
 
         void LiteNetLib.INetEventListener.OnNetworkLatencyUpdate(LiteNetLib.NetPeer peer, int latency)
@@ -194,7 +202,7 @@ namespace Basis.Network.Core
             manager = new LiteNetLib.NetManager(listener, null)
             {
                 AutoRecycle = false,
-                UnconnectedMessagesEnabled = false,
+                UnconnectedMessagesEnabled = true,
                 NatPunchEnabled = configuration.NatPunchEnabled,
                 AllowPeerAddressChange = configuration.AllowPeerAddressChange,
                 BroadcastReceiveEnabled = false,
@@ -232,6 +240,11 @@ namespace Basis.Network.Core
 
             LiteNetLib.NetPeer peer = manager.Connect(LiteNetLib.NetUtils.MakeEndPoint(sIP, port), Writer.AsReadOnlySpan());
             return new LNLNetPeer(peer);
+        }
+
+        public bool SendUnconnectedMessage(NetDataWriter writer, IPEndPoint remoteEndPoint)
+        {
+            return manager.SendUnconnectedMessage(writer.AsReadOnlySpan(), remoteEndPoint);
         }
 
         public int ConnectedPeersCount => manager.ConnectedPeersCount;

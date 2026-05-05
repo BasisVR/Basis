@@ -39,6 +39,16 @@ namespace Basis.Scripts.Device_Management.Devices
         public bool hasRoleAssigned;
 
         /// <summary>
+        /// True when this device is half of an active tracker pair, i.e. its data is being
+        /// merged into a virtual midpoint device by the pairing service. Calibration skips
+        /// linked devices so the merged virtual claims the body role for the pair on its
+        /// own. Set/cleared by the pairing service when the partner virtual is created or
+        /// torn down.
+        /// </summary>
+        [SerializeField]
+        public bool IsLinked;
+
+        /// <summary>
         /// The bone control this input drives (e.g., left hand, right foot).
         /// </summary>
         public BasisLocalBoneControl Control = null;

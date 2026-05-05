@@ -31,7 +31,9 @@ namespace Basis.Network.Core.Compression
         public const int WritePosition = BasisAvatarBitPacking.WritePosition;   // 12
         public const int WriteScale    = BasisAvatarBitPacking.WriteScale;      // 2
         public const int WriteRotation = BasisAvatarBitPacking.WriteRotation;   // 7
-        public const int TailBytes     = WriteScale + WriteRotation;            // 9
+        public const int WriteHipsDelta = BasisAvatarBitPacking.WriteHipsDelta; // 6
+        public const int WriteHipsRotation = BasisAvatarBitPacking.WriteHipsRotation; // 7
+        public const int TailBytes     = BasisAvatarBitPacking.TailBytes;       // 22
 
         // ────────────────────────────────────────────────────────────
         //  Bone write order: HumanBodyBones enum values (excluding Hips=0)
