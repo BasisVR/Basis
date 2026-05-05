@@ -44,6 +44,11 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 07cdc29d6d966654cb96b6662b5248f6
+    m_Address: DesktopReticle
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0870e2b67a5121e4ebfeacb2276a0abd
     m_Address: Packages/com.basis.sdk/Textures/Runtime/add.png
     m_ReadOnly: 0

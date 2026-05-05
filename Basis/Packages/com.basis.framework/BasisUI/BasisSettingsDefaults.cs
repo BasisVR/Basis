@@ -270,6 +270,8 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> AvatarPreview = new("avatarpreview", new BasisPlatformDefault<bool>(false));
 
+        public static BasisSettingsBinding<bool> DesktopReticle = new("desktopreticle", new BasisPlatformDefault<bool>(false));
+
         public static BasisSettingsBinding<string> MicrophoneIcon = new("microphoneicon", new BasisPlatformDefault<string>("alwaysvisible"));
 
         public static BasisSettingsBinding<float> MicrophoneIconOffsetX = new("microphoneiconoffsetx", new BasisPlatformDefault<float>(0f));
@@ -1209,6 +1211,7 @@ namespace Basis.BasisUI
 
             // UI
             AvatarPreview.LoadBindingValue();
+            DesktopReticle.LoadBindingValue();
             MicrophoneIcon.LoadBindingValue();
             MicrophoneIconOffsetX.LoadBindingValue();
             MicrophoneIconOffsetY.LoadBindingValue();

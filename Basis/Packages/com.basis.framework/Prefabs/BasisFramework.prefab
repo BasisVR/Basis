@@ -84,8 +84,16 @@ MonoBehaviour:
   LocalAccessTransmitter:
     LastLinkedAvatarIndex: 0
     hasID: 0
+    playerId: 0
+    JoinTime: 0
     NetworkBehaviourCount: 0
     NetworkBehaviours: []
+    HasOverridenDestination: 0
+    OverridenPosition:
+      x: 0
+      y: 0
+      z: 0
+    OverridenRotation: {x: 0, y: 0, z: 0, w: 0}
     HasEvents: 0
     AudioTransmission:
       Local: {fileID: 0}
@@ -134,11 +142,11 @@ MonoBehaviour:
   NormalColor: {r: 0.25490198, g: 0.25490198, b: 0.25490198, a: 0.4509804}
   IsTalkingColor: {r: 0.3529412, g: 0.72156864, b: 0.90588236, a: 0.7490196}
   OutOfRangeColor: {r: 0.105882354, g: 0.23137255, b: 0.29411766, a: 0.7490196}
+  FailedLoadColor: {r: 1, g: 0.2, b: 0.2, a: 1}
   Text: {fileID: 4873537771675878447}
   TransParentNamePlateMaterial: {fileID: 2100000, guid: 69830dfb9aced8f43b4ec3faecb299e9, type: 2}
   OpaqueNamePlateMaterial: {fileID: 2100000, guid: 71743328d0464434ab9d1dc6c5df4e46, type: 2}
   SelectedNamePlateMaterial: {fileID: 2100000, guid: 71743328d0464434ab9d1dc6c5df4e46, type: 2}
-  RoundedCornersMesh: {fileID: 0}
   RoundEdges: 0.85
   CornerVertexCount: 8
   zOffset: 0.06
@@ -926,7 +934,6 @@ MonoBehaviour:
   InputActions: {fileID: 761910860860970306}
   BasisDeviceNameMatcher: {fileID: 11400000, guid: 9b8e3db83cb310c40afaa430d0071a18, type: 2}
   ForcedDefault: 
-  LipSyncProfile: {fileID: 11400000, guid: 0beeb56a431ea1646bb55ff6c6fc5a62, type: 2}
   AutoSwapPreviousVRMode: 
   IsSoftSwapped: 0
   BasisNetworking: {fileID: 1872085853221644195}
@@ -1003,6 +1010,7 @@ MonoBehaviour:
   LeftInput: {fileID: 0}
   RightInput: {fileID: 0}
   Inputs: []
+  ReticleMaterial: {fileID: 2100000, guid: d4f6c8a9e2b1408394c7e5f1a8b62d50, type: 2}
 --- !u!114 &-3061024371983229343
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1061,6 +1069,7 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
         AssetBundleIcon: {fileID: 0}
+        Tags: []
       BasisBundleGenerated: []
       ImageBase64: 
       DateOfCreation: 
@@ -1071,6 +1080,7 @@ MonoBehaviour:
         TrianglesCount: 0
         MaterialCount: 0
         BonesCount: 0
+        TextureMemoryBytes: 0
         ComponentNames: []
   DefaultAvatar:
     UnlockPassword: 
@@ -1085,6 +1095,7 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
         AssetBundleIcon: {fileID: 0}
+        Tags: []
       BasisBundleGenerated: []
       ImageBase64: 
       DateOfCreation: 
@@ -1095,6 +1106,7 @@ MonoBehaviour:
         TrianglesCount: 0
         MaterialCount: 0
         BonesCount: 0
+        TextureMemoryBytes: 0
         ComponentNames: []
   UseAddressablesToLoadScene: 0
   UseSceneProvidedHere: 0

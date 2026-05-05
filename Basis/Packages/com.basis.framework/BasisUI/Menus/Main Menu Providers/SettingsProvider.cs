@@ -326,6 +326,16 @@ namespace Basis.BasisUI
             toggleDisableSeats.Descriptor.SetTitle(BasisLocalization.Get("settings.general.disableSeats"));
             toggleDisableSeats.Descriptor.SetDescription(BasisLocalization.Get("settings.general.disableSeats.description"));
 
+            // HUD overlays — heads-up display elements rendered over the scene.
+            PanelElementDescriptor hudGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            hudGroup.SetTitle(BasisLocalization.Get("settings.general.hud.title"));
+
+            PanelToggle toggleDesktopReticle = PanelToggle.CreateNewEntry(hudGroup);
+            toggleDesktopReticle.AssignBinding(BasisSettingsDefaults.DesktopReticle);
+            toggleDesktopReticle.Descriptor.SetTitle(BasisLocalization.Get("settings.general.desktopReticle"));
+            toggleDesktopReticle.Descriptor.SetDescription(BasisLocalization.Get("settings.general.desktopReticle.description"));
+
             // One reset button for this whole page
             AddResetPageButton(container, "settings.tab.general", ResetGeneralDefaults);
             descriptor.ForceRebuild();
@@ -391,6 +401,7 @@ namespace Basis.BasisUI
         {
             BasisSettingsDefaults.AvatarPreview.ResetToDefault();
             BasisSettingsDefaults.DisableSeats.ResetToDefault();
+            BasisSettingsDefaults.DesktopReticle.ResetToDefault();
         }
 
         // ------------------
