@@ -76,40 +76,6 @@ namespace Basis.Scripts.Avatar
         {
             return string.IsNullOrEmpty(BasisLoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation);
         }
-        public static bool EnsureAvatarNetworkGUID(BasisAvatar avatar, out string guid)
-        {
-            guid = string.Empty;
-            if (avatar == null)
-            {
-                return false;
-            }
-
-            if (avatar.TryGetNetworkGUIDIdentifier(out guid) && !string.IsNullOrWhiteSpace(guid))
-            {
-                return true;
-            }
-
-            guid = BasisGenerateUniqueID.GenerateUniqueID();
-            avatar.AssignNetworkGUIDIdentifier(guid);
-            return true;
-        }
-        public static bool AssignAvatarNetworkGUID(BasisAvatar avatar, string guid)
-        {
-            if (avatar == null)
-            {
-                BasisDebug.LogError("Unable to assign avatar network GUID because avatar is null.", BasisDebug.LogTag.Networking);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(guid))
-            {
-                BasisDebug.LogError("Unable to assign avatar network GUID because GUID is null or empty.", BasisDebug.LogTag.Networking);
-                return false;
-            }
-
-            avatar.AssignNetworkGUIDIdentifier(guid);
-            return true;
-        }
         public static long MaxDownloadSizeInMBRemote = 4L * 1024 * 1024 * 1024;
         /// <summary>
         /// Loads an avatar locally for a <see cref="BasisLocalPlayer"/>.
@@ -431,15 +397,6 @@ namespace Basis.Scripts.Avatar
             Player.AvatarAnimatorTransform = avatar.Animator.transform;
             Player.BasisAvatar.Renders = avatar.GetComponentsInChildren<Renderer>(true);
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
-
-            if (Player.IsLocal)
-            {
-                EnsureAvatarNetworkGUID(avatar, out _);
-            }
-            else if (!isFallback && Player is BasisRemotePlayer remotePlayer)
-            {
-                AssignAvatarNetworkGUID(avatar, remotePlayer.CACM.AvatarNetworkGuid);
-            }
 
             switch (Player)
             {

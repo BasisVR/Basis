@@ -10,7 +10,6 @@ public static partial class SerializableBasis
         public byte[] byteArray;
         //we increment this and then wrap around when > 255
         public byte LocalAvatarIndex;
-        public string AvatarNetworkGuid;
         public void Deserialize(NetDataReader Writer)
         {
             // Read the load mode
@@ -32,7 +31,6 @@ public static partial class SerializableBasis
                 Writer.GetBytes(byteArray, 0, byteArray.Length);
             }
             LocalAvatarIndex = Writer.GetByte();
-            Writer.Get(out AvatarNetworkGuid);
         }
         public void Serialize(NetDataWriter Writer)
         {
@@ -48,7 +46,6 @@ public static partial class SerializableBasis
                 Writer.Put(byteArray);
             }
             Writer.Put(LocalAvatarIndex);
-            Writer.Put(AvatarNetworkGuid ?? string.Empty);
         }
     }
 }

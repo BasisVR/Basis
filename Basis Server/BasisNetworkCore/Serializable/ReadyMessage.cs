@@ -20,9 +20,11 @@ public static partial class SerializableBasis
         }
         public bool WasDeserializedCorrectly()
         {
-            if(clientAvatarChangeMessage.byteArray == null ||
-            string.IsNullOrWhiteSpace(clientAvatarChangeMessage.AvatarNetworkGuid)||
-            localAvatarSyncMessage.array == null)
+            if(clientAvatarChangeMessage.byteArray == null)
+            {
+                return false;
+            }
+            if(localAvatarSyncMessage.array == null)
             {
                 return false;
             }
