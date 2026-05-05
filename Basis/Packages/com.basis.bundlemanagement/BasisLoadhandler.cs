@@ -464,33 +464,159 @@ public static class BasisLoadHandler
         {
             loadTasks.Add(Task.Run(async () =>
             {
-               // BasisDebug.Log($"Loading file: {file}");
+                byte[] fileData;
                 try
                 {
-                    byte[] fileData = await File.ReadAllBytesAsync(file);
-                    BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
-                    OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
-
-                    if (hasLegacy && !string.IsNullOrWhiteSpace(discInfo.UniqueVersion) && !string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform))
-                    {
-                        string canonicalMetaPath = BasisIOManagement.GetMetaCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
-                        if (!string.Equals(file, canonicalMetaPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(canonicalMetaPath))
-                        {
-                            TryMigrateFile(file, canonicalMetaPath);
-                        }
-                    }
+                    fileData = await File.ReadAllBytesAsync(file);
                 }
                 catch (Exception ex)
                 {
-                    BasisDebug.LogError($"Failed to load disc info from {file}: {ex.Message}", BasisDebug.LogTag.Event);
-                    File.Delete(file);
+                    BasisDebug.LogError($"Failed to read disc info from {file}: {ex.Message}", BasisDebug.LogTag.Event);
+                    return;
                 }
+
+                BasisBEEExtensionMeta discInfo;
+                try
+                {
+                    discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
+                }
+                catch (Exception ex)
+                {
+                    BasisDebug.LogError($"Corrupt disc info at {file}, deleting: {ex.Message}", BasisDebug.LogTag.Event);
+                    try { File.Delete(file); } catch { }
+                    return;
+                }
+
+                if (discInfo?.StoredRemote?.RemoteBeeFileLocation == null)
+                {
+                    BasisDebug.LogWarning($"Skipping disc info with no remote URL at {file}", BasisDebug.LogTag.Event);
+                    return;
+                }
+
+                OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
             }));
         }
 
         await Task.WhenAll(loadTasks);
 
+        if (hasLegacy)
+        {
+            foreach (string file in legacyFiles)
+            {
+                if (!File.Exists(file))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    byte[] fileData = File.ReadAllBytes(file);
+                    BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
+                    if (string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+                    {
+                        continue;
+                    }
+
+                    string canonicalMetaPath = BasisIOManagement.GetMetaCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+                    if (!string.Equals(file, canonicalMetaPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(canonicalMetaPath))
+                    {
+                        TryMigrateFile(file, canonicalMetaPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    BasisDebug.LogWarning($"Failed migrating legacy meta {file}: {ex.Message}", BasisDebug.LogTag.Event);
+                }
+            }
+        }
+
+        MigrateLegacyPayloadFiles(rootPath, BasisBeeConstants.BasisEncryptedExtension);
+        MigrateLegacyPayloadFiles(rootPath, BasisBeeConstants.BasisConnectorExtension);
+
         BasisDebug.Log("Completed loading all disc data.");
+    }
+
+    private static readonly HashSet<string> KnownCachePlatforms = BuildKnownCachePlatforms();
+
+    private static HashSet<string> BuildKnownCachePlatforms()
+    {
+        HashSet<string> set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string name in Enum.GetNames(typeof(RuntimePlatform)))
+        {
+            set.Add(name);
+            set.Add(BasisIOManagement.NormalizeCachePlatformName(name));
+        }
+        set.Remove(string.Empty);
+        return set;
+    }
+
+    private static bool TryParsePlatformSuffix(string fileNameNoExt, out string uniqueVersion, out string platform)
+    {
+        int lastDot = fileNameNoExt.LastIndexOf('.');
+        if (lastDot > 0)
+        {
+            string suffix = fileNameNoExt.Substring(lastDot + 1);
+            if (KnownCachePlatforms.Contains(suffix))
+            {
+                uniqueVersion = fileNameNoExt.Substring(0, lastDot);
+                platform = BasisIOManagement.NormalizeCachePlatformName(suffix);
+                if (string.IsNullOrEmpty(platform))
+                {
+                    platform = suffix;
+                }
+                return true;
+            }
+        }
+
+        uniqueVersion = fileNameNoExt;
+        platform = null;
+        return false;
+    }
+
+    private static void MigrateLegacyPayloadFiles(string rootPath, string extension)
+    {
+        string[] files = Directory.GetFiles(rootPath, $"*{extension}", SearchOption.TopDirectoryOnly);
+        if (files.Length == 0)
+        {
+            return;
+        }
+
+        Dictionary<string, string> versionToPlatform = new Dictionary<string, string>(OnDiscData.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var meta in OnDiscData.Values)
+        {
+            if (!string.IsNullOrWhiteSpace(meta.UniqueVersion) && !string.IsNullOrWhiteSpace(meta.DownloadedPlatform))
+            {
+                versionToPlatform[meta.UniqueVersion] = BasisIOManagement.NormalizeCachePlatformName(meta.DownloadedPlatform);
+            }
+        }
+
+        string fallbackPlatform = BasisIOManagement.GetCurrentCachePlatform();
+
+        foreach (string file in files)
+        {
+            try
+            {
+                string nameNoExt = Path.GetFileNameWithoutExtension(file);
+
+                if (!TryParsePlatformSuffix(nameNoExt, out string uniqueVersion, out string platform))
+                {
+                    if (!versionToPlatform.TryGetValue(uniqueVersion, out platform) || string.IsNullOrEmpty(platform))
+                    {
+                        platform = fallbackPlatform;
+                    }
+                }
+
+                string targetPath = Path.Combine(rootPath, platform, uniqueVersion + extension);
+                if (!string.Equals(file, targetPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(targetPath))
+                {
+                    TryMigrateFile(file, targetPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogWarning($"Failed migrating root payload file {file}: {ex.Message}", BasisDebug.LogTag.Event);
+            }
+        }
     }
 
     private static void CleanupFiles(BasisStoredEncryptedBundle bundle)
