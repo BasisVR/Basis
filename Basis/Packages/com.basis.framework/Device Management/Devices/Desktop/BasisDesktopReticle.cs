@@ -1,11 +1,12 @@
 using Basis.Scripts.Drivers;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
     /// <summary>
-    /// Screen-center aim reticle owned by <see cref="BasisDesktopEye"/>. SDF
-    /// quad parented to the local camera, drawn with the always-on-top
+    /// Screen-center aim reticle owned by <see cref="BasisDesktopEye"/>. Quad
+    /// prefab parented to the local camera, drawn with the always-on-top
     /// <c>Custom/DesktopReticleOverlay</c> shader. Three concentric bands
     /// (dot, dark gap, outer ring) keep it visible against most backgrounds.
     ///
@@ -17,17 +18,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
     [System.Serializable]
     public class BasisDesktopReticle
     {
+        public const string PrefabAddress = "DesktopReticle";
+
         public float DistanceFromCamera = 1f;
         public float SizeMeters = 0.05f;
 
-        /// <summary>
-        /// Material cloned at <see cref="Initialize"/> time from
-        /// <see cref="BasisDesktopManagement"/> before the reticle is initialized.
-        /// </summary>
-        public Material SourceMaterial;
-
         private GameObject _quadGO;
-        private Material _material;
         private bool _userEnabled;
         private bool _focused = true;
 
@@ -36,37 +32,16 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (_quadGO != null) return; // idempotent
 
             Transform camTransform = BasisLocalCameraDriver.Instance.transform;
-
-            _quadGO = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            _quadGO.name = "DesktopReticleQuad";
-            // Render feture puts UI layer on top of everything else.
-            _quadGO.layer = LayerMask.NameToLayer("UI");
-            Object.Destroy(_quadGO.GetComponent<MeshCollider>());
-
-            _quadGO.transform.SetParent(camTransform, false);
+            _quadGO = Addressables.InstantiateAsync(PrefabAddress, camTransform, false).WaitForCompletion();
             _quadGO.transform.SetLocalPositionAndRotation(Vector3.forward * DistanceFromCamera, Quaternion.identity);
             _quadGO.transform.localScale = Vector3.one * SizeMeters;
-
-            _material = new Material(SourceMaterial);
-
-            var renderer = _quadGO.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = _material;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
         }
 
         public void Destroy()
         {
-            if (_material != null)
-            {
-                Object.Destroy(_material);
-                _material = null;
-            }
             if (_quadGO != null)
             {
-                Object.Destroy(_quadGO);
+                Addressables.ReleaseInstance(_quadGO);
                 _quadGO = null;
             }
         }
