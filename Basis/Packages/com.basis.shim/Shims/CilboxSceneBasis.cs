@@ -181,12 +181,6 @@ namespace Cilbox
 
 		static readonly Dictionary<Type, HashSet<string>> extraMethodWhitelist = new Dictionary<Type, HashSet<string>>()
 		{
-			{ typeof(BasisNetworkPlayer), new HashSet<string> {
-				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.LocalPlayer)).GetGetMethod().Name,
-				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.Player)).GetGetMethod().Name,
-				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.displayName)).GetGetMethod().Name,
-				"get_playerId",
-				} },
 			{ typeof(BasisLocalPlayer), new HashSet<string>{
 				nameof(BasisLocalPlayer.GetPositionAndRotation),
 				nameof(BasisLocalPlayer.Teleport),
