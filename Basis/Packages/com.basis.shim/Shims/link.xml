@@ -256,6 +256,7 @@
         <type fullname="Basis.BasisUrl" preserve="all"/>
         <type fullname="Basis.IBasisImageDownload" preserve="all"/>
         <type fullname="Basis.SafeUtil" preserve="all"/>
+        <type fullname="Basis.Shims.BasisOsc*" preserve="all"/>
     </assembly>
     <assembly fullname="Basis Framework">
         <type fullname="Basis.BasisNetworkBehaviour" preserve="all"/>
@@ -276,5 +277,11 @@
         <type fullname="TMPro.TMP_Text" preserve="all"/>
         <type fullname="TMPro.TMP_Dropdown" preserve="all"/>
         <type fullname="TMPro.TMP_InputField" preserve="all"/>
+    </assembly>
+    <assembly fullname="HVR.Basis.Comms">
+        <type fullname="HVR.Vixxy.HVRVixxyMenuItem" preserve="all"/>
+        <type fullname="HVR.Basis.Comms.OSC.OscData" preserve="all"/>
+        <type fullname="HVR.Basis.Comms.OSC.OscDataKind" preserve="all"/>
+        <type fullname="HVR.Basis.Comms.OSC.OscMessage" preserve="all"/>
     </assembly>
 </linker>

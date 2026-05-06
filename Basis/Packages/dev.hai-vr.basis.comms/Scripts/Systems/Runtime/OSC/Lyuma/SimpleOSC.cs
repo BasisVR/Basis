@@ -75,6 +75,21 @@ public class SimpleOSC
 			}
 #endif
 	}
+	public struct OSCSymbol {
+		public string value;
+		public override string ToString() {
+			return "OSCSymbol<" + value + ">";
+		}
+	}
+	public struct OSCMidi {
+		public byte port;
+		public byte status;
+		public byte data1;
+		public byte data2;
+		public override string ToString() {
+			return "OSCMidi<" + port + "," + status + "," + data1 + "," + data2 + ">";
+		}
+	}
 	public struct OSCMessage {
 		public IPEndPoint sender;
 		public uint bundleId; // 0 if not in a bundle; positive integer if part of a bundle.
@@ -156,6 +171,12 @@ public class SimpleOSC
 				case bool b:
 					sb.Append(b.ToString());
 					break;
+				case OSCSymbol symbol:
+					sb.Append(symbol.ToString());
+					break;
+				case OSCMidi midi:
+					sb.Append(midi.ToString());
+					break;
 				default:
 					sb.Append("(");
 					sb.Append(arg.GetType().Name);
@@ -208,6 +229,16 @@ public class SimpleOSC
 				offset = strend;
 				offset = (offset + 4) & ~3;
 				return System.Text.Encoding.UTF8.GetString(tmp);
+			case 'S':
+				strend = offset;
+				while (data[strend] != 0) {
+					strend++;
+				}
+				tmp = new byte[strend - offset];
+				Array.Copy(data, offset, tmp, 0, strend - offset);
+				offset = strend;
+				offset = (offset + 4) & ~3;
+				return new OSCSymbol { value = System.Text.Encoding.UTF8.GetString(tmp) };
 			case 'b':
 				int len = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset));
 				offset += 4;
@@ -240,6 +271,12 @@ public class SimpleOSC
 				uint cret = (uint)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset));
 				offset += 4;
 				return cret;
+			case 'm':
+				byte port = data[offset++];
+				byte status = data[offset++];
+				byte data1 = data[offset++];
+				byte data2 = data[offset++];
+				return new OSCMidi { port = port, status = status, data1 = data1, data2 = data2 };
 			default:
 				CryWolf("Unknown type tag " + typeTag + " offset " + offset);
 				break;
@@ -286,6 +323,24 @@ public class SimpleOSC
 				break;
 			case 's':
 				tmp = System.Text.Encoding.UTF8.GetBytes((string)value);
+				Array.Copy(tmp, 0, data, offset, tmp.Length);
+				data[tmp.Length + offset] = 0;
+				offset += tmp.Length;
+				for (int endOffset = (offset + 4) & ~3; offset < endOffset; offset++) {
+					data[offset] = 0;
+				}
+				break;
+			case 'S':
+				string symbolValue;
+				switch (value) {
+					case OSCSymbol symbol:
+						symbolValue = symbol.value;
+						break;
+					default:
+						symbolValue = value?.ToString() ?? "";
+						break;
+				}
+				tmp = System.Text.Encoding.UTF8.GetBytes(symbolValue);
 				Array.Copy(tmp, 0, data, offset, tmp.Length);
 				data[tmp.Length + offset] = 0;
 				offset += tmp.Length;
@@ -340,6 +395,22 @@ public class SimpleOSC
 			case 'c':
 				Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)(uint)value)), 0, data, offset, 4);
 				offset += 4;
+				break;
+			case 'm':
+				OSCMidi midi;
+				switch (value) {
+					case OSCMidi oscMidi:
+						midi = oscMidi;
+						break;
+					default:
+						CryWolf("Invalid MIDI value " + value?.GetType());
+						midi = default;
+						break;
+				}
+				data[offset++] = midi.port;
+				data[offset++] = midi.status;
+				data[offset++] = midi.data1;
+				data[offset++] = midi.data2;
 				break;
 			default:
 				CryWolf("Unexpected type tag to serialize " + typeTag + " offset " + offset);
@@ -452,6 +523,9 @@ public class SimpleOSC
 				case string s:
 					typeTag.Append('s');
 					break;
+				case OSCSymbol symbol:
+					typeTag.Append('S');
+					break;
 				case byte[] b:
 					typeTag.Append('b');
 					break;
@@ -469,6 +543,9 @@ public class SimpleOSC
 					break;
 				case uint c: // represent OSC char as uint. confusing???
 					typeTag.Append('c');
+					break;
+				case OSCMidi midi:
+					typeTag.Append('m');
 					break;
 				default:
 					CryWolf("Invalid type " + po.GetType() + " at " + typeTag);

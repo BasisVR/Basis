@@ -161,3 +161,4 @@ MonoBehaviour:
   - Basis.Network.Vehicles.BasisNetworkedVehicle
   - Basis.Scripts.Vehicles.Parts.BasisVehicleEngineAudio
   - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton
+  - Basis.Shims.BasisOsc

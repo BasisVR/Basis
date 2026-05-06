@@ -9,16 +9,17 @@ namespace HVR.Osushi
 {
     internal class OsushiQuery
     {
-        private readonly string _root;
-        private readonly string _avtr;
+        private readonly Func<string, string> _responseResolver;
         private bool _isStarted;
+        private volatile bool _isStopping;
         private ServiceDiscovery _serviceDiscovery;
         private Thread _httpThread;
+        private HttpListener _listener;
+        private readonly object _serverLock = new object();
 
-        public OsushiQuery(string root, string avtr)
+        public OsushiQuery(Func<string, string> responseResolver)
         {
-            _root = root;
-            _avtr = avtr;
+            _responseResolver = responseResolver;
         }
 
         public void Start()
@@ -33,19 +34,25 @@ namespace HVR.Osushi
             {
                 try
                 {
-                    StartHttpServer(httpPort, _root, _avtr);
+                    StartHttpServer(httpPort);
                 }
                 catch (ThreadAbortException)
                 {
-                  //  BasisDebug.LogError($"ThreadAbortException", BasisDebug.LogTag.LocalNetwork);
+                    // Expected during script/domain reload and shutdown on Mono.
                 }
                 catch (ThreadInterruptedException)
                 {
-                 //   BasisDebug.LogError($"ThreadInterruptedException", BasisDebug.LogTag.LocalNetwork);
+                    if (!_isStopping)
+                    {
+                        BasisDebug.LogError("ThreadInterruptedException", BasisDebug.LogTag.LocalNetwork);
+                    }
                 }
                 catch (Exception e)
                 {
-                    BasisDebug.LogError($"HTTP server thread died: {e}", BasisDebug.LogTag.LocalNetwork);
+                    if (!_isStopping)
+                    {
+                        BasisDebug.LogError($"HTTP server thread died: {e}", BasisDebug.LogTag.LocalNetwork);
+                    }
                 }
             });
             _httpThread.IsBackground = true;
@@ -70,20 +77,38 @@ namespace HVR.Osushi
         {
             if (!_isStarted) return;
             _isStarted = false;
+            _isStopping = true;
 
             try
             {
-                _httpThread.Interrupt();
+                lock (_serverLock)
+                {
+                    _listener?.Close();
+                    _listener = null;
+                }
             }
             catch (Exception e)
             {
-                BasisDebug.LogError($"HTTP server stopped: {e}", BasisDebug.LogTag.LocalNetwork);
+                BasisDebug.LogError($"HTTP server stop failed: {e}", BasisDebug.LogTag.LocalNetwork);
+            }
+
+            try
+            {
+                if (_httpThread != null && _httpThread.IsAlive)
+                {
+                    _httpThread.Join(250);
+                }
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"HTTP server join failed: {e}", BasisDebug.LogTag.LocalNetwork);
             }
 
             _httpThread = null;
 
-            _serviceDiscovery.Dispose();
+            _serviceDiscovery?.Dispose();
             _serviceDiscovery = null;
+            _isStopping = false;
         }
 
         static int GetRandomFreePort()
@@ -95,7 +120,7 @@ namespace HVR.Osushi
             return port;
         }
 
-        static void StartHttpServer(int port, string root, string avtr)
+        private void StartHttpServer(int port)
         {
             if (!HttpListener.IsSupported)
             {
@@ -107,40 +132,70 @@ namespace HVR.Osushi
             listener.Prefixes.Add($"http://localhost:{port}/");
             listener.Prefixes.Add($"http://127.0.0.1:{port}/");
             listener.Start();
+            lock (_serverLock)
+            {
+                _listener = listener;
+            }
             BasisDebug.Log($"HTTP server listening on http://localhost:{port}/", BasisDebug.LogTag.LocalNetwork);
 
-            while (true)
+            try
             {
-                try
+                while (!_isStopping)
                 {
-                    var ctx = listener.GetContext();
-                    BasisDebug.Log($"HTTP request: {ctx.Request.RawUrl}", BasisDebug.LogTag.LocalNetwork);
+                    try
+                    {
+                        var ctx = listener.GetContext();
+                        BasisDebug.Log($"HTTP request: {ctx.Request.RawUrl}", BasisDebug.LogTag.LocalNetwork);
 
-                    var res = ctx.Response;
-                    var json = ctx.Request.RawUrl.EndsWith("/avatar") ? avtr : root;
-                    var buffer = Encoding.UTF8.GetBytes(json);
-                    res.ContentType = "application/json";
-                    res.ContentLength64 = buffer.Length;
-                    res.OutputStream.Write(buffer, 0, buffer.Length);
-                    res.OutputStream.Close();
+                        var res = ctx.Response;
+                        var json = _responseResolver(ctx.Request.RawUrl);
+                        var buffer = Encoding.UTF8.GetBytes(json);
+                        res.ContentType = "application/json";
+                        res.ContentLength64 = buffer.Length;
+                        res.OutputStream.Write(buffer, 0, buffer.Length);
+                        res.OutputStream.Close();
+                    }
+                    catch (ThreadAbortException)
+                    {
+                        // Expected during script/domain reload and shutdown on Mono.
+                        break;
+                    }
+                    catch (HttpListenerException e)
+                    {
+                        if (!_isStopping)
+                        {
+                            BasisDebug.LogError($"HttpListener closed unexpectedly: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                        }
+                        break;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        if (!_isStopping)
+                        {
+                            BasisDebug.LogError("HttpListener disposed unexpectedly", BasisDebug.LogTag.LocalNetwork);
+                        }
+                        break;
+                    }
+                    catch (Exception e)
+                    {
+                        if (!_isStopping)
+                        {
+                            BasisDebug.LogError($"Request error (continuing): {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                        }
+                    }
                 }
-                catch (HttpListenerException e)
+            }
+            finally
+            {
+                lock (_serverLock)
                 {
-                    BasisDebug.LogError($"HttpListener closed: {e.Message}", BasisDebug.LogTag.LocalNetwork);
-                    break;
+                    if (ReferenceEquals(_listener, listener))
+                    {
+                        _listener = null;
+                    }
                 }
-                catch (ThreadAbortException)
-                {
-                    break;
-                }
-                catch (ThreadInterruptedException)
-                {
-                    break;
-                }
-                catch (Exception e)
-                {
-                    BasisDebug.LogError($"[Request error (continuing): {e.Message}", BasisDebug.LogTag.LocalNetwork);
-                }
+
+                listener.Close();
             }
         }
     }

@@ -378,3 +378,4 @@ MonoBehaviour:
   - Basis.Shims.VideoPlayerShim
   - Basis.Shims.BasisNetworkShim
   - Basis.Shims.BasisInteractableShim
+  - Basis.Shims.BasisOsc

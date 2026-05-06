@@ -17,10 +17,12 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
 			"Basis.BasisNetworkBehaviour",
+			"Basis.Shims.BasisOsc*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
+			"HVR.Basis.Comms.OSC*",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
