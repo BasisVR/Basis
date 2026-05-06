@@ -101,6 +101,14 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         // a measurable per-call cost at 1k+ remotes. Subclasses still assign it
         // directly (Receiver/Transmitter/UnInitalized constructors).
         public ushort playerId;
+
+        // Compatibility for already-compiled Cilbox content that was built when
+        // playerId was an auto-property and emits a call to get_playerId().
+        public ushort get_playerId()
+        {
+            return playerId;
+        }
+
         /// <summary>
         /// Local realtime (Time.realtimeSinceStartup) at which this player was constructed.
         /// Used to sort the players UI by arrival order and to display "joined Xs ago".
