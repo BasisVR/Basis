@@ -75,6 +75,8 @@ namespace HVR.Basis.Comms
         private static readonly object ReceiverLock = new object();
         private static readonly Dictionary<EntityId, ReceiverRegistration> Receivers = new Dictionary<EntityId, ReceiverRegistration>();
         private static readonly ConcurrentDictionary<string, int> RawPathToAddressId = new ConcurrentDictionary<string, int>(StringComparer.Ordinal);
+        // Main-thread dispatch scratch buffer. Rebuilt with receiver capacity whenever subscriptions change.
+        private static EntityId[] _dispatchOwnerBuffer = Array.Empty<EntityId>();
 
         private static DispatcherState _dispatcherState = DispatcherState.Empty;
 
@@ -160,7 +162,7 @@ namespace HVR.Basis.Comms
             DeliverMessage(snapshot, message, MatchOwners(snapshot, message.Path ?? string.Empty));
         }
 
-        internal static void SubmitRawMessages(IReadOnlyList<SimpleOSC.OSCMessage> messages)
+        internal static void SubmitRawMessages(List<SimpleOSC.OSCMessage> messages)
         {
             if (messages == null || messages.Count == 0)
             {
@@ -243,6 +245,8 @@ namespace HVR.Basis.Comms
 
         private static void RebuildDispatcherState_NoLock()
         {
+            EnsureDispatchOwnerBufferCapacity_NoLock(Math.Max(Receivers.Count, 4));
+
             Dictionary<EntityId, Action<OscMessage>> handlers = new Dictionary<EntityId, Action<OscMessage>>();
             Dictionary<EntityId, Action<int, float>> addressHandlers = new Dictionary<EntityId, Action<int, float>>();
             Dictionary<string, List<EntityId>> exactRouteLists = new Dictionary<string, List<EntityId>>(StringComparer.Ordinal);
@@ -294,6 +298,16 @@ namespace HVR.Basis.Comms
 
             Array.Sort(prefixRoutes, ComparePrefixRoutes);
             Volatile.Write(ref _dispatcherState, new DispatcherState(handlers, addressHandlers, exactRoutes, prefixRoutes, receiveAllOwners.ToArray()));
+        }
+
+        private static void EnsureDispatchOwnerBufferCapacity_NoLock(int requiredCapacity)
+        {
+            if (_dispatchOwnerBuffer.Length >= requiredCapacity)
+            {
+                return;
+            }
+
+            _dispatchOwnerBuffer = new EntityId[requiredCapacity];
         }
 
         private static int ComparePrefixRoutes(PrefixRoute left, PrefixRoute right)
@@ -472,14 +486,14 @@ namespace HVR.Basis.Comms
             matchesBuffer = expandedBuffer;
         }
 
-        private static void DispatchRawMessages(DispatcherState snapshot, IReadOnlyList<SimpleOSC.OSCMessage> messages)
+        private static void DispatchRawMessages(DispatcherState snapshot, List<SimpleOSC.OSCMessage> messages)
         {
             int messageCount = messages.Count;
             for (int messageIndex = 0; messageIndex < messageCount; messageIndex++)
             {
                 SimpleOSC.OSCMessage rawMessage = messages[messageIndex];
-                EntityId[] matchedOwners = MatchOwners(snapshot, rawMessage.path ?? string.Empty);
-                bool hasMatchedOwners = matchedOwners != null && matchedOwners.Length > 0;
+                int matchedOwnerCount = CollectMatchedOwners(snapshot, rawMessage.path ?? string.Empty, _dispatchOwnerBuffer);
+                bool hasMatchedOwners = matchedOwnerCount > 0;
                 bool hasGlobalListeners = MessageReceived != null;
                 if (!hasMatchedOwners && !hasGlobalListeners)
                 {
@@ -506,10 +520,10 @@ namespace HVR.Basis.Comms
                     continue;
                 }
 
-                int matchedOwnerCount = matchedOwners.Length;
                 for (int ownerIndex = 0; ownerIndex < matchedOwnerCount; ownerIndex++)
                 {
-                    if (!snapshot.Handlers.TryGetValue(matchedOwners[ownerIndex], out Action<OscMessage> handler) || handler == null)
+                    EntityId ownerId = _dispatchOwnerBuffer[ownerIndex];
+                    if (!snapshot.Handlers.TryGetValue(ownerId, out Action<OscMessage> handler) || handler == null)
                     {
                         continue;
                     }
@@ -549,14 +563,14 @@ namespace HVR.Basis.Comms
             }
         }
 
-        private static void DispatchAddressValues(DispatcherState snapshot, IReadOnlyList<SimpleOSC.OSCMessage> messages)
+        private static void DispatchAddressValues(DispatcherState snapshot, List<SimpleOSC.OSCMessage> messages)
         {
             int messageCount = messages.Count;
             for (int messageIndex = 0; messageIndex < messageCount; messageIndex++)
             {
                 SimpleOSC.OSCMessage rawMessage = messages[messageIndex];
-                EntityId[] matchedOwners = MatchOwners(snapshot, rawMessage.path ?? string.Empty);
-                if (matchedOwners == null || matchedOwners.Length == 0)
+                int matchedOwnerCount = CollectMatchedOwners(snapshot, rawMessage.path ?? string.Empty, _dispatchOwnerBuffer);
+                if (matchedOwnerCount == 0)
                 {
                     continue;
                 }
@@ -566,13 +580,70 @@ namespace HVR.Basis.Comms
                     continue;
                 }
 
-                int matchedOwnerCount = matchedOwners.Length;
                 for (int ownerIndex = 0; ownerIndex < matchedOwnerCount; ownerIndex++)
                 {
-                    if (snapshot.AddressHandlers.TryGetValue(matchedOwners[ownerIndex], out Action<int, float> addressHandler) && addressHandler != null)
+                    EntityId ownerId = _dispatchOwnerBuffer[ownerIndex];
+                    if (snapshot.AddressHandlers.TryGetValue(ownerId, out Action<int, float> addressHandler) && addressHandler != null)
                     {
                         addressHandler(addressId, value);
                     }
+                }
+            }
+        }
+
+        private static int CollectMatchedOwners(DispatcherState snapshot, string path, EntityId[] ownerBuffer)
+        {
+            if (snapshot == null || !snapshot.HasRoutes || ownerBuffer == null || ownerBuffer.Length == 0)
+            {
+                return 0;
+            }
+
+            int ownerCount = 0;
+            AddMatchedOwnersNoAlloc(ownerBuffer, ref ownerCount, snapshot.ReceiveAllRoutes);
+
+            if (snapshot.ExactRoutes.TryGetValue(path, out EntityId[] exactOwners))
+            {
+                AddMatchedOwnersNoAlloc(ownerBuffer, ref ownerCount, exactOwners);
+            }
+
+            PrefixRoute[] prefixRoutes = snapshot.PrefixRoutes;
+            int prefixRouteCount = prefixRoutes.Length;
+            for (int i = 0; i < prefixRouteCount; i++)
+            {
+                PrefixRoute route = prefixRoutes[i];
+                if (path.StartsWith(route.Prefix, StringComparison.Ordinal))
+                {
+                    AddMatchedOwnersNoAlloc(ownerBuffer, ref ownerCount, route.OwnerIds);
+                }
+            }
+
+            return ownerCount;
+        }
+
+        private static void AddMatchedOwnersNoAlloc(EntityId[] ownerBuffer, ref int ownerCount, EntityId[] owners)
+        {
+            if (owners == null || owners.Length == 0)
+            {
+                return;
+            }
+
+            int sourceOwnerCount = owners.Length;
+            for (int sourceIndex = 0; sourceIndex < sourceOwnerCount; sourceIndex++)
+            {
+                EntityId ownerId = owners[sourceIndex];
+                bool alreadyAdded = false;
+                for (int existingIndex = 0; existingIndex < ownerCount; existingIndex++)
+                {
+                    if (ownerBuffer[existingIndex].Equals(ownerId))
+                    {
+                        alreadyAdded = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyAdded)
+                {
+                    ownerBuffer[ownerCount++] = ownerId;
                 }
             }
         }

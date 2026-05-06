@@ -7,13 +7,14 @@ namespace HVR.Basis.Comms.OSC
     public class HVROsc
     {
         private const int DefaultReceiverPort = 9000;
+        private const int InitialMessageQueueCapacity = 128;
         private int _currentReceiverPort;
         
         private readonly int _oscPort;
         private readonly SimpleOSC _client;
         
         private readonly byte[] _byteBuffer = new byte[65535];
-        private readonly List<SimpleOSC.OSCMessage> _queue = new();
+        private readonly List<SimpleOSC.OSCMessage> _queue = new List<SimpleOSC.OSCMessage>(InitialMessageQueueCapacity);
 
         public HVROsc(int oscPort)
         {
