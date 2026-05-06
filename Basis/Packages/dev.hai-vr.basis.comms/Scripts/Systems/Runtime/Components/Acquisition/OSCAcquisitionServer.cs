@@ -18,8 +18,10 @@ namespace HVR.Basis.Comms
         private OsushiQuery _osushi;
         private const int OurFakeServerPort = 9000;
         private const int ExternalProgramReceiverPort = 9001;
+        // Access levels for OSC query nodes. These are arbitrary values that the server uses to indicate the meaning of nodes to clients.
         private const int SubscriptionAccess = 2;
         private const int PublishAccess = 3;
+
         private bool _settingSubscribed;
         private bool _running;
         private string _lastWakeUp;
@@ -77,7 +79,7 @@ namespace HVR.Basis.Comms
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"Failed to start OSC client ({e.Message}");
+                Debug.LogWarning($"Failed to start OSC client ({e.Message})");
                 StopClient();
             }
         }
@@ -131,7 +133,7 @@ namespace HVR.Basis.Comms
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"Failed to close client ({e.Message}");
+                    Debug.LogWarning($"Failed to close client ({e.Message})");
                 }
                 _client = null;
             }
@@ -144,7 +146,7 @@ namespace HVR.Basis.Comms
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"Failed to close osushi service ({e.Message}");
+                    Debug.LogWarning($"Failed to close osushi service ({e.Message})");
                 }
                 _osushi = null;
             }
@@ -162,7 +164,7 @@ namespace HVR.Basis.Comms
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"Failed to send wake up message ({e.Message}");
+                Debug.LogWarning($"Failed to send wake up message ({e.Message})");
             }
         }
 
@@ -196,7 +198,7 @@ namespace HVR.Basis.Comms
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"Failed to publish OSC value ({e.Message}");
+                    Debug.LogWarning($"Failed to publish OSC value ({e.Message})");
                 }
             }
         }
@@ -471,7 +473,7 @@ namespace HVR.Basis.Comms
         private void RemoveExactSubscriptionNode(string fullPath)
         {
             OsushiNode node = ResolveQueryNode(fullPath);
-            if (node == null)
+            if (node == null || node == _oscQueryRoot || node.FULL_PATH != fullPath)
             {
                 return;
             }

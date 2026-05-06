@@ -33,12 +33,12 @@ namespace HVR.Basis.Comms
             if (!isWearer) return;
 
             if (_alreadyInitialized) return;
-            _alreadyInitialized = true;
 
             _acquisitionServer = OSCAcquisitionServer.SceneInstance;
             _acquisitionServer.SendWakeUpMessage(FakeWakeUpMessage);
             BasisOscService.RegisterAddressReceiver(_oscOwnerId, OnOscAddressUpdated);
             BasisOscService.UpdateSubscriptions(_oscOwnerId, true, Array.Empty<string>(), Array.Empty<string>());
+            _alreadyInitialized = true;
         }
 
         private void OnDestroy()
@@ -48,8 +48,11 @@ namespace HVR.Basis.Comms
                 avatar.OnAvatarReady -= OnAvatarReady;
             }
 
-            BasisOscService.UnregisterAddressReceiver(_oscOwnerId);
-            BasisOscService.ClearSubscriptions(_oscOwnerId);
+            if (_alreadyInitialized)
+            {
+                BasisOscService.UnregisterAddressReceiver(_oscOwnerId);
+                BasisOscService.ClearSubscriptions(_oscOwnerId);
+            }
         }
 
         private void OnOscAddressUpdated(int address, float value)
@@ -57,7 +60,7 @@ namespace HVR.Basis.Comms
             if (!isActiveAndEnabled) return;
 
             _activityRelay?.NotifySourceSample();
-            acquisitionService.Submit(address, value);
-        }
+            acquisitionService?.Submit(address, value);
+        }    
     }
 }

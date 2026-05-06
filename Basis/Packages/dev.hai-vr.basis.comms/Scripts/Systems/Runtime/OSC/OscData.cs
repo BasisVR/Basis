@@ -34,8 +34,8 @@ namespace HVR.Basis.Comms.OSC
         public string StringValue { get; private set; }
         public byte[] BlobValue { get; private set; }
         public OscData[] Elements { get; private set; } = Array.Empty<OscData>();
-        public int TimeTagSeconds { get; private set; }
-        public int TimeTagNanoseconds { get; private set; }
+        public uint TimeTagSeconds { get; private set; }
+        public uint TimeTagNanoseconds { get; private set; }
         public byte ColorR { get; private set; }
         public byte ColorG { get; private set; }
         public byte ColorB { get; private set; }
@@ -73,7 +73,7 @@ namespace HVR.Basis.Comms.OSC
             FloatValue = value,
         };
 
-        public static OscData TimeTag(int seconds, int nanoseconds) => new OscData
+        public static OscData TimeTag(uint seconds, uint nanoseconds) => new OscData
         {
             Kind = OscDataKind.TimeTag,
             TimeTagSeconds = seconds,
@@ -306,7 +306,7 @@ namespace HVR.Basis.Comms.OSC
                         value = StringValue ?? string.Empty,
                     };
                 case OscDataKind.Blob:
-                    return BlobValue ?? Array.Empty<byte>();
+                    return BlobValue != null ? (byte[])BlobValue.Clone() : Array.Empty<byte>();
                 case OscDataKind.Color:
                     return new SimpleOSC.OSCColor
                     {

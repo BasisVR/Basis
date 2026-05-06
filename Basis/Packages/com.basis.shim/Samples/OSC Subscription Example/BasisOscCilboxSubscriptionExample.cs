@@ -35,7 +35,7 @@ namespace Basis.Shims.Samples
             {
                 Debug.Log("BasisOscCilboxSubscriptionExample did not find a BasisAvatar in the parent hierarchy.");
             }
-
+            // Cilbox will add the Shim when using GetComponent.
             networkShim = this.gameObject.GetComponent<Basis.Shims.BasisNetworkShim>();
 
             networkShim.NetworkReady += OnNetworkReady;

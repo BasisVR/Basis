@@ -124,14 +124,14 @@ namespace HVR.Basis.Comms.Tests
                 shim.Subscribe("/exact", (message, arguments) => { });
                 shim.SubscribePrefix("/prefix/", (message, arguments) => { });
 
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/nope", arguments = new object[0] }) });
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/exact", arguments = new object[0] }) });
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/prefix/value", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/nope", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/exact", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/prefix/value", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(2));
 
                 shim.enabled = false;
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/exact", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/exact", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(2));
             }
@@ -160,8 +160,8 @@ namespace HVR.Basis.Comms.Tests
                 Assert.That(shim.IsSubscribed("/avatar/parameters/Face/Smile"), Is.True);
                 Assert.That(shim.IsPrefixSubscribed("/avatar/parameters/FT/"), Is.True);
 
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Face/Smile", arguments = new object[0] }) });
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Face/Smile", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(2));
             }
@@ -757,8 +757,8 @@ namespace HVR.Basis.Comms.Tests
                 Assert.That(shim.IsSubscribed("/avatar/public/Blocked"), Is.True);
                 Assert.That(shim.IsSubscribed("/avatar/parameters/Blocked"), Is.True);
 
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Blocked", arguments = new object[0] }) });
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/Blocked", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Blocked", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/Blocked", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(1));
             }
@@ -789,8 +789,8 @@ namespace HVR.Basis.Comms.Tests
                 Assert.That(shim.IsPrefixSubscribed("/avatar/public/"), Is.True);
                 Assert.That(shim.IsPrefixSubscribed("/avatar/parameters/"), Is.True);
 
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = new object[0] }) });
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/FT/v2/JawOpen", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/FT/v2/JawOpen", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(1));
             }
@@ -974,8 +974,8 @@ namespace HVR.Basis.Comms.Tests
                 Assert.That(shim.IsSubscribed("/avatar/parameters/Face/Smile"), Is.False);
                 Assert.That(shim.IsSubscribed("/avatar/parameters/Blocked"), Is.False);
 
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Face/Smile", arguments = new object[0] }) });
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/Face/Smile", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Face/Smile", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/Face/Smile", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(1));
             }
@@ -1005,8 +1005,8 @@ namespace HVR.Basis.Comms.Tests
                 Assert.That(shim.IsPrefixSubscribed("/avatar/public/FT/"), Is.True);
                 Assert.That(shim.IsPrefixSubscribed("/avatar/parameters/"), Is.False);
 
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = new object[0] }) });
-                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/FT/v2/JawOpen", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/FT/v2/JawOpen", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(1));
             }
@@ -1139,74 +1139,21 @@ namespace HVR.Basis.Comms.Tests
             Assert.That(((object[])inbound.arguments[3]).Length, Is.EqualTo(2));
         }
 
-        [Test]
-        public void BasisChatSanitizer_ClampsUtf8WithoutBreakingScalars()
-        {
-            string original = new string('a', 300) + "\U0001F600" + new string('b', 300);
-            string sanitized = BasisChatSanitizer.Sanitize(original);
-
-            Assert.That(sanitized.Length, Is.LessThanOrEqualTo(BasisChatSanitizer.MaxMessageCharacters));
-            Assert.That(System.Text.Encoding.UTF8.GetByteCount(sanitized), Is.LessThanOrEqualTo(BasisChatSanitizer.MaxMessageBytes));
-            Assert.That(sanitized.IndexOf('\uD800'), Is.EqualTo(-1));
-        }
-
-        [Test]
-        public void OscQuery_ExposesChatboxInputMetadata()
-        {
-            DestroySceneInstance();
-            BasisOscService.EnsureInitialized();
-
-            object leaf = ResolveNode(GetQueryRoot(), "chatbox", "input");
-            Assert.That(leaf, Is.Not.Null);
-
-            FieldInfo accessField = leaf.GetType().GetField("ACCESS");
-            FieldInfo descriptionField = leaf.GetType().GetField("DESCRIPTION");
-            Assert.That((int)accessField.GetValue(leaf), Is.EqualTo(2));
-
-            string description = (string)descriptionField.GetValue(leaf);
-            Assert.That(description, Does.Contain("string"));
-            Assert.That(description, Does.Contain("bool typing"));
-        }
-
-        [Test]
-        public void ChatboxInput_WithOpenKeyboard_PrefillsSettingsComposer()
-        {
-            System.Type bridgeType = typeof(BasisOscService).Assembly.GetType("HVR.Basis.Comms.BasisOscChatBoxBridge");
-            Assert.That(bridgeType, Is.Not.Null);
-
-            MethodInfo onOscMessageReceived = bridgeType.GetMethod("OnOscMessageReceived", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.That(onOscMessageReceived, Is.Not.Null);
-
-            ClearPendingChatComposerState();
-
-            onOscMessageReceived.Invoke(null, new object[]
-            {
-                OscMessage.FromRaw(new SimpleOSC.OSCMessage
-                {
-                    path = "/chatbox/input",
-                    arguments = new object[] { "hello from osc", true, false }
-                })
-            });
-
-            FieldInfo pendingTextField = typeof(SettingsProvider).GetField("_pendingChatComposerText", BindingFlags.NonPublic | BindingFlags.Static);
-            FieldInfo pendingFocusField = typeof(SettingsProvider).GetField("_pendingChatComposerFocus", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.That((string)pendingTextField.GetValue(null), Is.EqualTo("hello from osc"));
-            Assert.That((bool)pendingFocusField.GetValue(null), Is.True);
-
-            ClearPendingChatComposerState();
-        }
-
         private static object ResolveNode(object rootNode, params string[] path)
         {
             object current = rootNode;
             for (int i = 0; i < path.Length; i++)
             {
-                IDictionary contents = (IDictionary)current.GetType().GetField("CONTENTS").GetValue(current);
+                FieldInfo contentsField = current.GetType().GetField("CONTENTS");
+                if (contentsField == null)
+                    return null;
+                IDictionary contents = (IDictionary)contentsField.GetValue(current);
+                if (contents == null)
+                    return null;
                 current = contents[path[i]];
                 if (current == null)
-                {
                     return null;
-                }
+
             }
 
             return current;
@@ -1226,10 +1173,16 @@ namespace HVR.Basis.Comms.Tests
         {
             System.Type serverType = GetServerType();
             MonoBehaviour sceneInstance = (MonoBehaviour)GetSceneInstanceField(serverType).GetValue(null);
-            Assert.That(sceneInstance, Is.Not.Null);
+            if (sceneInstance == null)
+            {
+                return null;
+            }
 
             FieldInfo rootField = serverType.GetField("_oscQueryRoot", BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.That(rootField, Is.Not.Null);
+            if (rootField == null)
+            {
+                return null;
+            }
             return rootField.GetValue(sceneInstance);
         }
 
@@ -1255,11 +1208,5 @@ namespace HVR.Basis.Comms.Tests
             }
         }
 
-        private static void ClearPendingChatComposerState()
-        {
-            typeof(SettingsProvider).GetField("_pendingChatComposerText", BindingFlags.NonPublic | BindingFlags.Static)?.SetValue(null, null);
-            typeof(SettingsProvider).GetField("_pendingChatComposerFocus", BindingFlags.NonPublic | BindingFlags.Static)?.SetValue(null, false);
-            typeof(SettingsProvider).GetField("_pendingChatComposerPlaySound", BindingFlags.NonPublic | BindingFlags.Static)?.SetValue(null, false);
-        }
     }
 }

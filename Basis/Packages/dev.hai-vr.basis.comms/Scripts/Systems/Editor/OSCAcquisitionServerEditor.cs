@@ -41,7 +41,7 @@ namespace HVR.Basis.Comms.Editor
             foreach (KeyValuePair<string, int> count in counts)
             {
                 EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.TextField(count.Key);
+                EditorGUILayout.SelectableLabel(count.Key, EditorStyles.textField, GUILayout.Height(EditorGUIUtility.singleLineHeight));
                 EditorGUILayout.LabelField(count.Value.ToString(), GUILayout.Width(50));
                 EditorGUILayout.EndHorizontal();
             }

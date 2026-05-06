@@ -74,7 +74,7 @@ namespace HVR.Basis.Comms
 
         private static readonly object ReceiverLock = new object();
         private static readonly Dictionary<EntityId, ReceiverRegistration> Receivers = new Dictionary<EntityId, ReceiverRegistration>();
-        private static readonly Dictionary<string, int> RawPathToAddressId = new Dictionary<string, int>(StringComparer.Ordinal);
+        private static readonly ConcurrentDictionary<string, int> RawPathToAddressId = new ConcurrentDictionary<string, int>(StringComparer.Ordinal);
 
         private static DispatcherState _dispatcherState = DispatcherState.Empty;
 
@@ -216,7 +216,7 @@ namespace HVR.Basis.Comms
                 registration.PrefixAddresses = prefixAddresses;
                 RebuildDispatcherState_NoLock();
             }
-
+            // (eventual consistency is acceptable) and this avoids a potential deadlock if the acquisition server needs to call back into this service while processing the subscription update.
             OSCAcquisitionServer.SceneInstance.UpdateSubscriptions(ownerId, exactAddresses, prefixAddresses);
         }
 
@@ -597,7 +597,7 @@ namespace HVR.Basis.Comms
                 : rawPath;
 
             addressId = HVRAddress.AddressToId(normalizedPath);
-            RawPathToAddressId[rawPath] = addressId;
+            RawPathToAddressId.TryAdd(rawPath, addressId);
             return addressId;
         }
     }

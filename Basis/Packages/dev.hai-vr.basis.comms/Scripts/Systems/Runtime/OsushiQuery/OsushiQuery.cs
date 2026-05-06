@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -19,7 +20,7 @@ namespace HVR.Osushi
 
         public OsushiQuery(Func<string, string> responseResolver)
         {
-            _responseResolver = responseResolver;
+            _responseResolver = responseResolver ?? throw new ArgumentNullException(nameof(responseResolver));
         }
 
         public void Start()
@@ -147,13 +148,38 @@ namespace HVR.Osushi
                         var ctx = listener.GetContext();
                         BasisDebug.Log($"HTTP request: {ctx.Request.RawUrl}", BasisDebug.LogTag.LocalNetwork);
 
-                        var res = ctx.Response;
-                        var json = _responseResolver(ctx.Request.RawUrl);
-                        var buffer = Encoding.UTF8.GetBytes(json);
-                        res.ContentType = "application/json";
-                        res.ContentLength64 = buffer.Length;
-                        res.OutputStream.Write(buffer, 0, buffer.Length);
-                        res.OutputStream.Close();
+                        try
+                        {
+                            using (var res = ctx.Response)
+                            {
+                                var json = _responseResolver(ctx.Request.RawUrl) ?? "{}";
+                                var buffer = Encoding.UTF8.GetBytes(json);
+                                res.ContentType = "application/json";
+                                res.ContentLength64 = buffer.Length;
+                                res.OutputStream.Write(buffer, 0, buffer.Length);
+                            }
+                        }
+                        catch (HttpListenerException e)
+                        {
+                            if (!_isStopping)
+                            {
+                                BasisDebug.Log($"HTTP client disconnected before response completed: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                            }
+                        }
+                        catch (IOException e)
+                        {
+                            if (!_isStopping)
+                            {
+                                BasisDebug.Log($"HTTP client disconnected during response write: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                            }
+                        }
+                        catch (ObjectDisposedException e)
+                        {
+                            if (!_isStopping)
+                            {
+                                BasisDebug.Log($"HTTP response disposed before write completed: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                            }
+                        }
                     }
                     catch (ThreadAbortException)
                     {

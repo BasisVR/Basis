@@ -15,8 +15,8 @@ namespace HVR.Basis.Comms.OSC
         public int SenderPort { get; private set; }
         public uint BundleId { get; private set; }
         public bool HasTimeTag { get; private set; }
-        public int TimeTagSeconds { get; private set; }
-        public int TimeTagNanoseconds { get; private set; }
+        public uint TimeTagSeconds { get; private set; }
+        public uint TimeTagNanoseconds { get; private set; }
 
         public static OscMessage FromRaw(SimpleOSC.OSCMessage message)
         {
@@ -30,7 +30,7 @@ namespace HVR.Basis.Comms.OSC
                 Path = path,
                 NormalizedPath = normalizedPath,
                 TypeTag = message.typeTag ?? string.Empty,
-                Arguments = OscData.ConvertArguments(message.arguments),
+                Arguments = OscData.ConvertArguments(message.arguments) ?? Array.Empty<OscData>(),
                 SenderAddress = message.sender?.Address?.ToString() ?? string.Empty,
                 SenderPort = message.sender?.Port ?? 0,
                 BundleId = message.bundleId,

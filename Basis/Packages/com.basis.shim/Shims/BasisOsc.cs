@@ -58,6 +58,12 @@ namespace Basis.Shims
         private readonly Dictionary<string, HashSet<string>> exactValueCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<string>> prefixValueCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private int inspectorStateVersion;
+        private bool hasCachedScope;
+        private bool cachedScopeFound;
+        private OscScope cachedScope;
+        private string cachedScopePrefix;
+        private BasisAvatar cachedScopeAvatar;
+        private bool cachedScopeAvatarIsOwnedLocally;
 
         public OscMessageEvent OnMessage { get; set; }
 
@@ -78,23 +84,37 @@ namespace Basis.Shims
             }
         }
 
+        private bool isRegistered;
         private void OnEnable()
         {
+            InvalidateScopeCache();
             BasisOscService.EnsureInitialized();
             BasisOscService.RegisterReceiver(GetEntityId(), HandleMessage);
+            isRegistered = true;
             SyncQuerySubscriptions();
         }
 
         private void OnDisable()
         {
+            if(!isRegistered) return;
             BasisOscService.UnregisterReceiver(GetEntityId());
             BasisOscService.ClearSubscriptions(GetEntityId());
+            isRegistered = false;
+        }
+
+        private void OnTransformParentChanged()
+        {
+            InvalidateScopeCache();
+            MarkInspectorStateDirty();
+            SyncQuerySubscriptions();
         }
 
         private void OnDestroy()
         {
+            if(!isRegistered) return;
             BasisOscService.UnregisterReceiver(GetEntityId());
             BasisOscService.ClearSubscriptions(GetEntityId());
+            isRegistered = false;
         }
 
         public void Subscribe(string address, OscMessageEvent callback)
@@ -401,7 +421,8 @@ namespace Basis.Shims
             }
 
             #region CollectPrefixCallbacks
-            foreach (KeyValuePair<string, OscMessageEvent> entry in prefixCallbacks)
+            var prefixCallbacksSnapshot = new List<KeyValuePair<string, OscMessageEvent>>(prefixCallbacks);
+            foreach (KeyValuePair<string, OscMessageEvent> entry in prefixCallbacksSnapshot)
             {
                 if (IsPathWithinPrefix(path, entry.Key))
                 {
@@ -410,7 +431,8 @@ namespace Basis.Shims
                 }
             }
 
-            foreach (KeyValuePair<string, OscValueEvent> entry in prefixValueCallbacks)
+            var prefixValueCallbacksSnapshot = new List<KeyValuePair<string, OscValueEvent>>(prefixValueCallbacks);
+            foreach (KeyValuePair<string, OscValueEvent> entry in prefixValueCallbacksSnapshot)
             {
                 if (IsPathWithinPrefix(path, entry.Key))
                 {
@@ -419,7 +441,6 @@ namespace Basis.Shims
                 }
             }
             #endregion
-
             if (!matched)
             {
                 return;
@@ -744,7 +765,7 @@ namespace Basis.Shims
             return trimmed.Length == 0 ? prefix : prefix + "/" + trimmed;
         }
 
-        private void SubmitPublishedValuesToVixxy(string resolvedAddress, OscData[] values) => SubmitPublishedValueToVixxy(resolvedAddress, values[0]);
+        private void SubmitPublishedValuesToVixxy(string resolvedAddress, OscData[] values) => SubmitPublishedValueToVixxy(resolvedAddress, values?.Length > 0 ? values[0] : null);
 
 
         private void SubmitPublishedValueToVixxy(string resolvedAddress, OscData value)
@@ -781,7 +802,7 @@ namespace Basis.Shims
                 return avatarComms.VariableStore;
             }
 
-            return AcquisitionService.SceneInstance.VariableStore;
+            return AcquisitionService.SceneInstance?.VariableStore;
         }
 
         private static bool TryReadVixxyFloat(OscData value, out float floatValue)
@@ -854,48 +875,89 @@ namespace Basis.Shims
 
         private static bool IsPathWithinPrefix(string path, string prefix)
         {
+            if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(prefix))
+            {
+                return false;
+            }
             return path.StartsWith(prefix, StringComparison.Ordinal) &&
                    (path.Length == prefix.Length || prefix[prefix.Length - 1] == '/' || path[prefix.Length] == '/');
         }
 
         private bool TryGetOscScope(out OscScope scope, out string prefix)
         {
-            return TryGetOscScope(this, out scope, out prefix);
+            if (hasCachedScope && IsScopeCacheValid())
+            {
+                scope = cachedScope;
+                prefix = cachedScopePrefix;
+                return cachedScopeFound;
+            }
+
+            cachedScopeFound = TryGetOscScopeUncached(out cachedScope, out cachedScopePrefix, out cachedScopeAvatar);
+            cachedScopeAvatarIsOwnedLocally = cachedScopeAvatar != null && cachedScopeAvatar.IsOwnedLocally;
+            hasCachedScope = true;
+
+            scope = cachedScope;
+            prefix = cachedScopePrefix;
+            return cachedScopeFound;
         }
 
-        private static bool TryGetOscScope(BasisOsc shim, out OscScope scope, out string prefix)
+        private bool IsScopeCacheValid()
+        {
+            if (ReferenceEquals(cachedScopeAvatar, null))
+            {
+                // Never had an avatar cached - scope is still valid (Prop/Scene/None)
+                return true;
+            }
+            // If avatar was destroyed, cache is invalid
+            if (cachedScopeAvatar == null)
+            {
+                return false;
+            }
+            return cachedScopeAvatar.IsOwnedLocally == cachedScopeAvatarIsOwnedLocally;
+        }
+
+        private void InvalidateScopeCache()
+        {
+            hasCachedScope = false;
+            cachedScopeFound = false;
+            cachedScope = OscScope.None;
+            cachedScopePrefix = null;
+            cachedScopeAvatar = null;
+            cachedScopeAvatarIsOwnedLocally = false;
+        }
+
+        private bool TryGetOscScopeUncached(out OscScope scope, out string prefix, out BasisAvatar scopeAvatar)
         {
             scope = OscScope.None;
             prefix = null;
+            scopeAvatar = null;
 
-            for (Transform current = shim.transform; current != null; current = current.parent)
+            for (Transform current = transform; current != null; current = current.parent)
             {
-                BasisProp prop = current.GetComponent<BasisProp>();
-                if (prop != null)
+                if (current.TryGetComponent(out BasisProp prop))
                 {
                     scope = OscScope.Prop;
                     prefix = PropPublishPrefix + "/" + GetScopedContentIdentifier(prop) + "/parameters";
                     return true;
                 }
 
-                BasisScene sceneOnTransform = current.GetComponent<BasisScene>();
-                if (sceneOnTransform != null)
+                if (current.TryGetComponent(out BasisScene sceneOnTransform))
                 {
                     scope = OscScope.Scene;
                     prefix = ScenePublishPrefix + "/" + GetScopedContentIdentifier(sceneOnTransform) + "/parameters";
                     return true;
                 }
 
-                BasisAvatar avatar = current.GetComponent<BasisAvatar>();
-                if (avatar != null)
+                if (current.TryGetComponent(out BasisAvatar avatar))
                 {
                     scope = avatar.IsOwnedLocally ? OscScope.AvatarLocal : OscScope.AvatarRemote;
                     prefix = avatar.IsOwnedLocally ? AvatarParametersPrefix : null;
+                    scopeAvatar = avatar;
                     return true;
                 }
             }
 
-            if (BasisScene.SceneTraversalFindBasisScene(shim.gameObject, out BasisScene scene))
+            if (BasisScene.SceneTraversalFindBasisScene(gameObject, out BasisScene scene))
             {
                 scope = OscScope.Scene;
                 prefix = ScenePublishPrefix + "/" + GetScopedContentIdentifier(scene) + "/parameters";
@@ -907,36 +969,8 @@ namespace Basis.Shims
 
         private OscScope GetCurrentScopeForInspector()
         {
-            return GetCurrentScopeForInspector(this);
-        }
-
-        private static OscScope GetCurrentScopeForInspector(BasisOsc shim)
-        {
-            for (Transform current = shim.transform; current != null; current = current.parent)
-            {
-                if (current.GetComponent<BasisProp>() != null)
-                {
-                    return OscScope.Prop;
-                }
-
-                if (current.GetComponent<BasisScene>() != null)
-                {
-                    return OscScope.Scene;
-                }
-
-                BasisAvatar avatar = current.GetComponent<BasisAvatar>();
-                if (avatar != null)
-                {
-                    return avatar.IsOwnedLocally ? OscScope.AvatarLocal : OscScope.AvatarRemote;
-                }
-            }
-
-            if (BasisScene.SceneTraversalFindBasisScene(shim.gameObject, out _))
-            {
-                return OscScope.Scene;
-            }
-
-            return OscScope.None;
+            TryGetOscScope(out OscScope scope, out _);
+            return scope;
         }
 
         private static void WarnRestrictedAvatarSubscription(string address, OscScope scope)

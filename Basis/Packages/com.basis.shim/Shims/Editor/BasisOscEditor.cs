@@ -23,6 +23,12 @@ namespace Basis.Shims.Editor
             BasisOsc osc = (BasisOsc)target;
             RefreshInspectorState(osc);
             BasisOsc.InspectorState state = _cachedState;
+            if (state == null)
+            {
+                EditorGUILayout.HelpBox("Inspector state is unavailable.", MessageType.Warning);
+                DrawScriptField(osc);
+                return;
+            }
 
             DrawScriptField(osc);
             EditorGUILayout.Space();
