@@ -54,6 +54,7 @@ namespace Basis.Scripts.UI
         [SerializeField]
         public List<RaycastResult> SortedRays = new List<RaycastResult>();
         public List<Canvas> Results = new List<Canvas>();
+        private readonly List<int> _uiHitOrder = new List<int>(16);
         public bool IgnoreReversedGraphics = true;
         public Vector3 highlightQuadInitalSize;
         public bool HasOnPlayersHeightChanged = false;
@@ -186,36 +187,85 @@ namespace Basis.Scripts.UI
             SortedRays.Clear();
             HadRaycastUITarget = false;
 
-            bool hitCollider = BasisPointRaycaster.PhysicHitCount > 0;
-
-            // NOTE: only first collider hit counted for UI
-            // TODO: this should never be null at this point, right? yet it sometimes is with this! wtf!
-            bool hitObject = hitCollider && BasisPointRaycaster.ClosestRayCastHit.transform != null;
-            PhysicHit = BasisPointRaycaster.ClosestRayCastHit;
-
-            bool hitCanvas = false;
-            if (hitObject)
-            {
-                PhysicHit.transform.GetComponentsInChildren<Canvas>(false, Results);
-                hitCanvas = Results.Count > 0;
-            }
-
-            if (!hitCanvas)
+            int hitCount = BasisPointRaycaster.PhysicHitCount;
+            if (hitCount == 0)
             {
                 HandleNoHit();
                 return;
             }
 
-            HadRaycastUITarget = RaycastToUI();
+            // walk all forward physics hits, OverlayUI layer first, then ascending distance.
+            // the first collider whose canvas hierarchy actually produces a UI graphic at the
+            // current ray position wins.
+            // this fixes issues like the menu being unresponsive when the player opens the photo camera
+            var hits = BasisPointRaycaster.PhysicHits;
+            _uiHitOrder.Clear();
+            for (int i = 0; i < hitCount; i++)
+            {
+                if (hits[i].collider != null)
+                {
+                    _uiHitOrder.Add(i);
+                }
+            }
 
-            if (HadRaycastUITarget)
+            int orderCount = _uiHitOrder.Count;
+            for (int i = 1; i < orderCount; i++)
             {
-                HandleDidHit();
+                int currentIndex = _uiHitOrder[i];
+                int insertIndex = i - 1;
+
+                while (insertIndex >= 0 && CompareUiHitOrder(hits, currentIndex, _uiHitOrder[insertIndex]) < 0)
+                {
+                    _uiHitOrder[insertIndex + 1] = _uiHitOrder[insertIndex];
+                    insertIndex--;
+                }
+
+                _uiHitOrder[insertIndex + 1] = currentIndex;
             }
-            else
+
+            for (int idx = 0; idx < orderCount; idx++)
             {
-                HandleNoHit();
+                RaycastHit candidate = hits[_uiHitOrder[idx]];
+                if (candidate.transform == null)
+                {
+                    continue;
+                }
+
+                candidate.transform.GetComponentsInChildren<Canvas>(false, Results);
+                if (Results.Count == 0)
+                {
+                    continue;
+                }
+
+                SortedGraphics.Clear();
+                SortedRays.Clear();
+                PhysicHit = candidate;
+
+                if (RaycastToUI())
+                {
+                    HadRaycastUITarget = true;
+                    HandleDidHit();
+                    return;
+                }
             }
+
+            // no collider with a hittable UI graphic this frame....
+            HandleNoHit();
+        }
+
+        private static int CompareUiHitOrder(RaycastHit[] hits, int leftIndex, int rightIndex)
+        {
+            int leftLayer = hits[leftIndex].collider.gameObject.layer;
+            int rightLayer = hits[rightIndex].collider.gameObject.layer;
+            bool leftIsOverlay = leftLayer == OverlayUI;
+            bool rightIsOverlay = rightLayer == OverlayUI;
+
+            if (leftIsOverlay != rightIsOverlay)
+            {
+                return leftIsOverlay ? -1 : 1;
+            }
+
+            return hits[leftIndex].distance.CompareTo(hits[rightIndex].distance);
         }
 
         private void HandleNoHit()
