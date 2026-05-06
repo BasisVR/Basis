@@ -308,7 +308,8 @@ namespace HVR.Basis.Comms
                 return;
             }
 
-            for (int i = 0; i < paths.Length; i++)
+            int pathCount = paths.Length;
+            for (int i = 0; i < pathCount; i++)
             {
                 string path = paths[i];
                 if (string.IsNullOrEmpty(path))
@@ -394,7 +395,8 @@ namespace HVR.Basis.Comms
                 }
 
                 PrefixRoute[] prefixRoutes = snapshot.PrefixRoutes;
-                for (int i = 0; i < prefixRoutes.Length; i++)
+                int prefixRouteCount = prefixRoutes.Length;
+                for (int i = 0; i < prefixRouteCount; i++)
                 {
                     PrefixRoute route = prefixRoutes[i];
                     if (path.StartsWith(route.Prefix, StringComparison.Ordinal))
@@ -428,8 +430,9 @@ namespace HVR.Basis.Comms
                 return;
             }
 
-            EnsureMatchCapacity(ref matchesBuffer, matchCount, matchCount + owners.Length);
-            for (int ownerIndex = 0; ownerIndex < owners.Length; ownerIndex++)
+            int ownerCount = owners.Length;
+            EnsureMatchCapacity(ref matchesBuffer, matchCount, matchCount + ownerCount);
+            for (int ownerIndex = 0; ownerIndex < ownerCount; ownerIndex++)
             {
                 EntityId ownerId = owners[ownerIndex];
                 bool alreadyAdded = false;
@@ -471,7 +474,8 @@ namespace HVR.Basis.Comms
 
         private static void DispatchRawMessages(DispatcherState snapshot, IReadOnlyList<SimpleOSC.OSCMessage> messages)
         {
-            for (int messageIndex = 0; messageIndex < messages.Count; messageIndex++)
+            int messageCount = messages.Count;
+            for (int messageIndex = 0; messageIndex < messageCount; messageIndex++)
             {
                 SimpleOSC.OSCMessage rawMessage = messages[messageIndex];
                 EntityId[] matchedOwners = MatchOwners(snapshot, rawMessage.path ?? string.Empty);
@@ -502,7 +506,8 @@ namespace HVR.Basis.Comms
                     continue;
                 }
 
-                for (int ownerIndex = 0; ownerIndex < matchedOwners.Length; ownerIndex++)
+                int matchedOwnerCount = matchedOwners.Length;
+                for (int ownerIndex = 0; ownerIndex < matchedOwnerCount; ownerIndex++)
                 {
                     if (!snapshot.Handlers.TryGetValue(matchedOwners[ownerIndex], out Action<OscMessage> handler) || handler == null)
                     {
@@ -534,7 +539,8 @@ namespace HVR.Basis.Comms
                 return;
             }
 
-            for (int ownerIndex = 0; ownerIndex < matchedOwners.Length; ownerIndex++)
+            int matchedOwnerCount = matchedOwners.Length;
+            for (int ownerIndex = 0; ownerIndex < matchedOwnerCount; ownerIndex++)
             {
                 if (currentState.Handlers.TryGetValue(matchedOwners[ownerIndex], out Action<OscMessage> handler) && handler != null)
                 {
@@ -545,7 +551,8 @@ namespace HVR.Basis.Comms
 
         private static void DispatchAddressValues(DispatcherState snapshot, IReadOnlyList<SimpleOSC.OSCMessage> messages)
         {
-            for (int messageIndex = 0; messageIndex < messages.Count; messageIndex++)
+            int messageCount = messages.Count;
+            for (int messageIndex = 0; messageIndex < messageCount; messageIndex++)
             {
                 SimpleOSC.OSCMessage rawMessage = messages[messageIndex];
                 EntityId[] matchedOwners = MatchOwners(snapshot, rawMessage.path ?? string.Empty);
@@ -559,7 +566,8 @@ namespace HVR.Basis.Comms
                     continue;
                 }
 
-                for (int ownerIndex = 0; ownerIndex < matchedOwners.Length; ownerIndex++)
+                int matchedOwnerCount = matchedOwners.Length;
+                for (int ownerIndex = 0; ownerIndex < matchedOwnerCount; ownerIndex++)
                 {
                     if (snapshot.AddressHandlers.TryGetValue(matchedOwners[ownerIndex], out Action<int, float> addressHandler) && addressHandler != null)
                     {

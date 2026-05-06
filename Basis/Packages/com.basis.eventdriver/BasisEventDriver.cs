@@ -12,6 +12,7 @@ using Basis.Scripts.UI;
 using Basis.Scripts.UI.NamePlate;
 using Basis.Scripts.Profiler;
 using GatorDragonGames.JigglePhysics;
+using HVR.Basis.Comms;
 using SteamAudio;
 using System;
 using UnityEngine;
@@ -194,6 +195,7 @@ public partial class BasisEventDriver : MonoBehaviour
         BasisObjectSyncDriver.ScheduleRemoteLerp(DeltaTime);
         if (!IsHeadlessClient)
             InputSystem.Update();
+        OSCAcquisitionServer.Simulate();
         timeSinceLastUpdate += DeltaTime;
     }
 

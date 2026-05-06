@@ -472,7 +472,8 @@ public class SimpleOSC
 		List<object> topLevelArguments = new List<object>();
 		List<List<object>> nested = new List<List<object>>();
 		nested.Add(topLevelArguments);
-		for (int i = 1; i < msg.typeTag.Length; i++) {
+		int typeTagLength = msg.typeTag.Length;
+		for (int i = 1; i < typeTagLength; i++) {
 			// Debug.Log("doing type tag " + msg.typeTag[i] + " offset: " + offset);
 			object obj;
 			switch (msg.typeTag[i]) {

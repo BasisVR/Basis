@@ -147,8 +147,9 @@ namespace HVR.Basis.Comms.OSC
                 return Array.Empty<OscData>();
             }
 
-            OscData[] converted = new OscData[arguments.Length];
-            for (int i = 0; i < arguments.Length; i++)
+            int argumentCount = arguments.Length;
+            OscData[] converted = new OscData[argumentCount];
+            for (int i = 0; i < argumentCount; i++)
             {
                 converted[i] = FromRaw(arguments[i]);
             }
@@ -266,8 +267,9 @@ namespace HVR.Basis.Comms.OSC
                 case OscDataKind.Midi:
                     return new[] { (int)MidiPort, (int)MidiStatus, (int)MidiData1, (int)MidiData2 };
                 case OscDataKind.Array:
-                    object[] nested = new object[Elements?.Length ?? 0];
-                    for (int i = 0; i < nested.Length; i++)
+                    int elementCount = Elements?.Length ?? 0;
+                    object[] nested = new object[elementCount];
+                    for (int i = 0; i < elementCount; i++)
                     {
                         OscData element = Elements[i];
                         nested[i] = element != null ? element.ToQueryValue() : null;
@@ -330,8 +332,9 @@ namespace HVR.Basis.Comms.OSC
                         data2 = MidiData2,
                     };
                 case OscDataKind.Array:
-                    object[] nested = new object[Elements?.Length ?? 0];
-                    for (int i = 0; i < nested.Length; i++)
+                    int elementCount = Elements?.Length ?? 0;
+                    object[] nested = new object[elementCount];
+                    for (int i = 0; i < elementCount; i++)
                     {
                         OscData element = Elements[i];
                         nested[i] = element != null ? element.ToOscArgument() : null;

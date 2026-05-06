@@ -149,7 +149,8 @@ namespace Basis.Shims.Editor
 
             using (new EditorGUI.DisabledScope(true))
             {
-                for (int i = 0; i < values.Length; i++)
+                int valueCount = values.Length;
+                for (int i = 0; i < valueCount; i++)
                 {
                     EditorGUILayout.TextField(values[i] ?? string.Empty);
                 }

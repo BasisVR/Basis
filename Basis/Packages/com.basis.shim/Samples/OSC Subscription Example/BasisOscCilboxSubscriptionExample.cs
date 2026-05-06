@@ -125,7 +125,8 @@ namespace Basis.Shims.Samples
                 return report;
             }
 
-            for (int index = 0; index < arguments.Length; index++)
+            int argumentCount = arguments.Length;
+            for (int index = 0; index < argumentCount; index++)
             {
                 report += " | arg[" + index + "]=" + DescribeOscData(arguments[index]);
             }
@@ -185,7 +186,8 @@ namespace Basis.Shims.Samples
             }
 
             string description = string.Empty;
-            for (int index = 0; index < values.Length; index++)
+            int valueCount = values.Length;
+            for (int index = 0; index < valueCount; index++)
             {
                 if (index > 0)
                 {

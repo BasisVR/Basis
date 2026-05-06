@@ -1142,7 +1142,8 @@ namespace HVR.Basis.Comms.Tests
         private static object ResolveNode(object rootNode, params string[] path)
         {
             object current = rootNode;
-            for (int i = 0; i < path.Length; i++)
+            int pathCount = path.Length;
+            for (int i = 0; i < pathCount; i++)
             {
                 FieldInfo contentsField = current.GetType().GetField("CONTENTS");
                 if (contentsField == null)

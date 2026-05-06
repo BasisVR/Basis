@@ -9,7 +9,7 @@ using UnityEngine;
 namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Internal/OSC Acquisition Server")]
-    internal class OSCAcquisitionServer : MonoBehaviour
+    public class OSCAcquisitionServer : MonoBehaviour
     {
         public static OSCAcquisitionServer SceneInstance => HVRCommsUtil.GetOrCreateSceneInstance(ref _sceneInstance);
         private static OSCAcquisitionServer _sceneInstance;
@@ -30,6 +30,16 @@ namespace HVR.Basis.Comms
         private readonly Dictionary<EntityId, SubscriptionSnapshot> _subscriptionSnapshots = new Dictionary<EntityId, SubscriptionSnapshot>();
         private readonly Dictionary<string, int> _exactSubscriptionCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _prefixSubscriptionCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        public static void Simulate()
+        {
+            if (_sceneInstance == null)
+            {
+                return;
+            }
+
+            _sceneInstance.SimulateInstance();
+        }
 
         private sealed class SubscriptionSnapshot
         {
@@ -98,7 +108,7 @@ namespace HVR.Basis.Comms
             }
         }
 
-        private void Update()
+        private void SimulateInstance()
         {
             if (_client == null) return;
 
@@ -289,7 +299,8 @@ namespace HVR.Basis.Comms
             string[] segments = requestPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             OsushiNode current = _oscQueryRoot;
 
-            for (int i = 0; i < segments.Length; i++)
+            int segmentCount = segments.Length;
+            for (int i = 0; i < segmentCount; i++)
             {
                 if (current.CONTENTS == null || !current.CONTENTS.TryGetValue(segments[i], out current))
                 {
@@ -571,7 +582,8 @@ namespace HVR.Basis.Comms
                 return;
             }
 
-            for (int i = 0; i < values.Length; i++)
+            int valueCount = values.Length;
+            for (int i = 0; i < valueCount; i++)
             {
                 OscData value = values[i];
                 if (value == null)
@@ -600,7 +612,8 @@ namespace HVR.Basis.Comms
                 return result;
             }
 
-            for (int i = 0; i < values.Length; i++)
+            int valueCount = values.Length;
+            for (int i = 0; i < valueCount; i++)
             {
                 result.Add(values[i]?.ToQueryValue());
             }
@@ -615,8 +628,9 @@ namespace HVR.Basis.Comms
                 return Array.Empty<object>();
             }
 
-            object[] result = new object[values.Length];
-            for (int i = 0; i < values.Length; i++)
+            int valueCount = values.Length;
+            object[] result = new object[valueCount];
+            for (int i = 0; i < valueCount; i++)
             {
                 result[i] = values[i]?.ToOscArgument();
             }

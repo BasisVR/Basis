@@ -573,7 +573,8 @@ namespace Basis.Shims
             HashSet<string> merged = new HashSet<string>(StringComparer.Ordinal);
             if (sources != null)
             {
-                for (int sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+                int sourceCount = sources.Length;
+                for (int sourceIndex = 0; sourceIndex < sourceCount; sourceIndex++)
                 {
                     IEnumerable<string> source = sources[sourceIndex];
                     if (source == null)
@@ -650,7 +651,8 @@ namespace Basis.Shims
             rawInputs.CopyTo(sortedInputs);
             Array.Sort(sortedInputs, StringComparer.Ordinal);
 
-            for (int i = 0; i < sortedInputs.Length; i++)
+            int sortedInputCount = sortedInputs.Length;
+            for (int i = 0; i < sortedInputCount; i++)
             {
                 string rawInput = sortedInputs[i];
                 lines.Add(rawInput == normalizedAddress
@@ -987,8 +989,9 @@ namespace Basis.Shims
             if (content != null && content.TryGetNetworkGUIDIdentifier(out string identifier) && !string.IsNullOrWhiteSpace(identifier))
             {
                 #region SanitizePathSegment
-                StringBuilder builder = new StringBuilder(identifier.Length);
-                for (int i = 0; i < identifier.Length; i++)
+                int identifierLength = identifier.Length;
+                StringBuilder builder = new StringBuilder(identifierLength);
+                for (int i = 0; i < identifierLength; i++)
                 {
                     char c = identifier[i];
                     if (char.IsLetterOrDigit(c) || c == '-' || c == '_')
