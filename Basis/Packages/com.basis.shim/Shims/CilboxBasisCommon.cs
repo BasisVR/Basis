@@ -334,6 +334,14 @@ namespace Cilbox
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
+			
+			// Unity Event Systems fields
+			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
+			"UnityEngine.EventSystems.EventTrigger+Entry.callback",
+			"UnityEngine.EventSystems.PointerEventData.hovered",
+			"UnityEngine.EventSystems.EventTriggerType.*",
+			"UnityEngine.EventSystems.PointerEventData+InputButton.*",
+			"UnityEngine.EventSystems.RaycastResult.*",
 		};
 
 		protected static readonly Dictionary<Type, HashSet<string>> commonMethodWhitelist = new Dictionary<Type, HashSet<string>>()
