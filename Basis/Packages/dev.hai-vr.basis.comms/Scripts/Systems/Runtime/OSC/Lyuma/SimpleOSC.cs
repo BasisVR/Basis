@@ -157,8 +157,8 @@ public class SimpleOSC
 	public static bool DebugLoggingEnabled = true; // Set to false to handle bad data without logspam.
 	static void CryWolf(string logMsg) {
 		if (DebugLoggingEnabled) {
-#if UNITY
-					UnityEngine.Debug.LogWarning(logMsg);
+#if UNITY && BASIS_FRAMEWORK_EXISTS
+					BasisDebug.LogWarning(logMsg, BasisDebug.LogTag.LocalNetwork);
 #else
 			System.Console.WriteLine(logMsg);
 #endif

@@ -79,7 +79,7 @@ namespace HVR.Basis.Comms
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"Failed to start OSC client ({e.Message})");
+                BasisDebug.LogWarning($"Failed to start OSC client ({e.Message})", BasisDebug.LogTag.LocalNetwork);
                 StopClient();
             }
         }
@@ -133,7 +133,7 @@ namespace HVR.Basis.Comms
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"Failed to close client ({e.Message})");
+                    BasisDebug.LogWarning($"Failed to close client ({e.Message})", BasisDebug.LogTag.LocalNetwork);
                 }
                 _client = null;
             }
@@ -146,7 +146,7 @@ namespace HVR.Basis.Comms
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"Failed to close osushi service ({e.Message})");
+                    BasisDebug.LogWarning($"Failed to close osushi service ({e.Message})", BasisDebug.LogTag.LocalNetwork);
                 }
                 _osushi = null;
             }
@@ -164,7 +164,7 @@ namespace HVR.Basis.Comms
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"Failed to send wake up message ({e.Message})");
+                BasisDebug.LogWarning($"Failed to send wake up message ({e.Message})", BasisDebug.LogTag.LocalNetwork);
             }
         }
 
@@ -198,7 +198,7 @@ namespace HVR.Basis.Comms
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"Failed to publish OSC value ({e.Message})");
+                    BasisDebug.LogWarning($"Failed to publish OSC value ({e.Message})", BasisDebug.LogTag.LocalNetwork);
                 }
             }
         }

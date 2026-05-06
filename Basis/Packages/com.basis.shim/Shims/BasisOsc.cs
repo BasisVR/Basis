@@ -975,10 +975,11 @@ namespace Basis.Shims
 
         private static void WarnRestrictedAvatarSubscription(string address, OscScope scope)
         {
-            Debug.LogWarning(
+            BasisDebug.LogWarning(
                 $"BasisOsc.NormalizeSubscriptionAddress rejected Subscribe address '{address}' for scope {GetScopeName(scope)}. " +
                 $"Only absolute {AvatarPublicPrefix}/* avatar subscriptions are allowed in this scope. " +
-                $"Use {AvatarPublicPrefix}/* or a relative address instead of {AvatarParametersPrefix}/*.");
+                $"Use {AvatarPublicPrefix}/* or a relative address instead of {AvatarParametersPrefix}/*.",
+                BasisDebug.LogTag.Shims);
         }
 
         private static string GetScopedContentIdentifier(BasisNetworkContentBase content)

@@ -492,7 +492,7 @@ namespace HVR.Basis.Comms
                     }
                     catch (Exception e)
                     {
-                        Debug.LogWarning($"Failed to convert inbound OSC message {rawMessage.path} ({e.Message})");
+                        BasisDebug.LogWarning($"Failed to convert inbound OSC message {rawMessage.path} ({e.Message})", BasisDebug.LogTag.LocalNetwork);
                         continue;
                     }
                 }
@@ -517,7 +517,7 @@ namespace HVR.Basis.Comms
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning($"Failed to convert inbound OSC message {rawMessage.path} ({e.Message})");
+                            BasisDebug.LogWarning($"Failed to convert inbound OSC message {rawMessage.path} ({e.Message})", BasisDebug.LogTag.LocalNetwork);
                             break;
                         }
                     }
