@@ -8,7 +8,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
     {
         private static Quaternion rotCapsuleX = Quaternion.Euler(new Vector3(0, 0, 90));
         private static Quaternion rotCapsuleZ = Quaternion.Euler(new Vector3(90, 0, 0));
-        public static GameObject CloneColliderMesh(Collider collider, Transform parent, string cloneName)
+        public static GameObject CloneColliderMesh(Collider collider, string cloneName)
         {
             GameObject primitive = null;
             switch (collider.GeometryHolder.Type)
@@ -26,7 +26,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         BasisDebug.LogError("Primitive Sphere did not have a sphere collider?!");
                     }
                     primitive.name = cloneName;
-                    primitive.transform.parent = parent;
+                    primitive.transform.parent = collider.transform;
 
                     primitive.transform.localPosition = sphere.center;
                     primitive.transform.localScale = sphere.radius * 2 * Vector3.one;
@@ -36,7 +36,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     primitive = new GameObject(cloneName);
                     MeshFilter mFilter = primitive.AddComponent<MeshFilter>();
                     primitive.AddComponent<MeshRenderer>();
-                    primitive.transform.parent = parent;
+                    primitive.transform.parent = collider.transform;
 
                     // generate mesh since we cant just scale the capsule primitve (sadly)
                     Mesh newMesh = CreateCapsuleMesh(capsule.radius, capsule.height, 8);
@@ -71,7 +71,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         BasisDebug.LogError("Cube Primitve did not have a box collider?!");
                     }
                     primitive.name = cloneName;
-                    primitive.transform.parent = parent;
+                    primitive.transform.parent = collider.transform;
 
                     primitive.transform.SetLocalPositionAndRotation(box.center, Quaternion.identity);
                     primitive.transform.localScale = box.size;
@@ -97,7 +97,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         BasisDebug.LogError("Cube Primitve did not have a box collider?!");
                     }
                     primitive.name = cloneName;
-                    primitive.transform.parent = parent;
+                    primitive.transform.parent = collider.transform;
                     primitive.transform.SetLocalPositionAndRotation(objectBounds.center, Quaternion.identity);
                     primitive.transform.localScale = objectBounds.size;
                     break;
