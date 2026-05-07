@@ -130,6 +130,11 @@ This project includes third-party software under the following licenses:
 - [AudioLink](https://github.com/llealloo/vrc-udon-audio-link) - MIT licensed upstream
 - [cilbox](https://github.com/cnlohr/cilbox) - MIT licensed upstream
 
+### SIL Open Font License 1.1
+- [Inter](https://github.com/rsms/inter) - Copyright 2020 The Inter Project Authors. See `Basis/Packages/com.basis.sdk/LICENSE-Inter-OFL.txt`.
+- [Poppins](https://github.com/itfoundry/Poppins) - Copyright 2020 The Poppins Project Authors. See `Basis/Packages/com.basis.sdk/LICENSE-Poppins-OFL.txt`.
+- [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) - Copyright 2014-2021 Adobe, with Reserved Font Name 'Source'. See `Basis/Packages/com.basis.sdk/LICENSE-NotoSansJP-OFL.txt`.
+
 ### Other
 - [HVRBasisNDMF](https://github.com/hai-vr/ndmf) - See upstream for license terms
 
