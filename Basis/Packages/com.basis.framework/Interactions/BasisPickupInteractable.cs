@@ -318,7 +318,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 Collider[] colliders = GetColliders();
                 if (colliders != null && colliders.Length > 0 && colliders[0] != null)
                 {
-                    HighlightClone = BasisColliderClone.CloneColliderMesh(colliders[0], gameObject.transform, k_CloneName);
+                    HighlightClone = BasisColliderClone.CloneColliderMesh(colliders[0], k_CloneName);
                 }
 
                 if (HighlightClone != null)
