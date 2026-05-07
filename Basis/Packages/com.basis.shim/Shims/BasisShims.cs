@@ -1,8 +1,11 @@
 using Basis.Shims;
 using Basis.Scripts.BasisSdk;
 using System;
+using System.Collections.Generic;
 using UnityEngine.Networking;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using Cilbox;
 
 namespace Basis
@@ -20,7 +23,33 @@ namespace Basis
 
 	public class SafeUtil
 	{
+		public static void AddEventTrigger(Component target, EventTriggerType eventType, UnityAction<BaseEventData> callback)
+		{
+			if (target == null || callback == null)
+			{
+				return;
+			}
+			EventTrigger eventTrigger = null;
+			if (!target.TryGetComponent<EventTrigger>(out eventTrigger))
+			{
+				return;
+			}
 
+			EventTrigger.Entry entry = new EventTrigger.Entry
+			{
+				eventID = eventType,
+				callback = new EventTrigger.TriggerEvent()
+			};
+
+			entry.callback.AddListener(callback);
+
+			if (eventTrigger.triggers == null)
+			{
+				eventTrigger.triggers = new List<EventTrigger.Entry>();
+			}
+
+			eventTrigger.triggers.Add(entry);
+		}
 		public static BasisNetworkShim MakeNetworkable( object o )
 		{
 			if (o is not MonoBehaviour behaviour)

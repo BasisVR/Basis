@@ -273,7 +273,6 @@ namespace Cilbox
 			"UnityEngine.EventSystems.BaseEventData",
 			"UnityEngine.EventSystems.EventTrigger",
 			"UnityEngine.EventSystems.EventTrigger+Entry",
-			"UnityEngine.EventSystems.EventTrigger+TriggerEvent",
 			"UnityEngine.EventSystems.EventTriggerType",
 			"UnityEngine.EventSystems.PointerEventData",
 			"UnityEngine.EventSystems.PointerEventData+InputButton",
@@ -337,7 +336,6 @@ namespace Cilbox
 			
 			// Unity Event Systems fields
 			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
-			"UnityEngine.EventSystems.EventTrigger+Entry.callback",
 			"UnityEngine.EventSystems.PointerEventData.hovered",
 			"UnityEngine.EventSystems.EventTriggerType.*",
 			"UnityEngine.EventSystems.PointerEventData+InputButton.*",
