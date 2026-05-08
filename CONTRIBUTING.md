@@ -50,14 +50,15 @@ If you find a vulnerability, **please don't open a public issue.** Email `develo
 
 The Unity client lives at `Basis/`. Open *that* folder in Unity Hub, not the repo root.
 
-1. **Install Unity 6.** The exact editor version is in `Basis/ProjectSettings/ProjectVersion.txt`; Unity Hub will prompt you to install it if you open the project without it.
-2. **Clone the repo:**
+1. **Install Git.** Any variant works — the [Git CLI](https://git-scm.com/downloads), [Git for Windows](https://gitforwindows.org/) (which bundles Git Bash), or [GitHub Desktop](https://desktop.github.com/) if you'd rather a GUI.
+2. **Install Unity 6.** The exact editor version is in `Basis/ProjectSettings/ProjectVersion.txt`; Unity Hub will prompt you to install it if you open the project without it. Basis bumps Unity versions fairly aggressively, so expect to install new editor versions from time to time as you pull updates.
+3. **Clone the repo:**
    ```sh
    git clone https://github.com/BasisVR/Basis.git
    ```
-3. **Open `Basis/`** in Unity Hub. First import takes a while — the project pulls a lot of packages.
-4. **Load the boot scene** at `Packages/com.basis.framework/Scenes/initialization.unity`. This is the entry point for both editor play mode and player builds; loading any other scene first will misbehave.
-5. **Press play.** For a player build, use **File → Build Settings** with `initialization.unity` as the only enabled scene.
+4. **Open `Basis/`** in Unity Hub. First import takes a while — the project pulls a lot of packages.
+5. **Load the boot scene** at `Packages/com.basis.framework/Scenes/initialization.unity`. This is the entry point for both editor play mode and player builds; loading any other scene first will misbehave.
+6. **Press play.** For a player build, use **File → Build Settings** with `initialization.unity` as the only enabled scene.
 
 Useful command-line flags for built players (also documented in [README.md](./README.md)):
 
@@ -111,6 +112,6 @@ The maintainer triages and merges PRs. Some practical things to know:
 
 By contributing, you agree that your contributions are licensed under the [MIT License](https://opensource.org/licenses/MIT), the same license that covers the rest of the project. See [LICENSE](./LICENSE) and [TRADEMARK.md](./TRADEMARK.md).
 
-## Thanks
+## Thank you
 
 Basis exists because people show up and contribute. Whether that's a typo fix, a major feature, a bug report with a beautiful repro, or just helping someone in Discord — it all counts. Thanks for being here.
