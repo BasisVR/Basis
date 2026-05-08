@@ -99,10 +99,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         }
     }
     protected override void OnOwnershipStateChanged() => ApplyState();
-    /// <summary>
-    /// Pure state-driven physics + driver-set assignment. Local press already ran
-    /// OnInteractStart end-to-end with CanNetworkSteal=true, so no replay path.
-    /// </summary>
+
     public void ApplyState()
     {
         #if UNITY_SERVER
