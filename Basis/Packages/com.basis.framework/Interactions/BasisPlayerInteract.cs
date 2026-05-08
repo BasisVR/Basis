@@ -717,26 +717,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 
-        public bool ForceSetInteracting(BasisInteractableObject interactableObject, BasisInput input)
-        {
-            if (input.TryGetRole(out BasisBoneTrackedRole role) && interactableObject.Inputs.ChangeStateByRole(role, BasisInteractInputState.Hovering))
-            {
-                for (int i = 0; i < InteractInputs.Length; i++)
-                {
-                    if (InteractInputs[i].IsInput(input))
-                    {
-                        BasisDebug.Log("Stole ownership, starting interact", BasisDebug.LogTag.Networking);
-                        interactableObject.OnInteractStart(input);
-                        InteractInputs[i].lastTarget = interactableObject;
-                    }
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-
         public static bool IsDesktopCenterEye(BasisInput input)
         {
             return BasisDeviceManagement.IsUserInDesktop() &&

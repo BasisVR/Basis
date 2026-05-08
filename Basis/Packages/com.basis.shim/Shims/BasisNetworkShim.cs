@@ -50,7 +50,7 @@ namespace Basis.Shims
 
         public void RequestOwnershipIfNone()
         {
-	        RequestWhoIsOwnershipAsync();
+	        PollOwnership();
         }
 	}
 }

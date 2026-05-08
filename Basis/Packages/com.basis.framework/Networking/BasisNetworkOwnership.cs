@@ -10,10 +10,10 @@ using static SerializableBasis;
 
 public static partial class BasisNetworkOwnership
 {
-    public static async Task<BasisOwnershipResult> RemoveOwnershipAsync(string UniqueNetworkId, int timeoutMs = 5000)
+    public static async Task<BasisOwnershipResult> RemoveOwnershipAsync(string UniqueNetworkId, int timeoutMs = 5000, CancellationToken externalToken = default)
     {
         var tcs = new TaskCompletionSource<BasisOwnershipResult>();
-        using var cancellationTokenSource = new CancellationTokenSource();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
 
         void OnOwnershipTransferred(string ownershipID, ushort playerID, bool isLocalOwner)
         {
@@ -24,7 +24,7 @@ public static partial class BasisNetworkOwnership
             }
         }
 
-        cancellationTokenSource.Token.Register(() =>
+        cts.Token.Register(() =>
         {
             BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransferred;
             tcs.TrySetResult(BasisOwnershipResult.Failed);
@@ -56,17 +56,17 @@ public static partial class BasisNetworkOwnership
             return BasisOwnershipResult.Failed;
         }
 
-        cancellationTokenSource.CancelAfter(timeoutMs);
+        cts.CancelAfter(timeoutMs);
         return await tcs.Task;
     }
-    public static async Task<BasisOwnershipResult> TakeOwnershipAsync(string UniqueNetworkId, int NewOwner, int timeoutMs = 5000)
+    public static async Task<BasisOwnershipResult> TakeOwnershipAsync(string UniqueNetworkId, int NewOwner, int timeoutMs = 5000, CancellationToken externalToken = default)
     {
-        return await TakeOwnershipAsync(UniqueNetworkId, (ushort)NewOwner, timeoutMs);
+        return await TakeOwnershipAsync(UniqueNetworkId, (ushort)NewOwner, timeoutMs, externalToken);
     }
-    public static async Task<BasisOwnershipResult> TakeOwnershipAsync(string UniqueNetworkId, ushort NewOwner, int timeoutMs = 5000)
+    public static async Task<BasisOwnershipResult> TakeOwnershipAsync(string UniqueNetworkId, ushort NewOwner, int timeoutMs = 5000, CancellationToken externalToken = default)
     {
         var tcs = new TaskCompletionSource<BasisOwnershipResult>();
-        using var cancellationTokenSource = new CancellationTokenSource();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
 
         void OnOwnershipTransferred(string ownershipID, ushort playerID, bool isLocalOwner)
         {
@@ -77,7 +77,7 @@ public static partial class BasisNetworkOwnership
             }
         }
 
-        cancellationTokenSource.Token.Register(() =>
+        cts.Token.Register(() =>
         {
             BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransferred;
             tcs.TrySetResult(BasisOwnershipResult.Failed);
@@ -109,7 +109,7 @@ public static partial class BasisNetworkOwnership
             return BasisOwnershipResult.Failed;
         }
 
-        cancellationTokenSource.CancelAfter(timeoutMs);
+        cts.CancelAfter(timeoutMs);
         return await tcs.Task;
     }
     /// <summary>
@@ -127,7 +127,7 @@ public static partial class BasisNetworkOwnership
         }
         return false;
     }
-    public static async Task<BasisOwnershipResult> RequestCurrentOwnershipAsync(string UniqueNetworkId, int timeoutMs = 5000)
+    public static async Task<BasisOwnershipResult> RequestCurrentOwnershipAsync(string UniqueNetworkId, int timeoutMs = 5000, CancellationToken externalToken = default)
     {
         if (BasisNetworkPlayers.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique))
         {
@@ -141,7 +141,7 @@ public static partial class BasisNetworkOwnership
         }
 
         var tcs = new TaskCompletionSource<BasisOwnershipResult>();
-        using var cancellationTokenSource = new CancellationTokenSource();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
 
         void OnOwnershipTransferred(string ownershipID, ushort playerID, bool isLocalOwner)
         {
@@ -152,7 +152,7 @@ public static partial class BasisNetworkOwnership
             }
         }
 
-        cancellationTokenSource.Token.Register(() =>
+        cts.Token.Register(() =>
         {
             BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransferred;
             tcs.TrySetResult(BasisOwnershipResult.Failed);
@@ -184,7 +184,7 @@ public static partial class BasisNetworkOwnership
             return BasisOwnershipResult.Failed;
         }
 
-        cancellationTokenSource.CancelAfter(timeoutMs);
+        cts.CancelAfter(timeoutMs);
         return await tcs.Task;
     }
 }

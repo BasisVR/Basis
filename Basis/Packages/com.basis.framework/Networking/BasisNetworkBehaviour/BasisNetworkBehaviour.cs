@@ -5,9 +5,35 @@ using Basis.Network.Core;
 using System;
 using System.Collections;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCommon;
+
+public enum NetworkOwnershipState
+{
+    /// <summary>
+    /// Ownership state is unknown/uninitialized or server-owned.
+    /// </summary>
+    Unknown,
+    /// <summary>
+    /// Owned by a remote source.
+    /// </summary>
+    Remote,
+    /// <summary>
+    /// Ownership request sent, awaiting confirmation.
+    /// </summary>
+    PendingClaim,
+    /// <summary>
+    /// Owned locally.
+    /// </summary>
+    Local,
+    /// <summary>
+    /// Ownership release requested, awaiting confirmation.
+    /// </summary>
+    PendingRelease,
+}
+
 namespace Basis
 {
     public abstract class BasisNetworkBehaviour : BasisNetworkContentBase
@@ -19,16 +45,25 @@ namespace Basis
             get => networkID;
             private set => networkID = value;
         }
+        public NetworkOwnershipState OwnershipState = NetworkOwnershipState.Unknown;
         /// <summary>
-        /// only set true when the server approves our ownership
+        /// True after server has confirmed ownership.
+        /// Equivalent to OwnershipState == Local.
         /// </summary>
-        public bool IsOwnedLocallyOnServer = false;
+        public bool IsOwnedLocallyOnServer => OwnershipState == NetworkOwnershipState.Local;
         /// <summary>
-        /// this is instantly set when we request ownership.
+        /// True from claim ownership start (PendingClaim) and
+        /// while the server agrees (Local).
         /// </summary>
-        public bool IsOwnedLocallyOnClient = false;
+        public bool IsOwnedLocallyOnClient =>
+            OwnershipState == NetworkOwnershipState.Local
+            || OwnershipState == NetworkOwnershipState.PendingClaim;
+        
         public ushort CurrentOwnerId;
         public BasisNetworkPlayer currentOwnedPlayer;
+        private Task<BasisOwnershipResult> _pendingClaim;
+        private Task<BasisOwnershipResult> _pendingRelease;
+        private readonly CancellationTokenSource _destroyCts = new();
 
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
@@ -48,6 +83,7 @@ namespace Basis
         }
         public virtual void OnDestroy()
         {
+            _destroyCts.Cancel();
             if (HasNetworkID)
             {
                 BasisNetworkGenericMessages.UnregisterHandler(NetworkID);
@@ -127,25 +163,35 @@ namespace Basis
         }
         private void LowLevelOwnershipTransfer(string uniqueEntityID, ushort NetIdNewOwner, bool isOwner)
         {
-
-            if (uniqueEntityID == clientIdentifier)
+            if (uniqueEntityID != clientIdentifier) return;
+            Transition(isOwner ? NetworkOwnershipState.Local : NetworkOwnershipState.Remote);
+            CurrentOwnerId = NetIdNewOwner;
+            if (BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer))
             {
-                IsOwnedLocallyOnServer = isOwner;
-                IsOwnedLocallyOnClient = isOwner;
-                CurrentOwnerId = NetIdNewOwner;
-                if (BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer))
-                {
-                    OnOwnershipTransfer(currentOwnedPlayer);
-                }
-                else
-                {
-                    BasisUnInitalizedPlayer UnInitalizedPlayer = new BasisUnInitalizedPlayer(CurrentOwnerId);
-                    BasisDebug.LogError($"No Owner for Id {CurrentOwnerId} Creating Fake {nameof(BasisUnInitalizedPlayer)} this should only occur rarely");
-                    UnInitalizedPlayer.Initialize();
-                    OnOwnershipTransfer(UnInitalizedPlayer);
-                }
+                OnOwnershipTransfer(currentOwnedPlayer);
+            }
+            else
+            {
+                BasisUnInitalizedPlayer UnInitalizedPlayer = new BasisUnInitalizedPlayer(CurrentOwnerId);
+                BasisDebug.LogError($"No Owner for Id {CurrentOwnerId} Creating Fake {nameof(BasisUnInitalizedPlayer)} this should only occur rarely");
+                UnInitalizedPlayer.Initialize();
+                OnOwnershipTransfer(UnInitalizedPlayer);
             }
         }
+
+        private void Transition(NetworkOwnershipState newState)
+        {
+            if (OwnershipState == newState) return;
+            BasisDebug.Log($"[ownership] {clientIdentifier}: {OwnershipState} -> {newState}", BasisDebug.LogTag.Networking);
+            OwnershipState = newState;
+            OnOwnershipStateChanged();
+        }
+        /// <summary>
+        /// Called whenever <see cref="OwnershipState"/> changes (including optimistic
+        /// transitions and rollbacks on failed requests). Subclasses override to react
+        /// without depending on the server-driven <see cref="OnOwnershipTransfer"/>.
+        /// </summary>
+        protected virtual void OnOwnershipStateChanged() { }
         /// <summary>
         /// this is used for sending Network Messages
         /// very much a data sync that can be used more like a traditional sync method
@@ -276,32 +322,78 @@ namespace Basis
         }
         public async void TakeOwnership()
         {
-            //no need to use await ownership will get back here from lower level.
-            await TakeOwnershipAsync();
+            await ClaimOwnership();
         }
-        /// <summary>
-        /// actively takes ownership from another player
-        /// </summary>
-        /// <param name="Timout"></param>
-        /// <returns></returns>
-        public async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timout = 5000)
+
+        public Task<BasisOwnershipResult> ClaimOwnership(int timeoutMs = 5000)
         {
-            IsOwnedLocallyOnClient = true;
+            if (OwnershipState == NetworkOwnershipState.Local)
+                return Task.FromResult(new BasisOwnershipResult(true, BasisNetworkPlayer.LocalPlayer.playerId));
+            if (_pendingClaim != null)
+                return _pendingClaim;
+            return _pendingClaim = InternalClaim(timeoutMs);
+        }
+
+        private async Task<BasisOwnershipResult> InternalClaim(int timeoutMs)
+        {
+            var prev = OwnershipState;
+            Transition(NetworkOwnershipState.PendingClaim);
             CurrentOwnerId = BasisNetworkPlayer.LocalPlayer.playerId;
             currentOwnedPlayer = BasisNetworkPlayer.LocalPlayer;
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkConnection.LocalPlayerPeer.RemoteId, Timout);
-            return Result;
+            try
+            {
+                var result = await BasisNetworkOwnership.TakeOwnershipAsync(
+                    clientIdentifier,
+                    BasisNetworkConnection.LocalPlayerPeer.RemoteId,
+                    timeoutMs,
+                    _destroyCts.Token);
+                // On failure, the server-driven OnOwnershipTransfer never fires, so revert
+                // the optimistic transition. Caller is responsible for any retry.
+                if (!result.Success && OwnershipState == NetworkOwnershipState.PendingClaim)
+                {
+                    Transition(prev);
+                }
+                return result;
+            }
+            finally { _pendingClaim = null; }
         }
-        /// <summary>
-        /// requests who is the owner
-        /// </summary>
-        /// <param name="Timout"></param>
-        /// <returns></returns>
-        public async Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(int Timout = 5000)
+
+        public Task<BasisOwnershipResult> ReleaseOwnership(int timeoutMs = 5000)
         {
-            BasisOwnershipResult Result = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(clientIdentifier, Timout);
-            return Result;
+            if (OwnershipState == NetworkOwnershipState.Unknown || OwnershipState == NetworkOwnershipState.Remote)
+                return Task.FromResult(new BasisOwnershipResult(true, CurrentOwnerId));
+            if (_pendingRelease != null)
+                return _pendingRelease;
+            return _pendingRelease = InternalRelease(timeoutMs);
         }
+
+        private async Task<BasisOwnershipResult> InternalRelease(int timeoutMs)
+        {
+            var prev = OwnershipState;
+            Transition(NetworkOwnershipState.PendingRelease);
+            try
+            {
+                var result = await BasisNetworkOwnership.RemoveOwnershipAsync(
+                    clientIdentifier,
+                    timeoutMs,
+                    _destroyCts.Token);
+                if (!result.Success && OwnershipState == NetworkOwnershipState.PendingRelease)
+                {
+                    Transition(prev);
+                }
+                return result;
+            }
+            finally { _pendingRelease = null; }
+        }
+
+        /// <summary>
+        /// Polls ownership state from the server. Triggers OnOwnershipTransfer.
+        /// </summary>
+        public async Task<BasisOwnershipResult> PollOwnership(int timeoutMs = 5000)
+        {
+            return await BasisNetworkOwnership.RequestCurrentOwnershipAsync(clientIdentifier, timeoutMs, _destroyCts.Token);
+        }
+
         public virtual void OnNetworkReady()
         {
 

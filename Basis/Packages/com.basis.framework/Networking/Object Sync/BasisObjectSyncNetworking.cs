@@ -3,7 +3,6 @@ using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Compression;
-using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
 using UnityEngine;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
@@ -14,7 +13,8 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     BasisPositionRotationScale LocalLastData = new BasisPositionRotationScale();
     [SerializeField]
     public BasisTranslationUpdate BTU = new BasisTranslationUpdate();
-    public BasisInput pendingStealRequest = null;
+    [SerializeField]
+    private bool ReleaseOwnershipOnDrop = false;
     public float CatchupLerp = 5;
     public byte[] buffer = new byte[BasisPositionRotationScale.Size];
     public Transform SelfTransform;
@@ -30,6 +30,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             BasisPickupInteractable.CanHoverInjected.Add(CanHover);
             BasisPickupInteractable.CanInteractInjected.Add(CanInteract);
             BasisPickupInteractable.OnInteractStartEvent.AddListener(OnInteractStartEvent);
+            BasisPickupInteractable.OnInteractEndEvent.AddListener(OnInteractEndEvent);
         }
         if (BasisPickupInteractable.RigidRef != null)
         {
@@ -47,6 +48,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             BasisPickupInteractable.CanHoverInjected.Remove(CanHover);
             BasisPickupInteractable.CanInteractInjected.Remove(CanInteract);
             BasisPickupInteractable.OnInteractStartEvent.RemoveListener(OnInteractStartEvent);
+            BasisPickupInteractable.OnInteractEndEvent.RemoveListener(OnInteractEndEvent);
         }
     }
     public override void OnDestroy()
@@ -57,7 +59,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     public override void OnNetworkReady()
     {
-        ControlState();
+        ApplyState();
     }
 
     private bool CanHover(BasisInput input)
@@ -71,31 +73,23 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     private bool CanInteract(BasisInput input)
     {
-        // Allow interact if we arent connected or if we own it locally
-        if (IsOwnedLocallyOnClient)
-        {
-            return true;
-        }
-        // Allow if stealing is enabled and no other input has a steal in progress
-        // NOTE: pendingStealRequest is only set in OnInteractStartEvent to avoid
-        // side effects when this is called speculatively (e.g. via IsInfluencable)
-        return CanNetworkSteal && (pendingStealRequest == null || pendingStealRequest == input);
+        return IsOwnedLocallyOnClient || CanNetworkSteal;
     }
     private void OnInteractStartEvent(BasisInput input)
     {
-        if (!IsOwnedLocallyOnClient)
+        // Remote grabbed pickup sets kinematic during lerp, so preserve locally expected kinematic state 
+        if (BasisPickupInteractable != null && BasisPickupInteractable.KinematicWhileInteracting)
         {
-            pendingStealRequest = input;
+            BasisPickupInteractable._previousKinematicValue = false;
         }
-        CanInteractAsync(); // ControlState handles the ownership transfer logic here
+        _ = ClaimOwnership();
     }
-    private async void CanInteractAsync()
+    private void OnInteractEndEvent(BasisInput input)
     {
-        var result = await TakeOwnershipAsync(5000); // 5 second timeout 
-        if (result.Success == false)
-        {
-            pendingStealRequest = null;
-        }
+        if (!ReleaseOwnershipOnDrop) return;
+        // Only release if no other hand is still interacting with the pickup.
+        if (BasisPickupInteractable != null && BasisPickupInteractable.Inputs.AnyInteracting()) return;
+        _ = ReleaseOwnership();
     }
     public void SetIsKinematicOnPickup(bool state)
     {
@@ -104,11 +98,12 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             BasisPickupInteractable.RigidRef.isKinematic = state;
         }
     }
-    public override void OnOwnershipTransfer(BasisNetworkPlayer NetIdNewOwner)
-    {
-        ControlState();
-    }
-    public void ControlState()
+    protected override void OnOwnershipStateChanged() => ApplyState();
+    /// <summary>
+    /// Pure state-driven physics + driver-set assignment. Local press already ran
+    /// OnInteractStart end-to-end with CanNetworkSteal=true, so no replay path.
+    /// </summary>
+    public void ApplyState()
     {
         #if UNITY_SERVER
         if (SelfTransform == null)
@@ -121,49 +116,42 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             }
         }
         #endif
-        //lets always just update the last data so going from here we have some reference of last.
-        if (IsOwnedLocallyOnClient)
+        switch (OwnershipState)
         {
-            BasisObjectSyncDriver.AddLocalOwner(this);
-            BasisObjectSyncDriver.RemoveRemoteOwner(this);
-            if (pendingStealRequest != null)
-            {
-                // Set non-kinematic before ForceSetInteracting so that OnInteractStart
-                // saves the correct _previousKinematicValue (false) for restore on drop
-                SetIsKinematicOnPickup(false);
-                BasisPlayerInteract.Instance.ForceSetInteracting(BasisPickupInteractable, pendingStealRequest);
-                pendingStealRequest = null;
-                // ForceSetInteracting -> OnInteractStart re-applies isKinematic = true
-                // when KinematicWhileInteracting is enabled, so don't override after
-            }
-            else if (BasisPickupInteractable != null
-                && BasisPickupInteractable.KinematicWhileInteracting
-                && BasisPickupInteractable.RequiresUpdateLoop)
-            {
-                // Currently held with KinematicWhileInteracting - preserve kinematic state
-            }
-            else
-            {
-                SetIsKinematicOnPickup(false);
-            }
-        }
-        else
-        {
-            // Initialize BTU from current transform so the lerp job doesn't
-            // snap the object back to origin before the first sync arrives
-            SelfTransform.GetLocalPositionAndRotation(out UnityEngine.Vector3 currentPos, out UnityEngine.Quaternion currentRot);
-            BTU.TargetPosition = currentPos;
-            BTU.TargetRotation = currentRot;
-            BTU.TargetScales = SelfTransform.localScale;
-            BTU.LerpMultipliers = CatchupLerp;
+            case NetworkOwnershipState.PendingClaim:
+            case NetworkOwnershipState.Local:
+                BasisObjectSyncDriver.AddLocalOwner(this);
+                BasisObjectSyncDriver.RemoveRemoteOwner(this);
+                if (BasisPickupInteractable != null
+                    && BasisPickupInteractable.KinematicWhileInteracting
+                    && BasisPickupInteractable.RequiresUpdateLoop)
+                {
+                    // Currently held with KinematicWhileInteracting - preserve kinematic state
+                }
+                else
+                {
+                    SetIsKinematicOnPickup(false);
+                }
+                break;
+            case NetworkOwnershipState.Remote:
+            case NetworkOwnershipState.Unknown:
+            case NetworkOwnershipState.PendingRelease:
+                // Initialize BTU from current transform so the lerp job doesn't
+                // snap the object back to origin before the first sync arrives
+                SelfTransform.GetLocalPositionAndRotation(out UnityEngine.Vector3 currentPos, out UnityEngine.Quaternion currentRot);
+                BTU.TargetPosition = currentPos;
+                BTU.TargetRotation = currentRot;
+                BTU.TargetScales = SelfTransform.localScale;
+                BTU.LerpMultipliers = CatchupLerp;
 
-            BasisObjectSyncDriver.RemoveLocalOwner(this);
-            BasisObjectSyncDriver.AddRemoteOwner(this);
-            if (BasisPickupInteractable != null)
-            {
-                BasisPickupInteractable.Drop();
-            }
-            SetIsKinematicOnPickup(true);
+                BasisObjectSyncDriver.RemoveLocalOwner(this);
+                BasisObjectSyncDriver.AddRemoteOwner(this);
+                if (BasisPickupInteractable != null)
+                {
+                    BasisPickupInteractable.Drop();
+                }
+                SetIsKinematicOnPickup(true);
+                break;
         }
     }
     public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
