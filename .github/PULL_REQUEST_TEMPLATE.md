@@ -5,6 +5,7 @@
 All boxes below must be ticked before this PR can merge. If a check is genuinely N/A, tick it anyway and explain under **Notes**.
 
 <!-- required-checks-start -->
+<!-- Tick the boxes in place — do not edit the line text. The pr-checklist workflow parses this block; per-PR context goes under Notes. -->
 - [ ] **Tested** — I built and ran this locally. The change works in the editor and (where relevant) in a built player.
 - [ ] **Transform access is combined and limited** — In hot paths, transform reads/writes go through `TransformAccessArray` or are otherwise batched. I have not added per-frame `transform.position` / `transform.rotation` / `transform.localPosition` calls inside loops. Whenever I need both position and rotation, I use the combined APIs — `SetPositionAndRotation` / `SetLocalPositionAndRotation` for writes, `GetPositionAndRotation` / `GetLocalPositionAndRotation` for reads — instead of two separate property accesses; the combined call does one local-to-world matrix traversal instead of two.
 - [ ] **Addressables used for asset/memory loading** — Any new asset loads go through Addressables. No new `Resources.Load`, no direct asset references that pull large content into memory on scene load.

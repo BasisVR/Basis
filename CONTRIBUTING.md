@@ -92,6 +92,8 @@ Squash trivial fixup commits before opening the PR, but keep meaningfully separa
 
 The [pull request template](./.github/PULL_REQUEST_TEMPLATE.md) has a checklist that **must** be ticked before merge. The headline items cover hot-path allocations, transform batching, Addressables, `BasisEventDriver`, logging, and platform/input coverage — read [STYLE.md](./STYLE.md) for what each item means and the recurring review themes that aren't on the checklist.
 
+When you fill out the template, tick the boxes in place — don't rewrite the explanation text after each checkbox. The wording is the maintainer's description of what each rule means; some of it is also keyed on by automated checks. Put per-PR context (where the compliance lives in code, why something's N/A, anything you'd say in a review reply) under **Notes** instead.
+
 If a box is genuinely N/A, tick it and explain why under **Notes**.
 
 ### Tone in PRs and review
