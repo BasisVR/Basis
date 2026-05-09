@@ -1,6 +1,7 @@
 
 using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace UnityEngine.Rendering.Universal
 {
@@ -40,120 +41,130 @@ namespace UnityEngine.Rendering.Universal
             using var profScope = new ProfilingScope(computeShadowCasterCullingInfosMarker);
 
             NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
-            NativeArray<ShadowSplitData> splitBuffer = new NativeArray<ShadowSplitData>(visibleLights.Length * MaxShadowSplitCount, Allocator.Temp);
-            NativeArray<LightShadowCasterCullingInfo> perLightInfos = new NativeArray<LightShadowCasterCullingInfo>(visibleLights.Length, Allocator.Temp);
-            urpVisibleLightsShadowCullingInfos = new NativeArray<URPLightShadowCullingInfos>(visibleLights.Length, Allocator.Temp);
+            int visibleLightsLen = visibleLights.Length;
+            NativeArray<ShadowSplitData> splitBuffer = new NativeArray<ShadowSplitData>(visibleLightsLen * MaxShadowSplitCount, Allocator.Temp);
+            NativeArray<LightShadowCasterCullingInfo> perLightInfos = new NativeArray<LightShadowCasterCullingInfo>(visibleLightsLen, Allocator.Temp);
+            urpVisibleLightsShadowCullingInfos = new NativeArray<URPLightShadowCullingInfos>(visibleLightsLen, Allocator.Temp);
 
             int totalSplitCount = 0;
             int splitBufferOffset = 0;
 
-            for (int lightIndex = 0; lightIndex < visibleLights.Length; ++lightIndex)
+            unsafe
             {
-                ref VisibleLight visibleLight = ref cullingResults.visibleLights.UnsafeElementAt(lightIndex);
-                LightType lightType = visibleLight.lightType;
+                ShadowSplitData* splitBufferPtr = (ShadowSplitData*)splitBuffer.GetUnsafePtr();
+                LightShadowCasterCullingInfo* perLightInfosPtr = (LightShadowCasterCullingInfo*)perLightInfos.GetUnsafePtr();
+                URPLightShadowCullingInfos* urpInfosPtr = (URPLightShadowCullingInfos*)urpVisibleLightsShadowCullingInfos.GetUnsafePtr();
 
-                NativeArray<ShadowSliceData> slices = default;
-                uint slicesValidMask = 0;
-
-                if (lightType == LightType.Directional)
+                for (int lightIndex = 0; lightIndex < visibleLightsLen; ++lightIndex)
                 {
-                    if (!shadowData.supportsMainLightShadows)
-                        continue;
+                    ref VisibleLight visibleLight = ref cullingResults.visibleLights.UnsafeElementAt(lightIndex);
+                    LightType lightType = visibleLight.lightType;
 
-                    int splitCount = shadowData.mainLightShadowCascadesCount;
-                    int renderTargetWidth = shadowData.mainLightRenderTargetWidth;
-                    int renderTargetHeight = shadowData.mainLightRenderTargetHeight;
-                    int shadowResolution = shadowData.mainLightShadowResolution;
+                    NativeArray<ShadowSliceData> slices = default;
+                    uint slicesValidMask = 0;
 
-                    slices = new NativeArray<ShadowSliceData>(splitCount, Allocator.Temp);
-                    slicesValidMask = 0;
-
-                    for (int i = 0; i < splitCount; ++i)
+                    if (lightType == LightType.Directional)
                     {
-                        ShadowSliceData slice = default;
-                        bool isValid = ShadowUtils.ExtractDirectionalLightMatrix(ref cullingResults, shadowData,
-                            lightIndex, i, renderTargetWidth, renderTargetHeight, shadowResolution, visibleLight.light.shadowNearPlane,
-                            out _, // Vector4 cascadeSplitDistance. This is basically just the culling sphere which is already present in ShadowSplitData
-                            out slice);
+                        if (!shadowData.supportsMainLightShadows)
+                            continue;
 
-                        if (isValid)
-                            slicesValidMask |= 1u << i;
+                        int splitCount = shadowData.mainLightShadowCascadesCount;
+                        int renderTargetWidth = shadowData.mainLightRenderTargetWidth;
+                        int renderTargetHeight = shadowData.mainLightRenderTargetHeight;
+                        int shadowResolution = shadowData.mainLightShadowResolution;
 
-                        slices[i] = slice;
-                        splitBuffer[splitBufferOffset + i] = slice.splitData;
+                        slices = new NativeArray<ShadowSliceData>(splitCount, Allocator.Temp);
+                        slicesValidMask = 0;
+                        ShadowSliceData* slicesPtr = (ShadowSliceData*)slices.GetUnsafePtr();
+
+                        for (int i = 0; i < splitCount; ++i)
+                        {
+                            ShadowSliceData slice = default;
+                            bool isValid = ShadowUtils.ExtractDirectionalLightMatrix(ref cullingResults, shadowData,
+                                lightIndex, i, renderTargetWidth, renderTargetHeight, shadowResolution, visibleLight.light.shadowNearPlane,
+                                out _,
+                                out slice);
+
+                            if (isValid)
+                                slicesValidMask |= 1u << i;
+
+                            slicesPtr[i] = slice;
+                            splitBufferPtr[splitBufferOffset + i] = slice.splitData;
+                        }
                     }
-                }
-                else if (lightType == LightType.Point)
-                {
-                    if (!shadowData.supportsAdditionalLightShadows || !shadowAtlasLayout.HasSpaceForLight(lightIndex))
-                        continue;
-
-                    int splitCount = ShadowUtils.GetPunctualLightShadowSlicesCount(lightType);
-                    int sliceResolution = shadowAtlasLayout.GetSliceShadowResolutionRequest(lightIndex, 0).allocatedResolution;
-                    bool shadowFiltering = visibleLight.light.shadows == LightShadows.Soft;
-
-                    // Note: the same fovBias will also be used to compute ShadowUtils.GetShadowBias
-                    float fovBias = Internal.AdditionalLightsShadowCasterPass.GetPointLightShadowFrustumFovBiasInDegrees(sliceResolution, shadowFiltering);
-
-                    slices = new NativeArray<ShadowSliceData>(splitCount, Allocator.Temp);
-                    slicesValidMask = 0;
-
-                    for (int i = 0; i < splitCount; ++i)
+                    else if (lightType == LightType.Point)
                     {
+                        if (!shadowData.supportsAdditionalLightShadows || !shadowAtlasLayout.HasSpaceForLight(lightIndex))
+                            continue;
+
+                        int splitCount = ShadowUtils.GetPunctualLightShadowSlicesCount(lightType);
+                        int sliceResolution = shadowAtlasLayout.GetSliceShadowResolutionRequest(lightIndex, 0).allocatedResolution;
+                        bool shadowFiltering = visibleLight.light.shadows == LightShadows.Soft;
+
+                        float fovBias = Internal.AdditionalLightsShadowCasterPass.GetPointLightShadowFrustumFovBiasInDegrees(sliceResolution, shadowFiltering);
+
+                        slices = new NativeArray<ShadowSliceData>(splitCount, Allocator.Temp);
+                        slicesValidMask = 0;
+                        ShadowSliceData* slicesPtr = (ShadowSliceData*)slices.GetUnsafePtr();
+
+                        for (int i = 0; i < splitCount; ++i)
+                        {
+                            ShadowSliceData slice = default;
+                            bool isValid = ShadowUtils.ExtractPointLightMatrix(ref cullingResults,
+                                shadowData,
+                                lightIndex,
+                                (CubemapFace)i,
+                                fovBias,
+                                out slice.shadowTransform,
+                                out slice.viewMatrix,
+                                out slice.projectionMatrix,
+                                out slice.splitData);
+
+                            if (isValid)
+                                slicesValidMask |= 1u << i;
+
+                            slicesPtr[i] = slice;
+                            splitBufferPtr[splitBufferOffset + i] = slice.splitData;
+                        }
+                    }
+                    else if (lightType == LightType.Spot)
+                    {
+                        if (!shadowData.supportsAdditionalLightShadows || !shadowAtlasLayout.HasSpaceForLight(lightIndex))
+                            continue;
+
+                        slices = new NativeArray<ShadowSliceData>(1, Allocator.Temp);
+                        slicesValidMask = 0;
+                        ShadowSliceData* slicesPtr = (ShadowSliceData*)slices.GetUnsafePtr();
+
                         ShadowSliceData slice = default;
-                        bool isValid = ShadowUtils.ExtractPointLightMatrix(ref cullingResults,
+                        bool isValid = ShadowUtils.ExtractSpotLightMatrix(ref cullingResults,
                             shadowData,
                             lightIndex,
-                            (CubemapFace)i,
-                            fovBias,
                             out slice.shadowTransform,
                             out slice.viewMatrix,
                             out slice.projectionMatrix,
                             out slice.splitData);
 
                         if (isValid)
-                            slicesValidMask |= 1u << i;
+                            slicesValidMask |= 1u << 0;
 
-                        slices[i] = slice;
-                        splitBuffer[splitBufferOffset + i] = slice.splitData;
+                        slicesPtr[0] = slice;
+                        splitBufferPtr[splitBufferOffset] = slice.splitData;
                     }
+
+                    URPLightShadowCullingInfos infos = default;
+                    infos.slices = slices;
+                    infos.slicesValidMask = slicesValidMask;
+
+                    urpInfosPtr[lightIndex] = infos;
+                    perLightInfosPtr[lightIndex] = new LightShadowCasterCullingInfo
+                    {
+                        splitRange = new RangeInt(splitBufferOffset, slices.Length),
+                        projectionType = GetCullingProjectionType(lightType),
+                    };
+                    splitBufferOffset += slices.Length;
+                    totalSplitCount += slices.Length;
                 }
-                else if (lightType == LightType.Spot)
-                {
-                    if (!shadowData.supportsAdditionalLightShadows || !shadowAtlasLayout.HasSpaceForLight(lightIndex))
-                        continue;
-
-                    slices = new NativeArray<ShadowSliceData>(1, Allocator.Temp);
-                    slicesValidMask = 0;
-
-                    ShadowSliceData slice = default;
-                    bool isValid = ShadowUtils.ExtractSpotLightMatrix(ref cullingResults,
-                        shadowData,
-                        lightIndex,
-                        out slice.shadowTransform,
-                        out slice.viewMatrix,
-                        out slice.projectionMatrix,
-                        out slice.splitData);
-
-                    if (isValid)
-                        slicesValidMask |= 1u << 0;
-
-                    slices[0] = slice;
-                    splitBuffer[splitBufferOffset + 0] = slice.splitData;
-                }
-
-                URPLightShadowCullingInfos infos = default;
-                infos.slices = slices;
-                infos.slicesValidMask = slicesValidMask;
-
-                urpVisibleLightsShadowCullingInfos[lightIndex] = infos;
-                perLightInfos[lightIndex] = new LightShadowCasterCullingInfo
-                {
-                    splitRange = new RangeInt(splitBufferOffset, slices.Length),
-                    projectionType = GetCullingProjectionType(lightType),
-                };
-                splitBufferOffset += slices.Length;
-                totalSplitCount += slices.Length;
             }
 
             shadowCullingInfos = default;

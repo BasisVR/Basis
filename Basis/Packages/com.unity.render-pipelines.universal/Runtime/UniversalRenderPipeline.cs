@@ -957,7 +957,7 @@ namespace UnityEngine.Rendering.Universal
                         // Checking if they are the same renderer type but just not supporting Overlay
                         if ((overlayRenderer.SupportedCameraStackingTypes() & 1 << (int)CameraRenderType.Overlay) == 0)
                         {
-                            Debug.LogWarning($"The camera: {overlayCamera.name} is using a renderer of type {renderer.GetType().Name} which does not support Overlay cameras in it's current state.");
+                            Debug.LogWarning($"The camera: {overlayCamera.name} is using a renderer of type {baseCameraRendererType.Name} which does not support Overlay cameras in it's current state.");
                             continue;
                         }
 
@@ -1607,7 +1607,7 @@ namespace UnityEngine.Rendering.Universal
             if (isOverlayCamera && !camera.orthographic && cameraData.pixelRect != camera.pixelRect)
             {
                 // m00 = (cotangent / aspect), therefore m00 * aspect gives us cotangent.
-                float cotangent = camera.projectionMatrix.m00 * camera.aspect;
+                float cotangent = projectionMatrix.m00 * camera.aspect;
 
                 // Get new m00 by dividing by base camera aspectRatio.
                 float newCotangent = cotangent / cameraData.aspectRatio;
@@ -2308,18 +2308,20 @@ namespace UnityEngine.Rendering.Universal
         void SetHDRState(Camera[] cameras)
 #endif
         {
-            bool hdrOutputActive = HDROutputSettings.main.available && HDROutputSettings.main.active;
-            bool hdrOutputIncompatibleWithSDRRendering = hdrOutputActive && HDROutputSettings.main.displayColorGamut != ColorGamut.Rec709;
+            var hdrSettings = HDROutputSettings.main;
+            bool hdrSupportsHDR = asset.supportsHDR;
+            bool hdrOutputActive = hdrSettings.available && hdrSettings.active;
+            bool hdrOutputIncompatibleWithSDRRendering = hdrOutputActive && hdrSettings.displayColorGamut != ColorGamut.Rec709;
 
             // If the pipeline doesn't support HDR rendering, output to SDR.
             bool supportsSwitchingHDROutput = SystemInfo.hdrDisplaySupportFlags.HasFlag(HDRDisplaySupportFlags.RuntimeSwitchable);
-            bool switchHDROutputToSDROutput = !asset.supportsHDR && hdrOutputActive && hdrOutputIncompatibleWithSDRRendering;
+            bool switchHDROutputToSDROutput = !hdrSupportsHDR && hdrOutputActive && hdrOutputIncompatibleWithSDRRendering;
             if (switchHDROutputToSDROutput && !warnedRuntimeSwitchHDROutputToSDROutput)
             {
                 if (supportsSwitchingHDROutput)
                 {
                     Debug.Log("HDR output is being disabled because the current Render Pipeline Asset does not support HDR rendering.");
-                    HDROutputSettings.main.RequestHDRModeChange(false);
+                    hdrSettings.RequestHDRModeChange(false);
                 }
                 else
                 {
@@ -2329,14 +2331,14 @@ namespace UnityEngine.Rendering.Universal
             }
 
             // Reset the warning flag as soon as the RP asset supports HDR rendering
-            if (warnedRuntimeSwitchHDROutputToSDROutput && asset.supportsHDR)
+            if (warnedRuntimeSwitchHDROutputToSDROutput && hdrSupportsHDR)
                 warnedRuntimeSwitchHDROutputToSDROutput = false;
 
 #if UNITY_EDITOR
             bool requestedHDRModeChange = false;
 
             // Automatically switch to HDR in the editor if it's available
-            if (supportsSwitchingHDROutput && asset.supportsHDR && PlayerSettings.useHDRDisplay && HDROutputSettings.main.available)
+            if (supportsSwitchingHDROutput && hdrSupportsHDR && PlayerSettings.useHDRDisplay && hdrSettings.available)
             {
 #if UNITY_2021_1_OR_NEWER
                 int cameraCount = cameras.Count;
@@ -2346,12 +2348,12 @@ namespace UnityEngine.Rendering.Universal
                 if (cameraCount > 0 && cameras[0].cameraType != CameraType.Game)
                 {
                     requestedHDRModeChange = hdrOutputActive;
-                    HDROutputSettings.main.RequestHDRModeChange(false);
+                    hdrSettings.RequestHDRModeChange(false);
                 }
                 else if (enableHDROutputOnce)
                 {
                     requestedHDRModeChange = !hdrOutputActive;
-                    HDROutputSettings.main.RequestHDRModeChange(true);
+                    hdrSettings.RequestHDRModeChange(true);
                     enableHDROutputOnce = false;
                 }
             }
@@ -2366,7 +2368,7 @@ namespace UnityEngine.Rendering.Universal
             // Make sure HDR auto tonemap is off if the URP is handling it
             if (hdrOutputActive)
             {
-                HDROutputSettings.main.automaticHDRTonemapping = false;
+                hdrSettings.automaticHDRTonemapping = false;
             }
         }
 

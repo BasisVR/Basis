@@ -15,6 +15,8 @@ namespace UnityEngine.Rendering.Universal
         static readonly string[] s_ShaderTags = new string[] { k_MotionVectorsLightModeTag };
 
         static readonly int s_CameraDepthTextureID = Shader.PropertyToID("_CameraDepthTexture");
+        static readonly int s_MotionVectorTextureID = Shader.PropertyToID(k_MotionVectorTextureName);
+        static readonly int s_MotionVectorDepthTextureID = Shader.PropertyToID(k_MotionVectorDepthTextureName);
         static readonly ProfilingSampler s_SetMotionMatrixProfilingSampler = new ProfilingSampler("Set Motion Vector Global Matrices");
 
         readonly Material m_CameraMaterial;
@@ -178,9 +180,9 @@ namespace UnityEngine.Rendering.Universal
                 builder.UseRendererList(passData.rendererListHdl);
 
                 if (motionVectorColor.IsValid())
-                    builder.SetGlobalTextureAfterPass(motionVectorColor, Shader.PropertyToID(k_MotionVectorTextureName));
+                    builder.SetGlobalTextureAfterPass(motionVectorColor, s_MotionVectorTextureID);
                 if (motionVectorDepth.IsValid())
-                    builder.SetGlobalTextureAfterPass(motionVectorDepth, Shader.PropertyToID(k_MotionVectorDepthTextureName));
+                    builder.SetGlobalTextureAfterPass(motionVectorDepth, s_MotionVectorDepthTextureID);
 
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {

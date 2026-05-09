@@ -635,14 +635,17 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         bool AnyAdditionalLightHasMixedShadows(UniversalLightData lightData)
         {
-            for (int visibleLightIndex = 0; visibleLightIndex < lightData.visibleLights.Length; ++visibleLightIndex)
+            var visibleLights = lightData.visibleLights;
+            int visibleLightsLen = visibleLights.Length;
+            int mainLightIndex = lightData.mainLightIndex;
+            for (int visibleLightIndex = 0; visibleLightIndex < visibleLightsLen; ++visibleLightIndex)
             {
-                if (visibleLightIndex == lightData.mainLightIndex)
+                if (visibleLightIndex == mainLightIndex)
                 {
                     continue;
                 }
 
-                Light light = lightData.visibleLights[visibleLightIndex].light;
+                Light light = visibleLights.UnsafeElementAt(visibleLightIndex).light;
                 if (light.shadows != LightShadows.None &&
                     light.bakingOutput.isBaked &&
                     light.bakingOutput.mixedLightingMode != MixedLightingMode.IndirectOnly &&
@@ -820,7 +823,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 // TODO: In PC and Consoles we can upload shadow data per light and branch on shader. That will be more likely way faster.
                 bool mainLightHasSoftShadows = data.shadowData.supportsMainLightShadows &&
                                                data.lightData.mainLightIndex != -1 &&
-                                               visibleLights[data.lightData.mainLightIndex].light.shadows == LightShadows.Soft;
+                                               visibleLights.UnsafeElementAt(data.lightData.mainLightIndex).light.shadows == LightShadows.Soft;
 
                 // If the OFF variant has been stripped, the additional light shadows keyword must always be enabled
                 bool hasOffVariant = !data.stripShadowsOffVariants;

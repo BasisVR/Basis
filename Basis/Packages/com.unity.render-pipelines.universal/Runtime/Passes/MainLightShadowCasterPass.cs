@@ -134,7 +134,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     return false;
             }
 
-            VisibleLight shadowLight = lightData.visibleLights[shadowLightIndex];
+            VisibleLight shadowLight = lightData.visibleLights.UnsafeElementAt(shadowLightIndex);
             Light light = shadowLight.light;
             if (shadowsSupported && light.shadows == LightShadows.None)
                 return SetupForEmptyRendering(stripShadowsOffVariants, shadowsEnabled, light, cameraData, shadowData);
@@ -256,7 +256,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             if (shadowLightIndex == -1)
                 return;
 
-            VisibleLight shadowLight = lightData.visibleLights[shadowLightIndex];
+            VisibleLight shadowLight = lightData.visibleLights.UnsafeElementAt(shadowLightIndex);
 
             using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.MainLightShadow)))
             {

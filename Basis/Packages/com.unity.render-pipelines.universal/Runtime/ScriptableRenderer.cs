@@ -954,16 +954,37 @@ namespace UnityEngine.Rendering.Universal
         {
         }
 
+        internal int LowerBoundActiveRenderPassQueue(RenderPassEvent target)
+        {
+            var queue = m_ActiveRenderPassQueue;
+            int lo = 0;
+            int hi = queue.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (queue[mid].renderPassEvent < target) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
+        }
+
         internal void RecordCustomRenderGraphPassesInEventRange(RenderGraph renderGraph, RenderPassEvent eventStart, RenderPassEvent eventEnd)
         {
-            // Only iterate over the active pass queue if we have a non-empty range
-            if (eventStart != eventEnd)
+            if (eventStart == eventEnd)
+                return;
+
+            var queue = m_ActiveRenderPassQueue;
+            int count = queue.Count;
+            if (count == 0)
+                return;
+
+            int i = LowerBoundActiveRenderPassQueue(eventStart);
+            for (; i < count; ++i)
             {
-                foreach (ScriptableRenderPass pass in m_ActiveRenderPassQueue)
-                {
-                    if (pass.renderPassEvent >= eventStart && pass.renderPassEvent < eventEnd)
-                        pass.RecordRenderGraph(renderGraph, m_frameData);
-                }
+                ScriptableRenderPass pass = queue[i];
+                if (pass.renderPassEvent >= eventEnd)
+                    break;
+                pass.RecordRenderGraph(renderGraph, m_frameData);
             }
         }
 
@@ -1200,8 +1221,24 @@ namespace UnityEngine.Rendering.Universal
 
         internal static void SortStable(List<ScriptableRenderPass> list)
         {
+            int count = list.Count;
+            if (count < 2)
+                return;
+
+            bool sorted = true;
+            for (int k = 1; k < count; ++k)
+            {
+                if (list[k].renderPassEvent < list[k - 1].renderPassEvent)
+                {
+                    sorted = false;
+                    break;
+                }
+            }
+            if (sorted)
+                return;
+
             int j;
-            for (int i = 1; i < list.Count; ++i)
+            for (int i = 1; i < count; ++i)
             {
                 ScriptableRenderPass curr = list[i];
 

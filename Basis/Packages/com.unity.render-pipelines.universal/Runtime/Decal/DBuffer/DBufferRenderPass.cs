@@ -15,6 +15,13 @@ namespace UnityEngine.Rendering.Universal
     internal class DBufferRenderPass : ScriptableRenderPass
     {
         internal static string[] s_DBufferNames = { "_DBufferTexture0", "_DBufferTexture1", "_DBufferTexture2", "_DBufferTexture3" };
+        static readonly int[] s_DBufferNameIDs =
+        {
+            Shader.PropertyToID("_DBufferTexture0"),
+            Shader.PropertyToID("_DBufferTexture1"),
+            Shader.PropertyToID("_DBufferTexture2"),
+            Shader.PropertyToID("_DBufferTexture3"),
+        };
         internal static string s_DBufferDepthName = "DBufferDepth";
         static readonly int s_SSAOTextureID = Shader.PropertyToID("_ScreenSpaceOcclusionTexture");
 
@@ -159,7 +166,7 @@ namespace UnityEngine.Rendering.Universal
                 for (int i = 0; i < RenderGraphUtils.DBufferSize; ++i)
                 {
                     if (dbufferHandles[i].IsValid())
-                        builder.SetGlobalTextureAfterPass(dbufferHandles[i], Shader.PropertyToID(s_DBufferNames[i]));
+                        builder.SetGlobalTextureAfterPass(dbufferHandles[i], s_DBufferNameIDs[i]);
                 }
 
                 builder.AllowGlobalStateModification(true);

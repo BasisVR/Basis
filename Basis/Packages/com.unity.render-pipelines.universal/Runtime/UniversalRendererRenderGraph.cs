@@ -215,6 +215,7 @@ namespace UnityEngine.Rendering.Universal
         private bool m_RenderingLayerProvidesRenderObjectPass;
         private bool m_RenderingLayerProvidesByDepthNormalPass;
         private string m_RenderingLayersTextureName;
+        private int m_RenderingLayersTextureNameID;
 
         // Post-Processing
         ColorGradingLutPass m_ColorGradingLutPassRenderGraph;
@@ -588,10 +589,10 @@ namespace UnityEngine.Rendering.Universal
         internal override void OnRecordRenderGraph(RenderGraph renderGraph, ScriptableRenderContext context)
         {
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-
             UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             UniversalLightData lightData = frameData.Get<UniversalLightData>();
+            UniversalShadowData shadowData = frameData.Get<UniversalShadowData>();
             UniversalPostProcessingData postProcessingData = frameData.Get<UniversalPostProcessingData>();
 
             useRenderPassEnabled = renderGraph.nativeRenderPassesEnabled;
@@ -640,17 +641,17 @@ namespace UnityEngine.Rendering.Universal
 
             if (isCameraTargetOffscreenDepth)
             {
-                OnOffscreenDepthTextureRendering(renderGraph, context, resourceData, cameraData);
+                OnOffscreenDepthTextureRendering(renderGraph, context, resourceData, cameraData, renderingData, lightData, shadowData);
                 return;
             }
 
-            OnBeforeRendering(renderGraph);
+            OnBeforeRendering(renderGraph, resourceData, renderingData, cameraData, lightData, shadowData);
 
             BeginRenderGraphXRRendering(renderGraph);
 
-            OnMainRendering(renderGraph, context, renderPassInputs, requirePrepass, requireDepthTexture);
+            OnMainRendering(renderGraph, context, renderPassInputs, requirePrepass, requireDepthTexture, resourceData, renderingData, cameraData, lightData);
 
-            OnAfterRendering(renderGraph, applyPostProcessing);
+            OnAfterRendering(renderGraph, applyPostProcessing, resourceData, cameraData, postProcessingData);
 
             EndRenderGraphXRRendering(renderGraph);
         }
@@ -678,37 +679,37 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// Used to determine if this renderer supports the use of GPU occlusion culling.
         /// </summary>
+        private static bool s_GpuOcclusionSupportedCached;
+        private static bool s_GpuOcclusionSupportedComputed;
+
         public override bool supportsGPUOcclusion
         {
             get
             {
-                // UUM-82677: GRD GPU Occlusion Culling on Vulkan breaks rendering on some mobile GPUs
-                //
-                // We currently disable gpu occlusion culling when running on Qualcomm GPUs due to suspected driver issues.
-                // Once the issue is resolved, this logic should be removed.
-                const int kQualcommVendorId = 0x5143;
-                bool isGpuSupported = SystemInfo.graphicsDeviceVendorID != kQualcommVendorId;
+                if (!s_GpuOcclusionSupportedComputed)
+                {
+                    // UUM-82677: GRD GPU Occlusion Culling on Vulkan breaks rendering on some mobile GPUs.
+                    const int kQualcommVendorId = 0x5143;
+                    s_GpuOcclusionSupportedCached = SystemInfo.graphicsDeviceVendorID != kQualcommVendorId;
+                    s_GpuOcclusionSupportedComputed = true;
+                }
 
-                if (!isGpuSupported && !m_IssuedGPUOcclusionUnsupportedMsg)
+                if (!s_GpuOcclusionSupportedCached && !m_IssuedGPUOcclusionUnsupportedMsg)
                 {
                     Debug.LogWarning("The GPU Occlusion Culling feature is currently unavailable on this device due to suspected driver issues.");
                     m_IssuedGPUOcclusionUnsupportedMsg = true;
                 }
 
-                return isGpuSupported;
+                return s_GpuOcclusionSupportedCached;
             }
         }
 
         private static bool s_RequiresIntermediateAttachments;
 
-        private void OnOffscreenDepthTextureRendering(RenderGraph renderGraph, ScriptableRenderContext context, UniversalResourceData resourceData, UniversalCameraData cameraData)
+        private void OnOffscreenDepthTextureRendering(RenderGraph renderGraph, ScriptableRenderContext context, UniversalResourceData resourceData, UniversalCameraData cameraData, UniversalRenderingData renderingData, UniversalLightData lightData, UniversalShadowData shadowData)
         {
             if (!renderGraph.nativeRenderPassesEnabled)
                 ClearTargetsPass.Render(renderGraph, resourceData.activeColorTexture, resourceData.backBufferDepth, RTClearFlags.Depth, cameraData.backgroundColor);
-
-            UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
-            UniversalLightData lightData = frameData.Get<UniversalLightData>();
-            UniversalShadowData shadowData = frameData.Get<UniversalShadowData>();
 
             if (m_MainLightShadowCasterPass.Setup(renderingData, cameraData, lightData, shadowData))
             {
@@ -730,14 +731,8 @@ namespace UnityEngine.Rendering.Universal
             RecordCustomRenderGraphPasses(renderGraph, RenderPassEvent.AfterRenderingTransparents, RenderPassEvent.AfterRendering);
         }
 
-        private void OnBeforeRendering(RenderGraph renderGraph)
+        private void OnBeforeRendering(RenderGraph renderGraph, UniversalResourceData resourceData, UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData, UniversalShadowData shadowData)
         {
-            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-            UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
-            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-            UniversalLightData lightData = frameData.Get<UniversalLightData>();
-            UniversalShadowData shadowData = frameData.Get<UniversalShadowData>();
-
             m_ForwardLights.PreSetup(renderingData, cameraData, lightData);
 
             RecordCustomRenderGraphPasses(renderGraph, RenderPassEvent.BeforeRenderingShadows);
@@ -778,53 +773,125 @@ namespace UnityEngine.Rendering.Universal
             GBuffer
         }
 
-        private void UpdateInstanceOccluders(RenderGraph renderGraph, UniversalCameraData cameraData, TextureHandle depthTexture)
+        private struct OcclusionContext
         {
-            int scaledWidth = (int)(cameraData.pixelWidth * cameraData.renderScale);
-            int scaledHeight = (int)(cameraData.pixelHeight * cameraData.renderScale);
-            bool isSinglePassXR = cameraData.xr.enabled && cameraData.xr.singlePassEnabled;
-            var occluderParams = new OccluderParameters(cameraData.camera.GetEntityId())
-            {
-                subviewCount = isSinglePassXR ? 2 : 1,
-                depthTexture = depthTexture,
-                depthSize = new Vector2Int(scaledWidth, scaledHeight),
-                depthIsArray = isSinglePassXR,
-            };
-            Span<OccluderSubviewUpdate> occluderSubviewUpdates = stackalloc OccluderSubviewUpdate[occluderParams.subviewCount];
-            for (int subviewIndex = 0; subviewIndex < occluderParams.subviewCount; ++subviewIndex)
-            {
-                var viewMatrix = cameraData.GetViewMatrix(subviewIndex);
-                var projMatrix = cameraData.GetProjectionMatrix(subviewIndex);
-                occluderSubviewUpdates[subviewIndex] = new OccluderSubviewUpdate(subviewIndex)
-                {
-                    depthSliceIndex = subviewIndex,
-                    viewMatrix = viewMatrix,
-                    invViewMatrix = viewMatrix.inverse,
-                    gpuProjMatrix = GL.GetGPUProjectionMatrix(projMatrix, true),
-                    viewOffsetWorldSpace = Vector3.zero,
-                };
-            }
-            GPUResidentDrawer.UpdateInstanceOccluders(renderGraph, occluderParams, occluderSubviewUpdates);
+            public int entityId;
+            public int subviewCount;
+            public bool isSinglePassXR;
+            public int instanceMultiplier;
+            public Vector2Int depthSize;
+            public Matrix4x4 viewMatrix0;
+            public Matrix4x4 viewMatrix1;
+            public Matrix4x4 invViewMatrix0;
+            public Matrix4x4 invViewMatrix1;
+            public Matrix4x4 gpuProjMatrix0;
+            public Matrix4x4 gpuProjMatrix1;
         }
 
-        private void InstanceOcclusionTest(RenderGraph renderGraph, UniversalCameraData cameraData, OcclusionTest occlusionTest)
+        private static bool s_SupportsMultiviewCached;
+        private static bool s_SupportsMultiviewComputed;
+
+        private static bool SupportsMultiviewCached()
+        {
+            if (!s_SupportsMultiviewComputed)
+            {
+                s_SupportsMultiviewCached = SystemInfo.supportsMultiview;
+                s_SupportsMultiviewComputed = true;
+            }
+            return s_SupportsMultiviewCached;
+        }
+
+        private static OcclusionContext BuildOcclusionContext(UniversalCameraData cameraData)
         {
             bool isSinglePassXR = cameraData.xr.enabled && cameraData.xr.singlePassEnabled;
             int subviewCount = isSinglePassXR ? 2 : 1;
-            var settings = new OcclusionCullingSettings(cameraData.camera.GetEntityId(), occlusionTest)
+            int scaledWidth = (int)(cameraData.pixelWidth * cameraData.renderScale);
+            int scaledHeight = (int)(cameraData.pixelHeight * cameraData.renderScale);
+
+            OcclusionContext ctx;
+            ctx.entityId = cameraData.camera.GetEntityId();
+            ctx.subviewCount = subviewCount;
+            ctx.isSinglePassXR = isSinglePassXR;
+            ctx.instanceMultiplier = (isSinglePassXR && !SupportsMultiviewCached()) ? 2 : 1;
+            ctx.depthSize = new Vector2Int(scaledWidth, scaledHeight);
+
+            var viewMatrix0 = cameraData.GetViewMatrix(0);
+            var projMatrix0 = cameraData.GetProjectionMatrix(0);
+            ctx.viewMatrix0 = viewMatrix0;
+            ctx.invViewMatrix0 = viewMatrix0.inverse;
+            ctx.gpuProjMatrix0 = GL.GetGPUProjectionMatrix(projMatrix0, true);
+
+            if (subviewCount > 1)
             {
-                instanceMultiplier = (isSinglePassXR && !SystemInfo.supportsMultiview) ? 2 : 1,
+                var viewMatrix1 = cameraData.GetViewMatrix(1);
+                var projMatrix1 = cameraData.GetProjectionMatrix(1);
+                ctx.viewMatrix1 = viewMatrix1;
+                ctx.invViewMatrix1 = viewMatrix1.inverse;
+                ctx.gpuProjMatrix1 = GL.GetGPUProjectionMatrix(projMatrix1, true);
+            }
+            else
+            {
+                ctx.viewMatrix1 = default;
+                ctx.invViewMatrix1 = default;
+                ctx.gpuProjMatrix1 = default;
+            }
+
+            return ctx;
+        }
+
+        private static void UpdateInstanceOccluders(RenderGraph renderGraph, in OcclusionContext ctx, TextureHandle depthTexture)
+        {
+            var occluderParams = new OccluderParameters(ctx.entityId)
+            {
+                subviewCount = ctx.subviewCount,
+                depthTexture = depthTexture,
+                depthSize = ctx.depthSize,
+                depthIsArray = ctx.isSinglePassXR,
             };
-            Span<SubviewOcclusionTest> subviewOcclusionTests = stackalloc SubviewOcclusionTest[subviewCount];
-            for (int subviewIndex = 0; subviewIndex < subviewCount; ++subviewIndex)
+            Span<OccluderSubviewUpdate> updates = stackalloc OccluderSubviewUpdate[ctx.subviewCount];
+            updates[0] = new OccluderSubviewUpdate(0)
             {
-                subviewOcclusionTests[subviewIndex] = new SubviewOcclusionTest()
+                depthSliceIndex = 0,
+                viewMatrix = ctx.viewMatrix0,
+                invViewMatrix = ctx.invViewMatrix0,
+                gpuProjMatrix = ctx.gpuProjMatrix0,
+                viewOffsetWorldSpace = Vector3.zero,
+            };
+            if (ctx.subviewCount > 1)
+            {
+                updates[1] = new OccluderSubviewUpdate(1)
                 {
-                    cullingSplitIndex = 0,
-                    occluderSubviewIndex = subviewIndex,
+                    depthSliceIndex = 1,
+                    viewMatrix = ctx.viewMatrix1,
+                    invViewMatrix = ctx.invViewMatrix1,
+                    gpuProjMatrix = ctx.gpuProjMatrix1,
+                    viewOffsetWorldSpace = Vector3.zero,
                 };
             }
-            GPUResidentDrawer.InstanceOcclusionTest(renderGraph, settings, subviewOcclusionTests);
+            GPUResidentDrawer.UpdateInstanceOccluders(renderGraph, occluderParams, updates);
+        }
+
+        private static void InstanceOcclusionTest(RenderGraph renderGraph, in OcclusionContext ctx, OcclusionTest occlusionTest)
+        {
+            var settings = new OcclusionCullingSettings(ctx.entityId, occlusionTest)
+            {
+                instanceMultiplier = ctx.instanceMultiplier,
+            };
+            Span<SubviewOcclusionTest> tests = stackalloc SubviewOcclusionTest[ctx.subviewCount];
+            tests[0] = new SubviewOcclusionTest()
+            {
+                cullingSplitIndex = 0,
+                occluderSubviewIndex = 0,
+            };
+            if (ctx.subviewCount > 1)
+            {
+                tests[1] = new SubviewOcclusionTest()
+                {
+                    cullingSplitIndex = 0,
+                    occluderSubviewIndex = 1,
+                };
+            }
+            GPUResidentDrawer.InstanceOcclusionTest(renderGraph, settings, tests);
         }
 
         // Records the depth copy pass along with the specified custom passes in a way that properly handles depth read dependencies
@@ -987,14 +1054,8 @@ namespace UnityEngine.Rendering.Universal
                 RenderMotionVectors(renderGraph, resourceData);
         }
 
-        private void OnMainRendering(RenderGraph renderGraph, ScriptableRenderContext context, in RenderPassInputSummary renderPassInputs, bool requiresPrepass, bool requireDepthTexture)
+        private void OnMainRendering(RenderGraph renderGraph, ScriptableRenderContext context, in RenderPassInputSummary renderPassInputs, bool requiresPrepass, bool requireDepthTexture, UniversalResourceData resourceData, UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData)
         {
-            UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
-            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-            UniversalLightData lightData = frameData.Get<UniversalLightData>();
-            UniversalPostProcessingData postProcessingData = frameData.Get<UniversalPostProcessingData>();
-
             if (!renderGraph.nativeRenderPassesEnabled)
             {
                 RTClearFlags clearFlags = (RTClearFlags) GetCameraClearFlag(cameraData);
@@ -1026,6 +1087,7 @@ namespace UnityEngine.Rendering.Universal
             bool occlusionTestDuringPrepass = requiresPrepass && (!usesDeferredLighting || !requiresDepthAfterGbuffer);
 
             OccluderPass occluderPass = OccluderPass.None;
+            OcclusionContext occlusionCtx = default;
 
             if (cameraData.useGPUOcclusionCulling)
             {
@@ -1037,6 +1099,7 @@ namespace UnityEngine.Rendering.Universal
                 {
                     occluderPass = usesDeferredLighting ? OccluderPass.GBuffer : OccluderPass.ForwardOpaque;
                 }
+                occlusionCtx = BuildOcclusionContext(cameraData);
             }
 
 #if ENABLE_VR && ENABLE_XR_MODULE
@@ -1071,7 +1134,7 @@ namespace UnityEngine.Rendering.Universal
                         // first pass: test everything against previous frame final depth pyramid
                         // second pass: re-test culled against current frame intermediate depth pyramid
                         OcclusionTest occlusionTest = (passIndex == 0) ? OcclusionTest.TestAll : OcclusionTest.TestCulled;
-                        InstanceOcclusionTest(renderGraph, cameraData, occlusionTest);
+                        InstanceOcclusionTest(renderGraph, in occlusionCtx,occlusionTest);
                         batchLayerMask = occlusionTest.GetBatchLayerMask();
                     }
 
@@ -1110,9 +1173,9 @@ namespace UnityEngine.Rendering.Universal
                     {
                         // first pass: make current frame intermediate depth pyramid
                         // second pass: make current frame final depth pyramid, set occlusion test results for later passes
-                        UpdateInstanceOccluders(renderGraph, cameraData, depthTarget);
+                        UpdateInstanceOccluders(renderGraph, in occlusionCtx,depthTarget);
                         if (passIndex != 0)
-                            InstanceOcclusionTest(renderGraph, cameraData, OcclusionTest.TestAll);
+                            InstanceOcclusionTest(renderGraph, in occlusionCtx,OcclusionTest.TestAll);
                     }
                 }
             }
@@ -1159,7 +1222,7 @@ namespace UnityEngine.Rendering.Universal
                         // first pass: test everything against previous frame final depth pyramid
                         // second pass: re-test culled against current frame intermediate depth pyramid
                         OcclusionTest occlusionTest = (passIndex) == 0 ? OcclusionTest.TestAll : OcclusionTest.TestCulled;
-                        InstanceOcclusionTest(renderGraph, cameraData, occlusionTest);
+                        InstanceOcclusionTest(renderGraph, in occlusionCtx,occlusionTest);
                         batchLayerMask = occlusionTest.GetBatchLayerMask();
                     }
 
@@ -1172,9 +1235,9 @@ namespace UnityEngine.Rendering.Universal
                     {
                         // first pass: make current frame intermediate depth pyramid
                         // second pass: make current frame final depth pyramid, set occlusion test results for later passes
-                        UpdateInstanceOccluders(renderGraph, cameraData, resourceData.activeDepthTexture);
+                        UpdateInstanceOccluders(renderGraph, in occlusionCtx,resourceData.activeDepthTexture);
                         if (passIndex != 0)
-                            InstanceOcclusionTest(renderGraph, cameraData, OcclusionTest.TestAll);
+                            InstanceOcclusionTest(renderGraph, in occlusionCtx,OcclusionTest.TestAll);
                     }
                 }
 
@@ -1210,7 +1273,7 @@ namespace UnityEngine.Rendering.Universal
                         // first pass: test everything against previous frame final depth pyramid
                         // second pass: re-test culled against current frame intermediate depth pyramid
                         OcclusionTest occlusionTest = (passIndex) == 0 ? OcclusionTest.TestAll : OcclusionTest.TestCulled;
-                        InstanceOcclusionTest(renderGraph, cameraData, occlusionTest);
+                        InstanceOcclusionTest(renderGraph, in occlusionCtx,occlusionTest);
                         batchLayerMask = occlusionTest.GetBatchLayerMask();
                     }
 
@@ -1245,9 +1308,9 @@ namespace UnityEngine.Rendering.Universal
                     {
                         // first pass: make current frame intermediate depth pyramid
                         // second pass: make current frame final depth pyramid, set occlusion test results for later passes
-                        UpdateInstanceOccluders(renderGraph, cameraData, resourceData.activeDepthTexture);
+                        UpdateInstanceOccluders(renderGraph, in occlusionCtx,resourceData.activeDepthTexture);
                         if (passIndex != 0)
-                            InstanceOcclusionTest(renderGraph, cameraData, OcclusionTest.TestAll);
+                            InstanceOcclusionTest(renderGraph, in occlusionCtx,OcclusionTest.TestAll);
                     }
                 }
             }
@@ -1344,13 +1407,8 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-        private void OnAfterRendering(RenderGraph renderGraph, bool applyPostProcessing)
+        private void OnAfterRendering(RenderGraph renderGraph, bool applyPostProcessing, UniversalResourceData resourceData, UniversalCameraData cameraData, UniversalPostProcessingData postProcessingData)
         {
-            var resourceData = frameData.Get<UniversalResourceData>();
-            var renderingData = frameData.Get<UniversalRenderingData>();
-            var cameraData = frameData.Get<UniversalCameraData>();
-            var postProcessingData = frameData.Get<UniversalPostProcessingData>();
-
             // if it's the last camera in the stack, setup the rendering debugger
             if (cameraData.resolveFinalTarget)
                 SetupRenderGraphFinalPassDebug(renderGraph, frameData);
@@ -1379,7 +1437,9 @@ namespace UnityEngine.Rendering.Universal
             bool hasCaptureActions = cameraData.captureActions != null && cameraData.resolveFinalTarget;
 
             //We'll skip RecordCustomRenderGraphPasses(RenderPassEvent.AfterRenderingPostProcessing) if this is false so be careful when changing the check.
-            bool hasPassesAfterPostProcessing = activeRenderPassQueue.Find(x => x.renderPassEvent >= RenderPassEvent.AfterRenderingPostProcessing && x.renderPassEvent < RenderPassEvent.AfterRendering) != null;
+            int afterPostProcessingIndex = LowerBoundActiveRenderPassQueue(RenderPassEvent.AfterRenderingPostProcessing);
+            bool hasPassesAfterPostProcessing = afterPostProcessingIndex < activeRenderPassQueue.Count
+                                                && activeRenderPassQueue[afterPostProcessingIndex].renderPassEvent < RenderPassEvent.AfterRendering;
 
             bool xrDepthTargetResolved = resourceData.activeDepthID == UniversalResourceData.ActiveID.BackBuffer;
 
@@ -1608,7 +1668,7 @@ namespace UnityEngine.Rendering.Universal
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
 
             if (resourceData.renderingLayersTexture.IsValid() && !usesDeferredLighting)
-                RenderGraphUtils.SetGlobalTexture(renderGraph, Shader.PropertyToID(m_RenderingLayersTextureName), resourceData.renderingLayersTexture, "Set Global Rendering Layers Texture");
+                RenderGraphUtils.SetGlobalTexture(renderGraph, m_RenderingLayersTextureNameID, resourceData.renderingLayersTexture, "Set Global Rendering Layers Texture");
         }
 
         void ImportBackBuffers(RenderGraph renderGraph, UniversalCameraData cameraData, Color clearBackgroundColor, bool isCameraTargetOffscreenDepth)
@@ -1914,6 +1974,8 @@ namespace UnityEngine.Rendering.Universal
                 // TODO RENDERGRAPH: deferred optimization
                 if (usesDeferredLighting && m_DeferredLights.UseRenderingLayers)
                     m_RenderingLayersTextureName = DeferredLights.k_GBufferNames[m_DeferredLights.GBufferRenderingLayers];
+
+                m_RenderingLayersTextureNameID = Shader.PropertyToID(m_RenderingLayersTextureName);
 
                 if (!m_RenderingLayerProvidesRenderObjectPass)
                     descriptor.msaaSamples = MSAASamples.None;// Depth-Only pass don't use MSAA

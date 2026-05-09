@@ -24,6 +24,8 @@ namespace UnityEngine.Rendering.Universal
             new ShaderTagId("VertexLM"),
         };
 
+        static readonly int s_ScaleBiasRtID = Shader.PropertyToID("_ScaleBiasRt");
+
         static AttachmentDescriptor s_EmptyAttachment = new AttachmentDescriptor(GraphicsFormat.None);
         internal static AttachmentDescriptor emptyAttachment
         {
@@ -164,7 +166,7 @@ namespace UnityEngine.Rendering.Universal
             Vector4 scaleBiasRt = (flipSign < 0.0f)
                 ? new Vector4(flipSign, 1.0f, -1.0f, 1.0f)
                 : new Vector4(flipSign, 0.0f, 1.0f, 1.0f);
-            cmd.SetGlobalVector(Shader.PropertyToID("_ScaleBiasRt"), scaleBiasRt);
+            cmd.SetGlobalVector(s_ScaleBiasRtID, scaleBiasRt);
         }
 
         internal static void SetupOffscreenUIViewportParams(Material material, ref Rect pixelRect, bool isRenderToBackBufferTarget)

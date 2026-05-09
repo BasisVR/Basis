@@ -366,8 +366,8 @@ namespace UnityEngine.Rendering.Universal
 
             // Set property block for blit shader
             MaterialPropertyBlock xrPropertyBlock = XRSystemUniversal.GetMaterialPropertyBlock();
-            xrPropertyBlock.SetVector(Shader.PropertyToID("_BlitScaleBias"), scaleBias);
-            xrPropertyBlock.SetTexture(Shader.PropertyToID("_BlitTexture"), sourceTexture);
+            xrPropertyBlock.SetVector(ShaderConstants._BlitScaleBias, scaleBias);
+            xrPropertyBlock.SetTexture(ShaderConstants._BlitTexture, sourceTexture);
             cameraData.xr.RenderVisibleMeshCustomMaterial(context.cmd, cameraData.xr.occlusionMeshScale, material, xrPropertyBlock, 1, context.GetTextureUVOrigin(in sourceTexture) == context.GetTextureUVOrigin(in destTexture));
 #endif
         }
@@ -384,6 +384,9 @@ namespace UnityEngine.Rendering.Universal
             public static readonly int _Dithering_Params = Shader.PropertyToID("_Dithering_Params");
 
             public static readonly int _SourceSize = Shader.PropertyToID("_SourceSize");
+
+            public static readonly int _BlitScaleBias = Shader.PropertyToID("_BlitScaleBias");
+            public static readonly int _BlitTexture = Shader.PropertyToID("_BlitTexture");
         }
     }
 }

@@ -9,6 +9,13 @@ namespace UnityEngine.Rendering.Universal
     /// </summary>
     internal abstract class DecalDrawSystem
     {
+        internal static class ShaderIDs
+        {
+            public static readonly int NormalToWorld = Shader.PropertyToID("_NormalToWorld");
+            public static readonly int DecalLayerMaskFromDecal = Shader.PropertyToID("_DecalLayerMaskFromDecal");
+            public static readonly int UnityLightData = Shader.PropertyToID("unity_LightData");
+        }
+
         readonly static internal uint MaxBatchSize = 250;
 
         protected DecalEntityManager m_EntityManager;
@@ -80,7 +87,7 @@ namespace UnityEngine.Rendering.Universal
         {
             var mesh = m_EntityManager.decalProjectorMesh;
             var material = GetMaterial(decalEntityChunk);
-            decalCachedChunk.propertyBlock.SetVector("unity_LightData", new Vector4(1, 1, 1, 0)); // GetMainLight requires z component to be set
+            decalCachedChunk.propertyBlock.SetVector(ShaderIDs.UnityLightData, new Vector4(1, 1, 1, 0));
 
             int subCallCount = decalDrawCallChunk.subCallCount;
             for (int i = 0; i < subCallCount; ++i)
@@ -89,8 +96,8 @@ namespace UnityEngine.Rendering.Universal
 
                 for (int j = subCall.start; j < subCall.end; ++j)
                 {
-                    decalCachedChunk.propertyBlock.SetMatrix("_NormalToWorld", decalDrawCallChunk.normalToDecals[j]);
-                    decalCachedChunk.propertyBlock.SetFloat("_DecalLayerMaskFromDecal", decalDrawCallChunk.renderingLayerMasks[j]);
+                    decalCachedChunk.propertyBlock.SetMatrix(ShaderIDs.NormalToWorld, decalDrawCallChunk.normalToDecals[j]);
+                    decalCachedChunk.propertyBlock.SetFloat(ShaderIDs.DecalLayerMaskFromDecal, decalDrawCallChunk.renderingLayerMasks[j]);
                     cmd.DrawMesh(mesh, decalDrawCallChunk.decalToWorlds[j], material, 0, passIndex, decalCachedChunk.propertyBlock);
                 }
             }
@@ -100,7 +107,7 @@ namespace UnityEngine.Rendering.Universal
         {
             var mesh = m_EntityManager.decalProjectorMesh;
             var material = GetMaterial(decalEntityChunk);
-            decalCachedChunk.propertyBlock.SetVector("unity_LightData", new Vector4(1, 1, 1, 0)); // GetMainLight requires z component to be set
+            decalCachedChunk.propertyBlock.SetVector(ShaderIDs.UnityLightData, new Vector4(1, 1, 1, 0));
 
             int subCallCount = decalDrawCallChunk.subCallCount;
             for (int i = 0; i < subCallCount; ++i)
@@ -116,8 +123,8 @@ namespace UnityEngine.Rendering.Universal
                 var decalLayerMaskSlice = decalDrawCallChunk.renderingLayerMasks.Reinterpret<float>();
                 NativeArray<float>.Copy(decalLayerMaskSlice, subCall.start, m_DecalLayerMasks, 0, subCall.count);
 
-                decalCachedChunk.propertyBlock.SetMatrixArray("_NormalToWorld", m_NormalToDecals);
-                decalCachedChunk.propertyBlock.SetFloatArray("_DecalLayerMaskFromDecal", m_DecalLayerMasks);
+                decalCachedChunk.propertyBlock.SetMatrixArray(ShaderIDs.NormalToWorld, m_NormalToDecals);
+                decalCachedChunk.propertyBlock.SetFloatArray(ShaderIDs.DecalLayerMaskFromDecal, m_DecalLayerMasks);
                 cmd.DrawMeshInstanced(mesh, 0, material, passIndex, m_WorldToDecals, subCall.end - subCall.start, decalCachedChunk.propertyBlock);
             }
         }
@@ -170,8 +177,8 @@ namespace UnityEngine.Rendering.Universal
 
                 for (int j = subCall.start; j < subCall.end; ++j)
                 {
-                    decalCachedChunk.propertyBlock.SetMatrix("_NormalToWorld", decalDrawCallChunk.normalToDecals[j]);
-                    decalCachedChunk.propertyBlock.SetFloat("_DecalLayerMaskFromDecal", decalDrawCallChunk.renderingLayerMasks[j]);
+                    decalCachedChunk.propertyBlock.SetMatrix(ShaderIDs.NormalToWorld, decalDrawCallChunk.normalToDecals[j]);
+                    decalCachedChunk.propertyBlock.SetFloat(ShaderIDs.DecalLayerMaskFromDecal, decalDrawCallChunk.renderingLayerMasks[j]);
                     // RENDERGRAPH TODO: schedule drawmesh through commandBuffer?
                     Graphics.DrawMesh(mesh, decalDrawCallChunk.decalToWorlds[j], material, decalCachedChunk.layerMasks[j], cameraData.camera, 0, decalCachedChunk.propertyBlock);
                 }
@@ -182,7 +189,7 @@ namespace UnityEngine.Rendering.Universal
         {
             var mesh = m_EntityManager.decalProjectorMesh;
             var material = GetMaterial(decalEntityChunk);
-            decalCachedChunk.propertyBlock.SetVector("unity_LightData", new Vector4(1, 1, 1, 0)); // GetMainLight requires z component to be set
+            decalCachedChunk.propertyBlock.SetVector(ShaderIDs.UnityLightData, new Vector4(1, 1, 1, 0));
 
             int subCallCount = decalDrawCallChunk.subCallCount;
             for (int i = 0; i < subCallCount; ++i)
@@ -198,8 +205,8 @@ namespace UnityEngine.Rendering.Universal
                 var decalLayerMaskSlice = decalDrawCallChunk.renderingLayerMasks.Reinterpret<float>();
                 NativeArray<float>.Copy(decalLayerMaskSlice, subCall.start, m_DecalLayerMasks, 0, subCall.count);
 
-                decalCachedChunk.propertyBlock.SetMatrixArray("_NormalToWorld", m_NormalToDecals);
-                decalCachedChunk.propertyBlock.SetFloatArray("_DecalLayerMaskFromDecal", m_DecalLayerMasks);
+                decalCachedChunk.propertyBlock.SetMatrixArray(ShaderIDs.NormalToWorld, m_NormalToDecals);
+                decalCachedChunk.propertyBlock.SetFloatArray(ShaderIDs.DecalLayerMaskFromDecal, m_DecalLayerMasks);
                 // RENDERGRAPH TODO: schedule drawmesh through commandBuffer?
                 Graphics.DrawMeshInstanced(mesh, 0, material,
                     m_WorldToDecals, subCall.count, decalCachedChunk.propertyBlock, ShadowCastingMode.On, true, 0, cameraData.camera);

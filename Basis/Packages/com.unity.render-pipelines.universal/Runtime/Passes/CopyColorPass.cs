@@ -19,6 +19,8 @@ namespace UnityEngine.Rendering.Universal.Internal
         Downsampling m_DownsamplingMethod;
         Material m_CopyColorMaterial;
 
+        static readonly int s_CameraOpaqueTextureID = Shader.PropertyToID("_CameraOpaqueTexture");
+
         /// <summary>
         /// Creates a new <c>CopyColorPass</c> instance.
         /// </summary>
@@ -196,7 +198,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             {
                 using (var builder = renderGraph.AddBlitPass(source, destination, Vector2.one, Vector2.zero, returnBuilder: true, passName: k_CopyColorPassName))
                 {
-                    builder.SetGlobalTextureAfterPass(destination, Shader.PropertyToID("_CameraOpaqueTexture"));
+                    builder.SetGlobalTextureAfterPass(destination, s_CameraOpaqueTextureID);
                 }
             }
         }
@@ -214,7 +216,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 passData.downsamplingMethod = m_DownsamplingMethod;
                 passData.sampleOffsetShaderHandle = m_SampleOffsetShaderHandle;
 
-                builder.SetGlobalTextureAfterPass(destination, Shader.PropertyToID("_CameraOpaqueTexture"));
+                builder.SetGlobalTextureAfterPass(destination, s_CameraOpaqueTextureID);
 
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {

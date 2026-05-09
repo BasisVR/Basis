@@ -10,6 +10,10 @@ namespace UnityEngine.Rendering.Universal
         Texture2D[] m_BlueNoise16LTex;
         bool m_IsValid;
 
+        Vector3[] m_WorldSpaceCameraPositions;
+        Vector3[] m_PreviousWorldSpaceCameraPositions;
+        Vector3[] m_PreviousPreviousWorldSpaceCameraPositions;
+
         public UpscalerPostProcessPass(Texture2D[] blueNoise16LTex)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
@@ -74,9 +78,15 @@ namespace UnityEngine.Rendering.Universal
             io.hdrInput = Experimental.Rendering.GraphicsFormatUtility.IsHDRFormat(srcDesc.format);
             io.numActiveViews = cameraData.xr.enabled ? cameraData.xr.viewCount : 1;
             io.eyeIndex = (cameraData.xr.enabled && !cameraData.xr.singlePassEnabled) ? cameraData.xr.multipassId : 0;
-            io.worldSpaceCameraPositions = new Vector3[io.numActiveViews];
-            io.previousWorldSpaceCameraPositions = new Vector3[io.numActiveViews];
-            io.previousPreviousWorldSpaceCameraPositions = new Vector3[io.numActiveViews];
+            if (m_WorldSpaceCameraPositions == null || m_WorldSpaceCameraPositions.Length != io.numActiveViews)
+            {
+                m_WorldSpaceCameraPositions = new Vector3[io.numActiveViews];
+                m_PreviousWorldSpaceCameraPositions = new Vector3[io.numActiveViews];
+                m_PreviousPreviousWorldSpaceCameraPositions = new Vector3[io.numActiveViews];
+            }
+            io.worldSpaceCameraPositions = m_WorldSpaceCameraPositions;
+            io.previousWorldSpaceCameraPositions = m_PreviousWorldSpaceCameraPositions;
+            io.previousPreviousWorldSpaceCameraPositions = m_PreviousPreviousWorldSpaceCameraPositions;
             for (int i = 0; i < io.numActiveViews; i++)
             {
                 io.worldSpaceCameraPositions[i] = motionData.worldSpaceCameraPos;

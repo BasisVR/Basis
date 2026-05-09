@@ -31,6 +31,11 @@ namespace UnityEngine.Rendering.Universal.Internal
             public static int _AdditionalLightsSpotDir;
             public static int _AdditionalLightOcclusionProbeChannel;
             public static int _AdditionalLightsLayerMasks;
+
+            public static readonly int _FPParams0 = Shader.PropertyToID("_FPParams0");
+            public static readonly int _FPParams1 = Shader.PropertyToID("_FPParams1");
+            public static readonly int _FPParams2 = Shader.PropertyToID("_FPParams2");
+            public static readonly int _EnableProbeVolumes = Shader.PropertyToID("_EnableProbeVolumes");
         }
 
         int m_AdditionalLightsBufferId;
@@ -278,18 +283,22 @@ namespace UnityEngine.Rendering.Universal.Internal
                     (probe.importance == otherProbe.importance && probe.bounds.extents.sqrMagnitude > otherProbe.bounds.extents.sqrMagnitude));
             }
 
-            // Used probes.Length to check that we use the most relevant probes.
-            for (var i = 1; i < probes.Length; i++)
+            unsafe
             {
-                var probe = probes[i];
-                var j = i - 1;
-                while (j >= 0 && IsProbeGreater(probes[j], probe))
+                var probesPtr = (VisibleReflectionProbe*)probes.GetUnsafePtr();
+                int probeLen = probes.Length;
+                for (var i = 1; i < probeLen; i++)
                 {
-                    probes[j + 1] = probes[j];
-                    j--;
-                }
+                    var probe = probesPtr[i];
+                    var j = i - 1;
+                    while (j >= 0 && IsProbeGreater(probesPtr[j], probe))
+                    {
+                        probesPtr[j + 1] = probesPtr[j];
+                        j--;
+                    }
 
-                probes[j + 1] = probe;
+                    probesPtr[j + 1] = probe;
+                }
             }
 
             var minMaxZs = new NativeArray<float2>(itemsPerTile * viewCount, Allocator.TempJob);
@@ -499,9 +508,9 @@ namespace UnityEngine.Rendering.Universal.Internal
                         cmd.SetGlobalConstantBuffer(m_TileMasksBuffer, "urp_TileBuffer", 0, UniversalRenderPipeline.maxTileWords * 4);
                     }
 
-                    cmd.SetGlobalVector("_FPParams0", math.float4(m_ZBinScale, m_ZBinOffset, m_LightCount, m_DirectionalLightCount));
-                    cmd.SetGlobalVector("_FPParams1", math.float4(cameraData.pixelRect.size / m_ActualTileWidth, m_TileResolution.x, m_WordsPerTile));
-                    cmd.SetGlobalVector("_FPParams2", math.float4(m_BinCount, m_TileResolution.x * m_TileResolution.y, 0, 0));
+                    cmd.SetGlobalVector(LightConstantBuffer._FPParams0, math.float4(m_ZBinScale, m_ZBinOffset, m_LightCount, m_DirectionalLightCount));
+                    cmd.SetGlobalVector(LightConstantBuffer._FPParams1, math.float4(cameraData.pixelRect.size / m_ActualTileWidth, m_TileResolution.x, m_WordsPerTile));
+                    cmd.SetGlobalVector(LightConstantBuffer._FPParams2, math.float4(m_BinCount, m_TileResolution.x * m_TileResolution.y, 0, 0));
                 }
 
                 SetupShaderLightConstants(cmd, ref renderingData.cullResults, lightData);
@@ -546,7 +555,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     cameraData.IsTemporalAAEnabled() ? Time.frameCount : 0,
                     lightData.supportsLightLayers);
 
-                cmd.SetGlobalInt("_EnableProbeVolumes", enableProbeVolumes ? 1 : 0);
+                cmd.SetGlobalInt(LightConstantBuffer._EnableProbeVolumes, enableProbeVolumes ? 1 : 0);
                 cmd.SetKeyword(ShaderGlobalKeywords.LightLayers, lightData.supportsLightLayers && !CoreUtils.IsSceneLightingDisabled(cameraData.camera));
 
                 if (m_LightCookieManager != null)
@@ -667,17 +676,22 @@ namespace UnityEngine.Rendering.Universal.Internal
                 if (m_UseStructuredBuffer)
                 {
                     NativeArray<ShaderInput.LightData> additionalLightsData = new NativeArray<ShaderInput.LightData>(additionalLightsCount, Allocator.Temp);
-                    for (int i = 0, lightIter = 0; i < lights.Length && lightIter < maxAdditionalLightsCount; ++i)
+                    int lightsLen = lights.Length;
+                    unsafe
                     {
-                        if (mainLight != i)
+                        ShaderInput.LightData* dataPtr = (ShaderInput.LightData*)additionalLightsData.GetUnsafePtr();
+                        for (int i = 0, lightIter = 0; i < lightsLen && lightIter < maxAdditionalLightsCount; ++i)
                         {
-                            ShaderInput.LightData data;
-                            InitializeLightConstants(lights, i, supportsLightLayers,
-                                out data.position, out data.color, out data.attenuation,
-                                out data.spotDirection, out data.occlusionProbeChannels,
-                                out data.layerMask, out _);
-                            additionalLightsData[lightIter] = data;
-                            lightIter++;
+                            if (mainLight != i)
+                            {
+                                ShaderInput.LightData data;
+                                InitializeLightConstants(lights, i, supportsLightLayers,
+                                    out data.position, out data.color, out data.attenuation,
+                                    out data.spotDirection, out data.occlusionProbeChannels,
+                                    out data.layerMask, out _);
+                                dataPtr[lightIter] = data;
+                                lightIter++;
+                            }
                         }
                     }
 
@@ -694,7 +708,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 }
                 else
                 {
-                    for (int i = 0, lightIter = 0; i < lights.Length && lightIter < maxAdditionalLightsCount; ++i)
+                    int lightsLen = lights.Length;
+                    for (int i = 0, lightIter = 0; i < lightsLen && lightIter < maxAdditionalLightsCount; ++i)
                     {
                         if (mainLight != i)
                         {
@@ -745,42 +760,46 @@ namespace UnityEngine.Rendering.Universal.Internal
             int globalDirectionalLightsCount = 0;
             int additionalLightsCount = 0;
 
-            // Disable all directional lights from the perobject light indices
-            // Pipeline handles main light globally and there's no support for additional directional lights atm.
             int maxVisibleAdditionalLightsCount = UniversalRenderPipeline.maxVisibleAdditionalLights;
-            int len = lightData.visibleLights.Length;
-            for (int i = 0; i < len; ++i)
-            {
-                if (additionalLightsCount >= maxVisibleAdditionalLightsCount)
-                    break;
+            var visibleLights = lightData.visibleLights;
+            int len = visibleLights.Length;
+            int mainLightIndex = lightData.mainLightIndex;
+            int mapLen = perObjectLightIndexMap.Length;
 
-                if (i == lightData.mainLightIndex)
+            unsafe
+            {
+                VisibleLight* lightsPtr = (VisibleLight*)visibleLights.GetUnsafeReadOnlyPtr();
+                int* indexMapPtr = (int*)perObjectLightIndexMap.GetUnsafePtr();
+
+                for (int i = 0; i < len; ++i)
                 {
-                    perObjectLightIndexMap[i] = -1;
-                    ++globalDirectionalLightsCount;
-                }
-                else
-                {
-                    if (lightData.visibleLights[i].lightType == LightType.Directional ||
-                        lightData.visibleLights[i].lightType == LightType.Spot ||
-                        lightData.visibleLights[i].lightType == LightType.Point)
+                    if (additionalLightsCount >= maxVisibleAdditionalLightsCount)
+                        break;
+
+                    if (i == mainLightIndex)
                     {
-                        // Light type is supported
-                        perObjectLightIndexMap[i] -= globalDirectionalLightsCount;
+                        indexMapPtr[i] = -1;
+                        ++globalDirectionalLightsCount;
                     }
                     else
                     {
-                        // Light type is not supported. Skip the light.
-                        perObjectLightIndexMap[i] = -1;
+                        LightType lt = lightsPtr[i].lightType;
+                        if (lt == LightType.Directional || lt == LightType.Spot || lt == LightType.Point)
+                        {
+                            indexMapPtr[i] -= globalDirectionalLightsCount;
+                        }
+                        else
+                        {
+                            indexMapPtr[i] = -1;
+                        }
+
+                        ++additionalLightsCount;
                     }
-
-                    ++additionalLightsCount;
                 }
-            }
 
-            // Disable all remaining lights we cannot fit into the global light buffer.
-            for (int i = globalDirectionalLightsCount + additionalLightsCount; i < perObjectLightIndexMap.Length; ++i)
-                perObjectLightIndexMap[i] = -1;
+                for (int i = globalDirectionalLightsCount + additionalLightsCount; i < mapLen; ++i)
+                    indexMapPtr[i] = -1;
+            }
 
             cullResults.SetLightIndexMap(perObjectLightIndexMap);
 

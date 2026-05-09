@@ -91,7 +91,6 @@ namespace UnityEngine.Rendering.Universal
             var lensDistortion = volumeStack.GetComponent<LensDistortion>();
             var chromaticAberration = volumeStack.GetComponent<ChromaticAberration>();
             var vignette = volumeStack.GetComponent<Vignette>();
-            var filmGrain = volumeStack.GetComponent<FilmGrain>();
 
             var cameraData = frameData.Get<UniversalCameraData>();
             var postProcessingData = frameData.Get<UniversalPostProcessingData>();
@@ -174,6 +173,7 @@ namespace UnityEngine.Rendering.Universal
                 // Final pass effects
                 if (m_IsFinalPass)
                 {
+                    var filmGrain = volumeStack.GetComponent<FilmGrain>();
                     passData.filmGrain.Setup(filmGrain, m_FilmGrainTextures, cameraData.pixelWidth, cameraData.pixelHeight);
                     passData.dither.Setup(m_DitherTexture, cameraData.pixelWidth, cameraData.pixelHeight);
                 }

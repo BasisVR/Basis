@@ -11,9 +11,9 @@ namespace UnityEngine.Rendering.Universal
     sealed class StencilCrossFadeRenderPass
     {
         private Material[] m_StencilDitherMaskSeedMaterials;
-        private readonly int _StencilDitherPattern = Shader.PropertyToID("_StencilDitherPattern");
-        private readonly int _StencilRefDitherMask = Shader.PropertyToID("_StencilRefDitherMask");
-        private readonly int _StencilWriteDitherMask = Shader.PropertyToID("_StencilWriteDitherMask");
+        private static readonly int _StencilDitherPattern = Shader.PropertyToID("_StencilDitherPattern");
+        private static readonly int _StencilRefDitherMask = Shader.PropertyToID("_StencilRefDitherMask");
+        private static readonly int _StencilWriteDitherMask = Shader.PropertyToID("_StencilWriteDitherMask");
 
         private readonly ProfilingSampler m_ProfilingSampler;
 

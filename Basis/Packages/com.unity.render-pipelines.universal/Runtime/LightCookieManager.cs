@@ -332,7 +332,7 @@ namespace UnityEngine.Rendering.Universal
             bool isMainLightAvailable = lightData.mainLightIndex >= 0;
             if (isMainLightAvailable)
             {
-                var mainLight = lightData.visibleLights[lightData.mainLightIndex];
+                var mainLight = lightData.visibleLights.UnsafeElementAt(lightData.mainLightIndex);
                 isMainLightAvailable = SetupMainLight(cmd, ref mainLight);
             }
 
