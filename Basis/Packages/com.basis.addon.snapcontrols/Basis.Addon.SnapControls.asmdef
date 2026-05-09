@@ -1,0 +1,19 @@
+{
+    "name": "Basis.Addon.SnapControls",
+    "rootNamespace": "",
+    "references": [
+        "GUID:8c9aa0e006f5b5347af5c5470971dfae",
+        "GUID:b4ae365a73764ee478adc74cb89832fe",
+        "GUID:1e767a4f07fa50745a4fd591bbbbcddb",
+        "GUID:45c7722710e2a37438daaacbf1cd4ad1"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
