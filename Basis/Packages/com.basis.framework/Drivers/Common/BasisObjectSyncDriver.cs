@@ -52,13 +52,6 @@ public static class BasisObjectSyncDriver
 
     public static void TransmitOwnedPickups(double currentTime)
     {
-        if (!Basis.Scripts.Networking.BasisNetworkManagement.NetworkRunning
-            || !Basis.Scripts.Networking.BasisNetworkConnection.LocalPlayerIsConnected
-            || Basis.Scripts.Networking.BasisNetworkConnection.LocalPlayerPeer == null)
-        {
-            return;
-        }
-
         if (currentTime - _lastUpdateTime < TargetMilliseconds) return;
 
         _lastUpdateTime = currentTime;
@@ -212,13 +205,6 @@ public static class BasisObjectSyncDriver
         if (obj != null) RemoteOwnedObjectSyncs.Remove(obj);
     }
 
-    public static void Reset()
-    {
-        _remoteJobHandle.Complete();
-        OwnedObjectSyncs.Clear();
-        RemoteOwnedObjectSyncs.Clear();
-        _lastUpdateTime = 0;
-    }
     #endregion
 }
 

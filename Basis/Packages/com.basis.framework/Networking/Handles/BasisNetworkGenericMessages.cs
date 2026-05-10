@@ -189,13 +189,6 @@ public static class BasisNetworkGenericMessages
     }
     public static void OnNetworkMessageSend(ushort messageIndex, byte[] buffer = null, DeliveryMethod deliveryMethod = DeliveryMethod.Unreliable, ushort[] recipients = null)
     {
-        if (!BasisNetworkManagement.NetworkRunning
-            || !BasisNetworkConnection.LocalPlayerIsConnected
-            || BasisNetworkConnection.LocalPlayerPeer == null)
-        {
-            return;
-        }
-
         NetDataWriter netDataWriter = threadLocalWriter.Value;
         netDataWriter.Reset(); // clear previous data
 
