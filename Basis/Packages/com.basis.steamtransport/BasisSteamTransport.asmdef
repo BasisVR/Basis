@@ -8,6 +8,7 @@
     "BasisSteamTransportCore",
     "BasisBundleManagement",
     "Basis Framework",
+    "BasisEventDriver",
     "BasisSDK"
   ],
     "includePlatforms": [],

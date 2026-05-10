@@ -65,7 +65,7 @@ namespace Basis.Scripts.Networking.Steam
                 {
                     infoDescriptor.SetTitle("Error");
                     infoDescriptor.SetDescription("BasisNetworkManagement is not available.");
-                    BasisDebug.LogError("Steam CreateLobby: BasisNetworkManagement.Instance is null");
+                    BasisDebug.LogError("Steam CreateLobby: BasisNetworkManagement.Instance is null", BasisDebug.LogTag.Networking);
                     return;
                 }
 
@@ -90,7 +90,7 @@ namespace Basis.Scripts.Networking.Steam
             {
                 infoDescriptor.SetTitle("Error");
                 infoDescriptor.SetDescription("Steam lobby creation failed.");
-                BasisDebug.LogError(ex.ToString());
+                BasisDebug.LogError(ex.ToString(), BasisDebug.LogTag.Networking);
             }
             finally
             {
@@ -143,7 +143,7 @@ namespace Basis.Scripts.Networking.Steam
             {
                 infoDescriptor.SetTitle("Error");
                 infoDescriptor.SetDescription("Steam lobby refresh failed.");
-                BasisDebug.LogError(ex.ToString());
+                BasisDebug.LogError(ex.ToString(), BasisDebug.LogTag.Networking);
             }
             finally
             {
@@ -183,7 +183,7 @@ namespace Basis.Scripts.Networking.Steam
                 {
                     infoDescriptor.SetTitle("Error");
                     infoDescriptor.SetDescription("BasisNetworkManagement is not available.");
-                    BasisDebug.LogError("Steam JoinLobby: BasisNetworkManagement.Instance is null");
+                    BasisDebug.LogError("Steam JoinLobby: BasisNetworkManagement.Instance is null", BasisDebug.LogTag.Networking);
                     return;
                 }
 
@@ -208,7 +208,7 @@ namespace Basis.Scripts.Networking.Steam
             {
                 infoDescriptor.SetTitle("Error");
                 infoDescriptor.SetDescription("Steam lobby join failed.");
-                BasisDebug.LogError(ex.ToString());
+                BasisDebug.LogError(ex.ToString(), BasisDebug.LogTag.Networking);
             }
             finally
             {
@@ -229,7 +229,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             catch (Exception ex)
             {
-                BasisDebug.LogError(ex.ToString());
+                BasisDebug.LogError(ex.ToString(), BasisDebug.LogTag.Networking);
             }
 
             BasisSteamLobbyService.LeaveLobby();

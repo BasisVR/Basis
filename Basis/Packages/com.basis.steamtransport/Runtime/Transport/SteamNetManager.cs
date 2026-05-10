@@ -468,8 +468,15 @@ namespace Basis.Scripts.Networking.Steam
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             System.Reflection.MethodInfo connectionReceive = typeof(ConnectionManager).GetMethod("Receive", new[] { typeof(int), typeof(bool) });
             System.Reflection.MethodInfo socketReceive = typeof(SocketManager).GetMethod("Receive", new[] { typeof(int), typeof(bool) });
-            UnityEngine.Debug.Assert(connectionReceive != null && connectionReceive.ReturnType == typeof(int), "Facepunch ConnectionManager.Receive must return int for the bounded drain strategy.");
-            UnityEngine.Debug.Assert(socketReceive != null && socketReceive.ReturnType == typeof(int), "Facepunch SocketManager.Receive must return int for the bounded drain strategy.");
+            if (connectionReceive == null || connectionReceive.ReturnType != typeof(int))
+            {
+                BasisDebug.LogError("Facepunch ConnectionManager.Receive must return int for the bounded drain strategy.", BasisDebug.LogTag.Networking);
+            }
+
+            if (socketReceive == null || socketReceive.ReturnType != typeof(int))
+            {
+                BasisDebug.LogError("Facepunch SocketManager.Receive must return int for the bounded drain strategy.", BasisDebug.LogTag.Networking);
+            }
 #endif
         }
 

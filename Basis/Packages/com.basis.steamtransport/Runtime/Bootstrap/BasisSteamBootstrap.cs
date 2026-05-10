@@ -1,4 +1,5 @@
 using Steamworks;
+using Basis.EventDriver;
 using UnityEngine;
 
 namespace Basis.Scripts.Networking.Steam
@@ -51,9 +52,12 @@ namespace Basis.Scripts.Networking.Steam
             {
                 EnsureInitialized(ActiveSettings);
             }
+
+            BasisEventDriver.OnUpdate -= Tick;
+            BasisEventDriver.OnUpdate += Tick;
         }
 
-        private void Update()
+        private static void Tick()
         {
             if (SteamClient.IsValid && ActiveSettings != null && ActiveSettings.RunCallbacksManually)
             {
@@ -70,6 +74,8 @@ namespace Basis.Scripts.Networking.Steam
             {
                 Instance = null;
             }
+
+            BasisEventDriver.OnUpdate -= Tick;
         }
 
         private void OnApplicationQuit()
@@ -85,7 +91,7 @@ namespace Basis.Scripts.Networking.Steam
 
             if (settings == null)
             {
-                BasisDebug.LogError("Missing BasisSteamSettings asset. Cannot initialize Steam.");
+                BasisDebug.LogError("Missing BasisSteamSettings asset. Cannot initialize Steam.", BasisDebug.LogTag.Networking);
                 return false;
             }
 
@@ -110,7 +116,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             catch (System.Exception ex)
             {
-                BasisDebug.LogError($"Steam init failed: {ex.Message}");
+                BasisDebug.LogError($"Steam init failed: {ex.Message}", BasisDebug.LogTag.Networking);
                 return false;
             }
         }
@@ -140,12 +146,8 @@ namespace Basis.Scripts.Networking.Steam
                 return ActiveSettings;
             }
 
-            ActiveSettings = Resources.Load<BasisSteamSettings>(BasisSteamSettings.DefaultResourcesPath);
-            if (ActiveSettings == null)
-            {
-                ActiveSettings = ScriptableObject.CreateInstance<BasisSteamSettings>();
-                ActiveSettings.hideFlags = HideFlags.DontSave;
-            }
+            ActiveSettings = ScriptableObject.CreateInstance<BasisSteamSettings>();
+            ActiveSettings.hideFlags = HideFlags.DontSave;
             return ActiveSettings;
         }
 

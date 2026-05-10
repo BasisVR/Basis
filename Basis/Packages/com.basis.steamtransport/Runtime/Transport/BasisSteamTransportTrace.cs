@@ -51,7 +51,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[BasisSteamTransportTrace] Failed to clear log: {ex.Message}");
+                BasisDebug.LogError($"[BasisSteamTransportTrace] Failed to clear log: {ex.Message}", BasisDebug.LogTag.Networking);
             }
         }
 
@@ -148,7 +148,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[BasisSteamTransportTrace] Failed to flush log: {ex.Message}");
+                BasisDebug.LogError($"[BasisSteamTransportTrace] Failed to flush log: {ex.Message}", BasisDebug.LogTag.Networking);
             }
         }
 
@@ -174,7 +174,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[BasisSteamTransportTrace] Failed to write log: {ex.Message}");
+                BasisDebug.LogError($"[BasisSteamTransportTrace] Failed to write log: {ex.Message}", BasisDebug.LogTag.Networking);
             }
         }
 
