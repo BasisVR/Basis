@@ -128,6 +128,10 @@ namespace Basis.Network.Core
 
     public sealed partial class NetStatistics
     {
+        public NetStatistics()
+        {
+        }
+
         public long PacketsSent;
         public long PacketsReceived;
         public long BytesSent;
@@ -158,6 +162,14 @@ namespace Basis.Network.Core
 #endif
 
             RecycleInternal?.Invoke();
+        }
+
+        public static NetPacketReader Create(byte[] source, int offset, int maxSize, Action recycle = null)
+        {
+            var reader = new NetPacketReader();
+            reader.SetSource(source, offset, maxSize);
+            reader.RecycleInternal = recycle;
+            return reader;
         }
     }
 
