@@ -8,6 +8,7 @@ PACKAGES="Packages/org.basisvr.generator.equals-3.2.0.tgz:
         Packages/org.basisvr.bouncycastle-2.5.0.tgz"
 SUBFOLDERS="Packages/com.basis.sdk:
         Packages/UnityJigglePhysics-upm:
+        Packages/org.basisvr.k4os.compression.lz4:
         Packages/com.basis.bundlemanagement:
         Packages/com.basis.server"
 
@@ -34,7 +35,6 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.openlipsync:
               Packages/com.basis.openvr:
               Packages/com.basis.openxr:
-              Packages/com.basis.pooltable:
               Packages/com.basis.profilerintergration:
               Packages/com.basis.settings:
               Packages/com.basis.shim:
@@ -75,6 +75,7 @@ elif [[ "$1" == "sdk" ]]; then
 else
   echo "Only full and sdk targets are specified."
   die
+  exit
 fi
 
 set -e
@@ -129,26 +130,27 @@ done
 
 echo "Adding extra files: " ${MOREFILES}
 
-echo ${MOREFILES} | tr : '\n' | while read FV ; do
-    #printf 'File found: %s\n' "$FV"
-    ASSET=$FV
-    GUID=$(echo "$FV" | md5sum | cut -d' ' -f1 | cut -b-32 )
-    mkdir -p generate_unitypackage/$GUID
-    if [[ -f "$ASSET" ]]; then
-        #echo "$ASSET" TO generate_unitypackage/$GUID/asset
-        #echo ASSET COPY cp "$ASSET" generate_unitypackage/$GUID/asset
-        cp "$ASSET" generate_unitypackage/$GUID/asset
-    fi
+if [[ -n ${MOREFILES} ]]; then
+	echo ${MOREFILES} | tr : '\n' | while read FV ; do
+		#printf 'File found: %s\n' "$FV"
+		ASSET=$FV
+		GUID=$(echo "$FV" | md5sum | cut -d' ' -f1 | cut -b-32 )
+		mkdir -p generate_unitypackage/$GUID
+		if [[ -f "$ASSET" ]]; then
+		    #echo "$ASSET" TO generate_unitypackage/$GUID/asset
+		    #echo ASSET COPY cp "$ASSET" generate_unitypackage/$GUID/asset
+		    cp "$ASSET" generate_unitypackage/$GUID/asset
+		fi
 
-	echo "fileFormatVersion: 2" > generate_unitypackage/$GUID/asset.meta
-	echo "guid: ${GUID}" >> generate_unitypackage/$GUID/asset.meta
+		echo "fileFormatVersion: 2" > generate_unitypackage/$GUID/asset.meta
+		echo "guid: ${GUID}" >> generate_unitypackage/$GUID/asset.meta
 
-    #GPNAME=$(echo ${ddv:0:${#ddv} - 4} | cut -d/ -f3-)
-    FONLY=$(echo $FV | rev | cut -d. -f2- | rev)
-    echo "${ASSET}" "${GUID}"
-    echo "${ASSET}" > generate_unitypackage/$GUID/pathname
-done
-
+		#GPNAME=$(echo ${ddv:0:${#ddv} - 4} | cut -d/ -f3-)
+		FONLY=$(echo $FV | rev | cut -d. -f2- | rev)
+		echo "${ASSET}" "${GUID}"
+		echo "${ASSET}" > generate_unitypackage/$GUID/pathname
+	done
+fi
 
 echo "Now, exporting .tgz's"
 
