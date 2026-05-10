@@ -1,0 +1,17 @@
+{
+    "name": "BasisSteamTransportCore",
+    "rootNamespace": "",
+    "references": [
+        "BasisNetworkCore",
+        "BasisDebug"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

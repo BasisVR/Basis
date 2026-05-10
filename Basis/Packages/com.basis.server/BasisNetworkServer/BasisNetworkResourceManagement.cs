@@ -9,6 +9,11 @@ using static SerializableBasis;
 public static class BasisNetworkResourceManagement
 {
     public static ConcurrentDictionary<string, LocalLoadResource> UshortNetworkDatabase = new ConcurrentDictionary<string, LocalLoadResource>();
+
+    /// <summary>
+    /// Partial reset used for ordinary peer lifecycle.
+    /// Keeps persistent resources alive while removing non-persistent ones.
+    /// </summary>
     public static void Reset()
     {
         LocalLoadResource[] resourceArray = UshortNetworkDatabase.Values.ToArray();
@@ -41,6 +46,16 @@ public static class BasisNetworkResourceManagement
                 UshortNetworkDatabase.Remove(llr.LoadedNetID,out LocalLoadResource Resource);
             }
         }
+    }
+
+    /// <summary>
+    /// Full reset used on complete server teardown / rehost.
+    /// Clears all resources, including persistent ones, so a new local host
+    /// session does not replay stale scene state from the previous session.
+    /// </summary>
+    public static void ResetAll()
+    {
+        UshortNetworkDatabase.Clear();
     }
     public static void SendOutAllResources(NetPeer NewConnection)
     {

@@ -106,6 +106,8 @@ namespace Basis.Network.Core
 
         public IPEndPoint RemoteEndPoint => request.RemoteEndPoint;
 
+        public string Identity => request.RemoteEndPoint?.Address?.ToString() ?? string.Empty;
+
         NetPeer ConnectionRequest.Accept()
         {
             return new LNLNetPeer(request.Accept());
@@ -233,6 +235,11 @@ namespace Basis.Network.Core
         public void Stop()
         {
             manager.Stop();
+        }
+
+        public void PollEvents()
+        {
+            manager.TriggerUpdate();
         }
 
         public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer)

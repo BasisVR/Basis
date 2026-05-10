@@ -161,6 +161,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.steamtransport": {
+      "version": "file:com.basis.steamtransport",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.vehicles": {
       "version": "file:com.basis.vehicles",
       "depth": 0,

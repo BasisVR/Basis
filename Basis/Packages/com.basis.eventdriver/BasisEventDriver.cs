@@ -123,6 +123,7 @@ public partial class BasisEventDriver : MonoBehaviour
     public static BasisEventDriver Instance;
 
     public static bool StateOfOnRenderBefore = false;
+    public static Action OnUpdate;
 
     private int _volumeFrameworkFrameCounter;
 
@@ -200,6 +201,7 @@ public partial class BasisEventDriver : MonoBehaviour
             InputSystem.Update();
         OSCAcquisitionServer.Simulate();
         timeSinceLastUpdate += DeltaTime;
+        OnUpdate?.Invoke();
     }
 
     /// <summary>

@@ -47,6 +47,14 @@ namespace Basis.Network.Server.Generic
             }
         }
 
+        public static void Reset()
+        {
+            avatarChangeStates.Clear();
+            playerMetaDataMessages.Clear();
+            resolvedVoicePeers.Clear();
+            shoutModeStates.Clear();
+        }
+
         /// <summary>
         /// Adds or updates the ReadyMessage for a player.
         /// </summary>

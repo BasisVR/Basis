@@ -1,3 +1,4 @@
+using Basis.Network.Core;
 using BasisNetworkCore.Security;
 using System;
 using System.IO;
@@ -92,6 +93,11 @@ public class Configuration
     /// other content lockouts. Default off so existing deployments behave as before.
     /// </summary>
     public bool ThirdPersonDisabled = false;
+    public NetworkTransportType TransportType = NetworkTransportType.LiteNetLib;
+    public bool UseSteamRelay = true;
+    public ulong SteamLobbyId = 0;
+    public ulong SteamHostSteamId = 0;
+    public int SteamVirtualPort = 0;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>

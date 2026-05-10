@@ -16,10 +16,6 @@ using static SerializableBasis;
 
 namespace Basis.Scripts.Networking
 {
-    /// <summary>
-    /// Centralized network manager for Basis. Handles connection lifecycle, transmitters,
-    /// simulation ticks, time synchronization, and server/client messaging.
-    /// </summary>
     [DefaultExecutionOrder(15001)]
     public class BasisNetworkManagement : MonoBehaviour
     {
@@ -48,7 +44,53 @@ namespace Basis.Scripts.Networking
         public bool IsHostMode = false;
 
         /// <summary>
-        /// Singleton instance of <see cref="BasisNetworkManagement"/>.
+        /// Transport selection.
+        /// </summary>
+        public NetworkTransportType Transport = NetworkTransportType.LiteNetLib;
+
+        /// <summary>
+        /// Prefer Steam relay over direct peer addressing.
+        /// </summary>
+        public bool UseSteamRelay = true;
+
+        /// <summary>
+        /// Active Steam lobby ID.
+        /// </summary>
+        [HideInInspector]
+        public ulong CurrentSteamLobbyId = 0;
+
+        /// <summary>
+        /// Current host Steam ID for Steam transport.
+        /// </summary>
+        [HideInInspector]
+        public ulong CurrentHostSteamId = 0;
+
+        /// <summary>
+        /// Steam virtual port for relay sockets.
+        /// </summary>
+        [HideInInspector]
+        public int CurrentSteamVirtualPort = 0;
+
+        /// <summary>
+        /// Pending world BEE URL for Steam lobby creation.
+        /// </summary>
+        [HideInInspector]
+        public string PendingSteamWorldUrl = string.Empty;
+
+        /// <summary>
+        /// Pending world password for Steam lobby creation.
+        /// </summary>
+        [HideInInspector]
+        public string PendingSteamWorldPassword = string.Empty;
+
+        /// <summary>
+        /// Pending world name from BEE metadata.
+        /// </summary>
+        [HideInInspector]
+        public string PendingSteamWorldName = string.Empty;
+
+        /// <summary>
+        /// Singleton instance.
         /// </summary>
         public static BasisNetworkManagement Instance;
 
@@ -140,9 +182,48 @@ namespace Basis.Scripts.Networking
         #region Connection Control
 
         /// <summary>
-        /// Connects to the server using the configured <see cref="Ip"/>, <see cref="Port"/>, and <see cref="Password"/>.
+        /// Connects to the server with current settings.
         /// </summary>
-        public void Connect() => BasisNetworkConnection.Connect(Port, Ip, Password, IsHostMode);
+        public void Connect() => BasisNetworkConnection.Connect(this);
+
+        public bool HasPendingSteamWorld()
+        {
+            return !string.IsNullOrWhiteSpace(PendingSteamWorldUrl) && !string.IsNullOrWhiteSpace(PendingSteamWorldPassword);
+        }
+
+        public void UpdateSteamLobbyState(ulong lobbyId, ulong hostSteamId, bool useSteamRelay, int steamVirtualPort = 0)
+        {
+            CurrentSteamLobbyId = lobbyId;
+            CurrentHostSteamId = hostSteamId;
+            UseSteamRelay = useSteamRelay;
+            CurrentSteamVirtualPort = steamVirtualPort;
+        }
+
+        public void SetPendingSteamWorld(string worldUrl, string worldPassword, string worldName)
+        {
+            PendingSteamWorldUrl = worldUrl ?? string.Empty;
+            PendingSteamWorldPassword = worldPassword ?? string.Empty;
+            PendingSteamWorldName = worldName ?? string.Empty;
+        }
+
+        public void ClearPendingSteamWorld()
+        {
+            PendingSteamWorldUrl = string.Empty;
+            PendingSteamWorldPassword = string.Empty;
+            PendingSteamWorldName = string.Empty;
+        }
+
+        public void ClearSteamLobbyState()
+        {
+            CurrentSteamLobbyId = 0;
+            CurrentHostSteamId = 0;
+            UseSteamRelay = true;
+            CurrentSteamVirtualPort = 0;
+            if (Transport == NetworkTransportType.Steam)
+            {
+                Transport = NetworkTransportType.LiteNetLib;
+            }
+        }
 
         #endregion
 

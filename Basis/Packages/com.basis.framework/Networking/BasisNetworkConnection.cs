@@ -1,5 +1,5 @@
-using Basis.BasisUI;
 using Basis.Network.Core;
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -16,22 +16,44 @@ using static SerializableBasis;
 
 namespace Basis.Scripts.Networking
 {
-    /// <summary>
-    /// Connection/session management, server runner, time utilities, and send helpers.
-    /// </summary>
     public static class BasisNetworkConnection
     {
+        private static readonly object BnlSubscriptionLock = new object();
         public static NetPeer LocalPlayerPeer { get; set; }
         public static NetworkClient NetworkClient { get; set; } = new NetworkClient();
         public static bool LocalPlayerIsConnected { get; set; }
+        public static bool SuppressNextDisconnectUi { get; set; }
+        public static event Action<NetPeer> OnConnectedToServer;
+        public static event Action<NetPeer, DisconnectInfo> OnDisconnectedFromServer;
         public static BasisNetworkServerRunner BasisNetworkServerRunner = null;
 #if UNITY_SERVER
         public static bool HeadlessReconnectSuppressed { get; set; }
         public static Action<DisconnectInfo> OnDisconnectedAfterReboot;
 #endif
+        private static bool HasRegisteredBnlLogging;
         private static void LogErrorOutput(string msg) => BasisDebug.LogError(msg, BasisDebug.LogTag.Networking);
         private static void LogWarningOutput(string msg) => BasisDebug.LogWarning(msg);
         private static void LogOutput(string msg) => BasisDebug.Log(msg, BasisDebug.LogTag.Networking);
+        private static void EnsureBnlLoggingRegistered()
+        {
+            if (HasRegisteredBnlLogging)
+            {
+                return;
+            }
+
+            lock (BnlSubscriptionLock)
+            {
+                if (HasRegisteredBnlLogging)
+                {
+                    return;
+                }
+
+                BNL.LogOutput += LogOutput;
+                BNL.LogWarningOutput += LogWarningOutput;
+                BNL.LogErrorOutput += LogErrorOutput;
+                HasRegisteredBnlLogging = true;
+            }
+        }
         public static bool TryGetLocalPlayerID(out ushort localId)
         {
             localId = 0;
@@ -39,11 +61,73 @@ namespace Basis.Scripts.Networking
             localId = (ushort)LocalPlayerPeer.RemoteId;
             return true;
         }
+        public static void Connect(BasisNetworkManagement networkManagement)
+        {
+            if (networkManagement == null)
+            {
+                BasisDebug.LogError("Missing BasisNetworkManagement during connect.", BasisDebug.LogTag.Networking);
+                return;
+            }
+
+            Connect(
+                networkManagement.Port,
+                networkManagement.Ip,
+                networkManagement.Password,
+                networkManagement.IsHostMode,
+                networkManagement.Transport,
+                networkManagement.UseSteamRelay,
+                networkManagement.CurrentSteamLobbyId,
+                networkManagement.CurrentHostSteamId,
+                networkManagement.CurrentSteamVirtualPort
+            );
+        }
+        public static bool HasActiveClient() => NetworkClient != null && NetworkClient.HasActiveClient;
+        public static void DisconnectActiveClient()
+        {
+            NetworkClient?.Disconnect();
+            LocalPlayerPeer = null;
+            LocalPlayerIsConnected = false;
+        }
+        public static async Task ResetConnectionStateAsync(BasisNetworkManagement management)
+        {
+            if (!LocalPlayerIsConnected && !HasActiveClient())
+            {
+                return;
+            }
+
+            if (management == null)
+            {
+                SuppressNextDisconnectUi = true;
+                DisconnectActiveClient();
+                return;
+            }
+
+            if (!LocalPlayerIsConnected)
+            {
+                SuppressNextDisconnectUi = true;
+                DisconnectActiveClient();
+                return;
+            }
+
+            using var cts = new CancellationTokenSource();
+            Task rebootWait = WaitForRebootCompleteAsync(cts.Token);
+
+            SuppressNextDisconnectUi = true;
+            NetworkClient?.Disconnect();
+            await rebootWait;
+
+            if (management != null)
+            {
+                BasisNetworkLifeCycle.Initalize(management);
+            }
+        }
         public static void Connect(ushort port, string ipString, string primitivePassword, bool isHostMode)
         {
-            BNL.LogOutput += LogOutput;
-            BNL.LogWarningOutput += LogWarningOutput;
-            BNL.LogErrorOutput += LogErrorOutput;
+            Connect(port, ipString, primitivePassword, isHostMode, NetworkTransportType.LiteNetLib, true, 0, 0, 0);
+        }
+        public static void Connect(ushort port, string ipString, string primitivePassword, bool isHostMode, NetworkTransportType transportType, bool useSteamRelay, ulong steamLobbyId, ulong steamHostSteamId, int steamVirtualPort)
+        {
+            EnsureBnlLoggingRegistered();
 
             var uuid = BasisDIDAuthIdentityClient.GetOrSaveDID();
 
@@ -59,8 +143,14 @@ namespace Basis.Scripts.Networking
                     UseAuthIdentity = true,
                     UseAuth = true,
                     Password = primitivePassword,
-                    EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue
+                    EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue,
+                    TransportType = transportType,
+                    UseSteamRelay = useSteamRelay,
+                    SteamLobbyId = steamLobbyId,
+                    SteamHostSteamId = steamHostSteamId,
+                    SteamVirtualPort = steamVirtualPort
                 };
+                BasisDebug.Log($"Initializing host server with transport {transportType} relay={useSteamRelay} virtualPort={steamVirtualPort}", BasisDebug.LogTag.Networking);
                 BasisNetworkServerRunner.Initalize(serverConfig, string.Empty, uuid);
             }
 
@@ -92,7 +182,7 @@ namespace Basis.Scripts.Networking
 
             BasisDebug.Log("Network Starting Client");
 
-            _ = Task.Run(() =>
+            void StartClientConnection()
             {
                 try
                 {
@@ -104,16 +194,20 @@ namespace Basis.Scripts.Networking
                         UseAuthIdentity = true,
                         UseAuth = true,
                         Password = primitivePassword,
-                        EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue
+                        EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue,
+                        TransportType = transportType,
+                        UseSteamRelay = useSteamRelay,
+                        SteamLobbyId = steamLobbyId,
+                        SteamHostSteamId = steamHostSteamId,
+                        SteamVirtualPort = steamVirtualPort
                     };
-                    // Pass the token into anything that supports cancellation
+                    NetworkClient.OnPeerConnected = PeerConnectedEvent;
+                    NetworkClient.OnPeerDisconnected = BasisNetworkConnection.HandleDisconnection;
+                    NetworkClient.OnNetworkReceive = BasisNetworkEvents.NetworkReceiveEvent;
+
                     LocalPlayerPeer = NetworkClient.StartClient(
                         ipString, port, readyMessage,
                         Encoding.UTF8.GetBytes(primitivePassword), serverConfig);
-
-                    NetworkClient.listener.PeerConnectedEvent += PeerConnectedEvent;
-                    NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkConnection.HandleDisconnection;
-                    NetworkClient.listener.NetworkReceiveEvent += BasisNetworkEvents.NetworkReceiveEvent;
 
                     if (LocalPlayerPeer != null)
                     {
@@ -136,7 +230,16 @@ namespace Basis.Scripts.Networking
                         Reason = DisconnectReason.UnknownHost
                     });
                 }
-            });
+            }
+
+            if (transportType == NetworkTransportType.Steam)
+            {
+                StartClientConnection();
+            }
+            else
+            {
+                _ = Task.Run(StartClientConnection);
+            }
         }
         public static void OnDestroy()
         {
@@ -190,6 +293,7 @@ namespace Basis.Scripts.Networking
 
                     LocalPlayerIsConnected = true;
 
+                    OnConnectedToServer?.Invoke(peer);
                     BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(transmitter, BasisLocalPlayer.Instance);
                     BasisNetworkPlayer.OnPlayerJoined?.Invoke(transmitter);
                 }
@@ -204,6 +308,7 @@ namespace Basis.Scripts.Networking
         {
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
+                OnDisconnectedFromServer?.Invoke(peer, disconnectInfo);
 #if UNITY_SERVER
                 if (disconnectInfo.Reason == DisconnectReason.Timeout)
                 {
@@ -213,7 +318,9 @@ namespace Basis.Scripts.Networking
                 Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.StopMovement();
 #endif
                 BasisNetworkAvatarCompressor.Dispose();
-                await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, true, peer, disconnectInfo);
+                bool displayReason = !SuppressNextDisconnectUi;
+                SuppressNextDisconnectUi = false;
+                await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, displayReason, peer, disconnectInfo);
 #if UNITY_SERVER
                 if (!HeadlessReconnectSuppressed)
                 {

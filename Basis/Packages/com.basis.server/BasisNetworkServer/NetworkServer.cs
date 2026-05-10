@@ -2,10 +2,15 @@ using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
+using Basis.Network.Server.Generic;
+using Basis.Network.Server.Ownership;
+using Basis.Scripts.Networking.Steam;
 using BasisDidLink;
+using BasisNetworkCore;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using BasisNetworkServer.Security;
+using BasisNetworkServer;
 using BasisServerHandle;
 using System;
 using System.Collections.Concurrent;
@@ -19,7 +24,7 @@ using static BasisPermissions.PermissionManager;
 public static class NetworkServer
 {
     public static EventBasedNetListener Listener;
-    public static LNLNetManager Server;
+    public static NetManager Server;
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static Configuration Configuration;
     /// <summary>
@@ -60,10 +65,17 @@ public static class NetworkServer
     public static IAuth Auth;
     public static IAuthIdentity AuthIdentity;
     public static int HighQualityLength;
+    public static bool IsShuttingDown { get; private set; }
     #region Server Entry Point
 
     public static void StartServer(Configuration configuration)
     {
+        if (Server != null || Listener != null || AuthIdentity != null || !AuthenticatedPeers.IsEmpty)
+        {
+            StopServer();
+        }
+
+        IsShuttingDown = false;
         Configuration = configuration;
 
         HighQualityLength = BasisAvatarBitPacking.ConvertToSize(BitQuality.High);
@@ -103,6 +115,8 @@ public static class NetworkServer
         BasisPlayerModeration.UseFileOnDisc = HasFileSupport;
         IAuthIdentity.HasFileSupport = HasFileSupport;
 
+        AuthIdentity?.DeInitialize();
+
         Auth = new PasswordAuth(Configuration.Password ?? string.Empty);
         AuthIdentity = new BasisDIDAuthIdentity();
 
@@ -139,7 +153,7 @@ public static class NetworkServer
     public static void SetupServer(Configuration configuration)
     {
         Listener = new EventBasedNetListener();
-        Server = new LNLNetManager(Listener, configuration);
+        Server = BasisTransportFactory.Create(Listener, configuration);
 
         NetDebug.Logger = new BasisServerLogger();
         StartListening(configuration);
@@ -170,6 +184,64 @@ public static class NetworkServer
             BNL.Log($"Server Wiring up SetPort {Configuration.SetPort}");
             Server.Start(IPAddress.Any, IPAddress.IPv6Any, Configuration.SetPort);
         }
+    }
+
+    public static void StopServer()
+    {
+        IsShuttingDown = true;
+
+        try
+        {
+            BasisServerHandleEvents.UnsubscribeServerEvents();
+        }
+        catch (Exception ex)
+        {
+            BNL.LogError($"StopServer unsubscribe failed: {ex.Message}");
+        }
+
+        try
+        {
+            AuthIdentity?.DeInitialize();
+        }
+        catch (Exception ex)
+        {
+            BNL.LogError($"StopServer auth deinitialize failed: {ex.Message}");
+        }
+
+        try
+        {
+            Server?.Stop();
+        }
+        catch (Exception ex)
+        {
+            BNL.LogError($"StopServer transport stop failed: {ex.Message}");
+        }
+
+        BasisStatistics.StopWorkerThread();
+        ResetRuntimeState();
+    }
+
+    private static void ResetRuntimeState()
+    {
+        Auth = null;
+        AuthIdentity = null;
+
+        AuthenticatedPeers.Clear();
+        RebuildPeerSnapshot();
+
+        BasisNetworkOwnership.ownershipByObjectId.Clear();
+        PermissionIntegration.Shutdown();
+        BasisSavedState.Reset();
+        BasisNetworkIDDatabase.Reset();
+        BasisNetworkResourceManagement.ResetAll();
+        BasisNetworkContentShare.Reset();
+        BasisNetworkPreloadResourceManagement.Reset();
+        BasisNetworkPIPCamera.Reset();
+        BasisNetworkStatistics.Clear();
+
+        Listener = null;
+        Server = null;
+        Configuration = null;
     }
     #endregion
     public static void BroadcastMessageToClients(NetDataWriter writer, byte channel, NetPeer sender, ReadOnlySpan<NetPeer> clients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int maxMessages = 70)

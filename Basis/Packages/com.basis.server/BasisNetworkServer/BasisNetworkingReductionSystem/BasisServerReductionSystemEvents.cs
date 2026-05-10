@@ -367,9 +367,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             //Phase 4: Network I/O
             BasisNetworkPIPCamera.UpdatePIPPositions(now);
-            if (NetworkServer.Server != null && NetworkServer.Server.manager != null)
+            if (NetworkServer.Server != null)
             {
-                NetworkServer.Server.manager.TriggerUpdate();
+                NetworkServer.Server.PollEvents();
             }
             if (profiling)
             {

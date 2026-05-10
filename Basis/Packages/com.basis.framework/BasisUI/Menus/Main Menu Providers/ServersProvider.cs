@@ -3,6 +3,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using Basis.Network.Core;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -739,6 +740,9 @@ namespace Basis.BasisUI
                 BasisNetworkManagement.Instance.Ip = entry.Address;
                 BasisNetworkManagement.Instance.Password = entry.HasPassword ? entry.Password : string.Empty;
                 BasisNetworkManagement.Instance.IsHostMode = isHostMode;
+                BasisNetworkManagement.Instance.Transport = NetworkTransportType.LiteNetLib;
+                BasisNetworkManagement.Instance.ClearPendingSteamWorld();
+                BasisNetworkManagement.Instance.ClearSteamLobbyState();
 
                 ReportConnectionProgress(60f, BasisLocalization.Get("menu.servers.status.loadingBundle"));
                 await LoadDefaultAssetBundleAsync();
