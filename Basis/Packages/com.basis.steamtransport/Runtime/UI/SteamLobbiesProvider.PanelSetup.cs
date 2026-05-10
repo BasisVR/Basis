@@ -1,6 +1,7 @@
 using Basis.BasisUI;
 using Basis.Scripts.Common;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Basis.Scripts.Networking.Steam
 {
@@ -20,7 +21,10 @@ namespace Basis.Scripts.Networking.Steam
             usernameField.Descriptor.SetTitle("Username");
             usernameField.SetValueWithoutNotify(BasisDataStore.LoadString(ServersProvider.UsernameFileName, string.Empty));
 
-            createGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            RectTransform lobbyColumns = BuildHorizontalRow(container);
+
+            createGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, lobbyColumns);
+            ApplyColumnWeight(createGroup, 1f);
             createGroup.SetTitle("Create Lobby");
             createGroup.SetDescription("Host a Basis session and attach a world BEE to the lobby.");
 
@@ -56,12 +60,16 @@ namespace Basis.Scripts.Networking.Steam
             createLobbyButton.Descriptor.SetHeight(80);
             createLobbyButton.OnClicked += () => _ = OnCreateLobbyButton();
 
-            browserGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            browserGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, lobbyColumns);
+            ApplyColumnWeight(browserGroup, 1f);
             browserGroup.SetTitle("Available Lobbies");
             browserGroup.SetDescription("Refresh Steam lobby metadata and inspect the selected world.");
 
-            refreshLobbiesButton = PanelButton.CreateNew(browserGroup.ContentParent);
+            RectTransform lobbyActions = BuildHorizontalRow(browserGroup.ContentParent);
+
+            refreshLobbiesButton = PanelButton.CreateNew(lobbyActions);
             refreshLobbiesButton.Descriptor.SetTitle("Refresh Lobbies");
+            ApplyButtonWeight(refreshLobbiesButton, 1f);
             refreshLobbiesButton.OnClicked += () => _ = RefreshLobbiesAsync();
 
             lobbySelectionDropdown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, browserGroup.ContentParent);
@@ -74,8 +82,9 @@ namespace Basis.Scripts.Networking.Steam
             selectedLobbyDescriptor.SetTitle("Lobby Preview");
             selectedLobbyDescriptor.SetDescription("Refresh Steam lobbies to inspect a world before joining.");
 
-            joinLobbyButton = PanelButton.CreateNew(browserGroup.ContentParent);
+            joinLobbyButton = PanelButton.CreateNew(lobbyActions);
             joinLobbyButton.Descriptor.SetTitle("Join Lobby");
+            ApplyButtonWeight(joinLobbyButton, 1f);
             joinLobbyButton.OnClicked += () => _ = OnJoinLobbyButton();
 
             sessionGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
@@ -94,6 +103,59 @@ namespace Basis.Scripts.Networking.Steam
             currentLobbyDescriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, sessionGroup.ContentParent);
             currentLobbyDescriptor.SetTitle("Lobby Details");
             currentLobbyDescriptor.SetDescription("No Steam lobby selected.");
+        }
+
+        private static RectTransform BuildHorizontalRow(RectTransform parent)
+        {
+            GameObject rowObject = new GameObject("SteamLobbyRow", typeof(RectTransform));
+            RectTransform rowTransform = (RectTransform)rowObject.transform;
+            rowTransform.SetParent(parent, false);
+
+            rowTransform.anchorMin = new Vector2(0f, 1f);
+            rowTransform.anchorMax = new Vector2(1f, 1f);
+            rowTransform.pivot = new Vector2(0.5f, 1f);
+
+            HorizontalLayoutGroup layoutGroup = rowObject.AddComponent<HorizontalLayoutGroup>();
+            layoutGroup.childForceExpandWidth = true;
+            layoutGroup.childForceExpandHeight = false;
+            layoutGroup.childControlWidth = true;
+            layoutGroup.childControlHeight = true;
+            layoutGroup.spacing = 8f;
+            layoutGroup.padding = new RectOffset(0, 0, 0, 0);
+
+            ContentSizeFitter fitter = rowObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            LayoutElement layout = rowObject.AddComponent<LayoutElement>();
+            layout.minWidth = 0f;
+            layout.preferredWidth = 0f;
+            layout.flexibleWidth = 1f;
+
+            return rowTransform;
+        }
+
+        private static void ApplyColumnWeight(PanelElementDescriptor descriptor, float flex)
+        {
+            if (descriptor == null || descriptor.Layout == null)
+            {
+                return;
+            }
+
+            descriptor.Layout.minWidth = 0f;
+            descriptor.Layout.preferredWidth = 0f;
+            descriptor.Layout.flexibleWidth = flex;
+        }
+
+        private static void ApplyButtonWeight(PanelButton button, float flex)
+        {
+            if (button == null || button.Layout == null)
+            {
+                return;
+            }
+
+            button.Layout.minWidth = 0f;
+            button.Layout.preferredWidth = 0f;
+            button.Layout.flexibleWidth = flex;
         }
     }
 }

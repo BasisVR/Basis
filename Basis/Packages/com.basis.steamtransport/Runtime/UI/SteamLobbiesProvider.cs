@@ -51,12 +51,7 @@ namespace Basis.Scripts.Networking.Steam
             }
 
             BasisMenuPanel panel = BasisMainMenu.CreateActiveMenu(
-                new BasisMenuPanel.PanelData
-                {
-                    Title = Title,
-                    PanelSize = new Vector2(650, 950),
-                    PanelPosition = default
-                },
+                BasisMenuPanel.PanelData.Standard(Title),
                 BasisMenuPanel.PanelStyles.Page,
                 this);
             BoundButton?.BindActiveStateToAddressablesInstance(panel);
