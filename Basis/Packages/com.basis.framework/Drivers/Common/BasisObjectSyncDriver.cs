@@ -204,7 +204,6 @@ public static class BasisObjectSyncDriver
     {
         if (obj != null) RemoteOwnedObjectSyncs.Remove(obj);
     }
-
     #endregion
 }
 
