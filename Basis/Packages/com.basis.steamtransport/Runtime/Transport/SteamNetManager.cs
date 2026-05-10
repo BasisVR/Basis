@@ -127,6 +127,8 @@ namespace Basis.Scripts.Networking.Steam
 
         public long RemoteTimeDelta => 0;
 
+        public int Mtu => 1200;
+
         public void Disconnect()
         {
             connection.Close(false, 0, "Disconnected");
@@ -404,6 +406,16 @@ namespace Basis.Scripts.Networking.Steam
             clientReceiveEnabled = clientConnectionManager != null;
             BasisSteamTransportTrace.Log($"ConnectRelay hostSteamId={configuration.SteamHostSteamId} virtualPort={configuration.SteamVirtualPort} payloadBytes={connectPayload.Length}");
             return peer;
+        }
+
+        public bool SendUnconnectedMessage(NetDataWriter writer, IPEndPoint remoteEndPoint)
+        {
+            if (useFallback)
+            {
+                return fallbackManager.SendUnconnectedMessage(writer, remoteEndPoint);
+            }
+
+            return false;
         }
 
         public void PollEvents()
