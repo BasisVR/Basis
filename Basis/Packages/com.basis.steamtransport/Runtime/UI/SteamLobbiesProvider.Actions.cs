@@ -342,7 +342,7 @@ namespace Basis.Scripts.Networking.Steam
 
             BasisLocalPlayer.Instance.DisplayName = userName;
             BasisLocalPlayer.Instance.SetSafeDisplayname();
-            BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, ServersProvider.LoadFileName);
+            BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, ServersProvider.UsernameFileName);
             return true;
         }
 

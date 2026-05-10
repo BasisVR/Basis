@@ -18,7 +18,7 @@ namespace Basis.Scripts.Networking.Steam
 
             usernameField = PanelTextField.CreateNewEntry(container);
             usernameField.Descriptor.SetTitle("Username");
-            usernameField.SetValueWithoutNotify(BasisDataStore.LoadString(ServersProvider.LoadFileName, string.Empty));
+            usernameField.SetValueWithoutNotify(BasisDataStore.LoadString(ServersProvider.UsernameFileName, string.Empty));
 
             createGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             createGroup.SetTitle("Create Lobby");
