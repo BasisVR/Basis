@@ -18,7 +18,7 @@ namespace Basis.BasisUI
             //actionsPanel.Descriptor.SetWidth(900);
 
             PanelButton noPanelButton = PanelButton.CreateNew(ButtonStyles.CancelButton, actionsPanel.TabButtonParent); //ButtonStyles.Cancel
-            noPanelButton.Descriptor.SetTitle("No");
+            noPanelButton.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("ui.no"));
             noPanelButton.Descriptor.SetWidth(200);
             noPanelButton.Descriptor.SetHeight(60);
 
@@ -33,7 +33,7 @@ namespace Basis.BasisUI
 
 
             PanelButton yesPanelButton = PanelButton.CreateNew(ButtonStyles.AcceptButton, actionsPanel.TabButtonParent);
-            yesPanelButton.Descriptor.SetTitle("Yes");
+            yesPanelButton.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("ui.yes"));
             yesPanelButton.Descriptor.SetWidth(200);
             yesPanelButton.Descriptor.SetHeight(60);
             // on load of a item we do these actions
@@ -54,8 +54,8 @@ namespace Basis.BasisUI
         public static async Task<bool> PromptUserForRemoval(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, BasisBundleDescription description)
         {
             DialogBox<bool> contentRemovalDialog = DialogBox<bool>.Create(panel, new Vector2(650, 180),
-                $"Delete {LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)}?",
-                $"Are you sure you want to remove this {item.Mode}?",
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.remove.title", LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.remove.body", item.Mode),
                 AddressableAssets.Sprites.Information,
                 true
             );
@@ -69,8 +69,8 @@ namespace Basis.BasisUI
         public static async Task<bool> PromptUserForRemoval(BasisMenuPanel panel, string assetName, string type)
         {
             DialogBox<bool> contentRemovalDialog = DialogBox<bool>.Create(panel, new Vector2(650, 180),
-                $"Delete {assetName}?",
-                $"Are you sure you want to remove this {type}?",
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.remove.title", assetName),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.remove.body", type),
                 AddressableAssets.Sprites.Information,
                 true
             );

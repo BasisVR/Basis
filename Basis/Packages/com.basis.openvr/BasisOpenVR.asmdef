@@ -14,7 +14,8 @@
         "GUID:5ad71426c7096f04a9e0f40eb9cf44db",
         "Unity.Addressables",
         "GUID:75c7734b9034adc43990fe961f586496",
-        "Unity.ResourceManager"
+        "Unity.ResourceManager",
+        "BasisGizmos"
     ],
     "includePlatforms": [],
     "excludePlatforms": [

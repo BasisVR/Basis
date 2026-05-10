@@ -1,0 +1,17 @@
+{
+  "name": "com.basis.addon.snapcontrols",
+  "displayName": "Basis Snap Controls",
+  "version": "0.0.1",
+  "description": "Add-on snap-detent controls for Basis worlds: rotary knobs, levers, switches, and per-detent activation targets driven by snap-point markers.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "samples": [
+    {
+      "displayName": "Rotational Snap Example",
+      "description": "Scene demonstrating BasisRotarySnapInteractable and BasisActivationTarget: a throw lever, a rotary selector, and a flip switch each driving doors via per-detent activation.",
+      "path": "Samples~/Rotational Snap Example"
+    }
+  ]
+}

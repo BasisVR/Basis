@@ -4,6 +4,16 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2025-10-29
+### Changed 
+- Updated to OpenVR SDK 2.12.14
+- Added DX12 support (note: built-in render pipeline is incompatible with single pass; use multipass or URP)
+- Bindings synced to v1.2.4: new EVREventType entries (538-540), EVRNotificationError.ServiceUnavailable, EVRSettingsError.AccessDenied, Compositor_FrameTiming.m_flTransferLatencyMs, k_pch_SteamVR_FovScaleLetterboxed_Bool
+
+## [1.2.3] - 2024-07-18
+### Changed
+- Updated to SteamVR SDK 2.5.1
+
 ## [1.2.2] - 2024-03-21
 ### Changed 
 - Updated to SteamVR SDK 2.2.3

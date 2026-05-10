@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -14,7 +15,7 @@ public static class AssetBundleBuilder
         InformationHash Hash = new InformationHash();
         BasisBundleGenerated BasisBundleGenerated = new BasisBundleGenerated();
         EnsureDirectoryExists(targetDirectory);
-        EditorUtility.DisplayProgressBar("Building Asset Bundles", "Initializing...", 0f);
+        EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.assetBundleBuilder.progress.title"), BasisEditorLocalization.Get("sdk.assetBundleBuilder.progress.initializing"), 0f);
 
         BuildAssetBundlesParameters BABP = new BuildAssetBundlesParameters
         {
@@ -32,7 +33,8 @@ public static class AssetBundleBuilder
         if (manifest != null)
         {
             Hash = await ProcessAssetBundles(targetDirectory, settings, manifest, password, isEncrypted);
-            BasisBundleGenerated = new BasisBundleGenerated(Hash.bundleHash.ToString(), mode, assetBundleName, Hash.CRC, true, password, buildTarget.ToString(), Hash.Length);
+            string[] graphicsAPIs = ResolveGraphicsAPIs(buildTarget);
+            BasisBundleGenerated = new BasisBundleGenerated(Hash.bundleHash.ToString(), mode, assetBundleName, Hash.CRC, true, password, buildTarget.ToString(), Hash.Length, graphicsAPIs);
             DeleteManifestFiles(targetDirectory, buildTarget.ToString());
 #if UNITY_6000_0_OR_NEWER
             BuildReport Reports = BuildReport.GetLatestReport();
@@ -46,6 +48,34 @@ public static class AssetBundleBuilder
         EditorUtility.ClearProgressBar();
         return new(BasisBundleGenerated, Hash);
     }
+
+    // Returns the graphics APIs PlayerSettings will compile shaders for on the given
+    // target. When AutoGraphicsAPI is on, Unity hides the explicit list in the UI but
+    // GetGraphicsAPIs still returns the resolved order — that's what actually ends up
+    // in the bundle.
+    private static string[] ResolveGraphicsAPIs(BuildTarget buildTarget)
+    {
+        try
+        {
+            var apis = PlayerSettings.GetGraphicsAPIs(buildTarget);
+            if (apis == null || apis.Length == 0)
+            {
+                return Array.Empty<string>();
+            }
+            string[] names = new string[apis.Length];
+            for (int i = 0; i < apis.Length; i++)
+            {
+                names[i] = apis[i].ToString();
+            }
+            return names;
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogWarning($"Failed to resolve graphics APIs for {buildTarget}: {ex.Message}");
+            return Array.Empty<string>();
+        }
+    }
+
     [System.Serializable]
     public class SerializableBuildReport
     {
@@ -244,7 +274,7 @@ public static class AssetBundleBuilder
                 CRC = crc,
             };
             float progress = (float)(index + 1) / totalFiles;
-            EditorUtility.DisplayProgressBar("Building Asset Bundles", $"Processing {fileOutput}...", progress);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.assetBundleBuilder.progress.title"), BasisEditorLocalization.Get("sdk.assetBundleBuilder.progress.processing", fileOutput), progress);
             string encryptedFilePath = await HandleEncryption(actualFilePath, password, settings, manifest, isEncrypted);
             CleanupOriginalFile(actualFilePath);
             informationHash.EncyptedPath = encryptedFilePath;
@@ -260,12 +290,12 @@ public static class AssetBundleBuilder
         {
             if (InformationHashes.Count > 1)
             {
-                BasisDebug.LogError("More then a single Bundle is being built, please check what bundles your additionally building");
+                BasisDebug.LogError("More than a single Bundle is being built; check any additionally built bundles");
                 return InformationHashes[0];
             }
             else
             {
-                BasisDebug.LogError("No bundles where built, this is a massive issue!");
+                BasisDebug.LogError("No bundles were built; this is a massive issue!");
                 return new InformationHash();
             }
         }

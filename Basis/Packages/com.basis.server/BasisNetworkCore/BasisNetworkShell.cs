@@ -35,12 +35,14 @@ namespace Basis.Network.Core
         public delegate void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod);
         public delegate void OnConnectionRequest(ConnectionRequest request);
         public delegate void OnPeerConnected(NetPeer peer);
+        public delegate void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader);
 
         public event OnConnectionRequest ConnectionRequestEvent;
         public event OnPeerDisconnected PeerDisconnectedEvent;
         public event OnNetworkReceive NetworkReceiveEvent;
         public event OnNetworkError NetworkErrorEvent;
         public event OnPeerConnected PeerConnectedEvent;
+        public event OnNetworkReceiveUnconnected NetworkReceiveUnconnectedEvent;
 
         public void RaiseConnectionRequest(ConnectionRequest request)
         {
@@ -78,7 +80,6 @@ namespace Basis.Network.Core
         public NetPeer Accept();
         public NetDataReader Data { get; }
         public IPEndPoint RemoteEndPoint { get; }
-        public string Identity => RemoteEndPoint?.Address?.ToString() ?? string.Empty;
     }
 
     public interface NetPeer
@@ -92,13 +93,15 @@ namespace Basis.Network.Core
         public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod);
         public int Id { get; }
         public IPAddress Address { get; }
-        public string Identity => Address?.ToString() ?? string.Empty;
         public int RemoteId { get; }
         public int RoundTripTime { get; }
         public int Ping => RoundTripTime / 2;
         public float TimeSinceLastPacket { get; }
         public long RemoteTimeDelta { get; }
         public DateTime RemoteUtcTime => new DateTime(DateTime.UtcNow.Ticks + RemoteTimeDelta);
+        // Maximum UDP payload (no fragmentation) negotiated for this peer. Used by the
+        // avatar bundle compressor to size compressed payloads to fit one datagram.
+        public int Mtu { get; }
 
         // public readonly NetStatistics Statistics;
     }
@@ -116,9 +119,7 @@ namespace Basis.Network.Core
         public void Start(IPAddress IPv4Address, IPAddress IPv6Address, int SetPort);
         public void Stop();
         public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer);
-        public void PollEvents()
-        {
-        }
+        public bool SendUnconnectedMessage(NetDataWriter writer, IPEndPoint remoteEndPoint);
 
         public NetStatistics Statistics { get; }
 
@@ -127,10 +128,6 @@ namespace Basis.Network.Core
 
     public sealed partial class NetStatistics
     {
-        public NetStatistics()
-        {
-        }
-
         public long PacketsSent;
         public long PacketsReceived;
         public long BytesSent;
@@ -141,10 +138,6 @@ namespace Basis.Network.Core
     public partial class NetPacketReader : NetDataReader
     {
         Action RecycleInternal;
-
-        internal NetPacketReader()
-        {
-        }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		internal byte channel;
@@ -164,17 +157,7 @@ namespace Basis.Network.Core
 			}
 #endif
 
-            Action recycle = RecycleInternal;
-            RecycleInternal = null;
-            recycle?.Invoke();
-        }
-
-        public static NetPacketReader Create(byte[] source, int offset, int maxSize, Action recycle = null)
-        {
-            var reader = new NetPacketReader();
-            reader.SetSource(source, offset, maxSize);
-            reader.RecycleInternal = recycle;
-            return reader;
+            RecycleInternal?.Invoke();
         }
     }
 

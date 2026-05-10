@@ -25,7 +25,7 @@ namespace Basis.Scripts.BasisSdk.Players
     /// and signal readiness. Subscribe to events like <see cref="OnLocalPlayerInitalized"/>
     /// to know when the player has finished bootstrapping.
     /// </remarks>
-    public class BasisLocalPlayer : BasisPlayer
+    public class BasisLocalPlayer : BasisPlayer, IBasisLocalPlayer
     {
         /// <summary>
         /// Singleton-like reference to the active local player instance.
@@ -124,11 +124,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLocalRigDriver LocalRigDriver = new BasisLocalRigDriver();
 
         /// <summary>
-        /// Places a foot Down. not done yet, i give up - dooly
+        /// Locomotion-aware foot placement when no foot trackers are present.
         /// </summary>
-      //  [Header("Foot Driver")]
-       // [SerializeField]
-      //  public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
+        [Header("Foot Driver")]
+        [SerializeField]
+        public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
         /// <summary>
         /// Character controller for movement, collisions, and physics.
         /// </summary>
@@ -189,6 +189,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
+            BasisLocalPlayerData.Instance = this;
             PlayerPlatform = Application.platform.ToString();
 
 #if !BASIS_DISABLE_MICROPHONE
@@ -231,7 +232,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisLocalMicrophoneDriver.Initialize();
 #endif
 
-            BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
+            BasisScene BasisScene = FindAnyObjectByType<BasisScene>(FindObjectsInactive.Exclude);
             if (BasisScene != null)
             {
                 BasisSceneFactory.Initalize(BasisScene);
@@ -245,6 +246,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisUILoadingBar.Initalize();
             PlayerReady = true;
             OnLocalPlayerInitalized?.Invoke();
+            BasisLocalPlayerData.RaiseLocalPlayerInitialized();
         }
 
         /// <summary>
@@ -374,6 +376,11 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         public void OnDestroy()
         {
+            if (BasisLocalPlayerData.Instance == this)
+            {
+                BasisLocalPlayerData.Instance = null;
+                BasisLocalPlayerData.PlayerReady = false;
+            }
             if (HasEvents)
             {
                LocalVisemeDriver?.OnDestroy();
@@ -409,6 +416,10 @@ namespace Basis.Scripts.BasisSdk.Players
 #endif
             LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
+            LocalBoneDriver.Dispose();
+            BasisLocalFootDriver.Dispose();
+            LocalRigDriver.CleanupBeforeContinue();
+            BasisAvatarDriver.RemoveOldShadowClones();
             BasisUILoadingBar.DeInitalize();
         }
 
@@ -458,8 +469,8 @@ namespace Basis.Scripts.BasisSdk.Players
             // Apply Animator Weights using most current data and outside movement effectors.
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
-            // handles fingers
-            LocalHandDriver.UpdateFingers(DeltaTime);
+            // schedule finger slerp job (completed by Apply in BasisEventDriver)
+            LocalHandDriver.Simulate(DeltaTime);
 
             AfterSimulateOnLate?.Invoke();
         }
@@ -498,9 +509,15 @@ namespace Basis.Scripts.BasisSdk.Players
         }
         /// <summary>
         /// Positions the avatar in a T-pose such that the head aligns to tracked head position/orientation (yaw only).
+        /// Drives the avatar root (AvatarTransform) so the head bone lands on the tracked head pose while the avatar holds T-pose.
         /// </summary>
         public void DriveTpose()
         {
+            if (BasisLocalAvatarDriver.Mapping.HasHips == false)
+            {
+                return;
+            }
+
             // World-space inputs
             var OutgoingWorldData = BasisLocalBoneDriver.HeadControl.OutgoingWorldData;
             Vector3 headPosWS = OutgoingWorldData.position;
@@ -508,14 +525,15 @@ namespace Basis.Scripts.BasisSdk.Players
 
             // Flatten head forward onto the XZ plane to get yaw-only orientation
             Vector3 flatFwd = Vector3.ProjectOnPlane(headRotWS * Vector3.forward, Vector3.up);
-            if (flatFwd.sqrMagnitude < 1e-6f) flatFwd = Vector3.forward; // fallback
+            if (flatFwd.sqrMagnitude < 1e-6f)
+            {
+                flatFwd = Vector3.forward; // fallback
+            }
             Quaternion desiredRotWS = Quaternion.LookRotation(flatFwd.normalized, Vector3.up);
 
-            // Full T-pose local offset from hips/root to head (already scaled)
+            // Offset the avatar root by the head's T-pose offset so the head bone lands on headPosWS.
             Vector3 headTposeLocal = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
-
-            // Place avatar so that (hips + desiredRot * headTposeLocal) == headPosWS
-            Vector3 avatarWorldPos = headPosWS - (desiredRotWS * headTposeLocal);
+            Vector3 avatarWorldPos = headPosWS - desiredRotWS * headTposeLocal;
 
             AvatarTransform.SetPositionAndRotation(avatarWorldPos, desiredRotWS);
         }

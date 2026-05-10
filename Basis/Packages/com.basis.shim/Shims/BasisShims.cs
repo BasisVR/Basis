@@ -1,7 +1,11 @@
 using Basis.Shims;
+using Basis.Scripts.BasisSdk;
 using System;
+using System.Collections.Generic;
 using UnityEngine.Networking;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using Cilbox;
 
 namespace Basis
@@ -19,7 +23,33 @@ namespace Basis
 
 	public class SafeUtil
 	{
+		public static void AddEventTrigger(Component target, EventTriggerType eventType, UnityAction<BaseEventData> callback)
+		{
+			if (target == null || callback == null)
+			{
+				return;
+			}
+			EventTrigger eventTrigger = null;
+			if (!target.TryGetComponent<EventTrigger>(out eventTrigger))
+			{
+				return;
+			}
 
+			EventTrigger.Entry entry = new EventTrigger.Entry
+			{
+				eventID = eventType,
+				callback = new EventTrigger.TriggerEvent()
+			};
+
+			entry.callback.AddListener(callback);
+
+			if (eventTrigger.triggers == null)
+			{
+				eventTrigger.triggers = new List<EventTrigger.Entry>();
+			}
+
+			eventTrigger.triggers.Add(entry);
+		}
 		public static BasisNetworkShim MakeNetworkable( object o )
 		{
 			if (o is not MonoBehaviour behaviour)
@@ -38,6 +68,7 @@ namespace Basis
 			return mb.gameObject.AddComponent<BasisNetworkShim>();
 		}
 
+		[Obsolete("Use the direct interactable component instead. This is a shim for the old system and should be removed at a later point.")]
 		public static BasisInteractableShim MakeInteractable( object o )
 		{
 			// Actually needs to be CilboxProxies.
@@ -84,15 +115,15 @@ namespace Basis
 	{
 		System.Collections.Generic.HashSet< UnityWebRequest > InFlight = new System.Collections.Generic.HashSet< UnityWebRequest >();
 
-		public void DownloadImage( BasisUrl stringUrl, Action< IBasisImageDownload > callback )
+		public void DownloadImage( string stringUrl, Action< IBasisImageDownload > callback )
 		{
-			if( stringUrl.url.Substring(0, 7) != "http://" && stringUrl.url.Substring(0, 8) != "https://" )
+			if( stringUrl.Substring(0, 7) != "http://" && stringUrl.Substring(0, 8) != "https://" )
 			{
 				callback( new IBasisImageDownload( null, null, "Security Failure" ) );
 				return;
 			}
 
-			UnityWebRequest www = new UnityWebRequest( stringUrl.url );
+			UnityWebRequest www = new UnityWebRequest( stringUrl );
 
 			/////////////////////////////////////////////////////////////////
 			DownloadHandlerTexture dht = new DownloadHandlerTexture(true);

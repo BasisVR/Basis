@@ -2,7 +2,6 @@ using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Receivers;
 using System;
-using Unity.Collections;
 using Unity.Mathematics;
 using static SerializableBasis;
 namespace Basis.Scripts.Networking.NetworkedAvatar
@@ -20,6 +19,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             int length = data.Length;
 
             BasisAvatarBitPacking.BitQuality q = (BasisAvatarBitPacking.BitQuality)syncMessage.avatarSerialization.DataQualityLevel;
+            if (!BasisAvatarBitPacking.IsValidQuality(q))
+            {
+                BasisDebug.LogError($"Invalid avatar quality level {syncMessage.avatarSerialization.DataQualityLevel}", BasisDebug.LogTag.Networking);
+                return;
+            }
             int expected = BasisAvatarBitPacking.ConvertToSize(q);
 
             if (length >= expected)
@@ -49,6 +53,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             int length = data.Length;
 
             BasisAvatarBitPacking.BitQuality q = (BasisAvatarBitPacking.BitQuality)avatarSerialization.DataQualityLevel;
+            if (!BasisAvatarBitPacking.IsValidQuality(q))
+            {
+                BasisDebug.LogError($"Invalid avatar quality level {avatarSerialization.DataQualityLevel}", BasisDebug.LogTag.Networking);
+                return;
+            }
             int expected = BasisAvatarBitPacking.ConvertToSize(q);
 
             if (length >= expected)
@@ -64,26 +73,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisDebug.LogError("Data did not have enough for AvatarsyncMessage", BasisDebug.LogTag.Networking);
             }
         }
-        /// <summary>
-        /// Creates A Avatar Buffer, removes NaN and infinite data
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="offset"></param>
-        /// <param name="secondsInterval"></param>
-        /// <param name="basisAvatarBuffer"></param>
-        /// <returns></returns>
+
         private static bool TryCreateAvatarBuffer(byte[] data, ref int offset, double secondsInterval, BasisAvatarBitPacking.BitQuality quality, out BasisAvatarBuffer basisAvatarBuffer)
         {
             basisAvatarBuffer = null;
             int startOffset = offset;
 
-            // Be tolerant: clamp instead of failing hard (unless you *know* it's corrupt).
             if (!math.isfinite(secondsInterval))
             {
                 goto Fail;
             }
 
-            // If your server truly never exceeds 1s, keep the cap but clamp instead of failing.
             secondsInterval = math.clamp(secondsInterval, 1e-3, 1.0);
 
             basisAvatarBuffer = BasisAvatarBufferPool.Get();
@@ -94,7 +94,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 goto Fail;
             }
 
-            DecompressAvatarMuscles_BitPacked(data, quality, ref basisAvatarBuffer.Muscles, ref offset);
+            // Bone rotations (replaces muscle decompression)
+            BasisBoneRotationUtils.DecompressBoneRotations(data, quality, ref basisAvatarBuffer.BoneRotations, ref offset);
 
             // Scale
             if (!BasisUnityBitPackerExtensionsUnsafe.TryReadUShort(ref data, ref offset, out ushort uScale))
@@ -102,8 +103,26 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 goto Fail;
             }
 
-            // Rotation
+            // Body rotation
             if (!BasisUnityBitPackerExtensionsUnsafe.TryReadCompressedQuaternionFromBytes(ref data, ref offset, out basisAvatarBuffer.Rotation))
+            {
+                goto Fail;
+            }
+
+            // Hips local-position delta (vs TPose). Paired with the root pose so
+            // remotes can reproduce seated/IK-driven hips offsets from the local rig.
+            // The wire helper returns the namespace-local float3 POD struct (so server
+            // code can use it without Unity.Mathematics) — convert at this boundary.
+            if (!BasisUnityBitPackerExtensionsUnsafe.TryReadHipsDelta(ref data, ref offset, out var rawHipsDelta))
+            {
+                goto Fail;
+            }
+            basisAvatarBuffer.HipsLocalDelta = new Unity.Mathematics.float3(rawHipsDelta.x, rawHipsDelta.y, rawHipsDelta.z);
+
+            // Hips local-rotation delta (vs TPose). Required because Hips is
+            // excluded from the bone packet — without this slot the remote
+            // hips bone would never rotate independently of the root.
+            if (!BasisUnityBitPackerExtensionsUnsafe.TryReadCompressedQuaternionFromBytes(ref data, ref offset, out basisAvatarBuffer.HipsLocalRotation))
             {
                 goto Fail;
             }
@@ -121,37 +140,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             BasisDebug.LogError($"non finite data found in Decompression Stage, bailing.", BasisDebug.LogTag.Remote);
             return false;
-        }
-        public static void DecompressAvatarMuscles_BitPacked(byte[] data,BasisAvatarBitPacking.BitQuality quality,ref NativeArray<float> outputArray,ref int offsetBytes)
-        {
-            int bitPos = offsetBytes << 3;
-            int slots = BasisAvatarBitPacking.WRITE_ORDER.Length;
-            byte[] bitsPerSlot = BasisAvatarBitPacking.GetBitsPerSlot(quality);
-
-            for (int slot = 0; slot < slots; slot++)
-            {
-                int muscleIndex = BasisAvatarBitPacking.WRITE_ORDER[slot];
-                int bits = bitsPerSlot[slot];
-
-                uint q = BasisAvatarBitPacking.ReadBits(data, ref bitPos, bits);
-
-                uint maxQ = (bits >= 32) ? 0xFFFFFFFFu : ((1u << bits) - 1u);
-                float norm = (maxQ == 0u) ? 0f : (q / (float)maxQ);
-
-                float min = BasisAvatarBitPacking.MinMuscle[muscleIndex];
-                float max = BasisAvatarBitPacking.MaxMuscle[muscleIndex];
-                float range = BasisAvatarBitPacking.RangeMuscle[muscleIndex];
-
-                float value = min + norm * range;
-                if (!math.isfinite(value))
-                {
-                    value = min;
-                }
-
-                outputArray[muscleIndex] = math.clamp(value, min, max);
-            }
-
-            offsetBytes = (bitPos + 7) >> 3;
         }
 
         private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, BasisAvatarBuffer avatarBuffer, LocalAvatarSyncMessage message)

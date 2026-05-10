@@ -32,6 +32,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public BasisTouchInputDevice LeftInput;
         public BasisTouchInputDevice RightInput;
         public List<BasisTouchInputDevice> Inputs = new List<BasisTouchInputDevice>();
+
         /// <summary>
         /// Starts the Basis SDK for desktop mode.
         /// If no <see cref="BasisAvatarEyeInput"/> exists, it creates one and attaches it

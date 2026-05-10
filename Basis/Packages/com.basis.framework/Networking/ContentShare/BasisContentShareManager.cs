@@ -38,6 +38,13 @@ public static class BasisContentShareManager
     public static string PropOrb = "Packages/com.basis.sdk/Prefabs/PropOrb.prefab";
     public static string WorldOrb = "Packages/com.basis.sdk/Prefabs/WorldOrb.prefab";
     /// <summary>
+    /// Server-typed shares reuse the WorldOrb visual until/unless a dedicated
+    /// ServerOrb prefab is added. The interaction script (BasisContentSphere)
+    /// branches on ContentType.Server to handle the "add to saved server list"
+    /// flow instead of the load-bundle flow.
+    /// </summary>
+    public static string ServerOrb = "Packages/com.basis.sdk/Prefabs/WorldOrb.prefab";
+    /// <summary>
     /// Drops a content share sphere in front of the local player.
     /// </summary>
     public static async void DropContentSphere(string contentURL, string unlockPassword, ContentShareType contentType)
@@ -107,6 +114,70 @@ public static class BasisContentShareManager
             bundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation,
             bundle.UnlockPassword,
             contentType
+        );
+    }
+
+    /// <summary>
+    /// Drops a Server-typed share orb in front of the local player using the
+    /// same placement flow as avatar/prop/world drops. The orb's ContentURL
+    /// carries the connection string (<c>address[:port][#password]</c>);
+    /// UnlockPassword is intentionally blank — the URL contains everything
+    /// receivers need to add the entry to their saved server list.
+    /// </summary>
+    public static async void ShareServerConnection(string connectionString)
+    {
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            BasisDebug.LogError("Cannot share an empty server connection string.", BasisDebug.LogTag.Networking);
+            return;
+        }
+        BasisDeviceManagement deviceInstance = BasisDeviceManagement.Instance;
+        if (!deviceInstance.FindDevice(out BasisInput input, BasisDominantHand.DominantRole) &&
+            !deviceInstance.FindDevice(out input, BasisDominantHand.NonDominantRole) &&
+            !deviceInstance.FindDevice(out input, BasisBoneTrackedRole.CenterEye))
+        {
+            BasisDebug.LogError("ShareServerConnection failed: no suitable device found (LeftHand/RightHand/CenterEye).");
+            return;
+        }
+        BasisMainMenu.Close();
+
+        (Vector3 spawnPos, Quaternion spawnRot, Vector3 spawnScale) placementResult;
+        try
+        {
+            placementResult = await PlacementManager.BeginPlacement(input, new Vector3(0.5f, 0.5f, 0.5f), new Vector3());
+        }
+        catch (TaskCanceledException)
+        {
+            BasisDebug.Log("Server-share placement was cancelled.");
+            return;
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError(ex);
+            return;
+        }
+        Vector3 finalPos = placementResult.spawnPos;
+
+        ContentShareMessage msg = new ContentShareMessage
+        {
+            SphereNetID = BasisGenerateUniqueID.GenerateUniqueID(),
+            ContentURL = connectionString,
+            UnlockPassword = string.Empty, // unused for ContentShareType.Server
+            ContentType = ContentShareType.Server,
+            PositionX = finalPos.x,
+            PositionY = finalPos.y,
+            PositionZ = finalPos.z,
+        };
+
+        NetDataWriter writer = new NetDataWriter();
+        msg.Serialize(writer);
+
+        BasisDebug.Log($"Sharing server entry sphere: {connectionString}", BasisDebug.LogTag.Networking);
+
+        BasisNetworkConnection.LocalPlayerPeer?.Send(
+            writer,
+            BasisNetworkCommons.ContentShareChannel,
+            DeliveryMethod.ReliableOrdered
         );
     }
 
@@ -185,6 +256,9 @@ public static class BasisContentShareManager
             case ContentShareType.World:
                 op = Addressables.LoadAssetAsync<GameObject>(WorldOrb);
                 break;
+            case ContentShareType.Server:
+                op = Addressables.LoadAssetAsync<GameObject>(ServerOrb);
+                break;
         }
         var Orb = op.WaitForCompletion();
         var InSceneOrb = GameObject.Instantiate(Orb);
@@ -198,7 +272,9 @@ public static class BasisContentShareManager
                 msg.ContentURL,
                 msg.UnlockPassword,
                 msg.ContentType,
-                serverMsg.playerIdMessage.playerID
+                serverMsg.playerIdMessage.playerID,
+                serverMsg.SharerUUID,
+                serverMsg.SharerDisplayName
             );
             if (ActiveSpheres.TryAdd(msg.SphereNetID, Sphere))
             {

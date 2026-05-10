@@ -15,6 +15,12 @@ MonoBehaviour:
   m_GroupName: Basis UI Assets
   m_GUID: 9fa877dae26178a4e82a51e45139f13b
   m_SerializeEntries:
+  - m_GUID: 006d697b9e884a9092e71e7c104d6d50
+    m_Address: Languages/pt
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 00eaf66b466c4644eb2568c728a1dac8
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base -
       Entry Variant.prefab
@@ -29,6 +35,17 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 04ffb03d0dad54043903dc597c1c90bf
     m_Address: Packages/com.basis.sdk/Textures/Runtime/Platform Icons/logo-tux.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 06d43e66a99d9c742851f25200052b1a
+    m_Address: Languages/zh-Hans
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 07cdc29d6d966654cb96b6662b5248f6
+    m_Address: DesktopReticle
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -47,6 +64,12 @@ MonoBehaviour:
       Warning Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0ee5d8da0b90a674f96aa6af63e9c215
+    m_Address: Languages/en
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 161903a8b4937bc4db9393d6c554ef3d
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry
@@ -96,6 +119,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1ff4547646d661344928f3b538b06b99
+    m_Address: Languages/ja
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 22784503d55953741bd9c28fc41bb69d
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field.prefab
     m_ReadOnly: 0
@@ -131,6 +160,12 @@ MonoBehaviour:
     m_Address: Packages/com.basis.sdk/Textures/Runtime/Platform Icons/logo-windows.png
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 42d44c8967cd407a9753764b87693f4f
+    m_Address: Languages/ru
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 42d747d78c371ce48bffc09bb7168ae9
     m_Address: Packages/com.basis.sdk/Textures/Runtime/admin.png
@@ -195,15 +230,39 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5f2a8c6b1e4d397048bd65a3c9e70f24
+    m_Address: Languages/ar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6209bf1ff13b00e4ebbdd2722ec1d967
     m_Address: Packages/com.basis.sdk/Textures/Runtime/camera-outline.png
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 63960d848fbc43a498989e5c850219e1
+    m_Address: Languages/zh-Hant
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 64a436389ec64fc47bfd6d1068f1e3c9
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6b4127a251744a46a41ef7ea6ee60f03
+    m_Address: Languages/bn
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6ba29ee3047704e4385a873b69e987a8
+    m_Address: Languages/hi
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6c8cb0236290523498e52838883adc7c
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base -
@@ -243,6 +302,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7b3a9f1c2d4e5867a8b9c0d1e2f30491
+    m_Address: Languages/es
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7e571c64d9cdd834a90133d8db72c649
     m_Address: Packages/com.basis.sdk/Textures/Runtime/search.png
     m_ReadOnly: 0
@@ -263,6 +328,17 @@ MonoBehaviour:
       Entry Variant With Horizontal Content.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 81a815b1e08cfd56e81ddc993a095c9f
+    m_Address: Packages/com.basis.sdk/Prefabs/URL Prompt Panel.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 81d9c2f72abdfbb4f9a543c2cef54b76
+    m_Address: Languages/it
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 85f20012cb01d4d488a327586756f316
     m_Address: Packages/com.basis.sdk/Textures/Runtime/menuWhite.png
@@ -319,6 +395,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a7da87ae0c6c4b09a40cb342e7c37f5c
+    m_Address: Languages/ur
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: aa985c73014e27141bce7a998d1d18dc
     m_Address: Packages/com.basis.sdk/Sprites/Icons/Foldout Arrow.png
     m_ReadOnly: 0
@@ -351,6 +433,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bd2f4a8c6e1d9b7a3c5f8e2d4a6b9c1e
+    m_Address: Languages/de
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: bfd486c714b419b4e9325e9ff2a0d243
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon
       Vertical Stacked Content Variant.prefab
@@ -362,10 +450,22 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c4d8e2a16b7f3958bc09d4e1f2a36870
+    m_Address: Languages/zh
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c5cd143a6f39134408785a8f272909f5
     m_Address: Packages/com.basis.sdk/Textures/Runtime/Platform Icons/logo-ios.png
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c7a3f9b2e8d54a16b9c8d7e6f5a4b3c2
+    m_Address: Languages/zh-CN
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c8641e85bc7395f4da039ce980f3dafe
     m_Address: StylePalette
@@ -403,6 +503,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d7fbf52ab1293c84d939efb93ed4d654
+    m_Address: Languages/es-MX
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d96456ca86166714a9fc0621981bf2eb
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Slider.prefab
     m_ReadOnly: 0
@@ -434,6 +540,12 @@ MonoBehaviour:
       For Library Variant Use Parent For Content Size.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e589c5bb9ebe74344a73c3662ae989ab
+    m_Address: Languages/nl
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e8df14593b6778b439aae81d2ffd2767
     m_Address: Packages/com.basis.sdk/Textures/Runtime/embedded.png
@@ -470,6 +582,12 @@ MonoBehaviour:
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fa1b3c7d9e2054886b4ca5e712f08d46
+    m_Address: Languages/fr
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: fa756b7e45507eb4e9145a581c7e8c9e
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field.prefab

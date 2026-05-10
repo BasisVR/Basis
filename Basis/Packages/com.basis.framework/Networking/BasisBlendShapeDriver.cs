@@ -1,4 +1,6 @@
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.Networking.Receivers;
 using System.Collections.Generic;
 
 /// <summary>
@@ -58,7 +60,16 @@ public static class BasisBlendShapeDriver
                 continue;
             }
             if (!sync.IsLocal && sync.HasPendingData)
+            {
+                // Skip blendshape writes for players out of avatar range.
+                // !IsLocal guarantees NetworkedPlayer is a BasisNetworkReceiver and
+                // its pre-cast RemotePlayer field is set (Initialize did the cast).
+                // Reading the field directly avoids the per-frame `is BasisRemotePlayer`
+                // type test that previously sat on this hot path.
+                if (!((BasisNetworkReceiver)sync.NetworkedPlayer).RemotePlayer.InAvatarRange)
+                    continue;
                 sync.ApplyReceivedWeights();
+            }
         }
     }
 }

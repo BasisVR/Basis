@@ -71,9 +71,8 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             return;
         }
 #endif
-        // the system allows us to scale the render resolution correctly,
-        // however gpu culling does not know about this
-        if (asset.renderScale != RenderScale)
+
+        if (asset != null && asset.renderScale != RenderScale)
         {
             asset.renderScale = RenderScale;
         }

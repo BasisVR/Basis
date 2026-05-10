@@ -7,6 +7,8 @@
       <Node value="basis.resource.unload.prop" />
       <Node value="basis.resource.load.avatar" />
       <Node value="basis.resource.unload.avatar" />
+      <Node value="basis.resource.load.world" />
+      <Node value="basis.resource.unload.world" />
       <Node value="basis.ownership.transfer" />
       <Node value="basis.ownership.remove" />
       <Node value="basis.ownership.get" />
@@ -24,7 +26,14 @@
       <Node value="basis.moderation.messageall" />
       <Node value="basis.moderation.teleport" />
       <Node value="basis.moderation.shout" />
+      <Node value="basis.moderation.globallock" />
+      <Node value="basis.moderation.headlessaudio" />
+      <Node value="basis.moderation.opusbitrate" />
       <Node value="basis.permissions.view" />
+      <Node value="basis.resource.lockbypass.avatar" />
+      <Node value="basis.resource.lockbypass.prop" />
+      <Node value="basis.resource.lockbypass.world" />
+      <Node value="basis.resource.lockbypass.server" />
     </Group>
     <Group name="admin">
       <Parent name="moderator" />
@@ -32,7 +41,7 @@
     </Group>
   </Groups>
   <Users>
-    <User uuid="did:key:z6MknKaTpGgxVDmB1nPRBvXFzNLK4xwWQBMzH8r436tL8bnj">
+    <User uuid="did:key:z6MkhhwxofPuAymBkTgCmndtxXdRPjzhupHL6nPoQxLpTijt">
       <Group name="default" />
       <Group name="admin" />
       <Node value="*" />

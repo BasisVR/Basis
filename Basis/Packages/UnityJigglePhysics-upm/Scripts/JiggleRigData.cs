@@ -154,7 +154,7 @@ public struct JiggleRigData {
     }
     
     private void VisitAndSetCacheData(List<JiggleTransformCachedData> data, Transform t, Vector3 lastPosition, float currentLength, float totalLength) {
-        if (GetIsExcluded(t)) {
+        if (t == null || GetIsExcluded(t)) {
             return;
         }
         var validChildrenCount = GetValidChildrenCount(t);
@@ -176,21 +176,24 @@ public struct JiggleRigData {
     }
 
     public int GetValidChildrenCount(Transform t) {
+        if (t == null) return 0;
         int count = 0;
         var childCount = t.childCount;
         for(int i=0;i<childCount;i++) {
-            if (GetIsExcluded(t.GetChild(i))) continue;
+            var child = t.GetChild(i);
+            if (child == null || GetIsExcluded(child)) continue;
             count++;
         }
         return count;
     }
 
     public Transform GetValidChild(Transform t, int index) {
+        if (t == null) return null;
         int count = 0;
         var childCount = t.childCount;
         for(int i=0;i<childCount;i++) {
             var child = t.GetChild(i);
-            if (GetIsExcluded(child)) continue;
+            if (child == null || GetIsExcluded(child)) continue;
             if (count == index) {
                 return child;
             }
@@ -208,9 +211,28 @@ public struct JiggleRigData {
     }
     
     public bool GetHasRootTransformError() => !rootBone;
-    public bool GetCacheIsValid() => transformCachedData is { Length: > 0 } && transformToCachedDataMap != null && transformToCachedDataMap.Count == transformCachedData.Length;
+    public bool GetCacheIsValid() {
+        if (transformCachedData is not { Length: > 0 } || transformToCachedDataMap == null || transformToCachedDataMap.Count != transformCachedData.Length) {
+            return false;
+        }
+        var count = transformCachedData.Length;
+        for (int i = 0; i < count; i++) {
+            if (!transformCachedData[i].bone) return false;
+        }
+        return true;
+    }
     public JiggleTransformCachedData GetCache(Transform t) {
+#if UNITY_EDITOR
+        if (transformToCachedDataMap == null) {
+            throw new InvalidOperationException("JiggleRigData: Cache lookup not initialized. Call RegenerateCacheLookup() first.");
+        }
+        if (!transformToCachedDataMap.TryGetValue(t, out var cachedData)) {
+            throw new KeyNotFoundException($"JiggleRigData: Transform '{t.name}' not found in cache. Ensure it is a child of the root bone and not excluded.");
+        }
+        return cachedData;
+#else
         return transformToCachedDataMap[t];
+#endif
     }
 
     /// <summary>
@@ -297,11 +319,7 @@ public struct JiggleRigData {
     
     private void DrawBone(Vector3 boneHead, Vector3 boneTail, Vector3 boneScale, JigglePointParameters jigglePointParameters, Camera cam) {
         var camForward = cam.transform.forward;
-        var fixedScreenSize = 0.01f;
-        var toCam = cam.transform.position - boneHead;
-        var distance = toCam.magnitude;
-        var scale = distance * fixedScreenSize;
-        scale = jigglePointParameters.collisionRadius * (boneScale.x + boneScale.y + boneScale.z)/3f;
+        var scale = jigglePointParameters.collisionRadius * (boneScale.x + boneScale.y + boneScale.z)/3f;
         DrawWireDisc(boneHead, camForward, scale);
         Gizmos.DrawLine(boneHead, boneTail);
         var boneDirection = (boneTail - boneHead).normalized;

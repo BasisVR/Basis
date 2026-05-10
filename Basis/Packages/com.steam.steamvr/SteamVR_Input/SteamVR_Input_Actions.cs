@@ -18,7 +18,9 @@ namespace Valve.VR
     {
         
         private static SteamVR_Action_Pose p_default_Pose;
-        
+
+        private static SteamVR_Action_Pose p_default_EyeGaze;
+
         private static SteamVR_Action_Skeleton p_default_SkeletonLeftHand;
         
         private static SteamVR_Action_Skeleton p_default_SkeletonRightHand;
@@ -52,7 +54,15 @@ namespace Valve.VR
                 return SteamVR_Actions.p_default_Pose.GetCopy<SteamVR_Action_Pose>();
             }
         }
-        
+
+        public static SteamVR_Action_Pose default_EyeGaze
+        {
+            get
+            {
+                return SteamVR_Actions.p_default_EyeGaze.GetCopy<SteamVR_Action_Pose>();
+            }
+        }
+
         public static SteamVR_Action_Skeleton default_SkeletonLeftHand
         {
             get
@@ -161,6 +171,7 @@ namespace Valve.VR
         {
             Valve.VR.SteamVR_Input.actions = new Valve.VR.SteamVR_Action[] {
                     SteamVR_Actions.default_Pose,
+                    SteamVR_Actions.default_EyeGaze,
                     SteamVR_Actions.default_SkeletonLeftHand,
                     SteamVR_Actions.default_SkeletonRightHand,
                     SteamVR_Actions.default_Joystick,
@@ -176,6 +187,7 @@ namespace Valve.VR
                     SteamVR_Actions.default_Haptic};
             Valve.VR.SteamVR_Input.actionsIn = new Valve.VR.ISteamVR_Action_In[] {
                     SteamVR_Actions.default_Pose,
+                    SteamVR_Actions.default_EyeGaze,
                     SteamVR_Actions.default_SkeletonLeftHand,
                     SteamVR_Actions.default_SkeletonRightHand,
                     SteamVR_Actions.default_Joystick,
@@ -193,7 +205,8 @@ namespace Valve.VR
             Valve.VR.SteamVR_Input.actionsVibration = new Valve.VR.SteamVR_Action_Vibration[] {
                     SteamVR_Actions.default_Haptic};
             Valve.VR.SteamVR_Input.actionsPose = new Valve.VR.SteamVR_Action_Pose[] {
-                    SteamVR_Actions.default_Pose};
+                    SteamVR_Actions.default_Pose,
+                    SteamVR_Actions.default_EyeGaze};
             Valve.VR.SteamVR_Input.actionsBoolean = new Valve.VR.SteamVR_Action_Boolean[] {
                     SteamVR_Actions.default_B_Button,
                     SteamVR_Actions.default_A_Button,
@@ -227,6 +240,7 @@ namespace Valve.VR
         private static void PreInitActions()
         {
             SteamVR_Actions.p_default_Pose = ((SteamVR_Action_Pose)(SteamVR_Action.Create<SteamVR_Action_Pose>("/actions/default/in/Pose")));
+            SteamVR_Actions.p_default_EyeGaze = ((SteamVR_Action_Pose)(SteamVR_Action.Create<SteamVR_Action_Pose>("/actions/default/in/EyeGaze")));
             SteamVR_Actions.p_default_SkeletonLeftHand = ((SteamVR_Action_Skeleton)(SteamVR_Action.Create<SteamVR_Action_Skeleton>("/actions/default/in/SkeletonLeftHand")));
             SteamVR_Actions.p_default_SkeletonRightHand = ((SteamVR_Action_Skeleton)(SteamVR_Action.Create<SteamVR_Action_Skeleton>("/actions/default/in/SkeletonRightHand")));
             SteamVR_Actions.p_default_Joystick = ((SteamVR_Action_Vector2)(SteamVR_Action.Create<SteamVR_Action_Vector2>("/actions/default/in/Joystick")));

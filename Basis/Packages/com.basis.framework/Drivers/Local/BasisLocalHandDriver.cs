@@ -5,194 +5,137 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 
 /// <summary>
-/// Drives per-finger poses for both hands by sampling a 2D pose atlas (thumb/index style percentages),
-/// finding the nearest baked pose on a grid via Burst jobs, and smoothly blending toward it.
+/// Drives per-finger poses for both hands. Bakes a 2D pose grid at init time,
+/// then each frame schedules two chained Burst jobs:
+///   1) BasisFingerInterpolateJob — bilinearly interpolates targets from the grid
+///   2) BasisFingerSlerpJob — slerps current rotations toward targets and writes transforms
+/// Follows the Simulate/Apply pattern used by BasisObjectSyncDriver and JigglePhysics.
+///
+/// Pose grid data is cached per humanoid Avatar asset. Loading the same avatar a second
+/// time copies from cache instead of re-instantiating and sampling 441 poses.
 /// </summary>
 [DefaultExecutionOrder(15001)]
 [System.Serializable]
 public class BasisLocalHandDriver
 {
-    /// <summary>Desired left-hand finger percentages (inputs).</summary>
     [SerializeField]
     public BasisFingerPose LeftHand;
 
-    /// <summary>Desired right-hand finger percentages (inputs).</summary>
     [SerializeField]
     public BasisFingerPose RightHand;
 
-    /// <summary>Current baked/buffered finger pose (last recorded result).</summary>
+    /// <summary>Current smoothed rotations synced back from NativeArray in Apply().</summary>
     [SerializeField]
     public BasisPoseData Current;
 
-    /// <summary>Grid step size for generating the 2D pose atlas (X,Y in [-1..1]).</summary>
     public const float increment = 0.1f;
 
-    // --- Muscle arrays captured from TPose (Unity HumanPose muscle indices) ---
+    // --- Muscle arrays captured from TPose ---
 
-    /// <summary>Left thumb muscle quartet (start at 55).</summary>
     public float[] LeftThumb;
-    /// <summary>Left index muscle quartet.</summary>
     public float[] LeftIndex;
-    /// <summary>Left middle muscle quartet.</summary>
     public float[] LeftMiddle;
-    /// <summary>Left ring muscle quartet.</summary>
     public float[] LeftRing;
-    /// <summary>Left little muscle quartet.</summary>
     public float[] LeftLittle;
 
-    /// <summary>Right thumb muscle quartet (start at 75).</summary>
     public float[] RightThumb;
-    /// <summary>Right index muscle quartet.</summary>
     public float[] RightIndex;
-    /// <summary>Right middle muscle quartet.</summary>
     public float[] RightMiddle;
-    /// <summary>Right ring muscle quartet.</summary>
     public float[] RightRing;
-    /// <summary>Right little muscle quartet.</summary>
     public float[] RightLittle;
 
-    // --- Last requested percentages (used to avoid redundant nearest-neighbor queries) ---
+    // --- Grid (managed, used during bake only — cleared after native conversion) ---
 
-    /// <summary>Last applied left thumb percentages.</summary>
-    public Vector2 LastLeftThumbPercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied left index percentages.</summary>
-    public Vector2 LastLeftIndexPercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied left middle percentages.</summary>
-    public Vector2 LastLeftMiddlePercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied left ring percentages.</summary>
-    public Vector2 LastLeftRingPercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied left little percentages.</summary>
-    public Vector2 LastLeftLittlePercentage = new Vector2(-1.1f, -1.1f);
+    private BasisPoseData[] PoseGrid;
+    private int GridWidth;
+    private int GridHeight;
 
-    /// <summary>Last applied right thumb percentages.</summary>
-    public Vector2 LastRightThumbPercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied right index percentages.</summary>
-    public Vector2 LastRightIndexPercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied right middle percentages.</summary>
-    public Vector2 LastRightMiddlePercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied right ring percentages.</summary>
-    public Vector2 LastRightRingPercentage = new Vector2(-1.1f, -1.1f);
-    /// <summary>Last applied right little percentages.</summary>
-    public Vector2 LastRightLittlePercentage = new Vector2(-1.1f, -1.1f);
-
-    /// <summary>Lookup from 2D coordinate to precomputed pose data.</summary>
-    public Dictionary<Vector2, BasisPoseDataAdditional> CoordToPose = new Dictionary<Vector2, BasisPoseDataAdditional>();
-
-    /// <summary>Resolved pose for current left thumb target.</summary>
-    public BasisPoseDataAdditional LeftThumbAdditional;
-    /// <summary>Resolved pose for current left index target.</summary>
-    public BasisPoseDataAdditional LeftIndexAdditional;
-    /// <summary>Resolved pose for current left middle target.</summary>
-    public BasisPoseDataAdditional LeftMiddleAdditional;
-    /// <summary>Resolved pose for current left ring target.</summary>
-    public BasisPoseDataAdditional LeftRingAdditional;
-    /// <summary>Resolved pose for current left little target.</summary>
-    public BasisPoseDataAdditional LeftLittleAdditional;
-
-    /// <summary>Resolved pose for current right thumb target.</summary>
-    public BasisPoseDataAdditional RightThumbAdditional;
-    /// <summary>Resolved pose for current right index target.</summary>
-    public BasisPoseDataAdditional RightIndexAdditional;
-    /// <summary>Resolved pose for current right middle target.</summary>
-    public BasisPoseDataAdditional RightMiddleAdditional;
-    /// <summary>Resolved pose for current right ring target.</summary>
-    public BasisPoseDataAdditional RightRingAdditional;
-    /// <summary>Resolved pose for current right little target.</summary>
-    public BasisPoseDataAdditional RightLittleAdditional;
-
-    /// <summary>Flattened atlas coordinates for nearest-neighbor search (persistent).</summary>
-    public NativeArray<Vector2> CoordKeysArray;
-    /// <summary>Per-key distances to target (temp per query).</summary>
-    public NativeArray<float> DistancesArray;
-    /// <summary>Single-element array storing the index of the min distance.</summary>
-    public NativeArray<int> closestIndexArray;
-
-    /// <summary>Slerp speed for blending current → target finger rotations.</summary>
     public float LerpSpeed = 22F;
 
-    /// <summary>All generated 2D coordinates used to bake poses.</summary>
-    public Vector2[] Poses;
+    // --- Persistent NativeArrays ---
 
-    /// <summary>
-    /// Disposes persistent NativeArrays used by the nearest-neighbor jobs.
-    /// Safe to call multiple times.
-    /// </summary>
-    public void Dispose()
+    /// <summary>Baked grid: [fingerIdx * gridCount * 3 + gridIdx * 3 + jointIdx].
+    /// Per-finger layout keeps bilinear sample cells on nearby cache lines.</summary>
+    private NativeArray<quaternion> _nativePoseGrid;
+    private int _fingerStride; // gridCount * 3
+    /// <summary>Per-finger percentages written each frame (10 float2).</summary>
+    private NativeArray<float2> _percentages;
+    /// <summary>Interpolated targets (30 quaternions, flat indexed).</summary>
+    private NativeArray<quaternion> _targetRotations;
+    /// <summary>Current smoothed rotations (compact, _validJointCount).</summary>
+    private NativeArray<quaternion> _currentRotations;
+    /// <summary>Maps compact TAA index → flat joint index.</summary>
+    private NativeArray<int> _jointMapping;
+    private TransformAccessArray _fingerTransforms;
+    private JobHandle _fingerJobHandle;
+    private bool _hasScheduledJob;
+    private int _validJointCount;
+    /// <summary>Managed mirror of _jointMapping for Apply sync.</summary>
+    private int[] _taaToFlat;
+    /// <summary>Pre-resolved destination Quaternion[] (one of Current.Left*/Right*) per compact joint, set once in RebuildTransformAccess to avoid switch+div+mod each frame.</summary>
+    private Quaternion[][] _destFingerArrays;
+    /// <summary>Pre-resolved joint index (0..2) within the destination array per compact joint.</summary>
+    private int[] _destJointIndices;
+
+    // --- Lifecycle ---
+
+    private void DisposeJobArrays()
     {
-        if (CoordKeysArray.IsCreated) CoordKeysArray.Dispose();
-        if (DistancesArray.IsCreated) DistancesArray.Dispose();
-        if (closestIndexArray.IsCreated) closestIndexArray.Dispose();
+        if (_hasScheduledJob)
+        {
+            _fingerJobHandle.Complete();
+            _hasScheduledJob = false;
+        }
+        if (_fingerTransforms.isCreated) _fingerTransforms.Dispose();
+        if (_targetRotations.IsCreated) _targetRotations.Dispose();
+        if (_currentRotations.IsCreated) _currentRotations.Dispose();
+        if (_jointMapping.IsCreated) _jointMapping.Dispose();
+        if (_percentages.IsCreated) _percentages.Dispose();
+        _validJointCount = 0;
     }
 
-    /// <summary>
-    /// Generates a square grid of 2D pose coordinates in [-1,1] with spacing <see cref="increment"/>,
-    /// builds persistent arrays for Burst distance/min reductions.
-    /// </summary>
+    public void Dispose()
+    {
+        DisposeJobArrays();
+        if (_nativePoseGrid.IsCreated) _nativePoseGrid.Dispose();
+    }
+
     public void Initialize()
     {
-        Dispose();
-
-        float epsilon = 0.05f; // approximate-duplicate guard
-        List<Vector2> points = new List<Vector2>();
-
-        bool IsApproximateDuplicate(Vector2 newCoord)
-        {
-            foreach (var existingCoord in points)
-            {
-                if (Vector2.Distance(existingCoord, newCoord) < epsilon)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-        void AddPose(Vector2 poseData)
-        {
-            if (IsApproximateDuplicate(poseData) == false)
-            {
-                points.Add(poseData);
-            }
-        }
-
-        // Grid over the square with given increment
-        Vector2 TopLeft = new Vector2(-1f, 1f);
-        Vector2 TopRight = new Vector2(1f, 1f);
-        Vector2 BottomLeft = new Vector2(-1f, -1f);
-        Vector2 BottomRight = new Vector2(1f, -1f);
-
-        for (float x = BottomLeft.x; x <= BottomRight.x; x += increment)
-        {
-            for (float y = BottomLeft.y; y <= TopLeft.y; y += increment)
-            {
-                AddPose(new Vector2(x, y));
-            }
-        }
-
-        // Ensure corners exist exactly
-        AddPose(TopLeft); AddPose(TopRight); AddPose(BottomLeft); AddPose(BottomRight);
-
-        Poses = points.ToArray();
-
-        // Persistent arrays for jobs
-        CoordKeysArray = new NativeArray<Vector2>(Poses, Allocator.Persistent);
-        closestIndexArray = new NativeArray<int>(1, Allocator.Persistent);
-        DistancesArray = new NativeArray<float>(Poses.Length, Allocator.Persistent);
+        GridWidth = Mathf.RoundToInt(2f / increment) + 1;
+        GridHeight = GridWidth;
+        PoseGrid = new BasisPoseData[GridWidth * GridHeight];
     }
 
     /// <summary>
     /// Rebuilds pose atlas by sampling Unity HumanPose muscles on a hidden duplicate of the provided animator.
-    /// Captures TPose finger muscle blocks, bakes poses for every coordinate, and fills <see cref="CoordToPose"/>.
-    /// Resets all per-finger caches to avoid stale data when swapping animators.
+    /// Bakes all grid poses, converts to NativeArray, and builds the TransformAccessArray.
+    /// If the same Avatar asset was previously baked, copies from cache instead of re-sampling.
     /// </summary>
-    /// <param name="OriginalAnimator">Source animator with humanoid avatar to sample.</param>
     public void ReInitialize(Animator OriginalAnimator)
     {
+        int cacheKey = BasisAvatarModelCache.GetKey(OriginalAnimator);
+
+        // --- Cache hit: copy pose grid data without instantiating a copy ---
+        if (cacheKey != 0 && BasisAvatarModelCache.TryGet(cacheKey, out var entry) && entry.HandPoseGrid != null)
+        {
+            RestoreFromCache(entry.HandPoseGrid);
+            RebuildTransformAccess();
+            return;
+        }
+
+        // --- Cache miss: full bake ---
+        GridWidth = Mathf.RoundToInt(2f / increment) + 1;
+        GridHeight = GridWidth;
+        PoseGrid = new BasisPoseData[GridWidth * GridHeight];
+
         BasisTransformMapping Mapping = new BasisTransformMapping();
         GameObject CopyOfOrigionally = GameObject.Instantiate(OriginalAnimator.gameObject);
         CopyOfOrigionally.gameObject.SetActive(false);
@@ -208,7 +151,6 @@ public class BasisLocalHandDriver
             return;
         }
 
-        // Aggregate all finger transforms & masks
         Transform[] allTransforms = AggregateFingerTransforms(
             Mapping.LeftThumb, Mapping.LeftIndex, Mapping.LeftMiddle, Mapping.LeftRing, Mapping.LeftLittle,
             Mapping.RightThumb, Mapping.RightIndex, Mapping.RightMiddle, Mapping.RightRing, Mapping.RightLittle);
@@ -219,12 +161,10 @@ public class BasisLocalHandDriver
 
         PutAvatarIntoTPose(Animator);
 
-        // Get TPose muscles
         HumanPoseHandler poseHandler = new HumanPoseHandler(Animator.avatar, Animator.transform);
         HumanPose Tpose = new HumanPose();
         poseHandler.GetHumanPose(ref Tpose);
 
-        // Capture muscle blocks (left: 55.., right: 75..)
         LeftThumb = new float[4]; Array.Copy(Tpose.muscles, 55, LeftThumb, 0, 4);
         LeftIndex = new float[4]; Array.Copy(Tpose.muscles, 59, LeftIndex, 0, 4);
         LeftMiddle = new float[4]; Array.Copy(Tpose.muscles, 63, LeftMiddle, 0, 4);
@@ -237,32 +177,331 @@ public class BasisLocalHandDriver
         RightRing = new float[4]; Array.Copy(Tpose.muscles, 87, RightRing, 0, 4);
         RightLittle = new float[4]; Array.Copy(Tpose.muscles, 91, RightLittle, 0, 4);
 
-        // Record current (TPose) for baseline
         Current = RecordCurrentPose(allTransforms, allHasProximal);
 
-        CoordToPose.Clear();
-
-        // Bake all coordinates → pose data
-        int length = Poses.Length;
-        for (int Index = 0; Index < length; Index++)
+        for (int xi = 0; xi < GridWidth; xi++)
         {
-            AddPose(Poses[Index]);
-        }
-        void AddPose(Vector2 coord)
-        {
-            BasisPoseDataAdditional poseAdd = new BasisPoseDataAdditional
+            for (int yi = 0; yi < GridHeight; yi++)
             {
-                PoseData = SetAndRecordPose(coord.x, coord.y, poseHandler, ref Tpose, allTransforms, allHasProximal),
-                Coord = coord
-            };
-            CoordToPose.TryAdd(poseAdd.Coord, poseAdd);
+                float x = -1f + xi * increment;
+                float y = -1f + yi * increment;
+                PoseGrid[xi * GridHeight + yi] = SetAndRecordPose(x, y, poseHandler, ref Tpose, allTransforms, allHasProximal);
+            }
         }
+
         GameObject.Destroy(CopyOfOrigionally);
-        ResetFingerCaches();
+
+        BuildNativePoseGrid();
+        RebuildTransformAccess();
+
+        // Store in cache for future loads of the same avatar
+        if (cacheKey != 0)
+        {
+            SaveToCache(cacheKey);
+        }
+
+        // Free managed grid — only the NativeArray is used at runtime
+        PoseGrid = null;
     }
+
+    // ────────────────────────────────────────────────────────────
+    //  Cache save / restore
+    // ────────────────────────────────────────────────────────────
+
+    private void SaveToCache(int cacheKey)
+    {
+        int totalElements = _nativePoseGrid.Length;
+        float[] snapshot = new float[totalElements * 4];
+        for (int i = 0; i < totalElements; i++)
+        {
+            quaternion q = _nativePoseGrid[i];
+            int b = i * 4;
+            snapshot[b] = q.value.x;
+            snapshot[b + 1] = q.value.y;
+            snapshot[b + 2] = q.value.z;
+            snapshot[b + 3] = q.value.w;
+        }
+
+        var entry = BasisAvatarModelCache.GetOrCreate(cacheKey);
+        entry.HandPoseGrid = new BasisAvatarModelCache.HandPoseGridData
+        {
+            NativeGridSnapshot = snapshot,
+            GridWidth = GridWidth,
+            GridHeight = GridHeight,
+            FingerStride = _fingerStride,
+            TotalElements = totalElements,
+
+            LeftThumb = (float[])LeftThumb.Clone(),
+            LeftIndex = (float[])LeftIndex.Clone(),
+            LeftMiddle = (float[])LeftMiddle.Clone(),
+            LeftRing = (float[])LeftRing.Clone(),
+            LeftLittle = (float[])LeftLittle.Clone(),
+            RightThumb = (float[])RightThumb.Clone(),
+            RightIndex = (float[])RightIndex.Clone(),
+            RightMiddle = (float[])RightMiddle.Clone(),
+            RightRing = (float[])RightRing.Clone(),
+            RightLittle = (float[])RightLittle.Clone(),
+
+            InitialPose = Current,
+        };
+    }
+
+    private void RestoreFromCache(BasisAvatarModelCache.HandPoseGridData cached)
+    {
+        GridWidth = cached.GridWidth;
+        GridHeight = cached.GridHeight;
+        _fingerStride = cached.FingerStride;
+
+        // Restore muscle arrays
+        LeftThumb = (float[])cached.LeftThumb.Clone();
+        LeftIndex = (float[])cached.LeftIndex.Clone();
+        LeftMiddle = (float[])cached.LeftMiddle.Clone();
+        LeftRing = (float[])cached.LeftRing.Clone();
+        LeftLittle = (float[])cached.LeftLittle.Clone();
+        RightThumb = (float[])cached.RightThumb.Clone();
+        RightIndex = (float[])cached.RightIndex.Clone();
+        RightMiddle = (float[])cached.RightMiddle.Clone();
+        RightRing = (float[])cached.RightRing.Clone();
+        RightLittle = (float[])cached.RightLittle.Clone();
+
+        Current = cached.InitialPose;
+
+        // Rebuild native pose grid from cached snapshot
+        if (_nativePoseGrid.IsCreated) _nativePoseGrid.Dispose();
+        _nativePoseGrid = new NativeArray<quaternion>(cached.TotalElements, Allocator.Persistent);
+
+        float[] snap = cached.NativeGridSnapshot;
+        for (int i = 0; i < cached.TotalElements; i++)
+        {
+            int b = i * 4;
+            _nativePoseGrid[i] = new quaternion(snap[b], snap[b + 1], snap[b + 2], snap[b + 3]);
+        }
+
+        // Don't need managed grid
+        PoseGrid = null;
+    }
+
+    /// <summary>
+    /// Converts the managed PoseGrid into a flat NativeArray for Burst access.
+    /// Per-finger layout: [fingerIdx * gridCount * 3 + gridIdx * 3 + jointIdx].
+    /// Adjacent Y-cells land on the same cache line (48 bytes apart) instead of 10KB apart.
+    /// </summary>
+    private void BuildNativePoseGrid()
+    {
+        if (_nativePoseGrid.IsCreated) _nativePoseGrid.Dispose();
+
+        int gridCount = GridWidth * GridHeight;
+        _fingerStride = gridCount * 3;
+        _nativePoseGrid = new NativeArray<quaternion>(10 * _fingerStride, Allocator.Persistent);
+
+        for (int gridIdx = 0; gridIdx < gridCount; gridIdx++)
+        {
+            BasisPoseData pose = PoseGrid[gridIdx];
+            SetGridFinger(0, gridIdx, pose.LeftThumb);
+            SetGridFinger(1, gridIdx, pose.LeftIndex);
+            SetGridFinger(2, gridIdx, pose.LeftMiddle);
+            SetGridFinger(3, gridIdx, pose.LeftRing);
+            SetGridFinger(4, gridIdx, pose.LeftLittle);
+            SetGridFinger(5, gridIdx, pose.RightThumb);
+            SetGridFinger(6, gridIdx, pose.RightIndex);
+            SetGridFinger(7, gridIdx, pose.RightMiddle);
+            SetGridFinger(8, gridIdx, pose.RightRing);
+            SetGridFinger(9, gridIdx, pose.RightLittle);
+        }
+    }
+
+    private void SetGridFinger(int fingerIdx, int gridIdx, Quaternion[] finger)
+    {
+        int nativeIdx = fingerIdx * _fingerStride + gridIdx * 3;
+        _nativePoseGrid[nativeIdx] = finger[0];
+        _nativePoseGrid[nativeIdx + 1] = finger[1];
+        _nativePoseGrid[nativeIdx + 2] = finger[2];
+    }
+
+    /// <summary>
+    /// Builds TransformAccessArray, joint mapping, and per-frame NativeArrays
+    /// from the live BasisLocalAvatarDriver.Mapping. Only includes joints that exist.
+    /// </summary>
+    public void RebuildTransformAccess()
+    {
+        DisposeJobArrays();
+
+        var Map = BasisLocalAvatarDriver.Mapping;
+        if (Map == null) return;
+
+        Transform[][] allFingers =
+        {
+            Map.LeftThumb, Map.LeftIndex, Map.LeftMiddle, Map.LeftRing, Map.LeftLittle,
+            Map.RightThumb, Map.RightIndex, Map.RightMiddle, Map.RightRing, Map.RightLittle
+        };
+        bool[][] allHas =
+        {
+            Map.HasLeftThumb, Map.HasLeftIndex, Map.HasLeftMiddle, Map.HasLeftRing, Map.HasLeftLittle,
+            Map.HasRightThumb, Map.HasRightIndex, Map.HasRightMiddle, Map.HasRightRing, Map.HasRightLittle
+        };
+
+        List<Transform> validTransforms = new List<Transform>(30);
+        List<int> mapping = new List<int>(30);
+
+        for (int finger = 0; finger < 10; finger++)
+        {
+            for (int joint = 0; joint < 3; joint++)
+            {
+                if (allHas[finger][joint] && allFingers[finger][joint] != null)
+                {
+                    mapping.Add(finger * 3 + joint);
+                    validTransforms.Add(allFingers[finger][joint]);
+                }
+            }
+        }
+
+        _validJointCount = validTransforms.Count;
+        _taaToFlat = mapping.ToArray();
+
+        if (_validJointCount > 0)
+        {
+            _fingerTransforms = new TransformAccessArray(validTransforms.ToArray());
+            _percentages = new NativeArray<float2>(10, Allocator.Persistent);
+            _targetRotations = new NativeArray<quaternion>(30, Allocator.Persistent);
+            _currentRotations = new NativeArray<quaternion>(_validJointCount, Allocator.Persistent);
+            _jointMapping = new NativeArray<int>(_validJointCount, Allocator.Persistent);
+
+            _destFingerArrays = new Quaternion[_validJointCount][];
+            _destJointIndices = new int[_validJointCount];
+            for (int i = 0; i < _validJointCount; i++)
+            {
+                int flatIdx = _taaToFlat[i];
+                _jointMapping[i] = flatIdx;
+                _destFingerArrays[i] = GetCurrentFingerArray(flatIdx / 3);
+                _destJointIndices[i] = flatIdx % 3;
+            }
+
+            SyncManagedCurrentToNative();
+        }
+    }
+
+    // --- Simulate / Apply ---
+
+    /// <summary>
+    /// Writes current finger percentages and schedules two chained Burst jobs:
+    /// interpolation (grid lookup) → slerp + transform write.
+    /// Call <see cref="Apply"/> later to complete.
+    /// </summary>
+    public unsafe void Simulate(float DeltaTime)
+    {
+        if (_validJointCount == 0) return;
+
+        // Defensive: complete previous frame if Apply wasn't called
+        if (_hasScheduledJob)
+        {
+            _fingerJobHandle.Complete();
+            _hasScheduledJob = false;
+            SyncNativeCurrentToManaged();
+        }
+
+        // Vector2 and float2 share layout (two contiguous floats), so reinterpret-write
+        // through a raw pointer skips the NativeArray indexer's wrapper per element.
+        float2* p = (float2*)_percentages.GetUnsafePtr();
+        p[0] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.ThumbPercentage);
+        p[1] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.IndexPercentage);
+        p[2] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.MiddlePercentage);
+        p[3] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.RingPercentage);
+        p[4] = UnsafeUtility.As<Vector2, float2>(ref LeftHand.LittlePercentage);
+        p[5] = UnsafeUtility.As<Vector2, float2>(ref RightHand.ThumbPercentage);
+        p[6] = UnsafeUtility.As<Vector2, float2>(ref RightHand.IndexPercentage);
+        p[7] = UnsafeUtility.As<Vector2, float2>(ref RightHand.MiddlePercentage);
+        p[8] = UnsafeUtility.As<Vector2, float2>(ref RightHand.RingPercentage);
+        p[9] = UnsafeUtility.As<Vector2, float2>(ref RightHand.LittlePercentage);
+
+        // Job 1: bilinear interpolation from pose grid → target rotations
+        var interpJob = new BasisFingerInterpolateJob
+        {
+            PoseGrid = _nativePoseGrid,
+            Percentages = _percentages,
+            Targets = _targetRotations,
+            GridWidth = GridWidth,
+            GridHeight = GridHeight,
+            FingerStride = _fingerStride,
+            Increment = increment
+        };
+        JobHandle interpHandle = interpJob.Schedule(10, 1);
+
+        // Job 2: slerp current → target and write to transforms (depends on Job 1)
+        var slerpJob = new BasisFingerSlerpJob
+        {
+            TargetRotations = _targetRotations,
+            CurrentRotations = _currentRotations,
+            JointMapping = _jointMapping,
+            LerpFactor = math.saturate(LerpSpeed * DeltaTime)
+        };
+        _fingerJobHandle = slerpJob.Schedule(_fingerTransforms, interpHandle);
+        _hasScheduledJob = true;
+    }
+
+    /// <summary>
+    /// Completes the scheduled finger jobs and syncs current rotations back to managed arrays.
+    /// </summary>
+    public void Apply()
+    {
+        if (!_hasScheduledJob) return;
+
+        _fingerJobHandle.Complete();
+        _hasScheduledJob = false;
+
+        SyncNativeCurrentToManaged();
+    }
+
+    // --- Managed ↔ Native sync ---
+
+    private Quaternion[] GetCurrentFingerArray(int fingerIndex)
+    {
+        switch (fingerIndex)
+        {
+            case 0: return Current.LeftThumb;
+            case 1: return Current.LeftIndex;
+            case 2: return Current.LeftMiddle;
+            case 3: return Current.LeftRing;
+            case 4: return Current.LeftLittle;
+            case 5: return Current.RightThumb;
+            case 6: return Current.RightIndex;
+            case 7: return Current.RightMiddle;
+            case 8: return Current.RightRing;
+            case 9: return Current.RightLittle;
+            default: return Current.LeftThumb;
+        }
+    }
+
+    private unsafe void SyncManagedCurrentToNative()
+    {
+        int len = _validJointCount;
+        if (len == 0) return;
+        quaternion* dst = (quaternion*)_currentRotations.GetUnsafePtr();
+        Quaternion[][] arrays = _destFingerArrays;
+        int[] indices = _destJointIndices;
+        for (int i = 0; i < len; i++)
+        {
+            dst[i] = arrays[i][indices[i]];
+        }
+    }
+
+    private unsafe void SyncNativeCurrentToManaged()
+    {
+        int len = _validJointCount;
+        if (len == 0) return;
+        quaternion* src = (quaternion*)_currentRotations.GetUnsafeReadOnlyPtr();
+        Quaternion[][] arrays = _destFingerArrays;
+        int[] indices = _destJointIndices;
+        for (int i = 0; i < len; i++)
+        {
+            arrays[i][indices[i]] = src[i];
+        }
+    }
+
+    // --- Init-time helpers ---
 
     public void PutAvatarIntoTPose(Animator Anim)
     {
+        Anim.logWarnings = false;
         if (BasisLocalAvatarDriver.SavedruntimeAnimatorController == null)
         {
             BasisLocalAvatarDriver.SavedruntimeAnimatorController = Anim.runtimeAnimatorController;
@@ -272,148 +511,11 @@ public class BasisLocalHandDriver
         Anim.Update(desiredTime);
     }
 
-    /// <summary>
-    /// Resets all per-finger caches so the next UpdateFingers() forces fresh lookups against the new atlas.
-    /// </summary>
-    void ResetFingerCaches()
-    {
-        Vector2 sentinel = new Vector2(-1.1f, -1.1f);
-
-        LastLeftThumbPercentage = sentinel;
-        LastLeftIndexPercentage = sentinel;
-        LastLeftMiddlePercentage = sentinel;
-        LastLeftRingPercentage = sentinel;
-        LastLeftLittlePercentage = sentinel;
-
-        LastRightThumbPercentage = sentinel;
-        LastRightIndexPercentage = sentinel;
-        LastRightMiddlePercentage = sentinel;
-        LastRightRingPercentage = sentinel;
-        LastRightLittlePercentage = sentinel;
-
-        LeftThumbAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        LeftIndexAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        LeftMiddleAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        LeftRingAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        LeftLittleAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-
-        RightThumbAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        RightIndexAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        RightMiddleAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        RightRingAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-        RightLittleAdditional = new BasisPoseDataAdditional { PoseData = Current, Coord = Vector2.zero };
-    }
-
-    /// <summary>
-    /// Updates finger targets from current input percentages, finds nearest baked pose per finger via Burst,
-    /// and blends transforms toward the new targets.
-    /// </summary>
-    /// <param name="DeltaTime">Frame delta time (seconds).</param>
-    public void UpdateFingers(float DeltaTime)
-    {
-        var Map = BasisLocalAvatarDriver.Mapping;
-        // Find nearest baked pose using two-stage job: distance + min reduction
-        bool GetClosestValue(Vector2 percentage, out BasisPoseDataAdditional result)
-        {
-            BasisFindClosestPointJob distanceJob = new BasisFindClosestPointJob
-            {
-                target = percentage,
-                CoordKeys = CoordKeysArray,
-                Distances = DistancesArray
-            };
-
-            JobHandle distanceJobHandle = distanceJob.Schedule(CoordKeysArray.Length, 64);
-            distanceJobHandle.Complete();
-
-            BasisFindMinDistanceJob reductionJob = new BasisFindMinDistanceJob
-            {
-                distances = DistancesArray,
-                closestIndex = closestIndexArray
-            };
-
-            JobHandle reductionJobHandle = reductionJob.Schedule();
-            reductionJobHandle.Complete();
-
-            int closestIndex = closestIndexArray[0];
-            return CoordToPose.TryGetValue(CoordKeysArray[closestIndex], out result);
-        }
-
-        // Cache/avoid duplicate queries
-        void TryUpdateFingerPose(ref Vector2 currentValue, Vector2 newValue, ref BasisPoseDataAdditional additional)
-        {
-            if (currentValue != newValue && GetClosestValue(newValue, out var result))
-            {
-                additional = result;
-                currentValue = newValue;
-            }
-        }
-
-        // Left hand
-        TryUpdateFingerPose(ref LastLeftThumbPercentage, LeftHand.ThumbPercentage, ref LeftThumbAdditional);
-        TryUpdateFingerPose(ref LastLeftIndexPercentage, LeftHand.IndexPercentage, ref LeftIndexAdditional);
-        TryUpdateFingerPose(ref LastLeftMiddlePercentage, LeftHand.MiddlePercentage, ref LeftMiddleAdditional);
-        TryUpdateFingerPose(ref LastLeftRingPercentage, LeftHand.RingPercentage, ref LeftRingAdditional);
-        TryUpdateFingerPose(ref LastLeftLittlePercentage, LeftHand.LittlePercentage, ref LeftLittleAdditional);
-
-        // Right hand
-        TryUpdateFingerPose(ref LastRightThumbPercentage, RightHand.ThumbPercentage, ref RightThumbAdditional);
-        TryUpdateFingerPose(ref LastRightIndexPercentage, RightHand.IndexPercentage, ref RightIndexAdditional);
-        TryUpdateFingerPose(ref LastRightMiddlePercentage, RightHand.MiddlePercentage, ref RightMiddleAdditional);
-        TryUpdateFingerPose(ref LastRightRingPercentage, RightHand.RingPercentage, ref RightRingAdditional);
-        TryUpdateFingerPose(ref LastRightLittlePercentage, RightHand.LittlePercentage, ref RightLittleAdditional);
-
-        // Apply to transforms
-        float Percentage = LerpSpeed * DeltaTime;
-
-        // Left
-        UpdateFingerPoses(Map.LeftThumb, LeftThumbAdditional.PoseData.LeftThumb, ref Current.LeftThumb, Map.HasLeftThumb, Percentage);
-        UpdateFingerPoses(Map.LeftIndex, LeftIndexAdditional.PoseData.LeftIndex, ref Current.LeftIndex, Map.HasLeftIndex, Percentage);
-        UpdateFingerPoses(Map.LeftMiddle, LeftMiddleAdditional.PoseData.LeftMiddle, ref Current.LeftMiddle, Map.HasLeftMiddle, Percentage);
-        UpdateFingerPoses(Map.LeftRing, LeftRingAdditional.PoseData.LeftRing, ref Current.LeftRing, Map.HasLeftRing, Percentage);
-        UpdateFingerPoses(Map.LeftLittle, LeftLittleAdditional.PoseData.LeftLittle, ref Current.LeftLittle, Map.HasLeftLittle, Percentage);
-
-        // Right
-        UpdateFingerPoses(Map.RightThumb, RightThumbAdditional.PoseData.RightThumb, ref Current.RightThumb, Map.HasRightThumb, Percentage);
-        UpdateFingerPoses(Map.RightIndex, RightIndexAdditional.PoseData.RightIndex, ref Current.RightIndex, Map.HasRightIndex, Percentage);
-        UpdateFingerPoses(Map.RightMiddle, RightMiddleAdditional.PoseData.RightMiddle, ref Current.RightMiddle, Map.HasRightMiddle, Percentage);
-        UpdateFingerPoses(Map.RightRing, RightRingAdditional.PoseData.RightRing, ref Current.RightRing, Map.HasRightRing, Percentage);
-        UpdateFingerPoses(Map.RightLittle, RightLittleAdditional.PoseData.RightLittle, ref Current.RightLittle, Map.HasRightLittle, Percentage);
-    }
-
-    /// <summary>
-    /// Blends each proximal/middle/distal joint toward the target rotations and writes to transforms.
-    /// </summary>
-    /// <param name="proximal">3-joint transform array for the finger.</param>
-    /// <param name="poses">Target local rotations for the 3 joints.</param>
-    /// <param name="currentPoses">In/out: current smoothed rotations.</param>
-    /// <param name="hasProximal">Mask for which joints exist in the skeleton.</param>
-    /// <param name="Percentage">Slerp factor for this frame.</param>
-    public void UpdateFingerPoses(Transform[] proximal, Quaternion[] poses, ref Quaternion[] currentPoses, bool[] hasProximal, float Percentage)
-    {
-        for (int FingerBoneIndex = 0; FingerBoneIndex < 3; FingerBoneIndex++)
-        {
-            if (!hasProximal[FingerBoneIndex])
-            {
-                continue;
-            }
-            quaternion newRotation = Quaternion.Slerp(currentPoses[FingerBoneIndex], poses[FingerBoneIndex], Percentage);
-            currentPoses[FingerBoneIndex] = newRotation;
-
-            // Apply to transform
-            proximal[FingerBoneIndex].localRotation = newRotation;
-        }
-    }
-
-    /// <summary>
-    /// Records current local rotations of all finger joints into a <see cref="BasisPoseData"/> snapshot.
-    /// Missing joints receive identity rotation.
-    /// </summary>
     public BasisPoseData RecordCurrentPose(Transform[] allTransforms, bool[] allHasProximal)
     {
         BasisPoseData poseData = new BasisPoseData();
         int index = 0;
 
-        // Helper to assign three consecutive joints to a finger
         void AssignFinger(ref Quaternion[] finger)
         {
             finger[0] = allHasProximal[index] ? allTransforms[index].localRotation : Quaternion.identity; index++;
@@ -435,30 +537,12 @@ public class BasisLocalHandDriver
         return poseData;
     }
 
-    /// <summary>
-    /// Concatenates finger transform arrays in left→right order.
-    /// </summary>
     private Transform[] AggregateFingerTransforms(params Transform[][] fingerTransforms) => fingerTransforms.SelectMany(f => f).ToArray();
 
-    /// <summary>
-    /// Concatenates per-finger "has joint" masks in left→right order.
-    /// </summary>
     private bool[] AggregateHasProximal(params bool[][] hasProximalArrays) => hasProximalArrays.SelectMany(h => h).ToArray();
 
-    /// <summary>
-    /// Sets muscles for both hands according to a 2D coordinate (fill + spline),
-    /// writes them into a <see cref="HumanPose"/>, applies it, and records the resulting transform-space pose.
-    /// </summary>
-    /// <param name="fillValue">Base fill for the 4-muscle block.</param>
-    /// <param name="Splane">Value placed in the second muscle for shaping (s-plane).</param>
-    /// <param name="poseHandler">HumanPose handler bound to the duplicated avatar.</param>
-    /// <param name="pose">In/out: pose struct to update and apply.</param>
-    /// <param name="allTransforms">All finger joints left→right, 3 per finger.</param>
-    /// <param name="allHasProximal">Mask for missing joints.</param>
-    /// <returns>The recorded <see cref="BasisPoseData"/>.</returns>
     public BasisPoseData SetAndRecordPose(float fillValue, float Splane, HumanPoseHandler poseHandler, ref HumanPose pose, Transform[] allTransforms, bool[] allHasProximal)
     {
-        // Apply muscle data to both hands
         SetMuscleData(ref LeftThumb, fillValue, Splane);
         SetMuscleData(ref LeftIndex, fillValue, Splane);
         SetMuscleData(ref LeftMiddle, fillValue, Splane);
@@ -471,7 +555,6 @@ public class BasisLocalHandDriver
         SetMuscleData(ref RightRing, fillValue, Splane);
         SetMuscleData(ref RightLittle, fillValue, Splane);
 
-        // Write into human pose muscle array
         Array.Copy(LeftThumb, 0, pose.muscles, 55, 4);
         Array.Copy(LeftIndex, 0, pose.muscles, 59, 4);
         Array.Copy(LeftMiddle, 0, pose.muscles, 63, 4);
@@ -490,12 +573,6 @@ public class BasisLocalHandDriver
         return Current;
     }
 
-    /// <summary>
-    /// Fills a 4-element muscle array with a base value and a specific override at index 1.
-    /// </summary>
-    /// <param name="muscleArray">Target 4-element muscle block.</param>
-    /// <param name="fillValue">Uniform fill value.</param>
-    /// <param name="specificValue">Value assigned to the second muscle (index 1).</param>
     public void SetMuscleData(ref float[] muscleArray, float fillValue, float specificValue)
     {
         Array.Fill(muscleArray, fillValue);

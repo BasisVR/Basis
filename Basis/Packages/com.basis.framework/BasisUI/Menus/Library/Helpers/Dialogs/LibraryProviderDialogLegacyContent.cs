@@ -18,8 +18,8 @@ namespace Basis.BasisUI
         public static async Task<BundledContentHolder.Mode> PromptUserToDefineLegacyContent(BasisMenuPanel panel)
         {
             DialogBox<BundledContentHolder.Mode> legacyCotentDefineDialogBox = DialogBox<BundledContentHolder.Mode>.Create(panel, new Vector2(830, 430),
-                "Specify Content Type",
-                "Your content is marked legacy. Please specify what type of content you are adding.",
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.title"),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.description"),
                 AddressableAssets.Sprites.Add,
                 true
             );
@@ -33,9 +33,9 @@ namespace Basis.BasisUI
             // information to give to the user
             PanelTextField createdInformationTextField = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, legacyCotentDefineDialogBox.Descriptor);
             createdInformationTextField._inputField.gameObject.SetActive(false); // disable the text input field box
-            createdInformationTextField.Descriptor.SetTitle("Why is this showing?");
+            createdInformationTextField.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.whyShowing"));
             createdInformationTextField.Descriptor.SetIcon(AddressableAssets.Sprites.Information);
-            createdInformationTextField.Descriptor.SetDescription($"BEE files now contain metadata of what's inside it, this is used to determine things about your BEE file which will be important in future features. Please to consider updating your content to include this metadata.");
+            createdInformationTextField.Descriptor.SetDescription(Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.whyShowing.description"));
 
             createdInformationTextField.Descriptor.SetHeight(100);
             createdInformationTextField.Descriptor.SetWidth(800);
@@ -47,9 +47,9 @@ namespace Basis.BasisUI
                     .Where(m => m != BundledContentHolder.Mode.Legacy) // remove legacy from selection
                     .Select(m => m.ToString())
                     .ToArray();
-            contentTypeDropDown.Descriptor.SetTitle("Content Type");
+            contentTypeDropDown.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.contentType"));
             contentTypeDropDown.Descriptor.SetIcon(AddressableAssets.Sprites.FileTray);
-            contentTypeDropDown.Descriptor.SetDescription("What content are you adding?");
+            contentTypeDropDown.Descriptor.SetDescription(Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.contentType.description"));
             contentTypeDropDown.AssignEntries(modeNames.ToList());
 
             // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New CachedContent"
@@ -64,7 +64,7 @@ namespace Basis.BasisUI
             acceptOrDenyPanel.Descriptor.SetWidth(800);
 
             PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent); //ButtonStyles.Cancel
-            yesPanel.Descriptor.SetTitle("Add");
+            yesPanel.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.dialog.add.addButton"));
             yesPanel.Descriptor.SetWidth(800);
             yesPanel.Descriptor.SetHeight(60);
 

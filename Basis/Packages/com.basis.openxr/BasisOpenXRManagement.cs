@@ -251,7 +251,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
                 {
                     if (OpenXRTrackers.Contains(device.device))
                     {
-                        string RemoveID = $"{device.device.name} {device.device.deviceId}";
+                        string RemoveID = $"{device.device.name} {device.device.deviceId} {device.usage}";
                         DestroyPhysicalTrackedDevice(RemoveID);
                         OpenXRTrackers.Remove(device.device);
                     }

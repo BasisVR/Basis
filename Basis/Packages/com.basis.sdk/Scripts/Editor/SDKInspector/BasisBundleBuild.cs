@@ -8,8 +8,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 public static class BasisBundleBuild
 {
@@ -27,7 +29,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please install build target for " + Targets[Index].ToString());
             }
         }
 
@@ -66,12 +68,12 @@ public static class BasisBundleBuild
         {
             if (r == null) continue;
 
-            Bounds srcLocal;
+            Bounds transformed;
 
             if (r is SkinnedMeshRenderer smr)
             {
-                // In smr local space
-                srcLocal = smr.localBounds;
+                // Transform bounds center and extents to new AABB in parent local space
+                transformed = TransformBoundsAABB(smr.bounds, parentWorldToLocal);
             }
             else if (r is MeshRenderer mr)
             {
@@ -79,18 +81,16 @@ public static class BasisBundleBuild
                 if (mf == null || mf.sharedMesh == null) continue;
 
                 // In mesh local space (same as MeshFilter transform local space)
-                srcLocal = mf.sharedMesh.bounds;
+                var srcLocal = mf.sharedMesh.bounds;
+                // Map from renderer local -> world -> parent local
+                Matrix4x4 toParentLocal = parentWorldToLocal * r.transform.localToWorldMatrix;
+                // Transform bounds center and extents to new AABB in parent local space
+                transformed = TransformBoundsAABB(srcLocal, toParentLocal);
             }
             else
             {
                 continue; // ignore other renderer types for now
             }
-
-            // Map from renderer local -> world -> parent local
-            Matrix4x4 toParentLocal = parentWorldToLocal * r.transform.localToWorldMatrix;
-
-            // Transform bounds center and extents to new AABB in parent local space
-            Bounds transformed = TransformBoundsAABB(srcLocal, toParentLocal);
 
             if (!hasAny)
             {
@@ -150,7 +150,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please install build target for " + Targets[Index].ToString());
             }
         }
 
@@ -252,13 +252,21 @@ public static class BasisBundleBuild
     }
     public static BasisBundleConnector.BasisMetaData GenerateMetaData(GameObject root)
     {
+        // Perf-bound counts (triangles, bones, SMR/MF/animator/etc. component counts)
+        // enumerate with includeInactive=false so hidden variant / toggle / backup
+        // GameObjects don't inflate the numbers the performance filter uses to
+        // decide whether an avatar is "too heavy". Memory-bound counts (material,
+        // texture memory) still enumerate with includeInactive=true because
+        // materials and textures stay loaded in memory regardless of whether the
+        // renderer that references them is enabled.
 
         BasisBundleConnector.BasisMetaData meta = new BasisBundleConnector.BasisMetaData();
         long triangleCount = 0;
         long materialCount = 0;
         long bonesCount = 0;
         Dictionary<string, int> componentCounts = new Dictionary<string, int>();
-        var meshFilters = root.GetComponentsInChildren<MeshFilter>(true);
+
+        var meshFilters = root.GetComponentsInChildren<MeshFilter>(false);
         foreach (var mf in meshFilters)
         {
             if (mf.sharedMesh != null)
@@ -267,7 +275,13 @@ public static class BasisBundleBuild
                 triangleCount += mf.sharedMesh.triangles.Length / 3;
             }
         }
-        var skinnedMeshes = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+
+        // Dedupe skinned bones across all SMRs. Every SMR's bones[] array points at
+        // the same skeleton Transforms, so summing smr.bones.Length multiplied the
+        // real skeleton size by SMR count — an avatar with one 100-bone skeleton
+        // and five SMRs used to report 500 bones. HashSet lookup is O(n) total.
+        var skinnedMeshes = root.GetComponentsInChildren<SkinnedMeshRenderer>(false);
+        HashSet<Transform> uniqueBones = new HashSet<Transform>();
         foreach (var smr in skinnedMeshes)
         {
             if (smr.sharedMesh != null)
@@ -278,13 +292,23 @@ public static class BasisBundleBuild
 
             if (smr.bones != null)
             {
-                bonesCount += smr.bones.Length;
+                for (int i = 0; i < smr.bones.Length; i++)
+                {
+                    Transform bone = smr.bones[i];
+                    if (bone != null)
+                    {
+                        uniqueBones.Add(bone);
+                    }
+                }
             }
         }
-        var renderers = root.GetComponentsInChildren<Renderer>(true);
-        HashSet<Material> uniqueMaterials = new HashSet<Material>();
+        bonesCount = uniqueBones.Count;
 
-        foreach (var r in renderers)
+        // Materials + textures: memory-bound, so include inactive renderers. A
+        // hidden outfit variant's textures still sit in GPU/CPU memory.
+        var allRenderers = root.GetComponentsInChildren<Renderer>(true);
+        HashSet<Material> uniqueMaterials = new HashSet<Material>();
+        foreach (var r in allRenderers)
         {
             foreach (var mat in r.sharedMaterials)
             {
@@ -295,7 +319,26 @@ public static class BasisBundleBuild
             }
         }
         materialCount = uniqueMaterials.Count;
-        var components = root.GetComponentsInChildren<Component>(true);
+
+        long textureMemoryBytes = 0;
+        HashSet<Texture> uniqueTextures = new HashSet<Texture>();
+        foreach (var mat in uniqueMaterials)
+        {
+            int[] texturePropertyIds = mat.GetTexturePropertyNameIDs();
+            for (int i = 0; i < texturePropertyIds.Length; i++)
+            {
+                Texture tex = mat.GetTexture(texturePropertyIds[i]);
+                if (tex != null && uniqueTextures.Add(tex))
+                {
+                    textureMemoryBytes += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(tex);
+                }
+            }
+        }
+
+        // Component counts: perf-bound. An inactive Animator doesn't tick, an
+        // inactive Light doesn't render, an inactive ParticleSystem doesn't
+        // simulate — none of them should push the avatar past a perf limit.
+        var components = root.GetComponentsInChildren<Component>(false);
         foreach (var comp in components)
         {
             if (comp == null)
@@ -318,6 +361,8 @@ public static class BasisBundleBuild
         meta.TrianglesCount = triangleCount;
         meta.MaterialCount = materialCount;
         meta.BonesCount = bonesCount;
+        meta.TextureMemoryBytes = textureMemoryBytes;
+        meta.GraphicsPipeline = DetectGraphicsPipeline();
         meta.ComponentNames = componentCounts
             .Select(kvp => new BasisBundleConnector.BasisComponentName
             {
@@ -328,6 +373,18 @@ public static class BasisBundleBuild
 
         return meta;
     }
+    // Identifies the render pipeline the bundle is being built against. Stored
+    // verbatim as the asset type name (e.g. "UniversalRenderPipelineAsset",
+    // "HDRenderPipelineAsset", or any custom SRP asset class) so future or
+    // third-party pipelines are captured without a mapping update. When no SRP
+    // asset is assigned, GraphicsSettings.currentRenderPipeline is null and the
+    // project is on the legacy built-in pipeline.
+    public static string DetectGraphicsPipeline()
+    {
+        RenderPipelineAsset activePipeline = GraphicsSettings.currentRenderPipeline;
+        return activePipeline == null ? "Built-in" : activePipeline.GetType().Name;
+    }
+
     public static void EnsureReadWriteEnabled(Mesh mesh)
     {
         if (mesh == null)
@@ -382,6 +439,7 @@ public static class BasisBundleBuild
         combined.TrianglesCount = triangles;
         combined.MaterialCount = materials;
         combined.BonesCount = bones;
+        combined.GraphicsPipeline = DetectGraphicsPipeline();
 
         combined.ComponentNames = componentCounts
             .Select(kvp => new BasisBundleConnector.BasisComponentName
@@ -425,7 +483,7 @@ public static class BasisBundleBuild
             }
 
             Debug.Log("Starting BuildBundle...");
-            EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 0);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), 0);
 
             BuildTarget originalActiveTarget = EditorUserBuildSettings.activeBuildTarget;
 
@@ -476,7 +534,7 @@ public static class BasisBundleBuild
                 BasisDebug.Log("Adding " + result.Item2.EncyptedPath);
             }
 
-            EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 10);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), 10);
 
             BasisBundleConnector basisBundleConnector = new BasisBundleConnector(
                 generatedID,
@@ -497,16 +555,16 @@ public static class BasisBundleBuild
             byte[] EncryptedConnector =
                 await BasisEncryptionWrapper.EncryptToBytesAsync(UniqueID, BasisPassword, BasisbundleconnectorUnEncrypted, report);
 
-            EditorUtility.DisplayProgressBar("Starting Bundle Combining", "Starting Bundle Combining", 100);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.combine"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.combine"), 100);
 
             string FilePath = Path.Combine(buildOutDir, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
             await CombineFiles(FilePath, paths, EncryptedConnector);
 
-            EditorUtility.DisplayProgressBar("Saving Generated BEE file", "Saving Generated BEE file", 100);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.saveBee"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.saveBee"), 100);
 
             await AssetBundleBuilder.SaveFileAsync(buildOutDir, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
 
-            EditorUtility.DisplayProgressBar("Finshed File Combining", "Finshed File Combining", 100);
+            EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineDone"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineDone"), 100);
 
             DeleteFolders(buildOutDir);
 
@@ -552,9 +610,9 @@ public static class BasisBundleBuild
     private static string EnsureBuildOutputDirectory(string rootOutDir, string folderName, bool deleteIfExists)
     {
         if (string.IsNullOrEmpty(rootOutDir))
-            throw new ArgumentException("rootOutDir is null/empty", nameof(rootOutDir));
+            throw new ArgumentException("rootOutDir is null or empty", nameof(rootOutDir));
         if (string.IsNullOrEmpty(folderName))
-            throw new ArgumentException("folderName is null/empty", nameof(folderName));
+            throw new ArgumentException("folderName is null or empty", nameof(folderName));
 
         string buildOutDir = Path.Combine(rootOutDir, folderName);
 
@@ -659,7 +717,7 @@ public static class BasisBundleBuild
                             if (sw.ElapsedMilliseconds >= nextUiMs)
                             {
                                 float progress = (float)((double)bytesDone / (double)totalLen);
-                                EditorUtility.DisplayProgressBar("Combining Files", "Processing: " + Path.GetFileName(path), progress);
+                                EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineFiles"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.combineFiles.body", Path.GetFileName(path)), progress);
                                 nextUiMs = sw.ElapsedMilliseconds + 200;
                             }
                         }

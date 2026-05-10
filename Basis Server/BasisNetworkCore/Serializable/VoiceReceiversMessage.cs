@@ -79,24 +79,48 @@ public static partial class SerializableBasis
             }
         }
 
+        /// <summary>
+        /// Equivalent to <c>Serialize(writer, largeCount: true)</c> — always writes
+        /// a 2-byte (ushort) count. Use only when sending on
+        /// <see cref="BasisNetworkCommons.AudioRecipientsLargeChannel"/> (channel 39).
+        /// For <see cref="BasisNetworkCommons.AudioRecipientsChannel"/> (channel 5),
+        /// call the largeCount overload with <c>false</c> so the length field width
+        /// matches what the server expects.
+        /// </summary>
         public void Serialize(NetDataWriter writer)
         {
-            if (Users == null || Users.Length == 0)
+            Serialize(writer, largeCount: true);
+        }
+
+        /// <param name="largeCount">
+        /// Must match the channel the packet will be sent on:
+        /// false = byte count (AudioRecipientsChannel, ≤255 recipients);
+        /// true  = ushort count (AudioRecipientsLargeChannel, up to 65535 recipients).
+        /// Mismatch desyncs the wire format and the server will log "Protocol mismatch?".
+        /// </param>
+        public void Serialize(NetDataWriter writer, bool largeCount)
+        {
+            int usersLength = Users?.Length ?? 0;
+            int maxCount = largeCount ? ushort.MaxValue : byte.MaxValue;
+
+            if (usersLength == 0)
             {
                 // Still write a 0-length so read side stays in sync
-                writer.Put((ushort)0);
+                if (largeCount) writer.Put((ushort)0);
+                else writer.Put((byte)0);
                 return;
             }
 
-            if (Users.Length > ushort.MaxValue)
+            if (usersLength > maxCount)
             {
                 BNL.LogError(
-                    $"VoiceReceiversMessage: Users.Length={Users.Length} exceeds ushort.MaxValue. " +
-                    "Truncating.");
+                    $"VoiceReceiversMessage: Users.Length={usersLength} exceeds " +
+                    $"{(largeCount ? "ushort.MaxValue" : "byte.MaxValue")} for this channel. Truncating.");
             }
 
-            ushort count = (ushort)Math.Min(Users.Length, ushort.MaxValue);
-            writer.Put(count);
+            int count = Math.Min(usersLength, maxCount);
+            if (largeCount) writer.Put((ushort)count);
+            else writer.Put((byte)count);
 
             for (int i = 0; i < count; i++)
             {

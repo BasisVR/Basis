@@ -6,7 +6,12 @@
         "Basis Framework",
         "Unity.InputSystem",
         "com.gator-dragon-games.jigglephysics",
-        "SteamAudioUnity"
+        "SteamAudioUnity",
+        "Basis.OpenLipSync.Runtime",
+        "BasisProfiler",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime",
+        "HVR.Basis.Comms"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

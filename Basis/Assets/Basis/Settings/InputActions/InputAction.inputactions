@@ -158,6 +158,42 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "OpenChat",
+                    "type": "Button",
+                    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "ToggleMicMute",
+                    "type": "Button",
+                    "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "ToggleThirdPerson",
+                    "type": "Button",
+                    "id": "d8dbf797-e000-4b29-bf4a-a382a2a772f4",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "CameraZoom",
+                    "type": "Value",
+                    "id": "876786d7-6ea1-42b8-89e9-b2868f7a560f",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [
@@ -752,6 +788,61 @@
                     "processors": "",
                     "groups": ";All",
                     "action": "Tab",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f4e3d2c1-b0a9-8765-4321-fedcba098765",
+                    "path": "<Keyboard>/y",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "OpenChat",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+                    "path": "<Keyboard>/v",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "ToggleMicMute",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c6ba1db7-2125-4f59-9fb4-175c24c55529",
+                    "path": "<Keyboard>/f",
+                    "interactions": "Tap,Hold",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "ToggleThirdPerson",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f78d675f-0f4c-4a94-a97f-63e7eff52d1b",
+                    "path": "<Gamepad>/select",
+                    "interactions": "Tap,Hold",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "ToggleThirdPerson",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c6c130d2-7b80-41fc-9875-1ae14d387f54",
+                    "path": "<Mouse>/scroll/y",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "CameraZoom",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

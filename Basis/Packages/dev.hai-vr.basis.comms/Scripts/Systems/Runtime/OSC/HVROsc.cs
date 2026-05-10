@@ -7,13 +7,14 @@ namespace HVR.Basis.Comms.OSC
     public class HVROsc
     {
         private const int DefaultReceiverPort = 9000;
+        private const int InitialMessageQueueCapacity = 128;
         private int _currentReceiverPort;
         
         private readonly int _oscPort;
         private readonly SimpleOSC _client;
         
         private readonly byte[] _byteBuffer = new byte[65535];
-        private readonly List<SimpleOSC.OSCMessage> _queue = new();
+        private readonly List<SimpleOSC.OSCMessage> _queue = new List<SimpleOSC.OSCMessage>(InitialMessageQueueCapacity);
 
         public HVROsc(int oscPort)
         {
@@ -59,7 +60,9 @@ namespace HVR.Basis.Comms.OSC
             }, _byteBuffer);
         }
 
-        public List<SimpleOSC.OSCMessage> PullMessages()
+        // The UDP socket receives and decodes on a background thread; the main thread
+        // drains the decoded messages and performs all routing/callback dispatch.
+        public List<SimpleOSC.OSCMessage> DrainReceivedMessages()
         {
             _queue.Clear();
             _client.GetIncomingOSC(_queue);

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
@@ -32,6 +33,7 @@ public static class BasisSceneFactory
         BasisScene.Destroyed += BasisSceneDestroyed;
         SceneManager.sceneUnloaded -= OnSceneUnloaded;
         SceneManager.sceneUnloaded += OnSceneUnloaded;
+
     }
     private static void OnSceneUnloaded(Scene unloadedScene)
     {
@@ -160,8 +162,42 @@ public static class BasisSceneFactory
         }
         else
         {
-            BasisLocalPlayer = GameObject.FindFirstObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
+            BasisLocalPlayer = GameObject.FindAnyObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
         }
+        ForceLoadProbeVolumeData(scene.gameObject.scene);
+    }
+    private static void ForceLoadProbeVolumeData(Scene scene)
+    {
+        if (!ProbeReferenceVolume.instance.isInitialized)
+        {
+            return;
+        }
+        // Find ProbeVolumePerSceneData directly in the scene hierarchy.
+        // SetActiveScene uses a GUID-based lookup that can fail for bundle-loaded scenes
+        // or if the component hasn't registered yet due to enable ordering.
+        ProbeVolumePerSceneData perSceneData = null;
+        GameObject[] rootObjects = scene.GetRootGameObjects();
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            perSceneData = rootObjects[i].GetComponentInChildren<ProbeVolumePerSceneData>(true);
+            if (perSceneData != null)
+            {
+                break;
+            }
+        }
+        if (perSceneData == null || perSceneData.bakingSet == null)
+        {
+            return;
+        }
+        // Switch baking set if it differs from the current one
+        ProbeReferenceVolume.instance.SetActiveBakingSet(perSceneData.bakingSet);
+        // Re-trigger registration so this scene's cells are queued for loading.
+        // Handles same-baking-set (where SetActiveBakingSet is a no-op)
+        // and timing issues (where OnEnable ran before the baking set was correct).
+        perSceneData.enabled = false;
+        perSceneData.enabled = true;
+        ProbeReferenceVolume.instance.PerformPendingOperations();
+        BasisDebug.Log("Forced adaptive probe volume baking set load for scene: " + scene.name, BasisDebug.LogTag.Scene);
     }
     public static void LoadCameraProperties(Camera Camera)
     {
@@ -185,6 +221,8 @@ public static class BasisSceneFactory
 
             Data.volumeTrigger = AdditionalCameraData.volumeTrigger;
         }
+
+        BasisLocalCameraDriver.RaiseRenderSettingsApplied();
     }
     public static void AttachMixerToAllSceneAudioSources()
     {
@@ -237,6 +275,10 @@ public static class BasisSceneFactory
         if (timeSinceLastCheck > RespawnCheckTimer)
         {
             timeSinceLastCheck = 0f; // Reset timer
+            if (BasisLocalPlayer == null)
+            {
+                BasisLocalPlayer = BasisLocalPlayer.Instance;
+            }
             if (BasisLocalPlayer.PlayerSelf.position.y < RespawnHeight)
             {
                 SpawnPlayer(BasisLocalPlayer);

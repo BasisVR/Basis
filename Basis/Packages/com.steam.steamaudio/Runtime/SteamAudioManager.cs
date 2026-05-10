@@ -24,6 +24,7 @@ using UnityEngine.SceneManagement;
 using Unity.Jobs;
 using UnityEngine.Jobs;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Burst;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -544,6 +545,9 @@ namespace SteamAudio
 #if STEAMAUDIO_ENABLED
         private void ScheduleInstance()
         {
+            // Drain deferred SteamAudioSource inits (frame-budgeted).
+            SteamAudioSource.ProcessPendingInits();
+
             // --- Gather transforms via jobs ---
             EnsureTransformArraysCreated();
             EnsureSourceCapacity(CurrentArraySource);
@@ -601,14 +605,26 @@ namespace SteamAudio
                 mSimulator.Commit();
             }
 
+            // Complete the in-flight GatherPoseJob BEFORE touching mListener's
+            // Transform. The job runs over mListenerTransforms (a TAA), and any
+            // managed Transform property access on the main thread will stall
+            // on the TAA's safety handle until the job finishes. Reading
+            // position/forward/up/right ahead of Complete() was the source of
+            // the per-frame Transform.get_position spike.
+            combined.Complete();
+
             var sharedInputs = new SimulationSharedInputs { };
 
             if (mListener != null)
             {
-                sharedInputs.listener.origin = Common.ConvertVector(mListener.position);
-                sharedInputs.listener.ahead = Common.ConvertVector(mListener.forward);
-                sharedInputs.listener.up = Common.ConvertVector(mListener.up);
-                sharedInputs.listener.right = Common.ConvertVector(mListener.right);
+                // One native interop call instead of four (position + 3 basis
+                // vectors). Each property accessor goes through a P/Invoke;
+                // forward/up/right additionally each fetch rotation internally.
+                mListener.GetPositionAndRotation(out var listenerPos, out var listenerRot);
+                sharedInputs.listener.origin = Common.ConvertVector(listenerPos);
+                sharedInputs.listener.ahead = Common.ConvertVector(listenerRot * UnityEngine.Vector3.forward);
+                sharedInputs.listener.up = Common.ConvertVector(listenerRot * UnityEngine.Vector3.up);
+                sharedInputs.listener.right = Common.ConvertVector(listenerRot * UnityEngine.Vector3.right);
             }
 
             sharedInputs.numRays = settings.realTimeRays;
@@ -621,33 +637,34 @@ namespace SteamAudio
 
             mSimulator.SetSharedInputs(SimulationFlags.Direct, sharedInputs);
 
-
-            // Complete before calling into Steam Audio (main-thread plugin calls)
-            combined.Complete();
-
             // --- Direct inputs from cached pose arrays ---
-            for (int i = 0; i < CurrentArraySource; i++)
+            unsafe
             {
-                SteamAudioSource src = mSources[i];
-                if (src == null)
+                if (mSourceGathers.IsCreated && CurrentArraySource > 0)
                 {
-                    continue;
+                    GatheredData* pSrcGathers = (GatheredData*)mSourceGathers.GetUnsafeReadOnlyPtr();
+                    for (int i = 0; i < CurrentArraySource; i++)
+                    {
+                        SteamAudioSource src = mSources[i];
+                        if (src == null) continue;
+
+                        GatheredData pos = pSrcGathers[i];
+                        src.SetInputs(SimulationFlags.Direct, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener);
+                    }
                 }
 
-                var pos = mSourceGathers[i];
-                src.SetInputs(SimulationFlags.Direct, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener);
-            }
-
-            for (int i = 0; i < CurrentArrayListener; i++)
-            {
-                SteamAudioListener lis = mListeners[i];
-                if (lis == null)
+                if (mListenerGathers.IsCreated && CurrentArrayListener > 0)
                 {
-                    continue;
-                }
+                    GatheredData* pLisGathers = (GatheredData*)mListenerGathers.GetUnsafeReadOnlyPtr();
+                    for (int i = 0; i < CurrentArrayListener; i++)
+                    {
+                        SteamAudioListener lis = mListeners[i];
+                        if (lis == null) continue;
 
-                var pos = mListenerGathers[i];
-                lis.SetInputs(SimulationFlags.Direct, settings, pos.origin, pos.ahead, pos.up, pos.right);
+                        GatheredData pos = pLisGathers[i];
+                        lis.SetInputs(SimulationFlags.Direct, settings, pos.origin, pos.ahead, pos.up, pos.right);
+                    }
+                }
             }
 
             mSimulator.RunDirect();
@@ -661,6 +678,7 @@ namespace SteamAudio
                 }
 
                 src.UpdateOutputs(SimulationFlags.Direct);
+                src.ForceUpdate();
             }
 
             // --- Reflections/Pathing timing logic unchanged ---
@@ -682,6 +700,7 @@ namespace SteamAudio
                         if (src == null) continue;
 
                         src.UpdateOutputs(SimulationFlags.Reflections | SimulationFlags.Pathing);
+                        src.ForceUpdate();
                     }
                 }
 
@@ -689,23 +708,33 @@ namespace SteamAudio
 
                 // Reuse the same cached poses we already gathered this frame.
                 // If you want “freshest possible” poses right before reflections, reschedule jobs here.
-
-                for (int i = 0; i < CurrentArraySource; i++)
+                unsafe
                 {
-                    SteamAudioSource src = mSources[i];
-                    if (src == null) continue;
+                    if (mSourceGathers.IsCreated && CurrentArraySource > 0)
+                    {
+                        GatheredData* pSrcGathers2 = (GatheredData*)mSourceGathers.GetUnsafeReadOnlyPtr();
+                        for (int i = 0; i < CurrentArraySource; i++)
+                        {
+                            SteamAudioSource src = mSources[i];
+                            if (src == null) continue;
 
-                    GatheredData pos = mSourceGathers[i];
-                    src.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener);
-                }
+                            GatheredData pos = pSrcGathers2[i];
+                            src.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener);
+                        }
+                    }
 
-                for (int i = 0; i < CurrentArrayListener; i++)
-                {
-                    SteamAudioListener lis = mListeners[i];
-                    if (lis == null) continue;
+                    if (mListenerGathers.IsCreated && CurrentArrayListener > 0)
+                    {
+                        GatheredData* pLisGathers2 = (GatheredData*)mListenerGathers.GetUnsafeReadOnlyPtr();
+                        for (int i = 0; i < CurrentArrayListener; i++)
+                        {
+                            SteamAudioListener lis = mListeners[i];
+                            if (lis == null) continue;
 
-                    GatheredData pos = mListenerGathers[i];
-                    lis.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, settings, pos.origin, pos.ahead, pos.up, pos.right);
+                            GatheredData pos = pLisGathers2[i];
+                            lis.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, settings, pos.origin, pos.ahead, pos.up, pos.right);
+                        }
+                    }
                 }
 
                 if (SteamAudioSettings.Singleton.sceneType == SceneType.Custom)
@@ -852,16 +881,21 @@ namespace SteamAudio
             {
                 for (var i = 0; i < Singleton.mHRTFs.Length; ++i)
                 {
-                    Singleton.mHRTFs[i].Release();
-                    Singleton.mHRTFs[i] = null;
+                    if (Singleton.mHRTFs[i] != null)
+                    {
+                        Singleton.mHRTFs[i].Release();
+                        Singleton.mHRTFs[i] = null;
+                    }
                 }
             }
 
             SceneManager.sceneLoaded -= Singleton.OnSceneLoaded;
             SceneManager.sceneUnloaded -= Singleton.OnSceneUnloaded;
-
-            Singleton.mContext.Release();
-            Singleton.mContext = null;
+            if (Singleton.mContext != null)
+            {
+                Singleton.mContext.Release();
+                Singleton.mContext = null;
+            }
         }
 
         public static void Reinitialize()

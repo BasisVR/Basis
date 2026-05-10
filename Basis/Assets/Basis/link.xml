@@ -3,10 +3,10 @@
     <assembly fullname="AudioLink" preserve="all" />
     <assembly fullname="Base128" preserve="all" />
     <assembly fullname="Basis Framework" preserve="all" />
-    <assembly fullname="Basis.Network.Core" preserve="all" />
-    <assembly fullname="Basis.ZeroMessenger" preserve="all" />
-    <assembly fullname="Basis.ZeroMessenger.Samples" preserve="all" />
-    <assembly fullname="Basis.uLipSync.Runtime" preserve="all" />
+    <assembly fullname="Basis.Addon.SnapControls" preserve="all" />
+    <assembly fullname="Basis.Integration.AudioLink" preserve="all" />
+    <assembly fullname="Basis.OpenLipSync.Runtime" preserve="all" />
+    <assembly fullname="Basis.Shims.Samples" preserve="all" />
     <assembly fullname="BasisBundleManagement" preserve="all" />
     <assembly fullname="BasisCommon" preserve="all" />
     <assembly fullname="BasisConsoleDisplay" preserve="all" />
@@ -42,8 +42,11 @@
     <assembly fullname="Generator.Equals.Runtime" preserve="all" />
     <assembly fullname="HVR.Basis.Comms" preserve="all" />
     <assembly fullname="HVR.Basis.Comms.HVRUtility" preserve="all" />
+    <assembly fullname="HVR.LicenseReview" preserve="all" />
+    <assembly fullname="K4os.Compression.LZ4" preserve="all" />
     <assembly fullname="LiteNetLib" preserve="all" />
     <assembly fullname="MeaMod.DNS" preserve="all" />
+    <assembly fullname="Microsoft.ML.OnnxRuntime" preserve="all" />
     <assembly fullname="Newtonsoft.Json" preserve="all" />
     <assembly fullname="OpusSharp" preserve="all" />
     <assembly fullname="RNNoiseIntergration" preserve="all" />
@@ -53,7 +56,6 @@
     <assembly fullname="SteamVR" preserve="all" />
     <assembly fullname="SteamVR_Actions" preserve="all" />
     <assembly fullname="System" preserve="all" />
-    <assembly fullname="System.Core" preserve="all" />
     <assembly fullname="TrueAudioNext" preserve="all" />
     <assembly fullname="UdonSharp.Lib" preserve="all" />
     <assembly fullname="UdonSharp.Runtime" preserve="all" />
@@ -115,21 +117,20 @@
     <assembly fullname="Unity.XR.OpenXR.Features.OculusQuestSupport" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.Features.RuntimeDebugger" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.TestTooling" preserve="all" />
-    <assembly fullname="UnityEngine.AnimationModule" preserve="all" />
     <assembly fullname="UnityEngine.AudioModule" preserve="all" />
     <assembly fullname="UnityEngine.CoreModule" preserve="all" />
-    <assembly fullname="UnityEngine.ParticleSystemModule" preserve="all" />
-    <assembly fullname="UnityEngine.PhysicsModule" preserve="all" />
     <assembly fullname="UnityEngine.SpatialTracking" preserve="all" />
     <assembly fullname="UnityEngine.UI" preserve="all" />
     <assembly fullname="UnityEngine.XR.LegacyInputHelpers" preserve="all" />
     <assembly fullname="VRC.Udon" preserve="all" />
+    <assembly fullname="Valve.OpenXR.Utils" preserve="all" />
     <assembly fullname="XRSDKOpenVR" preserve="all" />
     <assembly fullname="audioplugin_phonon" preserve="all" />
     <assembly fullname="com.cqf.urpvolumetricfog.runtime" preserve="all" />
     <assembly fullname="com.gator-dragon-games.jigglephysics" preserve="all" />
     <assembly fullname="mscorlib" preserve="all" />
     <assembly fullname="openvr_api" preserve="all" />
+    <assembly fullname="opus" preserve="all" />
     <assembly fullname="phonon" preserve="all" />
     <assembly fullname="phonon_fmod" preserve="all" />
     <assembly fullname="steam_api" preserve="all" />

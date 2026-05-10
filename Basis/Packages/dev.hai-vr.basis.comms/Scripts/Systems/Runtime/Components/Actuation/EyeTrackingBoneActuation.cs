@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Networking.Transmitters;
 using HVR.Basis.Comms.HVRUtility;
@@ -13,7 +14,7 @@ namespace HVR.Basis.Comms
 {
     [DefaultExecutionOrder(15010)] // Run after BasisEyeFollowBase
     [AddComponentMenu("HVR.Basis/Comms/Eye Tracking Bone Actuation")]
-    public class EyeTrackingBoneActuation : BasisAvatarMonoBehaviour, IHVRInitializable
+    public class EyeTrackingBoneActuation : BasisNetworkAvatarBehaviour, IHVRInitializable
     {
         new public static bool VisibleInAvatarMenu = false;
         private const string EyeLeftX = "FT/v2/EyeLeftX";
@@ -47,6 +48,8 @@ namespace HVR.Basis.Comms
         private bool _eyeFollowDriverApplicable;
         private bool _trackingActive;
         private bool _eyeTrackingParametersActive;
+        public bool IsTrackingActive => _trackingActive;
+        public bool IsEyeTrackingParametersActive => _eyeTrackingParametersActive;
         private float _lastEyeParameterSampleTime = float.NegativeInfinity;
         private bool _registeredSourceAddresses;
         private FaceTrackingActivityRelay _activityRelay;
@@ -84,7 +87,11 @@ namespace HVR.Basis.Comms
             _eyeTrackingParametersActive = false;
             _lastEyeParameterSampleTime = float.NegativeInfinity;
 
-            acquisition.RegisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
+            if (_activityRelay != null)
+            {
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+                _activityRelay.OnTrackingActivityChanged += OnTrackingActivityUpdated;
+            }
             if (isWearer)
             {
                 acquisition.RegisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
@@ -103,10 +110,10 @@ namespace HVR.Basis.Comms
 
             var mutualizedInterpolationRanges = new List<MutualizedInterpolationRange>
             {
-                new MutualizedInterpolationRange { address = _eyeLeftXAddress, lower = -1f, upper = 1f },
-                new MutualizedInterpolationRange { address = _eyeRightXAddress, lower = -1f, upper = 1f },
-                new MutualizedInterpolationRange { address = _eyeYAddress, lower = -1f, upper = 1f },
-                new MutualizedInterpolationRange { address = _eyeTrackingActiveAddress, lower = 0f, upper = 1f }
+                new MutualizedInterpolationRange { addressId = _eyeLeftXAddress, lower = -1f, upper = 1f },
+                new MutualizedInterpolationRange { addressId = _eyeRightXAddress, lower = -1f, upper = 1f },
+                new MutualizedInterpolationRange { addressId = _eyeYAddress, lower = -1f, upper = 1f },
+                new MutualizedInterpolationRange { addressId = _eyeTrackingActiveAddress, lower = 0f, upper = 1f }
             };
             featureInterpolator = CommsNetworking.UsingMutualizedInterpolator(avatar, mutualizedInterpolationRanges, OnInterpolatedDataChanged);
             bool shouldApply = ShouldApplyEyeTracking();
@@ -147,13 +154,14 @@ namespace HVR.Basis.Comms
 
         private void OnDestroy()
         {
-            if (acquisition != null)
+            if (_activityRelay != null)
             {
-                acquisition.UnregisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
-                if (_registeredSourceAddresses)
-                {
-                    acquisition.UnregisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
-                }
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+            }
+
+            if (acquisition != null && _registeredSourceAddresses)
+            {
+                acquisition.UnregisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
             }
 
             ClearRemoteOverrides();
@@ -212,14 +220,8 @@ namespace HVR.Basis.Comms
             }
         }
 
-        private void OnTrackingActivityUpdated(int address, float value)
+        private void OnTrackingActivityUpdated(bool isTrackingActive)
         {
-            if (address != FaceTrackingActivityRelay.ActivityAddressId)
-            {
-                return;
-            }
-
-            bool isTrackingActive = value >= 0.5f;
             if (_trackingActive == isTrackingActive)
             {
                 return;
@@ -325,15 +327,17 @@ namespace HVR.Basis.Comms
             {
                 Receiver.RemotePlayer.RemoteFaceDriver.OverrideEye = true;
                 Receiver.RemotePlayer.RemoteFaceDriver.OverrideBlinking = true;
+                // Signed [-1, 1] — matches BasisRemoteFaceManagement's EyeOutput convention,
+                // which is what BasisRemoteFaceDriver.ApplyEyeRotations consumes (asin domain).
                 switch (side)
                 {
                     case EyeSide.Left:
-                        Receiver.EyesAndMouth[0] = (y + 1) / 2;
-                        Receiver.EyesAndMouth[1] = (x + 1) / 2;
+                        Receiver.EyesAndMouth[0] = y;
+                        Receiver.EyesAndMouth[1] = x;
                         break;
                     case EyeSide.Right:
-                        Receiver.EyesAndMouth[2] = (y + 1) / 2;
-                        Receiver.EyesAndMouth[3] = (x + 1) / 2;
+                        Receiver.EyesAndMouth[2] = y;
+                        Receiver.EyesAndMouth[3] = x;
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(side), side, null);
@@ -343,7 +347,18 @@ namespace HVR.Basis.Comms
 
         private void SetBuiltInEyeFollowDriverOverriden(bool value)
         {
+            if (!_eyeFollowDriverApplicable)
+            {
+                return;
+            }
+
             BasisLocalEyeDriver.Override = value;
+
+            BasisLocalPlayer localPlayer = BasisLocalPlayer.Instance;
+            if (localPlayer != null && localPlayer.FacialBlinkDriver != null)
+            {
+                localPlayer.FacialBlinkDriver.SetOverride(value);
+            }
         }
 
         private void SubmitCurrentEyeStateToNetwork()
@@ -416,10 +431,10 @@ namespace HVR.Basis.Comms
                 return;
             }
 
-            Receiver.EyesAndMouth[0] = 0.5f;
-            Receiver.EyesAndMouth[1] = 0.5f;
-            Receiver.EyesAndMouth[2] = 0.5f;
-            Receiver.EyesAndMouth[3] = 0.5f;
+            Receiver.EyesAndMouth[0] = 0f;
+            Receiver.EyesAndMouth[1] = 0f;
+            Receiver.EyesAndMouth[2] = 0f;
+            Receiver.EyesAndMouth[3] = 0f;
         }
 
         private void ClearRemoteOverrides()

@@ -3,29 +3,40 @@ using UnityEngine;
 
 public static class BasisDebug
 {
+    /// <summary>
+    /// When true, all BasisDebug Log/LogWarning/LogError calls are suppressed.
+    /// Wired to the DisableLogging setting from BasisSettingsDefaults.
+    /// </summary>
+    public static bool LoggingDisabled;
+
     [HideInCallstack]
     public static void LogError(string message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         Debug.unityLogger.LogError("",FormatMessage(message, logTag, MessageType.Error));
     }
     [HideInCallstack]
     public static void LogError(string message, UnityEngine.Object Object, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         Debug.unityLogger.LogError("", FormatMessage(message, logTag, MessageType.Error), Object);
     }
     [HideInCallstack]
     public static void LogError(Exception message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         Debug.unityLogger.LogError("", FormatMessage($"{message.Message} {message.StackTrace}", logTag, MessageType.Error));
     }
     [HideInCallstack]
     public static void LogWarning(string message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         LogInternal(message, logTag, MessageType.Warning);
     }
     [HideInCallstack]
     public static void Log(string message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         LogInternal(message, logTag, MessageType.Info);
     }
     [HideInCallstack]
@@ -68,6 +79,7 @@ public static class BasisDebug
             LogTag.Video => "#00ffff",        // Cyan
             LogTag.Shims => "#FF00FF",        // Magenta
             LogTag.Props => "#FFB6C1",        // Light Pink
+            LogTag.LocalNetwork => "#ff0055",
             _ => "#FFFFFF"                    // Default White
         };
     }
@@ -115,7 +127,8 @@ public static class BasisDebug
         Remote,
         Video,
         Shims,
-        Props
+        Props,
+        LocalNetwork,
     }
 
     public enum MessageType

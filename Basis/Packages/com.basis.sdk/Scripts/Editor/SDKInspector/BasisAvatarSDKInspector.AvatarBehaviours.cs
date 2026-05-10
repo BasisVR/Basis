@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Basis.Editor.Localization;
 using Basis.Scripts.Behaviour;
 using UnityEditor;
 using UnityEngine;
@@ -97,7 +98,7 @@ public partial class BasisAvatarSDKInspector
                 Selection.activeGameObject = comp.gameObject;
                 EditorGUIUtility.PingObject(comp);
             });
-            selectBtn.text = "Select";
+            selectBtn.text = BasisEditorLocalization.Get("sdk.networkBehaviours.select");
             selectBtn.style.width = 50;
             row.Add(selectBtn);
 
@@ -108,7 +109,7 @@ public partial class BasisAvatarSDKInspector
                 EditorUtility.SetDirty(Avatar);
                 RefreshNetworkBehaviours();
             });
-            removeBtn.text = "Remove";
+            removeBtn.text = BasisEditorLocalization.Get("sdk.networkBehaviours.remove");
             removeBtn.style.width = 60;
             row.Add(removeBtn);
 
@@ -117,7 +118,7 @@ public partial class BasisAvatarSDKInspector
 
         if (existing.Length == 0)
         {
-            var noneLabel = new Label("None attached");
+            var noneLabel = new Label(BasisEditorLocalization.Get("sdk.networkBehaviours.noneAttached"));
             noneLabel.style.color = new StyleColor(new Color(0.6f, 0.6f, 0.6f));
             _attachedContainer.Add(noneLabel);
         }
@@ -139,14 +140,14 @@ public partial class BasisAvatarSDKInspector
                 EditorUtility.SetDirty(Avatar);
                 RefreshNetworkBehaviours();
             });
-            addBtn.text = "Add " + type.Name;
+            addBtn.text = BasisEditorLocalization.Get("sdk.networkBehaviours.add", type.Name);
             addBtn.style.marginBottom = 2;
             _availableContainer.Add(addBtn);
         }
 
         if (_availableContainer.childCount == 0)
         {
-            var allLabel = new Label("All available behaviours are attached");
+            var allLabel = new Label(BasisEditorLocalization.Get("sdk.networkBehaviours.allAttached"));
             allLabel.style.color = new StyleColor(new Color(0.6f, 0.6f, 0.6f));
             _availableContainer.Add(allLabel);
         }

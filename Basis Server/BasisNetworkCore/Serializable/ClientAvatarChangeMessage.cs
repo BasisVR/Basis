@@ -16,13 +16,20 @@ public static partial class SerializableBasis
             loadMode = Writer.GetByte();
             // Initialize the byte array with the specified length
             ushort Length = Writer.GetUShort();
-            if (byteArray == null || byteArray.Length != Length)
+            if (Length == 0)
             {
-                byteArray = new byte[Length];
+                byteArray = null;
             }
+            else
+            {
+                if (byteArray == null || byteArray.Length != Length)
+                {
+                    byteArray = new byte[Length];
+                }
 
-            // Read each byte manually into the array
-            Writer.GetBytes(byteArray, 0, byteArray.Length);
+                // Read each byte manually into the array
+                Writer.GetBytes(byteArray, 0, byteArray.Length);
+            }
             LocalAvatarIndex = Writer.GetByte();
         }
         public void Serialize(NetDataWriter Writer)

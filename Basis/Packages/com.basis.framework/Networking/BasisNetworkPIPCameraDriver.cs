@@ -334,7 +334,7 @@ public static class BasisNetworkPIPCameraDriver
     {
         if (BasisDeviceManagement.Instance.CameraShutterSound != null && TryGetPIPPosition(msg.PlayerID, out Vector3 position))
         {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, position);
+            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, position, SMModuleAudio.ActivePropVolume);
         }
 
         OnRemoteShutterSoundReceived?.Invoke(msg.PlayerID, TryGetPIPPosition(msg.PlayerID, out Vector3 pos) ? pos : Vector3.zero);
@@ -356,7 +356,7 @@ public static class BasisNetworkPIPCameraDriver
         {
             if (BasisDeviceManagement.Instance.CameraCountdownTickSound != null && TryGetPIPPosition(playerId, out Vector3 tickPos))
             {
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraCountdownTickSound, tickPos);
+                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraCountdownTickSound, tickPos, SMModuleAudio.ActivePropVolume);
             }
             yield return new WaitForSeconds(1f);
         }
@@ -366,7 +366,7 @@ public static class BasisNetworkPIPCameraDriver
 
         if (BasisDeviceManagement.Instance.CameraShutterSound != null && TryGetPIPPosition(playerId, out Vector3 shutterPos))
         {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, shutterPos);
+            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, shutterPos, SMModuleAudio.ActivePropVolume);
         }
     }
 

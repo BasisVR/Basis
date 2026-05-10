@@ -7,6 +7,82 @@ using UnityEngine.Networking;
 
 public static class BasisIOManagement
 {
+    public static string GetCurrentCachePlatform()
+    {
+        return NormalizeCachePlatformName(Application.platform.ToString());
+    }
+
+    public static bool CachePlatformMatchesCurrent(string downloadedPlatform)
+    {
+        return string.Equals(NormalizeCachePlatformName(downloadedPlatform), GetCurrentCachePlatform(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static string NormalizeCachePlatformName(string platformName)
+    {
+        if (string.IsNullOrWhiteSpace(platformName))
+        {
+            return string.Empty;
+        }
+
+        string normalized = platformName.Trim();
+        return normalized switch
+        {
+            nameof(RuntimePlatform.WindowsEditor) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsPlayer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsServer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.LinuxEditor) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxPlayer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxServer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.OSXEditor) => "StandaloneOSX",
+            nameof(RuntimePlatform.OSXPlayer) => "StandaloneOSX",
+            nameof(RuntimePlatform.Android) => "Android",
+            nameof(RuntimePlatform.IPhonePlayer) => "iOS",
+            _ => normalized,
+        };
+    }
+
+    public static string GetBeeCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetConnectorCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisConnectorExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetLegacyBeeCacheFilePath(string uniqueVersion)
+    {
+        return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}", BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetLegacyMetaCacheFilePath(string uniqueVersion)
+    {
+        return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisMetaExtension}", BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    private static string BuildPlatformAwareCacheFileName(string uniqueVersion, string extension, string downloadedPlatform)
+    {
+        if (string.IsNullOrWhiteSpace(uniqueVersion))
+            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
+
+        string normalizedPlatform = string.IsNullOrWhiteSpace(downloadedPlatform)
+            ? GetCurrentCachePlatform()
+            : NormalizeCachePlatformName(downloadedPlatform);
+
+        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+        {
+            normalizedPlatform = normalizedPlatform.Replace(invalidChar, '_');
+        }
+
+        return $"{uniqueVersion}.{normalizedPlatform}{extension}";
+    }
+
     public sealed class BeeDownloadResult
     {
         public BasisBundleConnector Connector { get; }
@@ -47,7 +123,7 @@ public static class BasisIOManagement
     public static async Task<BeeResult<BeeDownloadResult>> DownloadBEEEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
         // Validate inputs with actionable messages
-        if (!ValidateUrl(url, out var urlErr))
+        if (!ValidateUrl(url, out url, out var urlErr))
             return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: {urlErr}");
 
         if (string.IsNullOrWhiteSpace(vp))
@@ -156,14 +232,14 @@ public static class BasisIOManagement
         }
 
         // 5) Write local .bee (Int32 header + connector + section)
-        string fileName = $"{connector.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}";
+        string fileName = Path.GetFileName(GetBeeCacheFilePath(connector.UniqueVersion));
         if (string.IsNullOrWhiteSpace(fileName))
             return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
 
         string localPath;
         try
         {
-            localPath = GenerateFilePath(fileName, BasisBeeConstants.AssetBundlesFolder);
+            localPath = GetBeeCacheFilePath(connector.UniqueVersion);
         }
         catch (Exception ex)
         {
@@ -181,7 +257,7 @@ public static class BasisIOManagement
     /// </summary>
     public static async Task<BeeResult<(BasisBundleConnector, string)>> DownloadConnectorOnlyEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
-        if (!ValidateUrl(url, out var urlErr))
+        if (!ValidateUrl(url, out url, out var urlErr))
             return BeeResult<(BasisBundleConnector, string)>.Fail($"DownloadConnectorOnlyEx: {urlErr}");
 
         if (string.IsNullOrWhiteSpace(vp))
@@ -226,14 +302,14 @@ public static class BasisIOManagement
             return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadConnectorOnlyEx: Failed to parse connector metadata (null).");
         }
 
-        // 5) Write local .bee (Int32 header + connector + section)
-        string fileName = $"{connector.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}";
+        // 5) Write local .bec (Int32 header + connector only, no section)
+        string fileName = Path.GetFileName(GetConnectorCacheFilePath(connector.UniqueVersion));
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
+            return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadConnectorOnlyEx: Connector has no UniqueVersion / file extension.");
 
         }
-        string localPath = GenerateFilePath(fileName, BasisBeeConstants.AssetBundlesFolder);
+        string localPath = GetConnectorCacheFilePath(connector.UniqueVersion);
         var connectorBytes = connectorRes.Value.Data;
 
         var writeRes = await WriteBeeFileAsync(localPath, connectorBytes, null, true);
@@ -405,7 +481,7 @@ public static class BasisIOManagement
     /// <returns></returns>
     private static async Task<BeeResult<DownloadPayload>> DownloadRangeInternal(string url, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
-        if (!ValidateUrl(url, out var urlErr))
+        if (!ValidateUrl(url, out url, out var urlErr))
             return BeeResult<DownloadPayload>.Fail(urlErr);
 
         if (startByte < 0)
@@ -601,20 +677,27 @@ public static class BasisIOManagement
                 return BeeResult<bool>.Fail($"WriteBeeFileAsync: Size mismatch after write. Expected {totalSize}, actual {actual}.");
             }
 
-            // Atomic move — last writer wins, no sharing violation.
+            // Replace destination if it already exists. On Windows, plain File.Move throws
+            // when the destination is present; deleting first lets re-downloads overwrite a
+            // stale or corrupt cached file instead of silently keeping the old bytes.
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
             File.Move(tempPath, path);
         }
-        catch (IOException)
+        catch (Exception ex)
         {
-            // Another task already wrote the file — that's fine, clean up our temp.
-            try { File.Delete(tempPath); } catch { }
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            return BeeResult<bool>.Fail($"WriteBeeFileAsync: {ex.GetType().Name}: {ex.Message}");
         }
 
         return BeeResult<bool>.Ok(true);
     }
 
-    private static bool ValidateUrl(string url, out string error)
+    private static bool ValidateUrl(string url, out string normalizedUrl, out string error)
     {
+        normalizedUrl = url;
         error = string.Empty;
 
         if (string.IsNullOrWhiteSpace(url))
@@ -639,6 +722,7 @@ public static class BasisIOManagement
             return false;
         }
 
+        normalizedUrl = uri.AbsoluteUri;
         return true;
     }
 
@@ -725,7 +809,7 @@ public static class BasisIOManagement
     /// </summary>
     public static async Task<BeeResult<bool>> CheckRemoteFileReachable(string url, CancellationToken cancellationToken = default)
     {
-        if (!ValidateUrl(url, out var urlErr))
+        if (!ValidateUrl(url, out url, out var urlErr))
             return BeeResult<bool>.Fail($"Invalid URL: {urlErr}");
 
         using var req = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);

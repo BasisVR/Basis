@@ -9,6 +9,10 @@ public class BasisTrackedBundleWrapper
     public BasisLoadableBundle LoadableBundle;
     [SerializeField]
     public AssetBundle AssetBundle;
+    #if UNITY_BUNDLEUNLOAD
+    [SerializeField]
+    public bool IsBundleBackingStoreReleased = false;
+    #endif
     private int _requestedTimes = 0;
     private int _unloadState = 0;
     public bool DidErrorOccur = false;
@@ -44,6 +48,7 @@ public class BasisTrackedBundleWrapper
     // it will remove other duplicate scenes?
     public async Task<bool> UnloadIfReady()
     {
+        #if !UNITY_SERVER
         if (AssetBundle == null)
         {
             if (Volatile.Read(ref _unloadState) != 0)
@@ -54,6 +59,7 @@ public class BasisTrackedBundleWrapper
             BasisDebug.LogError("Asset Bundle was null this should never occur");
             return false;
         }
+        #endif
         if (Volatile.Read(ref _requestedTimes) <= 0)
         {
             if (Interlocked.CompareExchange(ref _unloadState, 1, 0) != 0)
@@ -66,11 +72,25 @@ public class BasisTrackedBundleWrapper
             {
                 if (AssetBundle == null)
                 {
+                    #if UNITY_BUNDLEUNLOAD
+                    if (IsBundleBackingStoreReleased)
+                    {
+                        Interlocked.Exchange(ref _unloadState, 2);
+                        return true;
+                    }
+
+                    BasisDebug.LogError("Asset Bundle was null this should never occur");
+                    #else
                     Interlocked.Exchange(ref _unloadState, 2);
+                    BasisDebug.LogError("Already Unloaded this bundle, check logic could be ok if you loaded this a few times and unloaded it quickly aswell.");
+                    #endif
                     return false;
                 }
                 BasisDebug.Log("Unloading Bundle " + AssetBundle.name);
                 AssetBundle.Unload(true);
+                #if UNITY_BUNDLEUNLOAD
+                IsBundleBackingStoreReleased = true;
+                #endif
                 AssetBundle = null;
                 Interlocked.Exchange(ref _unloadState, 2);
                 return true;
@@ -109,4 +129,19 @@ public class BasisTrackedBundleWrapper
        // BasisDebug.Log($"DeIncremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}");
         return true;
     }
+#if UNITY_BUNDLEUNLOAD
+    public void ReleaseBundleBackingStore()
+    {
+        if (AssetBundle == null)
+        {
+            return;
+        }
+
+        BasisDebug.Log("Releasing bundle backing store " + AssetBundle.name);
+        AssetBundle.Unload(false);
+        AssetBundle = null;
+        IsBundleBackingStoreReleased = true;
+        BasisDebug.Log("Bundle backing store released for headless scene bundle.");
+    }
+#endif
 }

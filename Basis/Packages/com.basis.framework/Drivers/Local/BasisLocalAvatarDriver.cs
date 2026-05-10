@@ -1,4 +1,5 @@
 using Basis.Scripts.Avatar;
+using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -31,6 +32,20 @@ namespace Basis.Scripts.Drivers
 
         /// <summary>Scale used to hide the head (scaled to zero).</summary>
         public static Vector3 HeadScaledDown = Vector3.zero;
+
+        /// <summary>Cached head-chop entries hidden alongside the head in first-person.</summary>
+        public static HeadChopEntry[] HeadChopEntries = Array.Empty<HeadChopEntry>();
+
+        /// <summary>Cached length of <see cref="HeadChopEntries"/> for fast loops.</summary>
+        public static int HeadChopEntriesLength;
+
+        /// <summary>Resolved head-chop target with its captured original and hidden scales.</summary>
+        public struct HeadChopEntry
+        {
+            public Transform Target;
+            public Vector3 NormalScale;
+            public Vector3 HiddenScale;
+        }
 
         /// <summary>Tracks whether the T-pose state-change event was wired.</summary>
         public static bool HasTPoseEvent = false;
@@ -77,7 +92,9 @@ namespace Basis.Scripts.Drivers
         /// builds rigs, computes offsets, initializes drivers, and restores the animator.
         /// </summary>
         /// <param name="player">The local player instance.</param>
-        public void InitialLocalCalibration(BasisLocalPlayer player)
+        /// <param name="harvestedHeadChop">Head-chop targets harvested by ContentPolice during the
+        /// avatar load. Consumed here and discarded; not stored on the avatar.</param>
+        public void InitialLocalCalibration(BasisLocalPlayer player, List<BasisHeadChop.HeadChopTarget> harvestedHeadChop)
         {
             Instance = this;
             BasisDebug.Log("InitialLocalCalibration");
@@ -134,7 +151,14 @@ namespace Basis.Scripts.Drivers
 
             Calibration(player);
 
+            // Capture T-pose bone rotations for network compression (while still in T-pose)
+            Networking.NetworkedAvatar.BasisNetworkAvatarCompressor.CaptureTPose();
+
             player.LocalBoneDriver.RemoveAllListeners();
+            BasisLocalEyeDriverData.Liveliness = player.BasisAvatar.EyeLiveliness;
+            BasisLocalEyeDriverData.Attentiveness = player.BasisAvatar.EyeAttentiveness;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
+            BasisDebug.Log($"Eye Personality - Liveliness: {BasisLocalEyeDriverData.Liveliness:F1} | Attentiveness: {BasisLocalEyeDriverData.Attentiveness:F1}", BasisDebug.LogTag.Avatar);
             BasisLocalEyeDriver.Initalize();
             LocalRenderMeshSettings(BasisLayerMapper.LocalAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, player.BasisAvatar.FaceVisemeMesh);
 
@@ -147,6 +171,8 @@ namespace Basis.Scripts.Drivers
                 HeadScale = Vector3.one;
             }
 
+            CollectHeadChopEntries(harvestedHeadChop);
+
             player.LocalRigDriver.SetBodySettings();
 
 
@@ -154,7 +180,7 @@ namespace Basis.Scripts.Drivers
 
             ComputeOffsets(player.LocalBoneDriver);
 
-            // player.BasisLocalFootDriver.InitializeVariables();
+            player.BasisLocalFootDriver.InitializeVariables();
 
             player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator);
             player.LocalAnimatorDriver.Initialize(player);
@@ -197,6 +223,14 @@ namespace Basis.Scripts.Drivers
             if (IsNormalHead || Instance == null || Mapping.Hashead == false) return;
 
             Mapping.head.localScale = HeadScale;
+            for (int Index = 0; Index < HeadChopEntriesLength; Index++)
+            {
+                ref HeadChopEntry Entry = ref HeadChopEntries[Index];
+                if (Entry.Target != null)
+                {
+                    Entry.Target.localScale = Entry.NormalScale;
+                }
+            }
             IsNormalHead = true;
         }
 
@@ -218,7 +252,52 @@ namespace Basis.Scripts.Drivers
                 return;
             }
             Mapping.head.localScale = HeadScaledDown;
+            for (int Index = 0; Index < HeadChopEntriesLength; Index++)
+            {
+                ref HeadChopEntry Entry = ref HeadChopEntries[Index];
+                if (Entry.Target != null)
+                {
+                    Entry.Target.localScale = Entry.HiddenScale;
+                }
+            }
             IsNormalHead = false;
+        }
+
+        /// <summary>
+        /// Resolves head-chop entries from the targets harvested by ContentPolice during the
+        /// avatar load, caching each target's original and hidden local scales. Skips the head
+        /// bone (already managed) and duplicate targets. Pass null/empty when none were harvested.
+        /// </summary>
+        /// <param name="harvestedHeadChop">Targets collected during the load walk, or null.</param>
+        public static void CollectHeadChopEntries(List<BasisHeadChop.HeadChopTarget> harvestedHeadChop)
+        {
+            if (harvestedHeadChop == null || harvestedHeadChop.Count == 0)
+            {
+                HeadChopEntries = Array.Empty<HeadChopEntry>();
+                HeadChopEntriesLength = 0;
+                return;
+            }
+            int TargetsCount = harvestedHeadChop.Count;
+            List<HeadChopEntry> Collected = new List<HeadChopEntry>(TargetsCount);
+            HashSet<Transform> Seen = new HashSet<Transform>();
+            for (int Index = 0; Index < TargetsCount; Index++)
+            {
+                BasisHeadChop.HeadChopTarget Entry = harvestedHeadChop[Index];
+                Transform Target = Entry.Target;
+                if (Target == null) continue;
+                if (Mapping.Hashead && Target == Mapping.head) continue;
+                if (Seen.Add(Target) == false) continue;
+                Vector3 Normal = Target.localScale;
+                float ScaleFactor = Mathf.Clamp01(Entry.Scale);
+                Collected.Add(new HeadChopEntry
+                {
+                    Target = Target,
+                    NormalScale = Normal,
+                    HiddenScale = Normal * ScaleFactor,
+                });
+            }
+            HeadChopEntries = Collected.ToArray();
+            HeadChopEntriesLength = HeadChopEntries.Length;
         }
 
         /// <summary>
@@ -289,9 +368,13 @@ namespace Basis.Scripts.Drivers
         /// <returns>Eye height value.</returns>
         public float ActiveAvatarEyeHeight()
         {
-            if (BasisLocalPlayer.Instance.BasisAvatar != null)
+            var localPlayer = BasisLocalPlayer.Instance;
+            if (localPlayer?.BasisAvatar != null)
             {
-                return BasisLocalPlayer.Instance.BasisAvatar.AvatarEyePosition.x;
+                // Use the authored/avatar-configured eye height here.
+                // This value is user-editable and survives avatar swap ordering,
+                // while rig/control data can be stale during recalibration.
+                return localPlayer.BasisAvatar.AvatarEyePosition.x;
             }
             else
             {
@@ -309,7 +392,7 @@ namespace Basis.Scripts.Drivers
             var Avatar = LocalPlayer.BasisAvatar;
             FindSkinnedMeshRenders(LocalPlayer);
             BasisTransformMapping.AutoDetectReferences(LocalPlayer.BasisAvatar.Animator, Avatar.transform, ref Mapping);
-            Mapping.RecordPoses(LocalPlayer.BasisAvatar.Animator);
+            BasisAvatarModelCache.RecordPosesCached(Mapping, LocalPlayer.BasisAvatar.Animator);
             LocalPlayer.FaceIsVisible = false;
 
             if (Avatar == null)

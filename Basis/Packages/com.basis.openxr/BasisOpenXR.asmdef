@@ -12,7 +12,8 @@
         "Unity.Addressables",
         "Unity.ResourceManager",
         "Unity.XR.Hands",
-        "Unity.XR.Management"
+        "Unity.XR.Management",
+        "BasisGizmos"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

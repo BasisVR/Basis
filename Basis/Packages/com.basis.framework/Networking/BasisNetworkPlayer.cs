@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -34,16 +35,47 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         private bool _hasReasonToSendAudio;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         public const int MuscleCount = 95;
-        [SerializeField]
-        public HumanPose HumanPose = new HumanPose()
+        // Backing field for Player, exposed internally so hot loops in this
+        // assembly (gaze loop, SimulateNetworkApply, AvatarLoadComplete, etc.)
+        // can read it as a plain ldfld instead of paying for a property getter
+        // call that Mono in the editor doesn't reliably inline at scale.
+        //
+        // The Player property below is preserved so existing compiled scripts
+        // (e.g. Cilbox-sandboxed avatars whose IL emits `callvirt get_Player()`)
+        // keep working. AggressiveInlining lets the JIT collapse the property to
+        // a single ldfld in retail builds.
+        //
+        // [NonSerialized] preserves the auto-property's "Unity won't serialize this"
+        // behavior — _player is always assigned at runtime by the player factory.
+        //
+        // Invariant: non-null for any BasisNetworkPlayer that is currently in
+        // BasisNetworkPlayers.Players (i.e. published into the dictionary or in
+        // ReceiversSnapshot). The factory writes Player before publishing the
+        // entry, and the entry is removed before Player is cleared on teardown.
+        // Hot loops iterating ReceiversSnapshot can read Player.X directly without
+        // a null check; only initialization, UI, or async-lookup paths that may
+        // race a despawn need <see cref="TryGetPlayer"/> (the safe accessor).
+        [System.NonSerialized] internal BasisPlayer _player;
+
+        public BasisPlayer Player
         {
-            muscles = new float[MuscleCount],
-            bodyPosition = Vector3.zero,
-            bodyRotation = Quaternion.identity,
-        };
-        [SerializeField]
-        public HumanPoseHandler PoseHandler;
-        public BasisPlayer Player {get; set; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => _player;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set => _player = value;
+        }
+
+        /// <summary>
+        /// Safe accessor for callers that may run before the receiver is published
+        /// or after it has started teardown — UI, async ownership lookups, etc.
+        /// Hot per-frame paths should read <see cref="Player"/> directly.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool TryGetPlayer(out BasisPlayer player)
+        {
+            player = _player;
+            return player != null;
+        }
         public bool hasID = false;
         public bool HasReasonToSendAudio
         {
@@ -62,7 +94,27 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
             }
         }
-        public ushort playerId {get; protected set; }
+        // Plain field, not an auto-property: this is read thousands of times per
+        // frame in hot loops (SimulateNetworkApply, SetSkipMuscles, nameplate
+        // gather, etc.). Auto-property compiles to a get_playerId() method call
+        // that Mono in the editor does not inline, showing up in the profiler as
+        // a measurable per-call cost at 1k+ remotes. Subclasses still assign it
+        // directly (Receiver/Transmitter/UnInitalized constructors).
+        public ushort playerId;
+
+        // Compatibility for already-compiled Cilbox content that was built when
+        // playerId was an auto-property and emits a call to get_playerId().
+        public ushort get_playerId()
+        {
+            return playerId;
+        }
+
+        /// <summary>
+        /// Local realtime (Time.realtimeSinceStartup) at which this player was constructed.
+        /// Used to sort the players UI by arrival order and to display "joined Xs ago".
+        /// Captured here because the server doesn't send a join timestamp.
+        /// </summary>
+        public float JoinTime = Time.realtimeSinceStartup;
         public Dictionary<byte, ServerAvatarDataMessageQueue> NextMessages = new Dictionary<byte, ServerAvatarDataMessageQueue>();
         public struct ServerAvatarDataMessageQueue
         {
@@ -95,20 +147,41 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
         }
         public int NetworkBehaviourCount = 0;
-        public BasisAvatarMonoBehaviour[] NetworkBehaviours;
+        public BasisNetworkAvatarBehaviour[] NetworkBehaviours;
+        /// <summary>
+        /// Fires <see cref="BasisNetworkAvatarBehaviour.OnNetworkTerminated"/> on every behaviour
+        /// from the currently tracked avatar and clears the array. Call before the avatar
+        /// GameObject is destroyed (avatar swap, disconnect) so subclasses can release any
+        /// network-owned state while the references are still valid.
+        /// </summary>
+        public void NotifyNetworkBehavioursTerminated()
+        {
+            if (NetworkBehaviours == null)
+            {
+                return;
+            }
+            int length = NetworkBehaviours.Length;
+            for (int Index = 0; Index < length; Index++)
+            {
+                BasisNetworkAvatarBehaviour behaviour = NetworkBehaviours[Index];
+                if (behaviour != null)
+                {
+                    behaviour.OnNetworkUnassign();
+                }
+            }
+            NetworkBehaviours = null;
+            NetworkBehaviourCount = 0;
+        }
         public void AvatarLoadComplete()
         {
+            // Avatar swap: terminate behaviours from the prior avatar before re-collecting.
+            NotifyNetworkBehavioursTerminated();
             if (CheckForAvatar())
             {
                 BasisAvatar basisAvatar = Player.BasisAvatar;
-                // All checks pas
-                PoseHandler = new HumanPoseHandler(
-                    basisAvatar.Animator.avatar,
-                    Player.AvatarAnimatorTransform
-                );
                // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
-                NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
+                NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisNetworkAvatarBehaviour>(true);
                 NetworkBehaviourCount = NetworkBehaviours.Length;
                 int length = NetworkBehaviours.Length;
                 if (length > 256)
@@ -214,8 +287,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// <param name="Rotation"></param>
         public void GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation)
         {
-            Position = Player.BasisAvatar.Animator.rootPosition;
-            Rotation = Player.BasisAvatar.Animator.rootRotation;
+            Player.AvatarTransform.GetPositionAndRotation(out Position, out Rotation);
         }
 
         public async Task<bool> IsOwner(string IOwnThis)
@@ -419,9 +491,16 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 return Quaternion.identity;
             }
         }
-        public bool HasOverridenDestination { get; private set; } = false;
-        public float3 OverridenPosition { get; private set; } = float3.zero;
-        public Quaternion OverridenRotation { get; private set; } = Quaternion.identity;
+        // Plain fields — read once per receiver per frame in
+        // BasisNetworkManagement.SimulateNetworkApply (and SetFilteredHipsOverride).
+        // Same reasoning as playerId: auto-property getters were showing up in
+        // the profiler at scale because Mono editor builds don't inline them.
+        // Writes are still funneled through OverridenDestinationOfRoot /
+        // ProvidedDestinationOfRoot, so the "private set" intent is preserved
+        // by convention even though the field is technically writable.
+        public bool HasOverridenDestination = false;
+        public float3 OverridenPosition = float3.zero;
+        public Quaternion OverridenRotation = Quaternion.identity;
         public void OverridenDestinationOfRoot(bool hasOverridenDestination)
         {
             if (Player.IsLocal)
@@ -502,29 +581,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             get
             {
-                if (Player != null)
-                {
-                    return Player.DisplayName;
-                }
-                else
-                {
-                    return string.Empty;
-                }
+                var p = _player;
+                return p != null ? p.DisplayName : string.Empty;
             }
         }
-        
+
         public string SafeDisplayName
         {
             get
             {
-                if (Player != null)
-                {
-                    return Player.SafeDisplayName;
-                }
-                else
-                {
-                    return string.Empty;
-                }
+                var p = _player;
+                return p != null ? p.SafeDisplayName : string.Empty;
             }
         }
     }

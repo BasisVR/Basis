@@ -732,7 +732,7 @@ namespace LiteNetLib
             {
                 //if cannot be fragmented
                 if (deliveryMethod != DeliveryMethod.ReliableOrdered && deliveryMethod != DeliveryMethod.ReliableUnordered)
-                    throw new TooBigPacketException("Unreliable or ReliableSequenced packet size exceeded maximum of " + (mtu - headerSize) + " bytes, Check allowed size by GetMaxSinglePacketSize()");
+                    throw new TooBigPacketException($"Unreliable or ReliableSequenced packet size exceeded maximum of {mtu - headerSize} bytes, Check allowed size by GetMaxSinglePacketSize() {length + headerSize}");
 
                 int packetFullSize = mtu - headerSize;
                 int packetDataSize = packetFullSize - NetConstants.FragmentHeaderSize;
@@ -864,7 +864,7 @@ namespace LiteNetLib
             {
                 //if cannot be fragmented
                 if (deliveryMethod != DeliveryMethod.ReliableOrdered && deliveryMethod != DeliveryMethod.ReliableUnordered)
-                    throw new TooBigPacketException("Unreliable or ReliableSequenced packet size exceeded maximum of " + (mtu - headerSize) + " bytes, Check allowed size by GetMaxSinglePacketSize()");
+                    throw new TooBigPacketException($"Unreliable or ReliableSequenced packet size exceeded maximum of {mtu - headerSize} bytes, Check allowed size by GetMaxSinglePacketSize() data size was {length + headerSize}");
 
                 int packetFullSize = mtu - headerSize;
                 int packetDataSize = packetFullSize - NetConstants.FragmentHeaderSize;
@@ -1295,12 +1295,14 @@ namespace LiteNetLib
                     int pos = NetConstants.HeaderSize;
                     while (pos < packet.Size)
                     {
+                        if (pos + 2 > packet.Size)
+                            break;
                         ushort size = BitConverter.ToUInt16(packet.RawData, pos);
                         if (size == 0)
                             break;
 
                         pos += 2;
-                        if (packet.RawData.Length - pos < size)
+                        if (packet.Size - pos < size)
                             break;
 
                         NetPacket mergedPacket = NetManager.PoolGetPacket(size);
@@ -1420,7 +1422,7 @@ namespace LiteNetLib
             packet.RawData[1] = channelNumber;
             Buffer.BlockCopy(data, offset, packet.RawData, headerSize, length);
 
-            if (patchOffset >= 0)
+            if (patchOffset >= 0 && patchOffset < length)
                 packet.RawData[headerSize + patchOffset] = patchValue;
 
             EnqueueUnreliable(packet);

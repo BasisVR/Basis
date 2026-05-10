@@ -39,6 +39,6 @@ public class BasisUnhideAllBehaviours : EditorWindow
             }
         }
 
-        Debug.Log($"Unhid {total} hidden behaviours/GameObjects.");
+        Debug.Log($"Unhid {total} hidden behaviour(s)/GameObject(s)");
     }
 }

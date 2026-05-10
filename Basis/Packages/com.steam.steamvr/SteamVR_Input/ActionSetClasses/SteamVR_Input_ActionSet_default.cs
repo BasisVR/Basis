@@ -24,7 +24,15 @@ namespace Valve.VR
                 return SteamVR_Actions.default_Pose;
             }
         }
-        
+
+        public virtual SteamVR_Action_Pose EyeGaze
+        {
+            get
+            {
+                return SteamVR_Actions.default_EyeGaze;
+            }
+        }
+
         public virtual SteamVR_Action_Skeleton SkeletonLeftHand
         {
             get

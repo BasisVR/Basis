@@ -37,19 +37,50 @@ public class SimpleOSC
 {
 	public enum Impulse {IMPULSE}
 	public struct TimeTag {
-		public int secs;
-		public int nsecs;
+		public uint secs;
+		public uint nsecs;
 		public override string ToString() {
 			return "" + secs + ":" + nsecs;
 		}
 #if UNITY
-			public static implicit operator UnityEngine.Vector2Int(TimeTag tt) {
-				return new UnityEngine.Vector2Int { x = tt.secs, y = tt.nsecs };
+			// Vector2Int is signed; this conversion is only for raw 32-bit compatibility.
+			public static explicit operator UnityEngine.Vector2Int(TimeTag tt) {
+				return new UnityEngine.Vector2Int { x = unchecked((int)tt.secs), y = unchecked((int)tt.nsecs) };
 			}
-			public static implicit operator TimeTag(UnityEngine.Vector2Int v2) {
-				return new TimeTag { secs = v2.x, nsecs = v2.y };
+			public static explicit operator TimeTag(UnityEngine.Vector2Int v2) {
+				return new TimeTag { secs = unchecked((uint)v2.x), nsecs = unchecked((uint)v2.y) };
 			}
 #endif
+	}
+	private static uint ReadUInt32NetworkOrder(byte[] data, int offset) {
+		return ((uint)data[offset] << 24) |
+		       ((uint)data[offset + 1] << 16) |
+		       ((uint)data[offset + 2] << 8) |
+		       data[offset + 3];
+	}
+	private static void WriteUInt32NetworkOrder(byte[] data, int offset, uint value) {
+		data[offset] = (byte)(value >> 24);
+		data[offset + 1] = (byte)(value >> 16);
+		data[offset + 2] = (byte)(value >> 8);
+		data[offset + 3] = (byte)value;
+	}
+	private static string ParsePaddedString(byte[] data, ref int offset) {
+		int start = offset;
+		while (offset < data.Length && data[offset] != 0) {
+			offset++;
+		}
+		if (offset >= data.Length) {
+			CryWolf("OSC string missing null terminator at offset " + start);
+			offset = data.Length;
+			return string.Empty;
+		}
+		string value = System.Text.Encoding.UTF8.GetString(data, start, offset - start);
+		offset = (offset + 4) & ~3;
+		if (offset > data.Length) {
+			CryWolf("OSC string padding exceeded packet length at offset " + start);
+			offset = data.Length;
+		}
+		return value;
 	}
 	public struct OSCColor {
 		public byte r;
@@ -74,6 +105,21 @@ public class SimpleOSC
 				return new UnityEngine.Color32 { r = c.r, g = c.g, b = c.b, a = c.a };
 			}
 #endif
+	}
+	public struct OSCSymbol {
+		public string value;
+		public override string ToString() {
+			return "OSCSymbol<" + value + ">";
+		}
+	}
+	public struct OSCMidi {
+		public byte port;
+		public byte status;
+		public byte data1;
+		public byte data2;
+		public override string ToString() {
+			return "OSCMidi<" + port + "," + status + "," + data1 + "," + data2 + ">";
+		}
 	}
 	public struct OSCMessage {
 		public IPEndPoint sender;
@@ -111,8 +157,8 @@ public class SimpleOSC
 	public static bool DebugLoggingEnabled = true; // Set to false to handle bad data without logspam.
 	static void CryWolf(string logMsg) {
 		if (DebugLoggingEnabled) {
-#if UNITY
-					UnityEngine.Debug.LogWarning(logMsg);
+#if UNITY && BASIS_FRAMEWORK_EXISTS
+					BasisDebug.LogWarning(logMsg, BasisDebug.LogTag.LocalNetwork);
 #else
 			System.Console.WriteLine(logMsg);
 #endif
@@ -156,6 +202,12 @@ public class SimpleOSC
 				case bool b:
 					sb.Append(b.ToString());
 					break;
+				case OSCSymbol symbol:
+					sb.Append(symbol.ToString());
+					break;
+				case OSCMidi midi:
+					sb.Append(midi.ToString());
+					break;
 				default:
 					sb.Append("(");
 					sb.Append(arg.GetType().Name);
@@ -194,20 +246,14 @@ public class SimpleOSC
 				offset += 4;
 				return fret;
 			case 't':
-				int secs = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset));
-				int nanosecs = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset + 4));
+				uint secs = ReadUInt32NetworkOrder(data, offset);
+				uint nanosecs = ReadUInt32NetworkOrder(data, offset + 4);
 				offset += 8;
 				return new TimeTag { secs = secs, nsecs = nanosecs };
 			case 's':
-				int strend = offset;
-				while (data[strend] != 0) {
-					strend++;
-				}
-				tmp = new byte[strend - offset];
-				Array.Copy(data, offset, tmp, 0, strend - offset);
-				offset = strend;
-				offset = (offset + 4) & ~3;
-				return System.Text.Encoding.UTF8.GetString(tmp);
+				return ParsePaddedString(data, ref offset);
+			case 'S':
+				return new OSCSymbol { value = ParsePaddedString(data, ref offset) };
 			case 'b':
 				int len = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset));
 				offset += 4;
@@ -240,6 +286,12 @@ public class SimpleOSC
 				uint cret = (uint)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset));
 				offset += 4;
 				return cret;
+			case 'm':
+				byte port = data[offset++];
+				byte status = data[offset++];
+				byte data1 = data[offset++];
+				byte data2 = data[offset++];
+				return new OSCMidi { port = port, status = status, data1 = data1, data2 = data2 };
 			default:
 				CryWolf("Unknown type tag " + typeTag + " offset " + offset);
 				break;
@@ -280,12 +332,30 @@ public class SimpleOSC
 						v2 = (TimeTag)value;
 						break;
 				}
-				Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)v2.secs)), 0, data, offset, 4);
-				Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)v2.nsecs)), 0, data, offset + 4, 4);
+				WriteUInt32NetworkOrder(data, offset, v2.secs);
+				WriteUInt32NetworkOrder(data, offset + 4, v2.nsecs);
 				offset += 8;
 				break;
 			case 's':
 				tmp = System.Text.Encoding.UTF8.GetBytes((string)value);
+				Array.Copy(tmp, 0, data, offset, tmp.Length);
+				data[tmp.Length + offset] = 0;
+				offset += tmp.Length;
+				for (int endOffset = (offset + 4) & ~3; offset < endOffset; offset++) {
+					data[offset] = 0;
+				}
+				break;
+			case 'S':
+				string symbolValue;
+				switch (value) {
+					case OSCSymbol symbol:
+						symbolValue = symbol.value;
+						break;
+					default:
+						symbolValue = value?.ToString() ?? "";
+						break;
+				}
+				tmp = System.Text.Encoding.UTF8.GetBytes(symbolValue);
 				Array.Copy(tmp, 0, data, offset, tmp.Length);
 				data[tmp.Length + offset] = 0;
 				offset += tmp.Length;
@@ -341,6 +411,22 @@ public class SimpleOSC
 				Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)(uint)value)), 0, data, offset, 4);
 				offset += 4;
 				break;
+			case 'm':
+				OSCMidi midi;
+				switch (value) {
+					case OSCMidi oscMidi:
+						midi = oscMidi;
+						break;
+					default:
+						CryWolf("Invalid MIDI value " + value?.GetType());
+						midi = default;
+						break;
+				}
+				data[offset++] = midi.port;
+				data[offset++] = midi.status;
+				data[offset++] = midi.data1;
+				data[offset++] = midi.data2;
+				break;
 			default:
 				CryWolf("Unexpected type tag to serialize " + typeTag + " offset " + offset);
 				break;
@@ -350,8 +436,8 @@ public class SimpleOSC
 	public static void DecodeOSCInto(ConcurrentQueue<OSCMessage> outQueue, byte[] data, int offset, int length, IPEndPoint senderIp=null, uint bundleId=0, TimeTag bundleTimetag=new TimeTag(), uint bundleIdNested=0) {
 		if (offset == 0 && length > 20 && data[offset] == '#' && data[offset + 1] == 'b' && data[offset + 2] == 'u' && data[offset + 3] == 'n' &&
 		    data[offset + 4] == 'd' && data[offset + 5] == 'l' && data[offset + 6] == 'e' && data[offset + 7] == 0) {
-			int secs = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset + 8));
-			int nanosecs = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(data, offset + 12));
+			uint secs = ReadUInt32NetworkOrder(data, offset + 8);
+			uint nanosecs = ReadUInt32NetworkOrder(data, offset + 12);
 			bundleTimetag = new TimeTag { secs = secs, nsecs = nanosecs };
 			offset += 16;
 			while (offset < length) {
@@ -386,7 +472,8 @@ public class SimpleOSC
 		List<object> topLevelArguments = new List<object>();
 		List<List<object>> nested = new List<List<object>>();
 		nested.Add(topLevelArguments);
-		for (int i = 1; i < msg.typeTag.Length; i++) {
+		int typeTagLength = msg.typeTag.Length;
+		for (int i = 1; i < typeTagLength; i++) {
 			// Debug.Log("doing type tag " + msg.typeTag[i] + " offset: " + offset);
 			object obj;
 			switch (msg.typeTag[i]) {
@@ -452,6 +539,9 @@ public class SimpleOSC
 				case string s:
 					typeTag.Append('s');
 					break;
+				case OSCSymbol symbol:
+					typeTag.Append('S');
+					break;
 				case byte[] b:
 					typeTag.Append('b');
 					break;
@@ -469,6 +559,9 @@ public class SimpleOSC
 					break;
 				case uint c: // represent OSC char as uint. confusing???
 					typeTag.Append('c');
+					break;
+				case OSCMidi midi:
+					typeTag.Append('m');
 					break;
 				default:
 					CryWolf("Invalid type " + po.GetType() + " at " + typeTag);
@@ -522,12 +615,12 @@ public class SimpleOSC
 			}
 		}
 	}
-
+	private static readonly byte[] bundleHeader = new byte[]{(byte)'#',(byte)'b',(byte)'u',(byte)'n',(byte)'d',(byte)'l',(byte)'e',0};
 	public static void EncodeOSCBundleInto(byte[] data, ref int offset, List<OSCMessage> packets, TimeTag tt) {
-		Array.Copy(new byte[]{(byte)'#',(byte)'b',(byte)'u',(byte)'n',(byte)'d',(byte)'l',(byte)'e',0}, 0, data, offset, 8);
+		Array.Copy(bundleHeader, 0, data, offset, 8);
 		offset += 8;
-		Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)tt.secs)), 0, data, offset, 4);
-		Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)tt.nsecs)), 0, data, offset + 4, 4);
+		WriteUInt32NetworkOrder(data, offset, tt.secs);
+		WriteUInt32NetworkOrder(data, offset + 4, tt.nsecs);
 		offset += 8;
 		foreach (var msg in packets) {
 			int startOffset = offset;
@@ -571,9 +664,12 @@ public class SimpleOSC
 					} catch (Exception e) {
 						CryWolf(e.ToString());
 					}
+				} catch (ObjectDisposedException) {
+					CryWolf("[SimpleOSC] UDP socket disposed, receive thread exiting.");
+					break;
 				} catch (SocketException) {
 					if (!shutdown) {
-						continue; //throw;
+						continue;
 					}
 				}
 			}

@@ -4,6 +4,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -54,13 +55,23 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisLocalPlayer.Instance.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
         }
 
+        // Cached delegate + queue avoids per-call closure allocation (~80 bytes GC per call)
+        static readonly ConcurrentQueue<(string UniqueID, float Progress, string Info)> _pendingReports = new();
+        static readonly Action _processPendingReports = ProcessPendingReports;
+
         public static void ProgressReport(string UniqueID, float progress, string info)
         {
-            BasisDeviceManagement.EnqueueOnMainThread((Action)(() =>
+            _pendingReports.Enqueue((UniqueID, progress, info));
+            BasisDeviceManagement.EnqueueOnMainThread(_processPendingReports);
+        }
+
+        static void ProcessPendingReports()
+        {
+            while (_pendingReports.TryDequeue(out var report))
             {
-                if (progress == 100)
+                if (report.Progress == 100)
                 {
-                    Instance?.RemoveDisplay(UniqueID);
+                    Instance?.RemoveDisplay(report.UniqueID);
                 }
                 else
                 {
@@ -68,9 +79,9 @@ namespace Basis.Scripts.UI.UI_Panels
                     {
                         BasisUIBase.OpenMenuNow(LoadingBar);
                     }
-                    Instance.AddOrUpdateDisplay(UniqueID, progress, info);
+                    Instance?.AddOrUpdateDisplay(report.UniqueID, report.Progress, report.Info);
                 }
-            }));
+            }
         }
 
         public static void CloseLoadingBar()

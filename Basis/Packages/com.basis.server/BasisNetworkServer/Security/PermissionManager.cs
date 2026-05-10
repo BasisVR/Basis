@@ -26,6 +26,14 @@ namespace BasisPermissions
         public const string ResourceLoadAvatar = "basis.resource.load.avatar";
         public const string ResourceUnloadAvatar = "basis.resource.unload.avatar";
 
+        // Bypass the global lockouts (BasisGlobalLockManager). Users without
+        // the matching bypass node are blocked from loading while the lock is on.
+        public const string ResourceLockBypassAvatar = "basis.resource.lockbypass.avatar";
+        public const string ResourceLockBypassProp = "basis.resource.lockbypass.prop";
+        public const string ResourceLockBypassWorld = "basis.resource.lockbypass.world";
+        /// <summary>Bypass <c>ServersLocked</c> when initiating a server share.</summary>
+        public const string ResourceLockBypassServer = "basis.resource.lockbypass.server";
+
         public const string OwnershipTransfer = "basis.ownership.transfer";
         public const string OwnershipRemove = "basis.ownership.remove";
         public const string OwnershipGet = "basis.ownership.get";
@@ -51,6 +59,11 @@ namespace BasisPermissions
         public const string ModerationMessageAll = "basis.moderation.messageall";
         public const string ModerationTeleport = "basis.moderation.teleport";
         public const string ModerationShout = "basis.moderation.shout";
+        public const string ModerationGlobalLock = "basis.moderation.globallock";
+        public const string ModerationHeadlessAudio = "basis.moderation.headlessaudio";
+        public const string ModerationOpusBitrate = "basis.moderation.opusbitrate";
+        /// <summary>Add/remove UUIDs on the server's allow-list (separate from ban management).</summary>
+        public const string ModerationWhitelist = "basis.moderation.whitelist";
 
         public const string PermissionsView = "basis.permissions.view";
         public const string PermissionsEdit = "basis.permissions.edit";
@@ -736,6 +749,9 @@ namespace BasisPermissions
                     def.Nodes.Add(PermNodes.ResourceLoadAvatar);
                     def.Nodes.Add(PermNodes.ResourceUnloadAvatar);
 
+                    def.Nodes.Add(PermNodes.ResourceLoadWorld);
+                    def.Nodes.Add(PermNodes.ResourceUnloadWorld);
+
                     def.Nodes.Add(PermNodes.OwnershipTransfer);
                     def.Nodes.Add(PermNodes.OwnershipRemove);
                     def.Nodes.Add(PermNodes.OwnershipGet);
@@ -758,7 +774,15 @@ namespace BasisPermissions
                     adm.Nodes.Add(PermNodes.ModerationMessageAll);
                     adm.Nodes.Add(PermNodes.ModerationTeleport);
                     adm.Nodes.Add(PermNodes.ModerationShout);
+                    adm.Nodes.Add(PermNodes.ModerationGlobalLock);
+                    adm.Nodes.Add(PermNodes.ModerationHeadlessAudio);
+                    adm.Nodes.Add(PermNodes.ModerationOpusBitrate);
                     adm.Nodes.Add(PermNodes.PermissionsView);
+
+                    adm.Nodes.Add(PermNodes.ResourceLockBypassAvatar);
+                    adm.Nodes.Add(PermNodes.ResourceLockBypassProp);
+                    adm.Nodes.Add(PermNodes.ResourceLockBypassWorld);
+                    adm.Nodes.Add(PermNodes.ResourceLockBypassServer);
 
                     _store.Groups["moderator"] = adm;
                 }

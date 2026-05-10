@@ -21,6 +21,21 @@ public struct BasisDistanceJobParallel : IJobParallelFor
     /// <summary>Normalized = d2 * ReductionMultiplier (caller defines scaling)</summary>
     public float ReductionMultiplier;
 
+    /// <summary>When true, the LOD calculation scales squared distance down for players
+    /// inside the gaze cone so they get a higher-detail mesh LOD even at distance.</summary>
+    public bool UseEyeGaze;
+
+    /// <summary>World-space gaze forward vector (unit length). Only consumed when <see cref="UseEyeGaze"/> is true.</summary>
+    public float3 GazeForward;
+
+    /// <summary>Cosine of the half-angle of the gaze cone. Players with dot(gazeForward, dir) above this threshold
+    /// get the foveation boost.</summary>
+    public float CosHalfGazeCone;
+
+    /// <summary>Multiplier applied to squared distance for players at the cone center; players at the cone edge
+    /// receive no boost. Lower values = stronger foveation. Identity boost is 1.0.</summary>
+    public float GazeBoostFactor;
+
     [ReadOnly] public float3 referencePosition;
     [ReadOnly] public NativeArray<float3> targetPositions;
 
@@ -69,7 +84,19 @@ public struct BasisDistanceJobParallel : IJobParallelFor
         hearingRange[i] = hearing;
         AvatarRange[i] = avatar;
 
-        float normalized = d2 * ReductionMultiplier;
+        float effectiveD2 = d2;
+        if (UseEyeGaze && d2 > 1e-6f)
+        {
+            float3 dir = diff * math.rsqrt(d2);
+            float gazeDot = math.dot(GazeForward, dir);
+            if (gazeDot >= CosHalfGazeCone)
+            {
+                float t = (gazeDot - CosHalfGazeCone) / math.max(1f - CosHalfGazeCone, 1e-6f);
+                effectiveD2 = d2 * math.lerp(1f, GazeBoostFactor, t);
+            }
+        }
+
+        float normalized = effectiveD2 * ReductionMultiplier;
         int lod = (int)math.floor(normalized * 4f);
         lod = math.clamp(lod, 0, 3);
         short newLod = (short)lod;
@@ -261,6 +288,8 @@ public struct BasisAvatarCapJob : IJob
 /// camera forward) keep AvatarRange = true. Players outside the cone
 /// have AvatarRange set to false, causing a fallback avatar.
 /// Scheduled after distance + cap jobs so it acts as a final filter.
+/// Uses hysteresis: players already visible use a wider exit threshold
+/// to prevent flickering when the camera wobbles near the cone boundary.
 /// </summary>
 [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Standard)]
 public struct BasisViewConeAvatarJob : IJobParallelFor
@@ -268,8 +297,11 @@ public struct BasisViewConeAvatarJob : IJobParallelFor
     public float3 ListenerPosition;
     public float3 ListenerForward;
     public float CosHalfCone;
+    /// <summary>Wider threshold for players that were visible last frame (lower cosine = wider angle).</summary>
+    public float CosHalfConeExit;
 
     [ReadOnly] public NativeArray<float3> TargetPositions;
+    [ReadOnly] public NativeArray<bool> PrevInAvatarRange;
 
     [NativeDisableParallelForRestriction]
     public NativeArray<bool> AvatarRange;
@@ -292,7 +324,9 @@ public struct BasisViewConeAvatarJob : IJobParallelFor
         float3 dir = toTarget * math.rsqrt(sqrMag);
         float dot = math.dot(ListenerForward, dir);
 
-        if (dot < CosHalfCone)
+        // Hysteresis: players already visible use a wider exit cone
+        float threshold = PrevInAvatarRange[i] ? CosHalfConeExit : CosHalfCone;
+        if (dot < threshold)
         {
             AvatarRange[i] = false;
         }
@@ -306,6 +340,128 @@ public struct AvatarCapEntry
 {
     public int Index;
     public float EffectiveDistSq;
+}
+
+/// <summary>
+/// Sortable entry for the audio source cap.
+/// </summary>
+public struct AudioCapEntry
+{
+    public int Index;
+    public float EffectiveDistSq;
+}
+
+/// <summary>
+/// Burst job that enforces the MaxAudioSources cap.
+/// Mirrors BasisAvatarCapJob but operates on hearingRange instead of AvatarRange.
+/// Uses quickselect O(n) average to partition the closest N candidates,
+/// then flips hearingRange to false for everyone beyond the cap.
+/// </summary>
+[BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Standard)]
+public struct BasisAudioCapJob : IJob
+{
+    public int MaxAudio;
+    public int ReceiverCount;
+    public float StickinessBonus;
+
+    [ReadOnly] public NativeArray<float> DistanceSq;
+    [ReadOnly] public NativeArray<bool> HasActiveAudioSource;
+
+    public NativeArray<bool> HearingRange;
+    public NativeArray<AudioCapEntry> Entries;
+
+    public void Execute()
+    {
+        if (MaxAudio <= 0 || ReceiverCount <= 0)
+        {
+            return;
+        }
+
+        int count = 0;
+        for (int i = 0; i < ReceiverCount; i++)
+        {
+            if (!HearingRange[i])
+            {
+                continue;
+            }
+
+            float d2 = DistanceSq[i];
+            Entries[count++] = new AudioCapEntry
+            {
+                Index = i,
+                EffectiveDistSq = HasActiveAudioSource[i] ? d2 * StickinessBonus : d2,
+            };
+        }
+
+        if (count <= MaxAudio)
+        {
+            return;
+        }
+
+        NthElement(0, count - 1, MaxAudio);
+
+        for (int i = MaxAudio; i < count; i++)
+        {
+            HearingRange[Entries[i].Index] = false;
+        }
+    }
+
+    private void NthElement(int left, int right, int n)
+    {
+        while (left < right)
+        {
+            int pivot = Partition(left, right);
+            if (pivot == n)
+            {
+                return;
+            }
+            if (pivot < n)
+            {
+                left = pivot + 1;
+            }
+            else
+            {
+                right = pivot - 1;
+            }
+        }
+    }
+
+    private int Partition(int left, int right)
+    {
+        int mid = left + (right - left) / 2;
+        if (Entries[mid].EffectiveDistSq < Entries[left].EffectiveDistSq)
+        {
+            SwapEntries(left, mid);
+        }
+        if (Entries[right].EffectiveDistSq < Entries[left].EffectiveDistSq)
+        {
+            SwapEntries(left, right);
+        }
+        if (Entries[mid].EffectiveDistSq < Entries[right].EffectiveDistSq)
+        {
+            SwapEntries(mid, right);
+        }
+
+        float pivotVal = Entries[right].EffectiveDistSq;
+        int store = left;
+        for (int j = left; j < right; j++)
+        {
+            if (Entries[j].EffectiveDistSq <= pivotVal)
+            {
+                SwapEntries(store, j);
+                store++;
+            }
+        }
+        SwapEntries(store, right);
+        return store;
+    }
+
+    private void SwapEntries(int a, int b)
+    {
+        AudioCapEntry tmp = Entries[a];
+        Entries[a] = Entries[b];
+        Entries[b] = tmp;
+    }
 }
 
 /// <summary>

@@ -3,7 +3,9 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Common;
+using Basis.Scripts.Networking;
 using Basis.BasisUI;
+using BasisPermissions;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;
@@ -49,6 +51,10 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScrollClick;
 
         public InputActionReference MoveLocalUpDown;
+        public InputActionReference OpenChat;
+        public InputActionReference ToggleMicMute;
+        public InputActionReference ToggleThirdPerson;
+        public InputActionReference CameraZoomAction;
         #endregion
 
         [Header("Sensitivity Settings")]
@@ -86,9 +92,24 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private Vector2 manualMoveVector = Vector2.zero;
 
+        private float lastJumpPressTime = -1f;
+        private const float DoublePressWindow = 0.3f;
+
         private const float deltaCoefficient = 0.1f;
 
+        private bool canZoomCamera = false;
+
         #region Unity Lifecycle
+
+        // Enable Unity Input System internal optimizations once at app startup so every input path
+        // (desktop + XR) benefits. Previously these were in OnEnable and only fired for the desktop
+        // input component, leaving the XR path un-optimized.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ApplyInputSystemOptimizations()
+        {
+            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
+            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
+        }
 
         public void OnEnable()
         {
@@ -96,8 +117,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             {
                 Instance = this;
             }
-            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
-            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
             BasisLocalCameraDriver.InstanceExists += SetupCamera;
             // Create user (or you may already have one from PlayerInput, etc.)
             var user = InputUser.CreateUserWithoutPairedDevices();
@@ -110,6 +129,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     InputUser.PerformPairingWithDevice(device, user);
                 }
             }
+
+            SettingsProviderKeyboardBindings.LoadBindingOverrides(Input.actions);
 
             if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
             {
@@ -180,6 +201,10 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
             MoveLocalUpDown.action.Enable();
+            OpenChat.action.Enable();
+            ToggleMicMute.action.Enable();
+            ToggleThirdPerson.action.Enable();
+            CameraZoomAction.action.Enable();
         }
 
         private void DisableActions()
@@ -201,6 +226,10 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MiddleMouseScroll?.action?.Disable();
             MiddleMouseScrollClick?.action?.Disable();
             MoveLocalUpDown?.action?.Disable();
+            OpenChat?.action?.Disable();
+            ToggleMicMute?.action?.Disable();
+            ToggleThirdPerson?.action?.Disable();
+            CameraZoomAction?.action?.Disable();
         }
 
         private void AddCallbacks()
@@ -251,6 +280,18 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             VRSwitch.action.performed += OnSwitchOpenVR;
             XRSwitch.action.performed += OnSwitchOpenXR;
 
+            OpenChat.action.performed += OnOpenChatPerformed;
+            OpenChat.action.canceled += OnOpenChatCancelled;
+
+            ToggleMicMute.action.performed += OnToggleMicMutePerformed;
+            ToggleMicMute.action.canceled += OnToggleMicMuteCancelled;
+
+            ToggleThirdPerson.action.performed += OnToggleThirdPerson;
+            ToggleThirdPerson.action.canceled += OnToggleThirdPersonCanceled;
+
+            CameraZoomAction.action.performed += OnCameraZoom;
+            CameraZoomAction.action.canceled += OnCameraZoomCanceled;
+
             BasisCursorManagement.OnCursorStateChange += OnCursorStateChanged;
         }
 
@@ -282,6 +323,10 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             SafeRemoveCallbacks(DesktopSwitch, OnSwitchDesktop, OnSwitchDesktop);
             SafeRemoveCallbacks(VRSwitch, OnSwitchOpenVR);
             SafeRemoveCallbacks(XRSwitch, OnSwitchOpenXR);
+            SafeRemoveCallbacks(OpenChat, OnOpenChatPerformed, OnOpenChatCancelled);
+            SafeRemoveCallbacks(ToggleMicMute, OnToggleMicMutePerformed, OnToggleMicMuteCancelled);
+            SafeRemoveCallbacks(ToggleThirdPerson, OnToggleThirdPerson, OnToggleThirdPersonCanceled);
+            SafeRemoveCallbacks(CameraZoomAction, OnCameraZoom, OnCameraZoomCanceled);
 
             BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
         }
@@ -331,10 +376,11 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 {
                     sensitivity = KeyboardSensitivity;
                 }
-                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
+                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity, IsMonoStableInput(ctx.control.device));
             }
         }
-        public void OnLookAction(Vector2 delta, float sensitivity)
+
+        public void OnLookAction(Vector2 delta, float sensitivity, bool isMonoStable = false)
         {
             var lookDelta = delta * (deltaCoefficient * sensitivity);
             if (SMModuleControllerSettings.HasInvertedMouse)
@@ -344,7 +390,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (IsCrouchHeld)
             {
                 LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
-                lookDelta.y = 0;
+                lookDelta.y = 0f;
+            }
+            if (isMonoStable && canZoomCamera)
+            {
+                BasisLocalCameraDriver.Instance.ApplyZoom(lookDelta.y);
+                lookDelta.x = 0f;
+                lookDelta.y = 0f;
             }
             DesktopEyeInput?.SetLookRotationVector(lookDelta);
         }
@@ -360,6 +412,38 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             IsJumpHeld = true;
             LocalCharacterDriver.IsJumpHeld = true;
             LocalCharacterDriver.HandleJumpRequest();
+
+            // Admin double-press fly toggle (desktop only)
+            if (!BasisDeviceManagement.IsCurrentModeVR())
+            {
+                float now = Time.unscaledTime;
+                if (now - lastJumpPressTime <= DoublePressWindow)
+                {
+                    TryToggleFlyMode();
+                    lastJumpPressTime = -1f;
+                }
+                else
+                {
+                    lastJumpPressTime = now;
+                }
+            }
+        }
+
+        private void TryToggleFlyMode()
+        {
+            if (!BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsEdit))
+            {
+                return;
+            }
+
+            if (LocalCharacterDriver.CurrentModeKind == BasisLocalCharacterDriver.Mode.Fly)
+            {
+                LocalCharacterDriver.SetMode(BasisLocalCharacterDriver.Mode.Walk);
+            }
+            else
+            {
+                LocalCharacterDriver.SetMode(BasisLocalCharacterDriver.Mode.Fly);
+            }
         }
 
         public void OnJumpActionCancelled(InputAction.CallbackContext ctx)
@@ -409,6 +493,109 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         public void OnEscapeCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnOpenChatPerformed(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance.IsTyping() == false)
+            {
+                SettingsProvider.OpenToTab("settings.tab.chat");
+            }
+        }
+
+        public void OnOpenChatCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnToggleMicMutePerformed(InputAction.CallbackContext ctx)
+        {
+#if !BASIS_DISABLE_MICROPHONE
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            switch (SMDMicrophone.Current.TalkMode)
+            {
+                case SMDMicrophone.BasisMicrophoneMode.OnActivation:
+                    BasisLocalMicrophoneDriver.ToggleIsPaused();
+                    break;
+
+                case SMDMicrophone.BasisMicrophoneMode.PushToTalk:
+                    if (BasisLocalMicrophoneDriver.isPaused)
+                        BasisLocalMicrophoneDriver.ToggleIsPaused();
+                    break;
+            }
+#endif
+        }
+
+        public void OnToggleMicMuteCancelled(InputAction.CallbackContext ctx)
+        {
+#if !BASIS_DISABLE_MICROPHONE
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            if (SMDMicrophone.Current.TalkMode == SMDMicrophone.BasisMicrophoneMode.PushToTalk
+                && BasisLocalMicrophoneDriver.isPaused == false)
+            {
+                BasisLocalMicrophoneDriver.ToggleIsPaused();
+            }
+#endif
+        }
+
+        public void OnToggleThirdPerson(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            if (BasisLocalCameraDriver.HasInstance == false)
+                return;
+
+            if (ctx.interaction is TapInteraction && ctx.phase == InputActionPhase.Performed)
+            {
+                BasisLocalCameraDriver.Instance.ToggleThirdPerson();
+            }
+            if (ctx.interaction is HoldInteraction && ctx.phase == InputActionPhase.Performed)
+            {
+                canZoomCamera = true;
+            }
+        }
+
+        public void OnToggleThirdPersonCanceled(InputAction.CallbackContext ctx)
+        {
+            canZoomCamera = false;
+        }
+
+        public void OnCameraZoom(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            float zoomDelta = ctx.ReadValue<float>() * 0.5f;
+
+            if (!canZoomCamera) zoomDelta = 0f;
+
+            // Disable zoom when interacting with UI
+            if (DesktopEyeInput != null && DesktopEyeInput.HasRaycaster && DesktopEyeInput.BasisUIRaycast.HadRaycastUITarget)
+                zoomDelta = 0f;
+
+            // Disable zoom when holding a physics object
+            if (Basis.Scripts.BasisSdk.Interactions.BasisPlayerInteract.Instance != null && DesktopEyeInput != null)
+            {
+                var interactSystem = Basis.Scripts.BasisSdk.Interactions.BasisPlayerInteract.Instance;
+                for (int i = 0; i < interactSystem.InteractInputs.Length; i++)
+                {
+                    var input = interactSystem.InteractInputs[i];
+                    if (input.input != null && input.input.UniqueDeviceIdentifier == DesktopEyeInput.UniqueDeviceIdentifier)
+                    {
+                        if (input.lastTarget != null && input.lastTarget.IsInteractingWith(DesktopEyeInput))
+                            zoomDelta = 0f;
+                    }
+                }
+            }
+
+            if (BasisLocalCameraDriver.HasInstance)
+            {
+                BasisLocalCameraDriver.Instance.ApplyZoom(zoomDelta);
+            }
+        }
+
+        public void OnCameraZoomCanceled(InputAction.CallbackContext ctx) { }
 
         public void OnTabPerformed(InputAction.CallbackContext ctx)
         {

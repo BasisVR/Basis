@@ -1,4 +1,5 @@
 using Basis.Network.Core;
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -25,6 +26,10 @@ namespace Basis.Scripts.Networking
         public static event Action<NetPeer> OnConnectedToServer;
         public static event Action<NetPeer, DisconnectInfo> OnDisconnectedFromServer;
         public static BasisNetworkServerRunner BasisNetworkServerRunner = null;
+#if UNITY_SERVER
+        public static bool HeadlessReconnectSuppressed { get; set; }
+        public static Action<DisconnectInfo> OnDisconnectedAfterReboot;
+#endif
         private static bool HasRegisteredBnlLogging;
         private static void LogErrorOutput(string msg) => BasisDebug.LogError(msg, BasisDebug.LogTag.Networking);
         private static void LogWarningOutput(string msg) => BasisDebug.LogWarning(msg);
@@ -138,7 +143,7 @@ namespace Basis.Scripts.Networking
                     UseAuthIdentity = true,
                     UseAuth = true,
                     Password = primitivePassword,
-                    EnableStatistics = false,
+                    EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue,
                     TransportType = transportType,
                     UseSteamRelay = useSteamRelay,
                     SteamLobbyId = steamLobbyId,
@@ -189,7 +194,7 @@ namespace Basis.Scripts.Networking
                         UseAuthIdentity = true,
                         UseAuth = true,
                         Password = primitivePassword,
-                        EnableStatistics = false,
+                        EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue,
                         TransportType = transportType,
                         UseSteamRelay = useSteamRelay,
                         SteamLobbyId = steamLobbyId,
@@ -243,12 +248,18 @@ namespace Basis.Scripts.Networking
         private static void PeerConnectedEvent(NetPeer peer)
         {
             BasisDebug.Log("Success! Now setting up Networked Local Player");
+#if UNITY_SERVER
+            BasisHeadlessRuntimeStatus.MarkConnected();
+#endif
 
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
                 BasisDebug.Log("PeerConnectedEvent On MainThread");
                 try
                 {
+#if UNITY_SERVER
+                    Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.ResumeMovement();
+#endif
                     LocalPlayerPeer = peer;
                     ushort localPlayerID = (ushort)peer.RemoteId;
 
@@ -298,10 +309,24 @@ namespace Basis.Scripts.Networking
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
                 OnDisconnectedFromServer?.Invoke(peer, disconnectInfo);
+#if UNITY_SERVER
+                if (disconnectInfo.Reason == DisconnectReason.Timeout)
+                {
+                    string peerId = peer == null ? "null" : peer.RemoteId.ToString();
+                    BasisDebug.LogWarning($"Headless timeout diagnostic: peer={peerId}, localConnected={LocalPlayerIsConnected}, playerReady={BasisLocalPlayer.PlayerReady}, realtime={Time.realtimeSinceStartup:F1}s", BasisDebug.LogTag.Networking);
+                }
+                Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.StopMovement();
+#endif
                 BasisNetworkAvatarCompressor.Dispose();
                 bool displayReason = !SuppressNextDisconnectUi;
                 SuppressNextDisconnectUi = false;
                 await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, displayReason, peer, disconnectInfo);
+#if UNITY_SERVER
+                if (!HeadlessReconnectSuppressed)
+                {
+                    OnDisconnectedAfterReboot?.Invoke(disconnectInfo);
+                }
+#endif
                 OnRebootComplete?.Invoke();
             });
         }

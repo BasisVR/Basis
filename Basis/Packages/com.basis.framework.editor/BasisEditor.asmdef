@@ -16,7 +16,10 @@
         "BasisProfiler",
         "BasisNetworkServer",
         "Unity.Addressables",
-        "Unity.Addressables.Editor"
+        "Unity.Addressables.Editor",
+        "Basis.OpenLipSync.Runtime",
+        "BasisEventDriver",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"

@@ -3,5 +3,5 @@
   "displayName": "RNNoise",
   "version": "0.0.1",
   "description": "RNNoise.Net https://github.com/Yellow-Dog-Man/RNNoise.Net and https://github.com/xiph/rnnoise",
-  "_fingerprint": "c70e762e2cdbad29afd7bccd0cf1a46dbcddd484"
+  "license": "MIT AND BSD-3-Clause"
 }

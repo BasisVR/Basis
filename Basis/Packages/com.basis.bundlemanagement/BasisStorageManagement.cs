@@ -26,10 +26,12 @@ public static class BasisStorageManagement
     /// </summary>
     public class StoredBeeFileInfo
     {
+        public string DiscKey;
         public string RemoteUrl;
         public string LocalPath;
         public string MetaPath;
         public string UniqueVersion;
+        public string DownloadedPlatform;
         public long FileSizeBytes;
         public DateTime LastWriteTimeUtc;
         public bool IsLoadedInMemory;
@@ -72,20 +74,18 @@ public static class BasisStorageManagement
 
         foreach (var kvp in BasisLoadHandler.OnDiscData)
         {
+            string discKey = kvp.Key;
             string remoteUrl = kvp.Key;
             BasisBEEExtensionMeta meta = kvp.Value;
+            remoteUrl = meta.StoredRemote.RemoteBeeFileLocation;
 
             string beePath = meta.StoredLocal.DownloadedBeeFileLocation;
             if (string.IsNullOrEmpty(beePath))
             {
-                beePath = BasisIOManagement.GenerateFilePath(
-                    $"{meta.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}",
-                    BasisBeeConstants.AssetBundlesFolder);
+                beePath = BasisIOManagement.GetBeeCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
             }
 
-            string metaFilePath = BasisIOManagement.GenerateFilePath(
-                $"{meta.UniqueVersion}{BasisBeeConstants.BasisMetaExtension}",
-                BasisBeeConstants.AssetBundlesFolder);
+            string metaFilePath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
 
             long fileSize = 0;
             DateTime lastWrite = DateTime.MinValue;
@@ -108,10 +108,12 @@ public static class BasisStorageManagement
 
             result.Add(new StoredBeeFileInfo
             {
+                DiscKey = discKey,
                 RemoteUrl = remoteUrl,
                 LocalPath = beePath,
                 MetaPath = metaFilePath,
                 UniqueVersion = meta.UniqueVersion,
+                DownloadedPlatform = meta.DownloadedPlatform,
                 FileSizeBytes = fileSize,
                 LastWriteTimeUtc = lastWrite,
                 IsLoadedInMemory = isLoaded,
@@ -133,28 +135,21 @@ public static class BasisStorageManagement
         if (string.IsNullOrEmpty(remoteUrl))
             return false;
 
-        // Remove from OnDiscData and get the meta info
-        if (BasisLoadHandler.OnDiscData.TryRemove(remoteUrl, out BasisBEEExtensionMeta meta))
+        bool removedAny = false;
+        foreach (var kvp in BasisLoadHandler.OnDiscData.ToList())
         {
-            // Delete the .BEE file
-            string beePath = meta.StoredLocal.DownloadedBeeFileLocation;
-            if (string.IsNullOrEmpty(beePath))
+            if (!string.Equals(kvp.Value.StoredRemote.RemoteBeeFileLocation, remoteUrl, StringComparison.Ordinal))
             {
-                beePath = BasisIOManagement.GenerateFilePath(
-                    $"{meta.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}",
-                    BasisBeeConstants.AssetBundlesFolder);
+                continue;
             }
-            TryDeleteFile(beePath);
 
-            // Delete the .BME meta file
-            string metaPath = BasisIOManagement.GenerateFilePath(
-                $"{meta.UniqueVersion}{BasisBeeConstants.BasisMetaExtension}",
-                BasisBeeConstants.AssetBundlesFolder);
-            TryDeleteFile(metaPath);
-
-            BasisDebug.Log($"Deleted stored BEE file: {meta.UniqueVersion} (source: {remoteUrl})", BasisDebug.LogTag.Event);
+            if (DeleteStoredEntry(kvp.Key, kvp.Value))
+            {
+                removedAny = true;
+            }
         }
-        else
+
+        if (!removedAny)
         {
             BasisDebug.LogWarning($"No OnDiscData entry found for URL: {remoteUrl}", BasisDebug.LogTag.Event);
             return false;
@@ -186,11 +181,27 @@ public static class BasisStorageManagement
     public static void ClearAllCache()
     {
         // Get all keys first to avoid concurrent modification
-        var keys = BasisLoadHandler.OnDiscData.Keys.ToList();
+        var entries = BasisLoadHandler.OnDiscData.ToList();
 
-        foreach (string key in keys)
+        foreach (var entry in entries)
         {
-            DeleteStoredFile(key);
+            DeleteStoredEntry(entry.Key, entry.Value);
+        }
+
+        foreach (var loadedEntry in BasisLoadHandler.LoadedBundles.ToList())
+        {
+            if (BasisLoadHandler.LoadedBundles.TryRemove(loadedEntry.Key, out BasisTrackedBundleWrapper wrapper) &&
+                wrapper?.AssetBundle != null)
+            {
+                try
+                {
+                    wrapper.AssetBundle.Unload(true);
+                }
+                catch (Exception ex)
+                {
+                    BasisDebug.LogError($"Error unloading AssetBundle during cache clear: {ex.Message}");
+                }
+            }
         }
 
         // Also clean up any orphaned files not tracked in OnDiscData
@@ -229,7 +240,8 @@ public static class BasisStorageManagement
                 break;
 
             long freed = file.FileSizeBytes;
-            if (DeleteStoredFile(file.RemoteUrl))
+            if (BasisLoadHandler.OnDiscData.TryGetValue(file.DiscKey, out BasisBEEExtensionMeta meta) &&
+                DeleteStoredEntry(file.DiscKey, meta))
             {
                 currentSize -= freed;
                 BasisDebug.Log($"Evicted: {file.UniqueVersion} ({FormatBytes(freed)}). Remaining: {FormatBytes(currentSize)}", BasisDebug.LogTag.Event);
@@ -257,6 +269,34 @@ public static class BasisStorageManagement
     private static string GetCacheFolderPath()
     {
         return BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    private static bool DeleteStoredEntry(string discKey, BasisBEEExtensionMeta meta)
+    {
+        if (!BasisLoadHandler.OnDiscData.TryRemove(discKey, out _))
+        {
+            return false;
+        }
+
+        string beePath = meta.StoredLocal.DownloadedBeeFileLocation;
+        if (string.IsNullOrEmpty(beePath))
+        {
+            beePath = BasisIOManagement.GetBeeCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+        }
+        TryDeleteFile(beePath);
+
+        string connectorPath = meta.StoredLocal.DownloadedConnectorFileLocation;
+        if (string.IsNullOrEmpty(connectorPath))
+        {
+            connectorPath = BasisIOManagement.GetConnectorCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+        }
+        TryDeleteFile(connectorPath);
+
+        string metaPath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+        TryDeleteFile(metaPath);
+
+        BasisDebug.Log($"Deleted stored BEE file: {meta.UniqueVersion} [{meta.DownloadedPlatform}] (source: {meta.StoredRemote.RemoteBeeFileLocation})", BasisDebug.LogTag.Event);
+        return true;
     }
 
     private static void TryDeleteFile(string path)

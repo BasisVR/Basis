@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using System;
 using System.Collections.Generic;
@@ -56,79 +57,79 @@ public class BasisSceneValidator
 
         if (Scene == null)
         {
-            errors.Add(new BasisValidationIssue("Scene component is missing.", ValidationCategory.Configuration, null));
+            errors.Add(new BasisValidationIssue(BasisEditorLocalization.Get("sdk.sceneValidator.sceneMissing"), ValidationCategory.Configuration, null));
             return false;
         }
-        passes.Add("Scene component is assigned.");
+        passes.Add(BasisEditorLocalization.Get("sdk.sceneValidator.sceneAssigned"));
 
         // Check bundle name
         if (string.IsNullOrEmpty(Scene.BasisBundleDescription.AssetBundleName))
         {
             errors.Add(new BasisValidationIssue(
-                "Scene Name is empty.", ValidationCategory.Configuration,
+                BasisEditorLocalization.Get("sdk.sceneValidator.bundleName.empty"), ValidationCategory.Configuration,
                 FixSetDefaultBundleName,
-                "Set name from GameObject"
+                BasisEditorLocalization.Get("sdk.sceneValidator.bundleName.fix")
             ));
         }
         else
         {
-            passes.Add("Scene Name is set.");
+            passes.Add(BasisEditorLocalization.Get("sdk.sceneValidator.bundleName.set"));
         }
 
         // Check bundle description
         if (string.IsNullOrEmpty(Scene.BasisBundleDescription.AssetBundleDescription))
         {
             errors.Add(new BasisValidationIssue(
-                "Scene Description is empty.", ValidationCategory.Configuration,
+                BasisEditorLocalization.Get("sdk.sceneValidator.bundleDescription.empty"), ValidationCategory.Configuration,
                 FixSetDefaultDescription,
-                "Set default description"
+                BasisEditorLocalization.Get("sdk.sceneValidator.bundleDescription.fix")
             ));
         }
         else
         {
-            passes.Add("Scene Description is set.");
+            passes.Add(BasisEditorLocalization.Get("sdk.sceneValidator.bundleDescription.set"));
         }
 
         // Check spawn point
         if (Scene.SpawnPoint == null)
         {
             errors.Add(new BasisValidationIssue(
-                "Spawn Point is not assigned.", ValidationCategory.MissingReference,
+                BasisEditorLocalization.Get("sdk.sceneValidator.spawnPoint.notAssigned"), ValidationCategory.MissingReference,
                 FixAssignSpawnPoint,
-                "Set spawn point to this transform"
+                BasisEditorLocalization.Get("sdk.sceneValidator.spawnPoint.fix")
             ));
         }
         else
         {
-            passes.Add("Spawn Point is assigned.");
+            passes.Add(BasisEditorLocalization.Get("sdk.sceneValidator.spawnPoint.assigned"));
         }
 
         // Check respawn height is reasonable
         if (Scene.RespawnHeight > 0)
         {
             errors.Add(new BasisValidationIssue(
-                $"Respawn Height is positive ({Scene.RespawnHeight}). Players may respawn unexpectedly.",
+                BasisEditorLocalization.Get("sdk.sceneValidator.respawnHeight.positive", Scene.RespawnHeight),
                 ValidationCategory.Configuration,
                 FixResetRespawnHeight,
-                "Reset to -100"
+                BasisEditorLocalization.Get("sdk.sceneValidator.respawnHeight.fix")
             ));
         }
         else
         {
-            passes.Add("Respawn Height is reasonable.");
+            passes.Add(BasisEditorLocalization.Get("sdk.sceneValidator.respawnHeight.reasonable"));
         }
 
         // Check scene is saved
         if (string.IsNullOrEmpty(Scene.gameObject.scene.path))
         {
             errors.Add(new BasisValidationIssue(
-                "Scene has not been saved. Save the scene before building.",
+                BasisEditorLocalization.Get("sdk.sceneValidator.scene.unsaved"),
                 ValidationCategory.Configuration, null
             ));
         }
         else
         {
-            passes.Add("Scene is saved.");
+            passes.Add(BasisEditorLocalization.Get("sdk.sceneValidator.scene.saved"));
         }
 
         // Check for missing scripts
@@ -141,16 +142,16 @@ public class BasisSceneValidator
             {
                 hasMissingScripts = true;
                 errors.Add(new BasisValidationIssue(
-                    $"Missing script references found on {child.gameObject.name}.",
+                    BasisEditorLocalization.Get("sdk.sceneValidator.missingScripts", child.gameObject.name),
                     ValidationCategory.MissingReference,
                     () => RemoveMissingScripts(Scene.gameObject),
-                    "Remove missing scripts"
+                    BasisEditorLocalization.Get("sdk.sceneValidator.missingScripts.fix")
                 ));
             }
         }
         if (!hasMissingScripts)
         {
-            passes.Add("No missing scripts.");
+            passes.Add(BasisEditorLocalization.Get("sdk.sceneValidator.missingScripts.passed"));
         }
 
         // Check custom password
@@ -160,7 +161,7 @@ public class BasisSceneValidator
             if (assetBundleObject.UseCustomPassword && string.IsNullOrEmpty(assetBundleObject.UserSelectedPassword))
             {
                 errors.Add(new BasisValidationIssue(
-                    "Can not have custom password be empty!",
+                    BasisEditorLocalization.Get("sdk.sceneValidator.password.empty"),
                     ValidationCategory.Security, null
                 ));
             }
@@ -235,7 +236,7 @@ public class BasisSceneValidator
         errorPanel.style.borderBottomWidth = 2;
         errorPanel.style.borderBottomColor = new StyleColor(Color.red);
 
-        errorMessageLabel = new Label("No Errors");
+        errorMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.error.empty"));
         errorMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         errorMessageLabel.style.whiteSpace = WhiteSpace.Normal;
         errorPanel.Add(errorMessageLabel);
@@ -265,7 +266,7 @@ public class BasisSceneValidator
         passedPanel.style.borderBottomWidth = 2;
         passedPanel.style.borderBottomColor = new StyleColor(Color.green);
 
-        passedMessageLabel = new Label("No Passed Checks");
+        passedMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.passed.empty"));
         passedMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         passedPanel.Add(passedMessageLabel);
 

@@ -19,7 +19,7 @@ namespace Basis.BasisUI
             BasisMenuBase<BasisMainMenu>.AddProvider(new CalibrationProvider());
         }
 
-        public override string Title => "Calibration";
+        public override string Title => BasisLocalization.Get("menu.provider.calibration");
         public override string IconAddress => AddressableAssets.Sprites.Calibrate;
         public override int Order => 50;
 
@@ -74,22 +74,22 @@ namespace Basis.BasisUI
 
             Button = PanelButton.CreateNew(PanelButton.ButtonStyles.Default, container);
             Button.OnClicked += Calibrate;
-            Button.Descriptor.SetTitle("Calibrate");
+            Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.calibrate"));
 
             HeightDescription = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            HeightDescription.SetTitle("Additional Player Height");
+            HeightDescription.SetTitle(BasisLocalization.Get("calibration.additionalHeight"));
             HeightDescription.SetDescription($"{BasisHeightDriver.AdditionalPlayerHeight:F2}");
 
             var Description = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            Description.SetTitle("Pull Triggers to Calibrate");
+            Description.SetTitle(BasisLocalization.Get("calibration.pullTriggers"));
 
             var MinusButton = PanelButton.CreateNew(Description.ContentParent);
             MinusButton.OnClicked += DecreasePlayerSize;
-            MinusButton.Descriptor.SetTitle("Decrease Height");
+            MinusButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.decreaseHeight"));
 
             var PlusButton = PanelButton.CreateNew(Description.ContentParent);
             PlusButton.OnClicked += IncreasePlayerSize;
-            PlusButton.Descriptor.SetTitle("Increase Height");
+            PlusButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.increaseHeight"));
 
             // Pitch calibration toggle
             _pitchToggleButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Default, container);
@@ -98,8 +98,51 @@ namespace Basis.BasisUI
 
             // Navigate to Body Tracking settings
             var bodyTrackingSettingsButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Default, container);
-            bodyTrackingSettingsButton.Descriptor.SetTitle("Body Tracking Settings");
+            bodyTrackingSettingsButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.bodyTrackingSettings"));
             bodyTrackingSettingsButton.OnClicked += () => SettingsProvider.OpenBodyTrackingTab();
+
+            // Reset Calibration (restores defaults for calibration-only state, including hidden pitch data)
+            var resetButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Default, container);
+            resetButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.reset"));
+            resetButton.Descriptor.SetDescription(BasisLocalization.Get("calibration.resetDescription"));
+            resetButton.OnClicked += PromptResetCalibration;
+        }
+
+        private void PromptResetCalibration()
+        {
+            BasisMainMenu.Instance.OpenDialogue(
+                BasisLocalization.Get("calibration.reset"),
+                BasisLocalization.Get("calibration.resetConfirm"),
+                BasisLocalization.Get("ui.reset"),
+                BasisLocalization.Get("ui.cancel"),
+                value =>
+                {
+                    if (!value)
+                    {
+                        return;
+                    }
+
+                    ResetCalibration();
+                });
+        }
+
+        private void ResetCalibration()
+        {
+            // Pitch calibration toggle (binding + module-static used by Calibrate())
+            BasisSettingsDefaults.PitchCalibration.ResetToDefault();
+            SMModuleCalibration.PitchCalibrationEnabled = BasisSettingsDefaults.PitchCalibration.RawValue;
+
+            // Captured pitch calibration result (hidden backend state)
+            BasisHeightDriver.HasPitchCalibratedHeight = false;
+            BasisHeightDriver.PitchCalibratedEyeHeight = BasisHeightDriver.FallbackHeightInMeters;
+
+            // Per-user additional height adjustment
+            BasisHeightDriver.AdditionalPlayerHeight = 0f;
+            BasisHeightDriver.ApplyScaleAndHeight();
+
+            // Refresh on-screen labels for the controls we just reset
+            HeightDescription.SetDescription($"{BasisHeightDriver.AdditionalPlayerHeight:F2}");
+            UpdatePitchToggleLabel();
         }
         /// <summary>
         /// tracker balls
@@ -130,8 +173,8 @@ namespace Basis.BasisUI
         {
             if (_pitchToggleButton != null)
             {
-                string state = SMModuleCalibration.PitchCalibrationEnabled ? "ON" : "OFF";
-                _pitchToggleButton.Descriptor.SetTitle($"Pitch Calibration: {state}");
+                string state = BasisLocalization.Get(SMModuleCalibration.PitchCalibrationEnabled ? "ui.on" : "ui.off");
+                _pitchToggleButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.pitchLabel", state));
             }
         }
 
@@ -155,7 +198,7 @@ namespace Basis.BasisUI
             {
                 // Start pitch calibration flow: look up → look down → look forward
                 _pitchStep = PitchCalibrationStep.WaitingForUp;
-                Button.Descriptor.SetTitle("Look UP, pull triggers");
+                Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.pitch.up"));
                 SubscribeToTriggers();
             }
             else
@@ -163,7 +206,7 @@ namespace Basis.BasisUI
                 // Standard single-pose calibration — clear any stale pitch data
                 _pitchStep = PitchCalibrationStep.None;
                 BasisHeightDriver.HasPitchCalibratedHeight = false;
-                Button.Descriptor.SetTitle("Calibrating");
+                Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.calibrating"));
                 localplayer.LocalAvatarDriver.PutAvatarIntoTPose();
                 SubscribeToTriggers();
             }
@@ -257,7 +300,7 @@ namespace Basis.BasisUI
                         return;
                     }
                     _pitchStep = PitchCalibrationStep.WaitingForDown;
-                    Button.Descriptor.SetTitle("Look DOWN, pull triggers");
+                    Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.pitch.down"));
                     // Reset trigger state for next step
                     _leftPressed = false;
                     _rightPressed = false;
@@ -272,7 +315,7 @@ namespace Basis.BasisUI
                         return;
                     }
                     _pitchStep = PitchCalibrationStep.WaitingForForward;
-                    Button.Descriptor.SetTitle("Look FORWARD, pull triggers");
+                    Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.pitch.forward"));
                     _leftPressed = false;
                     _rightPressed = false;
                     break;
@@ -304,7 +347,7 @@ namespace Basis.BasisUI
         private void StartStandardCalibration()
         {
             _pitchStep = PitchCalibrationStep.None;
-            Button.Descriptor.SetTitle("Calibrating");
+            Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.calibrating"));
             BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
             // Reset trigger state so they need to press again for final calibration
             _leftPressed = false;
@@ -323,22 +366,30 @@ namespace Basis.BasisUI
             UnsubscribeAll();
             BasisAvatarIKStageCalibration.FullBodyCalibration();
             BasisUINeedsVisibleTrackers.Instance.Remove(BasisLocalPlayer.Instance);
-            Button.Descriptor.SetTitle("Calibrate");
+            Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.calibrate"));
         }
 
         public override void OnButtonCreated(PanelButton button)
         {
             base.OnButtonCreated(button);
             BasisDeviceManagement.OnBootModeChanged += BootModeChanged;
-            BoundButton.OnInstanceReleased += () => BasisDeviceManagement.OnBootModeChanged -= BootModeChanged;
-            CheckUserForVR();
+            BasisSettingsDefaults.EnableFBT.OnChanged += FBTToggleChanged;
+            BoundButton.OnInstanceReleased += () =>
+            {
+                BasisDeviceManagement.OnBootModeChanged -= BootModeChanged;
+                BasisSettingsDefaults.EnableFBT.OnChanged -= FBTToggleChanged;
+            };
+            EvaluateButtonVisibility();
         }
 
-        private void BootModeChanged(string _) => CheckUserForVR();
+        private void BootModeChanged(string _) => EvaluateButtonVisibility();
+        private void FBTToggleChanged(bool _) => EvaluateButtonVisibility();
 
-        private void CheckUserForVR()
+        private void EvaluateButtonVisibility()
         {
-            BoundButton.gameObject.SetActive(!BasisDeviceManagement.IsUserInDesktop());
+            bool inVR = !BasisDeviceManagement.IsUserInDesktop();
+            bool fbtEnabled = BasisSettingsDefaults.EnableFBT.RawValue;
+            BoundButton.gameObject.SetActive(inVR && fbtEnabled);
         }
     }
 }

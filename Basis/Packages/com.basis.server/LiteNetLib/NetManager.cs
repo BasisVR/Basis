@@ -162,6 +162,10 @@ namespace LiteNetLib
         private readonly List<NetPeer> _updateSnapshot = new List<NetPeer>(64);
         private readonly ConcurrentQueue<NetPeer> _peersToRemoveQueue = new ConcurrentQueue<NetPeer>();
 
+        private const int ParallelPeerThreshold = 8;
+        private float _currentElapsed;
+        private readonly Action<NetPeer> _peerUpdateBody;
+
         /// <summary>
         ///     Used with <see cref="SimulateLatency"/> and <see cref="SimulatePacketLoss"/> to tag packets that
         ///     need to be dropped. Only relevant when <c>DEBUG</c> is defined.
@@ -389,6 +393,20 @@ namespace LiteNetLib
             _peerAddressChangedListener = listener as IPeerAddressChangedListener;
             NatPunchModule = new NatPunchModule(this);
             _extraPacketLayer = extraPacketLayer;
+            _peerUpdateBody = UpdatePeer;
+        }
+
+        private void UpdatePeer(NetPeer netPeer)
+        {
+            if (netPeer.ConnectionState == ConnectionState.Disconnected &&
+                netPeer.TimeSinceLastPacket > DisconnectTimeout)
+            {
+                _peersToRemoveQueue.Enqueue(netPeer);
+            }
+            else
+            {
+                netPeer.Update(_currentElapsed);
+            }
         }
 
         internal void ConnectionLatencyUpdated(NetPeer fromPeer, int latency)
@@ -608,19 +626,20 @@ namespace LiteNetLib
                         }
                     }
 
-                    // 2. Parallel processing (reuse pre-allocated removal queue)
-                    System.Threading.Tasks.Parallel.ForEach(_updateSnapshot, netPeer =>
+                    // 2. Update each peer (serial below threshold to skip Parallel.ForEach overhead on small peer lists)
+                    _currentElapsed = elapsed;
+                    int snapshotCount = _updateSnapshot.Count;
+                    if (snapshotCount <= ParallelPeerThreshold)
                     {
-                        if (netPeer.ConnectionState == ConnectionState.Disconnected &&
-                            netPeer.TimeSinceLastPacket > DisconnectTimeout)
+                        for (int i = 0; i < snapshotCount; i++)
                         {
-                            _peersToRemoveQueue.Enqueue(netPeer);
+                            _peerUpdateBody(_updateSnapshot[i]);
                         }
-                        else
-                        {
-                            netPeer.Update(elapsed);
-                        }
-                    });
+                    }
+                    else
+                    {
+                        System.Threading.Tasks.Parallel.ForEach(_updateSnapshot, _peerUpdateBody);
+                    }
 
                     // 3. Remove peers under write lock
                     if (!_peersToRemoveQueue.IsEmpty)

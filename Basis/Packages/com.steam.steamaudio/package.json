@@ -4,5 +4,5 @@
   "version": "0.0.1",
   "description": "Steam Audio made by valve",
   "hideInEditor": false,
-  "_fingerprint": "3d9883ae07720e90626b8f6c21b85a9043268d41"
+  "license": "Apache-2.0"
 }

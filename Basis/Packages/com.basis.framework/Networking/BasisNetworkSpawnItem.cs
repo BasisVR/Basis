@@ -136,6 +136,9 @@ public static class BasisNetworkSpawnItem
 
     public static async Task<Scene> SpawnScene(LocalLoadResource localLoadResource)
     {
+        _loadCts.Token.ThrowIfCancellationRequested();
+        BasisDebug.Log($"Spawning scene with NetID: {localLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
+
         BasisLoadableBundle loadBundle = new BasisLoadableBundle
         {
             BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle()

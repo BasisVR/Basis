@@ -17,7 +17,7 @@ PluginImporter:
         AndroidLibraryDependee: UnityLibrary
         AndroidSharedLibraryType: Executable
         CPU: ARMv7
-        Is16KbAligned: true
+        Is16KbAligned: false
     Any:
       enabled: 0
       settings:

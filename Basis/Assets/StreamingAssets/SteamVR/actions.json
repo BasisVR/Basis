@@ -5,6 +5,11 @@
       "type": "pose"
     },
     {
+      "name": "/actions/default/in/EyeGaze",
+      "type": "pose",
+      "requirement": "optional"
+    },
+    {
       "name": "/actions/default/in/SkeletonLeftHand",
       "type": "skeleton",
       "skeleton": "/skeleton/hand/left",
@@ -126,6 +131,7 @@
     {
       "language_tag": "en_US",
       "/actions/default/in/Pose": "Pose",
+      "/actions/default/in/EyeGaze": "Eye Gaze",
       "/actions/default/in/SkeletonLeftHand": "Skeleton (Left)",
       "/actions/default/in/SkeletonRightHand": "Skeleton (Right)",
       "/actions/default/out/Haptic": "Haptic"

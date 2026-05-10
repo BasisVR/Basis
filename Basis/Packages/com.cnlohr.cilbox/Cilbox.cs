@@ -9,6 +9,7 @@ using System.Collections;
 using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Threading; // At runtime, only used for a lock (Monitor)
+using System.Buffers;
 
 #if UNITY_EDITOR
 using Unity.Profiling;
@@ -169,24 +170,21 @@ namespace Cilbox
 
 		public object Interpret( CilboxProxy ths, object [] parametersIn )
 		{
-			StackElement [] parameters;
-			StackElement [] stackBuffer = new StackElement[Cilbox.defaultStackSize];
+			int plen = parametersIn?.Length ?? 0;
+			int thisOffset = isStatic ? 0 : 1;
 
-			int plen = 0;
-			if( parametersIn != null )
-			{
-				plen = parametersIn.Length;
-			}
+			StackElement [] parameters;
+			StackElement [] stackBuffer = ArrayPool< StackElement >.Shared.Rent(Cilbox.defaultStackSize);
 
 			if( isStatic )
 			{
-				parameters = new StackElement[plen];
+				parameters = ArrayPool< StackElement >.Shared.Rent( plen );
 				for( int p = 0; p < plen; p++ )
 					parameters[p].Load( parametersIn[p] );
 			}
 			else
 			{
-				parameters = new StackElement[plen+1];
+				parameters = ArrayPool< StackElement >.Shared.Rent( plen+1 );
 				parameters[0].Load( ths );
 				for( int p = 0; p < plen; p++ )
 					parameters[p+1].Load( parametersIn[p] );
@@ -202,6 +200,8 @@ namespace Cilbox
 			catch( Exception e )
 			{
 				parentClass.box.InterpreterExit();
+				ArrayPool< StackElement >.Shared.Return( stackBuffer );
+				ArrayPool< StackElement >.Shared.Return( parameters );
 
 				if (e is CilboxUnhandledInterpretedException uhe)
 				{
@@ -216,6 +216,9 @@ namespace Cilbox
 				throw;
 			}
 			parentClass.box.InterpreterExit();
+			ArrayPool< StackElement >.Shared.Return( stackBuffer );
+			ArrayPool< StackElement >.Shared.Return( parameters );
+
 			return ret;
 		}
 
@@ -444,142 +447,146 @@ spiperf.Begin();
 						else
 						{
 							st = dt.nativeMethod;
-							if( st is MethodInfo )
-								isVoid = ((MethodInfo)st).ReturnType == typeof(void);
-
-							ParameterInfo [] pa = st.GetParameters();
-							int numFields = pa.Length;
+							isVoid = dt.nativeIsVoid;
 							object callthis = null;
-							object [] callpar = new object[numFields];
-							StackElement [] callpar_se = new StackElement[numFields];
-							int ik;
-							for( ik = 0; ik < numFields; ik++ )
+							Type[] paTypes = dt.nativeParameterTypes;
+							int numFields = paTypes.Length;
+							object [] callpar = box.RentObjectArray( numFields );
+							StackElement [] callpar_se = ArrayPool<StackElement>.Shared.Rent(numFields);
+							try
 							{
-								StackElement se = stackBuffer[sp--];
-								callpar_se[numFields-ik-1] = se;
-								object o = se.AsObject(box);
-								Type t = pa[numFields-ik-1].ParameterType;
+								int ik;
+								for( ik = 0; ik < numFields; ik++ )
+								{
+									StackElement se = stackBuffer[sp--];
+									callpar_se[numFields-ik-1] = se;
+									object o = se.AsObject(box);
+									Type t = paTypes[numFields-ik-1];
 
-								if( t.IsByRef )
-								{
-									// out parameters can be uninintialized, so we have to initialize them first
-									Type elementType = t.GetElementType();
-									if( o != null && !elementType.IsAssignableFrom(o.GetType()) )
+									if( t.IsByRef )
 									{
-										if( elementType.IsValueType )
-											o = Activator.CreateInstance(elementType);
+										// out parameters can be uninintialized, so we have to initialize them first
+										Type elementType = t.GetElementType();
+										if( o != null && !elementType.IsAssignableFrom(o.GetType()) )
+										{
+											if( elementType.IsValueType )
+												o = Activator.CreateInstance(elementType);
+											else
+												o = null;
+										}
+									}
+									// XXX TODO: Copy mechanism below from ResolveToStackElement and Coerce
+									else if( se.type < StackType.Object )
+									{
+										if( o != null && t.IsValueType && o.GetType() != t )
+										{
+											//o = Convert.ChangeType( o, t );
+											o = se.CoerceToObject( t );
+										}
+									}
+									callpar[numFields-ik-1] = o;
+								}
+								if( st.IsConstructor )
+								{
+									ConstructorInfo ctor = (ConstructorInfo)st;
+									if( isNewObj )
+									{
+										iko = ctor.Invoke( callpar );
+										isVoid = false; // newobj always pushes a reference/value.
+									}
+									else
+									{
+										StackElement ctorThisSe = stackBuffer[sp--];
+										object ctorThis = ctorThisSe.AsObject(box);
+										if (ctorThis == null)
+										{
+											interpretedThrow(pc - 1, new NullReferenceException());
+											break;
+										}
+
+										Type ctorDeclaringType = ctor.DeclaringType;
+										if( ctorDeclaringType == null || ( ctorDeclaringType != typeof(object) && ctorDeclaringType != typeof(MonoBehaviour) ) )
+										{
+											throw new CilboxInterpreterRuntimeException(
+												$"Unsupported native constructor call on existing instance: {ctor.DeclaringType?.FullName}",
+												parentClass.className, methodName, pc);
+										}
+
+										// Base constructors for Object/MonoBehaviour are no-ops in interpreter mode.
+										isVoid = true;
+									}
+								}
+								else if( !st.IsStatic )
+								{
+									MethodInfo mi = (MethodInfo)st;
+									StackElement seorig = stackBuffer[sp--];
+									StackElement se = StackElement.ResolveToStackElement( seorig );
+									Type t = mi.DeclaringType;
+
+									if( seorig.type == StackType.NativeHandle )
+									{
+										callthis = seorig.DereferenceNativeHandle(box);
+									}
+									else if( constrainedMeta != null && se.type < StackType.Object )
+									{
+										if( constrainedMeta.cilboxEnum != null )
+											callthis = constrainedMeta.cilboxEnum.BoxValue( se.l );
 										else
-											o = null;
+											callthis = se.CoerceToObject( constrainedMeta.nativeType );
 									}
-								}
-								// XXX TODO: Copy mechanism below from ResolveToStackElement and Coerce
-								else if( se.type < StackType.Object )
-								{
-									if( o != null && t.IsValueType && o.GetType() != t )
+									else if( t.IsValueType && se.type < StackType.Object )
 									{
-										//o = Convert.ChangeType( o, t );
-										o = se.CoerceToObject( t );
+										// Try to coerce types.
+										callthis = se.CoerceToObject( t );
 									}
-								}
-								callpar[numFields-ik-1] = o;
-							}
-							if( st.IsConstructor )
-							{
-								ConstructorInfo ctor = (ConstructorInfo)st;
-								if( isNewObj )
-								{
-									iko = ctor.Invoke( callpar );
-									isVoid = false; // newobj always pushes a reference/value.
-								}
-								else
-								{
-									StackElement ctorThisSe = stackBuffer[sp--];
-									object ctorThis = ctorThisSe.AsObject(box);
-									if (ctorThis == null)
+									else
+									{
+										callthis = se.o;
+									}
+									constrainedMeta = null;
+
+									if (callthis == null)
 									{
 										interpretedThrow(pc - 1, new NullReferenceException());
 										break;
 									}
 
-									Type ctorDeclaringType = ctor.DeclaringType;
-									if( ctorDeclaringType == null || ( ctorDeclaringType != typeof(object) && ctorDeclaringType != typeof(MonoBehaviour) ) )
+									iko = st.Invoke( callthis, callpar );
+									if( seorig.type == StackType.Address  && callthis is not BoxedCilboxEnum ) // enums are immutable
 									{
-										throw new CilboxInterpreterRuntimeException(
-											$"Unsupported native constructor call on existing instance: {ctor.DeclaringType?.FullName}",
-											parentClass.className, methodName, pc);
+										seorig.DereferenceLoadAddress( callthis );
 									}
-
-									// Base constructors for Object/MonoBehaviour are no-ops in interpreter mode.
-									isVoid = true;
-								}
-							}
-							else if( !st.IsStatic )
-							{
-								MethodInfo mi = (MethodInfo)st;
-								StackElement seorig = stackBuffer[sp--];
-								StackElement se = StackElement.ResolveToStackElement( seorig );
-								Type t = mi.DeclaringType;
-
-								if( seorig.type == StackType.NativeHandle )
-								{
-									callthis = seorig.DereferenceNativeHandle(box);
-								}
-								else if( constrainedMeta != null && se.type < StackType.Object )
-								{
-									if( constrainedMeta.cilboxEnum != null )
-										callthis = constrainedMeta.cilboxEnum.BoxValue( se.l );
-									else
-										callthis = se.CoerceToObject( constrainedMeta.nativeType );
-								}
-								else if( t.IsValueType && se.type < StackType.Object )
-								{
-									// Try to coerce types.
-									callthis = se.CoerceToObject( t );
+									else if ( seorig.type == StackType.NativeHandle )
+									{
+										seorig.DereferenceLoadNativeHandle( box, callthis );
+									}
 								}
 								else
 								{
-									callthis = se.o;
-								}
-								constrainedMeta = null;
-
-								if (callthis == null)
-								{
-									interpretedThrow(pc - 1, new NullReferenceException());
-									break;
+									iko = st.Invoke( null, callpar );
 								}
 
-								iko = st.Invoke( callthis, callpar );
-								if( seorig.type == StackType.Address  && callthis is not BoxedCilboxEnum ) // enums are immutable
+								// Possibly copy back any references.
+								for( ik = 0; ik < numFields; ik++ )
 								{
-									seorig.DereferenceLoadAddress( callthis );
+									StackElement se = callpar_se[ik];
+									if (se.type == StackType.Address)
+									{
+										callpar_se[ik].DereferenceLoadAddress( callpar[ik] );
+									}
+									else if ( se.type == StackType.NativeHandle )
+									{
+										callpar_se[ik].DereferenceLoadNativeHandle( box, callpar[ik] );
+									}
 								}
-								else if ( seorig.type == StackType.NativeHandle )
-								{
-									seorig.DereferenceLoadNativeHandle( box, callthis );
-								}
-							}
-							else
-							{
-								iko = st.Invoke( null, callpar );
-							}
 
-							// Possibly copy back any references.
-							for( ik = 0; ik < numFields; ik++ )
-							{
-								StackElement se = callpar_se[ik];
-								if (se.type == StackType.Address)
+								if( !isVoid )
 								{
-									callpar_se[ik].DereferenceLoadAddress( callpar[ik] );
+									stackBuffer[++sp].Load( iko );
 								}
-								else if ( se.type == StackType.NativeHandle )
-								{
-									callpar_se[ik].DereferenceLoadNativeHandle( box, callpar[ik] );
-								}
-							}
-
-							if( !isVoid )
-							{
-								stackBuffer[++sp].Load( iko );
+							} finally {
+								box.ReturnObjectArray( callpar );
+								ArrayPool<StackElement>.Shared.Return( callpar_se );
 							}
 							if( isJmp )
 							{
@@ -1223,6 +1230,30 @@ spiperf.Begin();
 						}
 						break;
 					}
+					case 0x81: // stobj
+					{
+						uint typeToken = BytecodeAsU32( ref pc );
+						CilMetadataTokenInfo stobjMeta = box.metadatas[typeToken];
+						StackElement value = stackBuffer[sp--];
+						StackElement addr = stackBuffer[sp--];
+						object obj = ( stobjMeta.nativeType != null && value.type < StackType.Object ) ?
+							value.CoerceToObject( stobjMeta.nativeType ) :
+							value.AsObject( box );
+
+						if( addr.type == StackType.Address )
+						{
+							addr.DereferenceLoadAddress( obj );
+						}
+						else if( addr.type == StackType.NativeHandle )
+						{
+							addr.DereferenceLoadNativeHandle( box, obj );
+						}
+						else
+						{
+							throw new CilboxInterpreterRuntimeException("Invalid stack type for stobj instruction", parentClass.className, methodName, pc);
+						}
+						break;
+					}
 					case 0x8C: // box (This pulls off a type)
 					{
 						uint otyp = BytecodeAsU32( ref pc );
@@ -1374,22 +1405,40 @@ spiperf.Begin();
 							interpretedThrow(pc - 1, new NullReferenceException());
 							break;
 						}
-						object [] array = (object[])arrSE.AsObject();
+						Array array = (Array)arrSE.AsObject();
 						if (index < 0 || index >= array.Length)
 						{
 							interpretedThrow(pc - 1, new IndexOutOfRangeException());
 							break;
 						}
 						CilMetadataTokenInfo elemMeta = box.metadatas[otyp];
+						object value;
 						if( elemMeta.nativeTypeIsCilboxProxy || elemMeta.nativeType == null )
 						{
 							// This actually gets the value in valSE, and converts it to the int/float/native handle, etc. based on "this" box.
-							array[index] = valSE.AsObject( box );
+							value = valSE.AsObject( box );
 						}
 						else
 						{
-							array[index] = Convert.ChangeType( valSE.AsObject(), elemMeta.nativeType );  // This shouldn't be type changing.s
+							value = valSE.AsObject();
 						}
+
+						Type targetElementType = array.GetType().GetElementType();
+						if( targetElementType != null && targetElementType != typeof(object) && value != null && !targetElementType.IsInstanceOfType( value ) )
+						{
+							if( targetElementType.IsEnum )
+							{
+								value = Enum.ToObject( targetElementType, value );
+							}
+							else
+							{
+								if( value.GetType().IsEnum )
+									value = Convert.ChangeType( value, Enum.GetUnderlyingType( value.GetType() ) );
+								value = Convert.ChangeType( value, targetElementType );
+							}
+						}
+
+						array.SetValue( value, index );
 						break;
 					}
 					case 0xA5: // unbox.any
@@ -1971,6 +2020,8 @@ spiperf.End();
 		// Todo handle interpreted types.
 		public bool isNative;
 		public MethodBase nativeMethod;
+		public Type[] nativeParameterTypes;
+		public bool nativeIsVoid;
 		public int interpretiveMethod; // If nativeToken is 0, then it's a interpreted call.
 		public int interpretiveMethodClass; // If nativeToken is 0, then it's a interpreted call class
 
@@ -2013,6 +2064,33 @@ spiperf.End();
 
 		public static readonly int defaultStackSize = 1024;
 
+		private Stack<object[]> [] objectArrayBufferPool = new Stack<object[]>[]{};
+		internal object[] RentObjectArray( int parcount )
+		{
+			lock( objectArrayBufferPool )
+			{
+				if( parcount >= objectArrayBufferPool.Length )
+					Array.Resize( ref objectArrayBufferPool, parcount + 1 );
+				Stack<object[]> tpool = objectArrayBufferPool[parcount];
+				if( tpool == null ) tpool = objectArrayBufferPool[parcount] = new Stack<object[]>();
+				if( tpool.Count > 0 ) return tpool.Pop();
+			}
+			return new object[parcount];
+		}
+		internal void ReturnObjectArray( object[] buf )
+		{
+			int parcount = buf.Length;
+			Array.Clear( buf, 0, parcount );
+			lock( objectArrayBufferPool )
+			{
+				if( parcount >= objectArrayBufferPool.Length )
+					Array.Resize( ref objectArrayBufferPool, parcount + 1 );
+				Stack<object[]> tpool = objectArrayBufferPool[parcount];
+				if( tpool == null ) tpool = objectArrayBufferPool[parcount] = new Stack<object[]>();
+				tpool.Push( buf );
+			}
+		}
+
 		public bool showFunctionProfiling;
 		public bool exportDebuggingData;
 		public bool verboseLogging = false;
@@ -2047,7 +2125,7 @@ spiperf.End();
 		abstract public bool CheckMethodAllowed( out MethodInfo mi, Type declaringType, String name, Serializee [] parametersIn, Serializee [] genericArgumentsIn, String fullSignature );
 		abstract public bool CheckTypeAllowed( String sType );
 		abstract public bool CheckFieldAllowed( String sType, String sFieldName );
-		abstract public bool GetComponentTypeOverride( String sType, out Type t );
+		abstract public bool GetTypeOverride( String sType, out Type t );
 
 		public delegate void CilboxDisabledEvent( Cilbox box, string reason );
 
@@ -2313,6 +2391,14 @@ spiperf.End();
 							t.nativeMethod = m;
 							t.isNative = true;
 							t.isValid = true;
+							ParameterInfo[] mp = m.GetParameters();
+							Type[] mpt = new Type[mp.Length];
+							for( int mpi = 0; mpi < mp.Length; mpi++ )
+							{
+								mpt[mpi] = mp[mpi].ParameterType;
+							}
+							t.nativeParameterTypes = mpt;
+							t.nativeIsVoid = (m is MethodInfo mInfo) && mInfo.ReturnType == typeof(void);
 						} else if( !t.isNative )
 						{
 							throw new CilboxException( "Error: Could not find reference to: [" + useAssembly + "][" + declaringType.FullName + "][" + fullSignature + "] Type from:" + declaringTypeName );

@@ -33,7 +33,6 @@ namespace Basis.Scripts.Networking.Transmitters
             playerId = PlayerID;
             hasID = true;
         }
-
         public void AddAdditional(AdditionalAvatarData AvatarData) => SendingOutAvatarData[AvatarData.messageIndex] = AvatarData;
         public void ClearAdditional() => SendingOutAvatarData.Clear();
         public override void Initialize()
@@ -67,6 +66,7 @@ namespace Basis.Scripts.Networking.Transmitters
 
         public static NetDataWriter AvatarChangeWriter = new NetDataWriter();
         private static readonly object AvatarChangeWriterLock = new object();
+
         public void SendOutAvatarChange()
         {
             LastLinkedAvatarIndex = (byte)((LastLinkedAvatarIndex + 1) % (byte.MaxValue + 1));

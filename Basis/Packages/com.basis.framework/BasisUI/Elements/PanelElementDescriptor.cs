@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -85,6 +86,8 @@ namespace Basis.BasisUI
         protected Texture2D _textureImage;
         protected string _title;
         protected string _description;
+        private bool _titleSet;
+        private bool _descriptionSet;
 
         protected bool _iconIsAddressable;
 
@@ -93,7 +96,7 @@ namespace Basis.BasisUI
         {
             get
             {
-                if (!_layout) _layout = GetComponent<LayoutElement>();
+                if (!_layout) TryGetComponent(out _layout);
                 return _layout;
             }
         }
@@ -103,6 +106,15 @@ namespace Basis.BasisUI
         protected override void Awake()
         {
             base.Awake();
+
+            // Title/Description labels are display-only across every panel element —
+            // stripping raycastTarget removes them from GraphicRaycaster's per-pointer
+            // hit test and shrinks ClipperRegistry's per-frame work. Descriptive
+            // graphics (icon, background) are almost never interactive either, but
+            // we leave those alone because PanelButton uses the root background as
+            // its click target on some variants.
+            if (TitleLabel != null) TitleLabel.raycastTarget = false;
+            if (DescriptionLabel != null) DescriptionLabel.raycastTarget = false;
 
             // If no background has been manually assigned for an existing icon, assign itself.
             if (IconImage && !IconBackground) IconBackground = IconImage.gameObject;
@@ -163,22 +175,76 @@ namespace Basis.BasisUI
         public void SetTitle(string value)
         {
             if (!HasTitle) return;
-            bool titleIsValid = !string.IsNullOrEmpty(value);
-            // Disable the object if the title is empty.
+            // Skip redraw if the text hasn't actually changed — polling updaters
+            // call this every tick and TMP's setter unconditionally triggers a rebuild.
+            if (_titleSet && string.Equals(_title, value)) return;
             _title = value;
-            TitleLabel.gameObject.SetActive(titleIsValid);
-            TitleLabel.text = value;
+            _titleSet = true;
+            TitleLabel.gameObject.SetActive(!string.IsNullOrEmpty(value));
+            TitleLabel.SetText(value);
         }
 
         public void SetDescription(string value)
         {
             if (!HasDescription) return;
-            bool descriptionIsValid = !string.IsNullOrEmpty(value);
-            // Disable the object if the description is empty.
+            if (_descriptionSet && string.Equals(_description, value)) return;
             _description = value;
-            DescriptionLabel.gameObject.SetActive(descriptionIsValid);
-            DescriptionLabel.text = value;
+            _descriptionSet = true;
+            DescriptionLabel.gameObject.SetActive(!string.IsNullOrEmpty(value));
+            DescriptionLabel.SetText(value);
         }
+
+        /// <summary>
+        /// Disables rich-text parsing on Title and Description labels. Use for fields
+        /// that only display plain strings/numbers — TMP skips tag scanning entirely,
+        /// which is a big win on polling-heavy panels (stats, bandwidth, buffers).
+        /// </summary>
+        public void DisableRichText()
+        {
+            if (HasTitle) TitleLabel.richText = false;
+            if (HasDescription) DescriptionLabel.richText = false;
+        }
+
+        private bool _layoutFrozen;
+
+        /// <summary>
+        /// Freezes this descriptor's layout size so future text changes don't cascade
+        /// layout rebuilds up through parent LayoutGroups. Works by:
+        ///  1. Running ForceRebuildLayoutImmediate so the current natural size is captured.
+        ///  2. Disabling every ContentSizeFitter in the subtree — each one would otherwise
+        ///     recompute on every text change and re-dirty parents.
+        ///  3. Pinning a LayoutElement.preferredHeight on the root so parent LayoutGroups
+        ///     see a stable value (max of current natural height and minHeight).
+        /// Call this AFTER the descriptor has been populated with its initial content.
+        /// Pass a <paramref name="minHeight"/> large enough to fit future content — once
+        /// frozen, if text grows beyond this the overflow will be clipped.
+        /// </summary>
+        public void FreezeLayoutSize(float minHeight = 0f)
+        {
+            if (_layoutFrozen) return;
+            _layoutFrozen = true;
+
+            // Settle current content so the natural height we capture is real.
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
+
+            GetComponentsInChildren(true, _frozenFitters);
+            for (int i = 0; i < _frozenFitters.Count; i++)
+            {
+                _frozenFitters[i].enabled = false;
+            }
+            _frozenFitters.Clear();
+
+            if (!TryGetComponent(out LayoutElement le))
+            {
+                le = gameObject.AddComponent<LayoutElement>();
+            }
+            float height = Mathf.Max(rectTransform.rect.height, minHeight);
+            le.preferredHeight = height;
+            le.minHeight = height;
+        }
+
+        // Reused buffer so FreezeLayoutSize doesn't allocate per call.
+        private static readonly List<ContentSizeFitter> _frozenFitters = new List<ContentSizeFitter>();
 
         public void SetActive(bool value)
         {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -19,25 +20,26 @@ public static class BasisObjectSyncDriver
     public static float TargetMilliseconds = 0.25f;
     private static double _lastUpdateTime;
 
-    // Remote interpolation buffers
-    private static TransformAccessArray _remoteTransforms;
-    private static NativeList<float3> _targetPositions;
-    private static NativeList<quaternion> _targetRotations;
-    private static NativeList<float3> _targetScales;
-    private static NativeList<float> _lerpMultipliers;
+    // Consolidated per-object payload buffer. Capacity grows 2x, never shrinks.
+    private static NativeArray<BasisTranslationUpdate> _updates;
 
+    // Growable scratch filled single-pass each frame.
+    private static Transform[] _scratchTransforms = Array.Empty<Transform>();
+
+    // Exact-size array currently backing _remoteTransforms; doubles as the
+    // dirty-check snapshot for the following frame.
     private static Transform[] _cachedTransforms = Array.Empty<Transform>();
-    private static Transform[] _lastCachedTransforms = Array.Empty<Transform>();
+
+    private static TransformAccessArray _remoteTransforms;
     private static JobHandle _remoteJobHandle;
+
     public static int TargetCount = -1;
+
     public static void Initalization()
     {
         _remoteTransforms = new TransformAccessArray(0);
-        _targetPositions = new NativeList<float3>(128, Allocator.Persistent);
-        TargetCount = _targetPositions.Length;
-        _targetRotations = new NativeList<quaternion>(128, Allocator.Persistent);
-        _targetScales = new NativeList<float3>(128, Allocator.Persistent);
-        _lerpMultipliers = new NativeList<float>(128, Allocator.Persistent);
+        _updates = new NativeArray<BasisTranslationUpdate>(128, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        TargetCount = 0;
     }
 
     public static void OnDestroy()
@@ -45,10 +47,7 @@ public static class BasisObjectSyncDriver
         _remoteJobHandle.Complete();
 
         if (_remoteTransforms.isCreated) _remoteTransforms.Dispose();
-        if (_targetPositions.IsCreated) _targetPositions.Dispose();
-        if (_targetRotations.IsCreated) _targetRotations.Dispose();
-        if (_targetScales.IsCreated) _targetScales.Dispose();
-        if (_lerpMultipliers.IsCreated) _lerpMultipliers.Dispose();
+        if (_updates.IsCreated) _updates.Dispose();
     }
 
     public static void TransmitOwnedPickups(double currentTime)
@@ -72,105 +71,92 @@ public static class BasisObjectSyncDriver
             }
         }
     }
+
     public static void ScheduleRemoteLerp(float deltaTime)
     {
         _remoteJobHandle.Complete();
 
+        int upperBound = RemoteOwnedObjectSyncs.Count;
+        if (upperBound == 0) return;
+
+        EnsureCapacity(upperBound);
+
         int count = 0;
-        foreach (var obj in RemoteOwnedObjectSyncs)
+        unsafe
         {
-            if (obj == null || obj.IsOwnedLocallyOnClient)
+            BasisTranslationUpdate* updatesPtr = (BasisTranslationUpdate*)_updates.GetUnsafePtr();
+            foreach (var obj in RemoteOwnedObjectSyncs)
             {
-                continue;
+                if (obj == null || obj.IsOwnedLocallyOnClient) continue;
+
+                _scratchTransforms[count] = obj.SelfTransform;
+                updatesPtr[count] = obj.BTU;
+                count++;
             }
-
-            count++;
-        }
-        if (count == 0)
-        {
-            return;
         }
 
-        if (_cachedTransforms.Length != count)
+        if (count == 0) return;
+
+        TargetCount = count;
+
+        // Single native .length call per frame, reused below.
+        int taaLength = _remoteTransforms.isCreated ? _remoteTransforms.length : -1;
+
+        if (taaLength != count)
         {
-            _cachedTransforms = new Transform[count];
-        }
+            if (_cachedTransforms.Length != count) _cachedTransforms = new Transform[count];
+            Array.Copy(_scratchTransforms, _cachedTransforms, count);
 
-        int index = 0;
-        bool needResize = TargetCount <= count;
-        if (needResize)
-        {
-            TargetCount = count;
-            _targetPositions.ResizeUninitialized(count);
-            _targetRotations.ResizeUninitialized(count);
-            _targetScales.ResizeUninitialized(count);
-            _lerpMultipliers.ResizeUninitialized(count);
-        }
-
-        foreach (var obj in RemoteOwnedObjectSyncs)
-        {
-            if (obj == null || obj.IsOwnedLocallyOnClient)
-            {
-                continue;
-            }
-
-            _cachedTransforms[index] = obj.SelfTransform;
-
-            _targetPositions[index] = obj.BTU.TargetPosition;
-            _targetRotations[index] = obj.BTU.TargetRotation;
-            _targetScales[index] = obj.BTU.TargetScales;
-            _lerpMultipliers[index] = obj.BTU.LerpMultipliers * deltaTime;
-
-            index++;
-        }
-
-        if (_lastCachedTransforms.Length != count)
-        {
-            _lastCachedTransforms = new Transform[count];
-        }
-
-
-        if (_remoteTransforms.isCreated)
-        {
-            if (_remoteTransforms.length != count)
-            {
-                _remoteTransforms.Dispose();
-                _remoteTransforms = new TransformAccessArray(_cachedTransforms);
-                Array.Copy(_cachedTransforms, _lastCachedTransforms, count);
-            }
-            else
-            {
-                bool TransformsChanged = false;
-                for (int Index = 0; Index < count; Index++)
-                {
-                    if (_lastCachedTransforms[Index] != _cachedTransforms[Index])
-                    {
-                        TransformsChanged = true;
-                        break;
-                    }
-                }
-
-                if(TransformsChanged)
-                {
-                    _remoteTransforms.SetTransforms(_cachedTransforms);
-                    Array.Copy(_cachedTransforms, _lastCachedTransforms, count);
-                }
-            }
+            if (_remoteTransforms.isCreated) _remoteTransforms.Dispose();
+            _remoteTransforms = new TransformAccessArray(_cachedTransforms);
         }
         else
         {
-            _remoteTransforms = new TransformAccessArray(_cachedTransforms);
-            Array.Copy(_cachedTransforms, _lastCachedTransforms, count);
+            bool transformsChanged = false;
+            for (int i = 0; i < count; i++)
+            {
+                if (_cachedTransforms[i] != _scratchTransforms[i])
+                {
+                    transformsChanged = true;
+                    break;
+                }
+            }
+
+            if (transformsChanged)
+            {
+                Array.Copy(_scratchTransforms, _cachedTransforms, count);
+                _remoteTransforms.SetTransforms(_cachedTransforms);
+            }
         }
+
         var job = new RemoteSyncJob
         {
-            targetPositions = _targetPositions,
-            targetRotations = _targetRotations,
-            targetScales = _targetScales,
-            lerpMultipliers = _lerpMultipliers
+            updates = _updates,
+            deltaTime = deltaTime,
         };
 
         _remoteJobHandle = job.Schedule(_remoteTransforms);
+    }
+
+    private static void EnsureCapacity(int required)
+    {
+        if (_scratchTransforms.Length < required)
+        {
+            int newCap = _scratchTransforms.Length;
+            if (newCap == 0) newCap = 16;
+            while (newCap < required) newCap *= 2;
+            Array.Resize(ref _scratchTransforms, newCap);
+        }
+
+        if (!_updates.IsCreated || _updates.Length < required)
+        {
+            int newCap = _updates.IsCreated ? _updates.Length : 0;
+            if (newCap == 0) newCap = 128;
+            while (newCap < required) newCap *= 2;
+
+            if (_updates.IsCreated) _updates.Dispose();
+            _updates = new NativeArray<BasisTranslationUpdate>(newCap, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        }
     }
 
     public static void CompleteScheduledRemoteLerp()
@@ -181,24 +167,23 @@ public static class BasisObjectSyncDriver
     [BurstCompile]
     public struct RemoteSyncJob : IJobParallelForTransform
     {
-        [ReadOnly] public NativeList<float3> targetPositions;
-        [ReadOnly] public NativeList<quaternion> targetRotations;
-        [ReadOnly] public NativeList<float3> targetScales;
-        [ReadOnly] public NativeList<float> lerpMultipliers;
+        [ReadOnly] public NativeArray<BasisTranslationUpdate> updates;
+        public float deltaTime;
 
         public void Execute(int index, TransformAccess transform)
         {
-            float lerp = lerpMultipliers[index];
+            BasisTranslationUpdate u = updates[index];
+            float lerp = u.LerpMultipliers * deltaTime;
             if (lerp <= 0f) return;
 
             if (transform.isValid)
             {
                 transform.GetLocalPositionAndRotation(out Vector3 currentPos, out Quaternion currentRot);
 
-                float3 newPos = math.lerp(currentPos, targetPositions[index], lerp);
-                quaternion newRot = math.slerp(currentRot, targetRotations[index], lerp);
+                float3 newPos = math.lerp(currentPos, u.TargetPosition, lerp);
+                quaternion newRot = math.slerp(currentRot, u.TargetRotation, lerp);
                 Vector3 currentScale = transform.localScale;
-                float3 newScale = math.lerp(currentScale, targetScales[index], lerp);
+                float3 newScale = math.lerp(currentScale, u.TargetScales, lerp);
 
                 transform.SetLocalPositionAndRotation(newPos, newRot);
                 transform.localScale = new Vector3(newScale.x, newScale.y, newScale.z);

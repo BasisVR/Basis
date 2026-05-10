@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -18,6 +19,7 @@ namespace Basis.Scripts.UI.NamePlate
         public Color NormalColor;
         public Color IsTalkingColor;
         public Color OutOfRangeColor;
+        public Color FailedLoadColor = new Color(1f, 0.2f, 0.2f, 1f);
 
         [SerializeField] public static float transitionDuration = 0.3f;
         [SerializeField] public static float returnDelay = 0.4f;
@@ -25,6 +27,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static Color StaticNormalColor;
         public static Color StaticIsTalkingColor;
         public static Color StaticOutOfRangeColor;
+        public static Color StaticFailedLoadColor;
         public static float4 NormalColorFloat4;
 
         public TextMeshPro Text;
@@ -33,7 +36,6 @@ namespace Basis.Scripts.UI.NamePlate
         public Material OpaqueNamePlateMaterial;
 
         [HideInInspector] public Material SelectedNamePlateMaterial;
-        [HideInInspector] public Mesh RoundedCornersMesh;
 
         [Range(0f, 1f)] public float RoundEdges = 0.5f;
         public int CornerVertexCount = 8;
@@ -41,7 +43,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         public static bool NamePlateEnabled = true;
         public static bool NamePlateMenuOnly = false;
-        public static float NamePlateHalfWidth = 30f;
+        public static bool NamePlateHoverMenuOnly = false;
         public static float NamePlateSize = 1f;
         public static float NamePlateTransparency = 0.45f;
         private static bool lastMenuOpenState;
@@ -59,8 +61,7 @@ namespace Basis.Scripts.UI.NamePlate
         private Vector3[] workNormals;
         private Vector2[] workUVs;
 
-        // Reusable combine buffer
-        private readonly CombineInstance[] combineBuffer = new CombineInstance[2];
+        private static bool _unicodeFallbacksEnsured;
 
         public void Awake()
         {
@@ -72,14 +73,144 @@ namespace Basis.Scripts.UI.NamePlate
 
             NamePlateEnabled = BasisSettingsDefaults.NPEnabled.RawValue;
             NamePlateMenuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
-            NamePlateHalfWidth = BasisSettingsDefaults.NPWidth.RawValue;
+            NamePlateHoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
             NamePlateSize = BasisSettingsDefaults.NPSize.RawValue;
             NamePlateTransparency = BasisSettingsDefaults.NPTransparency.RawValue;
             lastMenuOpenState = BasisMainMenu.Instance != null;
 
             UpdateCachedColors(NamePlateTransparency);
             PrecomputeCornerData();
-            RoundedCornersMesh = GenerateRoundedQuad(NamePlateHalfWidth, 4.5f, "Rounded NamePlate Quad");
+            EnsureUnicodeFallbacksOnNameplateFont();
+        }
+
+        /// <summary>
+        /// Walks a per-script list of OS font candidates and adds the first installed
+        /// match per script to the nameplate font's fallback list. This lets display
+        /// names render glyphs the primary (Latin) font doesn't cover — Japanese,
+        /// Korean, Chinese, Arabic, Thai, Hebrew, Devanagari — instead of silently
+        /// dropping them. Scripts with no installed candidate degrade to "no glyph";
+        /// no crash. Per-family dedupe avoids loading the same atlas twice when a
+        /// font (e.g., Tahoma covers both Arabic and Hebrew) was added for an earlier
+        /// script in the chain.
+        /// </summary>
+        private void EnsureUnicodeFallbacksOnNameplateFont()
+        {
+            if (_unicodeFallbacksEnsured) return;
+            _unicodeFallbacksEnsured = true;
+
+            if (Text == null || Text.font == null) return;
+
+            var primary = Text.font;
+            if (primary.fallbackFontAssetTable == null)
+                primary.fallbackFontAssetTable = new List<TMP_FontAsset>();
+
+            var registered = new HashSet<string>();
+            string[][] scriptCandidates =
+            {
+                // Japanese — kanji, hiragana, katakana
+                new[] { "Yu Gothic UI", "Yu Gothic", "Meiryo UI", "Meiryo", "MS Gothic",
+                        "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+                        "Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", "TakaoGothic" },
+
+                // Korean — Hangul
+                new[] { "Malgun Gothic", "Gulim", "Dotum", "Batang",
+                        "Apple SD Gothic Neo", "AppleGothic",
+                        "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic" },
+
+                // Simplified Chinese — CN-style Han glyphs
+                new[] { "Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "SimSun",
+                        "PingFang SC", "Hiragino Sans GB", "STHeiti",
+                        "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC",
+                        "WenQuanYi Micro Hei" },
+
+                // Traditional Chinese — TW/HK-style Han glyphs
+                new[] { "Microsoft JhengHei UI", "Microsoft JhengHei", "PMingLiU", "MingLiU",
+                        "PingFang TC", "Heiti TC",
+                        "Noto Sans CJK TC", "Noto Sans TC" },
+
+                // Arabic
+                new[] { "Tahoma", "Segoe UI",
+                        "Geeza Pro", "Damascus",
+                        "Noto Sans Arabic", "Noto Naskh Arabic", "DejaVu Sans" },
+
+                // Thai
+                new[] { "Leelawadee UI", "Leelawadee",
+                        "Thonburi", "Sukhumvit Set",
+                        "Noto Sans Thai", "Loma" },
+
+                // Hebrew
+                new[] { "David CLM", "Arial Hebrew",
+                        "Tahoma", "Segoe UI", "Lucida Grande",
+                        "Noto Sans Hebrew", "DejaVu Sans" },
+
+                // Devanagari — Hindi, Marathi, Sanskrit
+                new[] { "Nirmala UI", "Mangal",
+                        "Devanagari MT", "Kohinoor Devanagari",
+                        "Noto Sans Devanagari", "Lohit Devanagari" },
+            };
+
+            foreach (string[] candidates in scriptCandidates)
+                AddFirstAvailableFallback(primary, candidates, registered);
+        }
+
+        private static void AddFirstAvailableFallback(TMP_FontAsset primary, string[] candidates, HashSet<string> registered)
+        {
+            foreach (string family in candidates)
+            {
+                // If a previous script already loaded this family, accept its glyph
+                // coverage for the current script too — avoids double-allocating the
+                // same atlas. Stop the search; we won't try worse candidates after a
+                // hit on the user's preferred chain.
+                if (registered.Contains(family)) return;
+
+                // Prefilter against the installed font list. CreateFontAsset emits an
+                // unconditional Debug.Log on miss, so on machines without (e.g.) the
+                // Hebrew system fonts each script's chain spammed the log even though
+                // the silent skip behavior was actually correct.
+                if (!IsFontInstalled(family)) continue;
+
+                TMP_FontAsset fallback = null;
+                try { fallback = TMP_FontAsset.CreateFontAsset(family, "Regular"); }
+                catch { continue; }
+                if (fallback == null) continue;
+
+                fallback.name = "NamePlate Fallback (" + family + ")";
+                primary.fallbackFontAssetTable.Add(fallback);
+                registered.Add(family);
+                return;
+            }
+        }
+
+        private static HashSet<string> _installedFontNamesLower;
+
+        private static bool IsFontInstalled(string family)
+        {
+            if (_installedFontNamesLower == null)
+            {
+                HashSet<string> set = new HashSet<string>();
+                try
+                {
+                    string[] names = Font.GetOSInstalledFontNames();
+                    if (names != null)
+                        foreach (string n in names)
+                            if (!string.IsNullOrEmpty(n)) set.Add(n.ToLowerInvariant());
+                }
+                catch
+                {
+                    // Some platforms (mobile/console) don't enumerate system fonts —
+                    // fall through to the empty set so we let TMP try anyway.
+                }
+                _installedFontNamesLower = set;
+            }
+
+            if (_installedFontNamesLower.Count == 0) return true;
+            string f = family.ToLowerInvariant();
+            if (_installedFontNamesLower.Contains(f)) return true;
+            // Style suffixes ("Arial Bold", "David CLM Regular") are common — accept
+            // any installed name that begins with the requested family.
+            foreach (string n in _installedFontNamesLower)
+                if (n.StartsWith(f)) return true;
+            return false;
         }
 
         private void UpdateCachedColors(float transparency)
@@ -87,6 +218,12 @@ namespace Basis.Scripts.UI.NamePlate
             StaticNormalColor = new Color(NormalColor.r, NormalColor.g, NormalColor.b, transparency);
             StaticIsTalkingColor = new Color(IsTalkingColor.r, IsTalkingColor.g, IsTalkingColor.b, transparency);
             StaticOutOfRangeColor = new Color(OutOfRangeColor.r, OutOfRangeColor.g, OutOfRangeColor.b, transparency);
+            // Guard against prefabs saved before FailedLoadColor existed — deserialization
+            // zeros the struct, which would render the failed plate invisible.
+            Color failedSource = (FailedLoadColor.r == 0f && FailedLoadColor.g == 0f && FailedLoadColor.b == 0f && FailedLoadColor.a == 0f)
+                ? new Color(1f, 0.2f, 0.2f, 1f)
+                : FailedLoadColor;
+            StaticFailedLoadColor = new Color(failedSource.r, failedSource.g, failedSource.b, transparency);
             NormalColorFloat4 = new float4(StaticNormalColor.r, StaticNormalColor.g, StaticNormalColor.b, StaticNormalColor.a);
         }
 
@@ -139,6 +276,7 @@ namespace Basis.Scripts.UI.NamePlate
         {
             if (!NamePlateEnabled) return false;
             if (!plate.IsVisible) return false;
+            if (plate.BasisRemotePlayer != null && plate.BasisRemotePlayer.IsEffectivelyBlocked) return false;
             if (NamePlateMenuOnly && BasisMainMenu.Instance == null) return false;
             return true;
         }
@@ -149,51 +287,43 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         private static void SetAllPlateVisibility()
         {
-            for (int i = 0; i < plates.Count; i++)
+            var arr = plates;
+            int n = count;
+            for (int i = 0; i < n; i++)
             {
-                var plate = plates[i];
+                var plate = arr[i];
                 if (plate != null)
-                    plate.gameObject.SetActive(ShouldPlateBeActive(plate));
+                    plate.RefreshActiveState();
             }
         }
 
         /// <summary>
         /// Called by SettingsProviderNamePlate when nameplate settings change.
-        /// Re-reads settings and applies width, size, and transparency to all active plates.
+        /// Re-reads settings and applies size and transparency to all active plates.
         /// </summary>
         public void ApplyNamePlateSettingsFromUI()
         {
             bool enabled = BasisSettingsDefaults.NPEnabled.RawValue;
             bool menuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
-            float newWidth = BasisSettingsDefaults.NPWidth.RawValue;
+            bool hoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
             float newSize = BasisSettingsDefaults.NPSize.RawValue;
             float newTransparency = BasisSettingsDefaults.NPTransparency.RawValue;
 
-            bool meshChanged = !Mathf.Approximately(NamePlateHalfWidth, newWidth);
-
             NamePlateEnabled = enabled;
             NamePlateMenuOnly = menuOnly;
-            NamePlateHalfWidth = newWidth;
+            NamePlateHoverMenuOnly = hoverMenuOnly;
             NamePlateSize = newSize;
             NamePlateTransparency = newTransparency;
 
             UpdateCachedColors(newTransparency);
 
-            if (meshChanged)
-            {
-                RoundedCornersMesh = GenerateRoundedQuad(NamePlateHalfWidth, 4.5f, "Rounded NamePlate Quad");
-            }
-
             Vector3 scale = new Vector3(0.02f, 0.02f, 0.02f) * newSize;
-            for (int i = 0; i < plates.Count; i++)
+            var arr = plates;
+            int n = count;
+            for (int i = 0; i < n; i++)
             {
-                var plate = plates[i];
+                var plate = arr[i];
                 if (plate == null) continue;
-
-                if (meshChanged && plate.bakedMesh != null)
-                {
-                    CombinePlateMesh(plate);
-                }
 
                 if (plate.Self != null)
                 {
@@ -206,31 +336,6 @@ namespace Basis.Scripts.UI.NamePlate
             SetAllPlateVisibility();
         }
 
-        /// <summary>
-        /// Combines RoundedCornersMesh + plate's baked text mesh.
-        /// Shared by initial creation and mesh rebuilds.
-        /// </summary>
-        private void CombinePlateMesh(BasisRemoteNamePlate namePlate, bool setMaterials = false)
-        {
-            combineBuffer[0] = new CombineInstance { mesh = RoundedCornersMesh, transform = Matrix4x4.identity };
-            combineBuffer[1] = new CombineInstance { mesh = namePlate.bakedMesh, transform = Matrix4x4.identity };
-
-            Mesh combinedMesh = new Mesh { name = "CombinedNameplateMesh" };
-            combinedMesh.CombineMeshes(combineBuffer, false);
-
-            namePlate.Filter.sharedMesh = combinedMesh;
-
-            if (setMaterials)
-            {
-                // NOTE: This allocates; ideally cache materials array on plate, but left as-is for compatibility.
-                namePlate.Renderer.materials = new Material[]
-                {
-                    SelectedNamePlateMaterial,
-                    namePlate.Renderer.material
-                };
-            }
-        }
-
         // ===========================
         // Text bake path
         // ===========================
@@ -241,13 +346,61 @@ namespace Basis.Scripts.UI.NamePlate
             Text.text = remotePlayer.DisplayName;
             Text.ForceMeshUpdate();
 
-            Mesh textMesh = Instantiate(Text.mesh);
-            FlipMesh(textMesh);
+            // Measure the baked text so the background fits its actual content.
+            Vector2 textSize = Text.GetRenderedValues(true);
+            const float horizontalPadding = 2f;
+            float halfWidth = (textSize.x * 0.5f) + horizontalPadding;
 
-            namePlate.bakedMesh = textMesh;
-            namePlate.Filter.sharedMesh = textMesh;
+            Mesh plateMesh = GenerateRoundedQuad(halfWidth, 4.5f, "Rounded NamePlate Quad");
 
-            CombinePlateMesh(namePlate, setMaterials: true);
+            // Walk textInfo.meshInfo for every populated sub-mesh — index 0 is the
+            // primary font, indices 1+ are fallback font atlases used when characters
+            // (e.g., kanji) aren't present in the primary font. Cloning only Text.mesh
+            // would silently drop those fallback glyphs because TMP places them on
+            // auto-generated TMP_SubMesh children, not on the main Text mesh.
+            var textInfo = Text.textInfo;
+            int subMeshLimit = 0;
+            int textPartCount = 0;
+            if (textInfo != null && textInfo.meshInfo != null)
+            {
+                subMeshLimit = math.min(textInfo.materialCount, textInfo.meshInfo.Length);
+                for (int i = 0; i < subMeshLimit; i++)
+                {
+                    if (textInfo.meshInfo[i].vertexCount > 0)
+                        textPartCount++;
+                }
+            }
+
+            int totalParts = 1 + textPartCount;
+            var combine = new CombineInstance[totalParts];
+            var materials = new Material[totalParts];
+
+            combine[0] = new CombineInstance { mesh = plateMesh, transform = Matrix4x4.identity };
+            materials[0] = SelectedNamePlateMaterial;
+
+            Mesh primaryFlipped = null;
+            int writeIdx = 1;
+            for (int i = 0; i < subMeshLimit; i++)
+            {
+                var info = textInfo.meshInfo[i];
+                if (info.vertexCount == 0 || info.mesh == null) continue;
+
+                Mesh subClone = Instantiate(info.mesh);
+                FlipMesh(subClone);
+
+                combine[writeIdx] = new CombineInstance { mesh = subClone, transform = Matrix4x4.identity };
+                materials[writeIdx] = info.material;
+                if (primaryFlipped == null) primaryFlipped = subClone;
+                writeIdx++;
+            }
+
+            Mesh combinedMesh = new Mesh { name = "CombinedNameplateMesh" };
+            combinedMesh.CombineMeshes(combine, false);
+
+            namePlate.bakedMesh = primaryFlipped;
+            namePlate.Filter.sharedMesh = combinedMesh;
+            namePlate.Renderer.materials = materials;
+
             Text.gameObject.SetActive(false);
         }
 
@@ -361,7 +514,12 @@ namespace Basis.Scripts.UI.NamePlate
         // Optimized job system (double-buffered + safe structural changes)
         // =========================================================
 
-        private static readonly List<BasisRemoteNamePlate> plates = new(256);
+        // Manually-managed array (not List<T>) so the per-frame gather/apply loops
+        // index a plain T[] instead of going through List<T>.this[]'s bounds-check
+        // and indirection — that overhead showed up in the profiler.
+        // `count` (declared below) is the live element count, maintained eagerly
+        // by ApplyPendingStructuralChanges.
+        private static BasisRemoteNamePlate[] plates = new BasisRemoteNamePlate[256];
         private static readonly Dictionary<BasisRemoteNamePlate, int> indexOf = new(256);
 
         private static readonly List<BasisRemoteNamePlate> pendingAdd = new(64);
@@ -405,7 +563,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             DisposeArrays();
 
-            plates.Clear();
+            System.Array.Clear(plates, 0, count);
             indexOf.Clear();
             pendingAdd.Clear();
             pendingRemove.Clear();
@@ -456,9 +614,9 @@ namespace Basis.Scripts.UI.NamePlate
                 jobScheduled = false;
             }
 
-            ApplyPendingStructuralChanges();
+            if (pendingRemove.Count > 0 || pendingAdd.Count > 0)
+                ApplyPendingStructuralChanges();
 
-            count = plates.Count;
             if (count == 0)
                 return;
 
@@ -470,24 +628,38 @@ namespace Basis.Scripts.UI.NamePlate
             var inBuf = (writeBuffer == 0) ? inputA : inputB;
             var outBuf = (writeBuffer == 0) ? outputA : outputB;
 
-            // Gather inputs (still managed reads, but NO stall and tight struct write)
-            for (int i = 0; i < count; i++)
+            // Gather inputs via unsafe pointers to bypass NativeArray safety checks.
+            // `plates` is a plain T[] (not List<T>) so indexing skips the List indexer overhead.
+            var arr = plates;
+            unsafe
             {
-                var p = plates[i];
+                PlateInput* pIn = (PlateInput*)inBuf.GetUnsafePtr();
 
-                // Keep exactly your current semantics
-                var tc = p.GetTalkColorForJob();
-
-                inBuf[i] = new PlateInput
+                for (int i = 0; i < count; i++)
                 {
-                    isVisible = (ushort)(p.IsVisible ? 1 : 0),
-                    isPulsing = (ushort)(p.GetIsPulsingForJob() ? 1 : 0),
-                    startTime = p.GetTalkStartTimeForJob(),
-                    talkColor = new float4(tc.r, tc.g, tc.b, tc.a)
-                };
+                    var p = arr[i];
+                    bool pulsing = p.GetIsPulsingForJob();
 
-                // Optional: clear only the flag fields; job overwrites anyway
-                outBuf[i] = default;
+                    // Mid-pulse audibility recheck: if the player became inaudible
+                    // (mute, block, out-of-range, audio source unloaded, etc.) while
+                    // a pulse was in flight, snap the plate back to normal now
+                    // instead of letting the 0.7s hold+fade finish the transition.
+                    if (pulsing && !p.CanCurrentlyBeHeard())
+                    {
+                        p.ApplyColorFromJob(StaticNormalColor);
+                        p.StopPulseFromJob();
+                        pulsing = false;
+                    }
+
+                    var input = new PlateInput { isVisible = (ushort)p.IsVisibleRaw };
+                    if (pulsing)
+                    {
+                        input.isPulsing = 1;
+                        input.startTime = p.GetTalkStartTimeForJob();
+                        input.talkColor = p.GetTalkColorFloat4ForJob();
+                    }
+                    pIn[i] = input;
+                }
             }
 
             var job = new NamePlatePulseJob
@@ -500,7 +672,17 @@ namespace Basis.Scripts.UI.NamePlate
                 outputs = outBuf
             };
 
-            handle = job.Schedule(count, 64);
+            // For small counts, run inline — job system scheduling overhead
+            // exceeds the trivial per-item computation (branch + lerp).
+            if (count <= 64)
+            {
+                job.Run(count);
+                handle = default;
+            }
+            else
+            {
+                handle = job.Schedule(count, 64);
+            }
             jobScheduled = true;
         }
 
@@ -527,22 +709,28 @@ namespace Basis.Scripts.UI.NamePlate
             jobScheduled = false;
 
             var outBuf = (writeBuffer == 0) ? outputA : outputB;
+            var arr = plates;
 
-            for (int i = 0; i < count; i++)
+            unsafe
             {
-                var p = plates[i];
+                PlateOutput* pOut = (PlateOutput*)outBuf.GetUnsafeReadOnlyPtr();
 
-                if (outBuf[i].stopPulsing != 0)
-                    p.StopPulseFromJob();
-
-                if (outBuf[i].hasChange != 0)
+                for (int i = 0; i < count; i++)
                 {
-                    float4 c = outBuf[i].color;
-                    p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
-                }
+                    var p = arr[i];
+                    PlateOutput o = pOut[i];
 
-                // Update chat message timeout
-                p.UpdateChatTimeout();
+                    if (o.stopPulsing != 0)
+                        p.StopPulseFromJob();
+
+                    if (o.hasChange != 0)
+                    {
+                        float4 c = o.color;
+                        p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
+                    }
+
+                    p.UpdateChatTimeout();
+                }
             }
         }
 
@@ -555,27 +743,42 @@ namespace Basis.Scripts.UI.NamePlate
                 if (p == null) continue;
                 if (!indexOf.TryGetValue(p, out int idx)) continue;
 
-                int last = plates.Count - 1;
+                int last = count - 1;
                 var lastPlate = plates[last];
 
                 plates[idx] = lastPlate;
-                plates.RemoveAt(last);
+                plates[last] = null; // null out the now-unused tail slot so we don't pin a ref
+                count = last;
 
-                indexOf[lastPlate] = idx;
+                if (!ReferenceEquals(lastPlate, p))
+                    indexOf[lastPlate] = idx;
                 indexOf.Remove(p);
             }
             pendingRemove.Clear();
 
-            // Add
-            for (int a = 0; a < pendingAdd.Count; a++)
+            // Add — grow backing array if needed
+            int adds = pendingAdd.Count;
+            if (adds > 0)
             {
-                var p = pendingAdd[a];
-                if (p == null) continue;
-                if (indexOf.ContainsKey(p)) continue;
+                int needed = count + adds;
+                if (needed > plates.Length)
+                {
+                    int newCap = math.max(plates.Length * 2, math.ceilpow2(needed));
+                    var grown = new BasisRemoteNamePlate[newCap];
+                    System.Array.Copy(plates, grown, count);
+                    plates = grown;
+                }
 
-                int idx = plates.Count;
-                plates.Add(p);
-                indexOf[p] = idx;
+                for (int a = 0; a < adds; a++)
+                {
+                    var p = pendingAdd[a];
+                    if (p == null) continue;
+                    if (indexOf.ContainsKey(p)) continue;
+
+                    plates[count] = p;
+                    indexOf[p] = count;
+                    count++;
+                }
             }
             pendingAdd.Clear();
         }

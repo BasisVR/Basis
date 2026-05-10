@@ -1,4 +1,5 @@
 using System;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers.Editor;
 using Basis.Scripts.Editor;
@@ -8,15 +9,16 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static BasisAvatarValidator;
-#if BASIS_FRAMEWORK_EXISTS
 using Basis.Scripts.BasisSdk.Players;
-#endif
 
 [CustomEditor(typeof(BasisAvatar))]
 public partial class BasisAvatarSDKInspector : Editor
 {
+    private const string PendingTestInEditorAvatarIdSessionKey = "BasisAvatarSDKInspector.PendingTestInEditorAvatarId";
+
     public delegate void BeforeTestInEditorHandler(GameObject clone);
     public static BeforeTestInEditorHandler OnBeforeTestInEditor;
+    private static BasisAvatar ScheduledTestInEditorAvatar;
 
     public static event Action<BasisAvatarSDKInspector> InspectorGuiCreated;
     public static event Action ButtonClicked;
@@ -32,6 +34,71 @@ public partial class BasisAvatarSDKInspector : Editor
     private Label resultLabel; // Store the result label for later clearing
     public string Error;
     public BasisAvatarValidator BasisAvatarValidator;
+
+    [InitializeOnLoadMethod]
+    private static void InitializeTestInEditorHooks()
+    {
+        EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+    }
+
+    private static void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state != PlayModeStateChange.EnteredPlayMode || !HasPendingTestInEditorAvatarId())
+        {
+            return;
+        }
+
+        EditorApplication.delayCall -= TryExecutePendingTestInEditor;
+        EditorApplication.delayCall += TryExecutePendingTestInEditor;
+    }
+
+    private static void TryExecutePendingTestInEditor()
+    {
+        string pendingAvatarId = GetPendingTestInEditorAvatarId();
+        if (string.IsNullOrEmpty(pendingAvatarId))
+        {
+            return;
+        }
+
+        if (!GlobalObjectId.TryParse(pendingAvatarId, out GlobalObjectId avatarId))
+        {
+            ClearPendingTestInEditorAvatarId();
+            return;
+        }
+
+        BasisAvatar avatar = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(avatarId) as BasisAvatar;
+        ClearPendingTestInEditorAvatarId();
+        if (avatar == null)
+        {
+            BasisDebug.LogError("Unable to resolve the pending avatar for Test In Editor.", BasisDebug.LogTag.Editor);
+            return;
+        }
+
+        RequestAvatarLoad(avatar);
+    }
+
+    private static bool HasPendingTestInEditorAvatarId()
+    {
+        return SessionState.GetBool(PendingTestInEditorAvatarIdSessionKey + ".Exists", false);
+    }
+
+    private static string GetPendingTestInEditorAvatarId()
+    {
+        return SessionState.GetString(PendingTestInEditorAvatarIdSessionKey, string.Empty);
+    }
+
+    private static void SetPendingTestInEditorAvatarId(string avatarId)
+    {
+        SessionState.SetString(PendingTestInEditorAvatarIdSessionKey, avatarId ?? string.Empty);
+        SessionState.SetBool(PendingTestInEditorAvatarIdSessionKey + ".Exists", !string.IsNullOrEmpty(avatarId));
+    }
+
+    private static void ClearPendingTestInEditorAvatarId()
+    {
+        SessionState.EraseString(PendingTestInEditorAvatarIdSessionKey);
+        SessionState.SetBool(PendingTestInEditorAvatarIdSessionKey + ".Exists", false);
+    }
     private void OnEnable()
     {
         visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(BasisSDKConstants.AvataruxmlPath);
@@ -54,10 +121,14 @@ public partial class BasisAvatarSDKInspector : Editor
             uiElementsRoot = visualTree.CloneTree();
             rootElement.Add(uiElementsRoot);
             BasisAvatarValidator = new BasisAvatarValidator(Avatar, rootElement);
-            Button button = DocumentationButton(rootElement, "Open Avatar Documentation");
+            Button button = DocumentationButton(rootElement, BasisEditorLocalization.Get("sdk.avatar.documentation.button"));
             button.clicked += delegate
             {
-                if (EditorUtility.DisplayDialog("Open Documentation", "Open Documentation", "Yes I want to open the documentation", "no send me back"))
+                if (EditorUtility.DisplayDialog(
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.title"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation.body"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.yes"),
+                        BasisEditorLocalization.Get("sdk.common.dialog.no")))
                 {
                     Application.OpenURL(BasisSDKConstants.AvatarDocumentationURL);
                 }
@@ -67,6 +138,9 @@ public partial class BasisAvatarSDKInspector : Editor
             SetupItems();
             AvatarSDKVisemes.Initialize(this);
             SetupNetworkBehaviours();
+#if !BASIS_FRAMEWORK_EXISTS
+            rootElement.Add(Basis.Scripts.BasisSdk.Players.Editor.BasisEditorPreviewParametersFoldout.Create());
+#endif
             InspectorGuiCreated?.Invoke(this);
         }
         else
@@ -168,7 +242,7 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         Undo.RecordObject(Avatar, "Toggle Eye Position Gizmo");
         AvatarEyePositionState = !AvatarEyePositionState;
-        Button.text = "Eye Position Gizmo " + AvatarHelper.BoolToText(AvatarEyePositionState);
+        Button.text = BasisEditorLocalization.Get("sdk.avatar.eyeGizmo.label", AvatarHelper.BoolToText(AvatarEyePositionState));
         EditorUtility.SetDirty(Avatar);
         ButtonClicked?.Invoke();
     }
@@ -176,7 +250,7 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         Undo.RecordObject(Avatar, "Toggle Mouth Position Gizmo");
         AvatarMouthPositionState = !AvatarMouthPositionState;
-        Button.text = "Mouth Position Gizmo " + AvatarHelper.BoolToText(AvatarMouthPositionState);
+        Button.text = BasisEditorLocalization.Get("sdk.avatar.mouthGizmo.label", AvatarHelper.BoolToText(AvatarMouthPositionState));
         EditorUtility.SetDirty(Avatar);
         ButtonClicked?.Invoke();
     }
@@ -193,6 +267,30 @@ public partial class BasisAvatarSDKInspector : Editor
         Avatar.AvatarEyePosition = new Vector3(evt.newValue.x, evt.newValue.y, 0);
         EditorUtility.SetDirty(Avatar);
         ValueChanged?.Invoke();
+    }
+    private void OnEyeLivelinessChanged(ChangeEvent<float> evt)
+    {
+        Undo.RecordObject(Avatar, "Change Eye Liveliness");
+        Avatar.EyeLiveliness = evt.newValue;
+        EditorUtility.SetDirty(Avatar);
+        ValueChanged?.Invoke();
+        if (Application.isPlaying)
+        {
+            BasisLocalEyeDriverData.Liveliness = evt.newValue;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
+        }
+    }
+    private void OnEyeAttentivenessChanged(ChangeEvent<float> evt)
+    {
+        Undo.RecordObject(Avatar, "Change Eye Attentiveness");
+        Avatar.EyeAttentiveness = evt.newValue;
+        EditorUtility.SetDirty(Avatar);
+        ValueChanged?.Invoke();
+        if (Application.isPlaying)
+        {
+            BasisLocalEyeDriverData.Attentiveness = evt.newValue;
+            BasisLocalEyeDriverData.PersonalityDirty = true;
+        }
     }
     public void EventCallbackAnimator(ChangeEvent<UnityEngine.Object> evt, ref Animator Renderer)
     {
@@ -240,6 +338,20 @@ public partial class BasisAvatarSDKInspector : Editor
         BasisHelpersGizmo.CallBackVector2Field(uiElementsRoot, BasisSDKConstants.avatarEyePositionField, Avatar.AvatarEyePosition, OnEyeHeightValueChanged);
         BasisHelpersGizmo.CallBackVector2Field(uiElementsRoot, BasisSDKConstants.avatarMouthPositionField, Avatar.AvatarMouthPosition, OnMouthHeightValueChanged);
 
+        // Eye Personality sliders
+        Slider livelinessSlider = uiElementsRoot.Q<Slider>(BasisSDKConstants.EyeLivelinessField);
+        if (livelinessSlider != null)
+        {
+            livelinessSlider.value = Avatar.EyeLiveliness;
+            livelinessSlider.RegisterCallback<ChangeEvent<float>>(OnEyeLivelinessChanged);
+        }
+        Slider attentivenessSlider = uiElementsRoot.Q<Slider>(BasisSDKConstants.EyeAttentivenessField);
+        if (attentivenessSlider != null)
+        {
+            attentivenessSlider.value = Avatar.EyeAttentiveness;
+            attentivenessSlider.RegisterCallback<ChangeEvent<float>>(OnEyeAttentivenessChanged);
+        }
+
         // Initialize ObjectFields and assign references
         ObjectField animatorField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.animatorField);
         ObjectField faceBlinkMeshField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.FaceBlinkMeshField);
@@ -286,6 +398,7 @@ public partial class BasisAvatarSDKInspector : Editor
         avatarAutomaticBlinkDetectionClick.clicked += AutomaticallyFindBlinking;
         AvatarTestInEditorClick.clicked += AvatarTestInEditorClickFunction;// unity editor window button
 
+        BasisSDKCommonInspector.CreateContentTagsFoldout(uiElementsRoot, Avatar);
         BasisSDKCommonInspector.CreateBuildTargetOptions(uiElementsRoot);
         BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
         BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
@@ -301,8 +414,8 @@ public partial class BasisAvatarSDKInspector : Editor
         faceVisemeMeshField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(evt => EventCallbackFaceVisemeMesh(evt, ref Avatar.FaceVisemeMesh));
 
         // Update Button Text
-        avatarEyePositionClick.text = "Eye Position Gizmo " + AvatarHelper.BoolToText(AvatarEyePositionState);
-        avatarMouthPositionClick.text = "Mouth Position Gizmo " + AvatarHelper.BoolToText(AvatarMouthPositionState);
+        avatarEyePositionClick.text = BasisEditorLocalization.Get("sdk.avatar.eyeGizmo.label", AvatarHelper.BoolToText(AvatarEyePositionState));
+        avatarMouthPositionClick.text = BasisEditorLocalization.Get("sdk.avatar.mouthGizmo.label", AvatarHelper.BoolToText(AvatarMouthPositionState));
     }
 
     private void OnIconFieldChanged(ChangeEvent<UnityEngine.Object> evt)
@@ -325,7 +438,7 @@ public partial class BasisAvatarSDKInspector : Editor
                 string path = AssetDatabase.GetAssetPath(Avatar.Animator.runtimeAnimatorController);
                 if (path == BasisSDKConstants.AvatarAnimatorControllerPath)
                 {
-                    BasisDebug.Log("Animator Controller Used was the default! UnAssigning");
+                    BasisDebug.Log("Animator Controller Used was the default! Unassigning");
                     Avatar.Animator.runtimeAnimatorController = null;
                     EditorUtility.SetDirty(Avatar.Animator);
                     AssetDatabase.SaveAssetIfDirty(Avatar);
@@ -346,7 +459,7 @@ public partial class BasisAvatarSDKInspector : Editor
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
             try
             {
-                BasisDebug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+                BasisDebug.Log($"Building Avatar Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
                 // Build from a stripped clone so the authored avatar stays untouched.
                 buildRoot = GameObject.Instantiate(Avatar.gameObject);
                 buildRoot.TryGetComponent<BasisAvatar>(out Avatar);
@@ -360,7 +473,7 @@ public partial class BasisAvatarSDKInspector : Editor
                 GenerateMeshLODs(3);
 #endif
 
-                BasisDebug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+                BasisDebug.Log($"Building Avatar Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
                 BundleCreatedState = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, Avatar, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
 
                 EditorUtility.ClearProgressBar();
@@ -384,12 +497,12 @@ public partial class BasisAvatarSDKInspector : Editor
             resultLabel.style.color = Color.black; // Error message color
             if (BundleCreatedState.success)
             {
-                resultLabel.text = "Build successful";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.success");
                 resultLabel.style.backgroundColor = Color.green;
             }
             else
             {
-                resultLabel.text = $"Build failed: {BundleCreatedState.message}";
+                resultLabel.text = BasisEditorLocalization.Get("sdk.common.build.failed", BundleCreatedState.message);
                 resultLabel.style.backgroundColor = Color.red;
             }
 
@@ -399,11 +512,11 @@ public partial class BasisAvatarSDKInspector : Editor
         }
         else
         {
-            if (EditorUtility.DisplayDialog("Avatar Build Error", $"Please Resolve Or Consult The Documentation. \n {string.Join("\n", Errors)}", "OK", "Open Documentation"))
-            {
-
-            }
-            else
+            if (!EditorUtility.DisplayDialog(
+                    BasisEditorLocalization.Get("sdk.avatar.buildError.title"),
+                    BasisEditorLocalization.Get("sdk.avatar.buildError.body", string.Join("\n", Errors)),
+                    BasisEditorLocalization.Get("sdk.common.dialog.ok"),
+                    BasisEditorLocalization.Get("sdk.common.dialog.openDocumentation")))
             {
                 Application.OpenURL(BasisSDKConstants.AvatarDocumentationURL);
             }
@@ -482,8 +595,8 @@ public partial class BasisAvatarSDKInspector : Editor
                 foreach (var path in modelPathsNeedingReimport)
                 {
                     if (EditorUtility.DisplayCancelableProgressBar(
-                            "Reimporting Models (Mesh LODs)",
-                            $"{i + 1}/{total}: {path}",
+                            BasisEditorLocalization.Get("sdk.avatar.lod.reimport.title"),
+                            BasisEditorLocalization.Get("sdk.avatar.lod.reimport.progress", i + 1, total, path),
                             (float)i / total))
                     {
                         Debug.LogWarning("GenerateMeshLODs: Canceled by user.");
@@ -506,16 +619,22 @@ public partial class BasisAvatarSDKInspector : Editor
         if (meshAssetsNeedingSave.Count > 0)
             AssetDatabase.SaveAssets();
 
-        Debug.Log($"GenerateMeshLODs: Reimported {modelPathsNeedingReimport.Count} model asset(s), updated {meshAssetsNeedingSave.Count} mesh asset(s).");
+        Debug.Log($"GenerateMeshLODs: Reimported {modelPathsNeedingReimport.Count} model asset(s); updated {meshAssetsNeedingSave.Count} mesh asset(s).");
     }
 #endif
     public void AvatarTestInEditorClickFunction()
     {
+#if BASIS_FRAMEWORK_EXISTS
         if (!Application.isPlaying)
         {
-            bool result = EditorUtility.DisplayDialog("Confirmation", "this feature requires the editor to be in playmode. do you want to enter play mode now? once done you will need to press it again! please also make sure you have a floor in your scene!", "yes", "no");
+            bool result = EditorUtility.DisplayDialog(
+                BasisEditorLocalization.Get("sdk.common.dialog.confirm"),
+                BasisEditorLocalization.Get("sdk.avatar.testInEditor.confirm.body"),
+                BasisEditorLocalization.Get("sdk.common.dialog.yes"),
+                BasisEditorLocalization.Get("sdk.common.dialog.no"));
             if (result)
             {
+                SetPendingTestInEditorAvatarId(GlobalObjectId.GetGlobalObjectIdSlow(Avatar).ToString());
                 EditorApplication.EnterPlaymode();
             }
         }
@@ -523,36 +642,51 @@ public partial class BasisAvatarSDKInspector : Editor
         {
             RequestAvatarLoad();
         }
+#else
+        // SDK preview runs in either edit or play mode — no play-mode prompt needed.
+        RequestAvatarLoad();
+#endif
     }
     public void RequestAvatarLoad()
     {
-#if BASIS_FRAMEWORK_EXISTS
-        if (BasisLocalPlayer.PlayerReady)
+        RequestAvatarLoad(Avatar);
+    }
+
+    private static void RequestAvatarLoad(BasisAvatar avatar)
+    {
+        if (BasisLocalPlayerData.PlayerReady)
         {
             BasisDebug.Log("Player Ready Loading", BasisDebug.LogTag.Editor);
-            LoadAvatar();
+            LoadAvatar(avatar);
         }
         else
         {
-            ScheduleCallback = true;
+            ScheduledTestInEditorAvatar = avatar;
             BasisDebug.Log("Scheduling Load Avatar", BasisDebug.LogTag.Editor);
-            BasisLocalPlayer.OnLocalPlayerInitalized += LoadAvatar;
+            BasisLocalPlayerData.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+            BasisLocalPlayerData.OnLocalPlayerInitalized += LoadScheduledAvatar;
         }
-#endif
     }
-    public bool ScheduleCallback = false;
-    public async void LoadAvatar()
+
+    private static void LoadScheduledAvatar()
     {
-#if BASIS_FRAMEWORK_EXISTS
-        if (ScheduleCallback)
+        BasisLocalPlayerData.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+        if (ScheduledTestInEditorAvatar == null)
         {
-            BasisLocalPlayer.OnLocalPlayerInitalized -= LoadAvatar;
-            ScheduleCallback = false;
+            return;
         }
+
+        BasisAvatar avatar = ScheduledTestInEditorAvatar;
+        ScheduledTestInEditorAvatar = null;
+        LoadAvatar(avatar);
+    }
+
+    private static async void LoadAvatar(BasisAvatar avatar)
+    {
         BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
 
         var jigglesToReset = new List<MonoBehaviour>();
-        foreach (MonoBehaviour jiggle in Avatar.gameObject.GetComponentsInChildren<MonoBehaviour>(false))
+        foreach (MonoBehaviour jiggle in avatar.gameObject.GetComponentsInChildren<MonoBehaviour>(false))
         {
             if (jiggle != null
                 && jiggle.GetType().FullName == "GatorDragonGames.JigglePhysics.JiggleRig"
@@ -564,19 +698,19 @@ public partial class BasisAvatarSDKInspector : Editor
         GameObject inSceneItem;
         if (jigglesToReset.Count > 0)
         {
-            BasisDebug.Log("Enabled Jiggles were found when Test in Editor was entered. We will disable the avatar in order to reset the Jiggle transforms.", BasisDebug.LogTag.Editor);
-            Avatar.gameObject.SetActive(false);
+            BasisDebug.Log("Enabled Jiggles were found when Test in Editor was entered. The avatar will be disabled in order to reset the Jiggle transforms.", BasisDebug.LogTag.Editor);
+            avatar.gameObject.SetActive(false);
             // It's a bit of a hack, but waiting three frames works.
             await Awaitable.NextFrameAsync();
             await Awaitable.NextFrameAsync();
             await Awaitable.NextFrameAsync();
-            inSceneItem = GameObject.Instantiate(Avatar.gameObject);
-            Avatar.gameObject.SetActive(true);
+            inSceneItem = GameObject.Instantiate(avatar.gameObject);
+            avatar.gameObject.SetActive(true);
             inSceneItem.SetActive(true);
         }
         else
         {
-            inSceneItem = GameObject.Instantiate(Avatar.gameObject);
+            inSceneItem = GameObject.Instantiate(avatar.gameObject);
         }
 
         BasisAssetBundlePipeline.DestroyEditorOnlyInAvatar(inSceneItem);
@@ -593,9 +727,8 @@ public partial class BasisAvatarSDKInspector : Editor
             RemoteBeeFileLocation = BasisGenerateUniqueID.GenerateUniqueID()
         };
         BasisDebug.Log("Requesting Avatar Load", BasisDebug.LogTag.Editor);
-        await BasisLocalPlayer.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
+        await BasisLocalPlayerData.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
         BasisDebug.Log("Avatar Load Complete", BasisDebug.LogTag.Editor);
-#endif
     }
     private void ClearResultLabel()
     {

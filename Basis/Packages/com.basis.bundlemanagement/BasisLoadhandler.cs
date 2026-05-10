@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Basis.Scripts.BasisSdk;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using static BasisSerialization;
@@ -89,7 +90,7 @@ public static class BasisLoadHandler
             }
         }
     }
-    public static async Task<GameObject> LoadGameObjectBundle(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+    public static async Task<GameObject> LoadGameObjectBundle(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
     {
         await EnsureInitializationComplete();
 
@@ -102,7 +103,7 @@ public static class BasisLoadHandler
                 // ensure the bundle connector is updated from the wrapper
                 loadableBundle.BasisBundleConnector = wrapper.LoadableBundle.BasisBundleConnector;
 
-                return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject,wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer);
+                return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject,wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop);
             }
             catch (Exception ex)
             {
@@ -112,7 +113,7 @@ public static class BasisLoadHandler
             }
         }
 
-        return await HandleFirstBundleLoad(DisabledGameobject,loadableBundle, useContentRemoval, report, cancellationToken, Position, Rotation, Scale, ModifyScale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, MaxDownloadSizeInMB);
+        return await HandleFirstBundleLoad(DisabledGameobject,loadableBundle, useContentRemoval, report, cancellationToken, Position, Rotation, Scale, ModifyScale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, MaxDownloadSizeInMB, HarvestedHeadChop);
     }
     public static async Task<Scene> LoadSceneBundle(bool makeActiveScene, BasisLoadableBundle loadableBundle, BasisProgressReport report, CancellationToken cancellationToken, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
@@ -121,7 +122,20 @@ public static class BasisLoadHandler
         if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisTrackedBundleWrapper wrapper))
         {
             BasisDebug.Log($"Bundle On Disc Loading", BasisDebug.LogTag.Networking);
-            await wrapper.WaitForBundleLoadAsync();
+            if (wrapper.AssetBundle == null)
+            {
+                await BasisBeeManagement.HandleBundleAndMetaLoading(wrapper, report, cancellationToken, MaxDownloadSizeInMB);
+            }
+            else
+            {
+                await wrapper.WaitForBundleLoadAsync();
+            }
+
+            if (wrapper.AssetBundle == null)
+            {
+                BasisDebug.LogError("Scene bundle was not available after load attempt.");
+                return new Scene();
+            }
             BasisDebug.Log($"Bundle Loaded, Loading Scene", BasisDebug.LogTag.Networking);
             return await BasisBundleLoadAsset.LoadSceneFromBundleAsync(wrapper, makeActiveScene, report);
         }
@@ -143,7 +157,7 @@ public static class BasisLoadHandler
         return await BasisBundleLoadAsset.LoadSceneFromBundleAsync(wrapper, makeActiveScene, report);
     }
 
-    private static async Task<GameObject> HandleFirstBundleLoad(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false, bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+    private static async Task<GameObject> HandleFirstBundleLoad(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false, bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
     {
         BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
         {
@@ -160,44 +174,179 @@ public static class BasisLoadHandler
         try
         {
             await BasisBeeManagement.HandleBundleAndMetaLoading(wrapper, report, cancellationToken, MaxDownloadSizeInMB);
-            return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject, wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer);
+            return await BasisBundleLoadAsset.LoadFromWrapper(DisabledGameobject, wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop);
         }
         catch (Exception ex)
         {
             BasisDebug.LogError($"{ex.Message} {ex.StackTrace}");
             LoadedBundles.Remove(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out var data);
             CleanupFiles(loadableBundle.BasisLocalEncryptedBundle);
-            OnDiscData.TryRemove(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out _);
             return null;
         }
     }
+
+    public static string GetDiscInfoKey(string remoteUrl, string downloadedPlatform)
+    {
+        string safeUrl = remoteUrl ?? string.Empty;
+        string safePlatform = string.IsNullOrWhiteSpace(downloadedPlatform) ? "legacy" : downloadedPlatform.Trim();
+        return $"{safePlatform}|{safeUrl}";
+    }
+
+    private static bool TryResolveStoredBeePath(BasisBEEExtensionMeta discInfo, out string beePath)
+    {
+        beePath = discInfo.StoredLocal.DownloadedBeeFileLocation;
+        if (!string.IsNullOrWhiteSpace(beePath) && File.Exists(beePath))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+        {
+            string platformAwarePath = BasisIOManagement.GetBeeCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+            if (File.Exists(platformAwarePath))
+            {
+                discInfo.StoredLocal.DownloadedBeeFileLocation = platformAwarePath;
+                beePath = platformAwarePath;
+                return true;
+            }
+
+            string legacyPath = BasisIOManagement.GetLegacyBeeCacheFilePath(discInfo.UniqueVersion);
+            if (File.Exists(legacyPath))
+            {
+                discInfo.StoredLocal.DownloadedBeeFileLocation = legacyPath;
+                beePath = legacyPath;
+                return true;
+            }
+        }
+
+        beePath = null;
+        return false;
+    }
+
+    private static bool TryResolveStoredConnectorPath(BasisBEEExtensionMeta discInfo, out string connectorPath)
+    {
+        connectorPath = discInfo.StoredLocal.DownloadedConnectorFileLocation;
+        if (!string.IsNullOrWhiteSpace(connectorPath) && File.Exists(connectorPath))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+        {
+            string platformAwarePath = BasisIOManagement.GetConnectorCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+            if (File.Exists(platformAwarePath))
+            {
+                discInfo.StoredLocal.DownloadedConnectorFileLocation = platformAwarePath;
+                connectorPath = platformAwarePath;
+                return true;
+            }
+        }
+
+        connectorPath = null;
+        return false;
+    }
+
+    private static bool HasAnyCachedPayload(BasisBEEExtensionMeta discInfo)
+    {
+        return TryResolveStoredBeePath(discInfo, out _) || TryResolveStoredConnectorPath(discInfo, out _);
+    }
+
+    private static bool TryLazyLoadDiscInfo(string metaUrl, string currentPlatform, out BasisBEEExtensionMeta info)
+    {
+        info = null;
+
+        string path = BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
+        if (!Directory.Exists(path))
+        {
+            return false;
+        }
+
+        BasisBEEExtensionMeta legacyCandidate = null;
+
+        foreach (string file in Directory.GetFiles(path, $"*{BasisBeeConstants.BasisMetaExtension}"))
+        {
+            try
+            {
+                byte[] fileData = File.ReadAllBytes(file);
+                BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
+                if (discInfo?.StoredRemote?.RemoteBeeFileLocation != metaUrl)
+                {
+                    continue;
+                }
+
+                OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
+
+                if (!HasAnyCachedPayload(discInfo))
+                {
+                    continue;
+                }
+
+                if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
+                {
+                    info = discInfo;
+                    return true;
+                }
+
+                if (string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) && legacyCandidate == null)
+                {
+                    legacyCandidate = discInfo;
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogWarning($"Failed lazy-loading disc info from {file}: {ex.Message}", BasisDebug.LogTag.Event);
+            }
+        }
+
+        if (legacyCandidate != null)
+        {
+            info = legacyCandidate;
+            return true;
+        }
+
+        return false;
+    }
+
     public static bool IsMetaDataOnDisc(string MetaURL, out BasisBEEExtensionMeta info)
     {
         lock (_discInfoLock)
         {
+            string currentPlatform = BasisIOManagement.GetCurrentCachePlatform();
+            BasisBEEExtensionMeta legacyCandidate = null;
+
             foreach (var discInfo in OnDiscData.Values)
             {
                 if (discInfo.StoredRemote.RemoteBeeFileLocation == MetaURL)
                 {
-                    info = discInfo;
-
-                    if (string.IsNullOrEmpty(discInfo.StoredLocal.DownloadedBeeFileLocation))
+                    if (!string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) &&
+                        !BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
                     {
-                        string BEEPath = BasisIOManagement.GenerateFilePath($"{info.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}", BasisBeeConstants.AssetBundlesFolder);
-                        if (File.Exists(BEEPath))
-                        {
-                            discInfo.StoredLocal.DownloadedBeeFileLocation = BEEPath;
-                            return true;
-                        }
+                        continue;
                     }
-                    else
+
+                    if (HasAnyCachedPayload(discInfo))
                     {
-                        if (File.Exists(discInfo.StoredLocal.DownloadedBeeFileLocation))
+                        if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
                         {
+                            info = discInfo;
                             return true;
                         }
+
+                        legacyCandidate = discInfo;
                     }
                 }
+            }
+
+            if (legacyCandidate != null)
+            {
+                info = legacyCandidate;
+                return true;
+            }
+
+            if (TryLazyLoadDiscInfo(MetaURL, currentPlatform, out BasisBEEExtensionMeta lazyLoadedInfo))
+            {
+                info = lazyLoadedInfo;
+                return true;
             }
 
             info = new BasisBEEExtensionMeta();
@@ -207,19 +356,21 @@ public static class BasisLoadHandler
 
     public static async Task AddDiscInfo(BasisBEEExtensionMeta discInfo)
     {
-        if (OnDiscData.TryAdd(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo))
-        {
-        }
-        else
-        {
-            OnDiscData[discInfo.StoredRemote.RemoteBeeFileLocation] = discInfo;
-            BasisDebug.Log("Disc info updated.", BasisDebug.LogTag.Event);
-        }
-        string filePath = BasisIOManagement.GenerateFilePath($"{discInfo.UniqueVersion}{BasisBeeConstants.BasisMetaExtension}", BasisBeeConstants.AssetBundlesFolder);
+        string discKey = GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform);
+        OnDiscData[discKey] = discInfo;
+        string filePath = BasisIOManagement.GetMetaCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
         byte[] serializedData = BasisSerialization.SerializeValue(discInfo);
 
         try
         {
+            if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+            {
+                string legacyMetaPath = BasisIOManagement.GetLegacyMetaCacheFilePath(discInfo.UniqueVersion);
+                if (File.Exists(legacyMetaPath))
+                {
+                    File.Delete(legacyMetaPath);
+                }
+            }
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
@@ -238,7 +389,7 @@ public static class BasisLoadHandler
         BasisStorageManagement.DeleteStoredFile(metaUrl);
     }
 
-    private static async Task EnsureInitializationComplete()
+    public static async Task EnsureInitializationComplete()
     {
         if (!IsInitialized)
         {
@@ -275,7 +426,7 @@ public static class BasisLoadHandler
                 {
                     byte[] fileData = await File.ReadAllBytesAsync(file);
                     BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
-                    OnDiscData.TryAdd(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo);
+                    OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
                 }
                 catch (Exception ex)
                 {
@@ -292,7 +443,7 @@ public static class BasisLoadHandler
 
     private static void CleanupFiles(BasisStoredEncryptedBundle bundle)
     {
-        if (File.Exists(bundle.DownloadedBeeFileLocation))
+        if (!string.IsNullOrWhiteSpace(bundle?.DownloadedBeeFileLocation) && File.Exists(bundle.DownloadedBeeFileLocation))
         {
             File.Delete(bundle.DownloadedBeeFileLocation);
         }

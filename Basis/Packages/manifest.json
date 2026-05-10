@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#3.0.0",
+    "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#3.1.2",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.addressables": "2.9.1",
     "com.unity.animation.rigging": "1.4.1",
@@ -19,6 +19,8 @@
     "com.unity.visualeffectgraph": "17.4.0",
     "com.unity.xr.hands": "1.7.3",
     "com.unity.xr.management": "4.5.4",
+    "com.unity.xr.openxr": "1.16.1",
+    "com.valvesoftware.openxr.utils": "https://github.com/ValveSoftware/Unity.git?path=com.valvesoftware.openxr.utils#41ca1855174652d288af94a1b83ef76e34b5d4af",
     "com.valvesoftware.unity.openvr": "file:com.valvesoftware.unity.openvr-1.2.1.tgz",
     "com.xiph.rnnoise": "https://github.com/BasisVR/RNNoise.Net.git",
     "org.basisvr.base128": "file:org.basisvr.base128-1.2.2.tgz",

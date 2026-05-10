@@ -67,8 +67,8 @@ namespace Cilbox
 			if( !bDisallowed ) goto disallowed;
 			if( mi != null ) return mi;
 
-			// Replace any delegate creations with their proxies.
-			if( typeof(Delegate).IsAssignableFrom(declaringType) )
+			// Replace delegate construction with cilbox-backed host delegates.
+			if( typeof(Delegate).IsAssignableFrom(declaringType) && name == ".ctor" )
 			{
 				int argct = declaringType.GenericTypeArguments.Length;
 				Type specific = typeof(CilboxPlatform);
@@ -385,7 +385,7 @@ namespace Cilbox
 			String typeName = ses["n"].AsString();
 			String assemblyName = ses["a"].AsString();
 			if( IsCilboxInternalType( typeName ) ) return null;
-			if(box.GetComponentTypeOverride( typeName, out Type overrideType )) {
+			if(box.GetTypeOverride( typeName, out Type overrideType )) {
 				Debug.Log( $"GetNativeTypeFromSerializee: Override {typeName} with {overrideType.FullName}" );
 				typeName = overrideType.FullName;
 				assemblyName = overrideType.Assembly.GetName().Name;
@@ -441,7 +441,7 @@ namespace Cilbox
 			if( ses.TryGetValue( "ut", out utSer ) ) return GetNativeTypeNameFromSerializee( utSer );
 			String typeName = ses["n"].AsString();
 			if( IsCilboxInternalType( typeName ) ) return typeName;
-			if(box.GetComponentTypeOverride( typeName, out Type overrideType )) {
+			if(box.GetTypeOverride( typeName, out Type overrideType )) {
 				Debug.Log( $"GetNativeTypeFromSerializee: Override {typeName} with {overrideType.FullName}" );
 				typeName = overrideType.FullName;
 			}
@@ -618,8 +618,25 @@ namespace Cilbox
 	{
 		// This is called only when creating a new action, not when it's called.
 		// T is the delegate, not the arguments of the delegate.
-		static public object ProxyForGeneratingActions<T>( CilboxProxy proxy, CilboxMethod method )
+		static public object ProxyForGeneratingActions<T>( CilboxProxy proxy, object methodOrDelegate )
 		{
+			if( methodOrDelegate is T existingTypedDelegate )
+			{
+				return existingTypedDelegate;
+			}
+
+			if( methodOrDelegate is Delegate existingDelegate &&
+				typeof(T).IsAssignableFrom( existingDelegate.GetType() ) )
+			{
+				return existingDelegate;
+			}
+
+			if( methodOrDelegate is not CilboxMethod method )
+			{
+				throw new ArgumentException(
+					$"ProxyForGeneratingActions expected a CilboxMethod or compatible delegate, got {methodOrDelegate?.GetType().FullName ?? "null"}" );
+			}
+
 			CilboxPlatform.DelegateRepackage rp = new CilboxPlatform.DelegateRepackage();
 			rp.meth = method;
 			rp.o = proxy;
@@ -654,11 +671,11 @@ namespace Cilbox
 		{
 			public CilboxMethod meth;
 			public CilboxProxy o;
-		    public void ActionCallback0( )                                         { meth.Interpret( o, new object[0] ); }
-		    public void ActionCallback1<T0>( T0 o0 )                               { meth.Interpret( o, new object[]{o0} ); }
-		    public void ActionCallback2<T0,T1>( T0 o0, T1 o1 )                     { meth.Interpret( o, new object[]{o0,o1} ); }
-		    public void ActionCallback3<T0,T1,T2>( T0 o0, T1 o1, T2 o2 )           { meth.Interpret( o, new object[]{o0,o1,o2} ); }
-		    public void ActionCallback4<T0,T1,T2,T3>( T0 o0, T1 o1, T2 o2, T3 o3 ) { meth.Interpret( o, new object[]{o0,o1,o2,o3} ); }
+		    public void ActionCallback0( )                                         { object[] oa = o.box.RentObjectArray(0); meth.Interpret( o, oa ); }
+		    public void ActionCallback1<T0>( T0 o0 )                               { object[] oa = o.box.RentObjectArray(1); oa[0] = o0; meth.Interpret( o, oa ); }
+		    public void ActionCallback2<T0,T1>( T0 o0, T1 o1 )                     { object[] oa = o.box.RentObjectArray(2); oa[0] = o0; oa[1] = o1; meth.Interpret( o, oa ); }
+		    public void ActionCallback3<T0,T1,T2>( T0 o0, T1 o1, T2 o2 )           { object[] oa = o.box.RentObjectArray(3); oa[0] = o0; oa[1] = o1; oa[2] = o2; meth.Interpret( o, oa ); }
+		    public void ActionCallback4<T0,T1,T2,T3>( T0 o0, T1 o1, T2 o2, T3 o3 ) { object[] oa = o.box.RentObjectArray(4); oa[0] = o0; oa[1] = o1; oa[2] = o2; oa[3] = o3; meth.Interpret( o, oa ); }
 		}
 	}
 }

@@ -32,6 +32,23 @@ public class BasisOpenXRHandInput : BasisInputController
     public UnityEngine.XR.InputDevice Device;
     public const float TriggerDownAmount = 0.5f;
 
+    // Cached underlying InputAction refs — avoids InputActionProperty.action property-getter cost per read.
+    private InputAction _triggerAction;
+    private InputAction _gripAction;
+    private InputAction _primaryButtonAction;
+    private InputAction _secondaryButtonAction;
+    private InputAction _menuButtonAction;
+    private InputAction _primary2DAxisAction;
+    private InputAction _secondary2DAxisAction;
+    private InputAction _primary2DAxisClickAction;
+    private InputAction _secondary2DAxisClickAction;
+    private InputAction _devicePositionAction;
+    private InputAction _deviceRotationAction;
+    private InputAction _palmPoseActionPosition;
+    private InputAction _palmPoseActionRotation;
+    private InputAction _pointerPositionAction;
+    private InputAction _pointerRotationAction;
+
     /// <summary>
     /// Raw unmodified hand coordinates before final calibration.
     /// </summary>
@@ -87,6 +104,25 @@ public class BasisOpenXRHandInput : BasisInputController
         pointerRotation.action.Enable();
 
         EnableInputActions();
+        CacheActionReferences();
+    }
+    private void CacheActionReferences()
+    {
+        _triggerAction = Trigger.action;
+        _gripAction = Grip.action;
+        _primaryButtonAction = PrimaryButton.action;
+        _secondaryButtonAction = SecondaryButton.action;
+        _menuButtonAction = MenuButton.action;
+        _primary2DAxisAction = Primary2DAxis.action;
+        _secondary2DAxisAction = Secondary2DAxis.action;
+        _primary2DAxisClickAction = Primary2DAxisClick.action;
+        _secondary2DAxisClickAction = Secondary2DAxisClick.action;
+        _devicePositionAction = DeviceActionPosition.action;
+        _deviceRotationAction = DeviceActionRotation.action;
+        _palmPoseActionPosition = PalmPoseActionPosition.action;
+        _palmPoseActionRotation = PalmPoseActionRotation.action;
+        _pointerPositionAction = pointerPosition.action;
+        _pointerRotationAction = pointerRotation.action;
     }
     private void EnableInputActions()
     {
@@ -122,41 +158,43 @@ public class BasisOpenXRHandInput : BasisInputController
     public override void LateDoPollData()
     {
         // Poll input state here so InputUpdate() sees fresh data after LastUpdatePlayerControl()
-        CurrentInputState.Primary2DAxisRaw = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
-        CurrentInputState.Secondary2DAxisRaw = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
-        CurrentInputState.Primary2DAxisClick = Primary2DAxisClick.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.Secondary2DAxisClick = Secondary2DAxisClick.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
-        CurrentInputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.PrimaryButtonGetState = PrimaryButton.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
+        CurrentInputState.Primary2DAxisRaw = _primary2DAxisAction?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Secondary2DAxisRaw = _secondary2DAxisAction?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Primary2DAxisClick = _primary2DAxisClickAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Secondary2DAxisClick = _secondary2DAxisClickAction?.ReadValue<float>() > TriggerDownAmount;
+        float grip = _gripAction?.ReadValue<float>() ?? 0f;
+        CurrentInputState.SecondaryTrigger = grip;
+        CurrentInputState.GripButton = grip > TriggerDownAmount;
+        CurrentInputState.SystemOrMenuButton = _menuButtonAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.PrimaryButtonGetState = _primaryButtonAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.SecondaryButtonGetState = _secondaryButtonAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Trigger = _triggerAction?.ReadValue<float>() ?? 0f;
     }
     public override void RenderPollData()
     {
-        CurrentInputState.Primary2DAxisRaw = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
-        CurrentInputState.Secondary2DAxisRaw = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
-        CurrentInputState.Primary2DAxisClick = Primary2DAxisClick.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.Secondary2DAxisClick = Secondary2DAxisClick.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
-        CurrentInputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.PrimaryButtonGetState = PrimaryButton.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
-        CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
+        CurrentInputState.Primary2DAxisRaw = _primary2DAxisAction?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Secondary2DAxisRaw = _secondary2DAxisAction?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Primary2DAxisClick = _primary2DAxisClickAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Secondary2DAxisClick = _secondary2DAxisClickAction?.ReadValue<float>() > TriggerDownAmount;
+        float grip = _gripAction?.ReadValue<float>() ?? 0f;
+        CurrentInputState.SecondaryTrigger = grip;
+        CurrentInputState.GripButton = grip > TriggerDownAmount;
+        CurrentInputState.SystemOrMenuButton = _menuButtonAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.PrimaryButtonGetState = _primaryButtonAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.SecondaryButtonGetState = _secondaryButtonAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Trigger = _triggerAction?.ReadValue<float>() ?? 0f;
 
-        if (DeviceActionPosition != null)
+        if (_devicePositionAction != null)
         {
-            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, DeviceActionPosition.action.ReadValue<Vector3>());
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _devicePositionAction.ReadValue<Vector3>());
         }
-        if (DeviceActionRotation != null)
+        if (_deviceRotationAction != null)
         {
-            UnscaledDeviceCoord.rotation = DeviceActionRotation.action.ReadValue<Quaternion>();
+            UnscaledDeviceCoord.rotation = _deviceRotationAction.ReadValue<Quaternion>();
         }
-        if (pointerPosition != null)
+        if (_pointerPositionAction != null)
         {
-            ComputeUnscaledDeviceCoord(ref PointerPositionYScaled, pointerPosition.action.ReadValue<Vector3>());
+            ComputeUnscaledDeviceCoord(ref PointerPositionYScaled, _pointerPositionAction.ReadValue<Vector3>());
         }
 
         ConvertToScaledDeviceCoord();
@@ -215,8 +253,8 @@ public class BasisOpenXRHandInput : BasisInputController
                 }
                 else
                 {
-                    HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
-                    HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
+                    HandRaw.position = _palmPoseActionPosition.ReadValue<Vector3>();
+                    HandRaw.rotation = _palmPoseActionRotation.ReadValue<Quaternion>();
 
                     var corrected = math.mul(HandRaw.rotation, Quaternion.Euler(LeftHandPalmCorrection));
                     HandFinal.rotation = ApplyOffsetToRot(corrected);
@@ -242,8 +280,8 @@ public class BasisOpenXRHandInput : BasisInputController
                 }
                 else
                 {
-                    HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
-                    HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
+                    HandRaw.position = _palmPoseActionPosition.ReadValue<Vector3>();
+                    HandRaw.rotation = _palmPoseActionRotation.ReadValue<Quaternion>();
 
                     var corrected = math.mul(HandRaw.rotation, Quaternion.Euler(RightHandPalmCorrection));
                     HandFinal.rotation = ApplyOffsetToRot(corrected);

@@ -1,4 +1,5 @@
 #if !BASIS_DISABLE_MICROPHONE
+using Basis.Scripts.Networking.Transmitters;
 using UnityEngine;
 using Vector3 = UnityEngine.Vector3;
 
@@ -41,6 +42,8 @@ namespace Basis.Scripts.Drivers
         public Color UnMutedMutedIconColorActive = Color.white;
         public Color UnMutedMutedIconColorInactive = Color.grey;
         public Color MutedColor = Color.grey;
+        public Color ShoutColorActive = Color.yellow;
+        public Color ShoutColorInactive = new Color(0.6f, 0.6f, 0f, 1f);
 
         // Scale / FX
         public Vector3 StartingScale = Vector3.zero;
@@ -49,11 +52,13 @@ namespace Basis.Scripts.Drivers
         // Audio
         public AudioClip MuteSound;
         public AudioClip UnMuteSound;
-        public AudioSource AudioSource;
 
         // Timing
         public float duration = 0.35f;
         public float halfDuration;
+
+        private const float ClickMinInterval = 0.1f;
+        private float _lastClickPlayTime = float.NegativeInfinity;
 
         // Owner
         public BasisLocalCameraDriver CameraDriver;
@@ -194,14 +199,28 @@ namespace Basis.Scripts.Drivers
             RecomputeVisibilityIntent();
             RecomputeColorIntent();
 
-            if (PlaySound && AudioSource != null)
+            if (PlaySound && CameraDriver != null)
             {
-                if (IsMuted && MuteSound != null)
-                    AudioSource.PlayOneShot(MuteSound);
-
-                if (!IsMuted && UnMuteSound != null)
-                    AudioSource.PlayOneShot(UnMuteSound);
+                AudioClip clip = IsMuted ? MuteSound : UnMuteSound;
+                float now = Time.realtimeSinceStartup;
+                if (clip != null && now - _lastClickPlayTime >= ClickMinInterval)
+                {
+                    _lastClickPlayTime = now;
+                    PlayMicClickOneShot(clip, BasisLocalCameraDriver.Position, SMModuleAudio.ActiveMenusVolume);
+                }
             }
+        }
+
+        private static void PlayMicClickOneShot(AudioClip clip, Vector3 position, float volume)
+        {
+            GameObject go = new GameObject("MicClickOneShot");
+            go.transform.position = position;
+            AudioSource src = go.AddComponent<AudioSource>();
+            src.clip = clip;
+            src.spatialBlend = 0f;
+            src.volume = volume;
+            src.Play();
+            UnityEngine.Object.Destroy(go, clip.length + 0.5f);
         }
 
         public void OnDisplayModeChanged(MicrophoneDisplayMode newMode)
@@ -240,11 +259,22 @@ namespace Basis.Scripts.Drivers
             }
         }
 
+        public void OnShoutModeChanged()
+        {
+            RecomputeColorIntent();
+        }
+
         private void RecomputeColorIntent()
         {
             if (IsCurrentlyMuted)
             {
                 targetColor = MutedColor;
+            }
+            else if (BasisAudioTransmission.IsInShoutMode)
+            {
+                targetColor = LocalIsTransmitting
+                    ? ShoutColorActive
+                    : ShoutColorInactive;
             }
             else
             {

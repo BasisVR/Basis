@@ -34,6 +34,16 @@ namespace Basis.Scripts.BasisSdk
         public Vector2 AvatarMouthPosition;
 
         /// <summary>
+        /// How lively the avatar's eyes feel. Low values = calm and settled, high values = active and expressive.
+        /// </summary>
+        public float EyeLiveliness = 0.5f;
+
+        /// <summary>
+        /// How attentive the avatar's gaze feels. Low values = avoidant and wandering, high values = direct and focused.
+        /// </summary>
+        public float EyeAttentiveness = 0.5f;
+
+        /// <summary>
         /// Blend shape indices for facial viseme movement; -1 entries indicate unused slots.
         /// </summary>
         public int[] FaceVisemeMovement = new int[] { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
@@ -63,7 +73,12 @@ namespace Basis.Scripts.BasisSdk
         /// <summary>
         /// True if this avatar is owned by the local player.
         /// </summary>
-        public bool IsOwnedLocally;
+        public bool IsOwnedLocally { get; set; }
+
+        /// <summary>
+        /// True once avatar setup has completed and readiness callbacks have fired for this instance.
+        /// </summary>
+        public bool IsReady { get; private set; }
 
         /// <summary>
         /// Gets or sets the linked player ID. Setting also marks <see cref="HasLinkedPlayer"/> true.
@@ -112,7 +127,56 @@ namespace Basis.Scripts.BasisSdk
         /// <summary>
         /// Event triggered when the avatar is ready for further initialization or data queries.
         /// </summary>
-        public OnReady OnAvatarReady;
+        public OnReady OnAvatarReady {get; set;}
+
+        /// <summary>
+        /// Marks this avatar as ready and notifies listeners with the owner locality.
+        /// </summary>
+        /// <param name="isOwner">True when this avatar belongs to the local player.</param>
+        public void NotifyAvatarReady(bool isOwner)
+        {
+            IsOwnedLocally = isOwner;
+            IsReady = true;
+            OnAvatarReady?.Invoke(isOwner);
+        }
+
+        public static GameObject GetGameObject(object o)
+        {
+            GameObject currentGameobject = null;
+            if (o is GameObject go)
+            {
+                currentGameobject = go;
+            }
+            else if (o is Component c)
+            {
+                currentGameobject = c.gameObject;
+            }
+
+            if (currentGameobject == null)
+            {
+                Debug.LogError($"Object {o} is not a GameObject or Component.");
+                return null;
+            }
+
+            while (currentGameobject != null)
+            {
+                if (currentGameobject.TryGetComponent<BasisAvatar>(out _))
+                {
+                    return currentGameobject;
+                }
+
+                Transform parent = currentGameobject.transform.parent;
+                if (parent == null)
+                {
+                    break;
+                }
+
+                currentGameobject = parent.gameObject;
+            }
+
+            Debug.LogError($"Object {o} is not part of an avatar hierarchy.");
+            return null;
+        }
 
         /// <summary>
         /// Processing options used when the avatar is processed. This is always null after the avatar is processed.

@@ -145,6 +145,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         captureCamera.targetTexture = renderTexture;
         captureCamera.gameObject.SetActive(true);
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+        BasisLocalCameraDriver.RenderSettingsApplied += SyncBackgroundFromMainCamera;
 
         // Notify network that PIP camera was created
         if (BasisNetworkConnection.LocalPlayerPeer != null)
@@ -189,6 +190,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         
 
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+        BasisLocalCameraDriver.RenderSettingsApplied -= SyncBackgroundFromMainCamera;
         OnPickupUse.RemoveListener( OnPickupUseCapture );
 
         base.OnDestroy();
@@ -214,6 +216,29 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         captureCamera.usePhysicalProperties = true;
         captureCamera.targetTexture = renderTexture;
         captureCamera.targetDisplay = 1;
+        SyncBackgroundFromMainCamera();
+    }
+
+    private void SyncBackgroundFromMainCamera()
+    {
+        if (BasisLocalCameraDriver.Instance == null) return;
+        Camera main = BasisLocalCameraDriver.Instance.Camera;
+        if (main == null) return;
+
+        captureCamera.clearFlags = main.clearFlags;
+        captureCamera.backgroundColor = main.backgroundColor;
+
+        bool hasMainSky = main.TryGetComponent(out Skybox mainSky) && mainSky.material != null;
+        bool hasCapSky = captureCamera.TryGetComponent(out Skybox capSky);
+        if (hasMainSky)
+        {
+            if (!hasCapSky) capSky = captureCamera.gameObject.AddComponent<Skybox>();
+            capSky.material = mainSky.material;
+        }
+        else if (hasCapSky)
+        {
+            capSky.material = null;
+        }
     }
 
     /// <summary>Instantiates a unique material used for the preview mesh.</summary>
@@ -426,7 +451,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
             if (BasisDeviceManagement.Instance.CameraCountdownTickSound != null)
             {
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraCountdownTickSound, captureCamera.transform.position);
+                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraCountdownTickSound, captureCamera.transform.position, SMModuleAudio.ActivePropVolume);
             }
 
             yield return new WaitForSeconds(1f);
@@ -452,7 +477,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         // Play shutter sound locally (network was already notified via SendCountdown)
         if (BasisDeviceManagement.Instance.CameraShutterSound != null)
         {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, captureCamera.transform.position);
+            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, captureCamera.transform.position, SMModuleAudio.ActivePropVolume);
         }
 
         StartCoroutine(TakeScreenshot(format, renderFormat));
@@ -496,7 +521,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         // Play shutter sound locally at the camera position
         if (BasisDeviceManagement.Instance.CameraShutterSound != null)
         {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, captureCamera.transform.position);
+            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, captureCamera.transform.position, SMModuleAudio.ActivePropVolume);
         }
 
         // Send shutter sound event over the network

@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System;
 using System.Globalization;
 using System.Linq;
+
+namespace Basis.Scripts.Settings
+{
 [Serializable]
 public class KeyValue
 {
@@ -63,6 +66,7 @@ public static class BasisSettingsSystem
     private static readonly string filePath = Path.Combine(Application.persistentDataPath, SettingsJson);
     // private static readonly string currentVersion = "2.0.5";
     private static SettingsData settingsData = new SettingsData();
+    private static bool _settingsLoaded = false;
 
     /// <summary>
     /// UniqueName, OptionValue
@@ -103,6 +107,19 @@ public static class BasisSettingsSystem
     {
         QualitySettings.SetQualityLevel(QualitySettings.GetQualityLevel(), true);
     }
+    /// <summary>
+    /// Re-fires <see cref="OnSettingsFinishedChanges"/> so subscribers that read
+    /// <c>BasisSettingsBinding.RawValue</c> can apply the loaded values. The first
+    /// firing inside <see cref="LoadAllSettings"/> happens before
+    /// <see cref="Basis.BasisUI.BasisSettingsDefaults.LoadAll"/> refreshes binding
+    /// RawValues from the dictionary, so subscribers there see static-init defaults.
+    /// Call this after LoadAll to re-notify with correct RawValues.
+    /// </summary>
+    public static void NotifyFinishedChanges()
+    {
+        OnSettingsFinishedChanges?.Invoke();
+        ForceQualityRefresh();
+    }
     public static bool HasSaveData(string uniqueSettingsName)
     {
         return settingsData.settings.TryGetValue(uniqueSettingsName, out var existing);
@@ -126,7 +143,14 @@ public static class BasisSettingsSystem
             changed = true;
         }
 
-        if (changed)
+        // Saving before LoadAllSettings has read the file would clobber user-saved
+        // values with the static-init binding defaults sitting in the dict. Update
+        // the in-memory dict so reads stay consistent, but defer disk + events
+        // until Initalize has run; LoadAllSettings will repopulate the dict from
+        // disk anyway. This also means a premature change is dropped on the floor,
+        // which is the right thing — callers (e.g. BasisLocalization auto-detect)
+        // must not race the load.
+        if (changed && _settingsLoaded)
         {
             SaveAllSettings();
             OnSettingChanged?.Invoke(uniqueSettingsName, value);
@@ -146,7 +170,10 @@ public static class BasisSettingsSystem
 
         // Store default so future loads see the key (normalized)
         settingsData.settings[uniqueSettingsName] = defaultValue;
-        SaveAllSettings();
+        if (_settingsLoaded)
+        {
+            SaveAllSettings();
+        }
         return defaultValue;
     }
 
@@ -185,15 +212,15 @@ public static class BasisSettingsSystem
                 string backupPath = filePath + ".corrupt_backup";
                 File.Copy(filePath, backupPath, true);
             }
-            catch
+            catch (Exception e)
             {
-
+                BasisDebug.LogError($"Failed to backup corrupt settings file: {e}");
             }
 
             BasisDebug.LogError("Settings file corrupt/unreadable. Rebuilding empty settings.");
             settingsData = new SettingsData { };// version = currentVersion
             settingsData.RebuildDictionary();
-
+            _settingsLoaded = true;
             SaveAllSettings();
             OnSettingsFinishedChanges?.Invoke();
             ForceQualityRefresh();
@@ -204,6 +231,7 @@ public static class BasisSettingsSystem
         loaded.RebuildDictionary();
         // Assign and bump version
         settingsData = loaded;
+        _settingsLoaded = true;
         var settings = settingsData.settings;
         KeyValuePair<string, string>[] array = settings.ToArray();
         foreach (KeyValuePair<string, string> kv in array)
@@ -219,33 +247,40 @@ public static class BasisSettingsSystem
 
     public static void SaveAllSettings()
     {
-        // Hard-normalize entire dictionary before writing (belt + suspenders)
-        var normalized = new Dictionary<string, string>();
-        foreach (var pair in settingsData.settings)
+        try
         {
-            string k = pair.Key;
-            if (string.IsNullOrEmpty(k))
+            // Hard-normalize entire dictionary before writing (belt + suspenders)
+            var normalized = new Dictionary<string, string>();
+            foreach (var pair in settingsData.settings)
             {
-                continue;
+                string k = pair.Key;
+                if (string.IsNullOrEmpty(k))
+                {
+                    continue;
+                }
+
+                string v = pair.Value;
+                normalized[k] = v; // latest wins
+            }
+            settingsData.settings = normalized;
+
+            //  settingsData.version = currentVersion;
+            settingsData.RebuildList();
+
+            string json = JsonUtility.ToJson(settingsData, true);
+
+            string dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
             }
 
-            string v = pair.Value;
-            normalized[k] = v; // latest wins
+            File.WriteAllText(filePath, json);
         }
-        settingsData.settings = normalized;
-
-        //  settingsData.version = currentVersion;
-        settingsData.RebuildList();
-
-        string json = JsonUtility.ToJson(settingsData, true);
-
-        string dir = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        catch (Exception e)
         {
-            Directory.CreateDirectory(dir);
+            BasisDebug.LogError($"Failed to save settings to {filePath}: {e}");
         }
-
-        File.WriteAllText(filePath, json);
     }
 
     public static int LoadInt(string key, int defaultValue)
@@ -284,4 +319,5 @@ public static class BasisSettingsSystem
     public static void SaveFloat(string key, float value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
 
     public static void SaveBool(string key, bool value) => SaveString(key, value ? "true" : "false");
+}
 }

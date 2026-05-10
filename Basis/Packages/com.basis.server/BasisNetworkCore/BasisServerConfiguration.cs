@@ -1,5 +1,4 @@
 using BasisNetworkCore.Security;
-using Basis.Network.Core;
 using System;
 using System.IO;
 using System.Reflection;
@@ -11,12 +10,17 @@ public class Configuration
     public const string ConfigFolderName = "config";
     public const string LogsFolderName = "logs";
     public const string InitialResourcesFolderName = "initialresources";
+    public const string DefaultLibraryFolderName = "defaultlibrary";
     public int PeerLimit = ushort.MaxValue;
     public ushort SetPort = 4296;
+    /// <summary>Display name returned by the unconnected server-info query — what shows up as the row title in a client server-list UI.</summary>
+    public string ServerName = "Basis Server";
+    /// <summary>Short MOTD returned alongside the server name in the info query response. Two short lines render cleanly in the list UI.</summary>
+    public string ServerMotd = "";
     public bool UseNativeSockets = true;
     public bool NatPunchEnabled = false;
     public int PingInterval = 1500;
-    public int DisconnectTimeout = 6000;
+    public int DisconnectTimeout = 30000;
     public bool SimulatePacketLoss = false;
     public bool SimulateLatency = false;
     public int SimulationPacketLossChance = 10;
@@ -55,8 +59,39 @@ public class Configuration
     public bool EnableConsole = true;
     public bool DisableWriteUnlessAdminPersistentFlag = true;
     public bool DisableReadUnlessAdminPersistentFlag = false;
-    public bool UseNetworkFinalCompression = false;
+    /// <summary>
+    /// When true, the avatar reduction system bundles per-receiver avatar messages
+    /// and emits them deflated on CompressedAvatarBundleChannel. Falls back to
+    /// per-message uncompressed sends when a receiver has too few queued messages
+    /// for compression to be worthwhile, or when the compressed result would
+    /// exceed peer MTU. Clients must implement the matching decoder.
+    /// </summary>
+    public bool EnableAvatarBundleCompression = false;
+    /// <summary>Minimum queued avatar messages to a single receiver before a bundle is even attempted.</summary>
+    public int AvatarBundleMinMessages = 4;
+    /// <summary>Minimum uncompressed bundle bytes before LZ4 compression is attempted. With LZ4 having near-zero per-call setup, 128 just guards the very smallest cases where LZ4 can't find any redundancy.</summary>
+    public int AvatarBundleMinBytes = 128;
     public bool EnableBSRProfiling = false;
+    public bool DisallowHeadless = false;
+
+    // Global lockout defaults applied at server boot. Users need the matching
+    // basis.resource.lockbypass.{avatar,prop,world} permission to load while locked.
+    public bool AvatarsLocked = false;
+    public bool PropsLocked = false;
+    public bool WorldsLocked = true;
+    /// <summary>
+    /// When true, peers may not share saved-server entries through the content
+    /// share system. Toggled live via the admin panel and persisted to config.xml
+    /// alongside the other content lockouts. Default off so existing deployments
+    /// behave as before.
+    /// </summary>
+    public bool ServersLocked = false;
+    /// <summary>
+    /// When true, the server tells every client to hard-disable the desktop third-person
+    /// camera. Toggled live via the admin panel and persisted to config.xml alongside the
+    /// other content lockouts. Default off so existing deployments behave as before.
+    /// </summary>
+    public bool ThirdPersonDisabled = false;
     public NetworkTransportType TransportType = NetworkTransportType.LiteNetLib;
     public bool UseSteamRelay = true;
     public ulong SteamLobbyId = 0;
@@ -85,6 +120,36 @@ public class Configuration
         writer.Close();
 
         return defaultConfig;
+    }
+
+    /// <summary>
+    /// Persist this configuration back to <paramref name="filePath"/>. Used by the
+    /// admin panel to make in-game changes (server name, MOTD, whitelist mode)
+    /// survive a restart. Writes via a sibling temp file + atomic move so a crash
+    /// mid-write doesn't corrupt the live config.
+    /// </summary>
+    public void SaveToXml(string filePath)
+    {
+        var serializer = new XmlSerializer(typeof(Configuration));
+        string dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        string tempPath = filePath + ".tmp";
+        using (var writer = new StreamWriter(tempPath))
+        {
+            serializer.Serialize(writer, this);
+        }
+        if (File.Exists(filePath)) File.Replace(tempPath, filePath, null);
+        else File.Move(tempPath, filePath);
+    }
+
+    /// <summary>
+    /// Resolve the canonical config.xml path under <c>{BaseDirectory}/{ConfigFolderName}/config.xml</c>
+    /// — same path the bootstrappers (BasisServerConsole.Program / Unity host runner) read on startup.
+    /// </summary>
+    public static string GetDefaultPath()
+    {
+        return Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, ConfigFolderName, "config.xml");
     }
 
     /// <summary>

@@ -66,45 +66,77 @@ namespace Basis.BTween
                     return x * x;
 
                 case Easing.OutQuad:
-                    return 1 - (1 - x) * (1 - x);
+                {
+                    double m = 1 - x;
+                    return 1 - m * m;
+                }
 
                 case Easing.InOutQuad:
-                    return x < 0.5
-                        ? 2 * x * x
-                        : 1 - Math.Pow(-2 * x + 2, 2) / 2;
+                    if (x < 0.5)
+                        return 2 * x * x;
+                    else
+                    {
+                        double m = -2 * x + 2;
+                        return 1 - m * m / 2;
+                    }
 
                 case Easing.InCubic:
                     return x * x * x;
 
                 case Easing.OutCubic:
-                    return 1 - Math.Pow(1 - x, 3);
+                {
+                    double m = 1 - x;
+                    return 1 - m * m * m;
+                }
 
                 case Easing.InOutCubic:
-                    return x < 0.5
-                        ? 4 * x * x * x
-                        : 1 - Math.Pow(-2 * x + 2, 3) / 2;
+                    if (x < 0.5)
+                        return 4 * x * x * x;
+                    else
+                    {
+                        double m = -2 * x + 2;
+                        return 1 - m * m * m / 2;
+                    }
 
                 case Easing.InQuart:
                     return x * x * x * x;
 
                 case Easing.OutQuart:
-                    return 1 - Math.Pow(1 - x, 4);
+                {
+                    double m = 1 - x;
+                    double m2 = m * m;
+                    return 1 - m2 * m2;
+                }
 
                 case Easing.InOutQuart:
-                    return x < 0.5
-                        ? 8 * x * x * x * x
-                        : 1 - Math.Pow(-2 * x + 2, 4) / 2;
+                    if (x < 0.5)
+                        return 8 * x * x * x * x;
+                    else
+                    {
+                        double m = -2 * x + 2;
+                        double m2 = m * m;
+                        return 1 - m2 * m2 / 2;
+                    }
 
                 case Easing.InQuint:
                     return x * x * x * x * x;
 
                 case Easing.OutQuint:
-                    return 1 - Math.Pow(1 - x, 5);
+                {
+                    double m = 1 - x;
+                    double m2 = m * m;
+                    return 1 - m2 * m2 * m;
+                }
 
                 case Easing.InOutQuint:
-                    return x < 0.5
-                        ? 16 * x * x * x * x * x
-                        : 1 - Math.Pow(-2 * x + 2, 5) / 2;
+                    if (x < 0.5)
+                        return 16 * x * x * x * x * x;
+                    else
+                    {
+                        double m = -2 * x + 2;
+                        double m2 = m * m;
+                        return 1 - m2 * m2 * m / 2;
+                    }
 
                 case Easing.InExpo:
                     return x == 0 ? 0 : Math.Pow(2, 10 * x - 10);
@@ -122,26 +154,43 @@ namespace Basis.BTween
                                 : (2 - Math.Pow(2, -20 * x + 10)) / 2;
 
                 case Easing.InCirc:
-                    return 1 - Math.Sqrt(1 - Math.Pow(x, 2));
+                    return 1 - Math.Sqrt(1 - x * x);
 
                 case Easing.OutCirc:
-                    return Math.Sqrt(1 - Math.Pow(x - 1, 2));
+                {
+                    double m = x - 1;
+                    return Math.Sqrt(1 - m * m);
+                }
 
                 case Easing.InOutCirc:
-                    return x < 0.5
-                        ? (1 - Math.Sqrt(1 - Math.Pow(2 * x, 2))) / 2
-                        : (Math.Sqrt(1 - Math.Pow(-2 * x + 2, 2)) + 1) / 2;
+                    if (x < 0.5)
+                        return (1 - Math.Sqrt(1 - 4 * x * x)) / 2;
+                    else
+                    {
+                        double m = -2 * x + 2;
+                        return (Math.Sqrt(1 - m * m) + 1) / 2;
+                    }
 
                 case Easing.InBack:
                     return c3 * x * x * x - c1 * x * x;
 
                 case Easing.OutBack:
-                    return 1 + c3 * Math.Pow(x - 1, 3) + c1 * Math.Pow(x - 1, 2);
+                {
+                    double m = x - 1;
+                    return 1 + m * m * (c3 * m + c1);
+                }
 
                 case Easing.InOutBack:
-                    return x < 0.5
-                        ? (Math.Pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2
-                        : (Math.Pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2;
+                    if (x < 0.5)
+                    {
+                        double m = 2 * x;
+                        return (m * m * ((c2 + 1) * m - c2)) / 2;
+                    }
+                    else
+                    {
+                        double m = 2 * x - 2;
+                        return (m * m * ((c2 + 1) * m + c2) + 2) / 2;
+                    }
 
                 case Easing.InElastic:
                     return x == 0

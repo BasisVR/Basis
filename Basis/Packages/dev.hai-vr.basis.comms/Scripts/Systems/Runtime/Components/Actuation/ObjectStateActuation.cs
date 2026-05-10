@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using HVR.Basis.Comms.HVRUtility;
 using Basis.Network.Core;
 using UnityEngine;
@@ -9,7 +10,7 @@ using UnityEngine;
 namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Object State Actuation")]
-    public class ObjectStateActuation : BasisAvatarMonoBehaviour
+    public class ObjectStateActuation : BasisNetworkAvatarBehaviour
     {
         new public static bool VisibleInAvatarMenu = false;
         public ActivationSource activationSource;

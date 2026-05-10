@@ -77,7 +77,19 @@ namespace Basis.BasisUI
             return meta.CachedSprite;
         }
 
-        public static async Task<BasisLoadableBundleWrapper> CreateWrapperAndPerformMetaOnlyLoad(BasisDataStoreItemKeys.ItemKey item)
+        public readonly struct MetaOnlyLoadOutcome
+        {
+            public readonly BasisLoadableBundleWrapper Wrapper;
+            public readonly bool IsTransient;
+
+            public MetaOnlyLoadOutcome(BasisLoadableBundleWrapper wrapper, bool isTransient)
+            {
+                Wrapper = wrapper;
+                IsTransient = isTransient;
+            }
+        }
+
+        public static async Task<MetaOnlyLoadOutcome> CreateWrapperAndPerformMetaOnlyLoad(BasisDataStoreItemKeys.ItemKey item)
         {
             // make a new wrapper to load the metadata into
             BasisLoadableBundleWrapper newWrapper = CreateNewWrapperFromItem(item);
@@ -87,21 +99,47 @@ namespace Basis.BasisUI
             CancellationTokenSource CancellationSource = new CancellationTokenSource();
 
             // perform the action to download the file or grab it from disc?
-            await BasisBeeManagement.HandleMetaOnlyLoad(newWrapper.basisTrackedBundleWrapper, Report, CancellationSource.Token);
+            BasisMetaLoadResult metaResult = await BasisBeeManagement.HandleMetaOnlyLoad(newWrapper.basisTrackedBundleWrapper, Report, CancellationSource.Token);
+
+            // On transient (network/SSL/cancel) failure, do NOT fall through to LoadWrapperFromDisc —
+            // that path auto-removes the key when IsMetaDataOnDisc returns false, which would delete
+            // the user's cached item just because the remote is unreachable right now.
+            if (!metaResult.Loaded && metaResult.IsTransient)
+            {
+                return new MetaOnlyLoadOutcome(null, true);
+            }
 
             // grab the wrapper from disc, we can pass in our wrapper
-            return await LoadWrapperFromDisc(item, newWrapper);
+            BasisLoadableBundleWrapper loaded = await LoadWrapperFromDisc(item, newWrapper);
+            return new MetaOnlyLoadOutcome(loaded, false);
         }
 
-        public static async Task<CachedContent> CacheNewItem(BasisDataStoreItemKeys.ItemKey item)
+        public readonly struct CacheNewItemResult
         {
-            // grab the wrapper from disc, we can pass in our wrapper
-            BasisLoadableBundleWrapper wrapper = await CreateWrapperAndPerformMetaOnlyLoad(item);//on disc call? 
+            public readonly CachedContent Cached;
+            public readonly bool IsTransient;
 
+            public CacheNewItemResult(CachedContent cached, bool isTransient)
+            {
+                Cached = cached;
+                IsTransient = isTransient;
+            }
+        }
+
+        public static async Task<CacheNewItemResult> CacheNewItem(BasisDataStoreItemKeys.ItemKey item)
+        {
+            MetaOnlyLoadOutcome outcome = await CreateWrapperAndPerformMetaOnlyLoad(item);
+
+            if (outcome.IsTransient)
+            {
+                return new CacheNewItemResult(null, true);
+            }
+
+            BasisLoadableBundleWrapper wrapper = outcome.Wrapper;
             if (wrapper == null)
             {
                 BasisDebug.LogError("Missing Wrapper!, was the data provided correct?");
-                return null;
+                return new CacheNewItemResult(null, false);
             }
 
             var connector = wrapper.BasisLoadableBundle.BasisBundleConnector; //wrapper.LoadableBundle.BasisBundleConnector;
@@ -125,7 +163,7 @@ namespace Basis.BasisUI
                 cached.Created = parsedDate;
             }
 
-            return cached;
+            return new CacheNewItemResult(cached, false);
         }
 
 
@@ -139,6 +177,7 @@ namespace Basis.BasisUI
             try
             {
                 CachedContent cached = null;
+                bool isTransient = false;
 
                 if (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
                 {
@@ -174,7 +213,16 @@ namespace Basis.BasisUI
                 }
                 else
                 {
-                    cached = await CacheNewItem(item);
+                    CacheNewItemResult result = await CacheNewItem(item);
+                    cached = result.Cached;
+                    isTransient = result.IsTransient;
+                }
+
+                if (isTransient)
+                {
+                    // Remote unreachable (SSL / DNS / cancel). Leave the item in the library and try again later.
+                    BasisDebug.LogWarning($"Deferred meta preload for '{urlKey}' — remote unreachable. Keeping cached item intact.");
+                    return;
                 }
 
                 if (cached == null || cached.BasisBundleConnector == null)
@@ -189,6 +237,13 @@ namespace Basis.BasisUI
             }
             catch (Exception ex)
             {
+                string exMessage = ex.Message + " " + (ex.InnerException?.Message ?? string.Empty);
+                if (BasisMetaLoadResult.LooksLikeTransientError(exMessage))
+                {
+                    BasisDebug.LogWarning($"Deferred meta preload for '{item?.Url}' — transient error: {ex.Message}");
+                    return;
+                }
+
                 BasisDebug.LogError($"Failed to load metadata for '{item?.Url}'. Removing from library. Error: {ex.Message}");
                 try
                 {
@@ -206,13 +261,26 @@ namespace Basis.BasisUI
         {
             BasisDebug.LogError(ex);
         }
+        private static readonly SemaphoreSlim _preloadGate = new SemaphoreSlim(4);
+
         public static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
         {
             if (items == null) return;
 
             try
             {
-                await Task.WhenAll(items.Select(PreloadMetaDataForItem));
+                await Task.WhenAll(items.Select(async item =>
+                {
+                    await _preloadGate.WaitAsync();
+                    try
+                    {
+                        await PreloadMetaDataForItem(item);
+                    }
+                    finally
+                    {
+                        _preloadGate.Release();
+                    }
+                }));
             }
             catch (Exception ex)
             {

@@ -1,4 +1,5 @@
 using Basis.Scripts.Animator_Driver;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
@@ -32,9 +33,20 @@ namespace Basis.Scripts.BasisCharacterController
         public bool LastWasGrounded = true;
         public bool IsFalling;
         public bool IsJumpHeld = false;
+        public bool IsDescendHeld = false;
         public bool HasJumpAction = false;
         public float jumpHeight = 1.0f; // Jump height set to 1 meter
         public float currentVerticalSpeed = 0f; // Vertical speed of the character
+        /// <summary>
+        /// Temporary hips offset applied on landing to simulate impact absorption.
+        /// Eases toward <see cref="landingCrouchTarget"/> then recovers to zero.
+        /// </summary>
+        [System.NonSerialized] public float landingCrouchEffect;
+        [System.NonSerialized] public float landingCrouchTarget;
+        [SerializeField] public float landingDescentSpeed = 15f;
+        [SerializeField] public float landingRecoverySpeed = 6f;
+        [SerializeField] public float landingImpactScale = 0.06f;
+        [SerializeField] public float maxLandingCrouchEffect = 0.35f;
         /// <summary>
         /// Duration in seconds after leaving the ground during which the player can still jump.
         /// Helps with unreliable grounded detection on slopes and near ledges.
@@ -83,7 +95,6 @@ namespace Basis.Scripts.BasisCharacterController
         }
 
         public Vector2 Rotation;
-        public float RotationSpeed = 200;
         public bool HasEvents = false;
         public float pushPower = 1f;
         private const float CrouchDeltaCoefficient = 0.01f;
@@ -93,6 +104,15 @@ namespace Basis.Scripts.BasisCharacterController
         public Quaternion CurrentRotation;
         public CollisionFlags Flags;
         public float radius;
+
+        // Inputs of the last CalculateCharacterSize() call. CharacterController.height
+        // and .center are skipped when none of these have changed (bit-exact compare —
+        // not Vector3 ==, which uses an epsilon and would let sub-epsilon drift slip
+        // through and pop the collider once the drift accumulated past threshold).
+        private Vector3 _sizeCache_EyePos;
+        private bool _sizeCache_HasEye;
+        private float _sizeCache_Radius;
+        private bool _sizeCache_Valid;
         public Vector2 MovementVector { get; private set; }
         /// <summary>
         /// A value between 0 and 1 representing the relative speed of player movement.
@@ -196,6 +216,22 @@ namespace Basis.Scripts.BasisCharacterController
             }
             LastBottomPoint = bottomPointLocalSpace;
             CalculateCharacterSize();
+            // Two-phase landing impact: ease into dip, then ease back up
+            if (landingCrouchTarget > 0f)
+            {
+                // Phase 1: descend toward peak impact
+                landingCrouchEffect = Mathf.Lerp(landingCrouchEffect, landingCrouchTarget, landingDescentSpeed * DeltaTime);
+                if (landingCrouchTarget - landingCrouchEffect < 0.01f)
+                {
+                    landingCrouchTarget = 0f;
+                }
+            }
+            else if (landingCrouchEffect > 0f)
+            {
+                // Phase 2: recover back to standing
+                landingCrouchEffect = Mathf.Lerp(landingCrouchEffect, 0f, landingRecoverySpeed * DeltaTime);
+                if (landingCrouchEffect < 0.001f) landingCrouchEffect = 0f;
+            }
             // Delegate movement, gravity, and ground checking to the active mode.
             if (CurrentMode != null)
             {
@@ -231,7 +267,7 @@ namespace Basis.Scripts.BasisCharacterController
             }
             else
             {
-                rotationAmount = Rotation.x * RotationSpeed * DeltaTime;
+                rotationAmount = Rotation.x * SMModuleControllerSettings.SmoothTurnSpeed * DeltaTime;
             }
 
 
@@ -265,8 +301,8 @@ namespace Basis.Scripts.BasisCharacterController
         public float GetVerticalMovement()
         {
             float moveLocal = BasisLocalInputActions.Instance.MoveLocalUpDown.action.ReadValue<float>();
-            float ascend = IsJumpHeld ? 1.0f : 0.0f; // This works for both VR and desktop.
-            float descend = BasisLocalInputActions.Instance.IsCrouchHeld ? -1.0f : 0.0f; // No crouch button in VR.
+            float ascend = IsJumpHeld ? 1.0f : 0.0f;
+            float descend = (IsDescendHeld || BasisLocalInputActions.Instance.IsCrouchHeld) ? -1.0f : 0.0f;
             return Mathf.Clamp(moveLocal + ascend + descend, -1.0f, 1.0f);
         }
 
@@ -288,8 +324,14 @@ namespace Basis.Scripts.BasisCharacterController
 
                 if (!LastWasGrounded)
                 {
+                    float fallSpeed = Mathf.Abs(currentVerticalSpeed);
+                    // Suppress hip dip in FBT to avoid fighting real hip tracker data on landing.
+                    if (!(BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue))
+                    {
+                        landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect);
+                    }
                     JustLanded?.Invoke();
-                    currentVerticalSpeed = 0f; // Reset vertical speed on landing
+                    currentVerticalSpeed = 0f;
                 }
             }
             else
@@ -416,7 +458,27 @@ namespace Basis.Scripts.BasisCharacterController
         }
         public void CalculateCharacterSize()
         {
-            float rawEyeHeight = BasisLocalBoneDriver.HasEye ? BasisLocalBoneDriver.EyeControl.OutGoingData.position.y : BasisHeightDriver.FallbackHeightInMeters;
+            bool hasEye = BasisLocalBoneDriver.HasEye;
+            Vector3 eyePos = hasEye
+                ? BasisLocalBoneDriver.EyeControl.OutGoingData.position
+                : default;
+
+            // Bit-exact change check — Vector3 == uses an epsilon (~9.99e-11 squared)
+            // which would silently swallow sub-epsilon eye drift; the height stays
+            // stale until the drift clears the threshold and then snaps, which reads
+            // as jitter. Component-wise float compares catch every bit change so the
+            // collider tracks the eye smoothly.
+            if (_sizeCache_Valid
+                && hasEye == _sizeCache_HasEye
+                && radius == _sizeCache_Radius
+                && eyePos.x == _sizeCache_EyePos.x
+                && eyePos.y == _sizeCache_EyePos.y
+                && eyePos.z == _sizeCache_EyePos.z)
+            {
+                return;
+            }
+
+            float rawEyeHeight = hasEye ? eyePos.y : BasisHeightDriver.FallbackHeightInMeters;
 
             // Validate tracking data
             if (float.IsNaN(rawEyeHeight) || float.IsInfinity(rawEyeHeight) || rawEyeHeight <= 0f)
@@ -438,15 +500,18 @@ namespace Basis.Scripts.BasisCharacterController
 
             float halfHeight = finalHeight * 0.5f;
 
-            // Keep capsule bottom aligned with floor
-            if (BasisLocalBoneDriver.HasEye)
+            // Offset the capsule down by skinWidth so the collider bottom
+            // (including its skin shell) sits flush with the floor instead
+            // of hovering skinWidth above it.
+            float skinCompensation = characterController.skinWidth;
+
+            if (hasEye)
             {
-                var outgoing = BasisLocalBoneDriver.EyeControl.OutGoingData.position;
-                characterController.center = new Vector3(outgoing.x, halfHeight, outgoing.z);
+                characterController.center = new Vector3(eyePos.x, halfHeight - skinCompensation, eyePos.z);
             }
             else
             {
-                characterController.center = new Vector3(0f, halfHeight, 0f);
+                characterController.center = new Vector3(0f, halfHeight - skinCompensation, 0f);
             }
 
             // Clamp stepOffset to something sane relative to height
@@ -455,6 +520,11 @@ namespace Basis.Scripts.BasisCharacterController
             maxStep = Mathf.Min(maxStep, finalHeight * 0.25f);
 
             characterController.stepOffset = Mathf.Min(characterController.stepOffset, maxStep);
+
+            _sizeCache_HasEye = hasEye;
+            _sizeCache_EyePos = eyePos;
+            _sizeCache_Radius = radius;
+            _sizeCache_Valid = true;
         }
     }
 }

@@ -29,6 +29,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 TryGetComponent(out JointRef);
             }
+            if (JointRef == null)
+            {
+                BasisDebug.LogError("BasisPickupJointInteractable requires a ConfigurableJoint on " + gameObject.name);
+                enabled = false;
+                return;
+            }
 
             JointRef.autoConfigureConnectedAnchor = false;
             JointRef.configuredInWorldSpace = true;

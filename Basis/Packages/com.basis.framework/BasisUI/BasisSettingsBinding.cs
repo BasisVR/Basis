@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Basis.Scripts.Settings;
 
 namespace Basis
 {

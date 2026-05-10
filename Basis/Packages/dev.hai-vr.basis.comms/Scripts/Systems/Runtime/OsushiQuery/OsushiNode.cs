@@ -83,6 +83,21 @@ namespace HVR.Osushi
                                 }
                             }
                         }
+                    },
+                    ["chatbox"] = new()
+                    {
+                        DESCRIPTION = "Basis ChatBox OSC endpoints.",
+                        FULL_PATH = "/chatbox",
+                        ACCESS = 0,
+                        CONTENTS = new Dictionary<string, OsushiNode>
+                        {
+                            ["input"] = new()
+                            {
+                                DESCRIPTION = "Accepted signatures: (string [, shouldOpenKeyboard [, playNotificationSound]]) and (bool typing).",
+                                FULL_PATH = "/chatbox/input",
+                                ACCESS = 2,
+                            }
+                        }
                     }
                 }
             };

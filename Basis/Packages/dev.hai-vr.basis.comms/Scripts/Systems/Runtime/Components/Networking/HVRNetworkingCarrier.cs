@@ -1,5 +1,6 @@
 using System;
 using Basis.Scripts.Behaviour;
+using Basis.Scripts.Networking.Behaviour;
 using Basis.Network.Core;
 using UnityEngine;
 
@@ -7,7 +8,7 @@ namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Internal/HVR Networking Carrier")]
     [HelpURL("https://docs.hai-vr.dev/docs/basis/avatar-customization")]
-    public class HVRNetworkingCarrier : BasisAvatarMonoBehaviour, IHVRTransmitter, IHVRInitializable
+    public class HVRNetworkingCarrier : BasisNetworkAvatarBehaviour, IHVRTransmitter, IHVRInitializable
     {
         new public static bool VisibleInAvatarMenu = false;
         private bool _networkReady;
@@ -18,8 +19,8 @@ namespace HVR.Basis.Comms
 
         public void Awake()
         {
-            _comms = HVRCommsUtil.GetAvatar(this).GetComponentInChildren<HVRAvatarComms>(true);
-            if(_comms == null)
+            _comms = HVRCommsUtil.GetComms(this);
+            if (_comms == null)
             {
                 BasisDebug.LogError("missing Comms Component network transmission of data for HVR related systems");
                 _networkReady = false;
