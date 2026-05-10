@@ -143,6 +143,10 @@ namespace Basis.Network.Core
     {
         Action RecycleInternal;
 
+        public NetPacketReader()
+        {
+        }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		internal byte channel;
 		internal DeliveryMethod method;
