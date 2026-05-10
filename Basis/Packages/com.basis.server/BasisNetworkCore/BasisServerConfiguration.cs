@@ -1,3 +1,4 @@
+using Basis.Network.Core;
 using BasisNetworkCore.Security;
 using System;
 using System.IO;

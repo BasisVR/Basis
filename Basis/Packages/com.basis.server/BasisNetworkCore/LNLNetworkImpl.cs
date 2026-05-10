@@ -132,8 +132,6 @@ namespace Basis.Network.Core
 
         IPAddress NetPeer.Address => peer.Address;
 
-        string NetPeer.Identity => peer.Address?.ToString() ?? string.Empty;
-
         int NetPeer.RemoteId => peer.RemoteId;
 
         int NetPeer.RoundTripTime => peer.RoundTripTime;
