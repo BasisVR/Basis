@@ -17,6 +17,7 @@ using static BundledContentHolder;
 using static SerializableBasis;
 public static class BasisNetworkSpawnItem
 {
+    private static CancellationTokenSource _loadCts = new CancellationTokenSource();
     public static bool RequestSceneLoad(string UnlockPassword, string CombinedURL, bool Persist, bool Admin, out LocalLoadResource localLoadResource, byte loadStrategy = 0)
     {
         if (string.IsNullOrEmpty(CombinedURL) || string.IsNullOrEmpty(UnlockPassword))
@@ -149,6 +150,7 @@ public static class BasisNetworkSpawnItem
         };
 
         Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
+        _loadCts.Token.ThrowIfCancellationRequested();
         BasisDebug.Log($"LoadSceneAssetBundle Complete now Starting Scene Traversal", BasisDebug.LogTag.Networking);
         SceneTraverseNetIdAssign(scene, localLoadResource);
 
@@ -198,7 +200,7 @@ public static class BasisNetworkSpawnItem
         var position = new Vector3(localLoadResource.PositionX, localLoadResource.PositionY, localLoadResource.PositionZ);
         var rotation = new Quaternion(localLoadResource.QuaternionX, localLoadResource.QuaternionY, localLoadResource.QuaternionZ, localLoadResource.QuaternionW);
         var scale = new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ);
-        GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, loadBundle, true, BasisProgressReport, new CancellationToken(),
+        GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, loadBundle, true, BasisProgressReport, _loadCts.Token,
             position,
             rotation,
             scale,
@@ -206,7 +208,7 @@ public static class BasisNetworkSpawnItem
 
         if (reference == null)
         {
-            BasisDebug.LogError($"Unable to load {loadBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}", BasisDebug.LogTag.Networking);
+            BasisDebug.LogError($"Unable to load content from {localLoadResource.CombinedURL}. This may be caused by the bundle not having a build for the current platform ({UnityEngine.Application.platform}). Check earlier log messages for details.", BasisDebug.LogTag.Networking);
             BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
             return null;
         }
@@ -233,6 +235,9 @@ public static class BasisNetworkSpawnItem
             loadBundle.BasisBundleConnector, 
             out var data
         );
+#if UNITY_SERVER
+        BasisHeadlessManagement.StripTextureReferencesFromRoot(reference);
+#endif
         BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
         return reference;
     }
@@ -258,6 +263,9 @@ public static class BasisNetworkSpawnItem
 
     public static async Task Reset()
     {
+        _loadCts.Cancel();
+        _loadCts.Dispose();
+        _loadCts = new CancellationTokenSource();
         await BasisRuntimeSpawnRegistry.ClearAllNetworking();
     }
 }
