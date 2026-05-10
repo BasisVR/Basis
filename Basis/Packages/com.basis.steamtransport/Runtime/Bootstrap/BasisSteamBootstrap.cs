@@ -141,6 +141,11 @@ namespace Basis.Scripts.Networking.Steam
             }
 
             ActiveSettings = Resources.Load<BasisSteamSettings>(BasisSteamSettings.DefaultResourcesPath);
+            if (ActiveSettings == null)
+            {
+                ActiveSettings = ScriptableObject.CreateInstance<BasisSteamSettings>();
+                ActiveSettings.hideFlags = HideFlags.DontSave;
+            }
             return ActiveSettings;
         }
 
