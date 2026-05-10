@@ -158,7 +158,7 @@ public static class BasisNetworkPreloadResourceManagement
         // Props (Mode == 0) should never cause scene unloads.
         if (session.Resource.Mode == 1)
         {
-            UnloadAllSceneResources(peerSnapshot, loadedNetId);
+            UnloadAllSceneResources(peerSnapshot);
         }
 
         SpawnPreloadedMessage spawnMsg = new SpawnPreloadedMessage
@@ -178,15 +178,15 @@ public static class BasisNetworkPreloadResourceManagement
     /// Unloads all scene-type resources (Mode == 1) from the server database
     /// and broadcasts unload messages to all clients through the normal unload channel.
     /// </summary>
-    private static void UnloadAllSceneResources(NetPeer[] peerSnapshot, string preservedLoadedNetId)
+    private static void UnloadAllSceneResources(NetPeer[] peerSnapshot)
     {
         var sceneResources = BasisNetworkResourceManagement.UshortNetworkDatabase.Values
-            .Where(r => r.Mode == 1 && r.LoadedNetID != preservedLoadedNetId)
+            .Where(r => r.Mode == 1)
             .ToArray();
 
         if (sceneResources.Length == 0) return;
 
-        BNL.Log($"PreloadResourceManagement: Unloading {sceneResources.Length} existing scene(s) before synchronized spawn, preserving {preservedLoadedNetId}");
+        BNL.Log($"PreloadResourceManagement: Unloading {sceneResources.Length} existing scene(s) before synchronized spawn");
 
         NetDataWriter writer = NetworkServer.RentWriter();
         foreach (var scene in sceneResources)

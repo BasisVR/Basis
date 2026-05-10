@@ -27,8 +27,6 @@ public static class BasisSceneFactory
 
     public static void Initalize()
     {
-        BasisScene.Ready -= Initalize;
-        BasisScene.Destroyed -= BasisSceneDestroyed;
         BasisScene.Ready += Initalize;
         BasisScene.Destroyed += BasisSceneDestroyed;
         SceneManager.sceneUnloaded -= OnSceneUnloaded;

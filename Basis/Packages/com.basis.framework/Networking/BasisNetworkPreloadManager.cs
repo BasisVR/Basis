@@ -48,6 +48,7 @@ public static class BasisNetworkPreloadManager
     private static async Task HandlePreload(LocalLoadResource resource)
     {
         string netId = resource.LoadedNetID;
+        BasisDebug.Log($"PreloadManager: Beginning preload for {resource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
 
         var preloaded = new PreloadedResource
         {
@@ -125,6 +126,8 @@ public static class BasisNetworkPreloadManager
 
             preloaded.BundleWrapper = wrapper;
             preloaded.IsReady = true;
+
+            BasisDebug.Log($"PreloadManager: Successfully downloaded {resource.CombinedURL} to disk (NetID={netId})", BasisDebug.LogTag.Networking);
         }
         catch (Exception ex)
         {
@@ -141,6 +144,7 @@ public static class BasisNetworkPreloadManager
     public static async Task HandleSynchronizedPreload(LocalLoadResource resource)
     {
         string netId = resource.LoadedNetID;
+        BasisDebug.Log($"PreloadManager: Beginning synchronized preload for {resource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
 
         // First preload the content
         await HandlePreload(resource);
@@ -153,6 +157,10 @@ public static class BasisNetworkPreloadManager
         if (!isReady)
         {
             BasisDebug.LogError($"PreloadManager: Synchronized preload failed for {resource.CombinedURL} (NetID={netId}), reported failure to server");
+        }
+        else
+        {
+            BasisDebug.Log($"PreloadManager: Synchronized preload ready for {resource.CombinedURL} (NetID={netId}), reported ready to server");
         }
     }
 
@@ -202,6 +210,8 @@ public static class BasisNetworkPreloadManager
             await UnloadAllSceneContent();
         }
 
+        BasisDebug.Log($"PreloadManager: Spawning preloaded resource {preloaded.LoadResource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
+
         // Now spawn using the existing spawn infrastructure
         // The LoadStrategy is set back to 0 (Immediate) so SpawnGameObject/SpawnScene
         // treats it as a normal load
@@ -240,6 +250,8 @@ public static class BasisNetworkPreloadManager
         }
 
         if (sceneInstances.Count == 0) return;
+
+        BasisDebug.Log($"PreloadManager: Unloading {sceneInstances.Count} existing scene(s) before synchronized spawn", BasisDebug.LogTag.Networking);
 
         foreach (var scene in sceneInstances)
         {
