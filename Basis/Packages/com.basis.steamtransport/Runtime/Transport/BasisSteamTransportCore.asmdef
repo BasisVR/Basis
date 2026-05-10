@@ -2,7 +2,8 @@
     "name": "BasisSteamTransportCore",
     "rootNamespace": "",
     "references": [
-        "BasisNetworkCore"
+        "BasisNetworkCore",
+        "BasisDebug"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
