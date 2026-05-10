@@ -1,4 +1,4 @@
-fileFormatVersion: 2
+﻿fileFormatVersion: 2
 guid: 7d6647fb9d80f5b4f9b2ff1378756bee
 PluginImporter:
   externalObjects: {}
@@ -22,7 +22,7 @@ PluginImporter:
         Exclude Win: 1
         Exclude Win64: 1
   - first:
-      Any: 
+      Any:
     second:
       enabled: 0
       settings: {}
@@ -58,6 +58,6 @@ PluginImporter:
       enabled: 0
       settings:
         CPU: x86_64
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:
