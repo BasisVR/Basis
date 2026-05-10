@@ -237,7 +237,6 @@ public static class NetworkServer
         BasisNetworkContentShare.Reset();
         BasisNetworkPreloadResourceManagement.Reset();
         BasisNetworkPIPCamera.Reset();
-        BasisServerReductionSystemEvents.Reset();
         BasisNetworkStatistics.Clear();
 
         Listener = null;

@@ -72,7 +72,7 @@ namespace BasisNetworkServer.Security
             if (IsProtected(UUID))
                 return "Target is protected";
 
-            string ip = peer.Identity;
+            string ip = peer.Address.ToString();
             peer.Disconnect(Encoding.UTF8.GetBytes(reason));
 
             BannedPlayer bannedPlayer = new()
