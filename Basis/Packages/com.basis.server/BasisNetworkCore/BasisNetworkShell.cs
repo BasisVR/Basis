@@ -119,6 +119,9 @@ namespace Basis.Network.Core
         public void Start(IPAddress IPv4Address, IPAddress IPv6Address, int SetPort);
         public void Stop();
         public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer);
+        public void PollEvents()
+        {
+        }
         public bool SendUnconnectedMessage(NetDataWriter writer, IPEndPoint remoteEndPoint);
 
         public NetStatistics Statistics { get; }
