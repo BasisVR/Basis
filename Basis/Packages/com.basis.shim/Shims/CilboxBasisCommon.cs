@@ -360,7 +360,7 @@ namespace Cilbox
 				} },
 			{ typeof(UnityEngine.GameObject),          new HashSet<string>{
 				nameof(UnityEngine.GameObject.SetActive),
-				nameof(UnityEngine.GameObject.GetComponents),
+				nameof(UnityEngine.GameObject.GetComponent),
 				} },
 			{ typeof(System.Buffer), new HashSet<string>{ "BlockCopy" } },
 			{ typeof(System.Type),                     new HashSet<string>() }, // nothing allowed
