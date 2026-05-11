@@ -50,21 +50,24 @@ namespace Cilbox
 		public CilboxUsage( Cilbox b ) { box = b; }
 
 		// This is after the type has been fully de-arrayed and de-templated.
-		String CheckTypeSecurity( String sType )
+		bool CheckTypeSecurity( String sType )
 		{
 			// Types defined inside this cilbox are serialized and interpreted locally,
 			// so they should not be forced through the native whitelist.
-			if( box.CheckTypeAllowed( sType ) == true ) return sType;
+			if( box.CheckTypeAllowed( sType ) == true ) return true;
 
 			Debug.LogError( $"TYPE FAILED CHECK: {sType}" );
-			return null;
+			return false;
 		}
 
 		public MethodBase GetNativeMethodFromTypeAndName( Type declaringType, String name, Serializee [] parametersIn, Serializee [] genericArgumentsIn, String fullSignature )
 		{
 			MethodInfo mi = null;
-			bool bDisallowed = box.CheckMethodAllowed( out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature );
-			if( !bDisallowed ) goto disallowed;
+			if(!box.CheckMethodAllowed( out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature ))
+			{
+				Debug.LogError( $"Privilege failed for {declaringType}.{name} method" );
+				return null;
+			}
 			if( mi != null ) return mi;
 
 			// Replace delegate construction with cilbox-backed host delegates.
@@ -83,16 +86,31 @@ namespace Cilbox
 			MethodBase m = InternalGetNativeMethodFromTypeAndNameNoSecurity( declaringType, name, parameters, genericArguments, fullSignature );
 
 			// Check all parameters for type safety.
-			foreach( Type t in parameters )
-				if( !CheckTypeSecurityRecursive( t ) ) goto disallowed;
-			foreach( Type t in genericArguments )
-				if( !CheckTypeSecurityRecursive( t ) ) goto disallowed;
-			if( m is MethodInfo && !CheckTypeSecurityRecursive( ((MethodInfo)m).ReturnType ) ) goto disallowed;
+			for (int i = 0; i < parameters.Length; i++)
+			{
+				if( !CheckTypeSecurityRecursive(parameters[i]) )
+				{
+                    string typeName = genericArgumentsIn[i].AsMap()["n"].AsString();
+					Debug.LogError( $"Privilege failed for {declaringType}.{name} parameter {i} type {typeName}" );
+					return null;
+				}
+			}
+			for (int i = 0; i < genericArguments.Length; i++)
+			{
+				if( !CheckTypeSecurityRecursive(genericArguments[i]) )
+				{
+                    string typeName = genericArgumentsIn[i].AsMap()["n"].AsString();
+					Debug.LogError( $"Privilege failed for {declaringType}.{name} generic argument {i} type {typeName}" );
+					return null;
+				}
+			}
+			if( m is MethodInfo mm && !CheckTypeSecurityRecursive( mm.ReturnType ) )
+			{
+				Debug.LogError( $"Privilege failed for {declaringType}.{name} return type {mm.ReturnType.FullName}" );
+				return null;
+			}
 
 			return m;
-		disallowed:
-			Debug.LogError( $"Privilege failed {declaringType}.{name}" );
-			return null;
 		}
 
 		////////////////////////////////////////////////////////////////////////////////////
@@ -326,13 +344,13 @@ namespace Cilbox
 			String [] vTypeNameNoArray = typeName.Split( "[" );
 			String typeNameNoArray = ( vTypeNameNoArray.Length > 0 ) ? vTypeNameNoArray[0] : typeName;
 			String arrayEnding = typeName.Substring( typeNameNoArray.Length );
-			typeNameNoArray = CheckTypeSecurity( typeNameNoArray  );
-			if( typeNameNoArray == null ) return null;
+			if( !CheckTypeSecurity( typeNameNoArray ) ) return null;
 			return typeNameNoArray + arrayEnding + refSuffix;
 		}
 
 		public bool CheckTypeSecurityRecursive( Type t )
 		{
+			if( t == null ) return false;
 			TypeInfo typeInfo = t.GetTypeInfo();
 			if( typeInfo == null ) return false;
 			String typeName = typeInfo.ToString();
@@ -346,7 +364,7 @@ namespace Cilbox
 			String [] vTypeNameNoGenerics = typeName.Split( "`" );
 			typeName = ( vTypeNameNoGenerics.Length > 0 ) ? vTypeNameNoGenerics[0] : typeName;
 
-			if( CheckTypeSecurity( typeName ) == null ) return false;
+			if( !CheckTypeSecurity( typeName ) ) return false;
 			foreach( Type tt in typeInfo.GenericTypeArguments )
 			{
 				if( !CheckTypeSecurityRecursive( tt ) ) return false;
@@ -402,8 +420,11 @@ namespace Cilbox
 				typeName = ses["gn"].AsString();
 				Serializee [] gs = g.AsArray();
 				ga = new Type[gs.Length];
-				for( int i = 0; i < gs.Length; i++ )
-					ga[i] = GetNativeTypeFromSerializee( gs[i] );
+				for( int i = 0; i < gs.Length; i++ ) {
+					Type gt = GetNativeTypeFromSerializee( gs[i] );
+					if( gt == null ) return null;
+					ga[i] = gt;
+				}
 			}
 
 			Type ret = null;

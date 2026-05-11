@@ -196,6 +196,7 @@ namespace Cilbox
 			if( proxyWasSetup ) return;
 			if( proxyLoadInProgress ) return;
 			if (box == null) return;
+			if (serializedObjectData == null) return;
 			proxyLoadInProgress = true;
 			try
 			{
@@ -504,9 +505,11 @@ namespace Cilbox
 		void Start() {
 			RuntimeProxyLoad();
 
-			// Call Awake after initialization.
-			box.InterpretIID( cls, this, ImportFunctionID.Awake, null );
-			box.InterpretIID( cls, this, ImportFunctionID.Start, null );
+			if( proxyWasSetup ) {
+				// Call Awake after initialization.
+				box.InterpretIID( cls, this, ImportFunctionID.Awake, null );
+				box.InterpretIID( cls, this, ImportFunctionID.Start, null );
+			}
 		}
 		void FixedUpdate() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.FixedUpdate, null ); }
 		void Update() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.Update, null ); }
