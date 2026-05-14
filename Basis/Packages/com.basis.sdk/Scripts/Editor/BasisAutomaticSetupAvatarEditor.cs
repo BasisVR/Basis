@@ -13,32 +13,29 @@ namespace Basis.Scripts.Editor
         public static void TryToAutomatic(BasisAvatarSDKInspector Inspector)
         {
             BasisAvatar avatar = Inspector.Avatar;
-            if (avatar != null)
+            // Inspector can redraw with a destroyed/cleared target during play-mode transitions
+            // and asset reloads. Bail silently — it's not an error worth logging on every redraw.
+            if (avatar == null) return;
+
+            if (TryFindOrCheckAvatar(avatar))
             {
-                if (TryFindOrCheckAvatar(avatar))
+                if (CheckAnimator(avatar))
                 {
-                    if (CheckAnimator(avatar))
+                    if (TryFindNeckAndHead(avatar, out Transform Neck, out Transform Head))
                     {
-                        if (TryFindNeckAndHead(avatar, out Transform Neck, out Transform Head))
-                        {
-                            TrySetAvatarEyePosition(avatar);
-                            TrySetAvatarMouthPosition(avatar, Head);
-                        }
+                        TrySetAvatarEyePosition(avatar);
+                        TrySetAvatarMouthPosition(avatar, Head);
                     }
                 }
-                else
-                {
-                    Debug.LogError("Animator component not found on GameObject " + avatar.gameObject.name);
-                }
-                UpdateAvatarRenders(avatar);
-
-                EditorUtility.SetDirty(avatar);
-                AssetDatabase.Refresh();
             }
             else
             {
-                Debug.LogError("Avatar instance is null.");
+                Debug.LogError("Animator component not found on GameObject " + avatar.gameObject.name);
             }
+            UpdateAvatarRenders(avatar);
+
+            EditorUtility.SetDirty(avatar);
+            AssetDatabase.Refresh();
         }
         private static bool CheckAnimator(BasisAvatar avatar)
         {

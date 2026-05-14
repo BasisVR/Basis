@@ -1,20 +1,21 @@
 {
-    "name": "HVR.LicenseReview",
+    "name": "Basis Creator.Editor",
     "rootNamespace": "",
     "references": [
+        "Basis Creator",
         "BasisSDK",
-        "Basis Framework",
-        "Unity.Addressables",
-        "Unity.ResourceManager"
+        "BasisSDKEditor",
+        "BasisDebug"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

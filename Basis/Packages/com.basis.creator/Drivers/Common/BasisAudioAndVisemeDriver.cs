@@ -268,10 +268,12 @@ namespace Basis.Scripts.Drivers
         public volatile bool InVisemeRange = true;
 
         // Slot in BasisRemoteAudioDriver.Drivers; -1 when not registered.
-        [System.NonSerialized] internal int RegisteredIndex = -1;
+        // Public for cross-asmdef access from Framework's BasisRemoteAudioDriver only — do not mutate externally.
+        [System.NonSerialized] public int RegisteredIndex = -1;
 
         // Slot in BasisRemoteAudioDriver.ActiveDrivers; -1 when out of range.
-        [System.NonSerialized] internal int ActiveIndex = -1;
+        // Public for cross-asmdef access from Framework's BasisRemoteAudioDriver only — do not mutate externally.
+        [System.NonSerialized] public int ActiveIndex = -1;
 
         /// <summary>
         /// Callback that updates whether viseme processing is active based on face visibility.

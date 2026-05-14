@@ -3,7 +3,9 @@
     "rootNamespace": "",
     "references": [
         "BasisConsoleDisplay",
+        "BasisSDK",
         "Basis Framework",
+        "Basis Creator",
         "Unity.InputSystem",
         "com.gator-dragon-games.jigglephysics",
         "SteamAudioUnity",

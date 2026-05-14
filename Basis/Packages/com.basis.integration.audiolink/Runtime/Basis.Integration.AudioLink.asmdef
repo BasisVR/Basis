@@ -2,6 +2,7 @@
     "name": "Basis.Integration.AudioLink",
     "rootNamespace": "Basis.Integration.AudioLink",
     "references": [
+        "BasisSDK",
         "Basis Framework",
         "AudioLink"
     ],

@@ -23,6 +23,7 @@ public partial class BasisAvatarSDKInspector : Editor
     public static event Action<BasisAvatarSDKInspector> InspectorGuiCreated;
     public static event Action ButtonClicked;
     public static event Action ValueChanged;
+    public static Func<VisualElement> PreviewFoldoutFactory;
     public VisualTreeAsset visualTree;
     public BasisAvatar Avatar;
     public VisualElement uiElementsRoot;
@@ -138,9 +139,8 @@ public partial class BasisAvatarSDKInspector : Editor
             SetupItems();
             AvatarSDKVisemes.Initialize(this);
             SetupNetworkBehaviours();
-#if !BASIS_FRAMEWORK_EXISTS
-            rootElement.Add(Basis.Scripts.BasisSdk.Players.Editor.BasisEditorPreviewParametersFoldout.Create());
-#endif
+            var previewFoldout = PreviewFoldoutFactory?.Invoke();
+            if (previewFoldout != null) rootElement.Add(previewFoldout);
             InspectorGuiCreated?.Invoke(this);
         }
         else
@@ -624,7 +624,6 @@ public partial class BasisAvatarSDKInspector : Editor
 #endif
     public void AvatarTestInEditorClickFunction()
     {
-#if BASIS_FRAMEWORK_EXISTS
         if (!Application.isPlaying)
         {
             bool result = EditorUtility.DisplayDialog(
@@ -642,10 +641,6 @@ public partial class BasisAvatarSDKInspector : Editor
         {
             RequestAvatarLoad();
         }
-#else
-        // SDK preview runs in either edit or play mode — no play-mode prompt needed.
-        RequestAvatarLoad();
-#endif
     }
     public void RequestAvatarLoad()
     {

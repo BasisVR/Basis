@@ -1,11 +1,11 @@
 {
-    "name": "HVR.LicenseReview",
+    "name": "Basis Creator",
     "rootNamespace": "",
     "references": [
         "BasisSDK",
-        "Basis Framework",
-        "Unity.Addressables",
-        "Unity.ResourceManager"
+        "BasisDebug",
+        "Unity.Mathematics",
+        "Basis.OpenLipSync.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,7 +14,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

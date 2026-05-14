@@ -54,6 +54,10 @@ public partial class BasisAvatarSDKInspector
 
     private void RefreshNetworkBehaviours()
     {
+        // Inspector can redraw during play-mode transitions when the target avatar has
+        // been destroyed (Unity reroutes selection slightly later). Bail rather than throw.
+        if (Avatar == null) return;
+
         _attachedContainer.Clear();
         _availableContainer.Clear();
 

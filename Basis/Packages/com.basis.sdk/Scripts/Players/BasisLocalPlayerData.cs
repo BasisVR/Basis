@@ -9,8 +9,9 @@ namespace Basis.Scripts.BasisSdk.Players
     }
 
     // SDK-side local player data. Framework's BasisLocalPlayer writes Instance
-    // when present; otherwise the SDK editor preview writes a stand-in (gated
-    // by BASIS_FRAMEWORK_EXISTS so only one writer ever runs).
+    // when present; otherwise com.basis.creator's editor preview writes a stand-in
+    // (the preview only registers when Instance is still null, so only one writer
+    // ever wins).
     public static class BasisLocalPlayerData
     {
         public static IBasisLocalPlayer Instance;
