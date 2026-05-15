@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using static BasisAvatarValidator;
 using Basis.Scripts.BasisSdk.Players;
@@ -15,11 +16,6 @@ using Basis.Scripts.BasisSdk.Players;
 public partial class BasisAvatarSDKInspector : Editor
 {
     private const string PendingTestInEditorAvatarIdSessionKey = "BasisAvatarSDKInspector.PendingTestInEditorAvatarId";
-    // Unity's GlobalObjectId table isn't always populated on the first delayCall after
-    // EnteredPlayMode (the play-mode scene reload races us). Retry a bounded number of
-    // ticks so a transient null resolve doesn't drop the pending avatar.
-    private const int MaxResolveAttempts = 30;
-    private static int _resolveAttempts;
 
     public delegate void BeforeTestInEditorHandler(GameObject clone);
     public static BeforeTestInEditorHandler OnBeforeTestInEditor;
@@ -46,18 +42,46 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+
+        // Re-attach the sceneLoaded hook here so we're 
+        // listening before the play-mode scene finishes loading.
+        if (HasPendingTestInEditorAvatarId())
+        {
+            HookSceneLoadedForPendingAvatar();
+        }
     }
 
     private static void OnPlayModeStateChanged(PlayModeStateChange state)
     {
-        if (state != PlayModeStateChange.EnteredPlayMode || !HasPendingTestInEditorAvatarId())
+        if (!HasPendingTestInEditorAvatarId())
         {
             return;
         }
 
-        _resolveAttempts = 0;
-        EditorApplication.delayCall -= TryExecutePendingTestInEditor;
-        EditorApplication.delayCall += TryExecutePendingTestInEditor;
+        if (state == PlayModeStateChange.ExitingEditMode)
+        {
+            HookSceneLoadedForPendingAvatar();
+            return;
+        }
+
+        // If sceneLoaded fired earlier the pending key is already cleared and this is a no-op.
+        if (state == PlayModeStateChange.EnteredPlayMode)
+        {
+            SceneManager.sceneLoaded -= OnSceneLoadedForPendingAvatar;
+            TryExecutePendingTestInEditor();
+        }
+    }
+
+    private static void HookSceneLoadedForPendingAvatar()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoadedForPendingAvatar;
+        SceneManager.sceneLoaded += OnSceneLoadedForPendingAvatar;
+    }
+
+    private static void OnSceneLoadedForPendingAvatar(Scene scene, LoadSceneMode mode)
+    {
+        SceneManager.sceneLoaded -= OnSceneLoadedForPendingAvatar;
+        TryExecutePendingTestInEditor();
     }
 
     private static void TryExecutePendingTestInEditor()
@@ -65,34 +89,23 @@ public partial class BasisAvatarSDKInspector : Editor
         string pendingAvatarId = GetPendingTestInEditorAvatarId();
         if (string.IsNullOrEmpty(pendingAvatarId))
         {
-            _resolveAttempts = 0;
             return;
         }
 
         if (!GlobalObjectId.TryParse(pendingAvatarId, out GlobalObjectId avatarId))
         {
             ClearPendingTestInEditorAvatarId();
-            _resolveAttempts = 0;
             return;
         }
 
         BasisAvatar avatar = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(avatarId) as BasisAvatar;
+        ClearPendingTestInEditorAvatarId();
         if (avatar == null)
         {
-            if (++_resolveAttempts < MaxResolveAttempts)
-            {
-                EditorApplication.delayCall += TryExecutePendingTestInEditor;
-                return;
-            }
-
-            ClearPendingTestInEditorAvatarId();
-            _resolveAttempts = 0;
-            BasisDebug.LogError($"Unable to resolve the pending avatar for Test In Editor after {MaxResolveAttempts} attempts.", BasisDebug.LogTag.Editor);
+            BasisDebug.LogError("Unable to resolve the pending avatar for Test In Editor.", BasisDebug.LogTag.Editor);
             return;
         }
 
-        ClearPendingTestInEditorAvatarId();
-        _resolveAttempts = 0;
         RequestAvatarLoad(avatar);
     }
 
@@ -643,6 +656,19 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         if (!Application.isPlaying)
         {
+            // GlobalObjectId for a prefab-stage instance resolves to null after
+            // EnterPlaymode auto-closes the stage, so the avatar would silently
+            // vanish post-transition. Bail rather than try to map back to the asset.
+            var stage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
+            if (stage != null && Avatar != null && Avatar.gameObject.scene == stage.scene)
+            {
+                EditorUtility.DisplayDialog(
+                    "Test In Editor",
+                    "Close the prefab edit mode and select the avatar from the Project window or a scene before testing.",
+                    BasisEditorLocalization.Get("sdk.common.dialog.yes"));
+                return;
+            }
+
             bool result = EditorUtility.DisplayDialog(
                 BasisEditorLocalization.Get("sdk.common.dialog.confirm"),
                 BasisEditorLocalization.Get("sdk.avatar.testInEditor.confirm.body"),
