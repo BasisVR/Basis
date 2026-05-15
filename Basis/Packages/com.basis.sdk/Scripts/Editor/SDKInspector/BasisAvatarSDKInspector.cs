@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using static BasisAvatarValidator;
 using Basis.Scripts.BasisSdk.Players;
@@ -16,6 +15,8 @@ using Basis.Scripts.BasisSdk.Players;
 public partial class BasisAvatarSDKInspector : Editor
 {
     private const string PendingTestInEditorAvatarIdSessionKey = "BasisAvatarSDKInspector.PendingTestInEditorAvatarId";
+    private const string TempPrefabDirectory = "Assets/" + TempPrefabFolderName;
+    private const string TempPrefabFolderName = "_BasisTemp";
 
     public delegate void BeforeTestInEditorHandler(GameObject clone);
     public static BeforeTestInEditorHandler OnBeforeTestInEditor;
@@ -43,75 +44,63 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
 
-        // Re-attach the sceneLoaded hook here so we're 
-        // listening before the play-mode scene finishes loading.
-        if (HasPendingTestInEditorAvatarId())
+        // Clean up temp prefabs left over from a previous editor session.
+        if (string.IsNullOrEmpty(GetPendingTestInEditorAvatarId()))
         {
-            HookSceneLoadedForPendingAvatar();
+            CleanupTempPrefabDirectory();
         }
     }
 
     private static void OnPlayModeStateChanged(PlayModeStateChange state)
     {
-        if (!HasPendingTestInEditorAvatarId())
-        {
-            return;
-        }
-
-        if (state == PlayModeStateChange.ExitingEditMode)
-        {
-            HookSceneLoadedForPendingAvatar();
-            return;
-        }
-
-        // If sceneLoaded fired earlier the pending key is already cleared and this is a no-op.
         if (state == PlayModeStateChange.EnteredPlayMode)
         {
-            SceneManager.sceneLoaded -= OnSceneLoadedForPendingAvatar;
             TryExecutePendingTestInEditor();
+        }
+        else if (state == PlayModeStateChange.EnteredEditMode)
+        {
+            CleanupTempPrefabDirectory();
         }
     }
 
-    private static void HookSceneLoadedForPendingAvatar()
+    private static string CreateTempPrefabFromSceneAvatar(BasisAvatar avatar)
     {
-        SceneManager.sceneLoaded -= OnSceneLoadedForPendingAvatar;
-        SceneManager.sceneLoaded += OnSceneLoadedForPendingAvatar;
+        if (avatar == null) return null;
+        if (!AssetDatabase.IsValidFolder(TempPrefabDirectory))
+        {
+            AssetDatabase.CreateFolder("Assets", TempPrefabFolderName);
+        }
+
+        string path = AssetDatabase.GenerateUniqueAssetPath(
+            $"{TempPrefabDirectory}/{avatar.gameObject.name}.prefab");
+        // SaveAsPrefabAsset (no Connect) leaves the original scene GameObject untouched.
+        var prefab = PrefabUtility.SaveAsPrefabAsset(avatar.gameObject, path);
+        return prefab != null ? path : null;
     }
 
-    private static void OnSceneLoadedForPendingAvatar(Scene scene, LoadSceneMode mode)
+    private static void CleanupTempPrefabDirectory()
     {
-        SceneManager.sceneLoaded -= OnSceneLoadedForPendingAvatar;
-        TryExecutePendingTestInEditor();
+        if (AssetDatabase.IsValidFolder(TempPrefabDirectory))
+        {
+            AssetDatabase.DeleteAsset(TempPrefabDirectory);
+        }
     }
 
     private static void TryExecutePendingTestInEditor()
     {
-        string pendingAvatarId = GetPendingTestInEditorAvatarId();
-        if (string.IsNullOrEmpty(pendingAvatarId))
-        {
-            return;
-        }
-
-        if (!GlobalObjectId.TryParse(pendingAvatarId, out GlobalObjectId avatarId))
-        {
-            ClearPendingTestInEditorAvatarId();
-            return;
-        }
-
-        BasisAvatar avatar = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(avatarId) as BasisAvatar;
+        string assetPath = GetPendingTestInEditorAvatarId();
+        if (string.IsNullOrEmpty(assetPath)) return;
         ClearPendingTestInEditorAvatarId();
+
+        var go = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+        BasisAvatar avatar = go != null ? go.GetComponent<BasisAvatar>() : null;
         if (avatar == null)
         {
-            BasisDebug.LogError("Unable to resolve the pending avatar for Test In Editor.", BasisDebug.LogTag.Editor);
+            BasisDebug.LogError($"Unable to resolve the pending avatar at '{assetPath}' for Test In Editor.", BasisDebug.LogTag.Editor);
             return;
         }
 
         RequestAvatarLoad(avatar);
-    }
-
-    private static bool HasPendingTestInEditorAvatarId()
-    {
-        return SessionState.GetBool(PendingTestInEditorAvatarIdSessionKey + ".Exists", false);
     }
 
     private static string GetPendingTestInEditorAvatarId()
@@ -656,9 +645,8 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         if (!Application.isPlaying)
         {
-            // GlobalObjectId for a prefab-stage instance resolves to null after
-            // EnterPlaymode auto-closes the stage, so the avatar would silently
-            // vanish post-transition. Bail rather than try to map back to the asset.
+            // Avatar in PrefabStage gets destroyed when EnterPlaymode auto-closes
+            // the stage. Bail rather than try to map back to the asset.
             var stage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
             if (stage != null && Avatar != null && Avatar.gameObject.scene == stage.scene)
             {
@@ -669,21 +657,45 @@ public partial class BasisAvatarSDKInspector : Editor
                 return;
             }
 
+            if (Avatar == null) return;
+
             bool result = EditorUtility.DisplayDialog(
                 BasisEditorLocalization.Get("sdk.common.dialog.confirm"),
                 BasisEditorLocalization.Get("sdk.avatar.testInEditor.confirm.body"),
                 BasisEditorLocalization.Get("sdk.common.dialog.yes"),
                 BasisEditorLocalization.Get("sdk.common.dialog.no"));
-            if (result)
+            if (!result) return;
+
+            // Defer the temp-prefab write until after the confirm dialog so a
+            // cancelled flow doesn't leave orphan files on disk.
+            string assetPath = ResolveAvatarAssetPath(Avatar) ?? CreateTempPrefabFromSceneAvatar(Avatar);
+            if (string.IsNullOrEmpty(assetPath))
             {
-                SetPendingTestInEditorAvatarId(GlobalObjectId.GetGlobalObjectIdSlow(Avatar).ToString());
-                EditorApplication.EnterPlaymode();
+                EditorUtility.DisplayDialog(
+                    "Test In Editor",
+                    "Couldn't resolve the avatar to an asset or write a temporary prefab. Save it as a prefab manually and try again.",
+                    BasisEditorLocalization.Get("sdk.common.dialog.yes"));
+                return;
             }
+
+            SetPendingTestInEditorAvatarId(assetPath);
+            EditorApplication.EnterPlaymode();
         }
         else
         {
             RequestAvatarLoad();
         }
+    }
+
+    // Resolves the inspector target to a project-relative asset path. Returns
+    // null when the avatar lives only in a scene with no prefab backing.
+    private static string ResolveAvatarAssetPath(BasisAvatar avatar)
+    {
+        if (avatar == null) return null;
+        string path = AssetDatabase.GetAssetPath(avatar);
+        if (!string.IsNullOrEmpty(path)) return path;
+        var source = PrefabUtility.GetCorrespondingObjectFromSource(avatar);
+        return source != null ? AssetDatabase.GetAssetPath(source) : null;
     }
     public void RequestAvatarLoad()
     {

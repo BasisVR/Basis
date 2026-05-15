@@ -106,6 +106,8 @@ mono_crash.mem.*.*.blob
 [Aa]ssets/_[Uu]ser[Cc]ontent.meta
 [Aa]ssets/[Gg]it[Ii]gnore/
 [Aa]ssets/[Gg]it[Ii]gnore.meta
+[Aa]ssets/_[Bb]asis[Tt]emp/
+[Aa]ssets/_[Bb]asis[Tt]emp.meta
 
 # FFmpeg
 /[Aa]ssets/[Ss]treamingAssets/[Ff][Ff]mpeg/
