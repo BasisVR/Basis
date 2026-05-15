@@ -1,3 +1,4 @@
+#if !BASIS_FRAMEWORK_EXISTS
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Drivers;
@@ -60,3 +61,4 @@ namespace Basis.Scripts.BasisSdk.Players
         }
     }
 }
+#endif

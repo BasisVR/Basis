@@ -1,3 +1,4 @@
+#if !BASIS_FRAMEWORK_EXISTS
 using UnityEditor;
 
 namespace Basis.Scripts.BasisSdk.Players.Editor
@@ -11,3 +12,4 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if !BASIS_FRAMEWORK_EXISTS
 using Basis.Scripts.Drivers;
 using UnityEngine;
 
@@ -56,3 +57,4 @@ namespace Basis.Scripts.BasisSdk.Players
         private void OnDisable() => StopCapture();
     }
 }
+#endif

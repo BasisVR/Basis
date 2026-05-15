@@ -16,6 +16,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.basis.framework",
+            "expression": "",
+            "define": "BASIS_FRAMEWORK_EXISTS"
+        }
+    ],
     "noEngineReferences": false
 }

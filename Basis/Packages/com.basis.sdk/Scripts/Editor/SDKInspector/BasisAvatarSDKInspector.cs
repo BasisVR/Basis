@@ -15,6 +15,11 @@ using Basis.Scripts.BasisSdk.Players;
 public partial class BasisAvatarSDKInspector : Editor
 {
     private const string PendingTestInEditorAvatarIdSessionKey = "BasisAvatarSDKInspector.PendingTestInEditorAvatarId";
+    // Unity's GlobalObjectId table isn't always populated on the first delayCall after
+    // EnteredPlayMode (the play-mode scene reload races us). Retry a bounded number of
+    // ticks so a transient null resolve doesn't drop the pending avatar.
+    private const int MaxResolveAttempts = 30;
+    private static int _resolveAttempts;
 
     public delegate void BeforeTestInEditorHandler(GameObject clone);
     public static BeforeTestInEditorHandler OnBeforeTestInEditor;
@@ -50,6 +55,7 @@ public partial class BasisAvatarSDKInspector : Editor
             return;
         }
 
+        _resolveAttempts = 0;
         EditorApplication.delayCall -= TryExecutePendingTestInEditor;
         EditorApplication.delayCall += TryExecutePendingTestInEditor;
     }
@@ -59,23 +65,34 @@ public partial class BasisAvatarSDKInspector : Editor
         string pendingAvatarId = GetPendingTestInEditorAvatarId();
         if (string.IsNullOrEmpty(pendingAvatarId))
         {
+            _resolveAttempts = 0;
             return;
         }
 
         if (!GlobalObjectId.TryParse(pendingAvatarId, out GlobalObjectId avatarId))
         {
             ClearPendingTestInEditorAvatarId();
+            _resolveAttempts = 0;
             return;
         }
 
         BasisAvatar avatar = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(avatarId) as BasisAvatar;
-        ClearPendingTestInEditorAvatarId();
         if (avatar == null)
         {
-            BasisDebug.LogError("Unable to resolve the pending avatar for Test In Editor.", BasisDebug.LogTag.Editor);
+            if (++_resolveAttempts < MaxResolveAttempts)
+            {
+                EditorApplication.delayCall += TryExecutePendingTestInEditor;
+                return;
+            }
+
+            ClearPendingTestInEditorAvatarId();
+            _resolveAttempts = 0;
+            BasisDebug.LogError($"Unable to resolve the pending avatar for Test In Editor after {MaxResolveAttempts} attempts.", BasisDebug.LogTag.Editor);
             return;
         }
 
+        ClearPendingTestInEditorAvatarId();
+        _resolveAttempts = 0;
         RequestAvatarLoad(avatar);
     }
 

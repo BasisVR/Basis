@@ -1,3 +1,4 @@
+#if !BASIS_FRAMEWORK_EXISTS
 using Basis.Scripts.Animator_Driver;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -121,3 +122,4 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
 
     }
 }
+#endif
