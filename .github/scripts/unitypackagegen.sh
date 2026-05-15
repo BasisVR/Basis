@@ -17,6 +17,11 @@ EXTRASUBFOLDER=""
 EXTRASUBFOLDERS=""
 MOREFILES=""
 
+# Creator-side authoring packages
+CREATOR_SUBFOLDERS="Packages/com.basis.creator:
+        Packages/com.basis.openlipsync:
+        Packages/dev.hai-vr.basis.ndmf"
+
 
 if [[ "$1" == "full" ]]; then
 
@@ -24,15 +29,18 @@ if [[ "$1" == "full" ]]; then
 
   PACKAGES+=":Packages/com.valvesoftware.unity.openvr-1.2.1.tgz"
 
-  # Need this for framework (But only framework)
+  SUBFOLDERS+=":${CREATOR_SUBFOLDERS}"
+
+  # Framework + client-only additions on top of the SDK + creator base.
   SUBFOLDERS+=":Packages/com.avionblock.opussharp:
+              Packages/com.basis.addon.snapcontrols:
               Packages/com.basis.common:
               Packages/com.basis.eventdriver:
               Packages/com.basis.examples:
               Packages/com.basis.framework:
               Packages/com.basis.framework.editor:
               Packages/com.basis.gizmos:
-              Packages/com.basis.openlipsync:
+              Packages/com.basis.integration.audiolink:
               Packages/com.basis.openvr:
               Packages/com.basis.openxr:
               Packages/com.basis.profilerintergration:
@@ -41,21 +49,17 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.textmeshpro:
               Packages/com.basis.vehicles:
               Packages/com.basis.visualtrackers:
-              Packages/com.basis.zeromessenger:
               Packages/com.cnlohr.cilbox:
               Packages/com.cqf.urpvolumetricfog:
-              Packages/com.hecomi.ulipsync:
               Packages/com.llealloo.audiolink:
               Packages/com.steam.steamaudio:
               Packages/com.steam.steamvr:
               Packages/com.unity.3rdpersondemo:
-              Packages/com.unity.render-pipelines.core:
               Packages/com.unity.render-pipelines.universal:
-              Packages/com.unity.xr.openxr:
               Packages/com.xiph.rnnoise:
               Packages/dev.hai-vr.basis.comms:
-              Packages/HVRBasisNDMF:
               Packages/nuget.meamod.dns:
+              Packages/org.basisvr.k4os.compression.lz4:
               Assets/AddressableAssetsData:
               Assets/Basis:
               Assets/MetaXR:
@@ -72,13 +76,29 @@ if [[ "$1" == "full" ]]; then
 elif [[ "$1" == "sdk" ]]; then
   echo "Producing SDK package"
   # All things are already included.
+
+elif [[ "$1" == "creator" ]]; then
+
+  echo "Producing CREATOR package"
+
+  SUBFOLDERS+=":${CREATOR_SUBFOLDERS}"
+
 else
-  echo "Only full and sdk targets are specified."
+  echo "Only full, sdk, and creator targets are specified."
   die
-  exit
+  exit 1
 fi
 
 set -e
+
+# Fail loudly if a listed Packages/ path doesn't exist
+for ddv in $(echo "$SUBFOLDERS" | tr : '\n'); do
+    ddv_trimmed=$(echo "$ddv" | tr -d '[:space:]')
+    if [[ -n "$ddv_trimmed" && "$ddv_trimmed" == Packages/* && ! -d "Basis/$ddv_trimmed" ]]; then
+        echo "ERROR: SUBFOLDERS lists '$ddv_trimmed' but Basis/$ddv_trimmed does not exist." >&2
+        exit 1
+    fi
+done
 
 cd Basis
 

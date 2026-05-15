@@ -9,6 +9,7 @@ com.basis.server
 com.basis.framework
 com.basis.framework.editor
 com.basis.openlipsync
+com.basis.creator
 com.basis.common
 com.basis.eventdriver
 com.basis.profilerintergration
@@ -37,6 +38,7 @@ com.llealloo.audiolink
 com.xiph.rnnoise
 com.cnlohr.cilbox
 dev.hai-vr.basis.comms
+dev.hai-vr.basis.ndmf
 
 # VR / spatial-audio (Apache 2.0 / BSD-3).
 com.steam.steamaudio
