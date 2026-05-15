@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Basis.Scripts.BasisSdk.Players
 {
-    // Runtime tick host for the avatar package's editor preview. Attached to the
+    // Runtime tick host for the SDK's editor preview. Attached to the
     // preview root after the avatar is loaded so blink + visemes have somewhere
     // to live in play mode.
     public sealed class BasisAvatarSimPlayer : BasisPlayer

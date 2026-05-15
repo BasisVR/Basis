@@ -6,7 +6,6 @@
         "Unity.Mathematics",
         "BasisNetworkCore",
         "Basis Framework",
-        "Basis Creator",
         "BasisDebug",
         "HVR.Basis.Comms.HVRUtility",
         "Unity.Addressables",

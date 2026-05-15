@@ -12,14 +12,6 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.basis.creator": {
-      "version": "file:com.basis.creator",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.mathematics": "1.3.3"
-      }
-    },
     "com.basis.bundlemanagement": {
       "version": "file:com.basis.bundlemanagement",
       "depth": 0,

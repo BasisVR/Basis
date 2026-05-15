@@ -7,6 +7,7 @@ PACKAGES="Packages/org.basisvr.generator.equals-3.2.0.tgz:
         Packages/org.basisvr.simplebase-4.0.2.tgz:
         Packages/org.basisvr.bouncycastle-2.5.0.tgz"
 SUBFOLDERS="Packages/com.basis.sdk:
+        Packages/com.basis.openlipsync:
         Packages/UnityJigglePhysics-upm:
         Packages/org.basisvr.k4os.compression.lz4:
         Packages/com.basis.bundlemanagement:
@@ -17,11 +18,6 @@ EXTRASUBFOLDER=""
 EXTRASUBFOLDERS=""
 MOREFILES=""
 
-# Creator-side authoring packages
-CREATOR_SUBFOLDERS="Packages/com.basis.creator:
-        Packages/com.basis.openlipsync:
-        Packages/dev.hai-vr.basis.ndmf"
-
 
 if [[ "$1" == "full" ]]; then
 
@@ -29,9 +25,7 @@ if [[ "$1" == "full" ]]; then
 
   PACKAGES+=":Packages/com.valvesoftware.unity.openvr-1.2.1.tgz"
 
-  SUBFOLDERS+=":${CREATOR_SUBFOLDERS}"
-
-  # Framework + client-only additions on top of the SDK + creator base.
+  # Framework + client-only additions on top of the SDK base.
   SUBFOLDERS+=":Packages/com.avionblock.opussharp:
               Packages/com.basis.addon.snapcontrols:
               Packages/com.basis.common:
@@ -76,12 +70,6 @@ if [[ "$1" == "full" ]]; then
 elif [[ "$1" == "sdk" ]]; then
   echo "Producing SDK package"
   # All things are already included.
-
-elif [[ "$1" == "creator" ]]; then
-
-  echo "Producing CREATOR package"
-
-  SUBFOLDERS+=":${CREATOR_SUBFOLDERS}"
 
 else
   echo "Only full, sdk, and creator targets are specified."

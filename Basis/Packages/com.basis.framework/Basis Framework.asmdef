@@ -33,8 +33,7 @@
         "BasisSettings",
         "com.cqf.urpvolumetricfog.runtime",
         "OpusSharp",
-        "Basis.OpenLipSync.Runtime",
-        "Basis Creator"
+        "Basis.OpenLipSync.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -5,8 +5,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.BasisSdk.Players.Editor
 {
-    // Avatar preview shipped by com.basis.creator. Backs off when framework's
-    // BasisLocalPlayer has already registered with BasisLocalPlayerData (play mode).
+    // SDK-side avatar preview. Backs off when framework's BasisLocalPlayer has
+    // already registered with BasisLocalPlayerData (play mode).
     internal sealed class BasisEditorPreviewLocalPlayer : IBasisLocalPlayer
     {
         private const string FallbackControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";

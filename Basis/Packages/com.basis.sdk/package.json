@@ -16,6 +16,7 @@
     "com.unity.ugui": "2.0.0"
   },
   "vpmDependencies": {
+    "com.basis.openlipsync": "0.2.0",
     "org.basisvr.bouncycastle": "2.5.0",
     "org.basisvr.newtonsoft.json": "13.0.3"
   }

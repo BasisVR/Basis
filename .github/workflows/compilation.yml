@@ -353,9 +353,6 @@ jobs:
       - name: "Produce SDK unitypackage."
         timeout-minutes: 5
         run: .github/scripts/unitypackagegen.sh sdk
-      - name: "Produce Creator unitypackage."
-        timeout-minutes: 5
-        run: .github/scripts/unitypackagegen.sh creator
       - name: "Produce full unitypackage."
         timeout-minutes: 5
         run: .github/scripts/unitypackagegen.sh full
@@ -365,7 +362,6 @@ jobs:
           name: unitypackage_upload
           path: |
             Basis/Basis.sdk.unitypackage
-            Basis/Basis.creator.unitypackage
             Basis/Basis.full.unitypackage
       - name: "Release unitypackage"
         if: github.ref_type == 'tag'
@@ -374,5 +370,4 @@ jobs:
         with:
           files: |
             Basis/Basis.sdk.unitypackage
-            Basis/Basis.creator.unitypackage
             Basis/Basis.full.unitypackage
