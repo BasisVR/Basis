@@ -74,7 +74,7 @@ elif [[ "$1" == "sdk" ]]; then
 else
   echo "Only full, sdk, and creator targets are specified."
   die
-  exit 1
+  exit
 fi
 
 set -e
