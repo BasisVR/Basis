@@ -15,10 +15,10 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
 
         private static readonly BasisEditorPreviewLocalPlayer _instance = new BasisEditorPreviewLocalPlayer();
 
-        public static BasisAvatar ActiveAvatar { get; private set; }
-        public static BasisAnimatorVariableApply Applier { get; private set; }
-        public static BasisAvatarSimPlayer ActiveSimPlayer { get; private set; }
-        public static BasisAvatarSimMic ActiveSimMic { get; private set; }
+        public static BasisAvatar ActiveAvatar;
+        public static BasisAnimatorVariableApply Applier;
+        public static BasisAvatarSimPlayer ActiveSimPlayer;
+        public static BasisAvatarSimMic ActiveSimMic;
         public static event System.Action StateChanged;
 
         private static GameObject _previewRoot;
