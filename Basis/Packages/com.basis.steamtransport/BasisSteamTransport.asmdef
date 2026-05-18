@@ -1,0 +1,23 @@
+{
+    "name": "BasisSteamTransport",
+    "rootNamespace": "",
+  "references": [
+    "BasisCommon",
+    "BasisDebug",
+    "BasisNetworkCore",
+    "BasisSteamTransportCore",
+    "BasisBundleManagement",
+    "Basis Framework",
+    "BasisEventDriver",
+    "BasisSDK"
+  ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

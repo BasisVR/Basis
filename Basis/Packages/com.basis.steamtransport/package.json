@@ -1,0 +1,10 @@
+{
+  "name": "com.basis.steamtransport",
+  "version": "0.1.0",
+  "displayName": "Basis Steam Transport",
+  "description": "Steam lobby and transport integration for Basis while preserving the existing LiteNetLib implementation as a parallel option.",
+  "unity": "6000.4",
+  "author": {
+    "name": "Basis"
+  }
+}

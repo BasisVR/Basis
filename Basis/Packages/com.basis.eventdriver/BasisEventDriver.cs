@@ -128,6 +128,8 @@ public partial class BasisEventDriver : MonoBehaviour
 
     public static bool StateOfOnRenderBefore = false;
 
+    public static Action OnUpdate;
+
 
     // ── Lifecycle ───────────────────────────────────────────────
 
@@ -213,6 +215,7 @@ public partial class BasisEventDriver : MonoBehaviour
             OSCAcquisitionServer.Simulate();
             SMModuleAvatarPerformanceLimits.SimulateDebounce();
             timeSinceLastUpdate += DeltaTime;
+            OnUpdate?.Invoke();
         }
 
     /// <summary>

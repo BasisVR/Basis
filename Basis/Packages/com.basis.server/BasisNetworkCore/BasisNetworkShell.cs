@@ -43,6 +43,31 @@ namespace Basis.Network.Core
         public event OnNetworkError NetworkErrorEvent;
         public event OnPeerConnected PeerConnectedEvent;
         public event OnNetworkReceiveUnconnected NetworkReceiveUnconnectedEvent;
+
+        public void RaiseConnectionRequest(ConnectionRequest request)
+        {
+            ConnectionRequestEvent?.Invoke(request);
+        }
+
+        public void RaisePeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
+        {
+            PeerDisconnectedEvent?.Invoke(peer, disconnectInfo);
+        }
+
+        public void RaiseNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
+        {
+            NetworkReceiveEvent?.Invoke(peer, reader, channel, deliveryMethod);
+        }
+
+        public void RaisePeerConnected(NetPeer peer)
+        {
+            PeerConnectedEvent?.Invoke(peer);
+        }
+
+        public void RaiseNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader)
+        {
+            NetworkReceiveUnconnectedEvent?.Invoke(remoteEndPoint, reader);
+        }
     }
 
     public interface ConnectionRequest
@@ -99,6 +124,10 @@ namespace Basis.Network.Core
 
     public sealed partial class NetStatistics
     {
+        public NetStatistics()
+        {
+        }
+
         public long PacketsSent;
         public long PacketsReceived;
         public long BytesSent;
@@ -114,6 +143,20 @@ namespace Basis.Network.Core
 		internal byte channel;
 		internal DeliveryMethod method;
 #endif
+
+        public NetPacketReader()
+        {
+        }
+
+        public NetPacketReader(byte[] source, int offset, int maxSize, Action recycle) : base(source, offset, maxSize)
+        {
+            RecycleInternal = recycle;
+        }
+
+        public static NetPacketReader Create(byte[] source, int offset, int maxSize, Action recycle)
+        {
+            return new NetPacketReader(source, offset, maxSize, recycle);
+        }
 
         public void Recycle(bool IsOkTOHaveEmptyData = false)
         {
