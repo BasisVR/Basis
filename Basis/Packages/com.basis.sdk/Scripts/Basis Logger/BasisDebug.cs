@@ -143,6 +143,7 @@ public static class BasisDebug
         Props,
         LocalNetwork,
         AuthoredMotion,
+        TrackerObjects,
     }
 
     public enum MessageType

@@ -5229,6 +5229,30 @@
     {
       "key": "settings.ra.title.voiceBuffer",
       "value": "Voice Buffer"
+    },
+    {
+      "key": "library.assignTracker",
+      "value": "Assign"
+    },
+    {
+      "key": "library.unbindTracker",
+      "value": "Unbind"
+    },
+    {
+      "key": "library.trackerPicker.title",
+      "value": "Choose Tracker"
+    },
+    {
+      "key": "library.trackerPicker.empty",
+      "value": "No trackers are currently connected."
+    },
+    {
+      "key": "library.trackerPicker.confirm",
+      "value": "Bind"
+    },
+    {
+      "key": "library.trackerPicker.cancel",
+      "value": "Cancel"
     }
   ]
 }

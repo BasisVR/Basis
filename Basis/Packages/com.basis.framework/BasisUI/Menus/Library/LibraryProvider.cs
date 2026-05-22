@@ -86,6 +86,13 @@ namespace Basis.BasisUI
         private static protected bool IsProtected = false; // we use this to determine if the user is admin for admin related queries on the library provider
         public static BasisMenuPanel panel;
 
+        /// <summary>
+        /// Fires per instantiated-object row right after the Select button is built,
+        /// before Teleport/Remove. Subscribers can append buttons to the supplied row
+        /// container — they land between Select and Teleport.
+        /// </summary>
+        public static event Action<RectTransform, BasisRuntimeSpawnRegistry.SpawnInstance> OnInstanceRowCreated;
+
         // references to the search query elements
         private static PanelTextField searchField; // reference to the search field
         private static PanelDropdown dateSorting; // reference to the date sorting dropdown
@@ -1975,8 +1982,10 @@ namespace Basis.BasisUI
                     // close the menu
                     BasisMainMenu.Close();
                 }
-        
+
             };
+
+            OnInstanceRowCreated?.Invoke(itemListPanel.TabButtonParent, itemKey);
 
             PanelButton TeleportToItem = PanelButton.CreateNew(ButtonStyles.StandardButton, itemListPanel.TabButtonParent);
             TeleportToItem.Descriptor.SetTitle(string.Empty);

@@ -1,0 +1,10 @@
+{
+  "name": "com.basis.integration.trackerobjects",
+  "displayName": "Basis Tracker Objects Integration",
+  "version": "0.0.1",
+  "description": "Wires com.basis.trackerobjects into the Basis library menu. Adds the Assign/Unbind Tracker button and the tracker-picker dialog. Compiles only when both com.basis.framework and com.basis.trackerobjects are present.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  }
+}
