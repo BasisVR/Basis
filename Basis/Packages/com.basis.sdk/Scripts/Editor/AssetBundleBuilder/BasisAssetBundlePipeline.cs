@@ -64,6 +64,7 @@ public static class BasisAssetBundlePipeline
 
         try
         {
+            List<string> additionalAssetPaths = new List<string>();
             if (isScene)
             {
                 if (settings.RebakeOcclusionCulling)
@@ -88,6 +89,30 @@ public static class BasisAssetBundlePipeline
                 OnBeforeBuildPrefab?.Invoke(prefab, settings);
                 PostProcessAvatar(prefab);
 
+                // This is not part of post-processing, because we don't want this running during Test In Editor.
+                if (prefab.TryGetComponent<BasisAvatar>(out BasisAvatar avatar))
+                {
+                    // Not null, PostProcessAvatar ensures that.
+                    for (var indexInArray = 0; indexInArray < avatar.BundleAdditionalAssets.deferredAssets.Length; indexInArray++)
+                    {
+                        var indexInBundle = 1 + indexInArray;
+
+                        var forAvatar = avatar.BundleAdditionalAssets.deferredAssets[indexInArray];
+                        if (forAvatar.asset == null) throw new InvalidOperationException("Cannot bundle null additional assets.");
+                        if (forAvatar.asset is GameObject or Transform or Component) throw new InvalidOperationException("Cannot bundle GameObjects, Transforms, or Components as additional assets.");
+
+                        // We cannot just use AssetDatabase.AddObjectToAsset because the asset path of a Mesh is very often the path of the .fbx, which is a GameObject.
+                        // We're using SaveAssetToTemporaryStorage to create a container that references the asset.
+                        var additionalAssetPath = TemporaryStorageHandler.SaveAssetToTemporaryStorage(forAvatar.asset, settings, out _);
+                        additionalAssetPaths.Add(additionalAssetPath);
+
+                        // Dereference it so that it doesn't get bundled into main.
+                        forAvatar.asset = null;
+                        forAvatar.indexInBundle = indexInBundle;
+                        forAvatar.assetPath = additionalAssetPath;
+                    }
+                }
+
                 assetPath = TemporaryStorageHandler.SavePrefabToTemporaryStorage(prefab, settings, ref wasModified, out uniqueID);
 
                 if (prefab != null)
@@ -99,7 +124,7 @@ public static class BasisAssetBundlePipeline
             AssetBundleBuild Build = new AssetBundleBuild()
             {
                 assetBundleName = uniqueID,
-                assetNames = new string[] { assetPath }
+                assetNames = new[] { assetPath }.Concat(additionalAssetPaths).ToArray()
             };
 
             AssetBundleBuild[] Builds = new AssetBundleBuild[] { Build };
@@ -174,6 +199,18 @@ public static class BasisAssetBundlePipeline
 
             // We do not want to keep this data at runtime.
             avatar.ProcessingAvatarOptions = null;
+
+            if (avatar.BundleAdditionalAssets == null)
+            {
+                avatar.BundleAdditionalAssets = new BasisBundleAdditionalAssets
+                {
+                    deferredAssets = Array.Empty<BasisBundleAdditionalAsset>()
+                };
+            }
+            else if (avatar.BundleAdditionalAssets.deferredAssets == null)
+            {
+                avatar.BundleAdditionalAssets.deferredAssets = Array.Empty<BasisBundleAdditionalAsset>();
+            }
         }
     }
 

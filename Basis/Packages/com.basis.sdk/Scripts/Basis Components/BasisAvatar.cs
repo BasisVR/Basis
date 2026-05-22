@@ -184,6 +184,12 @@ namespace Basis.Scripts.BasisSdk
         public BasisProcessingAvatarOptions ProcessingAvatarOptions;
 
         /// <summary>
+        /// Contains information used by the bundle build process. The information contained inside this is processed
+        /// and then altered right when the bundle is built.
+        /// </summary>
+        public BasisBundleAdditionalAssets BundleAdditionalAssets;
+
+        /// <summary>
         /// the animators humanScale, Cached here to stop requesting it from the animator per frame.
         /// </summary>
 

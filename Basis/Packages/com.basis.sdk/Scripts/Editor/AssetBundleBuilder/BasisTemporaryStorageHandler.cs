@@ -1,4 +1,5 @@
 using System.IO;
+using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -13,6 +14,20 @@ public static class TemporaryStorageHandler
         prefab = PrefabUtility.SaveAsPrefabAsset(prefab, prefabPath);
         wasModified = true;
         return prefabPath;
+    }
+    public static string SaveAssetToTemporaryStorage(Object asset, BasisAssetBundleObject settings, out string uniqueID)
+    {
+        if (asset is GameObject or Transform or Component) throw new InvalidDataException("Cannot save asset of type GameObject, Transform or Component.");
+
+        EnsureDirectoryExists(settings.TemporaryStorage);
+        uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
+        string assetPath = Path.Combine(settings.TemporaryStorage, $"{uniqueID}.asset");
+        BasisObjectReferenceContainer referenceContainer = ScriptableObject.CreateInstance<BasisObjectReferenceContainer>();
+        referenceContainer.references = new[] { asset };
+
+        AssetDatabase.CreateAsset(referenceContainer, assetPath);
+
+        return assetPath;
     }
     public static string SaveScene(Scene sceneToCopy, BasisAssetBundleObject settings, out string uniqueID)
     {

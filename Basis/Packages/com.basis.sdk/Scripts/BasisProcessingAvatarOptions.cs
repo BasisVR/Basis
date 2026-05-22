@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Basis.Scripts.BasisSdk
 {
     [System.Serializable]
@@ -15,5 +17,23 @@ namespace Basis.Scripts.BasisSdk
         /// when on the blendshape indexes break and need reconstruction from callback.
         /// </summary>
       // disabled does work just not for all avatars  public bool RemoveUnusedBlendshapes = false;
+    }
+
+    [System.Serializable]
+    public class BasisBundleAdditionalAssets
+    {
+        public BasisBundleAdditionalAsset[] deferredAssets;
+    }
+
+    [System.Serializable]
+    public class BasisBundleAdditionalAsset
+    {
+        // Defined by user scripts, during the build.
+        public string key;
+        public Object asset;
+
+        // Defined by Basis, in the bundle builder.
+        public int indexInBundle;
+        public string assetPath;
     }
 }

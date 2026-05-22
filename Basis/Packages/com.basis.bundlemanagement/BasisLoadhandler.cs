@@ -89,6 +89,59 @@ public static class BasisLoadHandler
             }
         }
     }
+
+    public static async Task<UnityEngine.Object> LoadAdditionalAssetInAlreadyLoadedBundle(
+        BasisLoadableBundle loadableBundle,
+        string assetPath,
+        bool includeSubAssets)
+    {
+        BasisDebug.Log($"Loading additional asset {assetPath} in already loaded bundle {loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Networking);
+
+        if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisTrackedBundleWrapper wrapper))
+        {
+            if (wrapper.AssetBundle == null)
+            {
+                BasisDebug.LogError($"{nameof(LoadAdditionalAssetInAlreadyLoadedBundle)} was called, but the wrapper was not already loaded. It is expected that calls to this method are only made while a bundle is still being used.");
+                return null;
+            }
+
+            AssetBundleRequest Request = includeSubAssets
+                ? wrapper.AssetBundle.LoadAssetWithSubAssetsAsync<UnityEngine.Object>(assetPath)
+                : wrapper.AssetBundle.LoadAssetAsync<UnityEngine.Object>(assetPath);
+            await Request;
+
+            UnityEngine.Object result = Request.asset;
+            if (result == null)
+            {
+                BasisDebug.LogError("The additional asset returned null.");
+                return null;
+            }
+            if (result is GameObject or Transform or Component)
+            {
+                BasisDebug.LogError($"{nameof(LoadAdditionalAssetInAlreadyLoadedBundle)} was called, but an object of type {result.GetType().Name} was present instead. This is not allowed.");
+                return null;
+            }
+
+            if (result is BasisObjectReferenceContainer container)
+            {
+                if (container.references == null || container.references.Length == 0)
+                {
+                    BasisDebug.LogError($"{nameof(LoadAdditionalAssetInAlreadyLoadedBundle)} was called, but the object returned by the bundle was a container with no references.");
+                    return null;
+                }
+
+                return container.references[0];
+            }
+
+            return result;
+        }
+        else
+        {
+            BasisDebug.LogError($"{nameof(LoadAdditionalAssetInAlreadyLoadedBundle)} was called, but the bundle was not already loaded. It is expected that calls to this method are only made while a bundle is still being used.");
+            return null;
+        }
+    }
+
     public static async Task<GameObject> LoadGameObjectBundle(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
     {
         await EnsureInitializationComplete();
