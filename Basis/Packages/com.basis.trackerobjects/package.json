@@ -1,0 +1,12 @@
+{
+  "name": "com.basis.trackerobjects",
+  "displayName": "Basis Tracker Objects",
+  "version": "0.0.1",
+  "description": "Bind a SteamVR/OpenXR tracker to a GameObject so its pose drives the transform locally and syncs to remote players over a custom network behaviour. Selection UI + persistence + per-tick pose drive + sync.",
+  "unity": "6000.0",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT"
+}
