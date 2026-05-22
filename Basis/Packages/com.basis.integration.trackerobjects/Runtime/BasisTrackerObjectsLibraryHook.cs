@@ -42,6 +42,8 @@ namespace Basis.Integration.TrackerObjects
             button.Descriptor.SetTitle(string.Empty);
             button.SetIcon(hasBinding ? AddressableAssets.Sprites.Unlink : AddressableAssets.Sprites.Link);
             button.SetSize(RowSize);
+            // Match the row's left-side status-icon padding (PE Image Simple Square inset).
+            button.Descriptor.IconImage.rectTransform.sizeDelta = new Vector2(-30, -30);
 
             button.OnClicked += async () =>
             {
