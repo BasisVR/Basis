@@ -161,6 +161,12 @@
         "com.unity.mathematics": "1.3.3"
       }
     },
+    "com.basis.steamtransport": {
+      "version": "file:com.basis.steamtransport",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.textmeshpro": {
       "version": "file:com.basis.textmeshpro",
       "depth": 0,
