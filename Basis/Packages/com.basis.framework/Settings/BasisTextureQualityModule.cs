@@ -1,27 +1,29 @@
 using Basis.BasisUI;
 using UnityEngine;
+using UnityEngine.Serialization;
+
 public class BasisTextureQualityModule : BasisSettingsBase
 {
     public int StreamingMipmapsMaxLevelReduction = 4;
-    public int treamingMipmapsMaxFileIORequests = 512;
+
+    [FormerlySerializedAs("treamingMipmapsMaxFileIORequests")]
+    public int StreamingMipmapsMaxFileIORequests = 512;
+
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        if (matchedSettingName == BasisSettingsDefaults.MemoryAllocation.BindingKey)
-        {
-            QualitySettings.streamingMipmapsActive = true;
-            QualitySettings.streamingMipmapsAddAllCameras = true;
-            QualitySettings.streamingMipmapsMaxLevelReduction = StreamingMipmapsMaxLevelReduction;
-            QualitySettings.streamingMipmapsMaxFileIORequests = treamingMipmapsMaxFileIORequests;
-            if (int.TryParse(optionValue, out int mem))
-            {
-                QualitySettings.streamingMipmapsMemoryBudget = mem;
-            }
-            else
-            {
-                QualitySettings.streamingMipmapsMemoryBudget = SystemInfo.graphicsMemorySize;
-            }
-        }
+        if (matchedSettingName != BasisSettingsDefaults.MemoryAllocation.BindingKey)
+            return;
+
+        QualitySettings.streamingMipmapsActive = true;
+        QualitySettings.streamingMipmapsAddAllCameras = true;
+        QualitySettings.streamingMipmapsMaxLevelReduction = StreamingMipmapsMaxLevelReduction;
+        QualitySettings.streamingMipmapsMaxFileIORequests = StreamingMipmapsMaxFileIORequests;
+
+        int hardwareCap = SystemInfo.graphicsMemorySize / 4;
+        int requested = int.TryParse(optionValue, out int mem) ? mem : hardwareCap;
+        QualitySettings.streamingMipmapsMemoryBudget = Mathf.Min(requested, hardwareCap);
     }
+
     public override void ChangedSettings()
     {
     }
