@@ -330,7 +330,8 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
         {
             _headDevices.Clear();
             UnityEngine.XR.InputDevices.GetDevicesAtXRNode(UnityEngine.XR.XRNode.Head, _headDevices);
-            for (int i = 0; i < _headDevices.Count; i++)
+            int Count = _headDevices.Count;
+            for (int i = 0; i < Count; i++)
             {
                 if (_headDevices[i].TryGetFeatureValue(UnityEngine.XR.CommonUsages.userPresence, out bool present))
                 {
