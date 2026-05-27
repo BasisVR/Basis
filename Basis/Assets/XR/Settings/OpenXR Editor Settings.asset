@@ -11,14 +11,11 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 975057b4fdcfb8142b3080d19a5cc712, type: 3}
   m_Name: OpenXR Editor Settings
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.XR.OpenXR.Editor::UnityEditor.XR.OpenXR.OpenXREditorSettings
   Keys: 0700000001000000
   Values:
   - featureSets:
-    - com.meta.openxr.featureset.metaxr
     - com.valvesoftware.openxr.utils.featureset
-  - featureSets:
-    - com.meta.openxr.featureset.metaxr
-    - com.valvesoftware.openxr.utils.featureset
+  - featureSets: []
   m_vulkanAdditionalGraphicsQueue: 0
-  m_vulkanOffscreenSwapchainNoMainDisplay: 0
+  m_vulkanOffscreenSwapchainNoMainDisplay: 1
