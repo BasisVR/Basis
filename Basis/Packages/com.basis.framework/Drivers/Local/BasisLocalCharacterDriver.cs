@@ -155,6 +155,7 @@ namespace Basis.Scripts.BasisCharacterController
 
         public BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
         public BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+        public BasisLocks.LockContext LookRotationLock = BasisLocks.GetContext(BasisLocks.LookRotation);
         public Transform BasisLocalPlayerTransform;
         private bool isEnabled = true;
         public float CurrentSpeed;
@@ -245,7 +246,12 @@ namespace Basis.Scripts.BasisCharacterController
 
             // Calculate the rotation amount for this frame
             float rotationAmount;
-            if (SMModuleControllerSettings.UsingSnapTurnAngle && BasisDeviceManagement.IsCurrentModeVR())
+            if (LookRotationLock)
+            {
+                rotationAmount = 0f;
+                isSnapTurning = false;
+            }
+            else if (SMModuleControllerSettings.UsingSnapTurnAngle && BasisDeviceManagement.IsCurrentModeVR())
             {
                 var isAboveThreshold = math.abs(Rotation.x) > SnapTurnAbsoluteThreshold;
                 if (isAboveThreshold != isSnapTurning)
