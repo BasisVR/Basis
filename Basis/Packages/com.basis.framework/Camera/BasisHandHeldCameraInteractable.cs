@@ -49,6 +49,10 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     [Range(5f, 25f)]
     public float rotationSmoothing = 15f;
 
+    /// <summary>VR fly-mode yaw turn rate at full pilot-stick deflection (degrees/second). Rate-based:
+    /// the heading holds when the stick re-centres.</summary>
+    public float yawRate = 90f;
+
     [Header("Cinematic Controls")]
     /// <summary>Whether to use momentum/inertia for movement.</summary>
     public bool useMomentum = true;
@@ -125,8 +129,11 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
 
     // VR fly mode state
     private bool isVRFlying = false;
-    private bool vrThumbstickClickPrev = false;
-    private Quaternion vrControllerRotation = Quaternion.identity;
+    private bool vrToggleButtonPrev = false;
+
+    /// <summary>Which hand held the camera at launch — it becomes the RC "Mode 2" pilot stick
+    /// (throttle + yaw); the other hand carries the free stick (pitch + roll).</summary>
+    private bool pilotIsLeftHand = false;
 
     private bool selfieRotationEnabled = false;
     /// <summary>Where to pin the camera transform.</summary>
@@ -483,57 +490,99 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     }
 
     /// <summary>
-    /// VR fly-mode control: toggles fly mode on thumbstick click (edge-detected)
-    /// and captures controller rotation each frame for camera aiming.
+    /// VR fly-mode control: enter/exit on the B/Y face button (edge-detected). Entering requires the
+    /// camera to be held, so the holding hand becomes the pilot; exiting reads the pilot hand directly
+    /// since the camera has detached and may no longer register as interacting.
     /// </summary>
     private void PollVRControl()
     {
-        if (GetActiveVRInput(out BasisInputWrapper vrInput))
+        string className = nameof(BasisHandHeldCameraInteractable);
+
+        if (!isVRFlying)
         {
-            BasisInputState inputState = vrInput.Source.CurrentInputState;
-            string className = nameof(BasisHandHeldCameraInteractable);
-
-            // Toggle fly mode on thumbstick click (edge detection)
-            bool thumbstickClick = inputState.Primary2DAxisClick;
-            if (thumbstickClick && !vrThumbstickClickPrev)
+            if (!GetActiveVRInput(out BasisInputWrapper vrInput))
             {
-                if (isVRFlying)
-                {
-                    // Exit VR fly mode — return camera to hand
-                    isVRFlying = false;
-                    if (!LookLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove LookLock");
-                    if (!MovementLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove MovementLock");
-                    if (!CrouchingLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove CrouchingLock");
-
-                    PinSpace = CameraPinSpace.HandHeld;
-                    velocityMomentum = Vector3.zero;
-                    rotationMomentum = 0f;
-                }
-                else
-                {
-                    // Enter VR fly mode
-                    isVRFlying = true;
-                    LookLock.Add(className);
-                    MovementLock.Add(className);
-                    CrouchingLock.Add(className);
-
-                    PinSpace = CameraPinSpace.WorldSpace;
-
-                    HHC.captureCamera.transform.GetPositionAndRotation(out smoothedPosition, out smoothedRotation);
-
-                    // Initialize rotation tracking from current camera orientation
-                    Vector3 euler = smoothedRotation.eulerAngles;
-                    currentPitch = targetPitch = NormalizeAngle(euler.x);
-                    currentYaw = targetYaw = NormalizeAngle(euler.y);
-                }
+                vrToggleButtonPrev = false;
+                return;
             }
-            vrThumbstickClickPrev = thumbstickClick;
 
-            if (isVRFlying)
+            bool togglePressed = vrInput.Source.CurrentInputState.SecondaryButtonGetState;
+            if (togglePressed && !vrToggleButtonPrev)
             {
-                // Store VR controller rotation for movement direction and camera aim
-                vrControllerRotation = vrInput.BoneControl.OutgoingWorldData.rotation;
+                pilotIsLeftHand = Inputs.leftHand.GetState() == BasisInteractInputState.Interacting;
+                EnterVRFly(className);
             }
+            vrToggleButtonPrev = togglePressed;
+        }
+        else
+        {
+            var pilot = pilotIsLeftHand ? Inputs.leftHand.Source : Inputs.rightHand.Source;
+            bool togglePressed = pilot != null && pilot.CurrentInputState.SecondaryButtonGetState;
+            if (togglePressed && !vrToggleButtonPrev)
+            {
+                ExitVRFly(className);
+            }
+            vrToggleButtonPrev = togglePressed;
+        }
+    }
+
+    /// <summary>Enters VR fly mode: takes the player locks, detaches the camera to world space,
+    /// and seeds the heading and motion state from the current camera pose.</summary>
+    private void EnterVRFly(string className)
+    {
+        isVRFlying = true;
+        LookLock.Add(className);
+        MovementLock.Add(className);
+        CrouchingLock.Add(className);
+
+        PinSpace = CameraPinSpace.WorldSpace;
+
+        HHC.captureCamera.transform.GetPositionAndRotation(out smoothedPosition, out smoothedRotation);
+        currentYaw = NormalizeAngle(smoothedRotation.eulerAngles.y);
+        currentVelocity = Vector3.zero;
+        targetVelocity = Vector3.zero;
+        velocityMomentum = Vector3.zero;
+    }
+
+    /// <summary>Exits VR fly mode: releases the player locks, returns the camera to the hand,
+    /// and clears momentum.</summary>
+    private void ExitVRFly(string className)
+    {
+        isVRFlying = false;
+        if (!LookLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove LookLock");
+        if (!MovementLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove MovementLock");
+        if (!CrouchingLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove CrouchingLock");
+
+        PinSpace = CameraPinSpace.HandHeld;
+        currentVelocity = Vector3.zero;
+        targetVelocity = Vector3.zero;
+        velocityMomentum = Vector3.zero;
+        rotationMomentum = 0f;
+    }
+
+    /// <summary>
+    /// Reads the two thumbsticks and maps them to RC "Mode 2" flight axes. The pilot hand (held the
+    /// camera at launch) carries throttle (Y) + yaw (X); the free hand carries pitch (Y) + roll (X).
+    /// Uses each stick's built-in radial deadzone.
+    /// </summary>
+    private void ReadVRFlyAxes(out float throttle, out float yaw, out float pitch, out float roll)
+    {
+        throttle = yaw = pitch = roll = 0f;
+
+        var pilot = pilotIsLeftHand ? Inputs.leftHand.Source : Inputs.rightHand.Source;
+        var free = pilotIsLeftHand ? Inputs.rightHand.Source : Inputs.leftHand.Source;
+
+        if (pilot != null)
+        {
+            Vector2 pilotStick = pilot.CurrentInputState.Primary2DAxisDeadZoned;
+            throttle = pilotStick.y;
+            yaw = pilotStick.x;
+        }
+        if (free != null)
+        {
+            Vector2 freeStick = free.CurrentInputState.Primary2DAxisDeadZoned;
+            pitch = freeStick.y;
+            roll = freeStick.x;
         }
     }
 
@@ -588,6 +637,12 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     {
         float deltaTime = Time.deltaTime;
 
+        if (isVRFlying)
+        {
+            MoveVRFlying(deltaTime);
+            return;
+        }
+
         if (HandleMovementInput(out Vector3 inputMovement, out float speedMultiplier))
         {
             UpdateMovement(inputMovement, speedMultiplier, deltaTime);
@@ -615,62 +670,75 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         ApplySmoothedPosition(deltaTime);
     }
 
-    /// <summary>Reads fly movement inputs and outputs a normalized movement vector + speed multiplier.</summary>
+    /// <summary>
+    /// VR RC "Mode 2" flight step: maps the twin sticks to throttle (world-up) / yaw (rate-based heading)
+    /// / pitch (forward-back) / roll (strafe), integrates velocity with the shared acceleration and
+    /// momentum, and keeps the camera level toward the current heading. No controller-aim, no lean.
+    /// </summary>
+    private void MoveVRFlying(float deltaTime)
+    {
+        ReadVRFlyAxes(out float throttle, out float yaw, out float pitch, out float roll);
+
+        // Rate-based yaw: the heading holds when the stick re-centres.
+        currentYaw = NormalizeAngle(currentYaw + yaw * yawRate * deltaTime);
+
+        // Planar movement is relative to the heading; throttle is always world-up.
+        Vector3 planar = Quaternion.Euler(0f, currentYaw, 0f) * new Vector3(roll, 0f, pitch);
+        Vector3 targetWorldVelocity = (planar + Vector3.up * throttle) * flySpeed;
+
+        bool hasTranslation = throttle != 0f || pitch != 0f || roll != 0f;
+        if (hasTranslation)
+        {
+            targetVelocity = targetWorldVelocity;
+            currentVelocity = Vector3.Lerp(currentVelocity, targetVelocity, flyAcceleration * deltaTime);
+            if (useMomentum)
+                velocityMomentum = Vector3.Lerp(velocityMomentum, currentVelocity * 0.1f, deltaTime * 2f);
+        }
+        else if (useMomentum)
+        {
+            ApplyInertia(deltaTime);
+        }
+        else
+        {
+            currentVelocity = Vector3.zero;
+            targetVelocity = Vector3.zero;
+        }
+
+        Vector3 finalVelocity = currentVelocity + (useMomentum ? velocityMomentum : Vector3.zero);
+        smoothedPosition += finalVelocity * deltaTime;
+
+        Quaternion targetRotation = Quaternion.Euler(0f, currentYaw, 0f);
+        smoothedRotation = Quaternion.Slerp(smoothedRotation, targetRotation, rotationSmoothing * deltaTime);
+    }
+
+    /// <summary>Reads desktop fly movement inputs and outputs a normalized movement vector + speed multiplier.</summary>
     private bool HandleMovementInput(out Vector3 movement, out float speedMultiplier)
     {
         movement = Vector3.zero;
         speedMultiplier = 1f;
 
-        if (isVRFlying)
-        {
-            // VR path: read thumbstick from the interacting controller
-            if (!GetActiveVRInput(out BasisInputWrapper vrInput))
-                return false;
+        var horizontalInput = flyCamera.horizontalMoveInput;
+        var verticalInput = flyCamera.verticalMoveInput;
+        var isFastMovement = flyCamera.isFastMovement;
 
-            BasisInputState state = vrInput.Source.CurrentInputState;
-            Vector2 thumbstick = state.Primary2DAxisDeadZoned;
+        movement = new Vector3(horizontalInput.x, verticalInput, horizontalInput.y);
 
-            // Thumbstick X = strafe, thumbstick Y = forward/back
-            // Vertical movement comes from controller pitch (point up + push forward = fly up)
-            movement = new Vector3(thumbstick.x, 0f, thumbstick.y);
+        if (movement.magnitude < 0.01f)
+            return false;
 
-            if (movement.magnitude < 0.01f)
-                return false;
+        // prevent faster diagonal movement
+        if (movement.magnitude > 1f)
+            movement.Normalize();
 
-            if (movement.magnitude > 1f)
-                movement.Normalize();
-
-            // Grip = speed boost
-            speedMultiplier = state.GripButton ? flyFastMultiplier : 1f;
-            return true;
-        }
-        else
-        {
-            // Desktop path: read keyboard input
-            var horizontalInput = flyCamera.horizontalMoveInput;
-            var verticalInput = flyCamera.verticalMoveInput;
-            var isFastMovement = flyCamera.isFastMovement;
-
-            movement = new Vector3(horizontalInput.x, verticalInput, horizontalInput.y);
-
-            if (movement.magnitude < 0.01f)
-                return false;
-
-            // prevent faster diagonal movement
-            if (movement.magnitude > 1f)
-                movement.Normalize();
-
-            speedMultiplier = isFastMovement ? flyFastMultiplier : 1f;
-            return true;
-        }
+        speedMultiplier = isFastMovement ? flyFastMultiplier : 1f;
+        return true;
     }
 
     /// <summary>Converts input to world velocity and applies acceleration and momentum.</summary>
     private void UpdateMovement(Vector3 inputMovement, float speedMultiplier, float deltaTime)
     {
-        // In VR, move relative to controller orientation (point where you want to fly).
-        // In desktop, move relative to the camera's current orientation.
-        Quaternion orientationRef = isVRFlying ? vrControllerRotation : HHC.captureCamera.transform.rotation;
+        // Desktop: move relative to the camera's current orientation.
+        Quaternion orientationRef = HHC.captureCamera.transform.rotation;
         Vector3 worldMovement = orientationRef * inputMovement;
         targetVelocity = worldMovement * flySpeed * speedMultiplier;
         currentVelocity = Vector3.Lerp(currentVelocity, targetVelocity, flyAcceleration * deltaTime);
@@ -696,20 +764,10 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         }
     }
 
-    /// <summary>Reads fly rotation input (mouse delta) and outputs the delta if significant.</summary>
+    /// <summary>Reads desktop fly rotation input (mouse delta) and outputs the delta if significant.</summary>
     private bool HandleRotationInput(out Vector2 rotationDelta)
     {
         rotationDelta = Vector2.zero;
-
-        if (isVRFlying)
-        {
-            // VR: drive target rotation directly from controller orientation.
-            // The actual rotation is applied in ApplySmoothedPosition (1:1 mapping).
-            Vector3 euler = vrControllerRotation.eulerAngles;
-            targetPitch = NormalizeAngle(euler.x);
-            targetYaw = NormalizeAngle(euler.y);
-            return false;
-        }
 
         // Desktop: mouse delta
         var mouseInput = flyCamera.mouseInput;
@@ -750,31 +808,22 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
 
     /// <summary>
     /// Integrates velocity into <see cref="smoothedPosition"/> and applies smoothed rotation
-    /// with momentum-influenced smoothing.
+    /// with momentum-influenced smoothing. Desktop fly path only; the VR path is handled in
+    /// <see cref="MoveVRFlying"/>.
     /// </summary>
     private void ApplySmoothedPosition(float deltaTime)
     {
         Vector3 finalVelocity = currentVelocity + (useMomentum ? velocityMomentum : Vector3.zero);
         smoothedPosition += finalVelocity * deltaTime;
 
-        if (isVRFlying)
-        {
-            // VR: 1:1 controller-to-camera rotation for responsive aiming
-            currentPitch = targetPitch;
-            currentYaw = targetYaw;
-            smoothedRotation = vrControllerRotation;
-        }
-        else
-        {
-            // Desktop: smoothed rotation with momentum
-            float enhancedRotationSmoothness = rotationSmoothing + rotationMomentum;
+        // Desktop: smoothed rotation with momentum
+        float enhancedRotationSmoothness = rotationSmoothing + rotationMomentum;
 
-            currentPitch = Mathf.LerpAngle(currentPitch, targetPitch, enhancedRotationSmoothness * deltaTime);
-            currentYaw = Mathf.LerpAngle(currentYaw, targetYaw, enhancedRotationSmoothness * deltaTime);
+        currentPitch = Mathf.LerpAngle(currentPitch, targetPitch, enhancedRotationSmoothness * deltaTime);
+        currentYaw = Mathf.LerpAngle(currentYaw, targetYaw, enhancedRotationSmoothness * deltaTime);
 
-            Quaternion targetRotationQuat = Quaternion.Euler(currentPitch, currentYaw, 0f);
-            smoothedRotation = Quaternion.Slerp(smoothedRotation, targetRotationQuat, rotationSmoothing * deltaTime);
-        }
+        Quaternion targetRotationQuat = Quaternion.Euler(currentPitch, currentYaw, 0f);
+        smoothedRotation = Quaternion.Slerp(smoothedRotation, targetRotationQuat, rotationSmoothing * deltaTime);
     }
 
     /// <summary>Normalizes an angle to the range [-180, 180].</summary>
