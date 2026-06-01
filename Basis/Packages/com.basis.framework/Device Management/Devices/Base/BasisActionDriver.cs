@@ -394,18 +394,73 @@ public static class BasisActionDriver
         controller.UpdateMovementSpeed(true);
     }
 
+    /// <summary>Continuous hold (seconds) on the secondary button required to toggle the hamburger menu.</summary>
+    public const float HamburgerHoldSeconds = 1f;
+
+    // VR controllers have very few buttons, so the same button often serves more than one purpose.
+    // A hold gate lets a button's quick tap stay free for another consumer while the hold drives this
+    // action — here the secondary button's tap is left for the VR fly camera launch/recall. To add
+    // another hold-activated action (e.g. a future quick menu on the other hand): add a new ActionId,
+    // give it its OWN HoldGesture field (the action delegates are static, so a shared field would race
+    // across hands), then Bind it to the desired role.
+    private static HoldGesture s_hamburgerHold;
+
     /// <summary>
-    /// Toggles the hamburger menu on secondary button release.
+    /// Toggles the hamburger menu once the secondary button has been held for
+    /// <see cref="HamburgerHoldSeconds"/>. A quick tap does nothing, which leaves the tap free for other
+    /// consumers of the same button (e.g. the VR fly camera launch/recall).
     /// </summary>
     /// <param name="current">Current input snapshot.</param>
     /// <param name="last">Previous input snapshot.</param>
+    // Enum/method name kept as "…OnSecondaryRelease" so saved bindings (BasisActionBindingsV1.json,
+    // which serialises actions by name) keep resolving; the trigger is now a hold, not a release.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ToggleHamburgerOnSecondaryRelease(ref BasisInputState current, ref BasisInputState last)
     {
-        if (current.SecondaryButtonGetState == false && last.SecondaryButtonGetState)
+        if (s_hamburgerHold.Tick(current.SecondaryButtonGetState, HamburgerHoldSeconds))
         {
-
             Basis.BasisUI.BasisMainMenu.Toggle();
+        }
+    }
+
+    /// <summary>
+    /// Tracks a press-and-hold on a single button. <see cref="Tick"/> returns true on the one frame the
+    /// button has been held continuously for the given duration; releasing early cancels without firing
+    /// and re-arms on the next press. One instance per logical button — do not share across hands.
+    /// </summary>
+    public struct HoldGesture
+    {
+        private double pressStartTime;
+        private bool isPressing;
+        private bool fired;
+
+        /// <summary>Advances the gesture; returns true once per press when the hold threshold is met.</summary>
+        /// <param name="buttonDown">Whether the button is held this frame.</param>
+        /// <param name="holdSeconds">Continuous hold duration required to fire.</param>
+        public bool Tick(bool buttonDown, float holdSeconds)
+        {
+            if (!buttonDown)
+            {
+                isPressing = false;
+                fired = false;
+                return false;
+            }
+
+            if (!isPressing)
+            {
+                isPressing = true;
+                fired = false;
+                pressStartTime = Time.unscaledTimeAsDouble;
+                return false;
+            }
+
+            if (!fired && Time.unscaledTimeAsDouble - pressStartTime >= holdSeconds)
+            {
+                fired = true;
+                return true;
+            }
+
+            return false;
         }
     }
 
