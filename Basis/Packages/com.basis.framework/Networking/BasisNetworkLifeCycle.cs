@@ -4,6 +4,7 @@ using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.UI;
+using Basis.Scripts.UI.NamePlate;
 using Basis.Network.Core;
 using System.Threading;
 using System.Threading.Tasks;
@@ -151,6 +152,7 @@ public static class BasisNetworkLifeCycle
         BasisNetworkHandleChatTyping.Shutdown();
 #if !UNITY_SERVER
         BasisNetworkPIPCameraDriver.Shutdown();
+        BasisCameraNamePlateDriver.Shutdown();
 #endif
         BasisNetworkConnection.NetworkClient?.Disconnect();
     }

@@ -25,7 +25,7 @@ public static class BasisNetworkPIPCameraDriver
     /// <summary>
     /// Fired when a remote player's PIP camera is created.
     /// </summary>
-    public static event Action<ushort, float3, quaternion> OnRemotePIPCreated;
+    public static event Action<ushort, float3, Quaternion> OnRemotePIPCreated;
 
     /// <summary>
     /// Fired when a remote player's PIP camera is destroyed.
@@ -297,6 +297,23 @@ public static class BasisNetworkPIPCameraDriver
             return true;
         }
         position = Vector3.zero;
+        return false;
+    }
+
+    /// <summary>
+    /// Try to get the world pose of a remote PIP camera by player ID.
+    /// </summary>
+    public static bool TryGetPIPPose(ushort playerId, out Vector3 position, out Quaternion rotation)
+    {
+        if (pipTransforms.TryGetValue(playerId, out Transform t) && t != null)
+        {
+            position = t.position;
+            rotation = t.rotation;
+            return true;
+        }
+
+        position = Vector3.zero;
+        rotation = Quaternion.identity;
         return false;
     }
 

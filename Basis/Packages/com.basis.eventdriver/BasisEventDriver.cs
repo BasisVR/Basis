@@ -291,6 +291,7 @@ namespace Basis.EventDriver
             // ── Nameplate schedule ──
             ProfileBegin(PROF_NAMEPLATE_SCHEDULE);
             BasisRemoteNamePlateDriver.ScheduleSimulate(TimeAsDouble);
+            BasisCameraNamePlateDriver.UpdateAllPlatePositions();
             ProfileEnd(PROF_NAMEPLATE_SCHEDULE);
 #if STEAMAUDIO_ENABLED
             SteamAudioManager.Schedule();

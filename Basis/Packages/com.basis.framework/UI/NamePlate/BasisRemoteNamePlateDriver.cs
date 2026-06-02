@@ -450,6 +450,7 @@ namespace Basis.Scripts.UI.NamePlate
             }
 
             SetAllPlateVisibility();
+            BasisCameraNamePlateDriver.ApplyNamePlateSettingsFromUI();
         }
 
         // ===========================
@@ -491,9 +492,16 @@ namespace Basis.Scripts.UI.NamePlate
 
         public static void GenerateTextFactory(BasisRemotePlayer remotePlayer, BasisRemoteNamePlate namePlate)
         {
+            GenerateTextFactory(remotePlayer.DisplayName, namePlate.Filter, namePlate.Renderer, "CombinedNameplateMesh");
+        }
+
+        public static void GenerateTextFactory(string displayName, MeshFilter filter, MeshRenderer renderer, string meshName)
+        {
+            if (Text == null || filter == null || renderer == null) return;
+
             Text.gameObject.SetActive(true);
             Text.fontSize = BakeFontSize;
-            Text.text = remotePlayer.DisplayName;
+            Text.text = displayName;
             Text.ForceMeshUpdate();
 
             const float horizontalPadding = 2f;
@@ -545,11 +553,11 @@ namespace Basis.Scripts.UI.NamePlate
                 writeIdx++;
             }
 
-            Mesh combinedMesh = new Mesh { name = CombinedNameplateMeshName };
+            Mesh combinedMesh = new Mesh { name = meshName };
             combinedMesh.CombineMeshes(combine, false);
 
-            namePlate.Filter.sharedMesh = combinedMesh;
-            namePlate.Renderer.sharedMaterials = materials;
+            filter.sharedMesh = combinedMesh;
+            renderer.sharedMaterials = materials;
 
             Object.Destroy(plateMesh);
             Text.gameObject.SetActive(false);
