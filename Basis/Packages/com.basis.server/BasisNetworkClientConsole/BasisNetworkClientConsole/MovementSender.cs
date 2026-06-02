@@ -12,10 +12,6 @@ namespace Basis.Network
     {
         public static Quaternion Rotation = new Quaternion(0, 0, 0, 1);
 
-        private const ushort UShortMin = ushort.MinValue;   // 0
-        private const ushort UShortMax = ushort.MaxValue;   // 65535
-        private const ushort UShortRangeDifference = UShortMax - UShortMin;
-
         public static Vector3[] PlayersCurrentPosition;
         public static PlayerData[] ActivePlayerData;
 
@@ -207,15 +203,13 @@ namespace Basis.Network
 
         private static ushort CompressScaleOnce(float scale)
         {
-            const float Min = 0.005f;
-            const float Max = 150f;
-            const float Range = Max - Min;
+            // MovementSender only emits default-scale fake avatars; 0x4000 is Posit16 1.0. Use the shared codec before supporting other scales here.
+            if (scale != 1f)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(scale), scale, "MovementSender only supports precomputed scale 1.0.");
+            }
 
-            float clamped = scale;
-            float normalized = (clamped - Min) / Range;
-
-            ushort compressed = (ushort)(normalized * UShortRangeDifference);
-            return compressed;
+            return 0x4000;
         }
 
         public static void WriteUShort(ushort value, ref byte[] bytes, ref int offset)

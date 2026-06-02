@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "اواتار" },
     { "key": "menu.individualPlayer.avatar.description", "value": "ظاہریت اور تعامل کے ٹوگلز۔" },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "اواتار لوڈ خرابی" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "آنکھوں کی اونچائی ملائیں" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "اپنے اواتار کو اس کھلاڑی کے موجودہ جسمانی اسکیل سے ملانے کے لیے اسکیل کریں ({0:0.###} م ہدف آنکھوں کی اونچائی)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "اس کھلاڑی کے اواتار کی موجودہ آنکھوں کی اونچائی ابھی دستیاب نہیں ہے۔" },
     { "key": "menu.individualPlayer.hideAvatar", "value": "اواتار چھپائیں" },
     { "key": "menu.individualPlayer.showAvatar", "value": "اواتار دکھائیں" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "آپ کے کلائنٹ پر اس کھلاڑی کے اواتار کی رینڈرنگ کو ٹوگل کرتا ہے۔" },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "آنکھ کی ٹریکنگ ڈیٹا سے اپنے اواتار کی آنکھ کی ہڈیاں چلائیں۔ غیر فعال ہونے پر قدرتی آنکھ کا منظر چلتا رہتا ہے۔" },
     { "key": "settings.bodyTracking.footIk.description", "value": "بغیر پاؤں ٹریکرز کے ساکن کھڑے ہونے پر طریقہ کار سے پاؤں کی پلیسمنٹ کو فعال کرتا ہے۔" },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "فل باڈی ٹریکرز کیلیبریٹ ہونے کے دوران چھلانگ اور لینڈنگ اینیمیشنز اور لینڈنگ ہپ ڈپ کو دباتا ہے۔" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "پیمانہ نقل و حرکت کی رفتار کو متاثر کرتا ہے" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "اواتار کے پیمانے کے مطابق حرکت کی اینیمیشن کی رفتار کو ایڈجسٹ کرتا ہے، جبکہ جسمانی حرکت کی رفتار تبدیل نہیں ہوتی۔" },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "بازو کو جسم سے گزرنے سے روکنے کے لیے کہنیوں اور سینے کے درمیان ورچوئل کیپسول تصادم کو فعال کرتا ہے۔" },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "کہنی کی حفاظت" },

@@ -48,6 +48,26 @@ namespace Basis.BasisUI
         private static readonly Dictionary<string, float> s_volumeBeforeMute = new Dictionary<string, float>();
         private const float UnmuteFallbackVolume = 1.0f;
 
+        private static bool TryGetMatchedEyeHeightOverrideMeters(BasisRemotePlayer target, out float eyeHeightMeters)
+        {
+            eyeHeightMeters = 0f;
+            if (target?.NetworkReceiver == null || BasisLocalPlayer.Instance?.LocalAvatarDriver == null)
+            {
+                return false;
+            }
+
+            target.NetworkReceiver.GetLatestNetworkPose(out _, out _, out var networkScale);
+            float localCalibrationScale = BasisLocalPlayer.Instance.LocalAvatarDriver.ScaleAvatarModification.DuringCalibrationScale.y;
+            if (float.IsNaN(localCalibrationScale) || float.IsInfinity(localCalibrationScale) || localCalibrationScale <= 0f)
+            {
+                localCalibrationScale = 1f;
+            }
+
+            float matchedApplyScale = networkScale.y / localCalibrationScale;
+            eyeHeightMeters = BasisHeightDriver.AvatarEyeHeight * matchedApplyScale;
+            return !float.IsNaN(eyeHeightMeters) && !float.IsInfinity(eyeHeightMeters) && eyeHeightMeters > 0f;
+        }
+
         // ===== Shared player action helpers (used by this panel and UserListProvider rows) =====
 
         /// <summary>
@@ -790,6 +810,35 @@ namespace Basis.BasisUI
                 avatarErrorField.SetTitle(BasisLocalization.Get("menu.individualPlayer.avatarLoadError"));
                 avatarErrorField.SetDescription(remotePlayer.AvatarLoadErrorMessage);
             }
+
+            PanelButton matchEyeHeightBtn = PanelButton.CreateNew(avatarGroup.ContentParent);
+            matchEyeHeightBtn.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.matchEyeHeight"));
+            if (TryGetMatchedEyeHeightOverrideMeters(remotePlayer, out float initialRemoteEyeHeight))
+            {
+                matchEyeHeightBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.matchEyeHeight.description", initialRemoteEyeHeight));
+            }
+            else
+            {
+                matchEyeHeightBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.matchEyeHeight.unavailable"));
+            }
+
+            matchEyeHeightBtn.OnClicked += () =>
+            {
+                if (!TryGetMatchedEyeHeightOverrideMeters(remotePlayer, out float remoteEyeHeight))
+                {
+                    BasisDebug.LogWarning("Cannot match eye height because the selected remote avatar eye height is unavailable.", BasisDebug.LogTag.Avatar);
+                    return;
+                }
+
+                if (!SMModuleCalibration.ApplyCustomScale)
+                {
+                    BasisSettingsDefaults.CustomScale.SetValue(true);
+                    SMModuleCalibration.ApplyCustomScale = true;
+                }
+
+                BasisHeightDriver.ApplyRuntimeOscEyeHeightOverride(remoteEyeHeight);
+                matchEyeHeightBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.matchEyeHeight.description", remoteEyeHeight));
+            };
 
             // Performance filter result — tells the local user why a specific remote
             // avatar was hard-blocked and/or what the trim pass removed from it,

@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "الأفاتار" },
     { "key": "menu.individualPlayer.avatar.description", "value": "مفاتيح الإظهار والتفاعل." },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "خطأ في تحميل الأفاتار" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "مطابقة ارتفاع العين" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "غيّر مقياس أفاتارك ليطابق مقياس جسم هذا اللاعب الحالي ({0:0.###} م كارتفاع عين مستهدف)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "ارتفاع عين أفاتار هذا اللاعب الحالي غير متاح بعد." },
     { "key": "menu.individualPlayer.hideAvatar", "value": "إخفاء الأفاتار" },
     { "key": "menu.individualPlayer.showAvatar", "value": "إظهار الأفاتار" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "تفعيل/تعطيل عرض أفاتار هذا اللاعب على جهازك." },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "تشغيل عظام عيون أفاتارك من بيانات تتبع العين. النظر الطبيعي للعين يستمر عند التعطيل." },
     { "key": "settings.bodyTracking.footIk.description", "value": "يفعّل وضع القدم الإجرائي عند الوقوف ساكناً بدون متتبعات قدم." },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "يكبح حركات القفز والهبوط وانخفاض الورك عند الهبوط أثناء معايرة متتبعات الجسم الكامل." },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "يؤثر المقياس في سرعة التنقل" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "يضبط سرعة رسوم التنقل المتحركة وفقًا لمقياس الأفاتار دون تغيير سرعة الحركة الفعلية." },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "يفعّل تصادم الكبسولات الافتراضية بين المرفقين والصدر لمنع اختراق الذراع للجسم." },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "حماية المرفق" },

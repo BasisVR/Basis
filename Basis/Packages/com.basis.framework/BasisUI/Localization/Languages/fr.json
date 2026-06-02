@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "Avatar" },
     { "key": "menu.individualPlayer.avatar.description", "value": "Options de visibilité et d'interaction." },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "Erreur de chargement d'avatar" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "Adapter la hauteur des yeux" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "Redimensionne votre avatar pour correspondre à l'échelle corporelle actuelle de ce joueur ({0:0.###} m de hauteur des yeux cible)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "La hauteur actuelle des yeux de l'avatar de ce joueur n'est pas encore disponible." },
     { "key": "menu.individualPlayer.hideAvatar", "value": "Masquer l'avatar" },
     { "key": "menu.individualPlayer.showAvatar", "value": "Afficher l'avatar" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "Bascule le rendu de l'avatar de ce joueur sur votre client." },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "Pilote les os des yeux de votre avatar à partir des données de suivi oculaire. Le regard naturel des yeux continue de fonctionner lorsqu'il est désactivé." },
     { "key": "settings.bodyTracking.footIk.description", "value": "Active le placement procédural des pieds en position immobile sans trackers de pieds." },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "Supprime les animations de saut et d'atterrissage ainsi que la flexion des hanches à l'atterrissage tant que les trackers corps complet sont calibrés." },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "L'échelle affecte la vitesse de locomotion" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "Ajuste la vitesse de l'animation de locomotion selon l'échelle de l'avatar sans modifier la vitesse de déplacement physique." },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "Active la collision par capsule virtuelle entre les coudes et le torse pour empêcher les bras de traverser le corps." },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "Protéger le coude" },

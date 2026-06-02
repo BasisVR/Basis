@@ -75,6 +75,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static bool NamePlateEnabled = true;
         public static bool NamePlateMenuOnly = false;
         public static bool NamePlateHoverMenuOnly = false;
+        public const float BaseNamePlateLocalScale = 0.02f;
         public static float NamePlateSize = 1f;
         public static float NamePlateTransparency = 0.45f;
         public static float ChatSize = 1f;
@@ -429,10 +430,9 @@ namespace Basis.Scripts.UI.NamePlate
             ChatSize = BasisSettingsDefaults.ChatSize.RawValue;
 
             UpdateCachedColors(newTransparency);
-
             FlushPendingStructuralChanges();
 
-            Vector3 scale = new Vector3(0.02f, 0.02f, 0.02f) * newSize;
+            Vector3 scale = Vector3.one * (BaseNamePlateLocalScale * newSize);
             var arr = plates;
             int n = count;
             for (int i = 0; i < n; i++)

@@ -544,7 +544,7 @@ namespace Basis.Scripts.UI
                     validHit = Vector3.Dot(forward, goDirection) > 0;
                 }
 
-                validHit &= hitData.distance < BasisPointRaycaster.MaxDistance;
+                validHit &= hitData.distance < BasisPointRaycaster.EffectiveMaxDistance;
 
                 if (validHit)
                 {
@@ -612,7 +612,7 @@ namespace Basis.Scripts.UI
 
                 if (RayIntersectsRectTransform(graphic.rectTransform, raycastPadding, BasisPointRaycaster.ray, out var worldPos, out var distance))
                 {
-                    if (distance <= BasisPointRaycaster.MaxDistance)
+                    if (distance <= BasisPointRaycaster.EffectiveMaxDistance)
                     {
                         Vector2 screenPos = eventCamera.WorldToScreenPoint(worldPos);
                         // mask/image intersection - See Unity docs on eventAlphaThreshold for when this does anything

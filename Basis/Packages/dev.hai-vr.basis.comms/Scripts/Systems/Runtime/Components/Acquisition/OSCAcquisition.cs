@@ -34,6 +34,7 @@ namespace HVR.Basis.Comms
 
             if (_alreadyInitialized) return;
 
+            BasisOscService.EnsureInitialized();
             _acquisitionServer = OSCAcquisitionServer.SceneInstance;
             _acquisitionServer.SendWakeUpMessage(FakeWakeUpMessage);
             BasisOscService.RegisterAddressReceiver(_oscOwnerId, OnOscAddressUpdated);

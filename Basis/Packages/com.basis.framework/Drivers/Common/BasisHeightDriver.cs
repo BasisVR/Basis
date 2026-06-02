@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -47,11 +48,24 @@ public static class BasisHeightDriver
     public static float PlayerToDefaultRatioScaled = 1f;
     public static float AvatarToDefaultRatioScaled = 1f;
 
+    public static bool HasRuntimeOscEyeHeightOverride = false;
+    public static float RuntimeOscEyeHeightMeters = FallbackHeightInMeters;
 
     public static float DeviceScale = 1f;
     public static void ApplyScaleAndHeight()
     {
         RevaluateUnscaledHeight(SMModuleCalibration.HeightMode);
+        if (HasRuntimeOscEyeHeightOverride)
+        {
+            if (SMModuleCalibration.ApplyCustomScale)
+            {
+                ApplyRuntimeOscEyeHeightOverride(RuntimeOscEyeHeightMeters);
+                return;
+            }
+
+            ClearRuntimeOscEyeHeightOverride();
+        }
+
         ApplyScale(SMModuleCalibration.ApplyCustomScale, SMModuleCalibration.SelectedScale);
         ChooseHeightToUse(SMModuleCalibration.HeightMode);
         ScheduleHeightChangeCallback(HeightModeChange.OnApplyHeightAndScale);
@@ -99,6 +113,38 @@ public static class BasisHeightDriver
         OnAvatarFBCalibration,
         OnTpose,
         OnApplyHeightAndScale
+    }
+
+    public static bool ApplyRuntimeOscEyeHeightOverride(float eyeHeightMeters)
+    {
+        eyeHeightMeters = SanitizePositive(eyeHeightMeters, FallbackHeightInMeters);
+
+        float unscaledAvatarEyeHeight = SanitizePositive(AvatarEyeHeight, FallbackHeightInMeters);
+        float scaleFactor = eyeHeightMeters / unscaledAvatarEyeHeight;
+
+        HasRuntimeOscEyeHeightOverride = true;
+        RuntimeOscEyeHeightMeters = eyeHeightMeters;
+        SMModuleCalibration.SelectedScale = eyeHeightMeters;
+        BasisSettingsDefaults.SelectedScale.SetValueWithoutNotify(eyeHeightMeters);
+        SettingsProviderIK.SetAvatarScaleSliderValueWithoutNotify(eyeHeightMeters);
+        ScaledToMatchValue = scaleFactor;
+
+        ApplyAvatarScale(scaleFactor);
+        RefreshScaledHeightState(HeightModeChange.OnApplyHeightAndScale);
+        return true;
+    }
+
+    public static void ClearRuntimeOscEyeHeightOverride()
+    {
+        HasRuntimeOscEyeHeightOverride = false;
+        RuntimeOscEyeHeightMeters = FallbackHeightInMeters;
+    }
+
+    public static void RefreshScaledHeightState(HeightModeChange mode)
+    {
+        RevaluateUnscaledHeight(SMModuleCalibration.HeightMode);
+        ChooseHeightToUse(SMModuleCalibration.HeightMode);
+        ScheduleHeightChangeCallback(mode);
     }
 
     /// <summary>
@@ -156,6 +202,8 @@ public static class BasisHeightDriver
 
     public static void CaptureAvatarHeightDuringTpose()
     {
+        ClearRuntimeOscEyeHeightOverride();
+
         var player = BasisLocalPlayer.Instance;
         if (player == null)
         {

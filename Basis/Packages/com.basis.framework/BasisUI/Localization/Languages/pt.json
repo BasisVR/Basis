@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "Avatar" },
     { "key": "menu.individualPlayer.avatar.description", "value": "Alternar visibilidade e interação." },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "Erro ao Carregar Avatar" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "Igualar Altura dos Olhos" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "Redimensiona seu avatar para corresponder à escala corporal atual deste jogador ({0:0.###} m de altura dos olhos alvo)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "A altura atual dos olhos do avatar deste jogador ainda não está disponível." },
     { "key": "menu.individualPlayer.hideAvatar", "value": "Ocultar Avatar" },
     { "key": "menu.individualPlayer.showAvatar", "value": "Mostrar Avatar" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "Alterna a renderização do avatar deste jogador no seu cliente." },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "Comanda os ossos dos olhos do seu avatar a partir de dados de rastreamento ocular. O olhar natural continua funcionando quando desativado." },
     { "key": "settings.bodyTracking.footIk.description", "value": "Habilita o posicionamento procedural dos pés ao ficar parado sem trackers de pé." },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "Suprime as animações de pulo e aterrissagem e o agachamento do quadril ao aterrissar enquanto trackers de corpo completo estiverem calibrados." },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "A escala afeta a velocidade de locomoção" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "Ajusta a velocidade da animação de locomoção de acordo com a escala do avatar sem alterar a velocidade física de movimento." },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "Habilita a colisão de cápsula virtual entre cotovelos e peito para evitar que os braços atravessem o corpo." },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "Proteger Cotovelo" },

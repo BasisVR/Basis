@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "অবতার" },
     { "key": "menu.individualPlayer.avatar.description", "value": "দৃশ্যমানতা এবং ইন্টারঅ্যাকশন টগল।" },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "অবতার লোড ত্রুটি" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "চোখের উচ্চতা মেলান" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "এই খেলোয়াড়ের বর্তমান শরীরের স্কেলের সাথে আপনার অবতার স্কেল করুন ({0:0.###} মি লক্ষ্য চোখের উচ্চতা)।" },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "এই খেলোয়াড়ের বর্তমান অবতার চোখের উচ্চতা এখনো উপলভ্য নয়।" },
     { "key": "menu.individualPlayer.hideAvatar", "value": "অবতার লুকান" },
     { "key": "menu.individualPlayer.showAvatar", "value": "অবতার দেখান" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "আপনার ক্লায়েন্টে এই খেলোয়াড়ের অবতারের রেন্ডারিং টগল করে।" },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "চোখ ট্র্যাকিং ডেটা থেকে আপনার অবতারের চোখের হাড় চালান। অক্ষম থাকলে স্বাভাবিক চোখের লুক চলতে থাকে।" },
     { "key": "settings.bodyTracking.footIk.description", "value": "পা ট্র্যাকার ছাড়া স্থির দাঁড়িয়ে থাকার সময় পদ্ধতিগত পা স্থাপনা সক্ষম করে।" },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "সম্পূর্ণ-শরীর ট্র্যাকার ক্যালিব্রেট থাকাকালীন জাম্প এবং ল্যান্ডিং অ্যানিমেশন এবং ল্যান্ডিং হিপ ডিপ দমন করে।" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "স্কেল লোকোমোশনের গতিকে প্রভাবিত করে" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "শারীরিক চলাচলের গতি না বদলে, অবতারের স্কেল অনুযায়ী লোকোমোশন অ্যানিমেশনের গতি সমন্বয় করে।" },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "শরীরের ভিতর দিয়ে বাহু ক্লিপিং প্রতিরোধ করতে কনুই এবং বুকের মধ্যে ভার্চুয়াল ক্যাপসুল সংঘর্ষ সক্ষম করে।" },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "কনুই রক্ষা করুন" },

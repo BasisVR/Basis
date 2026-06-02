@@ -5,9 +5,8 @@ namespace Basis.Network.Core.Compression
         public const int FloatSize = sizeof(float);
         public const int UShortSize = sizeof(ushort);
         public const int Vector3Size = 3 * FloatSize;
-        public const float MinScale = 0.005f;
-        public const float MaxScale = 150f;
-        public const float ComputedRange = MaxScale - MinScale;
+        // Scale is stored in WriteScale bytes as a positive Posit16-style value (n=16, es=1).
+        // This keeps the two-byte payload slot while improving relative precision for very small avatars.
 
         public const int WritePosition = 12;
         public const int WriteScale = 2;
@@ -53,7 +52,7 @@ namespace Basis.Network.Core.Compression
 
         public static int ConvertToSize(BitQuality q)
         {
-            // Position (12) + BoneRotations (variable) + Scale (2) + Rotation (7)
+            // Position (12) + BoneRotations (variable) + Posit16 Scale (2) + Rotation (7) + hips tail.
             return BasisBoneRotationCompression.ConvertToSize(q);
         }
         // --------------------------

@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "Avatar" },
     { "key": "menu.individualPlayer.avatar.description", "value": "Opzioni di visibilità e interazione." },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "Errore caricamento avatar" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "Abbina altezza occhi" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "Ridimensiona il tuo avatar per corrispondere alla scala corporea attuale di questo giocatore ({0:0.###} m altezza occhi target)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "L'altezza occhi attuale dell'avatar di questo giocatore non è ancora disponibile." },
     { "key": "menu.individualPlayer.hideAvatar", "value": "Nascondi avatar" },
     { "key": "menu.individualPlayer.showAvatar", "value": "Mostra avatar" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "Attiva o disattiva il rendering dell'avatar di questo giocatore sul tuo client." },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "Pilota le ossa degli occhi del tuo avatar con i dati di tracciamento oculare. Lo sguardo naturale degli occhi continua a funzionare quando disabilitato." },
     { "key": "settings.bodyTracking.footIk.description", "value": "Abilita il posizionamento procedurale dei piedi quando si è fermi senza tracker per i piedi." },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "Sopprime le animazioni di salto e atterraggio e l'abbassamento delle anche all'atterraggio mentre i tracker corporei completi sono calibrati." },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "La scala influisce sulla velocità di locomozione" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "Regola la velocità dell'animazione di locomozione in base alla scala dell'avatar senza modificare la velocità di movimento fisica." },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "Abilita la collisione tra capsule virtuali tra gomiti e torace per evitare che le braccia attraversino il corpo." },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "Proteggi gomito" },

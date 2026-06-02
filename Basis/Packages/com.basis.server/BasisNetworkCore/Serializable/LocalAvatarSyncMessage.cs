@@ -14,7 +14,7 @@ public static partial class SerializableBasis
         //   Quality and additional-data presence are derived from the channel number.
         //
         // Payload layout (current order):
-        // Position (12) -> Muscles(bitstream, varies by quality) -> Scale (2) -> Rotation (16)
+        // Position (12) -> bone rotations (bitstream, varies by quality) -> Posit16 scale (2) -> rotation (7) -> hips tail
 
         public byte DataQualityLevel; // 0=Low, 1=Medium, 2=High
         public byte[] array;          // payload bytes (length must match ConvertToSize(quality))

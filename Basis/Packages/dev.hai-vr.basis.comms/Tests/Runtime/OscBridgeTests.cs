@@ -7,6 +7,7 @@ using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Shims;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Networking.Compression;
 using Cilbox;
 using HVR.Basis.Comms;
 using HVR.Basis.Comms.OSC;
@@ -631,6 +632,118 @@ namespace HVR.Basis.Comms.Tests
                 Object.DestroyImmediate(go);
                 DestroySceneInstance();
             }
+        }
+
+        [Test]
+        public void BasisOscAvatarScaling_PublishesVrChatScalingEndpoints()
+        {
+            DestroySceneInstance();
+            bool previousApplyCustomScale = SMModuleCalibration.ApplyCustomScale;
+            SMModuleCalibration.ApplyCustomScale = true;
+
+            try
+            {
+                BasisOscAvatarScaling.PublishCurrentState();
+
+                object root = GetQueryRoot();
+                object eyeHeight = ResolveNode(root, "avatar", "eyeheight");
+                object eyeHeightMin = ResolveNode(root, "avatar", "eyeheightmin");
+                object eyeHeightMax = ResolveNode(root, "avatar", "eyeheightmax");
+                object scalingAllowed = ResolveNode(root, "avatar", "eyeheightscalingallowed");
+
+                Assert.That(eyeHeight, Is.Not.Null);
+                Assert.That(eyeHeightMin, Is.Not.Null);
+                Assert.That(eyeHeightMax, Is.Not.Null);
+                Assert.That(scalingAllowed, Is.Not.Null);
+
+                Assert.That((string)eyeHeight.GetType().GetField("FULL_PATH").GetValue(eyeHeight), Is.EqualTo("/avatar/eyeheight"));
+                Assert.That((string)eyeHeight.GetType().GetField("TYPE").GetValue(eyeHeight), Is.EqualTo(",f"));
+                Assert.That((string)eyeHeightMin.GetType().GetField("TYPE").GetValue(eyeHeightMin), Is.EqualTo(",f"));
+                Assert.That((string)eyeHeightMax.GetType().GetField("TYPE").GetValue(eyeHeightMax), Is.EqualTo(",f"));
+                Assert.That((string)scalingAllowed.GetType().GetField("TYPE").GetValue(scalingAllowed), Is.EqualTo(",T"));
+
+                IList minValues = (IList)eyeHeightMin.GetType().GetField("VALUE").GetValue(eyeHeightMin);
+                IList maxValues = (IList)eyeHeightMax.GetType().GetField("VALUE").GetValue(eyeHeightMax);
+                IList allowedValues = (IList)scalingAllowed.GetType().GetField("VALUE").GetValue(scalingAllowed);
+
+                Assert.That(minValues[0], Is.EqualTo(BasisOscAvatarScaling.UserSelectableMinimumEyeHeightMeters));
+                Assert.That(maxValues[0], Is.EqualTo(BasisOscAvatarScaling.UserSelectableMaximumEyeHeightMeters));
+                Assert.That(allowedValues[0], Is.EqualTo(true));
+            }
+            finally
+            {
+                SMModuleCalibration.ApplyCustomScale = previousApplyCustomScale;
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOscService_AvatarScalingAddress_UsesMessageReceiverOnly()
+        {
+            MethodInfo submitRawMessages = typeof(BasisOscService).GetMethod("SubmitRawMessages", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(submitRawMessages, Is.Not.Null);
+
+            GameObject owner = new GameObject("AvatarScalingMessageReceiverOwner");
+            EntityId ownerId = owner.GetEntityId();
+            string receivedPath = null;
+            bool addressReceiverCalled = false;
+
+            try
+            {
+                BasisOscService.RegisterReceiver(ownerId, message =>
+                {
+                    receivedPath = message.Path;
+                });
+                BasisOscService.RegisterAddressReceiver(ownerId, (address, value) => addressReceiverCalled = true);
+                BasisOscService.UpdateSubscriptions(ownerId, true, Array.Empty<string>(), Array.Empty<string>());
+
+                submitRawMessages.Invoke(null, new object[]
+                {
+                    new List<SimpleOSC.OSCMessage>
+                    {
+                        new SimpleOSC.OSCMessage
+                        {
+                            path = BasisOscAvatarScaling.EyeHeightAddress,
+                            arguments = new object[] { 2f }
+                        }
+                    }
+                });
+
+                Assert.That(receivedPath, Is.EqualTo(BasisOscAvatarScaling.EyeHeightAddress));
+                Assert.That(addressReceiverCalled, Is.False);
+            }
+            finally
+            {
+                BasisOscService.UnregisterReceiver(ownerId);
+                BasisOscService.UnregisterAddressReceiver(ownerId);
+                BasisOscService.ClearSubscriptions(ownerId);
+                Object.DestroyImmediate(owner);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void AvatarScalePosit16_RoundTripsTinyAndDefaultScales()
+        {
+            byte[] payload = new byte[2];
+            SerializableBasis.LocalAvatarSyncMessage message = new SerializableBasis.LocalAvatarSyncMessage(payload);
+
+            AssertScaleRoundTrip(message, payload, 1f, 1e-6f);
+            AssertScaleRoundTrip(message, payload, 0.005f, 0.00001f);
+            AssertScaleRoundTrip(message, payload, 0.0005f, 0.000001f);
+        }
+
+        private static void AssertScaleRoundTrip(SerializableBasis.LocalAvatarSyncMessage message, byte[] payload, float scale, float tolerance)
+        {
+            Array.Clear(payload, 0, payload.Length);
+            int offset = 0;
+            BasisUnityBitPackerExtensionsUnsafe.CompressScale(scale, ref message, ref offset);
+
+            offset = 0;
+            byte[] compressedPayload = message.array;
+            Assert.That(BasisUnityBitPackerExtensionsUnsafe.TryReadUShort(ref compressedPayload, ref offset, out ushort encoded), Is.True);
+            float decoded = BasisUnityBitPackerExtensionsUnsafe.DecompressScale(encoded);
+            Assert.That(decoded, Is.EqualTo(scale).Within(tolerance));
         }
 
         [Test]

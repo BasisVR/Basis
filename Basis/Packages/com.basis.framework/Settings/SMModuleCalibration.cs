@@ -268,6 +268,7 @@ public class SMModuleCalibration : BasisSettingsBase
                     {
                         if (!Mathf.Approximately(old, parsed))
                         {
+                            BasisHeightDriver.ClearRuntimeOscEyeHeightOverride();
                             SelectedScale = parsed;
                             _dirty = true;
                         }

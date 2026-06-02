@@ -711,6 +711,18 @@
       "value": "Avatar Load Error"
     },
     {
+      "key": "menu.individualPlayer.matchEyeHeight",
+      "value": "Match Eye Height"
+    },
+    {
+      "key": "menu.individualPlayer.matchEyeHeight.description",
+      "value": "Scale your avatar to match this player's current body scale ({0:0.###} m target eye height)."
+    },
+    {
+      "key": "menu.individualPlayer.matchEyeHeight.unavailable",
+      "value": "This player's current avatar eye height is not available yet."
+    },
+    {
       "key": "menu.individualPlayer.hideAvatar",
       "value": "Hide Avatar"
     },
@@ -2721,6 +2733,14 @@
     {
       "key": "settings.bodyTracking.eyeTracking.description",
       "value": "Drive your avatar's eye bones from eye tracking data. The natural eye look keeps running when disabled."
+    },
+    {
+      "key": "settings.bodyTracking.scaleAffectsLocomotion",
+      "value": "Scale Affects Locomotion Speed"
+    },
+    {
+      "key": "settings.bodyTracking.scaleAffectsLocomotion.description",
+      "value": "Adjusts locomotion animation velocity by avatar scale without changing physical movement speed."
     },
     {
       "key": "settings.bodyTracking.footIk.description",

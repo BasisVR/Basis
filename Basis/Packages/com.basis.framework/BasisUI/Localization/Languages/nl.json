@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "Avatar" },
     { "key": "menu.individualPlayer.avatar.description", "value": "Schakelaars voor zichtbaarheid en interactie." },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "Avatar Laadfout" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "Ooghoogte Afstemmen" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "Schaal je avatar zodat deze overeenkomt met de huidige lichaamsschaal van deze speler ({0:0.###} m doel-ooghoogte)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "De huidige avatar-ooghoogte van deze speler is nog niet beschikbaar." },
     { "key": "menu.individualPlayer.hideAvatar", "value": "Avatar Verbergen" },
     { "key": "menu.individualPlayer.showAvatar", "value": "Avatar Tonen" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "Schakelt de weergave van de avatar van deze speler in jouw client." },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "Stuur de oogbeenderen van je avatar aan vanuit eye tracking-gegevens. De natuurlijke oogblik blijft draaien wanneer uitgeschakeld." },
     { "key": "settings.bodyTracking.footIk.description", "value": "Schakelt procedurele voetplaatsing in wanneer je stilstaat zonder voettrackers." },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "Onderdrukt sprong- en landingsanimaties en de heupdip bij landing terwijl full-body trackers gekalibreerd zijn." },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "Schaal beïnvloedt locomotiesnelheid" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "Past de snelheid van de locomotie-animatie aan op basis van de avatarschaal zonder de fysieke bewegingssnelheid te veranderen." },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "Schakelt virtuele capsule-botsing tussen ellebogen en borst in om te voorkomen dat armen door het lichaam clippen." },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "Elleboog Beschermen" },

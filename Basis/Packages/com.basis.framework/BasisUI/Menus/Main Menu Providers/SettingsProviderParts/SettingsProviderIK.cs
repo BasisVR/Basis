@@ -25,6 +25,7 @@ public static class SettingsProviderIK
     private static PanelToggle _uiEuroPos;
     private static PanelToggle _uiEuroRot;
     private static PanelSlider _uiCalibSphereScale;
+    private static PanelSlider _avatarScaleSlider;
     private static PanelElementDescriptor _boneEuroEditorGroup;
 
     private struct BoneBindings
@@ -110,6 +111,7 @@ public static class SettingsProviderIK
             ikParent,
             PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.avatarHeightScale"), 0.1f, 5f, false, 2, ValueDisplayMode.Meters),
             BasisSettingsDefaults.SelectedScale);
+        _avatarScaleSlider = avatarScaleSlider;
 
         if (avatarScaleSlider != null)
         {
@@ -193,6 +195,11 @@ public static class SettingsProviderIK
             disableAnimInFBTToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.disableAnimFbt"));
             disableAnimInFBTToggle.AssignBinding(BasisSettingsDefaults.DisableAnimationsInFBT);
             disableAnimInFBTToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.bodyTracking.disableAnimFbt.description"));
+
+            var scaleAffectsLocomotionToggle = PanelToggle.CreateNewEntry(trackingParent);
+            scaleAffectsLocomotionToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.scaleAffectsLocomotion"));
+            scaleAffectsLocomotionToggle.AssignBinding(BasisSettingsDefaults.ScaleAffectsLocomotionSpeed);
+            scaleAffectsLocomotionToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.bodyTracking.scaleAffectsLocomotion.description"));
         });
 
         // ============== Body Collision ==============
@@ -665,6 +672,17 @@ public static class SettingsProviderIK
         return tabPage;
     }
 
+    public static void SetAvatarScaleSliderValueWithoutNotify(float value)
+    {
+        if (_avatarScaleSlider == null)
+        {
+            return;
+        }
+
+        _avatarScaleSlider.SetValueWithoutNotify(value);
+    }
+
+
     // ------------------
     // Debug Info
     // ------------------
@@ -785,6 +803,7 @@ public static class SettingsProviderIK
         BasisSettingsDefaults.IKLockMode.ResetToDefault();
         BasisSettingsDefaults.CustomScale.ResetToDefault();
         BasisSettingsDefaults.SelectedScale.ResetToDefault();
+        BasisSettingsDefaults.ScaleAffectsLocomotionSpeed.ResetToDefault();
 
         // Global One Euro / smoothing parameters
         BasisSettingsDefaults.FBIKSmoothingStrength.ResetToDefault();

@@ -76,6 +76,10 @@ namespace Basis.Scripts.Animator_Driver
         /// <value>Default: <c>30</c>.</value>
         public float AngularDampingFactor = 30;
 
+        private const float MinimumLocomotionScale = 0.05f;
+        private const float MaximumLocomotionScale = 20f;
+        private const float LocomotionScaleSpeedExponent = 0.5f;
+
         /// <summary>
         /// Last raw (pre-damped) velocity sample used for smoothing.
         /// </summary>
@@ -250,7 +254,9 @@ namespace Basis.Scripts.Animator_Driver
             basisAnimatorVariableApply.BasisAnimatorVariables.Velocity = dampenedVelocity;
             bool isMoving = dampenedVelocity.sqrMagnitude > StationaryVelocityThreshold;
             basisAnimatorVariableApply.BasisAnimatorVariables.isMoving = isMoving;
-            basisAnimatorVariableApply.BasisAnimatorVariables.AnimationsCurrentSpeed = 1;
+            basisAnimatorVariableApply.BasisAnimatorVariables.AnimationsCurrentSpeed = Basis.BasisUI.BasisSettingsDefaults.ScaleAffectsLocomotionSpeed.RawValue && isMoving
+                ? GetScaleAdjustedLocomotionSpeed()
+                : 1f;
 
             if (HasHipsInput && isMoving == false)
             {
@@ -289,6 +295,12 @@ namespace Basis.Scripts.Animator_Driver
             previousRawVelocity = dampenedVelocity;
             previousAngularVelocity = dampenedAngularVelocity;
             previousHipsRotation = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation;
+        }
+
+        private static float GetScaleAdjustedLocomotionSpeed()
+        {
+            float avatarScale = Mathf.Clamp(BasisHeightDriver.ScaledToMatchValue, MinimumLocomotionScale, MaximumLocomotionScale);
+            return Mathf.Exp(-Mathf.Log(avatarScale) * LocomotionScaleSpeedExponent);
         }
 
         /// <summary>

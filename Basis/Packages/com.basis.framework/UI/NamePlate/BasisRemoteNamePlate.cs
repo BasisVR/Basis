@@ -106,7 +106,7 @@ namespace Basis.Scripts.UI.NamePlate
             BasisRemotePlayer.NamePlateTransformProvider = GetSelfTransform;
 
             Self = this.transform;
-            Self.localScale = new Vector3(0.02f, 0.02f, 0.02f) * BasisRemoteNamePlateDriver.NamePlateSize;
+            Self.localScale = Vector3.one * (BasisRemoteNamePlateDriver.BaseNamePlateLocalScale * BasisRemoteNamePlateDriver.NamePlateSize);
             BasisRemoteNamePlateDriver.QueueTextBake(BasisRemotePlayer, this);
             LoadingText.enableVertexGradient = false;
             mpb = new MaterialPropertyBlock();

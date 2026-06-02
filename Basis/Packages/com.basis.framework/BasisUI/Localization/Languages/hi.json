@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "अवतार" },
     { "key": "menu.individualPlayer.avatar.description", "value": "दृश्यता और इंटरैक्शन टॉगल।" },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "अवतार लोड त्रुटि" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "आँख की ऊँचाई मिलाएँ" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "अपने अवतार को इस खिलाड़ी के मौजूदा शरीर स्केल से मिलाएँ ({0:0.###} मी लक्ष्य आँख ऊँचाई)।" },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "इस खिलाड़ी के अवतार की मौजूदा आँख ऊँचाई अभी उपलब्ध नहीं है।" },
     { "key": "menu.individualPlayer.hideAvatar", "value": "अवतार छिपाएँ" },
     { "key": "menu.individualPlayer.showAvatar", "value": "अवतार दिखाएँ" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "आपके क्लाइंट पर इस खिलाड़ी के अवतार के रेंडरिंग को टॉगल करता है।" },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "आई ट्रैकिंग डेटा से अपने अवतार की आँख की हड्डियों को चलाएँ। अक्षम होने पर प्राकृतिक आँख देखना चलता रहता है।" },
     { "key": "settings.bodyTracking.footIk.description", "value": "बिना पैर ट्रैकर्स के स्थिर खड़े होने पर प्रोसीजरल पैर प्लेसमेंट सक्षम करता है।" },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "जब फुल-बॉडी ट्रैकर्स कैलिब्रेट किए गए हों तो जंप और लैंडिंग एनिमेशन और लैंडिंग कूल्हा डिप को दबाता है।" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "स्केल लोकोमोशन की गति को प्रभावित करता है" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "भौतिक गति की रफ़्तार बदले बिना अवतार के स्केल के अनुसार लोकोमोशन एनीमेशन की गति समायोजित करता है।" },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "हाथों को शरीर से क्लिप होने से रोकने के लिए कोहनियों और छाती के बीच वर्चुअल कैप्सूल कोलिज़न सक्षम करता है।" },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "कोहनी की सुरक्षा करें" },

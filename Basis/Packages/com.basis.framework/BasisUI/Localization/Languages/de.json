@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "Avatar" },
     { "key": "menu.individualPlayer.avatar.description", "value": "Sichtbarkeits- und Interaktions-Schalter." },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "Avatar-Ladefehler" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "Augenhöhe anpassen" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "Skaliert deinen Avatar auf die aktuelle Körpergröße dieses Spielers ({0:0.###} m Ziel-Augenhöhe)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "Die aktuelle Avatar-Augenhöhe dieses Spielers ist noch nicht verfügbar." },
     { "key": "menu.individualPlayer.hideAvatar", "value": "Avatar ausblenden" },
     { "key": "menu.individualPlayer.showAvatar", "value": "Avatar anzeigen" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "Schaltet das Rendern des Avatars dieses Spielers auf deinem Client um." },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "Steuert die Augenknochen deines Avatars über Eye-Tracking-Daten. Der natürliche Augenblick läuft weiter, wenn deaktiviert." },
     { "key": "settings.bodyTracking.footIk.description", "value": "Aktiviert prozedurales Fußplatzieren beim ruhigen Stehen ohne Fuß-Tracker." },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "Unterdrückt Sprung- und Lande-Animationen sowie das Hüftabsenken bei der Landung, solange Full-Body-Tracker kalibriert sind." },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "Skalierung beeinflusst Fortbewegungsgeschwindigkeit" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "Passt die Geschwindigkeit der Geh-/Laufanimation an die Avatar-Skalierung an, ohne die tatsächliche Bewegungsgeschwindigkeit zu verändern." },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "Aktiviert die virtuelle Kapsel-Kollision zwischen Ellenbogen und Brust, um zu verhindern, dass Arme durch den Körper schneiden." },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "Ellenbogen schützen" },

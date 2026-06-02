@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "Аватар" },
     { "key": "menu.individualPlayer.avatar.description", "value": "Переключатели видимости и взаимодействия." },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "Ошибка загрузки аватара" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "Сравнять высоту глаз" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "Масштабирует ваш аватар под текущий масштаб тела этого игрока ({0:0.###} м целевой высоты глаз)." },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "Текущая высота глаз аватара этого игрока пока недоступна." },
     { "key": "menu.individualPlayer.hideAvatar", "value": "Скрыть аватар" },
     { "key": "menu.individualPlayer.showAvatar", "value": "Показать аватар" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "Включает/выключает отображение аватара этого игрока на вашем клиенте." },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "Управляет костями глаз вашего аватара по данным отслеживания глаз. Естественный взгляд продолжает работать при отключении." },
     { "key": "settings.bodyTracking.footIk.description", "value": "Включает процедурное размещение ступней в неподвижном состоянии без трекеров ступней." },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "Подавляет анимации прыжка и приземления, а также провисание бёдер при приземлении, пока откалиброваны трекеры полного отслеживания тела." },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "Масштаб влияет на скорость передвижения" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "Подстраивает скорость анимации передвижения под масштаб аватара, не изменяя фактическую скорость движения." },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "Включает виртуальные столкновения капсул между локтями и грудью, чтобы предотвратить прохождение рук сквозь тело." },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "Защитить локоть" },

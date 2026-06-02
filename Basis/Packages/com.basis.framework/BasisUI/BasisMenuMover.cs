@@ -65,6 +65,8 @@ namespace Basis.BasisUI
         private bool _hasLocalMoveEvent;
 
         private const float MIN_Z_SCALE = 0.01f;
+        // MIN_TMP_RENDER_SCALE is empirical: TMP rendered block glyphs on the main menu below roughly 0.05328 world scale during OSC tiny-avatar testing.
+        private const float MIN_TMP_RENDER_SCALE = 0.055f;
 
         // --- PlaySpaceStable state (from v1) ---
         private bool _stableHasAnchor;
@@ -254,8 +256,7 @@ namespace Basis.BasisUI
             offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
-            // Root is avatar-compensated
-            transform.localScale = Vector3.one * playerHeight;
+            transform.localScale = Vector3.one * GetRenderSafeMenuScale(playerHeight);
         }
 
         private void SetEyeOffset(float scaleFactor)
@@ -269,7 +270,7 @@ namespace Basis.BasisUI
             offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
-            transform.localScale = Vector3.one * playerHeight;
+            transform.localScale = Vector3.one * GetRenderSafeMenuScale(playerHeight);
         }
 
         /// <summary>
@@ -290,8 +291,18 @@ namespace Basis.BasisUI
             offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
-            // 2) Root scale (avatar-to-default compensation)
-            transform.localScale = Vector3.one * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+            transform.localScale = Vector3.one * GetRenderSafeMenuScale(BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale);
+        }
+
+        private static float GetRenderSafeMenuScale(float avatarRelativeScale)
+        {
+            // TextMeshPro renders block glyphs at extremely small world scales; keep menu rendering stable without clamping avatar scale.
+            if (float.IsNaN(avatarRelativeScale) || float.IsInfinity(avatarRelativeScale) || avatarRelativeScale <= 0f)
+            {
+                return MIN_TMP_RENDER_SCALE;
+            }
+
+            return Mathf.Max(avatarRelativeScale, MIN_TMP_RENDER_SCALE);
         }
 
         private void UpdateUILocation()

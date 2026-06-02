@@ -1181,7 +1181,7 @@ namespace Basis.BasisUI
             // before per-pixel quality knobs.
             PanelSlider sliderAvatarRange = PanelSlider.CreateEntryAndBind(
                 qualityGroup,
-                PanelSlider.SliderSettings.Distance(BasisLocalization.Get("settings.general.avatarRange"), 100),
+                PanelSlider.SliderSettings.Distance(BasisLocalization.Get("settings.general.avatarRange"), 1000),
                 BasisSettingsDefaults.AvatarRange);
 
             PanelToggle toggleAvatarDistance = PanelToggle.CreateNewEntry(qualityGroup);

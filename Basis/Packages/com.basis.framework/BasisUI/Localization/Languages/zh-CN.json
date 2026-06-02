@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "虚拟形象" },
     { "key": "menu.individualPlayer.avatar.description", "value": "可见性和交互切换。" },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "虚拟形象加载错误" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "匹配眼高" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "将你的虚拟形象缩放到匹配该玩家当前身体比例（目标眼高 {0:0.###} 米）。" },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "该玩家当前虚拟形象眼高尚不可用。" },
     { "key": "menu.individualPlayer.hideAvatar", "value": "隐藏虚拟形象" },
     { "key": "menu.individualPlayer.showAvatar", "value": "显示虚拟形象" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "切换在你的客户端上是否渲染该玩家的虚拟形象。" },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "通过眼部追踪数据驱动化身的眼部骨骼。禁用时自然眼神望向继续运行。" },
     { "key": "settings.bodyTracking.footIk.description", "value": "在没有脚部追踪器静止站立时启用程序化脚部放置。" },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "在全身追踪器已校准时抑制跳跃和落地动画以及落地时的髋部下沉。" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "缩放会影响移动动画速度" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "会根据虚拟形象缩放调整移动动画速度，但不会改变实际移动速度。" },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "启用肘部与胸部之间的虚拟胶囊体碰撞，防止手臂穿过身体。" },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "保护肘部" },

@@ -48,6 +48,12 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> DisableAnimationsInFBT = new("disableanimationsinfbt", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
+        /// When enabled, avatar scale affects locomotion blend velocity so small avatars
+        /// animate faster and large avatars animate slower without changing movement speed.
+        /// </summary>
+        public static BasisSettingsBinding<bool> ScaleAffectsLocomotionSpeed = new("scaleaffectslocomotionspeed", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>
         /// Master switch for full-body tracking. When disabled, hip/chest/foot/knee
         /// trackers are ignored and the avatar falls back to head + hands + procedural
         /// foot IK, even if FBT trackers are connected and calibrated.
@@ -1252,6 +1258,7 @@ namespace Basis.BasisUI
             EnableEyeTracking.LoadBindingValue();
             FootIKEnabled.LoadBindingValue();
             DisableAnimationsInFBT.LoadBindingValue();
+            ScaleAffectsLocomotionSpeed.LoadBindingValue();
             LocalHeadBlendShapes.LoadBindingValue();
 
             // Rendering / Graphics

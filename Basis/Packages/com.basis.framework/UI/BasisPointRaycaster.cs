@@ -1,4 +1,5 @@
 using Basis.Scripts.BasisSdk.Interactions;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using System.Collections.Generic;
@@ -10,7 +11,9 @@ namespace Basis.Scripts.UI
 {
     public class BasisPointRaycaster : BaseRaycaster
     {
+        private const float MaxDistanceScaleThresholdMeters = 100f;
         public float MaxDistance = 120;
+        public float EffectiveMaxDistance = 120;
         public bool UseWorldPosition = true;
 
         /// <summary>
@@ -122,9 +125,28 @@ namespace Basis.Scripts.UI
             BasisInput = basisInput;
             PhysicHits = new RaycastHit[BasisPlayerInteract.k_MaxPhysicHitCount];
             PhysicBackcastHits = new RaycastHit[4]; // We don't need as many backcast hits.
+            RefreshEffectiveMaxDistance();
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChangedNextFrame;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChangedNextFrame;
 
             // Create the ray with the adjusted starting position and direction
             UpdateRay();
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChangedNextFrame;
+        }
+
+        private void OnPlayersHeightChangedNextFrame(BasisHeightDriver.HeightModeChange _)
+        {
+            RefreshEffectiveMaxDistance();
+        }
+
+        private void RefreshEffectiveMaxDistance()
+        {
+            EffectiveMaxDistance = MaxDistance + Mathf.Max(0f, BasisHeightDriver.SelectedScaledAvatarHeight - MaxDistanceScaleThresholdMeters);
         }
 
         public void UpdateRay()
@@ -153,7 +175,7 @@ namespace Basis.Scripts.UI
             PhysicHitCount = Physics.RaycastNonAlloc(
                 ray,
                 PhysicHits,
-                MaxDistance,
+                EffectiveMaxDistance,
                 BasisPlayerInteract.Mask,
                 BasisPlayerInteract.TriggerInteraction);
 
@@ -243,7 +265,7 @@ namespace Basis.Scripts.UI
 
         private void DoBackcastFixup()
         {
-            float backcastDistance = ClosestRayCastHit.distance > 0 ? ClosestRayCastHit.distance : MaxDistance;
+            float backcastDistance = ClosestRayCastHit.distance > 0 ? ClosestRayCastHit.distance : EffectiveMaxDistance;
             Ray backcastRay = new Ray(ray.origin + ray.direction * backcastDistance, -ray.direction);
 
             int backcastHitCount = Physics.RaycastNonAlloc(
@@ -469,7 +491,7 @@ namespace Basis.Scripts.UI
                 return;
 
             Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(ray.origin, ray.origin + ray.direction * MaxDistance);
+            Gizmos.DrawLine(ray.origin, ray.origin + ray.direction * EffectiveMaxDistance);
 
             if (_mode == ControlMode.Placement && CurrentPlacement.HasHit)
             {

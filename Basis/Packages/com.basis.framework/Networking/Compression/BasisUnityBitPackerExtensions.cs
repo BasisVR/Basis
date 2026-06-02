@@ -160,11 +160,8 @@ namespace Basis.Scripts.Networking.Compression
         }
         public static void CompressScale(float scale, ref LocalAvatarSyncMessage message, ref int offset)
         {
-
-            float clamped = math.clamp(scale, BasisAvatarBitPacking.MinScale, BasisAvatarBitPacking.MaxScale);
-            float normalized = (clamped - BasisAvatarBitPacking.MinScale) / BasisAvatarBitPacking.ComputedRange;
-
-            ushort compressed = (ushort)(normalized * BasisAvatarBitPacking.UShortRangeDifference);
+            // Scale needs wide dynamic range and small-avatar precision; Posit16 gives better relative precision than the old linear ushort.
+            ushort compressed = EncodePositiveScalePosit16(scale);
             WriteUShort(compressed, ref message.array, ref offset);
         }
         /// <summary>
@@ -176,8 +173,140 @@ namespace Basis.Scripts.Networking.Compression
         /// <returns></returns>
         public static float DecompressScale(ushort value)
         {
-            float normalized = (float)value / BasisAvatarBitPacking.UShortRangeDifference;
-            return normalized * (BasisAvatarBitPacking.MaxScale - BasisAvatarBitPacking.MinScale) + BasisAvatarBitPacking.MinScale;
+            return DecodePositiveScalePosit16(value);
+        }
+
+        private const int PositScaleBits = 16;
+        private const int PositScaleExponentBits = 1;
+        private const int PositScaleUseedShift = 1 << PositScaleExponentBits;
+        private static readonly float MaxRepresentablePositiveScale = DecodePositiveScalePosit16(0x7FFF);
+
+        private static ushort EncodePositiveScalePosit16(float scale)
+        {
+            if (!math.isfinite(scale) || scale <= 0f)
+            {
+                return 0;
+            }
+
+            scale = math.min(scale, MaxRepresentablePositiveScale);
+
+            const int remainingBits = PositScaleBits - 1;
+            int k = (int)math.floor(math.log2(scale) / PositScaleUseedShift);
+            float useedPower = math.exp2(k * PositScaleUseedShift);
+            float normalized = scale / useedPower;
+
+            int exponent = 0;
+            if (normalized >= 2f)
+            {
+                exponent = 1;
+                normalized *= 0.5f;
+            }
+
+            float fraction = math.clamp(normalized - 1f, 0f, 1f);
+            uint payload = 0;
+            int bit = remainingBits - 1;
+
+            if (k >= 0)
+            {
+                int ones = k + 1;
+                for (int i = 0; i < ones && bit >= 0; i++)
+                {
+                    payload |= 1u << bit--;
+                }
+
+                if (bit >= 0)
+                {
+                    bit--;
+                }
+            }
+            else
+            {
+                int zeros = -k;
+                bit -= zeros;
+                if (bit >= 0)
+                {
+                    payload |= 1u << bit--;
+                }
+            }
+
+            if (bit >= 0)
+            {
+                if (exponent != 0)
+                {
+                    payload |= 1u << bit;
+                }
+
+                bit--;
+            }
+
+            while (bit >= 0)
+            {
+                fraction *= 2f;
+                if (fraction >= 1f)
+                {
+                    payload |= 1u << bit;
+                    fraction -= 1f;
+                }
+
+                bit--;
+            }
+
+            ushort truncated = (ushort)payload;
+            ushort roundedUp = truncated < 0x7FFF ? (ushort)(truncated + 1) : truncated;
+            float lower = DecodePositiveScalePosit16(truncated);
+            float upper = DecodePositiveScalePosit16(roundedUp);
+            return math.abs(upper - scale) < math.abs(scale - lower) ? roundedUp : truncated;
+        }
+
+        private static float DecodePositiveScalePosit16(ushort value)
+        {
+            if (value == 0)
+            {
+                return 0f;
+            }
+
+            if ((value & 0x8000) != 0)
+            {
+                value = (ushort)(~value + 1);
+            }
+
+            uint raw = value;
+            int bit = PositScaleBits - 2;
+            bool regimeSign = ((raw >> bit) & 1u) != 0;
+            int runLength = 0;
+            while (bit >= 0 && (((raw >> bit) & 1u) != 0) == regimeSign)
+            {
+                runLength++;
+                bit--;
+            }
+
+            if (bit >= 0)
+            {
+                bit--;
+            }
+
+            int k = regimeSign ? runLength - 1 : -runLength;
+            int exponent = 0;
+            if (bit >= 0)
+            {
+                exponent = (int)((raw >> bit) & 1u);
+                bit--;
+            }
+
+            float fraction = 1f;
+            float fractionBit = 0.5f;
+            while (bit >= 0)
+            {
+                if (((raw >> bit) & 1u) != 0)
+                {
+                    fraction += fractionBit;
+                }
+
+                fractionBit *= 0.5f;
+                bit--;
+            }
+
+            return math.exp2((k * PositScaleUseedShift) + exponent) * fraction;
         }
 
         /// <summary>

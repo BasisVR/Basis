@@ -83,6 +83,7 @@ namespace HVR.Basis.Comms
         public static void EnsureInitialized()
         {
             _ = OSCAcquisitionServer.SceneInstance;
+            BasisOscAvatarScaling.EnsureInitialized();
         }
 
         public static void RegisterReceiver(EntityId ownerId, Action<OscMessage> handler)
@@ -652,6 +653,13 @@ namespace HVR.Basis.Comms
         {
             addressId = 0;
             value = 0f;
+
+            // Avatar scaling uses a dedicated OSC message handler and must not be remapped into
+            // the generic float address-id pipeline used for avatar parameters/acquisition.
+            if (BasisOscAvatarScaling.IsAvatarScalingAddress(message.path ?? string.Empty))
+            {
+                return false;
+            }
 
             object[] arguments = message.arguments;
             if (arguments == null || arguments.Length == 0 || !(arguments[0] is float floatValue))

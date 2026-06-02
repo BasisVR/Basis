@@ -2,6 +2,7 @@ using Basis.Network.Core.Compression;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.UI.NamePlate;
 using System;
 using System.Collections.Generic;
 using Unity.Burst;
@@ -106,6 +107,8 @@ public struct RemoteFrameOutput
     /// Vertical delta between hips and mouth in scaled TPose space (used for UI placement).
     /// </summary>
     public float HeightAvatarHipCoord;
+    /// <summary>Per-avatar visual nameplate scale multiplier derived from current avatar height.</summary>
+    public float NamePlateScaleMultiplier;
 }
 
 /// <summary>
@@ -117,6 +120,13 @@ public struct RemoteFrameOutput
 [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
 public struct BasisRemoteBoneJob : IJobParallelFor
 {
+    private const float NamePlateMinimumHeightOffset = 0.4f;
+    private const float NamePlateShrinkStartHeight = 0.5f;
+    private const float NamePlateMinimumScaleMultiplier = 0.5f;
+    private const float NamePlateGrowStartHeight = 2f;
+    // Cap tall-avatar growth so the nameplate stays readable without becoming unreasonably large.
+    private const float MaxNamePlateScaleMultiplier = 3f;
+
     /// <summary>Authoring-time TPose and offset data (unscaled).</summary>
     [ReadOnly] public NativeArray<TposeAndOffsetDataJob> Authoring;
 
@@ -184,6 +194,8 @@ public struct BasisRemoteBoneJob : IJobParallelFor
 
         float3 difference = SafeDivide(nowScale, a.TposeScale);
 
+        float rawNamePlateHeight = difference.y * 1.2f;
+
         Out[i] = new RemoteFrameOutput
         {
             pos_Head = headP,
@@ -202,11 +214,30 @@ public struct BasisRemoteBoneJob : IJobParallelFor
             rot_Mouth = headR,
 
 
-            // Used for vertical offsetting of the nameplate UI
-            HeightAvatarHipCoord = difference.y * 1.2f,
+            // Keep tiny avatars readable without changing developer-branch behavior for avatars at or above 2m.
+            HeightAvatarHipCoord = rawNamePlateHeight < NamePlateGrowStartHeight ? math.max(rawNamePlateHeight, NamePlateMinimumHeightOffset) : rawNamePlateHeight,
+            NamePlateScaleMultiplier = ComputeNamePlateScaleMultiplier(rawNamePlateHeight),
         };
         MouthPositions[i] = mouthP;
     }
+
+    private static float ComputeNamePlateScaleMultiplier(float namePlateHeight)
+    {
+        if (namePlateHeight < NamePlateShrinkStartHeight)
+        {
+            float t = math.saturate(namePlateHeight / NamePlateShrinkStartHeight);
+            return math.lerp(NamePlateMinimumScaleMultiplier, 1f, t);
+        }
+
+        if (namePlateHeight > NamePlateGrowStartHeight)
+        {
+            // Preserve linear growth above the tall-avatar threshold, but stop before giant avatars overwhelm the UI.
+            return math.min(1f + (namePlateHeight - NamePlateGrowStartHeight), MaxNamePlateScaleMultiplier);
+        }
+
+        return 1f;
+    }
+
     private readonly float3 SafeDivide(float3 numerator, float3 denominator)
     {
         const float eps = 1e-6f;
@@ -309,6 +340,8 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
 {
     /// <summary>Camera world position used to bill-board the plate (yaw-only).</summary>
     public float3 CameraPosition;
+    /// <summary>User-configured base local scale before per-avatar height compensation.</summary>
+    public float NamePlateBaseScale;
 
     /// <summary>Input pose data (per-avatar) for nameplate placement.</summary>
     [ReadOnly] public NativeArray<RemoteFrameOutput> NamePlateIn;
@@ -319,7 +352,6 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
         var data = NamePlateIn[jobIndex];
         float3 hips = data.pos_Hips;
 
-        // y = hips.y + diff * 1.8
         float3 nameplatePos = new float3(hips.x, hips.y + data.HeightAvatarHipCoord, hips.z);
 
         // Face the camera (yaw only) with zero-distance guard.
@@ -329,6 +361,8 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
         quaternion rot = quaternion.RotateY(yaw);
 
         tx.SetPositionAndRotation(nameplatePos, rot);
+        float localScale = NamePlateBaseScale * data.NamePlateScaleMultiplier;
+        tx.localScale = new Vector3(localScale, localScale, localScale);
     }
 }
 
@@ -1245,6 +1279,7 @@ public static class RemoteBoneJobSystem
         var nameplateJob = new MappedNameplateApplyJob
         {
             CameraPosition = CameraPosition,
+            NamePlateBaseScale = BasisRemoteNamePlateDriver.BaseNamePlateLocalScale * BasisRemoteNamePlateDriver.NamePlateSize,
             NamePlateIn = sOut.AsDeferredJobArray(),
         }.Schedule(sNamePlate, simAndScale);
 

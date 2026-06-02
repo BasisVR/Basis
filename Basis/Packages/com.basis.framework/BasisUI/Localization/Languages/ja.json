@@ -163,6 +163,9 @@
     { "key": "menu.individualPlayer.avatar", "value": "アバター" },
     { "key": "menu.individualPlayer.avatar.description", "value": "表示とインタラクションの切替。" },
     { "key": "menu.individualPlayer.avatarLoadError", "value": "アバター読み込みエラー" },
+    { "key": "menu.individualPlayer.matchEyeHeight", "value": "目の高さを合わせる" },
+    { "key": "menu.individualPlayer.matchEyeHeight.description", "value": "このプレイヤーの現在の体のスケールに合わせて自分のアバターを拡大縮小します（目標の目の高さ {0:0.###} m）。" },
+    { "key": "menu.individualPlayer.matchEyeHeight.unavailable", "value": "このプレイヤーの現在のアバターの目の高さはまだ利用できません。" },
     { "key": "menu.individualPlayer.hideAvatar", "value": "アバターを非表示" },
     { "key": "menu.individualPlayer.showAvatar", "value": "アバターを表示" },
     { "key": "menu.individualPlayer.toggleAvatar.description", "value": "自分のクライアントでこのプレイヤーのアバター描画を切替。" },
@@ -632,6 +635,8 @@
     { "key": "settings.bodyTracking.eyeTracking.description", "value": "視線トラッキングデータからアバターの目ボーンを駆動します。無効化中も自然な視線の動きは継続します。" },
     { "key": "settings.bodyTracking.footIk.description", "value": "足トラッカーなしで静止しているとき、足のプロシージャル配置を有効にします。" },
     { "key": "settings.bodyTracking.disableAnimFbt.description", "value": "フルボディトラッカーがキャリブレーション済みの間、ジャンプと着地のアニメーション、着地時の腰沈み込みを抑制します。" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion", "value": "スケールが移動アニメーション速度に影響する" },
+    { "key": "settings.bodyTracking.scaleAffectsLocomotion.description", "value": "アバターのスケールに応じて歩行・移動アニメーションの速度を調整しますが、物理的な移動速度は変更しません。" },
 
     { "key": "settings.bodyTracking.collisionsEnabled.description", "value": "肘と胸の間に仮想カプセルコリジョンを有効化し、腕が体を貫通するのを防ぎます。" },
     { "key": "settings.bodyTracking.protectElbow.title", "value": "肘を保護" },
