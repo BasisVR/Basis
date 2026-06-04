@@ -11,7 +11,21 @@ namespace Basis.BTween
         public static implicit operator bool(BaseTween<T> tween) => tween != null;
 
 
-        public bool Active;
+        private bool _active;
+        public bool Active
+        {
+            get => _active;
+            set
+            {
+                if (_active == value) return;
+                _active = value;
+                if (value) ActiveCount++;
+                else ActiveCount--;
+            }
+        }
+        // Live count of active tweens of this type; lets ProcessGroup skip the pool when idle.
+        private static int ActiveCount;
+
         public Easing Ease = Easing.OutSine;
         public float StartTime;
         public float EndTime;
@@ -28,6 +42,7 @@ namespace Basis.BTween
 
         private static void ProcessGroup(double currentTime)
         {
+            if (ActiveCount <= 0) return;
             List<T> list = Tweens;
             int count = list.Count;
             for (int i = 0; i < count; i++)

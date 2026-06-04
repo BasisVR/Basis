@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace Basis.Scripts.Common
 {
@@ -25,6 +26,8 @@ namespace Basis.Scripts.Common
         {
             public readonly object Sync = new object();
             public readonly HashSet<string> Owners = new HashSet<string>();
+            // Mirrors Owners.Count; written under Sync, read lock-free via Volatile.
+            public int LiveCount;
         }
 
         public static LockContext GetContext(string context)
@@ -81,7 +84,10 @@ namespace Basis.Scripts.Common
                 var state = GetState();
 
                 lock (state.Sync)
-                    state.Owners.Add(key);
+                {
+                    if (state.Owners.Add(key))
+                        Volatile.Write(ref state.LiveCount, state.Owners.Count);
+                }
             }
 
             public bool Remove(string key)
@@ -101,7 +107,10 @@ namespace Basis.Scripts.Common
                 lock (state.Sync)
                 {
                     BasisDebug.Log($"removing lock for {key}");
-                    return state.Owners.Remove(key);
+                    bool removed = state.Owners.Remove(key);
+                    if (removed)
+                        Volatile.Write(ref state.LiveCount, state.Owners.Count);
+                    return removed;
                 }
             }
 
@@ -115,6 +124,7 @@ namespace Basis.Scripts.Common
                 lock (state.Sync)
                 {
                     state.Owners.Clear();
+                    Volatile.Write(ref state.LiveCount, 0);
                 }
             }
 
@@ -163,10 +173,7 @@ namespace Basis.Scripts.Common
                         return 0;
                     }
 
-                    lock (state.Sync)
-                    {
-                        return state.Owners.Count;
-                    }
+                    return Volatile.Read(ref state.LiveCount);
                 }
             }
 

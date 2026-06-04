@@ -18,6 +18,8 @@ namespace HVR.Vixxy
             typeof(GameObject),
             typeof(ParticleSystem),
             typeof(Cloth),
+            // Authored motion
+            typeof(BasisAuthoredMotion),
             // Renderers
             typeof(MeshRenderer), // NOTE: MeshRenderer and SkinnedMeshRenderer have hard-coded leniency on material properties. If a property recursively affects a SkinnedMeshRenderer, then it will also affect a MeshRenderer.
             typeof(SkinnedMeshRenderer),
@@ -53,8 +55,6 @@ namespace HVR.Vixxy
             "UnityEngine.Rendering.Universal.DecalProjector",
             // Jiggle
             "GatorDragonGames.JigglePhysics.JiggleRig",
-            // Authored motion (toggle the component's enabled state per movement group)
-            "BasisAuthoredMotion",
             // UI
             "TMPro.TextMeshPro",
             "TMPro.TextMeshProUGUI",

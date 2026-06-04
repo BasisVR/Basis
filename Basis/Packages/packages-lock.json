@@ -136,6 +136,12 @@
         "com.unity.profiling.core": "1.0.3"
       }
     },
+    "com.basis.provider.servers": {
+      "version": "file:com.basis.provider.servers",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.sdk": {
       "version": "file:com.basis.sdk",
       "depth": 0,

@@ -99,8 +99,7 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
 
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
-                Control.IncomingData.position = ScaledDeviceCoord.position;
-                Control.IncomingData.rotation = ScaledDeviceCoord.rotation;
+                Control.SetIncoming(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation);
                 this.transform.name = Control.name;
                 this.FollowMovement.name = $"{Control.name} Moveable transform";
             }

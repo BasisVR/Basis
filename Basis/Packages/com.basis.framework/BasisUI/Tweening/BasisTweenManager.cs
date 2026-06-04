@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using System;
 using System.Collections.Generic;
 
@@ -25,10 +26,13 @@ namespace Basis.BTween
 
         public static void Simulate(double realtimeSinceStartupAsDouble)
         {
-            List<Action<double>> processors = _tweenProcessors;
-            foreach (Action<double> tween in processors)
+            if (BasisMainMenu.Instance != null)
             {
-                tween(realtimeSinceStartupAsDouble);
+                List<Action<double>> processors = _tweenProcessors;
+                foreach (Action<double> tween in processors)
+                {
+                    tween(realtimeSinceStartupAsDouble);
+                }
             }
         }
     }

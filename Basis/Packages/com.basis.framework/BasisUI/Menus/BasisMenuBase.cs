@@ -17,6 +17,8 @@ namespace Basis.BasisUI
 
         public static List<BasisMenuActionProvider<TMenu>> Providers = new();
 
+        private static readonly HashSet<Type> SuppressedProviderTypes = new();
+
         /// <summary>
         /// Parent component used containing Action Provider buttons.
         /// </summary>
@@ -32,6 +34,7 @@ namespace Basis.BasisUI
         /// </summary>
         public static void AddProvider(BasisMenuActionProvider<TMenu> provider)
         {
+            if (provider == null || SuppressedProviderTypes.Contains(provider.GetType())) return;
             Providers.Add(provider);
             Providers.Sort();
             if (Instance) Instance.BindProvidersToButtons();
@@ -45,6 +48,41 @@ namespace Basis.BasisUI
             Providers.Remove(provider);
             Providers.Sort();
             if (Instance) Instance.BindProvidersToButtons();
+        }
+
+        /// <summary>
+        /// Prevent a provider type from appearing on this menu, regardless of when its
+        /// registrar runs. Order-independent: removes the provider if already present and
+        /// blocks any later registration, rebinding the menu if it is open.
+        /// </summary>
+        public static void SuppressProvider<T>() where T : BasisMenuActionProvider<TMenu>
+            => SuppressProvider(typeof(T));
+
+        public static void SuppressProvider(Type providerType)
+        {
+            if (providerType == null)
+            {
+                BasisDebug.LogError("SuppressProvider was called with a null providerType; nothing suppressed.");
+                return;
+            }
+
+            SuppressedProviderTypes.Add(providerType);
+
+            if (Providers.RemoveAll(p => providerType.IsInstanceOfType(p)) > 0)
+            {
+                Providers.Sort();
+                if (Instance) Instance.BindProvidersToButtons();
+                BasisDebug.Log($"SuppressProvider removed and blocked provider '{providerType.Name}'.");
+            }
+            else
+            {
+                BasisDebug.LogWarning($"SuppressProvider could not find a registered provider of type '{providerType.Name}' to remove; it is now blocked from registering later.");
+            }
+        }
+
+        public static void AllowProvider(Type providerType)
+        {
+            if (providerType != null) SuppressedProviderTypes.Remove(providerType);
         }
 
 

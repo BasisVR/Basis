@@ -1,14 +1,12 @@
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking;
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
 
 /// <summary>
 /// Remote network driver that:
@@ -235,6 +233,25 @@ public static class BasisRemoteNetworkDriver
         _ptrPrevHipsRotDelta = (IntPtr)_prevHipsRotDelta.GetUnsafePtr();
         _ptrTargetHipsRotDelta = (IntPtr)_targetHipsRotDelta.GetUnsafePtr();
         _ptrPoseFilterSeeded = (IntPtr)_poseFilterSeeded.GetUnsafePtr();
+    }
+
+    /// <summary>
+    /// Grows the lazily-initialized region to include <paramref name="playerId"/> on the
+    /// main thread. BeginWrite only covers [0, LargestNetworkReceiverID+1), and that
+    /// high-water is recomputed at the tail of LateUpdate — AFTER RemoteBoneJobSystem.Schedule()
+    /// reads these slots earlier in the same LateUpdate. A remote whose avatar calibrates within
+    /// a frame of joining (cached/fallback avatars) registers a key the driver hasn't covered
+    /// yet, so the bone-copy jobs read uninitialized NativeArray memory and emit a NaN pose.
+    /// Call this at calibration, before the player is registered with RemoteBoneJobSystem.
+    /// Completes any in-flight oneEuroJob first (same reason as SeedScaleState): EnsureInitialized
+    /// writes arrays the job touches.
+    /// </summary>
+    public static void EnsureSlotInitialized(int playerId)
+    {
+        if (!_initialized) return;
+        if ((uint)playerId >= FixedCapacity) return;
+        oneEuroJob.Complete();
+        EnsureInitialized(playerId + 1);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

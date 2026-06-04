@@ -121,6 +121,9 @@ namespace Basis.Scripts.BasisSdk
         [System.NonSerialized]
         public SkinnedMeshRenderer[] SkinnedMeshRenderers;
 
+        [System.NonSerialized]
+        public BasisAuthoredMotion[] AuthoredMotions;
+
         /// <summary>
         /// Humanoid bone transforms captured at build time, indexed by HumanBodyBones, so
         /// runtime calibration can skip the per-bone Animator.GetBoneTransform lookups.

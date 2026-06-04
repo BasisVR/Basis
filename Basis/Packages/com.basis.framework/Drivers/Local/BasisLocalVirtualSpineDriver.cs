@@ -3,6 +3,9 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -63,6 +66,8 @@ public class BasisLocalVirtualSpineDriver
     /// <summary>Set whenever cached lengths need to be recomputed (scale or TPose changed).</summary>
     private bool _lengthsDirty = true;
 
+    private NativeArray<SpineSolveState> _solveState;
+
     /// <summary>
     /// If true, the hips avatar-local transform will be set to the T-pose, overriding the computed hips position.
     /// The actual hips world position is therefore fixed in place relative to the avatar's transform.
@@ -72,7 +77,7 @@ public class BasisLocalVirtualSpineDriver
     public static BasisLocalVirtualSpineDriver Instance;
 
     // Hybrid hips XZ model — replaces the former HipsXZFollowBlend lerp with an anatomy-aware
-    // counterbalance + foot-pendulum. See ComputeRealisticHipsXZ for details.
+    // counterbalance + foot-pendulum. See ComputeRealisticHipsXZBurst for details.
     /// <summary>Cutoff (Hz) for the head-position low-pass that defines the body's "baseline" XZ.
     /// ~1 Hz means quick head moves (leans) leave the baseline behind so hips counter-balance,
     /// while sustained translations (walking) drag the baseline along so hips follow.</summary>
@@ -91,16 +96,6 @@ public class BasisLocalVirtualSpineDriver
     /// torso keeps catching up; at/below it the head is treated as stopped.</summary>
     private const float TorsoYawRelockSpeedDeg = 6f;
 
-    private float3 _headBaselineXZ;
-    private bool _headBaselineInitialized;
-
-    // Torso yaw "play" deadzone state — see ComputeTorsoYawTarget.
-    private bool _torsoYawInitialized;
-    private float _torsoYawAnchorDeg;
-    private float _prevHeadYawDeg;
-    private bool _torsoYawBroken;
-    private float _torsoFollow;
-
     /// <summary>
     /// Enables the virtual overrides on all torso controls and hooks simulation callback.
     /// Safe to call multiple times.
@@ -118,9 +113,11 @@ public class BasisLocalVirtualSpineDriver
 
         BasisLocalPlayer.Instance.OnVirtualData += OnSimulate;
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
+
+        _solveState = new NativeArray<SpineSolveState>(1, Allocator.Persistent);
+        _solveState[0] = default;
+
         _lengthsDirty = true;
-        _headBaselineInitialized = false;
-        _torsoYawInitialized = false;
         _initialized = true;
     }
 
@@ -142,6 +139,9 @@ public class BasisLocalVirtualSpineDriver
         }
         BasisLocalPlayer.Instance.OnVirtualData -= OnSimulate;
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
+
+        if (_solveState.IsCreated) _solveState.Dispose();
+
         _initialized = false;
     }
 
@@ -150,17 +150,21 @@ public class BasisLocalVirtualSpineDriver
         _lengthsDirty = true;
         // Drop the head-XZ baseline so the new avatar scale starts fresh — reusing the prior
         // baseline can read as a phantom lean for a second while the low-pass catches up.
-        _headBaselineInitialized = false;
+        if (_solveState.IsCreated)
+        {
+            SpineSolveState s = _solveState[0];
+            s.HeadBaselineInitialized = 0;
+            _solveState[0] = s;
+        }
     }
 
     /// <summary>
-    /// Main simulation pass executed before bone application.
-    /// Aligns head/neck, synthesizes hips from neck + preserved length and bias,
-    /// then fills chest/spine along the chain. Chest and spine carry yaw via the
-    /// existing bone-length blend, plus configurable fractions of head pitch/roll
-    /// for an anatomically richer cascade.
+    /// Main simulation pass executed before bone application. Gathers the head/neck cues and the
+    /// current torso pose, runs the Burst spine solve, then writes the synthesized chest/spine/hips
+    /// (and head/neck position) back onto the managed controls. The heavy math lives in
+    /// <see cref="BasisVirtualSpineSolveJob"/>; this method is the managed gather/scatter shell.
     /// </summary>
-    public void OnSimulate()
+    public unsafe void OnSimulate()
     {
         var eye = BasisLocalBoneDriver.EyeControl;
         var head = BasisLocalBoneDriver.HeadControl;
@@ -175,214 +179,103 @@ public class BasisLocalVirtualSpineDriver
             _lengthsDirty = false;
         }
 
-        float dt = Time.deltaTime;
+        if (!BasisLocalPlayer.Instance.LocalBoneDriver.TryGetSimStates(out NativeArray<BasisBoneSimState> simStates))
+        {
+            return;
+        }
+
         Matrix4x4 parentMatrix = BasisLocalPlayer.localToWorldMatrix;
 
-        // Pull settings once per tick — RawValue already caches the in-memory binding state.
-        float chestPitchFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineChestPitchFrac.RawValue;
-        float chestRollFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineChestRollFrac.RawValue;
-        float spinePitchFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineSpinePitchFrac.RawValue;
-        float spineRollFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineSpineRollFrac.RawValue;
-        float neckRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineNeckRotationSpeed.RawValue;
-        float chestRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineChestRotationSpeed.RawValue;
-        float spineRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineSpineRotationSpeed.RawValue;
-        float hipsRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineHipsRotationSpeed.RawValue;
-        float hipsForwardBiasSetting = Basis.BasisUI.BasisSettingsDefaults.VSpineHipsForwardBias.RawValue;
         float torsoYawDeadzoneDeg = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawDeadzoneDeg.RawValue;
-        float torsoYawBlendSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawBlendSpeed.RawValue;
-        float scale = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
-
         if (BasisDeviceManagement.IsCurrentModeVR() && !Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawPlayInVR.RawValue)
         {
             torsoYawDeadzoneDeg = 0f;
         }
 
-        // =========================
-        // 1) HEAD & NECK (top cues)
-        // =========================
-        quaternion eyeRot = eye.OutGoingData.rotation;
-        head.OutGoingData.rotation = eyeRot;
+        var leftFoot = BasisLocalBoneDriver.LeftFootControl;
+        var rightFoot = BasisLocalBoneDriver.RightFootControl;
+        bool leftFootTracked = leftFoot != null && leftFoot.HasTracked == BasisHasTracked.HasTracker;
+        bool rightFootTracked = rightFoot != null && rightFoot.HasTracked == BasisHasTracked.HasTracker;
 
-        quaternion neckCurrent = neck.OutGoingData.rotation;
-        SmoothSlerpBurst(in neckCurrent, in eyeRot, neckRotationSpeed, dt, out quaternion neckRot);
-        neck.OutGoingData.rotation = neckRot;
-
-        ApplyPositionControl(head, parentMatrix, torsoLock: false);
-        ApplyPositionControl(neck, parentMatrix, torsoLock: false);
-
-        float3 neckPosWorld = neck.OutGoingData.position;
-
-        // ===========================================
-        // 2) HIPS: build from neck and preserved span
-        // ===========================================
-        float3 rawUp = parentMatrix.MultiplyVector(Vector3.up);
-        NormalizeSafeWithFallback(in rawUp, new float3(0f, 1f, 0f), out float3 worldUp);
-
-        ExtractYawBurst(in eyeRot, out quaternion headYawFromEye);
-
-        bool isLocomoting = BasisLocalPlayer.Instance.LocalCharacterDriver.MovementVector.sqrMagnitude > 0.001f;
-        quaternion torsoYawTarget = ComputeTorsoYawTarget(in headYawFromEye, torsoYawDeadzoneDeg, torsoYawBlendSpeed, isLocomoting, dt);
-
-        float3 tposeHips = hips.TposeLocalScaled.position;
-        float biasScale = hipsForwardBiasSetting * scale;
-
-        // Hybrid hips XZ: anatomy-aware counterbalance from head baseline, with foot-pendulum
-        // override when both feet are tracked. Replaces the legacy lerp-toward-tracker-XZ.
-        float3 headPosWorld = head.OutGoingData.position;
-        float3 desiredHipsXZ = ComputeRealisticHipsXZ(headPosWorld, dt);
-
-        ComputeHipsPosition(
-            in neckPosWorld,
-            in worldUp,
-            _lenTotal,
-            in torsoYawTarget,
-            biasScale,
-            in desiredHipsXZ,
-            HipsFreezeToTpose,
-            in tposeHips,
-            out float3 hipsPos);
-
-        quaternion hipsRotTarget = HipsFreezeToTpose ? quaternion.identity : torsoYawTarget;
-        quaternion hipsCurrent = hips.OutGoingData.rotation;
-        SmoothSlerpBurst(in hipsCurrent, in hipsRotTarget, hipsRotationSpeed, dt, out quaternion hipsSmoothed);
-        ExtractYawBurst(in hipsSmoothed, out quaternion hipsYaw);
-
-        hips.OutGoingData.rotation = hipsYaw;
-        hips.OutGoingData.position = hipsPos;
-        hips.ApplyWorldAndLast(parentMatrix);
-
-        // =======================================================
-        // 3) Fill the middle: chest & spine positions and rotations
-        // =======================================================
-        ExtractYawBurst(in neckRot, out quaternion neckYaw);
-
-        float3 hipsPosReadback = hips.OutGoingData.position;
-        float3 neckPos = neck.OutGoingData.position;
-        float3 neckToHips = hipsPosReadback - neckPos;
-
-        if (math.lengthsq(neckToHips) < 1e-10f)
+        SpineSolveParams p = new SpineSolveParams
         {
-            // Guard: fall back to tracker-driven positions
-            ApplyPositionControl(chest, parentMatrix, torsoLock: true);
-            ApplyPositionControl(spine, parentMatrix, torsoLock: true);
-        }
-        else
+            Dt = Time.deltaTime,
+            Scale = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale,
+            ParentMatrix = parentMatrix,
+            ParentRotation = parentMatrix.rotation,
+            EyeRot = eye.OutGoingData.rotation,
+
+            HeadTargetPos = ResolveTargetPos(head),
+            HeadTargetRot = ResolveTargetRot(head),
+            NeckTargetPos = ResolveTargetPos(neck),
+            NeckTargetRot = ResolveTargetRot(neck),
+            ChestTargetPos = ResolveTargetPos(chest),
+            ChestTargetRot = ResolveTargetRot(chest),
+            SpineTargetPos = ResolveTargetPos(spine),
+            SpineTargetRot = ResolveTargetRot(spine),
+
+            HeadScaledOffset = head.ScaledOffset,
+            NeckScaledOffset = neck.ScaledOffset,
+            ChestScaledOffset = chest.ScaledOffset,
+            SpineScaledOffset = spine.ScaledOffset,
+
+            ChestTposeY = chest.TposeLocalScaled.position.y,
+            SpineTposeY = spine.TposeLocalScaled.position.y,
+            TposeHips = hips.TposeLocalScaled.position,
+
+            LeftFootPos = leftFootTracked ? (float3)leftFoot.OutGoingData.position : float3.zero,
+            RightFootPos = rightFootTracked ? (float3)rightFoot.OutGoingData.position : float3.zero,
+            LeftFootTracked = (byte)(leftFootTracked ? 1 : 0),
+            RightFootTracked = (byte)(rightFootTracked ? 1 : 0),
+
+            ChestPitchFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineChestPitchFrac.RawValue,
+            ChestRollFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineChestRollFrac.RawValue,
+            SpinePitchFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineSpinePitchFrac.RawValue,
+            SpineRollFrac = Basis.BasisUI.BasisSettingsDefaults.VSpineSpineRollFrac.RawValue,
+            NeckRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineNeckRotationSpeed.RawValue,
+            ChestRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineChestRotationSpeed.RawValue,
+            SpineRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineSpineRotationSpeed.RawValue,
+            HipsRotationSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineHipsRotationSpeed.RawValue,
+            HipsForwardBias = Basis.BasisUI.BasisSettingsDefaults.VSpineHipsForwardBias.RawValue,
+            TorsoYawDeadzoneDeg = torsoYawDeadzoneDeg,
+            TorsoYawBlendSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawBlendSpeed.RawValue,
+
+            HipsFreeze = (byte)(HipsFreezeToTpose ? 1 : 0),
+            IsLocomoting = (byte)(BasisLocalPlayer.Instance.LocalCharacterDriver.MovementVector.sqrMagnitude > 0.001f ? 1 : 0),
+
+            LenTotal = _lenTotal,
+            TChest = _tChest,
+            TSpine = _tSpine,
+        };
+
+        new BasisVirtualSpineSolveJob
         {
-            quaternion chainTopYaw = HipsFreezeToTpose ? neckYaw : torsoYawTarget;
-            ComputeChainPlacement(
-                in neckPos, in hipsPosReadback,
-                _tChest, _tSpine,
-                in chainTopYaw, in hipsYaw,
-                out float3 chestPos, out float3 spinePos,
-                out quaternion chestYawTarget, out quaternion spineYawTarget);
-
-            // Per-axis pitch/roll cascade — adds a configurable fraction of head pitch and roll on
-            // top of the existing yaw target. Defaults to zero pitch/roll so opting in is explicit.
-            quaternion chestTarget = ApplyPitchRollCascade(in chestYawTarget, in eyeRot, chestPitchFrac, chestRollFrac);
-            quaternion spineTarget = ApplyPitchRollCascade(in spineYawTarget, in eyeRot, spinePitchFrac, spineRollFrac);
-
-            quaternion chestCurrent = chest.OutGoingData.rotation;
-            quaternion spineCurrent = spine.OutGoingData.rotation;
-
-            SmoothSlerpBurst(in chestCurrent, in chestTarget, chestRotationSpeed, dt, out quaternion chestSmoothed);
-            SmoothSlerpBurst(in spineCurrent, in spineTarget, spineRotationSpeed, dt, out quaternion spineSmoothed);
-
-            chest.OutGoingData.rotation = chestSmoothed;
-            spine.OutGoingData.rotation = spineSmoothed;
-
-            ApplyPositionWithGivenBase(chest, parentMatrix, chestPos, torsoLock: true);
-            ApplyPositionWithGivenBase(spine, parentMatrix, spinePos, torsoLock: true);
-        }
-
-        // Finalize head/neck
-        head.ApplyWorldAndLast(parentMatrix);
-        neck.ApplyWorldAndLast(parentMatrix);
+            States = simStates,
+            State = _solveState,
+            P = p,
+            IdxHead = head.Index,
+            IdxNeck = neck.Index,
+            IdxChest = chest.Index,
+            IdxSpine = spine.Index,
+            IdxHips = hips.Index,
+        }.Run();
     }
 
-    /// <summary>
-    /// Yaw deadzone for the torso: holds the chest/spine/hips heading at an anchor until the head
-    /// leaves the cone, then eases a 0..1 follow weight in so the chain blends into the catch-up
-    /// (and back out) instead of snapping at the edge. Re-centers the anchor once fully engaged and
-    /// the head stops, so reversing has to re-cross the cone. While locomoting the cone is bypassed
-    /// so the torso re-aligns to the head. Head and neck are unaffected.
-    /// </summary>
-    private quaternion ComputeTorsoYawTarget(in quaternion headYawOnly, float deadzoneDeg, float blendSpeed, bool moving, float dt)
+    private static float3 ResolveTargetPos(BasisLocalBoneControl c)
     {
-        YawDegrees(in headYawOnly, out float headYawDeg);
-
-        if (!_torsoYawInitialized)
-        {
-            _torsoYawAnchorDeg = headYawDeg;
-            _prevHeadYawDeg = headYawDeg;
-            _torsoYawBroken = false;
-            _torsoFollow = 0f;
-            _torsoYawInitialized = true;
-        }
-
-        float headSpeedDeg = math.abs(Mathf.DeltaAngle(_prevHeadYawDeg, headYawDeg)) / math.max(dt, 1e-5f);
-        _prevHeadYawDeg = headYawDeg;
-
-        // Locomotion (keyboard / VR stick) re-aligns the torso to the head: engage follow so the body
-        // eases to the move/look direction, then the normal relock re-centers the cone there on stop.
-        if (moving)
-        {
-            _torsoYawBroken = true;
-        }
-
-        if (!_torsoYawBroken && math.abs(Mathf.DeltaAngle(_torsoYawAnchorDeg, headYawDeg)) > math.max(0f, deadzoneDeg))
-        {
-            _torsoYawBroken = true;
-        }
-
-        float targetFollow = _torsoYawBroken ? 1f : 0f;
-        _torsoFollow = math.lerp(_torsoFollow, targetFollow, math.saturate(dt * math.max(0f, blendSpeed)));
-
-        // Re-center only once the blend has fully engaged, so swapping the anchor can't jump the
-        // blended target and bring back the click this easing removes.
-        if (_torsoYawBroken && _torsoFollow >= 0.999f && headSpeedDeg <= TorsoYawRelockSpeedDeg)
-        {
-            _torsoYawBroken = false;
-            _torsoYawAnchorDeg = headYawDeg;
-        }
-
-        quaternion anchorYaw = quaternion.AxisAngle(new float3(0f, 1f, 0f), math.radians(_torsoYawAnchorDeg));
-        return math.slerp(anchorYaw, headYawOnly, _torsoFollow);
+        return ResolveTarget(c).OutGoingData.position;
     }
 
-    [BurstCompile]
-    private static void YawDegrees(in quaternion yawOnly, out float result)
+    private static quaternion ResolveTargetRot(BasisLocalBoneControl c)
     {
-        float3 f = math.mul(yawOnly, new float3(0f, 0f, 1f));
-        result = math.degrees(math.atan2(f.x, f.z));
+        return ResolveTarget(c).OutGoingData.rotation;
     }
 
-    // Adds a configurable fraction of head pitch and roll on top of a yaw-only base rotation.
-    // Pitch and roll are extracted directly from the head's forward and right vectors instead of
-    // via Quaternion.eulerAngles — the Euler path gimbal-locks at look-straight-up/down and emits
-    // phantom ±180° "roll" values that, scaled by rollFrac, tilt the chest sideways into the body.
-    private static quaternion ApplyPitchRollCascade(in quaternion yawBase, in quaternion eyeRot, float pitchFrac, float rollFrac)
+    // Resolves the target bone by index through the owner's Controls array (no recursive ref);
+    // falls back to the bone itself when it has no target.
+    private static BasisLocalBoneControl ResolveTarget(BasisLocalBoneControl c)
     {
-        if (pitchFrac <= 0f && rollFrac <= 0f)
-        {
-            return yawBase;
-        }
-
-        Quaternion eyeQ = (Quaternion)eyeRot;
-        Vector3 headFwd = eyeQ * Vector3.forward;
-        Vector3 headRight = eyeQ * Vector3.right;
-
-        // Pitch: angle of the head's forward away from horizontal. Positive = looking down,
-        // matching Unity's Quaternion.Euler(x,0,0) sign convention so the round-trip is faithful.
-        float horizMag = Mathf.Sqrt(headFwd.x * headFwd.x + headFwd.z * headFwd.z);
-        float pitchDeg = Mathf.Atan2(-headFwd.y, horizMag) * Mathf.Rad2Deg;
-
-        // Roll: tilt of the head's right vector out of horizontal. Defined everywhere — at the
-        // look-straight-up pole, headRight stays in the horizontal plane (y=0), so roll = 0
-        // even though Euler decomposition would have ambiguated yaw and roll.
-        float rollDeg = Mathf.Asin(Mathf.Clamp(-headRight.y, -1f, 1f)) * Mathf.Rad2Deg;
-
-        Quaternion swing = Quaternion.Euler(pitchDeg * pitchFrac, 0f, rollDeg * rollFrac);
-        return math.mul(yawBase, (quaternion)swing);
+        return c.TargetIndex >= 0 ? c.Owner.Controls[c.TargetIndex] : c;
     }
 
     private void RecomputeSegmentLengths(BasisLocalBoneControl neck, BasisLocalBoneControl chest, BasisLocalBoneControl spine, BasisLocalBoneControl hips)
@@ -400,42 +293,358 @@ public class BasisLocalVirtualSpineDriver
         _tSpine = math.saturate((_lenNeckToChest + _lenChestToSpine) / _lenTotal);
     }
 
-    /// <summary>
-    /// Applies tracker-driven position plus offset for a bone control,
-    /// optionally locking vertical to TPose baseline and yaw-only rotation.
-    /// </summary>
-    private void ApplyPositionControl(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, bool torsoLock)
+    /// <summary>Per-frame solver inputs packed on the main thread (settings, cues, calibration).</summary>
+    public struct SpineSolveParams
     {
-        quaternion rot = boneControl.Target.OutGoingData.rotation;
-        if (torsoLock) { ExtractYawBurst(in rot, out quaternion yawOnly); rot = yawOnly; }
+        public float Dt;
+        public float Scale;
+        public float4x4 ParentMatrix;
+        public quaternion ParentRotation;
+        public quaternion EyeRot;
 
-        float3 localOffset = boneControl.ScaledOffset;
-        if (torsoLock) localOffset.y = 0f;
+        public float3 HeadTargetPos;
+        public quaternion HeadTargetRot;
+        public float3 NeckTargetPos;
+        public quaternion NeckTargetRot;
+        public float3 ChestTargetPos;
+        public quaternion ChestTargetRot;
+        public float3 SpineTargetPos;
+        public quaternion SpineTargetRot;
 
-        float3 basePos = boneControl.Target.OutGoingData.position;
-        ComposePosition(in basePos, in rot, in localOffset, out float3 desired);
-        if (torsoLock) desired.y = boneControl.TposeLocalScaled.position.y;
+        public float3 HeadScaledOffset;
+        public float3 NeckScaledOffset;
+        public float3 ChestScaledOffset;
+        public float3 SpineScaledOffset;
 
-        boneControl.OutGoingData.position = desired;
-        boneControl.ApplyWorldAndLast(parentMatrix);
+        public float ChestTposeY;
+        public float SpineTposeY;
+        public float3 TposeHips;
+
+        public float3 LeftFootPos;
+        public float3 RightFootPos;
+        public byte LeftFootTracked;
+        public byte RightFootTracked;
+
+        public float ChestPitchFrac;
+        public float ChestRollFrac;
+        public float SpinePitchFrac;
+        public float SpineRollFrac;
+        public float NeckRotationSpeed;
+        public float ChestRotationSpeed;
+        public float SpineRotationSpeed;
+        public float HipsRotationSpeed;
+        public float HipsForwardBias;
+        public float TorsoYawDeadzoneDeg;
+        public float TorsoYawBlendSpeed;
+
+        public byte HipsFreeze;
+        public byte IsLocomoting;
+
+        public float LenTotal;
+        public float TChest;
+        public float TSpine;
+    }
+
+    /// <summary>Persistent spine solver state carried across frames (low-pass + yaw deadzone).</summary>
+    public struct SpineSolveState
+    {
+        public float3 HeadBaselineXZ;
+        public byte HeadBaselineInitialized;
+
+        public byte TorsoYawInitialized;
+        public float TorsoYawAnchorDeg;
+        public float PrevHeadYawDeg;
+        public byte TorsoYawBroken;
+        public float TorsoFollow;
     }
 
     /// <summary>
-    /// Applies position using a provided world base position and the control's yaw/offset rules.
+    /// Burst spine solve. Aligns head/neck, synthesizes hips from neck + preserved length and bias,
+    /// then fills chest/spine along the chain. Operates entirely on the IO buffer + params + state;
+    /// no managed access. A faithful port of the former managed OnSimulate body.
     /// </summary>
-    private void ApplyPositionWithGivenBase(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, float3 basePositionWorld, bool torsoLock)
+    [BurstCompile]
+    public struct BasisVirtualSpineSolveJob : IJob
     {
-        quaternion rot = boneControl.OutGoingData.rotation;
-        if (torsoLock) { ExtractYawBurst(in rot, out quaternion yawOnly); rot = yawOnly; }
+        [NativeDisableContainerSafetyRestriction]
+        public NativeArray<BasisBoneSimState> States;
+        public NativeArray<SpineSolveState> State;
+        public SpineSolveParams P;
+        public int IdxHead;
+        public int IdxNeck;
+        public int IdxChest;
+        public int IdxSpine;
+        public int IdxHips;
 
-        float3 localOffset = boneControl.ScaledOffset;
-        if (torsoLock) localOffset.y = 0f;
+        public void Execute()
+        {
+            BasisBoneSimState head = States[IdxHead];
+            BasisBoneSimState neck = States[IdxNeck];
+            BasisBoneSimState chest = States[IdxChest];
+            BasisBoneSimState spine = States[IdxSpine];
+            BasisBoneSimState hips = States[IdxHips];
+            SpineSolveState s = State[0];
 
-        ComposePosition(in basePositionWorld, in rot, in localOffset, out float3 desired);
-        if (torsoLock) desired.y = boneControl.TposeLocalScaled.position.y;
+            float dt = P.Dt;
+            bool freeze = P.HipsFreeze != 0;
 
-        boneControl.OutGoingData.position = desired;
-        boneControl.ApplyWorldAndLast(parentMatrix);
+            // 1) HEAD & NECK (top cues)
+            quaternion eyeRot = P.EyeRot;
+            head.OutgoingRotation = eyeRot;
+
+            quaternion neckCurrent = neck.OutgoingRotation;
+            SmoothSlerpBurst(in neckCurrent, in eyeRot, P.NeckRotationSpeed, dt, out quaternion neckRot);
+            neck.OutgoingRotation = neckRot;
+
+            ComposePosition(in P.HeadTargetPos, in P.HeadTargetRot, in P.HeadScaledOffset, out float3 headPos);
+            head.OutgoingPosition = headPos;
+            ApplyWorldAndLastBurst(ref head, in P.ParentMatrix, in P.ParentRotation);
+
+            ComposePosition(in P.NeckTargetPos, in P.NeckTargetRot, in P.NeckScaledOffset, out float3 neckPos0);
+            neck.OutgoingPosition = neckPos0;
+            ApplyWorldAndLastBurst(ref neck, in P.ParentMatrix, in P.ParentRotation);
+
+            float3 neckPosWorld = neck.OutgoingPosition;
+
+            // 2) HIPS: build from neck and preserved span
+            float3 rawUp = math.mul(P.ParentMatrix, new float4(0f, 1f, 0f, 0f)).xyz;
+            NormalizeSafeWithFallback(in rawUp, new float3(0f, 1f, 0f), out float3 worldUp);
+
+            ExtractYawBurst(in eyeRot, out quaternion headYawFromEye);
+
+            bool isLocomoting = P.IsLocomoting != 0;
+            quaternion torsoYawTarget = ComputeTorsoYawTargetBurst(ref s, in headYawFromEye, P.TorsoYawDeadzoneDeg, P.TorsoYawBlendSpeed, isLocomoting, dt);
+
+            float3 tposeHips = P.TposeHips;
+            float biasScale = P.HipsForwardBias * P.Scale;
+
+            float3 headPosWorld = head.OutgoingPosition;
+            float3 desiredHipsXZ = ComputeRealisticHipsXZBurst(ref s, headPosWorld, dt, P.LeftFootPos, P.RightFootPos, P.LeftFootTracked != 0, P.RightFootTracked != 0);
+
+            ComputeHipsPosition(
+                in neckPosWorld,
+                in worldUp,
+                P.LenTotal,
+                in torsoYawTarget,
+                biasScale,
+                in desiredHipsXZ,
+                freeze,
+                in tposeHips,
+                out float3 hipsPos);
+
+            quaternion hipsRotTarget = freeze ? quaternion.identity : torsoYawTarget;
+            quaternion hipsCurrent = hips.OutgoingRotation;
+            SmoothSlerpBurst(in hipsCurrent, in hipsRotTarget, P.HipsRotationSpeed, dt, out quaternion hipsSmoothed);
+            ExtractYawBurst(in hipsSmoothed, out quaternion hipsYaw);
+
+            hips.OutgoingRotation = hipsYaw;
+            hips.OutgoingPosition = hipsPos;
+            ApplyWorldAndLastBurst(ref hips, in P.ParentMatrix, in P.ParentRotation);
+
+            // 3) Fill the middle: chest & spine positions and rotations
+            ExtractYawBurst(in neckRot, out quaternion neckYaw);
+
+            float3 hipsPosReadback = hips.OutgoingPosition;
+            float3 neckPos = neck.OutgoingPosition;
+            float3 neckToHips = hipsPosReadback - neckPos;
+
+            if (math.lengthsq(neckToHips) < 1e-10f)
+            {
+                ApplyPositionControlTorsoLock(ref chest, in P.ChestTargetRot, in P.ChestTargetPos, in P.ChestScaledOffset, P.ChestTposeY, in P.ParentMatrix, in P.ParentRotation);
+                ApplyPositionControlTorsoLock(ref spine, in P.SpineTargetRot, in P.SpineTargetPos, in P.SpineScaledOffset, P.SpineTposeY, in P.ParentMatrix, in P.ParentRotation);
+            }
+            else
+            {
+                quaternion chainTopYaw = freeze ? neckYaw : torsoYawTarget;
+                ComputeChainPlacement(
+                    in neckPos, in hipsPosReadback,
+                    P.TChest, P.TSpine,
+                    in chainTopYaw, in hipsYaw,
+                    out float3 chestPos, out float3 spinePos,
+                    out quaternion chestYawTarget, out quaternion spineYawTarget);
+
+                quaternion chestTarget = ApplyPitchRollCascadeBurst(in chestYawTarget, in eyeRot, P.ChestPitchFrac, P.ChestRollFrac);
+                quaternion spineTarget = ApplyPitchRollCascadeBurst(in spineYawTarget, in eyeRot, P.SpinePitchFrac, P.SpineRollFrac);
+
+                quaternion chestCurrent = chest.OutgoingRotation;
+                quaternion spineCurrent = spine.OutgoingRotation;
+
+                SmoothSlerpBurst(in chestCurrent, in chestTarget, P.ChestRotationSpeed, dt, out quaternion chestSmoothed);
+                SmoothSlerpBurst(in spineCurrent, in spineTarget, P.SpineRotationSpeed, dt, out quaternion spineSmoothed);
+
+                chest.OutgoingRotation = chestSmoothed;
+                spine.OutgoingRotation = spineSmoothed;
+
+                ApplyPositionGivenBaseTorsoLock(ref chest, in chestPos, in P.ChestScaledOffset, P.ChestTposeY, in P.ParentMatrix, in P.ParentRotation);
+                ApplyPositionGivenBaseTorsoLock(ref spine, in spinePos, in P.SpineScaledOffset, P.SpineTposeY, in P.ParentMatrix, in P.ParentRotation);
+            }
+
+            States[IdxHead] = head;
+            States[IdxNeck] = neck;
+            States[IdxChest] = chest;
+            States[IdxSpine] = spine;
+            States[IdxHips] = hips;
+            State[0] = s;
+        }
+    }
+
+    [BurstCompile]
+    private static void ApplyWorldAndLastBurst(ref BasisBoneSimState st, in float4x4 parentMatrix, in quaternion parentRotation)
+    {
+        st.LastRunPosition = st.OutgoingPosition;
+        st.LastRunRotation = st.OutgoingRotation;
+
+        float4 p = math.mul(parentMatrix, new float4(st.OutgoingPosition, 1f));
+        st.OutgoingWorldPosition = p.xyz;
+        st.OutgoingWorldRotation = math.mul(parentRotation, st.OutgoingRotation);
+    }
+
+    [BurstCompile]
+    private static void ApplyPositionControlTorsoLock(ref BasisBoneSimState st, in quaternion targetRot, in float3 targetPos, in float3 scaledOffset, float tposeY, in float4x4 parentMatrix, in quaternion parentRotation)
+    {
+        ExtractYawBurst(in targetRot, out quaternion yawOnly);
+        float3 localOffset = scaledOffset;
+        localOffset.y = 0f;
+        ComposePosition(in targetPos, in yawOnly, in localOffset, out float3 desired);
+        desired.y = tposeY;
+        st.OutgoingPosition = desired;
+        ApplyWorldAndLastBurst(ref st, in parentMatrix, in parentRotation);
+    }
+
+    [BurstCompile]
+    private static void ApplyPositionGivenBaseTorsoLock(ref BasisBoneSimState st, in float3 baseWorld, in float3 scaledOffset, float tposeY, in float4x4 parentMatrix, in quaternion parentRotation)
+    {
+        quaternion rot = st.OutgoingRotation;
+        ExtractYawBurst(in rot, out quaternion yawOnly);
+        float3 localOffset = scaledOffset;
+        localOffset.y = 0f;
+        ComposePosition(in baseWorld, in yawOnly, in localOffset, out float3 desired);
+        desired.y = tposeY;
+        st.OutgoingPosition = desired;
+        ApplyWorldAndLastBurst(ref st, in parentMatrix, in parentRotation);
+    }
+
+    /// <summary>
+    /// Yaw deadzone for the torso: holds the chest/spine/hips heading at an anchor until the head
+    /// leaves the cone, then eases a 0..1 follow weight in so the chain blends into the catch-up
+    /// (and back out) instead of snapping at the edge. Re-centers the anchor once fully engaged and
+    /// the head stops, so reversing has to re-cross the cone. While locomoting the cone is bypassed
+    /// so the torso re-aligns to the head. Head and neck are unaffected.
+    /// </summary>
+    private static quaternion ComputeTorsoYawTargetBurst(ref SpineSolveState s, in quaternion headYawOnly, float deadzoneDeg, float blendSpeed, bool moving, float dt)
+    {
+        YawDegrees(in headYawOnly, out float headYawDeg);
+
+        if (s.TorsoYawInitialized == 0)
+        {
+            s.TorsoYawAnchorDeg = headYawDeg;
+            s.PrevHeadYawDeg = headYawDeg;
+            s.TorsoYawBroken = 0;
+            s.TorsoFollow = 0f;
+            s.TorsoYawInitialized = 1;
+        }
+
+        float headSpeedDeg = math.abs(DeltaAngleDeg(s.PrevHeadYawDeg, headYawDeg)) / math.max(dt, 1e-5f);
+        s.PrevHeadYawDeg = headYawDeg;
+
+        // Locomotion (keyboard / VR stick) re-aligns the torso to the head: engage follow so the body
+        // eases to the move/look direction, then the normal relock re-centers the cone there on stop.
+        if (moving)
+        {
+            s.TorsoYawBroken = 1;
+        }
+
+        if (s.TorsoYawBroken == 0 && math.abs(DeltaAngleDeg(s.TorsoYawAnchorDeg, headYawDeg)) > math.max(0f, deadzoneDeg))
+        {
+            s.TorsoYawBroken = 1;
+        }
+
+        float targetFollow = s.TorsoYawBroken != 0 ? 1f : 0f;
+        s.TorsoFollow = math.lerp(s.TorsoFollow, targetFollow, math.saturate(dt * math.max(0f, blendSpeed)));
+
+        // Re-center only once the blend has fully engaged, so swapping the anchor can't jump the
+        // blended target and bring back the click this easing removes.
+        if (s.TorsoYawBroken != 0 && s.TorsoFollow >= 0.999f && headSpeedDeg <= TorsoYawRelockSpeedDeg)
+        {
+            s.TorsoYawBroken = 0;
+            s.TorsoYawAnchorDeg = headYawDeg;
+        }
+
+        quaternion anchorYaw = quaternion.AxisAngle(new float3(0f, 1f, 0f), math.radians(s.TorsoYawAnchorDeg));
+        return math.slerp(anchorYaw, headYawOnly, s.TorsoFollow);
+    }
+
+    /// <summary>
+    /// Anatomy-aware hips XZ. Two layers:
+    ///   (1) Counterbalance: a low-pass head-XZ baseline approximates the user's body center.
+    ///       Hips sit at baseline + a small fraction of the head's deviation, so quick leans
+    ///       counter-balance (hips stay back) while sustained translations (walking) drag the
+    ///       baseline along and the hips follow.
+    ///   (2) Foot pendulum: if both feet are tracked, override with feet-midpoint + a small lean
+    ///       toward the head — closer to a real inverted-pendulum stance.
+    /// </summary>
+    private static float3 ComputeRealisticHipsXZBurst(ref SpineSolveState s, float3 headPosWorld, float dt, float3 leftFootPos, float3 rightFootPos, bool leftFootTracked, bool rightFootTracked)
+    {
+        float3 headXZ = new float3(headPosWorld.x, 0f, headPosWorld.z);
+
+        if (s.HeadBaselineInitialized == 0)
+        {
+            s.HeadBaselineXZ = headXZ;
+            s.HeadBaselineInitialized = 1;
+        }
+        else
+        {
+            // Frame-rate-coherent low-pass: alpha = 1 - exp(-2π·hz·dt).
+            float safeDt = math.max(dt, 1e-6f);
+            float alpha = 1f - math.exp(-2f * math.PI * HeadBaselineHz * safeDt);
+            s.HeadBaselineXZ = math.lerp(s.HeadBaselineXZ, headXZ, alpha);
+        }
+
+        if (leftFootTracked && rightFootTracked)
+        {
+            float3 feetMidXZ = new float3(
+                (leftFootPos.x + rightFootPos.x) * 0.5f,
+                0f,
+                (leftFootPos.z + rightFootPos.z) * 0.5f);
+            return math.lerp(feetMidXZ, headXZ, FootPendulumLeanFrac);
+        }
+
+        return math.lerp(s.HeadBaselineXZ, headXZ, CounterbalanceFollowFrac);
+    }
+
+    // Adds a configurable fraction of head pitch and roll on top of a yaw-only base rotation.
+    // Pitch and roll are extracted directly from the head's forward and right vectors instead of
+    // via euler angles — the Euler path gimbal-locks at look-straight-up/down and emits phantom
+    // ±180° "roll" values that, scaled by rollFrac, tilt the chest sideways into the body.
+    private static quaternion ApplyPitchRollCascadeBurst(in quaternion yawBase, in quaternion eyeRot, float pitchFrac, float rollFrac)
+    {
+        if (pitchFrac <= 0f && rollFrac <= 0f)
+        {
+            return yawBase;
+        }
+
+        float3 headFwd = math.mul(eyeRot, new float3(0f, 0f, 1f));
+        float3 headRight = math.mul(eyeRot, new float3(1f, 0f, 0f));
+
+        // Pitch: angle of the head's forward away from horizontal. Positive = looking down,
+        // matching Unity's Euler(x,0,0) sign convention so the round-trip is faithful.
+        float horizMag = math.sqrt(headFwd.x * headFwd.x + headFwd.z * headFwd.z);
+        float pitchDeg = math.degrees(math.atan2(-headFwd.y, horizMag));
+
+        // Roll: tilt of the head's right vector out of horizontal. Defined everywhere — at the
+        // look-straight-up pole, headRight stays in the horizontal plane (y=0), so roll = 0.
+        float rollDeg = math.degrees(math.asin(math.clamp(-headRight.y, -1f, 1f)));
+
+        quaternion swing = quaternion.EulerZXY(math.radians(new float3(pitchDeg * pitchFrac, 0f, rollDeg * rollFrac)));
+        return math.mul(yawBase, swing);
+    }
+
+    private static float DeltaAngleDeg(float current, float target)
+    {
+        float delta = target - current;
+        delta -= math.floor(delta / 360f) * 360f;
+        if (delta > 180f) delta -= 360f;
+        return delta;
     }
 
     // -----------------------------
@@ -500,50 +709,6 @@ public class BasisLocalVirtualSpineDriver
         result = new float3(desiredHipsXZ.x, hipsBase.y, desiredHipsXZ.z) + forwardBias;
     }
 
-    /// <summary>
-    /// Anatomy-aware hips XZ. Two layers:
-    ///   (1) Counterbalance: a low-pass head-XZ baseline approximates the user's body center.
-    ///       Hips sit at baseline + a small fraction of the head's deviation, so quick leans
-    ///       counter-balance (hips stay back) while sustained translations (walking) drag the
-    ///       baseline along and the hips follow.
-    ///   (2) Foot pendulum: if both feet are tracked, override with feet-midpoint + a small lean
-    ///       toward the head — closer to a real inverted-pendulum stance.
-    /// </summary>
-    private float3 ComputeRealisticHipsXZ(float3 headPosWorld, float dt)
-    {
-        float3 headXZ = new float3(headPosWorld.x, 0f, headPosWorld.z);
-
-        if (!_headBaselineInitialized)
-        {
-            _headBaselineXZ = headXZ;
-            _headBaselineInitialized = true;
-        }
-        else
-        {
-            // Frame-rate-coherent low-pass: alpha = 1 - exp(-2π·hz·dt).
-            float safeDt = math.max(dt, 1e-6f);
-            float alpha = 1f - math.exp(-2f * math.PI * HeadBaselineHz * safeDt);
-            _headBaselineXZ = math.lerp(_headBaselineXZ, headXZ, alpha);
-        }
-
-        var leftFoot = BasisLocalBoneDriver.LeftFootControl;
-        var rightFoot = BasisLocalBoneDriver.RightFootControl;
-        bool leftFootTracked = leftFoot != null && leftFoot.HasTracked == BasisHasTracked.HasTracker;
-        bool rightFootTracked = rightFoot != null && rightFoot.HasTracked == BasisHasTracked.HasTracker;
-        if (leftFootTracked && rightFootTracked)
-        {
-            float3 leftFootPos = leftFoot.OutGoingData.position;
-            float3 rightFootPos = rightFoot.OutGoingData.position;
-            float3 feetMidXZ = new float3(
-                (leftFootPos.x + rightFootPos.x) * 0.5f,
-                0f,
-                (leftFootPos.z + rightFootPos.z) * 0.5f);
-            return math.lerp(feetMidXZ, headXZ, FootPendulumLeanFrac);
-        }
-
-        return math.lerp(_headBaselineXZ, headXZ, CounterbalanceFollowFrac);
-    }
-
     [BurstCompile]
     private static void ComputeChainPlacement(
         in float3 neckPos,
@@ -561,5 +726,12 @@ public class BasisLocalVirtualSpineDriver
         spinePos = math.lerp(neckPos, hipsPos, tSpine);
         chestYawTarget = math.slerp(neckYaw, hipsYaw, tChest);
         spineYawTarget = math.slerp(neckYaw, hipsYaw, tSpine);
+    }
+
+    [BurstCompile]
+    private static void YawDegrees(in quaternion yawOnly, out float result)
+    {
+        float3 f = math.mul(yawOnly, new float3(0f, 0f, 1f));
+        result = math.degrees(math.atan2(f.x, f.z));
     }
 }

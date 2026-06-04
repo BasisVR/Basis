@@ -83,8 +83,7 @@ public abstract class BasisInputController : BasisInput
     {
         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
         {
-            Control.IncomingData.position = Position;
-            Control.IncomingData.rotation = Rotation;
+            Control.SetIncoming(Position, Rotation);
         }
     }
     public Vector3 ChangeHandYHeight(Vector3 position)

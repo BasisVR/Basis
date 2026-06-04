@@ -72,6 +72,7 @@ namespace Basis.Scripts.BasisSdk
         public BasisComponentKind[] Kinds;
         public List<Renderer> Renderers;
         public List<SkinnedMeshRenderer> SkinnedMeshRenderers;
+        public List<BasisAuthoredMotion> AuthoredMotions;
 
         /// <summary>
         /// Maps a component to its <see cref="BasisComponentKind"/>. Single source of truth for the
@@ -149,6 +150,7 @@ namespace Basis.Scripts.BasisSdk
                 Kinds = new BasisComponentKind[count],
                 Renderers = new List<Renderer>(),
                 SkinnedMeshRenderers = new List<SkinnedMeshRenderer>(),
+                AuthoredMotions = new List<BasisAuthoredMotion>(),
             };
             for (int i = 0; i < count; i++)
             {
@@ -161,6 +163,10 @@ namespace Basis.Scripts.BasisSdk
                     {
                         harvest.SkinnedMeshRenderers.Add(skinned);
                     }
+                }
+                if (component is BasisAuthoredMotion authored)
+                {
+                    harvest.AuthoredMotions.Add(authored);
                 }
             }
             return harvest;

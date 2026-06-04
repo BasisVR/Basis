@@ -108,6 +108,9 @@ namespace Basis.Scripts.Profiler
 
         public static void Update()
         {
+            // Skip the per-frame sampling unless the profiler is actually recording.
+            if (!UnityEngine.Profiling.Profiler.enabled) return;
+
             SampleAndReset(AudioSegmentDataMessageCounter, BasisNetworkProfilerCounter.AudioSegmentData);
             SampleAndReset(AuthenticationMessageCounter, BasisNetworkProfilerCounter.Authentication);
             SampleAndReset(AvatarDataMessageCounter, BasisNetworkProfilerCounter.AvatarDataMessage);

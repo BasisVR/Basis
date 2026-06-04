@@ -261,6 +261,8 @@
     { "key": "sdk.authoredMotion.field.keyframes.tooltip", "value": "Inline pose-delta timeline for short motion. Ignored when a Baked Clip is assigned." },
     { "key": "sdk.authoredMotion.field.loop.label", "value": "Loop" },
     { "key": "sdk.authoredMotion.field.loop.tooltip", "value": "Loop the sequence, or play it once." },
+    { "key": "sdk.authoredMotion.field.sequenceSpeed.label", "value": "Speed" },
+    { "key": "sdk.authoredMotion.field.sequenceSpeed.tooltip", "value": "Playback rate multiplier for the baked clip. 1 plays at authored speed, 2 plays twice as fast, 0.5 half speed; negative values play in reverse." },
 
     { "key": "sdk.buildReport.window.title", "value": "Basis Build Report Viewer" },
     { "key": "sdk.buildReport.window.tabTitle", "value": "Basis Bundle Report" },

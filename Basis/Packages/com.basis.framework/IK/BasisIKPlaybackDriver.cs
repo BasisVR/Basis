@@ -5,6 +5,7 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Simulation;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Animations;
@@ -260,8 +261,10 @@ public class BasisIKPlaybackDriver : MonoBehaviour
 
         // Find or create the simulation manager
         BasisSimulateXR simulator = null;
-        foreach (var bt in BasisDeviceManagement.Instance.BaseTypes)
+        var Instance = BasisDeviceManagement.Instance;
+        for (int Index = 0; Index < Instance.BaseTypes.Length; Index++)
         {
+            BasisBaseTypeManagement bt = Instance.BaseTypes[Index];
             if (bt is BasisSimulateXR sim)
             {
                 simulator = sim;
@@ -275,7 +278,10 @@ public class BasisIKPlaybackDriver : MonoBehaviour
             GameObject simGO = new GameObject("IKPlayback_SimulateXR");
             simGO.hideFlags = HideFlags.HideAndDontSave;
             simulator = simGO.AddComponent<BasisSimulateXR>();
-            BasisDeviceManagement.Instance.BaseTypes.Add(simulator);
+            var oldArray = Instance.BaseTypes;
+            Array.Resize(ref oldArray, oldArray.Length + 1);
+            oldArray[^1] = simulator;
+            Instance.BaseTypes = oldArray;
         }
 
         foreach (var (bone, role, group) in BoneRoleMap)

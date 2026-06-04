@@ -1,59 +1,57 @@
 using Basis.Scripts.Common;
+using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
-using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
 
 namespace Basis.Scripts.TransformBinders.BoneControl
 {
     /// <summary>
-    /// Computes local and world-space bone transforms for the local avatar.
-    /// Supports tracking-driven motion (with optional inverse offset), or
-    /// virtual motion that lerps toward a target bone when tracking is absent.
+    /// Handle to a single local-avatar bone. The per-frame pose lives in the owning
+    /// <see cref="BasisLocalBoneDriver"/>'s native store (indexed by <see cref="Index"/>);
+    /// this type exposes it through get-properties / setters plus the managed-only
+    /// metadata (name, target, calibration, events) the jobs don't touch. Store access goes
+    /// through the owner's cached raw pointers to skip the NativeArray indexer's safety overhead.
     /// </summary>
     [Serializable]
-    [BurstCompile]
     public class BasisLocalBoneControl
     {
         /// <summary>Angle (degrees) after which rotation interpolation speeds up.</summary>
-        public static readonly float AngleBeforeSpeedup = 25f;
+        public const float AngleBeforeSpeedup = 25f;
 
         /// <summary>Smoothing factor for tracker-driven motion (position/rotation).</summary>
-        public static readonly float trackersmooth = 25;
+        public const float trackersmooth = 25;
 
         /// <summary>Base interpolation rate for quaternions (per second).</summary>
-        public static readonly float QuaternionLerp = 14;
+        public const float QuaternionLerp = 14;
 
         /// <summary>Fast interpolation rate used when angular delta exceeds threshold.</summary>
-        public static readonly float QuaternionLerpFastMovement = 56;
+        public const float QuaternionLerpFastMovement = 56;
 
         /// <summary>Base interpolation rate for positions (per second).</summary>
-        public static float PositionLerpAmount = 40;
+        public const float PositionLerpAmount = 40;
 
         /// <summary>Indicates whether any global events have been wired (if applicable).</summary>
         public static bool HasEvents { get; internal set; }
 
+        /// <summary>Owning driver whose native store backs this bone's pose.</summary>
+        [NonSerialized] internal BasisLocalBoneDriver Owner;
+
+        /// <summary>Index of this bone within the owner's store and Controls array.</summary>
+        [NonSerialized] internal int Index;
+
         /// <summary>Debug/display name for this bone control.</summary>
         [SerializeField] public string name;
 
-        /// <summary>Optional target bone used when tracking is absent.</summary>
-        [NonSerialized] public BasisLocalBoneControl Target;
+        /// <summary>Index (in the owner's Controls/store) of the optional target bone used when tracking is absent; -1 if none.</summary>
+        [NonSerialized] public int TargetIndex = -1;
 
-        /// <summary>True if a valid <see cref="Target"/> has been assigned.</summary>
-        public bool HasTarget { get { return Target != null; } }
+        /// <summary>True if a valid <see cref="TargetIndex"/> has been assigned.</summary>
+        public bool HasTarget { get { return TargetIndex >= 0; } }
 
         /// <summary>Local-space offset applied relative to the target bone.</summary>
         public float3 Offset;
-
-        /// <summary>Scaled version of <see cref="Offset"/> (e.g., scaled by avatar height).</summary>
-        public float3 ScaledOffset;
-
-        /// <summary>True if a virtual override is driving this bone instead of tracking.</summary>
-        public bool HasVirtualOverride;
-
-        /// <summary>When true, applies the inverse offset from the bone on incoming data.</summary>
-        public bool UseInverseOffset;
 
         /// <summary>Editor/debug color for visualization.</summary>
         [SerializeField] public Color Color = Color.blue;
@@ -64,11 +62,113 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         [SerializeField] private BasisHasTracked hasTrackerDriver = BasisHasTracked.HasNoTracker;
 
         public List<string> DevicesWithRoles = new List<string>();
+
+        /// <summary>Raised when <see cref="HasRigLayer"/> changes.</summary>
+        public Action<bool> OnHasRigChanged;
+
+        [SerializeField] private BasisHasRigLayer hasRigLayer = BasisHasRigLayer.HasNoRigLayer;
+
+        /// <summary>T-pose local-space reference (calibration data, not job-accessed).</summary>
+        [SerializeField] public BasisCalibratedCoords TposeLocal = new BasisCalibratedCoords();
+
+        /// <summary>Scaled T-pose local-space reference (calibration data, not job-accessed).</summary>
+        [SerializeField] public BasisCalibratedCoords TposeLocalScaled = new BasisCalibratedCoords();
+
+        // ===== Native-backed pose: lives in Owner's store at Index, reached via raw pointer =====
+
+        /// <summary>Incoming (tracker or virtual) local-space pose.</summary>
+        public unsafe BasisCalibratedCoords IncomingData
+        {
+            get
+            {
+                if (Owner == null) return BasisCalibratedCoords.Identity;
+                ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
+                return new BasisCalibratedCoords(i.IncomingPosition, i.IncomingRotation);
+            }
+        }
+
+        /// <summary>Outgoing local-space pose after processing.</summary>
+        public unsafe BasisCalibratedCoords OutGoingData
+        {
+            get
+            {
+                if (Owner == null) return BasisCalibratedCoords.Identity;
+                ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+                return new BasisCalibratedCoords(s.OutgoingPosition, s.OutgoingRotation);
+            }
+        }
+
+        /// <summary>Outgoing world-space pose after applying parent transform.</summary>
+        public unsafe BasisCalibratedCoords OutgoingWorldData
+        {
+            get
+            {
+                if (Owner == null) return BasisCalibratedCoords.Identity;
+                ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+                return new BasisCalibratedCoords(s.OutgoingWorldPosition, s.OutgoingWorldRotation);
+            }
+        }
+
+        /// <summary>Pose from the previous compute step (local space).</summary>
+        public unsafe BasisCalibratedCoords LastRunData
+        {
+            get
+            {
+                if (Owner == null) return BasisCalibratedCoords.Identity;
+                ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+                return new BasisCalibratedCoords(s.LastRunPosition, s.LastRunRotation);
+            }
+        }
+
+        /// <summary>Inverse offset from the bone used when <see cref="UseInverseOffset"/> is true.</summary>
+        public unsafe BasisCalibratedCoords InverseOffsetFromBone
+        {
+            get
+            {
+                if (Owner == null) return BasisCalibratedCoords.Identity;
+                ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
+                return new BasisCalibratedCoords(i.InverseOffsetPosition, i.InverseOffsetRotation);
+            }
+        }
+
+        /// <summary>Scaled version of <see cref="Offset"/> (e.g., scaled by avatar height).</summary>
+        public unsafe float3 ScaledOffset
+        {
+            get => Owner == null ? float3.zero : Owner._simInputsPtr[Index].ScaledOffset;
+            set
+            {
+                if (Owner == null) return;
+                Owner._simInputsPtr[Index].ScaledOffset = value;
+            }
+        }
+
+        /// <summary>True if a virtual override is driving this bone instead of tracking.</summary>
+        public unsafe bool HasVirtualOverride
+        {
+            get => Owner != null && Owner._simInputsPtr[Index].HasVirtualOverride != 0;
+            set
+            {
+                if (Owner == null) return;
+                Owner._simInputsPtr[Index].HasVirtualOverride = value ? (byte)1 : (byte)0;
+            }
+        }
+
+        /// <summary>When true, applies the inverse offset from the bone on incoming data.</summary>
+        public unsafe bool UseInverseOffset
+        {
+            get => Owner != null && Owner._simInputsPtr[Index].UseInverseOffset != 0;
+            set
+            {
+                if (Owner == null) return;
+                Owner._simInputsPtr[Index].UseInverseOffset = value ? (byte)1 : (byte)0;
+            }
+        }
+
         /// <summary>
         /// Indicates whether this bone currently has tracker input.
-        /// Invokes <see cref="OnHasTrackerDriverChanged"/> when changed.
+        /// Invokes <see cref="OnHasTrackerDriverChanged"/> and syncs the store flag when changed.
         /// </summary>
-        public BasisHasTracked HasTracked
+        public unsafe BasisHasTracked HasTracked
         {
             get => hasTrackerDriver;
             set
@@ -76,15 +176,14 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 if (hasTrackerDriver != value)
                 {
                     hasTrackerDriver = value;
+                    if (Owner != null)
+                    {
+                        Owner._simInputsPtr[Index].HasTracker = (value == BasisHasTracked.HasTracker) ? (byte)1 : (byte)0;
+                    }
                     OnHasTrackerDriverChanged?.Invoke(value);
                 }
             }
         }
-
-        /// <summary>Raised when <see cref="HasRigLayer"/> changes.</summary>
-        public Action<bool> OnHasRigChanged;
-
-        [SerializeField] private BasisHasRigLayer hasRigLayer = BasisHasRigLayer.HasNoRigLayer;
 
         /// <summary>
         /// Indicates whether this bone participates in a rig layer.
@@ -103,132 +202,65 @@ namespace Basis.Scripts.TransformBinders.BoneControl
             }
         }
 
-        /// <summary>Incoming (tracker or virtual) local-space pose.</summary>
-        [SerializeField] public BasisCalibratedCoords IncomingData = new BasisCalibratedCoords();
+        // ===== Setters: single write path, in-place into the store via ref =====
 
-        /// <summary>Outgoing local-space pose after processing.</summary>
-        [SerializeField] public BasisCalibratedCoords OutGoingData = new BasisCalibratedCoords();
-
-        /// <summary>Outgoing world-space pose after applying parent transform.</summary>
-        [SerializeField] public BasisCalibratedCoords OutgoingWorldData = new BasisCalibratedCoords();
-
-        /// <summary>Pose from the previous compute step (local space).</summary>
-        [SerializeField] public BasisCalibratedCoords LastRunData = new BasisCalibratedCoords();
-
-        /// <summary>Inverse offset from the bone used when <see cref="UseInverseOffset"/> is true.</summary>
-        [SerializeField] public BasisCalibratedCoords InverseOffsetFromBone = new BasisCalibratedCoords();
-
-        /// <summary>T-pose local-space reference.</summary>
-        [SerializeField] public BasisCalibratedCoords TposeLocal = new BasisCalibratedCoords();
-
-        /// <summary>Scaled T-pose local-space reference (e.g., by avatar height change).</summary>
-        [SerializeField] public BasisCalibratedCoords TposeLocalScaled = new BasisCalibratedCoords();
-
-        /// <summary>
-        /// Computes the outgoing local and world pose for this bone.
-        /// If tracking is present, copies (or offset-corrects) incoming data; otherwise,
-        /// lerps toward the <see cref="Target"/> plus <see cref="ScaledOffset"/>.
-        /// </summary>
-        /// <param name="parentMatrix">Parent transform matrix for world conversion.</param>
-        /// <param name="DeltaTime">Frame delta time (unscaled).</param>
-        public void ComputeMovementLocal(Matrix4x4 parentMatrix, float DeltaTime)
+        public unsafe void SetIncoming(Vector3 position, Quaternion rotation)
         {
-            if (hasTrackerDriver == BasisHasTracked.HasTracker)
-            {
-                if (UseInverseOffset)
-                {
-                    Vector3 DestinationPosition = IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position;
-                    Quaternion DestinationRotation = IncomingData.rotation * InverseOffsetFromBone.rotation;
-
-                    // Smooth toward destination
-                    OutGoingData.position = Vector3.Lerp(LastRunData.position, DestinationPosition, trackersmooth);
-                    OutGoingData.rotation = Quaternion.Slerp(LastRunData.rotation, DestinationRotation, trackersmooth);
-                }
-                else
-                {
-                    // Directly use the incoming tracker pose
-                    OutGoingData.rotation = IncomingData.rotation;
-                    OutGoingData.position = IncomingData.position;
-                }
-
-                ApplyWorldAndLast(parentMatrix);
-            }
-            else
-            {
-                if (!HasVirtualOverride && HasTarget)
-                {
-                    OutGoingData.rotation = ApplyLerpToQuaternion(DeltaTime, LastRunData.rotation, Target.OutGoingData.rotation);
-
-                    // Offset relative to target’s rotation
-                    Vector3 customDirection = Target.OutGoingData.rotation * ScaledOffset;
-                    Vector3 targetPosition = Target.OutGoingData.position + customDirection;
-
-                    float lerpFactor = ClampInterpolationFactor(PositionLerpAmount, DeltaTime);
-                    OutGoingData.position = Vector3.Lerp(LastRunData.position, targetPosition, lerpFactor);
-
-                    ApplyWorldAndLast(parentMatrix);
-                }
-            }
+            ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
+            i.IncomingPosition = position;
+            i.IncomingRotation = rotation;
         }
 
-        /// <summary>
-        /// Interpolates between two rotations using a speed that increases with angular difference.
-        /// </summary>
-        /// <param name="DeltaTime">Frame delta time.</param>
-        /// <param name="CurrentRotation">Current rotation.</param>
-        /// <param name="FutureRotation">Target rotation.</param>
-        /// <returns>Interpolated rotation.</returns>
-        public Quaternion ApplyLerpToQuaternion(float DeltaTime, Quaternion CurrentRotation, Quaternion FutureRotation)
+        public unsafe void SetOutgoing(Vector3 position, Quaternion rotation)
         {
-            // Dot product ≈ cosine of half-angle; detects similarity
-            float dotProduct = math.dot(CurrentRotation, FutureRotation);
-
-            // Early-outs for near-identical rotations
-            if (dotProduct > 0.999999f)
-            {
-                return FutureRotation;
-            }
-
-            float angleDifference = math.acos(math.clamp(dotProduct, -1f, 1f));
-            if (angleDifference < math.EPSILON)
-            {
-                return FutureRotation;
-            }
-
-            // Blend rate between normal and fast movement using normalized angle fraction
-            float lerpAmountNormal = QuaternionLerp;
-            float timing = math.min(angleDifference / AngleBeforeSpeedup, 1f);
-            float lerpAmount = lerpAmountNormal + (QuaternionLerpFastMovement - lerpAmountNormal) * timing;
-
-            // Frame-rate-independent factor
-            float lerpFactor = ClampInterpolationFactor(lerpAmount, DeltaTime);
-
-            return math.slerp(CurrentRotation, FutureRotation, lerpFactor);
+            ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+            s.OutgoingPosition = position;
+            s.OutgoingRotation = rotation;
         }
 
-        /// <summary>
-        /// Converts a per-second interpolation rate into a clamped [0,1] fraction.
-        /// </summary>
-        /// <param name="lerpAmount">Interpolation rate (per second).</param>
-        /// <param name="DeltaTime">Frame delta time.</param>
-        /// <returns>Clamped interpolation factor in [0,1].</returns>
-        private float ClampInterpolationFactor(float lerpAmount, float DeltaTime)
+        public unsafe void SetOutgoingWorld(Vector3 position, Quaternion rotation)
         {
-            return math.clamp(lerpAmount * DeltaTime, 0f, 1f);
+            ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+            s.OutgoingWorldPosition = position;
+            s.OutgoingWorldRotation = rotation;
         }
 
-        /// <summary>
-        /// Writes <see cref="OutGoingData"/> to <see cref="LastRunData"/>,
-        /// computes world-space pose into <see cref="OutgoingWorldData"/> using <paramref name="parentMatrix"/>.
-        /// </summary>
-        /// <param name="parentMatrix">Parent transform matrix.</param>
-        public void ApplyWorldAndLast(Matrix4x4 parentMatrix)
+        public unsafe void SetOutgoingWorldPosition(Vector3 position)
         {
-            LastRunData.position = OutGoingData.position;
-            LastRunData.rotation = OutGoingData.rotation;
+            Owner._simStatesPtr[Index].OutgoingWorldPosition = position;
+        }
 
-            OutgoingWorldData.position = parentMatrix.MultiplyPoint3x4(OutGoingData.position);
-            OutgoingWorldData.rotation = parentMatrix.rotation * OutGoingData.rotation;
+        public unsafe void SetLastRun(Vector3 position, Quaternion rotation)
+        {
+            ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+            s.LastRunPosition = position;
+            s.LastRunRotation = rotation;
+        }
+
+        public unsafe void SetInverseOffset(Vector3 position, Quaternion rotation)
+        {
+            ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
+            i.InverseOffsetPosition = position;
+            i.InverseOffsetRotation = rotation;
+        }
+
+        public unsafe void SetInverseOffset(in BasisCalibratedCoords value)
+        {
+            ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
+            i.InverseOffsetPosition = value.position;
+            i.InverseOffsetRotation = value.rotation;
+        }
+
+        public void SetTposeLocal(Vector3 position, Quaternion rotation)
+        {
+            TposeLocal.position = position;
+            TposeLocal.rotation = rotation;
+        }
+
+        public void SetTposeScaled(Vector3 position, Quaternion rotation)
+        {
+            TposeLocalScaled.position = position;
+            TposeLocalScaled.rotation = rotation;
         }
     }
 }

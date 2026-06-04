@@ -78,6 +78,7 @@ public class BasisAuthoredMotion : MonoBehaviour
         public Keyframe[] keyframes = Array.Empty<Keyframe>();
         public BasisMotionClip bakedClip; // shared baked curves; null when using inline keyframes
         public bool loop = true;
+        public float sequenceSpeed = 1f; // playback rate multiplier (1 = authored speed); negative plays in reverse
 
         // Noise — simplex drift on `channel` about `axis`; reuses amplitude / chain / chainFalloff / seed; `noiseSpeed` = sample rate.
         public float noiseSpeed = 0.5f;

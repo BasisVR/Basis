@@ -1134,8 +1134,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             Vector3 offset = useMagicNumberHandOffset * BasisHeightDriver.ScaledToMatchValue;
 
-            hand.IncomingData.position = eye.IncomingData.position + eye.IncomingData.rotation * offset;
-            hand.IncomingData.rotation = eye.IncomingData.rotation * useMagicNumberHandRotation;
+            hand.SetIncoming(
+                eye.IncomingData.position + eye.IncomingData.rotation * offset,
+                eye.IncomingData.rotation * useMagicNumberHandRotation);
         }
 
         private void UpdateDominantHandValues()

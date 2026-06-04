@@ -37,6 +37,7 @@ public partial class BasisProjectSetup : EditorWindow
     private const string FOLD_PQ_APPLY = "Basis_Fold_PQ_Apply";
     private const string FOLD_PLAY_KEYS = "Basis_Fold_PLAY_Keys";
     private const string FOLD_PLAY_CONTROL = "Basis_Fold_PLAY_Control";
+    private const string FOLD_PLAY_LEAK = "Basis_Fold_PLAY_Leak";
     private const string FOLD_DOCS_INLINE = "Basis_Fold_DOCS_Inline";
     private const string FOLD_SCENES_LIST = "Basis_Fold_SCENES_List";
     private const string FOLD_ABOUT_INFO = "Basis_Fold_ABOUT_Info";
@@ -486,6 +487,22 @@ public partial class BasisProjectSetup : EditorWindow
                     }
                 }
             }
+        });
+
+        FoldoutBox(Tr("projectSetup.playXR.leakFoldout", "Diagnostics — Job Leak Detection"), FOLD_PLAY_LEAK, () =>
+        {
+            bool enabled = BasisLeakDetectionDefault.Enabled;
+            bool next = EditorGUILayout.ToggleLeft(
+                Tr("projectSetup.playXR.leakToggle", "Force Job Leak Detection (with stack traces) on editor startup"),
+                enabled);
+            if (next != enabled) BasisLeakDetectionDefault.Enabled = next;
+
+            EditorGUILayout.HelpBox(
+                Tr("projectSetup.playXR.leakHelp",
+                    "Unity resets Jobs ▶ Leak Detection to a lower level every time the editor restarts. " +
+                    "While this is on, Basis re-applies “Enabled With Stack Trace” on each editor load so native/job " +
+                    "leaks keep reporting full stack traces. Turn it off to disable leak detection (no overhead)."),
+                MessageType.None);
         });
     }
 

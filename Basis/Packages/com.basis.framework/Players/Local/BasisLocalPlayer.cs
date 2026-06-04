@@ -471,9 +471,6 @@ namespace Basis.Scripts.BasisSdk.Players
             // Simulate Final Destination of IK then process Animator and IK processes.
             LocalRigDriver.SimulateIKDestinations(DeltaTime);
 
-            // update WorldPosition in BoneDriver so AfterSimulateOnLate can use world coords
-            LocalBoneDriver.SimulateWorldDestinations(localToWorldMatrix);
-
             // Apply Animator Weights using most current data and outside movement effectors.
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 

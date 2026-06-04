@@ -139,10 +139,13 @@ namespace Basis.Scripts.Drivers
             }
 
             // Register authored motion (drives non-humanoid transforms the bone job / IK don't touch); rest captured at the current TPose.
-            var authoredMotions = RemotePlayer.BasisAvatar.GetComponentsInChildren<BasisAuthoredMotion>(true);
-            for (int i = 0; i < authoredMotions.Length; i++)
+            var authoredMotions = RemotePlayer.BasisAvatar.AuthoredMotions;
+            if (authoredMotions != null)
             {
-                BasisAuthoredMotionSystem.Register(authoredMotions[i]);
+                for (int i = 0; i < authoredMotions.Length; i++)
+                {
+                    BasisAuthoredMotionSystem.Register(authoredMotions[i]);
+                }
             }
 
             // Face visibility setup
@@ -206,6 +209,12 @@ namespace Basis.Scripts.Drivers
                 tposeHipsLocalPos = float3.zero;
                 tposeHipsLocalRot = quaternion.identity;
             }
+            // Initialize this player's interpolation slot before registering it with the bone
+            // job system. The bone Schedule reads _filtered*[playerId] earlier in LateUpdate than
+            // BeginWrite's lazy init runs (LateUpdate tail), so a cached/fallback avatar that
+            // calibrates within a frame of joining would otherwise be read from uninitialized
+            // memory and pose as NaN.
+            BasisRemoteNetworkDriver.EnsureSlotInitialized(receiver.playerId);
             RemoteBoneJobSystem.AddRemotePlayer(
                 key: receiver.playerId,
                 remotePlayerRoot: animatorRoot,

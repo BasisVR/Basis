@@ -131,6 +131,7 @@ public class BasisAuthoredMotionEditor : Editor
                     Field(mv, "bakedClip", "bakedClip");
                     Field(mv, "sequenceRoot", "sequenceRoot");
                     Field(mv, "loop", "loop");
+                    Field(mv, "sequenceSpeed", "sequenceSpeed");
                     break;
             }
 

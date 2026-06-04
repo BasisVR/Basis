@@ -160,7 +160,7 @@ namespace Basis.Scripts.Device_Management
         /// <summary>
         /// Registered device SDK managers capable of booting into given modes (Desktop/XR/etc.).
         /// </summary>
-        [SerializeField] public List<BasisBaseTypeManagement> BaseTypes = new();
+        [SerializeField] public BasisBaseTypeManagement[] BaseTypes;
 
         /// <summary>
         /// Helpers that constrain transforms to input devices.
@@ -264,14 +264,11 @@ namespace Basis.Scripts.Device_Management
         public void Simulate()
         {
             OnDeviceManagementLoop?.Invoke();
-            int Count = BaseTypes.Count;
+            int Count = BaseTypes.Length;
             for (int Index = 0; Index < Count; Index++)
             {
-                BasisBaseTypeManagement Sim = BaseTypes[Index];
-                if (Sim != null)
-                {
-                    Sim.Simulate();
-                }
+               BaseTypes[Index].Simulate();
+                //if a null happens here thats a failure of how you added / removed something
             }
         }
 
@@ -450,7 +447,8 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         public void StopAllDevices()
         {
-            for (int i = 0; i < BaseTypes.Count; i++)
+           var length = BaseTypes.Length;
+            for (int i = 0; i < length; i++)
             {
                 BaseTypes[i]?.AttemptStopSDK();
             }
@@ -477,7 +475,8 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         public void StartAllStartIfPermanentlyExists()
         {
-            for (int i = 0; i < BaseTypes.Count; i++)
+            var length = BaseTypes.Length;
+            for (int i = 0; i < length; i++)
             {
                 BaseTypes[i]?.StartIfPermanentlyExists();
             }
@@ -507,9 +506,13 @@ namespace Basis.Scripts.Device_Management
         public bool TryFindBasisBaseTypeManagement(string name, out List<BasisBaseTypeManagement> match, bool OnlyFinding = false)
         {
             match = new List<BasisBaseTypeManagement>();
-            if (string.IsNullOrEmpty(name) || BaseTypes == null) return false;
+            if (string.IsNullOrEmpty(name) || BaseTypes == null)
+            {
+                return false;
+            }
 
-            for (int i = 0; i < BaseTypes.Count; i++)
+            var length = BaseTypes.Length;
+            for (int i = 0; i < length; i++)
             {
                 var type = BaseTypes[i];
                 if (type != null && type.AttemptIsDeviceBootable(name, OnlyFinding))
@@ -588,7 +591,7 @@ namespace Basis.Scripts.Device_Management
                 }
                 if (prev.hasRoleAssigned)
                 {
-                    input.Control.InverseOffsetFromBone = prev.InverseOffsetFromBone;
+                    input.Control.SetInverseOffset(prev.InverseOffsetFromBone);
                 }
                 if (input.HasControl)
                 {
@@ -888,8 +891,9 @@ namespace Basis.Scripts.Device_Management
 
             BasisDebug.Log($"Soft-switching from {AutoSwapPreviousVRMode} to Desktop (keeping runtime alive)", BasisDebug.LogTag.Device);
 
+            var length = BaseTypes.Length;
             // Soft-stop VR input devices — runtime stays alive
-            for (int i = 0; i < BaseTypes.Count; i++)
+            for (int i = 0; i < length; i++)
             {
                 var bt = BaseTypes[i];
                 if (bt != null && bt.IsDeviceBooted && bt.IsDeviceBootable(AutoSwapPreviousVRMode))
@@ -925,8 +929,9 @@ namespace Basis.Scripts.Device_Management
 
             BasisDebug.Log($"Soft-switching from Desktop back to {vrMode}", BasisDebug.LogTag.Device);
 
+            var length = BaseTypes.Length;
             // Stop desktop devices normally
-            for (int i = 0; i < BaseTypes.Count; i++)
+            for (int i = 0; i < length; i++)
             {
                 var bt = BaseTypes[i];
                 if (bt != null && bt.IsDeviceBooted && bt.IsDeviceBootable(BasisConstants.Desktop))
@@ -941,7 +946,7 @@ namespace Basis.Scripts.Device_Management
             BasisCursorManagement.OnReset();
 
             // Soft-start VR input devices — runtime is already alive
-            for (int i = 0; i < BaseTypes.Count; i++)
+            for (int i = 0; i < length; i++)
             {
                 var bt = BaseTypes[i];
                 if (bt != null && bt.IsDeviceBooted && bt.IsDeviceBootable(vrMode))

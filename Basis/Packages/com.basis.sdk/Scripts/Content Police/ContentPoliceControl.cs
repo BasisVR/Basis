@@ -49,6 +49,7 @@ public static class ContentPoliceControl
                 // so shader prewarm runs without paying for a second GetComponentsInChildren.
                 List<Renderer> renderersForPrewarm = new List<Renderer>();
                 List<SkinnedMeshRenderer> skinnedForHarvest = harvest != null ? new List<SkinnedMeshRenderer>() : null;
+                List<BasisAuthoredMotion> authoredForHarvest = harvest != null ? new List<BasisAuthoredMotion>() : null;
                 BasisComponentKind[] kinds = harvest != null ? new BasisComponentKind[count] : null;
 
                 // BasisHeadChop is harvested during this walk so the local avatar driver
@@ -76,6 +77,9 @@ public static class ContentPoliceControl
                             }
                             GameObject.DestroyImmediate(headChop);
                             if (kinds != null) kinds[Index] = BasisComponentKind.Removed;
+                            break;
+                        case BasisAuthoredMotion authoredMotion:
+                            authoredForHarvest?.Add(authoredMotion);
                             break;
                         case Animator animator:
                             // AnimationEvents dispatch via SendMessage(methodName, arg),
@@ -172,6 +176,7 @@ public static class ContentPoliceControl
                     harvest.Kinds = kinds;
                     harvest.Renderers = renderersForPrewarm;
                     harvest.SkinnedMeshRenderers = skinnedForHarvest;
+                    harvest.AuthoredMotions = authoredForHarvest;
                 }
 
                 if (MaterialCorrectionEnabled)

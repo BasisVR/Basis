@@ -529,17 +529,6 @@ namespace Basis.Scripts.BasisSdk.Players
 
             OnRemotePlayerDestroying?.Invoke();
 
-            // Unregister authored motion while the avatar transforms are still alive, so the
-            // TransformAccessArray entries drop cleanly before Unity destroys them.
-            if (BasisAvatar != null)
-            {
-                var authoredMotions = BasisAvatar.GetComponentsInChildren<BasisAuthoredMotion>(true);
-                for (int i = 0; i < authoredMotions.Length; i++)
-                {
-                    BasisAuthoredMotionSystem.Unregister(authoredMotions[i]);
-                }
-            }
-
             RemoveFromBoneDriver();
         }
 

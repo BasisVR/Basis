@@ -182,8 +182,7 @@ public static class BasisHeightDriver
         {
             BasisLocalBoneControl c = boneDriver.Controls[Index];
 
-            c.TposeLocalScaled.position = c.TposeLocal.position * ScaleFactor;
-            c.TposeLocalScaled.rotation = c.TposeLocal.rotation;
+            c.SetTposeScaled(c.TposeLocal.position * ScaleFactor, c.TposeLocal.rotation);
             c.ScaledOffset = c.Offset * ScaleFactor;
         }
     }

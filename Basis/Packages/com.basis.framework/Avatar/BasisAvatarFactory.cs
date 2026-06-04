@@ -417,6 +417,9 @@ namespace Basis.Scripts.Avatar
                 ? loadHarvest.Renderers.ToArray()
                 : avatar.GetComponentsInChildren<Renderer>(true);
             Player.BasisAvatar.SkinnedMeshRenderers = loadHarvest.SkinnedMeshRenderers?.ToArray();
+            Player.BasisAvatar.AuthoredMotions = loadHarvest.AuthoredMotions != null
+                ? loadHarvest.AuthoredMotions.ToArray()
+                : avatar.GetComponentsInChildren<BasisAuthoredMotion>(true);
             avatar.Harvest = null;
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
 

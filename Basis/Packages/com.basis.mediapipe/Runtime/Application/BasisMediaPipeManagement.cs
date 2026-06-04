@@ -156,6 +156,7 @@ namespace Basis.MediaPipe
 
             BasisLocalPlayer.OnLocalAvatarChanged -= HandleAvatarChanged;
             BasisLocalPlayer.OnLocalAvatarChanged += HandleAvatarChanged;
+            IsDeviceBooted = true;
         }
 
         private void HandleAvatarChanged() => CalibrateHead();
@@ -180,17 +181,19 @@ namespace Basis.MediaPipe
             _backend?.Shutdown();
             _backend = null;
             _hasLatest = false;
+            IsDeviceBooted = false;
         }
 
         public override void Simulate()
         {
+            if(IsDeviceBooted == false)
+            {
+                return;
+            }
             if (_backend == null || !_backend.IsAvailable)
             {
                 return;
             }
-
-            if (BasisLocalPlayer.Instance == null) return;
-
             if (_camera.IsReady)
             {
                 _backend.SubmitFrame(_camera.Texture, Time.realtimeSinceStartupAsDouble * 1000.0);

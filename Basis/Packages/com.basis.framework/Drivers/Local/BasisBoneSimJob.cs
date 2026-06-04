@@ -1,3 +1,4 @@
+using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -65,15 +66,13 @@ namespace Basis.Scripts.Drivers
         public quaternion ParentRotation;
         public float DeltaTime;
 
-        public float TrackerSmooth;
-        public float QuaternionLerp;
-        public float QuaternionLerpFastMovement;
-        public float AngleBeforeSpeedup;
-        public float PositionLerpAmount;
-
         public void Execute()
         {
             int len = ChainIndices.Length;
+            // Loop-invariant: the lerp constants are const and DeltaTime is per-job. trackersmooth (25)
+            // saturates to 1 — math.lerp/slerp don't clamp like the original Vector3.Lerp/Slerp did.
+            float ts = math.saturate(BasisLocalBoneControl.trackersmooth);
+            float posLerpFactor = math.clamp(BasisLocalBoneControl.PositionLerpAmount * DeltaTime, 0f, 1f);
             for (int k = 0; k < len; k++)
             {
                 int i = ChainIndices[k];
@@ -88,9 +87,6 @@ namespace Basis.Scripts.Drivers
                             + math.mul(input.IncomingRotation, input.InverseOffsetPosition);
                         quaternion destRot = math.mul(input.IncomingRotation, input.InverseOffsetRotation);
 
-                        // Original passes trackersmooth (=25) directly to Vector3.Lerp/Quaternion.Slerp,
-                        // which clamp t to [0,1]. math.lerp/math.slerp do not clamp, so saturate here.
-                        float ts = math.saturate(TrackerSmooth);
                         state.OutgoingPosition = math.lerp(state.LastRunPosition, destPos, ts);
                         state.OutgoingRotation = math.slerp(state.LastRunRotation, destRot, ts);
                     }
@@ -114,8 +110,7 @@ namespace Basis.Scripts.Drivers
                     float3 customDirection = math.mul(targetState.OutgoingRotation, input.ScaledOffset);
                     float3 targetPosition = targetState.OutgoingPosition + customDirection;
 
-                    float lerpFactor = math.clamp(PositionLerpAmount * DeltaTime, 0f, 1f);
-                    state.OutgoingPosition = math.lerp(state.LastRunPosition, targetPosition, lerpFactor);
+                    state.OutgoingPosition = math.lerp(state.LastRunPosition, targetPosition, posLerpFactor);
 
                     ApplyWorldAndLast(ref state);
                     States[i] = state;
@@ -135,8 +130,8 @@ namespace Basis.Scripts.Drivers
             if (angle < math.EPSILON)
                 return future;
 
-            float timing = math.min(angle / AngleBeforeSpeedup, 1f);
-            float lerpAmount = QuaternionLerp + (QuaternionLerpFastMovement - QuaternionLerp) * timing;
+            float timing = math.min(angle / BasisLocalBoneControl.AngleBeforeSpeedup, 1f);
+            float lerpAmount = BasisLocalBoneControl.QuaternionLerp + (BasisLocalBoneControl.QuaternionLerpFastMovement - BasisLocalBoneControl.QuaternionLerp) * timing;
             float lerpFactor = math.clamp(lerpAmount * DeltaTime, 0f, 1f);
 
             return math.slerp(current, future, lerpFactor);
@@ -151,6 +146,28 @@ namespace Basis.Scripts.Drivers
             state.OutgoingWorldPosition = p.xyz;
 
             state.OutgoingWorldRotation = math.mul(ParentRotation, state.OutgoingRotation);
+        }
+    }
+
+    /// <summary>
+    /// Uniform final pass: recomputes every bone's world pose from its outgoing local pose and the
+    /// parent matrix. Runs after the chain jobs so all bones — including any the chains leave
+    /// untouched — have valid world data, replacing the former main-thread SimulateWorldDestinations.
+    /// </summary>
+    [BurstCompile]
+    public struct BasisBoneWorldDestinationJob : IJobParallelFor
+    {
+        public NativeArray<BasisBoneSimState> States;
+        public float4x4 ParentMatrix;
+        public quaternion ParentRotation;
+
+        public void Execute(int i)
+        {
+            BasisBoneSimState state = States[i];
+            float4 p = math.mul(ParentMatrix, new float4(state.OutgoingPosition, 1f));
+            state.OutgoingWorldPosition = p.xyz;
+            state.OutgoingWorldRotation = math.mul(ParentRotation, state.OutgoingRotation);
+            States[i] = state;
         }
     }
 }

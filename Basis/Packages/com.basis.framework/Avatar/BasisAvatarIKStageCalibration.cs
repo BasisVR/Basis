@@ -216,6 +216,17 @@ namespace Basis.Scripts.Avatar
             ConstellationDebug.ArmReach = armReach;
 
             BoneRolePrior[] priors = BuildPriors(armReach);
+
+            // Re-center the elbow (lower-arm) priors on the line between the known hand
+            // controller and the estimated shoulder. The hand controllers already carry a
+            // pinned role, so their pose is reliable even when the player can't hold a clean
+            // T-pose; anchoring the elbow region to the hand→shoulder midpoint keeps a
+            // drooped or slightly-forward forearm tracker inside its acceptance region
+            // instead of falling outside the static T-pose circle. Runs before the snapshot
+            // capture so the editor visualizer and the in-VR calibration spheres pick up the
+            // moved region for free.
+            ApplyElbowMidpointPriors(priors, bodyOrigin, bodyRotInv, eyeHeight);
+
             CapturePriorSnapshots(priors);
 
             // Honor per-role calibration toggles from the body-tracking settings UI.
@@ -716,6 +727,121 @@ namespace Basis.Scripts.Avatar
             };
         }
 
+        /// <summary>
+        /// Overrides the LeftLowerArm / RightLowerArm prior centers with the midpoint
+        /// between that side's hand controller and shoulder. Hand controllers keep a pinned
+        /// role, so their pose is trustworthy even in a sloppy calibration stance — the elbow
+        /// sits roughly halfway down the arm, so the hand→shoulder midpoint tracks the real
+        /// forearm far better than a fixed T-pose point. No-ops per side when that hand isn't
+        /// present (hand-tracking off, tracker-only hand, or a stale poll): the static
+        /// <see cref="BuildPriors"/> center stands in.
+        /// </summary>
+        private static void ApplyElbowMidpointPriors(BoneRolePrior[] priors, Vector3 bodyOrigin, Quaternion bodyRotInv, float eyeHeight)
+        {
+            ApplyElbowMidpointForSide(priors, BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.LeftShoulder, BasisBoneTrackedRole.LeftLowerArm, sideSign: -1, bodyOrigin, bodyRotInv, eyeHeight);
+            ApplyElbowMidpointForSide(priors, BasisBoneTrackedRole.RightHand, BasisBoneTrackedRole.RightShoulder, BasisBoneTrackedRole.RightLowerArm, sideSign: +1, bodyOrigin, bodyRotInv, eyeHeight);
+        }
+
+        private static void ApplyElbowMidpointForSide(
+            BoneRolePrior[] priors,
+            BasisBoneTrackedRole handRole,
+            BasisBoneTrackedRole shoulderRole,
+            BasisBoneTrackedRole lowerArmRole,
+            int sideSign,
+            Vector3 bodyOrigin, Quaternion bodyRotInv, float eyeHeight)
+        {
+            int elbowIdx = FindPriorIndex(priors, lowerArmRole);
+            if (elbowIdx < 0) return; // lower-arm role isn't in the prior set
+
+            if (!TryGetHandBodyLocalRatios(handRole, bodyOrigin, bodyRotInv, eyeHeight, out float handHeight, out float handLateral))
+            {
+                return; // no usable hand pose this side — keep the static T-pose prior
+            }
+
+            // Shoulder anchor: reuse the shoulder prior's expected position so the elbow
+            // stays consistent with the shoulder region. (Shoulders are always present in
+            // the freshly-built prior list — the calibration-toggle filter runs later — so
+            // the fallback is purely defensive.)
+            float shoulderHeight, shoulderLateral;
+            int shoulderIdx = FindPriorIndex(priors, shoulderRole);
+            if (shoulderIdx >= 0)
+            {
+                shoulderHeight = priors[shoulderIdx].ExpectedHeightRatio;
+                shoulderLateral = priors[shoulderIdx].ExpectedLateralRatio;
+            }
+            else
+            {
+                shoulderHeight = priors[elbowIdx].ExpectedHeightRatio;
+                shoulderLateral = priors[elbowIdx].ExpectedLateralRatio;
+            }
+
+            float t = ConstellationElbowShoulderBlend;
+            float elbowHeight = Mathf.Lerp(shoulderHeight, handHeight, t);
+            float elbowLateral = Mathf.Lerp(shoulderLateral, handLateral, t);
+
+            // Keep the elbow region on its own side of the midline. Pulling the center too
+            // far inward (hands held across the body) would let the 3σ band cross x=0 and
+            // pick up the opposite arm's tracker; clamp the magnitude so the band's inner
+            // edge stays at/beyond the centerline, matching BuildPriors' "never cross the
+            // midline" intent.
+            float latSigma = priors[elbowIdx].LateralSigma;
+            float minMag = ConstellationElbowMidlineSigmaGuard * latSigma;
+            float clampedLateral = sideSign < 0 ? Mathf.Min(elbowLateral, -minMag) : Mathf.Max(elbowLateral, minMag);
+
+            priors[elbowIdx] = new BoneRolePrior(
+                lowerArmRole,
+                elbowHeight,
+                clampedLateral,
+                priors[elbowIdx].HeightSigma,
+                latSigma);
+
+            BasisDebug.Log($"FBIK constellation: {lowerArmRole} prior re-centered on hand→shoulder midpoint (h={elbowHeight:F2}, lat={clampedLateral:F2}; hand h={handHeight:F2}, lat={handLateral:F2})", BasisDebug.LogTag.Input);
+        }
+
+        /// <summary>
+        /// Finds the device currently bound to <paramref name="handRole"/> and returns its
+        /// body-local height/lateral ratios in the same playspace frame the classifier uses
+        /// (UnscaledDeviceCoord, normalized to eye height). Returns false when no such device
+        /// exists or it polled at the world origin (a pose it never actually wrote).
+        /// </summary>
+        private static bool TryGetHandBodyLocalRatios(BasisBoneTrackedRole handRole, Vector3 bodyOrigin, Quaternion bodyRotInv, float eyeHeight, out float heightRatio, out float lateralRatio)
+        {
+            heightRatio = 0f;
+            lateralRatio = 0f;
+
+            BasisObservableList<BasisInput> devices = BasisDeviceManagement.Instance.AllInputDevices;
+            int count = devices.Count;
+            for (int i = 0; i < count; i++)
+            {
+                BasisInput input = devices[i];
+                if (input == null) continue;
+                if (!input.TryGetRole(out BasisBoneTrackedRole role) || role != handRole) continue;
+
+                // Same fresh-poll discipline as the HMD and free-tracker reads in this pass.
+                input.LatePollData();
+                Vector3 unscaledPos = input.UnscaledDeviceCoord.position;
+                if (unscaledPos.sqrMagnitude < ConstellationNearOriginEpsilonSqr)
+                {
+                    return false; // hand never wrote a real pose — don't anchor the elbow to it
+                }
+
+                Vector3 local = bodyRotInv * (unscaledPos - bodyOrigin);
+                heightRatio = local.y / eyeHeight;
+                lateralRatio = local.x / eyeHeight;
+                return true;
+            }
+            return false;
+        }
+
+        private static int FindPriorIndex(BoneRolePrior[] priors, BasisBoneTrackedRole role)
+        {
+            for (int i = 0; i < priors.Length; i++)
+            {
+                if (priors[i].Role == role) return i;
+            }
+            return -1;
+        }
+
         // Returns true when dependsOn is already taken, or isn't in the prior list at all
         // (the toggle disabled it, so there's nothing for the dependent role to wait on).
         private static bool IsRolePreconditionMet(BoneRolePrior[] priors, bool[] roleUsed, BasisBoneTrackedRole dependsOn)
@@ -750,6 +876,14 @@ namespace Basis.Scripts.Avatar
         // when no arm-height tracker is present to measure the player's own reach.
         private const float ConstellationDefaultArmReachRatio = 0.55f;
         private const float ConstellationToeForwardEpsilon = 0.02f;
+        // Where the elbow prior sits along the hand→shoulder line. 0.5 = true midpoint (the
+        // elbow sits ~halfway down a roughly-straight arm); raise toward 1 to bias the
+        // region toward the hand, lower toward 0 to bias it toward the shoulder.
+        private const float ConstellationElbowShoulderBlend = 0.5f;
+        // Floor on the re-centered elbow's lateral magnitude, in units of its own lateral
+        // sigma, so the region's inner edge can't cross the body midline onto the other arm.
+        // 3σ matches the accept threshold.
+        private const float ConstellationElbowMidlineSigmaGuard = 3.0f;
         /// <summary>
         /// gets a roles dictionary with the roles and transforms
         /// </summary>

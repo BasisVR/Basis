@@ -311,8 +311,9 @@ namespace Basis.Scripts.Device_Management.Devices
             BasisInverseOffsetData.InitialControlRotation = Control.OutgoingWorldData.rotation;
 
             Vector3 Offset = Control.OutgoingWorldData.position - BasisInverseOffsetData.TrackerPosition;
-            Control.InverseOffsetFromBone.position = BasisInverseOffsetData.InitialInverseTrackRotation * (Offset);
-            Control.InverseOffsetFromBone.rotation = BasisInverseOffsetData.InitialInverseTrackRotation * BasisInverseOffsetData.InitialControlRotation;
+            Control.SetInverseOffset(
+                BasisInverseOffsetData.InitialInverseTrackRotation * (Offset),
+                BasisInverseOffsetData.InitialInverseTrackRotation * BasisInverseOffsetData.InitialControlRotation);
             Control.UseInverseOffset = true;
         }
 
@@ -323,8 +324,7 @@ namespace Basis.Scripts.Device_Management.Devices
         {
             if (Control != null)
             {
-                Control.IncomingData.position = Vector3.zero;
-                Control.IncomingData.rotation = Quaternion.identity;
+                Control.SetIncoming(Vector3.zero, Quaternion.identity);
                 SetRealTrackers(BasisHasTracked.HasNoTracker, BasisHasRigLayer.HasNoRigLayer, UniqueDeviceIdentifier);
             }
             if (DeviceMatchSettings == null || DeviceMatchSettings.HasTrackedRole == false)
@@ -392,8 +392,7 @@ namespace Basis.Scripts.Device_Management.Devices
                 if (HasControl)
                 {
                     BasisDebug.Log($"UnAssigning Tracker {Control.name}", BasisDebug.LogTag.Input);
-                    Control.InverseOffsetFromBone.position = Vector3.zero;
-                    Control.InverseOffsetFromBone.rotation = Quaternion.identity;
+                    Control.SetInverseOffset(Vector3.zero, Quaternion.identity);
                     Control.UseInverseOffset = false;
                 }
                 UnAssignRoleAndTracker();
@@ -736,11 +735,7 @@ namespace Basis.Scripts.Device_Management.Devices
         {
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
-                // Apply position offset using math.mul for quaternion-vector multiplication
-                Control.IncomingData.position = ScaledDeviceCoord.position;
-
-                // Apply rotation offset using math.mul for quaternion multiplication
-                Control.IncomingData.rotation = ScaledDeviceCoord.rotation;
+                Control.SetIncoming(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation);
             }
 
         }

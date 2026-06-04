@@ -178,6 +178,7 @@ namespace Basis.EventDriver
 
             OSCAcquisitionServer.Simulate();
             SMModuleAvatarPerformanceLimits.Simulate();
+            SMModuleDebugOptions.Simulate();
             timeSinceLastUpdate += DeltaTime;
         }
 

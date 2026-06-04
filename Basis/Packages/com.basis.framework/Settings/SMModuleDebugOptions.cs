@@ -10,6 +10,8 @@ using Basis.Scripts.TransformBinders.BoneControl;
 
 public class SMModuleDebugOptions : BasisSettingsBase
 {
+    public static SMModuleDebugOptions Instance;
+
     public static bool UseGizmos = false;
     public static bool UseTrackerGizmos = false;
     public static bool UseLinkedTrackerLines = false;
@@ -56,6 +58,7 @@ public class SMModuleDebugOptions : BasisSettingsBase
     public override void Awake()
     {
         base.Awake();
+        Instance = this;
         // When the master gizmo system tears down, our cached IDs become stale —
         // the manager's destroy pass clears every entry in BasisGizmoManager.Gizmos.
         BasisGizmoManager.OnUseGizmosChanged += OnUseGizmosChanged;
@@ -63,6 +66,10 @@ public class SMModuleDebugOptions : BasisSettingsBase
 
     public new void OnDestroy()
     {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
         BasisGizmoManager.OnUseGizmosChanged -= OnUseGizmosChanged;
         ClearTrackerGizmos();
         ClearLinkLines();
@@ -214,7 +221,7 @@ public class SMModuleDebugOptions : BasisSettingsBase
         {
             ClearTrackerGizmos();
         }
-        // Creation is handled lazily in Update — that way new trackers picked up
+        // Creation is handled lazily in the per-frame tick — that way new trackers picked up
         // mid-session also get a gizmo without extra plumbing.
     }
 
@@ -239,7 +246,7 @@ public class SMModuleDebugOptions : BasisSettingsBase
         {
             ClearLinkLines();
         }
-        // Lines are created lazily in Update so new pairings appearing mid-session
+        // Lines are created lazily in the per-frame tick so new pairings appearing mid-session
         // are picked up automatically.
     }
 
@@ -259,7 +266,7 @@ public class SMModuleDebugOptions : BasisSettingsBase
         }
     }
 
-    private void Update()
+    public static void Simulate()
     {
         if (BasisTrackerIdentifyGizmos.HasActive)
         {
@@ -271,6 +278,11 @@ public class SMModuleDebugOptions : BasisSettingsBase
             return;
         }
 
+        Instance?.SimulateGizmos();
+    }
+
+    private void SimulateGizmos()
+    {
         BasisDeviceManagement manager = BasisDeviceManagement.Instance;
         if (manager == null)
         {

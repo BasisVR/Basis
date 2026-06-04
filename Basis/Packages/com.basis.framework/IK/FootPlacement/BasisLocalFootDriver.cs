@@ -728,7 +728,7 @@ public partial class BasisLocalFootDriver
     /// <summary>
     /// Main-thread input gather + schedule only. Caller must pair with CompleteSimulate().
     /// </summary>
-    public void ScheduleSimulate(float dt)
+    public unsafe void ScheduleSimulate(float dt)
     {
         _jobScheduled = false;
         if (!IsInitialized || dt <= 0f) return;
@@ -744,8 +744,9 @@ public partial class BasisLocalFootDriver
         var chestCtrl = BasisLocalBoneDriver.ChestControl;
         bool groundHit = Physics.Raycast(hips.position, -cachedPlayerUp, out RaycastHit ch, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore);
 
-        // ── 2. Pack input ──
-        _nativeInput[0] = new BasisFootSimInput
+        // ── 2. Pack input (write in place; no job is in flight here) ──
+        ref BasisFootSimInput inputSlot = ref UnsafeUtility.ArrayElementAsRef<BasisFootSimInput>(_nativeInput.GetUnsafePtr(), 0);
+        inputSlot = new BasisFootSimInput
         {
             dt = dt,
             headPos = headData.position,

@@ -117,13 +117,20 @@ namespace Basis.Scripts.Drivers
         /// <summary>Gizmo size for hand-related visuals (scaled by avatar height).</summary>
         public static float HandGizmoSize = 0.02f;
 
-        // ===== Burst/Jobs simulation backing store =====
-        // Per-frame inputs (incoming pose, has-tracker flags, target index, etc).
-        private NativeArray<BasisBoneSimInput> _simInputs;
-        // Per-frame outputs/persistent state (outgoing pose, last-run, world).
-        private NativeArray<BasisBoneSimState> _simStates;
-        // Cached target indices: _cachedTargetIndices[i] = array index of Controls[i].Target, or -1.
-        private int[] _cachedTargetIndices = Array.Empty<int>();
+        // ===== Burst/Jobs simulation backing store (canonical bone data) =====
+        // Inputs (incoming pose, has-tracker flags, target index, etc). Written by bone-control
+        // setters/devices, read by the chain job. Internal so BasisLocalBoneControl maps into it.
+        internal NativeArray<BasisBoneSimInput> _simInputs;
+        // Outputs/persistent state (outgoing pose, last-run, world). Source of truth — no scatter.
+        internal NativeArray<BasisBoneSimState> _simStates;
+        // Cached raw pointers into the stores above — bone-control accessors index these to skip the
+        // NativeArray indexer's per-access bounds/safety wrappers. Refreshed on every (re)alloc.
+        internal unsafe BasisBoneSimInput* _simInputsPtr;
+        internal unsafe BasisBoneSimState* _simStatesPtr;
+
+        // role -> Controls index, rebuilt alongside chain data. -1 = role not present.
+        private static readonly int RoleCount = Enum.GetValues(typeof(BasisBoneTrackedRole)).Length;
+        private int[] _roleToIndex;
 
         // Chain index arrays — built once after calibration.
         // Spine chain runs first (serially). The four limb chains run in parallel after spine.
@@ -271,7 +278,10 @@ namespace Basis.Scripts.Drivers
                 BuildChainData();
             }
 
-            PackInputsAndStates(seedLastRunFromOutgoing);
+            if (seedLastRunFromOutgoing)
+            {
+                SeedLastRunFromOutgoing();
+            }
 
             float4x4 parentMatrix44 = parentMatrix;
             quaternion parentRot = parentMatrix.rotation;
@@ -314,9 +324,14 @@ namespace Basis.Scripts.Drivers
             JobHandle legsCombined = JobHandle.CombineDependencies(leftLegHandle, rightLegHandle);
             JobHandle limbsCombined = JobHandle.CombineDependencies(armsCombined, legsCombined);
             JobHandle final = JobHandle.CombineDependencies(limbsCombined, otherHandle);
-            final.Complete();
 
-            UnpackStates();
+            JobHandle worldHandle = new BasisBoneWorldDestinationJob
+            {
+                States = _simStates,
+                ParentMatrix = parentMatrix44,
+                ParentRotation = parentRot,
+            }.Schedule(ControlsLength, 8, final);
+            worldHandle.Complete();
         }
 
         private BasisBoneSimChainJob MakeJob(NativeArray<int> chain, float4x4 parentMatrix44, quaternion parentRot, float deltaTime)
@@ -329,11 +344,6 @@ namespace Basis.Scripts.Drivers
                 ParentMatrix = parentMatrix44,
                 ParentRotation = parentRot,
                 DeltaTime = deltaTime,
-                TrackerSmooth = BasisLocalBoneControl.trackersmooth,
-                QuaternionLerp = BasisLocalBoneControl.QuaternionLerp,
-                QuaternionLerpFastMovement = BasisLocalBoneControl.QuaternionLerpFastMovement,
-                AngleBeforeSpeedup = BasisLocalBoneControl.AngleBeforeSpeedup,
-                PositionLerpAmount = BasisLocalBoneControl.PositionLerpAmount,
             };
         }
 
@@ -347,19 +357,71 @@ namespace Basis.Scripts.Drivers
             DisposeNative();
             _simInputs = new NativeArray<BasisBoneSimInput>(ControlsLength, Allocator.Persistent);
             _simStates = new NativeArray<BasisBoneSimState>(ControlsLength, Allocator.Persistent);
-            _cachedTargetIndices = new int[ControlsLength];
+            unsafe
+            {
+                _simInputsPtr = (BasisBoneSimInput*)_simInputs.GetUnsafePtr();
+                _simStatesPtr = (BasisBoneSimState*)_simStates.GetUnsafePtr();
+            }
             _nativeCapacity = ControlsLength;
             _nativeAllocated = true;
             _chainsBuilt = false;
+            WireControlsAndInitStore();
+        }
+
+        // Links each control to its store slot and seeds valid (identity) rotations, since a
+        // default-initialized NativeArray leaves quaternions at (0,0,0,0).
+        private void WireControlsAndInitStore()
+        {
+            for (int i = 0; i < ControlsLength; i++)
+            {
+                BasisLocalBoneControl c = Controls[i];
+                c.Owner = this;
+                c.Index = i;
+
+                BasisBoneSimInput inp = _simInputs[i];
+                inp.IncomingRotation = quaternion.identity;
+                inp.InverseOffsetRotation = quaternion.identity;
+                inp.TargetIndex = -1;
+                _simInputs[i] = inp;
+
+                BasisBoneSimState st = _simStates[i];
+                st.OutgoingRotation = quaternion.identity;
+                st.LastRunRotation = quaternion.identity;
+                st.OutgoingWorldRotation = quaternion.identity;
+                _simStates[i] = st;
+            }
         }
 
         private void BuildChainData()
         {
-            // Cache target indices once. Targets are wired at calibration time.
+            // Cache target indices and sync them into the store (no per-frame pack does this now).
             for (int i = 0; i < ControlsLength; i++)
             {
                 BasisLocalBoneControl c = Controls[i];
-                _cachedTargetIndices[i] = (c.Target != null) ? Array.IndexOf(Controls, c.Target) : -1;
+                int targetIdx = c.TargetIndex;
+
+                BasisBoneSimInput inp = _simInputs[i];
+                inp.TargetIndex = targetIdx;
+                inp.HasTarget = (targetIdx >= 0) ? (byte)1 : (byte)0;
+                _simInputs[i] = inp;
+            }
+
+            // Cache role -> index for the public request API.
+            if (_roleToIndex == null || _roleToIndex.Length < RoleCount)
+            {
+                _roleToIndex = new int[RoleCount];
+            }
+            for (int r = 0; r < _roleToIndex.Length; r++)
+            {
+                _roleToIndex[r] = -1;
+            }
+            for (int i = 0; i < ControlsLength; i++)
+            {
+                int role = (int)trackedRoles[i];
+                if (role >= 0 && role < _roleToIndex.Length)
+                {
+                    _roleToIndex[role] = i;
+                }
             }
 
             DisposeChainArrays();
@@ -408,71 +470,16 @@ namespace Basis.Scripts.Drivers
             return arr;
         }
 
-        private unsafe void PackInputsAndStates(bool seedLastRunFromOutgoing)
+        // Seeds each bone's "last run" pose from its current outgoing pose, skipping
+        // interpolation for this frame (used by SimulateWithoutLerp).
+        private void SeedLastRunFromOutgoing()
         {
-            // Direct pointers into NativeArray storage skip the per-index bounds and
-            // atomic-safety wrappers that the indexer goes through (significant in
-            // editor mode, small win in release).
-            BasisBoneSimInput* inputs = (BasisBoneSimInput*)_simInputs.GetUnsafePtr();
-            BasisBoneSimState* states = (BasisBoneSimState*)_simStates.GetUnsafePtr();
-            int len = ControlsLength;
-
-            for (int i = 0; i < len; i++)
+            for (int i = 0; i < ControlsLength; i++)
             {
-                BasisLocalBoneControl c = Controls[i];
-
-                // Input slot: write fields directly, no struct copy back through the indexer.
-                BasisBoneSimInput* inp = inputs + i;
-                int targetIdx = _cachedTargetIndices[i];
-                inp->IncomingPosition = c.IncomingData.position;
-                inp->IncomingRotation = c.IncomingData.rotation;
-                inp->InverseOffsetPosition = c.InverseOffsetFromBone.position;
-                inp->InverseOffsetRotation = c.InverseOffsetFromBone.rotation;
-                inp->ScaledOffset = c.ScaledOffset;
-                inp->TargetIndex = targetIdx;
-                inp->HasTracker = (c.HasTracked == BasisHasTracked.HasTracker) ? (byte)1 : (byte)0;
-                inp->UseInverseOffset = c.UseInverseOffset ? (byte)1 : (byte)0;
-                inp->HasVirtualOverride = c.HasVirtualOverride ? (byte)1 : (byte)0;
-                inp->HasTarget = (targetIdx >= 0) ? (byte)1 : (byte)0;
-
-                // State slot: same pattern.
-                BasisBoneSimState* st = states + i;
-                Vector3 outPos = c.OutGoingData.position;
-                Quaternion outRot = c.OutGoingData.rotation;
-                st->OutgoingPosition = outPos;
-                st->OutgoingRotation = outRot;
-                if (seedLastRunFromOutgoing)
-                {
-                    st->LastRunPosition = outPos;
-                    st->LastRunRotation = outRot;
-                }
-                else
-                {
-                    st->LastRunPosition = c.LastRunData.position;
-                    st->LastRunRotation = c.LastRunData.rotation;
-                }
-                st->OutgoingWorldPosition = c.OutgoingWorldData.position;
-                st->OutgoingWorldRotation = c.OutgoingWorldData.rotation;
-            }
-        }
-
-        private unsafe void UnpackStates()
-        {
-            // Read-only access to the state slots via raw pointer.
-            BasisBoneSimState* states = (BasisBoneSimState*)_simStates.GetUnsafeReadOnlyPtr();
-            int len = ControlsLength;
-
-            for (int i = 0; i < len; i++)
-            {
-                BasisLocalBoneControl c = Controls[i];
-                BasisBoneSimState* st = states + i;
-
-                c.OutGoingData.position = st->OutgoingPosition;
-                c.OutGoingData.rotation = st->OutgoingRotation;
-                c.LastRunData.position = st->LastRunPosition;
-                c.LastRunData.rotation = st->LastRunRotation;
-                c.OutgoingWorldData.position = st->OutgoingWorldPosition;
-                c.OutgoingWorldData.rotation = st->OutgoingWorldRotation;
+                BasisBoneSimState s = _simStates[i];
+                s.LastRunPosition = s.OutgoingPosition;
+                s.LastRunRotation = s.OutgoingRotation;
+                _simStates[i] = s;
             }
         }
 
@@ -483,6 +490,69 @@ namespace Basis.Scripts.Drivers
         public void InvalidateChainData()
         {
             _chainsBuilt = false;
+        }
+
+        /// <summary>
+        /// Resolves a tracked role to its <see cref="Controls"/> index, or -1 if absent.
+        /// Available once chain data has been built (post-calibration).
+        /// </summary>
+        public int GetBoneIndex(BasisBoneTrackedRole role)
+        {
+            int r = (int)role;
+            if (_roleToIndex != null && r >= 0 && r < _roleToIndex.Length)
+            {
+                return _roleToIndex[r];
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Requests the latest simulated pose for a bone by role without dereferencing the
+        /// managed <see cref="BasisLocalBoneControl"/>. Reads the native sim store once it has
+        /// been populated; before the first simulate it falls back to the managed control.
+        /// </summary>
+        public bool TryGetSimState(BasisBoneTrackedRole role, out BasisBoneSimState state)
+        {
+            int index = GetBoneIndex(role);
+            if (index < 0 || index >= ControlsLength)
+            {
+                state = default;
+                return false;
+            }
+
+            if (_nativeAllocated && index < _simStates.Length)
+            {
+                state = _simStates[index];
+                return true;
+            }
+
+            BasisLocalBoneControl c = Controls[index];
+            state = new BasisBoneSimState
+            {
+                OutgoingPosition = c.OutGoingData.position,
+                OutgoingRotation = c.OutGoingData.rotation,
+                LastRunPosition = c.LastRunData.position,
+                LastRunRotation = c.LastRunData.rotation,
+                OutgoingWorldPosition = c.OutgoingWorldData.position,
+                OutgoingWorldRotation = c.OutgoingWorldData.rotation,
+            };
+            return true;
+        }
+
+        /// <summary>
+        /// Exposes the native per-bone state buffer for systems that schedule their own Burst
+        /// job against bone poses. Returns false until the native store is allocated. The buffer
+        /// is refreshed each <see cref="Simulate"/>; index entries via <see cref="GetBoneIndex"/>.
+        /// </summary>
+        public bool TryGetSimStates(out NativeArray<BasisBoneSimState> states)
+        {
+            if (_nativeAllocated)
+            {
+                states = _simStates;
+                return true;
+            }
+            states = default;
+            return false;
         }
 
         /// <summary>
@@ -593,19 +663,6 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Computes world-space destinations for outgoing local positions using a parent matrix.
-        /// </summary>
-        /// <param name="localToWorldMatrix">The parent local-to-world transform.</param>
-        public void SimulateWorldDestinations(Matrix4x4 localToWorldMatrix)
-        {
-            for (int Index = 0; Index < ControlsLength; Index++)
-            {
-                // Apply local transform to parent's world transform
-                Controls[Index].OutgoingWorldData.position = localToWorldMatrix.MultiplyPoint3x4(Controls[Index].OutGoingData.position);
-            }
-        }
-
-        /// <summary>
         /// Removes all rig-change listeners from controls and clears the static event flag.
         /// </summary>
         public void RemoveAllListeners()
@@ -627,7 +684,8 @@ namespace Basis.Scripts.Drivers
             Controls = Controls.Concat(newControls).ToArray();
             trackedRoles = trackedRoles.Concat(newRoles).ToArray();
             ControlsLength = Controls.Length;
-            // Force EnsureNativeAllocated and BuildChainData to re-run on the next Simulate.
+            // Allocate/grow the store and wire the new controls to it before anything writes poses.
+            EnsureNativeAllocated();
             _chainsBuilt = false;
         }
 
@@ -720,10 +778,6 @@ namespace Basis.Scripts.Drivers
         {
             role = (BasisBoneTrackedRole)Index;
             BasisBoneControl = new BasisLocalBoneControl();
-            BasisBoneControl.OutgoingWorldData.position = Vector3.zero;
-            BasisBoneControl.OutgoingWorldData.rotation = Quaternion.identity;
-            BasisBoneControl.LastRunData.position = BasisBoneControl.OutGoingData.position;
-            BasisBoneControl.LastRunData.rotation = BasisBoneControl.OutGoingData.rotation;
             FillOutBasicInformation(BasisBoneControl, role.ToString(), Color);
         }
 
@@ -1058,7 +1112,7 @@ namespace Basis.Scripts.Drivers
         /// <param name="target">Target control to follow.</param>
         public void CreateRotationalLock(BasisLocalBoneControl addToBone, BasisLocalBoneControl target)
         {
-            addToBone.Target = target;
+            addToBone.TargetIndex = target.Index;
             addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
             addToBone.ScaledOffset = addToBone.Offset;
             // Target wiring affects chain index cache and target lookups — rebuild on next Simulate.

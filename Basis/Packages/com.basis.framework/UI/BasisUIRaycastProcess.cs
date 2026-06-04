@@ -200,13 +200,22 @@ namespace Basis.Scripts.UI
             {
                 if (!currentEventData.WasLastDown)
                 {
-                    // First frame of this press: set pressPosition & press raycast
-                    currentEventData.pressPosition = hit.screenPosition;
-                    currentEventData.pointerPressRaycast = raycastResult;
+                    GameObject pressTarget = hit.graphic.gameObject;
+                    if (currentEventData.pointerEnter == pressTarget)
+                    {
+                        currentEventData.pressPosition = hit.screenPosition;
+                        currentEventData.pointerPressRaycast = raycastResult;
 
-                    CheckOrApplySelectedGameobject(hit, currentEventData);
-                    currentEventData.WasLastDown = true;
-                    EffectiveMouseDown(hit, currentEventData);
+                        CheckOrApplySelectedGameobject(hit, currentEventData);
+                        currentEventData.WasLastDown = true;
+                        EffectiveMouseDown(hit, currentEventData);
+                    }
+                    else
+                    {
+                        currentEventData.WasLastDown = true;
+                        currentEventData.eligibleForClick = false;
+                        currentEventData.pointerPress = null;
+                    }
                 }
             }
             // Button UP is handled in Simulate() based on trigger state

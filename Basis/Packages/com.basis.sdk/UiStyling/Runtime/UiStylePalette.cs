@@ -24,7 +24,7 @@ namespace Basis.BasisUI.Styling
         Scrollbar,
     }
 
-    [CreateAssetMenu(fileName = "Style Palette", menuName = "WorldUI/Style Palette")]
+    [CreateAssetMenu(fileName = "Style Palette", menuName = "BasisUI/Style Palette")]
     public class UiStylePalette : ScriptableObject
     {
 

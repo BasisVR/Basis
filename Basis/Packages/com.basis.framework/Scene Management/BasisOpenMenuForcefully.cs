@@ -5,6 +5,7 @@ using UnityEngine;
 public class BasisOpenMenuForcefully : MonoBehaviour
 {
     public bool OpenServerMenu = true;
+    public string ProviderTitleKey = "menu.provider.servers";
     public void Start()
     {
         if(BasisDeviceManagement.OnInitializationComplete)
@@ -25,7 +26,7 @@ public class BasisOpenMenuForcefully : MonoBehaviour
         BasisMainMenu.Open();
         if (OpenServerMenu)
         {
-            BasisMainMenu.OpenWithProvider(ServersProvider.TitleStatic);
+            BasisMainMenu.OpenWithProvider(BasisLocalization.Get(ProviderTitleKey));
         }
         else
         {

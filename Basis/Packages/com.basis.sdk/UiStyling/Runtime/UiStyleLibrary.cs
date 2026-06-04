@@ -132,7 +132,7 @@ namespace Basis.BasisUI.Styling
         Dropdown,
     }
 
-    [CreateAssetMenu(fileName = "Style Library", menuName = "WorldUI/Style Library")]
+    [CreateAssetMenu(fileName = "Style Library", menuName = "BasisUI/Style Library")]
     public class UiStyleLibrary : ScriptableObject
     {
         [Header("Base Styles")]

@@ -26,6 +26,10 @@ namespace Basis.Scripts.UI
         public RaycastHit[] PhysicHits { get; private set; }
         private RaycastHit[] PhysicBackcastHits;
         public int PhysicHitCount { get; private set; }
+        // Resolved once per UpdateRaycast — RaycastHit.collider/.gameObject.layer are re-resolving
+        // getters the hit loops would otherwise read repeatedly (the backcast check was O(n^2)).
+        private Collider[] _resolvedColliders;
+        private int[] _resolvedLayers;
         public BasisInput BasisInput;
 
         [Header("Debug")]
@@ -128,6 +132,8 @@ namespace Basis.Scripts.UI
             RefreshEffectiveMaxDistance();
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChangedNextFrame;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChangedNextFrame;
+            _resolvedColliders = new Collider[BasisPlayerInteract.k_MaxPhysicHitCount];
+            _resolvedLayers = new int[BasisPlayerInteract.k_MaxPhysicHitCount];
 
             // Create the ray with the adjusted starting position and direction
             UpdateRay();
@@ -179,6 +185,13 @@ namespace Basis.Scripts.UI
                 BasisPlayerInteract.Mask,
                 BasisPlayerInteract.TriggerInteraction);
 
+            for (int i = 0; i < PhysicHitCount; i++)
+            {
+                Collider c = PhysicHits[i].collider;
+                _resolvedColliders[i] = c;
+                _resolvedLayers[i] = c != null ? c.gameObject.layer : -1;
+            }
+
             // Branch per mode
             if (_mode == ControlMode.Placement)
             {
@@ -219,29 +232,28 @@ namespace Basis.Scripts.UI
 
             for (int i = 0; i < PhysicHitCount; i++)
             {
-                var hit = PhysicHits[i];
-                if (hit.collider == null)
+                if (_resolvedColliders[i] == null)
                     continue;
 
-                int hitLayer = hit.collider.gameObject.layer;
-                bool isOverlay = hitLayer == OverlayUILayer;
+                bool isOverlay = _resolvedLayers[i] == OverlayUILayer;
+                float distance = PhysicHits[i].distance;
 
                 if (isOverlay)
                 {
-                    if (!foundOverlay || hit.distance < bestDistance)
+                    if (!foundOverlay || distance < bestDistance)
                     {
                         foundOverlay = true;
                         bestIndex = i;
-                        bestDistance = hit.distance;
+                        bestDistance = distance;
                     }
                 }
                 else if (!foundOverlay)
                 {
                     // Only consider non-overlay hits if we haven't found any overlay yet
-                    if (hit.distance < bestDistance)
+                    if (distance < bestDistance)
                     {
                         bestIndex = i;
-                        bestDistance = hit.distance;
+                        bestDistance = distance;
                     }
                 }
             }
@@ -250,10 +262,12 @@ namespace Basis.Scripts.UI
             {
                 ClosestRayCastHit = PhysicHits[bestIndex];
 
-                // Keep "primary" hit at index 0 for any existing assumptions
+                // Keep "primary" hit at index 0; swap the resolved arrays alongside to stay in sync.
                 if (bestIndex != 0)
                 {
                     (PhysicHits[0], PhysicHits[bestIndex]) = (PhysicHits[bestIndex], PhysicHits[0]);
+                    (_resolvedColliders[0], _resolvedColliders[bestIndex]) = (_resolvedColliders[bestIndex], _resolvedColliders[0]);
+                    (_resolvedLayers[0], _resolvedLayers[bestIndex]) = (_resolvedLayers[bestIndex], _resolvedLayers[0]);
                 }
             }
             else
@@ -283,9 +297,10 @@ namespace Basis.Scripts.UI
             for (int i = 0; i < backcastHitCount; i++)
             {
                 RaycastHit hit = PhysicBackcastHits[i];
-                if (hit.collider == null)
+                Collider c = hit.collider;
+                if (c == null)
                     continue;
-                if (ColliderInForwardHits(hit.collider))
+                if (ColliderInForwardHits(c))
                     continue;
                 if (hit.distance > bestBackcastDistance)
                 {
@@ -299,7 +314,7 @@ namespace Basis.Scripts.UI
         {
             for (int i = 0; i < PhysicHitCount; i++)
             {
-                if (PhysicHits[i].collider == collider)
+                if (_resolvedColliders[i] == collider)
                     return true;
             }
             return false;
