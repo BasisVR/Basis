@@ -321,7 +321,7 @@ namespace Basis.Scripts.UI.NamePlate
         // Event handlers
         // ===========================
 
-        private static void OnRemotePIPCreated(ushort playerId, float3 position, UnityEngine.Quaternion rotation)
+        private static void OnRemotePIPCreated(ushort playerId, float3 position, quaternion rotation)
         {
             if (BasisNetworkPlayer.GetPlayerById(playerId, out var networkPlayer) && networkPlayer != null)
             {

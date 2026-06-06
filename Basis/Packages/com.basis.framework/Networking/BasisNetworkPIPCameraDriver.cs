@@ -25,7 +25,7 @@ public static class BasisNetworkPIPCameraDriver
     /// <summary>
     /// Fired when a remote player's PIP camera is created.
     /// </summary>
-    public static event Action<ushort, float3, Quaternion> OnRemotePIPCreated;
+    public static event Action<ushort, float3, quaternion> OnRemotePIPCreated;
 
     /// <summary>
     /// Fired when a remote player's PIP camera is destroyed.
