@@ -151,8 +151,8 @@ public static class BasisNetworkLifeCycle
         BasisNetworkHandleTempBlock.Shutdown();
         BasisNetworkHandleChatTyping.Shutdown();
 #if !UNITY_SERVER
-        BasisNetworkPIPCameraDriver.Shutdown();
         BasisCameraNamePlateDriver.Shutdown();
+        BasisNetworkPIPCameraDriver.Shutdown();
 #endif
         BasisNetworkConnection.NetworkClient?.Disconnect();
     }
