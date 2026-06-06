@@ -9,10 +9,10 @@ namespace Basis.Scripts.UI.NamePlate
 {
     public static class BasisNamePlateAssets
     {
-        public static Material TransparentMaterial { get; private set; }
-        public static Material OpaqueMaterial { get; private set; }
-        public static Material SelectedMaterial { get; private set; }
-        public static TextMeshPro TextBaker { get; private set; }
+        public static Material TransparentMaterial;
+        public static Material OpaqueMaterial;
+        public static Material SelectedMaterial;
+        public static TextMeshPro TextBaker;
         public static bool IsReady => TextBaker != null && SelectedMaterial != null;
 
         private const string TransparentMaterialAddress = "Packages/com.basis.sdk/Materials/TransParentNamePlateMaterial.mat";
