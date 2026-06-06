@@ -76,6 +76,11 @@ namespace Basis.Scripts.UI.NamePlate
             BasisNetworkPIPCameraDriver.OnRemotePIPCreated -= OnRemotePIPCreated;
             BasisNetworkPIPCameraDriver.OnRemotePIPDestroyed -= OnRemotePIPDestroyed;
 
+            ClearAll();
+        }
+
+        public static void ClearAll()
+        {
             foreach (var kvp in activePlates)
             {
                 if (kvp.Value != null && kvp.Value.gameObject != null)

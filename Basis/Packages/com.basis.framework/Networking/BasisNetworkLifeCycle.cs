@@ -78,6 +78,10 @@ public static class BasisNetworkLifeCycle
             }
 
             BasisRemoteNetworkDriver.Apply();//complete in-flight jobs before clearing players
+#if !UNITY_SERVER
+            BasisCameraNamePlateDriver.ClearAll();
+            BasisNetworkPIPCameraDriver.ClearRemotePIPs();
+#endif
             BasisNetworkPlayers.ClearAllRegistries();//remove players
             Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DeInitialize();//remove shout audio sources
             await BasisNetworkSpawnItem.Reset();//remove items

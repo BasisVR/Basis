@@ -115,17 +115,7 @@ public static class BasisNetworkPIPCameraDriver
 
         BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(SimulatePriority, Simulate);
 
-        smoothHandle.Complete();
-
-        // Destroy all spawned PIP instances
-        foreach (var kvp in pipInstances)
-        {
-            if (kvp.Value != null)
-            {
-                UnityEngine.Object.Destroy(kvp.Value);
-            }
-        }
-        pipInstances.Clear();
+        ClearRemotePIPs();
 
         // Release the loaded prefab
         if (prefabHandle.IsValid())
@@ -140,14 +130,37 @@ public static class BasisNetworkPIPCameraDriver
         if (targetRotations.IsCreated) targetRotations.Dispose();
         if (activeFlags.IsCreated) activeFlags.Dispose();
 
+        initialized = false;
+    }
+
+    public static void ClearRemotePIPs()
+    {
+        if (!initialized) return;
+
+        smoothHandle.Complete();
+
+        foreach (var kvp in pipInstances)
+        {
+            if (kvp.Value != null)
+            {
+                UnityEngine.Object.Destroy(kvp.Value);
+            }
+        }
+        pipInstances.Clear();
+        pipTransforms.Clear();
         playerIdToIndex.Clear();
         indexToPlayerId.Clear();
         activeRemotePIPs.Clear();
-        pipTransforms.Clear();
         recycledIndices.Clear();
         nextFreeIndex = 0;
 
-        initialized = false;
+        if (activeFlags.IsCreated)
+        {
+            for (int i = 0; i < activeFlags.Length; i++)
+            {
+                activeFlags[i] = 0;
+            }
+        }
     }
 
     /// <summary>
