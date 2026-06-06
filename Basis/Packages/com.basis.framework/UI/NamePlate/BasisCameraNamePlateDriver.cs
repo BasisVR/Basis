@@ -101,7 +101,8 @@ namespace Basis.Scripts.UI.NamePlate
                 }
                 if (existing != null)
                 {
-                    existing.OnPlayerLeft();
+                    Unregister(existing);
+                    UnityEngine.Object.Destroy(existing.gameObject);
                 }
             }
 

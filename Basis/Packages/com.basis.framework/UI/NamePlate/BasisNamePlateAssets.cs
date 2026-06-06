@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Basis.Scripts.UI.NamePlate
 {
@@ -12,6 +13,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static Material OpaqueMaterial { get; private set; }
         public static Material SelectedMaterial { get; private set; }
         public static TextMeshPro TextBaker { get; private set; }
+        public static bool IsReady => TextBaker != null && SelectedMaterial != null;
 
         private const string TransparentMaterialAddress = "Packages/com.basis.sdk/Materials/TransParentNamePlateMaterial.mat";
         private const string OpaqueMaterialAddress = "Packages/com.basis.sdk/Materials/OpaqueNamePlateMaterial.mat";
@@ -32,42 +34,68 @@ namespace Basis.Scripts.UI.NamePlate
 
             if (TransparentMaterial == null)
             {
-                TransparentMaterial = Addressables.LoadAssetAsync<Material>(TransparentMaterialAddress).WaitForCompletion();
+                Addressables.LoadAssetAsync<Material>(TransparentMaterialAddress).Completed += OnTransparentMaterialLoaded;
             }
             if (OpaqueMaterial == null)
             {
-                OpaqueMaterial = Addressables.LoadAssetAsync<Material>(OpaqueMaterialAddress).WaitForCompletion();
+                Addressables.LoadAssetAsync<Material>(OpaqueMaterialAddress).Completed += OnOpaqueMaterialLoaded;
             }
 
-            SelectedMaterial = BasisDeviceManagement.IsMobileHardware()
-                ? OpaqueMaterial
-                : TransparentMaterial;
+            UpdateSelectedMaterial();
 
             if (TextBaker == null)
             {
-                TMP_FontAsset font = Addressables.LoadAssetAsync<TMP_FontAsset>(FontAddress).WaitForCompletion();
-
-                GameObject bakingGO = new GameObject("BasisNameplateBaker");
-                if (BasisDeviceManagement.Instance != null)
-                {
-                    bakingGO.transform.SetParent(BasisDeviceManagement.Instance.transform, false);
-                }
-                bakingGO.SetActive(false);
-
-                TextBaker = bakingGO.AddComponent<TextMeshPro>();
-                TextBaker.font = font;
-                TextBaker.fontSize = DefaultBakeFontSize;
-                TextBaker.enableAutoSizing = false;
-                TextBaker.alignment = TextAlignmentOptions.Center;
-                TextBaker.color = Color.white;
-                TextBaker.enableVertexGradient = false;
-                TextBaker.textWrappingMode = TextWrappingModes.NoWrap;
-                TextBaker.overflowMode = TextOverflowModes.Overflow;
+                Addressables.LoadAssetAsync<TMP_FontAsset>(FontAddress).Completed += OnFontLoaded;
             }
 
-            EnsureUnicodeFallbacksOnNameplateFont();
             EnsureBakerParent();
             initialized = true;
+        }
+
+        private static void OnTransparentMaterialLoaded(AsyncOperationHandle<Material> handle)
+        {
+            if (handle.Status == AsyncOperationStatus.Succeeded)
+            {
+                TransparentMaterial = handle.Result;
+                UpdateSelectedMaterial();
+            }
+        }
+
+        private static void OnOpaqueMaterialLoaded(AsyncOperationHandle<Material> handle)
+        {
+            if (handle.Status == AsyncOperationStatus.Succeeded)
+            {
+                OpaqueMaterial = handle.Result;
+                UpdateSelectedMaterial();
+            }
+        }
+
+        private static void OnFontLoaded(AsyncOperationHandle<TMP_FontAsset> handle)
+        {
+            if (handle.Status != AsyncOperationStatus.Succeeded || handle.Result == null) return;
+            if (TextBaker != null) return;
+
+            GameObject bakingGO = new GameObject("BasisNameplateBaker");
+            TextBaker = bakingGO.AddComponent<TextMeshPro>();
+            TextBaker.font = handle.Result;
+            TextBaker.fontSize = DefaultBakeFontSize;
+            TextBaker.enableAutoSizing = false;
+            TextBaker.alignment = TextAlignmentOptions.Center;
+            TextBaker.color = Color.white;
+            TextBaker.enableVertexGradient = false;
+            TextBaker.textWrappingMode = TextWrappingModes.NoWrap;
+            TextBaker.overflowMode = TextOverflowModes.Overflow;
+
+            EnsureBakerParent();
+            bakingGO.SetActive(false);
+            EnsureUnicodeFallbacksOnNameplateFont();
+        }
+
+        private static void UpdateSelectedMaterial()
+        {
+            SelectedMaterial = BasisDeviceManagement.IsMobileHardware()
+                ? OpaqueMaterial
+                : TransparentMaterial;
         }
 
         private static void EnsureBakerParent()
@@ -117,7 +145,7 @@ namespace Basis.Scripts.UI.NamePlate
         {
             foreach (string family in candidates)
             {
-                if (registered.Contains(family)) return;
+                if (registered.Contains(family)) continue;
                 if (!IsFontInstalled(family)) continue;
 
                 TMP_FontAsset fallback = null;

@@ -57,10 +57,10 @@ namespace Basis.Scripts.UI.NamePlate
         public static TextMeshPro Text;
 
         // Lazy-loaded from Addressables on first Initialize.
-        public static Material TransParentNamePlateMaterial;
-        public static Material OpaqueNamePlateMaterial;
+        public static Material TransParentNamePlateMaterial => BasisNamePlateAssets.TransparentMaterial;
+        public static Material OpaqueNamePlateMaterial => BasisNamePlateAssets.OpaqueMaterial;
 
-        public static Material SelectedNamePlateMaterial;
+        public static Material SelectedNamePlateMaterial => BasisNamePlateAssets.SelectedMaterial;
 
         public static float RoundEdges = 0.85f;
         public static int CornerVertexCount = 8;
@@ -105,8 +105,6 @@ namespace Basis.Scripts.UI.NamePlate
             BasisNamePlateMeshBaker.Initialize();
             EnsureAssetsLoaded();
 
-            SelectedNamePlateMaterial = BasisNamePlateAssets.SelectedMaterial;
-
             NamePlateEnabled = BasisSettingsDefaults.NPEnabled.RawValue;
             NamePlateMenuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
             NamePlateHoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
@@ -126,8 +124,6 @@ namespace Basis.Scripts.UI.NamePlate
         private static void EnsureAssetsLoaded()
         {
             BasisNamePlateAssets.Initialize();
-            TransParentNamePlateMaterial = BasisNamePlateAssets.TransparentMaterial;
-            OpaqueNamePlateMaterial = BasisNamePlateAssets.OpaqueMaterial;
             Text = BasisNamePlateAssets.TextBaker;
         }
 
@@ -441,7 +437,8 @@ namespace Basis.Scripts.UI.NamePlate
 
         private static void ProcessBakeQueue()
         {
-            if (Text == null) return;
+            Text = BasisNamePlateAssets.TextBaker;
+            if (!BasisNamePlateAssets.IsReady) return;
 
             int budget = MaxBakesPerFrame;
             while (budget > 0 && bakeQueue.Count > 0)

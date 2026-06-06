@@ -1,4 +1,3 @@
-using System.Threading;
 using Basis.Scripts.BasisSdk.Players;
 using UnityEngine;
 
@@ -24,18 +23,15 @@ namespace Basis.Scripts.UI.NamePlate
         /// The player ID this nameplate belongs to.
         /// </summary>
         public ushort PlayerID;
+
         public BasisRemotePlayer RemotePlayer;
 
         /// <summary>
         /// Whether this nameplate is currently active and visible.
         /// </summary>
-        private int _isActive = 1;
+        // Camera nameplate lifecycle is driven from Unity's main thread.
+        public bool IsActive = true;
         private bool _lastAppliedActive = true;
-        public bool IsActive
-        {
-            get => Volatile.Read(ref _isActive) == 1;
-            private set => Volatile.Write(ref _isActive, value ? 1 : 0);
-        }
 
         /// <summary>
         /// The current display name being shown.
@@ -46,14 +42,27 @@ namespace Basis.Scripts.UI.NamePlate
 
         public void Initialize(ushort playerId, string displayName, Transform parentTransform, BasisRemotePlayer remotePlayer = null)
         {
+            if (string.IsNullOrEmpty(displayName))
+            {
+                displayName = $"Player {playerId}";
+            }
+
             PlayerID = playerId;
             RemotePlayer = remotePlayer;
             DisplayName = displayName;
             gameObject.name = $"CameraNamePlate_{playerId}";
             ApplyScale();
 
-            BackgroundFilter = gameObject.AddComponent<MeshFilter>();
-            BackgroundRenderer = gameObject.AddComponent<MeshRenderer>();
+            if (BackgroundFilter == null && !TryGetComponent(out BackgroundFilter))
+            {
+                BackgroundFilter = gameObject.AddComponent<MeshFilter>();
+            }
+
+            if (BackgroundRenderer == null && !TryGetComponent(out BackgroundRenderer))
+            {
+                BackgroundRenderer = gameObject.AddComponent<MeshRenderer>();
+            }
+
             visual = new BasisNamePlateVisual("CameraNamePlateCombinedMesh");
             visual.Attach(BackgroundFilter, BackgroundRenderer);
             visual.SetDisplayName(displayName);
@@ -73,6 +82,11 @@ namespace Basis.Scripts.UI.NamePlate
 
         public void UpdateDisplayName(string newName)
         {
+            if (string.IsNullOrEmpty(newName))
+            {
+                newName = $"Player {PlayerID}";
+            }
+
             if (DisplayName == newName) return;
             DisplayName = newName;
             visual?.SetDisplayName(newName);

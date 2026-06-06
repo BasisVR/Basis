@@ -17,10 +17,44 @@ namespace Basis.Scripts.UI.NamePlate
 
     public static class BasisNamePlateMeshBaker
     {
-        public static int MaxBakesPerFrame = 2;
-        public static float MaxPlateHalfWidth = 40f;
-        public static float RoundEdges = 0.85f;
-        public static int CornerVertexCount = 8;
+        private static int maxBakesPerFrame = 2;
+        private static float maxPlateHalfWidth = 40f;
+        private static float roundEdges = 0.85f;
+        private static int cornerVertexCount = 8;
+
+        public static int MaxBakesPerFrame
+        {
+            get => maxBakesPerFrame;
+            set => maxBakesPerFrame = Mathf.Max(1, value);
+        }
+
+        public static float MaxPlateHalfWidth
+        {
+            get => maxPlateHalfWidth;
+            set => maxPlateHalfWidth = Mathf.Max(0.001f, value);
+        }
+
+        public static float RoundEdges
+        {
+            get => roundEdges;
+            set => roundEdges = Mathf.Clamp01(value);
+        }
+
+        public static int CornerVertexCount
+        {
+            get => cornerVertexCount;
+            set
+            {
+                int clamped = Mathf.Max(3, value);
+                if (cornerVertexCount == clamped) return;
+                cornerVertexCount = clamped;
+                if (initialized)
+                {
+                    PrecomputeCornerData();
+                }
+            }
+        }
+
         public static float zOffset = 0.06f;
 
         private const float BakeFontSize = 72f;
@@ -57,6 +91,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static void ProcessBakeQueue()
         {
             Initialize();
+            if (!BasisNamePlateAssets.IsReady) return;
 
             int budget = MaxBakesPerFrame;
             while (budget > 0 && bakeQueue.Count > 0)
@@ -73,6 +108,8 @@ namespace Basis.Scripts.UI.NamePlate
         public static Mesh BakeNow(string displayName, MeshFilter filter, MeshRenderer renderer, string meshName)
         {
             Initialize();
+            if (!BasisNamePlateAssets.IsReady) return null;
+
             TextMeshPro text = BasisNamePlateAssets.TextBaker;
             if (text == null || filter == null || renderer == null) return null;
 

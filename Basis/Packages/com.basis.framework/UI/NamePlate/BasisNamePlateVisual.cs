@@ -45,7 +45,6 @@ namespace Basis.Scripts.UI.NamePlate
         public void RefreshMeshNowIfNeeded()
         {
             if (!needsMeshUpdate) return;
-            needsMeshUpdate = false;
             bakeQueued = false;
             Mesh mesh = BasisNamePlateMeshBaker.BakeNow(displayName, MeshFilter, MeshRenderer, meshName);
             OnBakeCompleted(mesh);
@@ -53,6 +52,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         public void OnBakeCompleted(Mesh mesh)
         {
+            if (mesh == null) return;
             bakeQueued = false;
             needsMeshUpdate = false;
             if (generatedMesh != null && generatedMesh != mesh)
