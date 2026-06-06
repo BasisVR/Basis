@@ -105,12 +105,8 @@ namespace Basis.Scripts.UI.NamePlate
             BasisNamePlateMeshBaker.Initialize();
             EnsureAssetsLoaded();
 
-            NamePlateEnabled = BasisSettingsDefaults.NPEnabled.RawValue;
-            NamePlateMenuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
-            NamePlateHoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
-            NamePlateSize = BasisSettingsDefaults.NPSize.RawValue;
-            NamePlateTransparency = BasisSettingsDefaults.NPTransparency.RawValue;
-            ChatSize = BasisSettingsDefaults.ChatSize.RawValue;
+            BasisNamePlateSettings.RefreshFromDefaults();
+            SyncSharedSettingsFromNamePlateSettings();
             lastMenuOpenState = BasisMainMenu.Instance != null;
 
             UpdateCachedColors(NamePlateTransparency);
@@ -302,6 +298,25 @@ namespace Basis.Scripts.UI.NamePlate
             }
         }
 
+        private static void SyncSharedSettingsFromNamePlateSettings()
+        {
+            NamePlateEnabled = BasisNamePlateSettings.NamePlateEnabled;
+            NamePlateMenuOnly = BasisNamePlateSettings.NamePlateMenuOnly;
+            NamePlateHoverMenuOnly = BasisNamePlateSettings.NamePlateHoverMenuOnly;
+            NamePlateSize = BasisNamePlateSettings.NamePlateSize;
+            NamePlateTransparency = BasisNamePlateSettings.NamePlateTransparency;
+            ChatSize = BasisNamePlateSettings.ChatSize;
+        }
+
+        private static void SyncSharedBakerSettings()
+        {
+            BasisNamePlateMeshBaker.MaxBakesPerFrame = MaxBakesPerFrame;
+            BasisNamePlateMeshBaker.MaxPlateHalfWidth = MaxPlateHalfWidth;
+            BasisNamePlateMeshBaker.RoundEdges = RoundEdges;
+            BasisNamePlateMeshBaker.CornerVertexCount = CornerVertexCount;
+            BasisNamePlateMeshBaker.zOffset = zOffset;
+        }
+
         /// <summary>
         /// Precomputes sin/cos lookup table, triangle indices, normals,
         /// and allocates working arrays. Only needs to run when CornerVertexCount changes.
@@ -378,24 +393,14 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         public static void ApplyNamePlateSettingsFromUI()
         {
-            bool enabled = BasisSettingsDefaults.NPEnabled.RawValue;
-            bool menuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
-            bool hoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
-            float newSize = BasisSettingsDefaults.NPSize.RawValue;
-            float newTransparency = BasisSettingsDefaults.NPTransparency.RawValue;
+            BasisNamePlateSettings.RefreshFromDefaults();
+            SyncSharedSettingsFromNamePlateSettings();
 
-            NamePlateEnabled = enabled;
-            NamePlateMenuOnly = menuOnly;
-            NamePlateHoverMenuOnly = hoverMenuOnly;
-            NamePlateSize = newSize;
-            NamePlateTransparency = newTransparency;
-            ChatSize = BasisSettingsDefaults.ChatSize.RawValue;
-
-            UpdateCachedColors(newTransparency);
+            UpdateCachedColors(NamePlateTransparency);
 
             FlushPendingStructuralChanges();
 
-            Vector3 scale = new Vector3(0.02f, 0.02f, 0.02f) * newSize;
+            Vector3 scale = new Vector3(0.02f, 0.02f, 0.02f) * NamePlateSize;
             var arr = plates;
             int n = count;
             for (int i = 0; i < n; i++)
@@ -439,6 +444,7 @@ namespace Basis.Scripts.UI.NamePlate
         {
             Text = BasisNamePlateAssets.TextBaker;
             if (!BasisNamePlateAssets.IsReady) return;
+            SyncSharedBakerSettings();
 
             int budget = MaxBakesPerFrame;
             while (budget > 0 && bakeQueue.Count > 0)
@@ -457,6 +463,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         public static void GenerateTextFactory(string displayName, MeshFilter filter, MeshRenderer renderer, string meshName)
         {
+            SyncSharedBakerSettings();
             BasisNamePlateMeshBaker.BakeNow(displayName, filter, renderer, meshName);
         }
 
@@ -467,9 +474,7 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         public static Mesh GenerateRoundedQuad(float halfWidth, float halfHeight, string meshName)
         {
-            BasisNamePlateMeshBaker.RoundEdges = RoundEdges;
-            BasisNamePlateMeshBaker.CornerVertexCount = CornerVertexCount;
-            BasisNamePlateMeshBaker.zOffset = zOffset;
+            SyncSharedBakerSettings();
             return BasisNamePlateMeshBaker.GenerateRoundedQuad(halfWidth, halfHeight, meshName);
         }
 

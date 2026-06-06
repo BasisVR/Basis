@@ -61,6 +61,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             BasisNamePlateAssets.Initialize();
             BasisNamePlateMeshBaker.Initialize();
+            BasisNamePlateSettings.RefreshFromDefaults();
             BasisNetworkPIPCameraDriver.OnRemotePIPCreated += OnRemotePIPCreated;
             BasisNetworkPIPCameraDriver.OnRemotePIPDestroyed += OnRemotePIPDestroyed;
         }
@@ -148,8 +149,8 @@ namespace Basis.Scripts.UI.NamePlate
         public static bool ShouldPlateBeActive(BasisCameraNamePlate plate)
         {
             if (!NamePlateEnabled) return false;
-            if (!BasisRemoteNamePlateDriver.NamePlateEnabled) return false;
-            if (BasisRemoteNamePlateDriver.NamePlateMenuOnly && BasisMainMenu.Instance == null) return false;
+            if (!BasisNamePlateSettings.NamePlateEnabled) return false;
+            if (BasisNamePlateSettings.NamePlateMenuOnly && BasisMainMenu.Instance == null) return false;
             if (!plate.IsActive) return false;
             if (plate.RemotePlayer != null && plate.RemotePlayer.IsEffectivelyBlocked) return false;
             return true;

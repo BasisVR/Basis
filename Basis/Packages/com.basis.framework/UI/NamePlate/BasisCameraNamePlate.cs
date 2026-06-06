@@ -112,7 +112,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         public void ApplyScale()
         {
-            transform.localScale = Vector3.one * 0.02f * BasisRemoteNamePlateDriver.NamePlateSize * BasisCameraNamePlateDriver.NamePlateScale;
+            transform.localScale = Vector3.one * 0.02f * BasisNamePlateSettings.NamePlateSize * BasisCameraNamePlateDriver.NamePlateScale;
             visual?.ApplyMaterial();
         }
 
