@@ -32,6 +32,8 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         public static bool NamePlateEnabled = true;
 
+        private const string NamePlateLayerName = "UI";
+
         /// <summary>
         /// Whether the driver has been initialized.
         /// </summary>
@@ -156,6 +158,11 @@ namespace Basis.Scripts.UI.NamePlate
             if (activePlates.ContainsKey(playerId)) return;
 
             GameObject plateGO = new GameObject($"CameraNamePlate_{playerId}");
+            int namePlateLayer = LayerMask.NameToLayer(NamePlateLayerName);
+            if (namePlateLayer >= 0)
+            {
+                plateGO.layer = namePlateLayer;
+            }
             plateGO.transform.SetParent(BasisDeviceManagement.Instance.transform, false);
             plateGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
