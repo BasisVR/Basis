@@ -97,6 +97,7 @@ namespace Basis.BasisUI
         public static void ApplyNamePlateSettings()
         {
             BasisRemoteNamePlateDriver.ApplyNamePlateSettingsFromUI();
+            BasisCameraNamePlateDriver.ApplyNamePlateSettingsFromUI();
         }
     }
 }

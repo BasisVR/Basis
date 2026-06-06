@@ -59,6 +59,8 @@ namespace Basis.Scripts.UI.NamePlate
             if (_initialized) return;
             _initialized = true;
 
+            BasisNamePlateAssets.Initialize();
+            BasisNamePlateMeshBaker.Initialize();
             BasisNetworkPIPCameraDriver.OnRemotePIPCreated += OnRemotePIPCreated;
             BasisNetworkPIPCameraDriver.OnRemotePIPDestroyed += OnRemotePIPDestroyed;
         }
@@ -223,7 +225,7 @@ namespace Basis.Scripts.UI.NamePlate
 
                 plate.RefreshActiveState();
                 RefreshPlayerMetadata(plate);
-                plate.RefreshMeshIfNeeded();
+                plate.QueueMeshRefreshIfNeeded();
 
                 if (ShouldPlateBeActive(plate))
                 {
@@ -243,7 +245,7 @@ namespace Basis.Scripts.UI.NamePlate
                 BasisCameraNamePlate plate = activePlateList[index];
                 if (plate != null)
                 {
-                    plate.RefreshMeshIfNeeded();
+                    plate.QueueMeshRefreshIfNeeded();
                 }
             }
         }

@@ -798,6 +798,8 @@ namespace Basis.Scripts.Device_Management
         {
             if (FireOffNetwork)
             {
+                BasisNamePlateAssets.Initialize();
+                BasisNamePlateMeshBaker.Initialize();
                 BasisRemoteNamePlateDriver.Initialize();
                 BasisCameraNamePlateDriver.Initialize();
                 BasisNetworkLifeCycle.Initialize();

@@ -42,12 +42,7 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         public string DisplayName;
 
-        private Mesh _backgroundMesh;
-
-        /// <summary>
-        /// Whether the mesh needs to be regenerated (name changed).
-        /// </summary>
-        private bool _needsMeshUpdate;
+        private BasisNamePlateVisual visual;
 
         public void Initialize(ushort playerId, string displayName, Transform parentTransform, BasisRemotePlayer remotePlayer = null)
         {
@@ -59,15 +54,9 @@ namespace Basis.Scripts.UI.NamePlate
 
             BackgroundFilter = gameObject.AddComponent<MeshFilter>();
             BackgroundRenderer = gameObject.AddComponent<MeshRenderer>();
-
-            // Use the same material as avatar nameplates
-            if (BasisRemoteNamePlateDriver.SelectedNamePlateMaterial != null)
-            {
-                BackgroundRenderer.sharedMaterial = BasisRemoteNamePlateDriver.SelectedNamePlateMaterial;
-                BackgroundRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                BackgroundRenderer.receiveShadows = false;
-                BackgroundRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            }
+            visual = new BasisNamePlateVisual("CameraNamePlateCombinedMesh");
+            visual.Attach(BackgroundFilter, BackgroundRenderer);
+            visual.SetDisplayName(displayName);
 
             // Parent under BasisDeviceManagement for lifetime management
             if (parentTransform != null)
@@ -78,9 +67,7 @@ namespace Basis.Scripts.UI.NamePlate
             // Register with the driver
             BasisCameraNamePlateDriver.Register(this);
 
-            // Initial text bake
-            _needsMeshUpdate = true;
-            RefreshMeshIfNeeded();
+            QueueMeshRefreshIfNeeded();
             RefreshActiveState();
         }
 
@@ -88,7 +75,7 @@ namespace Basis.Scripts.UI.NamePlate
         {
             if (DisplayName == newName) return;
             DisplayName = newName;
-            _needsMeshUpdate = true;
+            visual?.SetDisplayName(newName);
         }
 
         public void OnPlayerLeft()
@@ -98,27 +85,9 @@ namespace Basis.Scripts.UI.NamePlate
             Destroy(gameObject);
         }
 
-        public void RefreshMeshIfNeeded()
+        public void QueueMeshRefreshIfNeeded()
         {
-            if (!_needsMeshUpdate) return;
-            _needsMeshUpdate = false;
-
-            if (BackgroundFilter != null)
-            {
-                if (_backgroundMesh != null)
-                {
-                    Destroy(_backgroundMesh);
-                }
-                BasisRemoteNamePlateDriver.GenerateTextFactory(DisplayName, BackgroundFilter, BackgroundRenderer, "CameraNamePlateCombinedMesh");
-                _backgroundMesh = BackgroundFilter.sharedMesh;
-            }
-            if (BackgroundRenderer != null && BackgroundRenderer.sharedMaterial == null)
-            {
-                if (BasisRemoteNamePlateDriver.SelectedNamePlateMaterial != null)
-                {
-                    BackgroundRenderer.sharedMaterial = BasisRemoteNamePlateDriver.SelectedNamePlateMaterial;
-                }
-            }
+            visual?.QueueMeshRefreshIfNeeded();
         }
 
         public void SetActive(bool active)
@@ -130,6 +99,7 @@ namespace Basis.Scripts.UI.NamePlate
         public void ApplyScale()
         {
             transform.localScale = Vector3.one * 0.02f * BasisRemoteNamePlateDriver.NamePlateSize * BasisCameraNamePlateDriver.NamePlateScale;
+            visual?.ApplyMaterial();
         }
 
         public void RefreshActiveState()
@@ -146,11 +116,9 @@ namespace Basis.Scripts.UI.NamePlate
 
         private void OnDestroy()
         {
-            if (_backgroundMesh != null)
-            {
-                Destroy(_backgroundMesh);
-                _backgroundMesh = null;
-            }
+            BasisCameraNamePlateDriver.Unregister(this);
+            visual?.Dispose();
+            visual = null;
         }
     }
 }

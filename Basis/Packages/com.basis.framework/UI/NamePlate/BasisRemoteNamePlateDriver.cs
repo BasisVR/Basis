@@ -10,7 +10,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 
 namespace Basis.Scripts.UI.NamePlate
 {
@@ -63,11 +62,6 @@ namespace Basis.Scripts.UI.NamePlate
 
         public static Material SelectedNamePlateMaterial;
 
-        // Addressables keys for the materials/font that used to be serialized on the prefab.
-        private const string TransparentMaterialAddress = "Packages/com.basis.sdk/Materials/TransParentNamePlateMaterial.mat";
-        private const string OpaqueMaterialAddress = "Packages/com.basis.sdk/Materials/OpaqueNamePlateMaterial.mat";
-        private const string FontAddress = "Packages/com.basis.sdk/Fonts/Poppins-Regular SDF NamePlate.asset";
-
         public static float RoundEdges = 0.85f;
         public static int CornerVertexCount = 8;
         public static float zOffset = 0.06f;
@@ -83,20 +77,19 @@ namespace Basis.Scripts.UI.NamePlate
         private static bool lastMenuOpenState;
         private static bool _initialized;
 
-        // Precomputed per CornerVertexCount
+        // Legacy rounded-quad cache kept for compatibility helpers that are no longer
+        // called during normal nameplate baking.
         private static int cachedCornerCount;
         private static float[] sinTable;
         private static float[] cosTable;
         private static int[] cachedTriangles;
         private static int cachedRingVertexCount;
         private static int cachedVertexCount;
-
-        // Reusable working arrays (avoid per-call managed allocation)
         private static Vector3[] workVertices;
         private static Vector3[] workNormals;
         private static Vector2[] workUVs;
-
         private static bool _unicodeFallbacksEnsured;
+        private static HashSet<string> _installedFontNamesLower;
 
         /// <summary>
         /// Idempotent. Triggered by <see cref="Basis.Scripts.Device_Management.BasisDeviceManagement"/>
@@ -108,11 +101,11 @@ namespace Basis.Scripts.UI.NamePlate
             if (_initialized) return;
             _initialized = true;
 
+            BasisNamePlateAssets.Initialize();
+            BasisNamePlateMeshBaker.Initialize();
             EnsureAssetsLoaded();
 
-            SelectedNamePlateMaterial = BasisDeviceManagement.IsMobileHardware()
-                ? OpaqueNamePlateMaterial
-                : TransParentNamePlateMaterial;
+            SelectedNamePlateMaterial = BasisNamePlateAssets.SelectedMaterial;
 
             NamePlateEnabled = BasisSettingsDefaults.NPEnabled.RawValue;
             NamePlateMenuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
@@ -123,8 +116,6 @@ namespace Basis.Scripts.UI.NamePlate
             lastMenuOpenState = BasisMainMenu.Instance != null;
 
             UpdateCachedColors(NamePlateTransparency);
-            PrecomputeCornerData();
-            EnsureUnicodeFallbacksOnNameplateFont();
         }
 
         /// <summary>
@@ -134,32 +125,10 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         private static void EnsureAssetsLoaded()
         {
-            if (TransParentNamePlateMaterial == null)
-            {
-                TransParentNamePlateMaterial = Addressables.LoadAssetAsync<Material>(TransparentMaterialAddress).WaitForCompletion();
-            }
-            if (OpaqueNamePlateMaterial == null)
-            {
-                OpaqueNamePlateMaterial = Addressables.LoadAssetAsync<Material>(OpaqueMaterialAddress).WaitForCompletion();
-            }
-            if (Text == null)
-            {
-                var font = Addressables.LoadAssetAsync<TMP_FontAsset>(FontAddress).WaitForCompletion();
-
-                var bakingGO = new GameObject("BasisNameplateBaker");
-                bakingGO.transform.SetParent(BasisDeviceManagement.Instance.transform, false);
-                bakingGO.SetActive(false);
-
-                Text = bakingGO.AddComponent<TextMeshPro>();
-                Text.font = font;
-                Text.fontSize = BakeFontSize;
-                Text.enableAutoSizing = false;
-                Text.alignment = TextAlignmentOptions.Center;
-                Text.color = Color.white;
-                Text.enableVertexGradient = false;
-                Text.textWrappingMode = TextWrappingModes.NoWrap;
-                Text.overflowMode = TextOverflowModes.Overflow;
-            }
+            BasisNamePlateAssets.Initialize();
+            TransParentNamePlateMaterial = BasisNamePlateAssets.TransparentMaterial;
+            OpaqueNamePlateMaterial = BasisNamePlateAssets.OpaqueMaterial;
+            Text = BasisNamePlateAssets.TextBaker;
         }
 
         /// <summary>
@@ -259,8 +228,6 @@ namespace Basis.Scripts.UI.NamePlate
                 return;
             }
         }
-
-        private static HashSet<string> _installedFontNamesLower;
 
         private static bool IsFontInstalled(string family)
         {
@@ -450,7 +417,6 @@ namespace Basis.Scripts.UI.NamePlate
             }
 
             SetAllPlateVisibility();
-            BasisCameraNamePlateDriver.ApplyNamePlateSettingsFromUI();
         }
 
         // ===========================
@@ -466,9 +432,6 @@ namespace Basis.Scripts.UI.NamePlate
         private static readonly Queue<BakeRequest> bakeQueue = new(64);
         public static int MaxBakesPerFrame = 2;
         public static float MaxPlateHalfWidth = 40f;
-        private const float BakeFontSize = 72f;
-
-        private static readonly Matrix4x4 FlipX = Matrix4x4.Scale(new Vector3(-1f, 1f, 1f));
 
         public static void QueueTextBake(BasisRemotePlayer remotePlayer, BasisRemoteNamePlate namePlate)
         {
@@ -497,70 +460,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         public static void GenerateTextFactory(string displayName, MeshFilter filter, MeshRenderer renderer, string meshName)
         {
-            if (Text == null || filter == null || renderer == null) return;
-
-            Text.gameObject.SetActive(true);
-            Text.fontSize = BakeFontSize;
-            Text.text = displayName;
-            Text.ForceMeshUpdate();
-
-            const float horizontalPadding = 2f;
-            Vector2 textSize = Text.GetRenderedValues(true);
-            float halfWidth = (textSize.x * 0.5f) + horizontalPadding;
-
-            float textScale = 1f;
-            if (halfWidth > MaxPlateHalfWidth && textSize.x > 0.001f)
-            {
-                float maxTextWidth = (MaxPlateHalfWidth - horizontalPadding) * 2f;
-                textScale = maxTextWidth / textSize.x;
-                halfWidth = MaxPlateHalfWidth;
-            }
-
-            Matrix4x4 textTransform = textScale == 1f
-                ? FlipX
-                : Matrix4x4.Scale(new Vector3(-textScale, textScale, 1f));
-
-            Mesh plateMesh = GenerateRoundedQuad(halfWidth, 4.5f, "Rounded NamePlate Quad");
-
-            var textInfo = Text.textInfo;
-            int subMeshLimit = 0;
-            int textPartCount = 0;
-            if (textInfo != null && textInfo.meshInfo != null)
-            {
-                subMeshLimit = math.min(textInfo.materialCount, textInfo.meshInfo.Length);
-                for (int i = 0; i < subMeshLimit; i++)
-                {
-                    if (textInfo.meshInfo[i].vertexCount > 0)
-                        textPartCount++;
-                }
-            }
-
-            int totalParts = 1 + textPartCount;
-            var combine = new CombineInstance[totalParts];
-            var materials = new Material[totalParts];
-
-            combine[0] = new CombineInstance { mesh = plateMesh, transform = Matrix4x4.identity };
-            materials[0] = SelectedNamePlateMaterial;
-
-            int writeIdx = 1;
-            for (int i = 0; i < subMeshLimit; i++)
-            {
-                var info = textInfo.meshInfo[i];
-                if (info.vertexCount == 0 || info.mesh == null) continue;
-
-                combine[writeIdx] = new CombineInstance { mesh = info.mesh, transform = textTransform };
-                materials[writeIdx] = info.material;
-                writeIdx++;
-            }
-
-            Mesh combinedMesh = new Mesh { name = meshName };
-            combinedMesh.CombineMeshes(combine, false);
-
-            filter.sharedMesh = combinedMesh;
-            renderer.sharedMaterials = materials;
-
-            Object.Destroy(plateMesh);
-            Text.gameObject.SetActive(false);
+            BasisNamePlateMeshBaker.BakeNow(displayName, filter, renderer, meshName);
         }
 
         /// <summary>
@@ -570,55 +470,10 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         public static Mesh GenerateRoundedQuad(float halfWidth, float halfHeight, string meshName)
         {
-            float width = halfWidth * 2f;
-            float height = halfHeight * 2f;
-
-            float maxRadius = Mathf.Min(halfWidth, halfHeight);
-            float radius = Mathf.Clamp01(RoundEdges) * maxRadius;
-
-            Vector2 uvOffset = new Vector2(0.5f, 0.5f);
-            Vector2 uvScale = new Vector2(1f / width, 1f / height);
-
-            workVertices[0] = new Vector3(0, 0, zOffset);
-            workUVs[0] = uvOffset;
-
-            for (int ci = 0; ci < cachedCornerCount; ci++)
-            {
-                float sin = sinTable[ci];
-                float cos = cosTable[ci];
-
-                float oneMinusCos = 1f - cos;
-                float oneMinusSin = 1f - sin;
-
-                Vector2 tl = new Vector2(-halfWidth + oneMinusCos * radius, halfHeight - oneMinusSin * radius);
-                Vector2 tr = new Vector2(halfWidth - oneMinusSin * radius, halfHeight - oneMinusCos * radius);
-                Vector2 br = new Vector2(halfWidth - oneMinusCos * radius, -halfHeight + oneMinusSin * radius);
-                Vector2 bl = new Vector2(-halfWidth + oneMinusSin * radius, -halfHeight + oneMinusCos * radius);
-
-                int idx1 = 1 + ci;
-                int idx2 = idx1 + cachedCornerCount;
-                int idx3 = idx2 + cachedCornerCount;
-                int idx4 = idx3 + cachedCornerCount;
-
-                workVertices[idx1] = new Vector3(tl.x, tl.y, zOffset);
-                workVertices[idx2] = new Vector3(tr.x, tr.y, zOffset);
-                workVertices[idx3] = new Vector3(br.x, br.y, zOffset);
-                workVertices[idx4] = new Vector3(bl.x, bl.y, zOffset);
-
-                workUVs[idx1] = tl * uvScale + uvOffset;
-                workUVs[idx2] = tr * uvScale + uvOffset;
-                workUVs[idx3] = br * uvScale + uvOffset;
-                workUVs[idx4] = bl * uvScale + uvOffset;
-            }
-
-            return new Mesh
-            {
-                name = meshName,
-                vertices = workVertices,
-                normals = workNormals,
-                uv = workUVs,
-                triangles = cachedTriangles
-            };
+            BasisNamePlateMeshBaker.RoundEdges = RoundEdges;
+            BasisNamePlateMeshBaker.CornerVertexCount = CornerVertexCount;
+            BasisNamePlateMeshBaker.zOffset = zOffset;
+            return BasisNamePlateMeshBaker.GenerateRoundedQuad(halfWidth, halfHeight, meshName);
         }
 
         // ===========================

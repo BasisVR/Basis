@@ -290,6 +290,7 @@ namespace Basis.EventDriver
 
             // ── Nameplate schedule ──
             ProfileBegin(PROF_NAMEPLATE_SCHEDULE);
+            BasisNamePlateMeshBaker.ProcessBakeQueue();
             BasisRemoteNamePlateDriver.ScheduleSimulate(TimeAsDouble);
             BasisCameraNamePlateDriver.UpdateAllPlatePositions();
             ProfileEnd(PROF_NAMEPLATE_SCHEDULE);
