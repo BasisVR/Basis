@@ -206,7 +206,7 @@ namespace Basis.Scripts.Networking
             int queryIdx = rest.IndexOf('?');
             if (queryIdx >= 0)
             {
-                connectionPart = rest.Substring(0, queryIdx);
+                connectionPart = rest.Substring(0, queryIdx).TrimEnd('/');
                 password = ParsePasswordFromQuery(rest.Substring(queryIdx + 1));
             }
 
