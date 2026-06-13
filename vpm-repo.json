@@ -59,6 +59,15 @@
           "license": "MIT",
           "zipSHA256": "763f10411ceccdfccb6e51e2eb98d6d9bc6782c4312ec787c71619ed88b8f6ce",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.avionblock.opussharp-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.avionblock.opussharp",
+          "displayName": "avionblock opussharp",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "opus port by AvionBlock https://github.com/AvionBlock/OpusSharp",
+          "license": "MIT",
+          "zipSHA256": "091c49956cf277f22bb6f300420f22df1daded0ec897bfa31f0fa19a5df84d3b",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.avionblock.opussharp-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -177,6 +186,25 @@
           },
           "zipSHA256": "cb4589fcf4afee87b03dc2fdcc7b26095587f635f22a7f90e30f0decd339b707",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.bundlemanagement-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.bundlemanagement",
+          "displayName": "Basis Bundle Management",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Basis Bundle Management for loading and unloading bundles",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1"
+          },
+          "vpmDependencies": {
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "9ea3d57aa022cf202cf2899577fccb2ce54bd9a62093c89f02fd8aa3417e66a3",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.bundlemanagement-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -295,6 +323,25 @@
           },
           "zipSHA256": "39d49cfb226aa89ced41cd9951acb7fe14c15f282bd6f0f271122f0f35d84af1",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.common-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.common",
+          "displayName": "Basis Common",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Used by the framework as common useful data types and structs",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.mathematics": "1.3.3"
+          },
+          "vpmDependencies": {
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "14753c797fce18c3a169d1627936bcf07ebdf2af5bc8db92b5ff72e314394eb4",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.common-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -443,6 +490,31 @@
           },
           "zipSHA256": "fad1fea29bad41115e2a0389ce2015b9edc2112cf5aee978cdb0caf4d162e8d7",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.eventdriver-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.eventdriver",
+          "displayName": "Basis Event Driver",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "This system drives the entire pipeline of basis events and timings",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.inputsystem": "1.19.0"
+          },
+          "vpmDependencies": {
+            "com.gator-dragon-games.jigglephysics": "16.0.1-dev.2026.W24.8",
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.openlipsync": "0.2.0-dev.2026.W24.8",
+            "com.basis.profilerintergration": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.steam.steamaudio": "0.0.1-dev.2026.W24.8",
+            "dev.hai-vr.basis.comms": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "113a0ebb08b1482f388eadf77dee51804eac206372ed288c734185f6de82f6b0",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.eventdriver-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -561,6 +633,25 @@
           },
           "zipSHA256": "48600d1f531f40237da3567214ffa018cbec234da5d7bc42511e229565b045ed",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.examples-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.examples",
+          "displayName": "Basis Examples",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "examples for the basis framework",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "vpmDependencies": {
+            "com.basis.common": "0.0.1-dev.2026.W24.8",
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8"
+          },
+          "zipSHA256": "ddf9aa02f615bb8800c80de812f87f9941d4f22178399d60eeb65c7c0f1e8f0d",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.examples-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -733,6 +824,34 @@
           },
           "zipSHA256": "3b78c94ca6f995f0b63748b8d0a2efa77645ac680645527e1fb969a84acb5dd6",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.framework.editor-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.framework.editor",
+          "displayName": "Basis Framework Editor",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Editor Folder for basis framework",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1",
+            "com.unity.mathematics": "1.3.3"
+          },
+          "vpmDependencies": {
+            "com.basis.bundlemanagement": "0.0.1-dev.2026.W24.8",
+            "com.basis.common": "0.0.1-dev.2026.W24.8",
+            "com.basis.eventdriver": "0.0.1-dev.2026.W24.8",
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.openlipsync": "0.2.0-dev.2026.W24.8",
+            "com.basis.profilerintergration": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8",
+            "org.basisvr.newtonsoft.json": "13.0.3-dev.2026.W24.8"
+          },
+          "zipSHA256": "80406c67aa0fea5190d3370756da7c70e8823ee32abce04383e103a6372b337a",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.framework.editor-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1001,6 +1120,50 @@
           },
           "zipSHA256": "11e1ab419858246b4b70ae7565a5db12c53b6bd0febb3784cf4cf3624764198a",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.framework-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.framework",
+          "displayName": "Basis Framework",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Basis framework",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1",
+            "com.unity.animation.rigging": "1.4.1",
+            "com.unity.burst": "1.8.29",
+            "com.unity.collections": "2.6.6",
+            "com.unity.inputsystem": "1.19.0",
+            "com.unity.mathematics": "1.3.3",
+            "com.unity.render-pipelines.core": "17.4.0",
+            "com.unity.render-pipelines.universal": "17.4.0",
+            "com.unity.services.analytics": "6.3.0",
+            "com.unity.services.core": "1.16.0",
+            "com.unity.ugui": "2.0.0",
+            "com.unity.xr.management": "4.5.4"
+          },
+          "vpmDependencies": {
+            "com.gator-dragon-games.jigglephysics": "16.0.1-dev.2026.W24.8",
+            "com.avionblock.opussharp": "0.0.1-dev.2026.W24.8",
+            "com.basis.bundlemanagement": "0.0.1-dev.2026.W24.8",
+            "com.basis.common": "0.0.1-dev.2026.W24.8",
+            "com.basis.gizmos": "0.0.1-dev.2026.W24.8",
+            "com.basis.openlipsync": "0.2.0-dev.2026.W24.8",
+            "com.basis.profilerintergration": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8",
+            "com.basis.settings": "1.0.0-dev.2026.W24.8",
+            "com.cqf.urpvolumetricfog": "0.5.6-dev.2026.W24.8",
+            "com.steam.steamaudio": "0.0.1-dev.2026.W24.8",
+            "com.xiph.rnnoise": "0.0.1-dev.2026.W24.8",
+            "org.basisvr.k4os.compression.lz4": "1.3.8-dev.2026.W24.8",
+            "com.basis.textmeshpro": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "de44884de13a07c7f0bc37a32655a2336634038e11c4b34c6e855f57b29ce0c9",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.framework-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1119,6 +1282,25 @@
           },
           "zipSHA256": "8bbdc279a2328443c1a427f97380be98114d6f12831b6959c8c168dd68311145",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.gizmos-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.gizmos",
+          "displayName": "Basis Gizmos",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Gizmos for basis framework",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1"
+          },
+          "vpmDependencies": {
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "8c5421f2f9f5c3bcf2a16849971e17798439e6dd72f266886d29cda4b7e344ea",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.gizmos-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1297,6 +1479,35 @@
           },
           "zipSHA256": "2c88d2c0a82a45a8e122d22d6789e0d89819122bdc1762b0bc4d8a8365a77349",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.openlipsync-0.2.0-dev.2026.W23.7.zip"
+        },
+        "0.2.0-dev.2026.W24.8": {
+          "name": "com.basis.openlipsync",
+          "version": "0.2.0-dev.2026.W24.8",
+          "displayName": "Basis OpenLipSync",
+          "description": "Neural network-based lip sync using ONNX Runtime TCN model, producing 15 MPEG-4 visemes. Adapted from https://github.com/BasisVR/OpenLipSync",
+          "author": {
+            "name": "Basis"
+          },
+          "repository": {
+            "type": "git",
+            "url": "https://github.com/BasisVR/OpenLipSync"
+          },
+          "keywords": [
+            "lipsync",
+            "viseme",
+            "onnx",
+            "openlipsync"
+          ],
+          "license": "Apache-2.0",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1"
+          },
+          "vpmDependencies": {
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "org.basisvr.newtonsoft.json": "13.0.3-dev.2026.W24.8"
+          },
+          "zipSHA256": "5a0a9cd8db2e18485f52548da99066be48b981ed89f3b27079b60ec491ced4f3",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.openlipsync-0.2.0-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1397,6 +1608,22 @@
           },
           "zipSHA256": "75d99ac9381adc3bf8e45996a35e309257e1d512e590605b4624070b1438bba9",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.profilerintergration-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.profilerintergration",
+          "displayName": "Basis Profiler intergration",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "intergrates with unitys profiler",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.profiling.core": "1.0.3"
+          },
+          "zipSHA256": "1b8979a21f089b005b561556e8cf6f7693459414a4d5dab3ad5ce7a3a1c44f97",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.profilerintergration-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1545,6 +1772,30 @@
           },
           "zipSHA256": "413474d4aabee7021be99fbb4400e64529dbd0121376d497a63fb134ddd80386",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.sdk-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.sdk",
+          "displayName": "Basis SDK",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "SDK for the basis framework",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "hideInEditor": false,
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1",
+            "com.unity.mathematics": "1.3.2",
+            "com.unity.render-pipelines.core": "17.4.0",
+            "com.unity.ugui": "2.0.0"
+          },
+          "vpmDependencies": {
+            "org.basisvr.bouncycastle": "2.5.0-dev.2026.W24.8",
+            "org.basisvr.newtonsoft.json": "13.0.3-dev.2026.W24.8"
+          },
+          "zipSHA256": "ea0e7a8ccf891d7eb71a31b8a9dafd6a7e70e94388fc1222af57e5c1736f6137",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.sdk-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1675,6 +1926,27 @@
           },
           "zipSHA256": "50b03b833ee764ed3e04446adfbcbf0a45b8e4bff90849c2ebe75ea46814b120",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.server-1.0.0-dev.2026.W23.7.zip"
+        },
+        "1.0.0-dev.2026.W24.8": {
+          "name": "com.basis.server",
+          "version": "1.0.0-dev.2026.W24.8",
+          "displayName": "Basis Server",
+          "description": "Core networking default works with litenetlib",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "vpmDependencies": {
+            "org.basisvr.bouncycastle": "2.5.0-dev.2026.W24.8",
+            "org.basisvr.generator.equals": "3.2.0-dev.2026.W24.8",
+            "org.basisvr.newtonsoft.json": "13.0.3-dev.2026.W24.8",
+            "org.basisvr.k4os.compression.lz4": "1.3.8-dev.2026.W24.8",
+            "org.basisvr.base128": "1.2.2-dev.2026.W24.8",
+            "org.basisvr.simplebase": "4.0.2-dev.2026.W24.8"
+          },
+          "zipSHA256": "201bcc33147a07e866782bbdba62456caab1b605b26d85ed0e483ac32e43cb29",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.server-1.0.0-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1793,6 +2065,25 @@
           },
           "zipSHA256": "5660a979a6435ab52ddf1f1e97537585fb4d54ecfa13d3524299efd77b42330b",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.settings-1.0.0-dev.2026.W23.7.zip"
+        },
+        "1.0.0-dev.2026.W24.8": {
+          "name": "com.basis.settings",
+          "version": "1.0.0-dev.2026.W24.8",
+          "displayName": "Basis Settings",
+          "description": "Simple Settings Manager system",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.ugui": "2.0.0"
+          },
+          "vpmDependencies": {
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "08bdbd59c237b2c3a5839e2f4b427a37e7db3ac4004a80fd10d717d05ed291b7",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.settings-1.0.0-dev.2026.W24.8.zip"
         }
       }
     },
@@ -1941,6 +2232,30 @@
           },
           "zipSHA256": "33ed9780dd74e261a53efb458395d404e9d0277fff014c916fc847fd3af52470",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.shim-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.shim",
+          "displayName": "Basis Shims for CILBOX",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Shims for the basis framework",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "hideInEditor": false,
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.mathematics": "1.3.3"
+          },
+          "vpmDependencies": {
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8",
+            "com.cnlohr.cilbox": "0.1.0-dev.2026.W24.8",
+            "dev.hai-vr.basis.comms": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "2044c45e9689cf8da9498883d6e23f959a3d7a744fcf6a21808d6a25cf66177a",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.shim-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2029,6 +2344,20 @@
           "hideInEditor": false,
           "zipSHA256": "0376f2e76b5019983cbdaf1c46daf69deb3183f57f4a582c791ca5fafd0f9d2d",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.textmeshpro-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.textmeshpro",
+          "displayName": "Basis TextMeshPro Resources",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "TextMeshPro essential resources, shaders, fonts, and default assets. Derived from Unity's TextMeshPro package (com.unity.textmeshpro). Licensed under the Unity Companion License.",
+          "author": {
+            "name": "Unity Technologies",
+            "url": "https://unity.com"
+          },
+          "license": "LicenseRef-UnityCompanionLicense",
+          "hideInEditor": false,
+          "zipSHA256": "9e2de29f34bef9eb5aef7b08e2431e49984fb4f88492b3bada80d27ba849944a",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.textmeshpro-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2111,6 +2440,19 @@
           "license": "MIT",
           "zipSHA256": "b5a55a73be36a25aaa0535e1a9687b9c42ac820d281bd410cafe2468938ee41b",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.basis.visualtrackers-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.visualtrackers",
+          "displayName": "Basis Visual Trackers",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Basis Visual Trackers",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "zipSHA256": "348c42f79d3c515c2096b8ad78b43dca32e40b9ca63e20c4da3cef51108d9096",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.visualtrackers-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2188,6 +2530,18 @@
           },
           "zipSHA256": "863800b3dbfebb3efdce9fa49c4a221af151e7c066fb3b12abeffb1f838a2f53",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.cnlohr.cilbox-0.1.0-dev.2026.W23.7.zip"
+        },
+        "0.1.0-dev.2026.W24.8": {
+          "name": "com.cnlohr.cilbox",
+          "version": "0.1.0-dev.2026.W24.8",
+          "displayName": "Cilbox",
+          "description": "Sandbox C# CIL code with an interpreter",
+          "author": {
+            "name": "cnlohr",
+            "url": "https://github.com/cnlohr"
+          },
+          "zipSHA256": "508e3224f43a396bdb3af7b922f15cd6fb70fe839f13a46666fd375d8be8d216",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.cnlohr.cilbox-0.1.0-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2312,6 +2666,26 @@
           "license": "MIT",
           "zipSHA256": "997c28b8bb80469a2e0d107f71a1424f4977234ddc94bacd95f7b8a9b3db5826",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.cqf.urpvolumetricfog-0.5.6-dev.2026.W23.7.zip"
+        },
+        "0.5.6-dev.2026.W24.8": {
+          "name": "com.cqf.urpvolumetricfog",
+          "version": "0.5.6-dev.2026.W24.8",
+          "displayName": "URP Volumetric Fog",
+          "description": "Volumetric fog integrated into URP's volume system. Supports additional lights, shadows and cookies. Render graph support is available for Unity 6 and above.",
+          "unity": "2022.3",
+          "unityRelease": "18f1",
+          "keywords": [
+            "volumetric",
+            "fog"
+          ],
+          "author": {
+            "name": "Cristian Qiu F\u00e9lez",
+            "email": "cristianqiufelez@gmail.com",
+            "url": "http://cristianqiu.github.io/web"
+          },
+          "license": "MIT",
+          "zipSHA256": "f3ff125ba924693e4f7ee5d00c8457e50c85b41f4b48b1a629a7675ba1774da1",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.cqf.urpvolumetricfog-0.5.6-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2496,6 +2870,36 @@
           ],
           "zipSHA256": "ac07300bc1a406dae5320be3ff86daa6e282430911ea5e0b234b439581d7c97b",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.gator-dragon-games.jigglephysics-16.0.1-dev.2026.W23.7.zip"
+        },
+        "16.0.1-dev.2026.W24.8": {
+          "name": "com.gator-dragon-games.jigglephysics",
+          "displayName": "Jiggle Physics",
+          "version": "16.0.1-dev.2026.W24.8",
+          "unity": "2022.3",
+          "description": "A jobs-based relativistic squash-and-stretch jiggle physics solution for transforms in Unity.",
+          "dependencies": {
+            "com.unity.mathematics": "1.0.0",
+            "com.unity.collections": "2.0.0"
+          },
+          "samples": [
+            {
+              "displayName": "URP Debug Procedural Materials",
+              "description": "The URP version of the debug drawing shaders and materials.",
+              "path": "Samples~/ProceduralMaterials/URP"
+            },
+            {
+              "displayName": "HDRP Debug Procedural Materials",
+              "description": "The HDRP version of the debug drawing shaders and materials.",
+              "path": "Samples~/ProceduralMaterials/HDRP"
+            },
+            {
+              "displayName": "Built-In Debug Procedural Materials",
+              "description": "The Built-In version of the debug drawing shaders and materials.",
+              "path": "Samples~/ProceduralMaterials/BuiltIn"
+            }
+          ],
+          "zipSHA256": "5cd20e2f743273bc0dd43f58df78a0a3b00bc08c4a245abbe5d90edfe6dd5464",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.gator-dragon-games.jigglephysics-16.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2662,6 +3066,33 @@
           "license": "MIT",
           "zipSHA256": "6f5cf96d931d2f26950bb016a70b29892201244d912b115e7667697603ccae92",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.llealloo.audiolink-3.1.2-dev.2026.W23.7.zip"
+        },
+        "3.1.2-dev.2026.W24.8": {
+          "name": "com.llealloo.audiolink",
+          "displayName": "AudioLink",
+          "version": "3.1.2-dev.2026.W24.8",
+          "author": {
+            "name": "Leah Elizabeth",
+            "email": "hello@audiolink.dev",
+            "url": "https://audiolink.dev/"
+          },
+          "unity": "2022.3",
+          "description": "Audio reactive prefabs for VRChat",
+          "gitDependencies": {},
+          "legacyFolders": {
+            "Assets\\AudioLink": ""
+          },
+          "samples": [
+            {
+              "displayName": "AudioLinkExampleScene",
+              "description": "An example scene showing off the capabilities of AudioLink.",
+              "path": "Samples~/AudioLinkExampleScene"
+            }
+          ],
+          "legacyFiles": {},
+          "license": "MIT",
+          "zipSHA256": "ed577e9407734af348330148098757d894accd69ee25bae9b2d353db8e6455ea",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.llealloo.audiolink-3.1.2-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2726,6 +3157,16 @@
           "license": "Apache-2.0",
           "zipSHA256": "2b36028d3feaa27c618f01130038bf8e3983e8cc8ae8b04ff9e89bcb71f73c1e",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.steam.steamaudio-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.steam.steamaudio",
+          "displayName": "Steam Audio",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Steam Audio made by valve",
+          "hideInEditor": false,
+          "license": "Apache-2.0",
+          "zipSHA256": "3ba69b22f703b39da317e0d92e678e410947815b4890c7f209545dbb9ad62f6a",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.steam.steamaudio-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2808,6 +3249,19 @@
           },
           "zipSHA256": "6efc0b4754ba13638e295dc03f0d9bf3b6cbc60183d8969527b7b3fa65d21eb0",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.steam.steamvr-0.0.2-dev.2026.W23.7.zip"
+        },
+        "0.0.2-dev.2026.W24.8": {
+          "name": "com.steam.steamvr",
+          "displayName": "SteamVR",
+          "version": "0.0.2-dev.2026.W24.8",
+          "description": "SteamVR made by valve, trimmed for Basis (no Behaviour/Poser wrappers).",
+          "hideInEditor": false,
+          "license": "BSD-3-Clause",
+          "vpmDependencies": {
+            "com.valvesoftware.unity.openvr": "1.2.4-dev.2026.W24.8"
+          },
+          "zipSHA256": "0df7752cb437655216e14b73983b03cfae9f0a91c1e0c0e09049a9c485d03993",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.steam.steamvr-0.0.2-dev.2026.W24.8.zip"
         }
       }
     },
@@ -2998,6 +3452,37 @@
           "license": "BSD-3-Clause",
           "zipSHA256": "82863be3b385d74f87ed9041f01567f264a6df3dcd29151456253cd02bff8461",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.valvesoftware.unity.openvr-1.2.4-dev.2026.W23.7.zip"
+        },
+        "1.2.4-dev.2026.W24.8": {
+          "name": "com.valvesoftware.unity.openvr",
+          "displayName": "OpenVR XR Plugin",
+          "version": "1.2.4-dev.2026.W24.8",
+          "unity": "2019.4",
+          "description": "Provides rendering support for OpenVR devices in Unity XR. For input please see: https://github.com/ValveSoftware/steamvr_unity_plugin",
+          "keywords": [
+            "openvr",
+            "xr",
+            "virtual",
+            "reality",
+            "xreditorsubsystem",
+            "xrsdk",
+            "steamvr",
+            "vr",
+            "unity",
+            "sdk",
+            "valve"
+          ],
+          "dependencies": {
+            "com.unity.xr.management": "3.2.13",
+            "com.unity.ugui": "1.0.0",
+            "com.unity.xr.legacyinputhelpers": "2.1.4"
+          },
+          "author": "Valve Corporation",
+          "hideInEditor": false,
+          "homepage": "https://github.com/ValveSoftware/unity-xr-plugin",
+          "license": "BSD-3-Clause",
+          "zipSHA256": "e4001ed89372ef207278f0a0617fa078aa917eeb52ff3c81cef6fd49ed332f97",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.valvesoftware.unity.openvr-1.2.4-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3056,6 +3541,15 @@
           "license": "MIT AND BSD-3-Clause",
           "zipSHA256": "26f22919c520cde3258f64b06351d22fd8e343e3f3e36e4908f7850a6955bb8b",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/com.xiph.rnnoise-0.0.1-dev.2026.W23.7.zip"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.xiph.rnnoise",
+          "displayName": "RNNoise",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "RNNoise.Net https://github.com/Yellow-Dog-Man/RNNoise.Net and https://github.com/xiph/rnnoise",
+          "license": "MIT AND BSD-3-Clause",
+          "zipSHA256": "62493f899205e77060965978bc4ed4e6e88722577b270da6ffe65824c28b4ee2",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.xiph.rnnoise-0.0.1-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3201,6 +3695,32 @@
           "documentationUrl": "https://docs.hai-vr.dev/docs/basis",
           "changelogUrl": "https://docs.hai-vr.dev/docs/basis/changelogs",
           "zipSHA256": "d0d122cc659acca0794548dce31bf7682b589a79fa6e7baedfa985a574e76021"
+        },
+        "0.0.1-dev.2026.W24.8": {
+          "name": "dev.hai-vr.basis.comms",
+          "displayName": "HVR Basis Comms",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "HVR Basis Comms",
+          "author": {
+            "name": "Ha\u00ef~"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1",
+            "com.unity.mathematics": "1.3.3"
+          },
+          "vpmDependencies": {
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8",
+            "com.basis.shim": "0.0.1-dev.2026.W24.8",
+            "com.cnlohr.cilbox": "0.1.0-dev.2026.W24.8",
+            "nuget.meamod.dns": "1.0.71-dev.2026.W24.8"
+          },
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/dev.hai-vr.basis.comms-0.0.1-dev.2026.W24.8.zip",
+          "documentationUrl": "https://docs.hai-vr.dev/docs/basis",
+          "changelogUrl": "https://docs.hai-vr.dev/docs/basis/changelogs",
+          "zipSHA256": "38926ceae906a76e7609d2de8b27a2577594e1b3bb1eb5fd0ee88bb04f635812"
         }
       }
     },
@@ -3271,6 +3791,17 @@
           "licensesUrl": "https://github.com/meamod/MeaMod.DNS/blob/0579a168db101a253d0e009324557964696727f3/LICENSE",
           "zipSHA256": "3d51d3e6520dabfb48cc9b3dd9c2eebb486b4a6520561776a536d449eb63f5da",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/nuget.meamod.dns-1.0.71-dev.2026.W23.7.zip"
+        },
+        "1.0.71-dev.2026.W24.8": {
+          "name": "nuget.meamod.dns",
+          "displayName": "MeaMod.DNS",
+          "version": "1.0.71-dev.2026.W24.8",
+          "description": "",
+          "author": "James Weston",
+          "license": "MIT",
+          "licensesUrl": "https://github.com/meamod/MeaMod.DNS/blob/0579a168db101a253d0e009324557964696727f3/LICENSE",
+          "zipSHA256": "7ca4d598563f65b6d7246a83031cae0df04f95988ad952f9c792fddb2dc03501",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/nuget.meamod.dns-1.0.71-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3359,6 +3890,20 @@
           "license": "MIT",
           "zipSHA256": "f556ab2d2c2718d1ae9b095df1788b6ad4239472ad1346d75344ff9c9b499757",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/org.basisvr.base128-1.2.2-dev.2026.W23.7.zip"
+        },
+        "1.2.2-dev.2026.W24.8": {
+          "name": "org.basisvr.base128",
+          "version": "1.2.2-dev.2026.W24.8",
+          "displayName": "Base128",
+          "description": "binary serializing and deserializing integer types as variable length integers.",
+          "documentationUrl": "https://github.com/Wojmik/Base128",
+          "publishConfig": {
+            "registry": "https://npm.pkg.github.com/@BasisVR"
+          },
+          "repository": "https://github.com/BasisVR/UpmBuilds",
+          "license": "MIT",
+          "zipSHA256": "9071e48c9ecb15b9ecdfdf026c5cddee4fc46d9c511e9b500fda284fade2626a",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/org.basisvr.base128-1.2.2-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3447,6 +3992,20 @@
           "license": "MIT",
           "zipSHA256": "f196e118a6cb1e84faf83d606bdf2ccf8095a2664532d21675b67a6678eee18e",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/org.basisvr.bouncycastle-2.5.0-dev.2026.W23.7.zip"
+        },
+        "2.5.0-dev.2026.W24.8": {
+          "name": "org.basisvr.bouncycastle",
+          "version": "2.5.0-dev.2026.W24.8",
+          "displayName": "BouncyCastle.Cryptography",
+          "description": "The Bouncy Castle Cryptography library",
+          "documentationUrl": "https://github.com/bcgit/bc-csharp",
+          "publishConfig": {
+            "registry": "https://npm.pkg.github.com/@BasisVR"
+          },
+          "repository": "https://github.com/BasisVR/UpmBuilds",
+          "license": "MIT",
+          "zipSHA256": "75f5f55aa62482438d8a9dc010c217d2b5cf36bd29da09d1c0967a5879787421",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/org.basisvr.bouncycastle-2.5.0-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3535,6 +4094,20 @@
           "license": "MIT",
           "zipSHA256": "3a93ef67ebba85dca436ae502b79b38b52a9cae86700246c43b732021856cd1e",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/org.basisvr.generator.equals-3.2.0-dev.2026.W23.7.zip"
+        },
+        "3.2.0-dev.2026.W24.8": {
+          "name": "org.basisvr.generator.equals",
+          "version": "3.2.0-dev.2026.W24.8",
+          "displayName": "Generator.Equals",
+          "description": "A source code generator for automatically implementing IEquatable<T> using only attributes.",
+          "documentationUrl": "https://github.com/diegofrata/Generator.Equals",
+          "publishConfig": {
+            "registry": "https://npm.pkg.github.com/@BasisVR"
+          },
+          "repository": "https://github.com/BasisVR/UpmBuilds",
+          "license": "MIT",
+          "zipSHA256": "4c6aeb037f9262f42fba97417a03c08147db07f3afe8cce245137888f73ce406",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/org.basisvr.generator.equals-3.2.0-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3623,6 +4196,20 @@
           "license": "MIT",
           "zipSHA256": "4b51fb54076673833e363cffdb5b1b299479e02f2c4197d01554c56ea239612f",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/org.basisvr.k4os.compression.lz4-1.3.8-dev.2026.W23.7.zip"
+        },
+        "1.3.8-dev.2026.W24.8": {
+          "name": "org.basisvr.k4os.compression.lz4",
+          "version": "1.3.8-dev.2026.W24.8",
+          "displayName": "K4os.Compression.LZ4",
+          "description": "Port of LZ4 compression algorithm for .NET. Used by Basis server-side avatar bundle compression.",
+          "documentationUrl": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4",
+          "publishConfig": {
+            "registry": "https://npm.pkg.github.com/@BasisVR"
+          },
+          "repository": "https://github.com/BasisVR/UpmBuilds",
+          "license": "MIT",
+          "zipSHA256": "88dcd9872aeb2f993a89e2800943c85ff40fca80063602af4526820fad74a8a3",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/org.basisvr.k4os.compression.lz4-1.3.8-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3711,6 +4298,20 @@
           "license": "MIT",
           "zipSHA256": "3e94d721565dcd6995f352ccb1e90e72c246e5045de9eb4307b54b3ff94229cf",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/org.basisvr.newtonsoft.json-13.0.3-dev.2026.W23.7.zip"
+        },
+        "13.0.3-dev.2026.W24.8": {
+          "name": "org.basisvr.newtonsoft.json",
+          "version": "13.0.3-dev.2026.W24.8",
+          "displayName": "Newtonsoft.Json",
+          "description": "High-performance JSON framework",
+          "documentationUrl": "https://github.com/JamesNK/Newtonsoft.Json",
+          "publishConfig": {
+            "registry": "https://npm.pkg.github.com/@BasisVR"
+          },
+          "repository": "https://github.com/BasisVR/UpmBuilds",
+          "license": "MIT",
+          "zipSHA256": "c56a1a77403230847b1bd18273cd008562c77363c3a62bc8716c4bd863d529da",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/org.basisvr.newtonsoft.json-13.0.3-dev.2026.W24.8.zip"
         }
       }
     },
@@ -3799,6 +4400,242 @@
           "license": "MIT",
           "zipSHA256": "7e699da54efd6b7850c717990b2555c8b5b8a70bc3854d79b945624047fca0c4",
           "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W23.7/org.basisvr.simplebase-4.0.2-dev.2026.W23.7.zip"
+        },
+        "4.0.2-dev.2026.W24.8": {
+          "name": "org.basisvr.simplebase",
+          "version": "4.0.2-dev.2026.W24.8",
+          "displayName": "SimpleBase",
+          "description": "Base16, Base32, Base58, Base85 encoding/decoding library",
+          "documentationUrl": "https://github.com/ssg/SimpleBase",
+          "publishConfig": {
+            "registry": "https://npm.pkg.github.com/@BasisVR"
+          },
+          "repository": "https://github.com/BasisVR/UpmBuilds",
+          "license": "MIT",
+          "zipSHA256": "d92196feaaa514c20a74639593a830091b88e0fe5416b51b95911c545c9cac96",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/org.basisvr.simplebase-4.0.2-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "com.basis.addon.snapcontrols": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.addon.snapcontrols",
+          "displayName": "Basis Snap Controls",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Add-on snap-detent controls for Basis worlds: rotary knobs, levers, switches, and per-detent activation targets driven by snap-point markers.",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "samples": [
+            {
+              "displayName": "Rotational Snap Example",
+              "description": "Scene demonstrating BasisRotarySnapInteractable and BasisActivationTarget: a throw lever, a rotary selector, and a flip switch each driving doors via per-detent activation.",
+              "path": "Samples~/Rotational Snap Example"
+            }
+          ],
+          "vpmDependencies": {
+            "com.basis.common": "0.0.1-dev.2026.W24.8",
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "359b4f4f1a990f9feaa771e0d0de4b52ab02a60dc903128077e958bb0efd2cea",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.addon.snapcontrols-0.0.1-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "com.basis.integration.audiolink": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.integration.audiolink",
+          "displayName": "Basis AudioLink Integration",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Re-publishes AudioLink globals after a Basis XR loader cycle so consumers that resolve _AudioTexture by global lookup keep working across Desktop/VR mode switches. Compiles only when both com.basis.framework and com.llealloo.audiolink are present.",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "vpmDependencies": {
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.llealloo.audiolink": "3.1.2-dev.2026.W24.8"
+          },
+          "zipSHA256": "22157790e3b128282a14d4c278201ab171c566ff0e8964fce8ee2e8112cf63ef",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.integration.audiolink-0.0.1-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "com.basis.mediapipe": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.mediapipe",
+          "displayName": "Basis MediaPipe Tracking",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Webcam-driven head/neck/hand/finger/body, eye and face tracking that feeds the avatar as fake VR trackers, finger data, gaze and blendshapes. Backed by the MediaPipe Unity Plugin (homuler). Inert until that plugin is installed.",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "vpmDependencies": {
+            "com.basis.common": "0.0.1-dev.2026.W24.8",
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.settings": "1.0.0-dev.2026.W24.8",
+            "com.github.homuler.mediapipe": "0.16.3-dev.2026.W24.8",
+            "dev.hai-vr.basis.comms": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "e9670b51c2920ca4044d8d44250dd3df290bf7ffc1df41146ddea2668cf84e7b",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.mediapipe-0.0.1-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "com.basis.mediaplayer": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.mediaplayer",
+          "displayName": "Basis Media Player",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Permissively-licensed live video for Basis. Decodes RTSP/RTMP/MPEG-TS/fMP4 with the OS hardware codecs (Media Foundation on Windows, MediaCodec on Android) straight into a zero-copy GPU texture \u2014 no transcode server, no UnityEngine.Video.MediaPlayer.",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "dependencies": {
+            "com.unity.addressables": "2.9.1"
+          },
+          "vpmDependencies": {
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8"
+          },
+          "zipSHA256": "3f05d90896bfd91c67169c5636c991a867b93b314d5e039bdbb9c9ada18c78bf",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.mediaplayer-0.0.1-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "com.basis.pooltable": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.pooltable",
+          "displayName": "Basis Ported Pooltable",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Allows you to play pool, ported from ",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT AND Unlicense",
+          "vpmDependencies": {
+            "com.basis.common": "0.0.1-dev.2026.W24.8",
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8"
+          },
+          "zipSHA256": "ffd4ce347c7a3769cf0ccf81c0def7342b5d2b40a65b29990fdab465d0dc2750",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.pooltable-0.0.1-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "com.basis.provider.servers": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "com.basis.provider.servers",
+          "displayName": "Basis Servers Panel",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "Optional Servers menu panel for Basis: the server directory, connect, and host UI built on top of the framework's BasisConnectionService. Remove this package to ship a Basis application with no Servers panel; headless --connection= launching keeps working without it.",
+          "author": {
+            "name": "BasisVR",
+            "url": "https://github.com/BasisVR"
+          },
+          "license": "MIT",
+          "vpmDependencies": {
+            "com.basis.common": "0.0.1-dev.2026.W24.8",
+            "com.basis.framework": "0.0.1-dev.2026.W24.8",
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8",
+            "com.basis.server": "1.0.0-dev.2026.W24.8"
+          },
+          "zipSHA256": "5cecd0812611fa1183df4e63d77c9ebade7e32c1179516c48f00b3d63bf4a57c",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.basis.provider.servers-0.0.1-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "com.github.homuler.mediapipe": {
+      "versions": {
+        "0.16.3-dev.2026.W24.8": {
+          "name": "com.github.homuler.mediapipe",
+          "version": "0.16.3-dev.2026.W24.8",
+          "displayName": "MediaPipe Unity Plugin",
+          "description": "A Unity Plugin to run MediaPipe CalculatorGraph",
+          "unity": "2022.3",
+          "author": {
+            "name": "homuler"
+          },
+          "changelogUrl": "https://github.com/homuler/MediaPipeUnityPlugin/blob/master/CHANGELOG.md",
+          "documentationUrl": "https://github.com/homuler/MediaPipeUnityPlugin/wiki",
+          "keywords": [
+            "mediapipe",
+            "MediaPipe"
+          ],
+          "scripts": {
+            "setupSampleDir": "rm -rf $(npm prefix)/Samples~ && mkdir -p $(npm prefix)/Samples~",
+            "copySolutionSamples": "cp -r $(npm prefix)/../../Assets/MediaPipeUnity/Samples $(npm prefix)/Samples~/Solutions",
+            "copyTutorial": "cp -r $(npm prefix)/../../Assets/MediaPipeUnity/Tutorial $(npm prefix)/Samples~/Tutorial",
+            "prepack": "npm run setupSampleDir && npm run copySolutionSamples && npm run copyTutorial",
+            "postpack": "rm -rf $(npm prefix)/Samples~"
+          },
+          "dependencies": {
+            "com.unity.ugui": "1.0.0",
+            "com.unity.test-framework": "1.0.0"
+          },
+          "license": "MIT",
+          "licenseUrl": "https://github.com/homuler/MediaPipeUnityPlugin/blob/master/LICENSE",
+          "samples": [
+            {
+              "displayName": "Official Solutions",
+              "description": "MediaPipe Official Solutions Sample",
+              "path": "Samples~/Solutions"
+            },
+            {
+              "displayName": "Tutorial",
+              "description": "Sample Scenes for Tutorial",
+              "path": "Samples~/Tutorial"
+            }
+          ],
+          "zipSHA256": "1d12c1da834aa74747431c9900df7fdfa1e850bc12a3de2e3e061406c23373b5",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/com.github.homuler.mediapipe-0.16.3-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "dev.hai-vr.basis.ndmf": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "dev.hai-vr.basis.ndmf",
+          "displayName": "HVR Basis NDMF Hook",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "HVR Basis NDMF Hook",
+          "license": "MIT",
+          "vpmDependencies": {
+            "com.basis.sdk": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "b8869880667fd340e9577c6cd951beb214ee20f67405651da68ef9cbaa85586b",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/dev.hai-vr.basis.ndmf-0.0.1-dev.2026.W24.8.zip"
+        }
+      }
+    },
+    "dev.hai-vr.hvr.license-review": {
+      "versions": {
+        "0.0.1-dev.2026.W24.8": {
+          "name": "dev.hai-vr.hvr.license-review",
+          "displayName": "HVR License Review",
+          "version": "0.0.1-dev.2026.W24.8",
+          "description": "HVR License Review",
+          "vpmDependencies": {
+            "com.basis.framework": "0.0.1-dev.2026.W24.8"
+          },
+          "zipSHA256": "b58c30898d683c0eb95f7e7f157109afb6c74f90dd6bca9bee40740e10628734",
+          "url": "https://github.com/BasisVR/Basis/releases/download/vpm-2026-W24.8/dev.hai-vr.hvr.license-review-0.0.1-dev.2026.W24.8.zip"
         }
       }
     }
