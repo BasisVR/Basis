@@ -1,0 +1,11 @@
+{
+  "name": "com.basis.integration.ltcgi",
+  "displayName": "Basis LTCGI Integration",
+  "version": "0.0.1",
+  "description": "Feeds a BasisMediaPlayer's live output texture into LTCGI's dynamic blur chain so a screen lit by the player emits matching realtime area light. Compiles only when both com.basis.mediaplayer and at.pimaker.ltcgi are present.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT"
+}
