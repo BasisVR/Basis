@@ -57,20 +57,20 @@ namespace Basis.Integration.LTCGI
             if (Player == null) Player = GetComponentInParent<BasisMediaPlayer>();
             if (Player == null)
             {
-                Debug.LogWarning("BasisLTCGIVideoAdapter: no BasisMediaPlayer found; nothing to feed LTCGI.", this);
+                BasisDebug.LogWarning("BasisLTCGIVideoAdapter: no BasisMediaPlayer found; nothing to feed LTCGI.", BasisDebug.LogTag.Video);
                 enabled = false;
                 return;
             }
             if (Target == null) Target = FindFirstObjectByType<LTCGI_UdonAdapter>();
             if (Target == null)
             {
-                Debug.LogWarning("BasisLTCGIVideoAdapter: no LTCGI_UdonAdapter in the scene. Bake an LTCGI controller with at least one dynamic screen.", this);
+                BasisDebug.LogWarning("BasisLTCGIVideoAdapter: no LTCGI_UdonAdapter in the scene. Bake an LTCGI controller with at least one dynamic screen.", BasisDebug.LogTag.Video);
                 enabled = false;
                 return;
             }
             if (Target.BlurCRTInput == null)
             {
-                Debug.LogWarning("BasisLTCGIVideoAdapter: LTCGI_UdonAdapter has no BlurCRTInput. The controller needs a dynamic screen baked before video can be fed.", this);
+                BasisDebug.LogWarning("BasisLTCGIVideoAdapter: LTCGI_UdonAdapter has no BlurCRTInput. The controller needs a dynamic screen baked before video can be fed.", BasisDebug.LogTag.Video);
                 enabled = false;
                 return;
             }

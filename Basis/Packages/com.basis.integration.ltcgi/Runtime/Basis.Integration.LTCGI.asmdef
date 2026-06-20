@@ -3,7 +3,8 @@
     "rootNamespace": "Basis.Integration.LTCGI",
     "references": [
         "BasisMediaPlayer",
-        "LTCGI_Assembly"
+        "LTCGI_Assembly",
+        "BasisDebug"
     ],
     "includePlatforms": [
         "Android",
