@@ -29,6 +29,7 @@ namespace BasisNetworkServer.BasisNetworking
     public static class BasisPersistentDatabase
     {
         private static readonly ConcurrentDictionary<string, BasisData> _dataByName = new();
+        private static readonly object _dataLock = new();
         private static readonly object _fileLock = new();
 
         private static string _filePath = "basis_data.json";
@@ -72,18 +73,22 @@ namespace BasisNetworkServer.BasisNetworking
                 BNL.LogError("Payload exceeds maximum entry count. (basis database)");
                 return false;
             }
-            if (!_dataByName.ContainsKey(item.Name) && _dataByName.Count >= BasisNetworkServer.Security.BasisResourceLimitManager.MaxDatabaseEntries)
+            lock (_dataLock)
             {
-                BNL.LogError("Database entry limit reached; rejecting new entry. (basis database)");
-                return false;
-            }
-            _dataByName.AddOrUpdate(item.Name,
-                addValueFactory: _ => item,
-                updateValueFactory: (_, existing) =>
+                if (_dataByName.TryGetValue(item.Name, out BasisData existing))
                 {
                     existing.JsonPayload = new ConcurrentDictionary<string, object>(item.JsonPayload);
-                    return existing;
-                });
+                }
+                else
+                {
+                    if (_dataByName.Count >= BasisNetworkServer.Security.BasisResourceLimitManager.MaxDatabaseEntries)
+                    {
+                        BNL.LogError("Database entry limit reached; rejecting new entry. (basis database)");
+                        return false;
+                    }
+                    _dataByName[item.Name] = item;
+                }
+            }
 
             MarkDirty();
             return true;
