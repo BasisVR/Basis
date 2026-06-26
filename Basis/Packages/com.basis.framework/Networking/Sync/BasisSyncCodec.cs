@@ -138,6 +138,7 @@ namespace Basis.Scripts.Networking.Sync
 
             if (keyframe)
             {
+                // Preflight the packet so rejected/truncated data never partially mutates the baseline.
                 var verify = new BitReader(buf, o, length);
                 for (int fi = 0; fi < fieldCount; fi++)
                 {
@@ -156,6 +157,7 @@ namespace Basis.Scripts.Networking.Sync
                 o += schema.DirtyMaskBytes;
                 if (o > length) return false;
 
+                // Preflight the packet so rejected/truncated data never partially mutates the baseline.
                 var verify = new BitReader(buf, o, length);
                 for (int fi = 0; fi < fieldCount; fi++)
                 {
