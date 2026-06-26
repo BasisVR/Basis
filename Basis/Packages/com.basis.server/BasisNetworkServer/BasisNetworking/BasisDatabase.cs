@@ -77,7 +77,9 @@ namespace BasisNetworkServer.BasisNetworking
             {
                 if (_dataByName.TryGetValue(item.Name, out BasisData existing))
                 {
-                    existing.JsonPayload = new ConcurrentDictionary<string, object>(item.JsonPayload);
+                    existing.JsonPayload = item.JsonPayload != null
+                        ? new ConcurrentDictionary<string, object>(item.JsonPayload)
+                        : new ConcurrentDictionary<string, object>();
                 }
                 else
                 {
