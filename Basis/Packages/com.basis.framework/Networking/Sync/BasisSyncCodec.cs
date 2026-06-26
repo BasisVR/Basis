@@ -438,7 +438,12 @@ namespace Basis.Scripts.Networking.Sync
                 for (int i = 0; i < bits; i++)
                 {
                     if (((_buf[_byte] >> _bit) & 1) != 0) value |= 1u << i;
-                    AdvanceBit();
+                    //Advance Bit
+                    if (++_bit == 8)
+                    {
+                        _bit = 0;
+                        _byte++;
+                    }
                 }
                 return true;
             }
@@ -457,15 +462,6 @@ namespace Basis.Scripts.Networking.Sync
                 if (bits < 0 || bits > 32) return false;
                 int available = ((_limit - _byte) << 3) - _bit;
                 return available >= bits;
-            }
-
-            private void AdvanceBit()
-            {
-                if (++_bit == 8)
-                {
-                    _bit = 0;
-                    _byte++;
-                }
             }
         }
     }
