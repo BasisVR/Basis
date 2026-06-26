@@ -84,10 +84,10 @@ namespace BasisNetworkServer.BasisNetworking
                 else
                 {
                     if (_dataByName.Count >= BasisNetworkServer.Security.BasisResourceLimitManager.MaxDatabaseEntries)
-                    {
-                        BNL.LogError("Database entry limit reached; rejecting new entry. (basis database)");
-                        return false;
-                    }
+                {
+                    BNL.LogError("Database entry limit reached; rejecting new entry. (basis database)");
+                    return false;
+                }
                     _dataByName[item.Name] = item;
                 }
             }
@@ -110,7 +110,11 @@ namespace BasisNetworkServer.BasisNetworking
         public static bool Remove(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return false;
-            var result = _dataByName.TryRemove(name, out _);
+            bool result;
+            lock (_dataLock)
+            {
+                result = _dataByName.TryRemove(name, out _);
+            }
             if (result) MarkDirty();
             return result;
         }
@@ -127,16 +131,19 @@ namespace BasisNetworkServer.BasisNetworking
             {
                 try
                 {
-                    var list = GetAll().ToList();
-
-                    using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    var serializer = new DataContractJsonSerializer(typeof(List<BasisData>), new DataContractJsonSerializerSettings
+                    lock (_dataLock)
                     {
-                        UseSimpleDictionaryFormat = true
-                    });
+                        var list = _dataByName.Values.ToList();
 
-                    serializer.WriteObject(stream, list);
-                    _isDirty = false;
+                        using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                        var serializer = new DataContractJsonSerializer(typeof(List<BasisData>), new DataContractJsonSerializerSettings
+                        {
+                            UseSimpleDictionaryFormat = true
+                        });
+
+                        serializer.WriteObject(stream, list);
+                        _isDirty = false;
+                    }
                 }
                 catch (IOException ex)
                 {
@@ -162,11 +169,15 @@ namespace BasisNetworkServer.BasisNetworking
 
                     if (serializer.ReadObject(stream) is List<BasisData> loadedData)
                     {
-                        _dataByName.Clear();
-                        foreach (var item in loadedData)
+                        lock (_dataLock)
                         {
-                            if (!string.IsNullOrWhiteSpace(item.Name))
-                                _dataByName[item.Name] = item;
+                            _dataByName.Clear();
+                            foreach (var item in loadedData)
+                            {
+                                if (!string.IsNullOrWhiteSpace(item.Name))
+                                    _dataByName[item.Name] = item;
+                            }
+                            _isDirty = false;
                         }
                     }
                 }

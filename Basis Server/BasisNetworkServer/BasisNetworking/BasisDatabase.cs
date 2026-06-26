@@ -29,6 +29,7 @@ namespace BasisNetworkServer.BasisNetworking
     public static class BasisPersistentDatabase
     {
         private static readonly ConcurrentDictionary<string, BasisData> _dataByName = new();
+        private static readonly object _dataLock = new();
         private static readonly object _fileLock = new();
 
         private static string _filePath = "basis_data.json";
@@ -72,18 +73,24 @@ namespace BasisNetworkServer.BasisNetworking
                 BNL.LogError("Payload exceeds maximum entry count. (basis database)");
                 return false;
             }
-            if (!_dataByName.ContainsKey(item.Name) && _dataByName.Count >= BasisNetworkServer.Security.BasisResourceLimitManager.MaxDatabaseEntries)
+            lock (_dataLock)
             {
-                BNL.LogError("Database entry limit reached; rejecting new entry. (basis database)");
-                return false;
-            }
-            _dataByName.AddOrUpdate(item.Name,
-                addValueFactory: _ => item,
-                updateValueFactory: (_, existing) =>
+                if (_dataByName.TryGetValue(item.Name, out BasisData existing))
                 {
-                    existing.JsonPayload = new ConcurrentDictionary<string, object>(item.JsonPayload);
-                    return existing;
-                });
+                    existing.JsonPayload = item.JsonPayload != null
+                        ? new ConcurrentDictionary<string, object>(item.JsonPayload)
+                        : new ConcurrentDictionary<string, object>();
+                }
+                else
+                {
+                    if (_dataByName.Count >= BasisNetworkServer.Security.BasisResourceLimitManager.MaxDatabaseEntries)
+                    {
+                        BNL.LogError("Database entry limit reached; rejecting new entry. (basis database)");
+                        return false;
+                    }
+                    _dataByName[item.Name] = item;
+                }
+            }
 
             MarkDirty();
             return true;
@@ -103,7 +110,11 @@ namespace BasisNetworkServer.BasisNetworking
         public static bool Remove(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return false;
-            var result = _dataByName.TryRemove(name, out _);
+            bool result;
+            lock (_dataLock)
+            {
+                result = _dataByName.TryRemove(name, out _);
+            }
             if (result) MarkDirty();
             return result;
         }
@@ -120,16 +131,19 @@ namespace BasisNetworkServer.BasisNetworking
             {
                 try
                 {
-                    var list = GetAll().ToList();
-
-                    using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    var serializer = new DataContractJsonSerializer(typeof(List<BasisData>), new DataContractJsonSerializerSettings
+                    lock (_dataLock)
                     {
-                        UseSimpleDictionaryFormat = true
-                    });
+                        var list = _dataByName.Values.ToList();
 
-                    serializer.WriteObject(stream, list);
-                    _isDirty = false;
+                        using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                        var serializer = new DataContractJsonSerializer(typeof(List<BasisData>), new DataContractJsonSerializerSettings
+                        {
+                            UseSimpleDictionaryFormat = true
+                        });
+
+                        serializer.WriteObject(stream, list);
+                        _isDirty = false;
+                    }
                 }
                 catch (IOException ex)
                 {
@@ -155,11 +169,15 @@ namespace BasisNetworkServer.BasisNetworking
 
                     if (serializer.ReadObject(stream) is List<BasisData> loadedData)
                     {
-                        _dataByName.Clear();
-                        foreach (var item in loadedData)
+                        lock (_dataLock)
                         {
-                            if (!string.IsNullOrWhiteSpace(item.Name))
-                                _dataByName[item.Name] = item;
+                            _dataByName.Clear();
+                            foreach (var item in loadedData)
+                            {
+                                if (!string.IsNullOrWhiteSpace(item.Name))
+                                    _dataByName[item.Name] = item;
+                            }
+                            _isDirty = false;
                         }
                     }
                 }
