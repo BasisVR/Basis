@@ -94,7 +94,7 @@ namespace Basis.Scripts.Networking.Sync
 
         public void OnPacket(byte[] payload, int length)
         {
-            if (payload == null || length < BasisSyncCodec.HeaderSize) return;
+            if (payload == null || length < BasisSyncCodec.HeaderSize || length > payload.Length || length > _maxPacket) return;
             // Drop corrupted packets before they touch the sequence/baseline, so a corrupted sequence number
             // can't poison the high-water-mark and a corrupted value is never applied.
             if (_verifyChecksum && !BasisSyncCodec.VerifyChecksum(payload, length)) return;
