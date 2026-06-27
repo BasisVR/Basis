@@ -29,8 +29,13 @@ namespace BasisNetworkServer.BasisNetworking
     public static class BasisPersistentDatabase
     {
         private static readonly ConcurrentDictionary<string, BasisData> _dataByName = new();
+#if NET9_0_OR_GREATER
+        private static readonly Lock _dataLock = new();
+        private static readonly Lock _fileLock = new();
+#else
         private static readonly object _dataLock = new();
         private static readonly object _fileLock = new();
+#endif
 
         private static string _filePath = "basis_data.json";
         private static volatile bool _isDirty = false;
