@@ -149,7 +149,11 @@ namespace Basis.Scripts.Networking.Sync
             if (Body == null) return;
             Vector3 p = Body.position;
             Quaternion r = Body.rotation;
-            if (RelativeTo != null) p = RelativeTo.InverseTransformPoint(p);
+            if (RelativeTo != null)
+            {
+                p = RelativeTo.InverseTransformPoint(p);
+                r = Quaternion.Inverse(RelativeTo.rotation) * r;
+            }
 
             if (_posX.IsValid) LocalSet(_posX, p.x);
             if (_posY.IsValid) LocalSet(_posY, p.y);
@@ -209,11 +213,12 @@ namespace Basis.Scripts.Networking.Sync
 
             Vector3 p = Body.position;
             Quaternion r = Body.rotation;
+            bool hasSyncedPosition = _posX.IsValid;
+            bool hasSyncedRotation = _rotQuat.IsValid || _rotQw.IsValid || _rotEuler;
 
             if (_posX.IsValid) p.x = GetFloat(_posX);
             if (_posY.IsValid) p.y = GetFloat(_posY);
             if (_posZ.IsValid) p.z = GetFloat(_posZ);
-            if (RelativeTo != null && _posX.IsValid) p = RelativeTo.TransformPoint(p);
 
             if (_rotQuat.IsValid)
             {
@@ -232,6 +237,12 @@ namespace Basis.Scripts.Networking.Sync
             else if (_rotEuler)
             {
                 r = Quaternion.Euler(GetAngle(_eulerX), GetAngle(_eulerY), GetAngle(_eulerZ));
+            }
+
+            if (RelativeTo != null)
+            {
+                if (hasSyncedPosition) p = RelativeTo.TransformPoint(p);
+                if (hasSyncedRotation) r = RelativeTo.rotation * r;
             }
 
             if (DriveRemoteKinematic)

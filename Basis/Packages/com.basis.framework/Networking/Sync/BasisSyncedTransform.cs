@@ -140,7 +140,9 @@ namespace Basis.Scripts.Networking.Sync
                         if (RotationX || RotationY || RotationZ)
                         {
                             _rotEuler = true;
-                            _heldEuler = WorldSpace ? Target.eulerAngles : Target.localEulerAngles;
+                            _heldEuler = RelativeTo != null
+                                ? (Quaternion.Inverse(RelativeTo.rotation) * Target.rotation).eulerAngles
+                                : WorldSpace ? Target.eulerAngles : Target.localEulerAngles;
                             if (RotationX) _eulerX = RegisterAngle(RotCompX.ToSpec(), InterpolateRotation);
                             if (RotationY) _eulerY = RegisterAngle(RotCompY.ToSpec(), InterpolateRotation);
                             if (RotationZ) _eulerZ = RegisterAngle(RotCompZ.ToSpec(), InterpolateRotation);
@@ -188,9 +190,14 @@ namespace Basis.Scripts.Networking.Sync
 
             Vector3 p;
             Quaternion r;
-            if (WorldSpace) Target.GetPositionAndRotation(out p, out r);
+            if (RelativeTo != null)
+            {
+                Target.GetPositionAndRotation(out p, out r);
+                p = RelativeTo.InverseTransformPoint(p);
+                r = Quaternion.Inverse(RelativeTo.rotation) * r;
+            }
+            else if (WorldSpace) Target.GetPositionAndRotation(out p, out r);
             else Target.GetLocalPositionAndRotation(out p, out r);
-            if (RelativeTo != null) p = RelativeTo.InverseTransformPoint(Target.position);
 
             if (_posX.IsValid) LocalSet(_posX, p.x);
             if (_posY.IsValid) LocalSet(_posY, p.y);
@@ -209,7 +216,7 @@ namespace Basis.Scripts.Networking.Sync
             }
             else if (_rotEuler)
             {
-                Vector3 e = WorldSpace ? Target.eulerAngles : Target.localEulerAngles;
+                Vector3 e = r.eulerAngles;
                 if (_eulerX.IsValid) LocalSet(_eulerX, e.x);
                 if (_eulerY.IsValid) LocalSet(_eulerY, e.y);
                 if (_eulerZ.IsValid) LocalSet(_eulerZ, e.z);
@@ -279,9 +286,7 @@ namespace Basis.Scripts.Networking.Sync
 
             if (RelativeTo != null)
             {
-                Target.position = RelativeTo.TransformPoint(p);
-                if (WorldSpace) Target.rotation = r;
-                else Target.localRotation = r;
+                Target.SetPositionAndRotation(RelativeTo.TransformPoint(p), RelativeTo.rotation * r);
             }
             else if (WorldSpace) Target.SetPositionAndRotation(p, r);
             else Target.SetLocalPositionAndRotation(p, r);
@@ -300,10 +305,15 @@ namespace Basis.Scripts.Networking.Sync
             s = Vector3.one;
             if (Target == null) return false;
 
-            if (WorldSpace) Target.GetPositionAndRotation(out p, out r);
+            if (RelativeTo != null)
+            {
+                Target.GetPositionAndRotation(out p, out r);
+                p = RelativeTo.InverseTransformPoint(p);
+                r = Quaternion.Inverse(RelativeTo.rotation) * r;
+            }
+            else if (WorldSpace) Target.GetPositionAndRotation(out p, out r);
             else Target.GetLocalPositionAndRotation(out p, out r);
             s = Target.localScale;
-            if (RelativeTo != null) p = RelativeTo.InverseTransformPoint(Target.position);
 
             if (_posX.IsValid) p.x = GetFloat(_posX);
             if (_posY.IsValid) p.y = GetFloat(_posY);
@@ -354,7 +364,9 @@ namespace Basis.Scripts.Networking.Sync
 
             // Unsynced axes have no keyframe data — hold them at the Target's live value so the
             // from/to points sit on the real motion path.
-            Vector3 baseLocal = WorldSpace ? Target.position : Target.localPosition;
+            Vector3 baseLocal = RelativeTo != null
+                ? RelativeTo.InverseTransformPoint(Target.position)
+                : WorldSpace ? Target.position : Target.localPosition;
             Vector3 f = baseLocal;
             Vector3 t = baseLocal;
             if (_posX.IsValid) { int o = Schema.GetField(_posX.FieldIndex).Offset; f.x = from.Cont[o]; t.x = to.Cont[o]; }
@@ -362,7 +374,12 @@ namespace Basis.Scripts.Networking.Sync
             if (_posZ.IsValid) { int o = Schema.GetField(_posZ.FieldIndex).Offset; f.z = from.Cont[o]; t.z = to.Cont[o]; }
 
             Transform parent = Target.parent;
-            if (WorldSpace || parent == null)
+            if (RelativeTo != null)
+            {
+                fromWorld = RelativeTo.TransformPoint(f);
+                toWorld = RelativeTo.TransformPoint(t);
+            }
+            else if (WorldSpace || parent == null)
             {
                 fromWorld = f;
                 toWorld = t;
