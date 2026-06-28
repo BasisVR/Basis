@@ -21,10 +21,12 @@ namespace Basis.ImagePickup
         private delegate bool EnumThreadWindowProc(IntPtr hWnd, IntPtr lParam);
 
         [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+        [DllImport("kernel32.dll")] private static extern void SetLastError(uint dwErrCode);
         [DllImport("user32.dll")] private static extern bool EnumThreadWindows(uint threadId, EnumThreadWindowProc callback, IntPtr lParam);
         [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
         [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr newLong);
         [DllImport("user32.dll")] private static extern IntPtr CallWindowProc(IntPtr previous, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")] private static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
         [DllImport("shell32.dll")] private static extern void DragAcceptFiles(IntPtr hWnd, bool accept);
         [DllImport("shell32.dll", CharSet = CharSet.Auto)] private static extern uint DragQueryFile(IntPtr hDrop, uint file, StringBuilder buffer, uint length);
         [DllImport("shell32.dll")] private static extern void DragFinish(IntPtr hDrop);
@@ -32,9 +34,12 @@ namespace Basis.ImagePickup
         private static BasisDesktopImageDropHook _instance;
         private static readonly WndProcDelegate _wndProcDelegate = HookedWndProc;
         private static IntPtr _foundWindow;
+        private static IntPtr _activePreviousWndProc = IntPtr.Zero;
+        private static IntPtr _activeWindowHandle = IntPtr.Zero;
 
         private IntPtr _windowHandle = IntPtr.Zero;
         private IntPtr _previousWndProc = IntPtr.Zero;
+        private bool _hookInstalled;
 
         private readonly List<string> _pending = new();
         private readonly object _pendingLock = new();
@@ -50,19 +55,42 @@ namespace Basis.ImagePickup
                 return;
             }
 
-            DragAcceptFiles(_windowHandle, true);
+            SetLastError(0);
             _previousWndProc = SetWindowLongPtr(_windowHandle, GWLP_WNDPROC, Marshal.GetFunctionPointerForDelegate(_wndProcDelegate));
+            int error = Marshal.GetLastWin32Error();
+            if (_previousWndProc == IntPtr.Zero && error != 0)
+            {
+                BasisDebug.LogWarning($"Image pickup: failed to subclass the player window ({error}); file drop disabled.");
+                _windowHandle = IntPtr.Zero;
+                if (_instance == this) _instance = null;
+                enabled = false;
+                return;
+            }
+
+            _hookInstalled = true;
+            _activeWindowHandle = _windowHandle;
+            _activePreviousWndProc = _previousWndProc;
+            DragAcceptFiles(_windowHandle, true);
         }
 
         private void OnDisable()
         {
-            if (_windowHandle != IntPtr.Zero && _previousWndProc != IntPtr.Zero)
+            if (_windowHandle != IntPtr.Zero)
             {
-                SetWindowLongPtr(_windowHandle, GWLP_WNDPROC, _previousWndProc);
+                if (_hookInstalled)
+                {
+                    SetWindowLongPtr(_windowHandle, GWLP_WNDPROC, _previousWndProc);
+                }
                 DragAcceptFiles(_windowHandle, false);
+            }
+            if (_activeWindowHandle == _windowHandle)
+            {
+                _activeWindowHandle = IntPtr.Zero;
+                _activePreviousWndProc = IntPtr.Zero;
             }
             _windowHandle = IntPtr.Zero;
             _previousWndProc = IntPtr.Zero;
+            _hookInstalled = false;
             if (_instance == this) _instance = null;
         }
 
@@ -84,13 +112,27 @@ namespace Basis.ImagePickup
         private static IntPtr HookedWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
         {
             BasisDesktopImageDropHook instance = _instance;
-            if (instance == null) return IntPtr.Zero;
+            IntPtr previous = instance != null ? instance._previousWndProc : _activePreviousWndProc;
 
-            if (msg == WM_DROPFILES)
+            if (instance != null && msg == WM_DROPFILES)
             {
-                instance.CollectDroppedFiles(wParam);
+                try
+                {
+                    instance.CollectDroppedFiles(wParam);
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogWarning($"Image pickup: file drop handling failed ({e.Message}).");
+                }
             }
-            return CallWindowProc(instance._previousWndProc, hWnd, msg, wParam, lParam);
+            return ForwardWindowMessage(previous, hWnd, msg, wParam, lParam);
+        }
+
+        private static IntPtr ForwardWindowMessage(IntPtr previous, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+        {
+            return previous != IntPtr.Zero
+                ? CallWindowProc(previous, hWnd, msg, wParam, lParam)
+                : DefWindowProc(hWnd, msg, wParam, lParam);
         }
 
         private void CollectDroppedFiles(IntPtr hDrop)
