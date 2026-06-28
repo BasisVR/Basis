@@ -279,15 +279,23 @@ namespace Basis.ImagePickup
             Guid id = new Guid(reader.ReadBytes(16));
             int chunkIndex = reader.ReadInt32();
             int length = reader.ReadInt32();
-            byte[] data = reader.ReadBytes(length);
 
             if (!_inbound.TryGetValue(id, out InboundTransfer transfer)) return;
             if (transfer.Sender != senderId) return;
             if (chunkIndex < 0 || chunkIndex >= transfer.TotalChunks) return;
-            if (data.Length != length) return;
+            if (length < 0 || length > BasisImagePickupSettings.ChunkPayloadBytes) return;
 
             int offset = chunkIndex * BasisImagePickupSettings.ChunkPayloadBytes;
-            if (offset < 0 || offset + length > transfer.Buffer.Length) return;
+            if (offset < 0 || offset >= transfer.Buffer.Length) return;
+
+            int expectedLength = Mathf.Min(BasisImagePickupSettings.ChunkPayloadBytes, transfer.Buffer.Length - offset);
+            if (length != expectedLength) return;
+
+            long remainingBytes = reader.BaseStream.Length - reader.BaseStream.Position;
+            if (remainingBytes < length) return;
+
+            byte[] data = reader.ReadBytes(length);
+            if (data.Length != length) return;
 
             if (!transfer.Received[chunkIndex])
             {
