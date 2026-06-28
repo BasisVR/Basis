@@ -79,7 +79,7 @@ namespace Basis.ImagePickup
             if (bytes.Length > BasisImagePickupSettings.MaxImageBytes) { result.Error = "Too large"; return result; }
             if (!TryReadPngDimensions(bytes, out int w, out int h, out string headerError)) { result.Error = headerError; return result; }
             if (!DimensionsWithinCaps(w, h, out string capError)) { result.Error = capError; return result; }
-            return BuildFromBytes(bytes, true, true);
+            return BuildFromBytes(bytes, true, false);
         }
 
         private static BasisImageValidationResult BuildFromBytes(byte[] bytes, bool reencode, bool allowDownscale)
