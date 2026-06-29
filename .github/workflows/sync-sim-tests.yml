@@ -1,0 +1,199 @@
+name: Basis Sync Sim Tests
+
+on:
+  push:
+    branches: [main, developer]
+    paths:
+      - 'Basis/Packages/com.basis.framework/**'
+      - '.github/workflows/sync-sim-tests.yml'
+  pull_request:
+    branches: [main, developer]
+    paths:
+      - 'Basis/Packages/com.basis.framework/**'
+      - '.github/workflows/sync-sim-tests.yml'
+  workflow_dispatch:
+    inputs:
+      unityVersion:
+        description: 'Unity version to test (default: 6000.5.1f1)'
+        required: false
+        default: '6000.5.1f1'
+      testFilter:
+        description: 'NUnit filter (e.g. BasisSyncSimTests.Sim_Converges*)'
+        required: false
+        default: 'BasisSyncSimTests'
+
+env:
+  UNITY_VERSION: ${{ github.event.inputs.unityVersion || '6000.5.1f1' }}
+  PROJECT_PATH: Basis
+  TEST_FILTER: ${{ github.event.inputs.testFilter || 'BasisSyncSimTests' }}
+  TEST_RESULTS_DIR: ${{ runner.temp }}/test-results
+  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+
+jobs:
+  test:
+    name: Unity ${{ env.UNITY_VERSION }} EditMode Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      # ─── Checkout ───
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+
+      # ─── Cache Unity Editor ───
+      - name: Cache Unity Editor
+        uses: actions/cache@v4
+        with:
+          path: /opt/unity/editors
+          key: unity-editor-${{ env.UNITY_VERSION }}-${{ runner.os }}
+          restore-keys: |
+            unity-editor-${{ env.UNITY_VERSION }}-
+            unity-editor-
+
+      # ─── Install Unity ───
+      - name: Install Unity
+        uses: game-ci/unity-installer@v4
+        with:
+          unityVersion: ${{ env.UNITY_VERSION }}
+          cacheKey: unity-editor-${{ env.UNITY_VERSION }}-${{ runner.os }}
+
+      # ─── Cache Library ───
+      - name: Cache Library folder
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: library-${{ env.PROJECT_PATH }}-${{ env.UNITY_VERSION }}-${{ hashFiles('**/Packages/**', '**/Packages/manifest.json') }}
+          restore-keys: |
+            library-${{ env.PROJECT_PATH }}-${{ env.UNITY_VERSION }}-
+            library-${{ env.PROJECT_PATH }}-
+
+      # ─── Activate Unity License ───
+      - name: Activate Unity License
+        if: env.UNITY_LICENSE != ''
+        uses: game-ci/unity-activate@v3
+        with:
+          license: ${{ env.UNITY_LICENSE }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+
+      # ─── Run EditMode Tests ───
+      - name: Run BasisSyncSimTests (EditMode)
+        id: test
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ env.UNITY_LICENSE }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+          testMode: editmode
+          testPlatform: editmode
+          filters: ${{ env.TEST_FILTER }}
+          artifactsPath: ${{ env.TEST_RESULTS_DIR }}
+          checkTestResults: true
+          customParameters: -logFile - -batchmode -nographics
+
+      # ─── Upload Test Results ───
+      - name: Upload test results (NUnit XML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ env.UNITY_VERSION }}
+          path: ${{ env.TEST_RESULTS_DIR }}/*.xml
+          retention-days: 30
+
+      # ─── Upload Editor Log (on failure) ───
+      - name: Upload Editor.log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-log-${{ env.UNITY_VERSION }}
+          path: |
+            ${{ env.PROJECT_PATH }}/Library/Logs/Unity/Editor.log
+            ${{ runner.temp }}/unity.log
+          retention-days: 7
+
+      # ─── Publish Test Report (PR check) ───
+      - name: Publish Test Report
+        if: github.event_name == 'pull_request'
+        uses: dorny/test-reporter@v1
+        with:
+          name: Unity EditMode Tests
+          path: ${{ env.TEST_RESULTS_DIR }}/*.xml
+          reporter: dotnet-trx
+          fail-on-error: true
+
+  # ─── Matrix Runner (Full Combinatorial) ───
+  matrix-runner:
+    name: Full Matrix Runner (CSV Export)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+
+      - name: Cache Unity Editor
+        uses: actions/cache@v4
+        with:
+          path: /opt/unity/editors
+          key: unity-editor-${{ env.UNITY_VERSION }}-${{ runner.os }}
+
+      - name: Install Unity
+        uses: game-ci/unity-installer@v4
+        with:
+          unityVersion: ${{ env.UNITY_VERSION }}
+          cacheKey: unity-editor-${{ env.UNITY_VERSION }}-${{ runner.os }}
+
+      - name: Cache Library folder
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: library-matrix-${{ env.PROJECT_PATH }}-${{ env.UNITY_VERSION }}-${{ hashFiles('**/Packages/**', '**/Packages/manifest.json') }}
+
+      - name: Activate Unity License
+        if: env.UNITY_LICENSE != ''
+        uses: game-ci/unity-activate@v3
+        with:
+          license: ${{ env.UNITY_LICENSE }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+
+      - name: Run Full Matrix (Headless Editor Script)
+        id: matrix
+        run: |
+          cd ${{ env.PROJECT_PATH }}
+          /opt/unity/editors/${{ env.UNITY_VERSION }}/Editor/Unity \
+            -batchmode -nographics -logFile - \
+            -projectPath . \
+            -executeMethod Basis.Scripts.Networking.Sync.Testing.BasisSyncSimMatrix.RunAndExportCSV \
+            -matrixOptions '{"Seeds":3,"QuantizeVariants":true,"InterpolateOffVariants":true,"ExtrapolateVariant":true,"TeleportThresholdVariant":true,"CompositeConfigs":true,"MultiObjectScenes":true,"BatchedTransport":true,"RealInterpJob":true,"LateJoinVariant":true,"Dt":0.013888889,"DurationSeconds":6,"SettleSeconds":1.8,"BaseSeed":1523023}' \
+            -outputPath ${{ runner.temp }}/sync-sim-matrix.csv
+
+      - name: Upload Matrix CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-sim-matrix-csv
+          path: ${{ runner.temp }}/sync-sim-matrix.csv
+          retention-days: 30
+
+      - name: Upload Matrix CSV as Release Asset (on tag)
+        if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ runner.temp }}/sync-sim-matrix.csv
+
+  # ─── Lint / Format Check ───
+  lint:
+    name: Code Style (C#)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check formatting (csharpier)
+        run: |
+          cd ${{ env.PROJECT_PATH }}
+          dotnet tool restore
+          dotnet csharpier --check .
