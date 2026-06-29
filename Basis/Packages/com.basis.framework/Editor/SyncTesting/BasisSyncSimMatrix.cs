@@ -23,6 +23,7 @@ namespace Basis.Scripts.Networking.Sync.Testing
             public bool PositionFirst;
         }
 
+        [Serializable]
         public sealed class MatrixOptions
         {
             public bool QuantizeVariants = true;
@@ -427,10 +428,12 @@ namespace Basis.Scripts.Networking.Sync.Testing
         /// <summary>
         /// Command-line entry point for CI: runs the full matrix and writes CSV to the given path.
         /// Usage: Unity -batchmode -executeMethod Basis.Scripts.Networking.Sync.Testing.BasisSyncSimMatrix.RunAndExportCSV -matrixOptions '{"Seeds":3}' -outputPath /path/to/output.csv
+        ///        Unity -batchmode -executeMethod Basis.Scripts.Networking.Sync.Testing.BasisSyncSimMatrix.RunAndExportCSV -matrixOptionsPath /path/to/options.json -outputPath /path/to/output.csv
         /// </summary>
         public static void RunAndExportCSV()
         {
             string matrixOptionsJson = null;
+            string matrixOptionsPath = null;
             string outputPath = null;
 
             var args = System.Environment.GetCommandLineArgs();
@@ -438,8 +441,24 @@ namespace Basis.Scripts.Networking.Sync.Testing
             {
                 if (args[i] == "-matrixOptions" && i + 1 < args.Length)
                     matrixOptionsJson = args[i + 1];
+                else if (args[i] == "-matrixOptionsPath" && i + 1 < args.Length)
+                    matrixOptionsPath = args[i + 1];
                 else if (args[i] == "-outputPath" && i + 1 < args.Length)
                     outputPath = args[i + 1];
+            }
+
+            if (!string.IsNullOrEmpty(matrixOptionsPath))
+            {
+                try
+                {
+                    matrixOptionsJson = System.IO.File.ReadAllText(matrixOptionsPath);
+                }
+                catch (System.Exception e)
+                {
+                    UnityEngine.Debug.LogError($"Failed to read -matrixOptionsPath '{matrixOptionsPath}': {e.Message}");
+                    UnityEditor.EditorApplication.Exit(1);
+                    return;
+                }
             }
 
             MatrixOptions options = MatrixOptions.Full();
@@ -447,7 +466,7 @@ namespace Basis.Scripts.Networking.Sync.Testing
             {
                 try
                 {
-                    options = JsonUtility.FromJson<MatrixOptions>(matrixOptionsJson);
+                    JsonUtility.FromJsonOverwrite(matrixOptionsJson, options);
                 }
                 catch (System.Exception e)
                 {
@@ -473,8 +492,26 @@ namespace Basis.Scripts.Networking.Sync.Testing
             }, null);
 
             string csv = ToCsv(results);
+            string outputDirectory = System.IO.Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(outputDirectory))
+                System.IO.Directory.CreateDirectory(outputDirectory);
             System.IO.File.WriteAllText(outputPath, csv);
-            UnityEngine.Debug.Log($"CSV written to {outputPath} ({results.Count} rows)");
+
+            int failed = 0;
+            for (int i = 0; i < results.Count; i++)
+            {
+                if (!results[i].Pass)
+                    failed++;
+            }
+
+            UnityEngine.Debug.Log($"CSV written to {outputPath} ({results.Count} rows, {failed} failures)");
+            if (failed > 0)
+            {
+                UnityEngine.Debug.LogError($"Sync sim matrix completed with {failed} failing rows. See CSV for details.");
+                UnityEditor.EditorApplication.Exit(1);
+                return;
+            }
+
             UnityEditor.EditorApplication.Exit(0);
         }
 
