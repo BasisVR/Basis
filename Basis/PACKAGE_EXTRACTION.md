@@ -51,7 +51,7 @@ Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 |---|---|---|---|---|
 | com.basis.addon.snapcontrols | BasisSnapControls | opt-in | ✅ | Live + listed + removed from monorepo (no localization). Fully done + pushed. |
 | com.basis.developer.recorder | BasisAvatarRecorder | opt-in | 🔄 | Live + listed. **Removal deferred** (18-lang localization → Unity batch). |
-| com.basis.developer.exceptions | BasisExceptions | ⬜ tbd | ⬜ | crash/exception reporting; has localization |
+| com.basis.developer.exceptions | BasisExceptionReporting | opt-in | 🔄 | Live + listed. **Removal deferred** (localization → Unity batch). |
 | com.basis.provider.servers | BasisServersProvider | ⬜ tbd | ⬜ | Servers menu panel; localization `menu.servers.*` co-owned w/ framework (see memory) |
 | com.basis.vehicles | BasisVehicles | keep | ⬜ | user example: keep in app |
 | com.basis.imagepickup | BasisImagePickup | ⬜ tbd | ⬜ | networked image pickup |
@@ -79,6 +79,7 @@ loose `.tgz` tarballs in `Packages/`.
 ## Deferred monorepo removals (need one Unity pass — regenerates `Basis Localization.asset`)
 
 - com.basis.developer.recorder (BasisAvatarRecorder) — published 2026-07-05
+- com.basis.developer.exceptions (BasisExceptionReporting) — published 2026-07-05
 
 ## Per-package checklist (repeatable)
 
@@ -94,3 +95,4 @@ loose `.tgz` tarballs in `Packages/`.
 
 - **BasisSnapControls** (com.basis.addon.snapcontrols) — ✅ DONE: repo live, listed, removed from monorepo, all pushed. No localization.
 - **BasisAvatarRecorder** (com.basis.developer.recorder) — 🔄 published: repo live, listed, seed + website pushed. Removal deferred to the Unity batch (18-language localization).
+- **BasisExceptionReporting** (com.basis.developer.exceptions) — 🔄 published: repo live, listed, seed + website pushed. Removal deferred to the Unity batch (localization).
