@@ -7,17 +7,24 @@ Remove this file before merging to main.
 
 ## Conventions (locked)
 
-- **Repo naming:** friendly PascalCase (e.g. `BasisSnapControls`), matching existing
-  `BasisExamples` / `BasisGizmos` / `BasisVisualTrackers`.
-- **History:** preserved per package via `git subtree split --prefix=<pkg>` (git-filter-repo
-  is not installed; subtree split is built-in and correct for a single folder).
-- **Disposition:** decided case-by-case per package —
-  - `opt-in` = removed from the app entirely; users add it via the Package Manager.
-  - `keep` = still shipped by default; the monorepo references the new repo as a UPM git dependency.
-- **Publishing flow:** edit `src/BasisPM.Server/seed/packages.json` in the Package Manager repo →
-  run the .NET generator → copy `catalog.json`/`packages.json`/`bundles.json` into the
-  website's `packages/` folder. The seed is the source of truth; the website JSON is generated.
-- **Order per package:** publish + verify the standalone package *first*, then remove from the monorepo.
+- **Repo naming:** friendly PascalCase (e.g. `BasisSnapControls`, `BasisAvatarRecorder`),
+  matching existing `BasisExamples` / `BasisGizmos` / `BasisVisualTrackers`.
+- **History:** preserved per package via **git-filter-repo** on a throwaway hardlinked
+  `--no-checkout` clone: `python git-filter-repo --force --subdirectory-filter Basis/Packages/<id>`.
+  (Built-in `git subtree split` is far too slow on the ~5700-commit history.) filter-repo isn't
+  installed system-wide — the single script sits in the session scratchpad.
+- **Disposition (case-by-case):** `opt-in` = removed from the app; users add it via the Package
+  Manager. `keep` = still shipped; the monorepo references the new repo as a UPM git dependency.
+- **Publish-first, batch removals:** *publishing* a package (repo → seed → generator → website)
+  needs no Unity and its localization travels with it, so publish freely. The monorepo *removal*
+  of a **localization-bearing** package needs a Unity pass to regenerate
+  `Assets/AddressableAssetsData/AssetGroups/Basis Localization.asset`, so collect those removals
+  into one Unity session. Packages with no `Localization/Languages/` (e.g. snapcontrols) can be
+  removed immediately without Unity.
+- **Publishing flow:** edit `src/BasisPM.Server/seed/packages.json` in the Package Manager repo
+  (source of truth) → `dotnet run --project src/BasisPM.Server -- generate <out>` (needs .NET 9;
+  `GITHUB_TOKEN` for stats) → copy `packages.json`/`catalog.json`/`index.html` into the website's
+  `packages/`. Repo root is `Github/Basis`; packages live at `Basis/Packages/<id>`.
 
 ## Pipeline
 
@@ -26,37 +33,38 @@ new repo (BasisVR/BasisX)  ──►  seed/packages.json  ──(generator)─�
    package.json at root         (source of truth)     catalog.json      cards + catalog          writes UPM git URL
 ```
 
-## Central registries to trim on full removal
+## Removal surface (when a package leaves the monorepo)
 
-When a package is `opt-in` (fully removed), delete its entry from **both**:
-- `Packages/com.basis.framework.editor/Editor/Documentation Engine/BasisDocGenerator.cs` → `PackageIdsToScan[]`
-- `Assets/Basis/link.xml` → its `<assembly .../>` line
-- …plus `Packages/packages-lock.json` (the embedded lock block) and the package folder itself.
-
-A `keep` package stays in `link.xml` (its assembly still ships) but is sourced via git URL.
+Delete the package folder, then trim its entries from:
+- `Basis/Packages/packages-lock.json` — the embedded lock block
+- `Basis/Assets/Basis/link.xml` — its `<assembly .../>` preserve line (a `keep` package stays here)
+- `Basis/Packages/com.basis.framework.editor/Editor/Documentation Engine/BasisDocGenerator.cs` — its `PackageIdsToScan[]` entry
+- **If it has `Localization/Languages/`:** `Basis/Assets/AddressableAssetsData/AssetGroups/Basis Localization.asset`
+  holds auto-generated `Languages/<pkgid>/<lang>` entries. Unity's Addressables postprocessor prunes
+  them on next open — **do a Unity pass; don't hand-edit the group asset.**
 
 ## Status
 
 Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 
-| Package id | Proposed repo | Disposition | Status | Notes |
+| Package id | Repo | Disposition | Status | Notes |
 |---|---|---|---|---|
-| com.basis.addon.snapcontrols | BasisSnapControls | opt-in | ✅ | **Pilot done** (local): live repo, listed, removed from monorepo. Pending pushes. |
-| com.basis.developer.recorder | BasisRecorder | ⬜ tbd | ⬜ | "split out of framework" |
-| com.basis.developer.exceptions | BasisExceptions | ⬜ tbd | ⬜ | crash/exception reporting |
-| com.basis.provider.servers | BasisServersProvider | ⬜ tbd | ⬜ | Servers menu panel |
+| com.basis.addon.snapcontrols | BasisSnapControls | opt-in | ✅ | Live + listed + removed from monorepo (no localization). Fully done + pushed. |
+| com.basis.developer.recorder | BasisAvatarRecorder | opt-in | 🔄 | Live + listed. **Removal deferred** (18-lang localization → Unity batch). |
+| com.basis.developer.exceptions | BasisExceptions | ⬜ tbd | ⬜ | crash/exception reporting; has localization |
+| com.basis.provider.servers | BasisServersProvider | ⬜ tbd | ⬜ | Servers menu panel; localization `menu.servers.*` co-owned w/ framework (see memory) |
 | com.basis.vehicles | BasisVehicles | keep | ⬜ | user example: keep in app |
 | com.basis.imagepickup | BasisImagePickup | ⬜ tbd | ⬜ | networked image pickup |
 | com.basis.pooltable | (reconcile) | ⬜ tbd | ⬜ | already listed → dooly123/MS-BASISSA-Billiards (community); embedded copy still present |
 | com.basis.examples | BasisExamples *(exists)* | keep | ⬜ | update existing repo |
 | com.basis.visualtrackers | BasisVisualTrackers *(exists)* | ⬜ tbd | ⬜ | update existing repo |
 | com.basis.mediaplayer (+ integration.ytdlp, integration.audiolink) | BasisMediaPlayer (family) | ⬜ tbd | ⬜ | grouping TBD (own repo vs ?path=) |
-| com.basis.mediapipe | BasisMediaPipe | opt-in | ⬜ | user example: opt-in |
+| com.basis.mediapipe | BasisMediaPipe | opt-in | ⬜ | user example: opt-in; has localization |
 | com.basis.openvr | BasisOpenVR | ⬜ tbd | ➖ | platform XR (versionDefines) |
 | com.basis.openxr | BasisOpenXR | ⬜ tbd | ➖ | platform XR (versionDefines) |
 | com.basis.shim | BasisShims | ⬜ tbd | ➖ | needs eventdriver→hai-vr.comms sever first |
 | dev.hai-vr.basis.ndmf | (hai-vr upstream?) | ⬜ tbd | ➖ | Haï~ owned |
-| dev.hai-vr.hvr.license-review | (hai-vr upstream?) | ⬜ tbd | ➖ | Haï~ owned |
+| dev.hai-vr.hvr.license-review | (hai-vr upstream?) | ⬜ tbd | ➖ | Haï~ owned; has localization |
 
 **Framework-coupled / third-party (do not extract without refactoring):** sdk, common, server(+nested),
 eventdriver, gizmos, bundlemanagement, settings, profilerintergration, openlipsync, textmeshpro, and the
@@ -68,24 +76,21 @@ OpusSharp, RNNoise.Net, steam-audio, audiolink) — those are "update existing" 
 (misspelled dup of the active `...intergration`), the `Packages/Basis Server Export/` build artifact, and 6
 loose `.tgz` tarballs in `Packages/`.
 
+## Deferred monorepo removals (need one Unity pass — regenerates `Basis Localization.asset`)
+
+- com.basis.developer.recorder (BasisAvatarRecorder) — published 2026-07-05
+
 ## Per-package checklist (repeatable)
 
-1. `git subtree split --prefix=Packages/<id> -b extract/<name>`
-2. `gh repo create BasisVR/<Repo> --public --description "..."`
-3. `git push <repo-url> extract/<name>:main`
-4. Add `README.md` + `.gitignore` to the new repo
-5. Add entry to `src/BasisPM.Server/seed/packages.json`; run generator; copy JSON into website `packages/`
-6. **Verify** standalone (package.json at root, gitUrl clones, website card renders)
-7. Remove from monorepo: delete folder + trim `packages-lock.json`, `link.xml`, `BasisDocGenerator.cs`
-8. Commit; review; push when approved
+1. Hardlinked clone: `git clone --no-checkout <monorepo> <scratch>/<Repo>-extract`
+2. `python <scratch>/git-filter-repo --force --subdirectory-filter Basis/Packages/<id>` ; `git branch -M main`
+3. Add `README.md` (+`.meta`), `LICENSE` (+`.meta`, if missing), `.gitignore`; commit (unsigned)
+4. `gh repo create BasisVR/<Repo> --public --description "..." --source <clone> --remote origin --push`
+5. Seed entry → run generator → copy JSON (+`index.html` if changed) into website `packages/`; commit + push website + PM
+6. **Verify:** fresh clone of the git URL resolves the package (`package.json` at root)
+7. **Remove from monorepo** — folder + `packages-lock.json` + `link.xml` + `BasisDocGenerator.cs`; if localized, defer to the Unity batch. Commit + push.
 
-## Pilot log — BasisSnapControls
+## Progress log
 
-- [x] history extracted (git-filter-repo, 3 commits preserved, re-rooted)
-- [x] README + .gitignore added (+ README.md.meta)
-- [x] repo created + pushed → https://github.com/BasisVR/BasisSnapControls (public, main)
-- [x] seed + generator + website (packages.json, catalog.json, index.html deployed)
-- [x] verified standalone (fresh clone resolves com.basis.addon.snapcontrols v0.0.1)
-- [x] removed from monorepo (folder deleted; trimmed packages-lock.json, link.xml, BasisDocGenerator.cs)
-
-**Pilot complete (local).** Pending pushes: BasisPM seed · website (basisvr.org) · monorepo branch.
+- **BasisSnapControls** (com.basis.addon.snapcontrols) — ✅ DONE: repo live, listed, removed from monorepo, all pushed. No localization.
+- **BasisAvatarRecorder** (com.basis.developer.recorder) — 🔄 published: repo live, listed, seed + website pushed. Removal deferred to the Unity batch (18-language localization).
