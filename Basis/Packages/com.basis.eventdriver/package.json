@@ -9,13 +9,17 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.unity.inputsystem": "1.19.0"
+    "com.unity.inputsystem": "1.19.0",
+    "com.unity.render-pipelines.core": "17.4.0",
+    "com.unity.render-pipelines.universal": "17.4.0"
   },
   "vpmDependencies": {
     "com.basis.framework": "0.0.1",
     "com.basis.openlipsync": "0.2.0",
     "com.basis.profilerintergration": "0.0.1",
     "com.gator-dragon-games.jigglephysics": "16.0.0",
-    "com.steam.steamaudio": "0.0.1"
+    "com.steam.steamaudio": "0.0.1",
+    "com.basis.sdk": "0.0.1",
+    "dev.hai-vr.basis.comms": "0.0.1"
   }
 }

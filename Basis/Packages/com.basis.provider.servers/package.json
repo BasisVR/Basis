@@ -9,6 +9,13 @@
   },
   "license": "MIT",
   "vpmDependencies": {
-    "com.basis.sdk": "0.0.1"
+    "com.basis.sdk": "0.0.1",
+    "com.basis.common": "0.0.1",
+    "com.basis.framework": "0.0.1",
+    "com.basis.server": "1.0.0"
+  },
+  "dependencies": {
+    "com.unity.addressables": "2.9.1",
+    "com.unity.ugui": "2.0.0"
   }
 }

@@ -6,5 +6,9 @@
   "author": {
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
+  },
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1",
+    "com.llealloo.audiolink": "3.1.2"
   }
 }

@@ -6,5 +6,10 @@
   "author": {
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
+  },
+  "vpmDependencies": {
+    "com.basis.common": "0.0.1",
+    "com.basis.framework": "0.0.1",
+    "com.basis.sdk": "0.0.1"
   }
 }

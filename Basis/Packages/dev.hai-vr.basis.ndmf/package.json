@@ -3,5 +3,8 @@
   "displayName": "HVR Basis NDMF Hook",
   "version": "0.0.1",
   "description": "HVR Basis NDMF Hook",
-  "license": "MIT"
+  "license": "MIT",
+  "vpmDependencies": {
+    "com.basis.sdk": "0.0.1"
+  }
 }

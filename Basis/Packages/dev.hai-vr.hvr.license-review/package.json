@@ -2,5 +2,11 @@
   "name": "dev.hai-vr.hvr.license-review",
   "displayName": "HVR License Review",
   "version": "0.0.1",
-  "description": "HVR License Review"
+  "description": "HVR License Review",
+  "dependencies": {
+    "com.unity.addressables": "2.9.1"
+  },
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1"
+  }
 }

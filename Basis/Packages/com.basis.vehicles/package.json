@@ -8,5 +8,15 @@
     "url": "https://github.com/BasisVR"
   },
   "license": "MIT",
-  "hideInEditor": false
+  "hideInEditor": false,
+  "dependencies": {
+    "com.unity.inputsystem": "1.19.0"
+  },
+  "vpmDependencies": {
+    "com.basis.common": "0.0.1",
+    "com.basis.framework": "0.0.1",
+    "com.basis.framework.editor": "0.0.1",
+    "com.basis.sdk": "0.0.1",
+    "com.basis.server": "1.0.0"
+  }
 }

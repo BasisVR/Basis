@@ -7,5 +7,15 @@
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "license": "MIT AND Unlicense"
+  "license": "MIT AND Unlicense",
+  "dependencies": {
+    "com.unity.inputsystem": "1.19.0",
+    "com.unity.ugui": "2.0.0"
+  },
+  "vpmDependencies": {
+    "com.basis.common": "0.0.1",
+    "com.basis.framework": "0.0.1",
+    "com.basis.sdk": "0.0.1",
+    "com.basis.server": "1.0.0"
+  }
 }

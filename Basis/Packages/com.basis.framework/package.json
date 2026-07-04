@@ -20,7 +20,8 @@
     "com.unity.services.analytics": "6.3.0",
     "com.unity.services.core": "1.16.0",
     "com.unity.ugui": "2.0.0",
-    "com.unity.xr.management": "4.5.4"
+    "com.unity.xr.management": "4.5.4",
+    "com.unity.test-framework": "1.0.0"
   },
   "vpmDependencies": {
     "com.avionblock.opussharp": "0.0.1",
@@ -37,6 +38,7 @@
     "com.steam.steamaudio": "0.0.1",
     "com.xiph.rnnoise": "0.0.1",
     "org.basisvr.k4os.compression.lz4": "1.3.8",
-    "com.basis.textmeshpro": "0.0.1"
+    "com.basis.textmeshpro": "0.0.1",
+    "com.basis.framework.editor": "0.0.1"
   }
 }

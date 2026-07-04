@@ -7,5 +7,9 @@
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "vpmDependencies": {
+    "com.basis.mediaplayer": "0.0.1",
+    "com.basis.sdk": "0.0.1"
+  }
 }

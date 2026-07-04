@@ -9,6 +9,16 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.valvesoftware.unity.openvr": "1.0.0"
+    "com.valvesoftware.unity.openvr": "1.0.0",
+    "com.unity.addressables": "2.9.1",
+    "com.unity.mathematics": "1.3.3",
+    "com.unity.xr.legacyinputhelpers": "2.1.4"
+  },
+  "vpmDependencies": {
+    "com.basis.common": "0.0.1",
+    "com.basis.framework": "0.0.1",
+    "com.basis.gizmos": "0.0.1",
+    "com.basis.sdk": "0.0.1",
+    "com.steam.steamvr": "0.0.2"
   }
 }

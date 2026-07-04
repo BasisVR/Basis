@@ -17,6 +17,7 @@
     "com.basis.sdk": "0.0.1",
     "com.basis.server": "1.0.0",
     "com.cnlohr.cilbox": "0.1.0",
-    "dev.hai-vr.basis.comms": "0.0.1"
+    "dev.hai-vr.basis.comms": "0.0.1",
+    "com.basis.mediaplayer": "0.0.1"
   }
 }
