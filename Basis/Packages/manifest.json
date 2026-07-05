@@ -22,7 +22,7 @@
     "com.unity.xr.management": "4.5.4",
     "com.unity.xr.openxr": "1.17.1",
     "com.valvesoftware.openxr.utils": "https://github.com/ValveSoftware/Unity.git?path=com.valvesoftware.openxr.utils#41ca1855174652d288af94a1b83ef76e34b5d4af",
-    "com.valvesoftware.unity.openvr": "file:com.valvesoftware.unity.openvr-1.2.1.tgz",
+    "com.valvesoftware.unity.openvr": "https://github.com/BasisVR/BasisOpenVRPlugin.git",
     "com.xiph.rnnoise": "https://github.com/BasisVR/RNNoise.Net.git",
     "org.basisvr.base128": "file:org.basisvr.base128-1.2.2.tgz",
     "org.basisvr.bouncycastle": "file:org.basisvr.bouncycastle-2.5.0.tgz",
@@ -63,7 +63,19 @@
     "com.unity.modules.xr": "1.0.0",
     "com.basis.addon.snapcontrols": "https://github.com/BasisVR/BasisSnapControls.git",
     "com.basis.developer.exceptions": "https://github.com/BasisVR/BasisExceptionReporting.git",
-    "com.basis.developer.recorder": "https://github.com/BasisVR/BasisAvatarRecorder.git"
+    "com.basis.developer.recorder": "https://github.com/BasisVR/BasisAvatarRecorder.git",
+    "com.basis.provider.servers": "https://github.com/BasisVR/BasisServersProvider.git",
+    "com.basis.imagepickup": "https://github.com/BasisVR/BasisImagePickup.git",
+    "com.basis.vehicles": "https://github.com/BasisVR/BasisVehicles.git",
+    "com.basis.openxr": "https://github.com/BasisVR/BasisOpenXR.git",
+    "com.basis.examples": "https://github.com/BasisVR/BasisExamples.git",
+    "com.basis.mediaplayer": "https://github.com/BasisVR/BasisMediaPlayer.git",
+    "com.basis.visualtrackers": "https://github.com/BasisVR/BasisVisualTrackers.git",
+    "com.basis.pooltable": "https://github.com/BasisVR/BasisPoolTable.git",
+    "com.basis.integration.ytdlp": "https://github.com/BasisVR/BasisYtDlpIntegration.git",
+    "com.basis.integration.audiolink": "https://github.com/BasisVR/BasisAudioLinkIntegration.git",
+    "com.basis.openvr": "https://github.com/BasisVR/BasisOpenVR.git",
+    "com.steam.steamvr": "https://github.com/BasisVR/BasisSteamVR.git"
   },
   "scopedRegistries": []
 }

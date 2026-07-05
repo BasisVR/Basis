@@ -22,22 +22,6 @@
         "com.unity.mathematics": "1.3.3"
       }
     },
-    "com.basis.developer.exceptions": {
-      "version": "file:com.basis.developer.exceptions",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.ugui": "2.0.0"
-      }
-    },
-    "com.basis.developer.recorder": {
-      "version": "file:com.basis.developer.recorder",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.ugui": "2.0.0"
-      }
-    },
     "com.basis.eventdriver": {
       "version": "file:com.basis.eventdriver",
       "depth": 0,
@@ -45,19 +29,6 @@
       "dependencies": {
         "com.unity.inputsystem": "1.19.0",
         "com.unity.render-pipelines.core": "17.4.0",
-        "com.unity.render-pipelines.universal": "17.4.0"
-      }
-    },
-    "com.basis.examples": {
-      "version": "file:com.basis.examples",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.burst": "1.8.29",
-        "com.unity.collections": "2.6.6",
-        "com.unity.inputsystem": "1.19.0",
-        "com.unity.mathematics": "1.3.3",
         "com.unity.render-pipelines.universal": "17.4.0"
       }
     },
@@ -112,15 +83,6 @@
         "com.unity.mathematics": "1.3.3"
       }
     },
-    "com.basis.mediaplayer": {
-      "version": "file:com.basis.mediaplayer",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.ugui": "2.0.0"
-      }
-    },
     "com.basis.openlipsync": {
       "version": "file:com.basis.openlipsync",
       "depth": 0,
@@ -129,45 +91,12 @@
         "com.unity.addressables": "2.9.1"
       }
     },
-    "com.basis.openvr": {
-      "version": "file:com.basis.openvr",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.valvesoftware.unity.openvr": "1.0.0",
-        "com.unity.addressables": "2.9.1",
-        "com.unity.mathematics": "1.3.3",
-        "com.unity.xr.legacyinputhelpers": "2.1.4"
-      }
-    },
-    "com.basis.openxr": {
-      "version": "file:com.basis.openxr",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.xr.openxr": "1.16.1",
-        "com.unity.addressables": "2.9.1",
-        "com.unity.inputsystem": "1.19.0",
-        "com.unity.mathematics": "1.3.3",
-        "com.unity.xr.hands": "1.8.0",
-        "com.unity.xr.management": "4.5.4"
-      }
-    },
     "com.basis.profilerintergration": {
       "version": "file:com.basis.profilerintergration",
       "depth": 0,
       "source": "embedded",
       "dependencies": {
         "com.unity.profiling.core": "1.0.3"
-      }
-    },
-    "com.basis.provider.servers": {
-      "version": "file:com.basis.provider.servers",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.ugui": "2.0.0"
       }
     },
     "com.basis.sdk": {
@@ -205,20 +134,6 @@
     },
     "com.basis.textmeshpro": {
       "version": "file:com.basis.textmeshpro",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.basis.vehicles": {
-      "version": "file:com.basis.vehicles",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.inputsystem": "1.19.0"
-      }
-    },
-    "com.basis.visualtrackers": {
-      "version": "file:com.basis.visualtrackers",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
@@ -261,12 +176,6 @@
     },
     "com.steam.steamaudio": {
       "version": "file:com.steam.steamaudio",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.steam.steamvr": {
-      "version": "file:com.steam.steamvr",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
@@ -657,16 +566,6 @@
         "com.unity.inputsystem": "1.7.0"
       },
       "hash": "41ca1855174652d288af94a1b83ef76e34b5d4af"
-    },
-    "com.valvesoftware.unity.openvr": {
-      "version": "file:com.valvesoftware.unity.openvr",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.xr.management": "3.2.13",
-        "com.unity.ugui": "1.0.0",
-        "com.unity.xr.legacyinputhelpers": "2.1.4"
-      }
     },
     "com.xiph.rnnoise": {
       "version": "file:com.xiph.rnnoise",
