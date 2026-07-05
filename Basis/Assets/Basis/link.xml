@@ -23,7 +23,6 @@
     <assembly fullname="BasisNetworkServer" preserve="all" />
     <assembly fullname="BasisOpenVR" preserve="all" />
     <assembly fullname="BasisOpenXR" preserve="all" />
-    <assembly fullname="BasisPoolTable" preserve="all" />
     <assembly fullname="BasisProfiler" preserve="all" />
     <assembly fullname="BasisSDK" preserve="all" />
     <assembly fullname="BasisSDKEditor" preserve="all" />

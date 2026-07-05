@@ -55,7 +55,7 @@ Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 | com.basis.provider.servers | BasisServersProvider | opt-in | 🔄 | Live + listed. **Removal deferred** (localization `menu.servers.*` co-owned w/ framework → Unity batch). |
 | com.basis.vehicles | BasisVehicles | keep | 🔄 | Live + listed. **keep-swap deferred** to Unity (add git dep + remove embedded folder; verify resolve+build). No localization. |
 | com.basis.imagepickup | BasisImagePickup | opt-in | ✅ | Live + listed + **removed from monorepo** (no localization). Fully done. |
-| com.basis.pooltable | (reconcile) | ⬜ tbd | ⬜ | already listed → dooly123/MS-BASISSA-Billiards (community); embedded copy still present |
+| com.basis.pooltable | BasisPoolTable | opt-in | ✅ | Re-homed to BasisVR (was dooly123 community listing); listed curated; **removed from monorepo**. No localization. |
 | com.basis.examples | BasisExamples | keep | 🔄 | Live + listed; stale 2025 repo **overwritten** (Avatars/Shaders discarded). keep-swap deferred to Unity. No localization. |
 | com.basis.visualtrackers | BasisVisualTrackers *(exists)* | ⬜ tbd | ⬜ | update existing repo |
 | com.basis.mediaplayer | BasisMediaPlayer | opt-in | 🔄 | Live + listed (native codec libs; ships own README/LICENSE/THIRD_PARTY_NOTICES). **Removal blocked by shim** (shim vpm-deps mediaplayer). |
@@ -111,3 +111,4 @@ Keep-swaps (add git dep to `Packages/manifest.json` + remove embedded folder; Un
 - **BasisMediaPlayer** (com.basis.mediaplayer) — 🔄 published (own README/LICENSE + native codec libs); listed. Grouping decided: 3 separate repos. Removal blocked by shim (depends on mediaplayer).
 - **BasisYtDlpIntegration** (com.basis.integration.ytdlp) — 🔄 published, listed. Removal TBD (leaf, no localization).
 - **BasisAudioLinkIntegration** (com.basis.integration.audiolink) — 🔄 published, listed. Removal TBD (leaf, no localization).
+- **BasisPoolTable** (com.basis.pooltable) — ✅ DONE: re-homed from dooly123/MS-BASISSA-Billiards to BasisVR/BasisPoolTable (curated); listing repointed; removed from monorepo. No localization.

@@ -31,7 +31,6 @@ public static class BasisDocGenerator
         "com.basis.openlipsync",
         "com.basis.openvr",
         "com.basis.openxr",
-        "com.basis.pooltable",
         "com.basis.profilerintergration",
         "com.basis.provider.servers",
         "com.basis.sdk",

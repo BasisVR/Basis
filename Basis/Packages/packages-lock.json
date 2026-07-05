@@ -165,15 +165,6 @@
         "com.unity.xr.management": "4.5.4"
       }
     },
-    "com.basis.pooltable": {
-      "version": "file:com.basis.pooltable",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.inputsystem": "1.19.0",
-        "com.unity.ugui": "2.0.0"
-      }
-    },
     "com.basis.profilerintergration": {
       "version": "file:com.basis.profilerintergration",
       "depth": 0,
