@@ -53,7 +53,7 @@ Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 | com.basis.developer.recorder | BasisAvatarRecorder | opt-in | 🔄 | Live + listed. **Removal deferred** (18-lang localization → Unity batch). |
 | com.basis.developer.exceptions | BasisExceptionReporting | opt-in | 🔄 | Live + listed. **Removal deferred** (localization → Unity batch). |
 | com.basis.provider.servers | BasisServersProvider | opt-in | 🔄 | Live + listed. **Removal deferred** (localization `menu.servers.*` co-owned w/ framework → Unity batch). |
-| com.basis.vehicles | BasisVehicles | keep | ⬜ | user example: keep in app |
+| com.basis.vehicles | BasisVehicles | keep | 🔄 | Live + listed. **keep-swap deferred** to Unity (add git dep + remove embedded folder; verify resolve+build). No localization. |
 | com.basis.imagepickup | BasisImagePickup | opt-in | ✅ | Live + listed + **removed from monorepo** (no localization). Fully done. |
 | com.basis.pooltable | (reconcile) | ⬜ tbd | ⬜ | already listed → dooly123/MS-BASISSA-Billiards (community); embedded copy still present |
 | com.basis.examples | BasisExamples *(exists)* | keep | ⬜ | update existing repo |
@@ -76,11 +76,15 @@ OpusSharp, RNNoise.Net, steam-audio, audiolink) — those are "update existing" 
 (misspelled dup of the active `...intergration`), the `Packages/Basis Server Export/` build artifact, and 6
 loose `.tgz` tarballs in `Packages/`.
 
-## Deferred monorepo removals (need one Unity pass — regenerates `Basis Localization.asset`)
+## Deferred monorepo changes (batch into one Unity pass)
 
+Removals (regenerate `Basis Localization.asset` — localized):
 - com.basis.developer.recorder (BasisAvatarRecorder) — published 2026-07-05
 - com.basis.developer.exceptions (BasisExceptionReporting) — published 2026-07-05
 - com.basis.provider.servers (BasisServersProvider) — published 2026-07-05
+
+Keep-swaps (add git dep to `Packages/manifest.json` + remove embedded folder; Unity-verify resolve+build):
+- com.basis.vehicles (BasisVehicles) — published 2026-07-05 · no localization
 
 ## Per-package checklist (repeatable)
 
@@ -99,3 +103,4 @@ loose `.tgz` tarballs in `Packages/`.
 - **BasisExceptionReporting** (com.basis.developer.exceptions) — 🔄 published: repo live, listed, seed + website pushed. Removal deferred to the Unity batch (localization).
 - **BasisServersProvider** (com.basis.provider.servers) — 🔄 published: repo live, listed, pushed. Removal deferred to the Unity batch (localization).
 - **BasisImagePickup** (com.basis.imagepickup) — ✅ DONE: repo live, listed, removed from monorepo. No localization.
+- **BasisVehicles** (com.basis.vehicles) — 🔄 published: repo live, listed, pushed. keep-swap deferred to Unity (git dep + remove embedded; no localization).
