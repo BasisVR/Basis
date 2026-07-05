@@ -129,12 +129,18 @@
     <assembly fullname="UnityEngine.UI" preserve="all" />
     <assembly fullname="UnityEngine.XR.LegacyInputHelpers" preserve="all" />
     <assembly fullname="VRC.Udon" preserve="all" />
+    <assembly fullname="Valve.Newtonsoft.Json" preserve="all" />
     <assembly fullname="Valve.OpenXR.Utils" preserve="all" />
+    <assembly fullname="XRSDKOpenVR" preserve="all" />
+    <assembly fullname="YtDlp.Runtime" preserve="all" />
     <assembly fullname="audioplugin_phonon" preserve="all" />
+    <assembly fullname="basis_media_native" preserve="all" />
     <assembly fullname="com.cqf.urpvolumetricfog.runtime" preserve="all" />
     <assembly fullname="com.gator-dragon-games.jigglephysics" preserve="all" />
+    <assembly fullname="openvr_api" preserve="all" />
     <assembly fullname="opus" preserve="all" />
     <assembly fullname="phonon" preserve="all" />
     <assembly fullname="phonon_fmod" preserve="all" />
+    <assembly fullname="ucrtbased" preserve="all" />
 
 </linker>
