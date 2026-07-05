@@ -27,13 +27,13 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
     public bool RemoteDeadReckon = false;
 
     /// <summary>
-    /// Opt-in: while a player holds this prop, stop streaming its world transform and instead stream which
+    /// While a player holds this prop, stop streaming its world transform and instead stream which
     /// hand holds it plus the hand-relative grab offset (the difference between the holding hand bone and the
     /// prop). Every remote re-parents the prop to its own copy of the owner's hand bone each frame, so the
     /// prop stays glued to the hand with no position-interpolation lag and near-zero traffic while held.
-    /// On release it snaps back to normal transform sync. Default off keeps the existing position streaming.
+    /// On release it snaps back to normal transform sync. On by default; set false for plain world-position streaming while held.
     /// </summary>
-    public bool AttachToHandOnGrab = false;
+    public bool AttachToHandOnGrab = true;
 
     /// <summary>
     /// While a player holds this prop, ignore distance-based send-rate reduction so the item being actively
@@ -74,6 +74,8 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
 
     protected override void Awake()
     {
+        Extrapolate = true;
+        JitterBufferDepth = 1f;
         base.Awake();
         if (BasisPickupInteractable == null)
         {

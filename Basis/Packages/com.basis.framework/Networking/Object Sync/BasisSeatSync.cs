@@ -28,7 +28,7 @@ public class BasisSeatSync : BasisNetworkBehaviour
         LinkedPlayer = new PlayerID();
         LinkedPlayer.hasPlayerId = false;
         LinkedPlayer.ThePlayerID = 0;
-        BasisLocalPlayer.JustBeforeNetworkApply.AddAction(20, ProvideRemotePlayerTarget);
+        BasisLocalPlayer.AfterRemoteSyncInterpolated.AddAction(20, ProvideRemotePlayerTarget);
     }
     public Action<IBasisPlayer> OnNetworkPlayerEnterSeat;
     public Action<IBasisPlayer> OnNetworkPlayerExitSeat;
@@ -179,7 +179,7 @@ public class BasisSeatSync : BasisNetworkBehaviour
         }
         // Clear any remote player position overrides
         ClearCurrentRemote();
-        BasisLocalPlayer.JustBeforeNetworkApply.RemoveAction(20, ProvideRemotePlayerTarget);
+        BasisLocalPlayer.AfterRemoteSyncInterpolated.RemoveAction(20, ProvideRemotePlayerTarget);
         if (Seat != null)
         {
             Seat.OnInteractStartEvent.RemoveListener(OnInteractStartEvent);

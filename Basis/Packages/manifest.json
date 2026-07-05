@@ -60,7 +60,10 @@
     "com.unity.modules.vehicles": "1.0.0",
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
+    "com.unity.modules.xr": "1.0.0",
+    "com.basis.addon.snapcontrols": "https://github.com/BasisVR/BasisSnapControls.git",
+    "com.basis.developer.exceptions": "https://github.com/BasisVR/BasisExceptionReporting.git",
+    "com.basis.developer.recorder": "https://github.com/BasisVR/BasisAvatarRecorder.git"
   },
   "scopedRegistries": []
 }

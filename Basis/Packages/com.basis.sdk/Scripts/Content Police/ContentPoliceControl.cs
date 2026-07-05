@@ -219,6 +219,10 @@ public static class ContentPoliceControl
                         case AudioSource source:
                             source.outputAudioMixerGroup = PoliceCheck.AudioMixer;
                             break;
+                        case AudioListener audioListener:
+                            GameObject.DestroyImmediate(audioListener);
+                            kinds[Index] = BasisComponentKind.Removed;
+                            continue;
                         // Every Renderer subclass listed individually so future per-type
                         // handling (e.g. particles needing different prewarm, sprite atlases
                         // needing texture warmup, VFX assets needing graph compile) can be
@@ -389,6 +393,9 @@ public static class ContentPoliceControl
                             StripEventsFromLegacyAnimation(legacyAnimation);
                         }
                         break;
+                    case AudioListener audioListener:
+                        GameObject.DestroyImmediate(audioListener);
+                        continue;
                     // Every Renderer subclass listed individually — see the GameObject
                     // overload for the future-proofing rationale.
                     case MeshRenderer meshRenderer:

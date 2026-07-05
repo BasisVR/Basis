@@ -101,6 +101,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public static BasisOrderedDelegate JustBeforeNetworkApply = new BasisOrderedDelegate();
 
         /// <summary>
+        /// Fires after remote synced transforms are interpolated, before the remote player apply — for seats mounted on moving networked bodies.
+        /// </summary>
+        public static BasisOrderedDelegate AfterRemoteSyncInterpolated = new BasisOrderedDelegate();
+
+        /// <summary>
         /// Ordered delegate queue invoked after all movement and simulation have completed for the frame.
         /// </summary>
         public static BasisOrderedDelegate AfterSimulateOnRender = new BasisOrderedDelegate();
@@ -544,6 +549,10 @@ namespace Basis.Scripts.BasisSdk.Players
         public static void FireJustBeforeNetworkApply()
         {
             JustBeforeNetworkApply?.Invoke();
+        }
+        public static void FireAfterRemoteSyncInterpolated()
+        {
+            AfterRemoteSyncInterpolated?.Invoke();
         }
         /// <summary>
         /// Main per-frame simulation entry point, executed on render/update.ddd

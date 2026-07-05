@@ -253,11 +253,12 @@ namespace Basis.EventDriver
             ProfileEnd2(PROF_NET_MICROPHONE);
             Basis.Scripts.Networking.Sync.BasisSyncDriver.ScheduleRemote(DeltaTime);
             ProfileBegin2();
-            BasisNetworkManagement.SimulateNetworkApply();
-            ProfileEnd2(PROF_NET_SIMULATE_APPLY);
-            ProfileBegin2();
             Basis.Scripts.Networking.Sync.BasisSyncDriver.CompleteRemote();
             ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
+            BasisLocalPlayer.FireAfterRemoteSyncInterpolated();
+            ProfileBegin2();
+            BasisNetworkManagement.SimulateNetworkApply();
+            ProfileEnd2(PROF_NET_SIMULATE_APPLY);
             ProfileEnd(PROF_NETWORK_APPLY);
 
             // ── Device management ──

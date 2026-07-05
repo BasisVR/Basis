@@ -413,23 +413,36 @@ namespace Basis
 
         /// <summary>
         /// Unloads every spawned world (scene) and prop (game object), leaving avatars untouched.
-        /// Returns the number of instances removed.
+        /// Network-spawned content is unloaded server-authoritatively so remote players see it removed
+        /// too; local/embedded content (which the server never tracked) is removed directly on this
+        /// client. Returns the number of instances acted on.
         /// </summary>
         public static async Task<int> RemoveAllWorldsAndProps()
         {
-            var toRemove = new List<string>();
+            var toRemove = new List<SpawnInstance>();
 
             foreach (var kvp in _byNetId)
             {
                 var inst = kvp.Value;
                 if (inst != null && (inst.SpawnMode == SpawnMode.Scene || inst.SpawnMode == SpawnMode.GameObject))
-                    toRemove.Add(kvp.Key);
+                    toRemove.Add(inst);
             }
 
             int nuked = 0;
             for (int i = 0; i < toRemove.Count; i++)
             {
-                if (await RemoveByLoadedNetId(toRemove[i]))
+                var inst = toRemove[i];
+                if (inst.SpawnMethod == SpawnMethod.Network)
+                {
+                    // Route through the server; it rebroadcasts the unload to every client and our own
+                    // UnloadResourceMessage echo performs the local removal.
+                    if (inst.SpawnMode == SpawnMode.Scene)
+                        BasisNetworkSpawnItem.RequestSceneUnLoad(inst.LoadedNetID);
+                    else
+                        BasisNetworkSpawnItem.RequestGameObjectUnLoad(inst.LoadedNetID);
+                    nuked++;
+                }
+                else if (await RemoveByLoadedNetId(inst.LoadedNetID))
                 {
                     nuked++;
                 }
