@@ -58,7 +58,9 @@ Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 | com.basis.pooltable | (reconcile) | ⬜ tbd | ⬜ | already listed → dooly123/MS-BASISSA-Billiards (community); embedded copy still present |
 | com.basis.examples | BasisExamples | keep | 🔄 | Live + listed; stale 2025 repo **overwritten** (Avatars/Shaders discarded). keep-swap deferred to Unity. No localization. |
 | com.basis.visualtrackers | BasisVisualTrackers *(exists)* | ⬜ tbd | ⬜ | update existing repo |
-| com.basis.mediaplayer (+ integration.ytdlp, integration.audiolink) | BasisMediaPlayer (family) | ⬜ tbd | ⬜ | grouping TBD (own repo vs ?path=) |
+| com.basis.mediaplayer | BasisMediaPlayer | opt-in | 🔄 | Live + listed (native codec libs; ships own README/LICENSE/THIRD_PARTY_NOTICES). **Removal blocked by shim** (shim vpm-deps mediaplayer). |
+| com.basis.integration.ytdlp | BasisYtDlpIntegration | opt-in | 🔄 | Live + listed. Optional bolt-on (soft-dep com.yewnyx.ytdlp). Removal TBD (leaf, no localization). |
+| com.basis.integration.audiolink | BasisAudioLinkIntegration | opt-in | 🔄 | Live + listed. Optional bolt-on (needs com.llealloo.audiolink). Removal TBD (leaf, no localization). |
 | com.basis.mediapipe | BasisMediaPipe | opt-in | ⛔ | **Blocked:** vpmDeps on `com.github.homuler.mediapipe` + `dev.hai-vr.basis.comms` must be made installable first. Has localization. |
 | com.basis.openvr | BasisOpenVR | ⬜ tbd | ➖ | platform XR (versionDefines) |
 | com.basis.openxr | BasisOpenXR | ⬜ tbd | ➖ | platform XR (versionDefines) |
@@ -106,3 +108,6 @@ Keep-swaps (add git dep to `Packages/manifest.json` + remove embedded folder; Un
 - **BasisImagePickup** (com.basis.imagepickup) — ✅ DONE: repo live, listed, removed from monorepo. No localization.
 - **BasisVehicles** (com.basis.vehicles) — 🔄 published: repo live, listed, pushed. keep-swap deferred to Unity (git dep + remove embedded; no localization).
 - **BasisExamples** (com.basis.examples) — 🔄 published: current content force-pushed over the stale 2025 repo; listed. keep-swap deferred to Unity (no localization).
+- **BasisMediaPlayer** (com.basis.mediaplayer) — 🔄 published (own README/LICENSE + native codec libs); listed. Grouping decided: 3 separate repos. Removal blocked by shim (depends on mediaplayer).
+- **BasisYtDlpIntegration** (com.basis.integration.ytdlp) — 🔄 published, listed. Removal TBD (leaf, no localization).
+- **BasisAudioLinkIntegration** (com.basis.integration.audiolink) — 🔄 published, listed. Removal TBD (leaf, no localization).
