@@ -70,7 +70,7 @@ namespace Basis.Shims
 
 		public static UnityEngine.Object Instantiate( UnityEngine.Object original, Transform parent, bool worldPositionStays )
 		{
-			return SanitizeInstantiate( original, null, null, parent );
+			return SanitizeInstantiate( original, null, null, parent, worldPositionStays );
 		}
 
 		public static UnityEngine.Object Instantiate( UnityEngine.Object original, Vector3 position, Quaternion rotation )
@@ -95,7 +95,7 @@ namespace Basis.Shims
 
 		public static T Instantiate<T>( T original, Transform parent, bool worldPositionStays ) where T : UnityEngine.Object
 		{
-			return SanitizeInstantiate( original, null, null, parent ) as T;
+			return SanitizeInstantiate( original, null, null, parent, worldPositionStays ) as T;
 		}
 
 		public static T Instantiate<T>( T original, Vector3 position, Quaternion rotation ) where T : UnityEngine.Object
@@ -118,7 +118,8 @@ namespace Basis.Shims
 			UnityEngine.Object original,
 			Vector3? position,
 			Quaternion? rotation,
-			Transform parent )
+			Transform parent,
+			bool worldPositionStays = true)
 		{
 			if( original == null )
 			{
@@ -139,8 +140,13 @@ namespace Basis.Shims
 				return null;
 			}
 
-			Vector3 spawnPos = position ?? rootPrefab.transform.position;
-			Quaternion spawnRot = rotation ?? rootPrefab.transform.rotation;
+			Vector3 spawnPos = position ?? (parent != null && !worldPositionStays
+				? parent.TransformPoint(rootPrefab.transform.localPosition)
+				: rootPrefab.transform.position);
+
+			Quaternion spawnRot = rotation ?? (parent != null && !worldPositionStays
+				? parent.rotation * rootPrefab.transform.localRotation
+				: rootPrefab.transform.rotation);
 
 			ChecksRequired checks = new ChecksRequired
 			{
