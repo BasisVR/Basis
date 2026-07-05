@@ -71,22 +71,30 @@ namespace LinkerGenerator
             if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.03f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.collectingPlayerAssemblies"))) return;
             AddUnityPlayerAssemblies(assemblies);
 
+            var externalPackageRoots = GetExternalPackageRoots();
+
             // 2) Scan .dll file names (union, not target filtered) but exclude obvious editor/test names
             if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.10f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.scanningAssets"))) return;
             AddDllNamesUnderRoot(ScanAssetsRoot, assemblies, progressBase: 0.10f, progressSpan: 0.22f);
 
             if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.32f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.scanningPackages"))) return;
             AddDllNamesUnderRoot(ScanPackagesRoot, assemblies, progressBase: 0.32f, progressSpan: 0.22f);
+            foreach (var externalRoot in externalPackageRoots)
+                AddDllNamesUnderRoot(externalRoot, assemblies, progressBase: 0.32f, progressSpan: 0.22f);
 
             // 3) Parse .rsp references
             if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.54f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.parsingRspFiles"))) return;
             AddRspAssemblyNames(ScanAssetsRoot, assemblies, progressBase: 0.54f, progressSpan: 0.08f);
             AddRspAssemblyNames(ScanPackagesRoot, assemblies, progressBase: 0.62f, progressSpan: 0.08f);
+            foreach (var externalRoot in externalPackageRoots)
+                AddRspAssemblyNames(externalRoot, assemblies, progressBase: 0.62f, progressSpan: 0.08f);
 
             // 4) Parse asmdefs (resolve GUID references, include precompiledReferences)
             if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.70f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.parsingAsmdefFiles"))) return;
             AddAsmdefReferences(ScanAssetsRoot, assemblies, guidAsmdefNameCache, progressBase: 0.70f, progressSpan: 0.10f);
             AddAsmdefReferences(ScanPackagesRoot, assemblies, guidAsmdefNameCache, progressBase: 0.80f, progressSpan: 0.10f);
+            foreach (var externalRoot in externalPackageRoots)
+                AddAsmdefReferences(externalRoot, assemblies, guidAsmdefNameCache, progressBase: 0.80f, progressSpan: 0.10f);
 
             // 5) If cilbox is in the project, include assemblies for all whitelisted types
             if (Cancelable(BasisEditorLocalization.Get("sdk.linkGenerator.progress.title"), 0.90f, BasisEditorLocalization.Get("sdk.linkGenerator.progress.checkingCilbox"))) return;
@@ -133,6 +141,43 @@ namespace LinkerGenerator
             }
 
             output.Add("UnityEngine.CoreModule");
+        }
+
+        private static List<string> GetExternalPackageRoots()
+        {
+            var roots = new List<string>();
+
+            UnityEditor.PackageManager.PackageInfo[] packages;
+            try
+            {
+                packages = UnityEditor.PackageManager.PackageInfo.GetAllRegisteredPackages();
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"link.xml: failed to enumerate registered packages: {ex.Message}");
+                return roots;
+            }
+
+            if (packages == null)
+                return roots;
+
+            foreach (var package in packages)
+            {
+                if (package == null)
+                    continue;
+
+                var source = package.source;
+                if (source == UnityEditor.PackageManager.PackageSource.BuiltIn
+                    || source == UnityEditor.PackageManager.PackageSource.Embedded
+                    || source == UnityEditor.PackageManager.PackageSource.Registry)
+                    continue;
+
+                string resolved = package.resolvedPath;
+                if (!string.IsNullOrEmpty(resolved) && Directory.Exists(resolved))
+                    roots.Add(resolved);
+            }
+
+            return roots;
         }
 
         private static void AddDllNamesUnderRoot(string root, HashSet<string> output, float progressBase, float progressSpan)
