@@ -138,18 +138,6 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.cnlohr.cilbox": {
-      "version": "file:com.cnlohr.cilbox",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.cqf.urpvolumetricfog": {
-      "version": "file:com.cqf.urpvolumetricfog",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.gator-dragon-games.jigglephysics": {
       "version": "file:UnityJigglePhysics-upm",
       "depth": 0,

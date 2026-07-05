@@ -75,7 +75,9 @@
     "com.basis.integration.ytdlp": "https://github.com/BasisVR/BasisYtDlpIntegration.git",
     "com.basis.integration.audiolink": "https://github.com/BasisVR/BasisAudioLinkIntegration.git",
     "com.basis.openvr": "https://github.com/BasisVR/BasisOpenVR.git",
-    "com.steam.steamvr": "https://github.com/BasisVR/BasisSteamVR.git"
+    "com.steam.steamvr": "https://github.com/BasisVR/BasisSteamVR.git",
+    "com.cnlohr.cilbox": "https://github.com/BasisVR/BasisCilbox.git",
+    "com.cqf.urpvolumetricfog": "https://github.com/BasisVR/BasisVolumetricFog.git"
   },
   "scopedRegistries": []
 }
