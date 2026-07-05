@@ -5,7 +5,6 @@
     <assembly fullname="Basis Framework" preserve="all" />
     <assembly fullname="Basis.Developer.Exceptions" preserve="all" />
     <assembly fullname="Basis.Developer.Recorder" preserve="all" />
-    <assembly fullname="Basis.Integration.AudioLink" preserve="all" />
     <assembly fullname="Basis.OpenLipSync.Runtime" preserve="all" />
     <assembly fullname="Basis.Shims.Samples" preserve="all" />
     <assembly fullname="BasisBundleManagement" preserve="all" />
@@ -128,7 +127,6 @@
     <assembly fullname="VRC.Udon" preserve="all" />
     <assembly fullname="Valve.OpenXR.Utils" preserve="all" />
     <assembly fullname="XRSDKOpenVR" preserve="all" />
-    <assembly fullname="YtDlp.Runtime" preserve="all" />
     <assembly fullname="audioplugin_phonon" preserve="all" />
     <assembly fullname="basis_media_native" preserve="all" />
     <assembly fullname="com.cqf.urpvolumetricfog.runtime" preserve="all" />

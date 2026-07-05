@@ -24,8 +24,6 @@ public static class BasisDocGenerator
         "com.basis.framework",
         "com.basis.framework.editor",
         "com.basis.gizmos",
-        "com.basis.integration.audiolink",
-        "com.basis.integration.ytdlp",
         "com.basis.mediapipe",
         "com.basis.mediaplayer",
         "com.basis.openlipsync",
