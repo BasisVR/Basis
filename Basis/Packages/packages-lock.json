@@ -191,14 +191,14 @@
       "hash": "183fb3069ca3974fb75e26da2cfc739bbd896af0"
     },
     "com.basis.pooltable": {
-      "version": "https://github.com/BasisVR/BasisPoolTable.git",
+      "version": "https://github.com/dooly123/MS-BASISSA-Billiards.git",
       "depth": 0,
       "source": "git",
       "dependencies": {
         "com.unity.inputsystem": "1.19.0",
         "com.unity.ugui": "2.0.0"
       },
-      "hash": "ffd29bca2bfe936b9fca1019699bca5fc7852427"
+      "hash": "adf45897aa708c5dfc4de8ac8cb163eac008a50d"
     },
     "com.basis.profilerintergration": {
       "version": "file:com.basis.profilerintergration",

@@ -74,7 +74,6 @@ namespace Basis.Scripts.Drivers
         private float scaleTime = 0f;
         private bool scalingUp = true;
         private bool isScaling = false;
-        private bool startingScaleCaptured = false;
 
         // --- Render "intent" (ONLY applied in Simulate) ---
         private bool requestedVisible = true;
@@ -96,12 +95,8 @@ namespace Basis.Scripts.Drivers
             if (SpriteRendererIcon != null)
             {
                 SpriteRendererIconTransform = SpriteRendererIcon.transform;
-                if (!startingScaleCaptured)
-                {
-                    StartingScale = SpriteRendererIconTransform.localScale;
-                    largerScale = StartingScale * 1.2f;
-                    startingScaleCaptured = true;
-                }
+                StartingScale = SpriteRendererIconTransform.localScale;
+                largerScale = StartingScale * 1.2f;
             }
 
             UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
@@ -359,16 +354,12 @@ namespace Basis.Scripts.Drivers
                 StartScaleBounce();
             }
 
-            float compensation = GetScaleCompensation();
-            Vector3 baseScale = StartingScale * compensation;
-            Vector3 bigScale = largerScale * compensation;
-
             // --- Apply scale (bounce or settle) ---
             if (!requestedVisible)
             {
                 // If hidden, you can choose what scale to keep.
                 // Usually safest to reset to starting so next show is clean.
-                SpriteRendererIconTransform.localScale = baseScale;
+                SpriteRendererIconTransform.localScale = StartingScale;
                 StopScaleBounce();
                 return;
             }
@@ -376,7 +367,7 @@ namespace Basis.Scripts.Drivers
             if (!isScaling)
             {
                 // Ensure idle scale is consistent (especially after hide/show)
-                SpriteRendererIconTransform.localScale = baseScale;
+                SpriteRendererIconTransform.localScale = StartingScale;
                 return;
             }
 
@@ -385,35 +376,25 @@ namespace Basis.Scripts.Drivers
 
             if (scalingUp)
             {
-                SpriteRendererIconTransform.localScale = Vector3.Lerp(baseScale, bigScale, t);
+                SpriteRendererIconTransform.localScale = Vector3.Lerp(StartingScale, largerScale, t);
 
                 if (t >= 1f)
                 {
-                    SpriteRendererIconTransform.localScale = bigScale;
+                    SpriteRendererIconTransform.localScale = largerScale;
                     scalingUp = false;
                     scaleTime = 0f;
                 }
             }
             else
             {
-                SpriteRendererIconTransform.localScale = Vector3.Lerp(bigScale, baseScale, t);
+                SpriteRendererIconTransform.localScale = Vector3.Lerp(largerScale, StartingScale, t);
 
                 if (t >= 1f)
                 {
-                    SpriteRendererIconTransform.localScale = baseScale;
+                    SpriteRendererIconTransform.localScale = StartingScale;
                     isScaling = false;
                 }
             }
-        }
-
-        private float GetScaleCompensation()
-        {
-            float ratio = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
-            if (CameraDriver != null && CameraDriver.CameraData != null && CameraDriver.CameraData.allowXRRendering)
-            {
-                return ratio;
-            }
-            return ratio / Mathf.Max(BasisHeightDriver.DeviceScale, 1e-4f);
         }
     }
 }

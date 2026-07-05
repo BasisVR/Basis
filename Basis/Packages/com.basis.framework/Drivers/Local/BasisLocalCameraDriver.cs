@@ -71,6 +71,8 @@ namespace Basis.Scripts.Drivers
 
         public Vector3 VRMicrophoneLocalOffset = new(-0.175f, -0.17f, 0.5f);
 
+        public float MicrophoneAnchorDistance = 0.5f;
+
         /// <summary>True when the camera is in Third-Person mode.</summary>
         public bool IsThirdPerson = false;
 
@@ -138,8 +140,7 @@ namespace Basis.Scripts.Drivers
         // Cached desktop mic-icon layout. The viewport->camera-local position cancels out the
         // camera's world pose, so it is recomputed only when one of these inputs actually changes.
         private bool _micLayoutValid;
-        private float _micLayoutFov, _micLayoutAspect, _micLayoutRatio;
-        private Vector3 _micLayoutLossyScale;
+        private float _micLayoutFov, _micLayoutAspect, _micLayoutDistance;
         private Vector2 _micLayoutOffset;
         private bool _micLayoutMobile;
 
@@ -645,25 +646,23 @@ namespace Basis.Scripts.Drivers
                     Vector3 offset = VRMicrophoneLocalOffset;
                     offset.x += microphoneIconDriver.IconPositionOffset.x;
                     offset.y += microphoneIconDriver.IconPositionOffset.y;
-                    ParentOfUI.localPosition = offset * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+                    ParentOfUI.localPosition = offset;
                     _micLayoutValid = false;
                 }
                 else
                 {
-                    // The viewport->camera-local mic position cancels out the camera's world pose,
-                    // so it only depends on FOV, aspect, camera scale, the icon offset, mobile mode
-                    // and the height ratio. Recompute (and re-set the transform) only on a change
-                    // instead of running ViewportToWorldPoint + InverseTransformPoint every frame.
+                    // The viewport->camera-local mic direction is independent of the camera's world
+                    // pose and scale, so the anchor only depends on FOV, aspect, the icon offset,
+                    // mobile mode and the anchor distance. Recompute (and re-set the transform) only
+                    // on a change instead of running ViewportToWorldPoint + InverseTransformPoint every frame.
                     bool isMobile = BasisDeviceManagement.IsMobileHardware();
                     float fov = CameraInstance.fieldOfView;
                     float aspect = CameraInstance.aspect;
-                    Vector3 lossyScale = SelfTransform.lossyScale;
                     Vector2 offset = microphoneIconDriver.IconPositionOffset;
-                    float ratio = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
 
                     if (!_micLayoutValid || fov != _micLayoutFov || aspect != _micLayoutAspect
-                        || lossyScale != _micLayoutLossyScale || offset != _micLayoutOffset
-                        || isMobile != _micLayoutMobile || ratio != _micLayoutRatio)
+                        || offset != _micLayoutOffset || isMobile != _micLayoutMobile
+                        || MicrophoneAnchorDistance != _micLayoutDistance)
                     {
                         Vector3 viewportPos = isMobile ? MobileMicrophoneViewportPosition : DesktopMicrophoneViewportPosition;
                         viewportPos.x += offset.x;
@@ -671,15 +670,14 @@ namespace Basis.Scripts.Drivers
                         Vector3 worldPoint = Camera.ViewportToWorldPoint(viewportPos);
                         // assume this transform is the camera parent
                         Vector3 localPos = SelfTransform.InverseTransformPoint(worldPoint);
-                        ParentOfUI.localPosition = localPos * ratio;
+                        ParentOfUI.localPosition = localPos.normalized * MicrophoneAnchorDistance;
 
                         _micLayoutValid = true;
                         _micLayoutFov = fov;
                         _micLayoutAspect = aspect;
-                        _micLayoutLossyScale = lossyScale;
                         _micLayoutOffset = offset;
                         _micLayoutMobile = isMobile;
-                        _micLayoutRatio = ratio;
+                        _micLayoutDistance = MicrophoneAnchorDistance;
                     }
                 }
                 avatarPreviewDriver.Simulate();
