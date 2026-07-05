@@ -71,7 +71,7 @@
     "com.basis.examples": "https://github.com/BasisVR/BasisExamples.git",
     "com.basis.mediaplayer": "https://github.com/BasisVR/BasisMediaPlayer.git",
     "com.basis.visualtrackers": "https://github.com/BasisVR/BasisVisualTrackers.git",
-    "com.basis.pooltable": "https://github.com/BasisVR/BasisPoolTable.git",
+    "com.basis.pooltable": "https://github.com/dooly123/MS-BASISSA-Billiards.git",
     "com.basis.integration.ytdlp": "https://github.com/BasisVR/BasisYtDlpIntegration.git",
     "com.basis.integration.audiolink": "https://github.com/BasisVR/BasisAudioLinkIntegration.git",
     "com.basis.openvr": "https://github.com/BasisVR/BasisOpenVR.git",
