@@ -57,12 +57,14 @@ Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 | com.basis.imagepickup | BasisImagePickup | opt-in | ✅ | Live + listed + **removed from monorepo** (no localization). Fully done. |
 | com.basis.pooltable | BasisPoolTable | opt-in | ✅ | Re-homed to BasisVR (was dooly123 community listing); listed curated; **removed from monorepo**. No localization. |
 | com.basis.examples | BasisExamples | keep | 🔄 | Live + listed; stale 2025 repo **overwritten** (Avatars/Shaders discarded). keep-swap deferred to Unity. No localization. |
-| com.basis.visualtrackers | BasisVisualTrackers *(exists)* | ⬜ tbd | ⚠️ | **Divergent — DON'T overwrite.** Existing repo = 61 MB of real tracker models (HTC/Index/Tundra/Meta); embedded package is fallback-sphere only. Needs a decision (repo is likely canonical). |
+| com.basis.visualtrackers | BasisVisualTrackers | keep | 🔄 | Live + listed; existing repo **overwritten** with the monorepo copy (fallback-only; old HTC/Index/Tundra/Meta models discarded per user). keep-swap deferred to Unity. |
 | com.basis.mediaplayer | BasisMediaPlayer | opt-in | 🔄 | Live + listed (native codec libs; ships own README/LICENSE/THIRD_PARTY_NOTICES). **Removal blocked by shim** (shim vpm-deps mediaplayer). |
 | com.basis.integration.ytdlp | BasisYtDlpIntegration | opt-in | ✅ | Live + listed + **removed from monorepo** (leaf, no localization). |
 | com.basis.integration.audiolink | BasisAudioLinkIntegration | opt-in | ✅ | Live + listed + **removed from monorepo** (leaf, no localization). |
 | com.basis.mediapipe | BasisMediaPipe | opt-in | ⛔ | **Blocked:** vpmDeps on `com.github.homuler.mediapipe` + `dev.hai-vr.basis.comms` must be made installable first. Has localization. |
-| com.basis.openvr | BasisOpenVR | ⬜ tbd | 🔒 | Blocked: pulls vendored Valve/Steam packages (`com.steam.steamvr`, `com.valvesoftware.unity.openvr`) — sort those first. |
+| com.basis.openvr | BasisOpenVR | keep | 🔄 | Live + listed. Platform VR (keep). Deps now published: [BasisSteamVR] + [BasisOpenVRPlugin]. keep-swap deferred to Unity. |
+| com.steam.steamvr | BasisSteamVR | keep | 🔄 | Live + listed. Valve SteamVR (BSD-3), trimmed for Basis. Dep of openvr; keep-swap deferred. |
+| com.valvesoftware.unity.openvr | BasisOpenVRPlugin | keep | 🔄 | Live + listed. Valve OpenVR XR plugin (BSD-3, 20 MB w/ native libs). Dep of openvr; keep-swap deferred. |
 | com.basis.openxr | BasisOpenXR | keep | 🔄 | Live + listed (platform VR; app needs it). keep-swap deferred to Unity. No localization. |
 | com.basis.shim | BasisShims | ⬜ tbd | ➖ | needs eventdriver→hai-vr.comms sever first |
 | dev.hai-vr.basis.ndmf | (hai-vr upstream?) | ⬜ tbd | ➖ | Haï~ owned |
@@ -114,3 +116,5 @@ Keep-swaps (add git dep to `Packages/manifest.json` + remove embedded folder; Un
 - **BasisPoolTable** (com.basis.pooltable) — ✅ DONE: re-homed from dooly123/MS-BASISSA-Billiards to BasisVR/BasisPoolTable (curated); listing repointed; removed from monorepo. No localization.
 - **BasisOpenXR** (com.basis.openxr) — 🔄 published (own LICENSE + THIRD_PARTY_NOTICES), listed. Platform VR → keep; keep-swap deferred to Unity. No localization.
 - **ytdlp + audiolink removals** — ✅ DONE: both removed from monorepo (clean leaves, no localization; verified the ContentPolice `AudioLink.*` refs are the vendored llealloo package, not these).
+- **BasisVisualTrackers** (com.basis.visualtrackers) — 🔄 published: existing repo force-overwritten with the monorepo fallback-only copy (per user; 61 MB of old tracker models discarded). keep-swap deferred.
+- **BasisOpenVR + BasisSteamVR + BasisOpenVRPlugin** (com.basis.openvr, com.steam.steamvr, com.valvesoftware.unity.openvr) — 🔄 published as 3 repos: the openvr integration + the two Valve/BSD-3 vendored deps it needs. All keep (platform VR); keep-swaps deferred to Unity.
