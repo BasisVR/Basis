@@ -102,15 +102,6 @@
         "com.unity.ugui": "2.0.0"
       }
     },
-    "com.basis.imagepickup": {
-      "version": "file:com.basis.imagepickup",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.ugui": "2.0.0",
-        "com.unity.render-pipelines.universal": "17.4.0"
-      }
-    },
     "com.basis.integration.audiolink": {
       "version": "file:com.basis.integration.audiolink",
       "depth": 0,

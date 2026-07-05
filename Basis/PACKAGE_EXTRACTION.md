@@ -52,14 +52,14 @@ Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 | com.basis.addon.snapcontrols | BasisSnapControls | opt-in | ✅ | Live + listed + removed from monorepo (no localization). Fully done + pushed. |
 | com.basis.developer.recorder | BasisAvatarRecorder | opt-in | 🔄 | Live + listed. **Removal deferred** (18-lang localization → Unity batch). |
 | com.basis.developer.exceptions | BasisExceptionReporting | opt-in | 🔄 | Live + listed. **Removal deferred** (localization → Unity batch). |
-| com.basis.provider.servers | BasisServersProvider | ⬜ tbd | ⬜ | Servers menu panel; localization `menu.servers.*` co-owned w/ framework (see memory) |
+| com.basis.provider.servers | BasisServersProvider | opt-in | 🔄 | Live + listed. **Removal deferred** (localization `menu.servers.*` co-owned w/ framework → Unity batch). |
 | com.basis.vehicles | BasisVehicles | keep | ⬜ | user example: keep in app |
-| com.basis.imagepickup | BasisImagePickup | ⬜ tbd | ⬜ | networked image pickup |
+| com.basis.imagepickup | BasisImagePickup | opt-in | ✅ | Live + listed + **removed from monorepo** (no localization). Fully done. |
 | com.basis.pooltable | (reconcile) | ⬜ tbd | ⬜ | already listed → dooly123/MS-BASISSA-Billiards (community); embedded copy still present |
 | com.basis.examples | BasisExamples *(exists)* | keep | ⬜ | update existing repo |
 | com.basis.visualtrackers | BasisVisualTrackers *(exists)* | ⬜ tbd | ⬜ | update existing repo |
 | com.basis.mediaplayer (+ integration.ytdlp, integration.audiolink) | BasisMediaPlayer (family) | ⬜ tbd | ⬜ | grouping TBD (own repo vs ?path=) |
-| com.basis.mediapipe | BasisMediaPipe | opt-in | ⬜ | user example: opt-in; has localization |
+| com.basis.mediapipe | BasisMediaPipe | opt-in | ⛔ | **Blocked:** vpmDeps on `com.github.homuler.mediapipe` + `dev.hai-vr.basis.comms` must be made installable first. Has localization. |
 | com.basis.openvr | BasisOpenVR | ⬜ tbd | ➖ | platform XR (versionDefines) |
 | com.basis.openxr | BasisOpenXR | ⬜ tbd | ➖ | platform XR (versionDefines) |
 | com.basis.shim | BasisShims | ⬜ tbd | ➖ | needs eventdriver→hai-vr.comms sever first |
@@ -80,6 +80,7 @@ loose `.tgz` tarballs in `Packages/`.
 
 - com.basis.developer.recorder (BasisAvatarRecorder) — published 2026-07-05
 - com.basis.developer.exceptions (BasisExceptionReporting) — published 2026-07-05
+- com.basis.provider.servers (BasisServersProvider) — published 2026-07-05
 
 ## Per-package checklist (repeatable)
 
@@ -96,3 +97,5 @@ loose `.tgz` tarballs in `Packages/`.
 - **BasisSnapControls** (com.basis.addon.snapcontrols) — ✅ DONE: repo live, listed, removed from monorepo, all pushed. No localization.
 - **BasisAvatarRecorder** (com.basis.developer.recorder) — 🔄 published: repo live, listed, seed + website pushed. Removal deferred to the Unity batch (18-language localization).
 - **BasisExceptionReporting** (com.basis.developer.exceptions) — 🔄 published: repo live, listed, seed + website pushed. Removal deferred to the Unity batch (localization).
+- **BasisServersProvider** (com.basis.provider.servers) — 🔄 published: repo live, listed, pushed. Removal deferred to the Unity batch (localization).
+- **BasisImagePickup** (com.basis.imagepickup) — ✅ DONE: repo live, listed, removed from monorepo. No localization.
