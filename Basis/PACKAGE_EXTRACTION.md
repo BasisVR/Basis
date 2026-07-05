@@ -56,7 +56,7 @@ Legend: ⬜ pending · 🔄 in progress · ✅ done · ➖ later
 | com.basis.vehicles | BasisVehicles | keep | 🔄 | Live + listed. **keep-swap deferred** to Unity (add git dep + remove embedded folder; verify resolve+build). No localization. |
 | com.basis.imagepickup | BasisImagePickup | opt-in | ✅ | Live + listed + **removed from monorepo** (no localization). Fully done. |
 | com.basis.pooltable | (reconcile) | ⬜ tbd | ⬜ | already listed → dooly123/MS-BASISSA-Billiards (community); embedded copy still present |
-| com.basis.examples | BasisExamples *(exists)* | keep | ⬜ | update existing repo |
+| com.basis.examples | BasisExamples | keep | 🔄 | Live + listed; stale 2025 repo **overwritten** (Avatars/Shaders discarded). keep-swap deferred to Unity. No localization. |
 | com.basis.visualtrackers | BasisVisualTrackers *(exists)* | ⬜ tbd | ⬜ | update existing repo |
 | com.basis.mediaplayer (+ integration.ytdlp, integration.audiolink) | BasisMediaPlayer (family) | ⬜ tbd | ⬜ | grouping TBD (own repo vs ?path=) |
 | com.basis.mediapipe | BasisMediaPipe | opt-in | ⛔ | **Blocked:** vpmDeps on `com.github.homuler.mediapipe` + `dev.hai-vr.basis.comms` must be made installable first. Has localization. |
@@ -85,6 +85,7 @@ Removals (regenerate `Basis Localization.asset` — localized):
 
 Keep-swaps (add git dep to `Packages/manifest.json` + remove embedded folder; Unity-verify resolve+build):
 - com.basis.vehicles (BasisVehicles) — published 2026-07-05 · no localization
+- com.basis.examples (BasisExamples) — published 2026-07-05 · no localization (stale repo overwritten)
 
 ## Per-package checklist (repeatable)
 
@@ -104,3 +105,4 @@ Keep-swaps (add git dep to `Packages/manifest.json` + remove embedded folder; Un
 - **BasisServersProvider** (com.basis.provider.servers) — 🔄 published: repo live, listed, pushed. Removal deferred to the Unity batch (localization).
 - **BasisImagePickup** (com.basis.imagepickup) — ✅ DONE: repo live, listed, removed from monorepo. No localization.
 - **BasisVehicles** (com.basis.vehicles) — 🔄 published: repo live, listed, pushed. keep-swap deferred to Unity (git dep + remove embedded; no localization).
+- **BasisExamples** (com.basis.examples) — 🔄 published: current content force-pushed over the stale 2025 repo; listed. keep-swap deferred to Unity (no localization).
