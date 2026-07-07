@@ -99,7 +99,10 @@
     "com.steam.steamaudio": "https://github.com/BasisVR/steam-audio.git",
     "nuget.meamod.dns": "https://github.com/BasisVR/BasisMeaModDns.git",
     "com.unity.render-pipelines.universal": "https://github.com/BasisVR/BasisURP.git",
-    "com.unity.3rdpersondemo": "https://github.com/BasisVR/BasisThirdPersonDemo.git"
+    "com.unity.3rdpersondemo": "https://github.com/BasisVR/BasisThirdPersonDemo.git",
+    "dev.hai-vr.basis.comms": "https://github.com/BasisVR/hai-vr-Basis.git?path=Basis/Packages/dev.hai-vr.basis.comms#basis",
+    "dev.hai-vr.basis.ndmf": "https://github.com/BasisVR/hai-vr-Basis.git?path=Basis/Packages/dev.hai-vr.basis.ndmf#basis",
+    "dev.hai-vr.hvr.license-review": "https://github.com/BasisVR/hai-vr-Basis.git?path=Basis/Packages/dev.hai-vr.hvr.license-review#basis"
   },
   "scopedRegistries": []
 }
