@@ -1,0 +1,27 @@
+{
+    "name": "Basis.Setup.SteamAudio.Editor",
+    "rootNamespace": "Basis.Setup.Modules",
+    "references": [
+        "Basis.Setup.Editor",
+        "SteamAudioUnity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "BASIS_HAS_STEAMAUDIO"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.steam.steamaudio",
+            "expression": "",
+            "define": "BASIS_HAS_STEAMAUDIO"
+        }
+    ],
+    "noEngineReferences": false
+}

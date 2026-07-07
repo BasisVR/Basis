@@ -1,0 +1,25 @@
+{
+    "name": "Basis.Setup.Integrations.Editor",
+    "rootNamespace": "Basis.Setup.Modules",
+    "references": [
+        "Basis.Setup.Editor",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor",
+        "Unity.InputSystem",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,18 @@
+{
+  "name": "com.basis.setup",
+  "displayName": "Basis Setup",
+  "version": "0.0.1",
+  "description": "Generates and updates the project-level configuration Unity requires to live under Assets/ (Addressables, XR, URP rendering defaults, quality, input, highlight, Steam Audio, link.xml, Android templates, SteamVR bindings). Creators build the files from code; mergers bring an existing project's copies up to date.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.addressables": "2.9.1",
+    "com.unity.inputsystem": "1.19.0",
+    "com.unity.xr.management": "4.5.4",
+    "com.unity.xr.openxr": "1.17.1",
+    "com.unity.render-pipelines.universal": "17.5.0"
+  }
+}

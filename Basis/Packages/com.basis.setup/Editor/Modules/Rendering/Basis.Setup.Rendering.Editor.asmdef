@@ -1,0 +1,36 @@
+{
+    "name": "Basis.Setup.Rendering.Editor",
+    "rootNamespace": "Basis.Setup.Modules",
+    "references": [
+        "Basis.Setup.Editor",
+        "Basis Framework",
+        "com.cqf.urpvolumetricfog.runtime",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "BASIS_FRAMEWORK_EXISTS",
+        "BASIS_HAS_URPVOLUMETRICFOG"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.basis.framework",
+            "expression": "",
+            "define": "BASIS_FRAMEWORK_EXISTS"
+        },
+        {
+            "name": "com.cqf.urpvolumetricfog",
+            "expression": "",
+            "define": "BASIS_HAS_URPVOLUMETRICFOG"
+        }
+    ],
+    "noEngineReferences": false
+}

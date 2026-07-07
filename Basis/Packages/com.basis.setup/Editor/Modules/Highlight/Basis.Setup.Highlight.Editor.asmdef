@@ -1,0 +1,29 @@
+{
+    "name": "Basis.Setup.Highlight.Editor",
+    "rootNamespace": "Basis.Setup.Modules",
+    "references": [
+        "Basis.Setup.Editor",
+        "Basis Framework",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "BASIS_FRAMEWORK_EXISTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.basis.framework",
+            "expression": "",
+            "define": "BASIS_FRAMEWORK_EXISTS"
+        }
+    ],
+    "noEngineReferences": false
+}
