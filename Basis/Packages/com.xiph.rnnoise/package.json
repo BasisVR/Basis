@@ -1,7 +1,0 @@
-{
-  "name": "com.xiph.rnnoise",
-  "displayName": "RNNoise",
-  "version": "0.0.1",
-  "description": "RNNoise.Net https://github.com/Yellow-Dog-Man/RNNoise.Net and https://github.com/xiph/rnnoise",
-  "license": "MIT AND BSD-3-Clause"
-}

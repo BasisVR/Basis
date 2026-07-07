@@ -1,33 +1,11 @@
 {
   "dependencies": {
-    "com.avionblock.opussharp": {
-      "version": "file:com.avionblock.opussharp",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.basis.addon.snapcontrols": {
       "version": "https://github.com/BasisVR/BasisSnapControls.git",
       "depth": 0,
       "source": "git",
       "dependencies": {},
       "hash": "5a6b5662f14de6bd87b429014d32a7ac9d9770da"
-    },
-    "com.basis.bundlemanagement": {
-      "version": "file:com.basis.bundlemanagement",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1"
-      }
-    },
-    "com.basis.common": {
-      "version": "file:com.basis.common",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.mathematics": "1.3.3"
-      }
     },
     "com.basis.developer.exceptions": {
       "version": "https://github.com/BasisVR/BasisExceptionReporting.git",
@@ -47,16 +25,6 @@
       },
       "hash": "ec4fdb705db63f84c08b613f7246ef07f492429c"
     },
-    "com.basis.eventdriver": {
-      "version": "file:com.basis.eventdriver",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.inputsystem": "1.19.0",
-        "com.unity.render-pipelines.core": "17.4.0",
-        "com.unity.render-pipelines.universal": "17.4.0"
-      }
-    },
     "com.basis.examples": {
       "version": "https://github.com/BasisVR/BasisExamples.git",
       "depth": 0,
@@ -70,47 +38,6 @@
         "com.unity.render-pipelines.universal": "17.4.0"
       },
       "hash": "14a3c7d108cf60667a9960b4d97bd483c334a1e6"
-    },
-    "com.basis.framework": {
-      "version": "file:com.basis.framework",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.animation.rigging": "1.4.1",
-        "com.unity.burst": "1.8.29",
-        "com.unity.collections": "2.6.6",
-        "com.unity.inputsystem": "1.19.0",
-        "com.unity.mathematics": "1.3.3",
-        "com.unity.render-pipelines.core": "17.4.0",
-        "com.unity.render-pipelines.universal": "17.4.0",
-        "com.unity.services.analytics": "6.3.0",
-        "com.unity.services.core": "1.16.0",
-        "com.unity.ugui": "2.0.0",
-        "com.unity.xr.management": "4.5.4",
-        "com.unity.test-framework": "1.0.0"
-      }
-    },
-    "com.basis.framework.editor": {
-      "version": "file:com.basis.framework.editor",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.mathematics": "1.3.3",
-        "com.unity.burst": "1.8.29",
-        "com.unity.collections": "2.6.6",
-        "com.unity.ugui": "2.0.0"
-      }
-    },
-    "com.basis.gizmos": {
-      "version": "file:com.basis.gizmos",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.ugui": "2.0.0"
-      }
     },
     "com.basis.imagepickup": {
       "version": "https://github.com/BasisVR/BasisImagePickup.git",
@@ -136,16 +63,6 @@
       "dependencies": {},
       "hash": "9236ccd339ed981913caf1d2d7ca2d41ff70ed11"
     },
-    "com.basis.mediapipe": {
-      "version": "file:com.basis.mediapipe",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.collections": "2.6.6",
-        "com.unity.mathematics": "1.3.3"
-      }
-    },
     "com.basis.mediaplayer": {
       "version": "https://github.com/BasisVR/BasisMediaPlayer.git",
       "depth": 0,
@@ -155,14 +72,6 @@
         "com.unity.ugui": "2.0.0"
       },
       "hash": "11ec3991a40b735967b1eae8b2453d811282cca9"
-    },
-    "com.basis.openlipsync": {
-      "version": "file:com.basis.openlipsync",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1"
-      }
     },
     "com.basis.openvr": {
       "version": "https://github.com/BasisVR/BasisOpenVR.git",
@@ -200,14 +109,6 @@
       },
       "hash": "adf45897aa708c5dfc4de8ac8cb163eac008a50d"
     },
-    "com.basis.profilerintergration": {
-      "version": "file:com.basis.profilerintergration",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.profiling.core": "1.0.3"
-      }
-    },
     "com.basis.provider.servers": {
       "version": "https://github.com/BasisVR/BasisServersProvider.git",
       "depth": 0,
@@ -217,57 +118,6 @@
         "com.unity.ugui": "2.0.0"
       },
       "hash": "ec3f2352404bc6662fc66da014d72b233f570628"
-    },
-    "com.basis.sdk": {
-      "version": "file:com.basis.sdk",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.mathematics": "1.3.2",
-        "com.unity.render-pipelines.core": "17.4.0",
-        "com.unity.ugui": "2.0.0"
-      }
-    },
-    "com.basis.server": {
-      "version": "file:com.basis.server",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.basis.settings": {
-      "version": "file:com.basis.settings",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.ugui": "2.0.0"
-      }
-    },
-    "com.basis.setup": {
-      "version": "file:com.basis.setup",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.addressables": "2.9.1",
-        "com.unity.inputsystem": "1.19.0",
-        "com.unity.xr.management": "4.5.4",
-        "com.unity.xr.openxr": "1.17.1",
-        "com.unity.render-pipelines.universal": "17.5.0"
-      }
-    },
-    "com.basis.shim": {
-      "version": "file:com.basis.shim",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.mathematics": "1.3.3"
-      }
-    },
-    "com.basis.textmeshpro": {
-      "version": "file:com.basis.textmeshpro",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
     },
     "com.basis.vehicles": {
       "version": "https://github.com/BasisVR/BasisVehicles.git",
@@ -299,36 +149,6 @@
       "dependencies": {},
       "hash": "669f508f25129e3431bd8c3869c294827bbff54e"
     },
-    "com.gator-dragon-games.jigglephysics": {
-      "version": "file:UnityJigglePhysics-upm",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.mathematics": "1.0.0",
-        "com.unity.collections": "2.0.0"
-      }
-    },
-    "com.github.homuler.mediapipe": {
-      "version": "file:com.github.homuler.mediapipe",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.ugui": "1.0.0",
-        "com.unity.test-framework": "1.0.0"
-      }
-    },
-    "com.llealloo.audiolink": {
-      "version": "file:com.llealloo.audiolink",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.steam.steamaudio": {
-      "version": "file:com.steam.steamaudio",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.steam.steamvr": {
       "version": "https://github.com/BasisVR/BasisSteamVR.git",
       "depth": 0,
@@ -340,12 +160,6 @@
       "version": "1.0.0",
       "depth": 0,
       "source": "builtin",
-      "dependencies": {}
-    },
-    "com.unity.3rdpersondemo": {
-      "version": "file:com.unity.3rdpersondemo",
-      "depth": 0,
-      "source": "embedded",
       "dependencies": {}
     },
     "com.unity.addressables": {
@@ -492,16 +306,6 @@
         "com.unity.collections": "2.4.3",
         "com.unity.modules.terrain": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0"
-      }
-    },
-    "com.unity.render-pipelines.universal": {
-      "version": "file:com.unity.render-pipelines.universal",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.render-pipelines.core": "17.5.0",
-        "com.unity.shadergraph": "17.5.0",
-        "com.unity.render-pipelines.universal-config": "17.5.0"
       }
     },
     "com.unity.render-pipelines.universal-config": {
@@ -734,12 +538,6 @@
       },
       "hash": "de1d5dbdf98e9fd92f0095f8fc2208f7844eedc4"
     },
-    "com.xiph.rnnoise": {
-      "version": "file:com.xiph.rnnoise",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "dev.hai-vr.basis.comms": {
       "version": "file:dev.hai-vr.basis.comms",
       "depth": 0,
@@ -764,18 +562,47 @@
         "com.unity.addressables": "2.9.1"
       }
     },
-    "jp.lilxyzw.liltoon": {
-      "version": "https://github.com/lilxyzw/lilToon.git?path=Assets/lilToon#2.3.3",
+    "org.basisvr.base128": {
+      "version": "https://github.com/BasisVR/BasisBase128.git",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "6ef0cc43b7d56d27f516ea27717faf08486b2842"
+      "hash": "d7faefa808871a7a31a9bf4a5ffd09926ac8772f"
     },
-    "nuget.meamod.dns": {
-      "version": "file:nuget.meamod.dns",
+    "org.basisvr.bouncycastle": {
+      "version": "https://github.com/BasisVR/BasisBouncyCastle.git",
       "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
+      "source": "git",
+      "dependencies": {},
+      "hash": "3261bd56288d49e3edc5db1b65d3019bdc27ff68"
+    },
+    "org.basisvr.generator.equals": {
+      "version": "https://github.com/BasisVR/BasisGeneratorEquals.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "b89b1f0e2f6a343e57e30c586c4c966f0757e747"
+    },
+    "org.basisvr.k4os.compression.lz4": {
+      "version": "https://github.com/BasisVR/BasisK4osCompressionLZ4.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "c0ee6fcdadd6e9532e7f83da1e561b65e7c11cfe"
+    },
+    "org.basisvr.newtonsoft.json": {
+      "version": "https://github.com/BasisVR/BasisNewtonsoftJson.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "ae8d2a1baff8e2fb213acc80183c0ae8171d2239"
+    },
+    "org.basisvr.simplebase": {
+      "version": "https://github.com/BasisVR/BasisSimpleBase.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "9d10ffa386df04ef978d61b59d90ddb2978d38fc"
     },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",

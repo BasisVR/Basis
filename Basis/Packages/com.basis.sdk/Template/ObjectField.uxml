@@ -1,3 +1,0 @@
-<engine:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:engine="UnityEngine.UIElements" xmlns:editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
-    <editor:ObjectField name="ObjectField" allow-scene-objects="true" usage-hints="None" style="position: relative; overflow: visible; visibility: visible; flex-direction: row; align-items: auto; top: 30px; left: auto; align-self: auto; opacity: 1; justify-content: flex-start; height: 59px; width: 120px;" />
-</engine:UXML>

@@ -1,8 +1,0 @@
-{
-  "name": "com.steam.steamaudio",
-  "displayName": "Steam Audio",
-  "version": "0.0.1",
-  "description": "Steam Audio made by valve",
-  "hideInEditor": false,
-  "license": "Apache-2.0"
-}

@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "com.github.homuler.mediapipe": "file:com.github.homuler.mediapipe-0.16.3.tgz",
-    "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#3.1.2",
+    "com.github.homuler.mediapipe": "https://github.com/BasisVR/BasisMediaPipePlugin.git",
+    "com.llealloo.audiolink": "https://github.com/BasisVR/BasisAudioLink.git",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.addressables": "2.9.1",
     "com.unity.animation.rigging": "1.4.1",
@@ -78,7 +78,28 @@
     "com.basis.openvr": "https://github.com/BasisVR/BasisOpenVR.git",
     "com.steam.steamvr": "https://github.com/BasisVR/BasisSteamVR.git",
     "com.cnlohr.cilbox": "https://github.com/BasisVR/BasisCilbox.git",
-    "com.cqf.urpvolumetricfog": "https://github.com/BasisVR/BasisVolumetricFog.git"
+    "com.cqf.urpvolumetricfog": "https://github.com/BasisVR/BasisVolumetricFog.git",
+    "com.basis.framework": "https://github.com/BasisVR/BasisFramework.git",
+    "com.basis.framework.editor": "https://github.com/BasisVR/BasisFrameworkEditor.git",
+    "com.basis.sdk": "https://github.com/BasisVR/BasisSDK.git",
+    "com.basis.common": "https://github.com/BasisVR/BasisCommon.git",
+    "com.basis.server": "https://github.com/BasisVR/BasisServer.git",
+    "com.basis.eventdriver": "https://github.com/BasisVR/BasisEventDriver.git",
+    "com.basis.gizmos": "https://github.com/BasisVR/BasisGizmos.git",
+    "com.basis.bundlemanagement": "https://github.com/BasisVR/BasisBundleManagement.git",
+    "com.basis.settings": "https://github.com/BasisVR/BasisSettings.git",
+    "com.basis.openlipsync": "https://github.com/BasisVR/BasisOpenLipSync.git",
+    "com.basis.profilerintergration": "https://github.com/BasisVR/BasisProfilerIntegration.git",
+    "com.basis.mediapipe": "https://github.com/BasisVR/BasisMediaPipe.git",
+    "com.basis.shim": "https://github.com/BasisVR/BasisShims.git",
+    "com.basis.setup": "https://github.com/BasisVR/BasisSetup.git",
+    "com.basis.textmeshpro": "https://github.com/BasisVR/BasisTextMeshPro.git",
+    "com.avionblock.opussharp": "https://github.com/BasisVR/OpusSharp.git",
+    "com.gator-dragon-games.jigglephysics": "https://github.com/BasisVR/UnityJigglePhysics.git",
+    "com.steam.steamaudio": "https://github.com/BasisVR/steam-audio.git",
+    "nuget.meamod.dns": "https://github.com/BasisVR/BasisMeaModDns.git",
+    "com.unity.render-pipelines.universal": "https://github.com/BasisVR/BasisURP.git",
+    "com.unity.3rdpersondemo": "https://github.com/BasisVR/BasisThirdPersonDemo.git"
   },
   "scopedRegistries": []
 }
