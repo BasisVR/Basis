@@ -1,0 +1,52 @@
+{
+    "entries": [
+        {
+            "key": "project.structure",
+            "version": 1
+        },
+        {
+            "key": "addressables.settings",
+            "version": 1
+        },
+        {
+            "key": "android.plugins",
+            "version": 1
+        },
+        {
+            "key": "highlight.settings",
+            "version": 1
+        },
+        {
+            "key": "input.actions",
+            "version": 1
+        },
+        {
+            "key": "linker.linkxml",
+            "version": 1
+        },
+        {
+            "key": "steamaudio.settings",
+            "version": 1
+        },
+        {
+            "key": "steamvr.bindings",
+            "version": 1
+        },
+        {
+            "key": "xr.management",
+            "version": 1
+        },
+        {
+            "key": "openvr.settings",
+            "version": 1
+        },
+        {
+            "key": "rendering.defaults",
+            "version": 1
+        },
+        {
+            "key": "quality.pipelines",
+            "version": 1
+        }
+    ]
+}
