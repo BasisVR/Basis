@@ -358,9 +358,13 @@ static void consume_mdat(mp4_t* m, const uint8_t* data, int len) {
         int64_t pts_us = (dts[k] + f->ctos[i]) * 1000000 / ts;
 
         if (t->is_video) {
-            uint8_t* out = (uint8_t*)malloc((size_t)ssize + 64);
+            int nls = t->nal_len_size ? t->nal_len_size : 4;
+            /* Annex B swaps each NAL's nls-byte length prefix for a 4-byte start
+             * code; a NAL is at least nls + 1 bytes, so this bounds the growth. */
+            int cap = ssize + (4 - nls) * (ssize / (nls + 1)) + 64;
+            uint8_t* out = (uint8_t*)malloc((size_t)cap);
             if (out) {
-                int n = basis_avcc_to_annexb(data + pos[k], ssize, t->nal_len_size ? t->nal_len_size : 4, out, ssize + 64);
+                int n = basis_avcc_to_annexb(data + pos[k], ssize, nls, out, cap);
                 if (n > 0) {
                     int key = t->codec == BASIS_CODEC_H265 ? basis_h265_is_keyframe(out, n) : basis_h264_is_keyframe(out, n);
                     m->sink->on_video_au(m->sink->user, out, n, pts_us, key);
