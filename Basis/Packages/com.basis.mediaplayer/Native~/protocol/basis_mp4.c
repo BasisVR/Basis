@@ -309,23 +309,58 @@ static void parse_moof(mp4_t* m, const uint8_t* p, int len) {
     }
 }
 
-static void consume_frag(mp4_t* m, const mp4_frag_t* f, const uint8_t* data, int len, int base_off) {
-    mp4_track_t* t = track_by_id(m, f->track_id);
-    if (!t) return;
-    int ts = t->timescale > 0 ? t->timescale : 90000;
-    int pos = f->data_offset - base_off;
-    if (pos < 0) return;
-    int64_t dts = f->base_dts;
+/* A moof's trafs share one mdat. Each trun's data-offset is relative to the moof
+ * start; the smallest maps to the first byte of this mdat's payload, so subtract
+ * it to place each run within the buffer we were handed.
+ *
+ * The runs are emitted as a DTS-ordered merge, not back to back: a run is one
+ * track's whole fragment, so run-at-a-time emission would hand the decoder a
+ * fragment of video before any of that fragment's audio — and with delivery
+ * pacing on (VOD, HLS) the paced video burst makes the trailing audio arrive a
+ * full fragment late, starving the audio-gated presentation clock. Merging by
+ * decode time interleaves the tracks at frame granularity, like the TS demuxer.
+ * Order within a run (decode order) is preserved. */
+static void consume_mdat(mp4_t* m, const uint8_t* data, int len) {
+    if (m->nfrags <= 0) return;
+    int base_off = m->frags[0].data_offset;
+    for (int k = 1; k < m->nfrags; ++k)
+        if (m->frags[k].data_offset < base_off) base_off = m->frags[k].data_offset;
 
-    for (int i = 0; i < f->count; ++i) {
+    mp4_track_t* trk[MP4_MAX_FRAGS];
+    int     pos[MP4_MAX_FRAGS];
+    int     idx[MP4_MAX_FRAGS];
+    int64_t dts[MP4_MAX_FRAGS];
+    for (int k = 0; k < m->nfrags; ++k) {
+        const mp4_frag_t* f = &m->frags[k];
+        trk[k] = track_by_id(m, f->track_id);
+        pos[k] = f->data_offset - base_off;
+        idx[k] = (trk[k] && pos[k] >= 0) ? 0 : f->count; /* unknown track / bad offset: skip run */
+        dts[k] = f->base_dts;
+    }
+
+    for (;;) {
+        int k = -1;
+        int64_t best_us = 0;
+        for (int j = 0; j < m->nfrags; ++j) {
+            if (idx[j] >= m->frags[j].count) continue;
+            int jts = trk[j]->timescale > 0 ? trk[j]->timescale : 90000;
+            int64_t us = dts[j] * 1000000 / jts;
+            if (k < 0 || us < best_us) { k = j; best_us = us; }
+        }
+        if (k < 0) break;
+
+        const mp4_frag_t* f = &m->frags[k];
+        mp4_track_t* t = trk[k];
+        int i = idx[k];
         int ssize = (int)f->sizes[i];
-        if (ssize <= 0 || pos + ssize > len) break;
-        int64_t pts_us = (dts + f->ctos[i]) * 1000000 / ts;
+        if (ssize <= 0 || pos[k] + ssize > len) { idx[k] = f->count; continue; } /* run truncated */
+        int ts = t->timescale > 0 ? t->timescale : 90000;
+        int64_t pts_us = (dts[k] + f->ctos[i]) * 1000000 / ts;
 
         if (t->is_video) {
             uint8_t* out = (uint8_t*)malloc((size_t)ssize + 64);
             if (out) {
-                int n = basis_avcc_to_annexb(data + pos, ssize, t->nal_len_size ? t->nal_len_size : 4, out, ssize + 64);
+                int n = basis_avcc_to_annexb(data + pos[k], ssize, t->nal_len_size ? t->nal_len_size : 4, out, ssize + 64);
                 if (n > 0) {
                     int key = t->codec == BASIS_CODEC_H265 ? basis_h265_is_keyframe(out, n) : basis_h264_is_keyframe(out, n);
                     m->sink->on_video_au(m->sink->user, out, n, pts_us, key);
@@ -333,25 +368,13 @@ static void consume_frag(mp4_t* m, const mp4_frag_t* f, const uint8_t* data, int
                 free(out);
             }
         } else {
-            m->sink->on_audio_frame(m->sink->user, data + pos, ssize, pts_us);
+            m->sink->on_audio_frame(m->sink->user, data + pos[k], ssize, pts_us);
         }
 
-        pos += ssize;
-        dts += f->durs[i] ? f->durs[i] : f->default_dur;
+        pos[k] += ssize;
+        dts[k] += f->durs[i] ? f->durs[i] : f->default_dur;
+        idx[k]++;
     }
-}
-
-/* A moof's trafs share one mdat. Each trun's data-offset is relative to the moof
- * start; the smallest maps to the first byte of this mdat's payload, so subtract
- * it to place each run within the buffer we were handed. */
-static void consume_mdat(mp4_t* m, const uint8_t* data, int len) {
-    if (m->nfrags <= 0) return;
-    int base_off = m->frags[0].data_offset;
-    for (int k = 1; k < m->nfrags; ++k)
-        if (m->frags[k].data_offset < base_off) base_off = m->frags[k].data_offset;
-
-    for (int k = 0; k < m->nfrags; ++k)
-        consume_frag(m, &m->frags[k], data, len, base_off);
 }
 
 int basis_mp4_run(basis_media_sink_t* sink, basis_read_fn read, void* ctx) {
