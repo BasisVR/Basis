@@ -7,8 +7,9 @@
  * (basis_mp4_run) demuxers then consume it unchanged.
  *
  * Transport is injected as a basis_http_provider so the protocol code stays
- * portable: on Windows the engine passes the basis_win_http_* trio (TLS, redirects
- * and chunked handled there). Playlists and segments are fetched through it.
+ * portable: on Windows the engine passes the basis_win_http_* trio, on Android
+ * the basis_jni_https_* trio (TLS, redirects and chunked handled by each).
+ * Playlists and segments are fetched through it.
  *
  * Low latency: when the origin advertises EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD
  * with EXT-X-PART parts, the client starts near the live edge, reloads the media
@@ -16,7 +17,7 @@
  * produced — targeting ~PART-HOLD-BACK latency. Against a plain (non-LL) origin it
  * falls back to live-edge, segment-by-segment playback (segment-bound latency).
  *
- * Scope: clear streams, single rendition, Windows fetch. Android/Quest planned.
+ * Scope: clear streams, single rendition, Windows and Android fetch.
  */
 #ifndef BASIS_HLS_H
 #define BASIS_HLS_H
