@@ -76,9 +76,10 @@ vendored libs hard-referenced by `Basis Framework.asmdef` (jigglephysics, opussh
 rnnoise, steamaudio, embedded URP). Several vendored libs already have BasisVR repos (UnityJigglePhysics,
 OpusSharp, RNNoise.Net, steam-audio, audiolink) — those are "update existing" jobs, later.
 
-**Cleanup freebies:** empty `Packages/org.basisvr.zstdsharp/`, empty `Packages/com.basis.profilerintegration/`
-(misspelled dup of the active `...intergration`), the `Packages/Basis Server Export/` build artifact, and 6
-loose `.tgz` tarballs in `Packages/`.
+**Cleanup freebies:** ✅ done 2026-07-07 — removed empty `Packages/org.basisvr.zstdsharp/`, empty
+`Packages/com.basis.profilerintegration/` (misspelled dup; kept the active `...intergration`), the
+`Packages/Basis Server Export/` build artifact, the 19 MB dead `com.valvesoftware.unity.openvr-1.2.1.tgz`,
+and the 5 `org.basisvr.*` `.tgz` tarballs (see the 2026-07-07 session below).
 
 ## Deferred monorepo changes (batch into one Unity pass)
 
@@ -118,3 +119,50 @@ Keep-swaps (add git dep to `Packages/manifest.json` + remove embedded folder; Un
 - **ytdlp + audiolink removals** — ✅ DONE: both removed from monorepo (clean leaves, no localization; verified the ContentPolice `AudioLink.*` refs are the vendored llealloo package, not these).
 - **BasisVisualTrackers** (com.basis.visualtrackers) — 🔄 published: existing repo force-overwritten with the monorepo fallback-only copy (per user; 61 MB of old tracker models discarded). keep-swap deferred.
 - **BasisOpenVR + BasisSteamVR + BasisOpenVRPlugin** (com.basis.openvr, com.steam.steamvr, com.valvesoftware.unity.openvr) — 🔄 published as 3 repos: the openvr integration + the two Valve/BSD-3 vendored deps it needs. All keep (platform VR); keep-swaps deferred to Unity.
+
+## Session 2026-07-07 — vendored NuGet deps → git, cleanup, setup package
+
+**org.basisvr.* NuGet-wrapper libs → individual BasisVR git repos (disposition: keep).** These were the
+last `file:` local mounts — repackaged NuGet DLLs. Now resolved from git instead of vendored tarballs.
+Built GUID-preserving from the embedded folders (DLL bytes + `.meta` GUIDs byte-identical to what Unity
+resolved, so framework references are unchanged), each with README + `.gitattributes` (`*.dll binary`).
+They are `keep` framework infrastructure, **not** user-installable features → **intentionally NOT listed**
+on basisvr.org/packages or in the BasisPM catalog.
+
+| pkg id | repo | ver |
+|---|---|---|
+| org.basisvr.base128 | [BasisBase128](https://github.com/BasisVR/BasisBase128) | 1.2.2 |
+| org.basisvr.bouncycastle | [BasisBouncyCastle](https://github.com/BasisVR/BasisBouncyCastle) | 2.5.0 |
+| org.basisvr.generator.equals | [BasisGeneratorEquals](https://github.com/BasisVR/BasisGeneratorEquals) | 3.2.0 |
+| org.basisvr.k4os.compression.lz4 | [BasisK4osCompressionLZ4](https://github.com/BasisVR/BasisK4osCompressionLZ4) | 1.3.8 |
+| org.basisvr.newtonsoft.json | [BasisNewtonsoftJson](https://github.com/BasisVR/BasisNewtonsoftJson) | 13.0.3 |
+| org.basisvr.simplebase | [BasisSimpleBase](https://github.com/BasisVR/BasisSimpleBase) | 4.0.2 |
+
+Manifest now points each at `https://github.com/BasisVR/<Repo>.git`; the 5 loose `.tgz` + 6 embedded
+folders removed; `packages-lock.json` file:/embedded entries dropped (Unity regenerates git entries on
+open). `k4os.compression.lz4` was an *implicit embedded* package (not previously in the manifest) — now an
+explicit git dep. Commit: `Swap org.basisvr deps for BasisVR git dependencies`.
+
+**com.basis.setup** committed (`Add com.basis.setup package`) — Assets-config generators; static-verified,
+**not yet Unity-compiled**.
+
+**Only remaining `file:` mount:** `com.github.homuler.mediapipe`. Its manifest entry
+(`file:com.github.homuler.mediapipe-0.16.3.tgz`) is **stale** — no such tarball exists; Unity resolves the
+**embedded 389 MB folder** (968 files, native libs up to 47 MB). Safe cleanup available: drop the dead
+manifest line (embedded folder auto-resolves). Converting the 389 MB native plugin to a git dep is
+technically possible (all files < GitHub's 100 MB limit) but heavy and of dubious benefit vs staying
+embedded like the other vendored native libs.
+
+### mediapipe / shim / comms — the remaining knot (blocked on decisions, not code)
+
+- **mediaplayer opt-in is blocked by shim.** `BasisShims.asmdef` hard-references `BasisMediaPlayer`
+  (`VideoPlayerShim.cs` + `CilboxSceneBasis.cs` expose video playback to CILBOX sandbox worlds).
+  mediaplayer is presently a `keep` git dep (shipped). To make it truly opt-in, gate the VideoPlayer shim
+  behind a `versionDefine` (`#if BASIS_HAS_MEDIAPLAYER`) and drop the hard asmdef ref. **Decision:** keep
+  mediaplayer shipped, or do the versionDefine refactor.
+- **mediapipe extraction is blocked by two deps:** `com.github.homuler.mediapipe` (389 MB embedded, no git
+  home) and `dev.hai-vr.basis.comms` (**Haï~-owned**; **circular** with shim — comms vpmDeps shim, shim
+  vpmDeps comms). Policy: don't fork Haï~'s packages. **Decision:** coordinate with Haï~ to publish comms
+  standalone (breaks the circular knot), or leave mediapipe embedded.
+- **shim** stays embedded — it's the CILBOX sandbox bridge, hard-wired to framework + comms + cilbox +
+  mediaplayer; not a clean leaf.
