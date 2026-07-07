@@ -763,6 +763,33 @@
       "dependencies": {},
       "hash": "c76f4b2702a92cbec4cfd497608e65fc02facfbc"
     },
+    "dev.hai-vr.basis.comms": {
+      "version": "https://github.com/BasisVR/hai-vr-Basis.git?path=Basis/Packages/dev.hai-vr.basis.comms#basis",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.addressables": "2.9.1",
+        "com.unity.mathematics": "1.3.3",
+        "com.unity.test-framework": "1.0.0"
+      },
+      "hash": "4a5354e40380649220ebc20c87140cadff5cb377"
+    },
+    "dev.hai-vr.basis.ndmf": {
+      "version": "https://github.com/BasisVR/hai-vr-Basis.git?path=Basis/Packages/dev.hai-vr.basis.ndmf#basis",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "4a5354e40380649220ebc20c87140cadff5cb377"
+    },
+    "dev.hai-vr.hvr.license-review": {
+      "version": "https://github.com/BasisVR/hai-vr-Basis.git?path=Basis/Packages/dev.hai-vr.hvr.license-review#basis",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.addressables": "2.9.1"
+      },
+      "hash": "4a5354e40380649220ebc20c87140cadff5cb377"
+    },
     "nuget.meamod.dns": {
       "version": "https://github.com/BasisVR/BasisMeaModDns.git",
       "depth": 0,
