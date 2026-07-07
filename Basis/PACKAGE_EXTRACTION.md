@@ -166,3 +166,29 @@ embedded like the other vendored native libs.
   standalone (breaks the circular knot), or leave mediapipe embedded.
 - **shim** stays embedded — it's the CILBOX sandbox bridge, hard-wired to framework + comms + cilbox +
   mediaplayer; not a clean leaf.
+
+## Session 2026-07-08 — full modularization: all remaining embedded packages → git
+
+Per user direction ("move all of these to repos, create and then link" + "setup dependencies"), moved the
+remaining **24 embedded packages** to BasisVR git deps (excluding the 3 Haï~-owned packages — kept embedded
+per the don't-fork rule; shim/mediapipe still resolve against them). The manifest now has **49 git deps and
+0 `file:` local mounts**. `Packages/` is a thin shell — only `com.unity.xr.openxr` + the 3 `dev.hai-vr.*`
+folders remain embedded.
+
+Built GUID- and binary-preserving from each embedded folder's exact content (Unity `.gitattributes`; native
+libs + DLLs md5-verified byte-identical committed vs source):
+- **Basis core (14):** BasisFramework, BasisFrameworkEditor, BasisSDK, BasisCommon, BasisServer,
+  BasisEventDriver, BasisGizmos\*, BasisBundleManagement, BasisSettings, BasisOpenLipSync,
+  BasisProfilerIntegration, BasisMediaPipe, BasisShims, BasisSetup.
+- **Vendored (7):** OpusSharp\*, UnityJigglePhysics\*, steam-audio\*, RNNoise.Net\*, BasisAudioLink,
+  BasisMeaModDns, BasisTextMeshPro. (\* = overwrote an existing repo per overwrite-on-divergence.)
+- **Giant (3):** BasisMediaPipePlugin (homuler, 389 MB), BasisURP (modified URP), BasisThirdPersonDemo.
+
+Native UPM ignores `vpmDependencies` and has no transitive git deps → every package is listed explicitly in
+the manifest. Dependency-closure check: all 29 distinct vpmDeps satisfiable (manifest / embedded / registry),
+no orphans. Overwritten repos had default branch set to `main` + stale branches pruned. Commit:
+`Move remaining embedded packages to BasisVR git dependencies` (Packages/ only).
+
+**NOT build-verified** — needs a Unity open to resolve the 49 git deps (big-bang; user accepted). A large
+uncommitted `Basis/Assets/` churn (~170 M / 21 D / 12 new: Addressables groups, URP/quality/XR settings) from
+the Unity + com.basis.setup session is left for the user — not part of this package move.
