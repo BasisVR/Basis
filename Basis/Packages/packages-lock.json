@@ -243,6 +243,18 @@
         "com.unity.ugui": "2.0.0"
       }
     },
+    "com.basis.setup": {
+      "version": "file:com.basis.setup",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.addressables": "2.9.1",
+        "com.unity.inputsystem": "1.19.0",
+        "com.unity.xr.management": "4.5.4",
+        "com.unity.xr.openxr": "1.17.1",
+        "com.unity.render-pipelines.universal": "17.5.0"
+      }
+    },
     "com.basis.shim": {
       "version": "file:com.basis.shim",
       "depth": 0,
@@ -752,44 +764,15 @@
         "com.unity.addressables": "2.9.1"
       }
     },
+    "jp.lilxyzw.liltoon": {
+      "version": "https://github.com/lilxyzw/lilToon.git?path=Assets/lilToon#2.3.3",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "6ef0cc43b7d56d27f516ea27717faf08486b2842"
+    },
     "nuget.meamod.dns": {
       "version": "file:nuget.meamod.dns",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "org.basisvr.base128": {
-      "version": "file:org.basisvr.base128",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "org.basisvr.bouncycastle": {
-      "version": "file:org.basisvr.bouncycastle",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "org.basisvr.generator.equals": {
-      "version": "file:org.basisvr.generator.equals",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "org.basisvr.k4os.compression.lz4": {
-      "version": "file:org.basisvr.k4os.compression.lz4",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "org.basisvr.newtonsoft.json": {
-      "version": "file:org.basisvr.newtonsoft.json",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "org.basisvr.simplebase": {
-      "version": "file:org.basisvr.simplebase",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
