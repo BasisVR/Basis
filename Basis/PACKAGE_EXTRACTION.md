@@ -189,6 +189,16 @@ the manifest. Dependency-closure check: all 29 distinct vpmDeps satisfiable (man
 no orphans. Overwritten repos had default branch set to `main` + stale branches pruned. Commit:
 `Move remaining embedded packages to BasisVR git dependencies` (Packages/ only).
 
-**NOT build-verified** — needs a Unity open to resolve the 49 git deps (big-bang; user accepted). A large
+**NOT build-verified** — needs a Unity open to resolve the git deps (big-bang; user accepted). A large
 uncommitted `Basis/Assets/` churn (~170 M / 21 D / 12 new: Addressables groups, URP/quality/XR settings) from
 the Unity + com.basis.setup session is left for the user — not part of this package move.
+
+**Haï~ packages + final cleanup (2026-07-08):** the 3 `dev.hai-vr.*` packages live in the `hai-vr/Basis`
+monorepo (not standalone repos); Basis's `comms` is heavily modified (93/218 files differ from upstream),
+`ndmf` ~upstream, `license-review` has no upstream. Per user ("fork the originals"), **forked `hai-vr/Basis`
+→ `BasisVR/hai-vr-Basis`** (real GitHub fork, lineage preserved) and pushed Basis's modified content to a
+`basis` branch (partial+sparse clone since the fork is 1.3 GB; PNG icons md5-verified). Manifest references
+all 3 via `?path=Basis/Packages/dev.hai-vr.basis.X#basis`. `com.unity.xr.openxr` was cruft (no package.json)
+→ removed (Unity uses the registry version). **`Packages/` is now empty — 52 git deps, 0 `file:` mounts, 0
+embedded folders.** Closure re-checked: all 29 vpmDeps resolve from the manifest. Commit:
+`Move HVR packages to BasisVR hai-vr/Basis fork`.
