@@ -602,13 +602,26 @@ static int http_reseek(void* ctx, int64_t abs_offset) {
 
 /* HLS / LL-HLS: the URL is a playlist, not a continuous byte stream. The HLS
  * source fetches+parses the M3U8, stitches segments (and LL-HLS parts) into one
- * byte stream, and the existing TS/fMP4 demuxers consume it. Windows fetches via
- * WinHTTP; Android/Quest support is planned. */
+ * byte stream, and the existing TS/fMP4 demuxers consume it. Playlist and
+ * segment fetches ride the platform HTTP byte source: WinHTTP on Windows, the
+ * JNI HttpsURLConnection bridge on Android. */
+#if defined(__ANDROID__)
+/* Binds the provider's open(url) to basis_jni_https_open's (url, timeout).
+ * 60s read timeout: LL-HLS blocking playlist reloads hold the response open
+ * for up to a few target durations, well past a connect-scale timeout. */
+static void* hls_jni_https_open(const char* url) { return basis_jni_https_open(url, 60000); }
+#endif
 static void run_hls(demux_ctx_t* c) {
+#if defined(_WIN32) || defined(__ANDROID__)
 #if defined(_WIN32)
     basis_http_provider_t provider = {
         basis_win_http_open, basis_win_http_read, basis_win_http_close
     };
+#else
+    basis_http_provider_t provider = {
+        hls_jni_https_open, basis_jni_https_read, basis_jni_https_close
+    };
+#endif
     int is_fmp4 = 0;
     void* hls = basis_hls_open(c->url, &provider, c->sink->is_running, c->sink->user, &is_fmp4);
     if (!hls) {
@@ -649,24 +662,25 @@ static void run_hls(demux_ctx_t* c) {
     mutex_unlock(&c->e->lock);
     basis_hls_close(hls);
 #else
-    c->sink->on_error(c->sink->user, "HLS playback currently requires the Windows backend.");
+    c->sink->on_error(c->sink->user, "HLS playback requires the Windows or Android backend.");
 #endif
 }
 
 static void run_http_like(demux_ctx_t* c) {
+    /* HLS playlists are not a single continuous stream — hand off to the HLS
+     * source before the OS-extractor attempt (which can't stitch segments) and
+     * the plain TS/fMP4 byte-source path. (.m3u8 may carry a query.) */
+    if (strstr(c->parts->path, ".m3u8")) {
+        run_hls(c);
+        return;
+    }
+
     /* Android: the OS extractor can demux the URL itself (TLS included). Primary
      * leg only — an audio-only leg must feed the shared decoder's audio path, not
      * hand a whole muxed file to the OS extractor. */
     if (c->allow_os_demux && basis_decoder_try_open_url(c->e->decoder, c->url)) {
         c->sink->on_state(c->sink->user, BASIS_MEDIA_STATE_BUFFERING);
         while (c->e->running) sleep_ms(20);
-        return;
-    }
-
-    /* HLS playlists are not a single continuous stream — hand off to the HLS
-     * source before the plain TS/fMP4 byte-source path. (.m3u8 may carry a query.) */
-    if (strstr(c->parts->path, ".m3u8")) {
-        run_hls(c);
         return;
     }
 

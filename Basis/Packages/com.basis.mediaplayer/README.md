@@ -19,7 +19,7 @@ VP9, no `UnityEngine.Video.MediaPlayer`.
 | `rist://`  | RIST live ingest (UDP, loss recovery + optional AES) | `rist://stream.example:5000?secret=KEY&aes-type=128` |
 | `https://…​.mp4` | fragmented MP4 over HTTPS | `https://stream.vrcdn.live/live/vrcdn.live.mp4` |
 | `https://…​.ts`  | MPEG-TS over HTTPS (Quest) | `https://stream.vrcdn.live/live/vrcdn.live.ts` |
-| `https://…​.m3u8` | HLS / Low-Latency HLS (Windows) | `https://stream.example/live/index.m3u8` |
+| `https://…​.m3u8` | HLS / Low-Latency HLS | `https://stream.example/live/index.m3u8` |
 
 The protocol/demux core (RTSP/RTP, RTMP/FLV, MPEG-TS, fMP4) is portable C; the OS
 backends only decode + present.
@@ -35,8 +35,8 @@ stream that the existing MPEG-TS / fMP4 demuxers consume. When the origin advert
 `PART-HOLD-BACK` latency (~5 s). **The ~5 s target needs an LL-HLS origin** — against
 a plain HLS origin you get its segment-bound latency, not 5 s.
 
-Runs on **Windows** (WinHTTP fetch), **clear streams**, **single rendition**.
-Android/Quest support is planned.
+Runs on **Windows** (WinHTTP fetch) and **Android/Quest** (`HttpsURLConnection`
+fetch via JNI), **clear streams**, **single rendition**.
 
 ### RIST
 
