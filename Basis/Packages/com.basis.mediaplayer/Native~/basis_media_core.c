@@ -677,8 +677,14 @@ static void run_http_like(demux_ctx_t* c) {
 
     /* Android: the OS extractor can demux the URL itself (TLS included). Primary
      * leg only — an audio-only leg must feed the shared decoder's audio path, not
-     * hand a whole muxed file to the OS extractor. */
-    if (c->allow_os_demux && basis_decoder_try_open_url(c->e->decoder, c->url)) {
+     * hand a whole muxed file to the OS extractor. m2ts is also kept away from
+     * it: that container exists here to carry HDMV LPCM (stream_type 0x80),
+     * which the extractor doesn't surface — it would play the video with the
+     * audio silently missing, where the portable TS demuxer + LPCM bypass play
+     * both. */
+    int os_demux = c->allow_os_demux &&
+                   !ends_with_ci(c->parts->path, ".m2ts") && !ends_with_ci(c->parts->path, ".mts");
+    if (os_demux && basis_decoder_try_open_url(c->e->decoder, c->url)) {
         c->sink->on_state(c->sink->user, BASIS_MEDIA_STATE_BUFFERING);
         while (c->e->running) sleep_ms(20);
         return;
