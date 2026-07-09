@@ -84,6 +84,12 @@ struct basis_decoder {
     int asr, ach;
     int apcm_float; /* decoder emits float PCM (pcm-encoding 4) instead of 16-bit */
 
+    basis_codec_t ac;       /* audio lane: AAC (MediaCodec) or LPCM (direct convert) */
+    int aLpcmAssign;        /* Blu-ray channel_assignment (from the format's config blob) */
+    int aLpcmBits;          /* 16 or 24 */
+    float* lpcmBuf;         /* conversion scratch, grown to the largest frame batch */
+    int lpcmBufCap;
+
     basis_vk_present* vk;
 
     pthread_t worker;
@@ -276,6 +282,7 @@ void basis_decoder_destroy(basis_decoder_t* d) {
     if (d->reader) AImageReader_delete(d->reader);
     if (d->vk) basis_vk_destroy(d->vk);
     ring_free(&d->pcm);
+    free(d->lpcmBuf);
     free(d);
 }
 
@@ -351,7 +358,28 @@ int basis_decoder_set_video_format(basis_decoder_t* d, basis_codec_t codec,
 
 int basis_decoder_set_audio_format(basis_decoder_t* d, basis_codec_t codec,
                                    int sample_rate, int channels, const uint8_t* asc, int asc_len) {
-    if (!d || d->aconfigured || codec != BASIS_CODEC_AAC) return 0;
+    if (!d || d->aconfigured) return 0;
+
+    if (codec == BASIS_CODEC_LPCM) {
+        /* Decoder bypass, mirroring the Windows lane: no MediaCodec involved —
+         * submit_audio converts straight into the ring. 48 kHz / 16- or 24-bit
+         * only; the TS demuxer filters to these before announcing, this is the
+         * matching backstop. The config blob carries the Blu-ray
+         * channel_assignment + bits code. */
+        if (sample_rate != 48000 || channels < 1 || channels > 8 || !asc || asc_len < 2) return 0;
+        int bits = asc[1] == 1 ? 16 : asc[1] == 3 ? 24 : 0;
+        if (!bits) return 0; /* 20-bit unsupported */
+        d->ac = BASIS_CODEC_LPCM;
+        d->asr = sample_rate; d->ach = channels;
+        d->aLpcmAssign = asc[0];
+        d->aLpcmBits = bits;
+        ring_set_frame(&d->pcm, channels);
+        d->aconfigured = 1;
+        return 0;
+    }
+
+    if (codec != BASIS_CODEC_AAC) return 0;
+    d->ac = BASIS_CODEC_AAC;
     d->asr = sample_rate; d->ach = channels;
     ring_set_frame(&d->pcm, channels ? channels : 2);
     AMediaFormat* fmt = AMediaFormat_new();
@@ -389,8 +417,61 @@ int basis_decoder_submit_video(basis_decoder_t* d, const uint8_t* annexb, int le
     return 0;
 }
 
+/* Source-order -> WAVE-order channel map for the Blu-ray HDMV LPCM
+ * channel_assignment values whose stream order differs from WAVE (Blu-ray
+ * places the LFE last and the side pair before the rears). Same tables as the
+ * Windows lane, which match ffmpeg's pcm_bluray remap for assignments 9 (5.1),
+ * 10 (7.0) and 11 (7.1) and were verified by ear against a 7.1 channel-marker
+ * stream. NULL = identity (mono/stereo/3.0/4.0/5.0 already arrive in WAVE
+ * order). */
+static const int* lpcm_remap(int assign) {
+    static const int k51[6] = { 0, 1, 2, 4, 5, 3 };
+    static const int k70[7] = { 0, 1, 2, 5, 3, 4, 6 };
+    static const int k71[8] = { 0, 1, 2, 6, 4, 5, 7, 3 };
+    if (assign == 9) return k51;
+    if (assign == 10) return k70;
+    if (assign == 11) return k71;
+    return NULL;
+}
+
+/* LPCM bypass: big-endian 16/24-bit Blu-ray-order PCM -> interleaved WAVE-order
+ * float, straight into the ring. Whole frames only, so the ring keeps its
+ * channel phase (the alignment contract in the ring comment above). */
+static void submit_lpcm(basis_decoder_t* d, const uint8_t* p, int len) {
+    int ch = d->ach;
+    int bytes = d->aLpcmBits / 8;
+    int frame_bytes = ch * bytes;
+    int frames = frame_bytes > 0 ? len / frame_bytes : 0;
+    if (frames <= 0) return;
+    int floats = frames * ch;
+    if (floats > d->lpcmBufCap) {
+        float* nb = (float*)realloc(d->lpcmBuf, sizeof(float) * (size_t)floats);
+        if (!nb) return;
+        d->lpcmBuf = nb; d->lpcmBufCap = floats;
+    }
+    const int* map = lpcm_remap(d->aLpcmAssign);
+    for (int f = 0; f < frames; ++f) {
+        const uint8_t* s = p + f * frame_bytes;
+        float* o = d->lpcmBuf + f * ch;
+        for (int c = 0; c < ch; ++c) {
+            int oc = map ? map[c] : c;
+            if (bytes == 2) {
+                int v = (int16_t)((s[c * 2] << 8) | s[c * 2 + 1]);
+                o[oc] = v / 32768.0f;
+            } else {
+                int v = (s[c * 3] << 16) | (s[c * 3 + 1] << 8) | s[c * 3 + 2];
+                if (v & 0x800000) v -= 0x1000000;
+                o[oc] = v / 8388608.0f;
+            }
+        }
+    }
+    ring_write(&d->pcm, d->lpcmBuf, floats);
+}
+
 int basis_decoder_submit_audio(basis_decoder_t* d, const uint8_t* data, int len, int64_t pts_us) {
-    if (!d || !d->acodec) return -1;
+    if (!d || !data || len <= 0) return -1;
+    if (d->ac == BASIS_CODEC_LPCM) { submit_lpcm(d, data, len); return 0; }
+    if (!d->acodec) return -1;
     ssize_t ii = AMediaCodec_dequeueInputBuffer(d->acodec, 2000);
     if (ii >= 0) {
         size_t cap = 0;
