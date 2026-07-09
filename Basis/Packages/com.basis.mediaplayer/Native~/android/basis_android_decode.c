@@ -387,6 +387,10 @@ int basis_decoder_set_audio_format(basis_decoder_t* d, basis_codec_t codec,
     AMediaFormat_setInt32(fmt, AMEDIAFORMAT_KEY_SAMPLE_RATE, sample_rate ? sample_rate : 48000);
     AMediaFormat_setInt32(fmt, AMEDIAFORMAT_KEY_CHANNEL_COUNT, channels ? channels : 2);
     request_full_channel_output(fmt);
+    /* AAC frames reach ~8 KB (13-bit ADTS length); the default input buffer was
+     * smaller, so large 5.1 frames were fed truncated and the decoder rejected
+     * them (0x4004 -> silence). Give it headroom so whole multichannel frames fit. */
+    AMediaFormat_setInt32(fmt, "max-input-size", 32768);
     if (asc && asc_len > 0) AMediaFormat_setBuffer(fmt, "csd-0", (void*)asc, asc_len);
     AMediaCodec* c = AMediaCodec_createDecoderByType("audio/mp4a-latm");
     if (!c || AMediaCodec_configure(c, fmt, NULL, NULL, 0) != AMEDIA_OK ||
@@ -476,9 +480,14 @@ int basis_decoder_submit_audio(basis_decoder_t* d, const uint8_t* data, int len,
     if (ii >= 0) {
         size_t cap = 0;
         uint8_t* buf = AMediaCodec_getInputBuffer(d->acodec, ii, &cap);
-        int n = len < (int)cap ? len : (int)cap;
-        memcpy(buf, data, n);
-        AMediaCodec_queueInputBuffer(d->acodec, ii, 0, n, pts_us, 0);
+        if ((size_t)len <= cap) {
+            memcpy(buf, data, (size_t)len);
+            AMediaCodec_queueInputBuffer(d->acodec, ii, 0, len, pts_us, 0);
+        } else {
+            /* Never feed a partial frame — it decodes to an error + silence.
+             * max-input-size should prevent this; return the buffer empty if not. */
+            AMediaCodec_queueInputBuffer(d->acodec, ii, 0, 0, pts_us, 0);
+        }
     }
     drain_audio_output(d);
     return 0;
