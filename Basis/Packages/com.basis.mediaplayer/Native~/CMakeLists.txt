@@ -26,6 +26,7 @@
 #
 #   Windows x64 (VS 2022):
 #     cmake -S . -B build-win-x64 -A x64 ^
+#           -DBASIS_WITH_RIST=ON ^
 #           -DUNITY_PLUGIN_API_DIR="C:/Program Files/Unity/Hub/Editor/<ver>/Editor/Data/PluginAPI"
 #     cmake --build build-win-x64 --config Release
 #
@@ -37,12 +38,20 @@
 #     cmake -S . -B build-android-arm64 ^
 #           -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake ^
 #           -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 ^
+#           -DBASIS_WITH_RIST=ON ^
 #           -DUNITY_PLUGIN_API_DIR=<UnityEditor>/Editor/Data/PluginAPI
 #     cmake --build build-android-arm64 --config Release
 #
 #   Linux x86_64 (stub):           bash build-linux.sh
 #   macOS universal (stub):        bash build-macos.sh
 #   iOS arm64 static (stub):       bash build-ios.sh
+#
+#   NOTE: the shipped win-x64 and android-arm64 binaries are built RIST-enabled.
+#   BASIS_WITH_RIST defaults OFF, so a rebuild that omits -DBASIS_WITH_RIST=ON
+#   silently drops rist:// playback from the plugin (the rest of the plugin is
+#   unaffected). Stage the librist static first — run Native~/build-librist.*, or
+#   drop the media-native CI workflow artifact into third_party/<rid>/. win-x64 and
+#   android-arm64 are the only RIST targets; other platforms ignore the flag.
 # ---------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.18)
@@ -185,7 +194,9 @@ if(BASIS_WITH_RIST)
     endif()
 
     set(RIST_LIBDIR ${RIST_ROOT}/${RIST_RID})
-    find_library(RIST_LIB rist PATHS ${RIST_LIBDIR} NO_DEFAULT_PATH)  # rist.lib (win) / librist.a (android)
+    # NO_CMAKE_FIND_ROOT_PATH: the Android NDK toolchain re-roots find_library under the sysroot,
+    # which hides this vendored static living outside it. No-op on the desktop toolchains.
+    find_library(RIST_LIB rist PATHS ${RIST_LIBDIR} NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)  # rist.lib (win) / librist.a (android)
     if(NOT RIST_LIB)
         message(FATAL_ERROR "BASIS_WITH_RIST: librist not found in ${RIST_LIBDIR}. "
                             "Build it from source first: run Native~/build-librist.* (see third_party/README.md).")
