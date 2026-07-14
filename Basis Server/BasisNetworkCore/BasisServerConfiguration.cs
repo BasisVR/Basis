@@ -19,12 +19,14 @@ public class Configuration
     /// doc comments). Newly-added settings are healed automatically regardless: on load a
     /// config missing any current field is re-saved with the new settings added.
     /// </summary>
-    public const int CurrentConfigVersion = 4;
+    public const int CurrentConfigVersion = 5;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
     public int PeerLimit = ushort.MaxValue;
     public ushort SetPort = 4296;
+    /// <summary>When true, advertise this server to Basis clients on the local network through UDP broadcast/multicast and mDNS. Disabled by default.</summary>
+    public bool AnnounceToLan = false;
     /// <summary>Display name returned by the unconnected server-info query — what shows up as the row title in a client server-list UI.</summary>
     public string ServerName = "Basis Server";
     /// <summary>Short MOTD returned alongside the server name in the info query response. Two short lines render cleanly in the list UI.</summary>

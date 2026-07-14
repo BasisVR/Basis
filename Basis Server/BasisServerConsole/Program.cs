@@ -86,6 +86,7 @@ namespace Basis
             {
                 BNL.Log("Shutting down server...");
                 isRunning = false;
+                NetworkServer.StopServer();
                 shutdownEvent.Set(); // Signal the main thread to exit
 #if !UNITY_2017_1_OR_NEWER
                 Api?.Dispose();

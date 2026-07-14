@@ -24,6 +24,7 @@ public static class NetworkServer
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static readonly object AuthenticatedPeerTag = new object();
     public static Configuration Configuration;
+    private static BasisLanServerAnnouncer _lanServerAnnouncer;
     /// <summary>
     /// Allow-list consulted at <see cref="BasisServerHandle.BasisServerHandleEvents.OnNetworkAccepted"/>
     /// when <see cref="Configuration.BasisUserRestrictionMode"/> is set to <c>AllowList</c>.
@@ -93,6 +94,25 @@ public static class NetworkServer
         SetupServer(configuration);
         SubscribeEvents(Configuration);
 
+        if (configuration.AnnounceToLan)
+        {
+            try
+            {
+                _lanServerAnnouncer = new BasisLanServerAnnouncer(
+                    configuration.SetPort,
+                    configuration.NetworkStackId,
+                    configuration.ServerName,
+                    configuration.ServerMotd,
+                    configuration.UseAuth && !string.IsNullOrEmpty(configuration.Password));
+                BNL.Log($"LAN announcements enabled on UDP {configuration.SetPort}.");
+            }
+            catch (Exception ex)
+            {
+                _lanServerAnnouncer = null;
+                BNL.LogWarning($"LAN announcements could not start: {ex.Message}");
+            }
+        }
+
         if (configuration.EnableStatistics)
         {
             BasisStatistics.StartWorkerThread(Server);
@@ -105,6 +125,11 @@ public static class NetworkServer
 
     public static void StopServer()
     {
+        BasisLanServerAnnouncer lanServerAnnouncer = _lanServerAnnouncer;
+        _lanServerAnnouncer = null;
+        try { lanServerAnnouncer?.Dispose(); }
+        catch (Exception ex) { BNL.LogWarning($"LAN announcements could not stop cleanly: {ex.Message}"); }
+
         if (Server == null) return;
         try
         {

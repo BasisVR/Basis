@@ -161,11 +161,8 @@ namespace Basis.Scripts.Networking
     /// </summary>
     public static class BasisLanServerAdvertiser
     {
-        private const int InitialAdvertisementDelayMs = 750;
-        private const int AdvertisementIntervalMs = 1500;
         private static readonly object Gate = new object();
-        private static CancellationTokenSource _cancellation;
-        private static BasisLanMdnsAdvertiser _mdnsAdvertiser;
+        private static Basis.Network.Core.BasisLanServerAnnouncer _announcer;
 
         public static bool IsRunning
         {
@@ -173,7 +170,7 @@ namespace Basis.Scripts.Networking
             {
                 lock (Gate)
                 {
-                    return _cancellation != null;
+                    return _announcer != null && _announcer.IsRunning;
                 }
             }
         }
@@ -183,154 +180,31 @@ namespace Basis.Scripts.Networking
 
         public static void Start(ushort serverPort, string networkStackId, string serverName, string motd, bool requiresPassword)
         {
-            string effectiveStackId = string.IsNullOrWhiteSpace(networkStackId)
-                ? BasisNetworkStackRegistry.DefaultId
-                : networkStackId;
-            BasisLanDiscoveryProtocol.Advertisement advertisement = new BasisLanDiscoveryProtocol.Advertisement(
-                Guid.NewGuid(),
+            Basis.Network.Core.BasisLanServerAnnouncer announcer = new Basis.Network.Core.BasisLanServerAnnouncer(
                 serverPort,
-                requiresPassword,
-                effectiveStackId,
-                string.IsNullOrWhiteSpace(serverName) ? "Basis Server" : serverName,
-                motd ?? string.Empty);
-            byte[] payload = BasisLanDiscoveryProtocol.Serialize(advertisement);
-            BasisLanMdnsAdvertiser mdnsAdvertiser = null;
-            try
-            {
-                mdnsAdvertiser = new BasisLanMdnsAdvertiser(advertisement);
-            }
-            catch (Exception ex)
-            {
-                BasisDebug.LogWarning($"LAN mDNS advertisement could not start: {ex.Message}");
-            }
+                networkStackId,
+                serverName,
+                motd,
+                requiresPassword);
 
-            CancellationTokenSource cancellation = new CancellationTokenSource();
-            CancellationTokenSource previousCancellation;
-            BasisLanMdnsAdvertiser previousMdnsAdvertiser;
+            Basis.Network.Core.BasisLanServerAnnouncer previousAnnouncer;
             lock (Gate)
             {
-                previousCancellation = _cancellation;
-                previousMdnsAdvertiser = _mdnsAdvertiser;
-                _cancellation = cancellation;
-                _mdnsAdvertiser = mdnsAdvertiser;
+                previousAnnouncer = _announcer;
+                _announcer = announcer;
             }
-
-            StopResources(previousCancellation, previousMdnsAdvertiser);
-            _ = Task.Run(() => AdvertiseAsync(payload, cancellation.Token));
+            previousAnnouncer?.Dispose();
         }
 
         public static void Stop()
         {
-            CancellationTokenSource cancellation;
-            BasisLanMdnsAdvertiser mdnsAdvertiser;
+            Basis.Network.Core.BasisLanServerAnnouncer announcer;
             lock (Gate)
             {
-                cancellation = _cancellation;
-                mdnsAdvertiser = _mdnsAdvertiser;
-                _cancellation = null;
-                _mdnsAdvertiser = null;
+                announcer = _announcer;
+                _announcer = null;
             }
-
-            StopResources(cancellation, mdnsAdvertiser);
-        }
-
-        private static void StopResources(CancellationTokenSource cancellation, BasisLanMdnsAdvertiser mdnsAdvertiser)
-        {
-            if (cancellation != null)
-            {
-                try { cancellation.Cancel(); }
-                catch (ObjectDisposedException) { }
-                cancellation.Dispose();
-            }
-            mdnsAdvertiser?.Dispose();
-        }
-
-        private static async Task AdvertiseAsync(byte[] payload, CancellationToken cancellationToken)
-        {
-            try
-            {
-                using UdpClient sender = new UdpClient(AddressFamily.InterNetwork);
-                sender.EnableBroadcast = true;
-                sender.MulticastLoopback = true;
-                sender.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 1);
-
-                await Task.Delay(InitialAdvertisementDelayMs, cancellationToken).ConfigureAwait(false);
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    SendAdvertisement(sender, payload);
-                    await Task.Delay(AdvertisementIntervalMs, cancellationToken).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-            catch (Exception ex)
-            {
-                BasisDebug.LogWarning($"LAN server advertisement stopped: {ex.Message}");
-            }
-        }
-
-        private static void SendAdvertisement(UdpClient sender, byte[] payload)
-        {
-            HashSet<string> sentEndpoints = new HashSet<string>(StringComparer.Ordinal);
-            SendTo(sender, payload, new IPEndPoint(BasisLanDiscoveryProtocol.MulticastAddress, BasisLanDiscoveryProtocol.DiscoveryPort), sentEndpoints);
-            SendTo(sender, payload, new IPEndPoint(IPAddress.Broadcast, BasisLanDiscoveryProtocol.DiscoveryPort), sentEndpoints);
-
-            try
-            {
-                foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (networkInterface.OperationalStatus != OperationalStatus.Up
-                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback)
-                    {
-                        continue;
-                    }
-
-                    foreach (UnicastIPAddressInformation addressInformation in networkInterface.GetIPProperties().UnicastAddresses)
-                    {
-                        if (addressInformation.Address.AddressFamily != AddressFamily.InterNetwork
-                            || addressInformation.IPv4Mask == null)
-                        {
-                            continue;
-                        }
-
-                        byte[] addressBytes = addressInformation.Address.GetAddressBytes();
-                        byte[] maskBytes = addressInformation.IPv4Mask.GetAddressBytes();
-                        if (addressBytes.Length != 4 || maskBytes.Length != 4)
-                        {
-                            continue;
-                        }
-
-                        byte[] broadcastBytes = new byte[4];
-                        for (int i = 0; i < broadcastBytes.Length; i++)
-                        {
-                            broadcastBytes[i] = (byte)(addressBytes[i] | ~maskBytes[i]);
-                        }
-
-                        SendTo(sender, payload, new IPEndPoint(new IPAddress(broadcastBytes), BasisLanDiscoveryProtocol.DiscoveryPort), sentEndpoints);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // Multicast and limited broadcast were already attempted above. Some Unity
-                // platforms expose NetworkInterface but not its IPv4 mask details.
-            }
-        }
-
-        private static void SendTo(UdpClient sender, byte[] payload, IPEndPoint endpoint, HashSet<string> sentEndpoints)
-        {
-            if (!sentEndpoints.Add(endpoint.ToString()))
-            {
-                return;
-            }
-
-            try { sender.Send(payload, payload.Length, endpoint); }
-            catch (SocketException) { }
-            catch (ObjectDisposedException) { }
+            announcer?.Dispose();
         }
     }
 
