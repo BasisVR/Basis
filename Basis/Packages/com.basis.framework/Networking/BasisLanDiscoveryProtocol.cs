@@ -3,157 +3,14 @@ using Basis.Scripts.Device_Management;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Basis.Scripts.Networking
 {
-    /// <summary>
-    /// Shared wire format for local-network server advertisements.
-    /// Advertisements use a site-local multicast address plus directed IPv4 broadcasts,
-    /// remain inside the LAN, and contain the hosted server's actual game port.
-    /// </summary>
-    internal static class BasisLanDiscoveryProtocol
-    {
-        public const int DiscoveryPort = 42960;
-        public const uint Magic = 0xBA515201u;
-        public const ushort Version = 1;
-        public const int MaxPacketBytes = 1024;
-        public const int MaxStackIdBytes = 64;
-        public const int MaxServerNameBytes = 128;
-        public const int MaxMotdBytes = 384;
-
-        public static readonly IPAddress MulticastAddress = IPAddress.Parse("239.255.42.99");
-
-        internal readonly struct Advertisement
-        {
-            public readonly Guid InstanceId;
-            public readonly ushort ServerPort;
-            public readonly bool RequiresPassword;
-            public readonly string NetworkStackId;
-            public readonly string ServerName;
-            public readonly string Motd;
-
-            public Advertisement(Guid instanceId, ushort serverPort, bool requiresPassword, string networkStackId, string serverName, string motd)
-            {
-                InstanceId = instanceId;
-                ServerPort = serverPort;
-                RequiresPassword = requiresPassword;
-                NetworkStackId = networkStackId;
-                ServerName = serverName;
-                Motd = motd;
-            }
-        }
-
-        public static byte[] Serialize(Advertisement advertisement)
-        {
-            using MemoryStream stream = new MemoryStream(256);
-            using BinaryWriter writer = new BinaryWriter(stream, Encoding.UTF8, true);
-            writer.Write(Magic);
-            writer.Write(Version);
-            writer.Write(advertisement.InstanceId.ToByteArray());
-            writer.Write(advertisement.ServerPort);
-            writer.Write(advertisement.RequiresPassword ? (byte)1 : (byte)0);
-            WriteString(writer, advertisement.NetworkStackId, MaxStackIdBytes);
-            WriteString(writer, advertisement.ServerName, MaxServerNameBytes);
-            WriteString(writer, advertisement.Motd, MaxMotdBytes);
-            writer.Flush();
-            return stream.ToArray();
-        }
-
-        public static bool TryDeserialize(byte[] data, out Advertisement advertisement)
-        {
-            advertisement = default;
-            if (data == null || data.Length < 31 || data.Length > MaxPacketBytes)
-            {
-                return false;
-            }
-
-            try
-            {
-                using MemoryStream stream = new MemoryStream(data, false);
-                using BinaryReader reader = new BinaryReader(stream, Encoding.UTF8, true);
-                if (reader.ReadUInt32() != Magic || reader.ReadUInt16() != Version)
-                {
-                    return false;
-                }
-
-                byte[] guidBytes = reader.ReadBytes(16);
-                if (guidBytes.Length != 16)
-                {
-                    return false;
-                }
-
-                ushort serverPort = reader.ReadUInt16();
-                byte flags = reader.ReadByte();
-                if (serverPort == 0
-                    || (flags & ~1) != 0
-                    || !TryReadString(reader, stream, MaxStackIdBytes, out string stackId)
-                    || !TryReadString(reader, stream, MaxServerNameBytes, out string serverName)
-                    || !TryReadString(reader, stream, MaxMotdBytes, out string motd))
-                {
-                    return false;
-                }
-
-                advertisement = new Advertisement(new Guid(guidBytes), serverPort, (flags & 1) != 0, stackId, serverName, motd);
-                return advertisement.InstanceId != Guid.Empty;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        private static void WriteString(BinaryWriter writer, string value, int maxBytes)
-        {
-            string safeValue = value ?? string.Empty;
-            byte[] bytes = Encoding.UTF8.GetBytes(safeValue);
-            if (bytes.Length > maxBytes)
-            {
-                int characterCount = safeValue.Length;
-                do
-                {
-                    characterCount--;
-                    bytes = Encoding.UTF8.GetBytes(safeValue.Substring(0, characterCount));
-                }
-                while (bytes.Length > maxBytes && characterCount > 0);
-            }
-
-            writer.Write((ushort)bytes.Length);
-            writer.Write(bytes);
-        }
-
-        private static bool TryReadString(BinaryReader reader, MemoryStream stream, int maxBytes, out string value)
-        {
-            value = string.Empty;
-            if (stream.Length - stream.Position < sizeof(ushort))
-            {
-                return false;
-            }
-
-            ushort byteCount = reader.ReadUInt16();
-            if (byteCount > maxBytes || stream.Length - stream.Position < byteCount)
-            {
-                return false;
-            }
-
-            byte[] bytes = reader.ReadBytes(byteCount);
-            if (bytes.Length != byteCount)
-            {
-                return false;
-            }
-
-            value = Encoding.UTF8.GetString(bytes);
-            return true;
-        }
-    }
-
     /// <summary>
     /// Periodically announces an in-process hosted server through the custom LAN
     /// datagram protocol and standard mDNS/DNS-SD. The service is opt-in and is
@@ -429,7 +286,7 @@ namespace Basis.Scripts.Networking
                     UdpReceiveResult result = await listener.ReceiveAsync().ConfigureAwait(false);
                     if (result.RemoteEndPoint == null
                         || result.RemoteEndPoint.Address == null
-                        || !BasisLanDiscoveryProtocol.TryDeserialize(result.Buffer, out BasisLanDiscoveryProtocol.Advertisement advertisement))
+                        || !BasisLanDiscoveryProtocol.TryDeserialize(result.Buffer, out BasisLanAdvertisement advertisement))
                     {
                         continue;
                     }
@@ -454,7 +311,7 @@ namespace Basis.Scripts.Networking
             }
         }
 
-        private void ProcessAdvertisement(BasisLanDiscoveryProtocol.Advertisement advertisement, IPAddress address)
+        private void ProcessAdvertisement(BasisLanAdvertisement advertisement, IPAddress address)
         {
             if (_disposed || address == null)
             {

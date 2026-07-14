@@ -18,16 +18,11 @@ namespace Basis.Network.Core
     /// </summary>
     public sealed class BasisLanServerAnnouncer : IDisposable
     {
-        public const int DiscoveryPort = 42960;
-        public const int MdnsPort = 5353;
+        public const int DiscoveryPort = BasisLanDiscoveryProtocol.DiscoveryPort;
+        public const int MdnsPort = BasisLanMdnsTransport.Port;
 
-        private const uint PacketMagic = 0xBA515201u;
-        private const ushort PacketVersion = 1;
         private const int InitialAdvertisementDelayMs = 750;
         private const int AdvertisementIntervalMs = 1500;
-        private const int MaxStackIdBytes = 64;
-        private const int MaxServerNameBytes = 128;
-        private const int MaxMotdBytes = 384;
         private const string MdnsServiceType = "_basisvr._udp.local";
         private const string MdnsMetaServiceType = "_services._dns-sd._udp.local";
         private const uint MdnsTtlSeconds = 120;
@@ -40,14 +35,8 @@ namespace Basis.Network.Core
         private const ushort DnsIn = 1;
         private const ushort DnsFlushIn = 0x8001;
 
-        private static readonly IPAddress DiscoveryMulticastAddress = IPAddress.Parse("239.255.42.99");
-        private static readonly IPAddress MdnsIpv4Address = IPAddress.Parse("224.0.0.251");
-        private static readonly IPAddress MdnsIpv6Address = IPAddress.Parse("ff02::fb");
-
         private readonly object _gate = new object();
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
-        private readonly List<IPAddress> _ipv4Interfaces = new List<IPAddress>();
-        private readonly List<int> _ipv6Interfaces = new List<int>();
         private readonly List<IPAddress> _advertisedAddresses = new List<IPAddress>();
         private readonly byte[] _customPayload;
         private readonly byte[] _mdnsAnnouncement;
@@ -60,8 +49,7 @@ namespace Basis.Network.Core
         private readonly List<string> _txtValues;
 
         private UdpClient _customSender;
-        private UdpClient _mdnsIpv4;
-        private UdpClient _mdnsIpv6;
+        private BasisLanMdnsTransport _mdnsTransport;
         private long _lastMdnsResponseTicks;
         private int _lastMdnsResponseKey;
         private string _lastMdnsResponseRemote;
@@ -112,39 +100,31 @@ namespace Basis.Network.Core
                 TxtValue("pwd", requiresPassword ? "1" : "0"),
             };
 
-            DiscoverInterfaces();
-            _customPayload = BuildCustomPayload(
+            DiscoverAdvertisedAddresses();
+            _customPayload = BasisLanDiscoveryProtocol.Serialize(new BasisLanAdvertisement(
                 InstanceId,
                 serverPort,
                 requiresPassword,
                 effectiveStackId,
                 effectiveServerName,
-                effectiveMotd);
+                effectiveMotd));
             _mdnsAnnouncement = BuildMdnsPacket(MdnsTtlSeconds, includeMeta: false, includeService: true);
             _mdnsMetaResponse = BuildMdnsPacket(MdnsTtlSeconds, includeMeta: true, includeService: false);
             _mdnsCombinedResponse = BuildMdnsPacket(MdnsTtlSeconds, includeMeta: true, includeService: true);
             _mdnsGoodbye = BuildMdnsPacket(0, includeMeta: false, includeService: true);
 
             TryCreateSockets();
-            if (_customSender == null && _mdnsIpv4 == null && _mdnsIpv6 == null)
+            if (_customSender == null && _mdnsTransport == null)
             {
                 _cancellation.Dispose();
                 throw new SocketException((int)SocketError.AddressFamilyNotSupported);
             }
 
-            if (_mdnsIpv4 != null)
-            {
-                _ = Task.Run(() => ReceiveMdnsLoopAsync(_mdnsIpv4, _cancellation.Token));
-            }
-            if (_mdnsIpv6 != null)
-            {
-                _ = Task.Run(() => ReceiveMdnsLoopAsync(_mdnsIpv6, _cancellation.Token));
-            }
             if (_customSender != null)
             {
                 _ = Task.Run(() => CustomAdvertisementLoopAsync(_cancellation.Token));
             }
-            if (_mdnsIpv4 != null || _mdnsIpv6 != null)
+            if (_mdnsTransport != null)
             {
                 _ = Task.Run(() => InitialMdnsAnnouncementsAsync(_cancellation.Token));
             }
@@ -168,96 +148,16 @@ namespace Basis.Network.Core
                 BNL.LogWarning($"Basis LAN datagram announcements are unavailable: {ex.Message}");
             }
 
-            if (Socket.OSSupportsIPv4)
-            {
-                try { _mdnsIpv4 = CreateMdnsIpv4Socket(); }
-                catch (Exception ex) { BNL.LogWarning($"IPv4 mDNS announcements are unavailable: {ex.Message}"); }
-            }
-            if (Socket.OSSupportsIPv6)
-            {
-                try { _mdnsIpv6 = CreateMdnsIpv6Socket(); }
-                catch (Exception ex) { BNL.LogWarning($"IPv6 mDNS announcements are unavailable: {ex.Message}"); }
-            }
-        }
-
-        private UdpClient CreateMdnsIpv4Socket()
-        {
-            UdpClient client = new UdpClient(AddressFamily.InterNetwork);
             try
             {
-                ConfigureSharedSocket(client);
-                client.Client.Bind(new IPEndPoint(IPAddress.Any, MdnsPort));
-                client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 255);
-                client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, true);
-
-                bool joined = false;
-                foreach (IPAddress address in _ipv4Interfaces)
-                {
-                    try
-                    {
-                        client.Client.SetSocketOption(
-                            SocketOptionLevel.IP,
-                            SocketOptionName.AddMembership,
-                            new MulticastOption(MdnsIpv4Address, address));
-                        joined = true;
-                    }
-                    catch (SocketException) { }
-                }
-                if (!joined)
-                {
-                    client.JoinMulticastGroup(MdnsIpv4Address);
-                }
-                return client;
+                _mdnsTransport = new BasisLanMdnsTransport(ProcessMdnsQuery);
             }
-            catch
+            catch (Exception ex)
             {
-                client.Dispose();
-                throw;
+                _mdnsTransport?.Dispose();
+                _mdnsTransport = null;
+                BNL.LogWarning($"Basis mDNS announcements are unavailable: {ex.Message}");
             }
-        }
-
-        private UdpClient CreateMdnsIpv6Socket()
-        {
-            UdpClient client = new UdpClient(AddressFamily.InterNetworkV6);
-            try
-            {
-                ConfigureSharedSocket(client);
-                client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
-                client.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, MdnsPort));
-                client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastTimeToLive, 255);
-                client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastLoopback, true);
-
-                bool joined = false;
-                foreach (int index in _ipv6Interfaces)
-                {
-                    try
-                    {
-                        client.Client.SetSocketOption(
-                            SocketOptionLevel.IPv6,
-                            SocketOptionName.AddMembership,
-                            new IPv6MulticastOption(MdnsIpv6Address, index));
-                        joined = true;
-                    }
-                    catch (SocketException) { }
-                }
-                if (!joined)
-                {
-                    client.JoinMulticastGroup(MdnsIpv6Address);
-                }
-                return client;
-            }
-            catch
-            {
-                client.Dispose();
-                throw;
-            }
-        }
-
-        private static void ConfigureSharedSocket(UdpClient client)
-        {
-            try { client.Client.ExclusiveAddressUse = false; }
-            catch (PlatformNotSupportedException) { }
-            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
         }
 
         private async Task CustomAdvertisementLoopAsync(CancellationToken cancellationToken)
@@ -287,9 +187,9 @@ namespace Basis.Network.Core
             try
             {
                 await Task.Delay(20, cancellationToken).ConfigureAwait(false);
-                SendMdnsMulticast(_mdnsAnnouncement);
+                _mdnsTransport.SendMulticast(_mdnsAnnouncement);
                 await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
-                SendMdnsMulticast(_mdnsAnnouncement);
+                _mdnsTransport.SendMulticast(_mdnsAnnouncement);
             }
             catch (OperationCanceledException) { }
             catch (ObjectDisposedException) { }
@@ -298,30 +198,6 @@ namespace Basis.Network.Core
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     BNL.LogWarning($"Basis mDNS startup announcement failed: {ex.Message}");
-                }
-            }
-        }
-
-        private async Task ReceiveMdnsLoopAsync(UdpClient client, CancellationToken cancellationToken)
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                try
-                {
-                    UdpReceiveResult result = await client.ReceiveAsync().ConfigureAwait(false);
-                    ProcessMdnsQuery(result.Buffer, result.RemoteEndPoint);
-                }
-                catch (ObjectDisposedException) { return; }
-                catch (SocketException)
-                {
-                    if (cancellationToken.IsCancellationRequested) return;
-                }
-                catch (Exception ex)
-                {
-                    if (!cancellationToken.IsCancellationRequested)
-                    {
-                        BNL.LogWarning($"Basis mDNS receive failed: {ex.Message}");
-                    }
                 }
             }
         }
@@ -370,11 +246,11 @@ namespace Basis.Network.Core
 
                 if (wantsUnicast || legacyUnicast)
                 {
-                    SendMdnsUnicast(response, remoteEndPoint);
+                    _mdnsTransport.SendUnicast(response, remoteEndPoint);
                 }
                 else
                 {
-                    SendMdnsMulticast(response);
+                    _mdnsTransport.SendMulticast(response);
                 }
             }
         }
@@ -390,7 +266,7 @@ namespace Basis.Network.Core
             if (sender == null) return;
 
             HashSet<string> sent = new HashSet<string>(StringComparer.Ordinal);
-            SendCustomTo(sender, new IPEndPoint(DiscoveryMulticastAddress, DiscoveryPort), sent);
+            SendCustomTo(sender, new IPEndPoint(BasisLanDiscoveryProtocol.MulticastAddress, DiscoveryPort), sent);
             SendCustomTo(sender, new IPEndPoint(IPAddress.Broadcast, DiscoveryPort), sent);
 
             try
@@ -438,80 +314,8 @@ namespace Basis.Network.Core
             catch (ObjectDisposedException) { }
         }
 
-        private void SendMdnsMulticast(byte[] packet)
+        private void DiscoverAdvertisedAddresses()
         {
-            if (packet == null || packet.Length == 0) return;
-
-            UdpClient ipv4 = _mdnsIpv4;
-            if (ipv4 != null)
-            {
-                IPEndPoint endpoint = new IPEndPoint(MdnsIpv4Address, MdnsPort);
-                bool sent = false;
-                foreach (IPAddress address in _ipv4Interfaces)
-                {
-                    try
-                    {
-                        ipv4.Client.SetSocketOption(
-                            SocketOptionLevel.IP,
-                            SocketOptionName.MulticastInterface,
-                            address.GetAddressBytes());
-                        ipv4.Send(packet, packet.Length, endpoint);
-                        sent = true;
-                    }
-                    catch (SocketException) { }
-                    catch (ObjectDisposedException) { break; }
-                }
-                if (!sent)
-                {
-                    try { ipv4.Send(packet, packet.Length, endpoint); }
-                    catch (SocketException) { }
-                    catch (ObjectDisposedException) { }
-                }
-            }
-
-            UdpClient ipv6 = _mdnsIpv6;
-            if (ipv6 != null)
-            {
-                bool sent = false;
-                foreach (int index in _ipv6Interfaces)
-                {
-                    try
-                    {
-                        ipv6.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastInterface, index);
-                        IPAddress scoped = new IPAddress(MdnsIpv6Address.GetAddressBytes(), index);
-                        ipv6.Send(packet, packet.Length, new IPEndPoint(scoped, MdnsPort));
-                        sent = true;
-                    }
-                    catch (SocketException) { }
-                    catch (ObjectDisposedException) { break; }
-                }
-                if (!sent)
-                {
-                    try { ipv6.Send(packet, packet.Length, new IPEndPoint(MdnsIpv6Address, MdnsPort)); }
-                    catch (SocketException) { }
-                    catch (ObjectDisposedException) { }
-                }
-            }
-        }
-
-        private void SendMdnsUnicast(byte[] packet, IPEndPoint endpoint)
-        {
-            if (packet == null || endpoint == null) return;
-            try
-            {
-                UdpClient client = endpoint.AddressFamily == AddressFamily.InterNetwork
-                    ? _mdnsIpv4
-                    : _mdnsIpv6;
-                client?.Send(packet, packet.Length, endpoint);
-            }
-            catch (SocketException) { }
-            catch (ObjectDisposedException) { }
-        }
-
-        private void DiscoverInterfaces()
-        {
-            HashSet<IPAddress> ipv4 = new HashSet<IPAddress>();
-            HashSet<int> ipv6 = new HashSet<int>();
             HashSet<IPAddress> advertised = new HashSet<IPAddress>();
             try
             {
@@ -523,40 +327,24 @@ namespace Basis.Network.Core
                         continue;
                     }
 
-                    IPInterfaceProperties properties = networkInterface.GetIPProperties();
-                    foreach (UnicastIPAddressInformation information in properties.UnicastAddresses)
+                    foreach (UnicastIPAddressInformation information in networkInterface.GetIPProperties().UnicastAddresses)
                     {
                         IPAddress address = information.Address;
-                        if (!IsUsableAddress(address) || IPAddress.IsLoopback(address)) continue;
-
-                        if (address.AddressFamily == AddressFamily.InterNetwork)
+                        if (!IsUsableAddress(address) || IPAddress.IsLoopback(address))
                         {
-                            ipv4.Add(address);
-                            advertised.Add(address);
+                            continue;
                         }
-                        else if (address.AddressFamily == AddressFamily.InterNetworkV6 && address.IsIPv6LinkLocal)
+                        if (address.AddressFamily == AddressFamily.InterNetwork || address.IsIPv6LinkLocal)
                         {
                             advertised.Add(address);
                         }
                     }
-
-                    try
-                    {
-                        IPv6InterfaceProperties propertiesV6 = properties.GetIPv6Properties();
-                        if (propertiesV6 != null && propertiesV6.Index > 0)
-                        {
-                            ipv6.Add(propertiesV6.Index);
-                        }
-                    }
-                    catch (Exception ex) when (ex is NetworkInformationException
-                                               || ex is PlatformNotSupportedException
-                                               || ex is NotImplementedException) { }
                 }
             }
-            catch (Exception) { }
+            catch (Exception)
+            {
+            }
 
-            _ipv4Interfaces.AddRange(ipv4);
-            _ipv6Interfaces.AddRange(ipv6);
             _advertisedAddresses.AddRange(advertised);
         }
 
@@ -668,53 +456,10 @@ namespace Basis.Network.Core
             return response;
         }
 
-        private static byte[] BuildCustomPayload(
-            Guid instanceId,
-            ushort serverPort,
-            bool requiresPassword,
-            string networkStackId,
-            string serverName,
-            string motd)
-        {
-            using MemoryStream stream = new MemoryStream(256);
-            using BinaryWriter writer = new BinaryWriter(stream, Encoding.UTF8, true);
-            writer.Write(PacketMagic);
-            writer.Write(PacketVersion);
-            writer.Write(instanceId.ToByteArray());
-            writer.Write(serverPort);
-            writer.Write(requiresPassword ? (byte)1 : (byte)0);
-            WritePacketString(writer, networkStackId, MaxStackIdBytes);
-            WritePacketString(writer, serverName, MaxServerNameBytes);
-            WritePacketString(writer, motd, MaxMotdBytes);
-            writer.Flush();
-            return stream.ToArray();
-        }
-
-        private static void WritePacketString(BinaryWriter writer, string value, int maxBytes)
-        {
-            byte[] bytes = Encoding.UTF8.GetBytes(LimitUtf8(value, maxBytes));
-            writer.Write((ushort)bytes.Length);
-            writer.Write(bytes);
-        }
-
         private static string TxtValue(string key, string value)
         {
             int budget = 254 - Encoding.UTF8.GetByteCount(key);
-            return key + "=" + LimitUtf8(value, Math.Max(0, budget));
-        }
-
-        private static string LimitUtf8(string value, int maxBytes)
-        {
-            if (string.IsNullOrEmpty(value) || maxBytes <= 0) return string.Empty;
-            if (Encoding.UTF8.GetByteCount(value) <= maxBytes) return value;
-
-            int length = value.Length;
-            while (length > 0 && Encoding.UTF8.GetByteCount(value, 0, length) > maxBytes)
-            {
-                length--;
-                if (length > 0 && char.IsHighSurrogate(value[length - 1])) length--;
-            }
-            return length == 0 ? string.Empty : value.Substring(0, length);
+            return key + "=" + BasisLanDiscoveryProtocol.LimitUtf8(value, Math.Max(0, budget));
         }
 
         private readonly struct DnsRecord
@@ -891,8 +636,8 @@ namespace Basis.Network.Core
 
                 try
                 {
-                    SendMdnsMulticast(_mdnsGoodbye);
-                    SendMdnsMulticast(_mdnsGoodbye);
+                    _mdnsTransport?.SendMulticast(_mdnsGoodbye);
+                    _mdnsTransport?.SendMulticast(_mdnsGoodbye);
                 }
                 catch (Exception ex)
                 {
@@ -901,14 +646,10 @@ namespace Basis.Network.Core
 
                 try { _customSender?.Close(); }
                 catch (ObjectDisposedException) { }
-                try { _mdnsIpv4?.Close(); }
-                catch (ObjectDisposedException) { }
-                try { _mdnsIpv6?.Close(); }
-                catch (ObjectDisposedException) { }
+                _mdnsTransport?.Dispose();
 
                 _customSender = null;
-                _mdnsIpv4 = null;
-                _mdnsIpv6 = null;
+                _mdnsTransport = null;
                 _cancellation.Dispose();
             }
         }

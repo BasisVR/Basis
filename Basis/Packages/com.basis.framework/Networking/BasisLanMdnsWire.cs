@@ -1,8 +1,8 @@
+using Basis.Network.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 
@@ -11,52 +11,22 @@ namespace Basis.Scripts.Networking
     /// <summary>Minimal DNS wire support used only by Basis LAN mDNS.</summary>
     internal static class BasisLanMdnsWire
     {
-        public const string ServiceType = "_basisvr._udp.local";
-        public const int Port = 5353;
+        private const string ServiceType = "_basisvr._udp.local";
         public const int QueryIntervalMs = 2000;
-        public static readonly IPAddress MulticastAddress = IPAddress.Parse("224.0.0.251");
 
-        private const string MetaServiceType = "_services._dns-sd._udp.local";
         private const string ProtocolVersion = "1";
         private const int MaxPacketBytes = 9000;
         private const int MaxQuestions = 64;
         private const int MaxRecords = 256;
-        private const uint TtlSeconds = 120;
 
         internal const ushort A = 1;
         internal const ushort Ptr = 12;
         internal const ushort Txt = 16;
         internal const ushort Aaaa = 28;
         internal const ushort Srv = 33;
-        internal const ushort Any = 255;
         internal const ushort In = 1;
-        internal const ushort FlushIn = 0x8001;
 
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
-
-        internal sealed class Service
-        {
-            public BasisLanDiscoveryProtocol.Advertisement Advertisement;
-            public string InstanceName;
-            public string HostName;
-            public List<string> TxtValues;
-            public List<IPAddress> Addresses;
-        }
-
-        internal readonly struct Question
-        {
-            public readonly string Name;
-            public readonly ushort Type;
-            public readonly ushort Class;
-            public bool WantsUnicast => (Class & 0x8000) != 0;
-
-            public Question(string name, ushort type, ushort recordClass)
-            {
-                Name = name;
-                Type = type;
-                Class = recordClass;
-            }
-        }
 
         internal sealed class Record
         {
@@ -74,107 +44,22 @@ namespace Basis.Scripts.Networking
         internal sealed class Message
         {
             public bool IsResponse;
-            public readonly List<Question> Questions = new List<Question>();
             public readonly List<Record> Records = new List<Record>();
-        }
-
-        private readonly struct OutRecord
-        {
-            public readonly string Name;
-            public readonly ushort Type;
-            public readonly ushort Class;
-            public readonly uint Ttl;
-            public readonly byte[] Data;
-
-            public OutRecord(string name, ushort type, ushort recordClass, uint ttl, byte[] data)
-            {
-                Name = name;
-                Type = type;
-                Class = recordClass;
-                Ttl = ttl;
-                Data = data;
-            }
-        }
-
-        public static Service CreateService(BasisLanDiscoveryProtocol.Advertisement advertisement)
-        {
-            string id = advertisement.InstanceId.ToString("N");
-            return new Service
-            {
-                Advertisement = advertisement,
-                InstanceName = $"Basis-{id}.{ServiceType}",
-                HostName = $"basis-{id}.local",
-                Addresses = GetAddresses(),
-                TxtValues = new List<string>
-                {
-                    TxtValue("protocol", ProtocolVersion),
-                    TxtValue("id", id),
-                    TxtValue("stack", advertisement.NetworkStackId),
-                    TxtValue("name", advertisement.ServerName),
-                    TxtValue("motd", advertisement.Motd),
-                    TxtValue("pwd", advertisement.RequiresPassword ? "1" : "0"),
-                },
-            };
         }
 
         public static byte[] BuildQuery()
         {
-            return Build(0, new List<Question> { new Question(ServiceType, Ptr, In) }, new List<OutRecord>(), new List<OutRecord>());
-        }
-
-        public static byte[] BuildAnnouncement(Service service, uint ttl = TtlSeconds)
-        {
-            ServiceRecords(service, ttl, out List<OutRecord> answers, out List<OutRecord> additional);
-            return Build(0x8400, new List<Question>(), answers, additional);
-        }
-
-        public static bool TryBuildResponse(Service service, Message query, out byte[] response)
-        {
-            response = null;
-            if (query == null || query.IsResponse)
-            {
-                return false;
-            }
-
-            bool meta = false;
-            bool basis = false;
-            foreach (Question question in query.Questions)
-            {
-                if ((question.Class & 0x7FFF) != In)
-                {
-                    continue;
-                }
-
-                if (EqualName(question.Name, MetaServiceType) && Requested(question.Type, Ptr))
-                {
-                    meta = true;
-                }
-                else if ((EqualName(question.Name, ServiceType) && Requested(question.Type, Ptr))
-                         || (EqualName(question.Name, service.InstanceName) && (Requested(question.Type, Srv) || Requested(question.Type, Txt)))
-                         || (EqualName(question.Name, service.HostName) && (Requested(question.Type, A) || Requested(question.Type, Aaaa))))
-                {
-                    basis = true;
-                }
-            }
-            if (!meta && !basis)
-            {
-                return false;
-            }
-
-            List<OutRecord> answers = new List<OutRecord>();
-            List<OutRecord> additional = new List<OutRecord>();
-            if (meta)
-            {
-                answers.Add(new OutRecord(MetaServiceType, Ptr, In, TtlSeconds, EncodeName(ServiceType)));
-            }
-            if (basis)
-            {
-                ServiceRecords(service, TtlSeconds, out List<OutRecord> serviceAnswers, out List<OutRecord> serviceAdditional);
-                answers.AddRange(serviceAnswers);
-                additional.AddRange(serviceAdditional);
-            }
-            response = Build(0x8400, new List<Question>(), answers, additional);
-            return true;
+            using MemoryStream stream = new MemoryStream(64);
+            W16(stream, 0);
+            W16(stream, 0);
+            W16(stream, 1);
+            W16(stream, 0);
+            W16(stream, 0);
+            W16(stream, 0);
+            Bytes(stream, EncodeName(ServiceType));
+            W16(stream, Ptr);
+            W16(stream, In);
+            return stream.ToArray();
         }
 
         public static bool TryParse(byte[] packet, out Message message)
@@ -212,7 +97,8 @@ namespace Basis.Scripts.Networking
                     {
                         return false;
                     }
-                    parsed.Questions.Add(new Question(name, U16(packet, ref offset), U16(packet, ref offset)));
+                    U16(packet, ref offset);
+                    U16(packet, ref offset);
                 }
                 for (int i = 0; i < recordCount; i++)
                 {
@@ -234,7 +120,7 @@ namespace Basis.Scripts.Networking
         public static void Extract(
             Message message,
             IPEndPoint remote,
-            Action<BasisLanDiscoveryProtocol.Advertisement, IPAddress> found,
+            Action<BasisLanAdvertisement, IPAddress> found,
             Action<Guid> removed)
         {
             if (message == null || !message.IsResponse)
@@ -295,7 +181,7 @@ namespace Basis.Scripts.Networking
                 values.TryGetValue("stack", out string stack);
                 values.TryGetValue("name", out string name);
                 values.TryGetValue("motd", out string motd);
-                found?.Invoke(new BasisLanDiscoveryProtocol.Advertisement(
+                found?.Invoke(new BasisLanAdvertisement(
                     instanceId,
                     srv.Port,
                     password == "1",
@@ -316,63 +202,6 @@ namespace Basis.Scripts.Networking
                 if (length > 0 && char.IsHighSurrogate(value[length - 1])) length--;
             }
             return length == 0 ? string.Empty : value.Substring(0, length);
-        }
-
-        private static void ServiceRecords(Service service, uint ttl, out List<OutRecord> answers, out List<OutRecord> additional)
-        {
-            answers = new List<OutRecord> { new OutRecord(ServiceType, Ptr, In, ttl, EncodeName(service.InstanceName)) };
-            additional = new List<OutRecord>
-            {
-                new OutRecord(service.InstanceName, Srv, FlushIn, ttl, EncodeSrv(service.Advertisement.ServerPort, service.HostName)),
-                new OutRecord(service.InstanceName, Txt, FlushIn, ttl, EncodeTxt(service.TxtValues)),
-            };
-            foreach (IPAddress address in service.Addresses)
-            {
-                if (address.AddressFamily == AddressFamily.InterNetwork)
-                    additional.Add(new OutRecord(service.HostName, A, FlushIn, ttl, address.GetAddressBytes()));
-                else if (address.AddressFamily == AddressFamily.InterNetworkV6)
-                    additional.Add(new OutRecord(service.HostName, Aaaa, FlushIn, ttl, address.GetAddressBytes()));
-            }
-        }
-
-        private static byte[] Build(ushort flags, List<Question> questions, List<OutRecord> answers, List<OutRecord> additional)
-        {
-            using MemoryStream stream = new MemoryStream(512);
-            W16(stream, 0); W16(stream, flags); W16(stream, checked((ushort)questions.Count));
-            W16(stream, checked((ushort)answers.Count)); W16(stream, 0); W16(stream, checked((ushort)additional.Count));
-            foreach (Question question in questions)
-            {
-                Bytes(stream, EncodeName(question.Name)); W16(stream, question.Type); W16(stream, question.Class);
-            }
-            foreach (OutRecord record in answers) WriteRecord(stream, record);
-            foreach (OutRecord record in additional) WriteRecord(stream, record);
-            if (stream.Length > MaxPacketBytes) throw new InvalidOperationException("Basis mDNS packet is too large.");
-            return stream.ToArray();
-        }
-
-        private static void WriteRecord(Stream stream, OutRecord record)
-        {
-            Bytes(stream, EncodeName(record.Name)); W16(stream, record.Type); W16(stream, record.Class);
-            W32(stream, record.Ttl); W16(stream, checked((ushort)record.Data.Length)); Bytes(stream, record.Data);
-        }
-
-        private static byte[] EncodeSrv(ushort port, string target)
-        {
-            using MemoryStream stream = new MemoryStream(64);
-            W16(stream, 0); W16(stream, 0); W16(stream, port); Bytes(stream, EncodeName(target));
-            return stream.ToArray();
-        }
-
-        private static byte[] EncodeTxt(List<string> values)
-        {
-            using MemoryStream stream = new MemoryStream(256);
-            foreach (string value in values)
-            {
-                byte[] bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-                if (bytes.Length > 255) throw new InvalidOperationException("Basis mDNS TXT value is too large.");
-                stream.WriteByte((byte)bytes.Length); Bytes(stream, bytes);
-            }
-            return stream.ToArray();
         }
 
         private static byte[] EncodeName(string value)
@@ -537,34 +366,6 @@ namespace Basis.Scripts.Networking
             return Usable(remote) ? remote : null;
         }
 
-        private static List<IPAddress> GetAddresses()
-        {
-            HashSet<IPAddress> result = new HashSet<IPAddress>();
-            try
-            {
-                foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-                    foreach (UnicastIPAddressInformation info in nic.GetIPProperties().UnicastAddresses)
-                    {
-                        IPAddress address = info.Address;
-                        if (Usable(address) && !IPAddress.IsLoopback(address)
-                            && (address.AddressFamily == AddressFamily.InterNetwork || address.IsIPv6LinkLocal))
-                            result.Add(address);
-                    }
-                }
-            }
-            catch (Exception) { }
-            return new List<IPAddress>(result);
-        }
-
-        private static string TxtValue(string key, string value)
-        {
-            int budget = 254 - Encoding.UTF8.GetByteCount(key);
-            return key + "=" + LimitUtf8(value, Math.Max(0, budget));
-        }
-
-        private static bool Requested(ushort actual, ushort expected) => actual == expected || actual == Any;
         private static bool EqualName(string left, string right) => string.Equals(Normalize(left), Normalize(right), StringComparison.OrdinalIgnoreCase);
         private static string Normalize(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().TrimEnd('.');
         private static bool Usable(IPAddress address) => address != null && !address.Equals(IPAddress.Any) && !address.Equals(IPAddress.IPv6Any) && !address.Equals(IPAddress.Broadcast) && !address.IsIPv6Multicast;
@@ -586,7 +387,6 @@ namespace Basis.Scripts.Networking
         }
 
         private static void W16(Stream stream, ushort value) { stream.WriteByte((byte)(value >> 8)); stream.WriteByte((byte)value); }
-        private static void W32(Stream stream, uint value) { stream.WriteByte((byte)(value >> 24)); stream.WriteByte((byte)(value >> 16)); stream.WriteByte((byte)(value >> 8)); stream.WriteByte((byte)value); }
         private static void Bytes(Stream stream, byte[] bytes) => stream.Write(bytes, 0, bytes.Length);
     }
 }
