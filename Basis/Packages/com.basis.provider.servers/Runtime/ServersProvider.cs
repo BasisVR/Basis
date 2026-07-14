@@ -52,7 +52,7 @@ namespace Basis.BasisUI
         private List<ServerDirectoryEntry> _entries = new List<ServerDirectoryEntry>();
         private readonly Dictionary<string, ServerRow> _rows = new();
         private string _editingId;
-        private readonly List<IServerDirectorySource> _subscribedSources = new List<IServerDirectorySource>();
+        private readonly Dictionary<IServerDirectorySource, Action> _subscribedSources = new Dictionary<IServerDirectorySource, Action>();
 
         private static bool IsDefault(ServerDirectoryEntry entry) =>
             entry != null && SavedServersDirectorySource.IsDefaultEntryId(entry.Id);
@@ -173,17 +173,18 @@ namespace Basis.BasisUI
             BasisServerDirectoryRegistry.SourcesChanged += OnSourcesChanged;
             foreach (IServerDirectorySource source in BasisServerDirectoryRegistry.Sources)
             {
-                source.SourceChanged += OnSourceChanged;
-                _subscribedSources.Add(source);
+                Action handler = () => OnSourceChanged(source);
+                source.SourceChanged += handler;
+                _subscribedSources.Add(source, handler);
             }
         }
 
         private void UnsubscribeSourceEvents()
         {
             BasisServerDirectoryRegistry.SourcesChanged -= OnSourcesChanged;
-            foreach (IServerDirectorySource source in _subscribedSources)
+            foreach (KeyValuePair<IServerDirectorySource, Action> subscription in _subscribedSources)
             {
-                source.SourceChanged -= OnSourceChanged;
+                subscription.Key.SourceChanged -= subscription.Value;
             }
             _subscribedSources.Clear();
         }
@@ -194,9 +195,11 @@ namespace Basis.BasisUI
             _ = ReloadEntriesAsync(probeAfter: true, autoConnectAfter: false);
         }
 
-        private void OnSourceChanged()
+        private void OnSourceChanged(IServerDirectorySource source)
         {
-            _ = ReloadEntriesAsync(probeAfter: true, autoConnectAfter: false);
+            bool probeAfter = source == null
+                || !string.Equals(source.SourceId, LanServersDirectorySource.Id, StringComparison.OrdinalIgnoreCase);
+            _ = ReloadEntriesAsync(probeAfter, autoConnectAfter: false);
         }
 
         private async Task ReloadEntriesAsync(bool probeAfter, bool autoConnectAfter)

@@ -344,6 +344,7 @@ namespace Basis.Scripts.Networking
         private const int EntryLifetimeMs = 5000;
         private const int CleanupIntervalMs = 1000;
         private const int MaxTrackedServers = 256;
+        private const int MaxAddressesPerServer = 16;
         private static readonly long EntryLifetimeTicks =
             (long)(EntryLifetimeMs / 1000.0 * Stopwatch.Frequency);
 
@@ -351,6 +352,7 @@ namespace Basis.Scripts.Networking
         {
             public Guid InstanceId;
             public IPAddress Address;
+            public readonly Dictionary<IPAddress, long> AddressLastSeen = new Dictionary<IPAddress, long>();
             public ushort Port;
             public bool RequiresPassword;
             public string NetworkStackId;
@@ -590,7 +592,8 @@ namespace Basis.Scripts.Networking
             lock (_gate)
             {
                 changed = PruneExpiredLocked(nowTicks);
-                changed |= !_servers.TryGetValue(advertisement.InstanceId, out DiscoveredServer existing);
+                bool isNew = !_servers.TryGetValue(advertisement.InstanceId, out DiscoveredServer existing);
+                changed |= isNew;
                 if (existing == null)
                 {
                     if (_servers.Count >= MaxTrackedServers)
@@ -600,17 +603,25 @@ namespace Basis.Scripts.Networking
                     existing = new DiscoveredServer { InstanceId = advertisement.InstanceId };
                     _servers.Add(advertisement.InstanceId, existing);
                 }
-                else
+
+                PruneAddressCandidatesLocked(existing, nowTicks);
+                TrackAddressLocked(existing, address, nowTicks);
+                if (existing.Address == null || !existing.AddressLastSeen.ContainsKey(existing.Address))
                 {
-                    changed |= !Equals(existing.Address, address)
-                        || existing.Port != advertisement.ServerPort
+                    IPAddress selectedAddress = SelectPreferredAddressLocked(existing);
+                    changed |= !Equals(existing.Address, selectedAddress);
+                    existing.Address = selectedAddress;
+                }
+
+                if (!isNew)
+                {
+                    changed |= existing.Port != advertisement.ServerPort
                         || existing.RequiresPassword != advertisement.RequiresPassword
                         || !string.Equals(existing.NetworkStackId, advertisement.NetworkStackId, StringComparison.Ordinal)
                         || !string.Equals(existing.ServerName, advertisement.ServerName, StringComparison.Ordinal)
                         || !string.Equals(existing.Motd, advertisement.Motd, StringComparison.Ordinal);
                 }
 
-                existing.Address = address;
                 existing.Port = advertisement.ServerPort;
                 existing.RequiresPassword = advertisement.RequiresPassword;
                 existing.NetworkStackId = advertisement.NetworkStackId;
@@ -688,6 +699,112 @@ namespace Basis.Scripts.Networking
                 _servers.Remove(id);
             }
             return true;
+        }
+
+        private static void PruneAddressCandidatesLocked(DiscoveredServer server, long nowTicks)
+        {
+            List<IPAddress> expired = null;
+            foreach (KeyValuePair<IPAddress, long> pair in server.AddressLastSeen)
+            {
+                if (nowTicks - pair.Value <= EntryLifetimeTicks)
+                {
+                    continue;
+                }
+
+                expired ??= new List<IPAddress>();
+                expired.Add(pair.Key);
+            }
+
+            if (expired == null)
+            {
+                return;
+            }
+
+            foreach (IPAddress address in expired)
+            {
+                server.AddressLastSeen.Remove(address);
+            }
+        }
+
+        private static void TrackAddressLocked(DiscoveredServer server, IPAddress address, long nowTicks)
+        {
+            if (!server.AddressLastSeen.ContainsKey(address)
+                && server.AddressLastSeen.Count >= MaxAddressesPerServer)
+            {
+                IPAddress oldestAddress = null;
+                long oldestTicks = long.MaxValue;
+                foreach (KeyValuePair<IPAddress, long> pair in server.AddressLastSeen)
+                {
+                    if (Equals(pair.Key, server.Address) || pair.Value >= oldestTicks)
+                    {
+                        continue;
+                    }
+
+                    oldestAddress = pair.Key;
+                    oldestTicks = pair.Value;
+                }
+
+                if (oldestAddress != null)
+                {
+                    server.AddressLastSeen.Remove(oldestAddress);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            server.AddressLastSeen[address] = nowTicks;
+        }
+
+        private static IPAddress SelectPreferredAddressLocked(DiscoveredServer server)
+        {
+            IPAddress selected = null;
+            foreach (IPAddress candidate in server.AddressLastSeen.Keys)
+            {
+                if (selected == null || CompareAddressPreference(candidate, selected) < 0)
+                {
+                    selected = candidate;
+                }
+            }
+            return selected;
+        }
+
+        private static int CompareAddressPreference(IPAddress left, IPAddress right)
+        {
+            int rankComparison = AddressPreferenceRank(left).CompareTo(AddressPreferenceRank(right));
+            if (rankComparison != 0)
+            {
+                return rankComparison;
+            }
+
+            byte[] leftBytes = left.GetAddressBytes();
+            byte[] rightBytes = right.GetAddressBytes();
+            int lengthComparison = leftBytes.Length.CompareTo(rightBytes.Length);
+            if (lengthComparison != 0)
+            {
+                return lengthComparison;
+            }
+
+            for (int i = 0; i < leftBytes.Length; i++)
+            {
+                int byteComparison = leftBytes[i].CompareTo(rightBytes[i]);
+                if (byteComparison != 0)
+                {
+                    return byteComparison;
+                }
+            }
+            return left.ScopeId.CompareTo(right.ScopeId);
+        }
+
+        private static int AddressPreferenceRank(IPAddress address)
+        {
+            if (address.AddressFamily == AddressFamily.InterNetwork)
+            {
+                byte[] bytes = address.GetAddressBytes();
+                return bytes.Length == 4 && bytes[0] == 169 && bytes[1] == 254 ? 1 : 0;
+            }
+            return address.IsIPv6LinkLocal ? 3 : 2;
         }
 
         private void RemoveOldestServerLocked()
