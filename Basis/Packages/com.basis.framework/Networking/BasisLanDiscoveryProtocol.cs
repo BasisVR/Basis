@@ -42,8 +42,7 @@ namespace Basis.Scripts.Networking
         private readonly object _gate = new object();
         private readonly Dictionary<Guid, DiscoveredServer> _servers = new Dictionary<Guid, DiscoveredServer>();
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
-        private UdpClient _listener;
-        private BasisLanMdnsBrowser _mdnsBrowser;
+        private BasisLanServerBrowser _browser;
 #if UNITY_ANDROID && !UNITY_EDITOR
         private AndroidJavaObject _androidMulticastLock;
 #endif
@@ -119,6 +118,7 @@ namespace Basis.Scripts.Networking
         public Task RefreshAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            _browser?.Query();
             if (PruneExpired())
             {
                 QueueSourceChanged();
@@ -129,48 +129,14 @@ namespace Basis.Scripts.Networking
         private void StartListening()
         {
             AcquireAndroidMulticastLock();
-            bool discoveryStarted = false;
-            UdpClient listener = null;
             try
             {
-                listener = new UdpClient(AddressFamily.InterNetwork);
-                listener.Client.ExclusiveAddressUse = false;
-                listener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                listener.Client.Bind(new IPEndPoint(IPAddress.Any, BasisLanDiscoveryProtocol.DiscoveryPort));
-                try { listener.JoinMulticastGroup(BasisLanDiscoveryProtocol.MulticastAddress); }
-                catch (Exception ex) when (ex is SocketException || ex is PlatformNotSupportedException || ex is NotImplementedException) { }
-
-                _listener = listener;
-                UdpClient activeListener = listener;
-                listener = null;
-                discoveryStarted = true;
-                _ = Task.Run(() => ReceiveLoopAsync(activeListener, _cancellation.Token));
-            }
-            catch (Exception ex)
-            {
-                BasisDebug.LogWarning($"LAN server discovery could not listen on UDP {BasisLanDiscoveryProtocol.DiscoveryPort}: {ex.Message}");
-            }
-            finally
-            {
-                listener?.Dispose();
-            }
-
-            try
-            {
-                _mdnsBrowser = new BasisLanMdnsBrowser(ProcessAdvertisement, RemoveAdvertisement);
-                discoveryStarted = true;
-            }
-            catch (Exception ex)
-            {
-                BasisDebug.LogWarning($"LAN mDNS discovery could not start: {ex.Message}");
-            }
-
-            if (discoveryStarted)
-            {
+                _browser = new BasisLanServerBrowser(ProcessAdvertisement, RemoveAdvertisement);
                 _ = Task.Run(() => CleanupLoopAsync(_cancellation.Token));
             }
-            else
+            catch (Exception ex)
             {
+                BasisDebug.LogWarning($"LAN DNS-SD discovery could not start: {ex.Message}");
                 ReleaseAndroidMulticastLock();
             }
         }
@@ -222,40 +188,6 @@ namespace Basis.Scripts.Networking
                 _androidMulticastLock = null;
             }
 #endif
-        }
-
-        private async Task ReceiveLoopAsync(UdpClient listener, CancellationToken cancellationToken)
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                try
-                {
-                    UdpReceiveResult result = await listener.ReceiveAsync().ConfigureAwait(false);
-                    if (result.RemoteEndPoint == null
-                        || result.RemoteEndPoint.Address == null
-                        || !BasisLanDiscoveryProtocol.TryDeserialize(result.Buffer, out BasisLanAdvertisement advertisement))
-                    {
-                        continue;
-                    }
-
-                    ProcessAdvertisement(advertisement, result.RemoteEndPoint.Address);
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (SocketException) when (cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    if (!cancellationToken.IsCancellationRequested)
-                    {
-                        BasisDebug.LogWarning($"LAN server discovery receive failed: {ex.Message}");
-                    }
-                }
-            }
         }
 
         private void ProcessAdvertisement(BasisLanAdvertisement advertisement, IPAddress address)
@@ -502,17 +434,9 @@ namespace Basis.Scripts.Networking
 
             try { _cancellation.Cancel(); }
             catch (ObjectDisposedException) { }
-            try { _listener?.DropMulticastGroup(BasisLanDiscoveryProtocol.MulticastAddress); }
-            catch (SocketException) { }
-            catch (ObjectDisposedException) { }
-            catch (PlatformNotSupportedException) { }
-            catch (NotImplementedException) { }
-            try { _listener?.Close(); }
-            catch (ObjectDisposedException) { }
-            _listener = null;
-            try { _mdnsBrowser?.Dispose(); }
-            catch (Exception ex) { BasisDebug.LogWarning($"LAN mDNS discovery shutdown failed: {ex.Message}"); }
-            _mdnsBrowser = null;
+            try { _browser?.Dispose(); }
+            catch (Exception ex) { BasisDebug.LogWarning($"LAN DNS-SD discovery shutdown failed: {ex.Message}"); }
+            _browser = null;
             ReleaseAndroidMulticastLock();
             _cancellation.Dispose();
 

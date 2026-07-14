@@ -1,11 +1,9 @@
 using System;
-using System.IO;
-using System.Net;
 using System.Text;
 
 namespace Basis.Network.Core
 {
-    /// <summary>Metadata carried by Basis LAN discovery packets and DNS-SD records.</summary>
+    /// <summary>Metadata published through the Basis DNS-SD service.</summary>
     public readonly struct BasisLanAdvertisement
     {
         public readonly Guid InstanceId;
@@ -32,87 +30,15 @@ namespace Basis.Network.Core
         }
     }
 
-    /// <summary>Shared Basis LAN datagram format used by servers and clients.</summary>
+    /// <summary>Shared constants and text limits for Basis LAN DNS-SD.</summary>
     public static class BasisLanDiscoveryProtocol
     {
-        public const int DiscoveryPort = 42960;
-        public const uint Magic = 0xBA515201u;
-        public const ushort Version = 1;
-        public const int MaxPacketBytes = 1024;
+        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+        public const string ServiceName = "_basisvr._udp";
+        public const string ProtocolVersion = "1";
         public const int MaxStackIdBytes = 64;
         public const int MaxServerNameBytes = 128;
         public const int MaxMotdBytes = 384;
-
-        public static readonly IPAddress MulticastAddress = IPAddress.Parse("239.255.42.99");
-
-        public static byte[] Serialize(BasisLanAdvertisement advertisement)
-        {
-            using (MemoryStream stream = new MemoryStream(256))
-            using (BinaryWriter writer = new BinaryWriter(stream, Encoding.UTF8, true))
-            {
-                writer.Write(Magic);
-                writer.Write(Version);
-                writer.Write(advertisement.InstanceId.ToByteArray());
-                writer.Write(advertisement.ServerPort);
-                writer.Write(advertisement.RequiresPassword ? (byte)1 : (byte)0);
-                WriteString(writer, advertisement.NetworkStackId, MaxStackIdBytes);
-                WriteString(writer, advertisement.ServerName, MaxServerNameBytes);
-                WriteString(writer, advertisement.Motd, MaxMotdBytes);
-                writer.Flush();
-                return stream.ToArray();
-            }
-        }
-
-        public static bool TryDeserialize(byte[] data, out BasisLanAdvertisement advertisement)
-        {
-            advertisement = default;
-            if (data == null || data.Length < 31 || data.Length > MaxPacketBytes)
-            {
-                return false;
-            }
-
-            try
-            {
-                using (MemoryStream stream = new MemoryStream(data, false))
-                using (BinaryReader reader = new BinaryReader(stream, Encoding.UTF8, true))
-                {
-                    if (reader.ReadUInt32() != Magic || reader.ReadUInt16() != Version)
-                    {
-                        return false;
-                    }
-
-                    byte[] guidBytes = reader.ReadBytes(16);
-                    if (guidBytes.Length != 16)
-                    {
-                        return false;
-                    }
-
-                    ushort serverPort = reader.ReadUInt16();
-                    byte flags = reader.ReadByte();
-                    if (serverPort == 0
-                        || (flags & ~1) != 0
-                        || !TryReadString(reader, stream, MaxStackIdBytes, out string stackId)
-                        || !TryReadString(reader, stream, MaxServerNameBytes, out string serverName)
-                        || !TryReadString(reader, stream, MaxMotdBytes, out string motd))
-                    {
-                        return false;
-                    }
-
-                    advertisement = new BasisLanAdvertisement(
-                        new Guid(guidBytes),
-                        serverPort,
-                        (flags & 1) != 0,
-                        stackId,
-                        serverName,
-                        motd);
-                    return advertisement.InstanceId != Guid.Empty;
-                }
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
 
         public static string LimitUtf8(string value, int maxBytes)
         {
@@ -137,36 +63,62 @@ namespace Basis.Network.Core
             return length == 0 ? string.Empty : value.Substring(0, length);
         }
 
-        private static void WriteString(BinaryWriter writer, string value, int maxBytes)
+        internal static string LimitTxtProperty(string key, string value, int maxValueBytes)
         {
-            string limited = LimitUtf8(value, maxBytes);
-            byte[] bytes = Encoding.UTF8.GetBytes(limited);
-            writer.Write((ushort)bytes.Length);
-            writer.Write(bytes);
+            int txtBudget = Math.Max(0, 254 - Encoding.UTF8.GetByteCount(key ?? string.Empty));
+            return LimitUtf8(value, Math.Min(maxValueBytes, txtBudget));
         }
 
-        private static bool TryReadString(BinaryReader reader, MemoryStream stream, int maxBytes, out string value)
+        internal static bool IsAscii(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return true;
+            }
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (value[i] > 0x7F)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        internal static string EncodeTxtUtf8(string value, int maxBytes)
+        {
+            string limited = LimitUtf8(value, maxBytes);
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(limited));
+        }
+
+        internal static bool TryDecodeTxtUtf8(string encoded, int maxBytes, out string value)
         {
             value = string.Empty;
-            if (stream.Length - stream.Position < sizeof(ushort))
+            if (encoded == null || maxBytes < 0)
             {
                 return false;
             }
 
-            ushort byteCount = reader.ReadUInt16();
-            if (byteCount > maxBytes || stream.Length - stream.Position < byteCount)
+            int maxEncodedLength = ((maxBytes + 2) / 3) * 4;
+            if (encoded.Length > maxEncodedLength)
             {
                 return false;
             }
 
-            byte[] bytes = reader.ReadBytes(byteCount);
-            if (bytes.Length != byteCount)
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(encoded);
+                if (bytes.Length > maxBytes)
+                {
+                    return false;
+                }
+                value = StrictUtf8.GetString(bytes);
+                return true;
+            }
+            catch (Exception ex) when (ex is FormatException || ex is DecoderFallbackException)
             {
                 return false;
             }
-
-            value = Encoding.UTF8.GetString(bytes);
-            return true;
         }
     }
 }

@@ -104,7 +104,7 @@ public static class NetworkServer
                     configuration.ServerName,
                     configuration.ServerMotd,
                     configuration.UseAuth && !string.IsNullOrEmpty(configuration.Password));
-                BNL.Log($"LAN announcements enabled on UDP {configuration.SetPort}.");
+                BNL.Log($"LAN DNS-SD announcements enabled for server port {configuration.SetPort}.");
             }
             catch (Exception ex)
             {

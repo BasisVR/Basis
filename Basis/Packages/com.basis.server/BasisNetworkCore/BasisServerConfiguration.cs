@@ -25,7 +25,7 @@ public class Configuration
 
     public int PeerLimit = ushort.MaxValue;
     public ushort SetPort = 4296;
-    /// <summary>When true, advertise this server to Basis clients on the local network through UDP broadcast/multicast and mDNS. Disabled by default.</summary>
+    /// <summary>When true, advertise this server to Basis clients through mDNS/DNS-SD. Disabled by default.</summary>
     public bool AnnounceToLan = false;
     /// <summary>Display name returned by the unconnected server-info query — what shows up as the row title in a client server-list UI.</summary>
     public string ServerName = "Basis Server";
