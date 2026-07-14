@@ -370,19 +370,7 @@ namespace Basis.BasisUI
                 return;
             }
 
-            if (!value)
-            {
-                BasisLanServerAdvertiser.Stop();
-                return;
-            }
-
-            Configuration configuration = runner.Configuration;
-            BasisLanServerAdvertiser.Start(
-                configuration.SetPort,
-                configuration.NetworkStackId,
-                configuration.ServerName,
-                configuration.ServerMotd,
-                configuration.UseAuth && !string.IsNullOrEmpty(configuration.Password));
+            runner.SetLanAdvertising(value);
         }
 
         private void PopulateHostStackDropdown()

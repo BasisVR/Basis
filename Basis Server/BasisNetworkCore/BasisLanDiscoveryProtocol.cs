@@ -114,7 +114,7 @@ namespace Basis.Network.Core
             }
         }
 
-        internal static string LimitUtf8(string value, int maxBytes)
+        public static string LimitUtf8(string value, int maxBytes)
         {
             if (string.IsNullOrEmpty(value) || maxBytes <= 0)
             {

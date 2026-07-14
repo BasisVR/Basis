@@ -1,4 +1,5 @@
 using Basis.Network;
+using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using System;
 using System.Threading;
@@ -10,16 +11,24 @@ public class BasisNetworkServerRunner
 {
     public Task serverTask;
     private readonly object lifecycleGate = new object();
-    CancellationTokenSource cancellationTokenSource;
+    private CancellationTokenSource cancellationTokenSource;
+    private BasisLanServerAnnouncer lanServerAnnouncer;
+
     [SerializeField]
     public Configuration Configuration;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetLanAdvertising()
+    {
+        BasisNetworkConnection.BasisNetworkServerRunner?.SetLanAdvertising(false);
+    }
+
     public void Initialize(Configuration configuration, string LogPath, string UUIDTomarkAsAdmin)
     {
         Configuration = configuration;
         BasisServerSideLogging.Initialize(Configuration, LogPath);
         cancellationTokenSource = new CancellationTokenSource();
-        var cancellationToken = cancellationTokenSource.Token;
+        CancellationToken cancellationToken = cancellationTokenSource.Token;
         serverTask = Task.Run(() =>
         {
             try
@@ -28,20 +37,11 @@ public class BasisNetworkServerRunner
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     NetworkServer.StartServer(Configuration);
-
-                    if (BasisNetworkManagement.HostShowToLan)
-                    {
-                        BasisLanServerAdvertiser.Start(
-                            Configuration.SetPort,
-                            Configuration.NetworkStackId,
-                            Configuration.ServerName,
-                            Configuration.ServerMotd,
-                            Configuration.UseAuth && !string.IsNullOrEmpty(Configuration.Password));
-                    }
+                    ApplyLanAdvertisingLocked(BasisNetworkManagement.HostShowToLan);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin,"*");
+                PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin, "*");
                 PermissionIntegration.Manager.AddUserToGroup(UUIDTomarkAsAdmin, "admin");
             }
             catch (OperationCanceledException)
@@ -49,18 +49,44 @@ public class BasisNetworkServerRunner
             }
             catch (Exception ex)
             {
-                BasisLanServerAdvertiser.Stop();
+                SetLanAdvertising(false);
                 BNL.LogError($"Server encountered an error: {ex.Message} {ex.StackTrace}");
-                // Optionally, handle server restart or log critical errors
             }
         }, cancellationToken);
     }
+
+    public void SetLanAdvertising(bool enabled)
+    {
+        lock (lifecycleGate)
+        {
+            ApplyLanAdvertisingLocked(enabled);
+        }
+    }
+
+    private void ApplyLanAdvertisingLocked(bool enabled)
+    {
+        BasisLanServerAnnouncer replacement = null;
+        if (enabled && Configuration != null)
+        {
+            replacement = new BasisLanServerAnnouncer(
+                Configuration.SetPort,
+                Configuration.NetworkStackId,
+                Configuration.ServerName,
+                Configuration.ServerMotd,
+                Configuration.UseAuth && !string.IsNullOrEmpty(Configuration.Password));
+        }
+
+        BasisLanServerAnnouncer previous = lanServerAnnouncer;
+        lanServerAnnouncer = replacement;
+        previous?.Dispose();
+    }
+
     public void Stop()
     {
         lock (lifecycleGate)
         {
             cancellationTokenSource?.Cancel();
-            BasisLanServerAdvertiser.Stop();
+            ApplyLanAdvertisingLocked(false);
             NetworkServer.StopServer();
         }
     }

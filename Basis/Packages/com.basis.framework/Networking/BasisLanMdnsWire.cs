@@ -32,7 +32,6 @@ namespace Basis.Scripts.Networking
         {
             public string Name;
             public ushort Type;
-            public ushort Class;
             public uint Ttl;
             public string DomainName;
             public ushort Port;
@@ -123,7 +122,7 @@ namespace Basis.Scripts.Networking
             Action<BasisLanAdvertisement, IPAddress> found,
             Action<Guid> removed)
         {
-            if (message == null || !message.IsResponse)
+            if (message == null)
             {
                 return;
             }
@@ -185,23 +184,10 @@ namespace Basis.Scripts.Networking
                     instanceId,
                     srv.Port,
                     password == "1",
-                    LimitUtf8(stack, BasisLanDiscoveryProtocol.MaxStackIdBytes),
-                    LimitUtf8(name, BasisLanDiscoveryProtocol.MaxServerNameBytes),
-                    LimitUtf8(motd, BasisLanDiscoveryProtocol.MaxMotdBytes)), address);
+                    BasisLanDiscoveryProtocol.LimitUtf8(stack, BasisLanDiscoveryProtocol.MaxStackIdBytes),
+                    BasisLanDiscoveryProtocol.LimitUtf8(name, BasisLanDiscoveryProtocol.MaxServerNameBytes),
+                    BasisLanDiscoveryProtocol.LimitUtf8(motd, BasisLanDiscoveryProtocol.MaxMotdBytes)), address);
             }
-        }
-
-        public static string LimitUtf8(string value, int maxBytes)
-        {
-            if (string.IsNullOrEmpty(value) || maxBytes <= 0) return string.Empty;
-            if (Encoding.UTF8.GetByteCount(value) <= maxBytes) return value;
-            int length = value.Length;
-            while (length > 0 && Encoding.UTF8.GetByteCount(value, 0, length) > maxBytes)
-            {
-                length--;
-                if (length > 0 && char.IsHighSurrogate(value[length - 1])) length--;
-            }
-            return length == 0 ? string.Empty : value.Substring(0, length);
         }
 
         private static byte[] EncodeName(string value)
@@ -227,14 +213,14 @@ namespace Basis.Scripts.Networking
             record = null;
             if (!ReadName(packet, ref offset, out string name) || packet.Length - offset < 10) return false;
             ushort type = U16(packet, ref offset);
-            ushort recordClass = U16(packet, ref offset);
+            U16(packet, ref offset);
             uint ttl = U32(packet, ref offset);
             ushort length = U16(packet, ref offset);
             int start = offset;
             int end = start + length;
             if (end < start || end > packet.Length) return false;
 
-            Record parsed = new Record { Name = name, Type = type, Class = recordClass, Ttl = ttl };
+            Record parsed = new Record { Name = name, Type = type, Ttl = ttl };
             if (type == Ptr)
             {
                 int pos = start;

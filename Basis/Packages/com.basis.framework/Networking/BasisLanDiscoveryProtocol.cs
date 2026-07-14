@@ -12,60 +12,6 @@ using UnityEngine;
 namespace Basis.Scripts.Networking
 {
     /// <summary>
-    /// Periodically announces an in-process hosted server through the custom LAN
-    /// datagram protocol and standard mDNS/DNS-SD. The service is opt-in and is
-    /// stopped with the hosted server lifecycle.
-    /// </summary>
-    public static class BasisLanServerAdvertiser
-    {
-        private static readonly object Gate = new object();
-        private static Basis.Network.Core.BasisLanServerAnnouncer _announcer;
-
-        public static bool IsRunning
-        {
-            get
-            {
-                lock (Gate)
-                {
-                    return _announcer != null && _announcer.IsRunning;
-                }
-            }
-        }
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() => Stop();
-
-        public static void Start(ushort serverPort, string networkStackId, string serverName, string motd, bool requiresPassword)
-        {
-            Basis.Network.Core.BasisLanServerAnnouncer announcer = new Basis.Network.Core.BasisLanServerAnnouncer(
-                serverPort,
-                networkStackId,
-                serverName,
-                motd,
-                requiresPassword);
-
-            Basis.Network.Core.BasisLanServerAnnouncer previousAnnouncer;
-            lock (Gate)
-            {
-                previousAnnouncer = _announcer;
-                _announcer = announcer;
-            }
-            previousAnnouncer?.Dispose();
-        }
-
-        public static void Stop()
-        {
-            Basis.Network.Core.BasisLanServerAnnouncer announcer;
-            lock (Gate)
-            {
-                announcer = _announcer;
-                _announcer = null;
-            }
-            announcer?.Dispose();
-        }
-    }
-
-    /// <summary>
     /// Server-directory source backed by LAN advertisements. Entries expire automatically
     /// when their host stops announcing, matching Minecraft-style LAN discovery behavior.
     /// </summary>
@@ -75,7 +21,6 @@ namespace Basis.Scripts.Networking
         private const int EntryLifetimeMs = 5000;
         private const int CleanupIntervalMs = 1000;
         private const int MaxTrackedServers = 256;
-        private const int MaxAddressesPerServer = 16;
         private static readonly long EntryLifetimeTicks =
             (long)(EntryLifetimeMs / 1000.0 * Stopwatch.Frequency);
 
@@ -83,7 +28,9 @@ namespace Basis.Scripts.Networking
         {
             public Guid InstanceId;
             public IPAddress Address;
-            public readonly Dictionary<IPAddress, long> AddressLastSeen = new Dictionary<IPAddress, long>();
+            public long AddressLastSeenTicks;
+            public IPAddress AlternateAddress;
+            public long AlternateAddressLastSeenTicks;
             public ushort Port;
             public bool RequiresPassword;
             public string NetworkStackId;
@@ -335,14 +282,7 @@ namespace Basis.Scripts.Networking
                     _servers.Add(advertisement.InstanceId, existing);
                 }
 
-                PruneAddressCandidatesLocked(existing, nowTicks);
-                TrackAddressLocked(existing, address, nowTicks);
-                if (existing.Address == null || !existing.AddressLastSeen.ContainsKey(existing.Address))
-                {
-                    IPAddress selectedAddress = SelectPreferredAddressLocked(existing);
-                    changed |= !Equals(existing.Address, selectedAddress);
-                    existing.Address = selectedAddress;
-                }
+                changed |= UpdateAddressLocked(existing, address, nowTicks);
 
                 if (!isNew)
                 {
@@ -432,100 +372,46 @@ namespace Basis.Scripts.Networking
             return true;
         }
 
-        private static void PruneAddressCandidatesLocked(DiscoveredServer server, long nowTicks)
+        private static bool UpdateAddressLocked(DiscoveredServer server, IPAddress address, long nowTicks)
         {
-            List<IPAddress> expired = null;
-            foreach (KeyValuePair<IPAddress, long> pair in server.AddressLastSeen)
+            if (server.Address == null)
             {
-                if (nowTicks - pair.Value <= EntryLifetimeTicks)
-                {
-                    continue;
-                }
-
-                expired ??= new List<IPAddress>();
-                expired.Add(pair.Key);
+                server.Address = address;
+                server.AddressLastSeenTicks = nowTicks;
+                return true;
             }
 
-            if (expired == null)
+            if (Equals(server.Address, address))
             {
-                return;
+                server.AddressLastSeenTicks = nowTicks;
+                return false;
             }
 
-            foreach (IPAddress address in expired)
+            if (Equals(server.AlternateAddress, address))
             {
-                server.AddressLastSeen.Remove(address);
+                server.AlternateAddressLastSeenTicks = nowTicks;
             }
-        }
-
-        private static void TrackAddressLocked(DiscoveredServer server, IPAddress address, long nowTicks)
-        {
-            if (!server.AddressLastSeen.ContainsKey(address)
-                && server.AddressLastSeen.Count >= MaxAddressesPerServer)
+            else if (server.AlternateAddress == null
+                     || nowTicks - server.AlternateAddressLastSeenTicks > EntryLifetimeTicks
+                     || AddressPreferenceRank(address) < AddressPreferenceRank(server.AlternateAddress))
             {
-                IPAddress oldestAddress = null;
-                long oldestTicks = long.MaxValue;
-                foreach (KeyValuePair<IPAddress, long> pair in server.AddressLastSeen)
-                {
-                    if (Equals(pair.Key, server.Address) || pair.Value >= oldestTicks)
-                    {
-                        continue;
-                    }
-
-                    oldestAddress = pair.Key;
-                    oldestTicks = pair.Value;
-                }
-
-                if (oldestAddress != null)
-                {
-                    server.AddressLastSeen.Remove(oldestAddress);
-                }
-                else
-                {
-                    return;
-                }
+                server.AlternateAddress = address;
+                server.AlternateAddressLastSeenTicks = nowTicks;
             }
 
-            server.AddressLastSeen[address] = nowTicks;
-        }
-
-        private static IPAddress SelectPreferredAddressLocked(DiscoveredServer server)
-        {
-            IPAddress selected = null;
-            foreach (IPAddress candidate in server.AddressLastSeen.Keys)
+            if (nowTicks - server.AddressLastSeenTicks <= EntryLifetimeTicks)
             {
-                if (selected == null || CompareAddressPreference(candidate, selected) < 0)
-                {
-                    selected = candidate;
-                }
-            }
-            return selected;
-        }
-
-        private static int CompareAddressPreference(IPAddress left, IPAddress right)
-        {
-            int rankComparison = AddressPreferenceRank(left).CompareTo(AddressPreferenceRank(right));
-            if (rankComparison != 0)
-            {
-                return rankComparison;
+                return false;
             }
 
-            byte[] leftBytes = left.GetAddressBytes();
-            byte[] rightBytes = right.GetAddressBytes();
-            int lengthComparison = leftBytes.Length.CompareTo(rightBytes.Length);
-            if (lengthComparison != 0)
-            {
-                return lengthComparison;
-            }
-
-            for (int i = 0; i < leftBytes.Length; i++)
-            {
-                int byteComparison = leftBytes[i].CompareTo(rightBytes[i]);
-                if (byteComparison != 0)
-                {
-                    return byteComparison;
-                }
-            }
-            return left.ScopeId.CompareTo(right.ScopeId);
+            IPAddress replacement = server.AlternateAddress ?? address;
+            server.Address = replacement;
+            server.AddressLastSeenTicks = Equals(replacement, address)
+                ? nowTicks
+                : server.AlternateAddressLastSeenTicks;
+            server.AlternateAddress = null;
+            server.AlternateAddressLastSeenTicks = 0;
+            return true;
         }
 
         private static int AddressPreferenceRank(IPAddress address)

@@ -56,16 +56,6 @@ namespace Basis.Network.Core
         private bool _disposed;
 
         public Guid InstanceId { get; }
-        public bool IsRunning
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return !_disposed;
-                }
-            }
-        }
 
         public BasisLanServerAnnouncer(
             ushort serverPort,
