@@ -31,7 +31,7 @@ namespace Basis.Network.Core
     }
 
     /// <summary>Shared constants and text limits for Basis LAN DNS-SD.</summary>
-    public static class BasisLanDiscoveryProtocol
+    internal static class BasisLanDiscoveryProtocol
     {
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
         public const string ServiceName = "_basisvr._udp";
@@ -40,7 +40,7 @@ namespace Basis.Network.Core
         public const int MaxServerNameBytes = 128;
         public const int MaxMotdBytes = 384;
 
-        public static string LimitUtf8(string value, int maxBytes)
+        internal static string LimitUtf8(string value, int maxBytes)
         {
             if (string.IsNullOrEmpty(value) || maxBytes <= 0)
             {

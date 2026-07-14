@@ -137,7 +137,7 @@ namespace Basis.Network.Core
             }
         }
 
-        internal static bool TryExtractAdvertisement(
+        private static bool TryExtractAdvertisement(
             Message message,
             DomainName serviceInstanceName,
             IPAddress remoteAddress,

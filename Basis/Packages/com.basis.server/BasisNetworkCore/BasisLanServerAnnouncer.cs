@@ -18,8 +18,6 @@ namespace Basis.Network.Core
         private ServiceProfile _profile;
         private bool _disposed;
 
-        public Guid InstanceId { get; }
-
         public BasisLanServerAnnouncer(
             ushort serverPort,
             string networkStackId,
@@ -32,8 +30,7 @@ namespace Basis.Network.Core
                 throw new ArgumentOutOfRangeException(nameof(serverPort));
             }
 
-            InstanceId = Guid.NewGuid();
-            string id = InstanceId.ToString("N");
+            string id = Guid.NewGuid().ToString("N");
             string effectiveStackId = string.IsNullOrWhiteSpace(networkStackId)
                 ? BasisNetworkStackRegistry.DefaultId
                 : networkStackId;
