@@ -17,10 +17,27 @@ namespace Basis.BasisUI
 {
     public class ServersProvider : BasisMenuActionProvider<BasisMainMenu>
     {
+        private static ServersProvider _instance;
+
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMenuBase<BasisMainMenu>.AddProvider(new ServersProvider());
+            BasisConnectionService.LanPasswordRequired -= OnLanPasswordRequired;
+            _instance = new ServersProvider();
+            BasisConnectionService.LanPasswordRequired += OnLanPasswordRequired;
+            BasisMenuBase<BasisMainMenu>.AddProvider(_instance);
+        }
+
+        private static void OnLanPasswordRequired(ServerDirectoryEntry entry)
+        {
+            if (entry == null || _instance == null)
+            {
+                return;
+            }
+
+            BasisMainMenu.Open();
+            _instance.RunAction();
+            _instance.ShowLanPasswordPrompt(entry);
         }
 
         public const string TitleKey = "menu.provider.servers";
@@ -932,12 +949,6 @@ namespace Basis.BasisUI
 
         private void OnConnectClicked(ServerDirectoryEntry entry)
         {
-            if (IsLan(entry) && entry.HasPassword && string.IsNullOrEmpty(entry.Password))
-            {
-                ShowLanPasswordPrompt(entry);
-                return;
-            }
-
             HideLanPasswordPrompt();
             _ = ConnectToAsync(entry);
         }

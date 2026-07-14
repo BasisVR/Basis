@@ -171,6 +171,7 @@ namespace Basis.Scripts.Networking
         public static void SetupLocalPlayer(NetPeer peer)
         {
             BasisDebug.Log("Authentication confirmed! Now setting up Networked Local Player");
+            BasisConnectionService.NotifyConnectionSucceeded();
 #if UNITY_SERVER
             BasisHeadlessRuntimeStatus.MarkConnected();
 #endif

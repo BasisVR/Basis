@@ -868,6 +868,7 @@ public static class BasisNetworkEvents
     {
         if (disconnectInfo.Reason == DisconnectReason.DisconnectPeerCalled)
         {
+            BasisConnectionService.ClearPendingLanPasswordAttempt();
             BasisDebug.Log($"Disconnected locally [{disconnectInfo.Reason}]", BasisDebug.LogTag.Networking);
             return;
         }
@@ -877,6 +878,7 @@ public static class BasisNetworkEvents
 
         if (disconnectInfo.Reason == DisconnectReason.RemoteConnectionClose)
         {
+            BasisConnectionService.ClearPendingLanPasswordAttempt();
 #if UNITY_SERVER
             // PeekString is now defensive — a malformed additional-data payload
             // returns "" instead of throwing. Read once and re-use.
@@ -945,6 +947,15 @@ public static class BasisNetworkEvents
                         title = "Server Full";
                         body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "This server is full. Please try again later.";
                         break;
+                    case BasisNetworkCommons.RejectKind_InvalidPassword:
+                        if (BasisConnectionService.TryHandleLanPasswordRejected())
+                        {
+                            BasisDebug.LogWarning("LAN server rejected the password; requesting a replacement from the user.");
+                            return;
+                        }
+                        title = "Incorrect Password";
+                        body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "The server password is incorrect.";
+                        break;
                     default:
                         title = "Connection Rejected";
                         body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "The server rejected the connection.";
@@ -956,6 +967,13 @@ public static class BasisNetworkEvents
                 // Legacy bare-string reject, or a non-rejection disconnect (timeout, etc.). PeekString
                 // is defensive: an empty/malformed payload yields "".
                 string reason = extra?.PeekString();
+                if (rejected
+                    && string.Equals(reason, "Authentication failed, Auth rejected", StringComparison.Ordinal)
+                    && BasisConnectionService.TryHandleLanPasswordRejected())
+                {
+                    BasisDebug.LogWarning("Legacy LAN server rejected the password; requesting a replacement from the user.");
+                    return;
+                }
                 title = rejected ? "Connection Rejected" : "Server Disconnected";
                 body = !string.IsNullOrEmpty(reason)
                     ? reason
@@ -963,6 +981,8 @@ public static class BasisNetworkEvents
                         ? "The server rejected the connection. It may be full, running a different Basis version, or you may not be authorized."
                         : disconnectInfo.Reason.ToString());
             }
+
+            BasisConnectionService.ClearPendingLanPasswordAttempt();
 
 #if UNITY_SERVER
             if (canShowMenu)

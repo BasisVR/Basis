@@ -2220,7 +2220,7 @@
     },
     {
       "key": "menu.servers.hostShowToLan.description",
-      "value": "Advertise this hosted server to Basis clients on your local network. Password-protected servers ask nearby clients for the password when they connect; the password is never included in LAN announcements."
+      "value": "Advertise this hosted server to Basis clients on your local network. Password-protected servers first try the standard default password, then prompt if it is rejected; the password is never included in LAN announcements."
     },
     {
       "key": "menu.servers.lanPassword.title",
@@ -2228,7 +2228,7 @@
     },
     {
       "key": "menu.servers.lanPassword.description",
-      "value": "This LAN server requires a password."
+      "value": "The password was rejected. Enter the server password."
     },
     {
       "key": "menu.servers.list.lanBadge",
