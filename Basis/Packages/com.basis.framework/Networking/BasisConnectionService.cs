@@ -111,7 +111,12 @@ namespace Basis.Scripts.Networking
                 BasisLocalPlayer.Instance.DisplayName = userName.Trim();
                 BasisLocalPlayer.Instance.SetSafeDisplayname();
                 BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, UsernameFileName);
-                BasisDataStore.SaveString(entry.Id, LastConnectedServerIdFile);
+                if (!string.Equals(entry.SourceId, LanServersDirectorySource.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    // LAN advertisements are session-scoped and their passwords are never persisted.
+                    // Keep the previous durable auto-connect target instead of saving an expiring LAN id.
+                    BasisDataStore.SaveString(entry.Id, LastConnectedServerIdFile);
+                }
 
                 string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
                 string portString = entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty;
