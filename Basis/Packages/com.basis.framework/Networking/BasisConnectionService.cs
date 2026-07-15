@@ -115,7 +115,7 @@ namespace Basis.Scripts.Networking
             }
             catch (Exception ex)
             {
-                BasisDebug.LogError($"LanPasswordRequired handler threw: {ex.Message}");
+                BasisDebug.LogError($"LanPasswordRequired handler threw: {ex.Message}", BasisDebug.LogTag.Networking);
                 return false;
             }
         }

@@ -134,7 +134,7 @@ namespace Basis.Scripts.Networking
             }
             catch (Exception ex)
             {
-                BasisDebug.LogWarning($"LAN DNS-SD discovery could not start: {ex.Message}");
+                BasisDebug.LogWarning($"LAN DNS-SD discovery could not start: {ex.Message}", BasisDebug.LogTag.Networking);
                 ReleaseAndroidMulticastLock();
             }
         }
@@ -156,7 +156,7 @@ namespace Basis.Scripts.Networking
             {
                 _androidMulticastLock?.Dispose();
                 _androidMulticastLock = null;
-                BasisDebug.LogWarning($"Could not acquire Android LAN discovery multicast lock: {ex.Message}");
+                BasisDebug.LogWarning($"Could not acquire Android LAN discovery multicast lock: {ex.Message}", BasisDebug.LogTag.Networking);
             }
 #endif
         }
@@ -178,7 +178,7 @@ namespace Basis.Scripts.Networking
             }
             catch (Exception ex)
             {
-                BasisDebug.LogWarning($"Could not release Android LAN discovery multicast lock: {ex.Message}");
+                BasisDebug.LogWarning($"Could not release Android LAN discovery multicast lock: {ex.Message}", BasisDebug.LogTag.Networking);
             }
             finally
             {
@@ -392,7 +392,7 @@ namespace Basis.Scripts.Networking
                 }
 
                 try { SourceChanged?.Invoke(); }
-                catch (Exception ex) { BasisDebug.LogError($"LanServersDirectorySource.SourceChanged threw: {ex.Message}"); }
+                catch (Exception ex) { BasisDebug.LogError($"LanServersDirectorySource.SourceChanged threw: {ex.Message}", BasisDebug.LogTag.Networking); }
             });
         }
 
@@ -407,7 +407,7 @@ namespace Basis.Scripts.Networking
             try { _cancellation.Cancel(); }
             catch (ObjectDisposedException) { }
             try { _browser?.Dispose(); }
-            catch (Exception ex) { BasisDebug.LogWarning($"LAN DNS-SD discovery shutdown failed: {ex.Message}"); }
+            catch (Exception ex) { BasisDebug.LogWarning($"LAN DNS-SD discovery shutdown failed: {ex.Message}", BasisDebug.LogTag.Networking); }
             _browser = null;
             ReleaseAndroidMulticastLock();
             _cancellation.Dispose();

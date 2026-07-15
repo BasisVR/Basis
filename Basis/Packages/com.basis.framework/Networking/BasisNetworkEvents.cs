@@ -962,7 +962,7 @@ public static class BasisNetworkEvents
                     && string.Equals(reason, BasisNetworkCommons.AuthenticationRejectedReason, StringComparison.Ordinal)
                     && BasisConnectionService.TryHandleLanAuthenticationRejected())
                 {
-                    BasisDebug.LogWarning("LAN server rejected authentication; requesting a password from the user.");
+                    BasisDebug.LogWarning("LAN server rejected authentication; requesting a password from the user.", BasisDebug.LogTag.Networking);
                     return;
                 }
                 title = rejected ? "Connection Rejected" : "Server Disconnected";
