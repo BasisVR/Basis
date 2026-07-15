@@ -24,7 +24,10 @@ public static class NetworkServer
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static readonly object AuthenticatedPeerTag = new object();
     public static Configuration Configuration;
+    private static readonly object _lanAnnouncementGate = new object();
     private static BasisLanServerAnnouncer _lanServerAnnouncer;
+    private static Guid _lanServerInstanceId;
+    private static bool _lanServerRunning;
     /// <summary>
     /// Allow-list consulted at <see cref="BasisServerHandle.BasisServerHandleEvents.OnNetworkAccepted"/>
     /// when <see cref="Configuration.BasisUserRestrictionMode"/> is set to <c>AllowList</c>.
@@ -94,24 +97,12 @@ public static class NetworkServer
         SetupServer(configuration);
         SubscribeEvents(Configuration);
 
-        if (configuration.AnnounceToLan)
+        lock (_lanAnnouncementGate)
         {
-            try
-            {
-                _lanServerAnnouncer = new BasisLanServerAnnouncer(
-                    configuration.SetPort,
-                    configuration.NetworkStackId,
-                    configuration.ServerName,
-                    configuration.ServerMotd,
-                    configuration.UseAuth && !string.IsNullOrEmpty(configuration.Password));
-                BNL.Log($"LAN DNS-SD announcements enabled for server port {configuration.SetPort}.");
-            }
-            catch (Exception ex)
-            {
-                _lanServerAnnouncer = null;
-                BNL.LogWarning($"LAN announcements could not start: {ex.Message}");
-            }
+            _lanServerInstanceId = Guid.NewGuid();
+            _lanServerRunning = true;
         }
+        SetLanAdvertising(configuration.AnnounceToLan);
 
         if (configuration.EnableStatistics)
         {
@@ -123,10 +114,56 @@ public static class NetworkServer
         BNL.Log("Server Worker Threads Booted");
     }
 
+    public static void SetLanAdvertising(bool enabled)
+    {
+        BasisLanServerAnnouncer previous = null;
+        lock (_lanAnnouncementGate)
+        {
+            if (!enabled)
+            {
+                previous = _lanServerAnnouncer;
+                _lanServerAnnouncer = null;
+            }
+            else
+            {
+                if (!_lanServerRunning || Server == null || Configuration == null || _lanServerAnnouncer != null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _lanServerAnnouncer = new BasisLanServerAnnouncer(
+                        _lanServerInstanceId,
+                        Configuration.SetPort,
+                        Configuration.NetworkStackId,
+                        Configuration.ServerName,
+                        Configuration.ServerMotd,
+                        Configuration.UseAuth && !string.IsNullOrEmpty(Configuration.Password));
+                    BNL.Log($"LAN DNS-SD announcements enabled for server port {Configuration.SetPort}.");
+                }
+                catch (Exception ex)
+                {
+                    _lanServerAnnouncer = null;
+                    BNL.LogWarning($"LAN announcements could not start: {ex.Message}");
+                }
+            }
+        }
+
+        try { previous?.Dispose(); }
+        catch (Exception ex) { BNL.LogWarning($"LAN announcements could not stop cleanly: {ex.Message}"); }
+    }
+
     public static void StopServer()
     {
-        BasisLanServerAnnouncer lanServerAnnouncer = _lanServerAnnouncer;
-        _lanServerAnnouncer = null;
+        BasisLanServerAnnouncer lanServerAnnouncer;
+        lock (_lanAnnouncementGate)
+        {
+            _lanServerRunning = false;
+            _lanServerInstanceId = Guid.Empty;
+            lanServerAnnouncer = _lanServerAnnouncer;
+            _lanServerAnnouncer = null;
+        }
         try { lanServerAnnouncer?.Dispose(); }
         catch (Exception ex) { BNL.LogWarning($"LAN announcements could not stop cleanly: {ex.Message}"); }
 

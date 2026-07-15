@@ -201,6 +201,11 @@ namespace Basis.Scripts.Networking
             long nowTicks = Stopwatch.GetTimestamp();
             lock (_gate)
             {
+                if (_disposed)
+                {
+                    return;
+                }
+
                 changed = PruneExpiredLocked(nowTicks);
                 bool isNew = !_servers.TryGetValue(advertisement.InstanceId, out DiscoveredServer existing);
                 changed |= isNew;
@@ -268,6 +273,9 @@ namespace Basis.Scripts.Networking
             catch (OperationCanceledException)
             {
             }
+            catch (ObjectDisposedException)
+            {
+            }
         }
 
         private bool PruneExpired()
@@ -325,7 +333,8 @@ namespace Basis.Scripts.Networking
             }
             else if (server.AlternateAddress == null
                      || nowTicks - server.AlternateAddressLastSeenTicks > EntryLifetimeTicks
-                     || AddressPreferenceRank(address) < AddressPreferenceRank(server.AlternateAddress))
+                     || BasisLanAddressUtility.PreferenceRank(address)
+                        < BasisLanAddressUtility.PreferenceRank(server.AlternateAddress))
             {
                 server.AlternateAddress = address;
                 server.AlternateAddressLastSeenTicks = nowTicks;
@@ -344,16 +353,6 @@ namespace Basis.Scripts.Networking
             server.AlternateAddress = null;
             server.AlternateAddressLastSeenTicks = 0;
             return true;
-        }
-
-        private static int AddressPreferenceRank(IPAddress address)
-        {
-            if (address.AddressFamily == AddressFamily.InterNetwork)
-            {
-                byte[] bytes = address.GetAddressBytes();
-                return bytes.Length == 4 && bytes[0] == 169 && bytes[1] == 254 ? 1 : 0;
-            }
-            return address.IsIPv6LinkLocal ? 3 : 2;
         }
 
         private void RemoveOldestServerLocked()

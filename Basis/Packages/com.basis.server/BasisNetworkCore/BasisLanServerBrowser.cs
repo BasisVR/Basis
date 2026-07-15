@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -137,7 +136,7 @@ namespace Basis.Network.Core
             }
         }
 
-        private static bool TryExtractAdvertisement(
+        internal static bool TryExtractAdvertisement(
             Message message,
             DomainName serviceInstanceName,
             IPAddress remoteAddress,
@@ -194,17 +193,17 @@ namespace Basis.Network.Core
                 return false;
             }
 
-            string stackId = ReadMetadata(
+            string stackId = BasisLanDiscoveryProtocol.ReadMetadata(
                 properties,
                 "stack",
                 "stack64",
                 BasisLanDiscoveryProtocol.MaxStackIdBytes);
-            string serverName = ReadMetadata(
+            string serverName = BasisLanDiscoveryProtocol.ReadMetadata(
                 properties,
                 "name",
                 "name64",
                 BasisLanDiscoveryProtocol.MaxServerNameBytes);
-            string motd = ReadMetadata(
+            string motd = BasisLanDiscoveryProtocol.ReadMetadata(
                 properties,
                 "motd",
                 "motd64",
@@ -309,55 +308,12 @@ namespace Basis.Network.Core
             return properties;
         }
 
-        private static string ReadMetadata(
-            Dictionary<string, string> properties,
-            string legacyKey,
-            string encodedKey,
-            int maxBytes)
-        {
-            if (TryReadEncodedMetadata(properties, encodedKey, maxBytes, out string decoded))
-            {
-                return decoded;
-            }
-
-            properties.TryGetValue(legacyKey, out string legacy);
-            return BasisLanDiscoveryProtocol.LimitUtf8(legacy, maxBytes);
-        }
-
-        private static bool TryReadEncodedMetadata(
-            Dictionary<string, string> properties,
-            string encodedKey,
-            int maxBytes,
-            out string value)
-        {
-            value = string.Empty;
-            if (!properties.TryGetValue(encodedKey + "-0", out string firstChunk))
-            {
-                return false;
-            }
-
-            StringBuilder encoded = new StringBuilder(firstChunk);
-            for (int index = 1; index <= 9; index++)
-            {
-                if (!properties.TryGetValue($"{encodedKey}-{index}", out string chunk))
-                {
-                    break;
-                }
-                encoded.Append(chunk);
-            }
-
-            return BasisLanDiscoveryProtocol.TryDecodeTxtUtf8(
-                encoded.ToString(),
-                maxBytes,
-                out value);
-        }
-
         private static IPAddress SelectAddress(
             List<ResourceRecord> records,
             DomainName hostName,
             IPAddress remoteAddress)
         {
-            if (IsUsableAddress(remoteAddress))
+            if (BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true))
             {
                 return remoteAddress;
             }
@@ -367,13 +323,15 @@ namespace Basis.Network.Core
             {
                 if (!(record is AddressRecord addressRecord)
                     || !NamesEqual(record.Name, hostName)
-                    || !IsUsableAddress(addressRecord.Address))
+                    || !BasisLanAddressUtility.IsUsable(addressRecord.Address, allowLoopback: true))
                 {
                     continue;
                 }
 
                 IPAddress candidate = RestoreScope(addressRecord.Address, remoteAddress);
-                if (selected == null || AddressPreferenceRank(candidate) < AddressPreferenceRank(selected))
+                if (selected == null
+                    || BasisLanAddressUtility.PreferenceRank(candidate)
+                        < BasisLanAddressUtility.PreferenceRank(selected))
                 {
                     selected = candidate;
                 }
@@ -396,28 +354,9 @@ namespace Basis.Network.Core
             return address;
         }
 
-        private static int AddressPreferenceRank(IPAddress address)
-        {
-            if (address.AddressFamily == AddressFamily.InterNetwork)
-            {
-                byte[] bytes = address.GetAddressBytes();
-                return bytes.Length == 4 && bytes[0] == 169 && bytes[1] == 254 ? 1 : 0;
-            }
-            return address.IsIPv6LinkLocal ? 3 : 2;
-        }
-
         private static bool NamesEqual(DomainName left, DomainName right)
         {
             return left != null && right != null && left.Equals(right);
-        }
-
-        private static bool IsUsableAddress(IPAddress address)
-        {
-            return address != null
-                && !address.Equals(IPAddress.Any)
-                && !address.Equals(IPAddress.IPv6Any)
-                && !address.Equals(IPAddress.Broadcast)
-                && !address.IsIPv6Multicast;
         }
 
         public void Dispose()

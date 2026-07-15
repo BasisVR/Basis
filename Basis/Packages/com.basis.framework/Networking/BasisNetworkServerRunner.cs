@@ -1,5 +1,4 @@
 using Basis.Network;
-using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using System;
 using System.Threading;
@@ -12,7 +11,6 @@ public class BasisNetworkServerRunner
     public Task serverTask;
     private readonly object lifecycleGate = new object();
     private CancellationTokenSource cancellationTokenSource;
-    private BasisLanServerAnnouncer lanServerAnnouncer;
 
     [SerializeField]
     public Configuration Configuration;
@@ -20,7 +18,7 @@ public class BasisNetworkServerRunner
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetLanAdvertising()
     {
-        BasisNetworkConnection.BasisNetworkServerRunner?.SetLanAdvertising(false);
+        NetworkServer.SetLanAdvertising(false);
     }
 
     public void Initialize(Configuration configuration, string LogPath, string UUIDTomarkAsAdmin)
@@ -37,10 +35,10 @@ public class BasisNetworkServerRunner
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     NetworkServer.StartServer(Configuration);
-                    ApplyLanAdvertisingLocked(BasisNetworkManagement.HostShowToLan);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
+                NetworkServer.SetLanAdvertising(BasisNetworkManagement.HostShowToLan);
                 PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin, "*");
                 PermissionIntegration.Manager.AddUserToGroup(UUIDTomarkAsAdmin, "admin");
             }
@@ -57,28 +55,7 @@ public class BasisNetworkServerRunner
 
     public void SetLanAdvertising(bool enabled)
     {
-        lock (lifecycleGate)
-        {
-            ApplyLanAdvertisingLocked(enabled);
-        }
-    }
-
-    private void ApplyLanAdvertisingLocked(bool enabled)
-    {
-        BasisLanServerAnnouncer replacement = null;
-        if (enabled && Configuration != null)
-        {
-            replacement = new BasisLanServerAnnouncer(
-                Configuration.SetPort,
-                Configuration.NetworkStackId,
-                Configuration.ServerName,
-                Configuration.ServerMotd,
-                Configuration.UseAuth && !string.IsNullOrEmpty(Configuration.Password));
-        }
-
-        BasisLanServerAnnouncer previous = lanServerAnnouncer;
-        lanServerAnnouncer = replacement;
-        previous?.Dispose();
+        NetworkServer.SetLanAdvertising(enabled);
     }
 
     public void Stop()
@@ -86,8 +63,10 @@ public class BasisNetworkServerRunner
         lock (lifecycleGate)
         {
             cancellationTokenSource?.Cancel();
-            ApplyLanAdvertisingLocked(false);
-            NetworkServer.StopServer();
         }
+
+        // mDNS goodbye and socket shutdown may block briefly; do not hold the runner
+        // lifecycle lock while the server-owned announcer is disposed.
+        NetworkServer.StopServer();
     }
 }

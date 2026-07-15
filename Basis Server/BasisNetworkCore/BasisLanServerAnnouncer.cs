@@ -3,7 +3,6 @@ using MeaMod.DNS.Multicast;
 using System;
 using System.Linq;
 using System.Net;
-using System.Text;
 
 namespace Basis.Network.Core
 {
@@ -19,24 +18,21 @@ namespace Basis.Network.Core
         private bool _disposed;
 
         public BasisLanServerAnnouncer(
+            Guid instanceId,
             ushort serverPort,
             string networkStackId,
             string serverName,
             string motd,
             bool requiresPassword)
         {
+            if (instanceId == Guid.Empty)
+            {
+                throw new ArgumentException("LAN server instance ID cannot be empty.", nameof(instanceId));
+            }
             if (serverPort == 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(serverPort));
             }
-
-            string id = Guid.NewGuid().ToString("N");
-            string effectiveStackId = string.IsNullOrWhiteSpace(networkStackId)
-                ? BasisNetworkStackRegistry.DefaultId
-                : networkStackId;
-            string effectiveServerName = string.IsNullOrWhiteSpace(serverName)
-                ? "Basis Server"
-                : serverName;
 
             ServiceDiscovery discovery = null;
             try
@@ -44,33 +40,14 @@ namespace Basis.Network.Core
                 discovery = new ServiceDiscovery();
                 discovery.Mdns.IgnoreDuplicateMessages = true;
 
-                IPAddress[] addresses = GetAdvertisedAddresses();
-                ServiceProfile profile = new ServiceProfile(
-                    new DomainName($"Basis-{id}"),
-                    new DomainName(BasisLanDiscoveryProtocol.ServiceName),
+                ServiceProfile profile = CreateProfile(
+                    instanceId,
                     serverPort,
-                    addresses);
-                profile.AddProperty("protocol", BasisLanDiscoveryProtocol.ProtocolVersion);
-                profile.AddProperty("id", id);
-                AddMetadata(
-                    profile,
-                    "stack",
-                    "stack64",
-                    effectiveStackId,
-                    BasisLanDiscoveryProtocol.MaxStackIdBytes);
-                AddMetadata(
-                    profile,
-                    "name",
-                    "name64",
-                    effectiveServerName,
-                    BasisLanDiscoveryProtocol.MaxServerNameBytes);
-                AddMetadata(
-                    profile,
-                    "motd",
-                    "motd64",
-                    motd ?? string.Empty,
-                    BasisLanDiscoveryProtocol.MaxMotdBytes);
-                profile.AddProperty("pwd", requiresPassword ? "1" : "0");
+                    networkStackId,
+                    serverName,
+                    motd,
+                    requiresPassword,
+                    GetAdvertisedAddresses());
 
                 discovery.Advertise(profile);
                 _profile = profile;
@@ -83,45 +60,67 @@ namespace Basis.Network.Core
             }
         }
 
-        private static void AddMetadata(
-            ServiceProfile profile,
-            string legacyKey,
-            string encodedKey,
-            string value,
-            int maxBytes)
+        internal static ServiceProfile CreateProfile(
+            Guid instanceId,
+            ushort serverPort,
+            string networkStackId,
+            string serverName,
+            string motd,
+            bool requiresPassword,
+            IPAddress[] addresses)
         {
-            string limited = BasisLanDiscoveryProtocol.LimitUtf8(value, maxBytes);
-            if (BasisLanDiscoveryProtocol.IsAscii(limited))
+            if (instanceId == Guid.Empty)
             {
-                profile.AddProperty(
-                    legacyKey,
-                    BasisLanDiscoveryProtocol.LimitTxtProperty(legacyKey, limited, maxBytes));
-                return;
+                throw new ArgumentException("LAN server instance ID cannot be empty.", nameof(instanceId));
+            }
+            if (serverPort == 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(serverPort));
             }
 
-            string encoded = BasisLanDiscoveryProtocol.EncodeTxtUtf8(limited, maxBytes);
-            int offset = 0;
-            for (int index = 0; offset < encoded.Length; index++)
-            {
-                if (index > 9)
-                {
-                    throw new InvalidOperationException("Basis LAN metadata requires too many TXT chunks.");
-                }
+            string id = instanceId.ToString("N");
+            string effectiveStackId = string.IsNullOrWhiteSpace(networkStackId)
+                ? BasisNetworkStackRegistry.DefaultId
+                : networkStackId;
+            string effectiveServerName = string.IsNullOrWhiteSpace(serverName)
+                ? "Basis Server"
+                : serverName;
 
-                string chunkKey = $"{encodedKey}-{index}";
-                int chunkBudget = Math.Max(1, 254 - Encoding.ASCII.GetByteCount(chunkKey));
-                int chunkLength = Math.Min(chunkBudget, encoded.Length - offset);
-                profile.AddProperty(chunkKey, encoded.Substring(offset, chunkLength));
-                offset += chunkLength;
-            }
+            ServiceProfile profile = new ServiceProfile(
+                new DomainName($"Basis-{id}"),
+                new DomainName(BasisLanDiscoveryProtocol.ServiceName),
+                serverPort,
+                addresses ?? Array.Empty<IPAddress>());
+            profile.AddProperty("protocol", BasisLanDiscoveryProtocol.ProtocolVersion);
+            profile.AddProperty("id", id);
+            BasisLanDiscoveryProtocol.AddMetadata(
+                profile,
+                "stack",
+                "stack64",
+                effectiveStackId,
+                BasisLanDiscoveryProtocol.MaxStackIdBytes);
+            BasisLanDiscoveryProtocol.AddMetadata(
+                profile,
+                "name",
+                "name64",
+                effectiveServerName,
+                BasisLanDiscoveryProtocol.MaxServerNameBytes);
+            BasisLanDiscoveryProtocol.AddMetadata(
+                profile,
+                "motd",
+                "motd64",
+                motd ?? string.Empty,
+                BasisLanDiscoveryProtocol.MaxMotdBytes);
+            profile.AddProperty("pwd", requiresPassword ? "1" : "0");
+            return profile;
         }
 
         private static IPAddress[] GetAdvertisedAddresses()
         {
             try
             {
-                return MulticastService.GetLinkLocalAddresses()
-                    .Where(IsUsableAddress)
+                return MulticastService.GetIPAddresses()
+                    .Where(address => BasisLanAddressUtility.IsUsable(address))
                     .Distinct()
                     .ToArray();
             }
@@ -130,16 +129,6 @@ namespace Basis.Network.Core
                 BNL.LogWarning($"Basis LAN address discovery failed: {ex.Message}");
                 return Array.Empty<IPAddress>();
             }
-        }
-
-        private static bool IsUsableAddress(IPAddress address)
-        {
-            return address != null
-                && !IPAddress.IsLoopback(address)
-                && !address.Equals(IPAddress.Any)
-                && !address.Equals(IPAddress.IPv6Any)
-                && !address.Equals(IPAddress.Broadcast)
-                && !address.IsIPv6Multicast;
         }
 
         public void Dispose()

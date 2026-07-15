@@ -26,7 +26,7 @@ namespace Basis.Scripts.Networking
         public const string LastConnectedServerIdFile = "LastConnectedServerId.BAS";
 
         public static bool AutoConnectAttempted;
-        private static bool _connectInProgress;
+        private static int _connectInProgress;
         private static readonly object LanPasswordGate = new object();
         private static ServerDirectoryEntry _pendingLanPasswordEntry;
 
@@ -45,7 +45,7 @@ namespace Basis.Scripts.Networking
                 _pendingLanPasswordEntry = null;
             }
             LanPasswordRequired = null;
-            _connectInProgress = false;
+            Volatile.Write(ref _connectInProgress, 0);
         }
 
         // Stable key the loading bar uses to merge updates for the same connection
@@ -151,12 +151,11 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static async Task ConnectAsync(ServerDirectoryEntry entry, string userName, bool isHostMode = false)
         {
-            if (_connectInProgress)
+            if (Interlocked.CompareExchange(ref _connectInProgress, 1, 0) != 0)
             {
                 BasisDebug.LogWarning("Connect requested while a connection attempt is already in progress; ignoring.");
                 return;
             }
-            _connectInProgress = true;
             try
             {
                 ReportConnectionProgress(5f, BasisLocalization.Get("menu.servers.status.initializing"));
@@ -252,7 +251,7 @@ namespace Basis.Scripts.Networking
             }
             finally
             {
-                _connectInProgress = false;
+                Volatile.Write(ref _connectInProgress, 0);
             }
         }
 
