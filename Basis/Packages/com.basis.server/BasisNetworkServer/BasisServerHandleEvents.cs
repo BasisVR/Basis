@@ -254,12 +254,7 @@ namespace BasisServerHandle
                     }
                     if (NetworkServer.Auth.IsAuthenticated(AuthBytes) == false)
                     {
-                        RejectStructured(
-                            ConReq,
-                            BasisNetworkCommons.RejectKind_InvalidPassword,
-                            0,
-                            0,
-                            "The server password is incorrect.");
+                        RejectWithReason(ConReq, BasisNetworkCommons.AuthenticationRejectedReason);
                         return;
                     }
                 }

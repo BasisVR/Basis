@@ -947,15 +947,6 @@ public static class BasisNetworkEvents
                         title = "Server Full";
                         body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "This server is full. Please try again later.";
                         break;
-                    case BasisNetworkCommons.RejectKind_InvalidPassword:
-                        if (BasisConnectionService.TryHandleLanPasswordRejected())
-                        {
-                            BasisDebug.LogWarning("LAN server rejected the password; requesting a replacement from the user.");
-                            return;
-                        }
-                        title = "Incorrect Password";
-                        body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "The server password is incorrect.";
-                        break;
                     default:
                         title = "Connection Rejected";
                         body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "The server rejected the connection.";
@@ -964,14 +955,14 @@ public static class BasisNetworkEvents
             }
             else
             {
-                // Legacy bare-string reject, or a non-rejection disconnect (timeout, etc.). PeekString
+                // Bare-string reject, or a non-rejection disconnect (timeout, etc.). PeekString
                 // is defensive: an empty/malformed payload yields "".
                 string reason = extra?.PeekString();
                 if (rejected
-                    && string.Equals(reason, "Authentication failed, Auth rejected", StringComparison.Ordinal)
-                    && BasisConnectionService.TryHandleLanPasswordRejected())
+                    && string.Equals(reason, BasisNetworkCommons.AuthenticationRejectedReason, StringComparison.Ordinal)
+                    && BasisConnectionService.TryHandleLanAuthenticationRejected())
                 {
-                    BasisDebug.LogWarning("Legacy LAN server rejected the password; requesting a replacement from the user.");
+                    BasisDebug.LogWarning("LAN server rejected authentication; requesting a password from the user.");
                     return;
                 }
                 title = rejected ? "Connection Rejected" : "Server Disconnected";

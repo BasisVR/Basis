@@ -30,7 +30,7 @@ namespace Basis.Scripts.Networking
         private static ServerDirectoryEntry _pendingLanPasswordEntry;
 
         /// <summary>
-        /// Raised when a password-protected LAN connection is rejected for an invalid password.
+        /// Raised when a password-protected LAN connection receives an authentication rejection.
         /// UI packages can use this to request a replacement without coupling the framework to a
         /// particular menu implementation.
         /// </summary>
@@ -90,7 +90,7 @@ namespace Basis.Scripts.Networking
         internal static void ClearPendingLanPasswordAttempt() =>
             Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
 
-        internal static bool TryHandleLanPasswordRejected()
+        internal static bool TryHandleLanAuthenticationRejected()
         {
             ServerDirectoryEntry entry = Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
 
