@@ -22,16 +22,15 @@ public sealed class BasisLanDiscoveryTests
     }
 
     [Fact]
-    public void LongAsciiMotd_UsesChunksAndRoundTripsAtFullLimit()
+    public void LongAsciiMotd_UsesOnlyEncodedChunksAndRoundTripsAtFullLimit()
     {
         string motd = new string('M', BasisLanDiscoveryProtocol.MaxMotdBytes);
         Guid id = Guid.NewGuid();
         ServiceProfile profile = CreateProfile(id, "ASCII Server", motd, requiresPassword: false);
         Dictionary<string, string> properties = ReadProperties(profile);
 
-        Assert.True(properties.TryGetValue("motd", out string? legacy));
-        Assert.True(Encoding.ASCII.GetByteCount(legacy) < Encoding.ASCII.GetByteCount(motd));
-        Assert.Contains("motd64-0", properties.Keys);
+        Assert.DoesNotContain("motd", properties.Keys);
+        Assert.Equal(3, properties.Keys.Count(key => key.StartsWith("motd64-", StringComparison.Ordinal)));
 
         BasisLanAdvertisement advertisement = Extract(profile);
         Assert.Equal(id, advertisement.InstanceId);

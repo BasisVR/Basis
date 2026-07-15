@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -130,7 +131,7 @@ namespace Basis.Network.Core
                 return;
             }
 
-            if (TryReadInstanceId(args.Message, args.ServiceInstanceName, out Guid instanceId))
+            if (TryReadInstanceId(args.ServiceInstanceName, out Guid instanceId))
             {
                 _removed(instanceId);
             }
@@ -150,12 +151,12 @@ namespace Basis.Network.Core
                 return false;
             }
 
-            List<ResourceRecord> records = CollectRecords(message);
+            IEnumerable<ResourceRecord> records = EnumerateRecords(message);
             SRVRecord service = null;
             TXTRecord text = null;
             foreach (ResourceRecord record in records)
             {
-                if (!NamesEqual(record?.Name, serviceInstanceName))
+                if (!Equals(record?.Name, serviceInstanceName))
                 {
                     continue;
                 }
@@ -219,32 +220,10 @@ namespace Basis.Network.Core
         }
 
         private static bool TryReadInstanceId(
-            Message message,
             DomainName serviceInstanceName,
             out Guid instanceId)
         {
             instanceId = Guid.Empty;
-            if (message != null)
-            {
-                foreach (ResourceRecord record in CollectRecords(message))
-                {
-                    if (!(record is TXTRecord text)
-                        || !NamesEqual(record.Name, serviceInstanceName)
-                        || text.Strings == null)
-                    {
-                        continue;
-                    }
-
-                    Dictionary<string, string> properties = ReadProperties(text.Strings);
-                    if (properties.TryGetValue("id", out string idText)
-                        && Guid.TryParseExact(idText, "N", out instanceId)
-                        && instanceId != Guid.Empty)
-                    {
-                        return true;
-                    }
-                }
-            }
-
             string instance = serviceInstanceName?.ToString() ?? string.Empty;
             int separator = instance.IndexOf('.');
             if (separator >= 0)
@@ -256,29 +235,13 @@ namespace Basis.Network.Core
                 && instanceId != Guid.Empty;
         }
 
-        private static List<ResourceRecord> CollectRecords(Message message)
+        private static IEnumerable<ResourceRecord> EnumerateRecords(Message message)
         {
-            List<ResourceRecord> records = new List<ResourceRecord>();
-            AddRecords(records, message.Answers);
-            AddRecords(records, message.AuthorityRecords);
-            AddRecords(records, message.AdditionalRecords);
-            return records;
-        }
-
-        private static void AddRecords(List<ResourceRecord> target, IList<ResourceRecord> source)
-        {
-            if (source == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < source.Count && target.Count < MaxRecords; i++)
-            {
-                if (source[i] != null)
-                {
-                    target.Add(source[i]);
-                }
-            }
+            return message.Answers
+                .Concat(message.AuthorityRecords)
+                .Concat(message.AdditionalRecords)
+                .Where(record => record != null)
+                .Take(MaxRecords);
         }
 
         private static Dictionary<string, string> ReadProperties(IList<string> values)
@@ -309,7 +272,7 @@ namespace Basis.Network.Core
         }
 
         private static IPAddress SelectAddress(
-            List<ResourceRecord> records,
+            IEnumerable<ResourceRecord> records,
             DomainName hostName,
             IPAddress remoteAddress)
         {
@@ -322,7 +285,7 @@ namespace Basis.Network.Core
             foreach (ResourceRecord record in records)
             {
                 if (!(record is AddressRecord addressRecord)
-                    || !NamesEqual(record.Name, hostName)
+                    || !Equals(record.Name, hostName)
                     || !BasisLanAddressUtility.IsUsable(addressRecord.Address, allowLoopback: true))
                 {
                     continue;
@@ -352,11 +315,6 @@ namespace Basis.Network.Core
                 return new IPAddress(address.GetAddressBytes(), remoteAddress.ScopeId);
             }
             return address;
-        }
-
-        private static bool NamesEqual(DomainName left, DomainName right)
-        {
-            return left != null && right != null && left.Equals(right);
         }
 
         public void Dispose()

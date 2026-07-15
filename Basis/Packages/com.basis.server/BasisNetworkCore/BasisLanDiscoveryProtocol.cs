@@ -39,45 +39,35 @@ namespace Basis.Network.Core
     {
         public static bool IsUsable(IPAddress address, bool allowLoopback = false)
         {
-            if (address == null
-                || address.Equals(IPAddress.Any)
-                || address.Equals(IPAddress.IPv6Any)
-                || address.Equals(IPAddress.Broadcast)
-                || address.IsIPv6Multicast
-                || (!allowLoopback && IPAddress.IsLoopback(address)))
+            if (address == null || (!allowLoopback && IPAddress.IsLoopback(address)))
             {
                 return false;
             }
 
             if (address.AddressFamily == AddressFamily.InterNetwork)
             {
-                byte[] bytes = address.GetAddressBytes();
-                return bytes.Length == 4 && (bytes[0] < 224 || bytes[0] > 239);
+                byte firstOctet = address.GetAddressBytes()[0];
+                return !address.Equals(IPAddress.Any)
+                    && !address.Equals(IPAddress.Broadcast)
+                    && (firstOctet < 224 || firstOctet > 239);
             }
 
-            return address.AddressFamily == AddressFamily.InterNetworkV6;
+            return address.AddressFamily == AddressFamily.InterNetworkV6
+                && !address.Equals(IPAddress.IPv6Any)
+                && !address.IsIPv6Multicast;
         }
 
         public static int PreferenceRank(IPAddress address)
         {
-            if (address == null)
-            {
-                return int.MaxValue;
-            }
-
-            if (address.AddressFamily == AddressFamily.InterNetwork)
+            if (address?.AddressFamily == AddressFamily.InterNetwork)
             {
                 byte[] bytes = address.GetAddressBytes();
-                bool linkLocal = bytes.Length == 4 && bytes[0] == 169 && bytes[1] == 254;
-                return linkLocal ? 2 : 0;
+                return bytes[0] == 169 && bytes[1] == 254 ? 2 : 0;
             }
 
-            if (address.AddressFamily == AddressFamily.InterNetworkV6)
-            {
-                return address.IsIPv6LinkLocal ? 3 : 1;
-            }
-
-            return int.MaxValue;
+            return address?.AddressFamily == AddressFamily.InterNetworkV6
+                ? address.IsIPv6LinkLocal ? 3 : 1
+                : int.MaxValue;
         }
     }
 
@@ -91,7 +81,6 @@ namespace Basis.Network.Core
         internal const int MaxStackIdBytes = 64;
         internal const int MaxServerNameBytes = 128;
         internal const int MaxMotdBytes = 384;
-        internal const int MaxEncodedChunks = 10;
 
         internal static string LimitUtf8(string value, int maxBytes)
         {
@@ -118,45 +107,19 @@ namespace Basis.Network.Core
 
         internal static void AddMetadata(
             ServiceProfile profile,
-            string legacyKey,
             string encodedKey,
             string value,
             int maxBytes)
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
-            if (string.IsNullOrEmpty(legacyKey)) throw new ArgumentException("TXT key is required.", nameof(legacyKey));
-            if (string.IsNullOrEmpty(encodedKey)) throw new ArgumentException("Encoded TXT key is required.", nameof(encodedKey));
+            if (string.IsNullOrEmpty(encodedKey)) throw new ArgumentException("TXT key is required.", nameof(encodedKey));
 
-            string limited = LimitUtf8(value, maxBytes);
-            int legacyBudget = TxtValueBudget(legacyKey);
-            bool ascii = IsAscii(limited);
-            if (ascii)
+            string encoded = Convert.ToBase64String(
+                Encoding.UTF8.GetBytes(LimitUtf8(value, maxBytes)));
+            for (int index = 0, offset = 0; offset < encoded.Length; index++)
             {
-                string legacy = LimitUtf8(limited, Math.Min(maxBytes, legacyBudget));
-                profile.AddProperty(legacyKey, legacy);
-                if (Encoding.ASCII.GetByteCount(limited) <= legacyBudget)
-                {
-                    return;
-                }
-            }
-
-            string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(limited));
-            int offset = 0;
-            for (int index = 0; offset < encoded.Length; index++)
-            {
-                if (index >= MaxEncodedChunks)
-                {
-                    throw new InvalidOperationException("Basis LAN metadata requires too many TXT chunks.");
-                }
-
                 string chunkKey = $"{encodedKey}-{index}";
-                int chunkBudget = TxtValueBudget(chunkKey);
-                if (chunkBudget <= 0)
-                {
-                    throw new InvalidOperationException("Basis LAN TXT key leaves no room for a value.");
-                }
-
-                int chunkLength = Math.Min(chunkBudget, encoded.Length - offset);
+                int chunkLength = Math.Min(TxtValueBudget(chunkKey), encoded.Length - offset);
                 profile.AddProperty(chunkKey, encoded.Substring(offset, chunkLength));
                 offset += chunkLength;
             }
@@ -168,79 +131,49 @@ namespace Basis.Network.Core
             string encodedKey,
             int maxBytes)
         {
-            if (TryReadEncodedMetadata(properties, encodedKey, maxBytes, out string decoded))
+            int maxEncodedLength = ((maxBytes + 2) / 3) * 4;
+            StringBuilder encoded = new StringBuilder(maxEncodedLength);
+            for (int index = 0;
+                 properties.TryGetValue($"{encodedKey}-{index}", out string chunk);
+                 index++)
             {
-                return decoded;
-            }
-
-            properties.TryGetValue(legacyKey, out string legacy);
-            return LimitUtf8(legacy, maxBytes);
-        }
-
-        private static bool TryReadEncodedMetadata(
-            Dictionary<string, string> properties,
-            string encodedKey,
-            int maxBytes,
-            out string value)
-        {
-            value = string.Empty;
-            if (!properties.TryGetValue(encodedKey + "-0", out string firstChunk))
-            {
-                return false;
-            }
-
-            StringBuilder encoded = new StringBuilder(firstChunk);
-            for (int index = 1; index < MaxEncodedChunks; index++)
-            {
-                if (!properties.TryGetValue($"{encodedKey}-{index}", out string chunk))
+                if (chunk.Length > maxEncodedLength - encoded.Length)
                 {
-                    break;
+                    return ReadLegacy(properties, legacyKey, maxBytes);
                 }
                 encoded.Append(chunk);
             }
 
-            int maxEncodedLength = ((maxBytes + 2) / 3) * 4;
-            if (encoded.Length > maxEncodedLength)
+            if (encoded.Length != 0)
             {
-                return false;
+                try
+                {
+                    byte[] bytes = Convert.FromBase64String(encoded.ToString());
+                    if (bytes.Length <= maxBytes)
+                    {
+                        return StrictUtf8.GetString(bytes);
+                    }
+                }
+                catch (Exception ex) when (ex is FormatException || ex is DecoderFallbackException)
+                {
+                }
             }
 
-            try
-            {
-                byte[] bytes = Convert.FromBase64String(encoded.ToString());
-                if (bytes.Length > maxBytes)
-                {
-                    return false;
-                }
-                value = StrictUtf8.GetString(bytes);
-                return true;
-            }
-            catch (Exception ex) when (ex is FormatException || ex is DecoderFallbackException)
-            {
-                return false;
-            }
+            return ReadLegacy(properties, legacyKey, maxBytes);
+        }
+
+        private static string ReadLegacy(
+            Dictionary<string, string> properties,
+            string key,
+            int maxBytes)
+        {
+            properties.TryGetValue(key, out string value);
+            return LimitUtf8(value, maxBytes);
         }
 
         private static int TxtValueBudget(string key)
         {
-            return Math.Max(0, 254 - Encoding.ASCII.GetByteCount(key ?? string.Empty));
-        }
-
-        private static bool IsAscii(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return true;
-            }
-
-            for (int i = 0; i < value.Length; i++)
-            {
-                if (value[i] > 0x7F)
-                {
-                    return false;
-                }
-            }
-            return true;
+            return 254 - Encoding.ASCII.GetByteCount(key);
         }
     }
 }

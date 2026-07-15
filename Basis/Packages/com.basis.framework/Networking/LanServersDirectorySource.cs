@@ -29,8 +29,6 @@ namespace Basis.Scripts.Networking
             public Guid InstanceId;
             public IPAddress Address;
             public long AddressLastSeenTicks;
-            public IPAddress AlternateAddress;
-            public long AlternateAddressLastSeenTicks;
             public ushort Port;
             public bool RequiresPassword;
             public string NetworkStackId;
@@ -314,7 +312,9 @@ namespace Basis.Scripts.Networking
 
         private static bool UpdateAddressLocked(DiscoveredServer server, IPAddress address, long nowTicks)
         {
-            if (server.Address == null)
+            if (server.Address == null
+                || (!Equals(server.Address, address)
+                    && nowTicks - server.AddressLastSeenTicks > EntryLifetimeTicks))
             {
                 server.Address = address;
                 server.AddressLastSeenTicks = nowTicks;
@@ -324,35 +324,8 @@ namespace Basis.Scripts.Networking
             if (Equals(server.Address, address))
             {
                 server.AddressLastSeenTicks = nowTicks;
-                return false;
             }
-
-            if (Equals(server.AlternateAddress, address))
-            {
-                server.AlternateAddressLastSeenTicks = nowTicks;
-            }
-            else if (server.AlternateAddress == null
-                     || nowTicks - server.AlternateAddressLastSeenTicks > EntryLifetimeTicks
-                     || BasisLanAddressUtility.PreferenceRank(address)
-                        < BasisLanAddressUtility.PreferenceRank(server.AlternateAddress))
-            {
-                server.AlternateAddress = address;
-                server.AlternateAddressLastSeenTicks = nowTicks;
-            }
-
-            if (nowTicks - server.AddressLastSeenTicks <= EntryLifetimeTicks)
-            {
-                return false;
-            }
-
-            IPAddress replacement = server.AlternateAddress ?? address;
-            server.Address = replacement;
-            server.AddressLastSeenTicks = Equals(replacement, address)
-                ? nowTicks
-                : server.AlternateAddressLastSeenTicks;
-            server.AlternateAddress = null;
-            server.AlternateAddressLastSeenTicks = 0;
-            return true;
+            return false;
         }
 
         private void RemoveOldestServerLocked()

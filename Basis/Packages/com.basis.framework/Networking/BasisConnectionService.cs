@@ -27,7 +27,6 @@ namespace Basis.Scripts.Networking
 
         public static bool AutoConnectAttempted;
         private static int _connectInProgress;
-        private static readonly object LanPasswordGate = new object();
         private static ServerDirectoryEntry _pendingLanPasswordEntry;
 
         /// <summary>
@@ -40,10 +39,7 @@ namespace Basis.Scripts.Networking
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetLanPasswordState()
         {
-            lock (LanPasswordGate)
-            {
-                _pendingLanPasswordEntry = null;
-            }
+            Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
             LanPasswordRequired = null;
             Volatile.Write(ref _connectInProgress, 0);
         }
@@ -88,27 +84,15 @@ namespace Basis.Scripts.Networking
         public static void CompleteConnectionProgress() =>
             BasisSceneLoad.progressCallback.ReportProgress(ConnectionProgressKey, 100f, string.Empty);
 
-        private static void SetPendingLanPasswordAttempt(ServerDirectoryEntry entry)
-        {
-            lock (LanPasswordGate)
-            {
-                _pendingLanPasswordEntry = entry;
-            }
-        }
+        private static void SetPendingLanPasswordAttempt(ServerDirectoryEntry entry) =>
+            Interlocked.Exchange(ref _pendingLanPasswordEntry, entry);
 
-        internal static void ClearPendingLanPasswordAttempt()
-        {
-            SetPendingLanPasswordAttempt(null);
-        }
+        internal static void ClearPendingLanPasswordAttempt() =>
+            Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
 
         internal static bool TryHandleLanPasswordRejected()
         {
-            ServerDirectoryEntry entry;
-            lock (LanPasswordGate)
-            {
-                entry = _pendingLanPasswordEntry;
-                _pendingLanPasswordEntry = null;
-            }
+            ServerDirectoryEntry entry = Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
 
             if (entry == null)
             {

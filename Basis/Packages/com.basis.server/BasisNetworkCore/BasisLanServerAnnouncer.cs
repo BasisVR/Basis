@@ -86,19 +86,16 @@ namespace Basis.Network.Core
             profile.AddProperty("id", id);
             BasisLanDiscoveryProtocol.AddMetadata(
                 profile,
-                "stack",
                 "stack64",
                 effectiveStackId,
                 BasisLanDiscoveryProtocol.MaxStackIdBytes);
             BasisLanDiscoveryProtocol.AddMetadata(
                 profile,
-                "name",
                 "name64",
                 effectiveServerName,
                 BasisLanDiscoveryProtocol.MaxServerNameBytes);
             BasisLanDiscoveryProtocol.AddMetadata(
                 profile,
-                "motd",
                 "motd64",
                 motd ?? string.Empty,
                 BasisLanDiscoveryProtocol.MaxMotdBytes);
