@@ -47,7 +47,7 @@ namespace Basis.Scripts.Networking
         private int _notificationQueued;
         private volatile bool _disposed;
 
-        public static LanServersDirectorySource Instance { get; private set; }
+        public static LanServersDirectorySource Instance;
 
         public string SourceId => Id;
         public string DisplayName => Basis.BasisUI.BasisLocalization.Get("menu.servers.source.lanServers");
