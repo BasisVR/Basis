@@ -127,7 +127,6 @@ namespace Basis.Network.Core
 
         internal static string ReadMetadata(
             Dictionary<string, string> properties,
-            string legacyKey,
             string encodedKey,
             int maxBytes)
         {
@@ -139,36 +138,27 @@ namespace Basis.Network.Core
             {
                 if (chunk.Length > maxEncodedLength - encoded.Length)
                 {
-                    return ReadLegacy(properties, legacyKey, maxBytes);
+                    return string.Empty;
                 }
                 encoded.Append(chunk);
             }
 
-            if (encoded.Length != 0)
+            if (encoded.Length == 0)
             {
-                try
-                {
-                    byte[] bytes = Convert.FromBase64String(encoded.ToString());
-                    if (bytes.Length <= maxBytes)
-                    {
-                        return StrictUtf8.GetString(bytes);
-                    }
-                }
-                catch (Exception ex) when (ex is FormatException || ex is DecoderFallbackException)
-                {
-                }
+                return string.Empty;
             }
 
-            return ReadLegacy(properties, legacyKey, maxBytes);
-        }
-
-        private static string ReadLegacy(
-            Dictionary<string, string> properties,
-            string key,
-            int maxBytes)
-        {
-            properties.TryGetValue(key, out string value);
-            return LimitUtf8(value, maxBytes);
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(encoded.ToString());
+                return bytes.Length <= maxBytes
+                    ? StrictUtf8.GetString(bytes)
+                    : string.Empty;
+            }
+            catch (Exception ex) when (ex is FormatException || ex is DecoderFallbackException)
+            {
+                return string.Empty;
+            }
         }
 
         private static int TxtValueBudget(string key)

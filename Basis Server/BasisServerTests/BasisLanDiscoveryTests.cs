@@ -61,21 +61,19 @@ public sealed class BasisLanDiscoveryTests
     }
 
     [Fact]
-    public void MalformedEncodedMetadata_FallsBackToLegacyValue()
+    public void MalformedEncodedMetadata_ReturnsEmpty()
     {
         Dictionary<string, string> properties = new(StringComparer.OrdinalIgnoreCase)
         {
-            ["name"] = "Legacy Name",
             ["name64-0"] = "not valid base64!",
         };
 
         string value = BasisLanDiscoveryProtocol.ReadMetadata(
             properties,
-            "name",
             "name64",
             BasisLanDiscoveryProtocol.MaxServerNameBytes);
 
-        Assert.Equal("Legacy Name", value);
+        Assert.Empty(value);
     }
 
     [Fact]

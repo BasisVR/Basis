@@ -196,17 +196,14 @@ namespace Basis.Network.Core
 
             string stackId = BasisLanDiscoveryProtocol.ReadMetadata(
                 properties,
-                "stack",
                 "stack64",
                 BasisLanDiscoveryProtocol.MaxStackIdBytes);
             string serverName = BasisLanDiscoveryProtocol.ReadMetadata(
                 properties,
-                "name",
                 "name64",
                 BasisLanDiscoveryProtocol.MaxServerNameBytes);
             string motd = BasisLanDiscoveryProtocol.ReadMetadata(
                 properties,
-                "motd",
                 "motd64",
                 BasisLanDiscoveryProtocol.MaxMotdBytes);
             advertisement = new BasisLanAdvertisement(
