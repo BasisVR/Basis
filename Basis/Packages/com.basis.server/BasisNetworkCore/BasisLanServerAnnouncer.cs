@@ -69,15 +69,6 @@ namespace Basis.Network.Core
             bool requiresPassword,
             IPAddress[] addresses)
         {
-            if (instanceId == Guid.Empty)
-            {
-                throw new ArgumentException("LAN server instance ID cannot be empty.", nameof(instanceId));
-            }
-            if (serverPort == 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(serverPort));
-            }
-
             string id = instanceId.ToString("N");
             string effectiveStackId = string.IsNullOrWhiteSpace(networkStackId)
                 ? BasisNetworkStackRegistry.DefaultId

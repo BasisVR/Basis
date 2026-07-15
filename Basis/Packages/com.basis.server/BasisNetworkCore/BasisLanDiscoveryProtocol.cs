@@ -140,11 +140,6 @@ namespace Basis.Network.Core
                 }
             }
 
-            if (limited.Length == 0)
-            {
-                return;
-            }
-
             string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(limited));
             int offset = 0;
             for (int index = 0; offset < encoded.Length; index++)
@@ -168,7 +163,7 @@ namespace Basis.Network.Core
         }
 
         internal static string ReadMetadata(
-            IReadOnlyDictionary<string, string> properties,
+            Dictionary<string, string> properties,
             string legacyKey,
             string encodedKey,
             int maxBytes)
@@ -178,23 +173,18 @@ namespace Basis.Network.Core
                 return decoded;
             }
 
-            string legacy = null;
-            if (properties != null)
-            {
-                properties.TryGetValue(legacyKey, out legacy);
-            }
+            properties.TryGetValue(legacyKey, out string legacy);
             return LimitUtf8(legacy, maxBytes);
         }
 
         private static bool TryReadEncodedMetadata(
-            IReadOnlyDictionary<string, string> properties,
+            Dictionary<string, string> properties,
             string encodedKey,
             int maxBytes,
             out string value)
         {
             value = string.Empty;
-            if (properties == null
-                || !properties.TryGetValue(encodedKey + "-0", out string firstChunk))
+            if (!properties.TryGetValue(encodedKey + "-0", out string firstChunk))
             {
                 return false;
             }

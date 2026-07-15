@@ -47,15 +47,10 @@ public class BasisNetworkServerRunner
             }
             catch (Exception ex)
             {
-                SetLanAdvertising(false);
+                NetworkServer.SetLanAdvertising(false);
                 BNL.LogError($"Server encountered an error: {ex.Message} {ex.StackTrace}");
             }
         }, cancellationToken);
-    }
-
-    public void SetLanAdvertising(bool enabled)
-    {
-        NetworkServer.SetLanAdvertising(enabled);
     }
 
     public void Stop()

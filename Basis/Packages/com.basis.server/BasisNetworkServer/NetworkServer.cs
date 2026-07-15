@@ -27,7 +27,6 @@ public static class NetworkServer
     private static readonly object _lanAnnouncementGate = new object();
     private static BasisLanServerAnnouncer _lanServerAnnouncer;
     private static Guid _lanServerInstanceId;
-    private static bool _lanServerRunning;
     /// <summary>
     /// Allow-list consulted at <see cref="BasisServerHandle.BasisServerHandleEvents.OnNetworkAccepted"/>
     /// when <see cref="Configuration.BasisUserRestrictionMode"/> is set to <c>AllowList</c>.
@@ -100,7 +99,6 @@ public static class NetworkServer
         lock (_lanAnnouncementGate)
         {
             _lanServerInstanceId = Guid.NewGuid();
-            _lanServerRunning = true;
         }
         SetLanAdvertising(configuration.AnnounceToLan);
 
@@ -126,7 +124,7 @@ public static class NetworkServer
             }
             else
             {
-                if (!_lanServerRunning || Server == null || Configuration == null || _lanServerAnnouncer != null)
+                if (_lanServerInstanceId == Guid.Empty || Server == null || Configuration == null || _lanServerAnnouncer != null)
                 {
                     return;
                 }
@@ -156,16 +154,11 @@ public static class NetworkServer
 
     public static void StopServer()
     {
-        BasisLanServerAnnouncer lanServerAnnouncer;
         lock (_lanAnnouncementGate)
         {
-            _lanServerRunning = false;
             _lanServerInstanceId = Guid.Empty;
-            lanServerAnnouncer = _lanServerAnnouncer;
-            _lanServerAnnouncer = null;
         }
-        try { lanServerAnnouncer?.Dispose(); }
-        catch (Exception ex) { BNL.LogWarning($"LAN announcements could not stop cleanly: {ex.Message}"); }
+        SetLanAdvertising(false);
 
         if (Server == null) return;
         try

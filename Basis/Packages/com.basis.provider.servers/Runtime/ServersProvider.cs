@@ -387,7 +387,7 @@ namespace Basis.BasisUI
                 return;
             }
 
-            runner.SetLanAdvertising(value);
+            NetworkServer.SetLanAdvertising(value);
         }
 
         private void PopulateHostStackDropdown()
