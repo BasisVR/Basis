@@ -53,6 +53,11 @@ public class BasisNetworkServerRunner
         }, cancellationToken);
     }
 
+    public void SetLanAdvertising(bool enabled)
+    {
+        NetworkServer.SetLanAdvertising(enabled);
+    }
+
     public void Stop()
     {
         lock (lifecycleGate)
