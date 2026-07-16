@@ -88,11 +88,53 @@ public sealed class BasisLanDiscoveryTests
             string.Empty,
             false,
             Array.Empty<IPAddress>());
+        IPAddress responseSource = IPAddress.Parse("192.168.1.25");
 
-        BasisLanAdvertisement advertisement = Extract(profile);
+        BasisLanAdvertisement advertisement = Extract(profile, responseSource, out IPAddress address);
 
         Assert.Equal(id, advertisement.InstanceId);
+        Assert.Equal(responseSource, address);
         Assert.DoesNotContain(profile.Resources, resource => resource is AddressRecord);
+    }
+
+    [Fact]
+    public void AdvertisedIpv4_IsPreferredOverIpv6ResponseSource()
+    {
+        IPAddress advertisedIpv4 = IPAddress.Parse("192.168.1.25");
+        IPAddress responseSource = new IPAddress(
+            IPAddress.Parse("fe80::1234").GetAddressBytes(),
+            7);
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "Android host",
+            string.Empty,
+            false,
+            new[] { advertisedIpv4 });
+
+        Extract(profile, responseSource, out IPAddress address);
+
+        Assert.Equal(advertisedIpv4, address);
+    }
+
+    [Fact]
+    public void Ipv4ResponseSource_IsPreferredOverOtherAdvertisedIpv4()
+    {
+        IPAddress advertisedIpv4 = IPAddress.Parse("10.0.0.5");
+        IPAddress responseSource = IPAddress.Parse("192.168.1.25");
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "Wi-Fi host",
+            string.Empty,
+            false,
+            new[] { advertisedIpv4 });
+
+        Extract(profile, responseSource, out IPAddress address);
+
+        Assert.Equal(responseSource, address);
     }
 
     [Fact]
@@ -132,6 +174,17 @@ public sealed class BasisLanDiscoveryTests
 
     private static BasisLanAdvertisement Extract(ServiceProfile profile)
     {
+        IPAddress expectedAddress = IPAddress.Parse("192.168.1.25");
+        BasisLanAdvertisement advertisement = Extract(profile, expectedAddress, out IPAddress address);
+        Assert.Equal(expectedAddress, address);
+        return advertisement;
+    }
+
+    private static BasisLanAdvertisement Extract(
+        ServiceProfile profile,
+        IPAddress responseSource,
+        out IPAddress address)
+    {
         Message message = new Message();
         foreach (ResourceRecord resource in profile.Resources)
         {
@@ -148,10 +201,10 @@ public sealed class BasisLanDiscoveryTests
         Assert.True(BasisLanServerBrowser.TryExtractAdvertisement(
             message,
             profile.FullyQualifiedName,
-            IPAddress.Parse("192.168.1.25"),
+            responseSource,
             out BasisLanAdvertisement advertisement,
-            out IPAddress? address));
-        Assert.Equal(IPAddress.Parse("192.168.1.25"), address);
+            out IPAddress? selectedAddress));
+        address = Assert.IsType<IPAddress>(selectedAddress);
         return advertisement;
     }
 

@@ -25,29 +25,44 @@ namespace Basis.Network.Core
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
         private readonly Action<BasisLanAdvertisement, IPAddress> _found;
         private readonly Action<Guid> _removed;
+        private MulticastService _mdns;
         private ServiceDiscovery _discovery;
         private volatile bool _disposed;
 
         public BasisLanServerBrowser(
             Action<BasisLanAdvertisement, IPAddress> found,
-            Action<Guid> removed)
+            Action<Guid> removed,
+            bool useIpv6 = true)
         {
             _found = found ?? throw new ArgumentNullException(nameof(found));
             _removed = removed ?? throw new ArgumentNullException(nameof(removed));
 
+            MulticastService mdns = null;
+            ServiceDiscovery discovery = null;
             try
             {
-                _discovery = new ServiceDiscovery();
-                _discovery.Mdns.IgnoreDuplicateMessages = true;
-                _discovery.ServiceInstanceDiscovered += OnServiceDiscovered;
-                _discovery.ServiceInstanceShutdown += OnServiceShutdown;
+                mdns = new MulticastService
+                {
+                    UseIpv4 = Socket.OSSupportsIPv4,
+                    UseIpv6 = useIpv6 && Socket.OSSupportsIPv6,
+                    IgnoreDuplicateMessages = true,
+                };
+                discovery = new ServiceDiscovery(mdns);
+                discovery.ServiceInstanceDiscovered += OnServiceDiscovered;
+                discovery.ServiceInstanceShutdown += OnServiceShutdown;
+
+                _mdns = mdns;
+                _discovery = discovery;
+                mdns.Start();
                 Query();
                 _ = Task.Run(() => QueryLoopAsync(_cancellation.Token));
             }
             catch
             {
-                _discovery?.Dispose();
+                discovery?.Dispose();
+                mdns?.Dispose();
                 _discovery = null;
+                _mdns = null;
                 _cancellation.Dispose();
                 throw;
             }
@@ -273,11 +288,6 @@ namespace Basis.Network.Core
             DomainName hostName,
             IPAddress remoteAddress)
         {
-            if (BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true))
-            {
-                return remoteAddress;
-            }
-
             IPAddress selected = null;
             foreach (ResourceRecord record in records)
             {
@@ -296,6 +306,20 @@ namespace Basis.Network.Core
                     selected = candidate;
                 }
             }
+
+            if (BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true))
+            {
+                // The IPv4 packet source is the interface that actually reached us, so it is
+                // safer than unrelated VPN/cellular A records. Android can emit mDNS over IPv6
+                // while its hosted LiteNetLib socket is only reachable over Wi-Fi IPv4; in that
+                // case prefer the advertised IPv4 address.
+                if (remoteAddress.AddressFamily == AddressFamily.InterNetwork
+                    || selected?.AddressFamily != AddressFamily.InterNetwork)
+                {
+                    return remoteAddress;
+                }
+            }
+
             return selected;
         }
 
@@ -316,6 +340,7 @@ namespace Basis.Network.Core
 
         public void Dispose()
         {
+            MulticastService mdns;
             ServiceDiscovery discovery;
             lock (_gate)
             {
@@ -329,7 +354,9 @@ namespace Basis.Network.Core
                 catch (ObjectDisposedException) { }
 
                 discovery = _discovery;
+                mdns = _mdns;
                 _discovery = null;
+                _mdns = null;
                 if (discovery != null)
                 {
                     discovery.ServiceInstanceDiscovered -= OnServiceDiscovered;
@@ -338,6 +365,7 @@ namespace Basis.Network.Core
             }
 
             discovery?.Dispose();
+            mdns?.Dispose();
             _cancellation.Dispose();
         }
     }

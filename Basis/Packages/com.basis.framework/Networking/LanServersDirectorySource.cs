@@ -129,7 +129,17 @@ namespace Basis.Scripts.Networking
             AcquireAndroidMulticastLock();
             try
             {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                // MeaMod's IPv6 multicast receiver can fail during construction on Android and
+                // prevent its IPv4 receiver from starting. LAN-hosted Basis servers already
+                // advertise IPv4 addresses, so browse over IPv4 on Android.
+                _browser = new BasisLanServerBrowser(
+                    ProcessAdvertisement,
+                    RemoveAdvertisement,
+                    useIpv6: false);
+#else
                 _browser = new BasisLanServerBrowser(ProcessAdvertisement, RemoveAdvertisement);
+#endif
                 _ = Task.Run(() => CleanupLoopAsync(_cancellation.Token));
             }
             catch (Exception ex)
