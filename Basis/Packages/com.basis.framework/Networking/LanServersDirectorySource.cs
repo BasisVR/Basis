@@ -40,7 +40,7 @@ namespace Basis.Scripts.Networking
         private readonly object _gate = new object();
         private readonly Dictionary<Guid, DiscoveredServer> _servers = new Dictionary<Guid, DiscoveredServer>();
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
-        private BasisLanServerBrowser _browser;
+        private readonly List<BasisLanServerBrowser> _browsers = new List<BasisLanServerBrowser>(2);
 #if UNITY_ANDROID && !UNITY_EDITOR
         private AndroidJavaObject _androidMulticastLock;
 #endif
@@ -116,7 +116,10 @@ namespace Basis.Scripts.Networking
         public Task RefreshAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _browser?.Query();
+            for (int index = 0; index < _browsers.Count; index++)
+            {
+                _browsers[index].Query();
+            }
             if (PruneExpired())
             {
                 QueueSourceChanged();
@@ -127,25 +130,47 @@ namespace Basis.Scripts.Networking
         private void StartListening()
         {
             AcquireAndroidMulticastLock();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // Keep the address families independent on Android. A platform/socket failure in one
+            // multicast family must not disable discovery on the other, including IPv6-only SLAAC LANs.
+            if (Socket.OSSupportsIPv4)
+            {
+                TryStartBrowser(useIpv4: true, useIpv6: false, familyName: "IPv4");
+            }
+            if (Socket.OSSupportsIPv6)
+            {
+                TryStartBrowser(useIpv4: false, useIpv6: true, familyName: "IPv6");
+            }
+#else
+            TryStartBrowser(
+                useIpv4: Socket.OSSupportsIPv4,
+                useIpv6: Socket.OSSupportsIPv6,
+                familyName: "IP");
+#endif
+            if (_browsers.Count == 0)
+            {
+                ReleaseAndroidMulticastLock();
+                return;
+            }
+
+            _ = Task.Run(() => CleanupLoopAsync(_cancellation.Token));
+        }
+
+        private void TryStartBrowser(bool useIpv4, bool useIpv6, string familyName)
+        {
             try
             {
-#if UNITY_ANDROID && !UNITY_EDITOR
-                // MeaMod's IPv6 multicast receiver can fail during construction on Android and
-                // prevent its IPv4 receiver from starting. LAN-hosted Basis servers already
-                // advertise IPv4 addresses, so browse over IPv4 on Android.
-                _browser = new BasisLanServerBrowser(
+                _browsers.Add(new BasisLanServerBrowser(
                     ProcessAdvertisement,
                     RemoveAdvertisement,
-                    useIpv6: false);
-#else
-                _browser = new BasisLanServerBrowser(ProcessAdvertisement, RemoveAdvertisement);
-#endif
-                _ = Task.Run(() => CleanupLoopAsync(_cancellation.Token));
+                    useIpv4,
+                    useIpv6));
             }
             catch (Exception ex)
             {
-                BasisDebug.LogWarning($"LAN DNS-SD discovery could not start: {ex.Message}", BasisDebug.LogTag.Networking);
-                ReleaseAndroidMulticastLock();
+                BasisDebug.LogWarning(
+                    $"LAN DNS-SD {familyName} discovery could not start: {ex.Message}",
+                    BasisDebug.LogTag.Networking);
             }
         }
 
@@ -416,9 +441,12 @@ namespace Basis.Scripts.Networking
 
             try { _cancellation.Cancel(); }
             catch (ObjectDisposedException) { }
-            try { _browser?.Dispose(); }
-            catch (Exception ex) { BasisDebug.LogWarning($"LAN DNS-SD discovery shutdown failed: {ex.Message}", BasisDebug.LogTag.Networking); }
-            _browser = null;
+            for (int index = 0; index < _browsers.Count; index++)
+            {
+                try { _browsers[index].Dispose(); }
+                catch (Exception ex) { BasisDebug.LogWarning($"LAN DNS-SD discovery shutdown failed: {ex.Message}", BasisDebug.LogTag.Networking); }
+            }
+            _browsers.Clear();
             ReleaseAndroidMulticastLock();
             _cancellation.Dispose();
 

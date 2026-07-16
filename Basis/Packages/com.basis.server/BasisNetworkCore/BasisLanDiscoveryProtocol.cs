@@ -48,6 +48,18 @@ namespace Basis.Network.Core
         }
     }
 
+    internal readonly struct BasisLanIpv6Subnet
+    {
+        public readonly IPAddress Address;
+        public readonly int PrefixLength;
+
+        public BasisLanIpv6Subnet(IPAddress address, int prefixLength)
+        {
+            Address = address;
+            PrefixLength = prefixLength;
+        }
+    }
+
     /// <summary>Shared address filtering and preference rules for Basis LAN discovery.</summary>
     public static class BasisLanAddressUtility
     {
@@ -190,6 +202,63 @@ namespace Basis.Network.Core
             return (gatewaySubnets.Count > 0 ? gatewaySubnets : fallbackSubnets).ToArray();
         }
 
+        internal static BasisLanIpv6Subnet[] GetLocalIpv6Subnets()
+        {
+            List<BasisLanIpv6Subnet> gatewaySubnets = new List<BasisLanIpv6Subnet>();
+            List<BasisLanIpv6Subnet> fallbackSubnets = new List<BasisLanIpv6Subnet>();
+            try
+            {
+                foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (networkInterface.OperationalStatus != OperationalStatus.Up
+                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback
+                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Tunnel)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        IPInterfaceProperties properties = networkInterface.GetIPProperties();
+                        bool hasUsableGateway = properties.GatewayAddresses
+                            .Any(gateway => IsUsable(gateway?.Address));
+                        foreach (UnicastIPAddressInformation unicast in properties.UnicastAddresses)
+                        {
+                            if (unicast?.Address?.AddressFamily != AddressFamily.InterNetworkV6
+                                || !IsUsable(unicast.Address))
+                            {
+                                continue;
+                            }
+
+                            int prefixLength = unicast.PrefixLength;
+                            if (prefixLength <= 0 || prefixLength > 128)
+                            {
+                                // SLAAC uses /64 by default. Use it only when a platform does not
+                                // report a usable prefix length for an otherwise valid IPv6 address.
+                                prefixLength = 64;
+                            }
+
+                            BasisLanIpv6Subnet subnet =
+                                new BasisLanIpv6Subnet(unicast.Address, prefixLength);
+                            fallbackSubnets.Add(subnet);
+                            if (hasUsableGateway)
+                            {
+                                gatewaySubnets.Add(subnet);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore interfaces that disappear or reject property queries mid-enumeration.
+                    }
+                }
+            }
+            catch
+            {
+            }
+            return (gatewaySubnets.Count > 0 ? gatewaySubnets : fallbackSubnets).ToArray();
+        }
+
         internal static bool IsOnSameIpv4Subnet(
             IPAddress candidate,
             BasisLanIpv4Subnet subnet)
@@ -213,6 +282,49 @@ namespace Basis.Network.Core
                 }
             }
             return true;
+        }
+
+        internal static bool IsOnSameIpv6Subnet(
+            IPAddress candidate,
+            BasisLanIpv6Subnet subnet)
+        {
+            if (candidate?.AddressFamily != AddressFamily.InterNetworkV6
+                || subnet.Address?.AddressFamily != AddressFamily.InterNetworkV6
+                || subnet.PrefixLength <= 0
+                || subnet.PrefixLength > 128)
+            {
+                return false;
+            }
+
+            if (candidate.IsIPv6LinkLocal
+                && candidate.ScopeId != 0
+                && subnet.Address.ScopeId != 0
+                && candidate.ScopeId != subnet.Address.ScopeId)
+            {
+                return false;
+            }
+
+            byte[] candidateBytes = candidate.GetAddressBytes();
+            byte[] localBytes = subnet.Address.GetAddressBytes();
+            int wholeBytes = subnet.PrefixLength / 8;
+            int remainingBits = subnet.PrefixLength % 8;
+
+            for (int index = 0; index < wholeBytes; index++)
+            {
+                if (candidateBytes[index] != localBytes[index])
+                {
+                    return false;
+                }
+            }
+
+            if (remainingBits == 0)
+            {
+                return true;
+            }
+
+            int mask = 0xFF << (8 - remainingBits);
+            return (candidateBytes[wholeBytes] & mask)
+                == (localBytes[wholeBytes] & mask);
         }
     }
 

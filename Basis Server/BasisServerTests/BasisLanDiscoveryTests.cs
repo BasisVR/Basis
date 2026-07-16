@@ -210,6 +210,134 @@ public sealed class BasisLanDiscoveryTests
     }
 
     [Fact]
+    public void SameSubnetSlaacIpv6_IsPreferredOverOtherIpv6Prefix()
+    {
+        IPAddress unrelatedAddress = IPAddress.Parse("fd12:3456:789a:2::10");
+        IPAddress slaacAddress = IPAddress.Parse("2001:db8:50:1::10");
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "IPv6-only host",
+            string.Empty,
+            false,
+            new[] { unrelatedAddress, slaacAddress });
+        BasisLanIpv6Subnet[] localSubnets =
+        {
+            new BasisLanIpv6Subnet(IPAddress.Parse("2001:db8:50:1::25"), 64),
+        };
+
+        Extract(
+            profile,
+            IPAddress.Parse("ff02::fb"),
+            out IPAddress address,
+            localIpv6Subnets: localSubnets);
+
+        Assert.Equal(slaacAddress, address);
+    }
+
+    [Fact]
+    public void UnrelatedOnlyIpv6_IsIgnoredWhenLocalPrefixIsKnown()
+    {
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "Unrelated IPv6 response",
+            string.Empty,
+            false,
+            new[] { IPAddress.Parse("fd12:3456:789a:2::10") });
+        BasisLanIpv6Subnet[] localSubnets =
+        {
+            new BasisLanIpv6Subnet(IPAddress.Parse("2001:db8:50:1::25"), 64),
+        };
+        Message message = CreateMessage(profile);
+
+        Assert.False(BasisLanServerBrowser.TryExtractAdvertisement(
+            message,
+            profile.FullyQualifiedName,
+            IPAddress.Parse("ff02::fb"),
+            out _,
+            out _,
+            localIpv6Subnets: localSubnets));
+    }
+
+    [Fact]
+    public void Ipv6SubnetMatch_UsesReportedPrefixLength()
+    {
+        BasisLanIpv6Subnet subnet = new BasisLanIpv6Subnet(
+            IPAddress.Parse("2001:db8:1234:5600::25"),
+            56);
+
+        Assert.True(BasisLanAddressUtility.IsOnSameIpv6Subnet(
+            IPAddress.Parse("2001:db8:1234:56ff::10"),
+            subnet));
+        Assert.False(BasisLanAddressUtility.IsOnSameIpv6Subnet(
+            IPAddress.Parse("2001:db8:1234:5700::10"),
+            subnet));
+    }
+
+    [Fact]
+    public void LinkLocalIpv6_RestoresInterfaceScope()
+    {
+        IPAddress localLinkLocal = new IPAddress(
+            IPAddress.Parse("fe80::25").GetAddressBytes(),
+            7);
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "Link-local IPv6 host",
+            string.Empty,
+            false,
+            new[] { IPAddress.Parse("fe80::10") });
+        BasisLanIpv6Subnet[] localSubnets =
+        {
+            new BasisLanIpv6Subnet(localLinkLocal, 64),
+        };
+
+        Extract(
+            profile,
+            IPAddress.Parse("ff02::fb"),
+            out IPAddress address,
+            localIpv6Subnets: localSubnets);
+
+        Assert.True(address.IsIPv6LinkLocal);
+        Assert.Equal(7, address.ScopeId);
+    }
+
+    [Fact]
+    public void AmbiguousLinkLocalIpv6WithoutScope_IsIgnored()
+    {
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "Ambiguous link-local host",
+            string.Empty,
+            false,
+            new[] { IPAddress.Parse("fe80::10") });
+        BasisLanIpv6Subnet[] localSubnets =
+        {
+            new BasisLanIpv6Subnet(
+                new IPAddress(IPAddress.Parse("fe80::25").GetAddressBytes(), 7),
+                64),
+            new BasisLanIpv6Subnet(
+                new IPAddress(IPAddress.Parse("fe80::35").GetAddressBytes(), 9),
+                64),
+        };
+        Message message = CreateMessage(profile);
+
+        Assert.False(BasisLanServerBrowser.TryExtractAdvertisement(
+            message,
+            profile.FullyQualifiedName,
+            IPAddress.Parse("ff02::fb"),
+            out _,
+            out _,
+            localIpv6Subnets: localSubnets));
+    }
+
+    [Fact]
     public void AddressPreference_PrioritizesRoutableAddressesOverLinkLocal()
     {
         IPAddress ipv4 = IPAddress.Parse("192.168.1.10");
@@ -256,7 +384,8 @@ public sealed class BasisLanDiscoveryTests
         ServiceProfile profile,
         IPAddress responseSource,
         out IPAddress address,
-        IReadOnlyList<BasisLanIpv4Subnet>? localIpv4Subnets = null)
+        IReadOnlyList<BasisLanIpv4Subnet>? localIpv4Subnets = null,
+        IReadOnlyList<BasisLanIpv6Subnet>? localIpv6Subnets = null)
     {
         Message message = CreateMessage(profile);
 
@@ -266,7 +395,8 @@ public sealed class BasisLanDiscoveryTests
             responseSource,
             out BasisLanAdvertisement advertisement,
             out IPAddress? selectedAddress,
-            localIpv4Subnets));
+            localIpv4Subnets,
+            localIpv6Subnets));
         address = Assert.IsType<IPAddress>(selectedAddress);
         return advertisement;
     }

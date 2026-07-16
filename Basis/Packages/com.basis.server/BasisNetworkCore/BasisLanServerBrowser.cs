@@ -26,6 +26,7 @@ namespace Basis.Network.Core
         private readonly Action<BasisLanAdvertisement, IPAddress> _found;
         private readonly Action<Guid> _removed;
         private readonly BasisLanIpv4Subnet[] _localIpv4Subnets;
+        private readonly BasisLanIpv6Subnet[] _localIpv6Subnets;
         private MulticastService _mdns;
         private ServiceDiscovery _discovery;
         private volatile bool _disposed;
@@ -33,11 +34,21 @@ namespace Basis.Network.Core
         public BasisLanServerBrowser(
             Action<BasisLanAdvertisement, IPAddress> found,
             Action<Guid> removed,
+            bool useIpv4 = true,
             bool useIpv6 = true)
         {
             _found = found ?? throw new ArgumentNullException(nameof(found));
             _removed = removed ?? throw new ArgumentNullException(nameof(removed));
             _localIpv4Subnets = BasisLanAddressUtility.GetLocalIpv4Subnets();
+            _localIpv6Subnets = BasisLanAddressUtility.GetLocalIpv6Subnets();
+
+            bool ipv4Enabled = useIpv4 && Socket.OSSupportsIPv4;
+            bool ipv6Enabled = useIpv6 && Socket.OSSupportsIPv6;
+            if (!ipv4Enabled && !ipv6Enabled)
+            {
+                throw new PlatformNotSupportedException(
+                    "LAN discovery requires at least one supported IP address family.");
+            }
 
             MulticastService mdns = null;
             ServiceDiscovery discovery = null;
@@ -45,8 +56,8 @@ namespace Basis.Network.Core
             {
                 mdns = new MulticastService
                 {
-                    UseIpv4 = Socket.OSSupportsIPv4,
-                    UseIpv6 = useIpv6 && Socket.OSSupportsIPv6,
+                    UseIpv4 = ipv4Enabled,
+                    UseIpv6 = ipv6Enabled,
                     IgnoreDuplicateMessages = true,
                 };
                 discovery = new ServiceDiscovery(mdns);
@@ -139,7 +150,8 @@ namespace Basis.Network.Core
                     args.RemoteEndPoint?.Address,
                     out BasisLanAdvertisement advertisement,
                     out IPAddress address,
-                    _localIpv4Subnets))
+                    _localIpv4Subnets,
+                    _localIpv6Subnets))
             {
                 _found(advertisement, address);
             }
@@ -164,7 +176,8 @@ namespace Basis.Network.Core
             IPAddress remoteAddress,
             out BasisLanAdvertisement advertisement,
             out IPAddress address,
-            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets = null)
+            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets = null,
+            IReadOnlyList<BasisLanIpv6Subnet> localIpv6Subnets = null)
         {
             advertisement = default;
             address = null;
@@ -210,7 +223,12 @@ namespace Basis.Network.Core
                 return false;
             }
 
-            address = SelectAddress(records, service.Target, remoteAddress, localIpv4Subnets);
+            address = SelectAddress(
+                records,
+                service.Target,
+                remoteAddress,
+                localIpv4Subnets,
+                localIpv6Subnets);
             if (address == null)
             {
                 return false;
@@ -294,17 +312,17 @@ namespace Basis.Network.Core
             IEnumerable<ResourceRecord> records,
             DomainName hostName,
             IPAddress remoteAddress,
-            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets)
+            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets,
+            IReadOnlyList<BasisLanIpv6Subnet> localIpv6Subnets)
         {
-            if (BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true)
-                && remoteAddress.AddressFamily == AddressFamily.InterNetwork)
-            {
-                // A usable IPv4 response source is the interface that actually reached us.
-                return remoteAddress;
-            }
+            IPAddress selected = BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true)
+                ? remoteAddress
+                : null;
+            bool selectedOnLocalSubnet = IsOnLocalSubnet(
+                selected,
+                localIpv4Subnets,
+                localIpv6Subnets);
 
-            IPAddress selected = null;
-            bool selectedOnLocalSubnet = false;
             foreach (ResourceRecord record in records)
             {
                 if (!(record is AddressRecord addressRecord)
@@ -314,8 +332,14 @@ namespace Basis.Network.Core
                     continue;
                 }
 
-                IPAddress candidate = RestoreScope(addressRecord.Address, remoteAddress);
-                bool candidateOnLocalSubnet = IsOnLocalIpv4Subnet(candidate, localIpv4Subnets);
+                IPAddress candidate = RestoreScope(
+                    addressRecord.Address,
+                    remoteAddress,
+                    localIpv6Subnets);
+                bool candidateOnLocalSubnet = IsOnLocalSubnet(
+                    candidate,
+                    localIpv4Subnets,
+                    localIpv6Subnets);
                 if (selected == null
                     || (candidateOnLocalSubnet && !selectedOnLocalSubnet)
                     || (candidateOnLocalSubnet == selectedOnLocalSubnet
@@ -327,44 +351,65 @@ namespace Basis.Network.Core
                 }
             }
 
-            if (selected?.AddressFamily == AddressFamily.InterNetwork
-                && localIpv4Subnets?.Count > 0
+            if (selected != null
+                && HasLocalSubnetsForFamily(selected, localIpv4Subnets, localIpv6Subnets)
                 && !selectedOnLocalSubnet)
             {
                 // Do not create an entry from a partial response that only contains an unrelated
-                // virtual/VPN subnet. A later complete response can provide the same-subnet address.
-                selected = null;
-            }
-
-            if (BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true))
-            {
-                // Android can receive an IPv6 mDNS response while the hosted LiteNetLib server
-                // is reachable over IPv4. Prefer a same-subnet advertised IPv4 in that case.
-                if (!selectedOnLocalSubnet
-                    && selected?.AddressFamily != AddressFamily.InterNetwork)
-                {
-                    return remoteAddress;
-                }
+                // virtual/VPN subnet. A later complete response can provide the same-link address.
+                return null;
             }
 
             return selected;
         }
 
-        private static bool IsOnLocalIpv4Subnet(
-            IPAddress candidate,
-            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets)
+        private static bool HasLocalSubnetsForFamily(
+            IPAddress address,
+            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets,
+            IReadOnlyList<BasisLanIpv6Subnet> localIpv6Subnets)
         {
-            if (candidate?.AddressFamily != AddressFamily.InterNetwork
-                || localIpv4Subnets == null)
+            return address?.AddressFamily == AddressFamily.InterNetwork
+                ? localIpv4Subnets?.Count > 0
+                : address?.AddressFamily == AddressFamily.InterNetworkV6
+                    && localIpv6Subnets?.Count > 0;
+        }
+
+        private static bool IsOnLocalSubnet(
+            IPAddress candidate,
+            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets,
+            IReadOnlyList<BasisLanIpv6Subnet> localIpv6Subnets)
+        {
+            if (candidate?.AddressFamily == AddressFamily.InterNetwork)
+            {
+                if (localIpv4Subnets == null)
+                {
+                    return false;
+                }
+
+                for (int index = 0; index < localIpv4Subnets.Count; index++)
+                {
+                    if (BasisLanAddressUtility.IsOnSameIpv4Subnet(
+                        candidate,
+                        localIpv4Subnets[index]))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            if (candidate?.AddressFamily != AddressFamily.InterNetworkV6
+                || localIpv6Subnets == null
+                || (candidate.IsIPv6LinkLocal && candidate.ScopeId == 0))
             {
                 return false;
             }
 
-            for (int index = 0; index < localIpv4Subnets.Count; index++)
+            for (int index = 0; index < localIpv6Subnets.Count; index++)
             {
-                if (BasisLanAddressUtility.IsOnSameIpv4Subnet(
+                if (BasisLanAddressUtility.IsOnSameIpv6Subnet(
                     candidate,
-                    localIpv4Subnets[index]))
+                    localIpv6Subnets[index]))
                 {
                     return true;
                 }
@@ -372,19 +417,51 @@ namespace Basis.Network.Core
             return false;
         }
 
-        private static IPAddress RestoreScope(IPAddress address, IPAddress remoteAddress)
+        private static IPAddress RestoreScope(
+            IPAddress address,
+            IPAddress remoteAddress,
+            IReadOnlyList<BasisLanIpv6Subnet> localIpv6Subnets)
         {
-            if (address != null
-                && address.AddressFamily == AddressFamily.InterNetworkV6
-                && address.IsIPv6LinkLocal
-                && address.ScopeId == 0
-                && remoteAddress != null
+            if (address == null
+                || address.AddressFamily != AddressFamily.InterNetworkV6
+                || !address.IsIPv6LinkLocal
+                || address.ScopeId != 0)
+            {
+                return address;
+            }
+
+            if (remoteAddress != null
                 && remoteAddress.AddressFamily == AddressFamily.InterNetworkV6
                 && remoteAddress.ScopeId != 0)
             {
                 return new IPAddress(address.GetAddressBytes(), remoteAddress.ScopeId);
             }
-            return address;
+
+            long selectedScope = 0;
+            if (localIpv6Subnets != null)
+            {
+                for (int index = 0; index < localIpv6Subnets.Count; index++)
+                {
+                    BasisLanIpv6Subnet subnet = localIpv6Subnets[index];
+                    if (subnet.Address?.ScopeId == 0
+                        || !BasisLanAddressUtility.IsOnSameIpv6Subnet(address, subnet))
+                    {
+                        continue;
+                    }
+
+                    if (selectedScope != 0 && selectedScope != subnet.Address.ScopeId)
+                    {
+                        // Multiple interfaces share fe80::/64 and the response did not identify
+                        // which one received it. Leave it unscoped rather than choosing incorrectly.
+                        return address;
+                    }
+                    selectedScope = subnet.Address.ScopeId;
+                }
+            }
+
+            return selectedScope == 0
+                ? address
+                : new IPAddress(address.GetAddressBytes(), selectedScope);
         }
 
         public void Dispose()
