@@ -138,6 +138,78 @@ public sealed class BasisLanDiscoveryTests
     }
 
     [Fact]
+    public void SameSubnetIpv4_IsPreferredOverHyperVAddress()
+    {
+        IPAddress hyperVAddress = IPAddress.Parse("172.24.32.1");
+        IPAddress lanAddress = IPAddress.Parse("192.168.50.10");
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "Multi-homed PC",
+            string.Empty,
+            false,
+            new[] { hyperVAddress, lanAddress });
+        BasisLanIpv4Subnet[] localSubnets =
+        {
+            new BasisLanIpv4Subnet(
+                IPAddress.Parse("192.168.50.25"),
+                IPAddress.Parse("255.255.255.0")),
+        };
+
+        Extract(
+            profile,
+            IPAddress.Parse("224.0.0.251"),
+            out IPAddress address,
+            localSubnets);
+
+        Assert.Equal(lanAddress, address);
+    }
+
+    [Fact]
+    public void UnrelatedOnlyIpv4_IsIgnoredWhenLocalSubnetIsKnown()
+    {
+        ServiceProfile profile = BasisLanServerAnnouncer.CreateProfile(
+            Guid.NewGuid(),
+            4296,
+            BasisNetworkStackRegistry.LiteNetLibId,
+            "Partial Hyper-V response",
+            string.Empty,
+            false,
+            new[] { IPAddress.Parse("172.24.32.1") });
+        BasisLanIpv4Subnet[] localSubnets =
+        {
+            new BasisLanIpv4Subnet(
+                IPAddress.Parse("192.168.50.25"),
+                IPAddress.Parse("255.255.255.0")),
+        };
+        Message message = CreateMessage(profile);
+
+        Assert.False(BasisLanServerBrowser.TryExtractAdvertisement(
+            message,
+            profile.FullyQualifiedName,
+            IPAddress.Parse("224.0.0.251"),
+            out _,
+            out _,
+            localSubnets));
+    }
+
+    [Fact]
+    public void SubnetMatch_UsesReportedMask()
+    {
+        BasisLanIpv4Subnet subnet = new BasisLanIpv4Subnet(
+            IPAddress.Parse("10.20.31.40"),
+            IPAddress.Parse("255.255.240.0"));
+
+        Assert.True(BasisLanAddressUtility.IsOnSameIpv4Subnet(
+            IPAddress.Parse("10.20.16.5"),
+            subnet));
+        Assert.False(BasisLanAddressUtility.IsOnSameIpv4Subnet(
+            IPAddress.Parse("10.20.32.5"),
+            subnet));
+    }
+
+    [Fact]
     public void AddressPreference_PrioritizesRoutableAddressesOverLinkLocal()
     {
         IPAddress ipv4 = IPAddress.Parse("192.168.1.10");
@@ -183,7 +255,23 @@ public sealed class BasisLanDiscoveryTests
     private static BasisLanAdvertisement Extract(
         ServiceProfile profile,
         IPAddress responseSource,
-        out IPAddress address)
+        out IPAddress address,
+        IReadOnlyList<BasisLanIpv4Subnet>? localIpv4Subnets = null)
+    {
+        Message message = CreateMessage(profile);
+
+        Assert.True(BasisLanServerBrowser.TryExtractAdvertisement(
+            message,
+            profile.FullyQualifiedName,
+            responseSource,
+            out BasisLanAdvertisement advertisement,
+            out IPAddress? selectedAddress,
+            localIpv4Subnets));
+        address = Assert.IsType<IPAddress>(selectedAddress);
+        return advertisement;
+    }
+
+    private static Message CreateMessage(ServiceProfile profile)
     {
         Message message = new Message();
         foreach (ResourceRecord resource in profile.Resources)
@@ -197,15 +285,7 @@ public sealed class BasisLanDiscoveryTests
                 message.AdditionalRecords.Add(resource);
             }
         }
-
-        Assert.True(BasisLanServerBrowser.TryExtractAdvertisement(
-            message,
-            profile.FullyQualifiedName,
-            responseSource,
-            out BasisLanAdvertisement advertisement,
-            out IPAddress? selectedAddress));
-        address = Assert.IsType<IPAddress>(selectedAddress);
-        return advertisement;
+        return message;
     }
 
     private static Dictionary<string, string> ReadProperties(ServiceProfile profile)

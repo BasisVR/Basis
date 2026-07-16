@@ -1,7 +1,9 @@
 using MeaMod.DNS.Multicast;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 
@@ -31,6 +33,18 @@ namespace Basis.Network.Core
             NetworkStackId = networkStackId ?? string.Empty;
             ServerName = serverName ?? string.Empty;
             Motd = motd ?? string.Empty;
+        }
+    }
+
+    internal readonly struct BasisLanIpv4Subnet
+    {
+        public readonly IPAddress Address;
+        public readonly IPAddress Mask;
+
+        public BasisLanIpv4Subnet(IPAddress address, IPAddress mask)
+        {
+            Address = address;
+            Mask = mask;
         }
     }
 
@@ -68,6 +82,137 @@ namespace Basis.Network.Core
             return address?.AddressFamily == AddressFamily.InterNetworkV6
                 ? address.IsIPv6LinkLocal ? 3 : 1
                 : int.MaxValue;
+        }
+
+        internal static IPAddress[] GetPreferredAdvertisedAddresses()
+        {
+            List<IPAddress> gatewayAddresses = new List<IPAddress>();
+            List<IPAddress> fallbackAddresses = new List<IPAddress>();
+
+            try
+            {
+                foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (networkInterface.OperationalStatus != OperationalStatus.Up
+                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback
+                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Tunnel)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        IPInterfaceProperties properties = networkInterface.GetIPProperties();
+                        bool hasUsableGateway = properties.GatewayAddresses
+                            .Any(gateway => IsUsable(gateway?.Address));
+
+                        foreach (UnicastIPAddressInformation unicast in properties.UnicastAddresses)
+                        {
+                            if (!IsUsable(unicast?.Address))
+                            {
+                                continue;
+                            }
+
+                            fallbackAddresses.Add(unicast.Address);
+                            if (hasUsableGateway)
+                            {
+                                gatewayAddresses.Add(unicast.Address);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore interfaces that disappear or reject property queries mid-enumeration.
+                    }
+                }
+            }
+            catch
+            {
+                // Fall through to an empty set; the DNS-SD response source remains usable as a fallback.
+            }
+
+            List<IPAddress> selected = gatewayAddresses.Count > 0
+                ? gatewayAddresses
+                : fallbackAddresses;
+            return selected
+                .Distinct()
+                .OrderBy(PreferenceRank)
+                .ToArray();
+        }
+
+        internal static BasisLanIpv4Subnet[] GetLocalIpv4Subnets()
+        {
+            List<BasisLanIpv4Subnet> gatewaySubnets = new List<BasisLanIpv4Subnet>();
+            List<BasisLanIpv4Subnet> fallbackSubnets = new List<BasisLanIpv4Subnet>();
+            try
+            {
+                foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (networkInterface.OperationalStatus != OperationalStatus.Up
+                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback
+                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Tunnel)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        IPInterfaceProperties properties = networkInterface.GetIPProperties();
+                        bool hasUsableGateway = properties.GatewayAddresses
+                            .Any(gateway => IsUsable(gateway?.Address));
+                        foreach (UnicastIPAddressInformation unicast in properties.UnicastAddresses)
+                        {
+                            if (unicast?.Address?.AddressFamily != AddressFamily.InterNetwork
+                                || unicast.IPv4Mask?.AddressFamily != AddressFamily.InterNetwork
+                                || !IsUsable(unicast.Address))
+                            {
+                                continue;
+                            }
+
+                            BasisLanIpv4Subnet subnet =
+                                new BasisLanIpv4Subnet(unicast.Address, unicast.IPv4Mask);
+                            fallbackSubnets.Add(subnet);
+                            if (hasUsableGateway)
+                            {
+                                gatewaySubnets.Add(subnet);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore interfaces that disappear or reject property queries mid-enumeration.
+                    }
+                }
+            }
+            catch
+            {
+            }
+            return (gatewaySubnets.Count > 0 ? gatewaySubnets : fallbackSubnets).ToArray();
+        }
+
+        internal static bool IsOnSameIpv4Subnet(
+            IPAddress candidate,
+            BasisLanIpv4Subnet subnet)
+        {
+            if (candidate?.AddressFamily != AddressFamily.InterNetwork
+                || subnet.Address?.AddressFamily != AddressFamily.InterNetwork
+                || subnet.Mask?.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return false;
+            }
+
+            byte[] candidateBytes = candidate.GetAddressBytes();
+            byte[] localBytes = subnet.Address.GetAddressBytes();
+            byte[] maskBytes = subnet.Mask.GetAddressBytes();
+            for (int index = 0; index < candidateBytes.Length; index++)
+            {
+                if ((candidateBytes[index] & maskBytes[index])
+                    != (localBytes[index] & maskBytes[index]))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 

@@ -1,7 +1,6 @@
 using MeaMod.DNS.Model;
 using MeaMod.DNS.Multicast;
 using System;
-using System.Linq;
 using System.Net;
 
 namespace Basis.Network.Core
@@ -105,18 +104,12 @@ namespace Basis.Network.Core
 
         private static IPAddress[] GetAdvertisedAddresses()
         {
-            try
+            IPAddress[] addresses = BasisLanAddressUtility.GetPreferredAdvertisedAddresses();
+            if (addresses.Length == 0)
             {
-                return MulticastService.GetIPAddresses()
-                    .Where(address => BasisLanAddressUtility.IsUsable(address))
-                    .Distinct()
-                    .ToArray();
+                BNL.LogWarning("Basis LAN address discovery found no usable local addresses.");
             }
-            catch (Exception ex)
-            {
-                BNL.LogWarning($"Basis LAN address discovery failed: {ex.Message}");
-                return Array.Empty<IPAddress>();
-            }
+            return addresses;
         }
 
         public void Dispose()

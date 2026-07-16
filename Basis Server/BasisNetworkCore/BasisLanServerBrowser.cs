@@ -25,6 +25,7 @@ namespace Basis.Network.Core
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
         private readonly Action<BasisLanAdvertisement, IPAddress> _found;
         private readonly Action<Guid> _removed;
+        private readonly BasisLanIpv4Subnet[] _localIpv4Subnets;
         private MulticastService _mdns;
         private ServiceDiscovery _discovery;
         private volatile bool _disposed;
@@ -36,6 +37,7 @@ namespace Basis.Network.Core
         {
             _found = found ?? throw new ArgumentNullException(nameof(found));
             _removed = removed ?? throw new ArgumentNullException(nameof(removed));
+            _localIpv4Subnets = BasisLanAddressUtility.GetLocalIpv4Subnets();
 
             MulticastService mdns = null;
             ServiceDiscovery discovery = null;
@@ -136,7 +138,8 @@ namespace Basis.Network.Core
                     args.ServiceInstanceName,
                     args.RemoteEndPoint?.Address,
                     out BasisLanAdvertisement advertisement,
-                    out IPAddress address))
+                    out IPAddress address,
+                    _localIpv4Subnets))
             {
                 _found(advertisement, address);
             }
@@ -160,7 +163,8 @@ namespace Basis.Network.Core
             DomainName serviceInstanceName,
             IPAddress remoteAddress,
             out BasisLanAdvertisement advertisement,
-            out IPAddress address)
+            out IPAddress address,
+            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets = null)
         {
             advertisement = default;
             address = null;
@@ -206,7 +210,7 @@ namespace Basis.Network.Core
                 return false;
             }
 
-            address = SelectAddress(records, service.Target, remoteAddress);
+            address = SelectAddress(records, service.Target, remoteAddress, localIpv4Subnets);
             if (address == null)
             {
                 return false;
@@ -289,9 +293,18 @@ namespace Basis.Network.Core
         private static IPAddress SelectAddress(
             IEnumerable<ResourceRecord> records,
             DomainName hostName,
-            IPAddress remoteAddress)
+            IPAddress remoteAddress,
+            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets)
         {
+            if (BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true)
+                && remoteAddress.AddressFamily == AddressFamily.InterNetwork)
+            {
+                // A usable IPv4 response source is the interface that actually reached us.
+                return remoteAddress;
+            }
+
             IPAddress selected = null;
+            bool selectedOnLocalSubnet = false;
             foreach (ResourceRecord record in records)
             {
                 if (!(record is AddressRecord addressRecord)
@@ -302,28 +315,61 @@ namespace Basis.Network.Core
                 }
 
                 IPAddress candidate = RestoreScope(addressRecord.Address, remoteAddress);
+                bool candidateOnLocalSubnet = IsOnLocalIpv4Subnet(candidate, localIpv4Subnets);
                 if (selected == null
-                    || BasisLanAddressUtility.PreferenceRank(candidate)
-                        < BasisLanAddressUtility.PreferenceRank(selected))
+                    || (candidateOnLocalSubnet && !selectedOnLocalSubnet)
+                    || (candidateOnLocalSubnet == selectedOnLocalSubnet
+                        && BasisLanAddressUtility.PreferenceRank(candidate)
+                            < BasisLanAddressUtility.PreferenceRank(selected)))
                 {
                     selected = candidate;
+                    selectedOnLocalSubnet = candidateOnLocalSubnet;
                 }
+            }
+
+            if (selected?.AddressFamily == AddressFamily.InterNetwork
+                && localIpv4Subnets?.Count > 0
+                && !selectedOnLocalSubnet)
+            {
+                // Do not create an entry from a partial response that only contains an unrelated
+                // virtual/VPN subnet. A later complete response can provide the same-subnet address.
+                selected = null;
             }
 
             if (BasisLanAddressUtility.IsUsable(remoteAddress, allowLoopback: true))
             {
-                // The IPv4 packet source is the interface that actually reached us, so it is
-                // safer than unrelated VPN/cellular A records. Android can emit mDNS over IPv6
-                // while its hosted LiteNetLib socket is only reachable over Wi-Fi IPv4; in that
-                // case prefer the advertised IPv4 address.
-                if (remoteAddress.AddressFamily == AddressFamily.InterNetwork
-                    || selected?.AddressFamily != AddressFamily.InterNetwork)
+                // Android can receive an IPv6 mDNS response while the hosted LiteNetLib server
+                // is reachable over IPv4. Prefer a same-subnet advertised IPv4 in that case.
+                if (!selectedOnLocalSubnet
+                    && selected?.AddressFamily != AddressFamily.InterNetwork)
                 {
                     return remoteAddress;
                 }
             }
 
             return selected;
+        }
+
+        private static bool IsOnLocalIpv4Subnet(
+            IPAddress candidate,
+            IReadOnlyList<BasisLanIpv4Subnet> localIpv4Subnets)
+        {
+            if (candidate?.AddressFamily != AddressFamily.InterNetwork
+                || localIpv4Subnets == null)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < localIpv4Subnets.Count; index++)
+            {
+                if (BasisLanAddressUtility.IsOnSameIpv4Subnet(
+                    candidate,
+                    localIpv4Subnets[index]))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static IPAddress RestoreScope(IPAddress address, IPAddress remoteAddress)
