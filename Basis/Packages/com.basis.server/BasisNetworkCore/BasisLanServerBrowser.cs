@@ -83,6 +83,9 @@ namespace Basis.Network.Core
             try
             {
                 discovery?.QueryServiceInstances(ServiceName);
+                // Some access points suppress multicast toward Wi-Fi clients. A QU query still
+                // reaches responders through multicast but asks them to return the answer unicast.
+                discovery?.QueryUnicastServiceInstances(ServiceName);
             }
             catch (ObjectDisposedException)
             {
