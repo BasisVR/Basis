@@ -164,7 +164,7 @@ public class ServerConfigurationDefaultsTests
     [Fact]
     public void Defaults_VersioningAndFolderConstants()
     {
-        Assert.Equal(4, Configuration.CurrentConfigVersion);
+        Assert.Equal(5, Configuration.CurrentConfigVersion);
         Assert.Equal(0, new Configuration().ConfigVersion);
         Assert.Equal("config", Configuration.ConfigFolderName);
         Assert.Equal("logs", Configuration.LogsFolderName);
