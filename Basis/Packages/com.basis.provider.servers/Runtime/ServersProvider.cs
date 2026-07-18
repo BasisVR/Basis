@@ -507,7 +507,7 @@ namespace Basis.BasisUI
             _lanPasswordField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.password"));
             _lanPasswordField._inputField.onSubmit.AddListener(_ => SubmitLanPassword());
 
-            RectTransform actions = BuildActionRow(_lanPasswordSection.ContentParent);
+            RectTransform actions = PanelElementDescriptor.BuildActionRow(_lanPasswordSection.ContentParent, "ServerRowActions");
 
             _lanPasswordConnectButton = PanelButton.CreateNew(actions);
             _lanPasswordConnectButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.connect"));
