@@ -333,7 +333,7 @@ namespace Basis.Network.Core
     {
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
 
-        internal const string ServiceName = "_basisvr._udp";
+        internal const string ServiceName = "_basisdemo._udp";
         internal const string ProtocolVersion = "1";
         internal const int MaxStackIdBytes = 64;
         internal const int MaxServerNameBytes = 128;
