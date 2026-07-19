@@ -52,7 +52,7 @@ namespace Basis.Scripts.Constraints
         [Tooltip("Weighted transforms this constraint follows.")]
         public BasisConstraintSourceBinding[] Sources = Array.Empty<BasisConstraintSourceBinding>();
 
-        [Tooltip("Pose the unlocked axes fall back to. Captured from the transform when the component is added or via Capture Rest.")]
+        [Tooltip("World-space pose the unlocked axes fall back to. Captured from the transform when the component is added or via Capture Rest.")]
         public Vector3 TranslationAtRest = Vector3.zero;
         public Vector3 RotationAtRest = Vector3.zero;
         public Vector3 ScaleAtRest = Vector3.one;
@@ -102,12 +102,16 @@ namespace Basis.Scripts.Constraints
             CaptureRest();
         }
 
-        /// <summary>Stores the transform's current local pose as the rest pose the unlocked axes fall back to.</summary>
+        /// <summary>
+        /// Stores the transform's current world pose as the rest pose the unlocked axes fall back to.
+        /// World, not local, because <see cref="BasisConstraintSolver"/> resolves entirely in world space —
+        /// a local rest pose would be silently wrong for any transform that is not at the scene root.
+        /// </summary>
         public void CaptureRest()
         {
-            TranslationAtRest = transform.localPosition;
-            RotationAtRest = transform.localEulerAngles;
-            ScaleAtRest = transform.localScale;
+            TranslationAtRest = transform.position;
+            RotationAtRest = transform.eulerAngles;
+            ScaleAtRest = transform.lossyScale;
         }
 
         /// <summary>Number of sources that have a transform assigned and would contribute.</summary>

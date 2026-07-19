@@ -80,17 +80,17 @@ public class BasisConstraintInspector : BasisDocInspector_UI
         root.Add(aim);
 
         VisualElement rest = BasisSyncInspectorUI.Card("Rest Pose", false);
-        var restHint = new Label("Where unlocked axes fall back to. Captured from the transform when the component is added — press Capture Rest after re-posing the object.");
+        var restHint = new Label("Where unlocked axes fall back to, in world space — the solver resolves in world space. Captured from the transform when the component is added; press Capture Rest after re-posing the object.");
         restHint.style.whiteSpace = WhiteSpace.Normal;
         restHint.style.fontSize = 10;
         restHint.style.opacity = 0.8f;
         rest.Add(restHint);
-        rest.Add(BasisSyncInspectorUI.Described(new PropertyField(serializedObject.FindProperty("TranslationAtRest"), "Position"),
-            "Local position unlocked axes return to."));
-        rest.Add(BasisSyncInspectorUI.Described(new PropertyField(serializedObject.FindProperty("RotationAtRest"), "Rotation (deg)"),
-            "Local euler rotation unlocked axes return to."));
-        rest.Add(BasisSyncInspectorUI.Described(new PropertyField(serializedObject.FindProperty("ScaleAtRest"), "Scale"),
-            "Local scale unlocked axes return to."));
+        rest.Add(BasisSyncInspectorUI.Described(new PropertyField(serializedObject.FindProperty("TranslationAtRest"), "Position (world)"),
+            "World position unlocked axes return to."));
+        rest.Add(BasisSyncInspectorUI.Described(new PropertyField(serializedObject.FindProperty("RotationAtRest"), "Rotation (world, deg)"),
+            "World euler rotation unlocked axes return to."));
+        rest.Add(BasisSyncInspectorUI.Described(new PropertyField(serializedObject.FindProperty("ScaleAtRest"), "Scale (lossy)"),
+            "World (lossy) scale unlocked axes return to."));
         rest.Add(new Button(CaptureRest)
         {
             text = "Capture Rest",

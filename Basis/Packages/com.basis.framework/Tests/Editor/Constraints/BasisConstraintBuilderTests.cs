@@ -114,16 +114,34 @@ namespace Basis.Tests.Constraints
         }
 
         [Test]
-        public void CaptureRest_StoresTheCurrentLocalPose()
+        public void CaptureRest_StoresTheCurrentPose()
         {
             BasisConstraint constraint = NewConstraint("target");
-            constraint.transform.localPosition = new Vector3(1f, 2f, 3f);
+            constraint.transform.position = new Vector3(1f, 2f, 3f);
             constraint.transform.localScale = new Vector3(2f, 2f, 2f);
 
             constraint.CaptureRest();
 
             Assert.AreEqual(new Vector3(1f, 2f, 3f), constraint.TranslationAtRest, "rest position is captured from the transform");
             Assert.AreEqual(new Vector3(2f, 2f, 2f), constraint.ScaleAtRest, "rest scale is captured from the transform");
+        }
+
+        [Test]
+        public void CaptureRest_OnAChild_CapturesWorldSpaceNotLocal()
+        {
+            // The solver resolves in world space, so a local rest pose would be silently wrong for
+            // anything parented — the rest fallback would land in the wrong place.
+            GameObject parent = NewObject("parent");
+            parent.transform.position = new Vector3(10f, 0f, 0f);
+
+            BasisConstraint constraint = NewConstraint("child");
+            constraint.transform.SetParent(parent.transform);
+            constraint.transform.localPosition = new Vector3(1f, 0f, 0f);
+
+            constraint.CaptureRest();
+
+            Assert.AreEqual(11f, constraint.TranslationAtRest.x, 1e-4f,
+                "rest must be the world position (10 + 1), not the local offset");
         }
 
         // ---------- kind channel helpers (these drive which inspector cards show) ----------
