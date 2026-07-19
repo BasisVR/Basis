@@ -1,6 +1,7 @@
 using Basis.BTween;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Constraints;
 using Basis.Scripts.Debugging;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -169,6 +170,7 @@ namespace Basis.EventDriver
                 Application.onBeforeRender -= OnBeforeRender;
                 RemoteBoneJobSystem.Dispose();
                 BasisAuthoredMotionSystem.Dispose();
+                BasisConstraintSystem.Dispose();
                 BasisAvatarBufferPool.Deinitialize();
             }
             finally
@@ -446,6 +448,13 @@ namespace Basis.EventDriver
             var authoredMotionJob = BasisAuthoredMotionSystem.Schedule();
             HVRCommsUpdateDriver.SimulateVariableNetworking();
             BasisAuthoredMotionSystem.Complete(authoredMotionJob);
+
+            // ── Constraints: resolve the BasisConstraint* components ──
+            // Sits after authored motion (so a constraint may source an authored bone) and ahead of
+            // the jiggle schedule below (so jiggle samples the constrained pose, not the stale one).
+            // Scheduled and completed back to back: the solve owns every constrained transform for
+            // the duration, and everything after this point reads bones on the main thread.
+            BasisConstraintSystem.Complete(BasisConstraintSystem.Schedule());
 
             // ── JigglePhysics schedule ──
             ProfileBegin(PROF_JIGGLE_SCHEDULE);
