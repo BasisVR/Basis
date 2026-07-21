@@ -15,7 +15,9 @@
 	</PropertyGroup>
 	<ItemGroup>
 	  <PackageReference Include="System.Threading.Tasks" Version="4.3.0" />
+	  <PackageReference Include="MeaMod.DNS" Version="1.0.71" />
 		<ProjectReference Include="..\LiteNetLib\LiteNetLib.csproj" />
 		<ProjectReference Include="..\Contrib\Crypto\Crypto.csproj" />
+		<InternalsVisibleTo Include="BasisServerTests" />
 	</ItemGroup>
 </Project>

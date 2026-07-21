@@ -27,4 +27,6 @@
   <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="false" />
   <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
   <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+  <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 </manifest>

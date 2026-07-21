@@ -254,7 +254,7 @@ namespace BasisServerHandle
                     }
                     if (NetworkServer.Auth.IsAuthenticated(AuthBytes) == false)
                     {
-                        RejectWithReason(ConReq, "Authentication failed, Auth rejected");
+                        RejectWithReason(ConReq, BasisNetworkCommons.AuthenticationRejectedReason);
                         return;
                     }
                 }

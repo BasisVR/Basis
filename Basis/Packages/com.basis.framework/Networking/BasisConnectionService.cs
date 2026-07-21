@@ -26,7 +26,23 @@ namespace Basis.Scripts.Networking
         public const string LastConnectedServerIdFile = "LastConnectedServerId.BAS";
 
         public static bool AutoConnectAttempted;
-        private static bool _connectInProgress;
+        private static int _connectInProgress;
+        private static ServerDirectoryEntry _pendingLanPasswordEntry;
+
+        /// <summary>
+        /// Raised when a password-protected LAN connection receives an authentication rejection.
+        /// UI packages can use this to request a replacement without coupling the framework to a
+        /// particular menu implementation.
+        /// </summary>
+        public static event Action<ServerDirectoryEntry> LanPasswordRequired;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetLanPasswordState()
+        {
+            Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
+            LanPasswordRequired = null;
+            Volatile.Write(ref _connectInProgress, 0);
+        }
 
         // Stable key the loading bar uses to merge updates for the same connection
         // attempt, distinct from the bundle-load key BasisSceneLoad reports under.
@@ -68,6 +84,47 @@ namespace Basis.Scripts.Networking
         public static void CompleteConnectionProgress() =>
             BasisSceneLoad.progressCallback.ReportProgress(ConnectionProgressKey, 100f, string.Empty);
 
+        private static void SetPendingLanPasswordAttempt(ServerDirectoryEntry entry) =>
+            Interlocked.Exchange(ref _pendingLanPasswordEntry, entry);
+
+        internal static void ClearPendingLanPasswordAttempt() =>
+            Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
+
+        internal static bool TryHandleLanAuthenticationRejected()
+        {
+            ServerDirectoryEntry entry = Interlocked.Exchange(ref _pendingLanPasswordEntry, null);
+
+            if (entry == null)
+            {
+                return false;
+            }
+
+            entry.Password = string.Empty;
+            entry.Target?.Set(ConnectionTarget.Keys.Password, string.Empty);
+
+            Action<ServerDirectoryEntry> handler = LanPasswordRequired;
+            if (handler == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                handler(entry);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"LanPasswordRequired handler threw: {ex.Message}", BasisDebug.LogTag.Networking);
+                return false;
+            }
+        }
+
+        internal static void NotifyConnectionSucceeded()
+        {
+            ClearPendingLanPasswordAttempt();
+        }
+
         /// <summary>
         /// Panel-independent connection routine. Reports progress through the loading bar,
         /// disconnects any existing session, sets the network manager fields, loads the
@@ -78,12 +135,11 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static async Task ConnectAsync(ServerDirectoryEntry entry, string userName, bool isHostMode = false)
         {
-            if (_connectInProgress)
+            if (Interlocked.CompareExchange(ref _connectInProgress, 1, 0) != 0)
             {
                 BasisDebug.LogWarning("Connect requested while a connection attempt is already in progress; ignoring.");
                 return;
             }
-            _connectInProgress = true;
             try
             {
                 ReportConnectionProgress(5f, BasisLocalization.Get("menu.servers.status.initializing"));
@@ -111,7 +167,23 @@ namespace Basis.Scripts.Networking
                 BasisLocalPlayer.Instance.DisplayName = userName.Trim();
                 BasisLocalPlayer.Instance.SetSafeDisplayname();
                 BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, UsernameFileName);
-                BasisDataStore.SaveString(entry.Id, LastConnectedServerIdFile);
+                bool isLan = string.Equals(
+                    entry.SourceId,
+                    LanServersDirectorySource.Id,
+                    StringComparison.OrdinalIgnoreCase);
+                if (!isLan)
+                {
+                    // LAN advertisements are session-scoped and their passwords are never persisted.
+                    // Keep the previous durable auto-connect target instead of saving an expiring LAN id.
+                    BasisDataStore.SaveString(entry.Id, LastConnectedServerIdFile);
+                }
+
+                if (isLan && entry.HasPassword && string.IsNullOrEmpty(entry.Password))
+                {
+                    entry.Password = SavedServersDirectorySource.DefaultServerPassword;
+                    entry.Target?.Set(ConnectionTarget.Keys.Password, entry.Password);
+                }
+                SetPendingLanPasswordAttempt(isLan && entry.HasPassword ? entry : null);
 
                 string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
                 string portString = entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty;
@@ -151,17 +223,19 @@ namespace Basis.Scripts.Networking
             }
             catch (TimeoutException tex)
             {
+                ClearPendingLanPasswordAttempt();
                 ReportConnectionError(BasisLocalization.Get("menu.servers.error.timeout"));
                 BasisDebug.LogError(tex.ToString());
             }
             catch (Exception ex)
             {
+                ClearPendingLanPasswordAttempt();
                 ReportConnectionError(BasisLocalization.Get("menu.servers.error.connectFailed"));
                 BasisDebug.LogError(ex.ToString());
             }
             finally
             {
-                _connectInProgress = false;
+                Volatile.Write(ref _connectInProgress, 0);
             }
         }
 

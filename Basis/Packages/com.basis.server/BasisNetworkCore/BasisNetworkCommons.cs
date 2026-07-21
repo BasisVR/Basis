@@ -386,6 +386,8 @@ namespace Basis.Network.Core
         // Wire: [magic:uint][kind:byte][aux0:ushort][aux1:ushort][message:string]
         //   VersionMismatch → aux0 = server protocol version, aux1 = client protocol version.
         //   ServerFull      → aux0/aux1 unused (0); any counts are in the message.
+        /// <summary>Bare rejection reason emitted when password authentication fails.</summary>
+        public const string AuthenticationRejectedReason = "Authentication failed, Auth rejected";
         /// <summary>Marker for a structured reject payload. "BA51 5CE1" ≈ "Basis reject".</summary>
         public const uint RejectMagic = 0xBA515CE1u;
         /// <summary>RejectKind: the client's protocol version does not match the server's.</summary>

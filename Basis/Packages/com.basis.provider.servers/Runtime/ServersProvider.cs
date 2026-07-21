@@ -17,10 +17,27 @@ namespace Basis.BasisUI
 {
     public class ServersProvider : BasisMenuActionProvider<BasisMainMenu>
     {
+        private static ServersProvider _instance;
+
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMenuBase<BasisMainMenu>.AddProvider(new ServersProvider());
+            BasisConnectionService.LanPasswordRequired -= OnLanPasswordRequired;
+            _instance = new ServersProvider();
+            BasisConnectionService.LanPasswordRequired += OnLanPasswordRequired;
+            BasisMenuBase<BasisMainMenu>.AddProvider(_instance);
+        }
+
+        private static void OnLanPasswordRequired(ServerDirectoryEntry entry)
+        {
+            if (entry == null || _instance == null)
+            {
+                return;
+            }
+
+            BasisMainMenu.Open();
+            _instance.RunAction();
+            _instance.ShowLanPasswordPrompt(entry);
         }
 
         public const string TitleKey = "menu.provider.servers";
@@ -37,6 +54,7 @@ namespace Basis.BasisUI
         public static string HostPortFile = "HostPort.BAS";
         public static string HostPasswordFile = "HostPassword.BAS";
         public static string HostUseAuthFile = "HostUseAuth.BAS";
+        public static string HostShowToLanFile = "HostShowToLan.BAS";
         public static string HostEnableConsoleFile = "HostEnableConsole.BAS";
         public static string HostAvatarsLockedFile = "HostAvatarsLocked.BAS";
         public static string HostPropsLockedFile = "HostPropsLocked.BAS";
@@ -51,19 +69,37 @@ namespace Basis.BasisUI
         private List<ServerDirectoryEntry> _entries = new List<ServerDirectoryEntry>();
         private readonly Dictionary<string, ServerRow> _rows = new();
         private string _editingId;
-        private readonly List<IServerDirectorySource> _subscribedSources = new List<IServerDirectorySource>();
+        private readonly Dictionary<IServerDirectorySource, Action> _subscribedSources = new Dictionary<IServerDirectorySource, Action>();
 
         private static bool IsDefault(ServerDirectoryEntry entry) =>
             entry != null && SavedServersDirectorySource.IsDefaultEntryId(entry.Id);
+
+        private static bool IsLan(ServerDirectoryEntry entry) =>
+            entry != null && string.Equals(entry.SourceId, LanServersDirectorySource.Id, StringComparison.OrdinalIgnoreCase);
+
+        private static string FormatEntryName(ServerDirectoryEntry entry, string name)
+        {
+            if (IsDefault(entry))
+            {
+                return string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), name);
+            }
+            if (IsLan(entry))
+            {
+                return string.Format(BasisLocalization.Get("menu.servers.list.lanBadge"), name);
+            }
+            return name;
+        }
 
         // ── Static UI references rebuilt every RunAction() ────────────────────
         private BasisMenuPanel _panel;
         private RectTransform _listContainer;
         private PanelElementDescriptor _editorSection;
+        private PanelElementDescriptor _lanPasswordSection;
         private PanelElementDescriptor _emptyState;
         private PanelTextField _editAddress;
         private PanelTextField _editPort;
         private PanelPasswordField _editPassword;
+        private PanelPasswordField _lanPasswordField;
         private PanelDropdown _editNetworkStack;
         private List<string> _stackIds;
         private List<string> _stackDisplayNames;
@@ -71,8 +107,11 @@ namespace Basis.BasisUI
         private PanelButton _editCancelButton;
         private PanelButton _editShareButton;
         private PanelButton _editRemoveButton;
+        private PanelButton _lanPasswordConnectButton;
+        private PanelButton _lanPasswordCancelButton;
         private PanelTextField _usernameField;
         private ServerDirectoryEntry _pendingUsernameEntry;
+        private ServerDirectoryEntry _pendingLanPasswordEntry;
         private bool _pendingUsernameHostMode;
         private PanelButton _addServerButton;
         private PanelButton _refreshAllButton;
@@ -85,6 +124,7 @@ namespace Basis.BasisUI
         private PanelTextField _hostPortField;
         private PanelPasswordField _hostPasswordField;
         private PanelToggle _hostUseAuthToggle;
+        private PanelToggle _hostShowToLanToggle;
         private PanelToggle _hostEnableConsoleToggle;
         private PanelToggle _hostAvatarsLockedToggle;
         private PanelToggle _hostPropsLockedToggle;
@@ -117,6 +157,7 @@ namespace Basis.BasisUI
 
             BuildHeader(container);
             BuildEditorSection(container);
+            BuildLanPasswordSection(container);
 
             _listContainer = container;
             _emptyState = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
@@ -126,6 +167,7 @@ namespace Basis.BasisUI
             BuildAdvancedSection(container);
 
             HideEditor();
+            HideLanPasswordPrompt();
             SubscribeSourceEvents();
             _ = ReloadEntriesAsync(probeAfter: true, autoConnectAfter: true);
         }
@@ -137,6 +179,7 @@ namespace Basis.BasisUI
             _rows.Clear();
             _entries.Clear();
             _pendingUsernameEntry = null;
+            _pendingLanPasswordEntry = null;
             UnsubscribeSourceEvents();
             _panel = null;
         }
@@ -147,17 +190,18 @@ namespace Basis.BasisUI
             BasisServerDirectoryRegistry.SourcesChanged += OnSourcesChanged;
             foreach (IServerDirectorySource source in BasisServerDirectoryRegistry.Sources)
             {
-                source.SourceChanged += OnSourceChanged;
-                _subscribedSources.Add(source);
+                Action handler = () => OnSourceChanged(source);
+                source.SourceChanged += handler;
+                _subscribedSources.Add(source, handler);
             }
         }
 
         private void UnsubscribeSourceEvents()
         {
             BasisServerDirectoryRegistry.SourcesChanged -= OnSourcesChanged;
-            foreach (IServerDirectorySource source in _subscribedSources)
+            foreach (KeyValuePair<IServerDirectorySource, Action> subscription in _subscribedSources)
             {
-                source.SourceChanged -= OnSourceChanged;
+                subscription.Key.SourceChanged -= subscription.Value;
             }
             _subscribedSources.Clear();
         }
@@ -168,9 +212,11 @@ namespace Basis.BasisUI
             _ = ReloadEntriesAsync(probeAfter: true, autoConnectAfter: false);
         }
 
-        private void OnSourceChanged()
+        private void OnSourceChanged(IServerDirectorySource source)
         {
-            _ = ReloadEntriesAsync(probeAfter: true, autoConnectAfter: false);
+            bool probeAfter = source == null
+                || !string.Equals(source.SourceId, LanServersDirectorySource.Id, StringComparison.OrdinalIgnoreCase);
+            _ = ReloadEntriesAsync(probeAfter, autoConnectAfter: false);
         }
 
         private async Task ReloadEntriesAsync(bool probeAfter, bool autoConnectAfter)
@@ -283,6 +329,12 @@ namespace Basis.BasisUI
             _hostUseAuthToggle.SetValueWithoutNotify(BasisDataStore.LoadInt(HostUseAuthFile, 1) != 0);
             _hostUseAuthToggle.OnValueChanged = value => BasisDataStore.SaveInt(value ? 1 : 0, HostUseAuthFile);
 
+            _hostShowToLanToggle = PanelToggle.CreateNewEntry(container);
+            _hostShowToLanToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostShowToLan"));
+            _hostShowToLanToggle.Descriptor.SetDescription(BasisLocalization.Get("menu.servers.hostShowToLan.description"));
+            _hostShowToLanToggle.SetValueWithoutNotify(BasisDataStore.LoadInt(HostShowToLanFile, 0) != 0);
+            _hostShowToLanToggle.OnValueChanged = OnHostShowToLanChanged;
+
             _hostEnableConsoleToggle = PanelToggle.CreateNewEntry(container);
             _hostEnableConsoleToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostEnableConsole"));
             _hostEnableConsoleToggle.SetValueWithoutNotify(BasisDataStore.LoadInt(HostEnableConsoleFile, 1) != 0);
@@ -320,6 +372,22 @@ namespace Basis.BasisUI
             _autoConnectToggle.AssignBinding(BasisSettingsDefaults.AutoConnect);
 
             PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(_advancedToggle, container, advancedStart, false, null);
+        }
+
+        private void OnHostShowToLanChanged(bool value)
+        {
+            BasisDataStore.SaveInt(value ? 1 : 0, HostShowToLanFile);
+            BasisNetworkManagement.HostShowToLan = value;
+
+            BasisNetworkServerRunner runner = BasisNetworkConnection.BasisNetworkServerRunner;
+            if (!BasisNetworkManagement.IsHostMode
+                || !BasisNetworkConnection.LocalPlayerIsConnected
+                || runner?.Configuration == null)
+            {
+                return;
+            }
+
+            runner.SetLanAdvertising(value);
         }
 
         private void PopulateHostStackDropdown()
@@ -430,6 +498,74 @@ namespace Basis.BasisUI
             _editRemoveButton.OnClicked += () => _ = OnEditRemoveClickedAsync();
         }
 
+        private void BuildLanPasswordSection(RectTransform container)
+        {
+            _lanPasswordSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            _lanPasswordSection.SetDescription(BasisLocalization.Get("menu.servers.lanPassword.description"));
+
+            _lanPasswordField = PanelPasswordField.CreateNewEntry(_lanPasswordSection.ContentParent);
+            _lanPasswordField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.password"));
+            _lanPasswordField._inputField.onSubmit.AddListener(_ => SubmitLanPassword());
+
+            RectTransform actions = PanelElementDescriptor.BuildActionRow(_lanPasswordSection.ContentParent, "ServerRowActions");
+
+            _lanPasswordConnectButton = PanelButton.CreateNew(actions);
+            _lanPasswordConnectButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.connect"));
+            _lanPasswordConnectButton.OnClicked += SubmitLanPassword;
+
+            _lanPasswordCancelButton = PanelButton.CreateNew(actions);
+            _lanPasswordCancelButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.cancel"));
+            _lanPasswordCancelButton.OnClicked += HideLanPasswordPrompt;
+        }
+
+        private void ShowLanPasswordPrompt(ServerDirectoryEntry entry)
+        {
+            if (entry == null || _lanPasswordSection == null || _lanPasswordField == null)
+            {
+                return;
+            }
+
+            HideEditor();
+            _pendingLanPasswordEntry = entry;
+            string name = string.IsNullOrEmpty(entry.DisplayName)
+                ? entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty
+                : entry.DisplayName;
+            _lanPasswordSection.SetTitle(string.Format(BasisLocalization.Get("menu.servers.lanPassword.title"), name));
+            _lanPasswordField.SetPassword(string.Empty);
+            _lanPasswordSection.SetActive(true);
+            _lanPasswordField._inputField.Select();
+            _lanPasswordField._inputField.ActivateInputField();
+        }
+
+        private void SubmitLanPassword()
+        {
+            ServerDirectoryEntry entry = _pendingLanPasswordEntry;
+            if (entry == null || _lanPasswordField == null)
+            {
+                return;
+            }
+
+            string password = _lanPasswordField.Password ?? string.Empty;
+            if (string.IsNullOrEmpty(password))
+            {
+                _lanPasswordField._inputField.Select();
+                _lanPasswordField._inputField.ActivateInputField();
+                return;
+            }
+
+            entry.Password = password;
+            entry.HasPassword = true;
+            entry.Target?.Set(ConnectionTarget.Keys.Password, password);
+            HideLanPasswordPrompt();
+            _ = ConnectToAsync(entry);
+        }
+
+        private void HideLanPasswordPrompt()
+        {
+            _pendingLanPasswordEntry = null;
+            _lanPasswordSection?.SetActive(false);
+        }
+
         private async Task OnEditRemoveClickedAsync()
         {
             if (string.IsNullOrEmpty(_editingId)) return;
@@ -447,6 +583,7 @@ namespace Basis.BasisUI
 
         private void ShowEditor(ServerDirectoryEntry existing)
         {
+            HideLanPasswordPrompt();
             _editingId = existing?.Id ?? string.Empty;
             _editorSection.SetTitle(BasisLocalization.Get(existing == null
                 ? "menu.servers.list.newServer"
@@ -626,8 +763,6 @@ namespace Basis.BasisUI
 
         private void BuildRow(ServerDirectoryEntry entry)
         {
-            bool isDefault = IsDefault(entry);
-
             string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
             string portString = entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty;
 
@@ -636,9 +771,7 @@ namespace Basis.BasisUI
             row.Group.transform.SetSiblingIndex(_advancedToggle.transform.GetSiblingIndex());
 
             string baseTitle = string.IsNullOrEmpty(entry.DisplayName) ? address : entry.DisplayName;
-            row.Group.SetTitle(isDefault
-                ? string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), baseTitle)
-                : baseTitle);
+            row.Group.SetTitle(FormatEntryName(entry, baseTitle));
             ushort portForDisplay;
             ushort.TryParse(portString, out portForDisplay);
             row.Group.SetDescription(string.Format(BasisLocalization.Get("menu.servers.list.address"), address, portForDisplay));
@@ -653,7 +786,7 @@ namespace Basis.BasisUI
                 && BasisNetworkManagement.Port == portForDisplay;
             row.ConnectButton.Descriptor.SetTitle(BasisLocalization.Get(
                 isCurrentServer ? "menu.servers.reconnect" : "menu.servers.connect"));
-            row.ConnectButton.OnClicked += () => _ = ConnectToAsync(entry);
+            row.ConnectButton.OnClicked += () => OnConnectClicked(entry);
 
             if (entry.CanEdit)
             {
@@ -771,8 +904,7 @@ namespace Basis.BasisUI
                 string name = result.Name;
                 if (string.IsNullOrEmpty(name)) name = entry.DisplayName;
                 if (string.IsNullOrEmpty(name)) name = address;
-                if (IsDefault(entry))
-                    name = string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), name);
+                name = FormatEntryName(entry, name);
                 string playerCount = string.Format(BasisLocalization.Get("menu.servers.list.players"), result.Online, result.Max);
                 row.Group.SetTitle(string.Format("{0} - <color={1}>{2}</color>",
                     name,
@@ -792,8 +924,7 @@ namespace Basis.BasisUI
             {
                 string name = entry.DisplayName;
                 if (string.IsNullOrEmpty(name)) name = address;
-                if (IsDefault(entry))
-                    name = string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), name);
+                name = FormatEntryName(entry, name);
                 row.Group.SetTitle(name);
                 row.Group.SetDescription(string.Format("{0}  •  <color={1}>{2}</color>",
                     DisplayAddress(address, port),
@@ -816,6 +947,12 @@ namespace Basis.BasisUI
 
         // ── Connection ───────────────────────────────────────────────────────
 
+        private void OnConnectClicked(ServerDirectoryEntry entry)
+        {
+            HideLanPasswordPrompt();
+            _ = ConnectToAsync(entry);
+        }
+
         private void TryAutoConnect()
         {
             if (BasisConnectionService.AutoConnectAttempted) return;
@@ -833,7 +970,7 @@ namespace Basis.BasisUI
             if (target == null) return;
 
             _usernameField?.SetValueWithoutNotify(username);
-            _ = ConnectToAsync(target);
+            OnConnectClicked(target);
         }
 
         private ServerDirectoryEntry ResolveAutoConnectTarget(string lastId)
@@ -867,6 +1004,7 @@ namespace Basis.BasisUI
                 BasisNetworkManagement.HostServerMotd = BasisDataStore.LoadString(HostServerMotdFile, string.Empty);
                 BasisNetworkManagement.HostPeerLimit = BasisDataStore.LoadInt(HostPeerLimitFile, DefaultHostPeerLimit);
                 BasisNetworkManagement.HostUseAuth = BasisDataStore.LoadInt(HostUseAuthFile, 1) != 0;
+                BasisNetworkManagement.HostShowToLan = BasisDataStore.LoadInt(HostShowToLanFile, 0) != 0;
                 BasisNetworkManagement.HostEnableConsole = BasisDataStore.LoadInt(HostEnableConsoleFile, 1) != 0;
                 BasisNetworkManagement.HostAvatarsLocked = BasisDataStore.LoadInt(HostAvatarsLockedFile, 0) != 0;
                 BasisNetworkManagement.HostPropsLocked = BasisDataStore.LoadInt(HostPropsLockedFile, 0) != 0;

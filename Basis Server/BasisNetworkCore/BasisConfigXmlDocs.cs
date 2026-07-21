@@ -146,6 +146,7 @@ namespace Basis.Network.Core
             t.Fields.Add(new FieldDoc("ConfigVersion", " Config schema version, managed automatically. When the server gains new settings this file is rewritten to add them (with their defaults) and this number is bumped — don't edit by hand. "));
             t.Fields.Add(new FieldDoc("PeerLimit", " Maximum number of simultaneously connected peers (players). int. Default 65535. ", " ===== Networking / listener ===== "));
             t.Fields.Add(new FieldDoc("SetPort", " UDP port the server binds and listens on; clients connect to this. ushort, range 1-65535. "));
+            t.Fields.Add(new FieldDoc("AnnounceToLan", " Advertise this server to Basis clients on the local network using mDNS/DNS-SD. true|false. Default false. Applied on the next server start. "));
             t.Fields.Add(new FieldDoc("ServerName", " Display name shown as the row title in client server-list UIs (server-info query). string. "));
             t.Fields.Add(new FieldDoc("ServerMotd", " Short message-of-the-day returned alongside the server name. string; empty = none. "));
             t.Fields.Add(new FieldDoc("EnableStatistics", " Collect transport statistics (per-peer/packet counters) and run the stats worker; surfaced via the health endpoint. true|false. "));

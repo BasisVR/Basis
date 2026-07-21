@@ -557,8 +557,9 @@ namespace BasisNetworkConsole
         public static void HandleShutdown(string[] args)
         {
             BNL.Log("Shutting down the server...");
-            Program.isRunning = false;  // Gracefully stop the server
-            Environment.Exit(0); // Exit the application
+            Program.isRunning = false;
+            NetworkServer.StopServer();
+            Environment.Exit(0);
         }
 
         public static void HandleHelp(string[] args)

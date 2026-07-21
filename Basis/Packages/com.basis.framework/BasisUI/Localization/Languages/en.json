@@ -2219,6 +2219,30 @@
       "value": "Saved Servers"
     },
     {
+      "key": "menu.servers.source.lanServers",
+      "value": "LAN Servers"
+    },
+    {
+      "key": "menu.servers.hostShowToLan",
+      "value": "Show to LAN"
+    },
+    {
+      "key": "menu.servers.hostShowToLan.description",
+      "value": "Advertise this hosted server to Basis clients on your local network. Password-protected servers first try the standard default password, then prompt if it is rejected; the password is never included in LAN announcements."
+    },
+    {
+      "key": "menu.servers.lanPassword.title",
+      "value": "Join {0}"
+    },
+    {
+      "key": "menu.servers.lanPassword.description",
+      "value": "The password was rejected. Enter the server password."
+    },
+    {
+      "key": "menu.servers.list.lanBadge",
+      "value": "{0} (LAN)"
+    },
+    {
       "key": "menu.servers.status.connecting",
       "value": "Connecting"
     },

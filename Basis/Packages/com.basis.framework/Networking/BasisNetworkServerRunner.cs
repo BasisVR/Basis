@@ -1,4 +1,5 @@
 using Basis.Network;
+using Basis.Scripts.Networking;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,35 +9,64 @@ using static BasisPermissions.PermissionManager;
 public class BasisNetworkServerRunner
 {
     public Task serverTask;
-    CancellationTokenSource cancellationTokenSource;
+    private readonly object lifecycleGate = new object();
+    private CancellationTokenSource cancellationTokenSource;
+
     [SerializeField]
     public Configuration Configuration;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    public void Initialize(Configuration configuration, string LogPath,string UUIDTomarkAsAdmin)
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetLanAdvertising()
+    {
+        NetworkServer.SetLanAdvertising(false);
+    }
+
+    public void Initialize(Configuration configuration, string LogPath, string UUIDTomarkAsAdmin)
     {
         Configuration = configuration;
         BasisServerSideLogging.Initialize(Configuration, LogPath);
         cancellationTokenSource = new CancellationTokenSource();
-        var cancellationToken = cancellationTokenSource.Token;
+        CancellationToken cancellationToken = cancellationTokenSource.Token;
         serverTask = Task.Run(() =>
         {
             try
             {
-                NetworkServer.StartServer(Configuration);
+                lock (lifecycleGate)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    NetworkServer.StartServer(Configuration);
+                }
 
-                PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin,"*");
+                cancellationToken.ThrowIfCancellationRequested();
+                NetworkServer.SetLanAdvertising(BasisNetworkManagement.HostShowToLan);
+                PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin, "*");
                 PermissionIntegration.Manager.AddUserToGroup(UUIDTomarkAsAdmin, "admin");
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
+                NetworkServer.SetLanAdvertising(false);
                 BNL.LogError($"Server encountered an error: {ex.Message} {ex.StackTrace}");
-                // Optionally, handle server restart or log critical errors
             }
         }, cancellationToken);
     }
+
+    public void SetLanAdvertising(bool enabled)
+    {
+        NetworkServer.SetLanAdvertising(enabled);
+    }
+
     public void Stop()
     {
-        cancellationTokenSource?.Cancel();
+        lock (lifecycleGate)
+        {
+            cancellationTokenSource?.Cancel();
+        }
+
+        // mDNS goodbye and socket shutdown may block briefly; do not hold the runner
+        // lifecycle lock while the server-owned announcer is disposed.
         NetworkServer.StopServer();
     }
 }

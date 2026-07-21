@@ -62,6 +62,12 @@ namespace Basis.Scripts.Networking
 
         public static bool HostUseAuth = true;
 
+        /// <summary>
+        /// Advertise an in-process hosted server to other Basis clients on the local network.
+        /// Disabled by default and only used for client-hosted sessions.
+        /// </summary>
+        public static bool HostShowToLan = false;
+
         public static bool HostEnableConsole = true;
 
         public static bool HostAvatarsLocked = false;

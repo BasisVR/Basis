@@ -888,6 +888,7 @@ public static class BasisNetworkEvents
     {
         if (disconnectInfo.Reason == DisconnectReason.DisconnectPeerCalled)
         {
+            BasisConnectionService.ClearPendingLanPasswordAttempt();
             BasisDebug.Log($"Disconnected locally [{disconnectInfo.Reason}]", BasisDebug.LogTag.Networking);
             return;
         }
@@ -897,6 +898,7 @@ public static class BasisNetworkEvents
 
         if (disconnectInfo.Reason == DisconnectReason.RemoteConnectionClose)
         {
+            BasisConnectionService.ClearPendingLanPasswordAttempt();
 #if UNITY_SERVER
             // PeekString is now defensive — a malformed additional-data payload
             // returns "" instead of throwing. Read once and re-use.
@@ -973,9 +975,16 @@ public static class BasisNetworkEvents
             }
             else
             {
-                // Legacy bare-string reject, or a non-rejection disconnect (timeout, etc.). PeekString
+                // Bare-string reject, or a non-rejection disconnect (timeout, etc.). PeekString
                 // is defensive: an empty/malformed payload yields "".
                 string reason = extra?.PeekString();
+                if (rejected
+                    && string.Equals(reason, BasisNetworkCommons.AuthenticationRejectedReason, StringComparison.Ordinal)
+                    && BasisConnectionService.TryHandleLanAuthenticationRejected())
+                {
+                    BasisDebug.LogWarning("LAN server rejected authentication; requesting a password from the user.", BasisDebug.LogTag.Networking);
+                    return;
+                }
                 title = rejected ? "Connection Rejected" : "Server Disconnected";
                 body = !string.IsNullOrEmpty(reason)
                     ? reason
@@ -983,6 +992,8 @@ public static class BasisNetworkEvents
                         ? "The server rejected the connection. It may be full, running a different Basis version, or you may not be authorized."
                         : disconnectInfo.Reason.ToString());
             }
+
+            BasisConnectionService.ClearPendingLanPasswordAttempt();
 
 #if UNITY_SERVER
             if (canShowMenu)
