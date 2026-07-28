@@ -119,7 +119,7 @@ namespace Basis.Scripts.Networking.Sync
         /// <summary>True if the trailing 2-byte Fletcher-16 matches the packet body. Call before trusting a packet's sequence/values.</summary>
         public static bool VerifyChecksum(byte[] buf, int length)
         {
-            if (buf == null || length < HeaderSize + ChecksumSize) return false;
+            if (buf == null || length < HeaderSize + ChecksumSize || length > buf.Length) return false;
             int payloadLen = length - ChecksumSize;
             ushort expected = Fletcher16(buf, payloadLen);
             ushort actual = (ushort)(buf[payloadLen] | (buf[payloadLen + 1] << 8));
@@ -142,7 +142,7 @@ namespace Basis.Scripts.Networking.Sync
             seq = 0;
             keyframe = false;
             intervalMs = 0;
-            if (buf == null || length < HeaderSize) return false;
+            if (buf == null || length < HeaderSize || length > buf.Length) return false;
 
             int o = 0;
             seq = buf[o++];
@@ -150,23 +150,46 @@ namespace Basis.Scripts.Networking.Sync
             keyframe = (flags & FlagKeyframe) != 0;
             intervalMs = (ushort)(buf[o] | (buf[o + 1] << 8));
             o += 2;
+            int fieldCount = schema.FieldCount;
 
             if (keyframe)
             {
+                // Preflight the packet so rejected/truncated data never partially mutates the baseline.
+                var verify = new BitReader(buf, o, length);
+                for (int fi = 0; fi < fieldCount; fi++)
+                {
+                    if (!SkipField(schema, schema.GetField(fi), ref verify)) return false;
+                }
+
                 var r = new BitReader(buf, o, length);
-                for (int fi = 0; fi < schema.FieldCount; fi++)
-                    DecodeField(schema, schema.GetField(fi), baseline, ref r);
+                for (int fi = 0; fi < fieldCount; fi++)
+                {
+                    if (!DecodeField(schema, schema.GetField(fi), baseline, ref r)) return false;
+                }
             }
             else
             {
                 int maskStart = o;
                 o += schema.DirtyMaskBytes;
                 if (o > length) return false;
-                var r = new BitReader(buf, o, length);
-                for (int fi = 0; fi < schema.FieldCount; fi++)
+
+                // Preflight the packet so rejected/truncated data never partially mutates the baseline.
+                var verify = new BitReader(buf, o, length);
+                for (int fi = 0; fi < fieldCount; fi++)
                 {
                     if ((buf[maskStart + (fi >> 3)] & (1 << (fi & 7))) != 0)
-                        DecodeField(schema, schema.GetField(fi), baseline, ref r);
+                    {
+                        if (!SkipField(schema, schema.GetField(fi), ref verify)) return false;
+                    }
+                }
+
+                var r = new BitReader(buf, o, length);
+                for (int fi = 0; fi < fieldCount; fi++)
+                {
+                    if ((buf[maskStart + (fi >> 3)] & (1 << (fi & 7))) != 0)
+                    {
+                        if (!DecodeField(schema, schema.GetField(fi), baseline, ref r)) return false;
+                    }
                 }
             }
             return true;
@@ -204,7 +227,7 @@ namespace Basis.Scripts.Networking.Sync
             }
         }
 
-        private static void DecodeField(BasisSyncSchema schema, in BasisSyncField f, BasisSyncValues v, ref BitReader r)
+        private static bool DecodeField(BasisSyncSchema schema, in BasisSyncField f, BasisSyncValues v, ref BitReader r)
         {
             switch (f.Pool)
             {
@@ -212,13 +235,14 @@ namespace Basis.Scripts.Networking.Sync
                     for (int c = 0; c < f.ContComponents; c++)
                     {
                         int ci = f.Offset + c;
-                        v.Cont[ci] = DecodeCont(ref r, schema.QuantMode(ci), schema.QuantMin(ci), schema.QuantMax(ci), schema.QuantBits(ci));
+                        if (!TryDecodeCont(ref r, schema.QuantMode(ci), schema.QuantMin(ci), schema.QuantMax(ci), schema.QuantBits(ci), out float value)) return false;
+                        v.Cont[ci] = value;
                     }
                     break;
                 case BasisSyncPool.Rotation:
                 {
                     int magBits = RotMagBits(f);
-                    ulong packed = r.ReadBitsLong(2 + 3 * (1 + magBits));
+                    if (!r.TryReadBitsLong(2 + 3 * (1 + magBits), out ulong packed)) return false;
                     UnityEngine.Quaternion uq = BasisCompression.QuaternionCompressor.DecompressSmallestThree(packed, magBits);
                     v.Rot[f.Offset] = new quaternion(uq.x, uq.y, uq.z, uq.w);
                     break;
@@ -226,13 +250,65 @@ namespace Basis.Scripts.Networking.Sync
                 default:
                     switch (f.Type)
                     {
-                        case BasisSyncFieldType.Bool: v.Disc[f.Offset] = r.ReadBits(1) != 0 ? 1 : 0; break;
-                        case BasisSyncFieldType.Byte: v.Disc[f.Offset] = (int)r.ReadBits(8); break;
-                        case BasisSyncFieldType.UShort: v.Disc[f.Offset] = (int)r.ReadBits(16); break;
-                        case BasisSyncFieldType.UInt: v.Disc[f.Offset] = (int)ReadVarUInt(ref r); break;
-                        default: v.Disc[f.Offset] = ReadVarInt(ref r); break;
+                        case BasisSyncFieldType.Bool:
+                        {
+                            if (!r.TryReadBits(1, out uint value)) return false;
+                            v.Disc[f.Offset] = value != 0 ? 1 : 0;
+                            break;
+                        }
+                        case BasisSyncFieldType.Byte:
+                        {
+                            if (!r.TryReadBits(8, out uint value)) return false;
+                            v.Disc[f.Offset] = (int)value;
+                            break;
+                        }
+                        case BasisSyncFieldType.UShort:
+                        {
+                            if (!r.TryReadBits(16, out uint value)) return false;
+                            v.Disc[f.Offset] = (int)value;
+                            break;
+                        }
+                        case BasisSyncFieldType.UInt:
+                        {
+                            if (!TryReadVarUInt(ref r, out uint value)) return false;
+                            v.Disc[f.Offset] = (int)value;
+                            break;
+                        }
+                        default:
+                        {
+                            if (!TryReadVarInt(ref r, out int value)) return false;
+                            v.Disc[f.Offset] = value;
+                            break;
+                        }
                     }
                     break;
+            }
+            return true;
+        }
+
+        private static bool SkipField(BasisSyncSchema schema, in BasisSyncField f, ref BitReader r)
+        {
+            switch (f.Pool)
+            {
+                case BasisSyncPool.Continuous:
+                    for (int c = 0; c < f.ContComponents; c++)
+                    {
+                        if (!r.SkipBits(ContBits(schema, f.Offset + c))) return false;
+                    }
+                    return true;
+                case BasisSyncPool.Rotation:
+                    return r.SkipBits(2 + 3 * (1 + RotMagBits(f)));
+                default:
+                    switch (f.Type)
+                    {
+                        case BasisSyncFieldType.Bool: return r.SkipBits(1);
+                        case BasisSyncFieldType.Byte: return r.SkipBits(8);
+                        case BasisSyncFieldType.UShort: return r.SkipBits(16);
+                        case BasisSyncFieldType.UInt:
+                        default:
+                            uint ignored;
+                            return TryReadVarUInt(ref r, out ignored);
+                    }
             }
         }
 
@@ -259,30 +335,42 @@ namespace Basis.Scripts.Networking.Sync
             }
         }
 
-        private static float DecodeCont(ref BitReader r, BasisQuantMode mode, float min, float max, int bits)
+        private static bool TryDecodeCont(ref BitReader r, BasisQuantMode mode, float min, float max, int bits, out float value)
         {
+            value = 0f;
             switch (mode)
             {
                 case BasisQuantMode.Half:
-                    return math.f16tof32(r.ReadBits(16));
+                {
+                    if (!r.TryReadBits(16, out uint raw)) return false;
+                    value = math.f16tof32(raw);
+                    return true;
+                }
                 case BasisQuantMode.Ranged:
                 {
                     int b = ClampBits(bits);
                     uint maxQ = (1u << b) - 1u;
-                    uint q = r.ReadBits(b);
-                    return min + (q / (float)maxQ) * (max - min);
+                    if (!r.TryReadBits(b, out uint q)) return false;
+                    value = min + (q / (float)maxQ) * (max - min);
+                    return true;
                 }
                 default:
-                    return BitsToFloat(r.ReadBits(32));
+                {
+                    if (!r.TryReadBits(32, out uint raw)) return false;
+                    value = BitsToFloat(raw);
+                    return true;
+                }
             }
         }
 
         private static void WriteVarInt(ref BitWriter w, int value) => WriteVarUInt(ref w, (uint)((value << 1) ^ (value >> 31)));
 
-        private static int ReadVarInt(ref BitReader r)
+        private static bool TryReadVarInt(ref BitReader r, out int value)
         {
-            uint zig = ReadVarUInt(ref r);
-            return (int)(zig >> 1) ^ -(int)(zig & 1);
+            value = 0;
+            if (!TryReadVarUInt(ref r, out uint zig)) return false;
+            value = (int)(zig >> 1) ^ -(int)(zig & 1);
+            return true;
         }
 
         private static void WriteVarUInt(ref BitWriter w, uint v)
@@ -295,18 +383,20 @@ namespace Basis.Scripts.Networking.Sync
             w.WriteBits(v, 8);
         }
 
-        private static uint ReadVarUInt(ref BitReader r)
+        private static bool TryReadVarUInt(ref BitReader r, out uint value)
         {
-            uint val = 0;
+            value = 0;
             int shift = 0;
-            while (shift <= 35)
+            for (int count = 0; count < 5; count++)
             {
-                byte b = (byte)r.ReadBits(8);
-                val |= (uint)(b & 0x7F) << shift;
-                if ((b & 0x80) == 0) break;
+                if (!r.TryReadBits(8, out uint raw)) return false;
+                byte b = (byte)raw;
+                if (count == 4 && (b & 0xF0) != 0) return false;
+                value |= (uint)(b & 0x7F) << shift;
+                if ((b & 0x80) == 0) return true;
                 shift += 7;
             }
-            return val;
+            return false;
         }
 
         private static unsafe uint FloatToBits(float v) => *(uint*)&v;
@@ -351,7 +441,7 @@ namespace Basis.Scripts.Networking.Sync
             public int ByteLength => _byte + (_bit > 0 ? 1 : 0);
         }
 
-        /// <summary>LSB-first bit reader; returns 0 once the byte limit is exhausted (corrupt/truncated safe).</summary>
+        /// <summary>LSB-first bit reader with explicit bounds checks for corrupt/truncated packets.</summary>
         private struct BitReader
         {
             private readonly byte[] _buf;
@@ -367,23 +457,54 @@ namespace Basis.Scripts.Networking.Sync
                 _limit = limitBytes < buf.Length ? limitBytes : buf.Length;
             }
 
-            public uint ReadBits(int bits)
+            public bool TryReadBits(int bits, out uint value)
             {
-                uint v = 0;
+                value = 0;
+                if (bits > 32 || !CanReadBits(bits)) return false;
+
                 for (int i = 0; i < bits; i++)
                 {
-                    if (_byte < _limit && ((_buf[_byte] >> _bit) & 1) != 0) v |= 1u << i;
-                    if (++_bit == 8) { _bit = 0; _byte++; }
+                    if (((_buf[_byte] >> _bit) & 1) != 0) value |= 1u << i;
+                    //Advance Bit
+                    if (++_bit == 8)
+                    {
+                        _bit = 0;
+                        _byte++;
+                    }
                 }
-                return v;
+                return true;
             }
 
-            public ulong ReadBitsLong(int bits)
+            public bool SkipBits(int bits)
             {
-                if (bits <= 32) return ReadBits(bits);
-                ulong lo = ReadBits(32);
-                ulong hi = ReadBits(bits - 32);
-                return lo | (hi << 32);
+                if (!CanReadBits(bits)) return false;
+                int total = _bit + bits;
+                _byte += total >> 3;
+                _bit = total & 7;
+                return true;
+            }
+
+            private bool CanReadBits(int bits)
+            {
+                if (bits < 0 || bits > 64) return false;
+                int available = ((_limit - _byte) << 3) - _bit;
+                return available >= bits;
+            }
+
+            public bool TryReadBitsLong(int bits, out ulong value)
+            {
+                value = 0;
+                if (!CanReadBits(bits)) return false;
+                if (bits <= 32)
+                {
+                    if (!TryReadBits(bits, out uint only)) return false;
+                    value = only;
+                    return true;
+                }
+                if (!TryReadBits(32, out uint lo)) return false;
+                if (!TryReadBits(bits - 32, out uint hi)) return false;
+                value = lo | ((ulong)hi << 32);
+                return true;
             }
         }
     }

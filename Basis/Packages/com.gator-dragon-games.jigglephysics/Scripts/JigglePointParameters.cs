@@ -73,7 +73,10 @@ public struct JiggleTreeInputParameters {
     public JiggleTreeCurvedFloat airDrag;         // 0..1
     public JiggleTreeCurvedFloat gravity;         // arbitrary
     public JiggleTreeCurvedFloat collisionRadius; // >= 0
-    public float blend;                           // 0..1
+    // Never reached the runtime: ToJigglePointParameters has always emitted a hard 1, and every
+    // shipped preset serialized this as 0. Honouring it now would slerp each bone's correction
+    // back to its animated pose and switch jiggle off wholesale, so it stays retired.
+    //public float blend;                         // 0..1
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public JigglePointParameters ToJigglePointParameters(float normalizedDistanceFromRoot) {
@@ -127,7 +130,6 @@ public struct JiggleTreeInputParameters {
             collisionRadius = new JiggleTreeCurvedFloat(0.1f),
             soften = 0f,
             angleLimitSoften = 0f,
-            blend = 1f
         };
     }
 
@@ -145,7 +147,6 @@ public struct JiggleTreeInputParameters {
         ignoreRootMotion = Mathf.Clamp01(ignoreRootMotion);
         soften = Mathf.Clamp01(soften);
         angleLimitSoften = Mathf.Clamp01(angleLimitSoften);
-        blend = Mathf.Clamp01(blend);
     }
 }
 

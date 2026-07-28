@@ -67,6 +67,7 @@
     <assembly fullname="UdonSharp.Lib" preserve="all" />
     <assembly fullname="UdonSharp.Runtime" preserve="all" />
     <assembly fullname="Unity.Addressables" preserve="all" />
+
     <assembly fullname="Unity.Animation.Rigging" preserve="all" />
     <assembly fullname="Unity.Animation.Rigging.DocCodeExamples" preserve="all" />
     <assembly fullname="Unity.Burst" preserve="all" />

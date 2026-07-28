@@ -82,7 +82,6 @@ namespace Basis.IK.Debugging
                         $"Inverse offset: pos err {_last.MaxOffsetPosErr:E2} m, rot err {_last.MaxOffsetRotErrDeg:F3}°, rigid-follow {_last.MaxRigidFollowErr:E2} m\n" +
                         $"Device scale round-trip: {_last.MaxScalePosErr:E2} m\n" +
                         $"Rotation calibration (no-leak): {_last.MaxRotCalErrDeg:F3}°\n" +
-                        $"Pitch height: {_last.MaxPitchHeightErr:F4} m err ({_last.PitchSolvable} solved, {_last.PitchFallback} fallback)\n" +
                         $"Scale modifier mismatches: {_last.ScaleModifierMismatches}\n" +
                         $"Feel height: viewpoint err {_last.MaxFeelHeightErr:E2} m, too-tall ratio err {_last.MaxFeelFactorErr:E2}\n" +
                         _last.Path, MessageType.None);

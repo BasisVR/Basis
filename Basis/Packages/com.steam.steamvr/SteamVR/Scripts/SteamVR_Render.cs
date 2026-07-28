@@ -84,12 +84,38 @@ namespace Valve.VR
                 SteamVR_Events.Initialized.RemoveListener(OnSteamVRInitialized);
             }
         }
+        static readonly Unity.Profiling.ProfilerMarker sMarkerInput = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.SteamVRInput");
+        static readonly Unity.Profiling.ProfilerMarker sMarkerPoses = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.CompositorPoses");
+        static readonly Unity.Profiling.ProfilerMarker sMarkerEvents = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.VREvents");
         public void Simulate()
+        {
+            SimulateInput();
+            SimulatePosesAndEvents();
+        }
+
+        /// <summary>
+        /// The action-state half of the per-frame tick: UpdateActionState plus every
+        /// button/axis/pose/skeleton read. Touches no Unity API (SteamVR_Input.CaptureMainThreadState
+        /// must have run on the main thread this frame), so it may run on a worker thread while the
+        /// main thread does unrelated work — see BasisOpenVRManagement.SimulateKick.
+        /// </summary>
+        public static void SimulateInput()
         {
             if (OpenVR.Input != null)
             {
-                SteamVR_Input.LateUpdate();
+                using (sMarkerInput.Auto())
+                {
+                    SteamVR_Input.LateUpdate();
+                }
             }
+        }
+
+        /// <summary>
+        /// The main-thread half of the per-frame tick: compositor pose fetch (device
+        /// connect/disconnect flow) and the VR event pump (may create/destroy Unity objects).
+        /// </summary>
+        public void SimulatePosesAndEvents()
+        {
             if (SteamVR.active == false)
             {
                 return;
@@ -105,40 +131,46 @@ namespace Valve.VR
             var compositor = OpenVR.Compositor;
             if (compositor != null)
             {
-                compositor.GetLastPoses(poses, gamePoses);
-                SteamVR_Events.NewPoses.Send(poses);
-                SteamVR_Events.NewPosesApplied.Send();
-            }
-            for (int Index = 0; Index < 64; Index++)
-            {
-                if (!system.PollNextEvent(ref vrEvent, size))
+                using (sMarkerPoses.Auto())
                 {
-                    break;
+                    compositor.GetLastPoses(poses, gamePoses);
+                    SteamVR_Events.NewPoses.Send(poses);
+                    SteamVR_Events.NewPosesApplied.Send();
                 }
-
-                switch ((EVREventType)vrEvent.eventType)
+            }
+            using (sMarkerEvents.Auto())
+            {
+                for (int Index = 0; Index < 64; Index++)
                 {
-                    case EVREventType.VREvent_InputFocusCaptured: // another app has taken focus (likely dashboard)
-                        if (vrEvent.data.process.oldPid == 0)
-                        {
-                            SteamVR_Events.InputFocus.Send(false);
-                        }
+                    if (!system.PollNextEvent(ref vrEvent, size))
+                    {
                         break;
-                    case EVREventType.VREvent_InputFocusReleased: // that app has released input focus
-                        if (vrEvent.data.process.pid == 0)
-                        {
-                            SteamVR_Events.InputFocus.Send(true);
-                        }
-                        break;
-                    case EVREventType.VREvent_ShowRenderModels:
-                        SteamVR_Events.HideRenderModels.Send(false);
-                        break;
-                    case EVREventType.VREvent_HideRenderModels:
-                        SteamVR_Events.HideRenderModels.Send(true);
-                        break;
-                    default:
-                        SteamVR_Events.System((EVREventType)vrEvent.eventType).Send(vrEvent);
-                        break;
+                    }
+
+                    switch ((EVREventType)vrEvent.eventType)
+                    {
+                        case EVREventType.VREvent_InputFocusCaptured: // another app has taken focus (likely dashboard)
+                            if (vrEvent.data.process.oldPid == 0)
+                            {
+                                SteamVR_Events.InputFocus.Send(false);
+                            }
+                            break;
+                        case EVREventType.VREvent_InputFocusReleased: // that app has released input focus
+                            if (vrEvent.data.process.pid == 0)
+                            {
+                                SteamVR_Events.InputFocus.Send(true);
+                            }
+                            break;
+                        case EVREventType.VREvent_ShowRenderModels:
+                            SteamVR_Events.HideRenderModels.Send(false);
+                            break;
+                        case EVREventType.VREvent_HideRenderModels:
+                            SteamVR_Events.HideRenderModels.Send(true);
+                            break;
+                        default:
+                            SteamVR_Events.System((EVREventType)vrEvent.eventType).Send(vrEvent);
+                            break;
+                    }
                 }
             }
         }

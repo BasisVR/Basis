@@ -68,58 +68,12 @@ public class BasisAvatarValidator
 
     public void CreateErrorPanel(VisualElement rootElement)
     {
-        errorPanel = new VisualElement();
-        errorPanel.style.backgroundColor = new StyleColor(new Color(1, 0.5f, 0.5f, 0.5f));
-        errorPanel.style.paddingTop = 5;
-        errorPanel.style.flexGrow = 1;
-        errorPanel.style.paddingBottom = 5;
-        errorPanel.style.marginBottom = 10;
-        errorPanel.style.borderTopLeftRadius = 5;
-        errorPanel.style.borderTopRightRadius = 5;
-        errorPanel.style.borderBottomLeftRadius = 5;
-        errorPanel.style.borderBottomRightRadius = 5;
-        errorPanel.style.borderLeftWidth = 2;
-        errorPanel.style.borderRightWidth = 2;
-        errorPanel.style.borderTopWidth = 2;
-        errorPanel.style.borderBottomWidth = 2;
-        errorPanel.style.borderBottomColor = new StyleColor(Color.red);
-
-        errorMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.error.empty"));
-        errorMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        errorMessageLabel.style.whiteSpace = WhiteSpace.Normal;
-        errorPanel.Add(errorMessageLabel);
-
-        errorButtonContainer = new VisualElement() { name = "ErrorButtonContainer" };
-        errorPanel.Add(errorButtonContainer);
-
-        errorPanel.style.display = DisplayStyle.None;
-        rootElement.Add(errorPanel);
+        errorPanel = BasisValidatorUI.CreateErrorPanel(rootElement, out errorMessageLabel, out errorButtonContainer);
     }
 
     public void CreatePassedPanel(VisualElement rootElement)
     {
-        passedPanel = new VisualElement();
-        passedPanel.style.backgroundColor = new StyleColor(new Color(0.5f, 1f, 0.5f, 0.5f));
-        passedPanel.style.paddingTop = 5;
-        passedPanel.style.flexGrow = 1;
-        passedPanel.style.paddingBottom = 5;
-        passedPanel.style.marginBottom = 10;
-        passedPanel.style.borderTopLeftRadius = 5;
-        passedPanel.style.borderTopRightRadius = 5;
-        passedPanel.style.borderBottomLeftRadius = 5;
-        passedPanel.style.borderBottomRightRadius = 5;
-        passedPanel.style.borderLeftWidth = 2;
-        passedPanel.style.borderRightWidth = 2;
-        passedPanel.style.borderTopWidth = 2;
-        passedPanel.style.borderBottomWidth = 2;
-        passedPanel.style.borderBottomColor = new StyleColor(Color.green);
-
-        passedMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.passed.empty"));
-        passedMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        passedPanel.Add(passedMessageLabel);
-
-        passedPanel.style.display = DisplayStyle.None;
-        rootElement.Add(passedPanel);
+        passedPanel = BasisValidatorUI.CreatePassedPanel(rootElement, out passedMessageLabel);
     }
 
     public enum ValidationCategory
@@ -216,6 +170,10 @@ public class BasisAvatarValidator
                     FixTryCreateHumanoidAvatarOnSourceModels,
                     BasisEditorLocalization.Get("sdk.avatarValidator.animator.noAvatar.fix")
                 ));
+            }
+            else
+            {
+                ValidateHumanoidRig(ref errors, ref warnings, ref passes);
             }
         }
         else
@@ -497,6 +455,63 @@ public class BasisAvatarValidator
         EditorUtility.SetDirty(Avatar);
     }
 
+    private static readonly HumanBodyBones[] RequiredHumanoidBones =
+    {
+        HumanBodyBones.Hips, HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.Neck, HumanBodyBones.Head,
+        HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand,
+        HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand,
+        HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot,
+        HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot
+    };
+
+    private static readonly HumanBodyBones[] RecommendedHumanoidBones =
+    {
+        HumanBodyBones.LeftShoulder, HumanBodyBones.RightShoulder,
+        HumanBodyBones.LeftEye, HumanBodyBones.RightEye
+    };
+
+    private void ValidateHumanoidRig(ref List<BasisValidationIssue> errors, ref List<BasisValidationIssue> warnings, ref List<string> passes)
+    {
+        UnityEngine.Avatar rig = Avatar.Animator.avatar;
+        if (!rig.isValid || !rig.isHuman)
+        {
+            errors.Add(new BasisValidationIssue(
+                BasisEditorLocalization.Get("sdk.avatarValidator.rig.notHumanoid"), ValidationCategory.Configuration,
+                FixTryCreateHumanoidAvatarOnSourceModels,
+                BasisEditorLocalization.Get("sdk.avatarValidator.animator.noAvatar.fix")
+            ));
+            return;
+        }
+
+        List<string> missingRequired = new List<string>();
+        foreach (HumanBodyBones bone in RequiredHumanoidBones)
+        {
+            if (Avatar.Animator.GetBoneTransform(bone) == null)
+                missingRequired.Add(bone.ToString());
+        }
+
+        List<string> missingRecommended = new List<string>();
+        foreach (HumanBodyBones bone in RecommendedHumanoidBones)
+        {
+            if (Avatar.Animator.GetBoneTransform(bone) == null)
+                missingRecommended.Add(bone.ToString());
+        }
+
+        if (missingRequired.Count == 0)
+            passes.Add(BasisEditorLocalization.Get("sdk.avatarValidator.rig.bonesMapped"));
+        else
+            errors.Add(new BasisValidationIssue(
+                BasisEditorLocalization.Get("sdk.avatarValidator.rig.missingBones", string.Join(", ", missingRequired)),
+                ValidationCategory.Configuration, null
+            ));
+
+        if (missingRecommended.Count > 0)
+            warnings.Add(new BasisValidationIssue(
+                BasisEditorLocalization.Get("sdk.avatarValidator.rig.missingOptionalBones", string.Join(", ", missingRecommended)),
+                ValidationCategory.Configuration, null, "", Avatar.Animator
+            ));
+    }
+
     private void ValidateTranslationDof(ref List<BasisValidationIssue> warnings, ref List<string> passes)
     {
         bool foundAny = false;
@@ -681,7 +696,7 @@ public class BasisAvatarValidator
             if (issue.Fix != null)
             {
                 string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? issue.Message : issue.FixLabel;
-                AutoFixButton(errorButtonContainer, issue.Fix, actionTitle, true);
+                BasisValidatorUI.AutoFixButton(errorButtonContainer, issue.Fix, actionTitle, true);
             }
             if (!issueList.Contains(issue.Message))
                 issueList.Add(issue.Message);
@@ -797,7 +812,7 @@ public class BasisAvatarValidator
                 if (issue.Fix != null)
                 {
                     string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? BasisEditorLocalization.Get("sdk.validator.fix.default") : issue.FixLabel;
-                    AutoFixButton(buttonContainer, issue.Fix, actionTitle, false);
+                    BasisValidatorUI.AutoFixButton(buttonContainer, issue.Fix, actionTitle, false);
                 }
             }
         }
@@ -821,65 +836,4 @@ public class BasisAvatarValidator
         passedPanel.style.display = DisplayStyle.None;
     }
 
-    public void AutoFixButton(VisualElement rootElement, Action onClickAction, string fixMe, bool isError = true)
-    {
-        foreach (var child in rootElement.Children())
-        {
-            if (child is Button existing && existing.text == fixMe)
-                return;
-        }
-
-        Button fixMeButton = new Button();
-
-        fixMeButton.clicked += delegate
-        {
-            onClickAction?.Invoke();
-            fixMeButton.RemoveFromHierarchy();
-        };
-
-        fixMeButton.text = fixMe;
-
-        Color errBackground = new Color(0.96f, 0.26f, 0.21f);
-        Color errHover = new Color(0.9f, 0.2f, 0.2f);
-
-        Color warnBackground = new Color(1f, 0.63f, 0f);
-        Color warnHover = new Color(1f, 0.7f, 0f);
-
-        fixMeButton.style.backgroundColor = new StyleColor(isError ? errBackground : warnBackground);
-        fixMeButton.style.color = new StyleColor(Color.white);
-        fixMeButton.style.fontSize = 14;
-        fixMeButton.style.unityFontStyleAndWeight = FontStyle.Bold;
-        fixMeButton.style.whiteSpace = WhiteSpace.Normal;
-        fixMeButton.style.flexShrink = 0;
-
-        fixMeButton.style.paddingTop = 6;
-        fixMeButton.style.paddingBottom = 6;
-        fixMeButton.style.paddingLeft = 12;
-        fixMeButton.style.paddingRight = 12;
-        fixMeButton.style.marginBottom = 10;
-
-        fixMeButton.style.borderTopLeftRadius = 8;
-        fixMeButton.style.borderTopRightRadius = 8;
-        fixMeButton.style.borderBottomLeftRadius = 8;
-        fixMeButton.style.borderBottomRightRadius = 8;
-
-        fixMeButton.style.borderLeftWidth = 0;
-        fixMeButton.style.borderRightWidth = 0;
-        fixMeButton.style.borderTopWidth = 0;
-        fixMeButton.style.borderBottomWidth = 3;
-
-        fixMeButton.style.unityTextAlign = TextAnchor.MiddleCenter;
-        fixMeButton.style.alignSelf = Align.Auto;
-
-        fixMeButton.RegisterCallback<MouseEnterEvent>(evt =>
-        {
-            fixMeButton.style.backgroundColor = new StyleColor(isError ? errHover : warnHover);
-        });
-        fixMeButton.RegisterCallback<MouseLeaveEvent>(evt =>
-        {
-            fixMeButton.style.backgroundColor = new StyleColor(isError ? errBackground : warnBackground);
-        });
-
-        rootElement.Add(fixMeButton);
-    }
 }

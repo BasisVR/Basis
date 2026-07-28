@@ -23,10 +23,6 @@ namespace Basis.BasisUI
         private string _disabledReason;
         private bool _pointerInside;
 
-        // The panel the pointer is currently over. Set from the same enter/exit events that
-        // drive the tooltip, so it is correct even for panels nested inside a scroll view.
-        public static PanelComponent CurrentHovered { get; private set; }
-
         /// <summary>
         /// The Selectable that owns this control's interactable state (dropdown, toggle, slider,
         /// button, input field). Null for elements that have no interactive control.
@@ -41,6 +37,17 @@ namespace Basis.BasisUI
                 Selectable target = InteractableTarget;
                 return target == null || target.interactable;
             }
+        }
+
+        /// <summary>
+        /// True when this control knows a value to reset to, so the reset gesture is offered
+        /// while it is hovered. See <see cref="BasisPanelResetGesture"/>.
+        /// </summary>
+        public virtual bool HasResetDefault => false;
+
+        /// <summary>Asks to reset this control to its default. No-op unless the control supports it.</summary>
+        public virtual void RequestReset()
+        {
         }
 
         /// <summary>
@@ -78,15 +85,24 @@ namespace Basis.BasisUI
         public virtual void OnPointerEnter(PointerEventData eventData)
         {
             _pointerInside = true;
-            CurrentHovered = this;
             BasisMainMenu.ShowTooltip(TooltipText);
+            BasisPanelResetGesture.SetHovered(this);
         }
 
         public virtual void OnPointerExit(PointerEventData eventData)
         {
             _pointerInside = false;
-            if (CurrentHovered == this) CurrentHovered = null;
             BasisMainMenu.HideTooltip();
+            BasisPanelResetGesture.ClearHovered(this);
+        }
+
+        // A closing menu tears its elements down without a pointer exit, so drop the hover here
+        // too rather than leaving the gesture poll pointed at a dead control.
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+            _pointerInside = false;
+            BasisPanelResetGesture.ClearHovered(this);
         }
 
         [UsedImplicitly]

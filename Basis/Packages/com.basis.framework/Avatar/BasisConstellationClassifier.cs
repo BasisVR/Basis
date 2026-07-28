@@ -504,8 +504,21 @@ namespace Basis.Scripts.Avatar
 
                 var forcedRole = (BasisBoneTrackedRole)samples[s].ForcedRole;
                 int roleIdx = FindPriorIndex(priors, forcedRole);
-                // Override targets a role already taken by another override — skip it.
-                if (roleIdx >= 0 && roleUsed[roleIdx]) continue;
+
+                // Role already taken by an earlier override (checked against the result itself so
+                // off-list roles are covered too — roleUsed only tracks the filtered prior list).
+                // The losing pin is consumed rather than released: falling through to the scored
+                // passes would bind an explicitly-pinned tracker to an arbitrary other role.
+                bool roleTaken = false;
+                for (int p = 0; p < count; p++)
+                {
+                    if (result.AssignedRole[p] == (int)forcedRole) { roleTaken = true; break; }
+                }
+                if (roleTaken)
+                {
+                    sampleUsed[s] = true;
+                    continue;
+                }
 
                 // roleIdx < 0 means the role is toggled off / off-list; honor the override anyway
                 // and just skip the roleUsed bookkeeping (the classifier wasn't going to pick it).
@@ -589,6 +602,10 @@ namespace Basis.Scripts.Avatar
                 else if (result.AssignedRole[i] == (int)toeRole) toesIdx = i;
             }
             if (footIdx < 0 || toesIdx < 0) return;
+
+            // Forced overrides bypass every heuristic — never un-do a user's explicit pin.
+            if (result.AssignedKind[footIdx] == BasisConstellationAssignKind.Forced ||
+                result.AssignedKind[toesIdx] == BasisConstellationAssignKind.Forced) return;
 
             float footZ = samples[footIdx].DepthLocal;
             float toesZ = samples[toesIdx].DepthLocal;

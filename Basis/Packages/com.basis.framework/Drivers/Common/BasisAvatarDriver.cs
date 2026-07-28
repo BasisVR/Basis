@@ -240,6 +240,29 @@ namespace Basis.Scripts.Drivers
         private bool _fingersBuilt;
 
         /// <summary>
+        /// localScale of the transform the runtime avatar rescale writes to (AnimatorRoot), sampled
+        /// before that rescale is first applied. Collider radii are authored in metres at this scale.
+        /// Must be captured off the same transform ApplyAvatarScaleJob writes to — BasisAvatar.transform
+        /// is not necessarily the animator root, so AvatarInitialScale is not interchangeable here.
+        /// </summary>
+        public Vector3 ColliderScaleReference = Vector3.one;
+
+        // Ratio between the rescaled root now and the scale the radii were authored against. Collider
+        // building is async and races the rescale, so this rebases whatever scale happens to be live at
+        // build time back onto the reference — the stored radius then lands at authored metres times
+        // the avatar's rescale, independent of when the build ran.
+        private float _colliderScaleRebase = 1f;
+
+        private static float AverageAxis(Vector3 v) => (Mathf.Abs(v.x) + Mathf.Abs(v.y) + Mathf.Abs(v.z)) / 3f;
+
+        private void RefreshColliderScaleRebase(Transform scaledRoot)
+        {
+            float reference = AverageAxis(ColliderScaleReference);
+            float now = scaledRoot != null ? AverageAxis(scaledRoot.localScale) : reference;
+            _colliderScaleRebase = (reference > 1e-6f && now > 1e-6f) ? now / reference : 1f;
+        }
+
+        /// <summary>
         /// Creates a set of jiggle colliders for the provided mapping and registers them with the global <see cref="JigglePhysics"/>.
         /// </summary>
         /// <param name="Mapping">Bone transform mapping used to generate colliders for feet and hands/fingers.</param>
@@ -252,6 +275,7 @@ namespace Basis.Scripts.Drivers
         {
             _jiggleColliderMapping = Mapping;
             _fingersBuilt = false;
+            RefreshColliderScaleRebase(Mapping.HasAnimatorRoot ? Mapping.AnimatorRoot : null);
 
             JiggleCollidersFeet.Clear();
             JiggleCollidersArms.Clear();
@@ -304,6 +328,11 @@ namespace Basis.Scripts.Drivers
 
         private void BuildFingerColliders(BasisTransformMapping Mapping)
         {
+            // The LOD can call this many frames after the initial build, at a different root scale.
+            // The rebase has to be sampled at the same moment as the per-bone invAvgScale it pairs
+            // with, or the two no longer cancel.
+            RefreshColliderScaleRebase(Mapping.HasAnimatorRoot ? Mapping.AnimatorRoot : null);
+
             JiggleCollidersFingers.Clear();
             JiggleCreatorHelperCapsule(JiggleCollidersFingers, Mapping.LeftThumb);
             JiggleCreatorHelperCapsule(JiggleCollidersFingers, Mapping.LeftIndex);
@@ -419,6 +448,26 @@ namespace Basis.Scripts.Drivers
                     pos = new Vector3(m.m03, m.m13, m.m23);
                 }
 
+                float sx = Mathf.Sqrt(m.m00 * m.m00 + m.m10 * m.m10 + m.m20 * m.m20);
+                float sy = Mathf.Sqrt(m.m01 * m.m01 + m.m11 * m.m11 + m.m21 * m.m21);
+                float sz = Mathf.Sqrt(m.m02 * m.m02 + m.m12 * m.m12 + m.m22 * m.m22);
+
+                // A zeroed bone axis (a common way to hide a bone on stylized avatars) divides to
+                // NaN/Inf below, and that NaN rides the collider into every jiggle point it touches.
+                const float MinBoneScale = 1e-6f;
+                if (sx < MinBoneScale || sy < MinBoneScale || sz < MinBoneScale)
+                {
+                    hasCached = false;
+                    continue;
+                }
+
+                // Radii are authored in world metres, but JiggleCollider.Read multiplies whatever is
+                // stored by the bone's own average scale — so they have to be pre-divided by it here,
+                // exactly like height is. Bone lossyScale is arbitrary rig-authoring data, not a
+                // measure of rendered size, so letting it through produces wildly different collider
+                // sizes on avatars that look identical.
+                float invAvgScale = 3f / (sx + sy + sz);
+
                 Transform tNext = (i + 1 < count) ? Parents[i + 1] : null;
                 if (tNext == null && !addTipSphere)
                 {
@@ -438,10 +487,6 @@ namespace Basis.Scripts.Drivers
                     float dz = posNext.z - pos.z;
                     float boneLength = Mathf.Sqrt(dx * dx + dy * dy + dz * dz);
 
-                    float sx = Mathf.Sqrt(m.m00 * m.m00 + m.m10 * m.m10 + m.m20 * m.m20);
-                    float sy = Mathf.Sqrt(m.m01 * m.m01 + m.m11 * m.m11 + m.m21 * m.m21);
-                    float sz = Mathf.Sqrt(m.m02 * m.m02 + m.m12 * m.m12 + m.m22 * m.m22);
-
                     float rawDotX = m.m00 * dx + m.m10 * dy + m.m20 * dz;
                     float rawDotY = m.m01 * dx + m.m11 * dy + m.m21 * dz;
                     float rawDotZ = m.m02 * dx + m.m12 * dy + m.m22 * dz;
@@ -454,8 +499,6 @@ namespace Basis.Scripts.Drivers
                     else if (dotY >= dotZ) axis = JiggleCollider.CapsuleAxis.Y;
                     else axis = JiggleCollider.CapsuleAxis.Z;
 
-                    float invAvgScale = 3f / (sx + sy + sz);
-
                     var localOffset = new Unity.Mathematics.float3(
                         rawDotX / (sx * sx),
                         rawDotY / (sy * sy),
@@ -467,7 +510,7 @@ namespace Basis.Scripts.Drivers
                         {
                             type = JiggleCollider.JiggleColliderType.Capsule,
                             localToWorldMatrix = m,
-                            radius = Radius * invAvgScale,
+                            radius = Radius * invAvgScale * _colliderScaleRebase,
                             height = boneLength * invAvgScale,
                             capsuleAxis = axis,
                             localOffset = localOffset
@@ -478,10 +521,6 @@ namespace Basis.Scripts.Drivers
                 else
                 {
                     hasCached = false;
-                    float lossyScaleMag = Mathf.Sqrt(
-                        m.m00 * m.m00 + m.m10 * m.m10 + m.m20 * m.m20 +
-                        m.m01 * m.m01 + m.m11 * m.m11 + m.m21 * m.m21 +
-                        m.m02 * m.m02 + m.m12 * m.m12 + m.m22 * m.m22);
 
                     target.Add(new JiggleColliderSerializable
                     {
@@ -489,7 +528,7 @@ namespace Basis.Scripts.Drivers
                         {
                             type = JiggleCollider.JiggleColliderType.Sphere,
                             localToWorldMatrix = m,
-                            radius = tipRadius / (lossyScaleMag / 3f)
+                            radius = tipRadius * invAvgScale * _colliderScaleRebase
                         },
                         transform = t
                     });
@@ -503,18 +542,25 @@ namespace Basis.Scripts.Drivers
         /// <param name="target">List the created collider is appended to.</param>
         /// <param name="Parent">Transform that defines the collider's transform and space.</param>
         /// <param name="Scale">
-        /// Base radius used to size the collider. Final radius is scaled by <c>1 / (Parent.lossyScale.magnitude / 3)</c>.
-        /// Default is <c>0.005</c>.
+        /// Radius in world metres. Stored pre-divided by the bone's average scale, because
+        /// JiggleCollider.Read multiplies it back each frame — bone lossyScale is arbitrary rig data,
+        /// not a measure of rendered size, so passing it through unscaled made the world radius depend
+        /// on how the armature happened to be authored. Default is <c>0.005</c>.
         /// </param>
         public void JiggleCreatorHelper(List<JiggleColliderSerializable> target, Transform Parent, float Scale = 0.005f)
         {
             if (Parent != null)
             {
                 Matrix4x4 m = Parent.localToWorldMatrix;
-                float lossyScaleMag = Mathf.Sqrt(
-                    m.m00 * m.m00 + m.m10 * m.m10 + m.m20 * m.m20 +
-                    m.m01 * m.m01 + m.m11 * m.m11 + m.m21 * m.m21 +
-                    m.m02 * m.m02 + m.m12 * m.m12 + m.m22 * m.m22);
+
+                float sx = Mathf.Sqrt(m.m00 * m.m00 + m.m10 * m.m10 + m.m20 * m.m20);
+                float sy = Mathf.Sqrt(m.m01 * m.m01 + m.m11 * m.m11 + m.m21 * m.m21);
+                float sz = Mathf.Sqrt(m.m02 * m.m02 + m.m12 * m.m12 + m.m22 * m.m22);
+                float avgScale = (sx + sy + sz) / 3f;
+                if (avgScale < 1e-6f)
+                {
+                    return;
+                }
 
                 target.Add(new JiggleColliderSerializable
                 {
@@ -522,7 +568,7 @@ namespace Basis.Scripts.Drivers
                     {
                         type = JiggleCollider.JiggleColliderType.Sphere,
                         localToWorldMatrix = m,
-                        radius = Scale / (lossyScaleMag / 3f)
+                        radius = Scale / avgScale * _colliderScaleRebase
                     },
                     transform = Parent
                 });

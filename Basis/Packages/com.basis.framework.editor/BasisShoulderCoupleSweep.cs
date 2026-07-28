@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -124,7 +124,7 @@ namespace Basis.IK.Debugging
 
         static float AppliedAngle(BasisShoulderCoupleSweepConfig cfg, Vector3 shoulder, Vector3 hand, Quaternion chest, float couple, float maxDeg)
         {
-            BasisShoulderSolveInput input;
+            BasisShoulderSolveInput input = default;
             input.ShoulderPos = shoulder;
             input.HandTargetPos = hand;
             input.ElbowPos = shoulder;

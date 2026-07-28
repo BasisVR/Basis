@@ -16,10 +16,7 @@ public unsafe struct JiggleTreeJobData {
     public uint transformIndexOffset;
     public uint colliderIndexOffset;
     public uint colliderCount;
-    
-    public int2 minExtentPosition;
-    public int2 maxExtentPosition;
-    
+
     public JiggleSimulatedPoint* points;
     public JigglePointParameters* parameters;
     public const int MAX_POINTS = 10000;
@@ -46,24 +43,32 @@ public unsafe struct JiggleTreeJobData {
         fixed (JigglePointParameters* src = inputParameters) {
             UnsafeUtility.MemCpy(parameters, src, sizeof(JigglePointParameters) * pointCount);
         }
-
-        minExtentPosition = new int2(0);
-        maxExtentPosition = new int2(0);
     }
 
     public void Set(int newRootID, JiggleSimulatedPoint[] inputPoints, JigglePointParameters[] inputParameters, int colliderCount) {
         this.colliderCount = (uint)colliderCount;
         rootID = newRootID;
         if (inputPoints.Length != pointCount) {
-            Dispose();
+            // A committed copy of this struct (holding the old pointers) can stay in the memory
+            // bus until the next tree-commit flip, and the sim job keeps dereferencing it every
+            // tick until then — so the old buffers must outlive that flip. FreeOnComplete frees
+            // on the very next Simulate, which is too early.
+            if (points != null) {
+                JigglePhysics.FreeOnCommitFlip((IntPtr)points);
+                points = null;
+            }
+            if (parameters != null) {
+                JigglePhysics.FreeOnCommitFlip((IntPtr)parameters);
+                parameters = null;
+            }
             pointCount = (uint)inputPoints.Length;
             points = (JiggleSimulatedPoint*)UnsafeUtility.Malloc(
-                Marshal.SizeOf<JiggleSimulatedPoint>() * pointCount,
+                sizeof(JiggleSimulatedPoint) * pointCount,
                 UnsafeUtility.AlignOf<JiggleSimulatedPoint>(),
                 Allocator.Persistent
             );
             parameters = (JigglePointParameters*)UnsafeUtility.Malloc(
-                Marshal.SizeOf<JigglePointParameters>() * pointCount,
+                sizeof(JigglePointParameters) * pointCount,
                 UnsafeUtility.AlignOf<JigglePointParameters>(),
                 Allocator.Persistent
             );
@@ -131,6 +136,19 @@ public unsafe struct JiggleTreeJobData {
             p.workingPosition += deltaPosition;
             p.pose += deltaPosition;
             p.parentPose += deltaPosition;
+            points[i] = p;
+        }
+    }
+
+    public void TransformRigid(quaternion deltaRotation, float3 deltaTranslation) {
+        if (points == null) return;
+        for (int i = 0; i < pointCount; i++) {
+            var p = points[i];
+            p.lastPosition = math.mul(deltaRotation, p.lastPosition) + deltaTranslation;
+            p.position = math.mul(deltaRotation, p.position) + deltaTranslation;
+            p.workingPosition = math.mul(deltaRotation, p.workingPosition) + deltaTranslation;
+            p.pose = math.mul(deltaRotation, p.pose) + deltaTranslation;
+            p.parentPose = math.mul(deltaRotation, p.parentPose) + deltaTranslation;
             points[i] = p;
         }
     }

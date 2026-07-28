@@ -24,55 +24,10 @@ namespace BasisNetworkClientConsole
         // These are T-pose-relative delta quaternions — identity means T-pose, non-identity means deviation.
         private static readonly float[] BasePose;
 
-        // Slots GetIdleDelta animates; every other slot encodes to a constant per quality.
-        private static readonly bool[] IsAnimated;
-        private static readonly ulong[][] BasePackedByQuality;
-
         static FakePoseGenerator()
         {
             BasePose = new float[BoneCount * 4];
             BuildNaturalStandingPose();
-
-            IsAnimated = new bool[BoneCount];
-            MarkAnimatedSlots();
-
-            BasePackedByQuality = new ulong[4][];
-            PrecomputeBasePacked();
-        }
-
-        private static void MarkAnimatedSlots()
-        {
-            IsAnimated[0] = true; // Spine
-            IsAnimated[1] = true; // Chest
-            IsAnimated[3] = true; // Neck
-            IsAnimated[4] = true; // Head
-            IsAnimated[5] = true; // Left upper arm
-            IsAnimated[6] = true; // Right upper arm
-            IsAnimated[7] = true; // Left upper leg
-            IsAnimated[8] = true; // Right upper leg
-            for (int slot = 21; slot <= 30; slot++)
-                IsAnimated[slot] = true; // Finger proximal
-        }
-
-        private static void PrecomputeBasePacked()
-        {
-            float[] ranges = BasisBoneRotationCompression.MAX_COMPONENT;
-
-            for (int q = 0; q < BasePackedByQuality.Length; q++)
-            {
-                byte[] bpc = BasisBoneRotationCompression.GetBpcTable((BitQuality)q);
-                ulong[] packed = new ulong[BoneCount];
-
-                for (int slot = 0; slot < BoneCount; slot++)
-                {
-                    int idx = slot * 4;
-                    float bx = BasePose[idx], by = BasePose[idx + 1], bz = BasePose[idx + 2], bw = BasePose[idx + 3];
-                    Normalize(ref bx, ref by, ref bz, ref bw);
-                    packed[slot] = BasisBoneRotationCompression.EncodeSmallestThree(bx, by, bz, bw, bpc[slot], ranges[slot]);
-                }
-
-                BasePackedByQuality[q] = packed;
-            }
         }
 
         // ────────────────────────────────────────────────────────────
@@ -166,7 +121,6 @@ namespace BasisNetworkClientConsole
         {
             byte[] bpc = BasisBoneRotationCompression.GetBpcTable(quality);
             float[] ranges = BasisBoneRotationCompression.MAX_COMPONENT;
-            ulong[] basePacked = BasePackedByQuality[(int)quality];
 
             // Clear the rotation region (WriteBits ORs into bytes, so must start clean)
             int rotBytes = BasisBoneRotationCompression.RotationBytes(quality);
@@ -179,26 +133,17 @@ namespace BasisNetworkClientConsole
                 int bitsPerComp = bpc[slot];
                 int totalBits = 2 + 3 * bitsPerComp;
 
-                ulong packed;
-                if (IsAnimated[slot])
-                {
-                    // Base pose quaternion
-                    int idx = slot * 4;
-                    float bx = BasePose[idx], by = BasePose[idx + 1], bz = BasePose[idx + 2], bw = BasePose[idx + 3];
+                // Every slot animates every frame — a load-test sender must produce fresh
+                // rotation bits per send like a real tracked human, not a frozen statue.
+                int idx = slot * 4;
+                float bx = BasePose[idx], by = BasePose[idx + 1], bz = BasePose[idx + 2], bw = BasePose[idx + 3];
 
-                    // Idle animation delta
-                    GetIdleDelta(slot, timeSec, phase, out float dx, out float dy, out float dz, out float dw);
+                GetIdleDelta(slot, timeSec, phase, out float dx, out float dy, out float dz, out float dw);
 
-                    // Combined = base * delta
-                    QuatMul(bx, by, bz, bw, dx, dy, dz, dw, out float rx, out float ry, out float rz, out float rw);
-                    Normalize(ref rx, ref ry, ref rz, ref rw);
+                QuatMul(bx, by, bz, bw, dx, dy, dz, dw, out float rx, out float ry, out float rz, out float rw);
+                Normalize(ref rx, ref ry, ref rz, ref rw);
 
-                    packed = BasisBoneRotationCompression.EncodeSmallestThree(rx, ry, rz, rw, bitsPerComp, ranges[slot]);
-                }
-                else
-                {
-                    packed = basePacked[slot];
-                }
+                ulong packed = BasisBoneRotationCompression.EncodeSmallestThree(rx, ry, rz, rw, bitsPerComp, ranges[slot]);
 
                 BasisBoneRotationCompression.WriteBits(dst, bitPos, packed, totalBits);
                 bitPos += totalBits;
@@ -339,13 +284,33 @@ namespace BasisNetworkClientConsole
                     break;
 
                 default:
-                    // Finger proximal (slots 21-30): subtle grip change
-                    if (slot >= 21 && slot <= 30)
+                {
+                    // Every remaining slot oscillates continuously, with amplitude × frequency
+                    // sized so the per-send angular step crosses that bone group's quantization
+                    // step at the ~11 Hz send rate (coarser BPC ⇒ bigger, faster motion):
+                    //   12-BPC body/limb bones need only ~0.04°/frame; 5-6-BPC extremities need
+                    //   degrees per frame before their bits change at all.
+                    float amplitude;
+                    float frequency;
+                    if (slot >= 41)      { amplitude = 14f; frequency = 0.50f; } // finger distal (5 BPC)
+                    else if (slot >= 31) { amplitude = 12f; frequency = 0.50f; } // finger intermediate (5-6 BPC)
+                    else if (slot >= 21) { amplitude = 12f; frequency = 0.45f; } // finger proximal (5-6 BPC)
+                    else if (slot >= 19) { amplitude = 16f; frequency = 0.50f; } // toes (5 BPC, tight range)
+                    else                 { amplitude = 2f;  frequency = 0.30f + 0.05f * (slot % 5); } // 12-BPC body/limbs
+
+                    // Slot-seeded frequency jitter + phase spread so bones (and players) desync.
+                    frequency *= 1f + 0.07f * (slot % 3);
+                    float angle = amplitude * MathF.Sin((float)(t * frequency * TwoPi + p * 1.1f + slot * 0.61f));
+
+                    // Cycle the rotation axis per slot so motion isn't uniformly single-axis.
+                    switch (slot % 3)
                     {
-                        float grip = 5f * MathF.Sin((float)(t * 0.07 * TwoPi + p * 1.1 + slot * 0.3));
-                        AxisAngleToQuat(1, 0, 0, grip, out dx, out dy, out dz, out dw);
+                        case 0: AxisAngleToQuat(1, 0, 0, angle, out dx, out dy, out dz, out dw); break;
+                        case 1: AxisAngleToQuat(0, 1, 0, angle, out dx, out dy, out dz, out dw); break;
+                        default: AxisAngleToQuat(0, 0, 1, angle, out dx, out dy, out dz, out dw); break;
                     }
                     break;
+                }
             }
         }
 

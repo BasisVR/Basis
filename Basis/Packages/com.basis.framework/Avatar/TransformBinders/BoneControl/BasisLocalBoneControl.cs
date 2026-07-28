@@ -1,4 +1,4 @@
-using Basis.Scripts.Common;
+﻿using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
@@ -69,6 +69,14 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         [SerializeField] private BasisHasRigLayer hasRigLayer = BasisHasRigLayer.HasNoRigLayer;
 
         /// <summary>T-pose local-space reference (calibration data, not job-accessed).</summary>
+        /// <summary>
+        /// How strongly this bone's rig layer applies, 0..1. Only the HANDS read it today: a producer that comes
+        /// and goes (webcam tracking) has to fade its IK in and out, because snapping the layer on and off pops
+        /// the arm between the tracked pose and the animated one. HasRigLayer stays the on/off switch; this is
+        /// how far along that switch is.
+        /// </summary>
+        public float RigLayerWeight = 1f;
+
         [SerializeField] public BasisCalibratedCoords TposeLocal = new BasisCalibratedCoords();
 
         /// <summary>Scaled T-pose local-space reference (calibration data, not job-accessed).</summary>
@@ -76,12 +84,15 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         // ===== Native-backed pose: lives in Owner's store at Index, reached via raw pointer =====
 
+        /// <summary>True when the owner's native store is allocated; the store is disposed at teardown while controls keep their <see cref="Owner"/>.</summary>
+        private unsafe bool HasStore => Owner != null && Owner._simInputsPtr != null && Owner._simStatesPtr != null;
+
         /// <summary>Incoming (tracker or virtual) local-space pose.</summary>
         public unsafe BasisCalibratedCoords IncomingData
         {
             get
             {
-                if (Owner == null) return BasisCalibratedCoords.Identity;
+                if (HasStore == false) return BasisCalibratedCoords.Identity;
                 ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
                 return new BasisCalibratedCoords(i.IncomingPosition, i.IncomingRotation);
             }
@@ -92,7 +103,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         {
             get
             {
-                if (Owner == null) return BasisCalibratedCoords.Identity;
+                if (HasStore == false) return BasisCalibratedCoords.Identity;
                 ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
                 return new BasisCalibratedCoords(s.OutgoingPosition, s.OutgoingRotation);
             }
@@ -103,10 +114,36 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         {
             get
             {
-                if (Owner == null) return BasisCalibratedCoords.Identity;
+                if (HasStore == false) return BasisCalibratedCoords.Identity;
                 ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
                 return new BasisCalibratedCoords(s.OutgoingWorldPosition, s.OutgoingWorldRotation);
             }
+        }
+
+        /// <summary>
+        /// World-space pose of this bone AFTER the full-body IK solve (the rendered bone), published by
+        /// <see cref="BasisLocalRigDriver"/> once the rig evaluates. Unlike <see cref="OutgoingWorldData"/>
+        /// (the pre-IK target the solver aims at), this is where the bone actually ended up. Published for every
+        /// bone control after the rig evaluates; bones with no solved transform (center-eye, mouth, or a bone the
+        /// avatar lacks) fall back to <see cref="OutgoingWorldData"/>. Zero/identity rotation until the first solve.
+        /// </summary>
+        public unsafe BasisCalibratedCoords IKWorldData
+        {
+            get
+            {
+                if (HasStore == false) return BasisCalibratedCoords.Identity;
+                ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+                return new BasisCalibratedCoords(s.IKWorldPosition, s.IKWorldRotation);
+            }
+        }
+
+        /// <summary>Publishes the post-IK world pose into the native store; call on the main thread after the rig evaluates.</summary>
+        public unsafe void SetIKWorldData(Vector3 position, Quaternion rotation)
+        {
+            if (HasStore == false) return;
+            ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
+            s.IKWorldPosition = position;
+            s.IKWorldRotation = rotation;
         }
 
         /// <summary>Pose from the previous compute step (local space).</summary>
@@ -114,7 +151,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         {
             get
             {
-                if (Owner == null) return BasisCalibratedCoords.Identity;
+                if (HasStore == false) return BasisCalibratedCoords.Identity;
                 ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
                 return new BasisCalibratedCoords(s.LastRunPosition, s.LastRunRotation);
             }
@@ -125,7 +162,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         {
             get
             {
-                if (Owner == null) return BasisCalibratedCoords.Identity;
+                if (HasStore == false) return BasisCalibratedCoords.Identity;
                 ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
                 return new BasisCalibratedCoords(i.InverseOffsetPosition, i.InverseOffsetRotation);
             }
@@ -134,10 +171,10 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         /// <summary>Scaled version of <see cref="Offset"/> (e.g., scaled by avatar height).</summary>
         public unsafe float3 ScaledOffset
         {
-            get => Owner == null ? float3.zero : Owner._simInputsPtr[Index].ScaledOffset;
+            get => HasStore == false ? float3.zero : Owner._simInputsPtr[Index].ScaledOffset;
             set
             {
-                if (Owner == null) return;
+                if (HasStore == false) return;
                 Owner._simInputsPtr[Index].ScaledOffset = value;
             }
         }
@@ -145,10 +182,10 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         /// <summary>True if a virtual override is driving this bone instead of tracking.</summary>
         public unsafe bool HasVirtualOverride
         {
-            get => Owner != null && Owner._simInputsPtr[Index].HasVirtualOverride != 0;
+            get => HasStore && Owner._simInputsPtr[Index].HasVirtualOverride != 0;
             set
             {
-                if (Owner == null) return;
+                if (HasStore == false) return;
                 Owner._simInputsPtr[Index].HasVirtualOverride = value ? (byte)1 : (byte)0;
             }
         }
@@ -156,10 +193,10 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         /// <summary>When true, applies the inverse offset from the bone on incoming data.</summary>
         public unsafe bool UseInverseOffset
         {
-            get => Owner != null && Owner._simInputsPtr[Index].UseInverseOffset != 0;
+            get => HasStore && Owner._simInputsPtr[Index].UseInverseOffset != 0;
             set
             {
-                if (Owner == null) return;
+                if (HasStore == false) return;
                 Owner._simInputsPtr[Index].UseInverseOffset = value ? (byte)1 : (byte)0;
             }
         }
@@ -176,7 +213,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 if (hasTrackerDriver != value)
                 {
                     hasTrackerDriver = value;
-                    if (Owner != null)
+                    if (HasStore)
                     {
                         Owner._simInputsPtr[Index].HasTracker = (value == BasisHasTracked.HasTracker) ? (byte)1 : (byte)0;
                     }
@@ -206,6 +243,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         public unsafe void SetIncoming(Vector3 position, Quaternion rotation)
         {
+            if (HasStore == false) return;
             ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
             i.IncomingPosition = position;
             i.IncomingRotation = rotation;
@@ -213,6 +251,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         public unsafe void SetOutgoing(Vector3 position, Quaternion rotation)
         {
+            if (HasStore == false) return;
             ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
             s.OutgoingPosition = position;
             s.OutgoingRotation = rotation;
@@ -220,6 +259,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         public unsafe void SetOutgoingWorld(Vector3 position, Quaternion rotation)
         {
+            if (HasStore == false) return;
             ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
             s.OutgoingWorldPosition = position;
             s.OutgoingWorldRotation = rotation;
@@ -227,11 +267,13 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         public unsafe void SetOutgoingWorldPosition(Vector3 position)
         {
+            if (HasStore == false) return;
             Owner._simStatesPtr[Index].OutgoingWorldPosition = position;
         }
 
         public unsafe void SetLastRun(Vector3 position, Quaternion rotation)
         {
+            if (HasStore == false) return;
             ref BasisBoneSimState s = ref Owner._simStatesPtr[Index];
             s.LastRunPosition = position;
             s.LastRunRotation = rotation;
@@ -239,6 +281,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         public unsafe void SetInverseOffset(Vector3 position, Quaternion rotation)
         {
+            if (HasStore == false) return;
             ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
             i.InverseOffsetPosition = position;
             i.InverseOffsetRotation = rotation;
@@ -246,6 +289,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         public unsafe void SetInverseOffset(in BasisCalibratedCoords value)
         {
+            if (HasStore == false) return;
             ref BasisBoneSimInput i = ref Owner._simInputsPtr[Index];
             i.InverseOffsetPosition = value.position;
             i.InverseOffsetRotation = value.rotation;

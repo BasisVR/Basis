@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -17,7 +16,7 @@ namespace HVR.Basis.Comms
     {
         private static readonly int[] _addressIds = new int[BasisOpenLipSyncContext.VisemeCount];
         private static int _addressMax;
-        private static FieldInfo _lastAppliedField;
+        private static bool _addressIdsInitialized;
 
         private static readonly Dictionary<HVRAvatarComms, List<HVRBasisBuiltInAddresses>> Required = new();
         private static readonly Dictionary<HVRAvatarComms, HVRBasisBuiltInAddressesVisemeFlags> Flags = new();
@@ -38,9 +37,9 @@ namespace HVR.Basis.Comms
 
         public HVRBasisBuiltInAddresses(HVRAvatarComms comms, bool isWearer)
         {
-            if (_lastAppliedField == null)
+            if (!_addressIdsInitialized)
             {
-                _lastAppliedField ??= typeof(BasisOpenLipSyncContext).GetField("_lastApplied", BindingFlags.NonPublic | BindingFlags.Instance);
+                _addressIdsInitialized = true;
 
                 _addressIds[0] = HVRAddress.AddressToId(HVRAddress.System.User.Viseme.sil.address);
                 _addressIds[1] = HVRAddress.AddressToId(HVRAddress.System.User.Viseme.PP.address);
@@ -127,7 +126,9 @@ namespace HVR.Basis.Comms
                 : _remoteReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver.BasisAudioAndVisemeDriver.openLipSyncContext;
             if (_contextNullable == null) return;
 
-            _lastAppliedRef = (float[])_lastAppliedField.GetValue(_contextNullable);
+            // The context mutates this array in place and never reallocates it, so the reference
+            // is fetched once per resolved context rather than every frame.
+            _lastAppliedRef ??= _contextNullable.LastApplied;
 
             var flagsForThisComms = Flags[comms];
 

@@ -11,6 +11,12 @@ namespace Basis.BasisUI
     /// </summary>
     public class BasisImageBackground : Image
     {
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            Basis.Scripts.UI.BasisUIBackgroundCustomization.Register(this);
+        }
+
         protected override void OnPopulateMesh(VertexHelper helper)
         {
             Sprite spr = overrideSprite;

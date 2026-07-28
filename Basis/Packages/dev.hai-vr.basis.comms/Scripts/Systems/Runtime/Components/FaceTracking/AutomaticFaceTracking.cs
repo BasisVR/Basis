@@ -65,6 +65,16 @@ namespace HVR.Basis.Comms
 
         public void OnHVRReadyBothAvatarAndNetwork(bool isWearer)
         {
+            // The actuation components and activity relay are created during OnHVRAvatarReady —
+            // AFTER HVRAvatarComms captured its initializables snapshot — so the comms foreach can
+            // never reach them. Their NETWORK side lives in OnHVRReadyBothAvatarAndNetwork:
+            // comms.RequireVariable for every FT/eye address (without which value changes are
+            // silently ignored and never transmitted) and the remote Receiver hookup for eye
+            // bones. Forward the event to everything this component created; local actuation
+            // works without this, which is what made the omission invisible.
+            if (blendshapeActuation != null) blendshapeActuation.OnHVRReadyBothAvatarAndNetwork(isWearer);
+            if (eyeTrackingBoneActuation != null) eyeTrackingBoneActuation.OnHVRReadyBothAvatarAndNetwork(isWearer);
+            if (faceTrackingActivityRelay != null) faceTrackingActivityRelay.OnHVRReadyBothAvatarAndNetwork(isWearer);
         }
 
         private void Discover()

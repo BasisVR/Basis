@@ -15,8 +15,16 @@ namespace HVR.Basis.Comms
 
             if (_addressIdToListenerState.TryGetValue(addressId, out var listenerState))
             {
+                if (global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.Capture)
+                {
+                    System.Threading.Interlocked.Increment(ref global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.HvrStoreSubmits);
+                }
                 listenerState.value = value;
                 listenerState.Invoke(addressId, value);
+            }
+            else if (global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.Capture)
+            {
+                System.Threading.Interlocked.Increment(ref global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.HvrStoreSubmitsNoListener);
             }
         }
 

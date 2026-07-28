@@ -30,6 +30,10 @@ int   basis_win_http_is_seekable(void* ctx);
  * is_seekable (which only drives live-vs-VOD pacing). */
 int   basis_win_http_can_reseek(void* ctx);
 
+/* Body size in bytes, or -1 when unknown (chunked / open-ended / live). Reflects
+ * the Content-Length captured at open; used by the Ogg demuxer for granule seek. */
+long long basis_win_http_content_length(void* ctx);
+
 /* Continues the stream from an absolute byte offset by issuing a ranged GET on the
  * same connection (requires a 206 response; a server that ignores Range fails the
  * call rather than silently restarting at 0). Only valid on a seekable body, with

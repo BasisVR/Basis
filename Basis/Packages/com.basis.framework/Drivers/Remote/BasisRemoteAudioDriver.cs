@@ -178,6 +178,17 @@ namespace Basis.Scripts.Drivers
             if (driver == null || driver.InVisemeRange == inRange) return;
             driver.InVisemeRange = inRange;
 
+            if (!inRange)
+            {
+                // Zero here, on the transition, because this is the last moment the driver is
+                // reachable: Simulate/Apply iterate ActiveDrivers, and the removal below takes this
+                // driver out of that set, so nothing will ever tick it back down to rest. Left
+                // frozen, the last viseme both shows as a stuck mouth shape and keeps costing a
+                // blendshape pass on every frame the renderer draws — Unity only skips shapes whose
+                // weight is actually zero.
+                driver.ZeroVisemesNow();
+            }
+
             // Only touch the active list if the driver is actually registered;
             // an unregistered driver toggling its flag is a no-op for us.
             if (driver.RegisteredIndex < 0) return;

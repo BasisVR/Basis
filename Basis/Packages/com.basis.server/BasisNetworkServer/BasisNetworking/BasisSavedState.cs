@@ -92,6 +92,34 @@ namespace Basis.Network.Server.Generic
         }
 
         /// <summary>
+        /// Merges a body-fit update into a player's saved avatar record, leaving the avatar itself
+        /// untouched. Stored on the same record so the late-join replay carries the wearer's current
+        /// proportions; if the fit lands before any avatar change (a recalibration during load), it is
+        /// held on a byteArray-less placeholder that a later avatar change fills in.
+        /// </summary>
+        public static void UpdateBodyFit(NetPeer client, ClientBodyFitMessage bodyFit)
+        {
+            avatarChangeStates.AddOrUpdate(
+                client.Id,
+                _ => new ClientAvatarChangeMessage
+                {
+                    loadMode = 0,
+                    byteArray = null,
+                    LocalAvatarIndex = 0,
+                    ArmScale = bodyFit.ArmScale,
+                    LegScale = bodyFit.LegScale,
+                    TorsoScale = bodyFit.TorsoScale,
+                },
+                (_, existing) =>
+                {
+                    existing.ArmScale = bodyFit.ArmScale;
+                    existing.LegScale = bodyFit.LegScale;
+                    existing.TorsoScale = bodyFit.TorsoScale;
+                    return existing;
+                });
+        }
+
+        /// <summary>
         /// Retrieves the last ClientAvatarChangeMessage for a player.
         /// </summary>
         public static bool GetLastAvatarChangeState(NetPeer client, out ClientAvatarChangeMessage message)

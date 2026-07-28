@@ -18,7 +18,6 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
         public Camera Camera;
         public BasisLocalAvatarDriver AvatarDriver;
         public static BasisHeadlessInput Instance;
-        public BasisLocalVirtualSpineDriver BasisVirtualSpine = new BasisLocalVirtualSpineDriver();
         public bool HasEyeEvents = false;
 
         // --- Tunables (exposed) ------------------------------------------------
@@ -205,6 +204,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             UnscaledDeviceCoord.rotation = Quaternion.identity;
             ConvertToScaledDeviceCoord();
 
+            TrackingHardware = BasisTrackingHardware.Simulated;
             InitializeTracking(ID, ID, subSystems, true, BasisBoneTrackedRole.CenterEye);
 
             if (BasisHelpers.CheckInstance(Instance))
@@ -217,7 +217,6 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
                 BasisLocalPlayer.OnLocalAvatarChanged += PlayerInitialized;
                 BasisPointRaycaster.UseWorldPosition = false;
 
-                BasisVirtualSpine.Initialize();
                 HasEyeEvents = true;
 
                 // seed behavior & jump timers
@@ -235,7 +234,6 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             {
                 BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
                 HasEyeEvents = false;
-                BasisVirtualSpine.DeInitialize();
             }
             base.OnDestroy();
         }

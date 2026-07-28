@@ -1,13 +1,20 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Drivers;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Basis.MediaPipe
 {
     /// <summary>
-    /// MediaPipe 21-point hand landmarks → finger curl/splay (BasisLocalHandDriver) plus a
-    /// wrist pose OFFSET for the hand trackers. Like the head, the offset is applied on top of a
-    /// base tracker space (the manager adds it to the head/eye position and the hand bone's rest
-    /// rotation), and rotation is relative to a calibrated neutral.
+    /// MediaPipe 21-point hand landmarks → finger curl/splay (BasisLocalHandDriver) plus the wrist
+    /// rotation for the hand trackers. Both run off the metric WORLD landmarks, so curl no longer
+    /// collapses when the hand points at the camera and the palm frame is real 3D rather than a
+    /// projection.
+    ///
+    /// Rotation is a retarget, not a calibration: the palm frame is measured relative to the user's torso
+    /// and re-expressed relative to the avatar's, then corrected by the constant that maps a palm frame
+    /// onto the avatar's hand bone. Holding your hand however you like reproduces it on the avatar with
+    /// nothing to calibrate.
     /// </summary>
     public sealed class MediaPipeHandConverter
     {
@@ -16,123 +23,170 @@ namespace Basis.MediaPipe
         public float FingerMaxAngle = 160f;
         public float MaxSplayDegrees = 20f;
         public float SplayGain = 1f;
-
-        // Wrist-position offset from the head, derived from the wrist's position in the frame.
-        public float PlaneWidth = 0.7f;
-        public float PlaneHeight = 0.7f;
-        public float ForwardDepth = 0.35f;
-        public float HandDrop = 0f;
         public float FingerSmoothing = 0.5f;
         public float PoseSmoothing = 0.5f;
         public bool UseRotation = true;
 
-        private Vector3 _leftPos;
-        private Vector3 _rightPos;
-        private Quaternion _leftRot = Quaternion.identity;
-        private Quaternion _rightRot = Quaternion.identity;
-        private bool _leftInit;
-        private bool _rightInit;
-        private Quaternion _leftNeutralInverse = Quaternion.identity;
-        private Quaternion _rightNeutralInverse = Quaternion.identity;
-        private bool _leftCalibrated;
-        private bool _rightCalibrated;
+        private const float CutoffResponsive = 10f;
+        private const float CutoffSmooth = 1.5f;
+        private const float Beta = 3.25f;
+        private const float DerivativeCutoff = 1f;
 
-        public void Calibrate(in BasisMediaPipeResult result)
+        private RotationFilter _leftRot, _rightRot;
+
+        private float RotationCutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(PoseSmoothing));
+
+        /// <summary>
+        /// Same two-clock split the arm positions use: one-euro on the camera's delta when a fresh sample lands,
+        /// then a carry slerp every rendered frame. Running the filter at render rate over a held sample makes
+        /// each new sample look like a burst of speed, which is what snaps the wrist between poses.
+        /// </summary>
+        private struct RotationFilter
         {
-            if (result.HasLeftHand && TryRawRotation(result.LeftHandLandmarks, out Quaternion lr))
+            public BasisEuroQuatState Euro;
+            public Quaternion Sampled;
+            public Quaternion Carried;
+            public bool HasSample;
+
+            public Quaternion Apply(Quaternion target, in MediaPipeTiming timing, float cutoff)
             {
-                _leftNeutralInverse = Quaternion.Inverse(lr);
-                _leftCalibrated = true;
+                if (timing.IsNewSample || !HasSample)
+                {
+                    Sampled = BasisFilterMath.EuroQuat(ref Euro, target, timing.SampleDelta,
+                        cutoff, Beta, DerivativeCutoff);
+
+                    if (!HasSample)
+                    {
+                        Carried = Sampled;
+                        HasSample = true;
+                        return Carried;
+                    }
+                }
+
+                Carried = Quaternion.Slerp(Carried, Sampled,
+                    BasisFilterMath.Alpha(timing.CarryCutoff, timing.RenderDelta));
+                return Carried;
             }
-            if (result.HasRightHand && TryRawRotation(result.RightHandLandmarks, out Quaternion rr))
+
+            public void Reset()
             {
-                _rightNeutralInverse = Quaternion.Inverse(rr);
-                _rightCalibrated = true;
+                Euro = default;
+                HasSample = false;
             }
         }
 
-        /// <summary>Wrist pose as an offset: position relative to the head, rotation relative to the calibrated neutral.</summary>
-        public bool TryGetHandTarget(Vector3[] lm, bool left, out Vector3 positionOffset, out Quaternion rotationOffset)
+        /// <summary>
+        /// Avatar hand geometry in player-root-local space. Correction maps a MediaPipe palm frame onto the
+        /// hand bone's rotation; it is built from the knuckle positions, which do not move relative to the
+        /// hand when the fingers curl, so it holds for any pose and needs no reference pose to capture.
+        ///
+        /// IkOffsetInverse undoes a SECOND palm->bone correction that the IK applies downstream. We hand our
+        /// rotation to a tracker, and BasisArmSolveCore does `tRotation = TargetRotation * TargetOffset` with
+        /// TargetOffset = data.m_CalibratedRotationLeft/RightHand, which BasisAnimationRiggingHelper builds as
+        /// `Inverse(landmarkBind) * boneBind` -- i.e. it is ALSO a palm-frame -> hand-bone constant. That offset
+        /// is correct for a producer that reports a PALM/LANDMARK frame (a real tracker does). But `Correction`
+        /// above already finishes the job: we hand over a BONE rotation, so the IK's offset lands on top of it
+        /// and the hand ends up wrong by exactly that offset -- and DIFFERENTLY ON EVERY AVATAR, because it is
+        /// calibrated per rig. (The feet had this identical bug.)
+        ///
+        /// Pre-multiplying by its inverse makes the IK's own `* TargetOffset` collapse back to what we meant:
+        ///     (boneRot * offset^-1) * offset == boneRot
+        ///
+        /// Note the two corrections are NOT the same quaternion, so this does not reduce to "drop Correction":
+        /// MediaPipeSpace's palm frame uses the middle-MCP knuckle with a left-hand normal flip, while
+        /// HandRotationFromLandmarks uses the index/pinky midpoint. `Correction * IkOffsetInverse` is exactly the
+        /// residual between those two conventions. Deleting Correction instead would leave that residual behind
+        /// as a silent frame error -- close enough to look plausible, which is worse than obviously wrong.
+        /// </summary>
+        public struct AvatarHandRig
         {
-            positionOffset = Vector3.zero;
-            rotationOffset = Quaternion.identity;
-            if (lm == null || lm.Length < 21)
+            public Quaternion Body;
+            public Quaternion LeftCorrection;
+            public Quaternion RightCorrection;
+            public Quaternion LeftIkOffsetInverse;
+            public Quaternion RightIkOffsetInverse;
+            public bool Valid;
+        }
+
+        public void Reset()
+        {
+            _leftRot.Reset();
+            _rightRot.Reset();
+        }
+
+        public bool TryGetHandRotation(in BasisMediaPipeResult result, in AvatarHandRig rig, bool left,
+            in MediaPipeTiming timing, out Quaternion rotation)
+        {
+            rotation = Quaternion.identity;
+            if (!UseRotation || !rig.Valid) return false;
+
+            // The body frame is what makes this a retarget rather than a copy of the camera's idea of the hand,
+            // so without it there is no meaningful rotation to hand back at all.
+            if (!MediaPipeSpace.TryBodyFrame(result.PoseWorldLandmarks, out _, out Quaternion bodyFrame)) return false;
+
+            Vector3[] hand = left ? result.LeftHandWorldLandmarks : result.RightHandWorldLandmarks;
+            bool detected = left ? result.HasLeftHand : result.HasRightHand;
+            if (!detected || !MediaPipeSpace.TryHandFrame(hand, left, out Quaternion handFrame))
             {
-                return false;
+                if (!MediaPipeSpace.TryPoseHandFrame(result.PoseWorldLandmarks, left, out handFrame)) return false;
             }
 
-            Vector3 wrist = lm[0];
-            Vector3 rawPos = new Vector3(
-                (0.5f - wrist.x) * PlaneWidth,
-                (0.5f - wrist.y) * PlaneHeight - HandDrop,
-                ForwardDepth);
+            // Filter the BODY-RELATIVE rotation, not the finished one. rig.Body is the avatar's own orientation and
+            // moves at render rate, so smoothing it on the camera clock would drag the wrist behind every turn.
+            Quaternion handInBody = Quaternion.Inverse(bodyFrame) * handFrame;
+            Quaternion correction = left ? rig.LeftCorrection : rig.RightCorrection;
 
-            Quaternion rawRot = Quaternion.identity;
-            if (UseRotation && TryRawRotation(lm, out Quaternion r))
-            {
-                if (left)
-                {
-                    if (!_leftCalibrated) { _leftNeutralInverse = Quaternion.Inverse(r); _leftCalibrated = true; }
-                    rawRot = _leftNeutralInverse * r;
-                }
-                else
-                {
-                    if (!_rightCalibrated) { _rightNeutralInverse = Quaternion.Inverse(r); _rightCalibrated = true; }
-                    rawRot = _rightNeutralInverse * r;
-                }
-            }
+            // AvatarHandRig is a STRUCT, so an initializer that omits this field leaves it at (0,0,0,0) -- the ZERO
+            // quaternion, not identity. Multiplying by that does not "do nothing", it ANNIHILATES the rotation.
+            // Treating a degenerate offset as identity means a caller that never heard of this field simply gets
+            // the old, uncancelled behaviour instead of a dead hand. Cheap, and it makes the struct impossible to
+            // hold wrong.
+            Quaternion ikOffsetInverse = left ? rig.LeftIkOffsetInverse : rig.RightIkOffsetInverse;
+            float ikSqrNorm = ikOffsetInverse.x * ikOffsetInverse.x + ikOffsetInverse.y * ikOffsetInverse.y
+                + ikOffsetInverse.z * ikOffsetInverse.z + ikOffsetInverse.w * ikOffsetInverse.w;
+            if (ikSqrNorm < 0.5f) ikOffsetInverse = Quaternion.identity;
 
-            float t = 1f - Mathf.Clamp01(PoseSmoothing);
-            if (left)
-            {
-                _leftPos = _leftInit ? Vector3.Lerp(_leftPos, rawPos, t) : rawPos;
-                _leftRot = _leftInit ? Quaternion.Slerp(_leftRot, rawRot, t) : rawRot;
-                _leftInit = true;
-                positionOffset = _leftPos;
-                rotationOffset = _leftRot;
-            }
-            else
-            {
-                _rightPos = _rightInit ? Vector3.Lerp(_rightPos, rawPos, t) : rawPos;
-                _rightRot = _rightInit ? Quaternion.Slerp(_rightRot, rawRot, t) : rawRot;
-                _rightInit = true;
-                positionOffset = _rightPos;
-                rotationOffset = _rightRot;
-            }
+            float cutoff = RotationCutoff;
+            Quaternion smoothed = left
+                ? _leftRot.Apply(handInBody, in timing, cutoff)
+                : _rightRot.Apply(handInBody, in timing, cutoff);
+
+            // `rig.Body * smoothed * correction` is the finished HAND BONE rotation. The IK will multiply its own
+            // palm->bone offset onto whatever we report, so pre-cancel it here (see AvatarHandRig).
+            rotation = rig.Body * smoothed * correction * ikOffsetInverse;
             return true;
         }
 
-        private static bool TryRawRotation(Vector3[] lm, out Quaternion rot)
-        {
-            rot = Quaternion.identity;
-            if (lm == null || lm.Length < 21) return false;
-
-            Vector3 forward = lm[9] - lm[0];
-            Vector3 normal = Vector3.Cross(lm[5] - lm[0], lm[17] - lm[0]);
-            if (forward.sqrMagnitude < 1e-6f || normal.sqrMagnitude < 1e-6f) return false;
-
-            rot = Quaternion.LookRotation(
-                new Vector3(-forward.x, -forward.y, -forward.z),
-                new Vector3(-normal.x, -normal.y, -normal.z)) * Quaternion.Euler(0f, 180f, 0f);
-            return true;
-        }
-
-        public void Apply(in BasisMediaPipeResult result)
+        public void Apply(in BasisMediaPipeResult result, in MediaPipeTiming timing)
         {
             BasisLocalHandDriver driver = BasisLocalPlayer.Instance.LocalHandDriver;
-            if (result.HasLeftHand && result.LeftHandLandmarks != null && result.LeftHandLandmarks.Length >= 21)
+            // Fingers only ever need the carry pass: the curl target is a plain function of the held landmarks,
+            // so approaching it every rendered frame already turns the camera's steps into continuous motion.
+            float alpha = BasisFilterMath.Alpha(
+                Mathf.Min(Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(FingerSmoothing)), timing.CarryCutoff),
+                timing.RenderDelta);
+
+            Vector3[] left = Fingers(result.LeftHandWorldLandmarks, result.LeftHandLandmarks);
+            if (result.HasLeftHand && left != null)
             {
-                ApplyHand(result.LeftHandLandmarks, driver.LeftHand, true);
+                ApplyHand(left, driver.LeftHand, true, alpha);
             }
-            if (result.HasRightHand && result.RightHandLandmarks != null && result.RightHandLandmarks.Length >= 21)
+
+            Vector3[] right = Fingers(result.RightHandWorldLandmarks, result.RightHandLandmarks);
+            if (result.HasRightHand && right != null)
             {
-                ApplyHand(result.RightHandLandmarks, driver.RightHand, false);
+                ApplyHand(right, driver.RightHand, false, alpha);
             }
         }
 
-        private void ApplyHand(Vector3[] lm, BasisFingerPose pose, bool isLeft)
+        private static Vector3[] Fingers(Vector3[] world, Vector3[] image)
         {
-            float t = 1f - Mathf.Clamp01(FingerSmoothing);
+            if (world != null && world.Length >= MediaPipeSpace.HandCount) return world;
+            return image != null && image.Length >= MediaPipeSpace.HandCount ? image : null;
+        }
+
+        private void ApplyHand(Vector3[] lm, BasisFingerPose pose, bool isLeft, float t)
+        {
             pose.ThumbPercentage = Vector2.Lerp(pose.ThumbPercentage, new Vector2(Curl(lm, 1, 2, 3, 4, ThumbMaxAngle), Splay(lm, 2, 3, 5, 6, isLeft)), t);
             pose.IndexPercentage = Vector2.Lerp(pose.IndexPercentage, new Vector2(Curl(lm, 5, 6, 7, 8, FingerMaxAngle), Splay(lm, 5, 6, 9, 10, isLeft)), t);
             pose.MiddlePercentage = Vector2.Lerp(pose.MiddlePercentage, new Vector2(Curl(lm, 9, 10, 11, 12, FingerMaxAngle), 0f), t);
@@ -154,7 +208,9 @@ namespace Basis.MediaPipe
         {
             Vector3 dir = lm[basePip] - lm[baseMcp];
             Vector3 refDir = lm[refPip] - lm[refMcp];
-            Vector3 palmNormal = Vector3.Cross(lm[5] - lm[0], lm[17] - lm[0]);
+            Vector3 palmNormal = Vector3.Cross(
+                lm[MediaPipeSpace.HandIndexMcp] - lm[MediaPipeSpace.HandWrist],
+                lm[MediaPipeSpace.HandPinkyMcp] - lm[MediaPipeSpace.HandWrist]);
             float signed = Vector3.SignedAngle(refDir, dir, palmNormal);
             float splay = Mathf.Clamp(signed / MaxSplayDegrees * SplayGain, -1f, 1f);
             return isLeft ? splay : -splay;

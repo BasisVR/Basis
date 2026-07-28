@@ -105,6 +105,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking
             }
 
             bool hmdGaze = hmdHas && (hmdData.HasWorldRay || hmdData.HasPerEyeAngles);
+            if (hmdGaze) _lastHmdActiveTime = Time.unscaledTime;
             bool oscGaze = oscHas && (oscData.HasWorldRay || oscData.HasPerEyeAngles);
 
             BasisEyeTrackingData merged = default;

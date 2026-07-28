@@ -216,7 +216,7 @@ namespace Basis.Scripts.Avatar
         // Create-or-update, robust to the debug gizmo pool being wiped (ShowGizmos toggled off).
         private static void EnsureBall(BasisBoneTrackedRole role, Vector3 pos, float diameter, Color color)
         {
-            if (_balls.TryGetValue(role, out int id) && BasisGizmoManager.Gizmos.ContainsKey(id))
+            if (_balls.TryGetValue(role, out int id) && BasisGizmoManager.Exists(id))
             {
                 BasisGizmoManager.UpdateSphereGizmo(id, pos, Vector3.one * diameter);
                 BasisGizmoManager.UpdateGizmoColor(id, color);
@@ -230,7 +230,7 @@ namespace Basis.Scripts.Avatar
 
         private static void EnsureLine(BasisBoneTrackedRole role, Vector3 trackerPos, Vector3 bonePos, float width, Color color)
         {
-            if (_lines.TryGetValue(role, out int id) && BasisGizmoManager.GizmosLine.ContainsKey(id))
+            if (_lines.TryGetValue(role, out int id) && BasisGizmoManager.Exists(id))
             {
                 BasisGizmoManager.UpdateLineGizmo(id, trackerPos, bonePos);
                 BasisGizmoManager.UpdateGizmoColor(id, color);
@@ -280,7 +280,7 @@ namespace Basis.Scripts.Avatar
         // only call DestroyGizmo when the ID is still live so we don't log spurious warnings.
         private static void SafeDestroy(int id)
         {
-            if (BasisGizmoManager.Gizmos.ContainsKey(id) || BasisGizmoManager.GizmosLine.ContainsKey(id))
+            if (BasisGizmoManager.Exists(id))
             {
                 BasisGizmoManager.DestroyGizmo(id);
             }

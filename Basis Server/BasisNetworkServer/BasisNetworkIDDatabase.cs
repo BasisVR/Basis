@@ -26,7 +26,7 @@ namespace BasisNetworkCore
                 SNIM.Serialize(Writer);
                 NetworkServer.TrySend(NetPeer, Writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
                 NetworkServer.ReturnWriter(Writer);
-                BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {NetPeer.Address}");
+                BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {NetPeer.Id}");
             }
             else
             {

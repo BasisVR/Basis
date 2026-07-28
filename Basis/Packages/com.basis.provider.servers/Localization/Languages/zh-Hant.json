@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "還沒有伺服器。按「新增伺服器」來建立一個。"
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "新增伺服器"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "全部重新整理"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "正在編輯伺服器"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "新增伺服器"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "儲存"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "取消"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "移除"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "編輯"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "重新整理"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "離線"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "正在查詢..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "分享"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "歡迎來到 Basis Labs！"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs 是 Basis Framework 的活體展示——一個免費、採用 MIT 授權的基礎框架，用於打造 VR 遊戲、平台與體驗。探索世界、穿戴自訂虛擬形象，一邊體驗開發中的功能，一邊結識新朋友。這裡的一切都在持續演進——你的回饋會形塑它。"
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "下一步"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "你的第一個伺服器"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Basis 沒有中央服務——任何人都可以架設伺服器，你也可以直接在此面板中架設自己的伺服器。為了讓你隨時有去處，我們運行了一個預設伺服器，在下方清單頂端以 ★ 標記。選個使用者名稱，按下發光的「連接」按鈕，來打個招呼吧！"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "知道了！"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "選擇使用者名稱"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "選擇其他玩家會看到的名稱，然後按「連接」。"
     },
     {
       "key": "menu.servers.hostMotd",

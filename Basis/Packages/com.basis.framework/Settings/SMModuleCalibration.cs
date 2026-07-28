@@ -5,16 +5,15 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 public class SMModuleCalibration : BasisSettingsBase
 {
     public static BasisSelectedHeightMode HeightMode = BasisSelectedHeightMode.Auto;
-    public static BasisIKLockMode CurrentIKLockMode = BasisIKLockMode.LockBoth;
+    public static BasisIKLockMode CurrentIKLockMode = BasisIKLockMode.LockHead;
     public static bool ApplyCustomScale = false;
     public static float SelectedScale = 1.6f;
     public static float SelectedEyeHeight = 1.61f;
-    public static bool PitchCalibrationEnabled = false;
 
     /// <summary>
     /// Per-sphere calibration scale multipliers. Default is 1.0 for each role.
@@ -46,11 +45,10 @@ public class SMModuleCalibration : BasisSettingsBase
     private static string K_CUSTOM_SCALE => BasisSettingsDefaults.CustomScale.BindingKey;         // "custom scale"
     private static string K_SELECTED_SCALE => BasisSettingsDefaults.SelectedScale.BindingKey;     // "selected scale"
     private static string K_REALWORLD_EYE_HEIGHT => BasisSettingsDefaults.realworldeyeheight.BindingKey; // "real world eye height"
-    private static string K_PITCH_CALIBRATION => BasisSettingsDefaults.PitchCalibration.BindingKey;     // "pitchcalibration"
-    private static string K_STANDING_EYE_CORRECTION => BasisSettingsDefaults.CalibrationStandingEyeHeightMeters.BindingKey; // "calibrationstandingeyeheightmeters"
-    private static string K_ENABLE_STANDING_EYE_CORRECTION => BasisSettingsDefaults.EnableStandingEyeHeightCorrection.BindingKey; // "enablestandingeyeheightcorrection"
-    private static string K_ADDITIONAL_PLAYER_HEIGHT => BasisSettingsDefaults.AdditionalPlayerHeight.BindingKey; // "additionalplayerheight"
-    private static string K_ENABLE_STANDING_HEIGHT_NUDGE => BasisSettingsDefaults.EnableStandingHeightNudge.BindingKey; // "enablestandingheightnudge"
+    private static string K_ENABLE_ARM_TO_HEIGHT_BLEND => BasisSettingsDefaults.EnableArmToHeightBlend.BindingKey; // "enablearmtoheightblend"
+    private static string K_ARM_TO_HEIGHT_BLEND => BasisSettingsDefaults.ArmToHeightBlend.BindingKey;              // "armtoheightblend"
+    private static string K_FBIK_BODY_FIT => BasisSettingsDefaults.FBIKBodyFit.BindingKey;                         // "fbikbodyfit"
+    private static string K_FBIK_BODY_FIT_MAX_DEVIATION => BasisSettingsDefaults.FBIKBodyFitMaxDeviation.BindingKey; // "fbikbodyfitmaxdeviation"
 
     // One Euro globals
     private static string K_FBIK_MINCUTOFF => BasisSettingsDefaults.FBIKMinCutoff.BindingKey;                 // "fbikmincutoff"
@@ -154,19 +152,17 @@ public class SMModuleCalibration : BasisSettingsBase
     private static string K_FBIK_COLLISIONS_ENABLED => BasisSettingsDefaults.FBIKCollisionsEnabled.BindingKey;
     private static string K_FBIK_PROTECT_ELBOW => BasisSettingsDefaults.FBIKProtectElbow.BindingKey;
     private static string K_FBIK_COLLIDE_TRACKED_ELBOW => BasisSettingsDefaults.FBIKCollideTrackedElbow.BindingKey;
-    private static string K_FBIK_USE_HAND_CAPSULE => BasisSettingsDefaults.FBIKUseHandCapsule.BindingKey;
     private static string K_FBIK_CHEST_RADIUS => BasisSettingsDefaults.FBIKChestRadius.BindingKey;
     private static string K_FBIK_COLLISION_SKIN => BasisSettingsDefaults.FBIKCollisionSkin.BindingKey;
     private static string K_FBIK_HAND_RADIUS => BasisSettingsDefaults.FBIKHandRadius.BindingKey;
     private static string K_FBIK_HAND_SKIN => BasisSettingsDefaults.FBIKHandSkin.BindingKey;
     private static string K_FBIK_SHOULDER_SOLVE => BasisSettingsDefaults.FBIKShoulderSolveEnabled.BindingKey;
+    private static string K_FBIK_SHOULDER_SHRUG => BasisSettingsDefaults.FBIKShoulderShrug.BindingKey;
+    private static string K_FBIK_SHOULDER_RETRACTION => BasisSettingsDefaults.FBIKShoulderRetraction.BindingKey;
     private static string K_FBIK_SHOULDER_ELEVATION => BasisSettingsDefaults.FBIKShoulderElevation.BindingKey;
     private static string K_FBIK_SHOULDER_PROTRACTION => BasisSettingsDefaults.FBIKShoulderProtraction.BindingKey;
     private static string K_FBIK_MAX_BEND_DEG => BasisSettingsDefaults.FBIKMaxBendDeg.BindingKey;
-    private static string K_FBIK_STRUGGLE_START => BasisSettingsDefaults.FBIKStruggleStart.BindingKey;
-    private static string K_FBIK_STRUGGLE_END => BasisSettingsDefaults.FBIKStruggleEnd.BindingKey;
     private static string K_FBIK_MAX_CHEST_DELTA => BasisSettingsDefaults.FBIKMaxChestDelta.BindingKey;
-    private static string K_FBIK_MAX_HIP_DELTA => BasisSettingsDefaults.FBIKMaxHipDelta.BindingKey;
 
     // Calibration sphere scale keys
     private static string K_CALIB_HIPS => BasisSettingsDefaults.CalibSphereScaleHips.BindingKey;
@@ -310,28 +306,20 @@ public class SMModuleCalibration : BasisSettingsBase
                     break;
                 }
 
-            case var s when s == K_PITCH_CALIBRATION:
-                if (bool.TryParse(optionValue, out var pitchVal))
-                {
-                    PitchCalibrationEnabled = pitchVal;
-                }
-                break;
-
-            case var s when s == K_STANDING_EYE_CORRECTION:
-                // Persistent standing eye-height correction changed: re-apply height/scale now so
-                // DeviceScale picks up the new denominator. Applied directly (not via the _dirty path,
-                // which only re-applies on height-mode/scale/custom-scale changes).
+            case var s when s == K_ENABLE_ARM_TO_HEIGHT_BLEND:
+                // Toggling the arm-to-height ratio swaps the scaling metric pair: re-apply height/scale
+                // now so DeviceScale picks up the new denominator. Applied directly (not via the _dirty
+                // path, which only re-applies on height-mode/scale/custom-scale changes).
                 BasisHeightDriver.ApplyScaleAndHeight();
                 break;
 
-            case var s when s == K_ENABLE_STANDING_EYE_CORRECTION:
-                // Toggling the correction on/off flips whether the stored metres apply; re-apply now.
+            case var s when s == K_ARM_TO_HEIGHT_BLEND:
                 BasisHeightDriver.ApplyScaleAndHeight();
                 break;
 
-            case var s when s == K_ADDITIONAL_PLAYER_HEIGHT || s == K_ENABLE_STANDING_HEIGHT_NUDGE:
-                // Standing-height nudge value or its gate changed: re-apply so the DeviceScale denominator updates.
-                BasisHeightDriver.ApplyScaleAndHeight();
+            case var s when s == K_FBIK_BODY_FIT:
+            case var s2 when s2 == K_FBIK_BODY_FIT_MAX_DEVIATION:
+                BasisLocalPlayer.Instance?.LocalRigDriver?.RefreshBodyFit();
                 break;
 
             // ---------- GLOBAL ONE EURO PARAMS ----------
@@ -616,67 +604,59 @@ public class SMModuleCalibration : BasisSettingsBase
 
             // ---------- IK COLLIDER & TUNING ----------
             case var s when s == K_FBIK_COLLISIONS_ENABLED:
-                if (bool.TryParse(optionValue, out var colEn)) ApplyIKDataBool((ref BasisFullBodyData d) => d.CollisionsEnabled = colEn);
+                if (bool.TryParse(optionValue, out var colEn)) ApplyIKDataBool((ref BasisEerieMovement d) => d.collisionsEnabled = colEn);
                 break;
 
             case var s when s == K_FBIK_PROTECT_ELBOW:
-                if (bool.TryParse(optionValue, out var peVal)) ApplyIKDataBool((ref BasisFullBodyData d) => d.ProtectElbow = peVal);
+                if (bool.TryParse(optionValue, out var peVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.protectElbow = peVal);
                 break;
 
             case var s when s == K_FBIK_COLLIDE_TRACKED_ELBOW:
-                if (bool.TryParse(optionValue, out var cteVal)) ApplyIKDataBool((ref BasisFullBodyData d) => d.CollideTrackedElbow = cteVal);
-                break;
-
-            case var s when s == K_FBIK_USE_HAND_CAPSULE:
-                if (bool.TryParse(optionValue, out var hcVal)) ApplyIKDataBool((ref BasisFullBodyData d) => d.UseHandCapsule = hcVal);
+                if (bool.TryParse(optionValue, out var cteVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.collideTrackedElbow = cteVal);
                 break;
 
             case var s when s == K_FBIK_CHEST_RADIUS:
-                if (SliderReadOption(optionValue, out var crVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.ChestRadius = crVal);
+                if (SliderReadOption(optionValue, out var crVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.chestRadius = crVal);
                 break;
 
             case var s when s == K_FBIK_COLLISION_SKIN:
-                if (SliderReadOption(optionValue, out var csVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.CollisionSkin = csVal);
+                if (SliderReadOption(optionValue, out var csVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.collisionSkin = csVal);
                 break;
 
             case var s when s == K_FBIK_HAND_RADIUS:
-                if (SliderReadOption(optionValue, out var hrVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.HandRadius = hrVal);
+                if (SliderReadOption(optionValue, out var hrVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.handRadius = hrVal);
                 break;
 
             case var s when s == K_FBIK_HAND_SKIN:
-                if (SliderReadOption(optionValue, out var hsVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.HandSkin = hsVal);
+                if (SliderReadOption(optionValue, out var hsVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.handSkin = hsVal);
                 break;
 
             case var s when s == K_FBIK_SHOULDER_SOLVE:
-                if (bool.TryParse(optionValue, out var ssVal)) ApplyIKDataBool((ref BasisFullBodyData d) => d.ShoulderSolveEnabled = ssVal);
+                if (bool.TryParse(optionValue, out var ssVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderSolveEnabled = ssVal);
+                break;
+
+            case var s when s == K_FBIK_SHOULDER_SHRUG:
+                if (bool.TryParse(optionValue, out var shrugVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderShrugEnabled = shrugVal);
+                break;
+
+            case var s when s == K_FBIK_SHOULDER_RETRACTION:
+             //   if (bool.TryParse(optionValue, out var retractVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderRetractionEnabled = retractVal);
                 break;
 
             case var s when s == K_FBIK_SHOULDER_ELEVATION:
-                if (SliderReadOption(optionValue, out var seVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.ShoulderElevationFactor = seVal);
+                if (SliderReadOption(optionValue, out var seVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.shoulderElevationFactor = seVal);
                 break;
 
             case var s when s == K_FBIK_SHOULDER_PROTRACTION:
-                if (SliderReadOption(optionValue, out var spVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.ShoulderProtractionFactor = spVal);
+                if (SliderReadOption(optionValue, out var spVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.shoulderProtractionFactor = spVal);
                 break;
 
             case var s when s == K_FBIK_MAX_BEND_DEG:
-                if (SliderReadOption(optionValue, out var mbVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.MaxBendDeg = mbVal);
-                break;
-
-            case var s when s == K_FBIK_STRUGGLE_START:
-                if (SliderReadOption(optionValue, out var ssStartVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.StruggleStart = ssStartVal);
-                break;
-
-            case var s when s == K_FBIK_STRUGGLE_END:
-                if (SliderReadOption(optionValue, out var ssEndVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.StruggleEnd = ssEndVal);
+                if (SliderReadOption(optionValue, out var mbVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.maxBendDeg = mbVal);
                 break;
 
             case var s when s == K_FBIK_MAX_CHEST_DELTA:
-                if (SliderReadOption(optionValue, out var mcdVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.MaxChestDelta = mcdVal);
-                break;
-
-            case var s when s == K_FBIK_MAX_HIP_DELTA:
-                if (SliderReadOption(optionValue, out var mhdVal)) ApplyIKDataFloat((ref BasisFullBodyData d) => d.MaxHipDelta = mhdVal);
+                if (SliderReadOption(optionValue, out var mcdVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.maxChestDeltaDeg = mcdVal);
                 break;
 
             // ---------- CALIBRATION SPHERE SCALE ----------
@@ -691,7 +671,6 @@ public class SMModuleCalibration : BasisSettingsBase
                 }
                 break;
         }
-        BasisLocalPlayer.Instance.LocalRigDriver.UpdateEuroSettings();
     }
 
     public override void ChangedSettings()
@@ -734,29 +713,25 @@ public class SMModuleCalibration : BasisSettingsBase
         if (BasisLocalPlayer.Instance == null || BasisLocalPlayer.Instance.LocalRigDriver == null)
             return;
 
-        var constraint = BasisLocalPlayer.Instance.LocalRigDriver.BasisFullIKConstraint;
-        if (constraint == null)
+        var rig = BasisLocalPlayer.Instance.LocalRigDriver;
+        if (!rig.IKDataReady)
             return;
 
-        var data = constraint.data;
-        data.IKLockMode = (float)CurrentIKLockMode;
-        constraint.data = data;
+        rig.IKJob.ikLockMode = CurrentIKLockMode;
     }
 
-    private delegate void IKDataAction(ref BasisFullBodyData data);
+    private delegate void IKDataAction(ref BasisEerieMovement data);
 
     private static void ApplyIKDataBool(IKDataAction action)
     {
         if (BasisLocalPlayer.Instance == null || BasisLocalPlayer.Instance.LocalRigDriver == null)
             return;
 
-        var constraint = BasisLocalPlayer.Instance.LocalRigDriver.BasisFullIKConstraint;
-        if (constraint == null)
+        var rig = BasisLocalPlayer.Instance.LocalRigDriver;
+        if (!rig.IKDataReady)
             return;
 
-        var data = constraint.data;
-        action(ref data);
-        constraint.data = data;
+        action(ref rig.IKJob);
     }
 
     private static void ApplyIKDataFloat(IKDataAction action)

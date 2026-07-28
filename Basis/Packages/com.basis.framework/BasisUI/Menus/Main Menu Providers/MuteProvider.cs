@@ -1,8 +1,6 @@
 #if !BASIS_DISABLE_MICROPHONE
 using Basis.Scripts.Device_Management;
-using Basis.Scripts.Networking;
-using Basis.Scripts.Networking.NetworkedAvatar;
-using Basis.Scripts.Networking.Transmitters;
+using Basis.Scripts.Drivers;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -32,10 +30,8 @@ namespace Basis.BasisUI
             // Unsubscribe first to prevent duplicate subscriptions across menu open/close cycles
             BasisLocalMicrophoneDriver.OnPausedAction -= OnMuteChanged;
             BasisLocalMicrophoneDriver.OnPausedAction += OnMuteChanged;
-            BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChanged;
-            BasisNetworkModeration.OnShoutModeChanged += OnShoutModeChanged;
-            BasisTalkModeManager.OnLocalTalkModeChanged -= OnTalkModeChanged;
-            BasisTalkModeManager.OnLocalTalkModeChanged += OnTalkModeChanged;
+            BasisLocalMicrophoneIconDriver.OnColorChanged -= OnMicrophoneColorChanged;
+            BasisLocalMicrophoneIconDriver.OnColorChanged += OnMicrophoneColorChanged;
 
             UpdateButtonVisuals(button, BasisLocalMicrophoneDriver.isPaused);
 
@@ -54,41 +50,20 @@ namespace Basis.BasisUI
             UpdateButtonVisuals(BoundButton, isMuted);
         }
 
-        private void OnShoutModeChanged(ushort playerId, bool enabled)
-        {
-            if (BoundButton == null)
-                return;
-            if (BasisNetworkPlayer.LocalPlayer == null || playerId != BasisNetworkPlayer.LocalPlayer.playerId)
-                return;
-
-            UpdateButtonVisuals(BoundButton, BasisLocalMicrophoneDriver.isPaused);
-        }
-
-        private void OnTalkModeChanged()
+        private void OnMicrophoneColorChanged(Color color)
         {
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
-                if (BoundButton == null) return;
-                UpdateButtonVisuals(BoundButton, BasisLocalMicrophoneDriver.isPaused);
+                if (BoundButton == null || BoundButton.IsReleased)
+                {
+                    return;
+                }
+
+                ApplyColor(BoundButton, BasisLocalMicrophoneDriver.isPaused);
             });
         }
 
         private static readonly Color MutedColor = new Color(1f, 0.3f, 0.3f, 1f);
-        private static readonly Color ShoutColor = new Color(1f, 0.5490196f, 0f, 1f);
-        private static readonly Color PrivateColor = new Color(0.6078432f, 0.1882353f, 1f, 1f);
-        private static readonly Color DirectColor = new Color(0.12156863f, 0.7490196f, 0.3529412f, 1f);
-        private static readonly Color ThisPersonColor = new Color(1f, 0.3098039f, 0.627451f, 1f);
-
-        private static Color ModeColor(BasisTalkMode mode)
-        {
-            switch (mode)
-            {
-                case BasisTalkMode.Private: return PrivateColor;
-                case BasisTalkMode.Direct: return DirectColor;
-                case BasisTalkMode.ThisPerson: return ThisPersonColor;
-                default: return Color.white;
-            }
-        }
 
         private void UpdateButtonVisuals(PanelButton button, bool isMuted)
         {
@@ -98,11 +73,12 @@ namespace Basis.BasisUI
 
             button.SetIcon(icon);
             button.Descriptor.SetTitle(BasisLocalization.Get(isMuted ? "menu.provider.unmute" : "menu.provider.mute"));
-            Color color = isMuted
-                ? MutedColor
-                : BasisAudioTransmission.IsInShoutMode
-                    ? ShoutColor
-                    : ModeColor(BasisTalkModeManager.CurrentMode);
+            ApplyColor(button, isMuted);
+        }
+
+        private static void ApplyColor(PanelButton button, bool isMuted)
+        {
+            Color color = isMuted ? MutedColor : BasisLocalMicrophoneIconDriver.LastColor;
             button.Descriptor.IconImage.color = color;
             button.Descriptor.TitleLabel.color = color;
         }

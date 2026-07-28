@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -178,16 +178,16 @@ namespace Basis.IK.Debugging
                                 float vy = Mathf.Lerp(-0.7f, 0.3f, c / (float)(crouchSteps - 1)); // hips.y - head.y
                                 Vector3 hipsB = head + new Vector3(lat, vy, 0f);
 
-                                Vector3 hcB = BasisFullIKConstraintJob.ClampHipsAroundHead(head, hipsB, rest, cfg.MinFactor, cfg.MaxFactor, up);
-                                Vector3 beB = BasisFullIKConstraintJob.EnforceSpineBendLimit(head, hipsB, maxBend, up);
+                                Vector3 hcB = BasisEerieMovement.ClampHipsAroundHead(head, hipsB, rest, cfg.MinFactor, cfg.MaxFactor, up);
+                                Vector3 beB = BasisEerieMovement.EnforceSpineBendLimit(head, hipsB, maxBend, up);
 
                                 // Full clamp chain in pipeline order (head forward-facing). Exercises AntiContortionist
                                 // and MitigateSpineBuckling in the inverted regime too, and proves the COMPOSED result
                                 // the user actually gets keeps the hips at/below the head.
-                                Vector3 ch = BasisFullIKConstraintJob.AntiContortionist(head, Quaternion.identity, hipsB, Quaternion.identity, rest);
-                                ch = BasisFullIKConstraintJob.MitigateSpineBuckling(head, Quaternion.identity, ch, rest, up);
-                                ch = BasisFullIKConstraintJob.EnforceSpineBendLimit(head, ch, maxBend, up);
-                                ch = BasisFullIKConstraintJob.ClampHipsAroundHead(head, ch, rest, cfg.MinFactor, cfg.MaxFactor, up);
+                                Vector3 ch = BasisEerieMovement.AntiContortionist(head, Quaternion.identity, hipsB, Quaternion.identity, rest);
+                                ch = BasisEerieMovement.MitigateSpineBuckling(head, Quaternion.identity, ch, rest, up);
+                                ch = BasisEerieMovement.EnforceSpineBendLimit(head, ch, maxBend, up);
+                                ch = BasisEerieMovement.ClampHipsAroundHead(head, ch, rest, cfg.MinFactor, cfg.MaxFactor, up);
 
                                 bool nanB = !Finite(hcB) || !Finite(beB) || !Finite(ch);
                                 float hcAbove = Finite(hcB) ? Vector3.Dot(hcB - head, up) : 0f;
@@ -258,31 +258,31 @@ namespace Basis.IK.Debugging
             hadNaN = false;
 
             // ClampHipsAroundHead: distance to head clamped to [minD,maxD] along the head->hips ray.
-            Vector3 hc = BasisFullIKConstraintJob.ClampHipsAroundHead(head, hips, rest, minFactor, maxFactor, up);
+            Vector3 hc = BasisEerieMovement.ClampHipsAroundHead(head, hips, rest, minFactor, maxFactor, up);
             if (!Finite(hc)) hadNaN = true;
             else
             {
                 float d = (hc - head).magnitude;
                 hipsOver = Mathf.Max(Relu(minD - d), Relu(d - maxD));
                 hipsDir = Vector3.Angle((hips - head).normalized, (hc - head).normalized);
-                Vector3 hc2 = BasisFullIKConstraintJob.ClampHipsAroundHead(head, hc, rest, minFactor, maxFactor, up);
+                Vector3 hc2 = BasisEerieMovement.ClampHipsAroundHead(head, hc, rest, minFactor, maxFactor, up);
                 if (!Finite(hc2)) hadNaN = true; else hipsIdem = (hc2 - hc).magnitude;
             }
 
             // EnforceSpineBendLimit: the head->hips bend may not exceed maxBend (configs always have a
             // vertical component, so the clamp is always applicable).
-            Vector3 be = BasisFullIKConstraintJob.EnforceSpineBendLimit(head, hips, maxBend, up);
+            Vector3 be = BasisEerieMovement.EnforceSpineBendLimit(head, hips, maxBend, up);
             if (!Finite(be)) hadNaN = true;
             else
             {
                 bendAfter = BendAngle(head, be, up);
                 bendOver = Relu(bendAfter - maxBend);
-                Vector3 be2 = BasisFullIKConstraintJob.EnforceSpineBendLimit(head, be, maxBend, up);
+                Vector3 be2 = BasisEerieMovement.EnforceSpineBendLimit(head, be, maxBend, up);
                 if (!Finite(be2)) hadNaN = true; else bendIdem = (be2 - be).magnitude;
             }
 
             // AntiContortionist: never closer than the facing-similarity minimum distance.
-            Vector3 ac = BasisFullIKConstraintJob.AntiContortionist(head, headRot, hips, hipsRot, rest);
+            Vector3 ac = BasisEerieMovement.AntiContortionist(head, headRot, hips, hipsRot, rest);
             if (!Finite(ac)) hadNaN = true;
             else
             {
@@ -290,13 +290,13 @@ namespace Basis.IK.Debugging
                 float minDistFactor = Mathf.Lerp(0.2f, 0.85f, Mathf.Clamp01((sim + 1f) * 0.5f));
                 float minDist = rest * minDistFactor;
                 antiDef = Relu(minDist - (ac - head).magnitude);
-                Vector3 ac2 = BasisFullIKConstraintJob.AntiContortionist(head, headRot, ac, hipsRot, rest);
+                Vector3 ac2 = BasisEerieMovement.AntiContortionist(head, headRot, ac, hipsRot, rest);
                 if (!Finite(ac2)) hadNaN = true; else antiIdem = (ac2 - ac).magnitude;
             }
 
             // MitigateSpineBuckling: pushes hips straight down (along playerUp only) by the compression
             // formula; an uncompressed pose is untouched.
-            Vector3 mb = BasisFullIKConstraintJob.MitigateSpineBuckling(head, hipsRot, hips, rest, up);
+            Vector3 mb = BasisEerieMovement.MitigateSpineBuckling(head, hipsRot, hips, rest, up);
             if (!Finite(mb)) hadNaN = true;
             else
             {
@@ -315,12 +315,12 @@ namespace Basis.IK.Debugging
 
             // ClampRotation: result is at most maxAng from the reference; current/reference taken from the
             // facing pair so the clamp sees a real, often-large delta.
-            Quaternion rc = BasisFullIKConstraintJob.ClampRotation(hipsRot, headRot, maxAng);
+            Quaternion rc = BasisEerieMovement.ClampRotation(hipsRot, headRot, maxAng);
             if (!FiniteQ(rc)) hadNaN = true;
             else
             {
                 rotOver = Relu(Quaternion.Angle(headRot, rc) - maxAng);
-                Quaternion rc2 = BasisFullIKConstraintJob.ClampRotation(rc, headRot, maxAng);
+                Quaternion rc2 = BasisEerieMovement.ClampRotation(rc, headRot, maxAng);
                 if (!FiniteQ(rc2)) hadNaN = true; else rotIdem = Quaternion.Angle(rc, rc2);
             }
 

@@ -25,6 +25,16 @@ public enum BasisVideoBufferMode
     Dynamic = 1,  // auto-tune: grow on underrun risk, shrink when over-buffered
 }
 
+// Video codecs the native engine can be asked about. Values match the native
+// probe ABI (basis_media_probe_video_codec).
+public enum BasisVideoCodec
+{
+    H264 = 1,
+    H265 = 2,
+    VP9 = 3,
+    AV1 = 4,
+}
+
 // Zero-copy live media source backed by the OS-codec engine in basis_media_native.
 //
 // Unlike the CPU IBasisFrameSource path (which decodes into managed byte[] frames
@@ -88,6 +98,11 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
     // debug window / diagnostics.
     public string DebugInfo => handle != IntPtr.Zero ? BasisNativeMedia.GetDebug(handle) : null;
 
+    // Human-readable transport: negotiated detail where the protocol reports one
+    // ("RTSP over UDP", "RTSP over TCP (UDP unavailable)"), the URL scheme
+    // otherwise. Settles once playback starts; null on binaries without the export.
+    public string Transport => handle != IntPtr.Zero ? BasisNativeMedia.GetTransport(handle) : null;
+
     // Monotonic count of frames decoded + written to the ring (for fps readouts).
     public ulong DecodedFrameCount => BasisNativeMedia.GetFrameCounter(handle);
 
@@ -107,6 +122,7 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
     private bool readyFired;
     private bool eosRaised;
     private bool errorRaised;
+    private string loggedTransport;
 
     // Desired jitter buffer; applied to the native engine on Start and on change.
     private int bufferMode = (int)BasisVideoBufferMode.Dynamic;
@@ -145,6 +161,16 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
 
     public bool SeekBackUs(long backUs) => BasisNativeMedia.SeekBackUs(handle, backUs);
 
+    // True when this platform decodes the codec, verified as far as the platform
+    // allows (Windows: decoder MFT + GPU decode profile; Android: decoder
+    // presence — hardware-universal for these codecs on Quest). Engine-less —
+    // callable before any source exists, from any thread (resolvers run on
+    // worker threads); the verdict is cached natively for the process lifetime.
+    // Use it to gate format selection so streams are only offered where they
+    // will actually play.
+    public static bool IsVideoCodecSupported(BasisVideoCodec codec)
+        => BasisNativeMedia.ProbeVideoCodec((int)codec);
+
     // Diagnostics: heartbeat so we can see whether frames keep flowing.
     private int pumpCount;
     private BasisMediaEngineState lastLoggedState = (BasisMediaEngineState)(-1);
@@ -169,6 +195,7 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
         BasisNativeMedia.SetBuffer(handle, bufferMode, bufferMs);
         started = true;
         readyFired = eosRaised = errorRaised = false;
+        loggedTransport = null;
         lastFrameCounter = 0;
         lastTexturePtr = IntPtr.Zero;
         // Re-arm caption polling for the new native handle: clear the dedup state so
@@ -185,6 +212,14 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
         bufferMode = (int)mode;
         if (ms > 0) bufferMs = ms;
         if (handle != IntPtr.Zero) BasisNativeMedia.SetBuffer(handle, bufferMode, bufferMs);
+    }
+
+    // Reports the audio sink's measured output latency so the native backend paces
+    // video to match it (the low-latency A/V sync path; desktop self-times and
+    // ignores it). Called each frame by the player from the audio component.
+    public void SetAudioLatencyUs(long latencyUs)
+    {
+        if (handle != IntPtr.Zero) BasisNativeMedia.SetAudioLatencyUs(handle, (int)latencyUs);
     }
 
     public void Play() { if (handle != IntPtr.Zero) BasisNativeMedia.Play(handle); }
@@ -245,7 +280,12 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
     {
         if (handle == IntPtr.Zero || disposed) return;
 
-        PollTrackStateOnce();
+        var engineState = BasisNativeMedia.GetState(handle);
+        bool trackStateCanChange =
+            engineState == BasisNativeMedia.State.Connecting ||
+            engineState == BasisNativeMedia.State.Buffering ||
+            engineState == BasisNativeMedia.State.Playing;
+        if (trackStateCanChange && (pumpCount % 30) == 0) PollTrackStateOnce();
 
         // On the Vulkan path: as soon as the engine has detected the video size,
         // allocate a RenderTexture and hand its native pointer to the plugin.
@@ -297,7 +337,19 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
             }
         }
 
-        switch (BasisNativeMedia.GetState(handle))
+        // Audio-only sources never tick the video frame counter and never produce a
+        // texture, so the readiness check above can't fire for them. The engine only
+        // flips to Playing with no video size once the source has announced no video
+        // track at all, so that pairing is the audio-only ready signal.
+        if (!readyFired && engineState == BasisNativeMedia.State.Playing &&
+            !(BasisNativeMedia.TryGetVideoSize(handle, out int vw, out int vh) && vw > 0 && vh > 0) &&
+            BasisNativeMedia.TryGetAudioFormat(handle, out _, out int audioChannels) && audioChannels > 0)
+        {
+            readyFired = true;
+            OnReady?.Invoke();
+        }
+
+        switch (engineState)
         {
             case BasisNativeMedia.State.Error when !errorRaised:
                 errorRaised = true;
@@ -306,6 +358,20 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
             case BasisNativeMedia.State.Ended when !eosRaised:
                 eosRaised = true;
                 OnEndOfStream?.Invoke();
+                break;
+            case BasisNativeMedia.State.Playing when (pumpCount % 30) == 0:
+                // Logs which transport the connection settled on (RTSP
+                // negotiates UDP vs TCP), and again if it changes (a mid-play
+                // fallback restarts the session over TCP). Checked on a ~0.5 s
+                // cadence rather than every pump so the marshalling cost stays
+                // off the per-frame path regardless of what the native binary
+                // returns; stub-platform binaries return null and never log.
+                string transport = Transport;
+                if (!string.IsNullOrEmpty(transport) && transport != loggedTransport)
+                {
+                    loggedTransport = transport;
+                    BasisDebug.Log($"[NativeMedia] transport: {transport}", BasisDebug.LogTag.Video);
+                }
                 break;
         }
 
@@ -316,7 +382,7 @@ public sealed class BasisNativeVideoSource : IBasisPcmSource, IDisposable
         // ended (state=Ended), or the texture froze (frames stuck but no error).
         pumpCount++;
         if (!verboseLogging) return;
-        BasisMediaEngineState hb = State;
+        BasisMediaEngineState hb = (BasisMediaEngineState)(int)engineState;
         if (hb != lastLoggedState || (pumpCount % 120) == 0)
         {
             lastLoggedState = hb;

@@ -342,10 +342,13 @@ namespace Basis.BasisUI
 
                 string dampenNote = dampen < 0.5f ? " (BEHIND)" : dampen < 1f ? " (off-axis)" : "";
                 string warning = effective < 0.01f && srcVol > 0f ? "\nWARNING: Near zero!" : "";
+                string normalize = audio.NormalizeLoudness
+                    ? $"\nNormalize: {audio.NormalizerGainDb:+0.0;-0.0;0.0} dB"
+                    : "\nNormalize: off";
 
                 VolumeChainField.SetDescription(
                     $"Source: {srcVol:F2} x Dampen: {dampen:F3}{dampenNote} x Listener: {listenerVol:F2}\n" +
-                    $"Effective: {effective:F3}{warning}");
+                    $"Effective: {effective:F3}{warning}{normalize}");
             }
 
             // Voice Buffer (combined jitter + decoded)

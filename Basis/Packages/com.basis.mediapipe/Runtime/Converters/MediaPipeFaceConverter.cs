@@ -144,7 +144,7 @@ namespace Basis.MediaPipe
         // P/Invokes and network churn for a mostly-neutral face.
         private void SubmitIfChanged(AcquisitionService acquisition, int id, float value)
         {
-            if (_lastSubmitted.TryGetValue(id, out float last) && Mathf.Abs(value - last) < SubmitEpsilon) return;
+            if (_lastSubmitted.TryGetValue(id, out float last) && Mathf.Abs(value - last) < SubmitEpsilon) { return; }
             _lastSubmitted[id] = value;
             acquisition.Submit(id, value);
         }

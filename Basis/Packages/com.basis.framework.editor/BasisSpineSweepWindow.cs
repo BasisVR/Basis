@@ -26,7 +26,7 @@ namespace Basis.IK.Debugging
         void OnGUI()
         {
             EditorGUILayout.HelpBox(
-                "Exercises the virtual-spine solve helpers (BasisLocalVirtualSpineDriver chain placement, " +
+                "Exercises the virtual-spine solve helpers (BasisVirtualSpineCore chain placement, " +
                 "hips position, yaw extraction). Asserts chest/spine sit on the neck→hips segment at the " +
                 "right fractions (no inversion), hips drop the spine length below the neck, and yaw " +
                 "extraction strips pitch/roll. Edit mode, pure math.", MessageType.Info);

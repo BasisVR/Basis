@@ -1,0 +1,17 @@
+{
+  "name": "com.basis.trackerobjects",
+  "displayName": "Basis Tracker Objects",
+  "version": "0.0.1",
+  "description": "Bind a SteamVR/OpenXR tracker to a spawned prop so its pose drives the transform every frame. Takes network ownership of the prop's BasisPickupSyncNetworking so the motion streams to remote players.",
+  "unity": "6000.0",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "vpmDependencies": {
+    "com.basis.common": "0.0.1",
+    "com.basis.framework": "0.0.1",
+    "com.basis.sdk": "0.0.1"
+  },
+  "license": "MIT"
+}

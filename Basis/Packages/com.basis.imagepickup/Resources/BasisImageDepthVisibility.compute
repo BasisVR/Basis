@@ -1,0 +1,62 @@
+#pragma kernel CSMain
+
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+TEXTURE2D_X_FLOAT(_BasisImageDepthTexture);
+StructuredBuffer<float4> _BasisImageDepthSamples;
+RWStructuredBuffer<uint> _BasisImageDepthVisibility;
+
+float4x4 _BasisImageWorldToClip;
+float4x4 _BasisImageWorldToView;
+float4 _BasisImageDepthTextureSize;
+int _BasisImageDepthCardCount;
+float _BasisImageDepthBiasMeters;
+
+#define BASIS_IMAGE_DEPTH_SAMPLES_PER_CARD 5
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint cardIndex = dispatchThreadId.x;
+    if (cardIndex >= (uint)_BasisImageDepthCardCount)
+        return;
+
+    uint visible = 0u;
+    uint sampleOffset = cardIndex * BASIS_IMAGE_DEPTH_SAMPLES_PER_CARD;
+
+    [unroll]
+    for (uint sampleIndex = 0u;
+         sampleIndex < BASIS_IMAGE_DEPTH_SAMPLES_PER_CARD;
+         sampleIndex++)
+    {
+        float4 positionWS = _BasisImageDepthSamples[sampleOffset + sampleIndex];
+        float4 positionCS = mul(_BasisImageWorldToClip, positionWS);
+        if (positionCS.w <= 0.00001f)
+            continue;
+
+        float2 uv = positionCS.xy / positionCS.w * 0.5f + 0.5f;
+        if (any(uv < 0.0f) || any(uv > 1.0f))
+            continue;
+
+        int2 pixel = int2(uv * _BasisImageDepthTextureSize.xy);
+        pixel = clamp(
+            pixel,
+            int2(0, 0),
+            int2(_BasisImageDepthTextureSize.xy) - 1);
+
+        float rawSceneDepth = LOAD_TEXTURE2D_X(
+            _BasisImageDepthTexture,
+            pixel).r;
+        float sceneEyeDepth = LinearEyeDepth(rawSceneDepth, _ZBufferParams);
+        float sampleEyeDepth = -mul(_BasisImageWorldToView, positionWS).z;
+
+        if (sampleEyeDepth > 0.0f
+            && sampleEyeDepth <= sceneEyeDepth + _BasisImageDepthBiasMeters)
+        {
+            visible = 1u;
+            break;
+        }
+    }
+
+    _BasisImageDepthVisibility[cardIndex] = visible;
+}

@@ -24,6 +24,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
         [Tooltip("Optional, leave this empty to auto-detect colliders on self, or on children if none on self.")]
         [SerializeField] private Collider[] _colliderRefs;
 
+        private Collider[] _resolvedColliders;
+        private GameObject[] _resolvedColliderObjects;
+
         /// <summary>
         /// Collection of input sources bound to this interactable.
         /// </summary>
@@ -219,7 +222,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         public virtual void Awake()
         {
-            _colliderRefs = GetColliders();
+            RefreshColliders();
             if (BasisLocalPlayer.PlayerReady)
             {
                 SetupInputs();
@@ -308,20 +311,38 @@ namespace Basis.Scripts.BasisSdk.Interactions
             float extraReach = 0;
             if (Device_Management.BasisDeviceManagement.IsUserInDesktop())
             {
-                // Adding half the player's height mimics a VR user's arm reach.
-                extraReach = BasisHeightDriver.SelectedScaledPlayerHeight / 2;
+                // Adding half the AVATAR's height mimics a VR user's arm reach. It must be the avatar's,
+                // not the player's: this is a world-space distance test, and SelectedScaledPlayerHeight is
+                // the real human's eye height, which does not move when the avatar is scaled — so on a
+                // 0.5x avatar the reach bonus was roughly its entire body height.
+                extraReach = BasisHeightDriver.SelectedScaledAvatarHeight / 2;
             }
-            return Vector3.Distance(GetClosestPoint(source), source) <= interactRange + extraReach;
+            float limit = interactRange + extraReach;
+            return limit >= 0f && (GetClosestPoint(source) - source).sqrMagnitude <= limit * limit;
         }
 
         public Vector3 GetClosestPoint(Vector3 source)
         {
-            float closestDistanceSqr = float.MaxValue;
             Vector3 closestPoint = transform.position;
 
-            for (int i = 0; i < _colliderRefs.Length; i++)
+            if (_resolvedColliders == null)
             {
-                Collider col = _colliderRefs[i];
+                RefreshColliders();
+            }
+
+            Collider[] colliders = _resolvedColliders;
+            GameObject[] owners = _resolvedColliderObjects;
+            float closestDistanceSqr = float.MaxValue;
+
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider col = colliders[i];
+
+                if (col == null || !col.enabled || !owners[i].activeInHierarchy)
+                {
+                    continue;
+                }
+
                 Vector3 point;
 
                 if (col is MeshCollider meshCol && !meshCol.convex)
@@ -347,9 +368,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         /// <summary>
         /// Gets the collider attached to this object if one exists.
-        /// Override with cached reference when possible.
+        /// Resolved once at <see cref="Awake"/> and cached; edit-time callers re-scan every call
+        /// so newly authored colliders are picked up without a domain reload.
         /// </summary>
         public Collider[] GetColliders()
+        {
+            return _resolvedColliders ?? ScanColliders();
+        }
+
+        private Collider[] ScanColliders()
         {
             if (_colliderRefs != null && _colliderRefs.Length > 0)
             {
@@ -359,7 +386,28 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 return new Collider[] { col };
             }
-            return GetComponentsInChildren<Collider>();
+            return GetComponentsInChildren<Collider>(true);
+        }
+
+        /// <summary>
+        /// Resolves the collider set and caches each collider's owning GameObject alongside it, so the
+        /// per-frame range and closest-point queries never allocate or walk back to the GameObject
+        /// through native interop. Runs at <see cref="Awake"/>; call again after adding or removing
+        /// colliders at runtime. Toggling a collider or its GameObject does not need a refresh —
+        /// that is checked live per query.
+        /// </summary>
+        public void RefreshColliders()
+        {
+            Collider[] colliders = ScanColliders();
+            GameObject[] owners = new GameObject[colliders.Length];
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider col = colliders[i];
+                owners[i] = col == null ? gameObject : col.gameObject;
+            }
+
+            _resolvedColliderObjects = owners;
+            _resolvedColliders = colliders;
         }
 
         /// <summary>

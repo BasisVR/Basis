@@ -59,11 +59,13 @@ namespace SteamAudio
         public void AddProbeBatch(ProbeBatch probeBatch)
         {
             API.iplSimulatorAddProbeBatch(mSimulator, probeBatch.Get());
+            SteamAudioManager.NotifySimulatorDirty();
         }
 
         public void RemoveProbeBatch(ProbeBatch probeBatch)
         {
             API.iplSimulatorRemoveProbeBatch(mSimulator, probeBatch.Get());
+            SteamAudioManager.NotifySimulatorDirty();
         }
 
         public void SetSharedInputs(SimulationFlags flags, SimulationSharedInputs sharedInputs)
@@ -129,11 +131,13 @@ namespace SteamAudio
         public void AddToSimulator(Simulator simulator)
         {
             API.iplSourceAdd(mSource, simulator.Get());
+            SteamAudioManager.NotifySimulatorDirty();
         }
 
         public void RemoveFromSimulator(Simulator simulator)
         {
             API.iplSourceRemove(mSource, simulator.Get());
+            SteamAudioManager.NotifySimulatorDirty();
         }
 
         public void SetInputs(SimulationFlags flags, SimulationInputs inputs)

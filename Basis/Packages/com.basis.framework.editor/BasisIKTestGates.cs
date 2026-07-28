@@ -120,8 +120,8 @@ namespace Basis.IK.Debugging
             if (s.LookupMeanAlignErrDeg > ArmMaxElbowMeanAlignErrDeg)
                 return (false, $"mean elbow-direction error {s.LookupMeanAlignErrDeg:F1} > {ArmMaxElbowMeanAlignErrDeg} deg (elbow drifting off the natural pole)");
             // Anatomical flexion: the solved elbow angle must never leave the human range (no over-flex / hyperextension).
-            float minFlex = UnityEngine.Animations.Rigging.BasisArmSolveCore.MinElbowAngleDeg;
-            float maxFlex = UnityEngine.Animations.Rigging.BasisArmSolveCore.MaxElbowAngleDeg;
+            float minFlex = Basis.IK.BasisArmSolveCore.MinElbowAngleDeg;
+            float maxFlex = Basis.IK.BasisArmSolveCore.MaxElbowAngleDeg;
             if (s.LookupMinElbowAngleDeg < minFlex - 1f || s.LookupMaxElbowAngleDeg > maxFlex + 1f)
                 return (false, $"elbow flexion {s.LookupMinElbowAngleDeg:F0}..{s.LookupMaxElbowAngleDeg:F0} deg leaves the human range [{minFlex:F0},{maxFlex:F0}] (over-flex / hyperextension)");
             return (true, $"extUpFlips={s.LookupElbowFlipCount} elbowUp={s.LookupElbowUpCount} alignMean={s.LookupMeanAlignErrDeg:F1} flex={s.LookupMinElbowAngleDeg:F0}..{s.LookupMaxElbowAngleDeg:F0}");
@@ -244,7 +244,7 @@ namespace Basis.IK.Debugging
                 return (false, $"{s.TargetInversions}/{s.TargetReachable} reachable targets bend the knee backward with a good hint (inhuman pose)");
             // Max-flexion limit: a human knee can't fold past the solver's MinKneeInteriorDeg clamp (calf
             // through thigh). The flexion pass pulls the foot to the hip; the solved interior must hold there.
-            float flexLimit = UnityEngine.Animations.Rigging.BasisLegSolveCore.MinKneeInteriorDeg;
+            float flexLimit = Basis.IK.BasisLegSolveCore.MinKneeInteriorDeg;
             if (s.FlexClampSamples > 0 && s.MinKneeFlexDeg < flexLimit - 3f)
                 return (false, $"knee over-folds to {s.MinKneeFlexDeg:F0} deg interior < {flexLimit:F0} deg limit (calf through thigh -- clamp not holding)");
             string onset = float.IsNaN(s.OnsetDeviationDeg) ? "none" : $"{s.OnsetDeviationDeg:F0}deg";
@@ -479,14 +479,13 @@ namespace Basis.IK.Debugging
         // --- calibration offset / rotation / height math tolerances ---
         public const float CalibMaxPosErrM = 5e-4f;         // offset + scale round-trip position error (metres)
         public const float CalibMaxRotErrDeg = 0.1f;        // offset + rotation-calibration round-trip error (degrees)
-        public const float CalibMaxPitchHeightErrM = 5e-3f; // pitch-calibrated eye-height recovery error (metres)
-        public const float CalibMaxFeelHeightErrM = 1e-3f;  // DeviceScale feel: viewpoint must land on the avatar eye when the denominator is true/nudged (metres)
+        public const float CalibMaxFeelHeightErrM = 1e-3f;  // DeviceScale feel: viewpoint must land on the avatar eye when the denominator is true (metres)
         public const float CalibMaxFeelFactorErr = 1e-3f;   // too-tall ratio of an under-bridged eye reference must equal E/(E-shortfall)
 
-        // Calibration math: the offset capture↔apply, device-scale, per-effector rotation, and pitch-
-        // height formulas must round-trip / land on their targets within float tolerance, and the scale
-        // modifier must sanitize bad overrides. A failure means a calibration formula changed in a way
-        // that no longer reproduces the bone/height it was derived from.
+        // Calibration math: the offset capture↔apply, device-scale, and per-effector rotation formulas
+        // must round-trip / land on their targets within float tolerance, and the scale modifier must
+        // sanitize bad overrides. A failure means a calibration formula changed in a way that no longer
+        // reproduces the bone/height it was derived from.
         public static (bool pass, string reason) GateCalibrationMath(in BasisCalibrationMathSummary s)
         {
             if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
@@ -495,13 +494,11 @@ namespace Basis.IK.Debugging
                 return (false, $"offset/scale round-trip off: offsetPos={s.MaxOffsetPosErr:F5} follow={s.MaxRigidFollowErr:F5} scalePos={s.MaxScalePosErr:F5} m > {CalibMaxPosErrM} m");
             if (s.MaxOffsetRotErrDeg > CalibMaxRotErrDeg || s.MaxRotCalErrDeg > CalibMaxRotErrDeg)
                 return (false, $"rotation off: offsetRot={s.MaxOffsetRotErrDeg:F3} rotCal={s.MaxRotCalErrDeg:F3} deg > {CalibMaxRotErrDeg} (rotation calibration would leak orientation)");
-            if (s.MaxPitchHeightErr > CalibMaxPitchHeightErrM)
-                return (false, $"pitch-calibrated height off by {s.MaxPitchHeightErr:F4} m > {CalibMaxPitchHeightErrM} ({s.PitchSolvable} solved, {s.PitchFallback} fallback)");
             if (s.ScaleModifierMismatches > 0)
                 return (false, $"{s.ScaleModifierMismatches} scale-modifier sanitization/FinalScale mismatches");
             if (s.MaxFeelHeightErr > CalibMaxFeelHeightErrM || s.MaxFeelFactorErr > CalibMaxFeelFactorErr)
                 return (false, $"feel height off: viewpoint err={s.MaxFeelHeightErr:F5} m > {CalibMaxFeelHeightErrM} or too-tall ratio err={s.MaxFeelFactorErr:F5} > {CalibMaxFeelFactorErr} (DeviceScale no longer lands the viewpoint on the avatar eye)");
-            return (true, $"offsetPos={s.MaxOffsetPosErr:F5}m rotCal={s.MaxRotCalErrDeg:F3}deg scalePos={s.MaxScalePosErr:F5}m pitch={s.MaxPitchHeightErr:F4}m ({s.PitchSolvable}/{s.PitchFallback}) feel={s.MaxFeelHeightErr:F5}m cases={s.Cases} fails={s.Failures}");
+            return (true, $"offsetPos={s.MaxOffsetPosErr:F5}m rotCal={s.MaxRotCalErrDeg:F3}deg scalePos={s.MaxScalePosErr:F5}m feel={s.MaxFeelHeightErr:F5}m cases={s.Cases} fails={s.Failures}");
         }
 
         // Procedural foot placement (BasisFootSimulateJob): a temporal stepping system, so the gate reads
@@ -514,6 +511,11 @@ namespace Basis.IK.Debugging
             if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
             if (s.Rows <= 0 || s.Scenarios <= 0) return (false, "no rows");
             if (s.HadNaN) return (false, "NaN foot position / knee hint (the sim blew up)");
+            // Checked EARLY and before hover on purpose: a false airborne makes the feet abandon the floor for a
+            // hips-relative fallback (the whole avatar hovers) AND suppresses the hover metric that would have
+            // reported it, so it can mask itself. Standing still is not airborne.
+            if (s.SimAirborneWhileGroundedTicks > 0)
+                return (false, $"sim reported AIRBORNE for {s.SimAirborneWhileGroundedTicks} ticks in scenarios where the hips never left standing height (first: {s.SimAirborneWorstScenario}) -- the feet abandon the floor and the avatar hovers");
             if (s.BothSteppingTicks > 0)
                 return (false, $"both feet airborne for {s.BothSteppingTicks} ticks (worst: {s.BothSteppingWorstScenario} {s.BothSteppingWorstTicks}) -- a foot must never lift while the other is stepping");
             if (s.Crossovers - s.CrossoversTolerated > 0)
@@ -720,9 +722,9 @@ namespace Basis.IK.Debugging
         }
 
         // --- crouch body offset (sit-back when squatting) ---
-        // ApplyCrouchBodyOffset must move the hips back by exactly crouch*Factor, purely horizontally along
-        // hips-back, monotonically with crouch depth, and never while standing or disabled. A vertical leak
-        // or a standing-pose move is a regression.
+        // ApplyCrouchBodyOffset must move the hips back by exactly the corpus curve (EvaluateSetback), land
+        // them on the rest-length sphere once engaged, leak nothing laterally, grow monotonically with depth,
+        // and never move while standing, below the deadzone, or disabled.
         public static (bool pass, string reason) GateCrouchOffset(in BasisCrouchOffsetSweepSummary s)
         {
             if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
@@ -731,15 +733,15 @@ namespace Basis.IK.Debugging
             if (s.NaNCount > 0) return (false, $"{s.NaNCount} non-finite results");
             if (s.StandingMoves > 0)
                 return (false, $"{s.StandingMoves} cases moved the hips while standing/disabled (must no-op)");
-            if (s.MaxMagErrM > 1e-5f)
-                return (false, $"offset magnitude off crouch*factor by {s.MaxMagErrM:F6} m");
-            if (s.MaxUpComponentM > 1e-5f)
-                return (false, $"offset has a {s.MaxUpComponentM:F6} m vertical component (must be purely horizontal)");
-            if (s.MaxDirErrDeg > 0.1f)
-                return (false, $"offset direction off hips-back by {s.MaxDirErrDeg:F2} deg");
+            if (s.MaxMagErrM > 1e-4f)
+                return (false, $"backward slide off the corpus curve by {s.MaxMagErrM:F6} m");
+            if (s.MaxSphereErrM > 1e-4f)
+                return (false, $"hips leave the rest-length sphere by {s.MaxSphereErrM:F6} m (spine would stretch/compress)");
+            if (s.MaxLateralLeakM > 1e-4f)
+                return (false, $"slide leaks {s.MaxLateralLeakM:F6} m sideways off hips-back");
             if (s.MonotonicViolations > 0)
-                return (false, $"{s.MonotonicViolations} cases where the offset shrank as crouch grew (non-monotonic)");
-            return (true, $"applied={s.AppliedCases} magErr={s.MaxMagErrM:F6}m up={s.MaxUpComponentM:F6}m dir={s.MaxDirErrDeg:F2}° cases={s.Cases}");
+                return (false, $"{s.MonotonicViolations} cases where the setback shrank as depth grew (non-monotonic)");
+            return (true, $"applied={s.AppliedCases} magErr={s.MaxMagErrM:F6}m sphere={s.MaxSphereErrM:F6}m lat={s.MaxLateralLeakM:F6}m cases={s.Cases}");
         }
 
         // Virtual-spine hips compression: a deep head drop (touch toes / sit) must NOT sink the pelvis the full

@@ -2,7 +2,7 @@
   "name": "com.basis.imagepickup",
   "displayName": "Basis Image Pickup",
   "version": "0.0.1",
-  "description": "Drag and drop a PNG onto the window to spawn a networked, grabbable image pickup. The image bytes are relayed peer-to-peer (or via the server as a pure relay) and never stored server side; an image lives only while its spawner is connected.",
+  "description": "Drag and drop a PNG, JPEG, or GIF onto the window to spawn a networked, grabbable image pickup. Animated GIFs replicate validated animation data and a synchronized playback epoch while retaining a sanitized poster fallback; image bytes are never stored server side.",
   "author": {
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
@@ -14,6 +14,7 @@
   },
   "vpmDependencies": {
     "com.basis.framework": "0.0.1",
+    "com.basis.eventdriver": "0.0.1",
     "com.basis.sdk": "0.0.1",
     "com.basis.common": "0.0.1",
     "com.basis.server": "1.0.0",

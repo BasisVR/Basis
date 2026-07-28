@@ -10,10 +10,9 @@ namespace HVR.Basis.Comms
 {
     /// <summary>
     /// Registers the face- and eye-tracking diagnostic builders into the
-    /// framework's Developer tab. The framework owns the toggles
-    /// (DevDebugFaceTracking / DevDebugEyeTracking) and the collapsible group
-    /// containers; this package fills them in with the live state of the HVR
-    /// pipeline components.
+    /// framework's Developer tab. The framework owns the collapsible sections
+    /// and calls these builders each time one is expanded; this package fills
+    /// them in with the live state of the HVR pipeline components.
     /// </summary>
     public static class SettingsProviderFaceTracking
     {
@@ -64,6 +63,7 @@ namespace HVR.Basis.Comms
         static void BuildAvatarCustomizationSection(RectTransform parent)
         {
             InitializeVixxyPanel(parent);
+            InitializeEyeTrackingPanel(parent);
         }
 
         static void RefreshFaceState(
@@ -154,8 +154,9 @@ namespace HVR.Basis.Comms
             var menuItems = avatar.GetComponentsInChildren<HVRVixxyMenuItem>(true);
             if (menuItems.Length <= 0) return;
 
-            var menuGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            menuGroup.SetTitle("Vixxy");
+            var sectionToggle = PanelSectionToggle.CreateNewEntry(container);
+            var menuGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
+                sectionToggle, container, "Vixxy");
             menuGroup.SetDescription("Trigger effects on this avatar.");
 
             var resetters = new List<Action>();
@@ -181,12 +182,114 @@ namespace HVR.Basis.Comms
                 }
             }
 
-            var resetButton = PanelButton.CreateNew(container);
+            var resetButton = PanelButton.CreateNew(menuGroup.ContentParent);
             resetButton.Descriptor.SetTitle("Reset to Default");
             resetButton.Descriptor.SetDescription("Restore all customization on this avatar to its defaults.");
             resetButton.OnClicked += () =>
             {
                 foreach (var reset in resetters) reset();
+            };
+
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, menuGroup, true);
+        }
+
+        private static void InitializeEyeTrackingPanel(RectTransform container)
+        {
+            var localPlayer = BasisLocalPlayer.Instance;
+            var avatar = localPlayer?.BasisAvatar;
+            if (avatar == null) return;
+
+            var eyeActuation = avatar.GetComponentInChildren<EyeTrackingBoneActuation>(true);
+            if (eyeActuation == null) return;
+
+            var sectionToggle = PanelSectionToggle.CreateNewEntry(container);
+            var eyeGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
+                sectionToggle, container, "Eye Tracking");
+            eyeGroup.SetDescription("Limit and scale eye tracking rotation on this avatar.");
+
+            var overrideToggle = PanelToggle.CreateNewEntry(eyeGroup.ContentParent);
+            overrideToggle.Descriptor.SetTitle("Override Rotation Limits");
+            overrideToggle.Descriptor.SetDescription("When off, the values baked into the avatar are used.");
+            overrideToggle.SetValueWithoutNotify(eyeActuation.RuntimeOverrideEnabled);
+
+            var sliders = new List<PanelSlider>();
+            var resetters = new List<Action>
+            {
+                BuildOverrideSlider(eyeGroup, sliders, "Horizontal Limit", "Maximum eye rotation left or right of center.",
+                    0f, EyeTrackingBoneActuation.MaxAngleLimitDeg, 0, ValueDisplayMode.Degrees,
+                    () => eyeActuation.RuntimeMaxAngleXDeg, value => eyeActuation.RuntimeMaxAngleXDeg = value,
+                    EyeTrackingBoneActuation.MaxAngleLimitDeg),
+                BuildOverrideSlider(eyeGroup, sliders, "Vertical Limit", "Maximum eye rotation up or down from center.",
+                    0f, EyeTrackingBoneActuation.MaxAngleLimitDeg, 0, ValueDisplayMode.Degrees,
+                    () => eyeActuation.RuntimeMaxAngleYDeg, value => eyeActuation.RuntimeMaxAngleYDeg = value,
+                    EyeTrackingBoneActuation.MaxAngleLimitDeg),
+                BuildOverrideSlider(eyeGroup, sliders, "Horizontal Gain", "Multiplier applied to horizontal eye tracking angles.",
+                    0f, Mathf.Max(2f, eyeActuation.DefaultMultiplyX), 2, ValueDisplayMode.Percentage,
+                    () => eyeActuation.RuntimeMultiplyX, value => eyeActuation.RuntimeMultiplyX = value,
+                    eyeActuation.DefaultMultiplyX),
+                BuildOverrideSlider(eyeGroup, sliders, "Vertical Gain", "Multiplier applied to vertical eye tracking angles.",
+                    0f, Mathf.Max(2f, eyeActuation.DefaultMultiplyY), 2, ValueDisplayMode.Percentage,
+                    () => eyeActuation.RuntimeMultiplyY, value => eyeActuation.RuntimeMultiplyY = value,
+                    eyeActuation.DefaultMultiplyY),
+            };
+
+            void ApplySliderVisibility(bool visible)
+            {
+                foreach (var slider in sliders) slider.gameObject.SetActive(visible);
+                eyeGroup.ForceRebuild();
+            }
+            ApplySliderVisibility(eyeActuation.RuntimeOverrideEnabled);
+            overrideToggle.OnValueChanged += value =>
+            {
+                eyeActuation.RuntimeOverrideEnabled = value;
+                ApplySliderVisibility(value);
+            };
+
+            var resetButton = PanelButton.CreateNew(eyeGroup.ContentParent);
+            resetButton.Descriptor.SetTitle("Reset Eye Tracking");
+            resetButton.Descriptor.SetDescription("Turn off the override and restore the values baked into this avatar.");
+            resetButton.OnClicked += () =>
+            {
+                eyeActuation.RuntimeOverrideEnabled = false;
+                overrideToggle.SetValueWithoutNotify(false);
+                foreach (var reset in resetters) reset();
+                ApplySliderVisibility(false);
+            };
+
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, eyeGroup, true,
+                visible =>
+                {
+                    if (visible)
+                    {
+                        ApplySliderVisibility(eyeActuation.RuntimeOverrideEnabled);
+                    }
+                });
+        }
+
+        private static Action BuildOverrideSlider(PanelElementDescriptor group, List<PanelSlider> sliders, string title, string description,
+            float min, float max, int decimalPlaces, ValueDisplayMode displayMode,
+            Func<float> getValue, Action<float> setValue, float defaultValue)
+        {
+            var slider = PanelSlider.CreateNew(group.ContentParent);
+            sliders.Add(slider);
+            slider.SetSliderSettings(new PanelSlider.SliderSettings
+            {
+                SliderMin = min,
+                SliderMax = max,
+                DecimalPlaces = decimalPlaces,
+                DisplayMode = displayMode,
+            });
+            slider.Descriptor.SetTitle(title);
+            slider.Descriptor.SetDescription(description);
+            void WhenValueChanged(float value) => setValue(value);
+            slider.SliderComponent.onValueChanged.AddListener(WhenValueChanged);
+            slider.OnValueChanged += WhenValueChanged;
+            slider.SetValueWithoutNotify(getValue());
+
+            return () =>
+            {
+                setValue(defaultValue);
+                slider.SetValueWithoutNotify(defaultValue);
             };
         }
 

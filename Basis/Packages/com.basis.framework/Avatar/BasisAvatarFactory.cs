@@ -357,6 +357,11 @@ namespace Basis.Scripts.Avatar
         /// <param name="LoadingAvatarToUse">The address of the fallback avatar.</param>
         public static void RemoveOldAvatarAndLoadFallback(IBasisPlayer Player, Vector3 Position, Quaternion Rotation)
         {
+            if (CachedLoadingAvatarPrefab == null)
+            {
+                BasisDebug.LogError("Cannot spawn fallback avatar: loading avatar prefab is null (factory not initialized, or de-initialized during teardown).");
+                return;
+            }
             var inSceneLoadingAvatar = GameObject.Instantiate(CachedLoadingAvatarPrefab, Position, Rotation, Player.AvatarParent);
 
             if (inSceneLoadingAvatar.TryGetComponent(out BasisAvatar avatar))
@@ -378,6 +383,10 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         private static void InitializePlayerAvatar(IBasisPlayer Player, GameObject Output, List<BasisHeadChop.HeadChopTarget> headChop)
         {
+            if (Output == null)
+            {
+                throw new InvalidOperationException("Avatar content load returned no GameObject.");
+            }
             if (Output.TryGetComponent(out BasisAvatar avatar))
             {
                 if (!Player.IsLocal)
@@ -401,6 +410,71 @@ namespace Basis.Scripts.Avatar
             }
         }
 
+        /// <summary>Scratch for the harvest → JiggleRig filter; an avatar swap allocates no scan array.</summary>
+        private static readonly List<JiggleRig> sJiggleRigScratch = new List<JiggleRig>();
+
+        private static JiggleRig[] StoredJiggleRigsFor(IBasisPlayer Player)
+        {
+            switch (Player)
+            {
+                case BasisLocalPlayer:
+                    return BasisLocalAvatarDriver.JiggleRigs;
+                case BasisRemotePlayer remotePlayer when remotePlayer.RemoteAvatarDriver != null:
+                    return remotePlayer.RemoteAvatarDriver.JiggleRigs;
+                default:
+                    return Array.Empty<JiggleRig>();
+            }
+        }
+
+        /// <summary>
+        /// Filters the harvest snapshot for JiggleRigs instead of running another
+        /// GetComponentsInChildren walk — the content walk already visited every component once.
+        /// The stored set is include-inactive, so consumers gate on activity where the old
+        /// active-only scans did. Perf-limit trim runs DestroyImmediate before this, so trimmed
+        /// rigs are already gone here, exactly as a fresh walk would have seen.
+        /// </summary>
+        private static void StoreJiggleRigs(IBasisPlayer Player, BasisContentHarvest harvest, BasisAvatar avatar)
+        {
+            sJiggleRigScratch.Clear();
+            List<Component> components = harvest.Components;
+            if (components != null)
+            {
+                int count = components.Count;
+                for (int Index = 0; Index < count; Index++)
+                {
+                    if (components[Index] is JiggleRig rig && rig != null)
+                    {
+                        sJiggleRigScratch.Add(rig);
+                    }
+                }
+            }
+            else
+            {
+                avatar.GetComponentsInChildren(true, sJiggleRigScratch);
+            }
+
+            int rigCount = sJiggleRigScratch.Count;
+            switch (Player)
+            {
+                case BasisLocalPlayer:
+                    if (BasisLocalAvatarDriver.JiggleRigs.Length != rigCount)
+                    {
+                        BasisLocalAvatarDriver.JiggleRigs = new JiggleRig[rigCount];
+                    }
+                    sJiggleRigScratch.CopyTo(BasisLocalAvatarDriver.JiggleRigs);
+                    break;
+                case BasisRemotePlayer remotePlayer when remotePlayer.RemoteAvatarDriver != null:
+                    BasisRemoteAvatarDriver remoteDriver = remotePlayer.RemoteAvatarDriver;
+                    if (remoteDriver.JiggleRigs.Length != rigCount)
+                    {
+                        remoteDriver.JiggleRigs = new JiggleRig[rigCount];
+                    }
+                    sJiggleRigScratch.CopyTo(remoteDriver.JiggleRigs);
+                    break;
+            }
+            sJiggleRigScratch.Clear();
+        }
+
         /// <summary>
         /// Configures a player with a specific avatar.
         /// Handles both local and remote player cases.
@@ -410,12 +484,17 @@ namespace Basis.Scripts.Avatar
             // Explicitly unregister old JiggleRigs synchronously. DeleteLastAvatar is async void
             // and GameObject.Destroy only fires OnDisable at end-of-frame, which races with the
             // new avatar's JiggleRig registration below. Doing it here keeps tree state consistent.
+            // The set was captured off the old avatar's harvest at its own load — no walk needed.
             if (Player.BasisAvatar != null)
             {
-                var oldRigs = Player.BasisAvatar.GetComponentsInChildren<JiggleRig>(true);
+                JiggleRig[] oldRigs = StoredJiggleRigsFor(Player);
                 for (int i = 0; i < oldRigs.Length; i++)
                 {
-                    oldRigs[i].OnRemove();
+                    JiggleRig oldRig = oldRigs[i];
+                    if (oldRig != null)
+                    {
+                        oldRig.OnRemove();
+                    }
                 }
             }
             DeleteLastAvatar(Player);
@@ -431,6 +510,7 @@ namespace Basis.Scripts.Avatar
             Player.BasisAvatar.AuthoredMotions = loadHarvest.AuthoredMotions != null
                 ? loadHarvest.AuthoredMotions.ToArray()
                 : avatar.GetComponentsInChildren<BasisAuthoredMotion>(true);
+            StoreJiggleRigs(Player, loadHarvest, avatar);
             avatar.Harvest = null;
             loadHarvest.ReturnToPool();
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
@@ -469,6 +549,12 @@ namespace Basis.Scripts.Avatar
             // MissingReferenceException while we're already handling the first one.
             if (Player == null || Player.IsDestroyed)
             {
+                return;
+            }
+
+            if (CachedLoadingAvatarPrefab == null)
+            {
+                BasisDebug.LogError("Cannot recover with fallback avatar: loading avatar prefab is null (factory not initialized, or de-initialized during teardown).");
                 return;
             }
 

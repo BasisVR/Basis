@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -66,6 +67,9 @@ public class BasisOpenXRHandInput : BasisInputController
         leftHandToIKPositionOffset = new Vector3(0, 0, -0.05f);
         rightHandToIKPositionOffset = new Vector3(0, 0, -0.05f);
 
+        // Quest swaps this device between a held controller and articulated hand tracking at runtime, so
+        // the honest answer changes frame to frame; OnHandUpdate re-stamps it from the subsystem.
+        TrackingHardware = BasisTrackingHardware.InsideOut;
         InitializeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole, true);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         string devicePosePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
@@ -169,6 +173,7 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.PrimaryButtonGetState = _primaryButtonAction?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.SecondaryButtonGetState = _secondaryButtonAction?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.Trigger = _triggerAction?.ReadValue<float>() ?? 0f;
+        PollPose();
     }
     public override void RenderPollData()
     {
@@ -184,21 +189,12 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.SecondaryButtonGetState = _secondaryButtonAction?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.Trigger = _triggerAction?.ReadValue<float>() ?? 0f;
 
-        if (_devicePositionAction != null)
-        {
-            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _devicePositionAction.ReadValue<Vector3>());
-        }
-        if (_deviceRotationAction != null)
-        {
-            UnscaledDeviceCoord.rotation = _deviceRotationAction.ReadValue<Quaternion>();
-        }
+        PollPose();
         if (_pointerPositionAction != null)
         {
             ComputeUnscaledDeviceCoord(ref PointerPositionYScaled, _pointerPositionAction.ReadValue<Vector3>());
         }
 
-        ConvertToScaledDeviceCoord();
-        ControlOnlyAsHand(HandFinal.position, HandFinal.rotation);
         UpdateRaycastOffset();
         float playerToAvatar = BasisHeightDriver.DeviceScale;
 
@@ -216,6 +212,19 @@ public class BasisOpenXRHandInput : BasisInputController
         );
         UpdateInputEvents();
     }
+    private void PollPose()
+    {
+        if (_devicePositionAction != null)
+        {
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _devicePositionAction.ReadValue<Vector3>());
+        }
+        if (_deviceRotationAction != null)
+        {
+            UnscaledDeviceCoord.rotation = _deviceRotationAction.ReadValue<Quaternion>();
+        }
+        ConvertToScaledDeviceCoord();
+        ControlOnlyAsHand(HandFinal.position, HandFinal.rotation);
+    }
     public BasisCalibratedCoords PointerPositionYScaled;
     /// <summary>
     /// meta/ unity need to pull something out of there ass here,
@@ -228,6 +237,14 @@ public class BasisOpenXRHandInput : BasisInputController
     public void OnHandUpdate(XRHandSubsystem subsystem, XRHandSubsystem.UpdateSuccessFlags flags, XRHandSubsystem.UpdateType updateType)
     {
         if (!TryGetRole(out BasisBoneTrackedRole assignedRole)) return;
+
+        // Articulated hands are camera-tracked and want far heavier filtering than the controller this
+        // same device reports as when one is picked back up.
+        if (assignedRole == BasisBoneTrackedRole.LeftHand || assignedRole == BasisBoneTrackedRole.RightHand)
+        {
+            bool opticallyTracked = assignedRole == BasisBoneTrackedRole.LeftHand ? subsystem.leftHand.isTracked : subsystem.rightHand.isTracked;
+            TrackingHardware = opticallyTracked ? BasisTrackingHardware.Optical : BasisTrackingHardware.InsideOut;
+        }
 
         float playerToAvatar = BasisHeightDriver.DeviceScale;
 
@@ -374,9 +391,15 @@ public class BasisOpenXRHandInput : BasisInputController
                 return false;
         }
     }
+    private BasisOpenXRRenderModel _runtimeModel;
     public override void ShowTrackedVisual()
     {
         ShowTrackedVisualDefaultImplementation();
+    }
+    public override bool TryShowRuntimeDeviceModel()
+    {
+        bool isLeftHand = TryGetRole(out BasisBoneTrackedRole role) && role == BasisBoneTrackedRole.LeftHand;
+        return BasisOpenXRRenderModel.TryLoad(this, isLeftHand, ref _runtimeModel);
     }
     /// <summary>
     /// Duration does not work on OpenXRHands, in the future we should handle it for the user.

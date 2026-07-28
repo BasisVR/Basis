@@ -531,12 +531,7 @@ MonoBehaviour:
       ApplyScale: 0
       FinalScale: {x: 1, y: 1, z: 1}
   LocalRigDriver:
-    Builder: {fileID: 0}
-    AdditionalTransforms: []
-    MainRig: {fileID: 0}
-    RigLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
+    RigLayerActive: 1
     BasisFullIKConstraint: {fileID: 0}
     timeAccumulator: 0
     elbowBendPrefLeftWeights: {x: 0, y: 1, z: 0}

@@ -553,8 +553,11 @@ public static class BasisRemoteFaceManagement
                 // turns it off when BasisMeshRendererCheck reports the face is culled,
                 // and also resets the mesh's blendshapes to 0 at that moment. So when
                 // this gate is false (invisible / overridden / no mesh) we skip the
-                // SetBlendShapeWeight P/Invoke entirely.
-                if (Face.BlinkingEnabled && !Face.OverrideBlinking && Face.meshRenderer != null)
+                // SetBlendShapeWeight P/Invoke entirely. No meshRenderer null check
+                // here: that is a native fake-null call per visible face per frame,
+                // and SafeSetBlendShape already guards each actual write — a renderer
+                // destroyed behind our back just no-ops until the next face rebuild.
+                if (Face.BlinkingEnabled && !Face.OverrideBlinking)
                 {
                     float w = pBlinkOut[Index];
                     if (!float.IsFinite(w)) w = 0f;

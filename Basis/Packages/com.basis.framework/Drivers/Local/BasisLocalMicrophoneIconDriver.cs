@@ -1,4 +1,5 @@
 #if !BASIS_DISABLE_MICROPHONE
+using Basis.Scripts.Audio;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Transmitters;
 using UnityEngine;
@@ -212,7 +213,10 @@ namespace Basis.Scripts.Drivers
 
             if (PlaySound && CameraDriver != null)
             {
-                AudioClip clip = IsMuted ? MuteSound : UnMuteSound;
+                BasisUISoundEvent micEvent = IsMuted ? BasisUISoundEvent.MicMute : BasisUISoundEvent.MicUnmute;
+                AudioClip clip = BasisUISounds.IsEnabled(micEvent)
+                    ? BasisUISounds.Resolve(micEvent, IsMuted ? MuteSound : UnMuteSound)
+                    : null;
                 float now = Time.realtimeSinceStartup;
                 if (clip != null && now - _lastClickPlayTime >= ClickMinInterval)
                 {

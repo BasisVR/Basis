@@ -30,6 +30,7 @@ public class BasisMediaPlayerNetworkingInspector : Editor
 
         BindByName("AdminOnlyField", "AdminOnly");
         BindByName("AllowAnyoneField", "AllowAnyoneToTakeControl");
+        BindByName("AnyoneCanControlField", "AnyoneCanControl");
         BindByName("DriftThresholdField", "DriftSeekThresholdSeconds");
         BindByName("VerboseLoggingField", "VerboseLogging");
         _root.Bind(serializedObject);

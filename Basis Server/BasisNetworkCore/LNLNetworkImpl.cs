@@ -230,7 +230,9 @@ namespace Basis.Network.Core
                 SimulationPacketLossChance = lnl.SimulationPacketLossChance,
                 MtuDiscovery = lnl.MtuDiscovery,
                 MtuOverride = lnl.MtuOverride,
-                MultiSocketCount = lnl.MultiSocketCount
+                MultiSocketCount = lnl.MultiSocketCount,
+                PacketPoolSizePerPeer = lnl.PacketPoolSizePerPeer,
+                PacketPoolSizeMax = lnl.PacketPoolSizeMax
             };
         }
         public void Start(IPAddress IPv4Address, IPAddress IPv6Address, int SetPort)

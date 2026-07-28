@@ -13,36 +13,32 @@ namespace BasisNetworkCore.Serializable
             public ushort WhoSentUsThis;
             public void Deserialize(NetDataReader Writer)
             {
-                // Read the messageIndex safely
                 if (!Writer.TryGetByte(out messageIndex))
                 {
                     throw new ArgumentException("Failed to read messageIndex.");
                 }
-                if (Writer.TryGetUShort(out WhoSentUsThis))
+                if (!Writer.TryGetUShort(out WhoSentUsThis))
                 {
                     throw new ArgumentException("Failed to read who sent us this!");
                 }
-                // Read the recipientsSize safely
-                if (Writer.TryGetUShort(out payloadSize))
+                if (!Writer.TryGetUShort(out payloadSize))
                 {
-                    // Guard against negative or absurd sizes
-                    if (payloadSize > Writer.AvailableBytes / sizeof(ushort))
-                    {
-                        throw new ArgumentException($"Invalid recipientsSize: {payloadSize}");
-                    }
-                    if (payload == null || payload.Length != payloadSize)
-                    {
-                        payload = new byte[payloadSize];
-                    }
-                    if (!Writer.TryGetBytesWithLength(out payload))
-                    {
-                        throw new ArgumentException($"Failed to read payload!.");
-                    }
+                    throw new ArgumentException("Failed to read payloadSize.");
                 }
-                else
+                if (payloadSize == 0)
                 {
                     payload = null;
+                    return;
                 }
+                if (payloadSize > Writer.AvailableBytes)
+                {
+                    throw new ArgumentException($"Invalid payloadSize: {payloadSize}");
+                }
+                if (payload == null || payload.Length != payloadSize)
+                {
+                    payload = new byte[payloadSize];
+                }
+                Writer.GetBytes(payload, payloadSize);
             }
 
             public void Serialize(NetDataWriter Writer)

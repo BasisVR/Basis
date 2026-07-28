@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "Aucun serveur pour l'instant. Appuyez sur « Ajouter un serveur » pour en créer un."
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "Ajouter un serveur"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "Tout actualiser"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "Modification du serveur"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "Nouveau serveur"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "Enregistrer"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "Annuler"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "Supprimer"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "Modifier"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "Actualiser"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "Hors ligne"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "Interrogation..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "Partager"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Bienvenue sur Basis Labs !"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs est la vitrine vivante du Basis Framework — une base gratuite, sous licence MIT, pour créer des jeux, des plateformes et des expériences VR. Explorez des mondes, portez des avatars personnalisés et rencontrez du monde tout en testant les fonctionnalités à mesure qu'elles sont créées. Tout ici évolue — vos retours contribuent à le façonner."
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "Suivant"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "Votre premier serveur"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Il n'existe pas de service central Basis — n'importe qui peut faire tourner un serveur, et vous pouvez héberger le vôtre directement depuis ce panneau. Pour que vous ayez toujours où aller, nous maintenons un serveur par défaut, marqué d'une ★ en haut de la liste ci-dessous. Choisissez un nom d'utilisateur, appuyez sur le bouton « Se connecter » lumineux et venez dire bonjour !"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "Compris !"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "Choisissez un nom d'utilisateur"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "Choisissez le nom que les autres joueurs verront, puis appuyez sur « Se connecter »."
     },
     {
       "key": "menu.servers.hostMotd",

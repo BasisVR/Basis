@@ -4,6 +4,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
+using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Collections;
 using static SerializableBasis;
 using Unity.Collections.LowLevel.Unsafe;
@@ -65,6 +66,57 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         // Outbound sequence counter
         static byte sLocalSequence;
 
+        // Idle suppression: the last payload we actually emitted. A freshly-encoded frame that is
+        // byte-identical to this (and carries no additional data) reconstructs to the same pose on
+        // every receiver, so it is dropped instead of sent. Lossless — see BasisAvatarIdleSuppression.
+        // Reset on avatar change so a new rig always sends its first frame.
+        static byte[] sLastSentPayload;
+        static int sLastSentLinkedIndex = -1;
+        static double sLastSentTime;
+        static bool sHasLastSent;
+        public static double IdleHeartbeatSeconds = BasisAvatarIdleSuppression.DefaultHeartbeatSeconds;
+
+        // Deadband suppression: RAW (pre-quantization) values of the last frame actually sent,
+        // flattened into one float[]. VR sensor noise crosses quantization steps every frame, so
+        // byte-identical suppression alone never fires in VR; a frame whose every field moved less
+        // than the sub-visibility thresholds in BasisAvatarDeadband is dropped instead. Comparing
+        // against the last SENT values bounds the standing error to the threshold (drift sends).
+        public static bool DeadbandSuppression = true;
+        const int RawBoneOffset = 0;                                   // 51 quats
+        const int RawPosOffset = RawBoneOffset + 51 * 4;               // hips world pos
+        const int RawBodyRotOffset = RawPosOffset + 3;                 // hips world rot
+        const int RawHipsDeltaOffset = RawBodyRotOffset + 4;           // hips local delta
+        const int RawHipsRotOffset = RawHipsDeltaOffset + 3;           // hips local rot delta
+        const int RawEffPosOffset = RawHipsRotOffset + 4;              // 4 effector positions
+        const int RawEffRotOffset = RawEffPosOffset + 12;              // 4 effector rotations
+        const int RawScaleOffset = RawEffRotOffset + 16;               // scale
+        const int RawMaskOffset = RawScaleOffset + 1;                  // effector mask (exact)
+        const int RawFloatCount = RawMaskOffset + 1;
+        static readonly float[] sRawCurrent = new float[RawFloatCount];
+        static float[] sRawLastSent;
+        static bool sRawCaptured;
+        static bool sHasRawLastSent;
+        static int sLastP2PSessionCount;
+        static readonly double sBoneMinAbsDot = BasisAvatarDeadband.MinAbsDotForAngleDegrees(BasisAvatarDeadband.BoneAngleDegrees);
+        static readonly double sRootMinAbsDot = BasisAvatarDeadband.MinAbsDotForAngleDegrees(BasisAvatarDeadband.RootAngleDegrees);
+
+        // Uplink delta state (v42): the last full keyframe this client sent — server and P2P peers
+        // all rebaseline from it, deltas in between reference its sequence as baseSeq.
+        public const double UplinkKeyframeIntervalSeconds = 0.5;
+        static byte[] sUplinkBaseline;
+        static byte sUplinkBaselineSeq;
+        static bool sHasUplinkBaseline;
+        static double sUplinkLastKeyframeTime;
+        static byte[] sUplinkDeltaScratch;
+        static volatile bool sUplinkForceKeyframe;
+
+        /// <summary>
+        /// Force the next avatar send to be a full keyframe. Called from the DeltaAvatarChannel
+        /// control path when the server or a P2P peer reports a missing uplink baseline (any
+        /// receive thread — the flag is volatile and consumed on the main thread).
+        /// </summary>
+        public static void ForceUplinkKeyframe() => sUplinkForceKeyframe = true;
+
         // Cached array for additional avatar data — avoids .ToArray() allocation per frame.
         static AdditionalAvatarData[] sCachedAdditionalData;
 
@@ -74,6 +126,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// </summary>
         public static void CaptureTPose()
         {
+            // Force the next frame to send; the new rig's rest pose differs from the old baseline.
+            sHasLastSent = false;
+            sHasRawLastSent = false;
+            sRawCaptured = false;
+            sHasUplinkBaseline = false;
+            sUplinkForceKeyframe = true;
             sTposeLocalRotations = new quaternion[55]; // HumanBodyBones 0..54
             sInverseTposeLocalRotations = new quaternion[55];
             for (int Index = 0; Index < 55; Index++)
@@ -131,16 +189,115 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             transmitter.storedAvatarData.LASM.AdditionalAvatarDatas = data;
             transmitter.storedAvatarData.LASM.LinkedAvatarIndex = transmitter.LastLinkedAvatarIndex;
 
-            bool hasAdditional = data != null && data.Length > 0;
+            // Must mirror SerializeAdditionalOnly's guard exactly: with >255 entries the serializer
+            // writes nothing, so claiming an additional section via the channel/header would desync
+            // the receiver's parse. (256 is reachable — SendingOutAvatarData is byte-keyed.)
+            bool hasAdditional = data != null && data.Length > 0 && data.Length <= 255;
             byte channel = BasisNetworkCommons.GetPlayerAvatarChannelForQuality((int)WireQuality, hasAdditional);
 
-            transmitter.AvatarSendWriter.Put(sLocalSequence);
+            // Drop redundant, additional-free frames (a still avatar) until the heartbeat is due:
+            // byte-identical frames are pure wire redundancy, and frames whose RAW values all sit
+            // inside the sub-quantization deadband are sensor noise — the same shimmer receivers
+            // low-pass away. The receiver holds the last snapshot until real motion resumes.
+            bool linkedChanged = transmitter.LastLinkedAvatarIndex != sLastSentLinkedIndex;
+            // A P2P session appearing (or dropping) forces a send — and a full keyframe — so the
+            // new peer gets a starting pose/baseline immediately instead of waiting out the idle
+            // heartbeat or the keyframe cadence.
+            int p2pSessions = Basis.Scripts.Networking.BasisP2PManager.GetConnectedSessionCount();
+            bool p2pTopologyChanged = p2pSessions != sLastP2PSessionCount;
+            sLastP2PSessionCount = p2pSessions;
+            if (p2pTopologyChanged) sUplinkForceKeyframe = true;
+
+            bool mustSend = p2pTopologyChanged || BasisAvatarIdleSuppression.ShouldSend(
+                    transmitter.storedAvatarData.LASM.array,
+                    sLastSentPayload,
+                    sHasLastSent,
+                    hasAdditional,
+                    linkedChanged,
+                    timeAsDouble,
+                    sLastSentTime,
+                    IdleHeartbeatSeconds);
+            if (mustSend && !p2pTopologyChanged && DeadbandSuppression
+                && !hasAdditional && !linkedChanged && sHasLastSent
+                && sRawCaptured && sHasRawLastSent
+                && timeAsDouble - sLastSentTime < IdleHeartbeatSeconds
+                && RawPoseWithinDeadband())
+            {
+                mustSend = false;
+            }
+            if (!mustSend)
+            {
+                transmitter.AvatarSendWriter.Reset();
+                transmitter.ClearAdditional();
+                return;
+            }
+            RecordLastSent(transmitter.storedAvatarData.LASM.array, transmitter.LastLinkedAvatarIndex, timeAsDouble);
+
+            byte seq = sLocalSequence;
             unchecked { sLocalSequence++; }
 
-            transmitter.storedAvatarData.LASM.SerializeForChannel(transmitter.AvatarSendWriter, WireQuality);
+            // Uplink delta decision (v42): a full keyframe every UplinkKeyframeIntervalSeconds (and
+            // whenever forced/promoted), deltas against it in between. The same frame feeds the
+            // server and every P2P peer, so one baseline serves all receivers; anyone who misses a
+            // keyframe requests one via the DeltaAvatarChannel control frame.
+            byte[] payload = transmitter.storedAvatarData.LASM.array;
+            int payloadLen = payload.Length;
+            bool uplinkDeltasAllowed = BasisNetworkManagement.ServerMetaDataMessage.UplinkDeltaEnabled;
+
+            bool keyframe = !uplinkDeltasAllowed
+                || sUplinkForceKeyframe
+                || !sHasUplinkBaseline
+                || sUplinkBaseline == null
+                || sUplinkBaseline.Length != payloadLen
+                || timeAsDouble - sUplinkLastKeyframeTime >= UplinkKeyframeIntervalSeconds;
+
+            int deltaLen = -1;
+            if (!keyframe)
+            {
+                int cap = BasisAvatarDeltaCompression.MaxDeltaSize(WireQuality);
+                if (sUplinkDeltaScratch == null || sUplinkDeltaScratch.Length < cap)
+                    sUplinkDeltaScratch = new byte[cap];
+                deltaLen = BasisAvatarDeltaCompression.BuildDelta(sUplinkBaseline, payload, WireQuality, sUplinkDeltaScratch, 0);
+                // Promotion: a delta that isn't smaller than the keyframe is pointless overhead.
+                if (deltaLen < 0 || deltaLen >= payloadLen) keyframe = true;
+            }
+
+            if (hasAdditional)
+            {
+                System.Threading.Interlocked.Increment(ref BasisAdditionalDataDiagnostics.SenderFramesWithAdditional);
+                if (keyframe) System.Threading.Interlocked.Increment(ref BasisAdditionalDataDiagnostics.SenderFramesKeyframe);
+                else System.Threading.Interlocked.Increment(ref BasisAdditionalDataDiagnostics.SenderFramesDelta);
+            }
+
+            byte sendChannel;
+            if (keyframe)
+            {
+                transmitter.AvatarSendWriter.Put(seq);
+                transmitter.storedAvatarData.LASM.SerializeForChannel(transmitter.AvatarSendWriter, WireQuality);
+                sendChannel = channel;
+                if (uplinkDeltasAllowed)
+                {
+                    if (sUplinkBaseline == null || sUplinkBaseline.Length != payloadLen)
+                        sUplinkBaseline = new byte[payloadLen];
+                    System.Array.Copy(payload, sUplinkBaseline, payloadLen);
+                    sUplinkBaselineSeq = seq;
+                    sHasUplinkBaseline = true;
+                    sUplinkLastKeyframeTime = timeAsDouble;
+                    sUplinkForceKeyframe = false;
+                }
+            }
+            else
+            {
+                transmitter.AvatarSendWriter.Put(BasisNetworkCommons.BuildDeltaHeader((int)WireQuality, hasAdditional, false));
+                transmitter.AvatarSendWriter.Put(seq);
+                transmitter.AvatarSendWriter.Put(sUplinkBaselineSeq);
+                transmitter.AvatarSendWriter.Put(sUplinkDeltaScratch, 0, deltaLen);
+                if (hasAdditional) transmitter.storedAvatarData.LASM.SerializeAdditionalOnly(transmitter.AvatarSendWriter);
+                sendChannel = BasisNetworkCommons.DeltaAvatarChannel;
+            }
 
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.LocalAvatarSync, transmitter.AvatarSendWriter.Length);
-            Basis.Scripts.Networking.BasisP2PManager.BroadcastAvatarViaP2P(transmitter.AvatarSendWriter, channel);
+            Basis.Scripts.Networking.BasisP2PManager.BroadcastAvatarViaP2P(transmitter.AvatarSendWriter, sendChannel);
             // Server-send pacing: when a P2P session is active, Compress fires at the
             // fast P2P cadence (e.g. every 17ms) and we throttle the server fan-out to
             // meta.SyncInterval. Without P2P, Simulate already paces this call to
@@ -152,7 +309,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             bool shouldSendServer;
             if (p2pActive)
             {
-                shouldSendServer = timeAsDouble >= sNextServerSendTime;
+                // Keyframes always reach the server — its uplink baseline must track ours even
+                // when the fast P2P cadence is throttling ordinary frames down to SyncInterval.
+                shouldSendServer = keyframe || timeAsDouble >= sNextServerSendTime;
             }
             else
             {
@@ -161,7 +320,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             if (shouldSendServer)
             {
-                BasisNetworkConnection.LocalPlayerPeer.Send(transmitter.AvatarSendWriter, channel, DeliveryMethod.Unreliable);
+                BasisNetworkConnection.LocalPlayerPeer.Send(transmitter.AvatarSendWriter, sendChannel, DeliveryMethod.Unreliable);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.OutboundAvatarServer, transmitter.AvatarSendWriter.Length);
                 if (p2pActive)
                 {
@@ -177,6 +336,28 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             transmitter.ClearAdditional();
         }
 
+        static void RecordLastSent(byte[] payload, int linkedIndex, double timeAsDouble)
+        {
+            int plen = payload.Length;
+            if (sLastSentPayload == null || sLastSentPayload.Length != plen)
+                sLastSentPayload = new byte[plen];
+            System.Array.Copy(payload, sLastSentPayload, plen);
+            sLastSentLinkedIndex = linkedIndex;
+            sLastSentTime = timeAsDouble;
+            sHasLastSent = true;
+
+            if (sRawCaptured)
+            {
+                sRawLastSent ??= new float[RawFloatCount];
+                System.Array.Copy(sRawCurrent, sRawLastSent, RawFloatCount);
+                sHasRawLastSent = true;
+            }
+            else
+            {
+                sHasRawLastSent = false;
+            }
+        }
+
         private static double sNextServerSendTime;
 
         public static void InitialAvatarData(Animator animator, out BasisStoredAvatarData StoredAvatarData)
@@ -187,6 +368,42 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             StoredAvatarData = new BasisStoredAvatarData();
             CompressAvatarData(StoredAvatarData, animator.transform);
+        }
+
+        // End-effector capture scratch (reused each frame; rot pre-seeded to identity so the codec
+        // never encodes a zero quaternion for unanchored slots).
+        static readonly Unity.Mathematics.float3[] sEffectorPos = new Unity.Mathematics.float3[BasisAvatarEndEffectors.EffectorCount];
+        static readonly quaternion[] sEffectorRot = { quaternion.identity, quaternion.identity, quaternion.identity, quaternion.identity };
+
+        /// <summary>
+        /// Fills the effector scratch arrays with hips-local target offset + tip world rotation
+        /// for each world-anchored effector and returns the mask (bit i set = effector i anchored).
+        /// An effector is anchored only when the sender's own copy is genuinely world-stable (a held
+        /// controller/tracker or a planted foot) — otherwise FK is left alone so emotes/poses survive.
+        /// Returns 0 (inert) until the per-effector rig seams are wired; see CaptureEndEffectors below.
+        /// </summary>
+        static byte CaptureEndEffectors(Unity.Mathematics.float3 hipsWorldPos, quaternion hipsWorldRot, float scale)
+        {
+            byte mask = 0;
+            if (TryCaptureEffector(0, BasisLocalBoneDriver.LeftHandControl, HumanBodyBones.LeftHand, hipsWorldPos, hipsWorldRot)) mask |= 1 << 0;
+            if (TryCaptureEffector(1, BasisLocalBoneDriver.RightHandControl, HumanBodyBones.RightHand, hipsWorldPos, hipsWorldRot)) mask |= 1 << 1;
+            if (TryCaptureEffector(2, BasisLocalBoneDriver.LeftFootControl, HumanBodyBones.LeftFoot, hipsWorldPos, hipsWorldRot)) mask |= 1 << 2;
+            if (TryCaptureEffector(3, BasisLocalBoneDriver.RightFootControl, HumanBodyBones.RightFoot, hipsWorldPos, hipsWorldRot)) mask |= 1 << 3;
+            return mask;
+        }
+
+        static bool TryCaptureEffector(int idx, BasisLocalBoneControl tipControl, HumanBodyBones tipBone,
+            Unity.Mathematics.float3 hipsWorldPos, quaternion hipsWorldRot)
+        {
+            if (tipControl == null || tipControl.HasTracked != BasisHasTracked.HasTracker) return false;
+            if (!BasisLocalAvatarDriver.Mapping.GetTransform(tipBone, out var tip)) return false;
+
+            tip.GetPositionAndRotation(out var tipWorldPos, out var tipWorldRot);
+            Unity.Mathematics.float3 tipPos = tipWorldPos;
+
+            sEffectorPos[idx] = math.mul(math.conjugate(hipsWorldRot), tipPos - hipsWorldPos);
+            sEffectorRot[idx] = tipWorldRot;
+            return true;
         }
 
         static void CompressAvatarData(BasisStoredAvatarData AvatarData, Transform ScaleTransform)
@@ -250,7 +467,81 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 quaternion hipsLocalRotNow = BasisLocalAvatarDriver.Mapping.Hips.localRotation;
                 quaternion hipsRotDelta = math.mul(sInverseTposeHipsLocalRot, hipsLocalRotNow);
                 BasisUnityBitPackerExtensionsUnsafe.WriteCompressedQuaternionToBytes(hipsRotDelta, ref AvatarData.LASM.array, ref offset);
+
+                // End-effector anchoring block (High only). CaptureEndEffectors fills the scratch
+                // arrays + returns the anchored mask from the local rig; the receiver two-bone-IKs the
+                // anchored limbs to these targets. Mask 0 (nothing world-stable) makes it inert.
+                byte effectorMask = CaptureEndEffectors(hipsWorldPos, hipsWorldRot, ScaleTransform.localScale.y);
+                BasisAvatarEndEffectors.Encode(AvatarData.LASM.array, offset, effectorMask, sEffectorPos, sEffectorRot);
+                offset += BasisAvatarEndEffectors.BlockBytes;
+
+                CaptureRawPose(hipsWorldPos, hipsWorldRot, hipsDelta, hipsRotDelta, ScaleTransform.localScale.y, effectorMask);
             }
+            else
+            {
+                sRawCaptured = false;
+            }
+        }
+
+        /// <summary>
+        /// Snapshots this frame's RAW (pre-quantization) pose values for the deadband comparison.
+        /// Unanchored effector slots keep their stale scratch values on both sides of the compare,
+        /// so they can never block suppression; a mask change always forces a send.
+        /// </summary>
+        static void CaptureRawPose(Unity.Mathematics.float3 hipsWorldPos, quaternion hipsWorldRot,
+            Unity.Mathematics.float3 hipsDelta, quaternion hipsRotDelta, float scale, byte effectorMask)
+        {
+            if (!sCurrentLocalRotations.IsCreated)
+            {
+                sRawCaptured = false;
+                return;
+            }
+            float[] raw = sRawCurrent;
+            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
+            for (int slot = 0; slot < boneCount; slot++)
+            {
+                float4 v = sCurrentLocalRotations[slot].value;
+                int o = RawBoneOffset + slot * 4;
+                raw[o] = v.x; raw[o + 1] = v.y; raw[o + 2] = v.z; raw[o + 3] = v.w;
+            }
+            raw[RawPosOffset] = hipsWorldPos.x; raw[RawPosOffset + 1] = hipsWorldPos.y; raw[RawPosOffset + 2] = hipsWorldPos.z;
+            float4 br = hipsWorldRot.value;
+            raw[RawBodyRotOffset] = br.x; raw[RawBodyRotOffset + 1] = br.y; raw[RawBodyRotOffset + 2] = br.z; raw[RawBodyRotOffset + 3] = br.w;
+            raw[RawHipsDeltaOffset] = hipsDelta.x; raw[RawHipsDeltaOffset + 1] = hipsDelta.y; raw[RawHipsDeltaOffset + 2] = hipsDelta.z;
+            float4 hr = hipsRotDelta.value;
+            raw[RawHipsRotOffset] = hr.x; raw[RawHipsRotOffset + 1] = hr.y; raw[RawHipsRotOffset + 2] = hr.z; raw[RawHipsRotOffset + 3] = hr.w;
+            for (int e = 0; e < BasisAvatarEndEffectors.EffectorCount; e++)
+            {
+                int po = RawEffPosOffset + e * 3;
+                raw[po] = sEffectorPos[e].x; raw[po + 1] = sEffectorPos[e].y; raw[po + 2] = sEffectorPos[e].z;
+                float4 er = sEffectorRot[e].value;
+                int ro = RawEffRotOffset + e * 4;
+                raw[ro] = er.x; raw[ro + 1] = er.y; raw[ro + 2] = er.z; raw[ro + 3] = er.w;
+            }
+            raw[RawScaleOffset] = scale;
+            raw[RawMaskOffset] = effectorMask;
+            sRawCaptured = true;
+        }
+
+        /// <summary>
+        /// True when every raw field of this frame is within its sub-visibility deadband of the
+        /// last frame actually sent (see BasisAvatarDeadband for the thresholds).
+        /// </summary>
+        static bool RawPoseWithinDeadband()
+        {
+            float[] cur = sRawCurrent;
+            float[] last = sRawLastSent;
+            if (cur[RawMaskOffset] != last[RawMaskOffset]) return false;
+            System.ReadOnlySpan<float> c = cur, l = last;
+            if (!BasisAvatarDeadband.ValuesWithin(c.Slice(RawScaleOffset, 1), l.Slice(RawScaleOffset, 1), BasisAvatarDeadband.ScaleUnits)) return false;
+            if (!BasisAvatarDeadband.ValuesWithin(c.Slice(RawPosOffset, 3), l.Slice(RawPosOffset, 3), BasisAvatarDeadband.PositionMeters)) return false;
+            if (!BasisAvatarDeadband.ValuesWithin(c.Slice(RawHipsDeltaOffset, 3), l.Slice(RawHipsDeltaOffset, 3), BasisAvatarDeadband.HipsDeltaMeters)) return false;
+            if (!BasisAvatarDeadband.QuatsWithin(c.Slice(RawBodyRotOffset, 4), l.Slice(RawBodyRotOffset, 4), sRootMinAbsDot)) return false;
+            if (!BasisAvatarDeadband.QuatsWithin(c.Slice(RawHipsRotOffset, 4), l.Slice(RawHipsRotOffset, 4), sRootMinAbsDot)) return false;
+            if (!BasisAvatarDeadband.QuatsWithin(c.Slice(RawBoneOffset, 51 * 4), l.Slice(RawBoneOffset, 51 * 4), sBoneMinAbsDot)) return false;
+            if (!BasisAvatarDeadband.ValuesWithin(c.Slice(RawEffPosOffset, 12), l.Slice(RawEffPosOffset, 12), BasisAvatarDeadband.EffectorPositionMeters)) return false;
+            if (!BasisAvatarDeadband.QuatsWithin(c.Slice(RawEffRotOffset, 16), l.Slice(RawEffRotOffset, 16), sBoneMinAbsDot)) return false;
+            return true;
         }
 
         /// <summary>
@@ -299,13 +590,15 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (sJobArraysReady && sBoneTransformAccess.isCreated)
             {
-                // Batch-read bone local rotations via job system
+                // Batch-read bone local rotations. RunReadOnly executes the Burst job on this
+                // thread — the old Schedule().Complete() dispatched to a worker and blocked on
+                // it in the same statement, paying the fence for zero overlap on ~51 bones.
                 var readJob = new ReadBoneLocalRotationsJob
                 {
                     SlotRemap = sSlotRemap,
                     CurrentLocalRotations = sCurrentLocalRotations,
                 };
-                readJob.Schedule(sBoneTransformAccess).Complete();
+                readJob.RunReadOnly(sBoneTransformAccess);
             }
             else
             {
@@ -443,6 +736,15 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             if (sBoneDeltas.IsCreated) sBoneDeltas.Dispose();
             if (sJobOutputBuffer.IsCreated) sJobOutputBuffer.Dispose();
             sTposeLocalRotations = null;
+            sLastSentPayload = null;
+            sHasLastSent = false;
+            sRawLastSent = null;
+            sHasRawLastSent = false;
+            sRawCaptured = false;
+            sUplinkBaseline = null;
+            sUplinkDeltaScratch = null;
+            sHasUplinkBaseline = false;
+            sUplinkForceKeyframe = false;
             sInitialized = false;
         }
     }

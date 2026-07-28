@@ -1,0 +1,34 @@
+{
+    "name": "Basis.Integration.TrackerObjects",
+    "rootNamespace": "Basis.Integration.TrackerObjects",
+    "references": [
+        "Basis Framework",
+        "BasisSDK",
+        "BasisDebug",
+        "BasisTrackerObjects",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "BASIS_FRAMEWORK_EXISTS",
+        "BASIS_TRACKEROBJECTS_EXISTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.basis.framework",
+            "expression": "0.0.0",
+            "define": "BASIS_FRAMEWORK_EXISTS"
+        },
+        {
+            "name": "com.basis.trackerobjects",
+            "expression": "0.0.0",
+            "define": "BASIS_TRACKEROBJECTS_EXISTS"
+        }
+    ],
+    "noEngineReferences": false
+}

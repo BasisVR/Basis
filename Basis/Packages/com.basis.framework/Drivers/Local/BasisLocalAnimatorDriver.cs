@@ -196,6 +196,24 @@ namespace Basis.Scripts.Animator_Driver
                 basisAnimatorVariableApply.StopAll();
             }
         }
+
+        /// <summary>
+        /// Snapshot of the animator variables in locomotion-sim form. Read at the top of Simulate, so
+        /// like the Animator itself the sim consumes the values written by the previous frame.
+        /// </summary>
+        public BasisLocoParams GetLocoParams()
+        {
+            var variables = basisAnimatorVariableApply.BasisAnimatorVariables;
+            return new BasisLocoParams
+            {
+                VelocityX = variables.Velocity.x,
+                VelocityZ = variables.Velocity.z,
+                CurrentSpeed = variables.AnimationsCurrentSpeed,
+                CrouchedState = variables.IsCrouching,
+                IsFalling = variables.IsFalling,
+                IsJumping = variables.IsJumping,
+            };
+        }
         /// <summary>
         /// Samples motion and state, applies smoothing, updates animator variables, and pushes values into the animator.
         /// </summary>
@@ -207,7 +225,7 @@ namespace Basis.Scripts.Animator_Driver
         /// </remarks>
         public void SimulateAnimator(float DeltaTime)
         {
-            if (BasisLocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers || PauseAnimator)
+            if (BasisLocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasLegFBIKTrackers || PauseAnimator)
             {
                 StopAllVariables();
                 return;
@@ -296,7 +314,10 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         private void JustJumped()
         {
-            if (BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
+            // LEG trackers, not ANY tracker: the jump animation poses the LEGS, so only a leg tracker has standing
+            // to veto it. A chest/shoulder/elbow tracker (MediaPipe spawns all three) would otherwise silence the
+            // jump animation while leaving nothing to drive the legs.
+            if (BasisAvatarIKStageCalibration.HasLegFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
             {
                 return;
             }
@@ -309,11 +330,13 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         private void JustLanded()
         {
-            if (BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
+            // As JustJumped: the landing animation poses the LEGS, so only a leg tracker gets to veto it.
+            if (BasisAvatarIKStageCalibration.HasLegFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
             {
                 return;
             }
             basisAnimatorVariableApply.UpdateIsLandingState();
+            LocalPlayer.LocalRigDriver.LocomotionPose.NotifyLanding();
         }
 
         /// <summary>

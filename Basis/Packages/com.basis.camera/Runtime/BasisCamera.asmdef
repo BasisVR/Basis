@@ -1,0 +1,45 @@
+{
+    "name": "BasisCamera",
+    "rootNamespace": "",
+    "references": [
+        "Basis Framework",
+        "BasisSDK",
+        "BasisCommon",
+        "BasisDebug",
+        "BasisGizmos",
+        "BasisSettings",
+        "BasisNetworkCore",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
+        "Unity.Addressables",
+        "Unity.ResourceManager",
+        "Unity.InputSystem",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "com.cqf.urpvolumetricfog.runtime",
+        "Klak.Spout.Runtime",
+        "Klak.Syphon.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "jp.keijiro.klak.spout",
+            "expression": "",
+            "define": "BASIS_HAS_SPOUT"
+        },
+        {
+            "name": "jp.keijiro.klak.syphon",
+            "expression": "",
+            "define": "BASIS_HAS_SYPHON"
+        }
+    ],
+    "noEngineReferences": false
+}

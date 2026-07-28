@@ -7,13 +7,13 @@ namespace Basis.Scripts.Common
 {
     public static class BasisDataStore
     {
-        public static void SaveAvatar(string avatarName, byte avatarData, string fileNameAndExtension)
+        public static void SaveAvatar(string avatarName, byte avatarData, string fileNameAndExtension, string unlockPassword = "")
         {
             try
             {
                 string filePath = Path.Combine(Application.persistentDataPath, fileNameAndExtension);
-                string json = JsonUtility.ToJson(new BasisSavedAvatar(avatarName, avatarData));
-                File.WriteAllText(filePath, json);
+                string json = JsonUtility.ToJson(new BasisSavedAvatar(avatarName, avatarData, unlockPassword));
+                WriteAllTextAtomic(filePath, json);
                 BasisDebug.Log("Avatar saved to " + filePath);
             }
             catch (System.Exception e)
@@ -27,11 +27,27 @@ namespace Basis.Scripts.Common
         {
             public string UniqueID;
             public byte loadmode;
+            public string Pass;
 
-            public BasisSavedAvatar(string name, byte data)
+            public BasisSavedAvatar(string name, byte data, string pass = "")
             {
                 UniqueID = name;
                 loadmode = data;
+                Pass = pass;
+            }
+        }
+
+        private static void WriteAllTextAtomic(string filePath, string contents)
+        {
+            string tempPath = filePath + ".tmp";
+            File.WriteAllText(tempPath, contents);
+            if (File.Exists(filePath))
+            {
+                File.Replace(tempPath, filePath, null);
+            }
+            else
+            {
+                File.Move(tempPath, filePath);
             }
         }
 
@@ -69,7 +85,7 @@ namespace Basis.Scripts.Common
             {
                 string filePath = Path.Combine(Application.persistentDataPath, fileNameAndExtension);
                 string json = JsonUtility.ToJson(new BasisSavedString(stringContents));
-                File.WriteAllText(filePath, json);
+                WriteAllTextAtomic(filePath, json);
                 BasisDebug.Log("String saved to " + filePath);
             }
             catch (System.Exception e)
@@ -105,7 +121,7 @@ namespace Basis.Scripts.Common
             {
                 string filePath = Path.Combine(Application.persistentDataPath, fileNameAndExtension);
                 string json = JsonUtility.ToJson(new BasisSavedInt(intValue));
-                File.WriteAllText(filePath, json);
+                WriteAllTextAtomic(filePath, json);
                 BasisDebug.Log("Int saved to " + filePath);
             }
             catch (System.Exception e)
@@ -141,7 +157,7 @@ namespace Basis.Scripts.Common
             {
                 string filePath = Path.Combine(Application.persistentDataPath, fileNameAndExtension);
                 string json = JsonUtility.ToJson(new BasisSavedFloat(floatValue.ToString(CultureInfo.InvariantCulture)));
-                File.WriteAllText(filePath, json);
+                WriteAllTextAtomic(filePath, json);
                 BasisDebug.Log("Float saved to " + filePath);
             }
             catch (System.Exception e)

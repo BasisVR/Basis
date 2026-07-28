@@ -17,6 +17,7 @@ namespace Basis.BasisUI
             public static string Calibrate = "Packages/com.basis.sdk/Textures/Runtime/calibrateWhite.png";
             public static string Respawn = "Packages/com.basis.sdk/Textures/Runtime/Teleport.png";
             public static string Camera = "Packages/com.basis.sdk/Textures/Runtime/camera-outline.png";
+            public static string CameraSettings = "Packages/com.basis.sdk/Textures/Runtime/sliders.png";
             public static string Mirror = "Packages/com.basis.sdk/Textures/Runtime/Mirror.png";
             public static string Exit = "Packages/com.basis.sdk/Textures/Runtime/exit-outline.png";
             public static string Items = "Packages/com.basis.sdk/Textures/Runtime/items.png";

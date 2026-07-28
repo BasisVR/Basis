@@ -15,6 +15,7 @@ using HVR.Basis.Comms.OSC.Lyuma;
 using NUnit.Framework;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using static BasisNetworkContentBase;
 
 namespace HVR.Basis.Comms.Tests
 {
@@ -372,6 +373,44 @@ namespace HVR.Basis.Comms.Tests
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscDataKind"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOsc"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOsc+OscValueEvent"), Is.True);
+        }
+
+        [Test]
+        public void CilboxWhitelists_AllowSyncShimTypesAndFields()
+        {
+            // The prop and scene boxes cover these through their blanket "Basis.Shims.*"; the
+            // avatar box enumerates, so it is the one that silently drops a new shim.
+            foreach (CilboxBasisCommon box in new CilboxBasisCommon[] { new CilboxAvatarBasis(), new CilboxPropBasis(), new CilboxSceneBasis() })
+            {
+                Assert.That(box.CheckTypeAllowed("Basis.Shims.BasisTransformSyncShim"), Is.True, $"{box.GetType().Name} type");
+                Assert.That(box.CheckTypeAllowed("Basis.Shims.BasisBlendShapeSyncShim"), Is.True, $"{box.GetType().Name} type");
+
+                // Config is plain fields, and fields are default-DENY (methods are default-allow),
+                // so each one has to be named in commonWhiteListFields or a sandboxed script gets
+                // a CilboxException on the field token at assembly load.
+                Assert.That(box.CheckFieldAllowed("Basis.Shims.BasisTransformSyncShim", "Channels"), Is.True, $"{box.GetType().Name} Channels");
+                Assert.That(box.CheckFieldAllowed("Basis.Shims.BasisTransformSyncShim", "Space"), Is.True, $"{box.GetType().Name} Space");
+                Assert.That(box.CheckFieldAllowed("Basis.Shims.BasisTransformSyncShim", "Enabled"), Is.True, $"{box.GetType().Name} Enabled");
+                Assert.That(box.CheckFieldAllowed("Basis.Shims.BasisBlendShapeSyncShim", "Epsilon"), Is.True, $"{box.GetType().Name} Epsilon");
+                Assert.That(box.CheckFieldAllowed("Basis.Shims.BasisBlendShapeSyncShim", "Enabled"), Is.True, $"{box.GetType().Name} Enabled");
+            }
+        }
+
+        [Test]
+        public void CilboxWhitelists_CoverEverySyncShimPublicField()
+        {
+            // Guards the pair above against drift: a field added to either shim without an
+            // allowlist entry fails here rather than at runtime in someone's world. Consts are
+            // excluded — the compiler inlines them to ldc.i4, so no field token is ever emitted.
+            CilboxAvatarBasis box = new CilboxAvatarBasis();
+            foreach (Type shim in new Type[] { typeof(BasisTransformSyncShim), typeof(BasisBlendShapeSyncShim) })
+            {
+                foreach (FieldInfo field in shim.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    Assert.That(box.CheckFieldAllowed(shim.FullName, field.Name), Is.True,
+                        $"{shim.FullName}.{field.Name} is public but missing from commonWhiteListFields");
+                }
+            }
         }
 
         [Test]
@@ -1009,11 +1048,16 @@ namespace HVR.Basis.Comms.Tests
             try
             {
                 BasisProp propA = goA.AddComponent<BasisProp>();
-                propA.AssignNetworkGUIDIdentifier("prop-one");
+
+                BasisContentInformation InforA = default;//"prop-two"
+                InforA.LoadedNetID = "prop-one";
+                propA.AssignContentIdentifier(InforA);
                 BasisOsc shimA = goA.AddComponent<BasisOsc>();
 
                 BasisProp propB = goB.AddComponent<BasisProp>();
-                propB.AssignNetworkGUIDIdentifier("prop-two");
+                BasisContentInformation InforB = default;//"prop-two"
+                InforB.LoadedNetID = "prop-two";
+                propB.AssignContentIdentifier(InforB);
                 BasisOsc shimB = goB.AddComponent<BasisOsc>();
 
                 shimA.PublishValue("Status", OscData.String("alpha"));
@@ -1048,7 +1092,10 @@ namespace HVR.Basis.Comms.Tests
                 avatar.IsOwnedLocally = false;
 
                 BasisProp prop = propChild.AddComponent<BasisProp>();
-                prop.AssignNetworkGUIDIdentifier("prop-under-remote-avatar");
+                BasisContentInformation InforB = default;//"prop-two"
+                InforB.LoadedNetID = "prop-under-remote-avatar";
+
+                prop.AssignContentIdentifier(InforB);
 
                 BasisOsc shim = propChild.AddComponent<BasisOsc>();
                 shim.PublishValue("Status", OscData.String("held"));
@@ -1138,7 +1185,9 @@ namespace HVR.Basis.Comms.Tests
             try
             {
                 BasisProp prop = go.AddComponent<BasisProp>();
-                prop.AssignNetworkGUIDIdentifier("prop-one");
+                BasisContentInformation InforB = default;
+                InforB.LoadedNetID = "prop-one";
+                prop.AssignContentIdentifier(InforB);
 
                 BasisOsc shim = go.AddComponent<BasisOsc>();
                 MethodInfo resolvePublishAddress = typeof(BasisOsc).GetMethod("ResolvePublishAddress", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -1163,7 +1212,9 @@ namespace HVR.Basis.Comms.Tests
             try
             {
                 BasisScene scene = go.AddComponent<BasisScene>();
-                scene.AssignNetworkGUIDIdentifier("scene-one");
+                BasisContentInformation InforB = default;
+                InforB.LoadedNetID = "scene-one";
+                scene.AssignContentIdentifier(InforB);
                 BasisOsc shim = go.AddComponent<BasisOsc>();
 
                 shim.PublishValue("Environment/Ambient", OscData.String("night"));

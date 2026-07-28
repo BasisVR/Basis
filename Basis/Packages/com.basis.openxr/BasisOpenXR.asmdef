@@ -13,7 +13,8 @@
         "Unity.ResourceManager",
         "Unity.XR.Hands",
         "Unity.XR.Management",
-        "BasisGizmos"
+        "BasisGizmos",
+        "glTFast"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -22,6 +23,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.cloud.gltfast",
+            "expression": "6",
+            "define": "UNITY_GLTFAST"
+        }
+    ],
     "noEngineReferences": false
 }

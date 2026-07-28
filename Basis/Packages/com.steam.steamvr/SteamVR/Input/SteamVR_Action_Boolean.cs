@@ -417,9 +417,9 @@ namespace Valve.VR
                 Debug.LogError("<b>[SteamVR]</b> GetDigitalActionData error (" + action.fullPath + "): " + err.ToString() + " handle: " + action.handle.ToString());
 
             if (changed)
-                changedTime = Time.realtimeSinceStartup + actionData.fUpdateTime;
+                changedTime = SteamVR_Input.realtimeSinceStartup + actionData.fUpdateTime;
 
-            updateTime = Time.realtimeSinceStartup;
+            updateTime = SteamVR_Input.realtimeSinceStartup;
 
             if (active)
             {

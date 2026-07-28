@@ -59,16 +59,7 @@ namespace HVR.Basis.Comms
 
         private static float DecodeFloat(byte encodedByte, HVRVariableHighFrequency highFrequency)
         {
-            float lerp01;
-            if (Mathf.Approximately(-highFrequency.min, highFrequency.max))
-            {
-                lerp01 = encodedByte / EncodingRange;
-            }
-            else
-            {
-                lerp01 = encodedByte / FullRange;
-            }
-            return Mathf.Lerp(highFrequency.min, highFrequency.max, lerp01);
+            return Mathf.Lerp(highFrequency.min, highFrequency.max, encodedByte * highFrequency.inverseRange);
         }
 
         internal interface IHVRVariableBehaviour : IFeatureReceiver
@@ -189,10 +180,18 @@ namespace HVR.Basis.Comms
 
             private void OnAddressUpdated(int addressId, float value)
             {
+                if (global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.Capture)
+                {
+                    System.Threading.Interlocked.Increment(ref global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.HvrWearerAddressUpdates);
+                }
                 if (_addressIdToHolder.TryGetValue(addressId, out var holder))
                 {
                     if (holder.variable.variableTypeCode == HVRVariableTypeCode.Float && !Mathf.Approximately((float)holder.currentValue, value))
                     {
+                        if (global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.Capture)
+                        {
+                            System.Threading.Interlocked.Increment(ref global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.HvrWearerNewValues);
+                        }
                         _addressIdsWithNewValue.Add(addressId);
                         holder.numberOfUpdates += 1;
                         if (holder.numberOfUpdates == 100)
@@ -264,6 +263,14 @@ namespace HVR.Basis.Comms
             private readonly Dictionary<int, object> L_addressIdsToValueToTransmit = new(); // is field due to PR guidelines
             private void DoTick(float deltaTimeSinceLastTick)
             {
+                if (global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.Capture)
+                {
+                    System.Threading.Interlocked.Increment(ref global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.HvrWearerTicks);
+                    if (_addressIdsWithNewValue.Count > 0)
+                    {
+                        System.Threading.Interlocked.Increment(ref global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.HvrWearerTicksWithValues);
+                    }
+                }
                 if (_addressIdsWithNewValue.Count == 0) return;
 
                 L_addressIdsThatNeedToBeResentLater.Clear();
@@ -378,6 +385,7 @@ namespace HVR.Basis.Comms
             private readonly List<ushort> L_onesNetworkIds = new(); // is field due to PR guidelines
             private readonly List<int> L_otherAddressIds = new(); // is field due to PR guidelines
             private readonly List<ushort> L_tempListSerializedImmediately = new List<ushort>(); // is field due to PR guidelines
+            private readonly List<HVRPacket_UpdatedVariables_Mixed.Inner_UpdatedValue> L_tempOtherSerializedImmediately = new(); // is field due to PR guidelines
             private byte[] BuildUpdatedVariablesPacketOrNull(Dictionary<int, object> addressIdsToValueToTransmit, float deltaTimeSinceLastTick)
             {
                 var deltaLocalIntToSeconds = (int)(deltaTimeSinceLastTick / DeltaLocalIntToSeconds);
@@ -432,16 +440,22 @@ namespace HVR.Basis.Comms
                     L_tempListSerializedImmediately.Clear();
                     L_tempListSerializedImmediately.AddRange(L_zeroesNetworkIds);
                     L_tempListSerializedImmediately.AddRange(L_onesNetworkIds);
+                    L_tempOtherSerializedImmediately.Clear();
+                    for (var i = 0; i < L_otherAddressIds.Count; i++)
+                    {
+                        var addressId = L_otherAddressIds[i];
+                        L_tempOtherSerializedImmediately.Add(new HVRPacket_UpdatedVariables_Mixed.Inner_UpdatedValue
+                        {
+                            networkId = _addressIdToHolder[addressId].networkId,
+                            value = addressIdsToValueToTransmit[addressId]
+                        });
+                    }
                     return new HVRPacket_UpdatedVariables_Mixed
                     {
                         timingSteps = timingSteps,
                         numberOfZeroes = (ushort)L_zeroesNetworkIds.Count,
                         networkIds = L_tempListSerializedImmediately,
-                        other = L_otherAddressIds.Select(addressId => new HVRPacket_UpdatedVariables_Mixed.Inner_UpdatedValue
-                        {
-                            networkId = _addressIdToHolder[addressId].networkId,
-                            value = addressIdsToValueToTransmit[addressId]
-                        }).ToList()
+                        other = L_tempOtherSerializedImmediately
                     }.Serialize(_needsUshortAddresses);
                 }
 
@@ -473,16 +487,13 @@ namespace HVR.Basis.Comms
 
             private byte[] BuildNewVariablesPacket(List<int> newVariablesAddressIds)
             {
-                var allHolders = newVariablesAddressIds
-                    .Select(addressId => _addressIdToHolder[addressId])
-                    .ToList();
-
                 var other = new List<HVRPacket_NewVariables.Inner_NewVariable>();
                 var zeroes = new List<HVRPacket_NewVariables.Inner_NewQuickVariable>();
                 var ones = new List<HVRPacket_NewVariables.Inner_NewQuickVariable>();
 
-                foreach (var holder in allHolders)
+                for (var i = 0; i < newVariablesAddressIds.Count; i++)
                 {
+                    var holder = _addressIdToHolder[newVariablesAddressIds[i]];
                     var isFloat = holder.variable.variableTypeCode == HVRVariableTypeCode.Float;
                     if (isFloat
                         && (Mathf.Approximately((float)holder.currentValue, 0f)
@@ -546,7 +557,7 @@ namespace HVR.Basis.Comms
             private readonly HVRInterpolator _lowFrequencyInterpolator = new(true);
             private readonly HVRInterpolator _highFrequencyInterpolator = new(true);
 
-            private Dictionary<int, float> _lowFrequencyInterpolatorDict;
+            private HVRInterpolationSnapshot _pendingLowFrequencySnapshot;
             private bool _needsUshortAddresses;
 
             public HVRVariableBehaviour_Remote(HVRVariableNetworking state)
@@ -556,14 +567,11 @@ namespace HVR.Basis.Comms
 
             private void AfterDataReceived(float deltaTime)
             {
-                if (_lowFrequencyInterpolatorDict != null)
+                if (_pendingLowFrequencySnapshot != null)
                 {
-                    _lowFrequencyInterpolator.Add(new HVRInterpolationSnapshot
-                    {
-                        addressIdsToValues = _lowFrequencyInterpolatorDict,
-                        deltaTime = deltaTime,
-                    });
-                    _lowFrequencyInterpolatorDict = null;
+                    _pendingLowFrequencySnapshot.deltaTime = deltaTime;
+                    _lowFrequencyInterpolator.Add(_pendingLowFrequencySnapshot);
+                    _pendingLowFrequencySnapshot = null;
                 }
             }
 
@@ -590,14 +598,11 @@ namespace HVR.Basis.Comms
 
                 if (UseInterpolationTape)
                 {
-                    // We need a new instance each time PER PACKET because this instance gets stored inside the snapshot class,
-                    // and each snapshot needs a different dictionary.
-                    //
-                    // Notice how AfterDataReceived resets this to null at the end.
-                    _lowFrequencyInterpolatorDict ??= new Dictionary<int, float>();
+                    // Each packet needs its own snapshot; AfterDataReceived hands it to the interpolator and resets this to null.
+                    _pendingLowFrequencySnapshot ??= _lowFrequencyInterpolator.RentSnapshot();
                     if (_addressIdToHolder[addressId].variable.needsInterpolation)
                     {
-                        _lowFrequencyInterpolatorDict[addressId] = currentValue;
+                        _pendingLowFrequencySnapshot.addressIdsToValues[addressId] = currentValue;
                     }
                     else
                     {
@@ -612,6 +617,7 @@ namespace HVR.Basis.Comms
 
             private void WhenDataReceived_BypassInterpolationTape(int addressId, float currentValue)
             {
+                _submitGates.Remove(addressId);
                 _state.comms.VariableStore.Submit(addressId, currentValue);
             }
 
@@ -631,10 +637,33 @@ namespace HVR.Basis.Comms
                 }
             }
 
+            private struct SubmitGate
+            {
+                public float LastValue;
+                public float Epsilon;
+            }
+
+            private readonly Dictionary<int, SubmitGate> _submitGates = new();
+
             private void SubmitToVariableStore(Dictionary<int, float> advance)
             {
                 foreach (var (addressId, value) in advance)
                 {
+                    if (_submitGates.TryGetValue(addressId, out var gate))
+                    {
+                        if (Mathf.Abs(value - gate.LastValue) <= gate.Epsilon) continue;
+                        gate.LastValue = value;
+                        _submitGates[addressId] = gate;
+                    }
+                    else
+                    {
+                        var epsilon = 0f;
+                        if (_addressIdToHolder.TryGetValue(addressId, out var holder) && holder.variable != null)
+                        {
+                            epsilon = Mathf.Abs(holder.variable.max - holder.variable.min) * (0.5f / FullRange);
+                        }
+                        _submitGates[addressId] = new SubmitGate { LastValue = value, Epsilon = epsilon };
+                    }
                     _state.comms.VariableStore.Submit(addressId, value);
                 }
             }
@@ -778,34 +807,42 @@ namespace HVR.Basis.Comms
                     }
                     case AvatarMessageProcessing.NewNet_WearerSubmitsUpdatedHighFrequencyVariables:
                     {
-                        if (!HVRPacket_UpdatedHighFrequencyVariables.TryDeserialize(data, out var packet))
+                        if (data.Count < 2)
                         {
-                            HVRLogging.ProtocolError("Failed to deserialize NewVariables packet.");
+                            HVRLogging.ProtocolError("Packet for UpdatedHighFrequencyVariables is below expected size.");
                             return;
                         }
 
-                        var deltaTime = packet.timingSteps * DeltaLocalIntToSeconds;
-                        var highFrequencyInterpolatorDict = new Dictionary<int, float>();
-                        for (var index = 0; index < packet.values.Length; index++)
+                        // This runs at the send rate for every remote, so it is parsed straight off the segment with no packet object.
+                        var buffer = data.Array;
+                        var valuesOffset = data.Offset + 2;
+                        var snapshot = _highFrequencyInterpolator.RentSnapshot();
+                        snapshot.deltaTime = buffer[data.Offset + 1] * DeltaLocalIntToSeconds;
+
+                        var valueCount = data.Count - 2;
+                        if (valueCount > _upgradedToHighFrequencyInOrder.Count) valueCount = _upgradedToHighFrequencyInOrder.Count;
+                        for (var index = 0; index < valueCount; index++)
                         {
-                            if (index < _upgradedToHighFrequencyInOrder.Count)
+                            var highFrequency = _upgradedToHighFrequencyInOrder[index];
+                            if (!highFrequency.addressResolved)
                             {
-                                var highFrequency = _upgradedToHighFrequencyInOrder[index];
                                 if (_networkIdToAddressId.TryGetValue(highFrequency.networkId, out var addressId))
                                 {
-                                    highFrequencyInterpolatorDict[addressId] = DecodeFloat(packet.values[index], highFrequency);
+                                    highFrequency.addressId = addressId;
+                                    highFrequency.addressResolved = true;
                                 }
-                                else if (PrintUnknownHighFrequencyEveryFrame || _reportedUnknownHighFrequencyNetworkIds.Add(highFrequency.networkId))
+                                else
                                 {
-                                    HVRLogging.ProtocolWarning($"Network ID {highFrequency.networkId} is not known. High frequency value will be ignored.");
+                                    if (PrintUnknownHighFrequencyEveryFrame || _reportedUnknownHighFrequencyNetworkIds.Add(highFrequency.networkId))
+                                    {
+                                        HVRLogging.ProtocolWarning($"Network ID {highFrequency.networkId} is not known. High frequency value will be ignored.");
+                                    }
+                                    continue;
                                 }
                             }
+                            snapshot.addressIdsToValues[highFrequency.addressId] = DecodeFloat(buffer[valuesOffset + index], highFrequency);
                         }
-                        _highFrequencyInterpolator.Add(new HVRInterpolationSnapshot
-                        {
-                            addressIdsToValues = highFrequencyInterpolatorDict,
-                            deltaTime = deltaTime,
-                        });
+                        _highFrequencyInterpolator.Add(snapshot);
 
                         break;
                     }
@@ -823,6 +860,7 @@ namespace HVR.Basis.Comms
                             networkId = item.networkId,
                             min = item.min,
                             max = item.max,
+                            inverseRange = 1f / (Mathf.Approximately(-item.min, item.max) ? EncodingRange : FullRange),
                         }).ToList();
                         foreach (var highFrequency in newlyAdded)
                         {
@@ -837,6 +875,7 @@ namespace HVR.Basis.Comms
 
                             _addressIdToHolder[addressId].variable.min = highFrequency.min;
                             _addressIdToHolder[addressId].variable.max = highFrequency.max;
+                            _submitGates.Remove(addressId);
                         }
                         foreach (var highFrequency in newlyAdded)
                         {
@@ -968,6 +1007,9 @@ namespace HVR.Basis.Comms
         public ushort networkId;
         public float min;
         public float max;
+        public float inverseRange;
+        public int addressId;
+        public bool addressResolved;
     }
 
     public enum HVRVariableTypeCode

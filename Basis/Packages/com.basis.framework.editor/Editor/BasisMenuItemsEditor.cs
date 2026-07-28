@@ -227,10 +227,10 @@ public static class BasisMenuItemsEditor
         {
             if (bodyParts[Index] != null)
             {
-                XR.CreatePhysicalTrackedDevice(trackerName + " part " + Index, trackerName);
-                trackers.Add(XR.Inputs[Index]);
+                BasisInputXRSimulate Tracker = XR.CreatePhysicalTrackedDevice(trackerName + " part " + Index, trackerName);
+                trackers.Add(Tracker);
                 Vector3 bodyPartPosition = ModifyVector(bodyParts[Index].position);
-                XR.Inputs[Index].FollowMovement.SetPositionAndRotation(bodyPartPosition, UnityEngine.Random.rotation);
+                Tracker.FollowMovement.SetPositionAndRotation(bodyPartPosition, UnityEngine.Random.rotation);
             }
         }
         BasisDeviceManagement.VisibleTrackers(true);
@@ -262,10 +262,10 @@ public static class BasisMenuItemsEditor
         {
             if (bodyParts[Index] != null)
             {
-                XR.CreatePhysicalTrackedDevice(trackerName + " part " + Index, trackerName);
-                trackers.Add(XR.Inputs[Index]);
+                BasisInputXRSimulate Tracker = XR.CreatePhysicalTrackedDevice(trackerName + " part " + Index, trackerName);
+                trackers.Add(Tracker);
                 Vector3 bodyPartPosition = ModifyVector(bodyParts[Index].position);
-                XR.Inputs[Index].FollowMovement.SetPositionAndRotation(bodyPartPosition, UnityEngine.Random.rotation);
+                Tracker.FollowMovement.SetPositionAndRotation(bodyPartPosition, UnityEngine.Random.rotation);
             }
         }
         BasisDeviceManagement.VisibleTrackers(true);

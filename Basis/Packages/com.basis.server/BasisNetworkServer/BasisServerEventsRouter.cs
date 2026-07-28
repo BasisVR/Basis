@@ -44,6 +44,11 @@ namespace BasisNetworkServer
                     BasisNetworkHandleErrorReport.HandleEvent(reader, peer, eventType);
                     break;
 
+                case BasisNetworkCommons.EventType_VoiceRecordRequest:
+                case BasisNetworkCommons.EventType_VoiceRecordConsent:
+                    BasisNetworkHandleVoiceRecord.HandleEvent(reader, peer, eventType);
+                    break;
+
                 default:
                     BNL.LogError($"Unknown EventsChannel event type: {eventType}");
                     reader.Recycle();

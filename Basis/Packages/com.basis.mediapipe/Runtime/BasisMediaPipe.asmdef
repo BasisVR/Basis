@@ -2,6 +2,7 @@
     "name": "BasisMediaPipe",
     "rootNamespace": "Basis.MediaPipe",
     "references": [
+        "Basis.Eerie.Movement",
         "Basis Framework",
         "BasisCommon",
         "BasisSDK",

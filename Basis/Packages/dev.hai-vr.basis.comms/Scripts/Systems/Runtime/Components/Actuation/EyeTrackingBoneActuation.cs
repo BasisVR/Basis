@@ -1,3 +1,4 @@
+using System.Collections;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.EyeTracking;
@@ -5,6 +6,7 @@ using Basis.Scripts.Networking.Receivers;
 using HVR.Basis.Comms.HVRUtility;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Transmitters;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
@@ -18,6 +20,13 @@ namespace HVR.Basis.Comms
         private const string EyeY = "FT/v2/EyeY";
         private const string EyeTrackingActive = "HVR/Internal/EyeTrackingActive";
 
+        private const string AddressOverrideEnabled = "HVR/EyeTracking/OverrideEnabled";
+        private const string AddressMultiplyX = "HVR/EyeTracking/MultiplyX";
+        private const string AddressMultiplyY = "HVR/EyeTracking/MultiplyY";
+        private const string AddressMaxAngleX = "HVR/EyeTracking/MaxAngleX";
+        private const string AddressMaxAngleY = "HVR/EyeTracking/MaxAngleY";
+        public const float MaxAngleLimitDeg = 90f;
+
         private readonly int _eyeLeftXAddress;
         private readonly int _eyeRightXAddress;
         private readonly int _eyeYAddress;
@@ -28,12 +37,43 @@ namespace HVR.Basis.Comms
         [SerializeField] internal float multiplyX = 1f;
         [SerializeField] internal float multiplyY = 1f;
 
+        private bool _runtimeOverrideEnabled;
+        private float _runtimeMultiplyX = 1f;
+        private float _runtimeMultiplyY = 1f;
+        private float _runtimeMaxAngleXDeg = MaxAngleLimitDeg;
+        private float _runtimeMaxAngleYDeg = MaxAngleLimitDeg;
+        private bool _isWearer;
+
+        public float DefaultMultiplyX => multiplyX;
+        public float DefaultMultiplyY => multiplyY;
+        public bool RuntimeOverrideEnabled
+        {
+            get => _runtimeOverrideEnabled;
+            set
+            {
+                _runtimeOverrideEnabled = value;
+                Persist(AddressOverrideEnabled, value ? 1f : 0f, 0f);
+            }
+        }
+        public float RuntimeMultiplyX { get => _runtimeMultiplyX; set => SetOverride(ref _runtimeMultiplyX, value, multiplyX, AddressMultiplyX); }
+        public float RuntimeMultiplyY { get => _runtimeMultiplyY; set => SetOverride(ref _runtimeMultiplyY, value, multiplyY, AddressMultiplyY); }
+        public float RuntimeMaxAngleXDeg { get => _runtimeMaxAngleXDeg; set => SetOverride(ref _runtimeMaxAngleXDeg, Mathf.Clamp(value, 0f, MaxAngleLimitDeg), MaxAngleLimitDeg, AddressMaxAngleX); }
+        public float RuntimeMaxAngleYDeg { get => _runtimeMaxAngleYDeg; set => SetOverride(ref _runtimeMaxAngleYDeg, Mathf.Clamp(value, 0f, MaxAngleLimitDeg), MaxAngleLimitDeg, AddressMaxAngleY); }
+        internal float EffectiveMultiplyX => _runtimeOverrideEnabled ? _runtimeMultiplyX : multiplyX;
+        internal float EffectiveMultiplyY => _runtimeOverrideEnabled ? _runtimeMultiplyY : multiplyY;
+        internal float EffectiveMaxAngleXRad => (_runtimeOverrideEnabled ? _runtimeMaxAngleXDeg : MaxAngleLimitDeg) * Mathf.Deg2Rad;
+        internal float EffectiveMaxAngleYRad => (_runtimeOverrideEnabled ? _runtimeMaxAngleYDeg : MaxAngleLimitDeg) * Mathf.Deg2Rad;
+
         public float _fEyeLeftX;
         public float _fEyeRightX;
         public float _fEyeY;
 
         private HVRAvatarComms comms;
-        public BasisNetworkReceiver Receiver = null;
+        // NonSerialized is load-bearing: BasisNetworkReceiver is [Serializable], so without it
+        // Unity auto-instantiates a junk receiver on prefab load (field initializers don't run
+        // under deserialization) — the != null guards then pass and the per-frame eye write
+        // NREs on its dead internals, killing every later AfterAvatarChanges subscriber.
+        [System.NonSerialized] public BasisNetworkReceiver Receiver = null;
 
         private bool _trackingActive;
         public bool IsTrackingActive => _trackingActive;
@@ -59,6 +99,10 @@ namespace HVR.Basis.Comms
 
         public void OnHVRAvatarReady(bool isWearer)
         {
+            _isWearer = isWearer;
+            _runtimeMultiplyX = multiplyX;
+            _runtimeMultiplyY = multiplyY;
+            if (isWearer && isActiveAndEnabled) StartCoroutine(RestoreRuntimeOverridesNextFrame());
             comms = HVRCommsUtil.GetComms(avatar);
             _activityRelay = FaceTrackingActivityRelay.GetOrCreate(avatar, out var relayCreated);
             if (relayCreated)
@@ -142,10 +186,55 @@ namespace HVR.Basis.Comms
                 comms.VariableStore.UnregisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
             }
             _eyeTracking?.OnDestroy();
+            if (_isWearer) HVRVixxyPersistentStore.FlushNow();
         }
 
-        internal void SimulateTick() => _eyeTracking?.Update();
+        internal void SimulateTick()
+        {
+            _eyeTracking?.Update();
+            if (_isWearer) HVRVixxyPersistentStore.Tick();
+        }
         private void UpdateAfterAvatarChangesApplied() => _eyeTracking?.UpdateAfterAvatarChangesApplied();
+
+        private void SetOverride(ref float field, float value, float defaultValue, string address)
+        {
+            field = value;
+            Persist(address, value, defaultValue);
+        }
+
+        private void Persist(string address, float value, float defaultValue)
+        {
+            if (!_isWearer) return;
+            if (TryResolvePersistenceKey(address, out var key))
+            {
+                HVRVixxyPersistentStore.Set(key, value, defaultValue);
+            }
+        }
+
+        private IEnumerator RestoreRuntimeOverridesNextFrame()
+        {
+            yield return null;
+            _runtimeOverrideEnabled = RestoreOverride(AddressOverrideEnabled, 0f) > 0.5f;
+            _runtimeMultiplyX = RestoreOverride(AddressMultiplyX, multiplyX);
+            _runtimeMultiplyY = RestoreOverride(AddressMultiplyY, multiplyY);
+            _runtimeMaxAngleXDeg = Mathf.Clamp(RestoreOverride(AddressMaxAngleX, MaxAngleLimitDeg), 0f, MaxAngleLimitDeg);
+            _runtimeMaxAngleYDeg = Mathf.Clamp(RestoreOverride(AddressMaxAngleY, MaxAngleLimitDeg), 0f, MaxAngleLimitDeg);
+        }
+
+        private static float RestoreOverride(string address, float defaultValue)
+        {
+            return TryResolvePersistenceKey(address, out var key) && HVRVixxyPersistentStore.TryGet(key, out var saved)
+                ? saved
+                : defaultValue;
+        }
+
+        private static bool TryResolvePersistenceKey(string address, out string key)
+        {
+            key = null;
+            if (string.IsNullOrEmpty(BasisLocalPlayer.CurrentAvatarUniqueID)) return false;
+            key = $"avatar:{BasisLocalPlayer.CurrentAvatarUniqueID}|{address}";
+            return true;
+        }
 
         private class EyeTracking_Wearer : IEyeTracking
         {
@@ -153,6 +242,7 @@ namespace HVR.Basis.Comms
             private readonly HvrOscEyeProvider _provider = new HvrOscEyeProvider();
             private bool _trackingActive;
             private bool _eyeTrackingActive;
+            private bool _suppressStoreEcho;
 
             public EyeTracking_Wearer(EyeTrackingBoneActuation our)
             {
@@ -168,8 +258,8 @@ namespace HVR.Basis.Comms
                 if (applyGaze)
                 {
                     BasisLocalEyeDriver.SetOverrideEyeOffsets(
-                        BasisEyeMath.CanonicalAnglesToEyeOffset(data.LeftAngles, BasisLocalEyeDriver.calLeft),
-                        BasisEyeMath.CanonicalAnglesToEyeOffset(data.RightAngles, BasisLocalEyeDriver.calRight));
+                        BasisEyeMath.CanonicalAnglesToEyeOffset(ClampAngles(data.LeftAngles), BasisLocalEyeDriver.calLeft),
+                        BasisEyeMath.CanonicalAnglesToEyeOffset(ClampAngles(data.RightAngles), BasisLocalEyeDriver.calRight));
                 }
                 BasisLocalEyeDriver.Override = applyGaze;
 
@@ -177,6 +267,53 @@ namespace HVR.Basis.Comms
                 if (localPlayer != null && localPlayer.FacialBlinkDriver != null)
                 {
                     localPlayer.FacialBlinkDriver.SetOverride(data.HasOpenness);
+                }
+
+                // HMD-won gaze never touches the variable store — only the OSC face-tracking
+                // source submits the FT/v2 eye addresses — so remotes see frozen eyes whenever
+                // the wearer's gaze comes from the headset. Mirror the winning angles into the
+                // store in the OSC-normalized form the remote actuation expects.
+                if (applyGaze && BasisEyeTrackingManager.Arbitration.GazeFromHmd)
+                {
+                    SubmitHmdGazeToStore(data);
+                }
+            }
+
+            private float2 ClampAngles(float2 angles)
+            {
+                return new float2(
+                    Mathf.Clamp(angles.x, -our.EffectiveMaxAngleXRad, our.EffectiveMaxAngleXRad),
+                    Mathf.Clamp(angles.y, -our.EffectiveMaxAngleYRad, our.EffectiveMaxAngleYRad));
+            }
+
+            private void SubmitHmdGazeToStore(BasisEyeTrackingData data)
+            {
+                // Inverse of HvrOscEyeProvider.SetAngles: canonical = asin(v) * multiply.
+                float invX = our.EffectiveMultiplyX == 0f ? 1f : 1f / our.EffectiveMultiplyX;
+                float invY = our.EffectiveMultiplyY == 0f ? 1f : 1f / our.EffectiveMultiplyY;
+                const float HalfPi = Mathf.PI / 2f;
+                float xLeft = Mathf.Sin(Mathf.Clamp(data.LeftAngles.x * invX, -HalfPi, HalfPi));
+                float xRight = Mathf.Sin(Mathf.Clamp(data.RightAngles.x * invX, -HalfPi, HalfPi));
+                float y = Mathf.Sin(Mathf.Clamp((data.LeftAngles.y + data.RightAngles.y) * 0.5f * invY, -HalfPi, HalfPi));
+
+                // The submits synchronously re-enter our own OnAddressUpdated listeners; without
+                // the echo guard they would push the mirrored values into the OSC provider and
+                // activate it, flipping arbitration away from the HMD and freezing the bridge.
+                _suppressStoreEcho = true;
+                try
+                {
+                    // Eye addresses are FT/-prefixed, so this keeps the activity relay's timeout
+                    // fed — the remote only applies eyes while the activity variable is 1.
+                    our._activityRelay?.NotifySourceSample(our._eyeLeftXAddress);
+                    var store = our.comms.VariableStore;
+                    store.Submit(our._eyeTrackingActiveAddress, 1f);
+                    store.Submit(our._eyeLeftXAddress, xLeft);
+                    store.Submit(our._eyeRightXAddress, xRight);
+                    store.Submit(our._eyeYAddress, y);
+                }
+                finally
+                {
+                    _suppressStoreEcho = false;
                 }
             }
 
@@ -192,12 +329,13 @@ namespace HVR.Basis.Comms
 
             public void OnEyeAngleAddressUpdated(float xLeft, float xRight, float y)
             {
+                if (_suppressStoreEcho) return;
                 if (!(xLeft == 0f && xRight == 0f && y == 0f))
                 {
                     our.comms.VariableStore.Submit(our._eyeTrackingActiveAddress, 1f);
                 }
 
-                _provider.SetAngles(xLeft, xRight, y, our.multiplyX, our.multiplyY);
+                _provider.SetAngles(xLeft, xRight, y, our.EffectiveMultiplyX, our.EffectiveMultiplyY);
             }
 
             public void OnDestroy()
@@ -210,6 +348,7 @@ namespace HVR.Basis.Comms
 
             public void OnEyeTrackingActiveAddressUpdated(bool eyeTrackingActive)
             {
+                if (_suppressStoreEcho) return;
                 if (_eyeTrackingActive == eyeTrackingActive) return;
 
                 _eyeTrackingActive = eyeTrackingActive;
@@ -291,9 +430,11 @@ namespace HVR.Basis.Comms
             public void OnEyeAngleAddressUpdated(float xLeft, float xRight, float y)
             {
                 // We convert to an angle, multiply, clamp, and convert back.
-                _yClamped = -Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(-y) * our.multiplyY));
-                _xLeftClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xLeft) * our.multiplyX));
-                _xRightClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xRight) * our.multiplyX));
+                float maxXRad = our.EffectiveMaxAngleXRad;
+                float maxYRad = our.EffectiveMaxAngleYRad;
+                _yClamped = -Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(-y) * our.EffectiveMultiplyY, maxYRad));
+                _xLeftClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xLeft) * our.EffectiveMultiplyX, maxXRad));
+                _xRightClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xRight) * our.EffectiveMultiplyX, maxXRad));
             }
 
             public void OnDestroy()
@@ -318,9 +459,9 @@ namespace HVR.Basis.Comms
             void UpdateAfterAvatarChangesApplied();
         }
 
-        private static float ClampToEyeAngleLimits(float value)
+        private static float ClampToEyeAngleLimits(float value, float maxRad)
         {
-            return Mathf.Clamp(value, -Mathf.PI / 2, Mathf.PI / 2);
+            return Mathf.Clamp(value, -maxRad, maxRad);
         }
 
         private void OnAddressUpdated(int address, float value)

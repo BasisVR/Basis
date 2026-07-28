@@ -76,6 +76,8 @@ namespace Basis.BasisUI
         public override void OnReleaseEvent()
         {
             BasisRuntimeSpawnRegistry.OnRegistryChanged -= OnRegistryChanged;
+            BasisRuntimeSpawnRegistry.OnPendingLoadsChanged -= OnPendingLoadsChanged;
+            BasisRuntimeSpawnRegistry.OnPendingLoadProgress -= OnPendingLoadProgress;
             BasisNetworkManagement.OnlocalPermissionsChanged -= ProtectionValidation;
         }
 
@@ -85,6 +87,14 @@ namespace Basis.BasisUI
         public override bool Hidden => false;
         private static protected bool IsProtected = false; // we use this to determine if the user is admin for admin related queries on the library provider
         public static BasisMenuPanel panel;
+
+        /// <summary>
+        /// Fires per instantiated-object row right after the Select button is built,
+        /// before Teleport/Static/Remove. Does not fire for embedded rows — those carry
+        /// no action buttons at all. Subscribers can append buttons to the supplied
+        /// row container — they land between Select and Teleport.
+        /// </summary>
+        public static event Action<RectTransform, BasisRuntimeSpawnRegistry.SpawnInstance> OnInstanceRowCreated;
 
         // The library panel can be released mid-refresh (user closes the menu) while we await
         // key/metadata loads; its controls are destroyed with it, so bail before touching them.
@@ -517,6 +527,8 @@ namespace Basis.BasisUI
                 if (_currentPage == Page.Instantiated)
                 {
                     BasisRuntimeSpawnRegistry.OnRegistryChanged -= OnRegistryChanged;
+                    BasisRuntimeSpawnRegistry.OnPendingLoadsChanged -= OnPendingLoadsChanged;
+                    BasisRuntimeSpawnRegistry.OnPendingLoadProgress -= OnPendingLoadProgress;
                 }
             }
 
@@ -647,6 +659,12 @@ namespace Basis.BasisUI
                     BasisRuntimeSpawnRegistry.OnRegistryChanged -= OnRegistryChanged;
                     BasisRuntimeSpawnRegistry.OnRegistryChanged += OnRegistryChanged;
 
+                    BasisRuntimeSpawnRegistry.OnPendingLoadsChanged -= OnPendingLoadsChanged;
+                    BasisRuntimeSpawnRegistry.OnPendingLoadsChanged += OnPendingLoadsChanged;
+
+                    BasisRuntimeSpawnRegistry.OnPendingLoadProgress -= OnPendingLoadProgress;
+                    BasisRuntimeSpawnRegistry.OnPendingLoadProgress += OnPendingLoadProgress;
+
                     BasisShareableRegistry.OnChanged -= OnShareablesRegistryChanged;
                     BasisShareableRegistry.OnChanged += OnShareablesRegistryChanged;
 
@@ -733,6 +751,7 @@ namespace Basis.BasisUI
                 break;
                 case BundledContentHolder.Mode.World:
                     int spawnItemCount = BasisRuntimeSpawnRegistry.CountIgnoreCase(item.Url);
+                    buttonPanel.ButtonStyling.SetIndicatorStyle(Styling.UiStyleButton.SpawnedIndicatorStyle);
                     buttonPanel.ButtonStyling.ShowIndicator(spawnItemCount > 0);
                 break;
             }
@@ -1931,6 +1950,8 @@ namespace Basis.BasisUI
             // clear the page
             ClearTabContent(page.Descriptor.ContentParent);
 
+            BuildPendingLoadsList(page);
+
             // rebuild the page items
             BuildItemsListForInstantiatedObjects(collections, page);
 
@@ -1996,6 +2017,154 @@ namespace Basis.BasisUI
 
         private static void OnShareablesRegistryChanged() => UpdateInstantiatedTab();
 
+        private static readonly Dictionary<string, PanelElementDescriptor> _pendingLoadRowInfo = new();
+
+        private static void OnPendingLoadsChanged() => UpdateInstantiatedTab();
+
+        private static void OnPendingLoadProgress(BasisRuntimeSpawnRegistry.PendingLoad pending)
+        {
+            if (panel == null || panel.IsReleased) return;
+            if (_pendingLoadRowInfo.TryGetValue(pending.PendingId, out PanelElementDescriptor info) && info != null)
+            {
+                info.SetDescription(PendingLoadStatusText(pending));
+            }
+        }
+
+        private static string PendingLoadStatusText(BasisRuntimeSpawnRegistry.PendingLoad pending)
+        {
+            if (string.IsNullOrEmpty(pending.Stage))
+            {
+                return BasisLocalization.Get("library.loading");
+            }
+            return BasisLocalization.Get("library.dialog.loading.progress", Mathf.RoundToInt(pending.Progress), pending.Stage);
+        }
+
+        private static string PendingLoadTitle(BasisRuntimeSpawnRegistry.PendingLoad pending)
+        {
+            if (CachedMetaData.TryGetMeta(pending.Url, out var meta) && !string.IsNullOrEmpty(meta.Name))
+            {
+                return LibraryProviderStrUtil.TitleToCase(meta.Name);
+            }
+            return pending.Url;
+        }
+
+        private static bool PendingLoadPassesFilters(BasisRuntimeSpawnRegistry.PendingLoad pending, string title)
+        {
+            if (!string.IsNullOrWhiteSpace(_currentSearchQuery))
+            {
+                if (string.IsNullOrEmpty(title) || title.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) < 0)
+                {
+                    return false;
+                }
+            }
+
+            switch (_currentItemTypeFilter)
+            {
+                case LibraryItemTypeFilter.Embedded:
+                    return pending.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Embedded;
+                case LibraryItemTypeFilter.Local:
+                    return pending.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Local || pending.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Embedded;
+                case LibraryItemTypeFilter.Networked:
+                    return pending.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Network;
+                case LibraryItemTypeFilter.Avatar:
+                    return pending.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Avatar;
+                case LibraryItemTypeFilter.GameObject:
+                    return pending.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.GameObject;
+                case LibraryItemTypeFilter.Scene:
+                    return pending.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene;
+                case LibraryItemTypeFilter.AdminOnly:
+                    return pending.isProtected;
+                case LibraryItemTypeFilter.PersistentOnly:
+                    return pending.Persistent;
+                case LibraryItemTypeFilter.NotPersistent:
+                    return !pending.Persistent;
+                case LibraryItemTypeFilter.PlacedByMe:
+                    return pending.UUIDOfCreator == BasisLocalPlayer.Instance.UUID;
+                case LibraryItemTypeFilter.NotPlacedByMe:
+                    return pending.UUIDOfCreator != BasisLocalPlayer.Instance.UUID;
+                default:
+                    return true;
+            }
+        }
+
+        private static void BuildPendingLoadsList(PanelTabPage tab)
+        {
+            _pendingLoadRowInfo.Clear();
+            RectTransform container = tab.Descriptor.ContentParent;
+
+            foreach (BasisRuntimeSpawnRegistry.PendingLoad pending in BasisRuntimeSpawnRegistry.GetPendingLoads().OrderBy(p => p.StartedUtc))
+            {
+                string title = PendingLoadTitle(pending);
+                if (!PendingLoadPassesFilters(pending, title)) continue;
+                CreatePendingListEntry(pending, title, container);
+            }
+        }
+
+        private static void CreatePendingListEntry(BasisRuntimeSpawnRegistry.PendingLoad pending, string title, RectTransform parentTabGroup)
+        {
+            PanelTabGroup itemListPanel = PanelTabGroup.CreateNew(PanelTabGroup.TabGroupStyles.HorizontalStackedNoBackground, parentTabGroup);
+
+            if (itemListPanel.TabButtonParent.gameObject.TryGetComponent<UiStyleImage>(out UiStyleImage imageStyle))
+            {
+                imageStyle.SetStyle("Menu Element");
+            }
+
+            itemListPanel.Descriptor.SetWidth(1400);
+            itemListPanel.Descriptor.SetHeight(95);
+
+            PanelImage spawnModePanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+            spawnModePanelImage.SetSize(new Vector2(80, 80));
+
+            switch (pending.SpawnMode)
+            {
+                case BasisRuntimeSpawnRegistry.SpawnMode.Avatar:
+                    spawnModePanelImage.SetIcon(AddressableAssets.Sprites.Avatars);
+                    spawnModePanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.type.avatar.tooltip"));
+                    break;
+                case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
+                    spawnModePanelImage.SetIcon(AddressableAssets.Sprites.Items);
+                    spawnModePanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.type.gameObject.tooltip"));
+                    break;
+                case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
+                    spawnModePanelImage.SetIcon(AddressableAssets.Sprites.World);
+                    spawnModePanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.type.scene.tooltip"));
+                    break;
+            }
+
+            PanelImage spawnMethodPanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+            spawnMethodPanelImage.SetSize(new Vector2(80, 80));
+
+            switch (pending.SpawnMethod)
+            {
+                case BasisRuntimeSpawnRegistry.SpawnMethod.Embedded:
+                    spawnMethodPanelImage.SetIcon(AddressableAssets.Sprites.Embedded);
+                    spawnMethodPanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.method.embedded.tooltip"));
+                    break;
+                case BasisRuntimeSpawnRegistry.SpawnMethod.Local:
+                    spawnMethodPanelImage.SetIcon(AddressableAssets.Sprites.Computer);
+                    spawnMethodPanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.method.local.tooltip"));
+                    break;
+                case BasisRuntimeSpawnRegistry.SpawnMethod.Network:
+                    spawnMethodPanelImage.SetIcon(AddressableAssets.Sprites.Network);
+                    spawnMethodPanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.method.network.tooltip"));
+                    break;
+            }
+
+            PanelImage loadingPanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+            loadingPanelImage.SetSize(new Vector2(80, 80));
+            loadingPanelImage.SetIcon(AddressableAssets.Sprites.HourGlass);
+            loadingPanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.loading"));
+
+            PanelTextField itemTextInfo = PanelTextField.CreateNew(TextFieldStyles.Entry, itemListPanel.TabButtonParent);
+            itemTextInfo._inputField.gameObject.SetActive(false);
+            itemTextInfo.Descriptor.SetTitle(title);
+            itemTextInfo.Descriptor.SetDescription(PendingLoadStatusText(pending));
+            itemTextInfo.Descriptor.SetHeight(50);
+            itemTextInfo.Descriptor.SetWidth(400);
+
+            _pendingLoadRowInfo[pending.PendingId] = itemTextInfo.Descriptor;
+        }
+
         private static void BuildShareablesList(PanelTabPage tab)
         {
             RectTransform container = tab.Descriptor.ContentParent;
@@ -2041,18 +2210,108 @@ namespace Basis.BasisUI
             itemTextInfo.Descriptor.SetHeight(50);
             itemTextInfo.Descriptor.SetWidth(400);
 
-            PanelButton removeItem = PanelButton.CreateNew(ButtonStyles.CancelButton, itemListPanel.TabButtonParent);
-            removeItem.Descriptor.SetTitle(string.Empty);
-            removeItem.SetIcon(AddressableAssets.Sprites.Trash);
-            removeItem.SetSize(new Vector2(80, 80));
-            removeItem.Descriptor.IconImage.rectTransform.sizeDelta = new Vector2(-30, -30);
-            removeItem.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.remove.tooltip"));
-            removeItem.OnClicked += async () =>
+            // Buttons registered by the entry's provider, rendered in order — e.g. a
+            // Share/Unshare toggle followed by a remove button. Removal is just a
+            // Destructive action; the Library has no dedicated remove path.
+            if (entry.Actions != null)
             {
-                bool confirmed = await LibraryProviderDialogRemove.PromptUserForRemoval(panel, ShareableDisplayName(entry), ShareableKindLabel(entry.Kind));
-                if (!confirmed) return;
-                entry.Remove?.Invoke();
-            };
+                foreach (BasisShareableAction action in entry.Actions)
+                {
+                    if (action == null || action.Invoke == null) continue;
+                    CreateShareableActionButton(entry, itemListPanel, action);
+                }
+            }
+        }
+
+        private static void CreateShareableActionButton(BasisShareableEntry entry, PanelTabGroup itemListPanel, BasisShareableAction action)
+        {
+            bool destructive = action.Style == BasisShareableActionStyle.Destructive;
+            // A destructive action with no label is the standard icon-only trash affordance.
+            bool trashButton = destructive && string.IsNullOrEmpty(action.Label);
+
+            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
+            {
+                Style = destructive ? ButtonStyles.CancelButton : ButtonStyles.AcceptButton,
+                Icon = trashButton ? AddressableAssets.Sprites.Trash : null,
+                Label = action.Label,
+                Tooltip = trashButton ? BasisLocalization.Get("library.instantiated.remove.tooltip") : null,
+                OnClick = async () =>
+                {
+                    if (!await ConfirmShareableAction(entry, action)) return;
+                    action.Invoke?.Invoke();
+                },
+            });
+        }
+
+        // Returns true if the action should proceed. Explicit confirm text wins; otherwise
+        // a Destructive action falls back to the Library's standard "remove {name}?" prompt.
+        private static async Task<bool> ConfirmShareableAction(BasisShareableEntry entry, BasisShareableAction action)
+        {
+            if (!string.IsNullOrEmpty(action.ConfirmTitle))
+            {
+                DialogBox<bool> confirmDialog = DialogBox<bool>.Create(panel, new Vector2(650, 180),
+                    action.ConfirmTitle,
+                    action.ConfirmBody ?? string.Empty,
+                    AddressableAssets.Sprites.Information,
+                    true
+                );
+                LibraryProviderDialogRemove.BuildDialogButtons(confirmDialog);
+                return await confirmDialog.WaitAsync();
+            }
+
+            if (action.Style == BasisShareableActionStyle.Destructive)
+            {
+                return await LibraryProviderDialogRemove.PromptUserForRemoval(panel, ShareableDisplayName(entry), ShareableKindLabel(entry.Kind));
+            }
+
+            return true;
+        }
+
+        // One small action button on a Library list entry. Used by both the shareables tab
+        // and the instantiated-objects tab so every entry button shares the same sizing,
+        // icon inset, tooltip and hidden/disabled handling. Field defaults (all false/null)
+        // are the common case: visible, enabled, no tooltip.
+        private struct EntryActionButton
+        {
+            public string Style;          // ButtonStyles.* prefab
+            public string Icon;           // sprite key; ignored when Label is set
+            public string Label;          // set => labeled 180x80 button; empty => icon-only 80x80
+            public string Tooltip;
+            public bool Hidden;           // hides the button (e.g. not applicable to this entry)
+            public bool Disabled;
+            public string DisabledReason; // surfaced when Disabled
+            public Func<Task> OnClick;
+        }
+
+        private static PanelButton BuildEntryActionButton(Component parent, in EntryActionButton spec)
+        {
+            PanelButton button = PanelButton.CreateNew(spec.Style, parent);
+
+            if (string.IsNullOrEmpty(spec.Label))
+            {
+                button.Descriptor.SetTitle(string.Empty);
+                if (!string.IsNullOrEmpty(spec.Icon))
+                {
+                    button.SetIcon(spec.Icon);
+                    // Inset the icon so its strokes stay clear of the bevel — matches PE Image Simple Square's pattern.
+                    button.Descriptor.IconImage.rectTransform.sizeDelta = new Vector2(-30, -30);
+                }
+                button.SetSize(new Vector2(80, 80));
+            }
+            else
+            {
+                button.Descriptor.SetTitle(spec.Label);
+                button.SetSize(new Vector2(180, 80));
+            }
+
+            if (!string.IsNullOrEmpty(spec.Tooltip)) button.Descriptor.SetTooltip(spec.Tooltip);
+            if (spec.Hidden) button.Descriptor.SetActive(false);
+            if (spec.Disabled) button.SetInteractable(false, spec.DisabledReason);
+
+            Func<Task> onClick = spec.OnClick;
+            if (onClick != null) button.OnClicked += async () => await onClick();
+
+            return button;
         }
 
         private static string ShareableIcon(BasisShareableKind kind)
@@ -2227,69 +2486,80 @@ namespace Basis.BasisUI
 
             bool isScene = itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene;
 
-            PanelButton selectItem = PanelButton.CreateNew(ButtonStyles.AcceptButton, itemListPanel.TabButtonParent);
-            selectItem.Descriptor.SetTitle(string.Empty);
-            selectItem.SetIcon(AddressableAssets.Sprites.Select);
-            selectItem.SetSize(new Vector2(80, 80));
-            // Inset the icon so its strokes stay clear of the bevel — matches PE Image Simple Square's pattern.
-            selectItem.Descriptor.IconImage.rectTransform.sizeDelta = new Vector2(-30, -30);
-
-            selectItem.Descriptor.SetActive(!isScene);
-            selectItem.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.select.tooltip"));
-            selectItem.OnClicked += async () =>
+            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
-                if(hasSelected)
+                Style = ButtonStyles.AcceptButton,
+                Icon = AddressableAssets.Sprites.Select,
+                Tooltip = BasisLocalization.Get("library.instantiated.select.tooltip"),
+                Hidden = isScene,
+                OnClick = async () =>
                 {
-                    PlacementManager.RemoveSelectionSpawnInstanceID(itemKey);
-                    
-                    await RefreshCurrentTab();
-                }
-                else
-                {    
-                    // send the selection
-                    PlacementManager.SetActiveSelection(itemKey);
-                    
-                    // close the menu
-                    BasisMainMenu.Close();
-                }
-        
-            };
+                    if (hasSelected)
+                    {
+                        PlacementManager.RemoveSelectionSpawnInstanceID(itemKey);
+                        await RefreshCurrentTab();
+                    }
+                    else
+                    {
+                        // send the selection
+                        PlacementManager.SetActiveSelection(itemKey);
+                        // close the menu
+                        BasisMainMenu.Close();
+                    }
+                },
+            });
 
-            PanelButton TeleportToItem = PanelButton.CreateNew(ButtonStyles.StandardButton, itemListPanel.TabButtonParent);
-            TeleportToItem.Descriptor.SetTitle(string.Empty);
-            TeleportToItem.SetIcon(AddressableAssets.Sprites.TeleportTo);
-            TeleportToItem.SetSize(new Vector2(80, 80));
-            TeleportToItem.Descriptor.IconImage.rectTransform.sizeDelta = new Vector2(-30, -30);
-
-            TeleportToItem.Descriptor.SetActive(!isScene);
-            TeleportToItem.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.teleport.tooltip"));
-            TeleportToItem.OnClicked += () =>
+            if (OnInstanceRowCreated != null)
             {
-
-                switch(itemKey.SpawnMode)
+                // Subscribers are external integrations; one throwing must not leave the
+                // row half-built or abort the rest of the tab rebuild.
+                foreach (Action<RectTransform, BasisRuntimeSpawnRegistry.SpawnInstance> subscriber in OnInstanceRowCreated.GetInvocationList())
                 {
-                    case BasisRuntimeSpawnRegistry.SpawnMode.Avatar:
-                    case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
+                    try
+                    {
+                        subscriber(itemListPanel.TabButtonParent, itemKey);
+                    }
+                    catch (Exception e)
+                    {
+                        BasisDebug.LogError($"OnInstanceRowCreated subscriber {subscriber.Method.DeclaringType?.FullName}.{subscriber.Method.Name} threw: {e}");
+                    }
+                }
+            }
 
-                        // find the object in the BasisRuntimeSpawnRegistry
-                        if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(itemKey.LoadedNetID, out GameObject go) && go != null)
-                        {
-                            Vector3 offsetTarget = go.transform.position;
+            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
+            {
+                Style = ButtonStyles.StandardButton,
+                Icon = AddressableAssets.Sprites.TeleportTo,
+                Tooltip = BasisLocalization.Get("library.instantiated.teleport.tooltip"),
+                Hidden = isScene,
+                OnClick = () =>
+                {
+                    switch (itemKey.SpawnMode)
+                    {
+                        case BasisRuntimeSpawnRegistry.SpawnMode.Avatar:
+                        case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
 
-                            if(itemKey.bundleConnector != null)
+                            // find the object in the BasisRuntimeSpawnRegistry
+                            if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(itemKey.LoadedNetID, out GameObject go) && go != null)
                             {
-                                offsetTarget.y = offsetTarget.y + itemKey.bundleConnector.Bounds.max.y;
+                                Vector3 offsetTarget = go.transform.position;
+
+                                if (itemKey.bundleConnector != null)
+                                {
+                                    offsetTarget.y = offsetTarget.y + itemKey.bundleConnector.Bounds.max.y;
+                                }
+
+                                BasisLocalPlayer.Instance.Teleport( offsetTarget, Quaternion.identity, mode: BasisTeleportMode.WorldFeet );
                             }
 
-                            BasisLocalPlayer.Instance.Teleport( offsetTarget, Quaternion.identity, mode: BasisTeleportMode.WorldFeet );
-                        }
-
-                    break;
-                    case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
-                        BasisDebug.LogWarning( "LibraryProvider.cs -> Teleport To Item button for scene is not implemented!" );
-                    break;
-                }
-            };
+                        break;
+                        case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
+                            BasisDebug.LogWarning( "LibraryProvider.cs -> Teleport To Item button for scene is not implemented!" );
+                        break;
+                    }
+                    return Task.CompletedTask;
+                },
+            });
 
             // Static / lock toggle — networked game objects only; applies for everyone (server-authoritative).
             // Cycles None -> Static (creator or moderator) -> Admin-locked (moderator only) -> None.
@@ -2321,131 +2591,127 @@ namespace Basis.BasisUI
                         break;
                 }
 
-                PanelButton staticToggle = PanelButton.CreateNew(ButtonStyles.StandardButton, itemListPanel.TabButtonParent);
-                staticToggle.Descriptor.SetTitle(string.Empty);
-                staticToggle.SetIcon(lockLevel == 0 ? AddressableAssets.Sprites.Unlocked
-                                   : lockLevel == 1 ? AddressableAssets.Sprites.Locked
-                                   : AddressableAssets.Sprites.Admin);
-                staticToggle.SetSize(new Vector2(80, 80));
-                staticToggle.Descriptor.IconImage.rectTransform.sizeDelta = new Vector2(-30, -30);
-                staticToggle.Descriptor.SetTooltip(BasisLocalization.Get(
-                    lockLevel == 0 ? "library.instantiated.static.tooltip"
-                  : lockLevel == 1 ? "library.instantiated.static.lockedTooltip"
-                  : "library.instantiated.static.adminTooltip"));
-
                 // Disabled reason depends on why: an admin-locked item can only be changed by a moderator.
                 string disabledReason = lockLevel == 2
                     ? BasisLocalization.Get("library.instantiated.static.adminOnly")
                     : BasisLocalization.Get("library.instantiated.static.noPermission");
-                staticToggle.SetInteractable(canToggle, canToggle ? null : disabledReason);
 
-                staticToggle.OnClicked += () =>
+                BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
                 {
-                    // Mode 0 = GameObject. The server authorizes per tier and rebroadcasts; the row
-                    // icon updates when that broadcast arrives (RegistryChangeType.Modified).
-                    BasisNetworkSpawnItem.RequestSetStatic(itemKey.LoadedNetID, 0, nextStatic, nextAdmin);
-                };
+                    Style = ButtonStyles.StandardButton,
+                    Icon = lockLevel == 0 ? AddressableAssets.Sprites.Unlocked
+                         : lockLevel == 1 ? AddressableAssets.Sprites.Locked
+                         : AddressableAssets.Sprites.Admin,
+                    Tooltip = BasisLocalization.Get(
+                        lockLevel == 0 ? "library.instantiated.static.tooltip"
+                      : lockLevel == 1 ? "library.instantiated.static.lockedTooltip"
+                      : "library.instantiated.static.adminTooltip"),
+                    Disabled = !canToggle,
+                    DisabledReason = disabledReason,
+                    OnClick = () =>
+                    {
+                        // Mode 0 = GameObject. The server authorizes per tier and rebroadcasts; the row
+                        // icon updates when that broadcast arrives (RegistryChangeType.Modified).
+                        BasisNetworkSpawnItem.RequestSetStatic(itemKey.LoadedNetID, 0, nextStatic, nextAdmin);
+                        return Task.CompletedTask;
+                    },
+                });
             }
 
-            PanelButton removeItem = PanelButton.CreateNew(ButtonStyles.CancelButton, itemListPanel.TabButtonParent);
-            removeItem.Descriptor.SetTitle(string.Empty);
-            removeItem.SetIcon(AddressableAssets.Sprites.Trash);
-            removeItem.SetSize(new Vector2(80, 80));
-            removeItem.Descriptor.IconImage.rectTransform.sizeDelta = new Vector2(-30, -30);
-            removeItem.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.remove.tooltip"));
+            // Network items can be protected; only an admin may remove those. Non-network items always removable.
+            bool canRemove = itemKey.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !itemKey.isProtected || IsProtected;
 
-            // only apply this to items that are spawned on the network
-            if(itemKey.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Network)
+            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
-                // determine if we can actually remove this via admin
-                // if the item is embedded only allow an admin to interact
-                bool canRemove = !itemKey.isProtected || IsProtected;
-                removeItem.SetInteractable(canRemove, canRemove ? null : BasisLocalization.Get("library.disabled.protected"));
-            }
-
-            removeItem.OnClicked += async () =>
-            {
-                BasisDebug.Log($"CreateListEntry() -> requested removal of item = {itemKey.Url} of instanceID = {instanceID} of SpawnMethod = {itemKey.SpawnMethod} and SpawnMode = {itemKey.SpawnMode}");
-
-                bool result = await LibraryProviderDialogRemove.PromptUserForRemoval(panel, title, itemKey.SpawnMode.ToString());
-
-                if (!result) // if the result is false
+                Style = ButtonStyles.CancelButton,
+                Icon = AddressableAssets.Sprites.Trash,
+                Tooltip = BasisLocalization.Get("library.instantiated.remove.tooltip"),
+                Disabled = !canRemove,
+                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                OnClick = async () =>
                 {
-                    return; // guard key stop here
-                }
+                    BasisDebug.Log($"CreateListEntry() -> requested removal of item = {itemKey.Url} of instanceID = {instanceID} of SpawnMethod = {itemKey.SpawnMethod} and SpawnMode = {itemKey.SpawnMode}");
 
-                // clear up front; network removals fire OnRegistryChanged.Removed async after a round-trip
-                PlacementManager.RemoveSelectionSpawnInstanceID(itemKey);
+                    bool result = await LibraryProviderDialogRemove.PromptUserForRemoval(panel, title, itemKey.SpawnMode.ToString());
 
-                switch (itemKey.SpawnMethod)
-                {
-                    case BasisRuntimeSpawnRegistry.SpawnMethod.Local:
-                    case BasisRuntimeSpawnRegistry.SpawnMethod.Embedded:
+                    if (!result) // if the result is false
+                    {
+                        return; // guard key stop here
+                    }
 
-                        // If this content was set to load on boot, removing it here also stops it
-                        // from coming back next launch. No-op when it was never a boot item.
-                        _ = BasisPreloadContentStore.Remove(itemKey.Url);
+                    // clear up front; network removals fire OnRegistryChanged.Removed async after a round-trip
+                    PlacementManager.RemoveSelectionSpawnInstanceID(itemKey);
 
-                        switch(itemKey.SpawnMode)
-                        {
-                            case BasisRuntimeSpawnRegistry.SpawnMode.Avatar:
-                            case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
+                    switch (itemKey.SpawnMethod)
+                    {
+                        case BasisRuntimeSpawnRegistry.SpawnMethod.Local:
+                        case BasisRuntimeSpawnRegistry.SpawnMethod.Embedded:
 
-                                // if the item is local and embedded lets actually try get the gameobject first
-                                if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(itemKey.LoadedNetID, out GameObject go) && go != null)
-                                {
-                                    // if the gameobject is not null then lets remove its registery
-                                    bool success = await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(itemKey.LoadedNetID);
-                                    if (success)
+                            // If this content was set to load on boot, removing it here also stops it
+                            // from coming back next launch. No-op when it was never a boot item.
+                            _ = BasisPreloadContentStore.Remove(itemKey.Url);
+
+                            switch(itemKey.SpawnMode)
+                            {
+                                case BasisRuntimeSpawnRegistry.SpawnMode.Avatar:
+                                case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
+
+                                    // if the item is local and embedded lets actually try get the gameobject first
+                                    if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(itemKey.LoadedNetID, out GameObject go) && go != null)
                                     {
-                                        // we should delete the embedded item
-                                        GameObject.Destroy(go);
-                                    }
-                                    else
-                                    {
-                                        BasisDebug.LogError($"failed to remove item = {instanceID} that has itemKey.SpawnMethod = {itemKey.SpawnMethod} from basis BasisRuntimeSpawnRegistry");
+                                        // if the gameobject is not null then lets remove its registery
+                                        bool success = await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(itemKey.LoadedNetID);
+                                        if (success)
+                                        {
+                                            // we should delete the embedded item
+                                            GameObject.Destroy(go);
+                                        }
+                                        else
+                                        {
+                                            BasisDebug.LogError($"failed to remove item = {instanceID} that has itemKey.SpawnMethod = {itemKey.SpawnMethod} from basis BasisRuntimeSpawnRegistry");
+                                        }
+
                                     }
 
-                                }
+                                break;
+
+                                case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
+
+                                    if(BasisRuntimeSpawnRegistry.SpawnedScenes.TryGetValue(itemKey.LoadedNetID, out Scene scene) && scene.IsValid())
+                                    {
+                                        bool success = await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(itemKey.LoadedNetID);
+                                        if(success)
+                                        {
+                                            BasisDebug.Log( $"successfully removed scene with LoadedNetID = {itemKey.LoadedNetID}" );
+                                        }
+                                        else
+                                        {
+                                            BasisDebug.LogError($"failed to remove scene with LoadedNetID = {instanceID}");
+                                        }
+                                    }
+
+                                break;
+                            }
 
                             break;
-
-                            case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
-
-                                if(BasisRuntimeSpawnRegistry.SpawnedScenes.TryGetValue(itemKey.LoadedNetID, out Scene scene) && scene.IsValid())
-                                {
-                                    bool success = await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(itemKey.LoadedNetID);
-                                    if(success)
-                                    {
-                                        BasisDebug.Log( $"successfully removed scene with LoadedNetID = {itemKey.LoadedNetID}" );
-                                    }
-                                    else
-                                    {
-                                        BasisDebug.LogError($"failed to remove scene with LoadedNetID = {instanceID}");
-                                    }
-                                }
-
+                        case BasisRuntimeSpawnRegistry.SpawnMethod.Network:
+                            switch (itemKey.SpawnMode)
+                            {
+                                case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
+                                    BasisNetworkSpawnItem.RequestGameObjectUnLoad(itemKey.LoadedNetID);
+                                    break;
+                                case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
+                                    BasisNetworkSpawnItem.RequestSceneUnLoad(itemKey.LoadedNetID);
+                                    break;
+                                default:
+                                    BasisDebug.LogWarning($"Missing Spawn Method! {itemKey.SpawnMode}");
+                                    break;
+                            }
                             break;
-                        }
-
-                        break;
-                    case BasisRuntimeSpawnRegistry.SpawnMethod.Network:
-                        switch (itemKey.SpawnMode)
-                        {
-                            case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
-                                BasisNetworkSpawnItem.RequestGameObjectUnLoad(itemKey.LoadedNetID);
-                                break;
-                            case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
-                                BasisNetworkSpawnItem.RequestSceneUnLoad(itemKey.LoadedNetID);
-                                break;
-                            default:
-                                BasisDebug.LogWarning($"Missing Spawn Method! {itemKey.SpawnMode}");
-                                break;
-                        }
-                        break;
-                }
-                await RefreshCurrentTab();
-            };
+                    }
+                    await RefreshCurrentTab();
+                },
+            });
         }
 
         #endregion

@@ -15,7 +15,6 @@ MonoBehaviour:
   Keys: 0700000001000000
   Values:
   - featureSets:
-    - com.meta.openxr.featureset.metaxr
     - com.valvesoftware.openxr.utils.featureset
   - featureSets:
     - com.meta.openxr.featureset.metaxr

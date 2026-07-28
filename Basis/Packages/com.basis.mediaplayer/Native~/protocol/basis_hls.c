@@ -8,6 +8,9 @@
  * support is planned (it needs a non-Windows http provider). */
 
 #include "basis_hls.h"
+#include "../basis_media_internal.h"  /* BASIS_READ_REPOSITION */
+#include "basis_io.h"                 /* basis_io_host_is_blocked (SSRF guard) */
+#include "basis_url.h"                /* basis_url_parse */
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,12 +51,20 @@ static void hls_mutex_lock(hls_mutex_t* m)    { pthread_mutex_lock(m); }
 static void hls_mutex_unlock(hls_mutex_t* m)  { pthread_mutex_unlock(m); }
 #endif
 
-#define HLS_MAX_URI       1024
-#define HLS_MAX_ITEMS      512   /* fetchable items collected per playlist parse  */
-#define HLS_MAX_PLAYLIST   (1 << 20) /* 1 MiB playlist cap                         */
+/* Signed CDN segment URIs carry the whole authorisation payload in the path and
+ * run well past 1 KB (YouTube live signs ~1150 chars), so the cap has to clear
+ * that with room to spare. It bounds the playlist struct, which is heap-allocated
+ * at both parse sites for that reason. */
+#define HLS_MAX_URI       2048
+#define HLS_MAX_ITEMS      512   /* fetchable items retained per playlist parse   */
+#define HLS_MAX_PLAYLIST   (8 << 20) /* 8 MiB playlist cap                         */
 #define HLS_MAX_EMPTY_RELOADS 8  /* consecutive no-new-media reloads before giving up */
 #define HLS_LIVE_MARGIN_SEGMENTS 3 /* playout buffer kept behind the live edge for plain (non-LL) HLS */
-#define HLS_RING_CAP (4 * 1024 * 1024) /* read-ahead byte buffer (~5 s of 1080p HD) */
+/* Read-ahead byte buffer (~5 s of 1080p HD). Kept small on purpose: a larger
+ * read-ahead makes the VOD producer reach the end of the playlist further ahead
+ * of playout, which widens the window where a seek is rejected outright (the
+ * producer_done path). One heap allocation per HLS stream. */
+#define HLS_RING_CAP (4 * 1024 * 1024)
 
 /* (msn, part) media position. part == -1 means a whole segment. */
 typedef struct {
@@ -73,7 +84,13 @@ typedef struct {
     int  is_fmp4;            /* EXT-X-MAP present or .m4s/.mp4 segment URIs  */
     char map_uri[HLS_MAX_URI]; /* EXT-X-MAP init segment (fMP4), resolved     */
     int  nfull;              /* count of full (#EXTINF) segments             */
+    /* Retained items, oldest-first from item_start. A DVR live playlist lists far
+     * more segments than the cap (a YouTube broadcast publishes its whole
+     * multi-hour window every reload), and the ones worth playing are at the live
+     * edge, so once full a live playlist rolls the oldest out. VOD keeps the head:
+     * its playout starts at the first segment. Index via playlist_item(). */
     hls_item_t items[HLS_MAX_ITEMS];
+    int  item_start;
     int  item_count;
 } hls_playlist_t;
 
@@ -102,6 +119,16 @@ typedef struct basis_hls {
     int   vod_count;
     volatile int  seek_pending;  /* producer repositions at its next iteration */
     volatile long seek_target_ms;
+    /* Seek-boundary handshake with the consumer. request_seek bumps seek_gen
+     * (single writer: the seek caller); the producer sets flush_gen to match
+     * once it has flushed the ring and requeued at the target (single writer:
+     * the producer). While seek_gen != flush_gen the ring holds pre-seek bytes,
+     * so basis_hls_read withholds them; when they match it raises
+     * BASIS_READ_REPOSITION once (tracked by read_signaled_gen, consumer-only)
+     * so the demuxer flushes and re-anchors at the exact boundary. */
+    volatile long seek_gen;
+    volatile long flush_gen;
+    long          read_signaled_gen;
 
     int  map_served;             /* fMP4: init segment already streamed once */
     char map_uri[HLS_MAX_URI];
@@ -127,7 +154,16 @@ typedef struct basis_hls {
     hls_thread_t thread;
     int          thread_started;
     volatile int stop;
-    volatile int producer_done;
+    volatile int producer_done; /* the producer thread has actually exited (stop,
+                                 * policy block, reload exhaustion) — the only
+                                 * state that rejects a seek */
+    volatile int vod_idle;      /* VOD fully fetched and the producer is parked,
+                                 * alive, waiting for a seek to revive it; with a
+                                 * drained ring and no seek in flight the reader
+                                 * reports end-of-stream. Set in the endlist
+                                 * branch and cleared in the seek flush, both
+                                 * under `lock`, so the reader can never see an
+                                 * idle mark alongside a fresh flush generation */
 
     /* Delivery is paced by the engine (pace_gate, by AU timestamp), not here. */
 } basis_hls_t;
@@ -193,42 +229,74 @@ static long attr_ms(const char* line, const char* key, long def) {
 
 /* Resolve `ref` against the absolute base URL `base` into `out`.
  * Handles absolute (http[s]://), root-relative (/path) and same-directory
- * relative refs. "../" is not normalised (rare in HLS); acceptable first pass. */
-static void resolve_url(const char* base, const char* ref, char* out, int outsz) {
+ * relative refs. "../" is not normalised (rare in HLS); acceptable first pass.
+ *
+ * Returns 0 when the resolved URL doesn't fit. A relative ref is concatenated
+ * onto the base, so the result can overrun where neither part alone would, and
+ * a clipped absolute URL is still well-formed enough to be fetched — callers
+ * drop the reference rather than store one the origin will refuse. */
+static int resolve_url(const char* base, const char* ref, char* out, int outsz) {
+    int n;
     if (starts_with(ref, "http://") || starts_with(ref, "https://")) {
-        snprintf(out, outsz, "%s", ref);
-        return;
-    }
-    /* find scheme://host end (first '/' after "scheme://") */
-    const char* host = strstr(base, "://");
-    host = host ? host + 3 : base;
-    const char* host_end = strchr(host, '/');
+        n = snprintf(out, outsz, "%s", ref);
+    } else {
+        /* find scheme://host end (first '/' after "scheme://") */
+        const char* host = strstr(base, "://");
+        host = host ? host + 3 : base;
+        const char* host_end = strchr(host, '/');
 
-    if (ref[0] == '/') {
-        if (host_end) {
-            int hlen = (int)(host - base) + (int)(host_end - host);
-            snprintf(out, outsz, "%.*s%s", hlen, base, ref);
+        if (ref[0] == '/') {
+            if (host_end) {
+                int hlen = (int)(host - base) + (int)(host_end - host);
+                n = snprintf(out, outsz, "%.*s%s", hlen, base, ref);
+            } else {
+                n = snprintf(out, outsz, "%s%s", base, ref);
+            }
         } else {
-            snprintf(out, outsz, "%s%s", base, ref);
+            /* same-directory relative: base up to and including last '/' (before any '?') */
+            const char* q = strchr(base, '?');
+            const char* end = q ? q : base + strlen(base);
+            const char* slash = end;
+            while (slash > host && *slash != '/') slash--;
+            int dirlen = (slash >= host && *slash == '/') ? (int)(slash - base) + 1 : (int)(end - base);
+            n = snprintf(out, outsz, "%.*s%s", dirlen, base, ref);
         }
-        return;
     }
-    /* same-directory relative: base up to and including last '/' (before any '?') */
-    const char* q = strchr(base, '?');
-    const char* end = q ? q : base + strlen(base);
-    const char* slash = end;
-    while (slash > host && *slash != '/') slash--;
-    int dirlen = (slash >= host && *slash == '/') ? (int)(slash - base) + 1 : (int)(end - base);
-    snprintf(out, outsz, "%.*s%s", dirlen, base, ref);
+    return n >= 0 && n < outsz;
 }
 
 /* ---- playlist fetch ------------------------------------------------------ */
 
+/* SSRF gate for every URL a playlist steers us to. The managed layer validates
+ * only the entry URL; variant/segment/map URIs come from the (attacker-controlled)
+ * playlist body and are followed here, so re-check each one: it must stay on
+ * http(s) and its host must not resolve to a non-global-unicast address. The
+ * platform HTTP stacks (WinHTTP / JNI) don't apply this guard themselves.
+ *
+ * This is a pre-check: it blocks literal internal addresses and hosts that resolve
+ * private. It does NOT close two provider-side bypasses — active DNS rebinding (the
+ * platform stack re-resolves the name when it connects) and an allowed URL that
+ * redirects to an internal host (WinHTTP/JNI follow redirects). Fully closing those
+ * needs connect-by-pinned-IP plus per-redirect re-validation and connected-peer
+ * verification at the HTTP-provider boundary — tracked as a follow-up. */
+/* out_blocked (nullable) distinguishes a deterministic policy rejection (bad
+ * scheme/host — retrying can never succeed) from a transient provider open
+ * failure, so a caller can terminate on the former instead of busy-looping. */
+static void* hls_guarded_open(basis_hls_t* h, const char* url, int* out_blocked) {
+    if (out_blocked) *out_blocked = 1;   /* set for the policy-reject early returns */
+    basis_url_t u;
+    if (basis_url_parse(url, &u) != 0) return NULL;
+    if (strcmp(u.scheme, "http") != 0 && strcmp(u.scheme, "https") != 0) return NULL;
+    if (basis_io_host_is_blocked(u.host)) return NULL;
+    if (out_blocked) *out_blocked = 0;   /* passed policy; any NULL below is transient */
+    return h->http.open(url);
+}
+
 /* GET `url` fully into a NUL-terminated buffer (caller frees). Returns length,
  * or <0 on error / stop. */
-static int fetch_text(basis_hls_t* h, const char* url, char** out) {
+static int fetch_text(basis_hls_t* h, const char* url, char** out, int* out_blocked) {
     *out = NULL;
-    void* ctx = h->http.open(url);
+    void* ctx = hls_guarded_open(h, url, out_blocked);
     if (!ctx) return -1;
 
     int cap = 16384, len = 0;
@@ -238,7 +306,11 @@ static int fetch_text(basis_hls_t* h, const char* url, char** out) {
     for (;;) {
         if (h->is_running && !h->is_running(h->user)) { free(buf); h->http.close(ctx); return -1; }
         if (len + 4096 > cap) {
-            if (cap >= HLS_MAX_PLAYLIST) break;
+            /* Over the cap: fail rather than return what fitted. A clipped body
+             * ends mid-URI, and the truncated URI parses as a valid-looking
+             * segment the CDN then rejects — a silent playback failure that
+             * looks nothing like the size limit that caused it. */
+            if (cap >= HLS_MAX_PLAYLIST) { free(buf); h->http.close(ctx); return -1; }
             cap *= 2;
             char* nb = (char*)realloc(buf, cap);
             if (!nb) { free(buf); h->http.close(ctx); return -1; }
@@ -259,6 +331,18 @@ static int fetch_text(basis_hls_t* h, const char* url, char** out) {
 /* Returns 1 if the playlist is a master (has EXT-X-STREAM-INF). */
 static int playlist_is_master(const char* text) {
     return strstr(text, "#EXT-X-STREAM-INF") != NULL;
+}
+
+/* Copy one playlist line (CR stripped) into out. Returns 0 if it doesn't fit —
+ * callers drop the line rather than store a prefix, since a clipped URI is a
+ * URL the origin answers 403 to and nothing downstream can tell it apart from a
+ * genuine authorisation failure. */
+static int copy_line(char* out, int outsz, const char* src, int len) {
+    if (len >= outsz) return 0;
+    memcpy(out, src, (size_t)len);
+    out[len] = 0;
+    if (len && out[len - 1] == '\r') out[len - 1] = 0;
+    return 1;
 }
 
 /* Pick a single rendition from a master playlist: highest BANDWIDTH variant.
@@ -284,12 +368,16 @@ static int master_pick_variant(basis_hls_t* h, const char* base, const char* tex
             while (*q) {
                 const char* qnl = strchr(q, '\n');
                 int qlen = qnl ? (int)(qnl - q) : (int)strlen(q);
-                char uline[HLS_MAX_URI];
-                if (qlen >= (int)sizeof(uline)) qlen = (int)sizeof(uline) - 1;
-                memcpy(uline, q, qlen); uline[qlen] = 0;
-                if (qlen && uline[qlen - 1] == '\r') uline[qlen - 1] = 0;
-                if (uline[0] && uline[0] != '#') {
-                    if (bw >= best_bw) { best_bw = bw; resolve_url(base, uline, best_uri, sizeof(best_uri)); }
+                if (qlen && q[0] != '#' && q[0] != '\r') {
+                    /* A variant URI that doesn't fit is skipped, leaving a
+                     * shorter-URI rendition to win rather than selecting one
+                     * that can't be fetched. */
+                    char uline[HLS_MAX_URI], cand[HLS_MAX_URI];
+                    if (copy_line(uline, (int)sizeof(uline), q, qlen) && uline[0] && bw >= best_bw &&
+                        resolve_url(base, uline, cand, sizeof(cand))) {
+                        best_bw = bw;
+                        snprintf(best_uri, sizeof(best_uri), "%s", cand);
+                    }
                     break;
                 }
                 if (!qnl) break;
@@ -305,13 +393,37 @@ static int master_pick_variant(basis_hls_t* h, const char* base, const char* tex
     return 1;
 }
 
+/* The i-th retained item in playlist order. */
+static const hls_item_t* playlist_item(const hls_playlist_t* pl, int i) {
+    return &pl->items[(pl->item_start + i) % HLS_MAX_ITEMS];
+}
+
+/* Claim a slot for the next item. Once the array is full a live playlist rolls
+ * the oldest item out (the live edge is what plays); a VOD keeps what it has.
+ * Returns NULL when the item was dropped. */
+static hls_item_t* playlist_append(hls_playlist_t* pl, int live) {
+    if (pl->item_count < HLS_MAX_ITEMS) {
+        int idx = (pl->item_start + pl->item_count) % HLS_MAX_ITEMS;
+        pl->item_count++;
+        return &pl->items[idx];
+    }
+    if (!live) return NULL;
+    int idx = pl->item_start;
+    pl->item_start = (pl->item_start + 1) % HLS_MAX_ITEMS;
+    return &pl->items[idx];
+}
+
 /* Parse a media playlist into pl. base = media playlist URL (for resolving). */
 static void parse_media_playlist(const char* base, const char* text, hls_playlist_t* pl) {
     memset(pl, 0, sizeof(*pl));
     pl->media_seq_base = 0;
 
+    /* Retention policy is decided up front: EXT-X-ENDLIST closes a VOD, and its
+     * absence means the list is a live window that will be reloaded. */
+    int live = strstr(text, "#EXT-X-ENDLIST") == NULL;
+
     const char* p = text;
-    char line[2048];
+    char line[HLS_MAX_URI + 512];  /* holds a tag line carrying a full-length URI */
     int seg_index = 0;   /* full segments seen so far */
     int part_index = 0;  /* parts of the in-progress segment */
 
@@ -337,19 +449,32 @@ static void parse_media_playlist(const char* base, const char* text, hls_playlis
         } else if (starts_with(line, "#EXT-X-MAP")) {
             char uri[HLS_MAX_URI];
             if (attr_str(line, "URI", uri, sizeof(uri))) {
-                resolve_url(base, uri, pl->map_uri, sizeof(pl->map_uri));
+                /* An init segment that doesn't fit leaves map_uri empty — the
+                 * same state as a playlist carrying no EXT-X-MAP, and better
+                 * than fetching a clipped URL as though it were the real one. */
+                if (!resolve_url(base, uri, pl->map_uri, sizeof(pl->map_uri))) pl->map_uri[0] = 0;
                 pl->is_fmp4 = 1;
             }
         } else if (starts_with(line, "#EXT-X-PART:")) {
             char uri[HLS_MAX_URI];
-            if (attr_str(line, "URI", uri, sizeof(uri)) && pl->item_count < HLS_MAX_ITEMS) {
-                hls_item_t* it = &pl->items[pl->item_count++];
-                resolve_url(base, uri, it->uri, sizeof(it->uri));
-                it->msn = pl->media_seq_base + seg_index;
-                it->part = part_index++;
-                it->dur_ms = attr_ms(line, "DURATION", 0);
-                pl->has_parts = 1;
-                if (ends_with_ci(it->uri, ".m4s") || ends_with_ci(it->uri, ".mp4")) pl->is_fmp4 = 1;
+            if (attr_str(line, "URI", uri, sizeof(uri))) {
+                /* Resolve before claiming a slot: a slot taken and then
+                 * abandoned would sit in the array with no URI. */
+                char resolved[HLS_MAX_URI];
+                hls_item_t* it = resolve_url(base, uri, resolved, sizeof(resolved))
+                                 ? playlist_append(pl, live) : NULL;
+                if (it) {
+                    snprintf(it->uri, sizeof(it->uri), "%s", resolved);
+                    it->msn = pl->media_seq_base + seg_index;
+                    it->part = part_index;
+                    it->dur_ms = attr_ms(line, "DURATION", 0);
+                    pl->has_parts = 1;
+                    if (ends_with_ci(it->uri, ".m4s") || ends_with_ci(it->uri, ".mp4")) pl->is_fmp4 = 1;
+                }
+                /* Counted whether or not it was retained: a dropped part still
+                 * occupies its slot in the source numbering, and the cursor in
+                 * enqueue_new_media compares against it. */
+                part_index++;
             }
         } else if (starts_with(line, "#EXTINF")) {
             /* #EXTINF:<seconds>,  — capture the duration for real-time pacing */
@@ -360,18 +485,22 @@ static void parse_media_playlist(const char* base, const char* text, hls_playlis
             while (*q) {
                 const char* qnl = strchr(q, '\n');
                 int qlen = qnl ? (int)(qnl - q) : (int)strlen(q);
-                char uline[HLS_MAX_URI];
-                if (qlen >= (int)sizeof(uline)) qlen = (int)sizeof(uline) - 1;
-                memcpy(uline, q, qlen); uline[qlen] = 0;
-                if (qlen && uline[qlen - 1] == '\r') uline[qlen - 1] = 0;
-                if (uline[0] && uline[0] != '#') {
-                    if (pl->item_count < HLS_MAX_ITEMS) {
-                        hls_item_t* it = &pl->items[pl->item_count++];
-                        resolve_url(base, uline, it->uri, sizeof(it->uri));
-                        it->msn = pl->media_seq_base + seg_index;
-                        it->part = -1;
-                        it->dur_ms = extinf_ms;
-                        if (ends_with_ci(it->uri, ".m4s") || ends_with_ci(it->uri, ".mp4")) pl->is_fmp4 = 1;
+                if (qlen && q[0] != '#' && q[0] != '\r') {
+                    char uline[HLS_MAX_URI], resolved[HLS_MAX_URI];
+                    /* A URI that is over-long or won't resolve leaves the segment
+                     * unfetchable, but it is still a segment: seg_index has to
+                     * count it either way or every later media sequence number
+                     * shifts. */
+                    if (copy_line(uline, (int)sizeof(uline), q, qlen) && uline[0] &&
+                        resolve_url(base, uline, resolved, sizeof(resolved))) {
+                        hls_item_t* it = playlist_append(pl, live);
+                        if (it) {
+                            snprintf(it->uri, sizeof(it->uri), "%s", resolved);
+                            it->msn = pl->media_seq_base + seg_index;
+                            it->part = -1;
+                            it->dur_ms = extinf_ms;
+                            if (ends_with_ci(it->uri, ".m4s") || ends_with_ci(it->uri, ".mp4")) pl->is_fmp4 = 1;
+                        }
                     }
                     seg_index++;
                     part_index = 0; /* parts now belong to the next in-progress segment */
@@ -423,7 +552,7 @@ static const char* queue_pop(basis_hls_t* h, long* out_dur_ms) {
  * skip the full segment, otherwise we take it. */
 static void enqueue_new_media(basis_hls_t* h, const hls_playlist_t* pl) {
     for (int i = 0; i < pl->item_count; ++i) {
-        const hls_item_t* it = &pl->items[i];
+        const hls_item_t* it = playlist_item(pl, i);
         if (it->part >= 0) {
             /* part P of segment M */
             if (it->msn > h->want_msn || (it->msn == h->want_msn && it->part >= h->want_part)) {
@@ -464,18 +593,22 @@ static int reload_and_enqueue(basis_hls_t* h) {
     }
 
     char* text = NULL;
-    int n = fetch_text(h, url, &text);
-    if (n < 0) { free(text); return -1; }
+    int blocked = 0;
+    int n = fetch_text(h, url, &text, &blocked);
+    if (n < 0) { free(text); return blocked ? -2 : -1; } /* -2 = policy-blocked (deterministic) */
 
-    hls_playlist_t pl;
-    parse_media_playlist(h->media_url, text, &pl);
+    /* Off the stack: the playlist is ~1 MiB and this runs on the producer thread. */
+    hls_playlist_t* pl = (hls_playlist_t*)malloc(sizeof(*pl));
+    if (!pl) { free(text); return -1; }
+    parse_media_playlist(h->media_url, text, pl);
     free(text);
 
-    if (pl.target_duration_ms) h->target_duration_ms = pl.target_duration_ms;
-    if (pl.has_endlist) h->endlist_seen = 1;
+    if (pl->target_duration_ms) h->target_duration_ms = pl->target_duration_ms;
+    if (pl->has_endlist) h->endlist_seen = 1;
 
     int before = h->pending_count;
-    enqueue_new_media(h, &pl);
+    enqueue_new_media(h, pl);
+    free(pl);
     return (h->pending_count > before) ? 1 : 0;
 }
 
@@ -490,6 +623,12 @@ static void ring_write(basis_hls_t* h, const uint8_t* data, int n) {
     int written = 0;
     while (written < n && hls_should_run(h)) {
         hls_mutex_lock(&h->lock);
+        /* Stop filling the moment a seek is requested: the bytes queued here are
+         * pre-seek and about to be flushed, and the consumer withholds the ring
+         * while the seek is in flight, so a full ring here would otherwise wedge
+         * the producer against a consumer that has stopped draining. The producer
+         * picks the seek up at the top of its next loop. */
+        if (h->seek_pending) { hls_mutex_unlock(&h->lock); break; }
         int space = h->ring_cap - h->ring_count;
         if (space > 0) {
             int chunk = n - written;
@@ -515,45 +654,88 @@ static void ring_write(basis_hls_t* h, const uint8_t* data, int n) {
 static void hls_producer(basis_hls_t* h) {
     uint8_t tmp[16384];
     while (hls_should_run(h)) {
-        if (h->seek_pending) {
+        /* Take the seek request under the lock so the pending flag, target and
+         * generation read as one consistent snapshot. Only accept it when the VOD
+         * segment list is present (the only seekable case) — clearing the flag
+         * without flushing would strand the reader withholding the ring. */
+        hls_mutex_lock(&h->lock);
+        int do_seek = h->seek_pending && h->vod_count > 0;
+        long seek_target = h->seek_target_ms;
+        long seek_g = h->seek_gen;
+        if (do_seek) h->seek_pending = 0;
+        hls_mutex_unlock(&h->lock);
+        if (do_seek) {
             /* Reposition: drop the current segment, rebuild the queue from the
              * segment containing the target, flush buffered bytes. The consumer
-             * may hold a partial TS packet from before the jump — the TS
-             * demuxer resynchronises on the 0x47 sync byte. */
-            h->seek_pending = 0;
-            if (h->vod_count > 0) {
-                if (h->seg_ctx) { h->http.close(h->seg_ctx); h->seg_ctx = NULL; }
-                long acc = 0;
-                int idx = 0;
-                for (; idx < h->vod_count - 1; ++idx) {
-                    if (acc + h->vod_dur_ms[idx] > h->seek_target_ms) break;
-                    acc += h->vod_dur_ms[idx];
-                }
-                h->pending_head = 0;
-                h->pending_count = 0;
-                for (int i = idx; i < h->vod_count; ++i)
-                    queue_push(h, h->vod_uri[i], h->vod_dur_ms[i]);
-                hls_mutex_lock(&h->lock);
-                h->ring_head = h->ring_tail = h->ring_count = 0;
-                hls_mutex_unlock(&h->lock);
+             * may hold a partial TS packet from before the jump; the TS demuxer
+             * resynchronises on the 0x47 sync byte. */
+            if (h->seg_ctx) { h->http.close(h->seg_ctx); h->seg_ctx = NULL; }
+            long acc = 0;
+            int idx = 0;
+            for (; idx < h->vod_count - 1; ++idx) {
+                if (acc + h->vod_dur_ms[idx] > seek_target) break;
+                acc += h->vod_dur_ms[idx];
             }
+            h->pending_head = 0;
+            h->pending_count = 0;
+            for (int i = idx; i < h->vod_count; ++i)
+                queue_push(h, h->vod_uri[i], h->vod_dur_ms[i]);
+            hls_mutex_lock(&h->lock);
+            h->ring_head = h->ring_tail = h->ring_count = 0;
+            /* Publish the flush for the snapshot generation under the same lock
+             * as the ring clear, so a consumer that acquires it sees an emptied
+             * ring and the matched generation together; its next serve is
+             * guaranteed post-seek. Leaving idle in the same critical section
+             * keeps the reader from ever pairing an emptied ring with a stale
+             * end-of-stream verdict while the target segment is still fetching. */
+            h->flush_gen = seek_g;
+            h->vod_idle = 0;
+            hls_mutex_unlock(&h->lock);
         }
         if (!h->seg_ctx) {
             if (h->is_fmp4 && !h->map_served && h->map_uri[0]) {
-                h->seg_ctx = h->http.open(h->map_uri); /* fMP4 init segment first */
+                int blocked = 0;
+                h->seg_ctx = hls_guarded_open(h, h->map_uri, &blocked); /* fMP4 init segment first */
+                if (!h->seg_ctx) {
+                    /* A policy-blocked map can never load and its fragments are
+                     * useless without it, so stop instead of spinning; a transient
+                     * open failure backs off and retries. */
+                    if (blocked) break;
+                    if (!hls_should_run(h)) break;
+                    hls_sleep_ms(50);
+                    continue;
+                }
                 h->map_served = 1;
-                if (!h->seg_ctx) continue;
             } else {
                 const char* next = queue_pop(h, NULL);
                 if (next) {
-                    h->seg_ctx = h->http.open(next);
-                    if (!h->seg_ctx) continue; /* skip a transient open failure */
+                    int blocked = 0;
+                    h->seg_ctx = hls_guarded_open(h, next, &blocked);
+                    if (!h->seg_ctx) {
+                        if (blocked) break;    /* policy-blocked (SSRF): fail playback deterministically */
+                        continue;              /* transient: skip; the next pop advances */
+                    }
                     h->empty_reloads = 0;
                 } else if (h->endlist_seen) {
-                    break; /* VOD / stream finished */
+                    /* Unseekable VOD (fMP4: no TS segment list, request_seek
+                     * rejects it) has nothing to park for — exit normally. */
+                    if (h->vod_count == 0) break;
+                    /* VOD exhausted — park, don't exit. A backward seek into the
+                     * tail must still work for as long as the source is open, so
+                     * the thread idles here and the top-of-loop seek take revives
+                     * it. Arbitrate against a pending request under the lock so
+                     * the two can't interleave: either loop back to honour it, or
+                     * publish idle for the reader's end-of-stream verdict. */
+                    hls_mutex_lock(&h->lock);
+                    if (h->seek_pending) { hls_mutex_unlock(&h->lock); continue; }
+                    h->vod_idle = 1;
+                    hls_mutex_unlock(&h->lock);
+                    hls_sleep_ms(10);
+                    continue;
                 } else {
                     int r = reload_and_enqueue(h);
                     if (r > 0) { h->empty_reloads = 0; }
+                    else if (r == -2) break; /* playlist policy-blocked: retrying can't recover */
                     else if (r < 0) {
                         if (!hls_should_run(h)) break;
                         hls_sleep_ms(50); /* transient fetch error — back off and retry */
@@ -580,7 +762,12 @@ static void hls_producer(basis_hls_t* h) {
                 reload_and_enqueue(h);
         }
     }
+    /* Publish under the lock so basis_hls_read and basis_hls_request_seek see a
+     * consistent producer_done (the endlist path already set it under the lock
+     * to arbitrate against a late seek; this covers the stop/exhaustion exits). */
+    hls_mutex_lock(&h->lock);
     h->producer_done = 1;
+    hls_mutex_unlock(&h->lock);
 }
 
 #if defined(_WIN32)
@@ -623,46 +810,52 @@ void* basis_hls_open(const char* url, const basis_http_provider_t* http,
 
     /* Fetch the entry playlist; follow one master->media indirection. */
     char* text = NULL;
-    if (fetch_text(h, url, &text) < 0 || !text) { free(text); free(h); return NULL; }
+    if (fetch_text(h, url, &text, NULL) < 0 || !text) { free(text); free(h); return NULL; }
 
     if (playlist_is_master(text)) {
         char media[HLS_MAX_URI];
         if (!master_pick_variant(h, url, text, media, sizeof(media))) { free(text); free(h); return NULL; }
         snprintf(h->media_url, sizeof(h->media_url), "%s", media);
         free(text);
-        if (fetch_text(h, h->media_url, &text) < 0 || !text) { free(text); free(h); return NULL; }
+        if (fetch_text(h, h->media_url, &text, NULL) < 0 || !text) { free(text); free(h); return NULL; }
     } else {
         snprintf(h->media_url, sizeof(h->media_url), "%s", url);
     }
 
-    hls_playlist_t pl;
-    parse_media_playlist(h->media_url, text, &pl);
+    /* Off the stack: the playlist struct is ~1 MiB. */
+    hls_playlist_t* pl = (hls_playlist_t*)malloc(sizeof(*pl));
+    if (!pl) { free(text); free(h); return NULL; }
+    parse_media_playlist(h->media_url, text, pl);
     free(text);
 
-    if (pl.nfull == 0 && !pl.has_parts) { free(h); return NULL; }
+    /* Nothing fetchable. Either the playlist carries no media at all, or every
+     * URI in it was over the length cap — both are terminal, and failing here
+     * beats handing the producer a list it can only reload fruitlessly. */
+    if (pl->item_count == 0) { free(pl); free(h); return NULL; }
 
-    h->is_fmp4 = pl.is_fmp4;
-    h->can_block_reload = pl.can_block_reload && pl.has_parts;
-    h->part_target_ms = pl.part_target_ms;
-    h->target_duration_ms = pl.target_duration_ms ? pl.target_duration_ms : 6000;
-    h->endlist_seen = pl.has_endlist;
-    if (pl.has_endlist) {
+    h->is_fmp4 = pl->is_fmp4;
+    h->can_block_reload = pl->can_block_reload && pl->has_parts;
+    h->part_target_ms = pl->part_target_ms;
+    h->target_duration_ms = pl->target_duration_ms ? pl->target_duration_ms : 6000;
+    h->endlist_seen = pl->has_endlist;
+    if (pl->has_endlist) {
         /* Sum whole segments only — parts subdivide the same media time. A VOD
          * beyond HLS_MAX_ITEMS is truncated at parse, so this under-reports in
          * lockstep with what actually plays. */
-        for (int i = 0; i < pl.item_count; ++i)
-            if (pl.items[i].part < 0) h->total_ms += pl.items[i].dur_ms;
+        for (int i = 0; i < pl->item_count; ++i)
+            if (playlist_item(pl, i)->part < 0) h->total_ms += playlist_item(pl, i)->dur_ms;
         /* Retain the segment list so a seek can rebuild the queue from any
          * index. fMP4 VOD is excluded: a mid-stream ring flush would land the
          * demuxer inside a box, and it can't resynchronise the way TS does. */
-        if (!pl.is_fmp4) {
-            h->vod_uri = (char (*)[HLS_MAX_URI])malloc((size_t)pl.item_count * HLS_MAX_URI);
-            h->vod_dur_ms = (long*)malloc((size_t)pl.item_count * sizeof(long));
+        if (!pl->is_fmp4) {
+            h->vod_uri = (char (*)[HLS_MAX_URI])malloc((size_t)pl->item_count * HLS_MAX_URI);
+            h->vod_dur_ms = (long*)malloc((size_t)pl->item_count * sizeof(long));
             if (h->vod_uri && h->vod_dur_ms) {
-                for (int i = 0; i < pl.item_count; ++i) {
-                    if (pl.items[i].part >= 0) continue;
-                    memcpy(h->vod_uri[h->vod_count], pl.items[i].uri, HLS_MAX_URI);
-                    h->vod_dur_ms[h->vod_count] = pl.items[i].dur_ms;
+                for (int i = 0; i < pl->item_count; ++i) {
+                    const hls_item_t* it = playlist_item(pl, i);
+                    if (it->part >= 0) continue;
+                    memcpy(h->vod_uri[h->vod_count], it->uri, HLS_MAX_URI);
+                    h->vod_dur_ms[h->vod_count] = it->dur_ms;
                     h->vod_count++;
                 }
             } else {
@@ -671,7 +864,7 @@ void* basis_hls_open(const char* url, const basis_http_provider_t* http,
             }
         }
     }
-    if (pl.map_uri[0]) snprintf(h->map_uri, sizeof(h->map_uri), "%s", pl.map_uri);
+    if (pl->map_uri[0]) snprintf(h->map_uri, sizeof(h->map_uri), "%s", pl->map_uri);
 
     /* VOD (EXT-X-ENDLIST): start at the first segment so the whole recording
      * plays start-to-finish. Live: start at (or just behind) the live edge.
@@ -679,32 +872,38 @@ void* basis_hls_open(const char* url, const basis_http_provider_t* http,
      * of a segment is normally an independent keyframe). Non-LL live: the last
      * complete segment (guaranteed keyframe). */
     if (h->endlist_seen) {
-        h->want_msn = pl.media_seq_base;
+        h->want_msn = pl->media_seq_base;
         h->want_part = 0;
     } else if (h->can_block_reload) {
-        h->want_msn = pl.media_seq_base + pl.nfull;
+        h->want_msn = pl->media_seq_base + pl->nfull;
         h->want_part = 0;
     } else {
         /* Start a few segments behind the live edge so playout always has a buffer and
          * segment fetches never wait on the encoder (plain HLS has no parts to ride). Each
-         * segment starts on a keyframe, so any of these is a valid decode start. */
-        long edge = pl.media_seq_base + (pl.nfull > 0 ? pl.nfull - 1 : 0);
+         * segment starts on a keyframe, so any of these is a valid decode start. Clamp to
+         * the oldest retained item, not to media_seq_base: a DVR window lists more
+         * segments than are kept, and the ones before item[0] were rolled out. */
+        long edge = pl->media_seq_base + (pl->nfull > 0 ? pl->nfull - 1 : 0);
         long start = edge - HLS_LIVE_MARGIN_SEGMENTS;
-        if (start < pl.media_seq_base) start = pl.media_seq_base;
+        long oldest = playlist_item(pl, 0)->msn;
+        if (start < oldest) start = oldest;
         h->want_msn = start;
         h->want_part = 0;
     }
 
-    enqueue_new_media(h, &pl);
+    enqueue_new_media(h, pl);
+    free(pl);
 
     /* Start the read-ahead producer so segments buffer ahead of playout. */
     h->ring_cap = HLS_RING_CAP;
     h->ring = (uint8_t*)malloc((size_t)h->ring_cap);
-    if (!h->ring) { free(h); return NULL; }
+    if (!h->ring) { free(h->vod_uri); free(h->vod_dur_ms); free(h); return NULL; }
     hls_mutex_init(&h->lock);
     if (!hls_thread_start(h)) {
         hls_mutex_destroy(&h->lock);
         free(h->ring);
+        free(h->vod_uri);
+        free(h->vod_dur_ms);
         free(h);
         return NULL;
     }
@@ -723,8 +922,32 @@ int basis_hls_read(void* ctx, uint8_t* buf, int len) {
 
         /* No metering here: the engine paces delivery by AU timestamp (pace_gate),
          * holding the demux thread on submit, so serving the ring as fast as the
-         * demuxer pulls can't flood the decoder. */
+         * demuxer pulls can't flood the decoder. The seek generations are read
+         * under the same lock that guards the ring, so the boundary stays
+         * consistent with the flushed ring state (volatile orders nothing across
+         * threads on its own). */
         hls_mutex_lock(&h->lock);
+        /* Seek in flight: the ring still holds pre-seek bytes until the producer
+         * flushes and requeues at the target. Withhold them, since handing them
+         * to the demuxer would let a stale AU re-anchor pacing to the old timeline.
+         * producer_done here means the thread actually exited (stop / policy
+         * block / reload exhaustion) — a parked VOD producer still honours the
+         * request — so only then stop waiting for a flush that will never come. */
+        if (h->seek_gen != h->flush_gen) {
+            int done = h->producer_done;
+            hls_mutex_unlock(&h->lock);
+            if (done) return 0;
+            hls_sleep_ms(2);
+            continue;
+        }
+        /* First read after the flush settled: raise the reposition boundary once
+         * so the demuxer drops its pre-seek state and re-anchors before the
+         * target segment's bytes flow. */
+        if (h->flush_gen != h->read_signaled_gen) {
+            h->read_signaled_gen = h->flush_gen;
+            hls_mutex_unlock(&h->lock);
+            return BASIS_READ_REPOSITION;
+        }
         if (h->ring_count > 0) {
             int take = h->ring_count < len ? h->ring_count : len;
             int first = h->ring_cap - h->ring_tail;
@@ -736,9 +959,13 @@ int basis_hls_read(void* ctx, uint8_t* buf, int len) {
             hls_mutex_unlock(&h->lock);
             return take;
         }
-        int done = h->producer_done;
+        /* End of stream: the ring is drained and either the producer exited or a
+         * fully-fetched VOD is parked with no seek in flight (this branch is only
+         * reachable with the generations settled, so a pending seek can't race
+         * the verdict — request_seek bumps the generation under this lock). */
+        int done = h->producer_done || h->vod_idle;
         hls_mutex_unlock(&h->lock);
-        if (done) return 0;  /* producer finished and ring drained -> end of stream */
+        if (done) return 0;
 
         hls_sleep_ms(2); /* ring empty: wait for the producer to buffer more */
     }
@@ -761,9 +988,20 @@ int basis_hls_can_seek(void* ctx) {
 
 int basis_hls_request_seek(void* ctx, long long target_ms) {
     basis_hls_t* h = (basis_hls_t*)ctx;
-    if (!basis_hls_can_seek(ctx) || target_ms < 0) return -1;
+    if (!h || h->vod_count <= 0 || target_ms < 0) return -1;   /* vod_count is fixed at open */
+    /* Reject only when the producer thread has actually exited — a fully-fetched
+     * VOD parks its producer instead, precisely so a seek into the tail (or after
+     * playout drained the ring) still repositions. Accept atomically with that
+     * check so a request can't be lost against a concurrent exit; publish
+     * {target, generation, pending} together, and the generation runs ahead of
+     * flush_gen until the producer finishes flushing, during which the consumer
+     * withholds the pre-seek ring. */
+    hls_mutex_lock(&h->lock);
+    if (h->producer_done) { hls_mutex_unlock(&h->lock); return -1; }
     h->seek_target_ms = (long)target_ms;
+    h->seek_gen++;
     h->seek_pending = 1;
+    hls_mutex_unlock(&h->lock);
     return 0;
 }
 

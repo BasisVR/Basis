@@ -29,9 +29,10 @@ namespace Basis.IK.Debugging
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
 
             EditorGUILayout.HelpBox(
-                "Sweeps crouch depth against the body-back offset. Verifies the hips slide back by exactly " +
-                "crouch*factor, purely horizontally, monotonically, clamped at rest height, and never move " +
-                "while standing or disabled. Same math as the live ApplyCrouchBodyOffset.",
+                "Sweeps crouch depth against the sit-back. Verifies the hips slide back by exactly the " +
+                "corpus curve, land on the rest-length sphere once engaged, leak nothing sideways, grow " +
+                "monotonically, and never move while standing, below the deadzone, or disabled. Same math " +
+                "as the live ApplyCrouchBodyOffset.",
                 MessageType.Info);
 
             EditorGUILayout.LabelField("Configuration", EditorStyles.boldLabel);
@@ -68,7 +69,7 @@ namespace Basis.IK.Debugging
                     EditorGUILayout.HelpBox(
                         (g.pass ? "PASS  " : "FAIL  ") + g.reason + "\n" +
                         $"cases={_last.Cases} applied={_last.AppliedCases} nan={_last.NaNCount} fails={_last.Failures}\n" +
-                        $"magErr={_last.MaxMagErrM:F5}m up={_last.MaxUpComponentM:F5}m dir={_last.MaxDirErrDeg:F3}° " +
+                        $"magErr={_last.MaxMagErrM:F5}m sphere={_last.MaxSphereErrM:F5}m lat={_last.MaxLateralLeakM:F5}m " +
                         $"standingMoves={_last.StandingMoves} mono={_last.MonotonicViolations}\n" + _last.Path,
                         g.pass ? MessageType.Info : MessageType.Error);
                     if (GUILayout.Button("Reveal CSV")) EditorUtility.RevealInFinder(_last.Path);

@@ -8,9 +8,9 @@ namespace Basis.IK.Debugging
 {
     // Offline sweep of the calibration OFFSET / ROTATION / HEIGHT math that the live calibration
     // runs (BasisCalibrationMath, BasisAnimationRiggingHelper.CalibratedRotationOffset,
-    // BasisLocalHeightCalculator.ComputePitchCalibratedHeight, BasisAvatarScaleModifier) — the
-    // plumbing that turns a captured tracker pose into a bone pose and a player/avatar height into a
-    // device scale. Pure math, edit mode, asserts round-trip / no-leak invariants. One CSV row per case.
+    // BasisAvatarScaleModifier) — the plumbing that turns a captured tracker pose into a bone pose
+    // and a player/avatar height into a device scale. Pure math, edit mode, asserts round-trip /
+    // no-leak invariants. One CSV row per case.
 
     public struct BasisCalibrationMathSweepConfig
     {
@@ -36,11 +36,6 @@ namespace Basis.IK.Debugging
 
         // Per-effector rotation calibration / avatar-swap (BasisAnimationRiggingHelper).
         public float MaxRotCalErrDeg;       // boneOutgoing*offset must land on the avatar bind frame (no spawn-orientation leak)
-
-        // Pitch-calibrated eye height (BasisLocalHeightCalculator).
-        public int PitchSolvable;
-        public int PitchFallback;
-        public float MaxPitchHeightErr;     // metres: recovers level-gaze height from a pitched arc
 
         // Avatar scale modifier (BasisAvatarScaleModifier).
         public int ScaleModifierMismatches; // sanitization / FinalScale = DuringCalibration*ApplyScale
@@ -148,56 +143,17 @@ namespace Basis.IK.Debugging
                         if (!pass || i < 3) WriteRow(w, sb, "rotcal", i, errDeg, 0f, "aligned", pass);
                     }
 
-                    // 4) Pitch-calibrated height: recover the level-gaze eye height Y(0)=P+B from three
-                    //    (pitch, height) samples on the neck-pivot arc Y(p)=P+A*sin(p)+B*cos(p).
-                    for (int i = 0; i < cases; i++)
-                    {
-                        var rng = new System.Random(4000 + i);
-                        float P = Mathf.Lerp(1.3f, 1.9f, (float)rng.NextDouble());
-                        float A = Mathf.Lerp(0.08f, 0.16f, (float)rng.NextDouble()) * (rng.Next(2) == 0 ? 1f : -1f); // arc amplitude dominant so Y(0) stays in [up,down]
-                        float B = Mathf.Lerp(-0.03f, 0.03f, (float)rng.NextDouble());
-                        float pu = Mathf.Deg2Rad * Mathf.Lerp(18f, 35f, (float)rng.NextDouble());
-                        float pd = -Mathf.Deg2Rad * Mathf.Lerp(18f, 35f, (float)rng.NextDouble());
-                        float pf = Mathf.Deg2Rad * Mathf.Lerp(-4f, 4f, (float)rng.NextDouble());
-                        float Y(float p) => P + A * Mathf.Sin(p) + B * Mathf.Cos(p);
-
-                        var up = new Vector2(pu, Y(pu));
-                        var down = new Vector2(pd, Y(pd));
-                        var fwd = new Vector2(pf, Y(pf));
-                        float result = BasisLocalHeightCalculator.ComputePitchCalibratedHeight(up, down, fwd);
-                        float trueHeight = P + B; // Y(0)
-
-                        float lo = Mathf.Min(up.y, down.y), hi = Mathf.Max(up.y, down.y);
-                        bool solvable = trueHeight >= lo && trueHeight <= hi;
-                        float err = Mathf.Abs(result - trueHeight);
-                        bool pass;
-                        if (solvable)
-                        {
-                            s.PitchSolvable++;
-                            s.MaxPitchHeightErr = Mathf.Max(s.MaxPitchHeightErr, err);
-                            pass = err < 5e-3f;
-                        }
-                        else
-                        {
-                            s.PitchFallback++;
-                            pass = Mathf.Abs(result - fwd.y) < 1e-4f; // out-of-range → must fall back to the forward sample
-                        }
-                        if (!pass) s.Failures++;
-                        s.Cases++;
-                        if (!pass || i < 3) WriteRow(w, sb, "pitch", i, err, 0f, solvable ? "solve" : "fallback", pass);
-                    }
-
-                    // 5) Avatar scale modifier: ReInitialize + override sanitization + FinalScale.
+                    // 4) Avatar scale modifier: ReInitialize + override sanitization + FinalScale.
                     s.ScaleModifierMismatches = RunScaleModifier(w, sb);
                     s.Cases += 9;
                     s.Failures += s.ScaleModifierMismatches;
 
-                    // 6) Feel height (BasisCalibrationMath.ComputeDeviceScale): the DeviceScale denominator must
-                    //    equal the player's true standing eye height E, else the avatar renders too tall/short
-                    //    (the "nudge once or twice to feel right" report). A correctly measured denominator lands
-                    //    the viewpoint (trueEye * DeviceScale) on the avatar eye; an under-bridged eye reference
-                    //    (OpenVR HMD pose-origin gap g not fully covered by CenterEyeVerticalOffset o) renders too
-                    //    tall by E/(E-shortfall) and is cancelled by AdditionalPlayerHeight == shortfall.
+                    // 5) Feel height (BasisCalibrationMath.ComputeDeviceScale): the DeviceScale denominator must
+                    //    equal the player's true standing eye height E, else the avatar renders too tall/short.
+                    //    A correctly measured denominator lands the viewpoint (trueEye * DeviceScale) on the
+                    //    avatar eye; an under-bridged eye reference (OpenVR HMD pose-origin gap g not fully
+                    //    covered by CenterEyeVerticalOffset o) renders too tall by E/(E-shortfall) and is
+                    //    cancelled by an additive correction == shortfall.
                     for (int i = 0; i < cases; i++)
                     {
                         var rng = new System.Random(6000 + i);
@@ -229,7 +185,7 @@ namespace Basis.IK.Debugging
                     }
                 }
 
-                s.WorstSummary = Mathf.Max(Mathf.Max(s.MaxOffsetPosErr, s.MaxScalePosErr), Mathf.Max(Mathf.Max(s.MaxRigidFollowErr, s.MaxPitchHeightErr), s.MaxFeelHeightErr));
+                s.WorstSummary = Mathf.Max(Mathf.Max(s.MaxOffsetPosErr, s.MaxScalePosErr), Mathf.Max(s.MaxRigidFollowErr, s.MaxFeelHeightErr));
                 s.Ok = true;
             }
             catch (System.Exception e)

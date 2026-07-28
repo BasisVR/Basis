@@ -1,0 +1,19 @@
+{
+    "name": "BasisServersProvider.Editor",
+    "rootNamespace": "",
+    "references": [
+        "BasisServersProvider",
+        "BasisSettings"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

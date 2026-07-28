@@ -13,9 +13,9 @@ using UnityEngine.Jobs;
 
 /// <summary>
 /// Drives per-finger poses for both hands. Bakes a 2D pose grid at init time,
-/// then each frame schedules two chained Burst jobs:
-///   1) BasisFingerInterpolateJob — bilinearly interpolates targets from the grid
-///   2) BasisFingerSlerpJob — slerps current rotations toward targets and writes transforms
+/// then each frame schedules one Burst job: BasisFingerSlerpJob interpolates each joint's target from the
+/// grid, slerps toward it and writes the transform. It was two chained jobs until the dependency fence and
+/// the second dispatch turned out to cost far more than the ~3 us of work in the whole chain.
 /// Follows the Simulate/Apply pattern used by BasisPickupSyncDriver and JigglePhysics.
 ///
 /// Pose grid data is cached per humanoid Avatar asset. Loading the same avatar a second
@@ -68,7 +68,6 @@ public class BasisLocalHandDriver
     /// <summary>Per-finger percentages written each frame (10 float2).</summary>
     private NativeArray<float2> _percentages;
     /// <summary>Interpolated targets (30 quaternions, flat indexed).</summary>
-    private NativeArray<quaternion> _targetRotations;
     /// <summary>Current smoothed rotations (compact, _validJointCount).</summary>
     private NativeArray<quaternion> _currentRotations;
     /// <summary>Maps compact TAA index → flat joint index.</summary>
@@ -94,7 +93,6 @@ public class BasisLocalHandDriver
             _hasScheduledJob = false;
         }
         if (_fingerTransforms.isCreated) _fingerTransforms.Dispose();
-        if (_targetRotations.IsCreated) _targetRotations.Dispose();
         if (_currentRotations.IsCreated) _currentRotations.Dispose();
         if (_jointMapping.IsCreated) _jointMapping.Dispose();
         if (_percentages.IsCreated) _percentages.Dispose();
@@ -364,7 +362,6 @@ public class BasisLocalHandDriver
         {
             _fingerTransforms = new TransformAccessArray(validTransforms.ToArray());
             _percentages = new NativeArray<float2>(10, Allocator.Persistent);
-            _targetRotations = new NativeArray<quaternion>(30, Allocator.Persistent);
             _currentRotations = new NativeArray<quaternion>(_validJointCount, Allocator.Persistent);
             _jointMapping = new NativeArray<int>(_validJointCount, Allocator.Persistent);
 
@@ -415,28 +412,20 @@ public class BasisLocalHandDriver
         p[8] = UnsafeUtility.As<Vector2, float2>(ref RightHand.RingPercentage);
         p[9] = UnsafeUtility.As<Vector2, float2>(ref RightHand.LittlePercentage);
 
-        // Job 1: bilinear interpolation from pose grid → target rotations
-        var interpJob = new BasisFingerInterpolateJob
+        // Single job: grid interpolation + slerp + transform write, one dispatch, no dependency fence.
+        var slerpJob = new BasisFingerSlerpJob
         {
             PoseGrid = _nativePoseGrid,
             Percentages = _percentages,
-            Targets = _targetRotations,
+            CurrentRotations = _currentRotations,
+            JointMapping = _jointMapping,
             GridWidth = GridWidth,
             GridHeight = GridHeight,
             FingerStride = _fingerStride,
-            Increment = increment
-        };
-        JobHandle interpHandle = interpJob.Schedule(10, 1);
-
-        // Job 2: slerp current → target and write to transforms (depends on Job 1)
-        var slerpJob = new BasisFingerSlerpJob
-        {
-            TargetRotations = _targetRotations,
-            CurrentRotations = _currentRotations,
-            JointMapping = _jointMapping,
+            Increment = increment,
             LerpFactor = math.saturate(LerpSpeed * DeltaTime)
         };
-        _fingerJobHandle = slerpJob.Schedule(_fingerTransforms, interpHandle);
+        _fingerJobHandle = slerpJob.Schedule(_fingerTransforms);
         _hasScheduledJob = true;
     }
 

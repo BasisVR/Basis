@@ -7,7 +7,6 @@ using UnityEngine.InputSystem;
 public class BasisOpenXRHeadInput : BasisInput
 {
     public BasisOpenXRInputEye BasisOpenXRInputEye;
-    public BasisLocalVirtualSpineDriver BasisVirtualSpine = new BasisLocalVirtualSpineDriver();
     public InputActionProperty Position;
     public InputActionProperty Rotation;
 
@@ -16,6 +15,7 @@ public class BasisOpenXRHeadInput : BasisInput
 
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole)
     {
+        TrackingHardware = BasisTrackingHardware.InsideOut;
         InitializeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, BasisBoneTrackedRole.CenterEye);
 
         Position = new InputActionProperty(new InputAction("<XRHMD>/centerEyePosition", InputActionType.Value, "<XRHMD>/centerEyePosition", expectedControlType: "Vector3"));
@@ -29,7 +29,6 @@ public class BasisOpenXRHeadInput : BasisInput
 
         BasisOpenXRInputEye = gameObject.AddComponent<BasisOpenXRInputEye>();
         BasisOpenXRInputEye.Initialize();
-        BasisVirtualSpine.Initialize();
     }
 
     private void DisableInputActions()
@@ -41,21 +40,17 @@ public class BasisOpenXRHeadInput : BasisInput
     public new void OnDestroy()
     {
         DisableInputActions();
-        BasisVirtualSpine.DeInitialize();
         BasisOpenXRInputEye?.Shutdown();
         base.OnDestroy();
     }
 
     public override void LateDoPollData()
     {
+        PollPose();
     }
     public override void RenderPollData()
     {
-        ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _positionAction.ReadValue<Vector3>());
-        UnscaledDeviceCoord.rotation = _rotationAction.ReadValue<Quaternion>();
-
-        ConvertToScaledDeviceCoord();
-        ControlOnlyAsDevice();
+        PollPose();
         ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
         UpdateInputEvents();
 
@@ -63,6 +58,14 @@ public class BasisOpenXRHeadInput : BasisInput
         {
             BasisOpenXRInputEye.Simulate();
         }
+    }
+    private void PollPose()
+    {
+        ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _positionAction.ReadValue<Vector3>());
+        UnscaledDeviceCoord.rotation = _rotationAction.ReadValue<Quaternion>();
+
+        ConvertToScaledDeviceCoord();
+        ControlOnlyAsDevice();
     }
     public override void ShowTrackedVisual()
     {

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d59ae4f317f9b4f8b8d64f71768aaea6
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - <Resources>k__BackingField: {fileID: 11400000, guid: 4f35cf6570beb4605a26cd2d71c4f8fc,
+      type: 2}
+  - _sourceCamera: {instanceID: 0}
+  - _sourceTexture: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -17,7 +17,7 @@
     },
     {
       "key": "menu.servers.host",
-      "value": "Host"
+      "value": "Hosten"
     },
     {
       "key": "menu.servers.ipAddress",
@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "Nog geen servers. Druk op «Server toevoegen» om er een aan te maken."
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "Server toevoegen"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "Alles vernieuwen"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "Server bewerken"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "Nieuwe server"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "Opslaan"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "Annuleren"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "Verwijderen"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "Bewerken"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "Vernieuwen"
     },
     {
       "key": "menu.servers.list.players",
@@ -97,7 +97,7 @@
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "Opvragen..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "Delen"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Welkom bij Basis Labs!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs is de levende etalage van het Basis Framework — een gratis, MIT-gelicentieerde basis voor VR-games, -platformen en -ervaringen. Verken werelden, draag eigen avatars en ontmoet mensen terwijl je functies test die nog in de maak zijn. Alles hier is in ontwikkeling — jouw feedback helpt het vorm te geven."
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "Volgende"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "Je eerste server"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Er is geen centrale Basis-dienst — iedereen kan een server draaien, en je kunt er direct vanuit dit paneel zelf een hosten. Zodat je altijd ergens terechtkunt, draaien wij een standaardserver, gemarkeerd met een ★ bovenaan de lijst hieronder. Kies een gebruikersnaam, druk op de oplichtende knop «Verbinden» en kom even hallo zeggen!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "Begrepen!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "Kies een gebruikersnaam"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "Kies de naam die andere spelers zien en druk daarna op «Verbinden»."
     },
     {
       "key": "menu.servers.hostMotd",

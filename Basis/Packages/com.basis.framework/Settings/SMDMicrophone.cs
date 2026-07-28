@@ -1,4 +1,5 @@
 #if !BASIS_DISABLE_MICROPHONE
+using Basis;
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using System;
@@ -40,6 +41,7 @@ public class SMDMicrophone : BasisSettingsBase
         public float AgcRelease;
 
         public bool UseNoiseGate;
+        public bool AutoNoiseGate;
         public float NoiseGateThreshold;
         public float NoiseGateAttack;
         public float NoiseGateRelease;
@@ -66,38 +68,64 @@ public class SMDMicrophone : BasisSettingsBase
     private const string K_DN_MK = "DenoiseMakeupDb";
     private const string K_DN_WET = "DenoiseWet";
     private const string K_AGC_ON = "UseAGC";
-    private const string K_AGC_TR = "AgcTargetRmsV2";
-    private const string K_AGC_MG = "AgcMaxGainDb";
-    private const string K_AGC_AT = "AgcAttack";
-    private const string K_AGC_RL = "AgcReleaseV2";
+    private const string K_AGC_TR = "AgcTargetRmsV3";
+    private const string K_AGC_MG = "AgcMaxGainDbV2";
+    private const string K_AGC_AT = "AgcAttackV2";
+    private const string K_AGC_RL = "AgcReleaseV3";
     private const string K_NG_ON = "UseNoiseGate";
+    private const string K_NG_AUTO = "AutoNoiseGate";
     private const string K_NG_TH = "NoiseGateThreshold";
     private const string K_NG_AT = "NoiseGateAttackV2";
     private const string K_NG_RL = "NoiseGateRelease";
     private const string K_TALK = "TalkMode";
 
+    /// <summary>
+    /// Reads a binding's platform-resolved default. Every value mirrored here and in
+    /// <see cref="BasisSettingsDefaults"/> MUST come through this: binding loads use
+    /// SetValueWithoutNotify and never reach this class, so a hardcoded copy that drifts
+    /// leaves the toggle reading one way while the driver does the other.
+    /// </summary>
+    private static T BindingDefault<T>(BasisSettingsBinding<T> binding, T fallback)
+    {
+        if (binding == null || binding.DefaultValue == null)
+        {
+            return fallback;
+        }
+
+        return binding.DefaultValue.GetDefault();
+    }
+
     private static MicSettings Defaults()
     {
         string defaultMic = (MicrophoneDevices != null && MicrophoneDevices.Length > 0) ? MicrophoneDevices[0] : "";
+
+        BasisMicrophoneMode talkMode = BasisMicrophoneMode.OnActivation;
+        string modeDefault = BindingDefault(BasisSettingsDefaults.MicrophoneMode, "onactivation");
+        if (!string.IsNullOrEmpty(modeDefault))
+        {
+            Enum.TryParse(modeDefault.Replace(" ", ""), true, out talkMode);
+        }
+
         return new MicSettings
         {
             Microphone = defaultMic,
-            Volume01 = 1f,
-            UseDenoiser = false,
-            LimitThreshold = 0.95f,
-            LimitKnee = 0.05f,
-            DenoiseMakeupDb = 3f,
-            DenoiseWet = 1f,
-            UseAGC = false,
-            AgcTargetRms = 0.15f,
-            AgcMaxGainDb = 8f,
-            AgcAttack = 0.10f,
-            AgcRelease = 0.05f,
-            UseNoiseGate = false,
-            NoiseGateThreshold = 0.01f,
-            NoiseGateAttack = 0.30f,
-            NoiseGateRelease = 0.05f,
-            TalkMode = BasisMicrophoneMode.OnActivation
+            Volume01 = BindingDefault(BasisSettingsDefaults.MicrophoneVolume, 1f),
+            UseDenoiser = BindingDefault(BasisSettingsDefaults.MicrophoneDenoiser, false),
+            LimitThreshold = BindingDefault(BasisSettingsDefaults.LimitThreshold, 0.95f),
+            LimitKnee = BindingDefault(BasisSettingsDefaults.LimitKnee, 0.05f),
+            DenoiseMakeupDb = BindingDefault(BasisSettingsDefaults.DenoiseMakeupDb, 3f),
+            DenoiseWet = BindingDefault(BasisSettingsDefaults.DenoiseWet, 1f),
+            UseAGC = BindingDefault(BasisSettingsDefaults.UseAutomaticGain, true),
+            AgcTargetRms = BasisMicrophoneAgc.DefaultTargetRms,
+            AgcMaxGainDb = BindingDefault(BasisSettingsDefaults.AgcMaxGainDb, 24f),
+            AgcAttack = BindingDefault(BasisSettingsDefaults.AgcAttack, 0.75f),
+            AgcRelease = BindingDefault(BasisSettingsDefaults.AgcRelease, 0.85f),
+            UseNoiseGate = BindingDefault(BasisSettingsDefaults.UseNoiseGate, false),
+            AutoNoiseGate = BindingDefault(BasisSettingsDefaults.AutoNoiseGate, true),
+            NoiseGateThreshold = BindingDefault(BasisSettingsDefaults.NoiseGateThreshold, 0.01f),
+            NoiseGateAttack = BindingDefault(BasisSettingsDefaults.NoiseGateAttack, 0.10f),
+            NoiseGateRelease = BindingDefault(BasisSettingsDefaults.NoiseGateRelease, 0.05f),
+            TalkMode = talkMode
         };
     }
 
@@ -107,7 +135,7 @@ public class SMDMicrophone : BasisSettingsBase
         s.LimitThreshold = Mathf.Clamp01(s.LimitThreshold);
         s.LimitKnee = Mathf.Clamp01(s.LimitKnee);
         s.DenoiseWet = Mathf.Clamp01(s.DenoiseWet);
-        s.AgcTargetRms = Mathf.Max(1e-6f, s.AgcTargetRms);
+        s.AgcTargetRms = BasisMicrophoneAgc.DefaultTargetRms;
         s.AgcAttack = Mathf.Clamp01(s.AgcAttack);
         s.AgcRelease = Mathf.Clamp01(s.AgcRelease);
         s.NoiseGateThreshold = Mathf.Clamp(s.NoiseGateThreshold, 0f, 0.5f);
@@ -152,12 +180,13 @@ public class SMDMicrophone : BasisSettingsBase
         s.DenoiseWet = PlayerPrefs.GetFloat(P(mode, K_DN_WET), s.DenoiseWet);
 
         s.UseAGC = PlayerPrefs.GetInt(P(mode, K_AGC_ON), s.UseAGC ? 1 : 0) == 1;
-        s.AgcTargetRms = PlayerPrefs.GetFloat(P(mode, K_AGC_TR), s.AgcTargetRms);
+        // s.AgcTargetRms = PlayerPrefs.GetFloat(P(mode, K_AGC_TR), s.AgcTargetRms);
         s.AgcMaxGainDb = PlayerPrefs.GetFloat(P(mode, K_AGC_MG), s.AgcMaxGainDb);
         s.AgcAttack = PlayerPrefs.GetFloat(P(mode, K_AGC_AT), s.AgcAttack);
         s.AgcRelease = PlayerPrefs.GetFloat(P(mode, K_AGC_RL), s.AgcRelease);
 
         s.UseNoiseGate = PlayerPrefs.GetInt(P(mode, K_NG_ON), s.UseNoiseGate ? 1 : 0) == 1;
+        s.AutoNoiseGate = PlayerPrefs.GetInt(P(mode, K_NG_AUTO), s.AutoNoiseGate ? 1 : 0) == 1;
         s.NoiseGateThreshold = PlayerPrefs.GetFloat(P(mode, K_NG_TH), s.NoiseGateThreshold);
         s.NoiseGateAttack = PlayerPrefs.GetFloat(P(mode, K_NG_AT), s.NoiseGateAttack);
         s.NoiseGateRelease = PlayerPrefs.GetFloat(P(mode, K_NG_RL), s.NoiseGateRelease);
@@ -196,12 +225,13 @@ public class SMDMicrophone : BasisSettingsBase
         PlayerPrefs.SetFloat(P(mode, K_DN_WET), s.DenoiseWet);
 
         PlayerPrefs.SetInt(P(mode, K_AGC_ON), s.UseAGC ? 1 : 0);
-        PlayerPrefs.SetFloat(P(mode, K_AGC_TR), s.AgcTargetRms);
+        // PlayerPrefs.SetFloat(P(mode, K_AGC_TR), s.AgcTargetRms);
         PlayerPrefs.SetFloat(P(mode, K_AGC_MG), s.AgcMaxGainDb);
         PlayerPrefs.SetFloat(P(mode, K_AGC_AT), s.AgcAttack);
         PlayerPrefs.SetFloat(P(mode, K_AGC_RL), s.AgcRelease);
 
         PlayerPrefs.SetInt(P(mode, K_NG_ON), s.UseNoiseGate ? 1 : 0);
+        PlayerPrefs.SetInt(P(mode, K_NG_AUTO), s.AutoNoiseGate ? 1 : 0);
         PlayerPrefs.SetFloat(P(mode, K_NG_TH), s.NoiseGateThreshold);
         PlayerPrefs.SetFloat(P(mode, K_NG_AT), s.NoiseGateAttack);
         PlayerPrefs.SetFloat(P(mode, K_NG_RL), s.NoiseGateRelease);
@@ -268,7 +298,7 @@ public class SMDMicrophone : BasisSettingsBase
     public static void SetAgcParams(float targetRms, float maxGainDb, float attack, float release)
     {
         var s = Current;
-        s.AgcTargetRms = targetRms;
+        s.AgcTargetRms = BasisMicrophoneAgc.DefaultTargetRms;
         s.AgcMaxGainDb = maxGainDb;
         s.AgcAttack = attack;
         s.AgcRelease = release;
@@ -280,6 +310,14 @@ public class SMDMicrophone : BasisSettingsBase
     {
         var s = Current;
         s.UseNoiseGate = enabled;
+        Current = s;
+        SaveCurrent();
+    }
+
+    public static void SetAutoNoiseGate(bool enabled)
+    {
+        var s = Current;
+        s.AutoNoiseGate = enabled;
         Current = s;
         SaveCurrent();
     }
@@ -309,12 +347,13 @@ public class SMDMicrophone : BasisSettingsBase
     private static string B_DENOISE_WET => BasisSettingsDefaults.DenoiseWet.BindingKey;
 
     private static string B_AGC => BasisSettingsDefaults.UseAutomaticGain.BindingKey;
-    private static string B_AGC_TARGET => BasisSettingsDefaults.AgcTargetRms.BindingKey;
+    // private static string B_AGC_TARGET => BasisSettingsDefaults.AgcTargetRms.BindingKey;
     private static string B_AGC_MAXGAIN => BasisSettingsDefaults.AgcMaxGainDb.BindingKey;
     private static string B_AGC_ATTACK => BasisSettingsDefaults.AgcAttack.BindingKey;
     private static string B_AGC_RELEASE => BasisSettingsDefaults.AgcRelease.BindingKey;
 
     private static string B_NG => BasisSettingsDefaults.UseNoiseGate.BindingKey;
+    private static string B_NG_AUTO => BasisSettingsDefaults.AutoNoiseGate.BindingKey;
     private static string B_NG_TH => BasisSettingsDefaults.NoiseGateThreshold.BindingKey;
     private static string B_NG_AT => BasisSettingsDefaults.NoiseGateAttack.BindingKey;
     private static string B_NG_RL => BasisSettingsDefaults.NoiseGateRelease.BindingKey;
@@ -365,10 +404,10 @@ public class SMDMicrophone : BasisSettingsBase
                     if (bool.TryParse(optionValue, out bool agcOn)) SetAgcEnabled(agcOn);
                     break;
 
-                case var s when s == B_AGC_TARGET:
-                    if (float.TryParse(optionValue, st, ci, out float tr))
-                        SetAgcParams(tr, Current.AgcMaxGainDb, Current.AgcAttack, Current.AgcRelease);
-                    break;
+                // case var s when s == B_AGC_TARGET:
+                //     if (float.TryParse(optionValue, st, ci, out float tr))
+                //         SetAgcParams(tr, Current.AgcMaxGainDb, Current.AgcAttack, Current.AgcRelease);
+                //     break;
 
                 case var s when s == B_AGC_MAXGAIN:
                     if (float.TryParse(optionValue, st, ci, out float mg))
@@ -387,6 +426,10 @@ public class SMDMicrophone : BasisSettingsBase
 
                 case var s when s == B_NG:
                     if (bool.TryParse(optionValue, out bool ngOn)) SetNoiseGateEnabled(ngOn);
+                    break;
+
+                case var s when s == B_NG_AUTO:
+                    if (bool.TryParse(optionValue, out bool ngAuto)) SetAutoNoiseGate(ngAuto);
                     break;
 
                 case var s when s == B_NG_TH:

@@ -26,6 +26,7 @@ using UnityEngine.Jobs;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Burst;
+using Unity.Profiling;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -121,10 +122,13 @@ namespace SteamAudio
         // (1 = every frame; 2 ≈ 45 Hz at 90 fps). Sim-defined occlusion/attenuation
         // are smoothed in the DSP, so a few-frame push cadence is inaudible.
         public static int DirectParamPushInterval = 2;
+        public static int DirectParamPushIntervalFar = 6;
+        public static float DirectParamPushFarDistance = 15.0f;
 
         IntPtr[] mSnapHandles = null;
         SimulationInputs[] mSnapInputs = null;
         SteamAudioSource[] mSnapSources = null;
+        bool[] mSnapFar = null;
         DirectEffectParams[] mDirectOutBuf = null;
         int mSnapCount = 0;
         long mDirectFrameCounter = 0;
@@ -133,7 +137,38 @@ namespace SteamAudio
 
         float mSimulationUpdateTimeElapsed = 0.0f;
         bool mSceneCommitRequired = false;
+        // Simulator membership (source/probe add-remove) or scene identity changed
+        // since the last iplSimulatorCommit. Starts true so the first Apply commits.
+        bool mSimulatorCommitRequired = true;
         Camera mMainCamera;
+
+        // Sliced reflections cadence: outputs of the previous run drain a slice per
+        // frame (-1 = drained), then reflections inputs stage a slice per frame; the
+        // thread is kicked only when a cadence tick is pending AND a full pass is
+        // staged. See the reflections block in ApplyInstance.
+        int mReflOutputCursor = -1;
+        int mReflInputCursor = 0;
+        bool mReflInputsStaged = false;
+        bool mReflKickPending = false;
+
+        static int ReflectionsSliceBudget(int count, float interval)
+        {
+            if (count <= 0) return 1;
+            float dt = Time.deltaTime;
+            if (dt <= 0f) return count;
+            int frames = (int)(interval / dt);
+            if (frames < 1) frames = 1;
+            int slice = (count + frames - 1) / frames;
+            return slice < 4 ? 4 : slice;
+        }
+
+        static readonly ProfilerMarker sMarkerSkipBusy = new ProfilerMarker("SteamAudio.Apply.SkipWorkerBusy");
+        static readonly ProfilerMarker sMarkerReap = new ProfilerMarker("SteamAudio.Apply.Reap");
+        static readonly ProfilerMarker sMarkerApplyOutputs = new ProfilerMarker("SteamAudio.Apply.ApplyOutputs");
+        static readonly ProfilerMarker sMarkerCommit = new ProfilerMarker("SteamAudio.Apply.Commit");
+        static readonly ProfilerMarker sMarkerGatherComplete = new ProfilerMarker("SteamAudio.Apply.GatherComplete");
+        static readonly ProfilerMarker sMarkerSnapshot = new ProfilerMarker("SteamAudio.Apply.BuildSnapshot");
+        static readonly ProfilerMarker sMarkerReflections = new ProfilerMarker("SteamAudio.Apply.Reflections");
 
         public static SteamAudioManager Singleton = null;
 
@@ -591,6 +626,17 @@ namespace SteamAudio
         {
             Singleton.mSceneCommitRequired = true;
         }
+
+        // Call when simulator membership changes (source or probe batch added/removed),
+        // so the next Apply runs iplSimulatorCommit. Source.AddToSimulator and friends
+        // call this themselves; scene-content changes go through ScheduleCommitScene.
+        public static void NotifySimulatorDirty()
+        {
+            if (Singleton != null)
+            {
+                Singleton.mSimulatorCommitRequired = true;
+            }
+        }
 #if BASIS_FRAMEWORK_EXISTS
         public static void Schedule()
         {
@@ -625,6 +671,11 @@ namespace SteamAudio
             // Drain deferred SteamAudioSource inits (frame-budgeted).
             SteamAudioSource.ProcessPendingInits();
 
+            // Camera matrices are read here, before any transform-writing job is dispatched.
+            // At Apply's call site the jiggle pose jobs are in flight, and a main-thread
+            // camera/Transform read there would stall on their safety handles.
+            mCachedPerspectiveCorrection = GetPerspectiveCorrection();
+
             // --- Gather transforms via jobs ---
             EnsureTransformArraysCreated();
             EnsureSourceCapacity(CurrentArraySource);
@@ -639,7 +690,7 @@ namespace SteamAudio
                 {
                     PoseData = mSourceGathers,
                 };
-                sourcesHandle = job.Schedule(mSourceTransforms);
+                sourcesHandle = job.ScheduleReadOnly(mSourceTransforms, 16);
             }
 
             if (CurrentArrayListener > 0 && mListenerTransforms.isCreated)
@@ -648,35 +699,76 @@ namespace SteamAudio
                 {
                     PoseData = mListenerGathers,
                 };
-                listenersHandle = job.Schedule(mListenerTransforms);
+                listenersHandle = job.ScheduleReadOnly(mListenerTransforms, 4);
+                mListenerGatherCount = CurrentArrayListener;
+            }
+            else
+            {
+                mListenerGatherCount = 0;
             }
             combined = JobHandle.CombineDependencies(sourcesHandle, listenersHandle);
         }
         public JobHandle combined;
+        PerspectiveCorrection mCachedPerspectiveCorrection;
+        int mListenerGatherCount;
         private void ApplyInstance()
         {
             if (mAudioEngineState == null)
+            {
+                // Schedule() ran regardless of engine state — never leave its
+                // gather job in flight across the frame boundary.
+                combined.Complete();
                 return;
+            }
 
             SteamAudioSettings settings = SteamAudioSettings.Singleton;
             SteamAudioListener steamAudioListener = SteamAudioManager.GetSteamAudioListener();
 
             mAudioEngineState.SetHRTFDisabled(settings.hrtfDisabled);
-            var perspectiveCorrection = GetPerspectiveCorrection();
+            var perspectiveCorrection = mCachedPerspectiveCorrection;
             mAudioEngineState.SetPerspectiveCorrection(perspectiveCorrection);
             mAudioEngineState.SetHRTF(CurrentHRTF.Get());
 
             if (mCurrentScene == null || mSimulator == null)
+            {
+                combined.Complete();
                 return;
+            }
+
+            // Keep the reflections cadence clock ticking even on frames that skip
+            // the direct cycle below, so the interval cannot stretch under load.
+            mSimulationUpdateTimeElapsed += Time.deltaTime;
 
             // Reap the direct simulation the worker ran against last frame's
-            // inputs. Blocking here instead of right after RunDirect lets the
-            // ~11ms of occlusion ray casting overlap the rest of the main-thread
+            // inputs. Deferring the reap to here instead of right after RunDirect
+            // lets the occlusion ray casting overlap the rest of the main-thread
             // frame; one-frame-stale occlusion/attenuation is inaudible.
+            //
+            // Never block on it: with enough sources the worker's cycle outlasts a
+            // frame, and a plain WaitOne turns that whole overrun into main-thread
+            // stall. If it is still running, skip this frame's direct cycle — the
+            // worker still owns the snapshot buffers and any deferred source
+            // handles, so nothing below is safe to touch. Outputs land a frame
+            // later and the sim self-paces to what the worker can sustain.
             bool reapNow = mDirectInFlight;
             if (mDirectInFlight)
             {
-                mDirectDoneHandle.WaitOne();
+                bool workerDone;
+                using (sMarkerReap.Auto())
+                {
+                    workerDone = mDirectDoneHandle.WaitOne(0);
+                }
+                if (!workerDone)
+                {
+                    using (sMarkerSkipBusy.Auto())
+                    {
+                        // The pose gather must still be joined — left in flight it
+                        // would stall the next main-thread Transform access on its
+                        // safety handle instead.
+                        combined.Complete();
+                    }
+                    return;
+                }
                 mDirectInFlight = false;
             }
 
@@ -686,44 +778,58 @@ namespace SteamAudio
 
             if (reapNow)
             {
-                if (UseThreadedDirectPipeline)
+                using (sMarkerApplyOutputs.Auto())
                 {
-                    long frame = mDirectFrameCounter;
-                    int interval = DirectParamPushInterval < 1 ? 1 : DirectParamPushInterval;
-                    for (int i = 0; i < mSnapCount; i++)
+                    if (UseThreadedDirectPipeline)
                     {
-                        SteamAudioSource src = mSnapSources[i];
-                        if (src == null) continue;
+                        long frame = mDirectFrameCounter;
+                        int interval = DirectParamPushInterval < 1 ? 1 : DirectParamPushInterval;
+                        int farInterval = DirectParamPushIntervalFar < interval ? interval : DirectParamPushIntervalFar;
+                        for (int i = 0; i < mSnapCount; i++)
+                        {
+                            int srcInterval = mSnapFar[i] ? farInterval : interval;
+                            if (srcInterval > 1 && ((frame + i) % srcInterval) != 0) continue;
 
-                        bool pushNow = (interval == 1) || (((frame + i) % interval) == 0);
-                        src.ApplyDirectOutputs(in mDirectOutBuf[i], pushNow);
+                            SteamAudioSource src = mSnapSources[i];
+                            if (src == null) continue;
+
+                            src.ApplyDirectOutputs(in mDirectOutBuf[i]);
+                        }
                     }
-                }
-                else
-                {
-                    for (int i = 0; i < CurrentArraySource; i++)
+                    else
                     {
-                        SteamAudioSource src = mSources[i];
-                        if (src == null) continue;
+                        for (int i = 0; i < CurrentArraySource; i++)
+                        {
+                            SteamAudioSource src = mSources[i];
+                            if (src == null) continue;
 
-                        src.ReapDirect();
+                            src.ReapDirect();
+                        }
                     }
                 }
             }
 
-            // Commit only when no run is in flight: the direct worker is idle
-            // (reaped above) and the reflections thread is asleep. Steam Audio
-            // forbids Commit overlapping RunDirect/RunReflections.
-            if (mSimulationThread.ThreadState == ThreadState.WaitSleepJoin)
+            // Commit only when something changed — simulator membership (sources,
+            // probe batches) or scene identity/content — and only when no run is
+            // in flight: the direct worker is idle (reaped above) and the
+            // reflections thread is asleep. Steam Audio forbids Commit overlapping
+            // RunDirect/RunReflections. An unconditional per-frame Commit re-walks
+            // simulator state natively for nothing on the vast majority of frames.
+            if ((mSceneCommitRequired || mSimulatorCommitRequired) &&
+                mSimulationThread.ThreadState == ThreadState.WaitSleepJoin)
             {
-                if (mSceneCommitRequired)
+                using (sMarkerCommit.Auto())
                 {
-                    mCurrentScene.Commit();
-                    mSceneCommitRequired = false;
-                }
+                    if (mSceneCommitRequired)
+                    {
+                        mCurrentScene.Commit();
+                        mSceneCommitRequired = false;
+                    }
 
-                mSimulator.SetScene(mCurrentScene);
-                mSimulator.Commit();
+                    mSimulator.SetScene(mCurrentScene);
+                    mSimulator.Commit();
+                    mSimulatorCommitRequired = false;
+                }
             }
 
             // Complete the in-flight GatherPoseJob BEFORE touching mListener's
@@ -732,11 +838,36 @@ namespace SteamAudio
             // on the TAA's safety handle until the job finishes. Reading
             // position/forward/up/right ahead of Complete() was the source of
             // the per-frame Transform.get_position spike.
-            combined.Complete();
+            using (sMarkerGatherComplete.Auto())
+            {
+                combined.Complete();
+            }
 
             var sharedInputs = new SimulationSharedInputs { };
 
-            if (mListener != null)
+            // The listener pose comes from the gather job (completed above) instead of a
+            // managed Transform read: at this point in LateUpdate the jiggle pose jobs are
+            // writing avatar hierarchies, and touching a Transform they cover would stall
+            // the main thread on their safety handles. Values are identical — nothing moves
+            // the camera between the gather and here.
+            bool listenerFromGather = false;
+            if (mListenerComponent != null && mListenerGathers.IsCreated)
+            {
+                for (int i = 0; i < mListenerGatherCount; i++)
+                {
+                    if (ReferenceEquals(mListeners[i], mListenerComponent))
+                    {
+                        GatheredData g = mListenerGathers[i];
+                        sharedInputs.listener.origin = g.origin;
+                        sharedInputs.listener.ahead = g.ahead;
+                        sharedInputs.listener.up = g.up;
+                        sharedInputs.listener.right = g.right;
+                        listenerFromGather = true;
+                        break;
+                    }
+                }
+            }
+            if (!listenerFromGather && mListener != null)
             {
                 // One native interop call instead of four (position + 3 basis
                 // vectors). Each property accessor goes through a P/Invoke;
@@ -759,6 +890,7 @@ namespace SteamAudio
             mSimulator.SetSharedInputs(SimulationFlags.Direct, sharedInputs);
 
             // --- Direct inputs from cached pose arrays ---
+            sMarkerSnapshot.Begin();
             unsafe
             {
                 if (UseThreadedDirectPipeline)
@@ -772,6 +904,8 @@ namespace SteamAudio
                     int snap = 0;
                     if (mSourceGathers.IsCreated && srcCount > 0)
                     {
+                        Vector3 listenerOrigin = sharedInputs.listener.origin;
+                        float farDistSq = DirectParamPushFarDistance * DirectParamPushFarDistance;
                         GatheredData* pSrcGathers = (GatheredData*)mSourceGathers.GetUnsafeReadOnlyPtr();
                         for (int i = 0; i < srcCount; i++)
                         {
@@ -782,12 +916,15 @@ namespace SteamAudio
                             if (h == IntPtr.Zero) continue;
 
                             GatheredData pos = pSrcGathers[i];
-                            if (!src.TryBuildInputs(SimulationFlags.Direct, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener, out SimulationInputs inputs))
+                            if (!src.TryBuildInputsInto(SimulationFlags.Direct, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener, ref mSnapInputs[snap]))
                                 continue;
 
+                            float dx = pos.origin.x - listenerOrigin.x;
+                            float dy = pos.origin.y - listenerOrigin.y;
+                            float dz = pos.origin.z - listenerOrigin.z;
                             mSnapSources[snap] = src;
                             mSnapHandles[snap] = h;
-                            mSnapInputs[snap] = inputs;
+                            mSnapFar[snap] = (dx * dx + dy * dy + dz * dz) > farDistSq;
                             snap++;
                         }
                     }
@@ -821,25 +958,50 @@ namespace SteamAudio
                 }
             }
 
+            sMarkerSnapshot.End();
+
             // RunDirect for these inputs is deferred to the worker (signaled at
             // the end of this method) and reaped at the top of next frame. The
             // direct UpdateOutputs/ForceUpdate that used to follow RunDirect now
             // lives in that reap.
 
             // --- Reflections/Pathing timing logic ---
+            // The cadence clock accumulates at the top of ApplyInstance (before the
+            // worker-busy skip) so skipped frames still count toward the interval.
+            //
+            // The per-source output drain (UpdateOutputs + ForceUpdate) and reflections
+            // SetInputs staging are SLICED across the frames between cadence ticks instead
+            // of walking every source on the tick frame — with hundreds of sources both
+            // walks on one frame were a multi-millisecond main-thread spike at the cadence
+            // rate. The thread is only kicked once a full input pass is staged (and the
+            // previous run's outputs fully drained), so a run never reads a half-staged
+            // input set; under heavy source counts the effective reflections rate degrades
+            // gracefully instead of spiking.
             bool runReflectionsThisFrame = false;
-            mSimulationUpdateTimeElapsed += Time.deltaTime;
-            bool reflectionsCadenceReady = mSimulationUpdateTimeElapsed >= settings.simulationUpdateInterval;
-            if (reflectionsCadenceReady)
-                mSimulationUpdateTimeElapsed = 0.0f;
-
-            if (reflectionsCadenceReady && mSimulationThread.ThreadState == ThreadState.WaitSleepJoin)
+            if (mSimulationUpdateTimeElapsed >= settings.simulationUpdateInterval)
             {
+                mSimulationUpdateTimeElapsed = 0.0f;
+                mReflKickPending = true;
+            }
+
+            if (mSimulationThread.ThreadState == ThreadState.WaitSleepJoin)
+            {
+                using var reflectionsScope = sMarkerReflections.Auto();
                 if (mSimulationCompleted)
                 {
                     mSimulationCompleted = false;
+                    mReflOutputCursor = 0;
+                    mReflInputCursor = 0;
+                    mReflInputsStaged = false;
+                }
 
-                    for (int i = 0; i < CurrentArraySource; i++)
+                int srcTotal = CurrentArraySource;
+                int slice = ReflectionsSliceBudget(srcTotal, settings.simulationUpdateInterval);
+
+                if (mReflOutputCursor >= 0)
+                {
+                    int end = Mathf.Min(mReflOutputCursor + slice, srcTotal);
+                    for (int i = mReflOutputCursor; i < end; i++)
                     {
                         SteamAudioSource src = mSources[i];
                         if (src == null) continue;
@@ -847,42 +1009,61 @@ namespace SteamAudio
                         src.UpdateOutputs(SimulationFlags.Reflections | SimulationFlags.Pathing);
                         src.ForceUpdate();
                     }
+                    mReflOutputCursor = end >= srcTotal ? -1 : end;
                 }
-
-                mSimulator.SetSharedInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, sharedInputs);
-
-                // Reuse the same cached poses we already gathered this frame.
-                // If you want “freshest possible” poses right before reflections, reschedule jobs here.
-                unsafe
+                else if (!mReflInputsStaged)
                 {
-                    if (mSourceGathers.IsCreated && CurrentArraySource > 0)
+                    // Reuse the same cached poses we already gathered this frame.
+                    // If you want “freshest possible” poses right before reflections, reschedule jobs here.
+                    unsafe
                     {
-                        GatheredData* pSrcGathers2 = (GatheredData*)mSourceGathers.GetUnsafeReadOnlyPtr();
-                        for (int i = 0; i < CurrentArraySource; i++)
+                        if (mSourceGathers.IsCreated && srcTotal > 0)
                         {
-                            SteamAudioSource src = mSources[i];
-                            if (src == null) continue;
+                            GatheredData* pSrcGathers2 = (GatheredData*)mSourceGathers.GetUnsafeReadOnlyPtr();
+                            int end = Mathf.Min(mReflInputCursor + slice, srcTotal);
+                            for (int i = mReflInputCursor; i < end; i++)
+                            {
+                                SteamAudioSource src = mSources[i];
+                                if (src == null) continue;
 
-                            GatheredData pos = pSrcGathers2[i];
-                            src.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener);
+                                GatheredData pos = pSrcGathers2[i];
+                                src.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, pos.origin, pos.ahead, pos.up, pos.right, steamAudioListener);
+                            }
+                            mReflInputCursor = end;
+                            if (mReflInputCursor >= srcTotal) mReflInputsStaged = true;
                         }
-                    }
-
-                    if (mListenerGathers.IsCreated && CurrentArrayListener > 0)
-                    {
-                        GatheredData* pLisGathers2 = (GatheredData*)mListenerGathers.GetUnsafeReadOnlyPtr();
-                        for (int i = 0; i < CurrentArrayListener; i++)
+                        else
                         {
-                            SteamAudioListener lis = mListeners[i];
-                            if (lis == null) continue;
-
-                            GatheredData pos = pLisGathers2[i];
-                            lis.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, settings, pos.origin, pos.ahead, pos.up, pos.right);
+                            mReflInputsStaged = true;
                         }
                     }
                 }
 
-                runReflectionsThisFrame = true;
+                if (mReflKickPending && mReflInputsStaged && mReflOutputCursor < 0)
+                {
+                    mSimulator.SetSharedInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, sharedInputs);
+
+                    unsafe
+                    {
+                        if (mListenerGathers.IsCreated && CurrentArrayListener > 0)
+                        {
+                            GatheredData* pLisGathers2 = (GatheredData*)mListenerGathers.GetUnsafeReadOnlyPtr();
+                            for (int i = 0; i < CurrentArrayListener; i++)
+                            {
+                                SteamAudioListener lis = mListeners[i];
+                                if (lis == null) continue;
+
+                                GatheredData pos = pLisGathers2[i];
+                                lis.SetInputs(SimulationFlags.Reflections | SimulationFlags.Pathing, settings, pos.origin, pos.ahead, pos.up, pos.right);
+                            }
+                        }
+                    }
+
+                    mReflKickPending = false;
+                    mReflInputsStaged = false;
+                    mReflInputCursor = 0;
+                    runReflectionsThisFrame = true;
+                }
             }
 
             // Kick the workers only after every SetInputs above is written, so a
@@ -1308,6 +1489,7 @@ namespace SteamAudio
             mSnapHandles = new IntPtr[newCap];
             mSnapInputs = new SimulationInputs[newCap];
             mSnapSources = new SteamAudioSource[newCap];
+            mSnapFar = new bool[newCap];
             mDirectOutBuf = new DirectEffectParams[newCap];
             mSnapCount = 0;
         }
@@ -1912,6 +2094,8 @@ namespace SteamAudio
             if (!additive)
             {
                 Singleton.mCurrentScene = CreateScene(context);
+                // New scene identity — the next Apply must SetScene + Commit.
+                Singleton.mSimulatorCommitRequired = true;
             }
         }
 
@@ -2267,6 +2451,7 @@ namespace SteamAudio
             {
                 Singleton.mCurrentScene.Release();
                 Singleton.mCurrentScene = null;
+                Singleton.mSimulatorCommitRequired = true;
             }
         }
 

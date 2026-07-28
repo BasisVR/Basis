@@ -98,7 +98,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         public override void OnInteractStart(BasisInput input)
         {
-            input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume);
+            input.PlaySoundEffect("grab", SMModuleAudio.ActiveMenusVolume);
             // save object distance and rotation
             anchor = input.transform;
 

@@ -1,0 +1,23 @@
+{
+  "name": "jp.keijiro.klak.spout",
+  "version": "2.0.6",
+  "displayName": "KlakSpout",
+  "description": "Cross-process texture sharing using Spout.",
+  "unity": "2022.3",
+  "author": "Keijiro Takahashi",
+  "dependencies": {
+    "com.unity.modules.screencapture": "1.0.0"
+  },
+  "changelogUrl": "https://github.com/keijiro/KlakSpout/blob/main/CHANGELOG.md",
+  "documentationUrl": "https://github.com/keijiro/KlakSpout",
+  "licensesUrl": "https://github.com/keijiro/KlakSpout/blob/main/LICENSE",
+  "license": "Unlicense",
+  "_upm": {
+    "changelog": "<b>Fixed</b><br>- Replaced the obsolete ShaderUtil API usage to remain compatible with Unity 6.3.<br><br><b>Changed</b><br>- Changed the package release workflow from GitHub Action to a semi-manual approach with help of coding agents."
+  },
+  "repository": {
+    "url": "git@github.com:keijiro/KlakSpout.git",
+    "type": "git",
+    "revision": "849e7bca3c167839ed697796153e1749acf0c53f"
+  }
+}

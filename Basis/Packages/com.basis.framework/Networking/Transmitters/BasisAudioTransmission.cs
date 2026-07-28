@@ -14,6 +14,10 @@ namespace Basis.Scripts.Networking.Transmitters
 #if !UNITY_SERVER
         public OpusSharp.Core.Interfaces.IOpusEncoder encoder;
         private readonly object _encoderLock = new object();
+        private OpusSharp.Core.Interfaces.IOpusEncoder _directEncoder;
+        private AudioSegmentDataMessage _directSegment = new AudioSegmentDataMessage();
+        private readonly NetDataWriter _directWriter = new NetDataWriter();
+        private int _directAppliedBitrate;
 #endif
         public BasisNetworkPlayer NetworkedPlayer;
         public BasisLocalPlayer Local;
@@ -68,6 +72,8 @@ namespace Basis.Scripts.Networking.Transmitters
             {
                 encoder?.Dispose();
                 encoder = null;
+                _directEncoder?.Dispose();
+                _directEncoder = null;
             }
             _frameAccum = null;
             _frameAccumFilled = 0;
@@ -77,48 +83,61 @@ namespace Basis.Scripts.Networking.Transmitters
 #if !UNITY_SERVER
         private void InitializeEncoder()
         {
-#if UNITY_IOS && !UNITY_EDITOR
-            encoder = new OpusSharp.Core.Static.OpusEncoder(
-    LocalOpusSettings.MicrophoneSampleRate,
-    LocalOpusSettings.Channels,
-    LocalOpusSettings.OpusApplication
-);
-#else
-
-            encoder = new OpusSharp.Core.Dynamic.OpusEncoder(
-                LocalOpusSettings.MicrophoneSampleRate,
-                LocalOpusSettings.Channels,
-                LocalOpusSettings.OpusApplication
-            );
-#endif
-
-            ApplyBitrate(LocalOpusSettings.EffectiveBitrate);
-            encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_COMPLEXITY, 5);
-            // Forward Error Correction — embed a low-bitrate redundant copy of the
-            // previous frame inside each packet. Combined with look-ahead decode on
-            // the receiver, this lets a single-packet loss be reconstructed from the
-            // next packet instead of falling back to PLC or silence.
-            encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_INBAND_FEC, 1);
-            ApplyPacketLossPerc(LocalOpusSettings.PacketLossPercent);
+            encoder = CreateConfiguredEncoder(LocalOpusSettings.ServerBitrate);
             LocalOpusSettings.OnPacketLossPercentChanged += ApplyPacketLossPerc;
             LocalOpusSettings.OnBitrateChanged += ApplyBitrate;
             SharedOpusSettings.OnDesiredDurationChanged += ApplyFrameDuration;
         }
 
+        private OpusSharp.Core.Interfaces.IOpusEncoder CreateConfiguredEncoder(int bitrate)
+        {
+            OpusSharp.Core.Interfaces.IOpusEncoder created;
+#if UNITY_IOS && !UNITY_EDITOR
+            created = new OpusSharp.Core.Static.OpusEncoder(
+                LocalOpusSettings.MicrophoneSampleRate,
+                LocalOpusSettings.Channels,
+                LocalOpusSettings.OpusApplication
+            );
+#else
+            created = new OpusSharp.Core.Dynamic.OpusEncoder(
+                LocalOpusSettings.MicrophoneSampleRate,
+                LocalOpusSettings.Channels,
+                LocalOpusSettings.OpusApplication
+            );
+#endif
+            ApplyBitrateTo(created, bitrate);
+            created.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_COMPLEXITY, 5);
+            // Forward Error Correction — embed a low-bitrate redundant copy of the
+            // previous frame inside each packet. Combined with look-ahead decode on
+            // the receiver, this lets a single-packet loss be reconstructed from the
+            // next packet instead of falling back to PLC or silence.
+            created.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_INBAND_FEC, 1);
+            int percent = LocalOpusSettings.PacketLossPercent;
+            if (percent < 0) percent = 0;
+            else if (percent > 100) percent = 100;
+            created.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_PACKET_LOSS_PERC, percent);
+            return created;
+        }
+
         /// <summary>
-        /// Apply a bitrate (bps) to the live encoder. Called on init and whenever an
-        /// admin pushes a per-user override via <see cref="LocalOpusSettings.OnBitrateChanged"/>.
+        /// Apply <see cref="LocalOpusSettings.ServerBitrate"/> to the live server encoder.
+        /// Subscribed to <see cref="LocalOpusSettings.OnBitrateChanged"/>.
         /// </summary>
         private void ApplyBitrate(int bitrate)
+        {
+            lock (_encoderLock)
+            {
+                if (encoder == null) return;
+                ApplyBitrateTo(encoder, bitrate);
+            }
+        }
+
+        private static void ApplyBitrateTo(OpusSharp.Core.Interfaces.IOpusEncoder target, int bitrate)
         {
             if (bitrate < LocalOpusSettings.DefaultBitrate / 8) bitrate = LocalOpusSettings.DefaultBitrate / 8;
             try
             {
-                lock (_encoderLock)
-                {
-                    if (encoder == null) return;
-                    encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_BITRATE, bitrate);
-                }
+                target.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_BITRATE, bitrate);
             }
             catch (OpusSharp.Core.OpusException ex)
             {
@@ -138,10 +157,10 @@ namespace Basis.Scripts.Networking.Transmitters
         }
 
         /// <summary>
-        /// Pushes OPUS_SET_PACKET_LOSS_PERC onto the live encoder without tearing
-        /// it down. Safe to call multiple times; subscribed to
+        /// Pushes OPUS_SET_PACKET_LOSS_PERC onto the live encoders without tearing
+        /// them down. Safe to call multiple times; subscribed to
         /// <see cref="LocalOpusSettings.OnPacketLossPercentChanged"/> so an admin
-        /// push updates FEC immediately on the already-running encoder.
+        /// push updates FEC immediately on the already-running encoders.
         /// </summary>
         private void ApplyPacketLossPerc(int percent)
         {
@@ -151,8 +170,10 @@ namespace Basis.Scripts.Networking.Transmitters
             {
                 lock (_encoderLock)
                 {
-                    if (encoder == null) return;
-                    encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_PACKET_LOSS_PERC, percent);
+                    if (encoder != null)
+                        encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_PACKET_LOSS_PERC, percent);
+                    if (_directEncoder != null)
+                        _directEncoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_PACKET_LOSS_PERC, percent);
                 }
             }
             catch (OpusSharp.Core.OpusException ex)
@@ -263,34 +284,88 @@ namespace Basis.Scripts.Networking.Transmitters
 #if !UNITY_SERVER
         private void EncodeAndSend(float[] pcm, int sampleCount)
         {
-            writer.Reset();
+            try
+            {
+                writer.Reset();
+                lock (_encoderLock)
+                {
+                    if (encoder == null) return;
+                    Segment.LengthUsed = encoder.Encode(pcm, sampleCount, Segment.buffer, Segment.TotalLength);
+                }
+                byte sequence = _sequenceNumber++;
+
+                // Saturate rather than wrap: a resume after a long mute must still read as
+                // intentional silence (>0) on the receiver, which uses 0 to mean "the gap
+                // was network loss/stall" when classifying underruns.
+                byte silence = SilentForHowLong > 255 ? (byte)255 : (byte)SilentForHowLong;
+
+                Segment.SequenceNumber = sequence;
+                Segment.TotalPlayedInSilence = silence;
+                Segment.Serialize(writer);
+
+                var peer = BasisNetworkConnection.LocalPlayerPeer;
+                if (peer == null)
+                {
+                    return;
+                }
+                byte channel = IsInShoutMode ? BasisNetworkCommons.ShoutVoiceChannel : BasisNetworkCommons.VoiceChannel;
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, Segment.LengthUsed);
+                peer.Send(writer, channel, DeliveryMethod.Unreliable);
+                if (!IsInShoutMode)
+                {
+                    NetDataWriter directWriter = writer;
+                    if (BasisP2PManager.HasAnyConnectedSession())
+                    {
+                        int directBitrate = LocalOpusSettings.DirectConnectBitrate;
+                        if (directBitrate != LocalOpusSettings.ServerBitrate)
+                        {
+                            directWriter = EncodeForDirectConnect(pcm, sampleCount, directBitrate, sequence, silence);
+                        }
+                    }
+                    if (directWriter != null)
+                    {
+                        BasisP2PManager.BroadcastVoiceViaP2P(directWriter);
+                    }
+                }
+                if (BasisLocalPlayer.Instance != null)
+                {
+                    BasisLocalPlayer.Instance.AudioReceived?.Invoke();
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogErrorOnce($"Voice encode/send failed: {ex}", BasisDebug.LogTag.Voice);
+            }
+        }
+
+        private NetDataWriter EncodeForDirectConnect(float[] pcm, int sampleCount, int bitrate, byte sequence, byte silence)
+        {
             lock (_encoderLock)
             {
-                if (encoder == null) return;
-                Segment.LengthUsed = encoder.Encode(pcm, sampleCount, Segment.buffer, Segment.TotalLength);
-            }
-            Segment.SequenceNumber = _sequenceNumber++;
+                if (encoder == null) return null;
+                if (_directEncoder == null)
+                {
+                    _directEncoder = CreateConfiguredEncoder(bitrate);
+                    _directAppliedBitrate = bitrate;
+                }
+                else if (_directAppliedBitrate != bitrate)
+                {
+                    ApplyBitrateTo(_directEncoder, bitrate);
+                    _directAppliedBitrate = bitrate;
+                }
 
-            if (SilentForHowLong > 256)
-            {
-                Segment.TotalPlayedInSilence = 0;
-            }
-            else
-            {
-                Segment.TotalPlayedInSilence = (byte)SilentForHowLong;
-            }
-            Segment.Serialize(writer);
+                if (_directSegment.buffer == null || _directSegment.TotalLength != Segment.TotalLength)
+                {
+                    _directSegment.buffer = new byte[Segment.TotalLength];
+                    _directSegment.TotalLength = Segment.TotalLength;
+                }
 
-            byte channel = IsInShoutMode ? BasisNetworkCommons.ShoutVoiceChannel : BasisNetworkCommons.VoiceChannel;
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, Segment.LengthUsed);
-            BasisNetworkConnection.LocalPlayerPeer.Send(writer, channel, DeliveryMethod.Unreliable);
-            if (!IsInShoutMode)
-            {
-                BasisP2PManager.BroadcastVoiceViaP2P(writer);
-            }
-            if (BasisLocalPlayer.Instance != null)
-            {
-                BasisLocalPlayer.Instance.AudioReceived?.Invoke();
+                _directSegment.LengthUsed = _directEncoder.Encode(pcm, sampleCount, _directSegment.buffer, _directSegment.TotalLength);
+                _directSegment.SequenceNumber = sequence;
+                _directSegment.TotalPlayedInSilence = silence;
+                _directWriter.Reset();
+                _directSegment.Serialize(_directWriter);
+                return _directWriter;
             }
         }
 #endif

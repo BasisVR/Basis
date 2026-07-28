@@ -20,11 +20,14 @@ namespace Basis.Scripts.Device_Management
         /// <summary>
         /// The device's scale-free calibration snapshot (BasisInput.CalibratedUnscaled*), carried across
         /// a disconnect so a restored device can still have its position offset re-derived for a new
-        /// avatar/DeviceScale.
+        /// avatar/DeviceScale. The head anchor travels with it — the snapshot is only meaningful in the
+        /// frame of the head it was captured against.
         /// </summary>
         public bool HasCalibratedOffsetSnapshot;
         public Vector3 CalibratedUnscaledPosition;
         public Quaternion CalibratedUnscaledRotation = Quaternion.identity;
+        public Vector3 CalibratedUnscaledHeadPosition;
+        public Quaternion CalibratedUnscaledHeadRotation = Quaternion.identity;
 
         /// <summary>
         /// The tracked role (e.g., Head, LeftHand) that this device was assigned to.

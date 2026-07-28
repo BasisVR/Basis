@@ -180,6 +180,10 @@ namespace Basis.BasisUI
             Vector3 localBoundsCenter)
         {
             if (input == null) throw new ArgumentNullException(nameof(input));
+            if (input.BasisPointRaycaster == null)
+            {
+                throw new InvalidOperationException("Cannot begin placement: the input device has no active BasisPointRaycaster.");
+            }
 
             PlacementInput = input;
 

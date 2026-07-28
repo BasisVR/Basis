@@ -132,8 +132,21 @@ public static class NetworkServer
         BasisServerReductionSystemEvents.EnableAvatarBundleCompression = Configuration.EnableAvatarBundleCompression;
         BasisServerReductionSystemEvents.AvatarBundleMinMessages = Configuration.AvatarBundleMinMessages;
         BasisServerReductionSystemEvents.AvatarBundleMinBytes = Configuration.AvatarBundleMinBytes;
-        BSRProfiler.Enabled = Configuration.EnableBSRProfiling;
-        BNL.Log($"[BSR] AvatarBundleCompression={Configuration.EnableAvatarBundleCompression} (minMsgs={Configuration.AvatarBundleMinMessages}, minBytes={Configuration.AvatarBundleMinBytes})");
+        BasisServerReductionSystemEvents.EnableAvatarDeltaCompression = Configuration.EnableAvatarDeltaCompression;
+        BasisServerReductionSystemEvents.AvatarDeltaKeyframeIntervalMs = Configuration.AvatarDeltaKeyframeIntervalMs;
+        BasisServerReductionSystemEvents.AvatarDeltaKeyframeMaxIntervalMs = Configuration.AvatarDeltaKeyframeMaxIntervalMs;
+        BasisServerReductionSystemEvents.StripAdditionalDataAtLowQuality = Configuration.StripAdditionalDataAtLowQuality;
+        BSRProfiler.Enabled = Configuration.EnableBSRProfiling || Configuration.HealthIncludeBSRProfiling;
+        BSRProfiler.WriteToLog = Configuration.EnableBSRProfiling && !Configuration.HealthIncludeBSRProfiling;
+        BasisServerReductionSystemEvents.WriteLoadLog = !Configuration.HealthIncludeBSRProfiling;
+        // Re-broadcast when a (re)applied config changes the live value so already-connected
+        // clients stay consistent with what new joiners are told (this also runs from the
+        // admin reduction-settings reload, not just boot).
+        if (BasisNetworkServer.Security.BasisOpusFrameDurationStateManager.SetFrameDurationMs(Configuration.VoiceFrameDurationMs))
+        {
+            BasisNetworkServer.Security.BasisOpusFrameDurationStateManager.BroadcastState();
+        }
+        BNL.Log($"[BSR] AvatarBundleCompression={Configuration.EnableAvatarBundleCompression} (minMsgs={Configuration.AvatarBundleMinMessages}, minBytes={Configuration.AvatarBundleMinBytes}) DeltaCompression={Configuration.EnableAvatarDeltaCompression} (keyframeMs={Configuration.AvatarDeltaKeyframeIntervalMs}) VoiceFrameDurationMs={BasisNetworkServer.Security.BasisOpusFrameDurationStateManager.FrameDurationMs}");
     }
 
     private static void InitializeAuth()

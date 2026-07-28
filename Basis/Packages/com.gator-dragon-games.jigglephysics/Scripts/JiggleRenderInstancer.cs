@@ -30,13 +30,16 @@ public class JiggleRenderInstancer {
             bufferCapacity = desiredChunkCount;
         }
 
-        bufferCount = count;
-        chunkBuffer.SetData(chunks, 0, 0, count);
+        bufferCount = math.clamp(count, 0, desiredChunkCount);
+        if (bufferCount == 0) {
+            return;
+        }
+        chunkBuffer.SetData(chunks, 0, 0, bufferCount);
     }
 
     public void Render(Bounds bounds, Mesh mesh, Material material, NativeArray<GPUChunk> chunks, int count) {
         GenerateChunks(chunks, count);
-        if (chunkBuffer == null) {
+        if (chunkBuffer == null || bufferCount == 0) {
             return;
         }
 
@@ -51,6 +54,9 @@ public class JiggleRenderInstancer {
 
     public void Dispose() {
         chunkBuffer?.Release();
+        chunkBuffer = null;
+        bufferCapacity = 0;
+        bufferCount = 0;
     }
 }
 

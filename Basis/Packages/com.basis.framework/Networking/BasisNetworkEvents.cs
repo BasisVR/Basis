@@ -138,18 +138,36 @@ public static class BasisNetworkEvents
                 Reader.Recycle();
                 return;
             }
-            //same as remote player but just used at the start
+            //same as remote player but just used at the start — arrives as a compressed batch of players
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
                 try
                 {
                     BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Reader.AvailableBytes);
-                    ServerReadyMessage srm = new ServerReadyMessage();
-                    srm.Deserialize(Reader);
-                    BasisNetworkHandleRemoval.LifecycleQueue.Enqueue(() =>
+
+                    ServerReadyBatchMessage batch = new ServerReadyBatchMessage();
+                    batch.Deserialize(Reader);
+
+                    NetDataReader batchReader = new NetDataReader(batch.Payload);
+                    for (int i = 0; i < batch.Count; i++)
                     {
-                        BasisRemotePlayerFactory.CreateRemotePlayer(srm, BasisNetworkManagement.instantiationParameters);
-                    });
+                        // One corrupt entry must not cost the whole batch: every player after it in this
+                        // packet would otherwise never spawn. Stop at the bad record, keep the good ones.
+                        ServerReadyMessage srm = new ServerReadyMessage();
+                        try
+                        {
+                            srm.Deserialize(batchReader);
+                        }
+                        catch (Exception ex)
+                        {
+                            BNL.LogError($"Dropping remote-player spawn batch at entry {i}/{batch.Count}: {ex.Message}");
+                            break;
+                        }
+                        BasisNetworkHandleRemoval.LifecycleQueue.Enqueue(() =>
+                        {
+                            BasisRemotePlayerFactory.CreateRemotePlayer(srm, BasisNetworkManagement.instantiationParameters);
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -266,6 +284,21 @@ public static class BasisNetworkEvents
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.PlayerAvatar, Reader.AvailableBytes);
             BasisNetworkHandleCompressedBundle.Handle(Reader);
             Reader.Recycle();
+        });
+
+        BasisClientMessageRegistry.RegisterCore(BasisNetworkCommons.DeltaAvatarChannel, (peer, Reader, channel, deliveryMethod) =>
+        {
+            if (ValidateSize(Reader, peer, channel) == false)
+            {
+                Reader.Recycle();
+                return;
+            }
+            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.PlayerAvatar, Reader.AvailableBytes);
+            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Reader.AvailableBytes);
+            // A dropped delta (no receiver yet, no baseline yet) deliberately leaves its body unread —
+            // both are routine at join. Tell Recycle so the parse-bug warning stays meaningful.
+            bool leftoverIsExpected = BasisNetworkHandleAvatarDelta.Handle(Reader);
+            Reader.Recycle(leftoverIsExpected);
         });
 
         BasisClientMessageRegistry.RegisterCore(BasisNetworkCommons.SceneChannel, (peer, Reader, channel, deliveryMethod) =>
@@ -442,23 +475,20 @@ public static class BasisNetworkEvents
             }
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
-                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShare, Reader.AvailableBytes);
-                BasisContentShareManager.HandleContentShareMessage(Reader);
-                Reader.Recycle();
-            });
-        });
-
-        BasisClientMessageRegistry.RegisterCore(BasisNetworkCommons.ContentShareCleanupChannel, (peer, Reader, channel, deliveryMethod) =>
-        {
-            if (ValidateSize(Reader, peer, channel) == false)
-            {
-                Reader.Recycle();
-                return;
-            }
-            BasisDeviceManagement.EnqueueOnMainThread(() =>
-            {
-                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShareCleanup, Reader.AvailableBytes);
-                BasisContentShareManager.HandleContentShareCleanup(Reader);
+                // Multiplexed: first byte selects drop vs cleanup (ContentShareSub_*).
+                if (Reader.TryGetByte(out byte sub))
+                {
+                    if (sub == BasisNetworkCommons.ContentShareSub_Cleanup)
+                    {
+                        BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShareCleanup, Reader.AvailableBytes);
+                        BasisContentShareManager.HandleContentShareCleanup(Reader);
+                    }
+                    else
+                    {
+                        BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShare, Reader.AvailableBytes);
+                        BasisContentShareManager.HandleContentShareMessage(Reader);
+                    }
+                }
                 Reader.Recycle();
             });
         });
@@ -660,6 +690,25 @@ public static class BasisNetworkEvents
                             Basis.Scripts.Networking.BasisTalkModeManager.OnRemoteMuteReceived(muteSenderId, muteValue != 0);
                         });
                         break;
+                    case BasisNetworkCommons.EventType_VoiceRecordRequest:
+                        ushort voiceRecRequesterId = Reader.GetUShort();
+                        byte voiceRecReqPurpose = Reader.GetByte();
+                        Reader.Recycle();
+                        BasisDeviceManagement.EnqueueOnMainThread(() =>
+                        {
+                            BasisNetworkHandleVoiceRecord.OnRemoteRecordRequestReceived(voiceRecRequesterId, voiceRecReqPurpose);
+                        });
+                        break;
+                    case BasisNetworkCommons.EventType_VoiceRecordConsent:
+                        ushort voiceRecResponderId = Reader.GetUShort();
+                        byte voiceRecState = Reader.GetByte();
+                        byte voiceRecConsentPurpose = Reader.GetByte();
+                        Reader.Recycle();
+                        BasisDeviceManagement.EnqueueOnMainThread(() =>
+                        {
+                            BasisNetworkHandleVoiceRecord.OnRemoteConsentReceived(voiceRecResponderId, voiceRecState, voiceRecConsentPurpose);
+                        });
+                        break;
                     default:
                         BNL.LogError($"Unknown EventsChannel event type: {eventType}");
                         Reader.Recycle();
@@ -805,11 +854,46 @@ public static class BasisNetworkEvents
         }
         return true;
     }
+    /// <summary>
+    /// Reads a structured, kind-tagged reject payload (see BasisNetworkCommons.RejectKind_*) that a
+    /// current server attaches to a rejected connection. Non-consuming on failure so the caller can
+    /// fall back to PeekString for older servers that send a bare reason string.
+    /// </summary>
+    private static bool TryReadStructuredReject(NetDataReader data, out byte kind, out ushort aux0, out ushort aux1, out string message)
+    {
+        kind = 0; aux0 = 0; aux1 = 0; message = null;
+        if (data == null) return false;
+        byte[] raw = data.RawData;
+        int p = data.Position;
+        if (raw == null || data.AvailableBytes < 9) return false; // magic(4)+kind(1)+aux0(2)+aux1(2)
+        uint magic = (uint)(raw[p] | (raw[p + 1] << 8) | (raw[p + 2] << 16) | (raw[p + 3] << 24));
+        if (magic != BasisNetworkCommons.RejectMagic) return false;
+        try
+        {
+            data.GetUInt();            // magic
+            kind = data.GetByte();
+            aux0 = data.GetUShort();
+            aux1 = data.GetUShort();
+            message = data.AvailableBytes > 0 ? data.GetString() : null;
+            return true;
+        }
+        catch
+        {
+            message = null;
+            return false;
+        }
+    }
+
     public static void HandleDisconnectionReason(DisconnectInfo disconnectInfo)
     {
         if (disconnectInfo.Reason == DisconnectReason.DisconnectPeerCalled)
         {
             BasisDebug.Log($"Disconnected locally [{disconnectInfo.Reason}]", BasisDebug.LogTag.Networking);
+            return;
+        }
+        if (BasisNetworkConnectionWatchdog.SuppressDisconnectDialogue)
+        {
+            BasisDebug.Log($"Disconnected [{disconnectInfo.Reason}]; the connection watchdog owns the notification.", BasisDebug.LogTag.Networking);
             return;
         }
 #if UNITY_SERVER
@@ -864,30 +948,61 @@ public static class BasisNetworkEvents
         }
         else
         {
+            bool rejected = disconnectInfo.Reason == DisconnectReason.ConnectionRejected;
+            NetDataReader extra = disconnectInfo.AdditionalData;
+
+            string title;
+            string body;
+
+            // A current server attaches a structured, kind-tagged reject payload (version mismatch,
+            // server full, ...). Older servers send a bare reason string, handled by the else path.
+            if (rejected && TryReadStructuredReject(extra, out byte kind, out ushort aux0, out ushort aux1, out string structuredMsg))
+            {
+                switch (kind)
+                {
+                    case BasisNetworkCommons.RejectKind_VersionMismatch:
+                        title = "Update Required";
+                        body = !string.IsNullOrEmpty(structuredMsg)
+                            ? structuredMsg
+                            : $"This server requires Basis protocol v{aux0}; your client is v{aux1}. Please update.";
+                        break;
+                    case BasisNetworkCommons.RejectKind_ServerFull:
+                        title = "Server Full";
+                        body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "This server is full. Please try again later.";
+                        break;
+                    default:
+                        title = "Connection Rejected";
+                        body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : "The server rejected the connection.";
+                        break;
+                }
+            }
+            else
+            {
+                // Legacy bare-string reject, or a non-rejection disconnect (timeout, etc.). PeekString
+                // is defensive: an empty/malformed payload yields "".
+                string reason = extra?.PeekString();
+                title = rejected ? "Connection Rejected" : "Server Disconnected";
+                body = !string.IsNullOrEmpty(reason)
+                    ? reason
+                    : (rejected
+                        ? "The server rejected the connection. It may be full, running a different Basis version, or you may not be authorized."
+                        : disconnectInfo.Reason.ToString());
+            }
+
 #if UNITY_SERVER
             if (canShowMenu)
+#endif
             {
                 BasisMainMenu.Open();
                 if (BasisMainMenu.Instance != null)
                 {
-                    BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
+                    BasisMainMenu.Instance.OpenDialogue(title, body, "ok", value =>
                     {
                     });
                 }
             }
 
-            BasisDebug.LogError(disconnectInfo.Reason.ToString());
-#else
-            BasisMainMenu.Open();
-            if (BasisMainMenu.Instance != null)
-            {
-                BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
-                {
-                });
-            }
-
-            BasisDebug.LogError(disconnectInfo.Reason.ToString());
-#endif
+            BasisDebug.LogError($"{title}: {body}");
         }
     }
 }

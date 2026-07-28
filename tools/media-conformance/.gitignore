@@ -1,0 +1,12 @@
+# compiled dumper
+build/
+# generated fixtures are ephemeral (gen_fixtures.sh); never committed
+fixtures/
+*.mp4
+*.m4a
+*.ts
+*.m2ts
+*.webm
+*.wav
+*.opus
+*.ogg

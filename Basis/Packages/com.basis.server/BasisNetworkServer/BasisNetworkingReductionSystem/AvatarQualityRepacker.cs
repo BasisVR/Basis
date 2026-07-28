@@ -11,7 +11,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
     /// </summary>
     public static class AvatarQualityRepacker
     {
-        static readonly int Slots = BasisBoneRotationCompression.SyncBoneCount; // 54
+        static readonly int Slots = BasisBoneRotationCompression.SyncBoneCount; // 51
 
         // Cache BPC tables for each quality
         static readonly byte[] HighBpc  = BasisBoneRotationCompression.BPC_HIGH;
@@ -25,11 +25,12 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         static readonly int LowRotBytes  = MuscleBytes(BitQuality.Low);
         static readonly int VLowRotBytes = MuscleBytes(BitQuality.VeryLow);
 
-        // Cache payload sizes
+        // Cache payload sizes. High reads float32 position (12B); lower tiers write int24-mm (9B).
+        static readonly int LowerPosBytes = PositionBytes(BitQuality.Medium);
         static readonly int HighPayloadSize = WritePosition + HighRotBytes + TailBytes;
-        static readonly int MedPayloadSize  = WritePosition + MedRotBytes  + TailBytes;
-        static readonly int LowPayloadSize  = WritePosition + LowRotBytes  + TailBytes;
-        static readonly int VLowPayloadSize = WritePosition + VLowRotBytes + TailBytes;
+        static readonly int MedPayloadSize  = LowerPosBytes + MedRotBytes  + TailBytes;
+        static readonly int LowPayloadSize  = LowerPosBytes + LowRotBytes  + TailBytes;
+        static readonly int VLowPayloadSize = LowerPosBytes + VLowRotBytes + TailBytes;
 
         // Cache per-bone bit offsets for each quality
         static readonly int[] HighOffs = BuildBitOffsets(HighBpc);
@@ -65,12 +66,13 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             EnsureBuffer(ref low, BitQuality.Low, LowPayloadSize);
             EnsureBuffer(ref veryLow, BitQuality.VeryLow, VLowPayloadSize);
 
-            // Copy position (12 bytes, unchanged)
-            Buffer.BlockCopy(srcHigh.array, 0, medium.array, 0, WritePosition);
-            Buffer.BlockCopy(srcHigh.array, 0, low.array, 0, WritePosition);
-            Buffer.BlockCopy(srcHigh.array, 0, veryLow.array, 0, WritePosition);
+            // Position: float32 in the High source, int24-mm in every lower tier
+            TranscodePositionToQuantized(srcHigh.array, medium.array);
+            Buffer.BlockCopy(medium.array, 0, low.array, 0, LowerPosBytes);
+            Buffer.BlockCopy(medium.array, 0, veryLow.array, 0, LowerPosBytes);
 
-            int rotBase = WritePosition;
+            int srcRotBase = WritePosition;
+            int rotBase = LowerPosBytes;
 
             // Clear rotation regions (BitWriter ORs into bytes)
             Array.Clear(medium.array, rotBase, MedRotBytes);
@@ -84,7 +86,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 int totalBitsSrc = 2 + 3 * bpcSrc;
 
                 // Read the full packed bone (index + 3 components) as raw bits
-                ulong raw = BitReader.ReadBitsU64(srcHigh.array, rotBase, HighOffs[slot], totalBitsSrc);
+                ulong raw = BitReader.ReadBitsU64(srcHigh.array, srcRotBase, HighOffs[slot], totalBitsSrc);
 
                 // Extract the 2-bit index (which component was dropped)
                 uint idx = (uint)(raw & 3UL);
@@ -103,9 +105,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             // Copy tail (scale + body rotation)
             int srcTailOffset = WritePosition + HighRotBytes;
-            Buffer.BlockCopy(srcHigh.array, srcTailOffset, medium.array, WritePosition + MedRotBytes, TailBytes);
-            Buffer.BlockCopy(srcHigh.array, srcTailOffset, low.array, WritePosition + LowRotBytes, TailBytes);
-            Buffer.BlockCopy(srcHigh.array, srcTailOffset, veryLow.array, WritePosition + VLowRotBytes, TailBytes);
+            Buffer.BlockCopy(srcHigh.array, srcTailOffset, medium.array, rotBase + MedRotBytes, TailBytes);
+            Buffer.BlockCopy(srcHigh.array, srcTailOffset, low.array, rotBase + LowRotBytes, TailBytes);
+            Buffer.BlockCopy(srcHigh.array, srcTailOffset, veryLow.array, rotBase + VLowRotBytes, TailBytes);
         }
 
         static void RepackBone(byte[] dst, int baseByteOffset, int bitOffset, int bpcDst,

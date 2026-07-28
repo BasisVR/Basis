@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
 using GatorDragonGames.JigglePhysics;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
 using Basis.Scripts.Settings;
 
 namespace Basis.Scripts.Avatar
@@ -692,21 +691,13 @@ namespace Basis.Scripts.Avatar
         /// Destroy an Animator along with any components that <c>[RequireComponent]</c>
         /// it. Unity refuses to remove a component while another declares it as a
         /// requirement — it logs "Can't remove Animator because X depends on it" and
-        /// the destroy silently fails. The Animation Rigging package's
-        /// <see cref="RigBuilder"/> is the common offender on avatars authored with
-        /// runtime IK constraints, so we strip it explicitly before the Animator goes.
-        /// Any other dependents are handled by the generic fallback sweep.
+        /// the destroy silently fails. Dependents are handled by the generic
+        /// fallback sweep below.
         /// </summary>
         private static void DestroyAnimatorAndDependents(Animator animator)
         {
             if (animator == null) return;
             GameObject go = animator.gameObject;
-
-            // Known offender: RigBuilder from Animation Rigging.
-            if (go.TryGetComponent(out RigBuilder rigBuilder))
-            {
-                UnityEngine.Object.DestroyImmediate(rigBuilder);
-            }
 
             // Generic fallback — any other MonoBehaviour on this GameObject that
             // has [RequireComponent(Animator)] would also block the destroy. Walk

@@ -194,11 +194,6 @@ namespace Basis.Scripts.Networking
             }
         }
 
-        // Parameters for Euro filter (defaults; overridden at runtime by settings bindings)
-        public static float MinCutoff = 0.05f;
-        public static float Beta = 2;
-        public static float DerivativeCutoff = 2;
-
         /// <summary>
         /// Phase 1 (main thread) then kicks off the parallel per-receiver compute (Phase 2) on a
         /// background task. Pair with <see cref="CompleteNetworkCompute"/> at the very top of the
@@ -301,6 +296,7 @@ namespace Basis.Scripts.Networking
 
             BasisRemoteNetworkDriver.Compute();
             Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DrainAll();
+            Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.Tick();
 #if UNITY_EDITOR
             // Editor-only: counters are fed by AddToCounter, which is [Conditional("UNITY_EDITOR")].
             BasisNetworkProfiler.Update();
@@ -378,6 +374,8 @@ namespace Basis.Scripts.Networking
 #endif
 
             byte* skipPtr = BasisRemoteNetworkDriver.SkipBonesPtr();
+            bool endEffectorIK = BasisNetworkReceiver.EndEffectorIKEnabled;
+            if (endEffectorIK) BasisRemoteNetworkDriver.ResetEffectorAnchored();
 
             for (int Index = 0; Index < count; Index++)
             {
@@ -398,10 +396,11 @@ namespace Basis.Scripts.Networking
 #endif
 
                 // LOD-based frame skipping: distant players update pose less often
-                if (poseLodEnabled && remote.PoseSkipCounter > 0)
+                if (poseLodEnabled && remote.PoseSkipCounter > 0 && !receiver.HasOverriddenDestination)
                 {
                     remote.PoseSkipCounter--;
                     if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.FixedCapacity) skipPtr[receiver.playerId] = 1;
+                    if (endEffectorIK) BasisRemoteNetworkDriver.ClearEffectorMask(receiver.playerId);
 #if UNITY_EDITOR
                     _skipped++;
 #endif
@@ -421,6 +420,7 @@ namespace Basis.Scripts.Networking
                     remote.PoseSkipCounter = SMModuleDistanceBasedReductions.PoseSkipByLod[lod];
                 }
                 if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.FixedCapacity) skipPtr[receiver.playerId] = 0;
+                if (endEffectorIK) receiver.WriteEffectorJobInputs();
             }
 #if UNITY_EDITOR
             if (p)

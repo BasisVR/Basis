@@ -37,7 +37,7 @@ nuget.meamod.dns
 com.unity.render-pipelines.universal
 
 # Unity-asset deps used by framework, eventdriver, shim.
-UnityJigglePhysics-upm
+com.gator-dragon-games.jigglephysics
 com.avionblock.opussharp
 com.cqf.urpvolumetricfog
 com.llealloo.audiolink

@@ -65,15 +65,19 @@ public static class BasisVideoOutputMath
         {
             case BasisVideoAspectMode.FitInside:
             {
+                // Letterbox: fit the whole source inside the screen and fill the rest
+                // with bars. The bar axis scales > 1 so the sampled UV runs outside
+                // [0,1] there, which the video shader paints black. (A scale < 1 would
+                // crop toward the centre instead of adding bars.)
                 if (videoAspect > displayAspect)
                 {
-                    float s = displayAspect / videoAspect;
+                    float s = videoAspect / displayAspect;
                     scale = new Vector2(1f, s);
                     offset = new Vector2(0f, (1f - s) * 0.5f);
                 }
                 else
                 {
-                    float s = videoAspect / displayAspect;
+                    float s = displayAspect / videoAspect;
                     scale = new Vector2(s, 1f);
                     offset = new Vector2((1f - s) * 0.5f, 0f);
                 }

@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using Unity.Burst;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Jobs;
-using UnityEngine.Profiling;
 
 namespace GatorDragonGames.JigglePhysics {
 
 public class JiggleDoubleBufferTransformAccessArray {
-    
+
     private TransformAccessArray transformAccessArray;
     private int transformCount;
 
@@ -16,11 +16,34 @@ public class JiggleDoubleBufferTransformAccessArray {
 
     public TransformAccessArray GetTransformAccessArray() => transformAccessArray;
 
+    /// <summary>Live length of the front array — the authority for whether an in-place slot
+    /// update can mirror the access list (a destroyed transform Unity auto-dropped shrinks
+    /// this below the list count, which must force a full rebuild instead).</summary>
+    public int FrontLength => transformAccessArray.isCreated ? transformAccessArray.length : 0;
+
+    /// <summary>In-place slot write on the front array. Only legal while no job holds the
+    /// array — the memory bus commits run after the simulate chain is completed.</summary>
+    public void SetFront(int index, Transform transform) {
+        transformAccessArray[index] = transform;
+    }
+
+    /// <summary>Appends to the front array in place (same job-free requirement as SetFront).</summary>
+    public void AddToFront(Transform transform) {
+        transformAccessArray.Add(transform);
+        transformCount = transformAccessArray.length;
+    }
+
     private bool shouldClear = false;
 
-    public JiggleDoubleBufferTransformAccessArray(int initialCapacity) {
+    // Named per instance so a profile says which of the four buffers is rebuilding.
+    private readonly ProfilerMarker clearMarker;
+    private readonly ProfilerMarker generateMarker;
+
+    public JiggleDoubleBufferTransformAccessArray(int initialCapacity, string name = "Unnamed") {
         transformAccessArray = new TransformAccessArray(initialCapacity);
         newTransformAccessArray = new TransformAccessArray(initialCapacity);
+        clearMarker = new ProfilerMarker($"ClearAccessArrays.{name}");
+        generateMarker = new ProfilerMarker($"GenerateNewAccessArrays.{name}");
     }
 
     public void Flip() {
@@ -40,20 +63,18 @@ public class JiggleDoubleBufferTransformAccessArray {
     }
 
     public void ClearIfNeeded(int maxRemoveCount = 512) {
-        Profiler.BeginSample("ClearAccessArrays");
         if (!shouldClear) {
-            Profiler.EndSample();
             return;
         }
 
-        int removeCount = Mathf.Min(newTransformCount, maxRemoveCount);
-        for (int i = 0; i < removeCount; i++) {
-            newTransformCount--;
-            newTransformAccessArray.RemoveAtSwapBack(newTransformCount);
-        }
+        using var scope = clearMarker.Auto();
 
-        shouldClear = newTransformCount > 0;
-        Profiler.EndSample();
+        var capacity = newTransformAccessArray.capacity;
+        newTransformAccessArray.Dispose();
+        newTransformAccessArray = new TransformAccessArray(capacity);
+
+        newTransformCount = 0;
+        shouldClear = false;
     }
 
     public void GenerateNewAccessArrays(ref int currentIndex, out bool hasFinished, List<Transform> transformAccessList, int maxAddCount = 512) {
@@ -63,7 +84,7 @@ public class JiggleDoubleBufferTransformAccessArray {
             return;
         }
 
-        Profiler.BeginSample("GenerateNewAccessArrays");
+        using var scope = generateMarker.Auto();
         var count = transformAccessList.Count;
         int addedSoFar = 0;
         for (var index = currentIndex; index < count && addedSoFar < maxAddCount; index++) {
@@ -82,12 +103,10 @@ public class JiggleDoubleBufferTransformAccessArray {
         if (currentIndex == count) {
             newTransformCount = count;
             hasFinished = true;
-            Profiler.EndSample();
             return;
         }
 
         hasFinished = false;
-        Profiler.EndSample();
     }
 }
 

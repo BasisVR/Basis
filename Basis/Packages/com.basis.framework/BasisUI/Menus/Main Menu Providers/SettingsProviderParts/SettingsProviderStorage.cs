@@ -16,7 +16,7 @@ public static class SettingsProviderStorage
         RectTransform container = descriptor.ContentParent;
 
         // Download limits
-        PanelSectionToggleHelpers.CreateCollapsibleFlatSection(container,
+        PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
             BasisLocalization.Get("settings.storage.downloadLimits.title"), () =>
         {
             PanelSlider avatarDownloadSize = PanelSlider.CreateEntryAndBind(

@@ -211,6 +211,10 @@ namespace HVR.Basis.Comms
 
         public void NotifySourceSample(int addressId)
         {
+            if (global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.Capture)
+            {
+                System.Threading.Interlocked.Increment(ref global::Basis.Scripts.Networking.NetworkedAvatar.BasisAdditionalDataDebugCapture.HvrActivitySamples);
+            }
             if (!_isWearer)
             {
                 return;

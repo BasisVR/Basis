@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using Basis.BasisUI;
+using Basis.Scripts.Audio;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -86,6 +87,27 @@ public static class BasisNetworkPIPCameraDriver
     private static bool initialized;
     private static bool lastPipMenuOpenState;
     private static float nextDisplayNameRefreshTime;
+
+    /// <summary>When true, remote players' camera pucks and their owner tags are hidden locally
+    /// (Settings > General > Interactions). Transforms stay synced so re-showing snaps into place.</summary>
+    public static bool HideRemoteCameraPucks;
+
+    /// <summary>Applies the hide-remote-cameras setting to current and future pucks. Safe to call before Create().</summary>
+    public static void SetHideRemoteCameraPucks(bool hide)
+    {
+        HideRemoteCameraPucks = hide;
+        if (!initialized) return;
+
+        pipHandle.Complete();
+        foreach (var kvp in pipInstances)
+        {
+            if (kvp.Value != null && kvp.Value.activeSelf == hide)
+            {
+                kvp.Value.SetActive(!hide);
+            }
+        }
+        RefreshPipNamePlateVisibility();
+    }
 
     /// <summary>
     /// Initialize native containers and subscribe to the simulation loop.
@@ -197,7 +219,9 @@ public static class BasisNetworkPIPCameraDriver
     /// <summary>
     /// Per-frame simulation driven by BasisLocalPlayer.AfterSimulateOnLate.
     /// Smooths toward the latest network targets and writes the camera + nameplate
-    /// transforms via parallel jobs, completing them before the frame renders.
+    /// transforms via parallel jobs. The jobs are reaped at the top of the next
+    /// Simulate (or by whichever mutation entry point fires first) — microseconds of
+    /// work kicked here is long done before rendering samples the transforms.
     /// </summary>
     private static void Simulate()
     {
@@ -247,7 +271,11 @@ public static class BasisNetworkPIPCameraDriver
         }.Schedule(namePlateTransforms, smoothHandle);
 
         pipHandle = JobHandle.CombineDependencies(cameraHandle, namePlateHandle);
-        pipHandle.Complete();
+        // No same-frame fence: the top of the next Simulate (and every mutation entry
+        // point) completes pipHandle before touching the lists, so the smooth + apply
+        // jobs get the rest of the frame instead of stalling this thread here. The
+        // kick makes workers start now rather than at the next fence.
+        JobHandle.ScheduleBatchedJobs();
     }
 
     /// <summary>
@@ -382,7 +410,7 @@ public static class BasisNetworkPIPCameraDriver
     {
         if (BasisDeviceManagement.Instance.CameraShutterSound != null && TryGetPIPPosition(msg.PlayerID, out Vector3 position))
         {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, position, SMModuleAudio.ActivePropVolume);
+            BasisUISounds.PlayAt(BasisUISoundEvent.CameraShutter, BasisDeviceManagement.Instance.CameraShutterSound, position, SMModuleAudio.ActivePropVolume);
         }
 
         OnRemoteShutterSoundReceived?.Invoke(msg.PlayerID, TryGetPIPPosition(msg.PlayerID, out Vector3 pos) ? pos : Vector3.zero);
@@ -404,7 +432,7 @@ public static class BasisNetworkPIPCameraDriver
         {
             if (BasisDeviceManagement.Instance.CameraCountdownTickSound != null && TryGetPIPPosition(playerId, out Vector3 tickPos))
             {
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraCountdownTickSound, tickPos, SMModuleAudio.ActivePropVolume);
+                BasisUISounds.PlayAt(BasisUISoundEvent.CameraCountdownTick, BasisDeviceManagement.Instance.CameraCountdownTickSound, tickPos, SMModuleAudio.ActivePropVolume);
             }
             yield return new WaitForSeconds(1f);
         }
@@ -414,7 +442,7 @@ public static class BasisNetworkPIPCameraDriver
 
         if (BasisDeviceManagement.Instance.CameraShutterSound != null && TryGetPIPPosition(playerId, out Vector3 shutterPos))
         {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, shutterPos, SMModuleAudio.ActivePropVolume);
+            BasisUISounds.PlayAt(BasisUISoundEvent.CameraShutter, BasisDeviceManagement.Instance.CameraShutterSound, shutterPos, SMModuleAudio.ActivePropVolume);
         }
     }
 
@@ -458,6 +486,10 @@ public static class BasisNetworkPIPCameraDriver
 
         GameObject instance = UnityEngine.Object.Instantiate(loadedPrefab, pos, rot);
         UnityEngine.Object.DontDestroyOnLoad(instance);
+        if (HideRemoteCameraPucks)
+        {
+            instance.SetActive(false);
+        }
 
         if (instance.TryGetComponent<BasisCameraRemotePip>(out BasisCameraRemotePip pipMeta))
         {
@@ -729,6 +761,11 @@ public static class BasisNetworkPIPCameraDriver
 
     private static bool ShouldPipNamePlateBeActive(ushort playerId)
     {
+        if (HideRemoteCameraPucks)
+        {
+            return false;
+        }
+
         if (!BasisRemoteNamePlateDriver.NamePlateEnabled)
         {
             return false;

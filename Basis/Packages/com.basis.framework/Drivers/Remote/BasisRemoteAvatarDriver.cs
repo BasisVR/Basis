@@ -5,6 +5,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.Player;
 using GatorDragonGames.JigglePhysics;
 using System;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -62,6 +63,27 @@ namespace Basis.Scripts.Drivers
         public bool InBoneDriver = false;
 
         /// <summary>
+        /// Jiggle rigs on the current avatar (filled during calibration).
+        /// </summary>
+        /// <summary>Filtered out of the content-harvest snapshot by BasisAvatarFactory at load;
+        /// include-inactive, entries can be destroyed later — null-and-activity gate on use.</summary>
+        public JiggleRig[] JiggleRigs = Array.Empty<JiggleRig>();
+        private static Vector3[] sJiggleRootsBeforeSnap = Array.Empty<Vector3>();
+
+        /// <summary>
+        /// The wearer's networked body fit (see Basis.IK.BasisBodyFitCore). They stretch/collapse their
+        /// own avatar's arm, leg and spine segments to match their real proportions; without replaying
+        /// that here every remote would render them at the avatar's authored proportions instead.
+        /// Identity (all 1) is a no-op end to end.
+        /// </summary>
+        public Basis.IK.BasisBodyFitResult AppliedBodyFit = Basis.IK.BasisBodyFitResult.Identity;
+
+        readonly Transform[] _fitBones = new Transform[Basis.IK.BasisBodyFitApply.BoneCount];
+        readonly Vector3[] _fitRestLocal = new Vector3[Basis.IK.BasisBodyFitApply.BoneCount];
+        readonly float[] _fitScales = new float[Basis.IK.BasisBodyFitApply.BoneCount];
+        bool _fitRestCaptured;
+
+        /// <summary>
         /// Performs remote-avatar calibration and registers it with the job system.
         /// Initializes TPose, references, face visibility, eye/blink drivers, and physics colliders.
         /// </summary>
@@ -116,27 +138,25 @@ namespace Basis.Scripts.Drivers
             // References.AnimatorRoot caches the actual animator root — downstream
             // calibration steps then read References.AnimatorRoot instead of going
             // through the Animator.transform property each time.
-            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, Player.BasisAvatar.Animator.transform, ref References, detectArmTwist: false, humanoidBones: Player.BasisAvatar.TransformStorage?.HumanoidBones);
+            // Twist bones are detected on remotes too: a networked body fit scales the forearm/upper-arm
+            // segments, and the twist helpers sit partway along those segments. Scaling the arm without
+            // moving the twists leaves them at the wrong fraction of a now-longer bone, which shows up as
+            // mesh distortion around the elbow. Cost is a one-time child-name search per arm at load.
+            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, Player.BasisAvatar.Animator.transform, ref References, detectArmTwist: true, humanoidBones: Player.BasisAvatar.TransformStorage?.HumanoidBones);
             BasisAvatarModelCache.RecordPosesCached(References, Player.BasisAvatar.Animator);
 
             // ── Capture T-pose bone rotations and bone transforms for the receiver ──
             // This enables direct bone transform writes (no SetHumanPose needed).
             CaptureReceiverBoneData(RemotePlayer);
 
-            // Initialize any jiggle rigs. Performance-limit enforcement lives in
-            // BasisAvatarPerformanceLimits.TrimExcessComponents (called earlier by
-            // BasisAvatarFactory.InitializePlayerAvatar), so by the time we get
-            // here the tree has already been trimmed to the allowed count — this
-            // loop just wires up whatever's left.
-            var JiggleRigs = RemotePlayer.BasisAvatar.GetComponentsInChildren<JiggleRig>();
-            int length = JiggleRigs.Length;
-            for (int Index = 0; Index < length; Index++)
-            {
-                JiggleRig Rig = JiggleRigs[Index];
-                JiggleRigData Data = Rig.GetJiggleRigData();
-                Rig.HasAnimatedParameters = false;
-                Rig.OnInitialize();
-            }
+            // Capture the fresh authored bind, then apply this player's body fit. Order matters: the
+            // rest capture must see authored local positions, so it runs before any fit is written.
+            // Seeding from CACM covers every path that supplies an avatar record — a live avatar change,
+            // initial load, and the server's late-join replay all set it before calibration runs — while
+            // a fit-only update that arrived since is already in AppliedBodyFit and survives the reseed.
+            SeedBodyFitFromAvatarRecord(RemotePlayer);
+            CaptureBodyFitRestLocal();
+            ApplyRemoteBodyFit();
 
             // Register authored motion (drives non-humanoid transforms the bone job / IK don't touch); rest captured at the current TPose.
             var authoredMotions = RemotePlayer.BasisAvatar.AuthoredMotions;
@@ -174,6 +194,13 @@ namespace Basis.Scripts.Drivers
             RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
             // Renderer perf flags
             RemoteRenderMeshSettings(BasisLayerMapper.RemoteAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer);
+            // Seed the skin LOD for the distance this avatar loaded at — ChangeMeshLOD is only
+            // edge-triggered on LOD boundary crossings, so a reload at a stable distance never
+            // reaches these fresh renderers.
+            BasisAvatarSkinLOD.Apply(SkinnedMeshRenderer, SkinnedMeshRendererLength, RemotePlayer.CurrentLodLevel);
+            // Snapshot the authored shadow modes before anything reduces them, then seed the tier.
+            BasisAvatarShadowLOD.Capture(RemotePlayer);
+            BasisAvatarShadowLOD.Apply(RemotePlayer, RemotePlayer.CurrentLodLevel);
 
             RemotePlayer.BasisAvatar.Animator.logWarnings = false;
 
@@ -190,6 +217,9 @@ namespace Basis.Scripts.Drivers
             var receiver = RemotePlayer.NetworkReceiver;
             Transform animatorRoot = References.AnimatorRoot;
             Vector3 animatorRootPos = animatorRoot.position;
+            // Sampled before the network rescale below writes this same transform — jiggle collider
+            // radii are authored in metres against this scale and rebased off it at build time.
+            ColliderScaleReference = animatorRoot.localScale;
             // TPose hips localPosition + localRotation feed the per-frame
             // BulkCopyHipsAndDeriveJob (the inline inverse derivation that
             // turns the received hips world pose into a derived root world
@@ -247,6 +277,29 @@ namespace Basis.Scripts.Drivers
             SetupAvatarJiggleColliders();
             ResetAvatarAnimator();
 
+            // JiggleRigs is filtered out of the content-harvest snapshot by BasisAvatarFactory at
+            // load — no walk here, and recalibrations reuse the same stored set. The set is
+            // include-inactive, so the loops gate on activity the way the old active-only scan did.
+            int jiggleRigCount = JiggleRigs.Length;
+            if (sJiggleRootsBeforeSnap.Length < jiggleRigCount)
+            {
+                sJiggleRootsBeforeSnap = new Vector3[jiggleRigCount];
+            }
+            Vector3[] jiggleRootsBeforeSnap = sJiggleRootsBeforeSnap;
+            for (int Index = 0; Index < jiggleRigCount; Index++)
+            {
+                JiggleRig snapRig = JiggleRigs[Index];
+                if (snapRig == null || !snapRig.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                var jiggleRoot = snapRig.GetJiggleRigData().rootBone;
+                if (jiggleRoot != null)
+                {
+                    jiggleRootsBeforeSnap[Index] = jiggleRoot.position;
+                }
+            }
+
             // Apply scale before snapping any pose so localScale is in place for
             // the first frame; UpdateAllAvatarsJob's HasScaleChange tick would
             // otherwise overwrite the network scale on the first iteration.
@@ -272,6 +325,28 @@ namespace Basis.Scripts.Drivers
             // doesn't disturb the result — hips lands exactly at the received
             // high-precision world pose.
             References.Hips.SetPositionAndRotation(hipsWorldPos, hipsWorldRot);
+
+            // Initialize any jiggle rigs. Performance-limit enforcement lives in
+            // BasisAvatarPerformanceLimits.TrimExcessComponents (called earlier by
+            // BasisAvatarFactory.InitializePlayerAvatar), so by the time we get
+            // here the tree has already been trimmed to the allowed count — this
+            // loop just wires up whatever's left.
+            for (int Index = 0; Index < jiggleRigCount; Index++)
+            {
+                JiggleRig Rig = JiggleRigs[Index];
+                if (Rig == null || !Rig.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                Rig.HasAnimatedParameters = false;
+                Rig.OnInitialize();
+                var jiggleRoot = Rig.GetJiggleRigData().rootBone;
+                if (jiggleRoot != null)
+                {
+                    Rig.Teleport(jiggleRoot.position - jiggleRootsBeforeSnap[Index]);
+                }
+            }
+
             CalibrationComplete?.Invoke();
         }
 
@@ -368,6 +443,61 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
+        /// Applies the wearer's networked body fit to this remote avatar. Safe to call before the avatar
+        /// has loaded — the fit is stored and replayed by RemoteCalibration once the bind is captured.
+        /// Main thread only (touches Transform.localPosition).
+        /// </summary>
+        public void SetBodyFit(in Basis.IK.BasisBodyFitResult fit)
+        {
+            AppliedBodyFit = fit;
+            ApplyRemoteBodyFit();
+        }
+
+        private void SeedBodyFitFromAvatarRecord(BasisRemotePlayer RemotePlayer)
+        {
+            if (RemotePlayer == null)
+            {
+                return;
+            }
+            AppliedBodyFit = Basis.IK.BasisBodyFitNetworking.ToFitResult(
+                RemotePlayer.CACM.ArmScale, RemotePlayer.CACM.LegScale, RemotePlayer.CACM.TorsoScale);
+        }
+
+        /// <summary>
+        /// Snapshots the authored local positions of every fitted bone. Keying off this copy rather than
+        /// the live value is what makes re-applying idempotent — writing rest*scale over an already
+        /// scaled transform would compound the fit every time a new one arrived.
+        /// </summary>
+        private void CaptureBodyFitRestLocal()
+        {
+            Basis.IK.BasisBodyFitApply.CollectBones(References, _fitBones);
+            for (int i = 0; i < _fitBones.Length; i++)
+            {
+                Transform bone = _fitBones[i];
+                _fitRestLocal[i] = bone != null ? bone.localPosition : Vector3.zero;
+            }
+            _fitRestCaptured = true;
+        }
+
+        private void ApplyRemoteBodyFit()
+        {
+            if (!_fitRestCaptured)
+            {
+                return;
+            }
+
+            Basis.IK.BasisBodyFitApply.CollectScales(in AppliedBodyFit, _fitScales);
+            for (int i = 0; i < _fitBones.Length; i++)
+            {
+                Transform bone = _fitBones[i];
+                if (bone != null)
+                {
+                    bone.localPosition = _fitRestLocal[i] * _fitScales[i];
+                }
+            }
+        }
+
+        /// <summary>
         /// True while the avatar is temporarily swapped to a TPose animator.
         /// </summary>
         public bool CurrentlyTposing;
@@ -426,6 +556,10 @@ namespace Basis.Scripts.Drivers
         {
             RemoveJiggleRigColliders();
             BasisPlayerSettingsData BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(Player.UUID);
+            if (Player == null || Player.IsDestroyed)
+            {
+                return;
+            }
             if (BasisPlayerSettingsData.AvatarInteraction && Player.IsConsideredFallBackAvatar == false)
             {
                 AddJiggleRigColliders(References, allowColliderLOD: true);

@@ -22,6 +22,33 @@ namespace Basis.Network.Core
         /// </summary>
         public const byte TotalChannels = 64;
 
+        // ── Avatar send-interval byte ────────────────────────────────────────
+        // The per-receiver interval byte in avatar keyframe/delta frames encodes the send
+        // cadence relative to the server's base interval. 0..199 map 1:1 (base+b ms, the
+        // pre-v42 range); 200..255 step 12 ms each (base+200 .. base+860 ms) so very distant
+        // receivers can drop below the old 3.3 Hz floor while staying inside the receiver's
+        // 1 s interpolation-window clamp.
+        public const byte AvatarIntervalExtendedStart = 200;
+        public const int AvatarIntervalExtendedStepMs = 12;
+
+        public static byte EncodeAvatarIntervalByte(int intervalMs, int baseIntervalMs)
+        {
+            int rel = intervalMs - baseIntervalMs;
+            if (rel <= 0) return 0;
+            if (rel < AvatarIntervalExtendedStart) return (byte)rel;
+            int steps = (rel - AvatarIntervalExtendedStart + (AvatarIntervalExtendedStepMs >> 1)) / AvatarIntervalExtendedStepMs;
+            int maxSteps = byte.MaxValue - AvatarIntervalExtendedStart;
+            if (steps > maxSteps) steps = maxSteps;
+            return (byte)(AvatarIntervalExtendedStart + steps);
+        }
+
+        public static int DecodeAvatarIntervalMs(byte encoded, int baseIntervalMs)
+        {
+            if (encoded < AvatarIntervalExtendedStart) return baseIntervalMs + encoded;
+            return baseIntervalMs + AvatarIntervalExtendedStart
+                 + (encoded - AvatarIntervalExtendedStart) * AvatarIntervalExtendedStepMs;
+        }
+
         // ── Connection lifecycle ─────────────────────────────────────────────
         /// <summary>Auth Identity Message</summary>
         public const byte AuthIdentityChannel = 0;
@@ -66,6 +93,14 @@ namespace Basis.Network.Core
         // ── Avatar management ────────────────────────────────────────────────
         /// <summary>Swap to a different avatar</summary>
         public const byte AvatarChangeMessageChannel = 14;
+
+        // AvatarChangeMessageChannel carries two message kinds, discriminated by a leading byte, because
+        // all 64 LiteNetLib channels are assigned and a body-fit update has nowhere else to go that is
+        // both server-stored and replayed to late joiners. Both kinds update the same saved record.
+        /// <summary>Full avatar change: ClientAvatarChangeMessage / ServerAvatarChangeMessage.</summary>
+        public const byte AvatarChangeKindFull = 0;
+        /// <summary>Body-fit-only update: ClientBodyFitMessage / ServerBodyFitMessage. No avatar reload.</summary>
+        public const byte AvatarChangeKindBodyFit = 1;
         /// <summary>Generic avatar script data</summary>
         public const byte AvatarChannel = 15;
 
@@ -110,11 +145,23 @@ namespace Basis.Network.Core
         /// </summary>
         public const byte ModifyResourceChannel = 55;
 
-        // ── Content sharing ──────────────────────────────────────────────────
-        /// <summary>Drop content spheres</summary>
+        // ── Content sharing (multiplexed: first payload byte = ContentShareSub_*) ──
+        /// <summary>Content share operations. First payload byte selects a ContentShareSub_* sub-type.</summary>
         public const byte ContentShareChannel = 29;
-        /// <summary>Remove content spheres</summary>
-        public const byte ContentShareCleanupChannel = 30;
+        /// <summary>ContentShareChannel sub-type: drop a content sphere.</summary>
+        public const byte ContentShareSub_Drop = 0;
+        /// <summary>ContentShareChannel sub-type: remove/cleanup content spheres.</summary>
+        public const byte ContentShareSub_Cleanup = 1;
+
+        // ── Avatar delta (server → client only) ──────────────────────────────
+        /// <summary>
+        /// Server→client avatar delta frames (reclaimed from the former ContentShareCleanupChannel).
+        /// Keyframes stay on the per-quality avatar channels (6-13 / 41-48) unchanged; this channel
+        /// carries only deltas against each sender's last keyframe. Wire:
+        ///   [header:1][playerId:1|2][interval:1][sequence:1][baseSeq:1][delta body]
+        /// header bits: quality(2) | hasAdditional&lt;&lt;2 | largeId&lt;&lt;3. Unreliable, server-only.
+        /// </summary>
+        public const byte DeltaAvatarChannel = 30;
 
         // ── Server-bound ─────────────────────────────────────────────────────
         /// <summary>Developer hook — data only delivered to the server</summary>
@@ -171,6 +218,21 @@ namespace Basis.Network.Core
         /// Wire: [eventType:1][severity:1][lenPrefixed PermissionCompression blob of (system, message, stack)]
         /// </summary>
         public const byte EventType_ErrorReport = 7;
+        /// <summary>
+        /// Recorder→recordee request to record the recordee's voice. Forwarded to the
+        /// target peer only, stamped with the requester's peer id.
+        /// </summary>
+        // Wire (client→server): [eventType:1][targetId:2]
+        // Wire (server→target): [eventType:1][requesterId:2]
+        public const byte EventType_VoiceRecordRequest = 8;
+        /// <summary>
+        /// Recordee→recorder consent decision for a voice-record request
+        /// (0 = denied, 1 = granted, 2 = revoked). Forwarded to the target peer only,
+        /// stamped with the responder's peer id.
+        /// </summary>
+        // Wire (client→server): [eventType:1][targetId:2][state:1]
+        // Wire (server→target): [eventType:1][responderId:2][state:1]
+        public const byte EventType_VoiceRecordConsent = 9;
 
         // ── Per-quality avatar channels (ushort playerID, for IDs >255) ──
         // Same layout as byte-ID channels: base + quality * 2 + hasAdditional
@@ -219,6 +281,10 @@ namespace Basis.Network.Core
         public const byte P2PSub_LinkLost = 4;
         public const byte P2PSub_ServerArmed = 5;
         public const byte P2PSub_LinkUp = 6;
+        // Server → both peers once both sides reported LinkUp and it began offloading the
+        // pair. Positive confirmation the direct link is fully up; a client that stays
+        // Connected without ever seeing this treats its link as partial (server fallback).
+        public const byte P2PSub_Offloaded = 7;
 
         // ── Direct-connect custom data (P2P-first, server fallback) ──────────
         /// <summary>P2P world/prop direct custom data. Frame: [messageIndex:2][payload].</summary>
@@ -312,6 +378,21 @@ namespace Basis.Network.Core
         /// </summary>
         public const int ServerInfoMinRequestBytes = 384;
 
+        // ── Structured connection-reject payload ─────────────────────────────
+        // Attached by the server to ConnectionRequest.Reject so the client can react specifically
+        // (e.g. an "Update Required" screen, a "Server Full" notice) instead of printing a bare reason
+        // string. A 4-byte magic distinguishes a structured reject from a plain reason string — older
+        // servers send a bare string (no magic), which the client still surfaces via the legacy path.
+        // Wire: [magic:uint][kind:byte][aux0:ushort][aux1:ushort][message:string]
+        //   VersionMismatch → aux0 = server protocol version, aux1 = client protocol version.
+        //   ServerFull      → aux0/aux1 unused (0); any counts are in the message.
+        /// <summary>Marker for a structured reject payload. "BA51 5CE1" ≈ "Basis reject".</summary>
+        public const uint RejectMagic = 0xBA515CE1u;
+        /// <summary>RejectKind: the client's protocol version does not match the server's.</summary>
+        public const byte RejectKind_VersionMismatch = 1;
+        /// <summary>RejectKind: the server has reached its player limit.</summary>
+        public const byte RejectKind_ServerFull = 2;
+
         /// <summary>
         /// Maps quality index (0‑3) + additional data presence → byte-ID channel.
         /// </summary>
@@ -359,6 +440,33 @@ namespace Basis.Network.Core
                 return ((channel - PlayerAvatarVeryLowLargeChannel) & 1) == 1;
             return ((channel - PlayerAvatarVeryLowChannel) & 1) == 1;
         }
+
+        // ── DeltaAvatarChannel header helpers ────────────────────────────────
+        // The delta channel is a single channel for all quality/id-width/additional combinations;
+        // that metadata (which is channel-encoded for keyframes) lives in a 1-byte header instead.
+        /// <summary>Packs quality(0-3) + additional + large-id into the DeltaAvatarChannel header byte.</summary>
+        public static byte BuildDeltaHeader(int qualityIndex, bool hasAdditionalData, bool largeId)
+        {
+            return (byte)((qualityIndex & 0x3) | (hasAdditionalData ? 0x4 : 0) | (largeId ? 0x8 : 0));
+        }
+        /// <summary>Quality index (0-3) from a DeltaAvatarChannel header byte.</summary>
+        public static byte DeltaHeaderQuality(byte header) => (byte)(header & 0x3);
+        /// <summary>Additional-data flag from a DeltaAvatarChannel header byte.</summary>
+        public static bool DeltaHeaderHasAdditionalData(byte header) => (header & 0x4) != 0;
+        /// <summary>Large (ushort) player-id flag from a DeltaAvatarChannel header byte.</summary>
+        public static bool DeltaHeaderLargeId(byte header) => (header & 0x8) != 0;
+
+        // Control frames on DeltaAvatarChannel (v42): header bit 7 marks a non-delta control
+        // message so keyframe recovery is request-driven instead of purely periodic.
+        //   client→server KeyframeRequest: [hdr=0x80][senderId:ushort]  "my baseline for this
+        //     sender is missing/stale — force my next frame from them to be a keyframe".
+        //   server→client UplinkKeyframeRequest: [hdr=0xC0]  "your uplink baseline is missing —
+        //     make your next avatar send a full keyframe".
+        public const byte DeltaHeaderControlBit = 0x80;
+        public const byte DeltaControlKeyframeRequest = 0x80;
+        public const byte DeltaControlUplinkKeyframeRequest = 0xC0;
+        /// <summary>True when a DeltaAvatarChannel first byte is a control frame, not a delta.</summary>
+        public static bool IsDeltaControlHeader(byte header) => (header & DeltaHeaderControlBit) != 0;
 
         /// <summary>
         /// All 16 per-quality avatar channels (byte-ID + ushort-ID) for aggregate congestion checks.

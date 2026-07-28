@@ -1,0 +1,19 @@
+{
+    "name": "Basis.Eerie.Movement",
+    "rootNamespace": "Basis.IK",
+    "references": [
+        "BasisCommon",
+        "Unity.Mathematics",
+        "Unity.Burst",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

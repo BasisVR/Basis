@@ -400,7 +400,9 @@ namespace Basis.Network.Core {
             Put(size);
             if (_autoResize)
                 ResizeIfNeed(_position + size);
-            uTF8Encoding.Value.GetBytes(value, 0, size, _data, _position);
+            // charCount is the string length — passing the UTF-8 byte count here threw
+            // ArgumentOutOfRangeException for any non-ASCII string (bytes > chars).
+            uTF8Encoding.Value.GetBytes(value, 0, value.Length, _data, _position);
             _position += size;
         }
 

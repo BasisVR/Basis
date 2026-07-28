@@ -16,6 +16,17 @@ public class BasisOrderedDelegate
 
     private readonly List<Entry> entries = new List<Entry>();
     private List<int> executionOrder = new List<int>();
+
+    /// <summary>
+    /// The actions already in execution order, flattened when the subscriber list changes rather than
+    /// walked through two indirections on every invoke. These fire several times a frame with every
+    /// per-frame system in the process subscribed, so the dispatch itself is worth keeping flat.
+    ///
+    /// It also makes the invoke re-entrancy-safe: a subscriber that removes itself while being called
+    /// mutates the lists, and iterating a snapshot means that cannot walk off the end mid-dispatch.
+    /// </summary>
+    private Action[] orderedActions = Array.Empty<Action>();
+
     public int Count { get; private set; }
 
     public void AddAction(int priority, Action action)
@@ -50,14 +61,26 @@ public class BasisOrderedDelegate
         }
 
         executionOrder.Sort((a, b) => entries[a].Priority.CompareTo(entries[b].Priority));
+
+        // Flatten once here so the per-frame invoke is a straight array walk.
+        if (orderedActions.Length != executionOrder.Count)
+        {
+            orderedActions = new Action[executionOrder.Count];
+        }
+        for (int Index = 0; Index < executionOrder.Count; Index++)
+        {
+            orderedActions[Index] = entries[executionOrder[Index]].Action;
+        }
     }
 
     public void Invoke()
     {
-        for (int Index = 0; Index < Count; Index++)
+        // Local copy so a subscriber that adds or removes during dispatch swaps the field without
+        // this loop following it mid-walk.
+        Action[] actions = orderedActions;
+        for (int Index = 0; Index < actions.Length; Index++)
         {
-            int index = executionOrder[Index];
-            entries[index].Action?.Invoke();
+            actions[Index]?.Invoke();
         }
     }
 }

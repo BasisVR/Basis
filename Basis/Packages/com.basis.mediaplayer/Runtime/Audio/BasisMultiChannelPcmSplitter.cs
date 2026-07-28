@@ -25,8 +25,9 @@ public sealed class BasisMultiChannelPcmSplitter
         public Tap(int source, int outChannel, float coeff) { Source = source; Out = outChannel; Coeff = coeff; }
     }
 
-    // Per-output cursor into the rolling window.
-    public sealed class Reader { internal long pos; }
+    // Per-output cursor into the rolling window. `frac` is the sub-sample
+    // remainder of a resampling read (source rate != DSP output rate).
+    public sealed class Reader { internal long pos; internal double frac; }
 
     private readonly IBasisPcmSource source;
     private readonly int channelCount;
@@ -75,7 +76,15 @@ public sealed class BasisMultiChannelPcmSplitter
     // Produces `frames` output frames (interleaved, `outChannels` wide) for one
     // reader by mixing source channels per `taps`, applying `gain`. Returns the
     // frames produced; the caller zero-fills the rest. Safe on the audio thread.
-    public int ReadMixed(Reader reader, float[] dst, int frames, int outChannels, Tap[] taps, float gain)
+    //
+    // `sourceStep` is source frames per output frame (source rate / DSP output
+    // rate): the streaming AudioClip used to declare its frequency and Unity
+    // resampled invisibly, but the tap path renders straight into DSP blocks,
+    // so rate conversion must happen here (e.g. Quest runs the DSP at 24kHz
+    // against 48kHz sources — served 1:1 that plays at half speed). Non-unity
+    // steps use linear interpolation; decimation aliases content above the
+    // output Nyquist, which the output device cannot render anyway.
+    public int ReadMixed(Reader reader, float[] dst, int frames, int outChannels, Tap[] taps, float gain, double sourceStep = 1.0)
     {
         if (reader == null || dst == null || taps == null || outChannels < 1) return 0;
         int maxFrames = dst.Length / outChannels;
@@ -88,31 +97,66 @@ public sealed class BasisMultiChannelPcmSplitter
         {
             // A reader that fell outside the retained window (its AudioSource was
             // paused) snaps to the live edge so it resumes in sync with the rest.
-            if (writePos - reader.pos > capacity) reader.pos = writePos;
+            if (writePos - reader.pos > capacity) { reader.pos = writePos; reader.frac = 0; }
+
+            if (sourceStep == 1.0)
+            {
+                reader.frac = 0;
+                while (produced < frames)
+                {
+                    if (reader.pos >= writePos && !Pump()) break;
+                    if (reader.pos >= writePos) break;
+
+                    long avail = writePos - reader.pos;
+                    int take = (int)Math.Min(frames - produced, avail);
+                    for (int k = 0; k < take; k++)
+                    {
+                        int outBase = (produced + k) * outChannels;
+                        for (int oc = 0; oc < outChannels; oc++) dst[outBase + oc] = 0f;
+                        int ringIdx = (int)((reader.pos + k) % capacity);
+                        for (int t = 0; t < tapCount; t++)
+                        {
+                            Tap tap = taps[t];
+                            if (tap.Source < 0 || tap.Source >= channelCount || tap.Out < 0 || tap.Out >= outChannels) continue;
+                            dst[outBase + tap.Out] += window[tap.Source][ringIdx] * tap.Coeff;
+                        }
+                        if (gain != 1f)
+                            for (int oc = 0; oc < outChannels; oc++) dst[outBase + oc] *= gain;
+                    }
+                    reader.pos += take;
+                    produced += take;
+                }
+                return produced;
+            }
 
             while (produced < frames)
             {
-                if (reader.pos >= writePos && !Pump()) break;
+                // Interpolation needs the sample at pos and its successor.
+                while (reader.pos + 1 >= writePos && Pump()) { }
                 if (reader.pos >= writePos) break;
+                bool haveNext = reader.pos + 1 < writePos;
 
-                long avail = writePos - reader.pos;
-                int take = (int)Math.Min(frames - produced, avail);
-                for (int k = 0; k < take; k++)
+                int outBase = produced * outChannels;
+                for (int oc = 0; oc < outChannels; oc++) dst[outBase + oc] = 0f;
+                int i0 = (int)(reader.pos % capacity);
+                int i1 = haveNext ? (int)((reader.pos + 1) % capacity) : i0;
+                float f1 = (float)reader.frac;
+                float f0 = 1f - f1;
+                for (int t = 0; t < tapCount; t++)
                 {
-                    int outBase = (produced + k) * outChannels;
-                    for (int oc = 0; oc < outChannels; oc++) dst[outBase + oc] = 0f;
-                    int ringIdx = (int)((reader.pos + k) % capacity);
-                    for (int t = 0; t < tapCount; t++)
-                    {
-                        Tap tap = taps[t];
-                        if (tap.Source < 0 || tap.Source >= channelCount || tap.Out < 0 || tap.Out >= outChannels) continue;
-                        dst[outBase + tap.Out] += window[tap.Source][ringIdx] * tap.Coeff;
-                    }
-                    if (gain != 1f)
-                        for (int oc = 0; oc < outChannels; oc++) dst[outBase + oc] *= gain;
+                    Tap tap = taps[t];
+                    if (tap.Source < 0 || tap.Source >= channelCount || tap.Out < 0 || tap.Out >= outChannels) continue;
+                    float[] ch = window[tap.Source];
+                    dst[outBase + tap.Out] += (ch[i0] * f0 + ch[i1] * f1) * tap.Coeff;
                 }
-                reader.pos += take;
-                produced += take;
+                if (gain != 1f)
+                    for (int oc = 0; oc < outChannels; oc++) dst[outBase + oc] *= gain;
+
+                reader.frac += sourceStep;
+                long adv = (long)reader.frac;
+                reader.pos += adv;
+                reader.frac -= adv;
+                produced++;
             }
         }
         return produced;
@@ -164,7 +208,7 @@ public sealed class BasisMultiChannelPcmSplitter
         lock (gate)
         {
             carryLen = 0;
-            foreach (var r in readers) r.pos = writePos;
+            foreach (var r in readers) { r.pos = writePos; r.frac = 0; }
         }
     }
 }

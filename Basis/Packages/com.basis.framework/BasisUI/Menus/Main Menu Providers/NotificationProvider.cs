@@ -187,7 +187,7 @@ namespace Basis.BasisUI
                     pending++;
                 }
                 if (pending == 0) AddEmpty(BasisLocalization.Get("notifications.empty.pending"));
-                PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(pendingSection, Root, pendingStart, true,
+                PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(pendingSection, Root, pendingStart, true,
                     _ => TabDescriptor?.ForceRebuild());
 
                 // History (newest first) — resolved outcomes.
@@ -202,7 +202,7 @@ namespace Basis.BasisUI
                     history++;
                 }
                 if (history == 0) AddEmpty(BasisLocalization.Get("notifications.empty.history"));
-                PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(historySection, Root, historyStart, true,
+                PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(historySection, Root, historyStart, true,
                     _ => TabDescriptor?.ForceRebuild());
 
                 if (TabDescriptor != null) TabDescriptor.ForceRebuild();

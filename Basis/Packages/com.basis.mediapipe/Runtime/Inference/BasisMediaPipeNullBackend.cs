@@ -11,5 +11,6 @@ namespace Basis.MediaPipe
         public void SubmitFrame(WebCamTexture frame, double timestampMs) { }
         public bool TryGetLatestResult(out BasisMediaPipeResult result) { result = default; return false; }
         public void Shutdown() { }
+        public string TimingBreakdown() => string.Empty;
     }
 }

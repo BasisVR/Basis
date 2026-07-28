@@ -1,5 +1,19 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-7061326814219087741
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 820949bd2ba14c7699a6b5d0dbee4869, type: 3}
+  m_Name: BasisImageDepthVisibilityFeature
+  m_EditorClassIdentifier: Basis.ImagePickup::Basis.ImagePickup.BasisImageDepthVisibilityFeature
+  m_Active: 1
+  computeShader: {fileID: 7200000, guid: 4c8a6bd4307f45d9aaa4e7483e8f2650, type: 3}
 --- !u!114 &-6138350381377972815
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -82,7 +96,8 @@ MonoBehaviour:
   - {fileID: 7574712923221662252}
   - {fileID: -6138350381377972815}
   - {fileID: -1772261579603543917}
-  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e7
+  - {fileID: -7061326814219087741}
+  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3

@@ -1,5 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.Receivers;
 using HVR.Basis.Comms;
 using HVR.Basis.Comms.HVRUtility;
 using UnityEngine;
@@ -55,8 +59,6 @@ namespace HVR.Vixxy
             // Might need to add a baking phase so that we don't do a string lookup every time
             // (consider switching to an int lookup).
 
-            var aggregators = AggregatorsOf(addressId);
-
             // In AcquisitionService, acquisition events are raised as soon as the data arrives.
             // We don't want to process that new data when it arrives, instead we want to process
             // only after all data has arrived for that frame, all at once.
@@ -65,38 +67,87 @@ namespace HVR.Vixxy
             // The value may have not changed. We need to track it so that we don't send unnecessarily update actuators,
             // like that of face tracking.
             // OR, modify AcquisitionService to have OnAddressValueChanged.
-            _aggregatorsToUpdateThisTick.UnionWith(aggregators);
-            foreach (var actuator in ActuatorsOf(addressId))
+
+            // Iterated as concrete HashSets: this fires per changed address per frame, and going
+            // through IEnumerable boxes the set's struct enumerator to the heap each time.
+            if (_addressIdToAggregators.TryGetValue(addressId, out var aggregators))
             {
-                if (actuator.HasFilters())
+                foreach (var aggregator in aggregators)
                 {
-                    _actuatorsWithFiltersToCheckThisTick.Add(actuator);
+                    _aggregatorsToUpdateThisTick.Add(aggregator);
                 }
-                else
+            }
+            if (_addressIdToActuators.TryGetValue(addressId, out var actuators))
+            {
+                foreach (var actuator in actuators)
                 {
-                    _actuatorsToUpdateThisTick.Add(actuator);
+                    if (actuator.HasFilters())
+                    {
+                        _actuatorsWithFiltersToCheckThisTick.Add(actuator);
+                    }
+                    else
+                    {
+                        _actuatorsToUpdateThisTick.Add(actuator);
+                    }
                 }
             }
             _anythingNeedsUpdating = true;
         }
 
-        private IEnumerable<IHVRVixxyAggregator> AggregatorsOf(int addressId)
-        {
-            if (_addressIdToAggregators.TryGetValue(addressId, out var results)) return results;
-            return Enumerable.Empty<IHVRVixxyAggregator>();
-        }
-
-        private IEnumerable<IHVRVixxyActuator> ActuatorsOf(int addressId)
-        {
-            if (_addressIdToActuators.TryGetValue(addressId, out var results)) return results;
-            return Enumerable.Empty<IHVRVixxyActuator>();
-        }
-
         private void OnEnable() => HVRCommsUpdateDriver.Register(this);
         private void OnDisable() => HVRCommsUpdateDriver.Unregister(this);
 
+        // Distance gating for remote avatars, riding the same LOD cadence the pose path uses
+        // (SMModuleDistanceBasedReductions.PoseSkipByLod — all zeros until the user engages the
+        // distance-reduction setting, so this is inert by default). Skipped ticks lose nothing:
+        // address updates keep accumulating in the pending sets, which are latest-wins, so the
+        // next tick actuates once with the newest values. Wearer and world-object orchestrators
+        // never gate.
+        private bool _avatarProbed;
+        private bool _neverGate;
+        private BasisAvatar _avatarOrNull;
+        private BasisRemotePlayer _remotePlayerOrNull;
+        private int _lodSkipCounter;
+
+        private bool ShouldSkipThisTick()
+        {
+            if (_neverGate) return false;
+            if (_avatarProbed == false)
+            {
+                _avatarProbed = true;
+                _avatarOrNull = HVRCommsUtil.GetAvatar(this);
+                if (_avatarOrNull == null || _avatarOrNull.IsOwnedLocally)
+                {
+                    _neverGate = true;
+                    return false;
+                }
+            }
+            if (_remotePlayerOrNull == null)
+            {
+                // The avatar→player mapping may not exist yet during join; tick normally and
+                // keep trying — a dictionary lookup per attempt.
+                if (BasisNetworkPlayers.AvatarToPlayer(_avatarOrNull, out _, out var netPlayer)
+                    && netPlayer is BasisNetworkReceiver receiver)
+                {
+                    _remotePlayerOrNull = receiver.RemotePlayer;
+                }
+                if (_remotePlayerOrNull == null) return false;
+            }
+
+            if (_lodSkipCounter > 0)
+            {
+                _lodSkipCounter--;
+                return true;
+            }
+            int lod = Mathf.Clamp(_remotePlayerOrNull.CurrentLodLevel, 0, 3);
+            _lodSkipCounter = SMModuleDistanceBasedReductions.PoseSkipByLod[lod];
+            return false;
+        }
+
         internal void SimulateTick()
         {
+            if (ShouldSkipThisTick()) return;
+
             if (_needsReevaluateSystemAddresses)
             {
                 var systemAddresses = _addressIdToActuators.Keys
@@ -132,9 +183,13 @@ namespace HVR.Vixxy
             while (randomIterations > 0 && _aggregatorsToUpdateThisTick.Count > 0)
             {
                 randomIterations--;
-                // Starting a new cycle.
+                // Starting a new cycle. Copied by hand — UnionWith between two HashSets still
+                // enumerates through IEnumerable and boxes the enumerator.
                 _workAggregators.Clear();
-                _workAggregators.UnionWith(_aggregatorsToUpdateThisTick);
+                foreach (var aggregator in _aggregatorsToUpdateThisTick)
+                {
+                    _workAggregators.Add(aggregator);
+                }
                 _aggregatorsToUpdateThisTick.Clear();
 
                 foreach (var aggregator in _workAggregators)
@@ -165,7 +220,10 @@ namespace HVR.Vixxy
                 }
 
                 _actuatorsWithFiltersToCheckThisTick.Clear();
-                _actuatorsWithFiltersToCheckThisTick.UnionWith(L_actuatorsWithFiltersToCheckNextTick);
+                foreach (var actuator in L_actuatorsWithFiltersToCheckNextTick)
+                {
+                    _actuatorsWithFiltersToCheckThisTick.Add(actuator);
+                }
             }
 
             // Deck remaining aggregations for next frame. We already gave it a bunch of chances.

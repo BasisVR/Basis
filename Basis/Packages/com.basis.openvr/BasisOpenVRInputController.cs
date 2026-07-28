@@ -1,5 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 using Valve.VR;
@@ -43,6 +45,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             inputSource = SteamVR_Input_Sources;
             Device = device;
+            TrackingHardware = BasisTrackingHardware.Lighthouse;
 
             InitializeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole,true);
 
@@ -59,6 +62,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             if (DeviceposeAction != null)
             {
                 HasOnUpdate = false;
+            }
+            if (RenderModelAnchor != null)
+            {
+                GameObject.Destroy(RenderModelAnchor.gameObject);
+                RenderModelAnchor = null;
             }
             base.OnDestroy();
         }
@@ -80,6 +88,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             CurrentInputState.SecondaryTrigger = SteamVR_Actions._default.HandTrigger.GetAxis(inputSource);
             CurrentInputState.Secondary2DAxisRaw = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
             CurrentInputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
+            PollPose();
         }
         public override void RenderPollData()
         {
@@ -101,7 +110,16 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             CurrentInputState.Secondary2DAxisRaw = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
             CurrentInputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
 
-            // Update hand (left/right)
+            PollPose();
+
+            UpdateInputEvents();
+        }
+        private void PollPose()
+        {
+            if (!SteamVR.active)
+            {
+                return;
+            }
             switch (inputSource)
             {
                 case SteamVR_Input_Sources.LeftHand:
@@ -117,8 +135,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                         break;
                     }
             }
-
-            UpdateInputEvents();
         }
         private void UpdateHandPose(BasisFingerPose hand, SteamVR_Action_Skeleton skeletonAction, bool isLeft)
         {
@@ -173,6 +189,15 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             // Raw device pose in *unscaled* world space
             ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, devicePose.mDeviceToAbsoluteTracking.GetPosition());
             UnscaledDeviceCoord.rotation = devicePose.mDeviceToAbsoluteTracking.GetRotation();
+
+            if (RenderModelAnchor != null)
+            {
+                ConvertToScaledDeviceCoord(ref UnscaledDeviceCoord, ref rawScaledDeviceCoord);
+                Vector3 anchorPos = rawScaledDeviceCoord.position;
+                Quaternion anchorRot = rawScaledDeviceCoord.rotation;
+                BasisLocalPlayspaceMover.ApplyFlipToLocalPose(ref anchorPos, ref anchorRot);
+                RenderModelAnchor.SetLocalPositionAndRotation(anchorPos, anchorRot);
+            }
 
             float Scale = BasisHeightDriver.DeviceScale;
 
@@ -230,9 +255,34 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             );
         }
 
+        private BasisOpenVRRenderModel _runtimeModel;
         public override void ShowTrackedVisual()
         {
             ShowTrackedVisualDefaultImplementation();
+        }
+
+        public override bool TryShowRuntimeDeviceModel()
+        {
+            return BasisOpenVRRenderModel.TryLoad(this, ref _runtimeModel);
+        }
+
+        /// <summary>
+        /// A node kept at the raw controller device pose. This device's own <c>transform</c> is
+        /// remapped to the avatar wrist (with an IK rotation offset), which would misplace a device
+        /// model authored at the raw pose — so render models attach here instead. Driven every render
+        /// frame in <see cref="UpdateHandPose"/>.
+        /// </summary>
+        public Transform RenderModelAnchor;
+        private BasisCalibratedCoords rawScaledDeviceCoord = new BasisCalibratedCoords();
+
+        public override Transform GetVisualAnchor()
+        {
+            if (RenderModelAnchor == null)
+            {
+                RenderModelAnchor = new GameObject("ControllerRenderModelAnchor").transform;
+                RenderModelAnchor.SetParent(BasisLocalPlayer.Instance.transform, false);
+            }
+            return RenderModelAnchor;
         }
 
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)

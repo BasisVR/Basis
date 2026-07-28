@@ -17,7 +17,7 @@
     },
     {
       "key": "menu.servers.host",
-      "value": "Host"
+      "value": "Alojar"
     },
     {
       "key": "menu.servers.ipAddress",
@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "Aún no hay servidores. Presiona «Agregar servidor» para crear uno."
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "Agregar servidor"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "Actualizar todo"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "Editando servidor"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "Nuevo servidor"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "Guardar"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "Cancelar"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "Eliminar"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "Editar"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "Actualizar"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "Desconectado"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "Consultando..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "Compartir"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "¡Bienvenido a Basis Labs!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs es el escaparate vivo del Basis Framework: una base gratuita y con licencia MIT para crear juegos, plataformas y experiencias de VR. Explora mundos, usa avatares personalizados y conoce gente mientras pruebas funciones conforme se van creando. Todo aquí está en evolución: tus comentarios ayudan a darle forma."
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "Siguiente"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "Tu primer servidor"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "No hay un servicio central de Basis: cualquiera puede ejecutar un servidor y tú puedes alojar el tuyo desde este mismo panel. Para que siempre tengas adónde ir, mantenemos un servidor predeterminado, marcado con una ★ al principio de la lista de abajo. Elige un nombre de usuario, presiona el botón «Conectar» iluminado y ¡ven a saludar!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "¡Entendido!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "Elige un nombre de usuario"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "Elige el nombre que verán los demás jugadores y presiona «Conectar»."
     },
     {
       "key": "menu.servers.hostMotd",

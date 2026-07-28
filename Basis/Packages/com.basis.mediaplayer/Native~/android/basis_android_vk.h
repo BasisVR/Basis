@@ -23,8 +23,13 @@ basis_vk_present* basis_vk_create(void);
 void             basis_vk_destroy(basis_vk_present* v);
 
 /* Decode thread: hand off the newest decoded AHardwareBuffer (the present takes
- * its own ref). Cheap; the GPU work happens in basis_vk_render_update. */
-void basis_vk_set_hardware_buffer(basis_vk_present* v, struct AHardwareBuffer* ahb, int w, int h);
+ * its own ref). uvXform is (scaleX, scaleY, offsetX, offsetY) applied to the
+ * 0..1 sample quad so only the codec's crop rectangle is resolved (the coded
+ * buffer pads the height up to a macroblock multiple; sampling the whole buffer
+ * draws the pad as an edge strip). Pass (1,1,0,0) for the full buffer. Cheap;
+ * the GPU work happens in basis_vk_render_update. */
+void basis_vk_set_hardware_buffer(basis_vk_present* v, struct AHardwareBuffer* ahb, int w, int h,
+                                  const float uvXform[4]);
 
 /* Render thread: import the pending AHB (if any) and resolve it to the RGBA
  * VkImage. Returns 1 if a new frame was published. */

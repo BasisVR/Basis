@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "还没有服务器。按「添加服务器」来创建一个。"
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "添加服务器"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "全部刷新"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "正在编辑服务器"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "新建服务器"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "保存"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "取消"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "移除"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "编辑"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "刷新"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "离线"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "正在查询..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "分享"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "欢迎来到 Basis Labs！"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs 是 Basis Framework 的活体展示——一个免费、采用 MIT 许可的基础框架，用于构建 VR 游戏、平台和体验。探索世界、穿戴自定义虚拟形象，一边体验正在开发中的功能，一边结识新朋友。这里的一切都在不断演进——你的反馈会塑造它。"
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "下一步"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "你的第一个服务器"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Basis 没有中央服务——任何人都可以运行服务器，你也可以直接在此面板中托管自己的服务器。为了让你随时有去处，我们运行了一个默认服务器，在下方列表顶部以 ★ 标记。选个用户名，按下发光的「连接」按钮，来打个招呼吧！"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "知道了！"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "选择用户名"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "选择其他玩家会看到的名称，然后按「连接」。"
     },
     {
       "key": "menu.servers.hostMotd",

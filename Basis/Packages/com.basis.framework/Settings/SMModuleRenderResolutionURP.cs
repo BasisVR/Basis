@@ -1,8 +1,8 @@
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Rendering;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 
 public class SMModuleRenderResolutionURP : BasisSettingsBase
@@ -17,6 +17,11 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
     // --- Canonical setting keys (from defaults) ---
     private static string K_RENDER_RESOLUTION => BasisSettingsDefaults.RenderResolution.BindingKey;     // "render resolution"
     private static string K_FOVEATED_RENDERING => BasisSettingsDefaults.FoveatedRendering.BindingKey;   // "foveated rendering"
+    private static string K_DYNAMIC_RESOLUTION => BasisSettingsDefaults.DynamicResolutionEnabled.BindingKey;
+    private static string K_DYNAMIC_RESOLUTION_MINIMUM => BasisSettingsDefaults.DynamicResolutionMinimumScale.BindingKey;
+    private static string K_DYNAMIC_RESOLUTION_MAXIMUM => BasisSettingsDefaults.DynamicResolutionMaximumScale.BindingKey;
+    private static string K_DYNAMIC_RESOLUTION_TARGET_OVERRIDE => BasisSettingsDefaults.DynamicResolutionTargetOverride.BindingKey;
+    private static string K_DYNAMIC_RESOLUTION_TARGET => BasisSettingsDefaults.DynamicResolutionTargetFrameRate.BindingKey;
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
@@ -46,6 +51,14 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
                     BasisDebug.LogError("Can't parse value!", BasisDebug.LogTag.Device);
                 }
                 break;
+
+            case var s when s == K_DYNAMIC_RESOLUTION:
+            case var s2 when s2 == K_DYNAMIC_RESOLUTION_MINIMUM:
+            case var s3 when s3 == K_DYNAMIC_RESOLUTION_MAXIMUM:
+            case var s4 when s4 == K_DYNAMIC_RESOLUTION_TARGET_OVERRIDE:
+            case var s5 when s5 == K_DYNAMIC_RESOLUTION_TARGET:
+                HandleDynamicResolution();
+                break;
         }
     }
 
@@ -62,25 +75,16 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
 
         RenderScale = option;
 
-        if (BasisDeviceManagement.IsCurrentModeVR())
-        {
-            return;
-        }
+      //  BasisDynamicResolution.SetUserRenderScale(option);
+    }
 
-        UniversalRenderPipelineAsset asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
-
-#if UNITY_SERVER
-        if (asset == null)
-        {
-            BasisDebug.LogWarning("SMModuleRenderResolutionURP: No URP pipeline asset assigned. Skipping render scale changes.");
-            return;
-        }
-#endif
-
-        if (asset != null && asset.renderScale != RenderScale)
-        {
-            asset.renderScale = RenderScale;
-        }
+    private void HandleDynamicResolution()
+    {
+      //  BasisDynamicResolution.Configure(
+       ///     BasisSettingsDefaults.DynamicResolutionEnabled.RawValue,
+        //    BasisSettingsDefaults.DynamicResolutionMinimumScale.RawValue,
+        ////    BasisSettingsDefaults.DynamicResolutionMaximumScale.RawValue,
+        //    BasisSettingsDefaults.DynamicResolutionTargetOverride.RawValue ? BasisSettingsDefaults.DynamicResolutionTargetFrameRate.RawValue : 0f);
     }
 
     private void HandleFoveatedRendering(float value)

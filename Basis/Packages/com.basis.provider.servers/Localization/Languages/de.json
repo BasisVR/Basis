@@ -17,7 +17,7 @@
     },
     {
       "key": "menu.servers.host",
-      "value": "Host"
+      "value": "Hosten"
     },
     {
       "key": "menu.servers.ipAddress",
@@ -114,6 +114,38 @@
     {
       "key": "menu.servers.list.share",
       "value": "Teilen"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Willkommen bei Basis Labs!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs ist das lebendige Schaufenster des Basis Framework — einer kostenlosen, MIT-lizenzierten Grundlage für VR-Spiele, -Plattformen und -Erlebnisse. Erkunde Welten, trage eigene Avatare und triff Leute, während du Funktionen testest, die gerade entstehen. Hier ist alles im Wandel — dein Feedback prägt es mit."
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "Weiter"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "Dein erster Server"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Es gibt keinen zentralen Basis-Dienst — jede und jeder kann einen Server betreiben, und du kannst direkt aus diesem Panel deinen eigenen hosten. Damit du immer ein Ziel hast, betreiben wir einen Standardserver, oben in der Liste mit einem ★ markiert. Wähle einen Benutzernamen, drücke den leuchtenden „Verbinden“-Knopf und sag hallo!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "Alles klar!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "Benutzernamen wählen"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "Wähle den Namen, den andere Spieler sehen, und drücke dann auf „Verbinden“."
     },
     {
       "key": "menu.servers.hostMotd",

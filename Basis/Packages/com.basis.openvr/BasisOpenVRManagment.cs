@@ -4,6 +4,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Rendering;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections;
@@ -39,6 +40,20 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         /// </summary>
         public bool IsSuspended = false;
         public static string SteamVRBehaviour = "SteamVR_Behaviour";
+        /// <summary>
+        /// Off pending verification: first VR run with the subsystem cut active broke rendering
+        /// (movement fine — Basis polls poses from the compositor itself), suggesting the Valve XR
+        /// display provider is not independent of the input subsystem as assumed. Saves only the
+        /// idle XR mirror updates (~0.04ms) when proven safe.
+        /// </summary>
+        public static bool CutUnityXRInputSubsystems = false;
+        /// <summary>
+        /// Cadence for re-reading the compositor's recommended render target. Covers changes that
+        /// arrive without a settings event, such as SteamVR's own automatic resolution adjustment
+        /// and external tools writing the per-application resolution directly.
+        /// </summary>
+       // public static float ResolutionPollInterval = 0.5f;
+        //private float ResolutionPollTimer;
         private void OnDeviceConnected(uint deviceIndex, bool deviceConnected)
         {
             StartCoroutine(DelayedOnDeviceConnectedCoroutine(deviceIndex, deviceConnected));
@@ -421,10 +436,15 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
         public override void StopSDK()
         {
+            // The worker must be idle before the runtime is disposed under it.
+            ShutdownInputThread();
             IsSuspended = false;
             // Reset the persistent eye-texture multiplier so a subsequent OpenXR/Desktop
             // session doesn't inherit OpenVR's headset-native scaling.
             XRSettings.eyeTextureResolutionScale = 1f;
+          //  BasisDynamicResolution.OnAllocationScaleChanged -= OnAllocationScaleChanged;
+           // BasisDynamicResolution.ExternalAllocationOwner = false;
+           // BasisDynamicResolution.ResetAppliedState();
             SteamVR.SafeDispose();
 
             if (SteamVR_BehaviourGameobject != null)
@@ -443,6 +463,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             SteamVR_Render = null;
             IsInUse = false;
             SteamVR_Events.DeviceConnected.RemoveListener(OnDeviceConnected);
+            SteamVR_Events.System(EVREventType.VREvent_SteamVRSectionSettingChanged).RemoveListener(OnResolutionSettingChanged);
+            SteamVR_Events.System(EVREventType.VREvent_DashboardDeactivated).RemoveListener(OnResolutionSettingChanged);
         }
         public override async void StartSDK()
         {
@@ -468,6 +490,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             // Register SteamVR events
             SteamVR_Events.DeviceConnected.Listen(OnDeviceConnected);
             SteamVR_Events.System(EVREventType.VREvent_TrackedDeviceRoleChanged).Listen(OnTrackedDeviceRoleChanged);
+            SteamVR_Events.System(EVREventType.VREvent_SteamVRSectionSettingChanged).Listen(OnResolutionSettingChanged);
+            SteamVR_Events.System(EVREventType.VREvent_DashboardDeactivated).Listen(OnResolutionSettingChanged);
 
             SteamVR_Render.Initialize(SteamVR_Render);
 
@@ -476,7 +500,13 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             if (State)
             {
                 BasisDebug.Log("SteamVR SDK started successfully.");
-                ApplyRecommendedRenderResolution();
+             //   BasisDynamicResolution.ExternalAllocationOwner = true;
+             //   BasisDynamicResolution.OnAllocationScaleChanged += OnAllocationScaleChanged;
+               // ApplyRecommendedRenderResolution();
+                if (CutUnityXRInputSubsystems)
+                {
+                    StopUnityXRInputSubsystems();
+                }
                 BasisCursorManagement.UnlockCursorBypassChecks("Forceful Unlock OPENVR");
             }
             else
@@ -485,27 +515,90 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
               await  BasisDeviceManagement.Instance.SwitchSetModeToDefault();
             }
         }
+        /*
         /// <summary>
         /// Pulls SteamVR's grown recommended render target (which factors in the lens
-        /// distortion overlap between eyes) and bakes it into XRSettings.eyeTextureResolutionScale
-        /// once at SteamVR init. The OpenVR XR plugin allocates eye textures at Unity's
-        /// default size — without this, Steam super-sampling and the per-headset native
-        /// resolution are silently ignored. After this runs the URP renderScale slider
-        /// behaves identically to OpenXR/Desktop: slider 1.0 = native recommended,
-        /// slider X = X × native.
+        /// distortion overlap between eyes) and bakes it into XRSettings.eyeTextureResolutionScale.
+        /// The OpenVR XR plugin allocates eye textures at Unity's default size — without this,
+        /// Steam super-sampling and the per-headset native resolution are silently ignored.
+        /// The recommendation is re-read from the runtime rather than taken from
+        /// SteamVR.sceneWidth/sceneHeight, which are frozen in the SteamVR constructor, so
+        /// compositor-side changes (per-app resolution, supersample slider, external tools
+        /// such as OVR Dynamic Resolution) are followed while the client is running.
         /// </summary>
         private void ApplyRecommendedRenderResolution()
         {
             if (SteamVR == null) return;
-            float recommendedMax = Mathf.Max(SteamVR.sceneWidth, SteamVR.sceneHeight);
+            CVRSystem system = Valve.VR.OpenVR.System;
+            if (system == null) return;
+
+            uint recommendedWidth = 0;
+            uint recommendedHeight = 0;
+            system.GetRecommendedRenderTargetSize(ref recommendedWidth, ref recommendedHeight);
+            if (recommendedWidth == 0 || recommendedHeight == 0) return;
+
+            float grownWidth = recommendedWidth;
+            float grownHeight = recommendedHeight;
+
+            VRTextureBounds_t[] bounds = SteamVR.textureBounds;
+            if (bounds != null && bounds.Length == 2)
+            {
+                grownWidth = BasisOpenVRResolutionPolicy.GrowForLensOverlap(recommendedWidth,
+                    BasisOpenVRResolutionPolicy.LargestSpan(bounds[0].uMin, bounds[0].uMax, bounds[1].uMin, bounds[1].uMax));
+                grownHeight = BasisOpenVRResolutionPolicy.GrowForLensOverlap(recommendedHeight,
+                    BasisOpenVRResolutionPolicy.LargestSpan(bounds[0].vMin, bounds[0].vMax, bounds[1].vMin, bounds[1].vMax));
+            }
+
+            float recommendedMax = Mathf.Max(grownWidth, grownHeight);
+            float targetMax = recommendedMax * BasisDynamicResolution.AllocationScale;
             float currentMax = Mathf.Max(XRSettings.eyeTextureWidth, XRSettings.eyeTextureHeight);
-            if (recommendedMax <= 0f || currentMax <= 0f) return;
-            float currentScale = XRSettings.eyeTextureResolutionScale;
-            if (currentScale <= 0f) currentScale = 1f;
-            float baseMax = currentMax / currentScale;
-            float scale = recommendedMax / baseMax;
+
+            if (!BasisOpenVRResolutionPolicy.TryComputeEyeTextureScale(targetMax, currentMax, XRSettings.eyeTextureResolutionScale, BasisOpenVRResolutionPolicy.DefaultDeadband, out float scale))
+            {
+                return;
+            }
+
+            if (Mathf.Approximately(scale, XRSettings.eyeTextureResolutionScale))
+            {
+                return;
+            }
+
             XRSettings.eyeTextureResolutionScale = scale;
-            BasisDebug.Log($"OpenVR resolution: eye texture scaled {scale:F3}× to {SteamVR.sceneWidth}x{SteamVR.sceneHeight} (unity-base {baseMax})", BasisDebug.LogTag.Device);
+            BasisDebug.Log($"OpenVR resolution: eye texture scaled {scale:F3}× to {targetMax:F0} (compositor {recommendedMax:F0}, allocation {BasisDynamicResolution.AllocationScale:F2}, was {currentMax:F0})", BasisDebug.LogTag.Device);
+        }
+        */
+        private void PollRecommendedRenderResolution()
+        {
+          //  ResolutionPollTimer += Time.unscaledDeltaTime;
+          //  if (ResolutionPollTimer < ResolutionPollInterval)
+          ////  {
+          //      return;
+          //  }
+           // ResolutionPollTimer = 0f;
+         //   ApplyRecommendedRenderResolution();
+        }
+        /// <summary>
+        /// OpenVR mode reads every pose and button straight from the OpenVR API (compositor poses,
+        /// SteamVR actions), so the Unity XR input subsystem the loader started has no consumers.
+        /// Left running it mirrors the HMD, controllers, trackers and base stations into the Unity
+        /// Input System as TrackedDevices, which bills every InputSystem.Update and keeps the
+        /// before-render input update alive. Stopping it removes those devices; the display
+        /// subsystem is untouched.
+        /// </summary>
+        private static void StopUnityXRInputSubsystems()
+        {
+            List<XRInputSubsystem> inputSubsystems = new List<XRInputSubsystem>();
+            SubsystemManager.GetSubsystems(inputSubsystems);
+            int count = inputSubsystems.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                XRInputSubsystem inputSubsystem = inputSubsystems[Index];
+                if (inputSubsystem != null && inputSubsystem.running)
+                {
+                    inputSubsystem.Stop();
+                    BasisDebug.Log("OpenVR: Stopped Unity XR input subsystem, SteamVR input is polled via OpenVR directly", BasisDebug.LogTag.Device);
+                }
+            }
         }
         public async Task<bool> WaitingUntilReady()
         {
@@ -553,14 +646,155 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             }
             return false;
         }
+        /// <summary>
+        /// When true the SteamVR action-state update (UpdateActionState + button/axis/skeleton
+        /// reads — the bulk of the per-frame input cost) runs on a worker thread, kicked from
+        /// <see cref="SimulateKick"/> and joined in <see cref="Simulate"/> so it overlaps the
+        /// comms/network-apply work between the two. OpenVR interfaces are thread-safe, the
+        /// update path reads main-thread state only via SteamVR_Input.CaptureMainThreadState,
+        /// and no Basis code touches action state between kick and join (readers are the eye
+        /// driver before the kick, and device polls after the join).
+        /// </summary>
+        public static bool ThreadedInputUpdate = true;
+        private System.Threading.Thread inputThread;
+        private readonly System.Threading.SemaphoreSlim inputKick = new System.Threading.SemaphoreSlim(0);
+        private readonly System.Threading.ManualResetEventSlim inputDone = new System.Threading.ManualResetEventSlim(true);
+        private volatile bool inputThreadRun;
+        private bool inputKicked;
+        static readonly Unity.Profiling.ProfilerMarker sMarkerJoinInput = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.JoinInput");
+        static readonly Unity.Profiling.ProfilerMarker sMarkerHMDPresence = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.HMDPresence");
+
+        public override void SimulateKick()
+        {
+            if (!IsDeviceBooted || SteamVR_Render == null || !ThreadedInputUpdate)
+            {
+                return;
+            }
+            SteamVR_Input.CaptureMainThreadState();
+            EnsureInputThread();
+            inputDone.Wait();
+            inputDone.Reset();
+            inputKicked = true;
+            inputKick.Release();
+        }
+
+        private void EnsureInputThread()
+        {
+            if (inputThread != null && inputThread.IsAlive)
+            {
+                return;
+            }
+            // Drain any kick left over from a previous thread's shutdown (its wake-up Release may
+            // outlive it across a VR -> desktop -> VR round trip) so the new thread only runs when
+            // kicked this session.
+            while (inputKick.Wait(0))
+            {
+            }
+            inputDone.Set();
+            inputThreadRun = true;
+            inputThread = new System.Threading.Thread(InputThreadLoop)
+            {
+                Name = "BasisSteamVRInput",
+                IsBackground = true,
+            };
+            inputThread.Start();
+        }
+
+        private void InputThreadLoop()
+        {
+            UnityEngine.Profiling.Profiler.BeginThreadProfiling("Basis", "SteamVR Input");
+            while (inputThreadRun)
+            {
+                inputKick.Wait();
+                if (!inputThreadRun)
+                {
+                    break;
+                }
+                try
+                {
+                    Valve.VR.SteamVR_Render.SimulateInput();
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"SteamVR input thread: {e}", BasisDebug.LogTag.Device);
+                }
+                finally
+                {
+                    inputDone.Set();
+                }
+            }
+            inputDone.Set();
+            UnityEngine.Profiling.Profiler.EndThreadProfiling();
+        }
+
+        private void ShutdownInputThread()
+        {
+            if (inputThread == null)
+            {
+                return;
+            }
+            inputThreadRun = false;
+            inputKick.Release();
+            if (!inputThread.Join(1000))
+            {
+                BasisDebug.LogError("SteamVR input thread did not stop in time", BasisDebug.LogTag.Device);
+            }
+            inputThread = null;
+            inputKicked = false;
+            inputDone.Set();
+        }
+
+        private void OnDestroy()
+        {
+        //    BasisDynamicResolution.OnAllocationScaleChanged -= OnAllocationScaleChanged;
+            ShutdownInputThread();
+        }
+
         public override void Simulate()
         {
             if (!IsDeviceBooted) return;
             if (SteamVR_Render != null)
             {
-                SteamVR_Render.Simulate();
+                if (inputKicked)
+                {
+                    // The main-thread half is independent of action state, so it fills the
+                    // remaining wait instead of running after the join.
+                    SteamVR_Render.SimulatePosesAndEvents();
+                    using (sMarkerJoinInput.Auto())
+                    {
+                        inputDone.Wait();
+                    }
+                    inputKicked = false;
+                }
+                else
+                {
+                    SteamVR_Input.CaptureMainThreadState();
+                    Valve.VR.SteamVR_Render.SimulateInput();
+                    SteamVR_Render.SimulatePosesAndEvents();
+                }
             }
-            PollHMDPresence();
+            using (sMarkerHMDPresence.Auto())
+            {
+                PollHMDPresence();
+            }
+
+            PollRecommendedRenderResolution();
+        }
+
+        /// <summary>
+        /// The SteamVR dashboard writes its resolution slider into the steamvr settings section, so
+        /// a section change is the earliest signal that the recommended render target moved. The
+        /// apply itself is deferred to the next <see cref="Simulate"/> rather than run inside the
+        /// event pump, keeping a single apply path and one reallocation per frame at most.
+        /// </summary>
+        private void OnResolutionSettingChanged(VREvent_t vrEvent)
+        {
+           // ResolutionPollTimer = ResolutionPollInterval;
+        }
+
+        private void OnAllocationScaleChanged()
+        {
+           // ResolutionPollTimer = ResolutionPollInterval;
         }
 
         /// <summary>

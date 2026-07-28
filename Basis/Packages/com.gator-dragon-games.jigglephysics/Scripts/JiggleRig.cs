@@ -49,6 +49,7 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
         jiggleRigData.RegenerateCacheLookup();
 
         segment ??= new JiggleTreeSegment(this);
+        segment.SetAnimatedParameters(animatedParameters);
         segment.SetDirty();
         if (!addedToJiggleTreeSegments) {
             JigglePhysics.AddJiggleTreeSegment(segment);
@@ -68,9 +69,11 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
     /// </summary>
     public void ResampleRestPose() {
         jiggleRigData.ResampleRestPose();
-        if (segment != null && segment.jiggleTree != null) {
-            segment.jiggleTree.SetDirty();
-        }
+        // Has to go through the segment: JiggleTree.SetDirty raises its dirty flag before invoking
+        // the callback, so by the time the segment's own SetDirty runs its `dirty: false` guard the
+        // guard is already false and the tree is never scheduled for removal. It then gets added a
+        // second time under the same rootID, leaking its transform slice.
+        segment?.SetDirty();
     }
 
     public void SnapToRestPose() {
@@ -79,6 +82,10 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
 
     public void Teleport(Vector3 deltaPosition) {
         segment?.Teleport(deltaPosition);
+    }
+
+    public void Teleport(Quaternion deltaRotation, Vector3 pivot, Vector3 deltaPosition) {
+        segment?.Teleport(deltaRotation, pivot, deltaPosition);
     }
     
     /// <summary>
@@ -93,7 +100,10 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
 
     public bool HasAnimatedParameters {
         get => animatedParameters;
-        set => animatedParameters = value;
+        set {
+            animatedParameters = value;
+            segment?.SetAnimatedParameters(value);
+        }
     }
 
     private void OnValidate() {
@@ -102,6 +112,9 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
         }
         jiggleRigData.OnValidate();
         if (Application.isPlaying) {
+            // Inspector edits write the serialized field directly, bypassing the property setter —
+            // resync the segment mirror or a play-mode toggle never reaches the animated registry.
+            segment?.SetAnimatedParameters(animatedParameters);
             UpdateParameters();
         }
     }

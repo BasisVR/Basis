@@ -7,7 +7,8 @@ public static partial class SerializableBasis
     public struct LocalLoadResource
     {
         /// <summary>
-        /// 0 = Game object, 1 = Scene,
+        /// 0 = Game object under prop content limits, 1 = Scene, 2 = Game object under avatar content limits.
+        /// Position/rotation/scale are only serialized for mode 0.
         /// </summary>
         public byte Mode;
         /// <summary>

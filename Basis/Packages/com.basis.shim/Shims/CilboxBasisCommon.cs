@@ -12,12 +12,15 @@ namespace Cilbox
 			"TMPro.*",
 
 			// Basis types
-			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
+			"BasisNetworkContentBase",
+            "BasisNetworkContentBase+BasisContentInformation",
+            "Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
 			"Basis.BasisNetworkBehaviour",
 			"Basis.BasisNetworkShim*",
+			"BasisNetworkCommon+EventTiming",
 			"Basis.Shims.BasisOsc*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
@@ -280,7 +283,12 @@ namespace Cilbox
 			"UnityEngine.EventSystems.PointerEventData",
 			"UnityEngine.EventSystems.PointerEventData+InputButton",
 			"UnityEngine.EventSystems.RaycastResult",
-		};
+
+            "BasisNetworkContentBase",
+"BasisNetworkContentBase+BasisContentInformation",
+"Basis.Scripts.BasisSdk.Players.IBasisPlayer",
+"Basis.Scripts.Networking.BasisNetworkConnection",
+        };
 
 		protected static readonly HashSet<string> commonWhiteListFields = new HashSet<string>(){
 			// Unity Vector / Quaternion math fields
@@ -333,11 +341,23 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
-			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
+            "BasisNetworkContentBase+BasisContentInformation",
+            "Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
 			"Basis.BasisNetworkBehaviour.HasNetworkID",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
-			
+
+			// Sync shim configuration. These are plain fields rather than { get; set; } pairs, so
+			// unlike a property they need naming here — field access is default-deny, methods are
+			// default-allow. The const selectors alongside them (ChannelPose, SpaceWorld, Phase*,
+			// Max*) need no entry: the compiler inlines a const to ldc.i4, so no field token is
+			// ever emitted for them.
+			"Basis.Shims.BasisTransformSyncShim.Channels",
+			"Basis.Shims.BasisTransformSyncShim.Space",
+			"Basis.Shims.BasisTransformSyncShim.Enabled",
+			"Basis.Shims.BasisBlendShapeSyncShim.Epsilon",
+			"Basis.Shims.BasisBlendShapeSyncShim.Enabled",
+
 			// Unity Event Systems fields
 			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
 			"UnityEngine.EventSystems.PointerEventData.hovered",

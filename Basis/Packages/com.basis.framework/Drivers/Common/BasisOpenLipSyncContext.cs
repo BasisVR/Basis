@@ -92,7 +92,9 @@ namespace Basis.Scripts.Drivers
         public bool[] DebugHasViseme => _hasViseme;
         public int[] DebugVisemeToBlendShape => _visemeToBlendShape;
         public float[] DebugVisemeWeights => _cachedVisemeWeights;
-        public float[] DebugLastApplied => _lastApplied;
+        // Not only debug: the HVR comms viseme bridge reads this every frame. The array is
+        // allocated once and only ever mutated in place, so callers may cache the reference.
+        public float[] LastApplied => _lastApplied;
         public bool DebugTaskRunning => _batchTask != null && !_batchTask.IsCompleted;
         public static int DebugPendingCount => _pendingInference.Count;
         public static bool DebugBatchRunning => _batchTask != null && !_batchTask.IsCompleted;
@@ -352,6 +354,10 @@ namespace Basis.Scripts.Drivers
             for (int i = 0; i < VisemeCount; i++)
             {
                 if (!_hasViseme[i]) continue;
+                // Already driven to rest by a previous zeroing — skip the write. Re-writing a
+                // weight that is already 0 still dirties the skinned mesh, which is the whole cost
+                // we are trying to avoid; reading _lastApplied does not.
+                if (_lastApplied[i] == 0f) continue;
                 int bsIndex = _visemeToBlendShape[i];
                 if (bsIndex < 0 || bsIndex >= blendShapeCount) continue;
                 _meshRenderer.SetBlendShapeWeight(bsIndex, 0f);

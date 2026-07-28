@@ -1164,6 +1164,7 @@ namespace BasisPermissions
                     IncreaseRate = config.BSRSIncreaseRate,
                     SlowestSendRate = config.BSRSlowestSendRate,
                     PeerLimit = config.PeerLimit,
+                    UplinkDeltaEnabled = config.EnableUplinkAvatarDelta,
                 };
                 msg.SetPermissions(Manager.GetAllAllowedRules(uuid), Manager.GetAllDeniedRules(uuid));
 

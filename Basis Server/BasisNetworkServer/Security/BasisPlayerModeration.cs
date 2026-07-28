@@ -351,7 +351,15 @@ namespace BasisNetworkServer.Security
 
                 case AdminRequestMode.GlobalToggleAdditionalAvatarDataLock:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
-                        HandleGlobalToggle(peer, "Additional avatar data lock", BasisGlobalLockManager.ToggleAdditionalAvatarDataLock()));
+                    {
+                        // Not HandleGlobalToggle: its "loading ENABLED/DISABLED" template reads
+                        // inverted for this flag (it said DISABLED at the moment stripping turned
+                        // ON), which misled admins into leaving face tracking stripped server-wide.
+                        bool nowStripping = BasisGlobalLockManager.ToggleAdditionalAvatarDataLock();
+                        HandleGlobalStateNotification(peer, nowStripping
+                            ? "Additional avatar data (face tracking, avatar behaviour params) is now STRIPPED for everyone."
+                            : "Additional avatar data (face tracking, avatar behaviour params) now flows normally.");
+                    });
                     break;
 
                 case AdminRequestMode.SetGlobalCameraPolicy:
@@ -392,6 +400,11 @@ namespace BasisNetworkServer.Security
                 case AdminRequestMode.GlobalToggleImages:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleGlobalToggle(peer, "Shared image", BasisGlobalLockManager.ToggleImages()));
+                    break;
+
+                case AdminRequestMode.GlobalToggleEndEffectorIK:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Remote end-effector IK", BasisGlobalLockManager.ToggleEndEffectorIK()));
                     break;
 
                 case AdminRequestMode.SetGlobalAvatarScaleLimits:
@@ -437,6 +450,11 @@ namespace BasisNetworkServer.Security
                 case AdminRequestMode.SetGlobalOpusFrameDuration:
                     Require(peer, PermNodes.ModerationOpusBitrate, () =>
                         HandleOpusFrameDurationSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalOpusBitrate:
+                    Require(peer, PermNodes.ModerationOpusBitrate, () =>
+                        HandleGlobalOpusBitrateSet(peer, reader));
                     break;
 
                 // ===== PERMISSION EDIT =====
@@ -899,11 +917,21 @@ namespace BasisNetworkServer.Security
         private static void HandleGlobalToggle(NetPeer peer, string contentType, bool nowLocked)
         {
             string state = nowLocked ? "DISABLED" : "ENABLED";
-            string notification = $"{contentType} loading has been globally {state} by an admin.";
+            HandleGlobalStateNotification(peer, $"{contentType} loading has been globally {state} by an admin.");
+        }
+
+        /// <summary>
+        /// Notifies the toggling admin + all clients with a pre-composed, unambiguous message and
+        /// rebroadcasts the lock state. Toggles whose semantics don't fit the
+        /// "loading ENABLED/DISABLED" template (e.g. the additional-avatar-data strip) use this
+        /// directly so the message can state what actually changed.
+        /// </summary>
+        private static void HandleGlobalStateNotification(NetPeer peer, string notification)
+        {
             BNL.Log(notification);
 
             // Notify the admin who toggled it
-            SendBackMessage(peer, $"{contentType} loading is now {state}.");
+            SendBackMessage(peer, notification);
 
             // Notify all clients about the change
             var writer = NetworkServer.RentWriter();
@@ -1012,7 +1040,7 @@ namespace BasisNetworkServer.Security
 
             if (NetworkServer.AuthenticatedPeers.TryGetValue(targetId, out var targetPeer))
             {
-                BasisUserOpusBitrateStateManager.SendOverrideToPeer(targetPeer, applied);
+                BasisUserOpusBitrateStateManager.SendOverrideToPeer(targetPeer, BasisUserOpusBitrateStateManager.EffectiveBitrateFor(targetId));
             }
 
             string notification = applied == 0
@@ -1021,6 +1049,27 @@ namespace BasisNetworkServer.Security
 
             BNL.Log(notification);
             SendBackMessage(peer, notification);
+        }
+
+        private static void HandleGlobalOpusBitrateSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 4)
+            {
+                SendBackMessage(peer, "Failed to set global Opus bitrate: missing payload.");
+                return;
+            }
+
+            int requested = reader.GetInt();
+            int applied = BasisUserOpusBitrateStateManager.SetGlobalBitrate(requested);
+
+            string notification = applied == 0
+                ? "Cleared the global Opus bitrate; clients use their default (or their per-user override)."
+                : $"Global Opus bitrate is now {applied} bps (per-user overrides still win).";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+            BasisUserOpusBitrateStateManager.PushEffectiveToAllPeers();
+            BasisUserOpusBitrateStateManager.BroadcastGlobalState();
         }
 
         private static void HandleOpusFrameDurationSet(NetPeer peer, NetPacketReader reader)

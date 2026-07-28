@@ -19,6 +19,9 @@ namespace Basis.Shims
         private BasisAvatar avatar;
         private bool isLocalPlayer;
         private OnReady onAvatarReady;
+        private BasisPlayspaceInputShim playspaceInput;
+
+        public BasisPlayspaceInputShim PlayspaceInput => playspaceInput ??= new BasisPlayspaceInputShim(this);
 
         public OnReady OnAvatarReady
         {

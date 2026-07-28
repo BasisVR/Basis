@@ -132,15 +132,11 @@ namespace Basis.Scripts.Drivers
         private static readonly int RoleCount = Enum.GetValues(typeof(BasisBoneTrackedRole)).Length;
         private int[] _roleToIndex;
 
-        // Chain index arrays — built once after calibration.
-        // Spine chain runs first (serially). The four limb chains run in parallel after spine.
-        private NativeArray<int> _spineChainIndices;
-        private NativeArray<int> _leftArmChainIndices;
-        private NativeArray<int> _rightArmChainIndices;
-        private NativeArray<int> _leftLegChainIndices;
-        private NativeArray<int> _rightLegChainIndices;
-        // Any controls not in the standard skeleton chains — processed serially after spine.
-        private NativeArray<int> _otherChainIndices;
+        // All chains concatenated in dependency order — spine first (limb chains read spine
+        // outputs through their target indices), then the four limb chains, then any controls
+        // outside the standard skeleton. Built once after calibration and walked serially by a
+        // single job: at ~22 bones of light math, one Burst Run beats any dispatch fan-out.
+        private NativeArray<int> _allChainIndices;
 
         private bool _nativeAllocated;
         private int _nativeCapacity;
@@ -250,9 +246,8 @@ namespace Basis.Scripts.Drivers
 
         /// <summary>
         /// Simulates all bone controls for a frame using the given parent matrix and delta time.
-        /// Runs the spine chain serially in a Burst job, then schedules four limb chains
-        /// (left/right arm, left/right leg) in parallel with a dependency on the spine chain.
-        /// Any non-skeleton bones are processed serially in an "other" chain.
+        /// Runs a single Burst-compiled job inline over every chain in dependency order —
+        /// spine first, then the limb chains, then any non-skeleton bones.
         /// </summary>
         /// <param name="deltaTime">Time elapsed since last update (seconds).</param>
         /// <param name="parentMatrix">Parent transform matrix that seeds world-space computation.</param>
@@ -301,52 +296,23 @@ namespace Basis.Scripts.Drivers
             quaternion parentRot = parentMatrix.rotation;
             byte snap = instantSnap ? (byte)1 : (byte)0;
 
-            // Schedule: spine first; limb chains depend on spine; "other" depends on spine.
-            JobHandle spineHandle = default;
-            if (_spineChainIndices.IsCreated && _spineChainIndices.Length > 0)
+            // Run inline rather than scheduled: the old spine → limbs → world graph was
+            // completed right here anyway, so it bought no overlap — just seven dispatches,
+            // their fences and a worker wake, all to cover ~22 bones whose Burst-compiled
+            // math is microseconds. The array's order is the execution order the graph
+            // enforced: spine first, then the (mutually independent) limb chains, then the
+            // rest.
+            if (_allChainIndices.IsCreated && _allChainIndices.Length > 0)
             {
-                spineHandle = MakeJob(_spineChainIndices, parentMatrix44, parentRot, deltaTime, snap).Schedule();
+                MakeJob(_allChainIndices, parentMatrix44, parentRot, deltaTime, snap).Run();
             }
 
-            JobHandle leftArmHandle = default;
-            JobHandle rightArmHandle = default;
-            JobHandle leftLegHandle = default;
-            JobHandle rightLegHandle = default;
-            JobHandle otherHandle = default;
-
-            if (_leftArmChainIndices.IsCreated && _leftArmChainIndices.Length > 0)
-            {
-                leftArmHandle = MakeJob(_leftArmChainIndices, parentMatrix44, parentRot, deltaTime, snap).Schedule(spineHandle);
-            }
-            if (_rightArmChainIndices.IsCreated && _rightArmChainIndices.Length > 0)
-            {
-                rightArmHandle = MakeJob(_rightArmChainIndices, parentMatrix44, parentRot, deltaTime, snap).Schedule(spineHandle);
-            }
-            if (_leftLegChainIndices.IsCreated && _leftLegChainIndices.Length > 0)
-            {
-                leftLegHandle = MakeJob(_leftLegChainIndices, parentMatrix44, parentRot, deltaTime, snap).Schedule(spineHandle);
-            }
-            if (_rightLegChainIndices.IsCreated && _rightLegChainIndices.Length > 0)
-            {
-                rightLegHandle = MakeJob(_rightLegChainIndices, parentMatrix44, parentRot, deltaTime, snap).Schedule(spineHandle);
-            }
-            if (_otherChainIndices.IsCreated && _otherChainIndices.Length > 0)
-            {
-                otherHandle = MakeJob(_otherChainIndices, parentMatrix44, parentRot, deltaTime, snap).Schedule(spineHandle);
-            }
-
-            JobHandle armsCombined = JobHandle.CombineDependencies(leftArmHandle, rightArmHandle);
-            JobHandle legsCombined = JobHandle.CombineDependencies(leftLegHandle, rightLegHandle);
-            JobHandle limbsCombined = JobHandle.CombineDependencies(armsCombined, legsCombined);
-            JobHandle final = JobHandle.CombineDependencies(limbsCombined, otherHandle);
-
-            JobHandle worldHandle = new BasisBoneWorldDestinationJob
+            new BasisBoneWorldDestinationJob
             {
                 States = _simStates,
                 ParentMatrix = parentMatrix44,
                 ParentRotation = parentRot,
-            }.Schedule(ControlsLength, 8, final);
-            worldHandle.Complete();
+            }.Run(ControlsLength);
         }
 
         private BasisBoneSimChainJob MakeJob(NativeArray<int> chain, float4x4 parentMatrix44, quaternion parentRot, float deltaTime, byte instantSnap)
@@ -443,37 +409,35 @@ namespace Basis.Scripts.Drivers
             DisposeChainArrays();
 
             HashSet<int> covered = new HashSet<int>();
-            _spineChainIndices = BuildChainIndices(SpineChainOrder, covered);
-            _leftArmChainIndices = BuildChainIndices(LeftArmChainOrder, covered);
-            _rightArmChainIndices = BuildChainIndices(RightArmChainOrder, covered);
-            _leftLegChainIndices = BuildChainIndices(LeftLegChainOrder, covered);
-            _rightLegChainIndices = BuildChainIndices(RightLegChainOrder, covered);
+            List<int> ordered = new List<int>(ControlsLength);
+            AppendChainIndices(SpineChainOrder, covered, ordered);
+            AppendChainIndices(LeftArmChainOrder, covered, ordered);
+            AppendChainIndices(RightArmChainOrder, covered, ordered);
+            AppendChainIndices(LeftLegChainOrder, covered, ordered);
+            AppendChainIndices(RightLegChainOrder, covered, ordered);
 
-            // Any remaining controls (e.g. dynamically added via AddRange) go in "other".
-            List<int> other = new List<int>();
+            // Any remaining controls (e.g. dynamically added via AddRange) run after the skeleton.
             for (int i = 0; i < ControlsLength; i++)
             {
                 if (!covered.Contains(i))
                 {
-                    other.Add(i);
+                    ordered.Add(i);
                 }
             }
-            _otherChainIndices = ToNativeIntArray(other);
+            _allChainIndices = ToNativeIntArray(ordered);
             _chainsBuilt = true;
         }
 
-        private NativeArray<int> BuildChainIndices(BasisBoneTrackedRole[] order, HashSet<int> covered)
+        private void AppendChainIndices(BasisBoneTrackedRole[] order, HashSet<int> covered, List<int> ordered)
         {
-            List<int> list = new List<int>(order.Length);
             for (int i = 0; i < order.Length; i++)
             {
                 int idx = Array.IndexOf(trackedRoles, order[i]);
                 if (idx >= 0 && idx < ControlsLength && covered.Add(idx))
                 {
-                    list.Add(idx);
+                    ordered.Add(idx);
                 }
             }
-            return ToNativeIntArray(list);
         }
 
         private static NativeArray<int> ToNativeIntArray(List<int> list)
@@ -579,6 +543,11 @@ namespace Basis.Scripts.Drivers
             DisposeChainArrays();
             if (_simInputs.IsCreated) _simInputs.Dispose();
             if (_simStates.IsCreated) _simStates.Dispose();
+            unsafe
+            {
+                _simInputsPtr = null;
+                _simStatesPtr = null;
+            }
             _nativeAllocated = false;
             _nativeCapacity = 0;
             _chainsBuilt = false;
@@ -589,18 +558,18 @@ namespace Basis.Scripts.Drivers
             DisposeChainArrays();
             if (_simInputs.IsCreated) _simInputs.Dispose();
             if (_simStates.IsCreated) _simStates.Dispose();
+            unsafe
+            {
+                _simInputsPtr = null;
+                _simStatesPtr = null;
+            }
             _nativeAllocated = false;
             _nativeCapacity = 0;
         }
 
         private void DisposeChainArrays()
         {
-            if (_spineChainIndices.IsCreated) _spineChainIndices.Dispose();
-            if (_leftArmChainIndices.IsCreated) _leftArmChainIndices.Dispose();
-            if (_rightArmChainIndices.IsCreated) _rightArmChainIndices.Dispose();
-            if (_leftLegChainIndices.IsCreated) _leftLegChainIndices.Dispose();
-            if (_rightLegChainIndices.IsCreated) _rightLegChainIndices.Dispose();
-            if (_otherChainIndices.IsCreated) _otherChainIndices.Dispose();
+            if (_allChainIndices.IsCreated) _allChainIndices.Dispose();
             _chainsBuilt = false;
         }
 
@@ -1270,13 +1239,20 @@ namespace Basis.Scripts.Drivers
 
         /// <summary>
         /// Converts a world-space point to the avatar's local space, using <paramref name="Transform"/> as the origin.
+        /// Rotation-aware: the caller stores the result as a root-LOCAL offset (TposeLocal) and everything
+        /// downstream -- the bone sim's ParentMatrix, CreateRotationalLock's Offset, DriveTpose,
+        /// ComputeTposeAnchor -- rotates it back by the root. Subtracting the origin without also undoing the
+        /// root rotation leaves the offset in WORLD axes, so the root rotation gets applied to it twice: an
+        /// error that is exactly zero when the avatar is loaded facing world-forward and grows with whatever
+        /// yaw the player happened to be at, which is why it hid.
         /// </summary>
         /// <param name="Transform">Avatar root transform.</param>
         /// <param name="WorldSpace">World-space point to convert.</param>
         /// <returns>Point expressed in avatar-local coordinates.</returns>
         public static Vector3 ConvertToAvatarSpaceInitial(Transform Transform, Vector3 WorldSpace)
         {
-            return BasisHelpers.ConvertToLocalSpace(WorldSpace, Transform.position);
+            Transform.GetPositionAndRotation(out Vector3 origin, out Quaternion rotation);
+            return BasisHelpers.ConvertToLocalSpace(WorldSpace, origin, rotation);
         }
         /// <summary>
         /// One per-role calibration region. Position/rotation/scale are all derived

@@ -234,6 +234,7 @@ namespace Basis.Scripts.Device_Management
             Basis.BasisUI.BasisLocalization.Initialize();
             Basis.BasisUI.BasisTMPFontFallbacks.RefreshJapanesePriority();
             BasisSettingsDefaults.LoadAll();
+            Basis.BasisUI.SettingsProvider.ApplyJiggleStartupSettings();
             try
             {
                 await Initialize();
@@ -263,13 +264,34 @@ namespace Basis.Scripts.Device_Management
             }
             BasisRemoteNamePlateDriver.Dispose();
         }
-        public void Simulate()
+        static readonly Unity.Profiling.ProfilerMarker sMarkerLoop = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.Loop");
+        static readonly Unity.Profiling.ProfilerMarker sMarkerBaseTypes = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.BaseTypes");
+        /// <summary>
+        /// Starts asynchronous per-frame device work (e.g. the SteamVR input update on a worker
+        /// thread). Called by the driver earlier in LateUpdate than <see cref="Simulate"/>, which
+        /// joins that work before the local player consumes it.
+        /// </summary>
+        public void SimulateKick()
         {
-            OnDeviceManagementLoop?.Invoke();
             int Count = BaseTypes.Length;
             for (int Index = 0; Index < Count; Index++)
             {
-               BaseTypes[Index]?.Simulate();
+                BaseTypes[Index]?.SimulateKick();
+            }
+        }
+        public void Simulate()
+        {
+            using (sMarkerLoop.Auto())
+            {
+                OnDeviceManagementLoop?.Invoke();
+            }
+            using (sMarkerBaseTypes.Auto())
+            {
+                int Count = BaseTypes.Length;
+                for (int Index = 0; Index < Count; Index++)
+                {
+                    BaseTypes[Index]?.Simulate();
+                }
             }
         }
 
@@ -611,6 +633,8 @@ namespace Basis.Scripts.Device_Management
                         input.HasCalibratedOffsetSnapshot = prev.HasCalibratedOffsetSnapshot;
                         input.CalibratedUnscaledPosition = prev.CalibratedUnscaledPosition;
                         input.CalibratedUnscaledRotation = prev.CalibratedUnscaledRotation;
+                        input.CalibratedUnscaledHeadPosition = prev.CalibratedUnscaledHeadPosition;
+                        input.CalibratedUnscaledHeadRotation = prev.CalibratedUnscaledHeadRotation;
                         BasisAvatarIKStageCalibration.ReprojectTrackerOffsetsForCurrentAvatar();
                     }
                     else
@@ -676,7 +700,9 @@ namespace Basis.Scripts.Device_Management
                     InverseOffsetFromBone = device.Control.InverseOffsetFromBone,
                     HasCalibratedOffsetSnapshot = device.HasCalibratedOffsetSnapshot,
                     CalibratedUnscaledPosition = device.CalibratedUnscaledPosition,
-                    CalibratedUnscaledRotation = device.CalibratedUnscaledRotation
+                    CalibratedUnscaledRotation = device.CalibratedUnscaledRotation,
+                    CalibratedUnscaledHeadPosition = device.CalibratedUnscaledHeadPosition,
+                    CalibratedUnscaledHeadRotation = device.CalibratedUnscaledHeadRotation
                 });
             }
         }
@@ -787,6 +813,7 @@ namespace Basis.Scripts.Device_Management
             {
                 OnInitializationCompleted += RunAfterInitialized;
                 BasisSettingsDefaults.EnableFBT.OnChanged += OnEnableFBTChanged;
+                BasisSettingsDefaults.TrackerVisuals.OnChanged += OnTrackerVisualsChanged;
                 BasisLocalPlayer.AfterSimulateOnRender.AddAction(98, ApplyAllDeviceMovement);
                 HasEvents = true;
             }
@@ -801,6 +828,7 @@ namespace Basis.Scripts.Device_Management
             {
                 OnInitializationCompleted -= RunAfterInitialized;
                 BasisSettingsDefaults.EnableFBT.OnChanged -= OnEnableFBTChanged;
+                BasisSettingsDefaults.TrackerVisuals.OnChanged -= OnTrackerVisualsChanged;
                 BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(98, ApplyAllDeviceMovement);
                 HasEvents = false;
             }
@@ -838,6 +866,43 @@ namespace Basis.Scripts.Device_Management
             if (!value)
             {
                 UnassignFBTrackers();
+            }
+        }
+
+        /// <summary>
+        /// Live re-render when the tracker-visual mode changes. Hides currently-shown visuals this
+        /// frame and re-shows them next frame (after Unity's deferred Destroy completes) so the new
+        /// mode's visual is picked cleanly. Only devices already showing a visual are refreshed, so
+        /// nothing appears while trackers are meant to be hidden.
+        /// </summary>
+        private void OnTrackerVisualsChanged(string value)
+        {
+            StartCoroutine(RefreshTrackerVisualsNextFrame());
+        }
+
+        private IEnumerator RefreshTrackerVisualsNextFrame()
+        {
+            bool anyVisible = false;
+            for (int i = 0; i < AllInputDevices.Count; i++)
+            {
+                BasisInput input = AllInputDevices[i];
+                if (input == null) continue;
+                if (input.BasisVisualTracker != null || BasisTrackerMarkerGizmos.IsShowing(input))
+                {
+                    input.HideTrackedVisual();
+                    anyVisible = true;
+                }
+            }
+            if (!anyVisible)
+            {
+                yield break;
+            }
+            yield return null;
+            for (int i = 0; i < AllInputDevices.Count; i++)
+            {
+                BasisInput input = AllInputDevices[i];
+                if (input == null) continue;
+                input.ShowTrackedVisual();
             }
         }
 

@@ -478,14 +478,16 @@ namespace SteamAudio
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetInputs(SimulationFlags flags, Vector3 origin, Vector3 ahead, Vector3 up, Vector3 right, SteamAudioListener listener)
         {
-            if (TryBuildInputs(flags, origin, ahead, up, right, listener, out SimulationInputs inputs))
+            SimulationInputs inputs = default;
+            if (TryBuildInputsInto(flags, origin, ahead, up, right, listener, ref inputs))
                 mSource.SetInputs(flags, inputs);
         }
 
         // Builds the SimulationInputs but does NOT issue iplSourceSetInputs, so the
-        // direct worker thread can make that native call off the main thread.
+        // direct worker thread can make that native call off the main thread. Writes
+        // the caller's slot in place to avoid copying the struct twice per source.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryBuildInputs(SimulationFlags flags, Vector3 origin, Vector3 ahead, Vector3 up, Vector3 right, SteamAudioListener listener, out SimulationInputs inputs)
+        public bool TryBuildInputsInto(SimulationFlags flags, Vector3 origin, Vector3 ahead, Vector3 up, Vector3 right, SteamAudioListener listener, ref SimulationInputs inputs)
         {
             inputs = default;
             if (!mInitialized) return false;
@@ -616,9 +618,10 @@ namespace SteamAudio
 
         // Reap path for the threaded direct pipeline: the worker has already fetched
         // outputs into a buffer, so this only copies sim-defined values to fields and
-        // (when pushParamsNow) pushes them to the audio engine. Mirrors ReapDirect's
-        // early-out + UpdateOutputs(Direct) field copy, minus the native GetOutputs.
-        public void ApplyDirectOutputs(in DirectEffectParams direct, bool pushParamsNow)
+        // pushes them to the audio engine. The manager calls it only on the source's
+        // push-cadence frames. Mirrors ReapDirect's early-out + UpdateOutputs(Direct)
+        // field copy, minus the native GetOutputs.
+        public void ApplyDirectOutputs(in DirectEffectParams direct)
         {
             if (!mInitialized) return;
 
@@ -651,7 +654,7 @@ namespace SteamAudio
                 }
             }
 
-            if (pushParamsNow && mAudioEngineSource != null)
+            if (mAudioEngineSource != null)
                 mAudioEngineSource.UpdateParameters(this);
         }
 

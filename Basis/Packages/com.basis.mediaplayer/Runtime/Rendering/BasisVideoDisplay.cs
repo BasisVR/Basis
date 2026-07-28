@@ -35,7 +35,7 @@ public sealed class BasisVideoDisplay : MonoBehaviour
     public BasisVideoStereoEye StereoEye = BasisVideoStereoEye.Left;
 
     [Header("Aspect")]
-    [Tooltip("Original = sample untransformed (the AspectFitter usually handles it); Stretch = same; FitInside = letterbox; FitOutside = crop. PixelPerfect maps source pixels 1:1.")]
+    [Tooltip("Original = sample untransformed — the RectTransform AspectRatioFitter handles aspect on this UI path, so this is the right choice here. Stretch = same. FitInside/FitOutside/PixelPerfect apply a UV transform; FitInside letterbox needs a shader that blacks out-of-range UVs, which a RawImage's UI material does NOT — it smears/repeats instead. Use the AspectFitter for letterboxing on a RawImage.")]
     public BasisVideoAspectMode AspectMode = BasisVideoAspectMode.Original;
 
     [Header("Picture")]

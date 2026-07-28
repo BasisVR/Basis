@@ -163,7 +163,7 @@ MonoBehaviour:
     m_Bits: 477
   clearFlags: 0
   clearColor: {r: 0, g: 0, b: 0, a: 1}
-  ClipPlaneOffset: 0.001
+  ClipPlaneOffset: 0.05
   nearClipLimit: 0.01
   FarClipPlane: 25
   XSize: 2048
@@ -240,6 +240,7 @@ MonoBehaviour:
   KinematicWhileInteracting: 1
   CanSelfSteal: 1
   LerpToHandOnPickup: 1
+  WeldToHand: 1
   ShowHighlightOnHover: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
@@ -259,7 +260,7 @@ MonoBehaviour:
       m_Calls: []
   enableScaleWithGesture: 1
   minScalePercent: 50
-  maxScalePercent: 200
+  maxScalePercent: 400
   constrainToAxis: 3
   positiveTravelLimit: 0.2
   negativeTravelLimit: 0

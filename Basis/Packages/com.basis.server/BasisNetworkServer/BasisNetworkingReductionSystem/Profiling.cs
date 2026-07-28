@@ -1,17 +1,54 @@
+using System;
 using System.Diagnostics;
 using System.Threading;
 
 namespace BasisNetworkServer.BasisNetworkingReductionSystem
 {
     /// <summary>
+    /// One closed profiling window. Raw window totals only; derived figures are left to the caller
+    /// so every consumer computes them the same way.
+    /// </summary>
+    public sealed class BSRProfilerSnapshot
+    {
+        public DateTimeOffset CapturedUtc;
+        public long Ticks;
+        public long Messages;
+        public long Sends;
+        public long PreSerializations;
+        public long PreSerializationsSkipped;
+        public double DrainMs;
+        public double ProcessMs;
+        public double DistanceMs;
+        public double UpdateMs;
+        public double TriggerMs;
+        public double TotalMs;
+        public long BundlesEmitted;
+        public long BundleMessages;
+        public long BundleRawBytes;
+        public long BundleCompressedBytes;
+        public double BundleDeflateMs;
+        public long BundleRetries;
+        public long BundleFallbacks;
+        public long BundleTailUncompressed;
+    }
+
+    /// <summary>
     /// Lock-free, low-overhead profiler for the BSR tick loop.
     /// Disabled by default — enable via EnableBSRProfiling in config.xml or env var.
     /// When disabled, all methods are no-ops (volatile bool check, no branches taken).
-    /// Prints a summary every 5 seconds and resets counters.
+    /// Collects a window every 5 seconds, publishes it to <see cref="Latest"/>, and resets counters.
     /// </summary>
     public static class BSRProfiler
     {
         public static volatile bool Enabled;
+
+        /// <summary>Whether a closed window is written to the log. Collection is driven by <see cref="Enabled"/> alone.</summary>
+        public static volatile bool WriteToLog;
+
+        private static volatile BSRProfilerSnapshot _latest;
+
+        /// <summary>Most recently closed window, or null until the first one completes.</summary>
+        public static BSRProfilerSnapshot Latest => _latest;
 
         private static readonly double MsToTick = Stopwatch.Frequency / 1000.0;
         private static readonly long PrintIntervalTicks = (long)(5000 * MsToTick);
@@ -55,6 +92,39 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             Interlocked.Increment(ref _preSerializationsSkipped);
         }
 
+        /// <summary>Test seam (InternalsVisibleTo): closes the current window immediately instead of waiting out the interval.</summary>
+        internal static void FlushWindowForTests()
+        {
+            Volatile.Write(ref _lastPrintTick, Stopwatch.GetTimestamp() - PrintIntervalTicks - 1);
+            TryPrint();
+        }
+
+        /// <summary>Test seam (InternalsVisibleTo): clears every counter, the published window, and both flags.</summary>
+        internal static void ResetForTests()
+        {
+            Enabled = false;
+            WriteToLog = false;
+            _latest = null;
+            tickCount = 0;
+            messagesProcessed = 0;
+            SendCount = 0;
+            _preSerializations = 0;
+            _preSerializationsSkipped = 0;
+            drainTicks = 0;
+            processTicks = 0;
+            distanceTicks = 0;
+            updateTicks = 0;
+            triggerTicks = 0;
+            bundlesEmitted = 0;
+            bundleMessages = 0;
+            bundleRawBytes = 0;
+            bundleCompressedBytes = 0;
+            bundleDeflateTicks = 0;
+            bundleRetries = 0;
+            bundleFallbacks = 0;
+            bundleTailUncompressed = 0;
+        }
+
         public static void TryPrint()
         {
             if (!Enabled) return;
@@ -88,6 +158,32 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             long bRetry = Interlocked.Exchange(ref bundleRetries, 0);
             long bFallback = Interlocked.Exchange(ref bundleFallbacks, 0);
             long bTail = Interlocked.Exchange(ref bundleTailUncompressed, 0);
+
+            _latest = new BSRProfilerSnapshot
+            {
+                CapturedUtc = DateTimeOffset.UtcNow,
+                Ticks = ticks,
+                Messages = msgs,
+                Sends = sends,
+                PreSerializations = preSer,
+                PreSerializationsSkipped = preSkip,
+                DrainMs = drain,
+                ProcessMs = process,
+                DistanceMs = distance,
+                UpdateMs = update,
+                TriggerMs = trigger,
+                TotalMs = total,
+                BundlesEmitted = bEmit,
+                BundleMessages = bMsg,
+                BundleRawBytes = bRaw,
+                BundleCompressedBytes = bComp,
+                BundleDeflateMs = bDeflate / MsToTick,
+                BundleRetries = bRetry,
+                BundleFallbacks = bFallback,
+                BundleTailUncompressed = bTail,
+            };
+
+            if (!WriteToLog) return;
 
             BNL.Log($"\n[BSR Profile] {ticks} ticks, {msgs} msgs, {sends} sends, preSer {preSer}/{preSer + preSkip}");
             BNL.Log($"  drain:    {drain / ticks:F3} ms/tick ({drain / total * 100:F1}%)");

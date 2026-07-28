@@ -15,7 +15,7 @@
         </engine:Foldout>
 
         <engine:Foldout text="Buffering" name="BufferingFoldout" value="false" class="bvp-foldout">
-            <engine:FloatField label="Clip Length (s)" name="ClipLengthField" tooltip="Length of each streaming AudioClip and the depth of the broadcast window. Larger = steadier but adds latency."/>
+            <engine:FloatField label="Broadcast Window (s)" name="ClipLengthField" tooltip="How much decoded audio the splitter retains for the per-output taps. Larger = steadier under jitter; does not add output latency."/>
         </engine:Foldout>
 
         <engine:Foldout text="Playback" name="PlaybackFoldout" value="true" class="bvp-foldout">

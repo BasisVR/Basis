@@ -359,7 +359,7 @@ namespace Valve.VR
             if (err != EVRInputError.None)
                 Debug.LogError("<b>[SteamVR]</b> GetAnalogActionData error (" + fullPath + "): " + err.ToString() + " handle: " + handle.ToString());
 
-            updateTime = Time.realtimeSinceStartup;
+            updateTime = SteamVR_Input.realtimeSinceStartup;
             axis = new Vector2(actionData.x, actionData.y);
             delta = new Vector2(actionData.deltaX, actionData.deltaY);
 
@@ -370,7 +370,7 @@ namespace Valve.VR
                 if (delta.magnitude > changeTolerance)
                 {
                     changed = true;
-                    changedTime = Time.realtimeSinceStartup + actionData.fUpdateTime; //fUpdateTime is the time from the time the action was called that the action changed
+                    changedTime = SteamVR_Input.realtimeSinceStartup + actionData.fUpdateTime; //fUpdateTime is the time from the time the action was called that the action changed
 
                     if (onChange != null)
                         onChange.Invoke(vector2Action, inputSource, axis, delta);

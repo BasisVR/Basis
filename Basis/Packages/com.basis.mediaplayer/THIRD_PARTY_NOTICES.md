@@ -22,6 +22,17 @@ Both are permissive and MIT-compatible, and both require attribution:
 - **Mbed TLS** — AES primitives used by librist for PSK-AES content encryption.
   Apache-2.0. <https://github.com/Mbed-TLS/mbedtls>
 
+## Opus decode (runtime-loaded, not shipped by this package)
+
+Windows Opus decode does **not** statically link libopus. The plugin resolves
+libopus's decode entry points at runtime (`LoadLibrary` / `GetProcAddress`) from
+the `opus.dll` that **`com.avionblock.opussharp`** already ships; that package
+redistributes libopus (BSD-3-Clause) and carries its licence
+(`Opus_LICENSE_PLEASE_READ.txt`). This package neither bundles nor statically
+links it, so the "no statically-linked third-party libraries by default" stance
+above is unchanged. Android decodes Opus with the OS `audio/opus` MediaCodec —
+no third-party library.
+
 ## Operating-system frameworks used at runtime
 
 These are part of the OS and are **not** redistributed by this package:
@@ -40,5 +51,6 @@ These are part of the OS and are **not** redistributed by this package:
   `.gitignore` excludes them.
 
 The previous pipeline's third-party components (libvpx for VP9, gorilla/websocket
-and the Go runtime for the transcode server, and OpusSharp for audio) have all
-been removed along with the VP9 transcode path.
+and the Go runtime for the transcode server) were removed along with the VP9
+transcode path. Opus decode later returned in a different form — runtime-loaded,
+not statically linked (see *Opus decode* above).

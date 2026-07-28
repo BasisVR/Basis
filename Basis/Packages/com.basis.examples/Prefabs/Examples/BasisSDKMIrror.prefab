@@ -139,7 +139,7 @@ MonoBehaviour:
   ReflectingLayers:
     serializedVersion: 2
     m_Bits: 477
-  ClipPlaneOffset: 0.001
+  ClipPlaneOffset: 0.05
   nearClipLimit: 0.01
   FarClipPlane: 25
   XSize: 2048

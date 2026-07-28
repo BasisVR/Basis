@@ -6,8 +6,7 @@ If you're new, skim [CONTRIBUTING.md](./CONTRIBUTING.md) first and come back her
 
 ## Formatting
 
-- **`.editorconfig`** sets the formatting baseline. Most IDEs pick it up automatically.
-- **CSharpier** is configured via `.csharpierignore`. Run it before committing if your editor doesn't already.
+- **Match the formatting of the surrounding file.** No formatter is enforced in CI. A `.editorconfig` and a CSharpier tool manifest are checked in, but the codebase doesn't currently conform to either — don't reformat existing files wholesale.
 - **C# nullable annotations** aren't enforced project-wide; follow the surrounding file.
 - **Comments are lean by default.** Comment when the *why* is non-obvious — workarounds, hidden invariants, performance reasons. Don't restate what the code already says.
 - **Use the framework's own conventions** for new code: `BasisDebug`, `BasisLocalCameraDriver`, `BasisEventDriver`, `Try*` patterns, Addressables.

@@ -12,7 +12,7 @@ public struct JiggleJobSimulate : IJobFor {
     // TODO: doubles are strictly a bad way to track time, probably should be ints or longs.
     public double timeStamp;
     public float3 gravity;
-    public int timeIncrements;
+    public int substeps;
     
     public int sceneColliderCount;
 
@@ -30,6 +30,9 @@ public struct JiggleJobSimulate : IJobFor {
 
     private float deltaTimeSquared;
 
+    public float inverseCellSize;
+    public int maxTreeCellSpan;
+
     public JiggleJobSimulate(JiggleMemoryBus bus, float fixedDeltaTime) {
         inputPoses = bus.simulateInputPoses;
         jiggleTrees = bus.jiggleTreeStructs;
@@ -42,7 +45,9 @@ public struct JiggleJobSimulate : IJobFor {
         gravity = Physics.gravity;
         sceneColliderCount = 0;
         deltaTimeSquared = fixedDeltaTime * fixedDeltaTime;
-        timeIncrements = 1;
+        substeps = 1;
+        inverseCellSize = JiggleSettings.InverseBroadPhaseCellSize;
+        maxTreeCellSpan = JiggleSettings.MaxTreeCellSpan;
     }
 
     public void UpdateArrays(JiggleMemoryBus bus) {
@@ -61,7 +66,7 @@ public struct JiggleJobSimulate : IJobFor {
     }
 
 
-    private unsafe void Cache(ref JiggleTreeJobData tree) {
+    private unsafe void Cache(JiggleTreeJobData tree, out int2 minExtentPosition, out int2 maxExtentPosition) {
         float3 min = new float3(float.MaxValue);
         float3 max = new float3(float.MinValue);
         
@@ -110,8 +115,8 @@ public struct JiggleJobSimulate : IJobFor {
             tree.points[i] = point;
         }
 
-        tree.minExtentPosition = JiggleGridCell.GetKeyForPosition(min);
-        tree.maxExtentPosition = JiggleGridCell.GetKeyForPosition(max);
+        minExtentPosition = JiggleGridCell.GetKeyForPosition(min, inverseCellSize);
+        maxExtentPosition = JiggleGridCell.GetKeyForPosition(max, inverseCellSize);
     }
 
     private unsafe void VerletIntegrate(JiggleTreeJobData tree) {
@@ -119,7 +124,6 @@ public struct JiggleJobSimulate : IJobFor {
         var rootPosition = tree.points[0].workingPosition;
         var rootLastPosition = tree.points[0].position;
         var rootDelta = rootPosition - rootLastPosition;
-        var inverseScaleFactor = (1f / timeIncrements);
 
         for (int i = 0; i < tree.pointCount; i++) {
             var point = tree.points[i];
@@ -139,15 +143,15 @@ public struct JiggleJobSimulate : IJobFor {
             }
             var parent = tree.points[point.parentIndex];
 
-            var delta = (point.position - point.lastPosition)*inverseScaleFactor;
-            var parentDelta = (parent.position - parent.lastPosition)*inverseScaleFactor;
+            var delta = point.position - point.lastPosition;
+            var parentDelta = parent.position - parent.lastPosition;
             var localSpaceVelocity = delta - parentDelta;
             var velocity = delta - localSpaceVelocity;
             var parameters = parent.parentIndex != -1 ? tree.parameters + point.parentIndex : tree.parameters + i;
             point.workingPosition = point.position
                                      + velocity * (1f - parameters->airDrag)
                                      +localSpaceVelocity * (1f - parameters->drag)
-                                     + gravity * parameters->gravityMultiplier * deltaTimeSquared * inverseScaleFactor;
+                                     + gravity * parameters->gravityMultiplier * deltaTimeSquared;
             tree.points[i] = point;
         }
     }
@@ -374,7 +378,7 @@ public struct JiggleJobSimulate : IJobFor {
         }
         return false;
     }
-    private unsafe void Constrain(JiggleTreeJobData tree) {
+    private unsafe void Constrain(JiggleTreeJobData tree, int2 minExtentPosition, int2 maxExtentPosition) {
         for (int i = 0; i < tree.pointCount; i++) {
             var point = tree.points+i;
             var pointParameters = tree.parameters + i;
@@ -394,16 +398,25 @@ public struct JiggleJobSimulate : IJobFor {
                 DepenetrateCollider(tree, point, parent, pointParameters, parentParameters, sceneCollider);
             }
 
-            // TODO: to convert a float to a grid location we just cast, but this always rounds towards zero. Probably should be a math.round()
-            int2 min = tree.minExtentPosition;
-            int2 max = tree.maxExtentPosition;
-            for (int x = min.x; x <= max.x; x++) {
-                for (int y = min.y; y <= max.y; y++) {
-                    int2 grid = new int2(x, y);
-                    if (broadPhaseMap.TryGetValue(grid, out var gridCell)) {
-                        for (int index = 0; index < gridCell.count; index++) {
-                            var sceneCollider = sceneColliders[gridCell.colliderIndices[index]];
-                            DepenetrateCollider(tree, point, parent, pointParameters, parentParameters, sceneCollider);
+            int2 min = minExtentPosition;
+            int2 max = maxExtentPosition;
+            // Corrupt or runaway point positions produce extents spanning millions of cells;
+            // walking them would hang the sim for seconds. A healthy tree spans a handful of
+            // cells, so skip the grid walk (global colliders above still applied) when the
+            // extent is implausible. long math: garbage extents overflow int subtraction.
+            long cellSpanX = (long)max.x - min.x + 1;
+            long cellSpanY = (long)max.y - min.y + 1;
+            if (cellSpanX > 0 && cellSpanY > 0
+                && cellSpanX <= maxTreeCellSpan && cellSpanY <= maxTreeCellSpan
+                && cellSpanX * cellSpanY <= maxTreeCellSpan) {
+                for (int x = min.x; x <= max.x; x++) {
+                    for (int y = min.y; y <= max.y; y++) {
+                        int2 grid = new int2(x, y);
+                        if (broadPhaseMap.TryGetValue(grid, out var gridCell)) {
+                            for (int index = 0; index < gridCell.count; index++) {
+                                var sceneCollider = sceneColliders[gridCell.colliderIndices[index]];
+                                DepenetrateCollider(tree, point, parent, pointParameters, parentParameters, sceneCollider);
+                            }
                         }
                     }
                 }
@@ -494,9 +507,7 @@ public struct JiggleJobSimulate : IJobFor {
             }
             error = math.min(error, 1.0f);
             error = math.pow(error, parentParameters->elasticitySoften);
-            for (int j = 0; j < timeIncrements; j++) {
-                point->workingPosition = math.lerp(point->workingPosition, desiredPosition, parentParameters->angleElasticity * error);
-            }
+            point->workingPosition = math.lerp(point->workingPosition, desiredPosition, parentParameters->angleElasticity * error);
 
             #endregion
 
@@ -561,6 +572,9 @@ public struct JiggleJobSimulate : IJobFor {
     }
 
     private unsafe void ApplyPose(JiggleTreeJobData tree) {
+        if (tree.pointCount < 2) {
+            return;
+        }
         var rootPoint = tree.points[1];
         var rootSimulationPosition = rootPoint.position;
         var rootPose = rootPoint.pose;
@@ -639,10 +653,16 @@ public struct JiggleJobSimulate : IJobFor {
             return;
         }
         #endif
-        Cache(ref tree);
-        VerletIntegrate(tree);
-        Constrain(tree);
-        FinishStep(tree);
+        // Cache reads the animated pose, which has a single sample per frame, so it is hoisted out of
+        // the substep loop. Each substep is then a whole fixed step: two of them advance the sim by
+        // exactly as much as two frames would, which is what makes the result frame rate independent.
+        Cache(tree, out var minExtentPosition, out var maxExtentPosition);
+        var stepCount = math.max(substeps, 1);
+        for (int step = 0; step < stepCount; step++) {
+            VerletIntegrate(tree);
+            Constrain(tree, minExtentPosition, maxExtentPosition);
+            FinishStep(tree);
+        }
         ApplyPose(tree);
         jiggleTrees[index].Sanitize();
     }

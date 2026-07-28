@@ -68,8 +68,8 @@ public static partial class SerializableBasis
             Add(BasisNetworkCommons.UnloadResourceChannel, "basis.core.resource.unload");
             Add(BasisNetworkCommons.PreloadReadyChannel, "basis.core.resource.preloadready");
             Add(BasisNetworkCommons.SpawnPreloadedChannel, "basis.core.resource.spawnpreloaded");
-            Add(BasisNetworkCommons.ContentShareChannel, "basis.core.contentshare.drop");
-            Add(BasisNetworkCommons.ContentShareCleanupChannel, "basis.core.contentshare.cleanup");
+            Add(BasisNetworkCommons.ContentShareChannel, "basis.core.contentshare");
+            Add(BasisNetworkCommons.DeltaAvatarChannel, "basis.core.avatar.delta");
             Add(BasisNetworkCommons.ServerBoundChannel, "basis.core.serverbound");
             Add(BasisNetworkCommons.StoreDatabaseChannel, "basis.core.database.store");
             Add(BasisNetworkCommons.RequestStoreDatabaseChannel, "basis.core.database.request");

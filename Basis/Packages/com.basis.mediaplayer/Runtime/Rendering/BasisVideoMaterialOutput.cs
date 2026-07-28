@@ -78,7 +78,7 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
     public BasisVideoStereoEye StereoEye = BasisVideoStereoEye.Left;
 
     [Header("Aspect")]
-    [Tooltip("Original = sample untransformed; Stretch = same; FitInside = letterbox to preserve source aspect; FitOutside = crop to fill display; PixelPerfect = 1:1 source pixels at the chosen scale.")]
+    [Tooltip("Original = sample untransformed; Stretch = same; FitInside = letterbox (needs a shader that renders out-of-range UVs black, e.g. Basis/Media Player Video — on a clamp/repeat material it smears); FitOutside = crop to fill display (safe on any material); PixelPerfect = 1:1 source pixels at the chosen scale.")]
     public BasisVideoAspectMode AspectMode = BasisVideoAspectMode.Original;
 
     [Tooltip("Display aspect ratio for FitInside/FitOutside/PixelPerfect. Defaults to the renderer's local-bounds aspect when 0. Override for non-square quads or skewed targets.")]

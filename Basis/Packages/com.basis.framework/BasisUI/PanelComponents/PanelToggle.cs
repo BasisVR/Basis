@@ -17,6 +17,8 @@ namespace Basis.BasisUI
 
         protected override Selectable InteractableTarget => ToggleComponent;
 
+        protected override bool SupportsResetGesture => true;
+
         [Header("Visual Elements")]
         public Graphic Background;
         [Min(0)] public float ToggleVisualOffset = 20f;

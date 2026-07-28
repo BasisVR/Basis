@@ -116,6 +116,38 @@
       "value": "Compartir"
     },
     {
+      "key": "menu.servers.welcome.title",
+      "value": "¡Bienvenido a Basis Labs!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs es el escaparate vivo del Basis Framework: una base gratuita y con licencia MIT para crear juegos, plataformas y experiencias de VR. Explora mundos, usa avatares personalizados y conoce gente mientras pruebas funciones según se van creando. Todo aquí está en evolución: tus comentarios ayudan a darle forma."
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "Siguiente"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "Tu primer servidor"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "No hay un servicio central de Basis: cualquiera puede ejecutar un servidor y tú puedes alojar el tuyo desde este mismo panel. Para que siempre tengas adónde ir, mantenemos un servidor predeterminado, marcado con una ★ al principio de la lista de abajo. Elige un nombre de usuario, pulsa el botón «Conectar» iluminado y ¡ven a saludar!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "¡Entendido!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "Elige un nombre de usuario"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "Elige el nombre que verán los demás jugadores y pulsa «Conectar»."
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

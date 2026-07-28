@@ -1,0 +1,23 @@
+{
+  "name": "jp.keijiro.klak.syphon",
+  "version": "1.0.4",
+  "displayName": "KlakSyphon",
+  "description": "Syphon plugin for Unity",
+  "unity": "2022.3",
+  "author": "Keijiro Takahashi",
+  "dependencies": {
+    "com.unity.modules.screencapture": "1.0.0"
+  },
+  "changelogUrl": "https://github.com/keijiro/KlakSyphon/blob/master/CHANGELOG.md",
+  "documentationUrl": "https://github.com/keijiro/KlakSyphon",
+  "licensesUrl": "https://github.com/keijiro/KlakSyphon/blob/master/LICENSE",
+  "license": "SEE LICENSE IN LICENSE",
+  "_upm": {
+    "changelog": "<b>Added</b><br>- Added `AGENTS.md` with workflow instructions for AI agents.<br>- Added `CHANGELOG.md` to track project changes.<br>- Added package signing for Unity 6.3 compatibility.<br><br><b>Changed</b><br>- Replaced `ShaderUtil` (obsolete) with newer Shader methods for Unity 6.3 compatibility."
+  },
+  "repository": {
+    "url": "git@github.com:keijiro/KlakSyphon.git",
+    "type": "git",
+    "revision": "78748fd485908dab3131112834090db4a48279ca"
+  }
+}

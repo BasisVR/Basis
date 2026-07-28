@@ -1,5 +1,6 @@
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,20 +16,20 @@ public static class SettingsProviderPlatform
         BasisConstants.OpenXRLoader,
     };
 
-    public static void BuildDeviceModeUI(RectTransform container)
+    public static void BuildDeviceModeUI(RectTransform container, Action<bool> onExpandedChanged = null)
     {
         string currentMode = BasisDeviceManagement.StaticCurrentMode ?? BasisConstants.None;
 
         // Current mode info
-        PanelElementDescriptor infoGroup =
-            PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        if (infoGroup.Header != null)
-        {
-            infoGroup.Header.gameObject.SetActive(false);
-        }
+        PanelSectionToggle deviceModeToggle = PanelSectionToggle.CreateNewEntry(container);
+        PanelElementDescriptor infoGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
+            deviceModeToggle,
+            container,
+            BasisLocalization.Get("settings.platform.activeMode"),
+            showGroupTitle: false);
 
         var currentModeField = PanelTextField.CreateNew(infoGroup.ContentParent);
-        currentModeField.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.activeMode"));
+        currentModeField.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.deviceMode"));
         currentModeField.SetValue(currentMode);
 
         BasisDeviceManagement dm = BasisDeviceManagement.Instance;
@@ -84,6 +85,8 @@ public static class SettingsProviderPlatform
                 };
             }
         }
+
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(deviceModeToggle, infoGroup, true, onExpandedChanged);
     }
 
     public static void BuildAutoSwapUI(RectTransform container)

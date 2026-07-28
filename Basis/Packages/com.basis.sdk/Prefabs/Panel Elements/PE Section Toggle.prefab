@@ -91,8 +91,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -167,8 +167,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
   m_Color: {r: 0.3529412, g: 0.3529412, b: 0.43529412, a: 1}
   m_RaycastTarget: 0
@@ -325,11 +325,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2695670721113310902, guid: c291cad985c051346b5516c30fda2029, type: 3}
       propertyPath: m_Material
-      value:
+      value: 
       objectReference: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
     - target: {fileID: 3263669264447411214, guid: c291cad985c051346b5516c30fda2029, type: 3}
       propertyPath: m_Material
-      value:
+      value: 
       objectReference: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
     - target: {fileID: 3263669264447411214, guid: c291cad985c051346b5516c30fda2029, type: 3}
       propertyPath: m_RaycastTarget
@@ -383,9 +383,13 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6332489942576894132, guid: c291cad985c051346b5516c30fda2029, type: 3}
+      propertyPath: <ElementBaseImage>k__BackingField
+      value: 
+      objectReference: {fileID: 4384726876132874969}
     - target: {fileID: 7078463098538894437, guid: c291cad985c051346b5516c30fda2029, type: 3}
       propertyPath: m_Material
-      value:
+      value: 
       objectReference: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
     - target: {fileID: 7078463098538894437, guid: c291cad985c051346b5516c30fda2029, type: 3}
       propertyPath: m_RaycastTarget
@@ -488,8 +492,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9085046f02f69544eb97fd06b6048fe2, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Navigation:
     m_Mode: 0
     m_WrapAround: 0
@@ -548,7 +552,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 794ac7aa378676d41b5d1eafab097e3f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelSectionToggle
   ToggleComponent: {fileID: 798007477887917358}
   ToggleVisual: {fileID: 7228324214470216984}
@@ -562,8 +566,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &8544700722471038800 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 8009018518866211647, guid: c291cad985c051346b5516c30fda2029, type: 3}

@@ -112,7 +112,7 @@ public class BasisPropValidator
                 errors.Add(new BasisValidationIssue(
                     BasisEditorLocalization.Get("sdk.propValidator.missingScripts", child.gameObject.name),
                     ValidationCategory.MissingReference,
-                    () => RemoveMissingScripts(Prop.gameObject),
+                    () => BasisValidatorUI.RemoveMissingScripts(Prop.gameObject),
                     BasisEditorLocalization.Get("sdk.propValidator.missingScripts.fix")
                 ));
             }
@@ -204,108 +204,19 @@ public class BasisPropValidator
         }
     }
 
-    private static void RemoveMissingScripts(GameObject root)
-    {
-        Transform[] children = root.GetComponentsInChildren<Transform>(true);
-        foreach (Transform child in children)
-        {
-            int count = GameObjectUtility.RemoveMonoBehavioursWithMissingScript(child.gameObject);
-            if (count > 0)
-            {
-                EditorUtility.SetDirty(child.gameObject);
-            }
-        }
-    }
-
     public void CreateErrorPanel(VisualElement rootElement)
     {
-        errorPanel = new VisualElement();
-        errorPanel.style.backgroundColor = new StyleColor(new Color(1, 0.5f, 0.5f, 0.5f));
-        errorPanel.style.paddingTop = 5;
-        errorPanel.style.flexGrow = 1;
-        errorPanel.style.paddingBottom = 5;
-        errorPanel.style.marginBottom = 10;
-        errorPanel.style.borderTopLeftRadius = 5;
-        errorPanel.style.borderTopRightRadius = 5;
-        errorPanel.style.borderBottomLeftRadius = 5;
-        errorPanel.style.borderBottomRightRadius = 5;
-        errorPanel.style.borderLeftWidth = 2;
-        errorPanel.style.borderRightWidth = 2;
-        errorPanel.style.borderTopWidth = 2;
-        errorPanel.style.borderBottomWidth = 2;
-        errorPanel.style.borderBottomColor = new StyleColor(Color.red);
-
-        errorMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.error.empty"));
-        errorMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        errorMessageLabel.style.whiteSpace = WhiteSpace.Normal;
-        errorPanel.Add(errorMessageLabel);
-
-        errorButtonContainer = new VisualElement() { name = "ErrorButtonContainer" };
-        errorPanel.Add(errorButtonContainer);
-
-        errorPanel.style.display = DisplayStyle.None;
-        rootElement.Add(errorPanel);
+        errorPanel = BasisValidatorUI.CreateErrorPanel(rootElement, out errorMessageLabel, out errorButtonContainer);
     }
 
     public void CreatePassedPanel(VisualElement rootElement)
     {
-        passedPanel = new VisualElement();
-        passedPanel.style.backgroundColor = new StyleColor(new Color(0.5f, 1f, 0.5f, 0.5f));
-        passedPanel.style.paddingTop = 5;
-        passedPanel.style.flexGrow = 1;
-        passedPanel.style.paddingBottom = 5;
-        passedPanel.style.marginBottom = 10;
-        passedPanel.style.borderTopLeftRadius = 5;
-        passedPanel.style.borderTopRightRadius = 5;
-        passedPanel.style.borderBottomLeftRadius = 5;
-        passedPanel.style.borderBottomRightRadius = 5;
-        passedPanel.style.borderLeftWidth = 2;
-        passedPanel.style.borderRightWidth = 2;
-        passedPanel.style.borderTopWidth = 2;
-        passedPanel.style.borderBottomWidth = 2;
-        passedPanel.style.borderBottomColor = new StyleColor(Color.green);
-
-        passedMessageLabel = new Label(BasisEditorLocalization.Get("sdk.validator.passed.empty"));
-        passedMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        passedPanel.Add(passedMessageLabel);
-
-        passedPanel.style.display = DisplayStyle.None;
-        rootElement.Add(passedPanel);
+        passedPanel = BasisValidatorUI.CreatePassedPanel(rootElement, out passedMessageLabel);
     }
 
     public void CreateSuggestionPanel(VisualElement rootElement)
     {
-        suggestionPanel = new VisualElement();
-        suggestionPanel.style.backgroundColor = new StyleColor(new Color(0.65098f, 0.63137f, 0.05098f, 0.5f));
-        suggestionPanel.style.paddingTop = 5;
-        suggestionPanel.style.flexGrow = 1;
-        suggestionPanel.style.paddingBottom = 5;
-        suggestionPanel.style.marginBottom = 10;
-        suggestionPanel.style.borderTopLeftRadius = 5;
-        suggestionPanel.style.borderTopRightRadius = 5;
-        suggestionPanel.style.borderBottomLeftRadius = 5;
-        suggestionPanel.style.borderBottomRightRadius = 5;
-        suggestionPanel.style.borderLeftWidth = 2;
-        suggestionPanel.style.borderRightWidth = 2;
-        suggestionPanel.style.borderTopWidth = 2;
-        suggestionPanel.style.borderBottomWidth = 2;
-        suggestionPanel.style.borderBottomColor = new StyleColor(Color.yellow);
-
-        Label header = new Label(BasisEditorLocalization.Get("sdk.validator.suggestions.header"));
-        header.style.unityFontStyleAndWeight = FontStyle.Bold;
-        header.style.color = new StyleColor(Color.white);
-        suggestionPanel.Add(header);
-
-        suggestionMessageLabel = new Label();
-        suggestionMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        suggestionMessageLabel.style.whiteSpace = WhiteSpace.Normal;
-        suggestionPanel.Add(suggestionMessageLabel);
-
-        suggestionButtonContainer = new VisualElement() { name = "SuggestionButtonContainer" };
-        suggestionPanel.Add(suggestionButtonContainer);
-
-        suggestionPanel.style.display = DisplayStyle.None;
-        rootElement.Add(suggestionPanel);
+        suggestionPanel = BasisValidatorUI.CreateSuggestionPanel(rootElement, out suggestionMessageLabel, out suggestionButtonContainer);
     }
 
     private void ShowSuggestionPanel(List<BasisValidationIssue> suggestions)
@@ -327,7 +238,7 @@ public class BasisPropValidator
             if (issue.Fix != null)
             {
                 string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? issue.Message : issue.FixLabel;
-                SuggestionFixButton(suggestionButtonContainer, issue.Fix, actionTitle);
+                BasisValidatorUI.AutoFixButton(suggestionButtonContainer, issue.Fix, actionTitle, false);
             }
             if (!issueList.Contains(issue.Message))
                 issueList.Add($"- {issue.Message}");
@@ -362,7 +273,7 @@ public class BasisPropValidator
             if (issue.Fix != null)
             {
                 string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? issue.Message : issue.FixLabel;
-                AutoFixButton(errorButtonContainer, issue.Fix, actionTitle);
+                BasisValidatorUI.AutoFixButton(errorButtonContainer, issue.Fix, actionTitle);
             }
             if (!issueList.Contains(issue.Message))
                 issueList.Add(issue.Message);
@@ -389,109 +300,4 @@ public class BasisPropValidator
         passedPanel.style.display = DisplayStyle.None;
     }
 
-    private void AutoFixButton(VisualElement rootElement, Action onClickAction, string fixMe)
-    {
-        foreach (var child in rootElement.Children())
-        {
-            if (child is Button existing && existing.text == fixMe)
-                return;
-        }
-
-        Button fixMeButton = new Button();
-        fixMeButton.clicked += delegate
-        {
-            onClickAction?.Invoke();
-            fixMeButton.RemoveFromHierarchy();
-        };
-        fixMeButton.text = fixMe;
-
-        Color background = new Color(0.96f, 0.26f, 0.21f);
-        Color hover = new Color(0.9f, 0.2f, 0.2f);
-
-        fixMeButton.style.backgroundColor = new StyleColor(background);
-        fixMeButton.style.color = new StyleColor(Color.white);
-        fixMeButton.style.fontSize = 14;
-        fixMeButton.style.unityFontStyleAndWeight = FontStyle.Bold;
-        fixMeButton.style.whiteSpace = WhiteSpace.Normal;
-        fixMeButton.style.flexShrink = 0;
-        fixMeButton.style.paddingTop = 6;
-        fixMeButton.style.paddingBottom = 6;
-        fixMeButton.style.paddingLeft = 12;
-        fixMeButton.style.paddingRight = 12;
-        fixMeButton.style.marginBottom = 10;
-        fixMeButton.style.borderTopLeftRadius = 8;
-        fixMeButton.style.borderTopRightRadius = 8;
-        fixMeButton.style.borderBottomLeftRadius = 8;
-        fixMeButton.style.borderBottomRightRadius = 8;
-        fixMeButton.style.borderLeftWidth = 0;
-        fixMeButton.style.borderRightWidth = 0;
-        fixMeButton.style.borderTopWidth = 0;
-        fixMeButton.style.borderBottomWidth = 3;
-        fixMeButton.style.unityTextAlign = TextAnchor.MiddleCenter;
-        fixMeButton.style.alignSelf = Align.Auto;
-
-        fixMeButton.RegisterCallback<MouseEnterEvent>(evt =>
-        {
-            fixMeButton.style.backgroundColor = new StyleColor(hover);
-        });
-        fixMeButton.RegisterCallback<MouseLeaveEvent>(evt =>
-        {
-            fixMeButton.style.backgroundColor = new StyleColor(background);
-        });
-
-        rootElement.Add(fixMeButton);
-    }
-
-    private void SuggestionFixButton(VisualElement rootElement, Action onClickAction, string fixMe)
-    {
-        foreach (var child in rootElement.Children())
-        {
-            if (child is Button existing && existing.text == fixMe)
-                return;
-        }
-
-        Button fixMeButton = new Button();
-        fixMeButton.clicked += delegate
-        {
-            onClickAction?.Invoke();
-            fixMeButton.RemoveFromHierarchy();
-        };
-        fixMeButton.text = fixMe;
-
-        Color background = new Color(1f, 0.63f, 0f);
-        Color hover = new Color(1f, 0.7f, 0f);
-
-        fixMeButton.style.backgroundColor = new StyleColor(background);
-        fixMeButton.style.color = new StyleColor(Color.white);
-        fixMeButton.style.fontSize = 14;
-        fixMeButton.style.unityFontStyleAndWeight = FontStyle.Bold;
-        fixMeButton.style.whiteSpace = WhiteSpace.Normal;
-        fixMeButton.style.flexShrink = 0;
-        fixMeButton.style.paddingTop = 6;
-        fixMeButton.style.paddingBottom = 6;
-        fixMeButton.style.paddingLeft = 12;
-        fixMeButton.style.paddingRight = 12;
-        fixMeButton.style.marginBottom = 10;
-        fixMeButton.style.borderTopLeftRadius = 8;
-        fixMeButton.style.borderTopRightRadius = 8;
-        fixMeButton.style.borderBottomLeftRadius = 8;
-        fixMeButton.style.borderBottomRightRadius = 8;
-        fixMeButton.style.borderLeftWidth = 0;
-        fixMeButton.style.borderRightWidth = 0;
-        fixMeButton.style.borderTopWidth = 0;
-        fixMeButton.style.borderBottomWidth = 3;
-        fixMeButton.style.unityTextAlign = TextAnchor.MiddleCenter;
-        fixMeButton.style.alignSelf = Align.Auto;
-
-        fixMeButton.RegisterCallback<MouseEnterEvent>(evt =>
-        {
-            fixMeButton.style.backgroundColor = new StyleColor(hover);
-        });
-        fixMeButton.RegisterCallback<MouseLeaveEvent>(evt =>
-        {
-            fixMeButton.style.backgroundColor = new StyleColor(background);
-        });
-
-        rootElement.Add(fixMeButton);
-    }
 }

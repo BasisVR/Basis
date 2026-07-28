@@ -393,12 +393,20 @@ public static class BasisAuthoredMotionSystem
             Time = time,
         }.Schedule(sTargets);
 
+        JobHandle.ScheduleBatchedJobs();
         return sPending;
     }
 
     public static void Complete(JobHandle handle)
     {
         handle.Complete();
+        // The driver hands back the handle Schedule returned, which is sPending itself —
+        // routing through CompletePending would complete it a second time.
+        if (handle.Equals(sPending))
+        {
+            sPending = default;
+            return;
+        }
         CompletePending();
     }
 
@@ -410,13 +418,29 @@ public static class BasisAuthoredMotionSystem
 
     // ── Internals ──────────────────────────────────────────────────────────────
 
+    // Build scratch, cleared per call. Registration runs per component per avatar load, and the
+    // working lists here were fresh allocations each time; only the stored ToArray results survive.
+    static readonly List<AuthoredMovementData> sBuildData = new List<AuthoredMovementData>();
+    static readonly List<Transform> sBuildTargets = new List<Transform>();
+    static readonly List<bool> sBuildMovementEnabled = new List<bool>();
+    static readonly List<AuthoredOptionData> sBuildOptions = new List<AuthoredOptionData>();
+    static readonly List<float4> sBuildRotSamples = new List<float4>();
+    static readonly List<(Transform tf, float3 axis, float angle, float lo, float hi)> sBuildResolved =
+        new List<(Transform tf, float3 axis, float angle, float lo, float hi)>();
+    static readonly HashSet<Transform> sBuildDone = new HashSet<Transform>();
+
     static Registration Build(BasisAuthoredMotion component)
     {
-        var data = new List<AuthoredMovementData>();
-        var targets = new List<Transform>();
-        var movementEnabled = new List<bool>();
-        var options = new List<AuthoredOptionData>();
-        var rotSamples = new List<float4>();
+        List<AuthoredMovementData> data = sBuildData;
+        List<Transform> targets = sBuildTargets;
+        List<bool> movementEnabled = sBuildMovementEnabled;
+        List<AuthoredOptionData> options = sBuildOptions;
+        List<float4> rotSamples = sBuildRotSamples;
+        data.Clear();
+        targets.Clear();
+        movementEnabled.Clear();
+        options.Clear();
+        rotSamples.Clear();
 
         Movement[] movements = component.movements;
         for (int i = 0; i < movements.Length; i++)
@@ -466,7 +490,8 @@ public static class BasisAuthoredMotionSystem
 
                     // Cumulative weight bands in declaration order; the idle weight takes the remainder.
                     float running = 0f;
-                    var resolved = new List<(Transform tf, float3 axis, float angle, float lo, float hi)>();
+                    List<(Transform tf, float3 axis, float angle, float lo, float hi)> resolved = sBuildResolved;
+                    resolved.Clear();
                     for (int o = 0; o < mv.options.Length; o++)
                     {
                         var opt = mv.options[o];
@@ -480,7 +505,8 @@ public static class BasisAuthoredMotionSystem
                     if (resolved.Count == 0 || total <= 0f) break;
 
                     // One slot per distinct target; lay its options out contiguously in the buffer.
-                    var done = new HashSet<Transform>();
+                    HashSet<Transform> done = sBuildDone;
+                    done.Clear();
                     for (int o = 0; o < resolved.Count; o++)
                     {
                         Transform tf = resolved[o].tf;

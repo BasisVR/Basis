@@ -5,7 +5,8 @@
         "Basis Framework",
         "BasisSDK",
         "BasisSettings",
-        "BasisDebug"
+        "BasisDebug",
+        "BasisCommon"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

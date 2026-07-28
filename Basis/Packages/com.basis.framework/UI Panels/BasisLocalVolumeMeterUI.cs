@@ -36,6 +36,17 @@ public class BasisLocalVolumeMeterUI : MonoBehaviour
     float smoothed;     // normalized 0..1
     float peak;         // normalized 0..1
     float peakTimer;    // seconds
+
+    // A live meter is the classic whole-canvas killer: the exponential smoothing never
+    // exactly settles, so an unguarded write path re-dirties the canvas every frame
+    // forever — even fully muted. Quantize to visually-identical steps and only touch
+    // the UI when a step actually changes; at rest the meter writes nothing at all.
+    const float WriteStep = 1f / 256f;
+    float lastWrittenFill = -1f;
+    float lastWrittenPeak = -1f;
+    bool colorRouted;
+    bool tickAnchorsInitialized;
+
     void Update()
     {
         // Read the rolling RMS computed by your driver.
@@ -50,10 +61,23 @@ public class BasisLocalVolumeMeterUI : MonoBehaviour
         float tau = (target > smoothed) ? attack : release;
         float coeff = 1f - Mathf.Exp(-UnscaledDeltaTime / Mathf.Max(0.0001f, tau));
         smoothed = Mathf.Lerp(smoothed, target, coeff);
+        // Snap the asymptotic tail to rest so silence stops producing writes.
+        if (target <= 0f && smoothed < WriteStep) smoothed = 0f;
 
-        // Drive UI
-        fill.fillAmount = smoothed;
-        fill.color = colorByLevel.Evaluate(smoothed);
+        float quantizedFill = Mathf.Round(smoothed / WriteStep) * WriteStep;
+        if (quantizedFill != lastWrittenFill)
+        {
+            lastWrittenFill = quantizedFill;
+            fill.fillAmount = quantizedFill;
+            // Color rides the canvasRenderer (a render-time multiply) instead of
+            // Graphic.color, which would rebuild the mesh on every gradient step.
+            if (!colorRouted)
+            {
+                colorRouted = true;
+                fill.color = Color.white;
+            }
+            fill.canvasRenderer.SetColor(colorByLevel.Evaluate(quantizedFill));
+        }
 
         // Peak-hold tick
         if (smoothed > peak)
@@ -66,11 +90,25 @@ public class BasisLocalVolumeMeterUI : MonoBehaviour
             if (peakTimer > 0f) peakTimer -= UnscaledDeltaTime;
             else peak = Mathf.Max(0f, peak - peakFallPerSecond * UnscaledDeltaTime);
         }
-        var rt = peakTick.rectTransform;
-        // place the tick at the current peak along X (0..1)
-        rt.anchorMin = new Vector2(peak, 0f);
-        rt.anchorMax = new Vector2(peak, 1f);
-        rt.anchoredPosition = Vector2.zero;
+
+        float quantizedPeak = Mathf.Round(peak / WriteStep) * WriteStep;
+        if (quantizedPeak != lastWrittenPeak)
+        {
+            lastWrittenPeak = quantizedPeak;
+            var rt = peakTick.rectTransform;
+            // Moved by position, not by rewriting anchors: anchor writes fire
+            // OnRectTransformDimensionsChange into every parent LayoutGroup, which
+            // put the whole layout pass on the per-frame path.
+            if (!tickAnchorsInitialized)
+            {
+                tickAnchorsInitialized = true;
+                rt.anchorMin = new Vector2(0f, 0f);
+                rt.anchorMax = new Vector2(0f, 1f);
+            }
+            RectTransform parentRect = rt.parent as RectTransform;
+            float width = parentRect != null ? parentRect.rect.width : 0f;
+            rt.anchoredPosition = new Vector2(quantizedPeak * width, 0f);
+        }
     }
     float RmsToUnit(float rms)
     {

@@ -9,6 +9,7 @@
         "Basis Framework",
         "BasisNetworkCore",
         "BasisSDK",
+        "BasisSettings",
         "BasisCommon",
         "Unity.TextMeshPro"
     ],

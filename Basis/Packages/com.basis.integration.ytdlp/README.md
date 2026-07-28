@@ -22,13 +22,21 @@ so it can be added or removed cleanly (see *Removing it*).
 
 | Source | yt-dlp returns | Played as |
 |---|---|---|
-| YouTube VOD (>360p) | separate H.264 video-only + AAC audio-only | split stream, real-time paced (on-demand) |
+| YouTube VOD (>360p) | split video-only (capability-selected H.264/VP9/AV1) + audio-only (AAC, or Opus fallback) | split stream, real-time paced (on-demand) |
 | YouTube / Twitch live | single HLS playlist | live |
 | Progressive / muxed (≤360p) | one muxed stream | delivery auto-detected |
 
-**Codec ceiling: H.264 + AAC, ~1080p.** 4K YouTube is VP9/AV1-only, which the player
-can't decode, so format selection caps the chosen video at 1080p `avc1` with `mp4a`
-audio. Above ~360p YouTube serves video and audio separately, so those resolve to a
+**Codec selection: H.264 everywhere; VP9 and AV1 up to 2160p where the platform
+decodes them.** YouTube's above-1080p ladder is VP9 (AV1 alongside on popular
+uploads), so format selection asks the player whether this machine hardware-decodes
+each codec (Windows: the decoder MFT — the Store extension or a vendor one — plus a
+GPU with hardware decode; Quest: VP9 always, AV1 on Quest 3) and, where it does,
+picks rungs up to 4K — SDR 8-bit ladders only. At equal height `avc1` wins, then
+`av01` over `vp9` (better bitrate at 4K), so a VP9/AV1 rung is only chosen where it
+offers more resolution than any available `avc1`; where neither decodes, the video
+stays `avc1` capped at 1080p and audio uses `mp4a` when present, otherwise the WebM
+`opus` fallback. Above ~360p YouTube serves video
+and audio separately, so those resolve to a
 [split stream](https://github.com/BasisVR/BasisMediaPlayer#split-stream-separate-video--audio)
 the player syncs on one clock.
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -16,6 +17,76 @@ public struct BasisTexTransform
 
 public static class BasisShaderFallback
 {
+    // User-configured blocklist: case-insensitive substrings matched against shader
+    // names and material shader keywords. A match forces the fallback material.
+    private static string[] BlockedPatterns = Array.Empty<string>();
+    private static readonly char[] BlocklistSeparators = { ',', ';', '\n', '\r' };
+
+    public static bool HasBlocklist => BlockedPatterns.Length > 0;
+
+    public static void SetBlocklist(string patterns)
+    {
+        if (string.IsNullOrWhiteSpace(patterns))
+        {
+            BlockedPatterns = Array.Empty<string>();
+            return;
+        }
+        string[] split = patterns.Split(BlocklistSeparators, StringSplitOptions.RemoveEmptyEntries);
+        List<string> cleaned = new List<string>(split.Length);
+        for (int Index = 0; Index < split.Length; Index++)
+        {
+            string trimmed = split[Index].Trim();
+            if (trimmed.Length > 0)
+            {
+                cleaned.Add(trimmed);
+            }
+        }
+        BlockedPatterns = cleaned.ToArray();
+    }
+
+    private static bool IsBlocked(Material mat, Shader shader, Dictionary<Shader, bool> shaderNameBlocked)
+    {
+        string[] patterns = BlockedPatterns;
+        if (patterns.Length == 0)
+        {
+            return false;
+        }
+        if (!shaderNameBlocked.TryGetValue(shader, out bool nameBlocked))
+        {
+            nameBlocked = MatchesAny(shader.name, patterns);
+            shaderNameBlocked[shader] = nameBlocked;
+        }
+        if (nameBlocked)
+        {
+            return true;
+        }
+        string[] keywords = mat.shaderKeywords;
+        for (int Index = 0; Index < keywords.Length; Index++)
+        {
+            if (MatchesAny(keywords[Index], patterns))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool MatchesAny(string value, string[] patterns)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+        for (int Index = 0; Index < patterns.Length; Index++)
+        {
+            if (value.IndexOf(patterns[Index], StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static readonly string[] AlbedoProps =
     {
         "_MainTex",
@@ -95,7 +166,22 @@ public static class BasisShaderFallback
         return true;
     }
 
-    public static void MaterialCorrection(IList<Renderer> renderers, Shader fallbackUrpShader)
+    // Per-pass caches: every unique material/shader is evaluated once per load, and
+    // GetSharedMaterials/SetSharedMaterials against the shared scratch list keeps the
+    // per-renderer walk allocation-free. Main-thread only, consumed synchronously.
+    private struct CorrectionPass
+    {
+        public Shader FallbackShader;
+        public Dictionary<Material, Material> FixedMaterials;
+        public Dictionary<Shader, bool> ShaderBroken;
+        public Dictionary<Shader, bool> ShaderNameBlocked;
+        public Dictionary<Material, bool> MaterialBlocked;
+        public bool CorrectBroken;
+    }
+
+    private static readonly List<Material> MaterialScratch = new List<Material>(16);
+
+    public static void MaterialCorrection(IList<Renderer> renderers, Shader fallbackUrpShader, bool correctBroken = true, bool applyBlocklist = false)
     {
         if (renderers == null) return;
         int count = renderers.Count;
@@ -105,15 +191,14 @@ public static class BasisShaderFallback
             Debug.LogWarning("MaterialCorrection: fallbackUrpShader is null, cannot swap shaders.");
             return;
         }
-        var fixedMaterials = new Dictionary<Material, Material>(count);
-        var shaderBroken = new Dictionary<Shader, bool>(count);
+        CorrectionPass pass = CreatePass(fallbackUrpShader, correctBroken, applyBlocklist, count);
         for (int i = 0; i < count; i++)
         {
-            CorrectRenderer(renderers[i], fallbackUrpShader, fixedMaterials, shaderBroken);
+            CorrectRenderer(renderers[i], ref pass);
         }
     }
 
-    public static void MaterialCorrection(Renderer renderer, Shader fallbackUrpShader)
+    public static void MaterialCorrection(Renderer renderer, Shader fallbackUrpShader, bool correctBroken = true, bool applyBlocklist = false)
     {
         if (renderer == null) return;
         if (fallbackUrpShader == null)
@@ -121,25 +206,44 @@ public static class BasisShaderFallback
             Debug.LogWarning("MaterialCorrection: fallbackUrpShader is null, cannot swap shaders.");
             return;
         }
-        var fixedMaterials = new Dictionary<Material, Material>();
-        var shaderBroken = new Dictionary<Shader, bool>();
-        CorrectRenderer(renderer, fallbackUrpShader, fixedMaterials, shaderBroken);
+        CorrectionPass pass = CreatePass(fallbackUrpShader, correctBroken, applyBlocklist, 1);
+        CorrectRenderer(renderer, ref pass);
     }
 
-    private static void CorrectRenderer(Renderer renderer, Shader fallbackUrpShader, Dictionary<Material, Material> fixedMaterials, Dictionary<Shader, bool> shaderBroken)
+    private static CorrectionPass CreatePass(Shader fallbackUrpShader, bool correctBroken, bool applyBlocklist, int capacity)
+    {
+        CorrectionPass pass = default;
+        pass.FallbackShader = fallbackUrpShader;
+        pass.CorrectBroken = correctBroken;
+        pass.FixedMaterials = new Dictionary<Material, Material>(capacity);
+        if (correctBroken)
+        {
+            pass.ShaderBroken = new Dictionary<Shader, bool>(capacity);
+        }
+        if (applyBlocklist && HasBlocklist)
+        {
+            pass.ShaderNameBlocked = new Dictionary<Shader, bool>(capacity);
+            pass.MaterialBlocked = new Dictionary<Material, bool>(capacity);
+        }
+        return pass;
+    }
+
+    private static void CorrectRenderer(Renderer renderer, ref CorrectionPass pass)
     {
         if (renderer == null) return;
-        var materials = renderer.sharedMaterials;
-        if (materials == null || materials.Length == 0) return;
+        List<Material> materials = MaterialScratch;
+        renderer.GetSharedMaterials(materials);
+        int matCount = materials.Count;
+        if (matCount == 0) return;
 
         bool anyChanged = false;
 
-        for (int mi = 0; mi < materials.Length; mi++)
+        for (int mi = 0; mi < matCount; mi++)
         {
             var mat = materials[mi];
             if (mat == null) continue;
 
-            if (fixedMaterials.TryGetValue(mat, out Material cachedFixed))
+            if (pass.FixedMaterials.TryGetValue(mat, out Material cachedFixed))
             {
                 materials[mi] = cachedFixed;
                 anyChanged = true;
@@ -149,21 +253,39 @@ public static class BasisShaderFallback
             var shader = mat.shader;
             if (shader == null) continue;
 
-            if (!shaderBroken.TryGetValue(shader, out bool isBroken))
+            bool replace = false;
+            if (pass.CorrectBroken)
             {
-                isBroken = !shader.isSupported || (!string.IsNullOrEmpty(shader.name) && shader.name.Contains("InternalErrorShader"));
-                shaderBroken[shader] = isBroken;
+                if (!pass.ShaderBroken.TryGetValue(shader, out bool isBroken))
+                {
+                    isBroken = !shader.isSupported || (!string.IsNullOrEmpty(shader.name) && shader.name.Contains("InternalErrorShader"));
+                    pass.ShaderBroken[shader] = isBroken;
+                }
+                replace = isBroken;
             }
-            if (!isBroken) continue;
+            if (!replace && pass.MaterialBlocked != null)
+            {
+                if (!pass.MaterialBlocked.TryGetValue(mat, out bool isBlocked))
+                {
+                    isBlocked = IsBlocked(mat, shader, pass.ShaderNameBlocked);
+                    pass.MaterialBlocked[mat] = isBlocked;
+                    if (isBlocked)
+                    {
+                        Debug.Log($"Shader blocklist matched material '{mat.name}' (shader '{shader.name}'), swapping to fallback.");
+                    }
+                }
+                replace = isBlocked;
+            }
+            if (!replace) continue;
 
-            var fixedMat = BuildFallbackMaterial(mat, fallbackUrpShader);
-            fixedMaterials[mat] = fixedMat;
+            var fixedMat = BuildFallbackMaterial(mat, pass.FallbackShader);
+            pass.FixedMaterials[mat] = fixedMat;
             materials[mi] = fixedMat;
             anyChanged = true;
         }
         if (anyChanged)
         {
-            renderer.sharedMaterials = materials;
+            renderer.SetSharedMaterials(materials);
         }
     }
 

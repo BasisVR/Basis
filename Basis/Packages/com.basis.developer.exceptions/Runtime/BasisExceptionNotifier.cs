@@ -29,6 +29,8 @@ namespace Basis.BasisUI
         {
             try
             {
+                if (BasisDebug.ReportSuppressed) return;
+
                 bool enabled = type switch
                 {
                     LogType.Exception => BasisSettingsDefaults.ExceptionNotifications.RawValue,

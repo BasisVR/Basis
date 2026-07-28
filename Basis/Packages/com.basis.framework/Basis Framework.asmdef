@@ -4,7 +4,6 @@
     "references": [
         "com.gator-dragon-games.jigglephysics",
         "UnityEngine.UI",
-        "Unity.Animation.Rigging",
         "Unity.ResourceManager",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
@@ -33,7 +32,10 @@
         "BasisSettings",
         "com.cqf.urpvolumetricfog.runtime",
         "OpusSharp",
-        "Basis.OpenLipSync.Runtime"
+        "Basis.OpenLipSync.Runtime",
+        "Klak.Spout.Runtime",
+        "Klak.Syphon.Runtime",
+        "Basis.Eerie.Movement"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -61,6 +63,16 @@
             "name": "com.basis.mediapipe",
             "expression": "",
             "define": "BASIS_HAS_MEDIAPIPE"
+        },
+        {
+            "name": "jp.keijiro.klak.spout",
+            "expression": "",
+            "define": "BASIS_HAS_SPOUT"
+        },
+        {
+            "name": "jp.keijiro.klak.syphon",
+            "expression": "",
+            "define": "BASIS_HAS_SYPHON"
         }
     ],
     "noEngineReferences": false

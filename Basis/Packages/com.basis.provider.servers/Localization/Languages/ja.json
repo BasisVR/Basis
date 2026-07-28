@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "サーバーはまだありません。「サーバーを追加」を押して作成してください。"
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "サーバーを追加"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "すべて更新"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "サーバーを編集中"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "新しいサーバー"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "保存"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "キャンセル"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "削除"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "編集"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "更新"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "オフライン"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "問い合わせ中..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "共有"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Basis Labs へようこそ！"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs は Basis Framework の生きたショーケースです。VR のゲーム、プラットフォーム、体験を作るための、MIT ライセンスの無料基盤です。ワールドを探索し、カスタムアバターを着て、作られていく機能を試しながら人と出会いましょう。ここではすべてが進化の途中です。あなたのフィードバックがその形を作ります。"
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "次へ"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "最初のサーバー"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Basis に中央サービスはありません。誰でもサーバーを立てられますし、このパネルから自分のサーバーをホストすることもできます。いつでも行き先があるように、既定のサーバーを運営しています。下のリストの一番上に ★ 付きで表示されます。ユーザー名を決めて、光っている「接続」ボタンを押して、ぜひ挨拶しに来てください！"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "わかりました！"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "ユーザー名を選択"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "他のプレイヤーに表示される名前を決めて、「接続」を押してください。"
     },
     {
       "key": "menu.servers.hostMotd",

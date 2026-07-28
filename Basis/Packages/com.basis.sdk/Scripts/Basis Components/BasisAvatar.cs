@@ -24,12 +24,18 @@ namespace Basis.Scripts.BasisSdk
         public SkinnedMeshRenderer FaceBlinkMesh;
 
         /// <summary>
-        /// Position of the avatar's eyes in normalized screen or UI space.
+        /// Center-eye position in avatar-local metres relative to the animator root, packed as
+        /// (x = height above the root, y = forward offset). Lateral offset is not authored — the
+        /// point is always on the avatar's midline. Convert with
+        /// <c>BasisHelpers.AvatarPositionConversion</c>; <c>x</c> alone is the avatar's eye height.
         /// </summary>
         public Vector2 AvatarEyePosition;
 
         /// <summary>
-        /// Position of the avatar's mouth in normalized screen or UI space.
+        /// Mouth position in avatar-local metres relative to the animator root, packed as
+        /// (x = height above the root, y = forward offset). Lateral offset is not authored — the
+        /// point is always on the avatar's midline. Convert with
+        /// <c>BasisHelpers.AvatarPositionConversion</c>.
         /// </summary>
         public Vector2 AvatarMouthPosition;
 

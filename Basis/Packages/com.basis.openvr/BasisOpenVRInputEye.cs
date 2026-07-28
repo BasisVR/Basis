@@ -101,13 +101,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             Vector3 gazeTrackingPos = _gazeAction.GetLocalPosition(_gazeSource);
             Quaternion gazeTrackingRot = _gazeAction.GetLocalRotation(_gazeSource);
 
-            Quaternion invHmdRot = Quaternion.Inverse(hmdTrackingRot);
-            Vector3 gazeRelHmdPos = invHmdRot * (gazeTrackingPos - hmdTrackingPos);
-            Quaternion gazeRelHmdRot = invHmdRot * gazeTrackingRot;
-
-            Vector3 worldGazeOrigin = BasisLocalCameraDriver.Position + BasisLocalCameraDriver.Rotation * gazeRelHmdPos;
-            Quaternion worldGazeRot = BasisLocalCameraDriver.Rotation * gazeRelHmdRot;
-            Vector3 worldGazeDir = worldGazeRot * Vector3.forward;
+            BasisEyeMath.HmdRelativeGazeToWorld(
+                hmdTrackingPos, hmdTrackingRot, gazeTrackingPos, gazeTrackingRot,
+                BasisLocalCameraDriver.Position, BasisLocalCameraDriver.Rotation,
+                out Vector3 worldGazeOrigin, out Vector3 worldGazeDir);
 
             _gazeOrigin = worldGazeOrigin;
             _gazeDirection = worldGazeDir;

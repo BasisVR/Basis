@@ -125,7 +125,7 @@ namespace BasisServerHandle
             }
             catch (Exception ex)
             {
-                BNL.LogWarning($"ServerInfoQuery failed for {remoteEndPoint}: {ex.Message}");
+                BNL.LogWarning($"ServerInfoQuery failed: {ex.Message}");
             }
         }
 

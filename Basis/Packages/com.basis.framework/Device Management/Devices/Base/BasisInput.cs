@@ -1,3 +1,4 @@
+using Basis.Scripts.Audio;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
@@ -56,6 +57,15 @@ namespace Basis.Scripts.Device_Management.Devices
         /// </summary>
         [SerializeField]
         public bool IsCameraTracked;
+
+        /// <summary>
+        /// What kind of tracking produces this device's pose, and therefore how noisy it is. Set by the
+        /// backend that creates the device before it calls <see cref="InitializeTracking"/>, then refined
+        /// there from the device identity strings. Read by the "Auto" smoothing preset to filter each body
+        /// group for the hardware actually driving it.
+        /// </summary>
+        [SerializeField]
+        public BasisTrackingHardware TrackingHardware = BasisTrackingHardware.Unknown;
 
         /// <summary>
         /// The bone control this input drives (e.g., left hand, right foot).
@@ -248,6 +258,9 @@ namespace Basis.Scripts.Device_Management.Devices
             CommonDeviceIdentifier = unUniqueDeviceID;
             UniqueDeviceIdentifier = uniqueID;
             HasRayCastOverrideSupport = hasRayCastOverrideSupport;
+            // A backend's guess is only as good as its class: OpenVR alone carries lighthouse trackers,
+            // SlimeVR's virtual ones and Standable's estimates. The identity strings are set by now.
+            TrackingHardware = BasisTrackingHardwareClassifier.Refine(TrackingHardware, CommonDeviceIdentifier, DeviceSerial, IsCameraTracked);
             // Resolve capabilities/overrides (role, visuals, raycast support...)
             DeviceMatchSettings = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier, basisBoneTrackedRole, ForceAssignTrackedRole);
             if (DeviceMatchSettings.HasTrackedRole)
@@ -287,6 +300,7 @@ namespace Basis.Scripts.Device_Management.Devices
                 {
                     yOffset += SMModuleSitStand.MissingHeightDelta;
                 }
+                yOffset += BasisHeightDriver.HeightModeGroundingOffset;
                 position.y += yOffset;
             }
             coords.position = position;
@@ -384,6 +398,12 @@ namespace Basis.Scripts.Device_Management.Devices
         public bool HasCalibratedOffsetSnapshot;
         public Vector3 CalibratedUnscaledPosition;
         public Quaternion CalibratedUnscaledRotation = Quaternion.identity;
+        // Head anchor the snapshot above was captured against, in the same unscaled space. Each
+        // tracker pairs with its OWN capture-time head so reprojection and continuous-calibration
+        // adoption rebuild the geometry of THIS capture — a mid-session recapture (device reconnect,
+        // matcher-pinned tracker) must not be rebuilt against the ritual-calibration head.
+        public Vector3 CalibratedUnscaledHeadPosition;
+        public Quaternion CalibratedUnscaledHeadRotation = Quaternion.identity;
 
         /// <summary>
         /// Computes and applies the inverse offset from the driven bone so that the tracker maintains
@@ -442,10 +462,21 @@ namespace Basis.Scripts.Device_Management.Devices
             Control.SetInverseOffset(InverseOffsetPosition, InverseOffsetRotation);
             Control.UseInverseOffset = true;
 
-            // Scale-free snapshot of where this tracker sat at calibration, so the position offset can
-            // be re-derived for a new avatar/DeviceScale without redoing the T-pose.
-            BasisCalibrationMath.UnscaleDeviceCoord(tracker.position, tracker.rotation, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation, out CalibratedUnscaledPosition, out CalibratedUnscaledRotation);
-            HasCalibratedOffsetSnapshot = true;
+            // Scale-free snapshot of where this tracker sat at calibration, paired with the head
+            // anchor it was captured against, so the position offset can be re-derived for a new
+            // avatar/DeviceScale without redoing the T-pose.
+            BasisLocalBoneControl anchorHeadControl = BasisLocalBoneDriver.HeadControl;
+            if (anchorHeadControl != null)
+            {
+                BasisCalibrationMath.UnscaleDeviceCoord(tracker.position, tracker.rotation, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation, out CalibratedUnscaledPosition, out CalibratedUnscaledRotation);
+                BasisCalibratedCoords anchorHeadOut = anchorHeadControl.OutGoingData;
+                BasisCalibrationMath.UnscaleDeviceCoord(anchorHeadOut.position, anchorHeadOut.rotation, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation, out CalibratedUnscaledHeadPosition, out CalibratedUnscaledHeadRotation);
+                HasCalibratedOffsetSnapshot = true;
+            }
+            else
+            {
+                HasCalibratedOffsetSnapshot = false;
+            }
 
             BasisCalibrationDebugRecorder.OffsetCapture(this, Control);
         }
@@ -714,13 +745,16 @@ namespace Basis.Scripts.Device_Management.Devices
             switch (SoundEffectName)
             {
                 case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
+                    BasisUISounds.PlayAt(BasisUISoundEvent.Hover, BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
+                    break;
+                case "grab":
+                    BasisUISounds.PlayAt(BasisUISoundEvent.Grab, BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
                     break;
                 case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                    BasisUISounds.PlayAt(BasisUISoundEvent.Press, BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
                     break;
                 case "chat":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.ChatNotificationUI, transform.position, Volume);
+                    BasisUISounds.PlayAt(BasisUISoundEvent.Chat, BasisDeviceManagement.Instance.ChatNotificationUI, transform.position, Volume);
                     break;
             }
         }
@@ -753,6 +787,7 @@ namespace Basis.Scripts.Device_Management.Devices
         public void HideTrackedVisual()
         {
             BasisDebug.Log("HideTrackedVisual", BasisDebug.LogTag.Input);
+            BasisTrackerMarkerGizmos.Hide(this);
             if (BasisVisualTracker != null)
             {
                 BasisDebug.Log("Found and removing  HideTrackedVisual", BasisDebug.LogTag.Input);
@@ -835,6 +870,13 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <param name="key">Addressables key for the model prefab.</param>
         public void LoadModelWithKey(string key)
         {
+            // The generic marker ball is drawn by the batched gizmo backend rather than an
+            // instantiated FallbackSphere — same material and sizing, no per-device GameObject.
+            if (key == FallbackDeviceID)
+            {
+                BasisTrackerMarkerGizmos.Show(this);
+                return;
+            }
             if (_visualModelHandle.IsValid())
             {
                 Addressables.Release(_visualModelHandle);
@@ -927,25 +969,72 @@ namespace Basis.Scripts.Device_Management.Devices
         public abstract void PlaySoundEffect(string SoundEffectName, float Volume);
 
         /// <summary>
-        /// Default helper to spawn a model using device matching or a fallback visual.
+        /// Default helper to spawn a device visual. Prefers the runtime-provided model (real
+        /// controller/tracker geometry from the active XR runtime), then a matched pre-baked model,
+        /// then the generic sphere fallback.
         /// </summary>
         public void ShowTrackedVisualDefaultImplementation()
         {
-            if (BasisVisualTracker == null)
+            if (BasisVisualTracker != null || BasisTrackerMarkerGizmos.IsShowing(this))
             {
-                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
-                if (Match.CanDisplayPhysicalTracker)
+                return;
+            }
+            string trackerVisuals = Basis.BasisUI.BasisSettingsDefaults.TrackerVisuals.RawValue;
+            if (trackerVisuals == Basis.BasisUI.BasisSettingsDefaults.TrackerVisuals_Off)
+            {
+                return;
+            }
+            if (trackerVisuals == Basis.BasisUI.BasisSettingsDefaults.TrackerVisuals_DeviceModels && TryShowRuntimeDeviceModel())
+            {
+                return;
+            }
+            ShowBakedOrFallbackVisual();
+        }
+
+        /// <summary>
+        /// Spawns the matched pre-baked model, or the generic sphere fallback, without attempting a
+        /// runtime model. Runtime loaders call this to recover when an async runtime load fails.
+        /// </summary>
+        public void ShowBakedOrFallbackVisual()
+        {
+            if (BasisVisualTracker != null || BasisTrackerMarkerGizmos.IsShowing(this))
+            {
+                return;
+            }
+            DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+            if (Match.CanDisplayPhysicalTracker)
+            {
+                LoadModelWithKey(Match.DeviceID);
+            }
+            else
+            {
+                if (UseFallbackModel())
                 {
-                    LoadModelWithKey(Match.DeviceID);
-                }
-                else
-                {
-                    if (UseFallbackModel())
-                    {
-                        LoadModelWithKey(FallbackDeviceID);
-                    }
+                    LoadModelWithKey(FallbackDeviceID);
                 }
             }
+        }
+
+        /// <summary>
+        /// Backend hook: load the real device model from the active XR runtime (SteamVR render
+        /// models, OpenXR XR_EXT_render_model). Return true once a runtime model is found and its
+        /// load has started (the model may appear asynchronously); false to fall through to the
+        /// baked/sphere visual. Default: no runtime model available.
+        /// </summary>
+        public virtual bool TryShowRuntimeDeviceModel()
+        {
+            return false;
+        }
+
+        /// <summary>
+        /// Transform a device visual should attach to so it sits at the device's true tracked pose.
+        /// Defaults to this device node (correct for trackers/HMD, whose node is the tracked pose).
+        /// Devices whose node is remapped elsewhere (e.g. a controller node placed at the avatar wrist
+        /// with an IK rotation offset) override this to expose a node at the raw device pose.
+        /// </summary>
+        public virtual Transform GetVisualAnchor()
+        {
+            return transform;
         }
     }
 }

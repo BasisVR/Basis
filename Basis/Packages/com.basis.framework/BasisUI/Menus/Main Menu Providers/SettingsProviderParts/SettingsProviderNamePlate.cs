@@ -53,7 +53,7 @@ namespace Basis.BasisUI
                 sliderTransparency.Descriptor.SetActive(enabled);
             }
 
-            PanelSectionToggleHelpers.CreateCollapsibleFlatSection(container,
+            PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                 BasisLocalization.Get("settings.nameplates.title"), () =>
             {
                 PanelToggle toggleEnabled = PanelToggle.CreateNewEntry(container);

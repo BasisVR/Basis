@@ -21,6 +21,7 @@ namespace Basis.BasisUI
         {
             get
             {
+                if (this == null) return null;
                 if (!_rectTransform) _rectTransform = GetComponent<RectTransform>();
                 return _rectTransform;
             }
@@ -116,7 +117,19 @@ namespace Basis.BasisUI
         /// Destroy this addressable instance.
         /// Callbacks will run first, followed by an Addressables Release.
         /// </summary>
-        public void ReleaseInstance()
+        public void ReleaseInstance() => ReleaseInstance(true);
+
+        /// <summary>
+        /// <paramref name="dropFromLayout"/> deactivates the object before releasing it.
+        /// <see cref="Addressables.ReleaseInstance(GameObject)"/> destroys via
+        /// <see cref="Object.Destroy"/>, which Unity defers to the end of the frame, so a released
+        /// element otherwise stays an active child and keeps contributing to its parent layout
+        /// group for the rest of this frame — the layout then lands wrong for exactly one frame
+        /// (visible when a lazy tab replaces its placeholder). Deactivating applies immediately and
+        /// drops it out of that pass. Skipped when the release is already being driven by
+        /// <see cref="OnDestroy"/>, where changing active state is not valid.
+        /// </summary>
+        private void ReleaseInstance(bool dropFromLayout)
         {
             if (_isReleased) return;
             _isReleased = true;
@@ -125,13 +138,17 @@ namespace Basis.BasisUI
             // gameObject may already be destroyed when this is driven by teardown (e.g. a menu
             // rebuild releasing stale buttons); the Unity-null check avoids the dead-component
             // gameObject getter that would otherwise throw a NullReferenceException.
-            if (this != null) Addressables.ReleaseInstance(gameObject);
+            if (this != null)
+            {
+                if (dropFromLayout) gameObject.SetActive(false);
+                Addressables.ReleaseInstance(gameObject);
+            }
         }
 
         protected override void OnDestroy()
         {
             if (!IsReleased)
-                ReleaseInstance();
+                ReleaseInstance(false);
         }
     }
 }

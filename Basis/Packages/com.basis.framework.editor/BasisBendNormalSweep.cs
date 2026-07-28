@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -163,7 +163,7 @@ namespace Basis.IK.Debugging
 
         static BasisLegSolveResult SolveBN(Vector3 hip, Vector3 knee, Vector3 foot, Vector3 target, Vector3 hint, float hintWeight, Vector3 bendNormal)
         {
-            BasisLegSolveInput input;
+            BasisLegSolveInput input = default;
             input.Root = hip;
             input.Mid = knee;
             input.Tip = foot;

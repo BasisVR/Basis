@@ -19,7 +19,7 @@ public class Configuration
     /// doc comments). Newly-added settings are healed automatically regardless: on load a
     /// config missing any current field is re-saved with the new settings added.
     /// </summary>
-    public const int CurrentConfigVersion = 3;
+    public const int CurrentConfigVersion = 4;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
@@ -34,6 +34,7 @@ public class Configuration
     public string HealthCheckHost = "localhost";
     public ushort HealthCheckPort = 10666;
     public string HealthPath = "/health";
+    public bool HealthIncludeBSRProfiling = false;
     public int BSRSMillisecondDefaultInterval = 50;
     public int BSRBaseMultiplier = 1;
     public float BSRSIncreaseRate = 0.005f;
@@ -62,11 +63,53 @@ public class Configuration
     /// exceed peer MTU. Clients must implement the matching decoder.
     /// </summary>
     public bool EnableAvatarBundleCompression = true;
-    /// <summary>Minimum queued avatar messages to a single receiver before a bundle is even attempted.</summary>
-    public int AvatarBundleMinMessages = 4;
+    /// <summary>Minimum queued avatar messages to a single receiver before a bundle is even attempted. Two correlated avatar payloads already LZ4 well and share one datagram; AvatarBundleMinBytes still guards the tiny-delta case.</summary>
+    public int AvatarBundleMinMessages = 2;
     /// <summary>Minimum uncompressed bundle bytes before LZ4 compression is attempted. With LZ4 having near-zero per-call setup, 128 just guards the very smallest cases where LZ4 can't find any redundancy.</summary>
     public int AvatarBundleMinBytes = 128;
+    /// <summary>
+    /// When true, the reduction system sends periodic full avatar keyframes and, in between, sends
+    /// only the fields that changed since the last keyframe (per-bone dirty mask) on
+    /// DeltaAvatarChannel. Cuts server→client bandwidth heavily for idle/distant avatars. When false,
+    /// every send is a full keyframe (legacy behavior). Clients must implement the delta decoder.
+    /// </summary>
+    public bool EnableAvatarDeltaCompression = true;
+    /// <summary>
+    /// Milliseconds between forced full avatar keyframes per sender when delta compression is on.
+    /// Lower = faster recovery from a lost keyframe over unreliable UDP, but more keyframe bandwidth;
+    /// higher = smaller average bandwidth but longer worst-case staleness. 500ms is a balanced default.
+    /// </summary>
+    public int AvatarDeltaKeyframeIntervalMs = 500;
+    /// <summary>
+    /// Ceiling for the adaptive keyframe stretch. While a sender's deltas stay tiny (idle avatar)
+    /// the periodic keyframe interval doubles per streak of small deltas, up to this value; any
+    /// real motion snaps it back to AvatarDeltaKeyframeIntervalMs. Receivers that miss a keyframe
+    /// request one on demand (v42 DeltaControlKeyframeRequest) instead of waiting the stretch out.
+    /// Set to 0 (or at/below the base interval) to disable stretching.
+    /// </summary>
+    public int AvatarDeltaKeyframeMaxIntervalMs = 2000;
+    /// <summary>
+    /// Strip AdditionalAvatarData (face blendshapes, custom avatar-behaviour params) from the Low
+    /// and VeryLow avatar tiers. Faces are unreadable past the Medium quality distance, and the
+    /// reliable low-frequency behaviour channel still reaches everyone, so this only removes
+    /// bytes nobody can see. High and Medium keep the data.
+    /// </summary>
+    public bool StripAdditionalDataAtLowQuality = true;
+    /// <summary>
+    /// Accept client→server avatar deltas on DeltaAvatarChannel and advertise support to clients
+    /// (v42). Clients then upload a full keyframe every ~500 ms plus small deltas in between
+    /// instead of full 237-byte frames every packet — 60-90% less uplink/ingress avatar traffic.
+    /// When false, clients upload full keyframes only (legacy behavior).
+    /// </summary>
+    public bool EnableUplinkAvatarDelta = true;
     public bool EnableBSRProfiling = false;
+    /// <summary>
+    /// Opus voice frame duration pushed to every client (20 or 40 ms). 20 is the low-latency
+    /// default; 40 halves the voice packet rate (25/s instead of 50/s) and with it the
+    /// per-packet UDP/header overhead — roughly a third of voice wire cost — at the price of
+    /// +20 ms voice latency. Admins can still change it live; this is only the boot default.
+    /// </summary>
+    public int VoiceFrameDurationMs = 20;
     public bool DisallowHeadless = false;
 
     // Global lockout defaults applied at server boot. Users need the matching
@@ -125,6 +168,13 @@ public class Configuration
     /// live from the admin panel, and is broadcast to clients in GlobalGetLockState. Default off.
     /// </summary>
     public bool ImagesLocked = false;
+    /// <summary>
+    /// When false (default) clients two-bone-IK anchor remote avatars' tracked hands/feet to their sent
+    /// world targets so they stop sliding; when true, every client falls back to pure-FK playback for
+    /// remotes. Seeds BasisGlobalLockManager at boot, can be toggled live from the admin panel, and is
+    /// broadcast to clients in GlobalGetLockState. Default off (feature on).
+    /// </summary>
+    public bool EndEffectorIKDisabled = false;
 
     // ── REST API ──────────────────────────────────────────────────────────────
     /// <summary>Set to true to enable the REST management API.</summary>

@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCommon;
+using Basis.Scripts.BasisSdk;
 namespace Basis
 {
     public abstract class BasisNetworkBehaviour : BasisNetworkContentBase
@@ -77,14 +78,77 @@ namespace Basis
         {
             if (BasisNetworkConnection.LocalPlayerIsConnected)
             {
-                bool wassuccesful = TryGetNetworkGUIDIdentifier(out string NetworkGuidID);
+                bool wassuccesful = TryGetIdentifier(out var ContentInformation);
                 if (wassuccesful == false)//this will happen to anything that has not got a GUID from the server
                 {
                     //so if we dont get a GUID from the server lets make one!
                     string FileNamePath = LowLevelGetHierarchyPath(this);
-                    AssignNetworkGUIDIdentifier(FileNamePath);
 
-                    wassuccesful = TryGetNetworkGUIDIdentifier(out NetworkGuidID);
+                    this.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
+                    Vector3 Scale = this.transform.localScale;
+
+                    byte Type = 0;
+                    if (this.GetType() != typeof(BasisScene))
+                    {
+                        Type = 1;
+                    }
+                    BasisContentInformation Content;
+                    if (LocalPlayer == null)
+                    {
+                        Content = new BasisContentInformation
+                        {
+                            LoadedNetID = FileNamePath,
+                            UUIDOfCreator = string.Empty,
+                            IsAdminLocked = false,
+                            LoadStrategy = 0,
+                            PositionX = Position.x,
+                            PositionY = Position.y,
+                            PositionZ = Position.z,
+                            QuaternionW = Rotation.w,
+                            QuaternionX = Rotation.x,
+                            QuaternionY = Rotation.y,
+                            QuaternionZ = Rotation.z,
+                            ModifyScale = true,
+                            ScaleX = Scale.x,
+                            ScaleY = Scale.y,
+                            ScaleZ = Scale.z,
+                            Mode = Type,
+                            Persist = true,
+                            Static = false,
+                            StaticAdminLocked = false,
+
+                        };
+                    }
+                    else
+                    {
+                        Content = new BasisContentInformation
+                        {
+                            LoadedNetID = FileNamePath,
+                            UUIDOfCreator = LocalPlayer.UUID,
+                            IsAdminLocked = false,
+                            LoadStrategy = 0,
+                            PositionX = Position.x,
+                            PositionY = Position.y,
+                            PositionZ = Position.z,
+                            QuaternionW = Rotation.w,
+                            QuaternionX = Rotation.x,
+                            QuaternionY = Rotation.y,
+                            QuaternionZ = Rotation.z,
+                            ModifyScale = true,
+                            ScaleX = Scale.x,
+                            ScaleY = Scale.y,
+                            ScaleZ = Scale.z,
+                            Mode = Type,
+                            Persist = true,
+                            Static = false,
+                            StaticAdminLocked = false,
+
+                        };
+                    }
+                    //FileNamePath
+                    AssignContentIdentifier(Content);
+
+                    wassuccesful = TryGetIdentifier(out ContentInformation);
                 }
                 if (!wassuccesful)
                 {
@@ -95,8 +159,8 @@ namespace Basis
                 BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
                 BasisNetworkPlayer.OnPlayerJoined += LowLevelResolvePendingOwner;
 
-                Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
-                Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
+                Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(ContentInformation.LoadedNetID);
+                Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(ContentInformation.LoadedNetID);
                 Task[] tasks = new Task[] { IDResolverAsync, output };
 
                 await Task.WhenAll(tasks);
@@ -330,9 +394,23 @@ namespace Basis
         public async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timeout = 5000)
         {
             IsOwnedLocallyOnClient = true;
-            CurrentOwnerId = BasisNetworkPlayer.LocalPlayer.playerId;
-            currentOwnedPlayer = BasisNetworkPlayer.LocalPlayer;
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkConnection.LocalPlayerPeer.RemoteId, Timeout);
+            BasisNetworkPlayer LocalPlayer = BasisNetworkPlayer.LocalPlayer;
+
+            if (!HasNetworkID)
+            {
+                CurrentOwnerId = LocalPlayer != null ? LocalPlayer.playerId : (ushort)0;
+                currentOwnedPlayer = LocalPlayer;
+                return new BasisOwnershipResult(true, CurrentOwnerId);
+            }
+
+            if (LocalPlayer == null || !BasisNetworkConnection.TryGetLocalPlayerID(out ushort LocalId))
+            {
+                return BasisOwnershipResult.Failed;
+            }
+
+            CurrentOwnerId = LocalPlayer.playerId;
+            currentOwnedPlayer = LocalPlayer;
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, LocalId, Timeout);
             return Result;
         }
         /// <summary>

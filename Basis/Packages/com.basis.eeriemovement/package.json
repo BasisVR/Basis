@@ -1,0 +1,11 @@
+{
+  "name": "com.basis.eeriemovement",
+  "displayName": "Basis Eerie Movement",
+  "version": "0.0.1",
+  "description": "Full-body IK solver for the Basis framework: spine, arms, legs and the anatomical cores behind them. Framework-free by design - the runtime assembly depends only on Unity math/collections, so the solver can be tested and driven without the rest of Basis.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT"
+}

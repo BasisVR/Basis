@@ -329,57 +329,6 @@ namespace HVR.Basis.Comms
         }
     }
 
-    internal class HVRPacket_UpdatedHighFrequencyVariables
-    {
-        public readonly byte packetType = AvatarMessageProcessing.NewNet_WearerSubmitsUpdatedHighFrequencyVariables;
-        public byte timingSteps;
-        public byte[] values;
-
-        public byte[] Serialize()
-        {
-            var writer = new HVRNetWriter(AvatarMessageProcessing.Irrelevant_NoAddressesAreInThePacket);
-            writer.WriteByte(packetType);
-            writer.WriteByte(timingSteps);
-
-            foreach (var value in values)
-            {
-                writer.WriteByte(value);
-            }
-
-            return writer.ToArray();
-        }
-
-        public static bool TryDeserialize(ArraySegment<byte> data, out HVRPacket_UpdatedHighFrequencyVariables result)
-        {
-            try
-            {
-                var reader = new HVRNetReader(data, AvatarMessageProcessing.Irrelevant_NoAddressesAreInThePacket);
-                var packetType = reader.ReadByte();
-                var timingSteps = reader.ReadByte();
-                var values = new byte[data.Count - 2];
-
-                for (var i = 0; i < values.Length; i++)
-                {
-                    values[i] = reader.ReadByte();
-                }
-
-                result = new HVRPacket_UpdatedHighFrequencyVariables
-                {
-                    timingSteps = timingSteps,
-                    values = values
-                };
-
-                reader.Finish();
-                return true;
-            }
-            catch (Exception)
-            {
-                result = null;
-                return false;
-            }
-        }
-    }
-
     internal class HVRPacket_DowngradeFloatToLowFrequency
     {
         public readonly byte packetType = AvatarMessageProcessing.NewNet_WearerDowngradesFloatToLowFrequency;

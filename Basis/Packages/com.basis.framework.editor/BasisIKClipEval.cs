@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -230,7 +230,7 @@ namespace Basis.IK.Debugging
             if (limb.Root == null || limb.Mid == null || limb.Tip == null || limb.TTip == null) return;
             bool hasHint = hintMode == BasisIKHintMode.Truth && limb.TMid != null;
 
-            BasisArmSolveInput input;
+            BasisArmSolveInput input = default;
             input.Shoulder = limb.Root.position;
             input.Elbow = limb.Mid.position;
             input.Hand = limb.Tip.position;
@@ -254,7 +254,7 @@ namespace Basis.IK.Debugging
             if (limb.Root == null || limb.Mid == null || limb.Tip == null || limb.TTip == null) return;
             bool hasHint = hintMode == BasisIKHintMode.Truth && limb.TMid != null;
 
-            BasisLegSolveInput input;
+            BasisLegSolveInput input = default;
             input.Root = limb.Root.position;
             input.Mid = limb.Mid.position;
             input.Tip = limb.Tip.position;
@@ -275,7 +275,7 @@ namespace Basis.IK.Debugging
         {
             if (shoulder == null || arm.TTip == null) return;
             Quaternion chestRot = chest != null ? chest.rotation : Quaternion.identity;
-            BasisShoulderSolveInput input;
+            BasisShoulderSolveInput input = default;
             input.ShoulderPos = shoulder.position;
             input.HandTargetPos = arm.TTip.position;
             input.ElbowPos = arm.Mid != null ? arm.Mid.position : shoulder.position;

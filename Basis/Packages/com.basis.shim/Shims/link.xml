@@ -63,7 +63,7 @@
         <type fullname="System.ValueTuple" preserve="all"/>
         <type fullname="System.ValueType" preserve="all"/>
         <type fullname="System.Void" preserve="all"/>
-        <type fullname="<PrivateImplementationDetails>" preserve="all"/>
+        <type fullname="&lt;PrivateImplementationDetails&gt;" preserve="all"/>
     </assembly>
     <assembly fullname="netstandard">
         <type fullname="System.Diagnostics.Stopwatch" preserve="all"/>
@@ -182,6 +182,13 @@
         <type fullname="UnityEngine.Animations.RotationConstraint" preserve="all"/>
         <type fullname="UnityEngine.Animations.ScaleConstraint" preserve="all"/>
     </assembly>
+    <!-- Cilbox reaches every native method by reflection, so IL2CPP's static analyzer sees zero
+         callers and strips anything Basis does not itself call. The Animator info types
+         (AnimatorTransitionInfo, AnimatorStateInfo, AnimatorClipInfo, AnimatorControllerParameter)
+         are allowlisted for world scripts but never referenced by Basis, so their methods were
+         being stripped out of the player while the types survived. Preserve the module wholesale
+         rather than enumerating types, which is what drifted out of sync with the allowlist. -->
+    <assembly fullname="UnityEngine.AnimationModule" preserve="all"/>
     <assembly fullname="UnityEngine.AIModule">
         <type fullname="UnityEngine.AI.NavMesh" preserve="all"/>
         <type fullname="UnityEngine.AI.NavMeshAgent" preserve="all"/>
@@ -256,7 +263,9 @@
         <type fullname="Basis.BasisUrl" preserve="all"/>
         <type fullname="Basis.IBasisImageDownload" preserve="all"/>
         <type fullname="Basis.SafeUtil" preserve="all"/>
+        <type fullname="Basis.Shims.BasisBlendShapeSyncShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisOsc*" preserve="all"/>
+        <type fullname="Basis.Shims.BasisTransformSyncShim" preserve="all"/>
     </assembly>
     <assembly fullname="Basis Framework">
         <type fullname="Basis.BasisNetworkBehaviour" preserve="all"/>

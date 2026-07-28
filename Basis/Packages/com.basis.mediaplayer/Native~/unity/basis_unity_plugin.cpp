@@ -170,11 +170,11 @@ UnityPluginUnload() {
 /* ---- render-thread entry ------------------------------------------------ */
 
 static void BASIS_CALL OnRenderEvent(int event_id, void* data) {
-    basis_media_engine_t* engine = (basis_media_engine_t*)data;
-    basis_decoder_t* dec = basis_engine_get_decoder(engine);
-    if (!dec) return;
-    if (event_id == BASIS_RENDER_UPDATE) basis_decoder_render_update(dec);
-    else if (event_id == BASIS_RENDER_RELEASE) basis_decoder_render_release(dec);
+    /* Forward through the engine's liveness registry: the pointer comes from Unity
+     * and may already have been freed by basis_media_close on the main thread, so
+     * the dispatch (and the decoder deref) happens under the registry lock, never
+     * on a freed engine. */
+    basis_engine_render_event((basis_media_engine_t*)data, event_id);
 }
 
 extern "C" BASIS_API basis_render_event_func BASIS_CALL basis_media_get_render_event_func(void) {

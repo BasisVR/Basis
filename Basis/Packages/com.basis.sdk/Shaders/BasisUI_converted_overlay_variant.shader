@@ -2,13 +2,26 @@ Shader "Basis/UI/Background"
 {
     Properties
     {
-        _BaseTex("_BaseTex", 2D) = "white" {}
-        _AccentTex1("_AccentTex1", 2D) = "white" {}
-        _AccentTex2("_AccentTex2", 2D) = "white" {}
-        _AccentTex3("_AccentTex3", 2D) = "white" {}
-        _BlendFactor("_BlendFactor", Float) = 0.2
-        _OffsetMultiples("_OffsetMultiples", Vector, 4) = (0.1, 0.2, 0.3, 0)
-        _MaxDistance("_MaxDistance", Float) = 3
+        _BaseTex("Base Layer", 2D) = "white" {}
+        _AccentTex1("Accent Layer 1", 2D) = "white" {}
+        _AccentTex2("Accent Layer 2", 2D) = "white" {}
+        _AccentTex3("Accent Layer 3", 2D) = "white" {}
+        _BlendFactor("Accent Amount", Range(0, 1)) = 0.2
+        _AccentSoftness("Accent Softness", Range(0.25, 4)) = 1.75
+        _AccentFeather("Accent Feather", Range(0, 1)) = 1
+        _OffsetMultiples("Parallax Multiples", Vector, 4) = (0.1, 0.2, 0.3, 0)
+        _MaxDistance("Parallax Max Distance", Float) = 3
+        _GradientStrength("Brand Gradient", Range(0, 1)) = 1
+        _GradientCycle("Brand Gradient Seconds", Range(2, 60)) = 15
+        _TimeScale("Time Scale", Range(0, 4)) = 1
+        _SheenStrength("Sheen", Range(0, 1)) = 0.135
+        _CursorGlowColor("Cursor Glow Color", Color) = (0.62, 0.22, 0.34, 1)
+        _CursorGlow("Cursor Glow", Range(0, 2)) = 0.18
+        _CursorGlowRadius("Cursor Glow Radius", Range(0.02, 2)) = 0.3
+        _Vignette("Vignette", Range(0, 1)) = 0.4
+        _Exposure("Exposure", Range(0.25, 3)) = 0.84
+        _Grain("Grain", Range(0, 16)) = 3
+        _GrainScale("Grain Scale", Range(64, 4096)) = 900
         [Enum(UnityEngine.Rendering.CullMode)] _CullMode("Cull Mode", Int) = 0
         [HideInInspector][NoScaleOffset]_MainTex("MainTex", 2D) = "white" {}
         [HideInInspector]_StencilComp("Stencil Comparison", Float) = 8
@@ -73,7 +86,7 @@ Shader "Basis/UI/Background"
             HLSLPROGRAM
 
             // Pragmas
-            #pragma target 2.0
+            #pragma target 3.0
         #pragma vertex vert
         #pragma fragment frag
 
@@ -138,6 +151,7 @@ Shader "Basis/UI/Background"
         {
              float4 uv0;
              float3 TimeParameters;
+             float3 WorldSpacePosition;
         };
         struct Varyings
         {
@@ -251,8 +265,21 @@ Shader "Basis/UI/Background"
         float4 _AccentTex3_TexelSize;
         float4 _AccentTex3_ST;
         float _BlendFactor;
+        float _AccentSoftness;
+        float _AccentFeather;
         float4 _OffsetMultiples;
         float _MaxDistance;
+        float _GradientStrength;
+        float _GradientCycle;
+        float _TimeScale;
+        float _SheenStrength;
+        float4 _CursorGlowColor;
+        float _CursorGlow;
+        float _CursorGlowRadius;
+        float _Vignette;
+        float _Exposure;
+        float _Grain;
+        float _GrainScale;
         float4 _MainTex_TexelSize;
         float _Stencil;
         float _StencilOp;
@@ -285,62 +312,40 @@ Shader "Basis/UI/Background"
 
             // Graph Functions
 
-        void Unity_TilingAndOffset_float(float2 UV, float2 Tiling, float2 Offset, out float2 Out)
+        float3 BasisBrandRamp(float t)
         {
-            Out = UV * Tiling + Offset;
+            const float3 kBrandRed = float3(0.86660, 0.00296, 0.03434);
+            const float3 kBrandPurple = float3(0.29723, 0.02899, 0.82836);
+            const float3 kBrandBlue = float3(0.03987, 0.22744, 0.92457);
+            const float3 kBrandPink = float3(0.90784, 0.04614, 0.11154);
+
+            float s = saturate(t) * 3.0;
+            float3 c = lerp(kBrandRed, kBrandPurple, saturate(s));
+            c = lerp(c, kBrandBlue, saturate(s - 1.0));
+            c = lerp(c, kBrandPink, saturate(s - 2.0));
+            return IsGammaSpace() ? LinearToSRGB(c) : c;
         }
 
-        void Unity_Subtract_float3(float3 A, float3 B, out float3 Out)
+        float BasisTriangle(float x)
         {
-            Out = A - B;
+            return 1.0 - abs(1.0 - 2.0 * frac(x * 0.5));
         }
 
-        void Unity_Multiply_float_float(float A, float B, out float Out)
+        float3 BasisScreen(float3 Base, float3 Blend)
         {
-            Out = A * B;
+            return 1.0 - (1.0 - Base) * (1.0 - saturate(Blend));
         }
 
-        void Unity_Clamp_float3(float3 In, float3 Min, float3 Max, out float3 Out)
+        float BasisGradientNoise(float2 Position)
         {
-            Out = clamp(In, Min, Max);
+            return frac(52.9829189 * frac(dot(Position, float2(0.06711056, 0.00583715))));
         }
 
-        void Unity_Combine_float(float R, float G, float B, float A, out float4 RGBA, out float3 RGB, out float2 RG)
+        float BasisFeather(float2 TextureUV, float Amount)
         {
-            RGBA = float4(R, G, B, A);
-            RGB = float3(R, G, B);
-            RG = float2(R, G);
-        }
-
-        void Unity_Multiply_float3_float3(float3 A, float3 B, out float3 Out)
-        {
-            Out = A * B;
-        }
-
-        void Unity_Multiply_float4_float4(float4 A, float4 B, out float4 Out)
-        {
-            Out = A * B;
-        }
-
-        void Unity_Lerp_float4(float4 A, float4 B, float4 T, out float4 Out)
-        {
-            Out = lerp(A, B, T);
-        }
-
-        void Unity_Maximum_float(float A, float B, out float Out)
-        {
-            Out = max(A, B);
-        }
-
-        void Unity_Saturate_float(float In, out float Out)
-        {
-            Out = saturate(In);
-        }
-
-        void Unity_Blend_Difference_float4(float4 Base, float4 Blend, out float4 Out, float Opacity)
-        {
-            Out = abs(Blend - Base);
-            Out = lerp(Base, Out, Opacity);
+            float radial = saturate(1.0 - length(TextureUV - 0.5) * 2.0);
+            radial = radial * radial * (3.0 - 2.0 * radial);
+            return lerp(1.0, radial, Amount);
         }
 
             /* WARNING: $splice Could not find named fragment 'CustomInterpolatorPreVertex' */
@@ -361,125 +366,68 @@ Shader "Basis/UI/Background"
         SurfaceDescription SurfaceDescriptionFunction(SurfaceDescriptionInputs IN)
         {
             SurfaceDescription surface = (SurfaceDescription)0;
-            UnityTexture2D _Property_82e4a93b04984a4ab7a2574f68101212_Out_0_Texture2D = UnityBuildTexture2DStruct(_BaseTex);
-            float2 _TilingAndOffset_e9d29fb247264308b7d6be0371a24fd8_Out_3_Vector2;
-            Unity_TilingAndOffset_float(IN.uv0.xy, float2 (1, 1), float2 (0, 0), _TilingAndOffset_e9d29fb247264308b7d6be0371a24fd8_Out_3_Vector2);
-            float4 _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_RGBA_0_Vector4 = SAMPLE_TEXTURE2D(_Property_82e4a93b04984a4ab7a2574f68101212_Out_0_Texture2D.tex, _Property_82e4a93b04984a4ab7a2574f68101212_Out_0_Texture2D.samplerstate, _Property_82e4a93b04984a4ab7a2574f68101212_Out_0_Texture2D.GetTransformedUV(_TilingAndOffset_e9d29fb247264308b7d6be0371a24fd8_Out_3_Vector2) );
-            float _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_R_4_Float = _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_RGBA_0_Vector4.r;
-            float _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_G_5_Float = _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_RGBA_0_Vector4.g;
-            float _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_B_6_Float = _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_RGBA_0_Vector4.b;
-            float _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_A_7_Float = _SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_RGBA_0_Vector4.a;
-            UnityTexture2D _Property_b8d98ff0a5b34054a8891f613078d80b_Out_0_Texture2D = UnityBuildTexture2DStruct(_AccentTex1);
-            float3 _Property_86984395b88e4073ba8e79170675ead5_Out_0_Vector3 = _CursorPos;
-            float3 _Transform_c90606a6bc38480c95db94d5cbdbe60c_Out_1_Vector3;
-            _Transform_c90606a6bc38480c95db94d5cbdbe60c_Out_1_Vector3 = TransformWorldToView(_Property_86984395b88e4073ba8e79170675ead5_Out_0_Vector3.xyz);
-            float3 _Subtract_9b008a36686c4ad098cf338de8e60530_Out_2_Vector3;
-            Unity_Subtract_float3(_Transform_c90606a6bc38480c95db94d5cbdbe60c_Out_1_Vector3, float3(0, 0, 0), _Subtract_9b008a36686c4ad098cf338de8e60530_Out_2_Vector3);
-            float _Property_b06e0d762783485d86750144ca408f9a_Out_0_Float = _MaxDistance;
-            float _Multiply_dc59bf22285d4551ac847cc96442394b_Out_2_Float;
-            Unity_Multiply_float_float(_Property_b06e0d762783485d86750144ca408f9a_Out_0_Float, -1, _Multiply_dc59bf22285d4551ac847cc96442394b_Out_2_Float);
-            float3 _Clamp_f30e5a7296ec47e3bc49d2e34161fd9d_Out_3_Vector3;
-            Unity_Clamp_float3(_Subtract_9b008a36686c4ad098cf338de8e60530_Out_2_Vector3, (_Multiply_dc59bf22285d4551ac847cc96442394b_Out_2_Float.xxx), (_Property_b06e0d762783485d86750144ca408f9a_Out_0_Float.xxx), _Clamp_f30e5a7296ec47e3bc49d2e34161fd9d_Out_3_Vector3);
-            float4 _Property_43118c028de845259215e88e0b9a7e7e_Out_0_Vector4 = _OffsetMultiples;
-            float _Split_dcae35647c474bbca4b4e1c29e4b6c1d_R_1_Float = _Property_43118c028de845259215e88e0b9a7e7e_Out_0_Vector4[0];
-            float _Split_dcae35647c474bbca4b4e1c29e4b6c1d_G_2_Float = _Property_43118c028de845259215e88e0b9a7e7e_Out_0_Vector4[1];
-            float _Split_dcae35647c474bbca4b4e1c29e4b6c1d_B_3_Float = _Property_43118c028de845259215e88e0b9a7e7e_Out_0_Vector4[2];
-            float _Split_dcae35647c474bbca4b4e1c29e4b6c1d_A_4_Float = _Property_43118c028de845259215e88e0b9a7e7e_Out_0_Vector4[3];
-            float _Multiply_f38282908064447b875273485e6bf18c_Out_2_Float;
-            Unity_Multiply_float_float(_Split_dcae35647c474bbca4b4e1c29e4b6c1d_R_1_Float, -1, _Multiply_f38282908064447b875273485e6bf18c_Out_2_Float);
-            float4 _Combine_f3da732965ef4728a76c5e98e5bc3573_RGBA_4_Vector4;
-            float3 _Combine_f3da732965ef4728a76c5e98e5bc3573_RGB_5_Vector3;
-            float2 _Combine_f3da732965ef4728a76c5e98e5bc3573_RG_6_Vector2;
-            Unity_Combine_float(_Split_dcae35647c474bbca4b4e1c29e4b6c1d_R_1_Float, _Multiply_f38282908064447b875273485e6bf18c_Out_2_Float, _Split_dcae35647c474bbca4b4e1c29e4b6c1d_R_1_Float, float(0), _Combine_f3da732965ef4728a76c5e98e5bc3573_RGBA_4_Vector4, _Combine_f3da732965ef4728a76c5e98e5bc3573_RGB_5_Vector3, _Combine_f3da732965ef4728a76c5e98e5bc3573_RG_6_Vector2);
-            float3 _Multiply_19d749c48b674f53ad3a11d7a9ff841a_Out_2_Vector3;
-            Unity_Multiply_float3_float3(_Clamp_f30e5a7296ec47e3bc49d2e34161fd9d_Out_3_Vector3, _Combine_f3da732965ef4728a76c5e98e5bc3573_RGB_5_Vector3, _Multiply_19d749c48b674f53ad3a11d7a9ff841a_Out_2_Vector3);
-            float2 _TilingAndOffset_869b6409175a4fe0bf5e32f8a82466cb_Out_3_Vector2;
-            Unity_TilingAndOffset_float(IN.uv0.xy, float2 (1, 1), (_Multiply_19d749c48b674f53ad3a11d7a9ff841a_Out_2_Vector3.xy), _TilingAndOffset_869b6409175a4fe0bf5e32f8a82466cb_Out_3_Vector2);
-            float4 _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_RGBA_0_Vector4 = SAMPLE_TEXTURE2D(_Property_b8d98ff0a5b34054a8891f613078d80b_Out_0_Texture2D.tex, _Property_b8d98ff0a5b34054a8891f613078d80b_Out_0_Texture2D.samplerstate, _Property_b8d98ff0a5b34054a8891f613078d80b_Out_0_Texture2D.GetTransformedUV(_TilingAndOffset_869b6409175a4fe0bf5e32f8a82466cb_Out_3_Vector2) );
-            float _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_R_4_Float = _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_RGBA_0_Vector4.r;
-            float _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_G_5_Float = _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_RGBA_0_Vector4.g;
-            float _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_B_6_Float = _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_RGBA_0_Vector4.b;
-            float _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_A_7_Float = _SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_RGBA_0_Vector4.a;
-            float4 _Multiply_7284efbbc23d4e2c82a60d9f35de334e_Out_2_Vector4;
-            Unity_Multiply_float4_float4(_SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_RGBA_0_Vector4, (_SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_A_7_Float.xxxx), _Multiply_7284efbbc23d4e2c82a60d9f35de334e_Out_2_Vector4);
-            UnityTexture2D _Property_32b14b9642e643d1813653321abd21e7_Out_0_Texture2D = UnityBuildTexture2DStruct(_AccentTex2);
-            float _Multiply_5e0c3188ceb44046b5a1fe9def46f4c0_Out_2_Float;
-            Unity_Multiply_float_float(_Split_dcae35647c474bbca4b4e1c29e4b6c1d_G_2_Float, -1, _Multiply_5e0c3188ceb44046b5a1fe9def46f4c0_Out_2_Float);
-            float4 _Combine_af5e7f2400394ce0a6be0a58037424c3_RGBA_4_Vector4;
-            float3 _Combine_af5e7f2400394ce0a6be0a58037424c3_RGB_5_Vector3;
-            float2 _Combine_af5e7f2400394ce0a6be0a58037424c3_RG_6_Vector2;
-            Unity_Combine_float(_Split_dcae35647c474bbca4b4e1c29e4b6c1d_G_2_Float, _Multiply_5e0c3188ceb44046b5a1fe9def46f4c0_Out_2_Float, _Split_dcae35647c474bbca4b4e1c29e4b6c1d_G_2_Float, float(0), _Combine_af5e7f2400394ce0a6be0a58037424c3_RGBA_4_Vector4, _Combine_af5e7f2400394ce0a6be0a58037424c3_RGB_5_Vector3, _Combine_af5e7f2400394ce0a6be0a58037424c3_RG_6_Vector2);
-            float3 _Multiply_3156ac1d91de47b4a3c26de17c9c3777_Out_2_Vector3;
-            Unity_Multiply_float3_float3(_Clamp_f30e5a7296ec47e3bc49d2e34161fd9d_Out_3_Vector3, _Combine_af5e7f2400394ce0a6be0a58037424c3_RGB_5_Vector3, _Multiply_3156ac1d91de47b4a3c26de17c9c3777_Out_2_Vector3);
-            float2 _TilingAndOffset_3560955b265a4efd8aa4a60a971da714_Out_3_Vector2;
-            Unity_TilingAndOffset_float(IN.uv0.xy, float2 (1, 1), (_Multiply_3156ac1d91de47b4a3c26de17c9c3777_Out_2_Vector3.xy), _TilingAndOffset_3560955b265a4efd8aa4a60a971da714_Out_3_Vector2);
-            float4 _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_RGBA_0_Vector4 = SAMPLE_TEXTURE2D(_Property_32b14b9642e643d1813653321abd21e7_Out_0_Texture2D.tex, _Property_32b14b9642e643d1813653321abd21e7_Out_0_Texture2D.samplerstate, _Property_32b14b9642e643d1813653321abd21e7_Out_0_Texture2D.GetTransformedUV(_TilingAndOffset_3560955b265a4efd8aa4a60a971da714_Out_3_Vector2) );
-            float _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_R_4_Float = _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_RGBA_0_Vector4.r;
-            float _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_G_5_Float = _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_RGBA_0_Vector4.g;
-            float _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_B_6_Float = _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_RGBA_0_Vector4.b;
-            float _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_A_7_Float = _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_RGBA_0_Vector4.a;
-            float4 _Multiply_1901c214026a47e4acdeabe4e10c4603_Out_2_Vector4;
-            Unity_Multiply_float4_float4(_SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_RGBA_0_Vector4, (_SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_A_7_Float.xxxx), _Multiply_1901c214026a47e4acdeabe4e10c4603_Out_2_Vector4);
-            float4 _Lerp_9aa8090e1c0d4a708d2526798e0545cb_Out_3_Vector4;
-            Unity_Lerp_float4(_Multiply_7284efbbc23d4e2c82a60d9f35de334e_Out_2_Vector4, _Multiply_1901c214026a47e4acdeabe4e10c4603_Out_2_Vector4, (_SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_A_7_Float.xxxx), _Lerp_9aa8090e1c0d4a708d2526798e0545cb_Out_3_Vector4);
-            float _Split_a7d77afc6e7c44b590f14d78d6cbccef_R_1_Float = _Lerp_9aa8090e1c0d4a708d2526798e0545cb_Out_3_Vector4[0];
-            float _Split_a7d77afc6e7c44b590f14d78d6cbccef_G_2_Float = _Lerp_9aa8090e1c0d4a708d2526798e0545cb_Out_3_Vector4[1];
-            float _Split_a7d77afc6e7c44b590f14d78d6cbccef_B_3_Float = _Lerp_9aa8090e1c0d4a708d2526798e0545cb_Out_3_Vector4[2];
-            float _Split_a7d77afc6e7c44b590f14d78d6cbccef_A_4_Float = _Lerp_9aa8090e1c0d4a708d2526798e0545cb_Out_3_Vector4[3];
-            float _Maximum_ad5d3d088df04836b25c6ac4fa25b00d_Out_2_Float;
-            Unity_Maximum_float(_SampleTexture2D_fa8f450e1e5e4f77a9df7e3ad155e380_A_7_Float, _SampleTexture2D_591f1d7c50264437a64d364e1ad744f4_A_7_Float, _Maximum_ad5d3d088df04836b25c6ac4fa25b00d_Out_2_Float);
-            float _Saturate_bc454cb64cd3462e87c471a6cbf6df4e_Out_1_Float;
-            Unity_Saturate_float(_Maximum_ad5d3d088df04836b25c6ac4fa25b00d_Out_2_Float, _Saturate_bc454cb64cd3462e87c471a6cbf6df4e_Out_1_Float);
-            float4 _Vector4_ca458987d08d4135b1f7f89db40fa483_Out_0_Vector4 = float4(_Split_a7d77afc6e7c44b590f14d78d6cbccef_R_1_Float, _Split_a7d77afc6e7c44b590f14d78d6cbccef_G_2_Float, _Split_a7d77afc6e7c44b590f14d78d6cbccef_B_3_Float, _Saturate_bc454cb64cd3462e87c471a6cbf6df4e_Out_1_Float);
-            UnityTexture2D _Property_52c4b975f39b4c589f3707f156b6bb06_Out_0_Texture2D = UnityBuildTexture2DStruct(_AccentTex3);
-            float _Multiply_859eb13fd355492eaad7192294e82cb7_Out_2_Float;
-            Unity_Multiply_float_float(_Split_dcae35647c474bbca4b4e1c29e4b6c1d_B_3_Float, -1, _Multiply_859eb13fd355492eaad7192294e82cb7_Out_2_Float);
-            float4 _Combine_7f4a8942e3c54db8a17de5bcccdf8700_RGBA_4_Vector4;
-            float3 _Combine_7f4a8942e3c54db8a17de5bcccdf8700_RGB_5_Vector3;
-            float2 _Combine_7f4a8942e3c54db8a17de5bcccdf8700_RG_6_Vector2;
-            Unity_Combine_float(_Split_dcae35647c474bbca4b4e1c29e4b6c1d_B_3_Float, _Multiply_859eb13fd355492eaad7192294e82cb7_Out_2_Float, _Split_dcae35647c474bbca4b4e1c29e4b6c1d_B_3_Float, float(0), _Combine_7f4a8942e3c54db8a17de5bcccdf8700_RGBA_4_Vector4, _Combine_7f4a8942e3c54db8a17de5bcccdf8700_RGB_5_Vector3, _Combine_7f4a8942e3c54db8a17de5bcccdf8700_RG_6_Vector2);
-            float3 _Multiply_d193150d66824537858011bb4e19e9ea_Out_2_Vector3;
-            Unity_Multiply_float3_float3(_Clamp_f30e5a7296ec47e3bc49d2e34161fd9d_Out_3_Vector3, _Combine_7f4a8942e3c54db8a17de5bcccdf8700_RGB_5_Vector3, _Multiply_d193150d66824537858011bb4e19e9ea_Out_2_Vector3);
-            float2 _TilingAndOffset_0fbcc28f67db4e15b425f8bf87df2581_Out_3_Vector2;
-            Unity_TilingAndOffset_float(IN.uv0.xy, float2 (1, 1), (_Multiply_d193150d66824537858011bb4e19e9ea_Out_2_Vector3.xy), _TilingAndOffset_0fbcc28f67db4e15b425f8bf87df2581_Out_3_Vector2);
-            float4 _SampleTexture2D_e459a941bc234613a7a22e845521d79c_RGBA_0_Vector4 = SAMPLE_TEXTURE2D(_Property_52c4b975f39b4c589f3707f156b6bb06_Out_0_Texture2D.tex, _Property_52c4b975f39b4c589f3707f156b6bb06_Out_0_Texture2D.samplerstate, _Property_52c4b975f39b4c589f3707f156b6bb06_Out_0_Texture2D.GetTransformedUV(_TilingAndOffset_0fbcc28f67db4e15b425f8bf87df2581_Out_3_Vector2) );
-            float _SampleTexture2D_e459a941bc234613a7a22e845521d79c_R_4_Float = _SampleTexture2D_e459a941bc234613a7a22e845521d79c_RGBA_0_Vector4.r;
-            float _SampleTexture2D_e459a941bc234613a7a22e845521d79c_G_5_Float = _SampleTexture2D_e459a941bc234613a7a22e845521d79c_RGBA_0_Vector4.g;
-            float _SampleTexture2D_e459a941bc234613a7a22e845521d79c_B_6_Float = _SampleTexture2D_e459a941bc234613a7a22e845521d79c_RGBA_0_Vector4.b;
-            float _SampleTexture2D_e459a941bc234613a7a22e845521d79c_A_7_Float = _SampleTexture2D_e459a941bc234613a7a22e845521d79c_RGBA_0_Vector4.a;
-            float4 _Multiply_cf9acb3451f042b9b1839c5f505b8d78_Out_2_Vector4;
-            Unity_Multiply_float4_float4(_SampleTexture2D_e459a941bc234613a7a22e845521d79c_RGBA_0_Vector4, (_SampleTexture2D_e459a941bc234613a7a22e845521d79c_A_7_Float.xxxx), _Multiply_cf9acb3451f042b9b1839c5f505b8d78_Out_2_Vector4);
-            float4 _Lerp_6eef3cfc16064571a71fffbe881dd936_Out_3_Vector4;
-            Unity_Lerp_float4(_Vector4_ca458987d08d4135b1f7f89db40fa483_Out_0_Vector4, _Multiply_cf9acb3451f042b9b1839c5f505b8d78_Out_2_Vector4, (_SampleTexture2D_e459a941bc234613a7a22e845521d79c_A_7_Float.xxxx), _Lerp_6eef3cfc16064571a71fffbe881dd936_Out_3_Vector4);
-            float _Split_56c5f5e363d341f5802fafe64a95a9a8_R_1_Float = _Lerp_6eef3cfc16064571a71fffbe881dd936_Out_3_Vector4[0];
-            float _Split_56c5f5e363d341f5802fafe64a95a9a8_G_2_Float = _Lerp_6eef3cfc16064571a71fffbe881dd936_Out_3_Vector4[1];
-            float _Split_56c5f5e363d341f5802fafe64a95a9a8_B_3_Float = _Lerp_6eef3cfc16064571a71fffbe881dd936_Out_3_Vector4[2];
-            float _Split_56c5f5e363d341f5802fafe64a95a9a8_A_4_Float = _Lerp_6eef3cfc16064571a71fffbe881dd936_Out_3_Vector4[3];
-            float _Maximum_9f97e56d689c4009a15a7cc5742e9313_Out_2_Float;
-            Unity_Maximum_float(_SampleTexture2D_e459a941bc234613a7a22e845521d79c_A_7_Float, _Saturate_bc454cb64cd3462e87c471a6cbf6df4e_Out_1_Float, _Maximum_9f97e56d689c4009a15a7cc5742e9313_Out_2_Float);
-            float _Saturate_16d35af48cb0496e9a39a0cf9c358d17_Out_1_Float;
-            Unity_Saturate_float(_Maximum_9f97e56d689c4009a15a7cc5742e9313_Out_2_Float, _Saturate_16d35af48cb0496e9a39a0cf9c358d17_Out_1_Float);
-            float4 _Vector4_c4e7d6ee52454afcbe5fea79e8e0b659_Out_0_Vector4 = float4(_Split_56c5f5e363d341f5802fafe64a95a9a8_R_1_Float, _Split_56c5f5e363d341f5802fafe64a95a9a8_G_2_Float, _Split_56c5f5e363d341f5802fafe64a95a9a8_B_3_Float, _Saturate_16d35af48cb0496e9a39a0cf9c358d17_Out_1_Float);
-            float _Property_51fa2b65fe5f484688c3a5b27b7dca7c_Out_0_Float = _BlendFactor;
-            float _Multiply_3eadde9df2574050b00fac3d783d6033_Out_2_Float;
-            Unity_Multiply_float_float(_Saturate_16d35af48cb0496e9a39a0cf9c358d17_Out_1_Float, _Property_51fa2b65fe5f484688c3a5b27b7dca7c_Out_0_Float, _Multiply_3eadde9df2574050b00fac3d783d6033_Out_2_Float);
-            float4 _Lerp_5b7996ecf5894d2d954ae1217b06d51c_Out_3_Vector4;
-            Unity_Lerp_float4(_SampleTexture2D_c7119f54d8a045928e67bdfee81e3ee1_RGBA_0_Vector4, _Vector4_c4e7d6ee52454afcbe5fea79e8e0b659_Out_0_Vector4, (_Multiply_3eadde9df2574050b00fac3d783d6033_Out_2_Float.xxxx), _Lerp_5b7996ecf5894d2d954ae1217b06d51c_Out_3_Vector4);
-            float4 Color_0dc5f24e6eb4455096f23a32ab8b326f = IsGammaSpace() ? LinearToSRGB(float4(0.08669343, 0.03644536, 0.1981132, 1)) : float4(0.08669343, 0.03644536, 0.1981132, 1);
-            float4 Color_31b5fe77e4ac49849a94c8fdbc310115 = IsGammaSpace() ? LinearToSRGB(float4(0.2264151, 0.02029191, 0.2130304, 1)) : float4(0.2264151, 0.02029191, 0.2130304, 1);
-            float _Float_8c90062864ac406587bae5a65094b9bf_Out_0_Float = float(0.4);
-            float _Multiply_3316979e02c44f8cb01d76f9ebe62662_Out_2_Float;
-            Unity_Multiply_float_float(IN.TimeParameters.y, _Float_8c90062864ac406587bae5a65094b9bf_Out_0_Float, _Multiply_3316979e02c44f8cb01d76f9ebe62662_Out_2_Float);
-            float _Float_65914f2e9cd54847bc9b11a57d54d4d6_Out_0_Float = float(0.5);
-            float _Multiply_34ef115fbac34823ad5aedd5ad5f37d0_Out_2_Float;
-            Unity_Multiply_float_float(_Multiply_3316979e02c44f8cb01d76f9ebe62662_Out_2_Float, _Float_65914f2e9cd54847bc9b11a57d54d4d6_Out_0_Float, _Multiply_34ef115fbac34823ad5aedd5ad5f37d0_Out_2_Float);
-            float4 _Lerp_b6c91e456ade40f5b53af29df5d598b5_Out_3_Vector4;
-            Unity_Lerp_float4(Color_0dc5f24e6eb4455096f23a32ab8b326f, Color_31b5fe77e4ac49849a94c8fdbc310115, (_Multiply_34ef115fbac34823ad5aedd5ad5f37d0_Out_2_Float.xxxx), _Lerp_b6c91e456ade40f5b53af29df5d598b5_Out_3_Vector4);
-            float4 _Blend_679fb4310ffd486e84eb5c01518b0268_Out_2_Vector4;
-            Unity_Blend_Difference_float4(_Lerp_5b7996ecf5894d2d954ae1217b06d51c_Out_3_Vector4, _Lerp_b6c91e456ade40f5b53af29df5d598b5_Out_3_Vector4, _Blend_679fb4310ffd486e84eb5c01518b0268_Out_2_Vector4, float(1));
-            surface.BaseColor = (_Blend_679fb4310ffd486e84eb5c01518b0268_Out_2_Vector4.xyz);
-            surface.Alpha = float(1);
-            surface.Emission = float3(0, 0, 0);
+
+            float2 uv = IN.uv0.xy;
+            float time = IN.TimeParameters.x * _TimeScale;
+
+            UnityTexture2D baseTex = UnityBuildTexture2DStruct(_BaseTex);
+            UnityTexture2D accentTex1 = UnityBuildTexture2DStruct(_AccentTex1);
+            UnityTexture2D accentTex2 = UnityBuildTexture2DStruct(_AccentTex2);
+            UnityTexture2D accentTex3 = UnityBuildTexture2DStruct(_AccentTex3);
+
+            float3 cursorViewSpace = TransformWorldToView(_CursorPos);
+            float2 parallax = clamp(cursorViewSpace, -_MaxDistance.xxx, _MaxDistance.xxx).xy;
+
+            float3 bed = SAMPLE_TEXTURE2D(baseTex.tex, baseTex.samplerstate, baseTex.GetTransformedUV(uv)).rgb;
+
+            float sweep = 0.5 - 0.5 * cos(time * TWO_PI / max(_GradientCycle, 0.01));
+            float axis = saturate((uv.x + uv.y) * 0.5);
+            float rampK = saturate(axis * 0.7 + sweep * 0.3);
+
+            float2 accentUV1 = uv + parallax * float2(_OffsetMultiples.x, -_OffsetMultiples.x);
+            float2 accentUV2 = uv + parallax * float2(_OffsetMultiples.y, -_OffsetMultiples.y);
+            float2 accentUV3 = uv + parallax * float2(_OffsetMultiples.z, -_OffsetMultiples.z);
+
+            float2 texUV1 = accentTex1.GetTransformedUV(accentUV1);
+            float2 texUV2 = accentTex2.GetTransformedUV(accentUV2);
+            float2 texUV3 = accentTex3.GetTransformedUV(accentUV3);
+
+            float4 accent1 = SAMPLE_TEXTURE2D(accentTex1.tex, accentTex1.samplerstate, texUV1);
+            float4 accent2 = SAMPLE_TEXTURE2D(accentTex2.tex, accentTex2.samplerstate, texUV2);
+            float4 accent3 = SAMPLE_TEXTURE2D(accentTex3.tex, accentTex3.samplerstate, texUV3);
+
+            float mask1 = pow(saturate(accent1.a) * BasisFeather(texUV1, _AccentFeather), _AccentSoftness) * _BlendFactor;
+            float mask2 = pow(saturate(accent2.a) * BasisFeather(texUV2, _AccentFeather), _AccentSoftness) * _BlendFactor;
+            float mask3 = pow(saturate(accent3.a) * BasisFeather(texUV3, _AccentFeather), _AccentSoftness) * _BlendFactor;
+
+            float3 tint1 = lerp(accent1.rgb, BasisBrandRamp(BasisTriangle(rampK + 0.15)), _GradientStrength);
+            float3 tint2 = lerp(accent2.rgb, BasisBrandRamp(BasisTriangle(rampK + 0.55)), _GradientStrength);
+            float3 tint3 = lerp(accent3.rgb, BasisBrandRamp(BasisTriangle(rampK + 0.95)), _GradientStrength);
+
+            float3 color = bed;
+            color = BasisScreen(color, tint1 * mask1);
+            color = BasisScreen(color, tint2 * mask2);
+            color = BasisScreen(color, tint3 * mask3);
+
+            float band = saturate(1.0 - abs(axis - sweep) * 3.2);
+            band = band * band * (3.0 - 2.0 * band);
+            color = BasisScreen(color, BasisBrandRamp(rampK) * (band * _SheenStrength));
+
+            float cursorFalloff = saturate(1.0 - distance(IN.WorldSpacePosition, _CursorPos) / max(_CursorGlowRadius, 0.001));
+            cursorFalloff = cursorFalloff * cursorFalloff * cursorFalloff;
+            color = BasisScreen(color, _CursorGlowColor.rgb * (cursorFalloff * _CursorGlow));
+
+            float2 centered = uv - 0.5;
+            float vignette = 1.0 - _Vignette * smoothstep(0.12, 0.75, length(centered) * 1.41421356);
+            color *= vignette * _Exposure;
+
+            float3 encoded = sqrt(max(color, 0.0));
+            encoded += (BasisGradientNoise(uv * _GrainScale) - 0.5) * (_Grain / 255.0);
+            color = encoded * encoded;
+
+            surface.BaseColor = color;
+            surface.Alpha = 1.0;
+            surface.Emission = float3(0.0, 0.0, 0.0);
             return surface;
         }
 
@@ -516,6 +464,7 @@ Shader "Basis/UI/Background"
         #if UNITY_ANY_INSTANCING_ENABLED
         #else // TODO: XR support for procedural instancing because in this case UNITY_ANY_INSTANCING_ENABLED is not defined and instanceID is incorrect.
         #endif
+            output.WorldSpacePosition =                         input.positionWS;
             output.TimeParameters =                             _TimeParameters.xyz; // This is mainly for LW as HD overwrite this value
         #if defined(SHADER_STAGE_FRAGMENT) && defined(VARYINGS_NEED_CULLFACE)
         #define BUILD_SURFACE_DESCRIPTION_INPUTS_OUTPUT_FACESIGN                output.FaceSign =                                   IS_FRONT_VFACE(input.cullFace, true, false);

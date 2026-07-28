@@ -1054,7 +1054,7 @@ namespace Valve.VR
             }
 
             if (changed)
-                changedTime = Time.realtimeSinceStartup;
+                changedTime = SteamVR_Input.realtimeSinceStartup;
 
             if (skipStateAndEventUpdates == false)
                 CheckAndSendEvents();

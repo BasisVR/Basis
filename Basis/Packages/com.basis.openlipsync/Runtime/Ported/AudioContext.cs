@@ -4,169 +4,149 @@ using OpenLipSync.Inference.OVRCompat;
 
 namespace OpenLipSync.Inference
 {
+    /// <summary>
+    /// Per-player audio -> viseme state.
+    ///
+    /// Streaming models (the ones this package now ships) advance one 10 ms mel frame at a
+    /// time through cached convolutions. The previous path accumulated a 150-frame mel
+    /// window and re-ran the ENTIRE window through the network on every audio callback,
+    /// keeping only the last frame -- about 83x more compute per player than necessary, and
+    /// the reason OpenLipSync needed a slot cap.
+    ///
+    /// The legacy windowed path is retained so an older model.onnx still loads.
+    /// </summary>
     internal sealed class AudioContext : IDisposable
     {
         private readonly AudioRingBuffer _ringBuffer;
         private readonly MelSpectrogramProcessor _melProcessor;
         private readonly AudioResampler _resampler;
+
         private readonly float[] _latestVisemeResults;
         private readonly float[] _probabilityBuffer;
-        private float _smoothing = 0.3f;
+        private readonly int _melBands;
+
+        // Smoothing keeps its historical meaning -- arg1/100 is the weight kept on the previous
+        // value -- but is now applied once per MEL FRAME (a fixed 100 Hz) instead of once per
+        // audio callback. Callbacks deliver a variable number of samples, so the old code's
+        // effective smoothing silently changed with buffer size and output sample rate; the
+        // same "0.7" meant a different time constant on different machines.
+        // At 100 Hz, 0.7 corresponds to a ~28 ms time constant.
+        private float _frameAlpha = 0.3f;
+
         private int _frameNumber;
         private bool _disposed;
 
-        // Mel frame accumulation for TCN temporal context
-        private readonly int _melBands;
+        // --- streaming path ---
+        private readonly StreamingSession _streaming;   // null => legacy
+        private readonly bool _multiLabel;
+
+        // --- legacy windowed path ---
         private readonly int _maxMelFrames;
-        private readonly float[] _melSequence; // flat [maxFrames * melBands]
+        private readonly float[] _melSequence;
+        private readonly float[] _inferenceInputBuffer;
         private int _melFrameCount;
 
-        // Pre-allocated buffer for ONNX inference input (avoids per-frame float[] allocation)
-        private float[] _inferenceInputBuffer;
-
         public int MelBands => _melBands;
+        public bool IsStreaming => _streaming != null;
         public int AccumulatedMelFrames => _melFrameCount;
 
-        public AudioContext(int inputSampleRate, AudioProcessingConfig audioConfig, int modelVisemeCount)
+        public AudioContext(int inputSampleRate, AudioProcessingConfig audioConfig, int modelVisemeCount,
+                            StreamingSession streaming, bool multiLabel)
         {
             _ringBuffer = new AudioRingBuffer(audioConfig.SampleRate * 3);
             _melProcessor = new MelSpectrogramProcessor(audioConfig);
             _resampler = inputSampleRate != audioConfig.SampleRate
                 ? new AudioResampler(inputSampleRate, audioConfig.SampleRate)
                 : null;
-            var visemeCount = modelVisemeCount > 0 ? modelVisemeCount : Frame.VisemeCount;
+
+            int visemeCount = modelVisemeCount > 0 ? modelVisemeCount : Frame.VisemeCount;
             _latestVisemeResults = new float[visemeCount];
             _probabilityBuffer = new float[visemeCount];
-            if (_latestVisemeResults.Length > 0) _latestVisemeResults[0] = 1f;
-            _frameNumber = 0;
+            _latestVisemeResults[0] = 1f;               // start closed-mouth / silent
 
-            // Accumulate up to 150 mel frames (~1.5s at 100fps) for TCN context
             _melBands = audioConfig.NMels;
-            _maxMelFrames = 150;
-            _melSequence = new float[_maxMelFrames * _melBands];
-            _melFrameCount = 0;
+            _streaming = streaming;
+            _multiLabel = multiLabel;
 
-            // Pre-allocate inference input buffer at max size to avoid per-frame allocation
-            _inferenceInputBuffer = new float[_maxMelFrames * _melBands];
+            if (_streaming == null)
+            {
+                _maxMelFrames = 150;
+                _melSequence = new float[_maxMelFrames * _melBands];
+                _inferenceInputBuffer = new float[_maxMelFrames * _melBands];
+            }
         }
 
         public void ProcessAudio(ReadOnlySpan<float> audioSamples)
         {
             if (_disposed) return;
-
-            if (_resampler == null)
-            {
-                _ringBuffer.Write(audioSamples);
-            }
-            else
-            {
-                var resampled = _resampler.Resample(audioSamples);
-                _ringBuffer.Write(resampled);
-            }
+            if (_resampler == null) _ringBuffer.Write(audioSamples);
+            else _ringBuffer.Write(_resampler.Resample(audioSamples));
         }
 
         public bool TryGetNextMelFrame(out float[] melFeatures)
+            => _melProcessor.TryProcessNextHop(_ringBuffer, out melFeatures);
+
+        /// <summary>
+        /// Streaming: one mel frame in, one set of viseme probabilities out.
+        /// The mel frame is RAW dB -- the model applies CMVN internally. Do not normalize here.
+        /// </summary>
+        public void StepStreaming(float[] melFrame)
         {
-            return _melProcessor.TryProcessNextHop(_ringBuffer, out melFeatures);
+            if (_disposed || _streaming == null) return;
+            _streaming.Step(melFrame, _probabilityBuffer, _multiLabel);
+            Smooth(_probabilityBuffer);
         }
 
         /// <summary>
-        /// Accumulate a mel frame into the sliding window.
-        /// Shifts old frames out when the buffer is full.
+        /// The model is trained to emit calibrated per-viseme weights, so all that is left
+        /// to do is smooth them.
+        ///
+        /// The previous build ran a hand-tuned "suppress silence, boost speech by up to 3x,
+        /// renormalize" pass here. That existed only to rescue a model whose outputs were
+        /// saturated by being fed unnormalized features; with the feature contract fixed it
+        /// is actively harmful, because it distorts exactly the graded weights that drive
+        /// blendshape blending. It is gone.
         /// </summary>
+        private void Smooth(float[] probabilities)
+        {
+            int n = Math.Min(_latestVisemeResults.Length, probabilities.Length);
+            float a = _frameAlpha;
+            for (int i = 0; i < n; i++)
+                _latestVisemeResults[i] = _latestVisemeResults[i] * a + probabilities[i] * (1f - a);
+        }
+
+        // ------------------------------------------------------------------ legacy path
         public void AccumulateMelFrame(float[] melFrame)
         {
-            if (_disposed || melFrame == null) return;
-
+            if (_disposed || melFrame == null || _melSequence == null) return;
             int bands = Math.Min(melFrame.Length, _melBands);
 
             if (_melFrameCount >= _maxMelFrames)
             {
-                // Shift left by one frame. Span<T>.CopyTo handles overlapping ranges
-                // (memmove semantics) the same as Array.Copy.
                 _melSequence.AsSpan(_melBands, (_maxMelFrames - 1) * _melBands)
-                    .CopyTo(_melSequence.AsSpan(0));
+                            .CopyTo(_melSequence.AsSpan(0));
                 _melFrameCount = _maxMelFrames - 1;
             }
-
-            // Append new frame
             melFrame.AsSpan(0, bands).CopyTo(_melSequence.AsSpan(_melFrameCount * _melBands));
             _melFrameCount++;
         }
 
-        /// <summary>
-        /// Get the accumulated mel sequence as a flat array and its frame count.
-        /// </summary>
         public float[] GetMelSequence(out int frameCount)
         {
             frameCount = _melFrameCount;
             return _melSequence;
         }
 
-        public float[] GetInferenceBuffer()
+        public float[] GetInferenceBuffer() => _probabilityBuffer;
+        public float[] GetInferenceInputBuffer() => _inferenceInputBuffer;
+
+        public void ApplyLegacyResults(float[] visemeProbs)
         {
-            return _probabilityBuffer;
+            if (_disposed) return;
+            Smooth(visemeProbs);
         }
 
-        /// <summary>
-        /// Returns a pre-allocated buffer for ONNX inference input data.
-        /// Sized for the maximum mel sequence (maxFrames * melBands).
-        /// Eliminates per-inference float[] allocation.
-        /// </summary>
-        public float[] GetInferenceInputBuffer()
-        {
-            return _inferenceInputBuffer;
-        }
-
-        public void UpdateLatestResults(float[] visemeProbs)
-        {
-            if (_disposed || visemeProbs.Length == 0) return;
-
-            int n = Math.Min(_latestVisemeResults.Length, visemeProbs.Length);
-
-            // Post-process: when speech visemes are active, suppress silence
-            // and boost speech visemes for clearer output
-            float speechSum = 0f;
-            float speechMax = 0f;
-            for (int i = 1; i < n; i++)
-            {
-                speechSum += visemeProbs[i];
-                if (visemeProbs[i] > speechMax) speechMax = visemeProbs[i];
-            }
-
-            float silWeight = (n > 0) ? visemeProbs[0] : 0f;
-
-            if (speechMax > 0.05f)
-            {
-                // Speech detected: suppress silence, renormalize speech visemes
-                float boost = 1f / Math.Max(speechSum, 0.01f);
-                boost = Math.Min(boost, 3f); // cap boost at 3x
-
-                for (int i = 0; i < n; i++)
-                {
-                    float val;
-                    if (i == 0)
-                    {
-                        // Reduce silence proportionally to speech activity
-                        val = silWeight * (1f - Math.Min(speechSum * 2f, 1f));
-                    }
-                    else
-                    {
-                        val = visemeProbs[i] * boost;
-                    }
-                    _latestVisemeResults[i] = _latestVisemeResults[i] * _smoothing + val * (1f - _smoothing);
-                }
-            }
-            else
-            {
-                // Silence: normal smoothing
-                for (int i = 0; i < n; i++)
-                {
-                    _latestVisemeResults[i] = _latestVisemeResults[i] * _smoothing + visemeProbs[i] * (1f - _smoothing);
-                }
-            }
-        }
-
+        // ------------------------------------------------------------------
         public void UpdateFrame(ref Frame frame)
         {
             if (_disposed) return;
@@ -174,12 +154,10 @@ namespace OpenLipSync.Inference
             frame.frameNumber = ++_frameNumber;
             frame.frameDelay = 0;
 
-            int copyCount = Math.Min(_latestVisemeResults.Length, frame.Visemes.Length);
-            Array.Copy(_latestVisemeResults, frame.Visemes, copyCount);
-            if (copyCount < frame.Visemes.Length)
-            {
-                Array.Clear(frame.Visemes, copyCount, frame.Visemes.Length - copyCount);
-            }
+            int copy = Math.Min(_latestVisemeResults.Length, frame.Visemes.Length);
+            Array.Copy(_latestVisemeResults, frame.Visemes, copy);
+            if (copy < frame.Visemes.Length)
+                Array.Clear(frame.Visemes, copy, frame.Visemes.Length - copy);
 
             frame.laughterScore = 0f;
         }
@@ -191,7 +169,11 @@ namespace OpenLipSync.Inference
             switch (signal)
             {
                 case Signals.VisemeSmoothing:
-                    _smoothing = Math.Clamp(arg1 / 100f, 0f, 1f);
+                    // Same 0..100 scale and same meaning as before (weight kept on the previous
+                    // value), so existing callers -- e.g. BasisOpenLipSyncContext passes 70 --
+                    // keep their tuning. What changed is that it is now applied once per mel
+                    // frame at a fixed 100 Hz rather than once per variable-sized audio callback.
+                    _frameAlpha = Math.Clamp(arg1 / 100f, 0f, 0.99f);
                     return Result.Success;
 
                 default:
@@ -205,20 +187,25 @@ namespace OpenLipSync.Inference
 
             _ringBuffer.Clear();
             Array.Clear(_latestVisemeResults, 0, _latestVisemeResults.Length);
-            if (_latestVisemeResults.Length > 0) _latestVisemeResults[0] = 1f;
-            _melFrameCount = 0;
-            Array.Clear(_melSequence, 0, _melSequence.Length);
+            _latestVisemeResults[0] = 1f;
             _frameNumber = 0;
+
+            _streaming?.Reset();
+
+            if (_melSequence != null)
+            {
+                _melFrameCount = 0;
+                Array.Clear(_melSequence, 0, _melSequence.Length);
+            }
         }
 
         public void Dispose()
         {
-            if (!_disposed)
-            {
-                _ringBuffer.Dispose();
-                _melProcessor.Dispose();
-                _disposed = true;
-            }
+            if (_disposed) return;
+            _disposed = true;
+            _ringBuffer.Dispose();
+            _melProcessor.Dispose();
+            _streaming?.Dispose();
         }
     }
 }

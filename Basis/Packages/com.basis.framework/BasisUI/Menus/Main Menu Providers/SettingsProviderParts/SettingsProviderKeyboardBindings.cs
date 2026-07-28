@@ -202,6 +202,7 @@ public static class SettingsProviderKeyboardBindings
         PanelSectionToggle sectionToggle = PanelSectionToggle.CreateNewEntry(container);
         PanelElementDescriptor group = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
             sectionToggle, container, title, false);
+        group.SetBackgroundVisible(false);
 
         if (!string.IsNullOrEmpty(description))
         {

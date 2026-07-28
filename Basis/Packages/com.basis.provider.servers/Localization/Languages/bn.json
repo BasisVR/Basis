@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "এখনও কোনো সার্ভার নেই। একটি তৈরি করতে «সার্ভার যোগ করুন» চাপুন।"
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "সার্ভার যোগ করুন"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "সব রিফ্রেশ করুন"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "সার্ভার সম্পাদনা"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "নতুন সার্ভার"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "সংরক্ষণ"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "বাতিল"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "সরান"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "সম্পাদনা"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "রিফ্রেশ"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "অফলাইন"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "অনুসন্ধান করা হচ্ছে..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "শেয়ার করুন"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Basis Labs-এ স্বাগতম!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs হলো Basis Framework-এর জীবন্ত প্রদর্শনী — VR গেম, প্ল্যাটফর্ম ও অভিজ্ঞতা তৈরির জন্য একটি বিনামূল্যের, MIT-লাইসেন্সপ্রাপ্ত ভিত্তি। জগৎ ঘুরে দেখুন, কাস্টম অবতার পরুন এবং ফিচারগুলো তৈরি হওয়ার সাথে সাথে পরীক্ষা করতে করতে মানুষের সাথে মিশুন। এখানে সবকিছুই বিকশিত হচ্ছে — আপনার মতামত একে গড়ে তুলতে সাহায্য করে।"
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "পরবর্তী"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "আপনার প্রথম সার্ভার"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Basis-এর কোনো কেন্দ্রীয় পরিষেবা নেই — যে কেউ সার্ভার চালাতে পারে, আর আপনি এই প্যানেল থেকেই নিজের সার্ভার হোস্ট করতে পারেন। আপনার যাতে সবসময় যাওয়ার জায়গা থাকে, তাই আমরা একটি ডিফল্ট সার্ভার চালাই, যা নিচের তালিকার শীর্ষে ★ চিহ্ন দিয়ে চিহ্নিত। একটি ব্যবহারকারীর নাম বাছুন, জ্বলজ্বলে «সংযোগ করুন» বোতামে চাপ দিন, আর এসে হ্যালো বলুন!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "বুঝেছি!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "একটি ব্যবহারকারীর নাম বাছুন"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "অন্য প্লেয়াররা যে নাম দেখবে সেটি বেছে নিন, তারপর «সংযোগ করুন» চাপুন।"
     },
     {
       "key": "menu.servers.hostMotd",

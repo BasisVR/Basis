@@ -554,12 +554,14 @@ namespace Valve.VR
             SteamVR.connected[i] = connected;
         }
 
-        private void OnNewPoses(TrackedDevicePose_t[] poses)
+        private void OnIpdChanged(VREvent_t vrEvent)
         {
-            // Update eye offsets to account for IPD changes.
             eyes[0] = new SteamVR_Utils.RigidTransform(hmd.GetEyeToHeadTransform(EVREye.Eye_Left));
             eyes[1] = new SteamVR_Utils.RigidTransform(hmd.GetEyeToHeadTransform(EVREye.Eye_Right));
+        }
 
+        private void OnNewPoses(TrackedDevicePose_t[] poses)
+        {
             for (int i = 0; i < poses.Length; i++)
             {
                 var connected = poses[i].bDeviceIsConnected;
@@ -665,6 +667,7 @@ namespace Valve.VR
             SteamVR_Events.OutOfRange.Listen(OnOutOfRange);
             SteamVR_Events.DeviceConnected.Listen(OnDeviceConnected);
             SteamVR_Events.NewPoses.Listen(OnNewPoses);
+            SteamVR_Events.System(EVREventType.VREvent_IpdChanged).Listen(OnIpdChanged);
         }
 
         ~SteamVR()
@@ -685,6 +688,7 @@ namespace Valve.VR
             SteamVR_Events.OutOfRange.Remove(OnOutOfRange);
             SteamVR_Events.DeviceConnected.Remove(OnDeviceConnected);
             SteamVR_Events.NewPoses.Remove(OnNewPoses);
+            SteamVR_Events.System(EVREventType.VREvent_IpdChanged).Remove(OnIpdChanged);
 
             _instance = null;
         }

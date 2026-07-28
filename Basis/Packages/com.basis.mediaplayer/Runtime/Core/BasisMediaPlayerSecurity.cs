@@ -33,7 +33,7 @@ public static class BasisMediaPlayerSecurity
         // Live-streaming schemes handled by the OS-codec engine (basis_media_native):
         //   rtsp/rtspt  RTSP over UDP/TCP (rtspt = interleaved over TCP, low latency)
         //   rtmp/rtmps  RTMP / RTMP-over-TLS
-        //   http/https  fragmented MP4 (.mp4) and MPEG-TS (.ts) over HTTP(S)
+        //   http/https  fragmented MP4 (.mp4), MPEG-TS (.ts) and WAV (.wav) over HTTP(S)
         //   rist        RIST live ingest (MPEG-TS over UDP; requires a BASIS_WITH_RIST build)
         if (scheme != "http" && scheme != "https" &&
             scheme != "rtsp" && scheme != "rtspt" &&
@@ -81,7 +81,10 @@ public static class BasisMediaPlayerSecurity
 
     // DNS layer: resolves a real host name off the main thread and blocks it if any
     // resolved address is non-global. Closes the name-that-points-at-a-private-IP
-    // bypass that the literal-only IsBlockedHost can't see. null = allowed.
+    // bypass that the literal-only IsBlockedHost can't see. null = allowed. Fails
+    // closed: a resolver the check can't get an answer from could serve the
+    // engine's own lookup a private address moments later, so an unvalidatable
+    // host is a blocked host (a genuinely dead name couldn't be played anyway).
     public static async Task<string> ValidateResolvedHostAsync(string url)
     {
         if (string.IsNullOrWhiteSpace(url)) return null;
@@ -93,8 +96,9 @@ public static class BasisMediaPlayerSecurity
         bool allowLoopback = Application.isEditor;
         IPAddress[] addresses;
         try { addresses = await Dns.GetHostAddressesAsync(host); }
-        catch { return null; }
-        if (addresses == null) return null;
+        catch (Exception ex) { return $"host '{host}' could not be validated (DNS lookup failed: {ex.Message})."; }
+        if (addresses == null || addresses.Length == 0)
+            return $"host '{host}' could not be validated (DNS returned no addresses).";
 
         foreach (IPAddress ip in addresses)
             if (IsBlockedAddress(ip, allowLoopback, out string reason))
@@ -128,6 +132,16 @@ public static class BasisMediaPlayerSecurity
             if (b[0] == 169 && b[1] == 254) { reason = "link-local 169.254/16"; return true; }
             if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) { reason = "RFC1918 172.16/12"; return true; }
             if (b[0] == 192 && b[1] == 168) { reason = "RFC1918 192.168/16"; return true; }
+            // IANA "Globally Reachable: False" special-use reserves — non-global-unicast, and may be
+            // routed to internal infrastructure. Kept in lockstep with the native guard (basis_io.c
+            // ipv4_octets_blocked) — change both together.
+            // https://www.iana.org/assignments/iana-ipv4-special-registry/
+            if (b[0] == 192 && b[1] == 0 && b[2] == 0) { reason = "IETF protocol 192.0.0/24"; return true; }
+            if (b[0] == 192 && b[1] == 0 && b[2] == 2) { reason = "TEST-NET-1 192.0.2/24"; return true; }
+            if (b[0] == 192 && b[1] == 88 && b[2] == 99) { reason = "6to4 relay 192.88.99/24"; return true; }
+            if (b[0] == 198 && (b[1] & 0xFE) == 18) { reason = "benchmarking 198.18/15"; return true; }
+            if (b[0] == 198 && b[1] == 51 && b[2] == 100) { reason = "TEST-NET-2 198.51.100/24"; return true; }
+            if (b[0] == 203 && b[1] == 0 && b[2] == 113) { reason = "TEST-NET-3 203.0.113/24"; return true; }
             if (b[0] >= 224) { reason = "multicast/reserved >=224/4"; return true; }
             return false;
         }

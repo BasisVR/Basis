@@ -27,7 +27,7 @@
 		<type fullname="System.Convert" preserve="all"/>
 		<type fullname="System.Exception" preserve="all"/>
 		<type fullname="System.Int16" preserve="all"/>
-		<type fullname="<PrivateImplementationDetails>" preserve="all"/>
+		<type fullname="&lt;PrivateImplementationDetails&gt;" preserve="all"/>
 	</assembly>
 	<assembly fullname="netstandard">
 		<type fullname="System.Diagnostics.Stopwatch" preserve="all"/>

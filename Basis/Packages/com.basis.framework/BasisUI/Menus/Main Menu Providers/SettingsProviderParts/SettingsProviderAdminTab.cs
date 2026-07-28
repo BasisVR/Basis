@@ -45,7 +45,7 @@ namespace Basis.BasisUI
             shoutOnMenuBarToggle.Descriptor.SetDescription("Adds the Shout option to the mic-mode button on your main menu bar. Off by default, so the button stays hidden until you enable it here.");
             shoutOnMenuBarToggle.AssignBinding(BasisSettingsDefaults.ShoutShowOnMenuBar);
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(shoutToggle, container, shoutStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(shoutToggle, container, shoutStart, false, _ => descriptor.ForceRebuild());
 
             // --- Global lock group ---
             PanelSectionToggle lockToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -139,12 +139,41 @@ namespace Basis.BasisUI
             imagesLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalImagesLocked);
             imagesLock.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleImages();
 
+            // Enabled-facing: the toggle shows the feature ON (default); flipping it OFF disables it
+            // server-wide. The wire flag is stored inverted (GlobalEndEffectorIKDisabled).
+            PanelToggle endEffectorIKToggle = PanelToggle.CreateNewEntry(container);
+            endEffectorIKToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.remoteEndEffectorIK"));
+            endEffectorIKToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.remoteEndEffectorIK.tooltip"));
+            endEffectorIKToggle.Descriptor.SetDescription("Remote avatars' tracked hands and feet are two-bone-IK'd onto their sent world targets so they stop sliding. On by default; turn off to make every client fall back to pure-FK playback for remotes.");
+            endEffectorIKToggle.SetValueWithoutNotify(!BasisNetworkModeration.GlobalEndEffectorIKDisabled);
+            endEffectorIKToggle.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleEndEffectorIK();
+
             PanelSlider opusPacketLossSlider = PanelSlider.CreateNew(PanelSlider.SliderStyles.Entry, container);
             opusPacketLossSlider.SetSliderSettings(PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("settings.admin.opusFecLoss")));
             opusPacketLossSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.opusFecLoss.tooltip"));
             opusPacketLossSlider.Descriptor.SetDescription("Sets OPUS_SET_PACKET_LOSS_PERC on every client's voice encoder. Higher = more bitrate spent on redundant FEC data, better recovery under packet loss.");
             opusPacketLossSlider.SetValueWithoutNotify(BasisNetworkModeration.GlobalOpusPacketLossPercent);
             opusPacketLossSlider.OnValueChanged += value => BasisNetworkModeration.SetGlobalOpusPacketLoss(Mathf.RoundToInt(value));
+
+            PanelToggle opusBitrateOverrideToggle = PanelToggle.CreateNewEntry(container);
+            opusBitrateOverrideToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.opusBitrate.override"));
+            opusBitrateOverrideToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.opusBitrate.override.tooltip"));
+            opusBitrateOverrideToggle.Descriptor.SetDescription("Forces a specific Opus voice bitrate on every client's encoder. Off = clients use their default (32k). Per-user bitrate overrides still win.");
+            opusBitrateOverrideToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalOpusBitrate > 0);
+
+            PanelSlider opusBitrateSlider = PanelSlider.CreateNew(PanelSlider.SliderStyles.Entry, container);
+            opusBitrateSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.admin.opusBitrate"), 6000f, 128000f, true, 0, ValueDisplayMode.Compact));
+            opusBitrateSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.opusBitrate.tooltip"));
+            opusBitrateSlider.Descriptor.SetDescription("Bitrate (bits per second) every client encodes voice with while the override is on.");
+            opusBitrateSlider.SetValueWithoutNotify(BasisNetworkModeration.GlobalOpusBitrate > 0 ? BasisNetworkModeration.GlobalOpusBitrate : 32000);
+            opusBitrateSlider.Descriptor.SetActive(BasisNetworkModeration.GlobalOpusBitrate > 0);
+            opusBitrateSlider.OnValueChanged += value => BasisNetworkModeration.SetGlobalOpusBitrate(Mathf.RoundToInt(value));
+            opusBitrateOverrideToggle.OnValueChanged += on =>
+            {
+                opusBitrateSlider.Descriptor.SetActive(on);
+                BasisNetworkModeration.SetGlobalOpusBitrate(on ? Mathf.RoundToInt(opusBitrateSlider.Value) : 0);
+                descriptor.ForceRebuild();
+            };
 
             PanelSlider maxMicrophoneRangeSlider = PanelSlider.CreateNew(PanelSlider.SliderStyles.Entry, container);
             maxMicrophoneRangeSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.admin.maxMicrophoneRange"), 1f, 200f, true, 0, ValueDisplayMode.Meters));
@@ -179,6 +208,8 @@ namespace Basis.BasisUI
             controller.HeadlessAudioToggle = headlessAudioToggle;
             controller.HeadlessDisallowToggle = disallowHeadlessToggle;
             controller.OpusPacketLossSlider = opusPacketLossSlider;
+            controller.OpusBitrateOverrideToggle = opusBitrateOverrideToggle;
+            controller.OpusBitrateSlider = opusBitrateSlider;
             controller.MaxMicrophoneRangeSlider = maxMicrophoneRangeSlider;
             controller.MaxHearingRangeSlider = maxHearingRangeSlider;
             controller.MaxMicrophoneRangeMeters = BasisNetworkModeration.ServerMaxMicrophoneRangeMeters;
@@ -198,6 +229,7 @@ namespace Basis.BasisUI
             controller.DirectConnectLockToggle = directConnectLock;
             controller.CilboxLockToggle = cilboxLock;
             controller.ImagesLockToggle = imagesLock;
+            controller.EndEffectorIKToggle = endEffectorIKToggle;
             controller.MinAvatarHeightSlider = minAvatarHeightSlider;
             controller.MaxAvatarHeightSlider = maxAvatarHeightSlider;
             controller.MinAvatarHeightMeters = BasisNetworkModeration.ServerMinAvatarEyeHeightMeters;
@@ -213,7 +245,14 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.SetGlobalAvatarScaleLimits(controller.MinAvatarHeightMeters, controller.MaxAvatarHeightMeters);
             };
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(lockToggle, container, lockStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(lockToggle, container, lockStart, false, visible =>
+            {
+                if (visible)
+                {
+                    opusBitrateSlider.Descriptor.SetActive(opusBitrateOverrideToggle.Value);
+                }
+                descriptor.ForceRebuild();
+            });
 
             // --- Resource limits (per-player DoS caps; persisted to config.xml) ---
             PanelSectionToggle resourceLimitsToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -256,7 +295,7 @@ namespace Basis.BasisUI
             controller.MaxDatabasePayloadEntriesField = maxDatabasePayloadEntriesField;
             controller.MaxContentSpheresField = maxContentSpheresField;
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(resourceLimitsToggle, container, resourceLimitsStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(resourceLimitsToggle, container, resourceLimitsStart, false, _ => descriptor.ForceRebuild());
 
             // --- Avatar reduction (BSR) tuning; persisted to config.xml, re-applied live ---
             PanelSectionToggle reductionToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -350,7 +389,7 @@ namespace Basis.BasisUI
             controller.ReductionBundleMinBytesField = reductionBundleMinBytesField;
             controller.ReductionProfilingToggle = reductionProfilingToggle;
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(reductionToggle, container, reductionStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(reductionToggle, container, reductionStart, false, _ => descriptor.ForceRebuild());
 
             // --- Camera photo metadata policy (per-category disallow; default allowed) ---
             PanelSectionToggle cameraPolicyToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -419,7 +458,7 @@ namespace Basis.BasisUI
 
             controller.ApplyCameraMask = ApplyCameraMask;
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(cameraPolicyToggle, container, cameraPolicyStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(cameraPolicyToggle, container, cameraPolicyStart, false, _ => descriptor.ForceRebuild());
 
             // --- Server configuration (persisted to config.xml on every change) ---
             PanelSectionToggle serverToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -525,7 +564,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.RemoveAllowlist(uuid);
             };
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(serverToggle, container, serverStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(serverToggle, container, serverStart, false, _ => descriptor.ForceRebuild());
 
             // --- Server logs (admin pulls logs/ + CrashReports/ to disk) ---
             PanelSectionToggle logsToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -549,7 +588,7 @@ namespace Basis.BasisUI
                 "Cancel",
                 () => BasisNetworkModeration.DeleteAllLogs());
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(logsToggle, container, logsStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(logsToggle, container, logsStart, false, _ => descriptor.ForceRebuild());
 
             // --- Default Library (saved to disk on the server, broadcast to all clients) ---
             BuildDefaultLibrarySection(container, descriptor);
@@ -705,7 +744,7 @@ namespace Basis.BasisUI
                     () => BasisNetworkModeration.RemoveDefaultLibraryItem(url));
             };
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(libraryToggle, container, libraryStart, false, _ => tabDescriptor?.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(libraryToggle, container, libraryStart, false, _ => tabDescriptor?.ForceRebuild());
         }
 
         private static byte ModeNameToByte(string name)
@@ -748,6 +787,8 @@ namespace Basis.BasisUI
             public PanelToggle AllowlistToggle;
             public PanelToggle RejoinLockToggle;
             public PanelSlider OpusPacketLossSlider;
+            public PanelToggle OpusBitrateOverrideToggle;
+            public PanelSlider OpusBitrateSlider;
             public PanelSlider MaxMicrophoneRangeSlider;
             public PanelSlider MaxHearingRangeSlider;
             public float MaxMicrophoneRangeMeters;
@@ -756,6 +797,7 @@ namespace Basis.BasisUI
             public PanelToggle DirectConnectLockToggle;
             public PanelToggle CilboxLockToggle;
             public PanelToggle ImagesLockToggle;
+            public PanelToggle EndEffectorIKToggle;
             public PanelSlider MinAvatarHeightSlider;
             public PanelSlider MaxAvatarHeightSlider;
             public float MinAvatarHeightMeters;
@@ -795,6 +837,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged += OnGlobalHeadlessDisallowStateChanged;
                 BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
                 BasisNetworkModeration.OnGlobalOpusPacketLossChanged += OnGlobalOpusPacketLossChanged;
+                BasisNetworkModeration.OnGlobalOpusBitrateChanged -= OnGlobalOpusBitrateChanged;
+                BasisNetworkModeration.OnGlobalOpusBitrateChanged += OnGlobalOpusBitrateChanged;
                 BasisNetworkModeration.OnAudioRangeLimitsChanged -= OnAudioRangeLimitsChanged;
                 BasisNetworkModeration.OnAudioRangeLimitsChanged += OnAudioRangeLimitsChanged;
                 BasisNetworkModeration.OnGlobalCameraPolicyChanged -= OnGlobalCameraPolicyChanged;
@@ -809,6 +853,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalCilboxLockChanged += OnGlobalCilboxLockChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged -= OnGlobalImagesLockedChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged += OnGlobalImagesLockedChanged;
+                BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
+                BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged += OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged += OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
@@ -827,6 +873,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
                 BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
+                BasisNetworkModeration.OnGlobalOpusBitrateChanged -= OnGlobalOpusBitrateChanged;
                 BasisNetworkModeration.OnAudioRangeLimitsChanged -= OnAudioRangeLimitsChanged;
                 BasisNetworkModeration.OnGlobalCameraPolicyChanged -= OnGlobalCameraPolicyChanged;
                 BasisNetworkModeration.OnGlobalRestrictionModeChanged -= OnGlobalRestrictionModeChanged;
@@ -834,6 +881,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalDirectConnectLockedChanged -= OnGlobalDirectConnectLockedChanged;
                 BasisNetworkModeration.OnGlobalCilboxLockChanged -= OnGlobalCilboxLockChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged -= OnGlobalImagesLockedChanged;
+                BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
@@ -847,6 +895,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
                 BasisNetworkModeration.OnGlobalOpusPacketLossChanged -= OnGlobalOpusPacketLossChanged;
+                BasisNetworkModeration.OnGlobalOpusBitrateChanged -= OnGlobalOpusBitrateChanged;
                 BasisNetworkModeration.OnAudioRangeLimitsChanged -= OnAudioRangeLimitsChanged;
                 BasisNetworkModeration.OnGlobalCameraPolicyChanged -= OnGlobalCameraPolicyChanged;
                 BasisNetworkModeration.OnGlobalRestrictionModeChanged -= OnGlobalRestrictionModeChanged;
@@ -854,6 +903,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalDirectConnectLockedChanged -= OnGlobalDirectConnectLockedChanged;
                 BasisNetworkModeration.OnGlobalCilboxLockChanged -= OnGlobalCilboxLockChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged -= OnGlobalImagesLockedChanged;
+                BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
@@ -890,6 +940,16 @@ namespace Basis.BasisUI
             private void OnGlobalOpusPacketLossChanged(int percent)
             {
                 if (OpusPacketLossSlider != null) OpusPacketLossSlider.SetValueWithoutNotify(percent);
+            }
+
+            private void OnGlobalOpusBitrateChanged(int bps)
+            {
+                if (OpusBitrateOverrideToggle != null) OpusBitrateOverrideToggle.SetValueWithoutNotify(bps > 0);
+                if (OpusBitrateSlider != null)
+                {
+                    if (bps > 0) OpusBitrateSlider.SetValueWithoutNotify(bps);
+                    OpusBitrateSlider.Descriptor.SetActive(bps > 0);
+                }
             }
 
             private void OnAudioRangeLimitsChanged(float microphoneMeters, float hearingMeters)
@@ -929,6 +989,11 @@ namespace Basis.BasisUI
             private void OnGlobalImagesLockedChanged(bool locked)
             {
                 if (ImagesLockToggle != null) ImagesLockToggle.SetValueWithoutNotify(locked);
+            }
+
+            private void OnGlobalEndEffectorIKDisabledChanged(bool disabled)
+            {
+                if (EndEffectorIKToggle != null) EndEffectorIKToggle.SetValueWithoutNotify(!disabled);
             }
 
             private void OnAvatarScaleLimitsChanged(float minMeters, float maxMeters)

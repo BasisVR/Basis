@@ -1,4 +1,4 @@
-using Basis.Config;
+﻿using Basis.Config;
 using Basis.Contrib.Auth.DecentralizedIds.Newtypes;
 using Basis.Contrib.Crypto;
 using Basis.Network.Core;
@@ -44,6 +44,48 @@ namespace Basis.Network
 
             FinalPeers = new NetPeer[ClientCount];
             FinalClients = new NetworkClient[ClientCount];
+        }
+
+        // Platform and body fit both ride the per-player metadata the server stores and replays to every
+        // joiner, so 2000 identical simulated clients under-report what a real crowd costs on the wire:
+        // one platform string compresses away across the join fill where a mixed crowd does not, and an
+        // identity body fit is not what a calibrated player sends. Distribution is a rough desktop/
+        // standalone-VR split; exact shares matter less than not being uniform.
+        private static readonly string[] SimulatedPlatforms =
+        {
+            "WindowsPlayer", "WindowsPlayer", "WindowsPlayer", "WindowsPlayer",
+            "Android", "Android", "Android",
+            "LinuxPlayer", "OSXPlayer", "WindowsEditor",
+        };
+
+        private static string PlatformForClient(int clientIndex)
+        {
+            if (!ConfigManager.SimulateRealisticPlatforms)
+            {
+                return "Headless";
+            }
+            return SimulatedPlatforms[(clientIndex & 0x7fffffff) % SimulatedPlatforms.Length];
+        }
+
+        /// <summary>
+        /// Per-client body-fit scales inside the band BasisBodyFitCore can actually produce
+        /// (1 +/- maxDeviation, ceiling 0.5). Leg and torso are opposed, mirroring the real solver's
+        /// height-neutral construction, so a simulated crowd exercises the quantizer across its range
+        /// rather than sitting on the identity value.
+        /// </summary>
+        private static void BodyFitForClient(int clientIndex, out float arm, out float leg, out float torso)
+        {
+            if (!ConfigManager.SimulateBodyFit)
+            {
+                arm = leg = torso = 1f;
+                return;
+            }
+
+            var rng = new Random(unchecked(clientIndex * 8663) ^ 0x5eed);
+            arm = 1f + (float)(rng.NextDouble() * 0.30 - 0.15);
+            float shift = (float)(rng.NextDouble() * 0.24 - 0.12);
+            leg = 1f + shift;
+            torso = 1f - shift;
         }
 
         private void BuildAvatarPool()
@@ -94,23 +136,28 @@ namespace Basis.Network
                 var identity = new ConsoleClientIdentity();
                 var (avatarBytes, avatarLoadMode) = PickAvatar();
 
+                BodyFitForClient(Index, out float armScale, out float legScale, out float torsoScale);
+
                 var readyMessage = new ReadyMessage
                 {
                     playerMetaDataMessage = new ClientMetaDataMessage
                     {
                         playerDisplayName = name,
                         playerUUID = identity.Did,
-                        playerPlatform = "Headless",
+                        playerPlatform = PlatformForClient(Index),
                     },
                     clientAvatarChangeMessage = new ClientAvatarChangeMessage
                     {
                         byteArray = avatarBytes,
                         loadMode = avatarLoadMode,
                         LocalAvatarIndex = 0,
+                        ArmScale = armScale,
+                        LegScale = legScale,
+                        TorsoScale = torsoScale,
                     },
                     localAvatarSyncMessage = new LocalAvatarSyncMessage
                     {
-                        array = MovementSender.Generate().Message.array,
+                        array = MovementSender.Generate(Index).Message.array,
                         AdditionalAvatarDataSize = 0,
                         LinkedAvatarIndex = 0,
                         DataQualityLevel = (byte)BitQuality.High,
@@ -124,7 +171,8 @@ namespace Basis.Network
                 if (peer != null)
                 {
                     peer.Tag = identity;
-                    netClient.listener.NetworkReceiveEvent += (p, r, ch, m) => MessageHandler.OnReceive(identity, p, r, ch, m);
+                    int clientIndex = Index;
+                    netClient.listener.NetworkReceiveEvent += (p, r, ch, m) => MessageHandler.OnReceive(identity, clientIndex, p, r, ch, m);
                     netClient.listener.PeerDisconnectedEvent += MessageHandler.OnDisconnect;
 
                     Volatile.Write(ref FinalClients[Index], netClient);
@@ -155,24 +203,28 @@ namespace Basis.Network
             var identity = new ConsoleClientIdentity();
             var (avatarBytes, avatarLoadMode) = PickAvatar();
 
+            BodyFitForClient(index, out float armScale, out float legScale, out float torsoScale);
+
             var readyMessage = new ReadyMessage
             {
                 playerMetaDataMessage = new ClientMetaDataMessage
                 {
                     playerDisplayName = name,
                     playerUUID = identity.Did,
-                    playerPlatform = "Headless",
+                    playerPlatform = PlatformForClient(index),
                 },
                 clientAvatarChangeMessage = new ClientAvatarChangeMessage
                 {
                     byteArray = avatarBytes,
                     loadMode = avatarLoadMode,
                     LocalAvatarIndex = 1,
-
+                    ArmScale = armScale,
+                    LegScale = legScale,
+                    TorsoScale = torsoScale,
                 },
                 localAvatarSyncMessage = new LocalAvatarSyncMessage
                 {
-                    array = MovementSender.Generate().Message.array,
+                    array = MovementSender.Generate(index).Message.array,
                     AdditionalAvatarDataSize = 0,
                     LinkedAvatarIndex = 0,
                 }
@@ -184,11 +236,15 @@ namespace Basis.Network
             if (peer != null)
             {
                 peer.Tag = identity;
-                netClient.listener.NetworkReceiveEvent += (p, r, ch, m) => MessageHandler.OnReceive(identity, p, r, ch, m);
+                netClient.listener.NetworkReceiveEvent += (p, r, ch, m) => MessageHandler.OnReceive(identity, index, p, r, ch, m);
                 netClient.listener.PeerDisconnectedEvent += MessageHandler.OnDisconnect;
 
                 Interlocked.Exchange(ref FinalClients[index], netClient);
                 Interlocked.Exchange(ref FinalPeers[index], peer);
+
+                // Fresh server session — the old delta baseline is meaningless to it, so the
+                // first send after a reconnect must be a full keyframe.
+                MovementSender.RequestKeyframe(index);
 
                 BNL.Log($"Reconnected: {name} ({identity.Did}) at index {index}");
             }

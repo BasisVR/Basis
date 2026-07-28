@@ -1,4 +1,4 @@
-using Basis.Network.Core;
+﻿using Basis.Network.Core;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using System;
@@ -20,7 +20,12 @@ namespace BasisNetworkServer
         public float RotationZ;
         public float RotationW;
         public bool HasNewData;
-        public Dictionary<int, long> LastSentTimes = new();
+        // ConcurrentDictionary, not Dictionary: this is written from the reduction-system tick
+        // thread (UpdatePIPPositions) while HandlePIPStateChange clears it from the network receive
+        // thread and RemovePlayer removes from it on disconnect. A plain Dictionary under a
+        // concurrent write+clear corrupts its bucket chain — the classic symptom is a hang inside
+        // FindEntry or a spurious IndexOutOfRangeException, not a clean failure.
+        public ConcurrentDictionary<int, long> LastSentTimes = new();
     }
 
     public static class BasisNetworkPIPCamera
@@ -242,7 +247,7 @@ namespace BasisNetworkServer
 
             foreach (var kvp in PIPStates)
             {
-                kvp.Value.LastSentTimes.Remove(peerId);
+                kvp.Value.LastSentTimes.TryRemove(peerId, out _);
             }
         }
 

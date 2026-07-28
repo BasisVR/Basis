@@ -162,6 +162,10 @@ namespace Basis.Scripts.UI.UI_Panels
 
         private void UpdateDisplay(float percentage, string display)
         {
+            if (TextMeshPro == null || Renderer == null)
+            {
+                return;
+            }
             TextMeshPro.text = $"{display}  {Mathf.RoundToInt(percentage)}%";
             float value = percentage / 4f;
             Renderer.size = new Vector2(value, 2);

@@ -31,7 +31,7 @@ property or other means.
 * Although prior discussion is ideal, this may happen without much prior notice.
 * Code in `contrib` should be considered "unsupported" API, for the purposes of
   API breakage.
-* Incorporation of `contrib` libraries into the Basis Demo does not imply
+* Incorporation of `contrib` libraries into Basis Labs does not imply
   intent to merge into the core project.
 * Alignment with the core project is not necessarily a requirement for
   inclusion into contrib.

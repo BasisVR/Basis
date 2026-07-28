@@ -280,43 +280,7 @@ public partial class BasisProjectSetup : EditorWindow
 
     private void DrawBuildScriptingBackendPreference()
     {
-        using (new EditorGUILayout.VerticalScope("box"))
-        {
-            EditorGUILayout.LabelField(
-                Tr("projectSetup.buildModules.scriptingBackendHeader", "Build Scripting Backend (Windows / macOS)"),
-                EditorStyles.miniBoldLabel);
-
-            var mode = BasisBuildScriptingBackendPreference.Current;
-            var original = mode;
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.Ask,
-                        Tr("projectSetup.buildModules.scriptingBackendAsk", "Ask each build"),
-                        EditorStyles.radioButton))
-                    mode = BasisBuildScriptingBackendPreference.Mode.Ask;
-
-                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.IL2CPP,
-                        Tr("projectSetup.buildModules.scriptingBackendIl2cpp", "Always IL2CPP"),
-                        EditorStyles.radioButton))
-                    mode = BasisBuildScriptingBackendPreference.Mode.IL2CPP;
-
-                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.Mono,
-                        Tr("projectSetup.buildModules.scriptingBackendMono", "Always Mono"),
-                        EditorStyles.radioButton))
-                    mode = BasisBuildScriptingBackendPreference.Mode.Mono;
-            }
-
-            if (mode != original)
-                BasisBuildScriptingBackendPreference.Current = mode;
-
-            EditorGUILayout.HelpBox(
-                Tr("projectSetup.buildModules.scriptingBackendHelp",
-                    "Remembers the IL2CPP/Mono answer for Windows and macOS builds so you’re not asked every time. " +
-                    "Forced platforms are unaffected: Android and iOS always use IL2CPP, Linux always uses Mono. " +
-                    "Choosing a backend in the build prompt also updates this setting."),
-                MessageType.None);
-        }
+        BasisProjectSettingsUI.DrawScriptingBackendSection();
     }
 }
 #endif

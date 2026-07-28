@@ -8,16 +8,21 @@ public static partial class SerializableBasis
         public byte messageIndex;
         public byte[] array;
 
+        // Wire form: [PayloadSize:1][messageIndex:1][data:PayloadSize]. The 2-byte header is
+        // written for EVERY entry, including empty/suppressed ones (PayloadSize 0) — a size-0
+        // entry that omitted messageIndex would be ambiguous and desync every entry after it,
+        // corrupting all additional data (face tracking) riding the same frame.
         public void Deserialize(NetDataReader reader)
         {
             if (reader.TryGetByte(out PayloadSize))
             {
-                if (PayloadSize == 0)
-                {
-                    return;
-                }
                 if (reader.TryGetByte(out messageIndex))
                 {
+                    if (PayloadSize == 0)
+                    {
+                        array = null;
+                        return;
+                    }
                     if (PayloadSize > reader.AvailableBytes)
                     {
                         BNL.LogError("AdditionalAvatarData payload exceeds available data!");
@@ -41,22 +46,16 @@ public static partial class SerializableBasis
         }
         public void Serialize(NetDataWriter writer)
         {
-            if (array == null)
-            {
-                PayloadSize = 0;
-                writer.Put(PayloadSize);
-                return;
-            }
-
-            if (array.Length > 255)
+            if (array != null && array.Length > 255)
             {
                 BNL.LogError("Larger than 255 cannot send this Additional Avatar Data");
                 PayloadSize = 0;
                 writer.Put(PayloadSize);
+                writer.Put(messageIndex);
                 return;
             }
-            PayloadSize = (byte)array.Length;
 
+            PayloadSize = (byte)(array?.Length ?? 0);
             writer.Put(PayloadSize);
             writer.Put(messageIndex);
 

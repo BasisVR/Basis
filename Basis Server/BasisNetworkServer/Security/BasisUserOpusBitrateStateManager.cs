@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using System.Collections.Concurrent;
+using System.Threading;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 
 namespace BasisNetworkServer.Security
@@ -43,10 +44,77 @@ namespace BasisNetworkServer.Security
 
         public static void ClearForPeer(int netId) => _overrides.TryRemove(netId, out _);
 
+        // Server-wide bitrate applied to every client without a per-user override.
+        // 0 = no global override (clients use their default). Session-only, like the
+        // packet-loss and frame-duration globals.
+        private static int _globalBitrate;
+
+        public static int GlobalBitrate => Interlocked.CompareExchange(ref _globalBitrate, 0, 0);
+
+        /// <summary>
+        /// Set or clear the global bitrate. Pass 0 to clear.
+        /// Returns the value that was actually stored after clamping (0 = cleared).
+        /// </summary>
+        public static int SetGlobalBitrate(int bitrate)
+        {
+            if (bitrate <= 0) bitrate = 0;
+            else if (bitrate < MinBitrate) bitrate = MinBitrate;
+            else if (bitrate > MaxBitrate) bitrate = MaxBitrate;
+            Interlocked.Exchange(ref _globalBitrate, bitrate);
+            return bitrate;
+        }
+
+        /// <summary>Per-user override wins over the global value; 0 = client default.</summary>
+        public static int EffectiveBitrateFor(int netId) =>
+            TryGetBitrate(netId, out int v) ? v : GlobalBitrate;
+
         public static void SendStateToPeer(NetPeer peer)
         {
-            int bitrate = TryGetBitrate(peer.Id, out int v) ? v : 0;
-            SendOverrideToPeer(peer, bitrate);
+            SendOverrideToPeer(peer, EffectiveBitrateFor(peer.Id));
+        }
+
+        public static void PushEffectiveToAllPeers()
+        {
+            NetPeer[] peers = NetworkServer.PeerSnapshot;
+            foreach (NetPeer peer in peers)
+            {
+                if (peer == null) continue;
+                SendOverrideToPeer(peer, EffectiveBitrateFor(peer.Id));
+            }
+        }
+
+        public static void SendGlobalStateToPeer(NetPeer peer)
+        {
+            NetDataWriter writer = NetworkServer.RentWriter();
+            try
+            {
+                new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetOpusBitrateState);
+                writer.Put(GlobalBitrate);
+                NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+            finally
+            {
+                NetworkServer.ReturnWriter(writer);
+            }
+        }
+
+        public static void BroadcastGlobalState()
+        {
+            NetDataWriter writer = NetworkServer.RentWriter();
+            try
+            {
+                new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetOpusBitrateState);
+                writer.Put(GlobalBitrate);
+                NetworkServer.BroadcastMessageToClients(
+                    writer,
+                    BasisNetworkCommons.AdminChannel,
+                    NetworkServer.PeerSnapshot,
+                    DeliveryMethod.ReliableOrdered);
+            }
+            finally
+            {
+                NetworkServer.ReturnWriter(writer);
+            }
         }
 
         public static void SendOverrideToPeer(NetPeer peer, int bitrate)

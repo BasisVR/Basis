@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "अभी तक कोई सर्वर नहीं। एक बनाने के लिए «सर्वर जोड़ें» दबाएँ।"
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "सर्वर जोड़ें"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "सभी रिफ़्रेश करें"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "सर्वर संपादित कर रहे हैं"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "नया सर्वर"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "सहेजें"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "रद्द करें"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "हटाएँ"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "संपादित करें"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "रिफ़्रेश करें"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "ऑफ़लाइन"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "पूछताछ हो रही है..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "साझा करें"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Basis Labs में आपका स्वागत है!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs, Basis Framework का जीवंत प्रदर्शन है — VR गेम, प्लेटफ़ॉर्म और अनुभव बनाने के लिए एक मुफ़्त, MIT-लाइसेंस वाला आधार। दुनियाएँ देखें, कस्टम अवतार पहनें और सुविधाओं को बनते हुए आज़माते हुए लोगों से मिलें। यहाँ सब कुछ विकसित हो रहा है — आपकी प्रतिक्रिया इसे आकार देने में मदद करती है।"
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "आगे"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "आपका पहला सर्वर"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Basis की कोई केंद्रीय सेवा नहीं है — कोई भी सर्वर चला सकता है, और आप इसी पैनल से अपना सर्वर होस्ट कर सकते हैं। ताकि आपके पास हमेशा जाने की जगह हो, हम एक डिफ़ॉल्ट सर्वर चलाते हैं, जो नीचे दी गई सूची में सबसे ऊपर ★ से चिह्नित है। उपयोगकर्ता नाम चुनें, चमकते हुए «कनेक्ट करें» बटन को दबाएँ, और आकर नमस्ते कहें!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "समझ गया!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "उपयोगकर्ता नाम चुनें"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "वह नाम चुनें जो अन्य खिलाड़ी देखेंगे, फिर «कनेक्ट करें» दबाएँ।"
     },
     {
       "key": "menu.servers.hostMotd",

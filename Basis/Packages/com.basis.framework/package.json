@@ -10,7 +10,6 @@
   "license": "MIT",
   "dependencies": {
     "com.unity.addressables": "2.9.1",
-    "com.unity.animation.rigging": "1.4.1",
     "com.unity.burst": "1.8.29",
     "com.unity.collections": "2.6.6",
     "com.unity.inputsystem": "1.19.0",

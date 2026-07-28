@@ -1,0 +1,13 @@
+{
+  "name": "com.basis.soundpack",
+  "displayName": "Basis Sound Pack",
+  "version": "0.0.1",
+  "description": "Optional UI/interaction sound effects for the Basis framework, sourced from Kenney's CC0 Interface Sounds. If this package is absent, the framework falls back to its built-in sounds.",
+  "unity": "6000.0",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "hideInEditor": false,
+  "license": "CC0-1.0"
+}

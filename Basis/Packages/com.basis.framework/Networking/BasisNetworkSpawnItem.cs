@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static BasisNetworkContentBase;
 using static BundledContentHolder;
 using static SerializableBasis;
 public static class BasisNetworkSpawnItem
@@ -170,24 +171,43 @@ public static class BasisNetworkSpawnItem
             UnlockPassword = localLoadResource.UnlockPassword,
         };
 
-        Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
-        _loadCts.Token.ThrowIfCancellationRequested();
-        BasisDebug.Log($"LoadSceneAssetBundle Complete now Starting Scene Traversal", BasisDebug.LogTag.Networking);
-        SceneTraverseNetIdAssign(scene, localLoadResource);
-
-        BasisRuntimeSpawnRegistry.AddScene(
-            localLoadResource.CombinedURL, 
-            localLoadResource.LoadedNetID,
-            scene, 
+        BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
+            localLoadResource.CombinedURL,
+            BasisRuntimeSpawnRegistry.SpawnMode.Scene,
+            BasisRuntimeSpawnRegistry.SpawnMethod.Network,
             localLoadResource.UUIDOfCreator,
             localLoadResource.IsAdminLocked,
-            localLoadResource.Persist, 
-            BasisRuntimeSpawnRegistry.SpawnMethod.Network, 
-            loadBundle.BasisBundleConnector, 
-            out var created
-        );
-        BasisDebug.Log($"Scene Load From Server Complete ", BasisDebug.LogTag.Networking);
-        return scene;
+            localLoadResource.Persist);
+        void ForwardPendingProgress(string uniqueId, float progress, string info) =>
+            BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
+        BasisSceneLoad.progressCallback.OnProgressReport += ForwardPendingProgress;
+        try
+        {
+            Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
+            _loadCts.Token.ThrowIfCancellationRequested();
+            BasisDebug.Log($"LoadSceneAssetBundle Complete now Starting Scene Traversal", BasisDebug.LogTag.Networking);
+            SceneTraverseNetIdAssign(scene, localLoadResource);
+
+            BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+            BasisRuntimeSpawnRegistry.AddScene(
+                localLoadResource.CombinedURL,
+                localLoadResource.LoadedNetID,
+                scene,
+                localLoadResource.UUIDOfCreator,
+                localLoadResource.IsAdminLocked,
+                localLoadResource.Persist,
+                BasisRuntimeSpawnRegistry.SpawnMethod.Network,
+                loadBundle.BasisBundleConnector,
+                out var created
+            );
+            BasisDebug.Log($"Scene Load From Server Complete ", BasisDebug.LogTag.Networking);
+            return scene;
+        }
+        finally
+        {
+            BasisSceneLoad.progressCallback.OnProgressReport -= ForwardPendingProgress;
+            BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+        }
     }
 
     public static void SceneTraverseNetIdAssign(Scene scene, LocalLoadResource localLoadResource)
@@ -198,10 +218,36 @@ public static class BasisNetworkSpawnItem
             BasisScene BasisScene = root.GetComponentInChildren<BasisScene>();
             if (BasisScene != null)
             {
-                BasisScene.AssignNetworkGUIDIdentifier(localLoadResource.LoadedNetID);
+                BasisScene.AssignContentIdentifier(Generator(localLoadResource));
                 return;
             }
         }
+    }
+    public static BasisContentInformation Generator(LocalLoadResource LoadResource)
+    {
+        BasisContentInformation Information = new BasisContentInformation()
+        {
+            IsAdminLocked = LoadResource.IsAdminLocked,
+            LoadedNetID = LoadResource.LoadedNetID,
+            LoadStrategy = LoadResource.LoadStrategy,
+            Mode = LoadResource.Mode,
+            ModifyScale = LoadResource.ModifyScale,
+            Persist = LoadResource.Persist,
+            PositionX = LoadResource.PositionX,
+            PositionY = LoadResource.PositionY,
+            PositionZ = LoadResource.PositionZ,
+            QuaternionW = LoadResource.QuaternionW,
+            QuaternionX = LoadResource.QuaternionX,
+            QuaternionY = LoadResource.QuaternionY,
+            QuaternionZ = LoadResource.QuaternionZ,
+            ScaleX = LoadResource.ScaleX,
+            ScaleY = LoadResource.ScaleY,
+            ScaleZ = LoadResource.ScaleZ,
+            Static = LoadResource.Static,
+            StaticAdminLocked = LoadResource.StaticAdminLocked,
+            UUIDOfCreator = LoadResource.UUIDOfCreator,
+        };
+        return Information;
     }
     public static async Task<GameObject> SpawnGameObject(LocalLoadResource localLoadResource, Selector Selector)
     {
@@ -218,54 +264,72 @@ public static class BasisNetworkSpawnItem
         };
         BasisProgressReport BasisProgressReport = new BasisProgressReport();
         BasisProgressReport.OnProgressReport += BasisUILoadingBar.ProgressReport;
+        BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
+            localLoadResource.CombinedURL,
+            BasisRuntimeSpawnRegistry.SpawnMode.GameObject,
+            BasisRuntimeSpawnRegistry.SpawnMethod.Network,
+            localLoadResource.UUIDOfCreator,
+            localLoadResource.IsAdminLocked,
+            localLoadResource.Persist);
+        void ForwardPendingProgress(string uniqueId, float progress, string info) =>
+            BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
+        BasisProgressReport.OnProgressReport += ForwardPendingProgress;
         var position = new Vector3(localLoadResource.PositionX, localLoadResource.PositionY, localLoadResource.PositionZ);
         var rotation = new Quaternion(localLoadResource.QuaternionX, localLoadResource.QuaternionY, localLoadResource.QuaternionZ, localLoadResource.QuaternionW);
         var scale = new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ);
-        GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, loadBundle, true, BasisProgressReport, _loadCts.Token,
-            position,
-            rotation,
-            scale,
-            localLoadResource.ModifyScale, Selector, BasisDeviceManagement.Instance.transform);
+        try
+        {
+            GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, loadBundle, true, BasisProgressReport, _loadCts.Token,
+                position,
+                rotation,
+                scale,
+                localLoadResource.ModifyScale, Selector, BasisDeviceManagement.Instance.transform);
 
-        if (reference == null)
-        {
-            BasisDebug.LogError($"Unable to load content from {localLoadResource.CombinedURL}. This may be caused by the bundle not having a build for the current platform ({UnityEngine.Application.platform}). Check earlier log messages for details.", BasisDebug.LogTag.Networking);
-            BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
-            return null;
-        }
+            if (reference == null)
+            {
+                BasisDebug.LogError($"Unable to load content from {localLoadResource.CombinedURL}. This may be caused by the bundle not having a build for the current platform ({UnityEngine.Application.platform}). Check earlier log messages for details.", BasisDebug.LogTag.Networking);
+                return null;
+            }
 
 
-        reference.name = localLoadResource.LoadedNetID;
-        if (reference.TryGetComponent<BasisNetworkContentBase>(out BasisNetworkContentBase BasisContentBase))
-        {
-            BasisContentBase.AssignNetworkGUIDIdentifier(localLoadResource.LoadedNetID);
-        }
-        else
-        {
-            BasisDebug.LogWarning($"Gameobject Did not have a class deriving from {nameof(BasisNetworkContentBase)} on it!");
-        }
-        //BasisDebug.Log( $"SpawnGameObject -> was spawned does it have metadata? asset bundle name = {loadBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName}" );
-        BasisRuntimeSpawnRegistry.AddGameObject(
-            localLoadResource.CombinedURL, 
-            localLoadResource.LoadedNetID, 
-            reference, 
-            localLoadResource.UUIDOfCreator,
-            localLoadResource.IsAdminLocked, 
-            localLoadResource.Persist, 
-            BasisRuntimeSpawnRegistry.SpawnMethod.Network,
-            loadBundle.BasisBundleConnector,
-            out var data
-        );
-        // If the server already flagged this item static (e.g. for a late joiner), freeze it now.
-        if (localLoadResource.Static)
-        {
-            BasisRuntimeSpawnRegistry.SetStaticByLoadedNetId(localLoadResource.LoadedNetID, localLoadResource.Static, localLoadResource.StaticAdminLocked);
-        }
+            reference.name = localLoadResource.LoadedNetID;
+            if (reference.TryGetComponent<BasisNetworkContentBase>(out BasisNetworkContentBase BasisContentBase))
+            {
+                BasisContentBase.AssignContentIdentifier(Generator(localLoadResource));
+            }
+            else
+            {
+                BasisDebug.LogWarning($"Gameobject Did not have a class deriving from {nameof(BasisNetworkContentBase)} on it!");
+            }
+            //BasisDebug.Log( $"SpawnGameObject -> was spawned does it have metadata? asset bundle name = {loadBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName}" );
+            BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+            BasisRuntimeSpawnRegistry.AddGameObject(
+                localLoadResource.CombinedURL,
+                localLoadResource.LoadedNetID,
+                reference,
+                localLoadResource.UUIDOfCreator,
+                localLoadResource.IsAdminLocked,
+                localLoadResource.Persist,
+                BasisRuntimeSpawnRegistry.SpawnMethod.Network,
+                loadBundle.BasisBundleConnector,
+                out var data
+            );
+            // If the server already flagged this item static (e.g. for a late joiner), freeze it now.
+            if (localLoadResource.Static)
+            {
+                BasisRuntimeSpawnRegistry.SetStaticByLoadedNetId(localLoadResource.LoadedNetID, localLoadResource.Static, localLoadResource.StaticAdminLocked);
+            }
 #if UNITY_SERVER
-        BasisHeadlessManagement.StripTextureReferencesFromRoot(reference);
+            BasisHeadlessManagement.StripTextureReferencesFromRoot(reference);
 #endif
-        BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
-        return reference;
+            return reference;
+        }
+        finally
+        {
+            BasisProgressReport.OnProgressReport -= ForwardPendingProgress;
+            BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
+            BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+        }
     }
     public static async Task DestroyScene(UnLoadResource resource)
     {

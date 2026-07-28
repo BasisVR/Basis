@@ -27,7 +27,7 @@ public static class BasisNetworkMessageProcessor
             int preAuthErrors = _peerErrorCounts.AddOrUpdate(peer.Id, 1, (_, c) => c + 1);
             if (preAuthErrors <= 5 || preAuthErrors % 100 == 0)
             {
-                BNL.LogError($"Pre-auth message on channel {channel} from peer {peer.Id} ({peer.Address}) before authentication (error #{preAuthErrors}).");
+                BNL.LogError($"Pre-auth message on channel {channel} from peer {peer.Id} before authentication (error #{preAuthErrors}).");
             }
             return;
         }
@@ -56,13 +56,13 @@ public static class BasisNetworkMessageProcessor
             if (errorCount <= 5 || errorCount % 100 == 0)
             {
                 BNL.LogError(
-                    $"[Error] Exception in ProcessMessage (error #{errorCount})\nPeer: {peer.Address}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}"
+                    $"[Error] Exception in ProcessMessage (error #{errorCount})\nPeer: {peer.Id}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}"
                 );
             }
             reader.Recycle();
             if (errorCount >= MaxErrorsBeforeWarning)
             {
-                BNL.LogError($"Peer {peer.Id} ({peer.Address}) has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
+                BNL.LogError($"Peer {peer.Id} has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
                 BasisPlayerModeration.SendBackMessage(peer, "The server has detected an issue with your client or connection. You may experience problems.");
                 _peerErrorCounts.TryRemove(peer.Id, out _);
             }
@@ -79,7 +79,7 @@ public static class BasisNetworkMessageProcessor
         reader.Recycle();
         if (errorCount >= MaxErrorsBeforeWarning)
         {
-            BNL.LogError($"Peer {peer.Id} ({peer.Address}) has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
+            BNL.LogError($"Peer {peer.Id} has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
             BasisPlayerModeration.SendBackMessage(peer, "The server has detected an issue with your client or connection. You may experience problems.");
             _peerErrorCounts.TryRemove(peer.Id, out _);
         }

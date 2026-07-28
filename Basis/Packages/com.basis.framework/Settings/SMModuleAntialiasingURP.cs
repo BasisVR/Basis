@@ -49,6 +49,7 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
         BasisDebug.Log($"Antialiasing Changed to {optionValue}", BasisDebug.LogTag.Local);
         switch (optionValue)
         {
+            case "off":
             case "msaa off":
                 Asset.msaaSampleCount = 1;
                 Camera.allowMSAA = false;

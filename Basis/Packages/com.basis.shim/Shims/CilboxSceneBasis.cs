@@ -34,7 +34,6 @@ namespace Cilbox
 			"Basis.BasisStringDownloader",
 			"Basis.IBasisStringDownload",
 			"Basis.BasisUrl",
-			"BasisNetworkCommon+EventTiming",
 			"BasisSDKMirror",
 			"BasisSDKMirror+MirrorClearFlags",
 			"HVR.Basis.Comms.OSC.OscData",
@@ -294,10 +293,24 @@ namespace Cilbox
 				$"get_{nameof(BasisMediaPlayer.OutputTexture)}",
 				$"get_{nameof(BasisMediaPlayer.OutputFrameIsTopLeftOrigin)}",
 				} },
+			// Cilbox-facing voice routing (issue #911). Pinned to the safe route API only: no PCM
+			// access, no disk output, no consent bypass (see BasisVoiceRoutingShim). Basis.Shims.* is
+			// type-whitelisted, so this restriction is what keeps the callable surface to these four.
+			{ typeof(Basis.Shims.BasisVoiceRoutingShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisVoiceRoutingShim.HasConsent),
+				nameof(Basis.Shims.BasisVoiceRoutingShim.RouteVoiceToObject),
+				nameof(Basis.Shims.BasisVoiceRoutingShim.StopVoiceRoute),
+				nameof(Basis.Shims.BasisVoiceRoutingShim.StopAllRoutesFor),
+				} },
 			// Restrict BasisDeviceManagement to the single mode query the menu uses.
 			{ typeof(Basis.Scripts.Device_Management.BasisDeviceManagement), new HashSet<string>{ "IsCurrentModeVR" } },
 			// BasisLocalCameraDriver: only the static CameraInstance field is needed (whitelisted above); block all methods.
 			{ typeof(Basis.Scripts.Drivers.BasisLocalCameraDriver), new HashSet<string>() },
+			// Scripted player input is an AVATAR-box feature (the avatar you are wearing drives your own
+			// locomotion / play-space mover). Basis.Shims.* is type-whitelisted here, so block every
+			// method to keep world scripts out of it; worlds already have Teleport/Respawn/Immobilize.
+			{ typeof(Basis.Shims.BasisPlayspaceInputShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>() },
 			{ typeof(BasisLocalPlayer), new HashSet<string>{
 				nameof(BasisLocalPlayer.GetPositionAndRotation),
 				nameof(BasisLocalPlayer.Teleport),

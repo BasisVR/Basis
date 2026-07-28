@@ -41,14 +41,9 @@ namespace Basis.Scripts.Networking.Sync
 
         // Transform bindings.
         private static readonly List<Transform> _bindTransforms = new List<Transform>();
-        private static readonly List<int> _bindPos = new List<int>();
-        private static readonly List<int> _bindRot = new List<int>();
-        private static readonly List<int> _bindScale = new List<int>();
-        private static readonly List<byte> _bindWorld = new List<byte>();
-        private static readonly List<int> _bindSlot = new List<int>();
+        private static readonly List<BasisSyncApplyBinding> _bindings = new List<BasisSyncApplyBinding>();
         private static TransformAccessArray _taa;
-        private static NativeArray<int> _bindPosArr, _bindRotArr, _bindScaleArr, _bindSlotArr;
-        private static NativeArray<byte> _bindWorldArr;
+        private static NativeArray<BasisSyncApplyBinding> _bindingsArr;
 
         public static void Initialize()
         {
@@ -75,7 +70,7 @@ namespace Basis.Scripts.Networking.Sync
             DisposeIf(ref _contCur); DisposeIf(ref _contNext); DisposeIf(ref _contOut); DisposeIf(ref _contMode);
             DisposeIf(ref _rotCur); DisposeIf(ref _rotNext); DisposeIf(ref _rotOut); DisposeIf(ref _rotMode);
             DisposeIf(ref _discNext); DisposeIf(ref _discOut);
-            DisposeIf(ref _bindPosArr); DisposeIf(ref _bindRotArr); DisposeIf(ref _bindScaleArr); DisposeIf(ref _bindWorldArr); DisposeIf(ref _bindSlotArr);
+            DisposeIf(ref _bindingsArr);
             if (_taa.isCreated) _taa.Dispose();
 
             _remote.Clear();
@@ -100,6 +95,9 @@ namespace Basis.Scripts.Networking.Sync
 
         /// <summary>Live list of remote (interpolated) synced objects, for debug visualisation. Do not mutate.</summary>
         public static IReadOnlyList<BasisSyncedObject> RemoteObjects => _remote;
+
+        /// <summary>Live set of locally-owned (transmitting) synced objects, for debug visualisation. Do not mutate.</summary>
+        public static HashSet<BasisSyncedObject> OwnedObjects => _owned;
 
         public static void RegisterOwned(BasisSyncedObject obj)
         {
@@ -131,11 +129,11 @@ namespace Basis.Scripts.Networking.Sync
                 BasisSyncReceiver recv = o.Receiver;
                 if (recv == null || !recv.HasData) { _active[i] = 0; continue; }
 
-                int cb = _contBase[i], cc = _contCount[i];
-                int rb = _rotBase[i], rc = _rotCount[i];
-                int db = _discBase[i], dc = _discCount[i];
                 if (recv.ConsumeValuesDirty() || _forceFullCopy)
                 {
+                    int cb = _contBase[i], cc = _contCount[i];
+                    int rb = _rotBase[i], rc = _rotCount[i];
+                    int db = _discBase[i], dc = _discCount[i];
                     BasisSyncValues cur = recv.CurrentValues;
                     BasisSyncValues nxt = recv.NextValues;
 
@@ -191,18 +189,19 @@ namespace Basis.Scripts.Networking.Sync
                 {
                     ContOut = _contOut,
                     RotOut = _rotOut,
-                    PosIdx = _bindPosArr,
-                    RotIdx = _bindRotArr,
-                    ScaleIdx = _bindScaleArr,
-                    WorldSpace = _bindWorldArr,
                     Active = _active,
-                    BindSlot = _bindSlotArr,
+                    Bindings = _bindingsArr,
                 };
                 h = apply.Schedule(_taa, h);
             }
 
             _jobHandle = h;
             _scheduled = true;
+
+            // Kick the batch now: the complete sits far away in the LateUpdate network-apply
+            // block, and without a flush the interp chain idles in the queue through the
+            // eye/comms/transmit stages it is supposed to overlap.
+            JobHandle.ScheduleBatchedJobs();
         }
 
         public static void CompleteRemote()
@@ -216,7 +215,7 @@ namespace Basis.Scripts.Networking.Sync
             for (int i = 0; i < _mainThreadApply.Count; i++)
             {
                 BasisSyncedObject o = _mainThreadApply[i];
-                if (o != null) o.DriverApply();
+                if (o != null && !o.JobApplied) o.DriverApply();
             }
         }
 
@@ -270,11 +269,7 @@ namespace Basis.Scripts.Networking.Sync
             AllocDisc(discTotal);
 
             _bindTransforms.Clear();
-            _bindPos.Clear();
-            _bindRot.Clear();
-            _bindScale.Clear();
-            _bindWorld.Clear();
-            _bindSlot.Clear();
+            _bindings.Clear();
 
             int cb = 0, rb = 0, db = 0;
             for (int i = 0; i < n; i++)
@@ -308,14 +303,14 @@ namespace Basis.Scripts.Networking.Sync
                     }
                 }
 
-                if (o.HasTransformBinding && o.BoundTransform != null)
+                o.JobApplied = false;
+                if (o.TryGetJobApplyBinding(out BasisSyncApplyBinding binding, out Transform target, out bool replacesMainThreadApply) && target != null)
                 {
-                    _bindTransforms.Add(o.BoundTransform);
-                    _bindPos.Add(o.BindPosFieldIndex >= 0 ? cb + s.GetField(o.BindPosFieldIndex).Offset : -1);
-                    _bindRot.Add(o.BindRotFieldIndex >= 0 ? rb + s.GetField(o.BindRotFieldIndex).Offset : -1);
-                    _bindScale.Add(o.BindScaleFieldIndex >= 0 ? cb + s.GetField(o.BindScaleFieldIndex).Offset : -1);
-                    _bindWorld.Add((byte)(o.BindWorldSpace ? 1 : 0));
-                    _bindSlot.Add(i);
+                    binding.Slot = i;
+                    binding.OffsetPools(cb, rb);
+                    _bindTransforms.Add(target);
+                    _bindings.Add(binding);
+                    o.JobApplied = replacesMainThreadApply;
                 }
 
                 cb += s.ContCount;
@@ -337,14 +332,7 @@ namespace Basis.Scripts.Networking.Sync
             for (int i = 0; i < count; i++) _taa.Add(_bindTransforms[i]);
 
             AllocBindings(count < 1 ? 1 : count);
-            for (int i = 0; i < count; i++)
-            {
-                _bindPosArr[i] = _bindPos[i];
-                _bindRotArr[i] = _bindRot[i];
-                _bindScaleArr[i] = _bindScale[i];
-                _bindWorldArr[i] = _bindWorld[i];
-                _bindSlotArr[i] = _bindSlot[i];
-            }
+            for (int i = 0; i < count; i++) _bindingsArr[i] = _bindings[i];
         }
 
         private static void AllocSlots(int n)
@@ -406,13 +394,9 @@ namespace Basis.Scripts.Networking.Sync
         private static void AllocBindings(int n)
         {
             if (n < 1) n = 1;
-            if (_bindPosArr.IsCreated && _bindPosArr.Length == n) return;
-            DisposeIf(ref _bindPosArr); DisposeIf(ref _bindRotArr); DisposeIf(ref _bindScaleArr); DisposeIf(ref _bindWorldArr); DisposeIf(ref _bindSlotArr);
-            _bindPosArr = new NativeArray<int>(n, Allocator.Persistent);
-            _bindRotArr = new NativeArray<int>(n, Allocator.Persistent);
-            _bindScaleArr = new NativeArray<int>(n, Allocator.Persistent);
-            _bindWorldArr = new NativeArray<byte>(n, Allocator.Persistent);
-            _bindSlotArr = new NativeArray<int>(n, Allocator.Persistent);
+            if (_bindingsArr.IsCreated && _bindingsArr.Length == n) return;
+            DisposeIf(ref _bindingsArr);
+            _bindingsArr = new NativeArray<BasisSyncApplyBinding>(n, Allocator.Persistent);
         }
 
         private static void DisposeIf<T>(ref NativeArray<T> arr) where T : struct

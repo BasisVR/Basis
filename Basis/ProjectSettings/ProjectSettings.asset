@@ -152,13 +152,15 @@ PlayerSettings:
   preloadedAssets:
   - {fileID: 11400000, guid: cf469a9a31a25dc449c2537cb0b17ad6, type: 2}
   - {fileID: -944628639613478452, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  - {fileID: -5957691810772215966, guid: 1d5aae00e097ba9419be9ec26ccae856, type: 2}
+  - {fileID: 4183660298247459095, guid: ad3dbbd57db07a1488d166f19ed6e7dc, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   xboxOneDisableKinectGpuReservation: 1
   xboxOneEnable7thCore: 1
   vrSettings:
     enable360StereoCapture: 0
-  enableFrameTimingStats: 0
+  enableFrameTimingStats: 1
   enableOpenGLProfilerGPURecorders: 1
   allowHDRDisplaySupport: 1
   useHDRDisplay: 1
@@ -180,8 +182,8 @@ PlayerSettings:
     iPhone: 0
     tvOS: 0
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 208
-  AndroidMinSdkVersion: 32
+  AndroidBundleVersionCode: 215
+  AndroidMinSdkVersion: 29
   AndroidTargetSdkVersion: 34
   AndroidPreferredInstallLocation: 0
   AndroidPreferredDataLocation: 1
@@ -964,7 +966,7 @@ PlayerSettings:
   hmiLoadingImage: {fileID: 0}
   platformRequiresReadableAssets: 0
   virtualTexturingSupportEnabled: 0
-  insecureHttpOption: 0
+  insecureHttpOption: 2
   androidVulkanDenyFilterList: []
   androidVulkanAllowFilterList: []
   androidVulkanDeviceFilterListAsset: {fileID: 0}

@@ -24,12 +24,14 @@ namespace Basis.BasisUI
             descriptor.SetTitle(BasisLocalization.Get("settings.tab.myavatar"));
             descriptor.ForceRebuild();
 
-            SettingsProvider.AvatarCustomizationBuilder(tab.Descriptor.ContentParent);
+            SettingsProvider.AvatarCustomizationBuilder?.Invoke(tab.Descriptor.ContentParent);
             return tab;
         }
 
         public static void PopulateTrackerRoles(PanelElementDescriptor group)
         {
+            group.SetBackgroundVisible(false);
+
             BasisDeviceManagement manager = BasisDeviceManagement.Instance;
             if (manager == null)
             {

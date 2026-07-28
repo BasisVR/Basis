@@ -16,15 +16,25 @@ public static partial class SerializableBasis
             TotalPlayedInSilence = Writer.GetByte();
             if (Writer.EndOfData)
             {
-                buffer = null;
+                // Keep the retained buffer; consumers gate on LengthUsed, and nulling here would
+                // throw the reused allocation away across a talk → silence → talk cycle.
                 TotalLength = 0;
                 LengthUsed = 0;
             }
             else
             {
-                buffer = Writer.GetRemainingBytes();
-                TotalLength = buffer.Length;
-                LengthUsed = TotalLength;
+                // Copied into a retained buffer rather than GetRemainingBytes(): this struct is
+                // recycled (client queue, server pool) and every consumer copies out via
+                // LengthUsed, so a fresh byte[] per voice packet was pure garbage. Grow-only, so
+                // a steady stream settles on one allocation.
+                int available = Writer.AvailableBytes;
+                if (buffer == null || buffer.Length < available)
+                {
+                    buffer = new byte[available];
+                }
+                Writer.GetBytes(buffer, available);
+                TotalLength = available;
+                LengthUsed = available;
             }
         }
         public void Serialize(NetDataWriter Writer)

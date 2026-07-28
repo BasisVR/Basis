@@ -1,0 +1,19 @@
+{
+    "name": "BasisTrackerObjects",
+    "rootNamespace": "Basis.TrackerObjects",
+    "references": [
+        "Basis Framework",
+        "BasisSDK",
+        "BasisCommon",
+        "BasisDebug"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

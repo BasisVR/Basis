@@ -2,8 +2,6 @@
     "name": "BasisGizmos",
     "rootNamespace": "",
     "references": [
-        "Unity.Addressables",
-        "Unity.ResourceManager",
         "Unity.TextMeshPro",
         "BasisDebug"
     ],

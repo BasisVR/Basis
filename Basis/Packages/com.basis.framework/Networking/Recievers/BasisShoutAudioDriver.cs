@@ -3,6 +3,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.Networking.VoiceRecording;
 #if !UNITY_SERVER
 #endif
 using System.Collections.Generic;
@@ -30,6 +31,7 @@ namespace Basis.Scripts.Networking.Receivers
             public BasisAudioReceiver Receiver;
             public AudioSource AudioSource;
             public BasisRemoteAudioDriver Driver;
+            public GameObject Root;
         }
 
         private static readonly Dictionary<ushort, ShoutAudioEntry> _entries = new Dictionary<ushort, ShoutAudioEntry>();
@@ -71,9 +73,12 @@ namespace Basis.Scripts.Networking.Receivers
             entry.Receiver.decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 
-            // Add AudioSource directly to BasisDeviceManagement.Instance
-            Transform parent = BasisDeviceManagement.Instance.transform;
-            entry.AudioSource = parent.gameObject.AddComponent<AudioSource>();
+            // Own GameObject per shouter: OnAudioFilterRead scripts run for every
+            // AudioSource on the same GameObject, so shared hosting breaks with
+            // multiple simultaneous shouters.
+            entry.Root = new GameObject($"Shout Audio {playerId}");
+            entry.Root.transform.SetParent(BasisDeviceManagement.Instance.transform, false);
+            entry.AudioSource = entry.Root.AddComponent<AudioSource>();
             entry.AudioSource.clip = BasisAudioClipPool.Get(playerId);
             entry.AudioSource.loop = true;
 
@@ -89,11 +94,11 @@ namespace Basis.Scripts.Networking.Receivers
             entry.AudioSource.volume = 1f;
 
             // Wire up the audio driver so OnAudioFilterRead fires
-            entry.Driver = parent.gameObject.AddComponent<BasisRemoteAudioDriver>();
+            entry.Driver = entry.Root.AddComponent<BasisRemoteAudioDriver>();
             entry.Driver.BasisAudioReceiver = entry.Receiver;
 
             entry.Receiver.audioSource = entry.AudioSource;
-            entry.Receiver.AudioSourceTransform = parent;
+            entry.Receiver.AudioSourceTransform = entry.Root.transform;
             entry.Receiver.DirectionalDampeningMultiplier = 1f;
 
             // Initialize audio processing buffers BEFORE setting HasAudioSource.
@@ -116,6 +121,7 @@ namespace Basis.Scripts.Networking.Receivers
             entry.AudioSource.Play();
 
             _entries[playerId] = entry;
+            BasisVoiceRecording.OnShoutReceiverCreated(playerId, entry.Receiver);
             BasisDebug.Log($"Shout audio enabled for player {playerId}");
 #endif
         }
@@ -159,6 +165,11 @@ namespace Basis.Scripts.Networking.Receivers
                 Object.Destroy(entry.Driver);
             }
 
+            if (entry.Root != null)
+            {
+                Object.Destroy(entry.Root);
+            }
+
             _entries.Remove(playerId);
             BasisDebug.Log($"Shout audio disabled for player {playerId}");
         }
@@ -169,6 +180,21 @@ namespace Basis.Scripts.Networking.Receivers
         public static bool IsInShoutMode(ushort playerId)
         {
             return _entries.ContainsKey(playerId);
+        }
+
+        /// <summary>
+        /// Exposes a shouting player's receiver so the voice-recording tap can follow the
+        /// shout audio path. Returns false when the player is not currently shouting.
+        /// </summary>
+        internal static bool TryGetReceiver(ushort playerId, out BasisAudioReceiver receiver)
+        {
+            if (_entries.TryGetValue(playerId, out ShoutAudioEntry entry))
+            {
+                receiver = entry.Receiver;
+                return true;
+            }
+            receiver = null;
+            return false;
         }
 
         /// <summary>
@@ -203,7 +229,12 @@ namespace Basis.Scripts.Networking.Receivers
         {
             foreach (var kvp in _entries)
             {
-                kvp.Value.Receiver.DrainAndDecode();
+                var receiver = kvp.Value.Receiver;
+                if (!receiver.IsAudioActive || receiver.VoiceBuffer.DecodedFrameCount == 0)
+                {
+                    receiver.DrainAndDecodeThreadSafe();
+                }
+                receiver.ApplyAudioState();
             }
         }
 

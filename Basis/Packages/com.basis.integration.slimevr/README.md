@@ -19,6 +19,11 @@ has about your body, so you don't have to calibrate your size in Basis at all.
   and signal strength (`BasisSlimeVRBridge.Trackers` + `OnTrackersUpdated`) for HUDs and menus.
 - **Resets**: SlimeVR's yaw / full / mounting resets can be triggered from inside Basis
   (`BasisSlimeVRBridge.TriggerYawReset()` etc., also exposed in Settings > Tracker Settings).
+  The menu buttons run through a shared pose countdown
+  (`BasisSlimeVRBridge.StartPoseCountdown`) so there is time to get into pose after pressing;
+  pressing the button again cancels. The length is the **Pose Countdown** slider
+  (`slimevr_pose_countdown_seconds`, default 4 s, 0 = instant). The `Trigger*` methods stay
+  immediate for bindings.
 - **Auto tracker roles (no calibration step)**: `BasisSlimeVRTrackerRoles` registers SlimeVR's
   convention — virtual SteamVR trackers carry their body part in their serial (`human://WAIST`,
   `human://LEFT_FOOT`, ...) — with the framework's announced-role scanner

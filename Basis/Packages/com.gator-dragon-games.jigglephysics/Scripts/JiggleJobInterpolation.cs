@@ -47,11 +47,7 @@ public struct JiggleJobInterpolation : IJobFor {
         var newPose = currentPoses[index];
 
         var diff = timeStamp - previousTimeStamp;
-        if (diff == 0) {
-            throw new UnityException($"Time difference is zero ({timeStamp}-{previousTimeStamp}), cannot interpolate.");
-        }
-
-        var t = math.saturate((currentTime - timeCorrection - previousTimeStamp) / diff);
+        var t = diff == 0 ? 1.0 : math.saturate((currentTime - timeCorrection - previousTimeStamp) / diff);
         var interPose = PoseData.Lerp(prevPose, newPose, (float)t);
 
         var snapToReal = realRootPositions[index] - interPose.rootPosition;

@@ -16,6 +16,9 @@ public static partial class SerializableBasis
         public float IncreaseRate;
         public float SlowestSendRate;
         public int PeerLimit;
+        // v42: server accepts client→server avatar deltas on DeltaAvatarChannel. When false the
+        // client uploads full keyframes only (legacy behavior).
+        public bool UplinkDeltaEnabled;
         //want to include what permissions this player has to the client
         public byte[] PermissionsBitset;     // fast, fixed — known nodes as bits
         public string[] ExtraPermissions;    // dynamic fallback — compressed on the wire
@@ -69,6 +72,8 @@ public static partial class SerializableBasis
                 PermissionsBitset = Array.Empty<byte>();
                 ExtraPermissions = Array.Empty<string>();
             }
+
+            UplinkDeltaEnabled = Writer.AvailableBytes > 0 && Writer.GetByte() != 0;
         }
         public void Serialize(NetDataWriter Writer)
         {
@@ -112,6 +117,8 @@ public static partial class SerializableBasis
                 byte[] compressed = PermissionCompression.CompressExtras(ExtraPermissions);
                 Writer.PutBytesWithLength(compressed);
             }
+
+            Writer.Put(UplinkDeltaEnabled ? (byte)1 : (byte)0);
         }
     }
 }

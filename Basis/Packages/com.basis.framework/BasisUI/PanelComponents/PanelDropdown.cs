@@ -21,6 +21,8 @@ namespace Basis.BasisUI
 
         protected override Selectable InteractableTarget => DropdownComponent;
 
+        protected override bool SupportsResetGesture => true;
+
         private int _previousIndex = -1;
         private TweenScale _selectionPunchTween;
         private TweenCanvasGroupAlpha _listFadeTween;
@@ -100,6 +102,12 @@ namespace Basis.BasisUI
         {
             base.SetValueWithoutNotify(value);
             DropdownComponent.SetValueWithoutNotify(Index);
+        }
+
+        protected override void ApplyReset(string target)
+        {
+            base.ApplyReset(target);
+            _previousIndex = DropdownComponent.value;
         }
 
         private void AnimateSelectionChange()

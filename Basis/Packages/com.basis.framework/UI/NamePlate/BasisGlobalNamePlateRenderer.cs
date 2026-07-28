@@ -30,8 +30,8 @@ namespace Basis.Scripts.UI.NamePlate
     {
         private const float NoCullExtent = 100000f;
 
-        // Below this total vertex count the CPU per-vertex transform runs inline (still Burst-compiled
-        // via .Run) — scheduling overhead would dominate the trivial work for tiny lobbies.
+        // Below this vertex count the text-merge job runs inline (still Burst-compiled via .Run) —
+        // scheduling overhead would dominate the trivial work for tiny rebuilds.
         private const int ParallelVertexThreshold = 2048;
 
         /// <summary>
@@ -84,6 +84,9 @@ namespace Basis.Scripts.UI.NamePlate
         // world matrix is hips-position + yaw-to-camera + that uniform scale.
         private static NativeArray<int> plateKey;
         private static NativeArray<int> plateSlot;
+        // Per-plate world position copied out of sOut during the gather, so the scheduled
+        // matrix job never dereferences the bone system's array while deferred to before-render.
+        private static NativeArray<float3> platePos;
         // Snapshot mirrored as a plain array so the per-frame gather indexes a T[] instead of
         // List<T>.this[] (the List indexer's bounds-check showed up in the gather).
         private static BasisRemoteNamePlate[] snapArr = System.Array.Empty<BasisRemoteNamePlate>();
@@ -258,6 +261,71 @@ namespace Basis.Scripts.UI.NamePlate
             initialized = true;
         }
 
+        // In-flight matrix-build + CPU vertex-transform chain, completed and published by
+        // FinishFrame at before-render — or joined early by CompletePendingVertexJobs when
+        // something needs to mutate the buffers first.
+        private static JobHandle pendingVertexJobs;
+        private static bool vertexJobsPending;
+        // Layers awaiting publish (GPU buffer upload + renderer enable / CPU vertex push) at
+        // FinishFrame. Set every UpdateFrame; cleared unpublished when a rebuild or dispose
+        // joins early (that frame simply keeps the previous upload).
+        private static bool publishPending;
+        private static int publishPlateCount;
+
+        /// <summary>
+        /// Joins the in-flight jobs without publishing their output. Must run before anything
+        /// writes or frees the buffers the jobs touch — the top of Rebuild, and Dispose.
+        /// </summary>
+        private static void CompletePendingVertexJobs()
+        {
+            publishPending = false;
+            if (!vertexJobsPending) return;
+            vertexJobsPending = false;
+            pendingVertexJobs.Complete();
+            pendingVertexJobs = default;
+        }
+
+        /// <summary>
+        /// Completes the frame's scheduled matrix/vertex jobs and publishes: uploads the
+        /// per-plate GPU buffers and pushes/enables the layers. Called from before-render, so
+        /// the jobs overlap the tail of LateUpdate and Unity's internal post-late work — and
+        /// the GraphicsBuffer uploads land here instead of inside the NamePlate.Complete marker.
+        /// </summary>
+        public static void FinishFrame()
+        {
+            if (!vertexJobsPending && !publishPending) return;
+            if (vertexJobsPending)
+            {
+                vertexJobsPending = false;
+                pendingVertexJobs.Complete();
+                pendingVertexJobs = default;
+            }
+            if (publishPending)
+            {
+                publishPending = false;
+                PublishGpuBuffers();
+                FinalizeLayers();
+            }
+        }
+
+        /// <summary>Uploads the per-plate matrix (+ panel color) buffers for the GPU layers.
+        /// Runs after the matrix job completed, so nothing reads the arrays concurrently.</summary>
+        private static void PublishGpuBuffers()
+        {
+            int plateCount = publishPlateCount;
+            if (plateCount == 0) return;
+
+            bool anyGpu = panel.Gpu;
+            for (int i = 0; i < textLayerList.Count; i++) anyGpu |= textLayerList[i].Gpu;
+            if (!anyGpu) return;
+
+            EnsureGpuBuffers(plateCapacity);
+            // Matrix4x4 is column-major in memory, so reinterpreting to float4 yields the 4 columns
+            // per plate the shader expects. Colors are Color (== float4 layout).
+            plateMatrixBuffer.SetData(matrices.Reinterpret<float4>(UnsafeUtility.SizeOf<Matrix4x4>()), 0, 0, plateCount * 4);
+            if (panel.Gpu) plateColorBuffer.SetData(plateColors.Reinterpret<float4>(), 0, 0, plateCount);
+        }
+
         /// <summary>
         /// Rebuilds topology if the plate set changed, then transforms positions for the frame.
         /// Call once per frame after the plate transforms and colors are final.
@@ -265,6 +333,10 @@ namespace Basis.Scripts.UI.NamePlate
         public static void Rebuild(BasisRemoteNamePlate[] plates, int count)
         {
             if (!initialized || panelMaterial == null) return;
+
+            // Normally a no-op (FinishFrame ran at before-render); catches a frame where
+            // before-render never fired before the gather below rewrites the matrices.
+            CompletePendingVertexJobs();
 
             if (panelKeywordApplied != GpuBillboardPanel)
             {
@@ -594,47 +666,33 @@ namespace Basis.Scripts.UI.NamePlate
             bool cullBehind = canCull && CullBehind;
             bool cullOccluded = canCull && CullOccluded && OcclusionMask.value != 0;
 
+            JobHandle matrixJob = default;
             if (!UseBoneSystemMatrices ||
-                !GatherFromBoneSystem(plateCount, camPos, camFwd, maxDistSqr, cullBehind, cullOccluded))
+                !GatherFromBoneSystem(plateCount, camPos, camFwd, maxDistSqr, cullBehind, cullOccluded, out matrixJob))
             {
                 GatherFromTransforms(plateCount, camPos, camFwd, maxDistSqr, cullBehind, cullOccluded);
             }
 
-            // Any GPU layer? Upload the shared per-plate buffers once (before scheduling CPU jobs that
-            // read the same matrices on worker threads).
-            bool anyGpu = panel.Gpu;
-            for (int i = 0; i < textLayerList.Count; i++) anyGpu |= textLayerList[i].Gpu;
-            if (anyGpu)
-            {
-                EnsureGpuBuffers(plateCapacity);
-                // Matrix4x4 is column-major in memory, so reinterpreting to float4 yields the 4 columns
-                // per plate the shader expects. Colors are Color (== float4 layout).
-                plateMatrixBuffer.SetData(matrices.Reinterpret<float4>(UnsafeUtility.SizeOf<Matrix4x4>()), 0, 0, plateCount * 4);
-                if (panel.Gpu) plateColorBuffer.SetData(plateColors.Reinterpret<float4>(), 0, 0, plateCount);
-            }
-
             NativeArray<float4x4> mtx = matrices.Reinterpret<float4x4>();
 
-            // CPU transform for any layer not GPU-billboarded.
-            int total = panel.Gpu ? 0 : panel.VertexCount;
+            // CPU transform for any layer not GPU-billboarded, chained on the matrix build.
+            JobHandle deps = matrixJob;
+            if (!panel.Gpu) deps = JobHandle.CombineDependencies(deps, ScheduleLayer(panel, true, mtx, matrixJob));
             for (int i = 0; i < textLayerList.Count; i++)
-                if (!textLayerList[i].Gpu) total += textLayerList[i].VertexCount;
+                if (!textLayerList[i].Gpu) deps = JobHandle.CombineDependencies(deps, ScheduleLayer(textLayerList[i], false, mtx, matrixJob));
 
-            if (total >= ParallelVertexThreshold)
-            {
-                JobHandle deps = default;
-                if (!panel.Gpu) deps = ScheduleLayer(panel, true, mtx, deps);
-                for (int i = 0; i < textLayerList.Count; i++)
-                    if (!textLayerList[i].Gpu) deps = ScheduleLayer(textLayerList[i], false, mtx, deps);
-                deps.Complete();
-            }
-            else
-            {
-                if (!panel.Gpu) RunLayer(panel, true, mtx);
-                for (int i = 0; i < textLayerList.Count; i++)
-                    if (!textLayerList[i].Gpu) RunLayer(textLayerList[i], false, mtx);
-            }
+            // Published by FinishFrame at before-render instead of fenced right here — nothing
+            // reads the matrices or transformed vertices before rendering does. The kick starts
+            // workers now; the GPU buffer uploads happen at publish, after the jobs completed.
+            pendingVertexJobs = deps;
+            vertexJobsPending = true;
+            publishPending = true;
+            publishPlateCount = plateCount;
+            JobHandle.ScheduleBatchedJobs();
+        }
 
+        private static void FinalizeLayers()
+        {
             FinalizeLayer(panel, true);
             for (int i = 0; i < textLayerList.Count; i++) FinalizeLayer(textLayerList[i], false);
         }
@@ -654,10 +712,9 @@ namespace Basis.Scripts.UI.NamePlate
             NativeArray<float3> local = l.LocalPos.Reinterpret<float3>();
             NativeArray<float3> world = l.WorldPos.Reinterpret<float3>();
 
-            JobHandle h;
             if (isPanel)
             {
-                h = new TransformColorJob
+                return new TransformColorJob
                 {
                     Matrices = mtx,
                     PlateIdx = l.PlateIdx,
@@ -665,51 +722,15 @@ namespace Basis.Scripts.UI.NamePlate
                     World = world,
                     PlateColors = plateColors.Reinterpret<float4>(),
                     Colors = l.ColorBuf.Reinterpret<float4>()
-                }.Schedule(vc, 512);
+                }.Schedule(vc, 512, dep);
             }
-            else
+            return new TransformJob
             {
-                h = new TransformJob
-                {
-                    Matrices = mtx,
-                    PlateIdx = l.PlateIdx,
-                    Local = local,
-                    World = world
-                }.Schedule(vc, 512);
-            }
-            return JobHandle.CombineDependencies(dep, h);
-        }
-
-        private static void RunLayer(Layer l, bool isPanel, NativeArray<float4x4> mtx)
-        {
-            int vc = l.VertexCount;
-            if (vc == 0) return;
-
-            NativeArray<float3> local = l.LocalPos.Reinterpret<float3>();
-            NativeArray<float3> world = l.WorldPos.Reinterpret<float3>();
-
-            if (isPanel)
-            {
-                new TransformColorJob
-                {
-                    Matrices = mtx,
-                    PlateIdx = l.PlateIdx,
-                    Local = local,
-                    World = world,
-                    PlateColors = plateColors.Reinterpret<float4>(),
-                    Colors = l.ColorBuf.Reinterpret<float4>()
-                }.Run(vc);
-            }
-            else
-            {
-                new TransformJob
-                {
-                    Matrices = mtx,
-                    PlateIdx = l.PlateIdx,
-                    Local = local,
-                    World = world
-                }.Run(vc);
-            }
+                Matrices = mtx,
+                PlateIdx = l.PlateIdx,
+                Local = local,
+                World = world
+            }.Schedule(vc, 512, dep);
         }
 
         private static void PushLayer(Layer l, bool isPanel)
@@ -729,12 +750,14 @@ namespace Basis.Scripts.UI.NamePlate
         /// <summary>
         /// Builds every plate matrix from RemoteBoneJobSystem's already-computed pose (sOut) in Burst
         /// instead of reading the plate Transform on the main thread. Per-plate main-thread work drops
-        /// to a slot lookup + cached active flag + color. Returns false (caller falls back to the
-        /// Transform path) when the bone system isn't ready this frame.
+        /// to a slot lookup + cached active flag + color + a pose copy. Returns false (caller falls
+        /// back to the Transform path) when the bone system isn't ready this frame.
         /// </summary>
         private static unsafe bool GatherFromBoneSystem(int plateCount, Vector3 camPos,
-            Vector3 camFwd, float maxDistSqr, bool cullBehind, bool cullOccluded)
+            Vector3 camFwd, float maxDistSqr, bool cullBehind, bool cullOccluded, out JobHandle matrixJob)
         {
+            matrixJob = default;
+
             // The bone pipeline is completed earlier in the tick (CompleteRemoteBoneJobSystemJobs runs
             // before CompleteNamePlates), so this returns the final pose array with no stall.
             NativeArray<RemoteFrameOutput> frames = RemoteBoneJobSystem.GetRemoteFrameArray();
@@ -745,12 +768,15 @@ namespace Basis.Scripts.UI.NamePlate
             int mapLen = indexMap.Length;
             int frameLen = frames.Length;
 
-            // Phase 1 (main, managed): resolve each plate's dense sOut slot + visibility + color, plus
-            // the occlusion linecast. Unsafe pointers skip the NativeArray bounds/safety-handle
-            // overhead; snapArr avoids the List indexer.
+            // Phase 1 (main, managed): resolve each plate's dense sOut slot + visibility + color, copy
+            // the plate position out of sOut, plus the occlusion linecast. The copy decouples the
+            // scheduled matrix job below from the bone system's array — it stays in flight until
+            // before-render, past points where sOut may be rebuilt. Unsafe pointers skip the
+            // NativeArray bounds/safety-handle overhead; snapArr avoids the List indexer.
             int* keyPtr = (int*)plateKey.GetUnsafeReadOnlyPtr();
             int* slotPtr = (int*)plateSlot.GetUnsafePtr();
             Color* colPtr = (Color*)plateColors.GetUnsafePtr();
+            float3* posPtr = (float3*)platePos.GetUnsafePtr();
             RemoteFrameOutput* framePtr = (RemoteFrameOutput*)frames.GetUnsafeReadOnlyPtr();
 
             for (int gi = 0; gi < plateCount; gi++)
@@ -765,32 +791,56 @@ namespace Basis.Scripts.UI.NamePlate
                 if (slot >= 0)
                 {
                     colPtr[gi] = p.CurrentColor;
+
+                    RemoteFrameOutput f = framePtr[slot];
+                    Vector3 platePosition = new Vector3(f.pos_Hips.x, f.pos_Hips.y + f.HeightAvatarHipCoord, f.pos_Hips.z);
+                    posPtr[gi] = platePosition;
+
                     if (cullOccluded)
                     {
-                        RemoteFrameOutput f = framePtr[slot];
-                        Vector3 platePos = new Vector3(f.pos_Hips.x, f.pos_Hips.y + f.HeightAvatarHipCoord, f.pos_Hips.z);
-                        if (Physics.Linecast(camPos, platePos, OcclusionMask, QueryTriggerInteraction.Ignore)) slot = -1;
+                        // Reject on the cheap tests BEFORE paying for a scene query. Physics.Linecast
+                        // is a synchronous main-thread query costing microseconds each; at high player
+                        // counts running one per plate dominates the frame. The matrix job below
+                        // already culls by distance and by behind-camera, but it runs after this loop
+                        // — so without these two lines every plate behind you, or hundreds of metres
+                        // away, still paid for a raycast that its own result was about to discard.
+                        // These two tests MIRROR BuildMatricesJob below exactly (including the
+                        // distance-normalized behind test) so the visible result is unchanged — the
+                        // only difference is not paying for a query whose answer gets thrown away.
+                        Vector3 toPlate = platePosition - camPos;
+                        float distSqr = toPlate.sqrMagnitude;
+                        bool wouldBeCulled = distSqr > maxDistSqr;
+                        if (!wouldBeCulled && cullBehind && distSqr > 1e-6f)
+                        {
+                            float along = Vector3.Dot(camFwd, toPlate);
+                            if (along < BehindDotThreshold * Mathf.Sqrt(distSqr)) wouldBeCulled = true;
+                        }
+
+                        if (!wouldBeCulled &&
+                            Physics.Linecast(camPos, platePosition, OcclusionMask, QueryTriggerInteraction.Ignore))
+                        {
+                            slot = -1;
+                        }
                     }
                 }
                 slotPtr[gi] = slot;
             }
 
-            // Phase 2: distance/angle cull + per-plate matrix math, Burst-compiled. Run (not Schedule)
-            // keeps it Burst-fast on this thread without worker wake-up / queue latency — the math is
-            // far too slow as plain (non-Burst) C# to do inline, and a scheduled job's sync overhead
-            // exceeds the math at lobby plate counts.
-            new BuildMatricesJob
+            // Phase 2: distance/angle cull + per-plate matrix math, scheduled to a worker. The fence
+            // sits at FinishFrame (before-render), so the math and the GPU upload both leave the
+            // NamePlate.Complete marker; UpdateFrame's kick starts it immediately.
+            matrixJob = new BuildMatricesJob
             {
-                Frames = frames,
+                PlatePos = platePos,
                 PlateSlot = plateSlot,
                 Matrices = matrices.Reinterpret<float4x4>(),
-                Scale = 0.02f * BasisRemoteNamePlateDriver.NamePlateSize,
+                Scale = BasisRemoteNamePlateDriver.PlateWorldScale(),
                 CamPos = camPos,
                 CamFwd = camFwd,
                 MaxDistSqr = maxDistSqr,
                 BehindDot = BehindDotThreshold,
                 CullBehind = cullBehind
-            }.Run(plateCount);
+            }.Schedule(plateCount, 32);
 
             return true;
         }
@@ -849,11 +899,13 @@ namespace Basis.Scripts.UI.NamePlate
             if (plateColors.IsCreated) plateColors.Dispose();
             if (plateKey.IsCreated) plateKey.Dispose();
             if (plateSlot.IsCreated) plateSlot.Dispose();
+            if (platePos.IsCreated) platePos.Dispose();
             plateCapacity = Mathf.Max(16, Mathf.NextPowerOfTwo(n));
             matrices = new NativeArray<Matrix4x4>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             plateColors = new NativeArray<Color>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             plateKey = new NativeArray<int>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             plateSlot = new NativeArray<int>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            platePos = new NativeArray<float3>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             snapArr = new BasisRemoteNamePlate[plateCapacity];
         }
 
@@ -968,6 +1020,9 @@ namespace Basis.Scripts.UI.NamePlate
         {
             if (!initialized) return;
 
+            // The buffers below are freed while a deferred vertex chain may still read them.
+            CompletePendingVertexJobs();
+
             if (panel != null)
             {
                 if (panel.Mesh != null) Object.Destroy(panel.Mesh);
@@ -984,6 +1039,7 @@ namespace Basis.Scripts.UI.NamePlate
             if (plateColors.IsCreated) plateColors.Dispose();
             if (plateKey.IsCreated) plateKey.Dispose();
             if (plateSlot.IsCreated) plateSlot.Dispose();
+            if (platePos.IsCreated) platePos.Dispose();
             if (uvScratch.IsCreated) uvScratch.Dispose();
             if (panelScratch.IsCreated) panelScratch.Dispose();
             if (textScratch.IsCreated) textScratch.Dispose();
@@ -1118,15 +1174,16 @@ namespace Basis.Scripts.UI.NamePlate
         }
 
         /// <summary>
-        /// Per-plate distance/angle cull + local→root matrix from RemoteBoneJobSystem's pose
-        /// (hips + height) with a yaw-to-camera billboard and the uniform nameplate scale —
-        /// replicating MappedNameplateApplyJob. Invoked via Run (Burst, on the calling thread).
+        /// Per-plate distance/angle cull + local→root matrix from the gathered plate position
+        /// (hips + height, copied out of RemoteBoneJobSystem's pose in phase 1) with a
+        /// yaw-to-camera billboard and the uniform nameplate scale — replicating
+        /// MappedNameplateApplyJob. Scheduled by GatherFromBoneSystem, fenced at FinishFrame.
         /// Culled / invisible plates (slot &lt; 0) collapse to zero.
         /// </summary>
         [BurstCompile]
         private struct BuildMatricesJob : IJobParallelFor
         {
-            [ReadOnly] public NativeArray<RemoteFrameOutput> Frames;
+            [ReadOnly] public NativeArray<float3> PlatePos;
             [ReadOnly] public NativeArray<int> PlateSlot;
             [WriteOnly] public NativeArray<float4x4> Matrices;
             public float3 Scale;
@@ -1138,16 +1195,13 @@ namespace Basis.Scripts.UI.NamePlate
 
             public void Execute(int gi)
             {
-                int slot = PlateSlot[gi];
-                if (slot < 0)
+                if (PlateSlot[gi] < 0)
                 {
                     Matrices[gi] = float4x4.zero;
                     return;
                 }
 
-                RemoteFrameOutput f = Frames[slot];
-                float3 hips = f.pos_Hips;
-                float3 pos = new float3(hips.x, hips.y + f.HeightAvatarHipCoord, hips.z);
+                float3 pos = PlatePos[gi];
 
                 float3 toPlate = pos - CamPos;
                 float distSqr = math.lengthsq(toPlate);

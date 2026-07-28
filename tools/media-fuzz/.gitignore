@@ -1,0 +1,13 @@
+# build output and sanitizer runtime
+build/
+# fuzzer working state — regenerable, and corpora get large
+corpus/
+seeds/
+# raw crash artifacts land at the tool root; the curated ones live in testcases/
+crash-*
+min_crash_*
+oom-*
+timeout-*
+leak-*
+*.exe
+*.dll

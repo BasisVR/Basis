@@ -1,0 +1,19 @@
+{
+  "name": "com.basis.camera",
+  "displayName": "Basis Handheld Camera",
+  "version": "0.0.1",
+  "description": "The player-held camera for Basis: viewfinder and photo capture (PNG/EXR/360), per-camera post-processing, live video output (Spout on Windows, Syphon on macOS, v4l2loopback on Linux), and the main-menu camera settings panel.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.addressables": "2.9.1",
+    "com.unity.ugui": "2.0.0"
+  },
+  "vpmDependencies": {
+    "com.basis.sdk": "0.0.1",
+    "com.basis.framework": "0.0.1"
+  }
+}

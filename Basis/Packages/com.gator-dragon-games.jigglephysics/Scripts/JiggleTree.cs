@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace GatorDragonGames.JigglePhysics {
@@ -64,6 +65,34 @@ public class JiggleTree {
             bones[i].GetLocalPositionAndRotation(out var pos, out var rot);
             restPositions[i] = pos;
             restRotations[i] = rot;
+        }
+    }
+
+    public void Translate(float3 deltaPosition) {
+        var pointCount = points.Length;
+        for (int i = 0; i < pointCount; i++) {
+            points[i].lastPosition += deltaPosition;
+            points[i].position += deltaPosition;
+            points[i].workingPosition += deltaPosition;
+            points[i].pose += deltaPosition;
+            points[i].parentPose += deltaPosition;
+        }
+        if (hasJiggleTreeStruct) {
+            jiggleTreeJobData.Translate(deltaPosition);
+        }
+    }
+
+    public void TransformRigid(quaternion deltaRotation, float3 deltaTranslation) {
+        var pointCount = points.Length;
+        for (int i = 0; i < pointCount; i++) {
+            points[i].lastPosition = math.mul(deltaRotation, points[i].lastPosition) + deltaTranslation;
+            points[i].position = math.mul(deltaRotation, points[i].position) + deltaTranslation;
+            points[i].workingPosition = math.mul(deltaRotation, points[i].workingPosition) + deltaTranslation;
+            points[i].pose = math.mul(deltaRotation, points[i].pose) + deltaTranslation;
+            points[i].parentPose = math.mul(deltaRotation, points[i].parentPose) + deltaTranslation;
+        }
+        if (hasJiggleTreeStruct) {
+            jiggleTreeJobData.TransformRigid(deltaRotation, deltaTranslation);
         }
     }
 

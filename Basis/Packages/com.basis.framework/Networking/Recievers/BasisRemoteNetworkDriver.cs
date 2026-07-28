@@ -22,15 +22,19 @@ public static class BasisRemoteNetworkDriver
     public const int FixedCapacity = ushort.MaxValue;
     public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 54
 
-    // ─── INPUTS (prev/target) ───
+    // ─── INPUTS (4 control points p0..p3 for Catmull-Rom; p1=prev=Current, p2=target=Next) ───
+    static NativeArray<float3> _p0Positions;
     static NativeArray<float3> _prevPositions;
     static NativeArray<float3> _targetPositions;
+    static NativeArray<float3> _p3Positions;
 
     static NativeArray<float3> _prevScales;
     static NativeArray<float3> _targetScales;
 
+    static NativeArray<quaternion> _p0Rotations;
     static NativeArray<quaternion> _prevRotations;
     static NativeArray<quaternion> _targetRotations;
+    static NativeArray<quaternion> _p3Rotations;
 
     // Hips local-position delta (vs TPose) — interpolated alongside the root
     // pose so seated/IK overrides on the local rig reach remotes smoothly.
@@ -73,20 +77,22 @@ public static class BasisRemoteNetworkDriver
     static NativeArray<bool> _HasScaleChange;
     static NativeArray<float3> _lastAppliedScales;
 
-    // ─── BONE ROTATIONS (replaces muscles) ───
-    // Flat arrays: [player0_bone0, ..., player0_bone53, player1_bone0, ...]
-    static NativeArray<quaternion> _prevBoneRotations;
-    static NativeArray<quaternion> _targetBoneRotations;
-    static NativeArray<quaternion> _outBoneRotations;
-    static NativeArray<quaternion> _filteredBoneRotations;
-
-    // 1€ filter state per bone (flattened players * bones)
-    static NativeArray<quaternion> _bonePrevRaw;
-    static NativeArray<quaternion> _bonePrevFiltered;
-    static NativeArray<float2> _boneDerivFilter;
+    // ─── BONE ROTATIONS (Catmull-Rom over 4 control points; heavy 1€ filter removed) ───
+    // Flat arrays: [player0_bone0, ..., player0_bone(N-1), player1_bone0, ...]
+    static NativeArray<quaternion> _p0BoneRotations;      // neighbour before the window (start tangent)
+    static NativeArray<quaternion> _prevBoneRotations;    // p1 = window start (Current)
+    static NativeArray<quaternion> _targetBoneRotations;  // p2 = window end   (Next)
+    static NativeArray<quaternion> _p3BoneRotations;      // neighbour after the window (end tangent)
+    static NativeArray<quaternion> _outBoneRotations;     // final interpolated bone deltas (read by compose)
 
     // LOD skip flag per player
     static NativeArray<byte> _skipBones;
+
+    // End-effector IK inputs, playerId-keyed (mask [playerId]; offset/tipRot [playerId*4 + effector]).
+    static NativeArray<byte> _effMask;
+    static NativeArray<float3> _effOffset;
+    static NativeArray<quaternion> _effTipRot;
+    static IntPtr _ptrEffMask, _ptrEffOffset, _ptrEffTipRot;
 
     // State
     static bool _initialized;
@@ -105,14 +111,20 @@ public static class BasisRemoteNetworkDriver
     static IntPtr _ptrInterpolationTimes;
     static IntPtr _ptrDeltaTimes;
     static IntPtr _ptrHumanScales;
+    static IntPtr _ptrP0Positions;
     static IntPtr _ptrPrevPositions;
     static IntPtr _ptrTargetPositions;
+    static IntPtr _ptrP3Positions;
     static IntPtr _ptrPrevScales;
     static IntPtr _ptrTargetScales;
+    static IntPtr _ptrP0Rotations;
     static IntPtr _ptrPrevRotations;
     static IntPtr _ptrTargetRotations;
+    static IntPtr _ptrP3Rotations;
+    static IntPtr _ptrP0BoneRotations;
     static IntPtr _ptrPrevBoneRotations;
     static IntPtr _ptrTargetBoneRotations;
+    static IntPtr _ptrP3BoneRotations;
     static IntPtr _ptrPrevHipsDelta;
     static IntPtr _ptrTargetHipsDelta;
     static IntPtr _ptrPrevHipsRotDelta;
@@ -141,6 +153,27 @@ public static class BasisRemoteNetworkDriver
     public static float PoseBeta = 0.15f;
     public static float PoseDerivativeCutoff = 1.5f;
 
+    // Bone quantization-shimmer low-pass: a MOTION-ADAPTIVE one-pole on the cubic bone output.
+    // cutoff = MinCutoff + Beta·(this window's joint motion, radians). Still joints get heavy
+    // smoothing (cutoff→MinCutoff) which hides the quant shimmer / near-idle rotation tremor; any
+    // real motion opens the cutoff so there is no lag or wobble. The velocity comes from the clean
+    // 20Hz snapshot delta (not the noisy render frame), so the low floor is safe. Folded into the
+    // interp job (recursive in-place, no extra state/dispatch). MinCutoff ≤ 0 disables.
+    // This is what the old 0.05Hz euro was reaching for, done right: freeze-when-still WITHOUT the
+    // freeze-when-slow wobble, because "still" is judged from clean sample motion, not render noise.
+    public static float BoneFilterMinCutoffHz = 1.5f;
+    public static float BoneFilterBeta = 250.0f;
+    // Head sits at the end of the (unanchored) spine chain, so accumulated quant shimmer shows most there.
+    // Lower still-cutoff = a bit more smoothing when the head is steady; adaptive beta still opens it fully
+    // on head turns, so no lag. Only affects the head bone.
+    public static float HeadBoneFilterMinCutoffHz = 0.8f;
+    // Leg end-effector anchor fades to FK as the leg straightens (reach/maxReach): full IK below
+    // LegAnchorFadeBentReach, off (FK) above LegAnchorFadeStraightReach. Near full extension the 2-bone
+    // knee is at the singularity where sub-mm target noise swings the knee back-and-forth — and a nearly
+    // straight leg is the planted stance phase that barely needs anchoring. Arms are always full IK.
+    public static float LegAnchorFadeBentReach = 0.975f;
+    public static float LegAnchorFadeStraightReach = 0.995f;
+
     static int _initializedCount;
 
     static void EnsureInitialized(int count)
@@ -148,12 +181,16 @@ public static class BasisRemoteNetworkDriver
         if (count <= _initializedCount) return;
         for (int i = _initializedCount; i < count; i++)
         {
+            _p0Positions[i] = float3.zero;
             _prevPositions[i] = float3.zero;
             _targetPositions[i] = float3.zero;
+            _p3Positions[i] = float3.zero;
             _prevScales[i] = new float3(1, 1, 1);
             _targetScales[i] = new float3(1, 1, 1);
+            _p0Rotations[i] = quaternion.identity;
             _prevRotations[i] = quaternion.identity;
             _targetRotations[i] = quaternion.identity;
+            _p3Rotations[i] = quaternion.identity;
             _prevHipsDelta[i] = float3.zero;
             _targetHipsDelta[i] = float3.zero;
             _outHipsDelta[i] = float3.zero;
@@ -184,13 +221,13 @@ public static class BasisRemoteNetworkDriver
         int boneEnd = count * BoneCount;
         for (int c = boneStart; c < boneEnd; c++)
         {
+            _p0BoneRotations[c] = quaternion.identity;
             _prevBoneRotations[c] = quaternion.identity;
             _targetBoneRotations[c] = quaternion.identity;
-            _outBoneRotations[c] = quaternion.identity;
-            _filteredBoneRotations[c] = quaternion.identity;
-            _bonePrevRaw[c] = quaternion.identity;
-            _bonePrevFiltered[c] = quaternion.identity;
-            _boneDerivFilter[c] = float2.zero;
+            _p3BoneRotations[c] = quaternion.identity;
+            // Zero (non-unit) = the shimmer filter's "unseeded" sentinel: the first tick seeds
+            // it to the raw cubic value instead of blending up from identity.
+            _outBoneRotations[c] = new quaternion(0f, 0f, 0f, 0f);
         }
 
         _initializedCount = count;
@@ -220,19 +257,28 @@ public static class BasisRemoteNetworkDriver
         _ptrInterpolationTimes = (IntPtr)_interpolationTimes.GetUnsafePtr();
         _ptrDeltaTimes = (IntPtr)_deltaTimes.GetUnsafePtr();
         _ptrHumanScales = (IntPtr)_humanScales.GetUnsafePtr();
+        _ptrP0Positions = (IntPtr)_p0Positions.GetUnsafePtr();
         _ptrPrevPositions = (IntPtr)_prevPositions.GetUnsafePtr();
         _ptrTargetPositions = (IntPtr)_targetPositions.GetUnsafePtr();
+        _ptrP3Positions = (IntPtr)_p3Positions.GetUnsafePtr();
         _ptrPrevScales = (IntPtr)_prevScales.GetUnsafePtr();
         _ptrTargetScales = (IntPtr)_targetScales.GetUnsafePtr();
+        _ptrP0Rotations = (IntPtr)_p0Rotations.GetUnsafePtr();
         _ptrPrevRotations = (IntPtr)_prevRotations.GetUnsafePtr();
         _ptrTargetRotations = (IntPtr)_targetRotations.GetUnsafePtr();
+        _ptrP3Rotations = (IntPtr)_p3Rotations.GetUnsafePtr();
+        _ptrP0BoneRotations = (IntPtr)_p0BoneRotations.GetUnsafePtr();
         _ptrPrevBoneRotations = (IntPtr)_prevBoneRotations.GetUnsafePtr();
         _ptrTargetBoneRotations = (IntPtr)_targetBoneRotations.GetUnsafePtr();
+        _ptrP3BoneRotations = (IntPtr)_p3BoneRotations.GetUnsafePtr();
         _ptrPrevHipsDelta = (IntPtr)_prevHipsDelta.GetUnsafePtr();
         _ptrTargetHipsDelta = (IntPtr)_targetHipsDelta.GetUnsafePtr();
         _ptrPrevHipsRotDelta = (IntPtr)_prevHipsRotDelta.GetUnsafePtr();
         _ptrTargetHipsRotDelta = (IntPtr)_targetHipsRotDelta.GetUnsafePtr();
         _ptrPoseFilterSeeded = (IntPtr)_poseFilterSeeded.GetUnsafePtr();
+        _ptrEffMask = (IntPtr)_effMask.GetUnsafePtr();
+        _ptrEffOffset = (IntPtr)_effOffset.GetUnsafePtr();
+        _ptrEffTipRot = (IntPtr)_effTipRot.GetUnsafePtr();
     }
 
     /// <summary>
@@ -252,6 +298,21 @@ public static class BasisRemoteNetworkDriver
         if ((uint)playerId >= FixedCapacity) return;
         oneEuroJob.Complete();
         EnsureInitialized(playerId + 1);
+        ResetBoneShimmerFilter(playerId);
+    }
+
+    /// <summary>
+    /// Re-seeds the bone shimmer filter for a player by zeroing its recursive state (the
+    /// sentinel), so a (re)calibration or reused slot starts the low-pass from the first real
+    /// cubic value instead of blending up from the previous occupant's bones. Cheap (BoneCount
+    /// writes). Caller must have completed oneEuroJob (EnsureSlotInitialized does).
+    /// </summary>
+    public static unsafe void ResetBoneShimmerFilter(int index)
+    {
+        if (!_initialized || (uint)index >= FixedCapacity) return;
+        int baseOffset = index * BoneCount;
+        quaternion* p = (quaternion*)_outBoneRotations.GetUnsafePtr() + baseOffset;
+        for (int b = 0; b < BoneCount; b++) p[b] = new quaternion(0f, 0f, 0f, 0f);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -328,22 +389,27 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void SetFrameInputs(
         int index,
         float humanScale,
-        float3 prevPos, float3 targetPos,
+        float3 p0Pos, float3 prevPos, float3 targetPos, float3 p3Pos,
         float3 prevScale, float3 targetScale,
-        quaternion prevRot, quaternion targetRot,
+        quaternion p0Rot, quaternion prevRot, quaternion targetRot, quaternion p3Rot,
         float3 prevHipsDelta, float3 targetHipsDelta,
         quaternion prevHipsRotDelta, quaternion targetHipsRotDelta,
-        NativeArray<quaternion> prevBoneRots, NativeArray<quaternion> targetBoneRots)
+        NativeArray<quaternion> p0BoneRots, NativeArray<quaternion> prevBoneRots,
+        NativeArray<quaternion> targetBoneRots, NativeArray<quaternion> p3BoneRots)
     {
         if (!_initialized) return;
         if ((uint)index >= FixedCapacity) return;
         ((float*)(void*)_ptrHumanScales)[index] = humanScale;
+        ((float3*)(void*)_ptrP0Positions)[index] = p0Pos;
         ((float3*)(void*)_ptrPrevPositions)[index] = prevPos;
         ((float3*)(void*)_ptrTargetPositions)[index] = targetPos;
+        ((float3*)(void*)_ptrP3Positions)[index] = p3Pos;
         ((float3*)(void*)_ptrPrevScales)[index] = prevScale;
         ((float3*)(void*)_ptrTargetScales)[index] = targetScale;
+        ((quaternion*)(void*)_ptrP0Rotations)[index] = p0Rot;
         ((quaternion*)(void*)_ptrPrevRotations)[index] = prevRot;
         ((quaternion*)(void*)_ptrTargetRotations)[index] = targetRot;
+        ((quaternion*)(void*)_ptrP3Rotations)[index] = p3Rot;
         ((float3*)(void*)_ptrPrevHipsDelta)[index] = prevHipsDelta;
         ((float3*)(void*)_ptrTargetHipsDelta)[index] = targetHipsDelta;
         ((quaternion*)(void*)_ptrPrevHipsRotDelta)[index] = prevHipsRotDelta;
@@ -351,10 +417,10 @@ public static class BasisRemoteNetworkDriver
 
         int bytes = BoneCount * UnsafeUtility.SizeOf<quaternion>();
         int baseOffset = index * BoneCount;
-        quaternion* srcPrev = (quaternion*)prevBoneRots.GetUnsafeReadOnlyPtr();
-        quaternion* srcTarget = (quaternion*)targetBoneRots.GetUnsafeReadOnlyPtr();
-        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrPrevBoneRotations + baseOffset, srcPrev, bytes);
-        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrTargetBoneRotations + baseOffset, srcTarget, bytes);
+        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrP0BoneRotations + baseOffset, (quaternion*)p0BoneRots.GetUnsafeReadOnlyPtr(), bytes);
+        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrPrevBoneRotations + baseOffset, (quaternion*)prevBoneRots.GetUnsafeReadOnlyPtr(), bytes);
+        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrTargetBoneRotations + baseOffset, (quaternion*)targetBoneRots.GetUnsafeReadOnlyPtr(), bytes);
+        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrP3BoneRotations + baseOffset, (quaternion*)p3BoneRots.GetUnsafeReadOnlyPtr(), bytes);
     }
 
     /// <summary>Schedule jobs for the current frame (does not complete them).</summary>
@@ -375,15 +441,24 @@ public static class BasisRemoteNetworkDriver
         int num = BasisNetworkPlayers.LargestNetworkReceiverID + 1;
         num = math.clamp(num, 0, FixedCapacity);
 
-        // 1) Raw interpolation (pos/scale/rot/hipsDelta/hipsRotDelta)
+        // Same adaptive batch as BasisRemoteBoneDriver: a fixed 128 packs any lobby under
+        // 128 players into a single chunk, so one worker ran the lot.
+        int workerCount = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
+        int playerBatch = math.max(1, math.min(128, (num + workerCount - 1) / workerCount));
+
+        // 1) Cubic (Catmull-Rom) interpolation of pos/rot; linear scale/hipsDelta/hipsRotDelta
         var avatarJob = new UpdateAllAvatarsJob
         {
+            P0Positions = _p0Positions,
             PreviousPositions = _prevPositions,
             TargetPositions = _targetPositions,
+            P3Positions = _p3Positions,
             PreviousScales = _prevScales,
             TargetScales = _targetScales,
+            P0Rotations = _p0Rotations,
             PreviousRotations = _prevRotations,
             TargetRotations = _targetRotations,
+            P3Rotations = _p3Rotations,
             PreviousHipsDelta = _prevHipsDelta,
             TargetHipsDelta = _targetHipsDelta,
             PreviousHipsRotDelta = _prevHipsRotDelta,
@@ -396,7 +471,7 @@ public static class BasisRemoteNetworkDriver
             OutputRotations = _outRotations,
             OutputHipsDelta = _outHipsDelta,
             OutputHipsRotDelta = _outHipsRotDelta
-        }.Schedule(num, 128);
+        }.Schedule(num, playerBatch);
 
         // 2) Pose filtering (position + rotation) per player
         JobHandle poseFilterJob = new FilterPoseOneEuroJob
@@ -416,7 +491,7 @@ public static class BasisRemoteNetworkDriver
             MinCutoff = PoseMinCutoff,
             Beta = PoseBeta,
             DerivativeCutoff = PoseDerivativeCutoff
-        }.Schedule(num, 128, avatarJob);
+        }.Schedule(num, playerBatch, avatarJob);
 
         // 3) Scaled body position
         var scaledBodyJob = new ComputeScaledBodyJob
@@ -425,36 +500,29 @@ public static class BasisRemoteNetworkDriver
             OutputScales = _outScales,
             HumanScales = _humanScales,
             ScaledBodyPositions = _scaledBodyPositions
-        }.Schedule(num, 128, poseFilterJob);
+        }.Schedule(num, playerBatch, poseFilterJob);
 
-        // 4) Bone rotation interpolation (nlerp per bone) — replaces muscle lerp
+        // 4) Bone rotation interpolation — Catmull-Rom per bone over 4 control points.
+        //    Replaces the old linear nlerp + heavy 1€ bone filter (the wobble source);
+        //    the C1 spline needs no post-filter and the pose channel keeps its own light 1€.
         JobHandle boneInterpJob = new InterpolateBoneRotationsJob
         {
+            P0Bones = _p0BoneRotations,
             PreviousBones = _prevBoneRotations,
             TargetBones = _targetBoneRotations,
+            P3Bones = _p3BoneRotations,
             InterpolationTimes = _interpolationTimes,
-            SkipBones = _skipBones,
-            OutputBones = _outBoneRotations,
-            BoneCountPerAvatar = BoneCount
-        }.Schedule(num * BoneCount, 128, avatarJob);
-
-        // 5) 1€ filter on bone rotations
-        JobHandle boneFilterJob = new FilterBoneRotationsOneEuroJob
-        {
-            InputBones = _outBoneRotations,
-            OutputBones = _filteredBoneRotations,
             DeltaTimeSeconds = _deltaTimes,
             SkipBones = _skipBones,
-            PrevRaw = _bonePrevRaw,
-            PrevFiltered = _bonePrevFiltered,
-            DerivFilter = _boneDerivFilter,
-            MinCutoff = BasisNetworkManagement.MinCutoff,
-            Beta = BasisNetworkManagement.Beta,
-            DerivativeCutoff = BasisNetworkManagement.DerivativeCutoff,
+            OutputBones = _outBoneRotations,
+            FilterMinCutoffHz = BoneFilterMinCutoffHz,
+            HeadFilterMinCutoffHz = HeadBoneFilterMinCutoffHz,
+            FilterBeta = BoneFilterBeta,
             BoneCountPerAvatar = BoneCount
-        }.Schedule(num * BoneCount, 128, boneInterpJob);
+        }.Schedule(num * BoneCount, 128);
 
-        oneEuroJob = JobHandle.CombineDependencies(boneFilterJob, scaledBodyJob);
+        oneEuroJob = JobHandle.CombineDependencies(boneInterpJob, scaledBodyJob);
+        JobHandle.ScheduleBatchedJobs();
     }
 
     /// <summary>Complete scheduled jobs for the current frame.</summary>
@@ -471,7 +539,7 @@ public static class BasisRemoteNetworkDriver
         _ptrFilteredRotations = (IntPtr)_filteredRotations.GetUnsafeReadOnlyPtr();
         _ptrFilteredPositions = (IntPtr)_filteredPositions.GetUnsafeReadOnlyPtr();
         _ptrScaledBodyPositions = (IntPtr)_scaledBodyPositions.GetUnsafeReadOnlyPtr();
-        _ptrFilteredBoneRotations = (IntPtr)_filteredBoneRotations.GetUnsafeReadOnlyPtr();
+        _ptrFilteredBoneRotations = (IntPtr)_outBoneRotations.GetUnsafeReadOnlyPtr();
         _ptrOutScales = (IntPtr)_outScales.GetUnsafeReadOnlyPtr();
         _ptrSkipBones = (IntPtr)_skipBones.GetUnsafePtr();
     }
@@ -651,12 +719,195 @@ public static class BasisRemoteNetworkDriver
         return new ComputeSkeletonRotationsFromNetworkJob
         {
             PlayerKeys = playerKeys,
-            SrcBoneRotations = _filteredBoneRotations,
+            SrcBoneRotations = _outBoneRotations,
             TposeLocal = tposeLocal,
             Rotations = rotations,
             BoneCount = boneCount,
             CapacityFixed = FixedCapacity,
         }.Schedule(totalBones, batch, deps);
+    }
+
+    /// <summary>Per-key end-effector anchored mask (bit e = effector e anchored). Read by the read/compute jobs.</summary>
+    public static NativeArray<byte> EffectorMaskArray => _effMask;
+
+    /// <summary>True if any player wrote a non-zero effector mask since the last <see cref="ResetEffectorAnchored"/>.
+    /// Lets the bone-job scheduler skip the whole read→compute→write chain when nobody is anchored.</summary>
+    public static bool AnyEffectorAnchored { get; private set; }
+
+    /// <summary>Resets the per-frame anchored flag. Call once on the main thread before the gather loop.</summary>
+    public static void ResetEffectorAnchored() => AnyEffectorAnchored = false;
+
+    /// <summary>
+    /// Writes a player's interpolated end-effector IK inputs (main thread, playerId-keyed). Read by
+    /// EffectorIKComputeJob via the sKeyArray remap. Writes through cached pointers like SetFrameInputs.
+    /// </summary>
+    public static unsafe void WriteEffectorInputs(int playerId, byte mask, float3* offsets, quaternion* tipRots)
+    {
+        if (!_initialized || (uint)playerId >= FixedCapacity) return;
+        if (mask != 0) AnyEffectorAnchored = true;
+        ((byte*)(void*)_ptrEffMask)[playerId] = mask;
+        int b = playerId * 4;
+        for (int e = 0; e < 4; e++)
+        {
+            ((float3*)(void*)_ptrEffOffset)[b + e] = offsets[e];
+            ((quaternion*)(void*)_ptrEffTipRot)[b + e] = tipRots[e];
+        }
+    }
+
+    /// <summary>Clears a player's end-effector IK mask so no limb anchors this frame.</summary>
+    public static unsafe void ClearEffectorMask(int playerId)
+    {
+        if (!_initialized || (uint)playerId >= FixedCapacity) return;
+        ((byte*)(void*)_ptrEffMask)[playerId] = 0;
+    }
+
+    /// <summary>
+    /// Burst two-bone IK for anchored remote limbs. One work item per dense player; per anchored effector
+    /// it reads the FK-posed shoulder/elbow/wrist world (from the read-pose pass), reconstructs the sent
+    /// world target from the applied hips + hips-local offset, solves, and writes the resulting LOCAL
+    /// rotations for upper/lower/tip into the override buffer. The upper's parent world is derived from
+    /// its own read world × inverse(local), so no rig-specific parent bone lookup is needed.
+    /// </summary>
+    [BurstCompile]
+    struct EffectorIKComputeJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<int> PlayerKeys;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<byte> EffMask;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> EffOffset;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> EffTipRot;
+        [ReadOnly] public NativeArray<float3> HipsWorldPos;
+        [ReadOnly] public NativeArray<quaternion> HipsWorldRot;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> ReadPos;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> ReadWorldRot;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> ReadLocalRot;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<byte> ValidMask;
+        [WriteOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> OverrideRot;
+        [WriteOnly, NativeDisableContainerSafetyRestriction] public NativeArray<byte> OverrideMask;
+        public int BoneCount;
+        public int CapacityFixed;
+        public float FadeBentReach;
+        public float FadeStraightReach;
+
+        public void Execute(int dense)
+        {
+            int key = PlayerKeys[dense];
+            if ((uint)key >= (uint)CapacityFixed) return;
+            byte mask = EffMask[key];
+            if (mask == 0) return;
+
+            float3 hipsPos = HipsWorldPos[dense];
+            quaternion hipsRot = HipsWorldRot[dense];
+            int baseB = dense * BoneCount;
+            int baseK = key * 4;
+
+            for (int e = 0; e < 4; e++)
+            {
+                if ((mask & (1 << e)) == 0) continue;
+
+                int rootSlot, jointSlot, tipSlot;
+                switch (e)
+                {
+                    case 0: rootSlot = 5; jointSlot = 9; tipSlot = 15; break;
+                    case 1: rootSlot = 6; jointSlot = 10; tipSlot = 16; break;
+                    case 2: rootSlot = 7; jointSlot = 11; tipSlot = 17; break;
+                    default: rootSlot = 8; jointSlot = 12; tipSlot = 18; break;
+                }
+                int fRoot = baseB + rootSlot, fJoint = baseB + jointSlot, fTip = baseB + tipSlot;
+                if (ValidMask[fRoot] == 0 || ValidMask[fJoint] == 0 || ValidMask[fTip] == 0) continue;
+
+                float3 offset = EffOffset[baseK + e];
+                quaternion tipRot = EffTipRot[baseK + e];
+
+                float3 target = hipsPos + math.mul(hipsRot, offset);
+                float3 rootPos = ReadPos[fRoot];
+                float3 jointPos = ReadPos[fJoint];
+                float3 tipPos = ReadPos[fTip];
+                quaternion upperRot = ReadWorldRot[fRoot];
+                quaternion lowerRot = ReadWorldRot[fJoint];
+                quaternion tipWorldRot = ReadWorldRot[fTip];
+                quaternion rootLocal = ReadLocalRot[fRoot];
+                quaternion jointLocal = ReadLocalRot[fJoint];
+                quaternion tipLocal = ReadLocalRot[fTip];
+
+                // Pole = the FK joint (elbow/knee) world position. The FK joint comes from the well-synced
+                // bone rotations (stable, preserves articulation) and has no reference-axis degeneracy —
+                // the swivel angle this replaced referenced hips-up, which is ~parallel to a standing leg
+                // and made the knee jitter. That swivel was dropped from the wire entirely.
+                float3 pole = jointPos;
+                BasisRemoteLimbIK.Solve(rootPos, jointPos, tipPos, upperRot, lowerRot, target, pole,
+                    out quaternion newUpper, out quaternion newLower, out _);
+
+                // Each bone's LOCAL rotation is set from its ACTUAL parent's NEW world. The parent may be a
+                // twist/roll bone (unsynced → rigidly attached to the bone above), so it moves with that bone:
+                // parentRel = inverse(aboveWorldOld)·parentWorldOld is fixed, parentWorldNew = aboveWorldNew·parentRel.
+                // Reduces to inverse(newUpper)·newLower when parent == the bone above (no intermediate). Writing
+                // LOCAL (not world) rotations makes the single write pass order-independent.
+                quaternion rootParentWorld = math.mul(upperRot, math.inverse(rootLocal));
+                quaternion oRoot = math.mul(math.inverse(rootParentWorld), newUpper);
+
+                quaternion jointParentOld = math.mul(lowerRot, math.inverse(jointLocal));
+                quaternion jointParentNew = math.mul(newUpper, math.mul(math.inverse(upperRot), jointParentOld));
+                quaternion oJoint = math.mul(math.inverse(jointParentNew), newLower);
+
+                quaternion tipParentOld = math.mul(tipWorldRot, math.inverse(tipLocal));
+                quaternion tipParentNew = math.mul(newLower, math.mul(math.inverse(lowerRot), tipParentOld));
+                quaternion oTip = math.mul(math.inverse(tipParentNew), tipRot);
+
+                // Legs (e≥2) fade to FK near full extension — the 2-bone knee is at its singularity there
+                // (tiny target noise → back-and-forth knee swing), and a near-straight leg is the planted
+                // stance that barely needs the anchor. Arms (e<2) stay full IK.
+                float ikW = 1f;
+                if (e >= 2)
+                {
+                    float reach = math.distance(rootPos, target);
+                    float maxReach = math.distance(rootPos, jointPos) + math.distance(jointPos, tipPos);
+                    float ratio = reach / math.max(maxReach, 1e-4f);
+                    ikW = 1f - math.smoothstep(FadeBentReach, FadeStraightReach, ratio);
+                }
+
+                OverrideRot[fRoot] = math.slerp(rootLocal, oRoot, ikW);
+                OverrideRot[fJoint] = math.slerp(jointLocal, oJoint, ikW);
+                OverrideRot[fTip] = math.slerp(tipLocal, oTip, ikW);
+                OverrideMask[fRoot] = 1;
+                OverrideMask[fJoint] = 1;
+                OverrideMask[fTip] = 1;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Schedules <see cref="EffectorIKComputeJob"/> over the dense player set, reading the driver's
+    /// playerId-keyed effector inputs. Caller supplies the read-pose buffers, applied hips pose, valid
+    /// mask, and override output (owned by RemoteBoneJobSystem, flat-parallel to its skeleton TAA).
+    /// </summary>
+    public static JobHandle ScheduleComputeEffectorIK(
+        NativeArray<int> playerKeys, int count, int boneCount,
+        NativeArray<float3> hipsWorldPos, NativeArray<quaternion> hipsWorldRot,
+        NativeArray<float3> readPos, NativeArray<quaternion> readWorldRot, NativeArray<quaternion> readLocalRot,
+        NativeArray<byte> validMask, NativeArray<quaternion> overrideRot, NativeArray<byte> overrideMask,
+        int batch, JobHandle deps = default)
+    {
+        if (!_initialized || count == 0) return deps;
+
+        return new EffectorIKComputeJob
+        {
+            PlayerKeys = playerKeys,
+            EffMask = _effMask,
+            EffOffset = _effOffset,
+            EffTipRot = _effTipRot,
+            HipsWorldPos = hipsWorldPos,
+            HipsWorldRot = hipsWorldRot,
+            ReadPos = readPos,
+            ReadWorldRot = readWorldRot,
+            ReadLocalRot = readLocalRot,
+            ValidMask = validMask,
+            OverrideRot = overrideRot,
+            OverrideMask = overrideMask,
+            BoneCount = boneCount,
+            CapacityFixed = FixedCapacity,
+            FadeBentReach = LegAnchorFadeBentReach,
+            FadeStraightReach = LegAnchorFadeStraightReach,
+        }.Schedule(count, batch, deps);
     }
 
     static IntPtr _ptrFilteredPositions;
@@ -710,12 +961,16 @@ public static class BasisRemoteNetworkDriver
 
     static void AllocateAll(int capacity)
     {
+        _p0Positions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _p3Positions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _p0Rotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _p3Rotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _outHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
@@ -743,21 +998,23 @@ public static class BasisRemoteNetworkDriver
         _skipBones = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
 
         int flat = capacity * BoneCount;
+        _p0BoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        _p3BoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
         _outBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _filteredBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _bonePrevRaw = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _bonePrevFiltered = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _boneDerivFilter = new NativeArray<float2>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+
+        _effMask = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
+        _effOffset = new NativeArray<float3>(capacity * 4, _allocator, NativeArrayOptions.ClearMemory);
+        _effTipRot = new NativeArray<quaternion>(capacity * 4, _allocator, NativeArrayOptions.ClearMemory);
     }
 
     static void DisposeAll()
     {
         void D<T>(ref NativeArray<T> a) where T : struct { if (a.IsCreated) a.Dispose(); }
-        D(ref _prevPositions); D(ref _targetPositions);
+        D(ref _p0Positions); D(ref _prevPositions); D(ref _targetPositions); D(ref _p3Positions);
         D(ref _prevScales); D(ref _targetScales);
-        D(ref _prevRotations); D(ref _targetRotations);
+        D(ref _p0Rotations); D(ref _prevRotations); D(ref _targetRotations); D(ref _p3Rotations);
         D(ref _prevHipsDelta); D(ref _targetHipsDelta); D(ref _outHipsDelta);
         D(ref _prevHipsRotDelta); D(ref _targetHipsRotDelta); D(ref _outHipsRotDelta);
         D(ref _interpolationTimes); D(ref _deltaTimes);
@@ -768,9 +1025,9 @@ public static class BasisRemoteNetworkDriver
         D(ref _rotPrevRaw); D(ref _rotPrevFiltered); D(ref _rotDerivFilter);
         D(ref _humanScales); D(ref _scaledBodyPositions);
         D(ref _HasScaleChange); D(ref _lastAppliedScales); D(ref _skipBones);
-        D(ref _prevBoneRotations); D(ref _targetBoneRotations);
-        D(ref _outBoneRotations); D(ref _filteredBoneRotations);
-        D(ref _bonePrevRaw); D(ref _bonePrevFiltered); D(ref _boneDerivFilter);
+        D(ref _p0BoneRotations); D(ref _prevBoneRotations);
+        D(ref _targetBoneRotations); D(ref _p3BoneRotations); D(ref _outBoneRotations);
+        D(ref _effMask); D(ref _effOffset); D(ref _effTipRot);
     }
 
     // ─── JOBS ───
@@ -778,12 +1035,16 @@ public static class BasisRemoteNetworkDriver
     [BurstCompile]
     public struct UpdateAllAvatarsJob : IJobParallelFor
     {
+        [ReadOnly] public NativeArray<float3> P0Positions;
         [ReadOnly] public NativeArray<float3> PreviousPositions;
         [ReadOnly] public NativeArray<float3> TargetPositions;
+        [ReadOnly] public NativeArray<float3> P3Positions;
         [ReadOnly] public NativeArray<float3> PreviousScales;
         [ReadOnly] public NativeArray<float3> TargetScales;
+        [ReadOnly] public NativeArray<quaternion> P0Rotations;
         [ReadOnly] public NativeArray<quaternion> PreviousRotations;
         [ReadOnly] public NativeArray<quaternion> TargetRotations;
+        [ReadOnly] public NativeArray<quaternion> P3Rotations;
         [ReadOnly] public NativeArray<float3> PreviousHipsDelta;
         [ReadOnly] public NativeArray<float3> TargetHipsDelta;
         [ReadOnly] public NativeArray<quaternion> PreviousHipsRotDelta;
@@ -802,10 +1063,15 @@ public static class BasisRemoteNetworkDriver
             float t = (float)InterpolationTimes[index];
             if (!math.isfinite(t)) t = 0f;
             t = math.clamp(t, 0f, 1f);
+            // Hips world pose stays LINEAR. Desktop/keyboard locomotion is piecewise-linear (sharp
+            // start/stop), so a cubic here would smooth a corner that is genuinely there and shoot
+            // the WHOLE BODY past each stop then back (~5mm fore-aft twitch). Cubic is kept only for
+            // the bone rotations, whose motion is smooth and where it fixed the wobble/shimmer.
             OutputPositions[index] = math.lerp(PreviousPositions[index], TargetPositions[index], t);
             float3 outScale = math.lerp(PreviousScales[index], TargetScales[index], t);
             OutputScales[index] = outScale;
-            OutputRotations[index] = math.normalize(math.nlerp(PreviousRotations[index], TargetRotations[index], t));
+            OutputRotations[index] = BasisRemoteInterpolationCore.NlerpShortest(
+                PreviousRotations[index], TargetRotations[index], t);
             OutputHipsDelta[index] = math.lerp(PreviousHipsDelta[index], TargetHipsDelta[index], t);
 
             // Shortest-path nlerp for the hips rotation delta — same approach
@@ -833,116 +1099,48 @@ public static class BasisRemoteNetworkDriver
     [BurstCompile]
     public struct InterpolateBoneRotationsJob : IJobParallelFor
     {
+        [ReadOnly] public NativeArray<quaternion> P0Bones;
         [ReadOnly] public NativeArray<quaternion> PreviousBones;
         [ReadOnly] public NativeArray<quaternion> TargetBones;
+        [ReadOnly] public NativeArray<quaternion> P3Bones;
         [ReadOnly] public NativeArray<double> InterpolationTimes;
-        [ReadOnly] public NativeArray<byte> SkipBones;
-        [WriteOnly] public NativeArray<quaternion> OutputBones;
-        public int BoneCountPerAvatar;
-
-        public void Execute(int index)
-        {
-            int playerIndex = index / BoneCountPerAvatar;
-            if (SkipBones[playerIndex] != 0)
-            {
-                OutputBones[index] = PreviousBones[index];
-                return;
-            }
-            float t = (float)InterpolationTimes[playerIndex];
-            t = math.clamp(t, 0f, 1f);
-
-            quaternion prev = PreviousBones[index];
-            quaternion target = TargetBones[index];
-
-            // Ensure shortest path
-            if (math.dot(prev.value, target.value) < 0f)
-                target.value = -target.value;
-
-            OutputBones[index] = math.normalize(math.nlerp(prev, target, t));
-        }
-    }
-
-    /// <summary>
-    /// 1€ filter for per-bone quaternion deltas, using angular velocity for adaptive cutoff.
-    /// Identical approach to the existing body-rotation filter but applied per bone.
-    /// </summary>
-    [BurstCompile]
-    public struct FilterBoneRotationsOneEuroJob : IJobParallelFor
-    {
-        [ReadOnly] public NativeArray<quaternion> InputBones;
-        [WriteOnly] public NativeArray<quaternion> OutputBones;
         [ReadOnly] public NativeArray<double> DeltaTimeSeconds;
         [ReadOnly] public NativeArray<byte> SkipBones;
-
-        public NativeArray<quaternion> PrevRaw;
-        public NativeArray<quaternion> PrevFiltered;
-        public NativeArray<float2> DerivFilter;
-
-        public float MinCutoff;
-        public float Beta;
-        public float DerivativeCutoff;
+        // In/out: each slot holds that bone's previous filtered value (the one-pole recursive
+        // state) and receives this frame's filtered result. Each index touches only its own slot.
+        public NativeArray<quaternion> OutputBones;
+        public float FilterMinCutoffHz;
+        public float HeadFilterMinCutoffHz;
+        public float FilterBeta;
         public int BoneCountPerAvatar;
+
+        // BONE_WRITE_ORDER slot 4 = Head — gets the heavier still-cutoff (end-of-chain shimmer, no anchor).
+        const int HeadSlot = 4;
 
         public void Execute(int index)
         {
             int playerIndex = index / BoneCountPerAvatar;
+            int boneSlot = index - playerIndex * BoneCountPerAvatar;
+            quaternion prevFilt = OutputBones[index];
+            bool unseeded = math.lengthsq(prevFilt.value) < 0.5f;   // zero sentinel = first tick
+
             if (SkipBones[playerIndex] != 0)
             {
-                OutputBones[index] = PrevFiltered[index];
-                return;
+                if (unseeded) OutputBones[index] = PreviousBones[index];   // seed even while LOD-skipped
+                return;                                                    // else hold last filtered value
             }
 
-            double dt = math.max(DeltaTimeSeconds[playerIndex], 1e-3);
-            double freq = math.rcp(dt);
+            float t = math.clamp((float)InterpolationTimes[playerIndex], 0f, 1f);
+            quaternion raw = BasisRemoteInterpolationCore.Rotation(
+                P0Bones[index], PreviousBones[index], TargetBones[index], P3Bones[index], t);
 
-            quaternion rawQ = math.normalizesafe(InputBones[index], quaternion.identity);
-            quaternion prevRawQ = PrevRaw[index];
-            quaternion prevFiltQ = PrevFiltered[index];
-
-            // First sample: seed filter state
-            if (math.lengthsq(prevRawQ.value) < 0.5f)
-            {
-                PrevRaw[index] = rawQ;
-                PrevFiltered[index] = rawQ;
-                DerivFilter[index] = float2.zero;
-                OutputBones[index] = rawQ;
-                return;
-            }
-
-            // Angular speed between consecutive raw samples
-            quaternion qDelta = math.mul(rawQ, math.conjugate(prevRawQ));
-            if (qDelta.value.w < 0f) qDelta.value = -qDelta.value;
-            float w = math.clamp(qDelta.value.w, -1f, 1f);
-            float angle = 2f * math.acos(w);
-            double omega = (double)angle * freq;
-
-            float2 rdf = DerivFilter[index];
-            double alphaDR = Alpha(DerivativeCutoff, freq);
-            double edOmega = alphaDR * omega + (1.0 - alphaDR) * (double)rdf.y;
-            rdf.x = (float)omega;
-            rdf.y = (float)edOmega;
-            DerivFilter[index] = rdf;
-
-            double cutoffR = MinCutoff + Beta * math.abs(edOmega);
-            double alphaQ = Alpha(cutoffR, freq);
-
-            // Ensure shortest path for nlerp
-            if (math.dot(prevFiltQ.value, rawQ.value) < 0f)
-                rawQ.value = -rawQ.value;
-
-            quaternion filtQ = math.normalize(math.nlerp(prevFiltQ, rawQ, (float)alphaQ));
-
-            OutputBones[index] = filtQ;
-            PrevRaw[index] = rawQ;
-            PrevFiltered[index] = filtQ;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static double Alpha(double cutoff, double frequency)
-        {
-            double te = math.rcp(frequency);
-            double tau = math.rcp(2.0 * math.PI * math.max(cutoff, 1e-4));
-            return math.rcp(1.0 + tau / te);
+            // Motion-adaptive one-pole toward the cubic output — heavy when the joint is still
+            // (hides quant shimmer), opens on real motion (no lag). Seeds on the first tick.
+            float minCutoff = (boneSlot == HeadSlot) ? HeadFilterMinCutoffHz : FilterMinCutoffHz;
+            if (unseeded || minCutoff <= 0f) { OutputBones[index] = raw; return; }
+            float cutoff = BasisRemoteInterpolationCore.AdaptiveCutoff(PreviousBones[index], TargetBones[index], minCutoff, FilterBeta);
+            float alpha = BasisRemoteInterpolationCore.OnePoleAlpha(cutoff, (float)math.max(DeltaTimeSeconds[playerIndex], 1e-4));
+            OutputBones[index] = BasisRemoteInterpolationCore.LowPassStep(prevFilt, raw, alpha);
         }
     }
 

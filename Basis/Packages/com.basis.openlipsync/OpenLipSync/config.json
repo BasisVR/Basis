@@ -1,130 +1,144 @@
 {
   "model": {
-    "name": "tcn",
+    "name": "viseme_tcn_streaming",
     "num_visemes": 15,
-    "layers": 5,
-    "channels": 128,
-    "kernel_size": 3,
-    "dropout": 0.1,
-    "normalization": "weight_norm"
+    "viseme_names": [
+      "sil",
+      "PP",
+      "FF",
+      "TH",
+      "DD",
+      "kk",
+      "CH",
+      "SS",
+      "nn",
+      "RR",
+      "aa",
+      "E",
+      "ih",
+      "oh",
+      "ou"
+    ],
+    "channels": 256,
+    "receptive_field_frames": 157,
+    "lookahead_frames": 2,
+    "lookahead_ms": 20.0,
+    "multi_label": true,
+    "output_activation": "sigmoid",
+    "normalization": "baked_into_graph",
+    "calibrated": true,
+    "calibration_offsets": [
+      0.30194856192378206,
+      0.9284634215062313,
+      1.7086281007093644,
+      1.0924372369901776,
+      0.6275711289689343,
+      1.123973721613853,
+      1.437463672367377,
+      1.0254354592428103,
+      0.8031524594389663,
+      1.4564248482572109,
+      0.7511057803708603,
+      0.9606943580572056,
+      0.5072432874485779,
+      1.6793665726080995,
+      1.0898903879811326
+    ],
+    "_note": "The graph consumes RAW dB mel and applies CMVN internally. Do NOT normalize in C#. The previous model was trained on per-utterance normalized mel that C# never applied, costing 12.7 points of accuracy."
   },
   "audio": {
     "sample_rate": 16000,
-    "hop_length_ms": 10,
-    "window_length_ms": 25,
-    "n_mels": 80,
-    "fmin": 50,
-    "fmax": 8000,
     "n_fft": 1024,
-    "normalization": "per_utterance",
-    "hop_length_samples": 160,
     "window_length_samples": 400,
-    "fps": 100.0
+    "hop_length_samples": 160,
+    "n_mels": 80,
+    "fmin": 50.0,
+    "fmax": 8000.0,
+    "fps": 100.0,
+    "window": "hann_symmetric",
+    "mel_scale": "htk",
+    "bin_edges": "(n_fft+1)*hz/sr",
+    "log": "10*log10(max(power,1e-10))",
+    "normalization": "none - the model does it"
   },
-  "training": {
-    "batch_size": 32,
-    "max_chunk_length_s": 8.0,
-    "min_chunk_length_s": 2.0,
-    "mixed_precision": true,
-    "loss_type": "cross_entropy",
-    "class_weighting": true,
-    "focal_loss_alpha": 1.0,
-    "focal_loss_gamma": 2.0,
-    "optimizer": "adamw",
-    "learning_rate": 0.0003,
-    "betas": [
-      0.9,
-      0.98
+  "streaming": {
+    "input": "audio_features (1,1,80) + cache_i",
+    "output": "viseme_logits (1,1,15) + cache_out_i",
+    "num_caches": 10,
+    "cache_shapes": [
+      [
+        1,
+        256,
+        2
+      ],
+      [
+        1,
+        256,
+        4
+      ],
+      [
+        1,
+        256,
+        8
+      ],
+      [
+        1,
+        256,
+        16
+      ],
+      [
+        1,
+        256,
+        32
+      ],
+      [
+        1,
+        256,
+        64
+      ],
+      [
+        1,
+        256,
+        2
+      ],
+      [
+        1,
+        256,
+        4
+      ],
+      [
+        1,
+        256,
+        8
+      ],
+      [
+        1,
+        256,
+        16
+      ]
     ],
-    "weight_decay": 0.01,
-    "scheduler": "onecycle",
-    "warmup_ratio": 0.05,
-    "max_epochs": 100,
-    "early_stopping_patience": 7,
-    "early_stopping_metric": "val_f1",
-    "specaugment_enabled": true,
-    "specaugment_time_mask_max_ms": 20,
-    "multi_label": true,
-    "target_crossfade_ms": 60,
-    "mask_padded_frames": true,
-    "viseme_overlap_enabled": true,
-    "viseme_overlap_threshold": 1.0,
-    "silence_bias": 0.0,
-    "silence_energy_gate_db": -60.0,
-    "silence_energy_gate_bias": 0.0
+    "macs_per_frame": 2653440
   },
-  "data": {
-    "dataset": "librispeech",
-    "splits": [
-      "train-clean-100",
-      "train-clean-360"
-    ],
-    "val_split": "dev-clean",
-    "test_split": "test-clean",
-    "augmentation_enabled": true,
-    "noise_snr_range": [
-      10,
-      30
-    ],
-    "gain_range": [
-      0.8,
-      1.2
-    ],
-    "phoneme_viseme_map": "training/configs/viseme_map_en_us_arpa.json",
-    "silence_augment_prob": 0.0,
-    "silence_noise_dbfs_range": [
-      -60.0,
-      -40.0
-    ],
-    "silence_chunk_length_s": [
-      1.0,
-      4.0
-    ]
-  },
-  "evaluation": {
-    "metrics": [
-      "frame_accuracy",
-      "macro_f1",
-      "confusion_matrix"
-    ],
-    "compute_latency": true,
-    "target_hardware": "cpu",
-    "viseme_crossfade_enabled": false,
-    "viseme_crossfade_ms": 0,
-    "viseme_overlap_enabled": false,
-    "viseme_overlap_threshold": 0.0
-  },
-  "hardware": {
-    "device": "cuda",
-    "num_workers": 4,
-    "pin_memory": true
-  },
-  "logging": {
-    "log_interval": 20,
-    "save_interval": 1000,
-    "max_checkpoints": 10,
-    "log_level": "INFO"
-  },
-  "tensorboard": {
-    "enabled": true,
-    "runs_dir": "training/runs",
-    "run_name_format": "{experiment_name}_{timestamp}",
-    "run_name": "tcn_460h_scratch_2026-03-31_02-16-09",
-    "log_scalars": true,
-    "log_histograms": false,
-    "log_images": false,
-    "log_audio": false,
-    "scalar_log_interval": 20,
-    "histogram_log_interval": 100,
-    "image_log_interval": 500
-  },
-  "experiment": {
-    "name": "tcn_460h_scratch",
-    "tags": [
-      "tcn",
-      "viseme",
-      "100fps"
-    ],
-    "notes": "TCN 460h from scratch with augmentation"
+  "metrics": {
+    "acc": 0.8047916471246559,
+    "macro_f1": 0.7823456632796285,
+    "macro_f1_nosil": 0.7727920709676799,
+    "per_viseme_f1": {
+      "sil": 0.9160959556469096,
+      "PP": 0.802608561126251,
+      "FF": 0.8093188482069017,
+      "TH": 0.6829390842137275,
+      "DD": 0.7642030605434355,
+      "kk": 0.8268433884079193,
+      "CH": 0.8189914643369812,
+      "SS": 0.8788855884461743,
+      "nn": 0.7874846702442606,
+      "RR": 0.8305792860169282,
+      "aa": 0.7104192731090586,
+      "E": 0.7591184481401252,
+      "ih": 0.7774613688504834,
+      "oh": 0.6297321364106762,
+      "ou": 0.7405038154945959
+    }
   }
 }

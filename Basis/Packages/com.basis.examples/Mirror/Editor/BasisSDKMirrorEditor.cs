@@ -55,6 +55,19 @@ public class BasisSDKMirrorEditor : Editor
         optionsSettings.Add(CreateProperty(serializedObj, "renderShadows", "Render Shadows"));
 
         root.Add(optionsSettings);
+
+        // UPDATE RATE GROUP
+        var updateRateSettings = new Foldout
+        {
+            text = "Update Rate",
+            value = true
+        };
+        updateRateSettings.Add(CreateProperty(serializedObj, "UpdateEveryNthFrame", "Update Every Nth Frame"));
+        updateRateSettings.Add(CreateProperty(serializedObj, "FullRateDistance", "Full Rate Distance"));
+        updateRateSettings.Add(CreateProperty(serializedObj, "HalfRateDistance", "Half Rate Distance"));
+        updateRateSettings.Add(CreateProperty(serializedObj, "CullDistance", "Cull Distance"));
+
+        root.Add(updateRateSettings);
         /*
         // CAMERAS GROUP
         var cameraSettings = new Foldout

@@ -496,11 +496,16 @@ public static class BasisLoadHandler
                     File.Delete(legacyMetaPath);
                 }
             }
+            string tempPath = filePath + ".tmp";
+            await File.WriteAllBytesAsync(tempPath, serializedData);
             if (File.Exists(filePath))
             {
-                File.Delete(filePath);
+                File.Replace(tempPath, filePath, null);
             }
-            await File.WriteAllBytesAsync(filePath, serializedData);
+            else
+            {
+                File.Move(tempPath, filePath);
+            }
             BasisDebug.Log($"Disc info saved to {filePath}", BasisDebug.LogTag.Event);
         }
         catch (Exception ex)

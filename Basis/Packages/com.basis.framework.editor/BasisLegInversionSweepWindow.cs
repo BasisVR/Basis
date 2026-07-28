@@ -95,7 +95,7 @@ namespace Basis.IK.Debugging
                         $"Hint stress (well-conditioned): {_last.HintInverted} inverted; inside {_cfg.SafeConeDeg:F0}° cone: {_last.SafeConeInversions}/{_last.SafeConeSamples}; onset {onset}.\n" +
                         $"Pole singularities (excluded from gate): {_last.SingularInversions}/{_last.SingularSamples} still invert after the solver blend.\n" +
                         $"Good-hint targets: {_last.TargetInversions}/{_last.TargetReachable} inverted.\n" +
-                        $"Flexion limit: min knee interior {_last.MinKneeFlexDeg:F0}° over {_last.FlexClampSamples} over-fold pulls (clamp = {UnityEngine.Animations.Rigging.BasisLegSolveCore.MinKneeInteriorDeg:F0}°).\n" +
+                        $"Flexion limit: min knee interior {_last.MinKneeFlexDeg:F0}° over {_last.FlexClampSamples} over-fold pulls (clamp = {Basis.IK.BasisLegSolveCore.MinKneeInteriorDeg:F0}°).\n" +
                         $"Worst knee swivel from forward: {_last.WorstSwivelDeg:F0}° (180° = straight back).\n" +
                         _last.Path, MessageType.None);
                     EditorGUILayout.BeginHorizontal();

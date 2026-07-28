@@ -35,9 +35,11 @@ public static class BasisNetworkHandleVoice
                 {
                     audioUpdate = new ServerAudioSegmentMessage();
                 }
+                int wireBytes = Reader.AvailableBytes;
                 audioUpdate.Deserialize(Reader, largeId);
                 if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(audioUpdate.playerIdMessage.playerID, out BasisNetworkReceiver player))
                 {
+                    player.AccountReceivedVoiceBytes(wireBytes);
                     if (audioUpdate.audioSegmentData.LengthUsed == 0)
                     {
                         BasisDebug.LogError("Audio Segment Data Length was zero this is now unsupported", BasisDebug.LogTag.Voice);
@@ -103,7 +105,12 @@ public static class BasisNetworkHandleVoice
                 {
                     audioUpdate = new ServerAudioSegmentMessage();
                 }
+                int wireBytes = Reader.AvailableBytes;
                 audioUpdate.Deserialize(Reader);
+                if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(audioUpdate.playerIdMessage.playerID, out BasisNetworkReceiver shoutReceiver))
+                {
+                    shoutReceiver.AccountReceivedVoiceBytes(wireBytes);
+                }
                 if (audioUpdate.audioSegmentData.LengthUsed == 0)
                 {
                     BasisDebug.LogError("Shout Audio Segment Data Length was zero", BasisDebug.LogTag.Voice);

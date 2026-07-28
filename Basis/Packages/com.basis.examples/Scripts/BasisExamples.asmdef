@@ -15,7 +15,8 @@
         "BasisDebug",
         "Unity.Mathematics",
         "BasisNetworkCore",
-        "BasisCommon"
+        "BasisCommon",
+        "BasisGizmos"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

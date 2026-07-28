@@ -220,6 +220,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 96e9340b2362c0a488f4d81dc66f7670
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/sliders.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 64a436389ec64fc47bfd6d1068f1e3c9
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button.prefab
     m_ReadOnly: 0

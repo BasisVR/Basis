@@ -16,6 +16,15 @@ namespace Cilbox
 			"Basis.Shims.BasisAvatarShim+AvatarReadyEvent",
 			"Basis.Shims.BasisCilboxInstantiateShim",
 			"Basis.Shims.BasisDebugPropsShim",
+			"Basis.Shims.BasisPlayspaceInputShim", // Restrictive, see method whitelist.
+			"Basis.Shims.BasisPlayerInputBlend",
+			"Basis.Shims.BasisVixxyShim", // Restrictive, see method whitelist.
+			// Bulk transform / blendshape get-set-copy. The prop and scene boxes pick these up
+			// from their blanket "Basis.Shims.*"; the avatar box enumerates, so they need naming.
+			// They grant no authority a script does not already have on a Transform or a
+			// SkinnedMeshRenderer it holds — only the per-call reflection overhead changes.
+			"Basis.Shims.BasisTransformSyncShim",
+			"Basis.Shims.BasisBlendShapeSyncShim",
 
 			// HVR Vixxy
 			"HVR.Vixxy.HVRVixxyMenuItem", // Restrictive, see method whitelist.
@@ -43,6 +52,14 @@ namespace Cilbox
 				typeof(GameObject).GetProperty(nameof(GameObject.activeSelf)).GetGetMethod().Name,
 				typeof(GameObject).GetProperty(nameof(GameObject.activeInHierarchy)).GetGetMethod().Name,
 				typeof(GameObject).GetProperty(nameof(GameObject.layer)).GetGetMethod().Name,
+				// The hierarchy walk is already reachable as this.GetComponentInChildren<T>() (declaring
+				// type Component, unrestricted); without these the gameObject.* spelling silently failed.
+				// Matches the scene box, which has granted them all along.
+				nameof(GameObject.GetComponentInChildren),
+				nameof(GameObject.GetComponentsInChildren),
+				nameof(GameObject.GetComponentInParent),
+				nameof(GameObject.GetComponentsInParent),
+				nameof(GameObject.GetComponents),
 				} },
 			{ typeof(UnityEngine.LayerMask), new HashSet<string>{
 				".ctor",
@@ -52,6 +69,27 @@ namespace Cilbox
 			{ typeof(HVR.Vixxy.HVRVixxyMenuItem), new HashSet<string>{
 				nameof(HVR.Vixxy.HVRVixxyMenuItem.GetValue),
 				nameof(HVR.Vixxy.HVRVixxyMenuItem.ApplyValue),
+				} },
+			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisVixxyShim.HasControl),
+				nameof(Basis.Shims.BasisVixxyShim.DefaultValue),
+				nameof(Basis.Shims.BasisVixxyShim.MinValue),
+				nameof(Basis.Shims.BasisVixxyShim.MaxValue),
+				nameof(Basis.Shims.BasisVixxyShim.ChoiceCount),
+				nameof(Basis.Shims.BasisVixxyShim.ChoiceValue),
+				nameof(Basis.Shims.BasisVixxyShim.ChoiceTitle),
+				nameof(Basis.Shims.BasisVixxyShim.IsToggle),
+				nameof(Basis.Shims.BasisVixxyShim.IsSlider),
+				nameof(Basis.Shims.BasisVixxyShim.Title),
+				nameof(Basis.Shims.BasisVixxyShim.Description),
+				} },
+			{ typeof(Basis.Shims.BasisPlayspaceInputShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisPlayspaceInputShim.SetLocomotion),
+				nameof(Basis.Shims.BasisPlayspaceInputShim.SetHand),
+				nameof(Basis.Shims.BasisPlayspaceInputShim.SetVerticalDelta),
+				nameof(Basis.Shims.BasisPlayspaceInputShim.SetHorizontal),
+				nameof(Basis.Shims.BasisPlayspaceInputShim.SetScale),
+				nameof(Basis.Shims.BasisPlayspaceInputShim.Clear),
 				} },
 		};
 

@@ -6,7 +6,7 @@ namespace Basis.Network.Core
     public sealed class LNLTransportConfig
     {
         /// <summary>Bump to force existing files to be rewritten; newly-added fields are healed automatically on load.</summary>
-        public const int CurrentConfigVersion = 1;
+        public const int CurrentConfigVersion = 2;
         /// <summary>Schema version stamped into the file; 0 = pre-versioning, upgraded on load.</summary>
         public int ConfigVersion = 0;
 
@@ -30,5 +30,7 @@ namespace Basis.Network.Core
         public bool DisconnectOnUnreachable = false;
         public bool AllowPeerAddressChange = true;
         public int MultiSocketCount = 1;
+        public int PacketPoolSizePerPeer = 48;
+        public int PacketPoolSizeMax = 262144;
     }
 }

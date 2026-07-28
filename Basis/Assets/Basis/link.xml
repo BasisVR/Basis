@@ -6,11 +6,15 @@
     <assembly fullname="Basis.Addon.SnapControls" preserve="all" />
     <assembly fullname="Basis.Developer.Exceptions" preserve="all" />
     <assembly fullname="Basis.Developer.Recorder" preserve="all" />
+    <assembly fullname="Basis.Eerie.Movement" preserve="all" />
     <assembly fullname="Basis.ImagePickup" preserve="all" />
     <assembly fullname="Basis.Integration.AudioLink" preserve="all" />
+    <assembly fullname="Basis.Integration.SlimeVR" preserve="all" />
+    <assembly fullname="Basis.Integration.TrackerObjects" preserve="all" />
     <assembly fullname="Basis.OpenLipSync.Runtime" preserve="all" />
     <assembly fullname="Basis.Shims.Samples" preserve="all" />
     <assembly fullname="BasisBundleManagement" preserve="all" />
+    <assembly fullname="BasisCamera" preserve="all" />
     <assembly fullname="BasisCommon" preserve="all" />
     <assembly fullname="BasisConsoleDisplay" preserve="all" />
     <assembly fullname="BasisDebug" preserve="all" />
@@ -34,6 +38,7 @@
     <assembly fullname="BasisServersProvider" preserve="all" />
     <assembly fullname="BasisSettings" preserve="all" />
     <assembly fullname="BasisShims" preserve="all" />
+    <assembly fullname="BasisTrackerObjects" preserve="all" />
     <assembly fullname="BasisVehicles" preserve="all" />
     <assembly fullname="BasisVehiclesNetwork" preserve="all" />
     <assembly fullname="BouncyCastle.Cryptography" preserve="all" />
@@ -48,6 +53,8 @@
     <assembly fullname="HVR.Basis.Comms.HVRUtility" preserve="all" />
     <assembly fullname="HVR.LicenseReview" preserve="all" />
     <assembly fullname="K4os.Compression.LZ4" preserve="all" />
+    <assembly fullname="Klak.Spout.Runtime" preserve="all" />
+    <assembly fullname="Klak.Syphon.Runtime" preserve="all" />
     <assembly fullname="LiteNetLib" preserve="all" />
     <assembly fullname="MeaMod.DNS" preserve="all" />
     <assembly fullname="Mediapipe.Runtime" preserve="all" />
@@ -135,6 +142,11 @@
     <assembly fullname="audioplugin_phonon" preserve="all" />
     <assembly fullname="com.cqf.urpvolumetricfog.runtime" preserve="all" />
     <assembly fullname="com.gator-dragon-games.jigglephysics" preserve="all" />
+    <assembly fullname="glTFast" preserve="all" />
+    <assembly fullname="glTFast.Documentation.Examples" preserve="all" />
+    <assembly fullname="glTFast.Export" preserve="all" />
+    <assembly fullname="glTFast.Newtonsoft" preserve="all" />
+    <assembly fullname="glTFast.dots" preserve="all" />
     <assembly fullname="openvr_api" preserve="all" />
     <assembly fullname="opus" preserve="all" />
     <assembly fullname="phonon" preserve="all" />

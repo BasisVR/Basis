@@ -40,12 +40,31 @@ public class JiggleTreeSegment {
         this.jiggleProvider = jiggleProvider;
         var rig = jiggleProvider.GetJiggleRigData();
         transform = rig.rootBone;
+        animatedParameters = jiggleProvider.HasAnimatedParameters;
         JigglePhysics.SetGlobalDirty();
+    }
+
+    /// <summary>
+    /// Mirror of the provider's HasAnimatedParameters, so the per-frame prepare never pays an
+    /// interface call per root. Seeded in the constructor; a provider that flips the flag at
+    /// runtime must push the change through <see cref="SetAnimatedParameters"/> (JiggleRig does)
+    /// or the parameter push for this rig stops following the flag.
+    /// </summary>
+    public bool animatedParameters { get; private set; }
+
+    public void SetAnimatedParameters(bool value) {
+        if (animatedParameters == value) return;
+        animatedParameters = value;
+        JigglePhysics.MarkAnimatedRootsDirty();
     }
 
     private System.Action<JiggleTree> _onDirty;
     private void OnDirty(JiggleTree obj) {
         SetDirty();
+    }
+
+    public bool GetHasAnimatedParameters() {
+        return jiggleTree != null && jiggleProvider.HasAnimatedParameters;
     }
 
     public void UpdateParametersIfNeeded() {
@@ -87,6 +106,11 @@ public class JiggleTreeSegment {
     public void Teleport(float3 deltaPosition) {
         if (jiggleTree == null) return;
         JigglePhysics.Teleport(jiggleTree, deltaPosition);
+    }
+
+    public void Teleport(quaternion deltaRotation, float3 pivot, float3 deltaPosition) {
+        if (jiggleTree == null) return;
+        JigglePhysics.Teleport(jiggleTree, deltaRotation, pivot, deltaPosition);
     }
 
 }

@@ -8,6 +8,7 @@
         <engine:Foldout text="Permissions" name="PermissionsFoldout" value="true" class="bvp-foldout">
             <engine:Toggle label="Admin Only" name="AdminOnlyField" tooltip="If ON, only clients with the basis.mediaplayer.control or * permission may take ownership and control playback. Overrides Allow Anyone To Take Control."/>
             <engine:Toggle label="Allow Anyone To Take Control" name="AllowAnyoneField" tooltip="If ON, any client may take ownership and control playback. If OFF, only the owner can call SetUrl/Play/Stop/Pause/Resume/Seek. Ignored when Admin Only is on."/>
+            <engine:Toggle label="Anyone Can Control" name="AnyoneCanControlField" tooltip="If ON, clients WITHOUT the basis.mediaplayer.control (or *) permission may also load URLs and drive playback, and the menu shows them the playback controls. Ignored when Admin Only is on."/>
         </engine:Foldout>
 
         <engine:Foldout text="Sync" name="SyncFoldout" value="true" class="bvp-foldout">

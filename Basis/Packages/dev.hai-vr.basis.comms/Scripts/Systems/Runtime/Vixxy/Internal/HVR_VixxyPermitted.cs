@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Animations;
@@ -58,6 +58,23 @@ namespace HVR.Vixxy
             // UI
             "TMPro.TextMeshPro",
             "TMPro.TextMeshProUGUI",
+            // BASISVR: Basis constraints. Content Police rewrites Unity's built-in and
+            // Animation Rigging constraints onto these at load, so a Vixxy binding that used to
+            // drive the original has to be allowed to drive the replacement or the toggle
+            // silently stops working.
+            "Basis.Scripts.BasisSdk.Constraints.BasisPositionConstraint",
+            "Basis.Scripts.BasisSdk.Constraints.BasisRotationConstraint",
+            "Basis.Scripts.BasisSdk.Constraints.BasisScaleConstraint",
+            "Basis.Scripts.BasisSdk.Constraints.BasisParentConstraint",
+            "Basis.Scripts.BasisSdk.Constraints.BasisAimConstraint",
+            "Basis.Scripts.BasisSdk.Constraints.BasisLookAtConstraint",
+            "Basis.Scripts.BasisSdk.Constraints.BasisBlendConstraint",
+            "Basis.Scripts.BasisSdk.Constraints.BasisOverrideTransform",
+            "Basis.Scripts.BasisSdk.Constraints.BasisDampedTransform",
+            "Basis.Scripts.BasisSdk.Constraints.BasisTwistCorrection",
+            "Basis.Scripts.BasisSdk.Constraints.BasisTwoBoneIK",
+            "Basis.Scripts.BasisSdk.Constraints.BasisChainIK",
+            "Basis.Scripts.BasisSdk.Constraints.BasisTwistChain",
         };
 
         private static readonly HashSet<string> RuntimePermittedTypeNames;

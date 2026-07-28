@@ -167,7 +167,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c81b5ac837e647448a68cbd24e410b42, type: 3}
   m_Name: ValveOpenXRFoveatedRenderingFeature Android
   m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRFoveatedRenderingFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Valve Utils: Settings for Unity''s Foveated Rendering'
   version: 0.1.0
   featureIdInternal: com.valvesoftware.openxr.utils.foveated_rendering
@@ -322,6 +322,28 @@ MonoBehaviour:
   m_XrInstance: 0
   m_XrSession: 0
   m_systemid: 0
+--- !u!114 &-6051968370470617284
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4a56c6d5c174b54adc1aa638f8a793c, type: 3}
+  m_Name: ValveRenderModelFeature Android
+  m_EditorClassIdentifier: BasisOpenXR::ValveRenderModelFeature
+  m_enabled: 1
+  nameUi: 'Valve Utils: Render Model Sample'
+  version: 0.1.0
+  featureIdInternal: com.valve.openxr.feature.render_models
+  openxrExtensionStrings: XR_EXT_render_model XR_EXT_interaction_render_model XR_EXT_uuid
+  company: Valve
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-5895914430912560921
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1230,6 +1252,7 @@ MonoBehaviour:
   - {fileID: -1427781558322410069}
   - {fileID: 2404985651251156825}
   - {fileID: -6722046496185307810}
+  - {fileID: -6051968370470617284}
   - {fileID: -7266700244491604345}
   - {fileID: 5114516646116427477}
   - {fileID: 4438077085720265041}
@@ -1243,12 +1266,12 @@ MonoBehaviour:
     m_List: 00000000
   m_depthSubmissionMode: 1
   m_spacewarpMotionVectorTextureFormat: 0
-  m_optimizeBufferDiscards: 0
+  m_optimizeBufferDiscards: 1
   m_symmetricProjection: 0
   m_optimizeMultiviewRenderRegions: 0
   m_multiviewRenderRegionsOptimizationMode: 0
   m_hasMigratedMultiviewRenderRegionSetting: 1
-  m_foveatedRenderingApi: 0
+  m_foveatedRenderingApi: 1
   m_useOpenXRPredictedTime: 1
 --- !u!114 &-8419463971566137
 MonoBehaviour:
@@ -1715,6 +1738,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &3515228608243786626
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4a56c6d5c174b54adc1aa638f8a793c, type: 3}
+  m_Name: ValveRenderModelFeature Standalone
+  m_EditorClassIdentifier: BasisOpenXR::ValveRenderModelFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: Render Model Sample'
+  version: 0.1.0
+  featureIdInternal: com.valve.openxr.feature.render_models
+  openxrExtensionStrings: XR_EXT_render_model XR_EXT_interaction_render_model XR_EXT_uuid
+  company: Valve
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &3543322306967605854
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1936,6 +1981,7 @@ MonoBehaviour:
   - {fileID: 5205117698541507489}
   - {fileID: -6227126262682780105}
   - {fileID: 4173483422715456260}
+  - {fileID: 3515228608243786626}
   - {fileID: 2231758598234634398}
   - {fileID: -2546553118739243343}
   - {fileID: 638815009775519648}
@@ -1976,7 +2022,7 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  optimizeBufferDiscards: 0
+  optimizeBufferDiscards: 1
   lateLatchingMode: 0
   lateLatchingDebug: 0
 --- !u!114 &4488616393402168616

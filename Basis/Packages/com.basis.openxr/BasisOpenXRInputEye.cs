@@ -117,13 +117,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenXR
                 }
             }
 
-            Quaternion invHmdRot = Quaternion.Inverse(hmdTrackingRot);
-            Vector3 gazeRelHmdPos = invHmdRot * (gazeTracking.position - hmdTrackingPos);
-            Quaternion gazeRelHmdRot = invHmdRot * gazeTracking.rotation;
-
-            Vector3 worldGazeOrigin = BasisLocalCameraDriver.Position + BasisLocalCameraDriver.Rotation * gazeRelHmdPos;
-            Quaternion worldGazeRot = BasisLocalCameraDriver.Rotation * gazeRelHmdRot;
-            Vector3 worldGazeDir = worldGazeRot * Vector3.forward;
+            BasisEyeMath.HmdRelativeGazeToWorld(
+                hmdTrackingPos, hmdTrackingRot, gazeTracking.position, gazeTracking.rotation,
+                BasisLocalCameraDriver.Position, BasisLocalCameraDriver.Rotation,
+                out Vector3 worldGazeOrigin, out Vector3 worldGazeDir);
 
             _gazeOrigin = worldGazeOrigin;
             _gazeDirection = worldGazeDir;

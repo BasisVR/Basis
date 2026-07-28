@@ -28,6 +28,31 @@ namespace Basis.Integration.SlimeVR
         public bool TryGet(SkeletonBone bone, out float meters) => Parts.TryGetValue(bone, out meters);
     }
 
+    /// <summary>
+    /// A SlimeVR quaternion (x, y, z, w) in SlimeVR's own coordinate frame. Kept deliberately
+    /// frame-agnostic: it is only ever compared against other SlimeVR quaternions (an angular
+    /// delta), never mixed into Unity space, so no handedness conversion is needed or implied.
+    /// </summary>
+    public struct SlimeVRQuat
+    {
+        public float X, Y, Z, W;
+    }
+
+    /// <summary>A SlimeVR position (metres) in SlimeVR's own right-handed frame. Convert with
+    /// BasisSlimeVRFrameAlign.FlipHandedness before using it in Unity space.</summary>
+    public struct SlimeVRVec3
+    {
+        public float X, Y, Z;
+    }
+
+    /// <summary>One solved skeleton bone from SlimeVR's bones datafeed (only the head joint position is kept).</summary>
+    public struct SlimeVRBone
+    {
+        public BodyPart BodyPart;
+        public bool HasHeadPosition;
+        public SlimeVRVec3 HeadPosition;
+    }
+
     /// <summary>One SlimeVR tracker flattened together with its owning device's hardware status.</summary>
     public sealed class SlimeVRTrackerSnapshot
     {
@@ -49,6 +74,53 @@ namespace Basis.Integration.SlimeVR
         public byte DeviceId;
         /// <summary>True for entries from the synthetic (solved/computed) tracker list.</summary>
         public bool IsSynthetic;
+
+        /// <summary>True when this tracker is IMU-based — the trackers whose mounting orientation matters.</summary>
+        public bool IsImu;
+
+        /// <summary>
+        /// SlimeVR's solved tracker position (metres, SlimeVR frame). Only populated while skeleton
+        /// data is requested (<see cref="BasisSolarXRClient.EnableSkeletonData"/>); used as a frame
+        /// correspondence against the same tracker's Basis pose.
+        /// </summary>
+        public bool HasPosition;
+        public SlimeVRVec3 Position;
+
+        /// <summary>SlimeVR's fused tracker rotation (SlimeVR frame). Populated only while skeleton/pose
+        /// data is requested. Convert with BasisSlimeVRFrameAlign.FlipHandedness for Unity use.</summary>
+        public bool HasRotation;
+        public SlimeVRQuat Rotation;
+
+        /// <summary>SlimeVR's persisted mounting orientation (the tracker's rotation as worn on the body).</summary>
+        public bool HasMountingOrientation;
+        public SlimeVRQuat MountingOrientation;
+
+        /// <summary>
+        /// Live mounting-reset orientation. SlimeVR recomputes this each run and it overrides
+        /// <see cref="MountingOrientation"/> while present, so it is the value to trust.
+        /// </summary>
+        public bool HasMountingResetOrientation;
+        public SlimeVRQuat MountingResetOrientation;
+
+        /// <summary>
+        /// The mounting orientation currently in effect (reset overrides persisted). Returns false
+        /// when neither is known (non-IMU trackers, HMD).
+        /// </summary>
+        public bool TryGetEffectiveMounting(out SlimeVRQuat mounting)
+        {
+            if (HasMountingResetOrientation)
+            {
+                mounting = MountingResetOrientation;
+                return true;
+            }
+            if (HasMountingOrientation)
+            {
+                mounting = MountingOrientation;
+                return true;
+            }
+            mounting = default;
+            return false;
+        }
     }
 
     /// <summary>
@@ -96,6 +168,14 @@ namespace Basis.Integration.SlimeVR
         public int SkeletonConfigPollMs = 15000;
         public ushort DataFeedIntervalMs = 500;
         public bool EnableDataFeed = true;
+
+        /// <summary>
+        /// When true the datafeed also carries every tracker's solved position + rotation (and runs at
+        /// <see cref="PoseFeedIntervalMs"/> instead of <see cref="DataFeedIntervalMs"/>), so Basis can
+        /// source the trackers directly from the SlimeVR server. Off by default — pure status/metadata.
+        /// </summary>
+        public bool EnablePoseFeed;
+        public ushort PoseFeedIntervalMs = 16;
 
         public Action<string> Log = _ => { };
         public Action<string> LogError = _ => { };
@@ -185,7 +265,7 @@ namespace Basis.Integration.SlimeVR
                     _lastSkeletonPollMs = _pollClock.ElapsedMilliseconds;
                     if (EnableDataFeed)
                     {
-                        TrySend(BuildStartDataFeed(DataFeedIntervalMs));
+                        TrySend(BuildStartDataFeed());
                     }
 
                     ReadLoop(token);
@@ -459,6 +539,47 @@ namespace Basis.Integration.SlimeVR
                 snapshot.CustomName = info.Value.CustomName;
                 snapshot.IsHmd = info.Value.IsHmd;
                 snapshot.IsComputed = info.Value.IsComputed;
+                snapshot.IsImu = info.Value.IsImu;
+
+                // Mounting orientation rides along in TrackerInfo (the `info` mask we already request),
+                // so this needs no extra datafeed fields — it was simply being dropped before.
+                var mounting = info.Value.MountingOrientation;
+                if (mounting.HasValue)
+                {
+                    snapshot.HasMountingOrientation = true;
+                    snapshot.MountingOrientation = new SlimeVRQuat
+                    {
+                        X = mounting.Value.X,
+                        Y = mounting.Value.Y,
+                        Z = mounting.Value.Z,
+                        W = mounting.Value.W
+                    };
+                }
+                var mountingReset = info.Value.MountingResetOrientation;
+                if (mountingReset.HasValue)
+                {
+                    snapshot.HasMountingResetOrientation = true;
+                    snapshot.MountingResetOrientation = new SlimeVRQuat
+                    {
+                        X = mountingReset.Value.X,
+                        Y = mountingReset.Value.Y,
+                        Z = mountingReset.Value.Z,
+                        W = mountingReset.Value.W
+                    };
+                }
+            }
+
+            var position = tracker.Position;
+            if (position.HasValue)
+            {
+                snapshot.HasPosition = true;
+                snapshot.Position = new SlimeVRVec3 { X = position.Value.X, Y = position.Value.Y, Z = position.Value.Z };
+            }
+            var rotation = tracker.Rotation;
+            if (rotation.HasValue)
+            {
+                snapshot.HasRotation = true;
+                snapshot.Rotation = new SlimeVRQuat { X = rotation.Value.X, Y = rotation.Value.Y, Z = rotation.Value.Z, W = rotation.Value.W };
             }
             return snapshot;
         }
@@ -481,13 +602,18 @@ namespace Basis.Integration.SlimeVR
             return b.SizedByteArray();
         }
 
-        private static byte[] BuildStartDataFeed(ushort intervalMs)
+        private byte[] BuildStartDataFeed()
         {
             var b = new FlatBufferBuilder(256);
 
-            var deviceTrackerMask = TrackerDataMask.CreateTrackerDataMask(b, info: true, status: true);
+            // Poses ride the same feed as status/info; requesting them just adds the position+rotation
+            // fields and speeds the cadence up. Off, this is exactly the original status-only feed.
+            bool pose = EnablePoseFeed;
+            ushort intervalMs = pose ? PoseFeedIntervalMs : DataFeedIntervalMs;
+
+            var deviceTrackerMask = TrackerDataMask.CreateTrackerDataMask(b, info: true, status: true, rotation: pose, position: pose);
             var deviceMask = DeviceDataMask.CreateDeviceDataMask(b, deviceTrackerMask, device_data: true);
-            var syntheticMask = TrackerDataMask.CreateTrackerDataMask(b, info: true, status: true);
+            var syntheticMask = TrackerDataMask.CreateTrackerDataMask(b, info: true, status: true, rotation: pose, position: pose);
             var config = DataFeedConfig.CreateDataFeedConfig(b,
                 minimum_time_since_last: intervalMs,
                 data_maskOffset: deviceMask,

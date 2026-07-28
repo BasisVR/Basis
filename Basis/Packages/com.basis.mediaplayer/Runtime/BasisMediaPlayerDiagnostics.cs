@@ -179,6 +179,10 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
             "eng_lag_ms",
             "eng_buf_ms",
             "eng_buf_mode",
+            "eng_audio_queue_ms",
+            "eng_audio_trims",
+            "eng_video_queue",
+            "eng_audio_latency_ms",
             "eng_ttff_ms",
             "eng_audio_cfg",
             "eng_aout_count",
@@ -253,6 +257,10 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
         AppendL(engineDebug.LagMs);
         AppendL(engineDebug.BufMs);
         AppendI(engineDebug.BufMode);
+        AppendL(engineDebug.AudioQMs);
+        AppendL(engineDebug.Trims);
+        AppendL(engineDebug.VideoQ);
+        AppendL(engineDebug.AudioLatencyMs);
         AppendL(engineDebug.TtffMs);
         AppendI(engineDebug.AudioCfg);
         AppendL(engineDebug.AOutCount);
@@ -322,12 +330,17 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
         public long Blit, Copy, Render, NoDue, AcqFails;
         public long LagMs, BufMs, TtffMs, AOutCount;
         public int BufMode, AudioCfg, AudioSr;
+        // Audio-pacing counters (native backends that gate audio release against
+        // the present clock): audio currently queued in ms, clock-gated trims
+        // fired, and video frames held in the present ring.
+        public long AudioQMs, Trims, VideoQ, AudioLatencyMs;
 
         public void Reset()
         {
             Blit = Copy = Render = NoDue = AcqFails = 0;
             LagMs = BufMs = TtffMs = AOutCount = 0;
             BufMode = AudioCfg = AudioSr = 0;
+            AudioQMs = Trims = VideoQ = AudioLatencyMs = 0;
         }
 
         public void ParseFrom(string s)
@@ -372,6 +385,10 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
 
             switch (kLen)
             {
+                case 2:
+                    if (s[kStart] == 'a' && s[kStart + 1] == 'q') { AudioQMs = v; return; }
+                    if (s[kStart] == 'v' && s[kStart + 1] == 'q') { VideoQ = v; return; }
+                    return;
                 case 3:
                     if (s[kStart] == 'a' && s[kStart + 1] == 'c' && s[kStart + 2] == 'q') { AcqFails = v; return; }
                     if (s[kStart] == 'a' && s[kStart + 1] == 's' && s[kStart + 2] == 'r') { AudioSr = (int)v; return; }
@@ -384,10 +401,12 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
                     if (s[kStart] == 'm' && s[kStart + 1] == 'o' && s[kStart + 2] == 'd' && s[kStart + 3] == 'e') { BufMode = (int)v; return; }
                     if (s[kStart] == 'a' && s[kStart + 1] == 'c' && s[kStart + 2] == 'f' && s[kStart + 3] == 'g') { AudioCfg = (int)v; return; }
                     if (s[kStart] == 'a' && s[kStart + 1] == 'o' && s[kStart + 2] == 'u' && s[kStart + 3] == 't') { AOutCount = v; return; }
+                    if (s[kStart] == 'a' && s[kStart + 1] == 'l' && s[kStart + 3] == 't') { AudioLatencyMs = v; return; } // alat
                     if (s[kStart] == 't' && s[kStart + 1] == 't' && s[kStart + 2] == 'f' && s[kStart + 3] == 'f') { TtffMs = v; return; }
                     return;
                 case 5:
                     if (s[kStart] == 'n' && s[kStart + 4] == 'e') { NoDue = v; return; }
+                    if (s[kStart] == 'a' && s[kStart + 4] == 'm') { Trims = v; return; } // atrim
                     return;
                 case 6:
                     if (s[kStart] == 'r' && s[kStart + 5] == 'r') { Render = v; return; }

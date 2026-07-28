@@ -1,0 +1,31 @@
+{
+    "name": "Basis.Eerie.Movement.Tests",
+    "rootNamespace": "Basis.Tests.IK",
+    "references": [
+        "Basis Framework",
+        "Basis.Eerie.Movement",
+        "Basis.Eerie.Movement.Editor",
+        "BasisCommon",
+        "BasisGizmos",
+        "Unity.TextMeshPro",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.Burst",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,15 +1,19 @@
+using Basis.IK;
 using Basis.Scripts.Animator_Driver;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Common;
+using Basis.Scripts.Constraints;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.UI.UI_Panels;
+using GatorDragonGames.JigglePhysics;
 using System;
 using System.Collections;
 using System.Threading.Tasks;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
@@ -152,6 +156,13 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Foot Driver")]
         [SerializeField]
         public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
+
+        /// <summary>
+        /// Synthesizes chest/spine/hips motion from head cues when no torso trackers are present.
+        /// </summary>
+        [Header("Virtual Spine Driver")]
+        [SerializeField]
+        public BasisLocalVirtualSpineDriver LocalVirtualSpineDriver = new BasisLocalVirtualSpineDriver();
         /// <summary>
         /// Character controller for movement, collisions, and physics.
         /// </summary>
@@ -222,6 +233,7 @@ namespace Basis.Scripts.BasisSdk.Players
 
             LocalBoneDriver.CreateInitialArrays(true);
             LocalBoneDriver.Initialize();
+            LocalVirtualSpineDriver.Initialize();
             LocalHandDriver.Initialize();
             LocalSeatDriver.Initialize(this);
 
@@ -248,7 +260,7 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             else
             {
-                await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
+                await LoadFallbackAvatar();
             }
 
 #if !BASIS_DISABLE_MICROPHONE
@@ -273,40 +285,59 @@ namespace Basis.Scripts.BasisSdk.Players
         }
 
         /// <summary>
-        /// Loads the last-used avatar if present on disk and key is available; otherwise falls back to the loading avatar.
+        /// Loads the last-used avatar, re-downloading it if the disc cache was lost; otherwise shows the loading avatar without overwriting the persisted selection.
         /// </summary>
         /// <param name="LastUsedAvatar">Metadata pointing to the last persisted avatar selection.</param>
         public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
         {
-            var (onDisc, info) = await BasisLoadHandler.IsMetaDataOnDiscAsync(LastUsedAvatar.UniqueID);
-            if (onDisc)
+            if (LastUsedAvatar.loadmode == (byte)BasisLoadMode.ByGameobjectReference)
             {
-                await BasisDataStoreItemKeys.LoadKeys();
-                ItemKey[] activeKeys = BasisDataStoreItemKeys.DisplayKeys();
-                foreach (ItemKey Key in activeKeys)
+                BasisDebug.Log("failed to load last used : in-scene avatars cannot be restored", BasisDebug.LogTag.Avatar);
+                await LoadFallbackAvatar();
+                return;
+            }
+
+            await BasisDataStoreItemKeys.LoadKeys();
+            ItemKey matchingKey = null;
+            ItemKey[] activeKeys = BasisDataStoreItemKeys.DisplayKeys();
+            foreach (ItemKey Key in activeKeys)
+            {
+                if (Key.Mode == BundledContentHolder.Mode.Avatar && Key.Url == LastUsedAvatar.UniqueID)
                 {
-                    if (Key.Mode == BundledContentHolder.Mode.Avatar && Key.Url == LastUsedAvatar.UniqueID)
-                    {
-                        BasisLoadableBundle bundle = new BasisLoadableBundle
-                        {
-                            BasisRemoteBundleEncrypted = info.StoredRemote,
-                            BasisBundleConnector = new BasisBundleConnector("1", new BasisBundleDescription("Loading Avatar", "Loading Avatar"), new BasisBundleGenerated[] { new BasisBundleGenerated() }, null, new BasisBounds(Vector3.zero, Vector3.one), new BasisBundleConnector.BasisMetaData()),
-                            BasisLocalEncryptedBundle = info.StoredLocal,
-                            UnlockPassword = Key.Pass
-                        };
-                        BasisDebug.Log("loading previously loaded avatar", BasisDebug.LogTag.Avatar);
-                        await CreateAvatar(LastUsedAvatar.loadmode, bundle);
-                        return;
-                    }
+                    matchingKey = Key;
+                    break;
                 }
-                BasisDebug.Log("failed to load last used : no key found to load but was found on disc", BasisDebug.LogTag.Avatar);
-                await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
-            else
+
+            string unlockPassword = !string.IsNullOrEmpty(LastUsedAvatar.Pass) ? LastUsedAvatar.Pass : matchingKey?.Pass;
+            if (unlockPassword == null)
             {
-                BasisDebug.Log("failed to load last used : url was not found on disc", BasisDebug.LogTag.Avatar);
-                await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
+                BasisDebug.Log("failed to load last used : no stored password and no key found", BasisDebug.LogTag.Avatar);
+                await LoadFallbackAvatar();
+                return;
             }
+
+            var (onDisc, info) = await BasisLoadHandler.IsMetaDataOnDiscAsync(LastUsedAvatar.UniqueID);
+            BasisLoadableBundle bundle = new BasisLoadableBundle
+            {
+                BasisRemoteBundleEncrypted = onDisc ? info.StoredRemote : new BasisRemoteEncyptedBundle { RemoteBeeFileLocation = LastUsedAvatar.UniqueID },
+                BasisBundleConnector = new BasisBundleConnector("1", new BasisBundleDescription("Loading Avatar", "Loading Avatar"), new BasisBundleGenerated[] { new BasisBundleGenerated() }, null, new BasisBounds(Vector3.zero, Vector3.one), new BasisBundleConnector.BasisMetaData()),
+                BasisLocalEncryptedBundle = onDisc ? info.StoredLocal : new BasisStoredEncryptedBundle(),
+                UnlockPassword = unlockPassword
+            };
+            BasisDebug.Log(onDisc ? "loading previously loaded avatar" : "last used avatar missing from disc cache, re-downloading", BasisDebug.LogTag.Avatar);
+            await CreateAvatar(LastUsedAvatar.loadmode, bundle);
+        }
+
+        /// <summary>
+        /// Loads the fallback loading avatar without persisting it as the last-used selection.
+        /// </summary>
+        public async Task LoadFallbackAvatar()
+        {
+            CurrentAvatarUniqueID = BasisAvatarFactory.LoadingAvatar.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+            await BasisAvatarFactory.LoadAvatarLocal(this, LoadModeLocal, BasisAvatarFactory.LoadingAvatar, this.transform.position, Quaternion.identity);
+            OnLocalAvatarChanged?.Invoke();
+            BasisConstraintSystem.SetPriorityRoot(BasisAvatar != null ? BasisAvatar.transform.root : null);
         }
 
         /// <summary>
@@ -350,8 +381,13 @@ namespace Basis.Scripts.BasisSdk.Players
             var jiggleRigs = BasisLocalAvatarDriver.JiggleRigs;
             for (int i = 0; i < jiggleRigs.Length; i++)
             {
-                jiggleRigs[i].Teleport(deltaPosition);
+                JiggleRig rig = jiggleRigs[i];
+                if (rig != null)
+                {
+                    rig.Teleport(deltaPosition);
+                }
             }
+            BasisLocalFootDriver?.Teleport(deltaPosition);
             OnTeleportEvent?.Invoke();
         }
         private Vector3 GetFeetAlignedRoot(Vector3 targetPosition, Quaternion targetRotation)
@@ -400,6 +436,7 @@ namespace Basis.Scripts.BasisSdk.Players
         }
         /// <summary>
         /// Creates or replaces the local avatar using the specified load mode and bundle, then persists the selection.
+        /// In-scene avatars (<see cref="BasisLoadMode.ByGameobjectReference"/>) are session-only and are not persisted.
         /// </summary>
         /// <param name="LoadMode">Avatar load mode (e.g., <see cref="LoadModeLocal"/> for local).</param>
         /// <param name="BasisLoadableBundle">Bundle describing the avatar to load.</param>
@@ -408,7 +445,27 @@ namespace Basis.Scripts.BasisSdk.Players
             CurrentAvatarUniqueID = BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
             await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle, this.transform.position, Quaternion.identity);
             OnLocalAvatarChanged?.Invoke();
-            BasisDataStore.SaveAvatar(CurrentAvatarUniqueID, LoadMode, LoadFileNameAndExtension);
+
+            // Tell the constraint solver which hierarchy is ours. It bands how often it re-reads a
+            // constraint's state by distance from here, and exempts this one entirely — our own
+            // constraints have to keep up frame for frame, a remote across the room does not.
+            // Told nothing, it treats every avatar as near and refreshes everything at full rate:
+            // correct, just without the saving.
+            BasisConstraintSystem.SetPriorityRoot(
+                BasisAvatar != null ? BasisAvatar.transform.root : null);
+            if (LoadMode != (byte)BasisLoadMode.ByGameobjectReference)
+            {
+                BasisDataStore.SaveAvatar(CurrentAvatarUniqueID, LoadMode, LoadFileNameAndExtension, BasisLoadableBundle.UnlockPassword);
+                if (LoadMode == (byte)BasisLoadMode.Download && !string.IsNullOrEmpty(CurrentAvatarUniqueID) && !BasisAvatarFactory.IsLoadingAvatar(BasisLoadableBundle))
+                {
+                    await BasisDataStoreItemKeys.AddNewKey(new ItemKey
+                    {
+                        Mode = BundledContentHolder.Mode.Avatar,
+                        Url = CurrentAvatarUniqueID,
+                        Pass = BasisLoadableBundle.UnlockPassword
+                    });
+                }
+            }
         }
 
         /// <summary>
@@ -483,6 +540,7 @@ namespace Basis.Scripts.BasisSdk.Players
 #endif
             LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
+            LocalVirtualSpineDriver.DeInitialize();
             LocalBoneDriver.Dispose();
             BasisLocalFootDriver.Dispose();
             LocalRigDriver.CleanupBeforeContinue();
@@ -499,34 +557,63 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray,1,BasisLocalMicrophoneDriver.processBufferArray.Length);
 #endif
         }
+        static readonly ProfilerMarker sMarkerMovement = new ProfilerMarker("BasisDriver.LocalPlayer.Movement");
+        static readonly ProfilerMarker sMarkerPlayspaceMover = new ProfilerMarker("BasisDriver.LocalPlayer.PlayspaceMover");
+        static readonly ProfilerMarker sMarkerVirtualData = new ProfilerMarker("BasisDriver.LocalPlayer.VirtualData");
+        static readonly ProfilerMarker sMarkerLateSimulateBones = new ProfilerMarker("BasisDriver.LocalPlayer.LateSimulateBones");
+        static readonly ProfilerMarker sMarkerBoneDriver = new ProfilerMarker("BasisDriver.LocalPlayer.BoneDriver");
+        static readonly ProfilerMarker sMarkerIKDestinations = new ProfilerMarker("BasisDriver.LocalPlayer.IKDestinations");
+        static readonly ProfilerMarker sMarkerAnimator = new ProfilerMarker("BasisDriver.LocalPlayer.Animator");
+        static readonly ProfilerMarker sMarkerHandDriver = new ProfilerMarker("BasisDriver.LocalPlayer.HandDriver");
+        static readonly ProfilerMarker sMarkerAfterSimulate = new ProfilerMarker("BasisDriver.LocalPlayer.AfterSimulateOnLate");
+
         public void Simulate(float DeltaTime)
         {
+            // Kick the locomotion pose job first: when active it fills the IK stream on a worker
+            // while everything below runs, and is joined inside SimulateIKDestinations.
+            LocalRigDriver.ScheduleLocomotionPose(this, DeltaTime);
+
             // now lets move the local player position.
-            LocalCharacterDriver.SimulateMovement(DeltaTime);
-
-            // VR play space grab/drag override (no-op unless enabled and a controller input is held).
-            BasisLocalPlayspaceMover.Simulate(this, DeltaTime);
-
-            // Apply virtual data (e.g. seat driver) before polling input devices so that
-            // localToWorldMatrix reflects the seat-adjusted player position. This ensures
-            // bone world positions and raycast origins are correct while seated (#514).
-            ApplyVirtualData(this);
-            if (LocalSeatDriver.IsSeated)
+            using (sMarkerMovement.Auto())
             {
-                transform.GetPositionAndRotation(out Vector3 seatPos, out Quaternion seatRot);
-                localToWorldMatrix = Matrix4x4.TRS(seatPos, seatRot, transform.lossyScale);
+                LocalCharacterDriver.SimulateMovement(DeltaTime);
             }
 
-            // Apply the play-space flip (OVRAS-style) to the avatar's local->world matrix so the body
-            // tips/inverts with the view. The view, controllers, and trackers get the same flip in
-            // BasisInput.ApplyFinalMovement. No-op unless a flip is active; the capsule is never rotated.
-            localToWorldMatrix = BasisLocalPlayspaceMover.ApplyFlipToMatrix(localToWorldMatrix);
+            // VR play space grab/drag override (no-op unless enabled and a controller input is held).
+            using (sMarkerPlayspaceMover.Auto())
+            {
+                BasisLocalPlayspaceMover.Simulate(this, DeltaTime);
+            }
 
-            OnLateSimulateBones(this);
+            using (sMarkerVirtualData.Auto())
+            {
+                // Apply virtual data (e.g. seat driver) before polling input devices so that
+                // localToWorldMatrix reflects the seat-adjusted player position. This ensures
+                // bone world positions and raycast origins are correct while seated (#514).
+                ApplyVirtualData(this);
+                if (LocalSeatDriver.IsSeated)
+                {
+                    transform.GetPositionAndRotation(out Vector3 seatPos, out Quaternion seatRot);
+                    localToWorldMatrix = Matrix4x4.TRS(seatPos, seatRot, transform.lossyScale);
+                }
+
+                // Apply the play-space flip (OVRAS-style) to the avatar's local->world matrix so the body
+                // tips/inverts with the view. The view, controllers, and trackers get the same flip in
+                // BasisInput.ApplyFinalMovement. No-op unless a flip is active; the capsule is never rotated.
+                localToWorldMatrix = BasisLocalPlayspaceMover.ApplyFlipToMatrix(localToWorldMatrix);
+            }
+
+            using (sMarkerLateSimulateBones.Auto())
+            {
+                OnLateSimulateBones(this);
+            }
 
             // moves all bones to where they belong
             // This also drives head and camera movement.
-            LocalBoneDriver.Simulate(DeltaTime, localToWorldMatrix);
+            using (sMarkerBoneDriver.Auto())
+            {
+                LocalBoneDriver.Simulate(DeltaTime, localToWorldMatrix);
+            }
 
             // moves Avatar Hip Transform to where it belongs in tpose.
             if (BasisLocalAvatarDriver.CurrentlyTposing)
@@ -536,15 +623,27 @@ namespace Basis.Scripts.BasisSdk.Players
             }
 
             // Simulate Final Destination of IK then process Animator and IK processes.
-            LocalRigDriver.SimulateIKDestinations(DeltaTime);
+            using (sMarkerIKDestinations.Auto())
+            {
+                LocalRigDriver.SimulateIKDestinations(DeltaTime);
+            }
 
             // Apply Animator Weights using most current data and outside movement effectors.
-            LocalAnimatorDriver.SimulateAnimator(DeltaTime);
+            using (sMarkerAnimator.Auto())
+            {
+                LocalAnimatorDriver.SimulateAnimator(DeltaTime);
+            }
 
             // schedule finger slerp job (completed by Apply in BasisEventDriver)
-            LocalHandDriver.Simulate(DeltaTime);
+            using (sMarkerHandDriver.Auto())
+            {
+                LocalHandDriver.Simulate(DeltaTime);
+            }
 
-            AfterSimulateOnLate?.Invoke();
+            using (sMarkerAfterSimulate.Auto())
+            {
+                AfterSimulateOnLate?.Invoke();
+            }
         }
         public static void FireJustBeforeNetworkApply()
         {

@@ -82,6 +82,7 @@ public static class BasisNetworkLifeCycle
 #endif
             BasisNetworkPlayers.ClearAllRegistries();//remove players
             Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DeInitialize();//remove shout audio sources
+            Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.DeInitialize();//remove voice recordings
             await BasisNetworkSpawnItem.Reset();//remove items
             BasisNetworkPreloadManager.Reset();//remove preloaded resources
             BasisContentShareManager.Reset();//remove content spheres
@@ -108,6 +109,7 @@ public static class BasisNetworkLifeCycle
     public static async Task Destroy()
     {
         BasisDebug.Log($"Shutting Down Network Connection", BasisDebug.LogTag.Networking);
+        BasisNetworkConnectionWatchdog.Reset();
         if (BasisNetworkConnection.LocalPlayerPeer != null && BasisNetworkPlayers.Players.TryGetValue((ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId, out var networkedPlayer))
         {
             if (networkedPlayer?.Player is BasisLocalPlayer local)
@@ -128,6 +130,7 @@ public static class BasisNetworkLifeCycle
         BasisRemoteNetworkDriver.Shutdown();//complete in-flight jobs before disposing anything
         BasisNetworkPlayers.ClearAllRegistries();//remove players
         Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DeInitialize();//remove shout audio sources
+        Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.DeInitialize();//remove voice recordings
         await BasisNetworkSpawnItem.Reset();//remove items
         BasisNetworkPreloadManager.Reset();//remove preloaded resources
         BasisContentShareManager.Reset();//remove content spheres

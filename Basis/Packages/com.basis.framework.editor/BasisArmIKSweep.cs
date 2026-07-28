@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -860,7 +860,7 @@ namespace Basis.IK.Debugging
         {
             Vector3 lookupBend = ComputeLookupBend(tbl, target - shoulder, armLen, isLeft);
             Vector3 hint = shoulder + 0.5f * armLen * lookupBend + hintNoiseVec;
-            BasisArmSolveInput input;
+            BasisArmSolveInput input = default;
             input.Shoulder = shoulder; input.Elbow = curElbow; input.Hand = curHand;
             input.RootRotation = Quaternion.identity; input.MidRotation = Quaternion.identity;
             input.TargetPosition = target; input.TargetRotation = Quaternion.identity;
@@ -913,7 +913,7 @@ namespace Basis.IK.Debugging
 
         static BasisArmSolveResult SolveOne(Vector3 shoulder, Vector3 elbow, Vector3 hand, Vector3 target, Vector3 hint, bool hintOn, bool hintIsTracker = false)
         {
-            BasisArmSolveInput input;
+            BasisArmSolveInput input = default;
             input.Shoulder = shoulder;
             input.Elbow = elbow;
             input.Hand = hand;

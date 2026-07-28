@@ -37,18 +37,18 @@ namespace Basis.Integration.SlimeVR
 
             PanelElementDescriptor group = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, parent);
-            group.SetDescription("Pulls your real body proportions from a running SlimeVR server, so your height and arm span are set automatically without calibrating.");
+            group.SetDescription("Sets your height and arm span automatically from a running SlimeVR server.");
             var content = group.ContentParent;
 
             PanelToggle enableToggle = PanelToggle.CreateNewEntry(content);
             enableToggle.Descriptor.SetTitle("Connect To SlimeVR");
-            enableToggle.Descriptor.SetDescription("Look for a local SlimeVR server and stay connected to it.");
+            enableToggle.Descriptor.SetDescription("Stay connected to a local SlimeVR server.");
             enableToggle.SetValueWithoutNotify(BasisSlimeVRSettings.Enable.RawValue);
             enableToggle.OnValueChanged += value => BasisSlimeVRSettings.Enable.SetValue(value);
 
             PanelDropdown transportDropdown = PanelDropdown.CreateNewEntry(content);
             transportDropdown.Descriptor.SetTitle("Connection Method");
-            transportDropdown.Descriptor.SetDescription("WebSocket works with every SlimeVR server today. Pipe is SlimeVR's newer native connection and needs a server build whose pipe works.");
+            transportDropdown.Descriptor.SetDescription("WebSocket suits every server; Pipe is SlimeVR's native transport.");
             transportDropdown.AssignEntries(
                 new List<string> { BasisSlimeVRSettings.TransportWebSocket, BasisSlimeVRSettings.TransportPipe },
                 new List<string> { "WebSocket", "Pipe" });
@@ -57,25 +57,51 @@ namespace Basis.Integration.SlimeVR
 
             PanelToggle applyToggle = PanelToggle.CreateNewEntry(content);
             applyToggle.Descriptor.SetTitle("Auto Apply Body Measurements");
-            applyToggle.Descriptor.SetDescription("Use SlimeVR's measured eye height and arm span as your calibrated body size.");
+            applyToggle.Descriptor.SetDescription("Use SlimeVR's eye height and arm span as your body size.");
             applyToggle.SetValueWithoutNotify(BasisSlimeVRSettings.ApplyBodyMeasurements.RawValue);
             applyToggle.OnValueChanged += value => BasisSlimeVRSettings.ApplyBodyMeasurements.SetValue(value);
 
             PanelToggle autoBindToggle = PanelToggle.CreateNewEntry(content);
             autoBindToggle.Descriptor.SetTitle("Auto Bind SlimeVR Trackers");
-            autoBindToggle.Descriptor.SetDescription("SlimeVR trackers announce which body part they are and bind automatically. Turn off to calibrate them by hand instead.");
+            autoBindToggle.Descriptor.SetDescription("Bind trackers to their announced body part automatically.");
             autoBindToggle.SetValueWithoutNotify(BasisSlimeVRSettings.AutoBindSlimeVRTrackers.RawValue);
             autoBindToggle.OnValueChanged += value => BasisSlimeVRSettings.AutoBindSlimeVRTrackers.SetValue(value);
 
+            PanelToggle recalToggle = PanelToggle.CreateNewEntry(content);
+            recalToggle.Descriptor.SetTitle("Recalibrate On Reset");
+            recalToggle.Descriptor.SetDescription("Re-run calibration after a SlimeVR mounting or full reset.");
+            recalToggle.SetValueWithoutNotify(BasisSlimeVRSettings.RecalibrateOnMountingChange.RawValue);
+            recalToggle.OnValueChanged += value => BasisSlimeVRSettings.RecalibrateOnMountingChange.SetValue(value);
+
+            PanelDropdown trackerSourceDropdown = PanelDropdown.CreateNewEntry(content);
+            trackerSourceDropdown.Descriptor.SetTitle("Tracker Source (Experimental)");
+            trackerSourceDropdown.Descriptor.SetDescription("Get trackers from the SlimeVR server instead of OpenVR/OpenXR. Needs SteamVR in the background.");
+            trackerSourceDropdown.AssignEntries(
+                new List<string> { BasisSlimeVRSettings.TrackerSourceOff, BasisSlimeVRSettings.TrackerSourceAuto, BasisSlimeVRSettings.TrackerSourceForce },
+                new List<string> { "Off", "Auto (fallback)", "Force (override)" });
+            trackerSourceDropdown.SetValueWithoutNotify(BasisSlimeVRSettings.TrackerSource.RawValue);
+            trackerSourceDropdown.OnValueChanged += value => BasisSlimeVRSettings.TrackerSource.SetValue(value);
+
+            PanelSlider.CreateAndBind(content,
+                new PanelSlider.SliderSettings("Pose Countdown",
+                    "Seconds the buttons below give you to get into pose before they fire. 0 fires instantly.",
+                    0f, 10f, true, 0, ValueDisplayMode.Raw),
+                BasisSlimeVRSettings.PoseCountdownSeconds);
+
             PanelButton yawReset = PanelButton.CreateNew(content);
-            yawReset.Descriptor.SetTitle("Yaw Reset");
-            yawReset.Descriptor.SetDescription("Straighten the SlimeVR trackers (same as the SlimeVR yaw reset).");
-            yawReset.OnClicked += BasisSlimeVRBridge.TriggerYawReset;
+            WirePoseCountdownButton(yawReset, "Yaw Reset",
+                "Straighten the trackers. Fires after the pose countdown.",
+                BasisSlimeVRPoseAction.YawReset);
 
             PanelButton fullReset = PanelButton.CreateNew(content);
-            fullReset.Descriptor.SetTitle("Full Reset");
-            fullReset.Descriptor.SetDescription("Full SlimeVR tracker reset (stand straight while using it).");
-            fullReset.OnClicked += BasisSlimeVRBridge.TriggerFullReset;
+            WirePoseCountdownButton(fullReset, "Full Reset",
+                "Full reset — stand straight during the countdown.",
+                BasisSlimeVRPoseAction.FullReset);
+
+            PanelButton recalibrate = PanelButton.CreateNew(content);
+            WirePoseCountdownButton(recalibrate, "Recalibrate Full Body",
+                "Recapture tracker offsets — stand straight during the countdown.",
+                BasisSlimeVRPoseAction.RecalibrateFbt, "manual (settings)");
 
             PanelElementDescriptor statusField = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, content);
@@ -84,7 +110,7 @@ namespace Basis.Integration.SlimeVR
 
             PanelButton refresh = PanelButton.CreateNew(content);
             refresh.Descriptor.SetTitle("Refresh");
-            refresh.Descriptor.SetDescription("Re-read the body measurements and status from SlimeVR.");
+            refresh.Descriptor.SetDescription("Re-read measurements and status.");
             refresh.OnClicked += () =>
             {
                 BasisSlimeVRBridge.RefreshBodyMeasurements();
@@ -112,6 +138,71 @@ namespace Basis.Integration.SlimeVR
             {
                 tabDescriptor?.ForceRebuild();
             });
+        }
+
+        /// <summary>
+        /// Routes a button through the bridge's pose countdown: pressing starts the countdown (the
+        /// title ticks down), pressing again cancels. The countdown itself runs on
+        /// <see cref="BasisSlimeVRBridge"/>, so closing the menu mid-count still fires the action.
+        /// </summary>
+        private static void WirePoseCountdownButton(PanelButton button, string title, string description,
+            BasisSlimeVRPoseAction action, string recaptureReason = null)
+        {
+            button.Descriptor.SetTitle(title);
+            button.Descriptor.SetDescription(description);
+
+            button.OnClicked += () =>
+            {
+                if (BasisSlimeVRBridge.HasPoseCountdown && BasisSlimeVRBridge.PoseCountdownAction == action)
+                {
+                    BasisSlimeVRBridge.CancelPoseCountdown();
+                }
+                else
+                {
+                    BasisSlimeVRBridge.StartPoseCountdown(action, recaptureReason);
+                }
+            };
+
+            void OnTick(BasisSlimeVRPoseAction tickAction, int secondsRemaining)
+            {
+                if (button == null)
+                {
+                    BasisSlimeVRBridge.OnPoseCountdownTick -= OnTick;
+                    BasisSlimeVRBridge.OnPoseCountdownEnded -= OnEnded;
+                    return;
+                }
+                if (tickAction != action)
+                {
+                    return;
+                }
+                button.Descriptor.SetTitle($"{title} ({secondsRemaining})");
+                button.Descriptor.SetDescription("Get into pose — press again to cancel.");
+            }
+
+            void OnEnded(BasisSlimeVRPoseAction endedAction, bool _)
+            {
+                if (button == null)
+                {
+                    BasisSlimeVRBridge.OnPoseCountdownTick -= OnTick;
+                    BasisSlimeVRBridge.OnPoseCountdownEnded -= OnEnded;
+                    return;
+                }
+                if (endedAction != action)
+                {
+                    return;
+                }
+                button.Descriptor.SetTitle(title);
+                button.Descriptor.SetDescription(description);
+            }
+
+            BasisSlimeVRBridge.OnPoseCountdownTick += OnTick;
+            BasisSlimeVRBridge.OnPoseCountdownEnded += OnEnded;
+
+            // A rebuilt panel (tab reopened mid-count) picks the running countdown back up.
+            if (BasisSlimeVRBridge.HasPoseCountdown && BasisSlimeVRBridge.PoseCountdownAction == action)
+            {
+                OnTick(action, BasisSlimeVRBridge.PoseCountdownSecondsRemaining);
+            }
         }
 
         private static string DescribeStatus()
@@ -154,6 +245,10 @@ namespace Basis.Integration.SlimeVR
                     text.Append($", lowest battery {lowestBattery:F0}%");
                 }
                 text.Append('.');
+            }
+            if (BasisSlimeVRBridge.OffsetsStale)
+            {
+                text.Append($" Tracker mounting changed ({BasisSlimeVRBridge.MountingDriftDegrees:F0}°) — refreshing full-body offsets.");
             }
             return text.ToString();
         }

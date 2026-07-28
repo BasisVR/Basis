@@ -15,16 +15,7 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         static void Init()
         {
-            // Seed the static fields from persisted settings
-            BasisNetworkManagement.MinCutoff = BasisSettingsDefaults.NetEuroMinCutoff.RawValue;
-            BasisNetworkManagement.Beta = BasisSettingsDefaults.NetEuroBeta.RawValue;
-            BasisNetworkManagement.DerivativeCutoff = BasisSettingsDefaults.NetEuroDerivativeCutoff.RawValue;
             ApplyJitterDepthFromSettings();
-
-            // Keep them in sync when the user changes a setting
-            BasisSettingsDefaults.NetEuroMinCutoff.OnChanged += v => BasisNetworkManagement.MinCutoff = v;
-            BasisSettingsDefaults.NetEuroBeta.OnChanged += v => BasisNetworkManagement.Beta = v;
-            BasisSettingsDefaults.NetEuroDerivativeCutoff.OnChanged += v => BasisNetworkManagement.DerivativeCutoff = v;
             BasisSettingsDefaults.NetworkJitterBufferOverride.OnChanged += _ => ApplyJitterDepthFromSettings();
             BasisSettingsDefaults.NetworkJitterBufferDepth.OnChanged += _ => ApplyJitterDepthFromSettings();
         }
@@ -41,33 +32,10 @@ namespace Basis.BasisUI
             }
         }
 
-        public static void BuildNetworkEuroFilterGroup(RectTransform container)
-        {
-            var euroGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            euroGroup.SetTitle(BasisLocalization.Get("settings.developer.euroFilter"));
-
-            var minCutoffSlider = PanelSlider.CreateEntryAndBind(
-                euroGroup,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.network.euro.minCutoff"), 0.01f, 10f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.NetEuroMinCutoff);
-            minCutoffSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.network.euro.minCutoff.tooltip"));
-
-            var betaSlider = PanelSlider.CreateEntryAndBind(
-                euroGroup,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.network.euro.beta"), 0f, 10f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.NetEuroBeta);
-            betaSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.network.euro.beta.tooltip"));
-
-            var derivativeCutoffSlider = PanelSlider.CreateEntryAndBind(
-                euroGroup,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.network.euro.derivativeCutoff"), 0.1f, 10f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.NetEuroDerivativeCutoff);
-            derivativeCutoffSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.network.euro.derivativeCutoff.tooltip"));
-        }
-
         public static void BuildNetworkStatsGroup(RectTransform container, out NetworkStatsPanelUpdater updater)
         {
             var netGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            netGroup.SetBackgroundVisible(false);
             netGroup.SetTitle(BasisLocalization.Get("settings.developer.netStats"));
 
             // Connection status

@@ -18,6 +18,12 @@ namespace Basis.Scripts.Networking.Sync
         private const float CatchupGain = 0.5f;
         private const float MinPlaybackRate = 0.85f;
         private const float MaxPlaybackRate = 1.35f;
+        // Widest Current->Next window playback will interpolate across in real time. Anything wider is a
+        // resume after an idle gap (or an owner hitch), not motion — it gets crossed at the nominal packet
+        // pace instead of being replayed, so a pickup grabbed after sitting still doesn't spend seconds
+        // sliding out of its stale timeline. Kept above the server's slowest distance-reduced send rate
+        // (2.55 s stock) so legitimately slow far-object streams still interpolate smoothly.
+        private const double MaxPlayableWindowSeconds = 3.0;
 
         private sealed class SyncFrame
         {
@@ -61,6 +67,8 @@ namespace Basis.Scripts.Networking.Sync
         private float _depthFloor = MinJitterDepth + 1f;
         private bool _valuesDirty = true;
         private bool _snapRequested;
+        private bool _windowStatic;
+        private bool _windowStaticValid;
 
         private bool _extrapolate;
         private double _maxExtrapSeconds;
@@ -128,7 +136,7 @@ namespace Basis.Scripts.Networking.Sync
 
         public void OnPacket(byte[] payload, int length)
         {
-            if (payload == null || length < BasisSyncCodec.HeaderSize) return;
+            if (payload == null || length < BasisSyncCodec.HeaderSize || length > payload.Length || length > _maxPacket) return;
             // Bytes on the wire for this object — counted before any drop, so it reflects what arrived.
             _bwBytes += length;
             _bwPackets++;
@@ -243,45 +251,71 @@ namespace Basis.Scripts.Networking.Sync
                     _next = null;
                     _interpTime = 0.0;
                     _valuesDirty = true;
+                    _windowStaticValid = false;
                 }
             }
 
-            if (_current == null && _staged.Count > 0) { _current = _staged.Dequeue(); _valuesDirty = true; }
-            if (_next == null && _staged.Count > 0) { _next = _staged.Dequeue(); _valuesDirty = true; }
+            if (_current == null && _staged.Count > 0) { _current = _staged.Dequeue(); _valuesDirty = true; _windowStaticValid = false; }
+            if (_next == null && _staged.Count > 0) { _next = _staged.Dequeue(); _valuesDirty = true; _windowStaticValid = false; }
+
+            // Windows whose endpoints are identical (an idle sender's keyframe refreshes) carry no motion;
+            // crossing them in real time only delays whatever is queued behind them. Skip straight through.
+            while (_next != null && _staged.Count > 0 && WindowIsStatic())
+            {
+                ReturnFrame(_current);
+                _current = _next;
+                _next = _staged.Dequeue();
+                _interpTime = 0.0;
+                _valuesDirty = true;
+                _windowStaticValid = false;
+            }
 
             if (_current != null && _next != null)
             {
-                double window = _next.ServerTime - _current.ServerTime;
-                if (window <= 1e-6) window = DefaultInterval;
-
-                float diff = _staged.Count - _dynamicDepth;
-                float rate;
-                if (diff > CatchupDeadband) rate = 1f + CatchupGain * (diff - CatchupDeadband);
-                else if (diff < 0f) rate = 1f + CatchupGain * diff;
-                else rate = 1f;
-                rate = math.clamp(rate, MinPlaybackRate, MaxPlaybackRate);
-
-                _interpTime += (dt / window) * rate;
-
-                while (_interpTime >= 1.0 && _staged.Count > 0)
+                if (WindowIsStatic())
                 {
-                    ReturnFrame(_current);
-                    _current = _next;
-                    _next = _staged.Dequeue();
-                    _interpTime -= 1.0;
-                    _valuesDirty = true;
+                    // Static window with nothing queued behind it: pin to the newest values. Starving here is
+                    // the sender being idle, not network trouble, so the depth target must not ratchet up.
+                    _interpTime = 1.0;
                 }
+                else
+                {
+                    double window = _next.ServerTime - _current.ServerTime;
+                    bool gap = window > MaxPlayableWindowSeconds;
+                    if (window <= 1e-6 || gap) window = DefaultInterval;
 
-                if (_interpTime >= 1.0)
-                {
-                    double cap = 1.0;
-                    if (_extrapolate && window > 1e-6) cap = 1.0 + _maxExtrapSeconds / window;
-                    if (_interpTime > cap) _interpTime = cap;
-                    _dynamicDepth = math.min(_dynamicDepth + 0.25f, MaxJitterDepth);
-                }
-                else if (_interpTime < 0.0)
-                {
-                    _interpTime = 0.0;
+                    float diff = _staged.Count - _dynamicDepth;
+                    float rate;
+                    if (diff > CatchupDeadband) rate = 1f + CatchupGain * (diff - CatchupDeadband);
+                    else if (diff < 0f) rate = 1f + CatchupGain * diff;
+                    else rate = 1f;
+                    rate = math.clamp(rate, MinPlaybackRate, MaxPlaybackRate);
+
+                    _interpTime += (dt / window) * rate;
+
+                    while (_interpTime >= 1.0 && _staged.Count > 0)
+                    {
+                        ReturnFrame(_current);
+                        _current = _next;
+                        _next = _staged.Dequeue();
+                        _interpTime -= 1.0;
+                        _valuesDirty = true;
+                        _windowStaticValid = false;
+                    }
+
+                    if (_interpTime >= 1.0)
+                    {
+                        double cap = 1.0;
+                        // A collapsed gap window has a garbage slope (real distance over a nominal interval)
+                        // — extrapolating along it would overshoot hard, so hold at the window end instead.
+                        if (_extrapolate && !gap && window > 1e-6) cap = 1.0 + _maxExtrapSeconds / window;
+                        if (_interpTime > cap) _interpTime = cap;
+                        _dynamicDepth = math.min(_dynamicDepth + 0.25f, MaxJitterDepth);
+                    }
+                    else if (_interpTime < 0.0)
+                    {
+                        _interpTime = 0.0;
+                    }
                 }
 
                 _dynamicDepth = math.max(_dynamicDepth - (float)(dt * 0.5), _depthFloor);
@@ -308,6 +342,7 @@ namespace Basis.Scripts.Networking.Sync
             for (int i = 0; i < _arrived.Count; i++) ReturnRaw(_arrived[i]);
             _arrived.Clear();
             _interpTime = 0.0;
+            _windowStaticValid = false;
             _seenPackets = 0;
             _hasKeyframe = false;
             _serverClockSeeded = false;
@@ -329,6 +364,41 @@ namespace Basis.Scripts.Networking.Sync
             _interpTime = 0.0;
             _current = frame;
             _valuesDirty = true;
+            _windowStaticValid = false;
+        }
+
+        private bool WindowIsStatic()
+        {
+            if (!_windowStaticValid)
+            {
+                _windowStatic = ValuesEqual(_current.Values, _next.Values);
+                _windowStaticValid = true;
+            }
+            return _windowStatic;
+        }
+
+        // Exact comparison is intentional: an unchanged field decodes to bit-identical values (deltas carry
+        // the baseline forward, keyframes re-quantize the same source), so "identical" reliably means the
+        // sender had nothing new. Any real change — or NaN garbage — compares unequal and interpolates.
+        private static bool ValuesEqual(BasisSyncValues a, BasisSyncValues b)
+        {
+            float[] ac = a.Cont, bc = b.Cont;
+            for (int i = 0; i < ac.Length; i++)
+            {
+                if (ac[i] != bc[i]) return false;
+            }
+            quaternion[] ar = a.Rot, br = b.Rot;
+            for (int i = 0; i < ar.Length; i++)
+            {
+                float4 qa = ar[i].value, qb = br[i].value;
+                if (qa.x != qb.x || qa.y != qb.y || qa.z != qb.z || qa.w != qb.w) return false;
+            }
+            int[] ad = a.Disc, bd = b.Disc;
+            for (int i = 0; i < ad.Length; i++)
+            {
+                if (ad[i] != bd[i]) return false;
+            }
+            return true;
         }
 
         private float ContJumpSq(float[] cont)

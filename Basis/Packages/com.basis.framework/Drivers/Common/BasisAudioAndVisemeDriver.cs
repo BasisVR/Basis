@@ -264,6 +264,16 @@ namespace Basis.Scripts.Drivers
             }
         }
         /// <summary>
+        /// Drops the mouth back to rest without releasing the OpenLipSync slot. Only the viseme
+        /// blendshapes this driver owns are touched, so blink, face tracking and comms-driven
+        /// expression shapes are left alone. Main thread only — SetBlendShapeWeight always is.
+        /// </summary>
+        public void ZeroVisemesNow()
+        {
+            openLipSyncContext?.ZeroVisemes();
+        }
+
+        /// <summary>
         /// Attempts to cleanly shut down the driver, disabling processing and unbinding callbacks.
         /// </summary>
         public void TryShutdown()

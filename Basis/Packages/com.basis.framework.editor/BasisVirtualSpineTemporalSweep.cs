@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Basis.IK.Debugging
 {
-    // Temporal sweep of the runtime virtual-spine solve (BasisLocalVirtualSpineDriver.BasisVirtualSpineSolveJob).
+    // Temporal sweep of the runtime virtual-spine solve (BasisVirtualSpineCore.BasisVirtualSpineSolveJob).
     // The existing Spine / SpineBend / SpineClamp / SpineTwist sweeps test the STATIC helpers (chain placement,
     // hips offset, yaw extraction) on independent stateless inputs. They cannot see the per-frame dynamics the
     // job carries in SpineSolveState: the torso yaw DEADZONE (hold the heading until the head leaves a cone, ease
@@ -106,7 +106,7 @@ namespace Basis.IK.Debugging
             float maxPop = 0f, maxHipsStep = 0f, maxChestStep = 0f, maxAbove = 0f, finalCatchup = 0f, maxFollow = 0f;
 
             NativeArray<BasisBoneSimState> states = default;
-            NativeArray<BasisLocalVirtualSpineDriver.SpineSolveState> state = default;
+            NativeArray<BasisVirtualSpineCore.SpineSolveState> state = default;
 
             try
             {
@@ -114,7 +114,7 @@ namespace Basis.IK.Debugging
                 if (!string.IsNullOrEmpty(d) && !Directory.Exists(d)) Directory.CreateDirectory(d);
 
                 states = new NativeArray<BasisBoneSimState>(5, Allocator.Persistent);
-                state = new NativeArray<BasisLocalVirtualSpineDriver.SpineSolveState>(1, Allocator.Persistent);
+                state = new NativeArray<BasisVirtualSpineCore.SpineSolveState>(1, Allocator.Persistent);
 
                 using (var w = new StreamWriter(path, false, Encoding.UTF8))
                 {
@@ -217,11 +217,11 @@ namespace Basis.IK.Debugging
 
         // Builds the per-frame params for a pure-yaw head pose, ticks the real solve job once, reads back the
         // synthesized torso yaws + hips/head Y + follow weight.
-        static StepOut Step(NativeArray<BasisBoneSimState> states, NativeArray<BasisLocalVirtualSpineDriver.SpineSolveState> state, float headYawDeg, float dt, in BasisVirtualSpineTemporalSweepConfig cfg)
+        static StepOut Step(NativeArray<BasisBoneSimState> states, NativeArray<BasisVirtualSpineCore.SpineSolveState> state, float headYawDeg, float dt, in BasisVirtualSpineTemporalSweepConfig cfg)
         {
             quaternion yaw = quaternion.AxisAngle(new float3(0f, 1f, 0f), math.radians(headYawDeg));
 
-            var p = new BasisLocalVirtualSpineDriver.SpineSolveParams
+            var p = new BasisVirtualSpineCore.SpineSolveParams
             {
                 Dt = dt,
                 Scale = 1f,
@@ -272,7 +272,7 @@ namespace Basis.IK.Debugging
                 TSpine = TSpine,
             };
 
-            new BasisLocalVirtualSpineDriver.BasisVirtualSpineSolveJob
+            new BasisVirtualSpineCore.BasisVirtualSpineSolveJob
             {
                 States = states,
                 State = state,
@@ -300,7 +300,7 @@ namespace Basis.IK.Debugging
             return o;
         }
 
-        static void Seed(NativeArray<BasisBoneSimState> states, NativeArray<BasisLocalVirtualSpineDriver.SpineSolveState> state)
+        static void Seed(NativeArray<BasisBoneSimState> states, NativeArray<BasisVirtualSpineCore.SpineSolveState> state)
         {
             SeedBone(states, IdxHead, HeadY);
             SeedBone(states, IdxNeck, NeckY);

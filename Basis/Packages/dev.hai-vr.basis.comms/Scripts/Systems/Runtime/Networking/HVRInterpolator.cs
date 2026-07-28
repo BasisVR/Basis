@@ -11,6 +11,7 @@ namespace HVR.Basis.Comms
         private const float FastCatchUpMultiplier = 0.05f;
 
         private readonly Queue<HVRInterpolationSnapshot> _snapshots = new();
+        private readonly Stack<HVRInterpolationSnapshot> _snapshotPool = new();
         private readonly Dictionary<int, float> _memoryOfPreviousSnapshotValue = new();
         private HVRInterpolationSnapshot _currentSnapshot;
         private float _advanced;
@@ -30,6 +31,12 @@ namespace HVR.Basis.Comms
             _snapshots.Enqueue(snapshot);
         }
 
+        // Rented snapshots must be given back through Add; consumed snapshots return to the pool once the interpolator moves past them.
+        public HVRInterpolationSnapshot RentSnapshot()
+        {
+            return _snapshotPool.Count > 0 ? _snapshotPool.Pop() : new HVRInterpolationSnapshot();
+        }
+
         public bool HasPendingWork => _currentSnapshot != null || _snapshots.Count > 0;
 
         public void SetCatchUp(bool doCatchUp)
@@ -39,6 +46,7 @@ namespace HVR.Basis.Comms
 
         private void TryDequeue()
         {
+            var previousSnapshot = _currentSnapshot;
             if (_snapshots.Count > 0)
             {
                 var currentQueueSeconds = _totalQueueSeconds;
@@ -70,6 +78,12 @@ namespace HVR.Basis.Comms
             {
                 _currentSnapshot = null;
                 _advanced = 0f;
+            }
+
+            if (previousSnapshot != null)
+            {
+                previousSnapshot.addressIdsToValues.Clear();
+                _snapshotPool.Push(previousSnapshot);
             }
         }
 

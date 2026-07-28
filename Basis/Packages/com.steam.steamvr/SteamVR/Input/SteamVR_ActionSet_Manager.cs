@@ -57,30 +57,34 @@ namespace Valve.VR
         }
 
         private static int lastFrameUpdated;
+        static readonly Unity.Profiling.ProfilerMarker sMarkerActionState = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.ActionState");
         public static void UpdateActionStates(bool force = false)
         {
-            if (force || Time.frameCount != lastFrameUpdated)
+            if (force || SteamVR_Input.frameCount != lastFrameUpdated)
             {
-                lastFrameUpdated = Time.frameCount;
+                lastFrameUpdated = SteamVR_Input.frameCount;
 
-                if (changed)
+                using (sMarkerActionState.Auto())
                 {
-                    UpdateActionSetsArray();
-                }
-
-                if (rawActiveActionSetArray != null && rawActiveActionSetArray.Length > 0)
-                {
-                    if (OpenVR.Input != null)
+                    if (changed)
                     {
-                        EVRInputError err = OpenVR.Input.UpdateActionState(rawActiveActionSetArray, activeActionSetSize);
-                        if (err != EVRInputError.None)
-                            Debug.LogError("<b>[SteamVR]</b> UpdateActionState error: " + err.ToString());
-                        //else Debug.Log("Action sets activated: " + activeActionSets.Length);
+                        UpdateActionSetsArray();
                     }
-                }
-                else
-                {
-                    //Debug.LogWarning("No sets active");
+
+                    if (rawActiveActionSetArray != null && rawActiveActionSetArray.Length > 0)
+                    {
+                        if (OpenVR.Input != null)
+                        {
+                            EVRInputError err = OpenVR.Input.UpdateActionState(rawActiveActionSetArray, activeActionSetSize);
+                            if (err != EVRInputError.None)
+                                Debug.LogError("<b>[SteamVR]</b> UpdateActionState error: " + err.ToString());
+                            //else Debug.Log("Action sets activated: " + activeActionSets.Length);
+                        }
+                    }
+                    else
+                    {
+                        //Debug.LogWarning("No sets active");
+                    }
                 }
             }
         }

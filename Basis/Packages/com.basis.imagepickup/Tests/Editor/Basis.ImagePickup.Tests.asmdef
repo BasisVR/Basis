@@ -1,0 +1,27 @@
+{
+    "name": "Basis.ImagePickup.Tests",
+    "rootNamespace": "Basis.ImagePickup.Tests",
+    "references": [
+        "Basis.ImagePickup",
+        "Basis Framework",
+        "BasisCommon",
+        "BasisSDK",
+        "UnityEngine.TestRunner",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

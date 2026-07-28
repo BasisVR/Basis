@@ -24,7 +24,11 @@ namespace OpenLipSync.Inference
         private bool _disposed;
 
         private bool _isMultiLabel;
+        private bool _isStreaming;
+        private bool _legacyNormalizeWindow;
         private int _numVisemes = Frame.VisemeCount;
+
+        public bool IsStreaming => _isStreaming;
 
         public bool IsInitialized => _initialized;
         public int SampleRate => _inputSampleRate;
@@ -59,8 +63,27 @@ namespace OpenLipSync.Inference
                     if (_modelConfig != null)
                     {
                         _audioConfig = AudioProcessingConfig.FromModelConfig(_modelConfig);
-                        _isMultiLabel = _modelConfig.Training?.MultiLabel ?? false;
+                        // Current models declare this under "model"; older ones under "training".
+                        _isMultiLabel = _modelConfig.Model?.MultiLabel
+                                        ?? _modelConfig.Training?.MultiLabel
+                                        ?? false;
                         _numVisemes = _modelConfig.Model?.NumVisemes ?? Frame.VisemeCount;
+
+                        // The C# front-end emits RAW dB mel. A model that declares it wants
+                        // normalized input is telling us its input contract does not match
+                        // what we produce -- which is exactly the bug that cost the previous
+                        // model 12.7 points of frame accuracy (trained on per-utterance
+                        // normalized mel, fed raw dB, ~36 sigma off-distribution).
+                        //
+                        // We cannot reproduce per-utterance stats in a live stream (they need
+                        // the whole utterance), but normalizing each mel WINDOW by its own
+                        // mean/std is causal and recovers most of the loss: measured on
+                        // dev-clean, 60.0% -> 69.5% frame accuracy with the shipped weights.
+                        // So honour the contract as best we can instead of refusing to run.
+                        string norm = _modelConfig.Audio?.Normalization;
+                        _legacyNormalizeWindow = !string.IsNullOrEmpty(norm)
+                                                 && !norm.StartsWith("none", StringComparison.OrdinalIgnoreCase)
+                                                 && !norm.Equals("baked_into_graph", StringComparison.OrdinalIgnoreCase);
                     }
                     else
                     {
@@ -80,6 +103,15 @@ namespace OpenLipSync.Inference
                 sessionOptions.IntraOpNumThreads = 1;
 
                 _onnxSession = new InferenceSession(modelBytes, sessionOptions);
+
+                // A streaming graph exposes cache_* inputs and costs one frame of work per
+                // 10 ms hop. A legacy graph takes a whole mel window and is re-run in full on
+                // every hop -- ~83x more compute per player. We support both so an older
+                // model.onnx keeps working, but the shipped model should be streaming.
+                _isStreaming = StreamingSession.IsStreamingModel(_onnxSession);
+                Debug.Log(_isStreaming
+                    ? "[OpenLipSync] streaming model detected (cached convolutions, ~1 frame of work per hop)"
+                    : "[OpenLipSync] legacy windowed model detected - full window re-run per hop. Consider re-exporting as streaming.");
 
                 _initialized = true;
                 return Result.Success;
@@ -123,16 +155,23 @@ namespace OpenLipSync.Inference
 
             try
             {
-                var audioContext = new AudioContext(_inputSampleRate, _audioConfig, _numVisemes);
+                // Each player needs its OWN convolution cache state. The InferenceSession is
+                // shared and thread-safe; only the caches and IoBindings are per-context.
+                StreamingSession streaming = _isStreaming
+                    ? new StreamingSession(_onnxSession, _audioConfig.NMels, _numVisemes)
+                    : null;
+
+                var audioContext = new AudioContext(_inputSampleRate, _audioConfig, _numVisemes,
+                                                    streaming, _isMultiLabel);
                 uint id = (uint)Interlocked.Increment(ref _nextContextId);
                 context = id;
                 _contexts[context] = audioContext;
 
                 return Result.Success;
             }
-            catch
+            catch (Exception ex)
             {
-                LastError = "Failed to create audio context";
+                LastError = $"Failed to create audio context: {ex.Message}";
                 return Result.CannotCreateContext;
             }
         }
@@ -212,29 +251,44 @@ namespace OpenLipSync.Inference
                 }
 
                 int melCount = 0;
-                while (audioContext.TryGetNextMelFrame(out var melFeatures))
+
+                if (audioContext.IsStreaming)
                 {
-                    audioContext.AccumulateMelFrame(melFeatures);
-                    melCount++;
+                    // One 10 ms hop of work per mel frame. The conv caches carry all the
+                    // temporal context, so there is no window to re-run.
+                    while (audioContext.TryGetNextMelFrame(out var melFeatures))
+                    {
+                        audioContext.StepStreaming(melFeatures);
+                        melCount++;
+                        DebugInferenceRuns++;
+                    }
+                }
+                else
+                {
+                    while (audioContext.TryGetNextMelFrame(out var melFeatures))
+                    {
+                        audioContext.AccumulateMelFrame(melFeatures);
+                        melCount++;
+                    }
+
+                    if (audioContext.AccumulatedMelFrames >= 5)
+                    {
+                        var melSeq = audioContext.GetMelSequence(out int seqLen);
+                        RunSequenceInference(melSeq, seqLen, audioContext.MelBands,
+                                             audioContext.GetInferenceBuffer(),
+                                             audioContext.GetInferenceInputBuffer());
+                        audioContext.ApplyLegacyResults(audioContext.GetInferenceBuffer());
+                        DebugInferenceRuns++;
+                    }
                 }
 
                 DebugMelFramesProduced += melCount;
 
-                int accFrames = audioContext.AccumulatedMelFrames;
-
-                if (accFrames >= 5)
-                {
-                    var melSeq = audioContext.GetMelSequence(out int seqLen);
-                    RunSequenceInference(melSeq, seqLen, audioContext.MelBands, audioContext.GetInferenceBuffer(), audioContext.GetInferenceInputBuffer());
-                    audioContext.UpdateLatestResults(audioContext.GetInferenceBuffer());
-
-                    DebugInferenceRuns++;
-                    float max = 0f;
-                    var buf = audioContext.GetInferenceBuffer();
-                    for (int i = 0; i < buf.Length; i++)
-                        if (buf[i] > max) max = buf[i];
-                    DebugLastInferenceMax = max;
-                }
+                float max = 0f;
+                var probs = audioContext.GetInferenceBuffer();
+                for (int i = 0; i < probs.Length; i++)
+                    if (probs[i] > max) max = probs[i];
+                DebugLastInferenceMax = max;
 
                 audioContext.UpdateFrame(ref frame);
 
@@ -286,6 +340,34 @@ namespace OpenLipSync.Inference
                     inputData = new float[inputSize];
                 }
                 melSequenceFlat.AsSpan(0, inputSize).CopyTo(inputData);
+
+                // Legacy models were trained on mel normalized to zero-mean / unit-variance,
+                // but this front-end emits raw dB. Feeding raw dB leaves the network ~36 sigma
+                // off-distribution: its logits blow up (the conv stack is bias-free + ReLU, so
+                // it is near scale-equivariant) and the sigmoid saturates to a near-binary 0/1,
+                // which destroys exactly the graded weights that blendshape blending needs.
+                //
+                // Per-utterance stats are not available in a stream, so normalize this window
+                // by its own mean/std. Causal, and measured to take the shipped model from
+                // 60.0% -> 69.5% frame accuracy on dev-clean.
+                if (_legacyNormalizeWindow)
+                {
+                    var span = inputData.AsSpan(0, inputSize);
+                    double sum = 0.0;
+                    for (int i = 0; i < inputSize; i++) sum += span[i];
+                    float mean = (float)(sum / inputSize);
+
+                    double sq = 0.0;
+                    for (int i = 0; i < inputSize; i++)
+                    {
+                        float d = span[i] - mean;
+                        sq += (double)d * d;
+                    }
+                    float std = MathF.Sqrt((float)(sq / inputSize));
+                    float inv = 1f / MathF.Max(std, 1e-5f);
+
+                    for (int i = 0; i < inputSize; i++) span[i] = (span[i] - mean) * inv;
+                }
 
                 // Rebuild the input tensor wrapper only when shape OR the backing
                 // array changes. In steady state none of these vary, so this is

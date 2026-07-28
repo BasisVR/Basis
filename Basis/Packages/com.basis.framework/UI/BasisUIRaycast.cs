@@ -11,7 +11,6 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.EventSystems;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
-using UnityEngine.UIElements;
 using static BasisHeightDriver;
 
 namespace Basis.Scripts.UI
@@ -82,6 +81,14 @@ namespace Basis.Scripts.UI
         public bool HasOnPlayersHeightChanged = false;
         public BasisCursorType ActiveCursorType = BasisCursorType.Default;
         public Renderer ReticleRenderer;
+
+        public BasisUIToolkitPanel HitToolkitPanel;
+        public bool HadToolkitPanelTarget = false;
+        public Vector2 ToolkitPanelPosition;
+        public Vector3 ToolkitSurfacePoint;
+        public readonly BasisUIToolkitPointer ToolkitPointer = new BasisUIToolkitPointer();
+        private struct ToolkitPanelCacheEntry { public BasisUIToolkitPanel Panel; public int Frame; }
+        private readonly Dictionary<Transform, ToolkitPanelCacheEntry> _toolkitPanelCache = new Dictionary<Transform, ToolkitPanelCacheEntry>();
 
         public void Initialize(BasisInput basisInput, BasisPointRaycaster pointRaycaster)
         {
@@ -194,6 +201,8 @@ namespace Basis.Scripts.UI
             SortedGraphics.Clear();
             SortedRays.Clear();
             HadRaycastUITarget = false;
+            HadToolkitPanelTarget = false;
+            HitToolkitPanel = null;
 
             int hitCount = BasisPointRaycaster.PhysicHitCount;
             if (hitCount == 0)
@@ -250,22 +259,38 @@ namespace Basis.Scripts.UI
                 }
 
                 GetActiveCanvases(candidateTransform, Results);
-                if (Results.Count == 0)
+                if (Results.Count != 0)
                 {
-                    continue;
+                    SortedGraphics.Clear();
+                    SortedRays.Clear();
+                    PhysicHit = hits[hitIndex];
+                    DidPhysicHit = true;
+                    HitCollider = PhysicHit.collider;
+
+                    if (RaycastToUI())
+                    {
+                        HadRaycastUITarget = true;
+                        HandleDidHit();
+                        return;
+                    }
                 }
 
-                SortedGraphics.Clear();
-                SortedRays.Clear();
-                PhysicHit = hits[hitIndex];
-                DidPhysicHit = true;
-                HitCollider = PhysicHit.collider;
-
-                if (RaycastToUI())
+                // UI Toolkit panels are invisible to the canvas walk above: they have no Graphic
+                // and no entry in GraphicRegistry. They carry their own collider, so they arrive
+                // here as an ordinary physics hit and inherit the OverlayUI/distance ordering.
+                BasisUIToolkitPanel toolkitPanel = GetToolkitPanel(candidateTransform);
+                if (toolkitPanel != null)
                 {
-                    HadRaycastUITarget = true;
-                    HandleDidHit();
-                    return;
+                    PhysicHit = hits[hitIndex];
+                    DidPhysicHit = true;
+                    HitCollider = PhysicHit.collider;
+
+                    if (RaycastToToolkitPanel(toolkitPanel))
+                    {
+                        HadToolkitPanelTarget = true;
+                        HandleDidHit();
+                        return;
+                    }
                 }
             }
 
@@ -295,6 +320,42 @@ namespace Basis.Scripts.UI
                     output.Add(c);
                 }
             }
+        }
+
+        private BasisUIToolkitPanel GetToolkitPanel(Transform root)
+        {
+            int frame = Time.frameCount;
+            if (!_toolkitPanelCache.TryGetValue(root, out ToolkitPanelCacheEntry entry) || frame - entry.Frame >= CanvasCacheRevalidateFrames)
+            {
+                entry.Panel = root.GetComponentInParent<BasisUIToolkitPanel>(true);
+                entry.Frame = frame;
+                _toolkitPanelCache[root] = entry;
+            }
+
+            BasisUIToolkitPanel panel = entry.Panel;
+            if (panel == null || !panel.isActiveAndEnabled)
+            {
+                return null;
+            }
+            return panel;
+        }
+
+        private bool RaycastToToolkitPanel(BasisUIToolkitPanel panel)
+        {
+            if (!panel.TryGetPanelPosition(BasisPointRaycaster.ray, true, out Vector2 panelPosition, out Vector3 worldPosition, out float distance))
+            {
+                return false;
+            }
+
+            if (distance > BasisPointRaycaster.EffectiveMaxDistance)
+            {
+                return false;
+            }
+
+            HitToolkitPanel = panel;
+            ToolkitPanelPosition = panelPosition;
+            ToolkitSurfacePoint = worldPosition;
+            return true;
         }
 
         private static int CompareUiHitOrder(int[] layers, RaycastHit[] hits, int leftIndex, int rightIndex)
@@ -352,8 +413,9 @@ namespace Basis.Scripts.UI
                     CachedLinerRenderState = true;
                 }
                 float endOffset = BasisPlayerInteract.AvatarScaledRange(0.01f);
-                LineRenderer.SetPosition(0, BasisPointRaycaster.ray.origin);
-                LineRenderer.SetPosition(1, point + normal * endOffset);
+                Vector3 lineEnd = point + normal * endOffset;
+                LineRenderer.SetPosition(0, BasisPlayerInteract.RayVisualStart(BasisPointRaycaster.ray.origin, lineEnd));
+                LineRenderer.SetPosition(1, lineEnd);
             }
 
             if (HasRedicalRenderer)
@@ -376,6 +438,16 @@ namespace Basis.Scripts.UI
         bool ContainsLayer(LayerMask mask, int layer)
         {
             return (mask.value & (1 << layer)) != 0;
+        }
+
+        public static bool IsUILayer(int layer)
+        {
+            // Panels can enable before any raycaster has initialised the shared mask.
+            if (UILayers.value == 0)
+            {
+                UILayers = LayerMask.GetMask("UI", "OverlayUI");
+            }
+            return (UILayers.value & (1 << layer)) != 0;
         }
 
         private void HandleDidHit()
@@ -459,8 +531,8 @@ namespace Basis.Scripts.UI
                 // canvas" at 0.01 avatar scale (field report: "the distance from the canvas").
                 float endOffset = BasisPlayerInteract.AvatarScaledRange(0.01f);
 
-                Vector3 start = BasisPointRaycaster.ray.origin;
                 Vector3 end = GetVisualSurfacePoint() + PhysicHit.normal * endOffset;
+                Vector3 start = BasisPlayerInteract.RayVisualStart(BasisPointRaycaster.ray.origin, end);
 
                 LineRenderer.SetPosition(0, start);
                 LineRenderer.SetPosition(1, end);
@@ -502,6 +574,12 @@ namespace Basis.Scripts.UI
         /// </summary>
         private Vector3 GetVisualSurfacePoint()
         {
+            // Panel hits already resolve on the panel plane, not the collider face.
+            if (HadToolkitPanelTarget && HitToolkitPanel != null)
+            {
+                return ToolkitSurfacePoint;
+            }
+
             Vector3 point = PhysicHit.point;
             if (FoundCanvas == null)
             {
@@ -551,7 +629,11 @@ namespace Basis.Scripts.UI
             BasisCursorType newType = BasisCursorType.Default;
             Texture2D customTex = null;
 
-            if (SortedGraphics.Count > 0 && SortedGraphics[0].graphic != null)
+            if (HadToolkitPanelTarget)
+            {
+                newType = BasisCursorType.Pointer;
+            }
+            else if (SortedGraphics.Count > 0 && SortedGraphics[0].graphic != null)
             {
                 var graphic = SortedGraphics[0].graphic;
                 if (graphic.TryGetComponent(out BasisCursorHint hint))
@@ -649,7 +731,7 @@ namespace Basis.Scripts.UI
         }
 
         // NEW: priority helper so OverlayUI canvases always win
-        private int GetCanvasPriority(Canvas canvas)
+        private static int GetCanvasPriority(Canvas canvas)
         {
             if (canvas == null)
                 return 0;
@@ -662,56 +744,96 @@ namespace Basis.Scripts.UI
             return 0;
         }
 
-        public bool RaycastToUI()
-        {
-            // Sort canvases so OverlayUI always comes first,
-            // then fall back to sortingOrder (higher first).
-            Results.Sort((c1, c2) =>
-            {
-                int p1 = GetCanvasPriority(c1);
-                int p2 = GetCanvasPriority(c2);
+        // Per-canvas scratch for RaycastToUI, so accumulation into SortedGraphics survives
+        // SortedRaycastGraphics' Clear. Not readonly: SortedRaycastGraphics takes it by ref.
+        private List<BasisRaycastUIHitData> CanvasScratchGraphics = new List<BasisRaycastUIHitData>();
 
-                int priorityCompare = p2.CompareTo(p1);
+        /// <summary>
+        /// Sort order: OverlayUI always first, then sortingOrder (higher first). A shared
+        /// IComparer because this sort runs every frame the ray is over UI — a capturing
+        /// lambda here cost a delegate plus Sort's comparer wrapper per call.
+        /// </summary>
+        private sealed class CanvasPriorityComparer : IComparer<Canvas>
+        {
+            public static readonly CanvasPriorityComparer Instance = new CanvasPriorityComparer();
+            public int Compare(Canvas c1, Canvas c2)
+            {
+                int priorityCompare = GetCanvasPriority(c2).CompareTo(GetCanvasPriority(c1));
                 if (priorityCompare != 0)
                     return priorityCompare;
 
                 // Same priority class: use sortingOrder like before
                 return c2.sortingOrder.CompareTo(c1.sortingOrder);
-            });
+            }
+        }
 
+        public bool RaycastToUI()
+        {
+            Results.Sort(CanvasPriorityComparer.Instance);
+
+            // Accumulate hits across EVERY candidate canvas instead of returning at the
+            // first canvas that has any. Graphics register to the nearest Canvas up their
+            // parent chain, so a nested isolation canvas owns its children's graphics —
+            // the old first-canvas-wins walk let the root menu canvas shadow every nested
+            // one, which made controls inside an IsolateAsCanvas group unclickable.
+            // OverlayUI still beats normal canvases: once a higher priority class has a
+            // hit, lower classes stop being tested.
             int Count = Results.Count;
+            int hitPriorityClass = int.MinValue;
             for (int Index = 0; Index < Count; Index++)
             {
                 Canvas CurrentTopLevel = Results[Index];
-                if (CurrentTopLevel != null)
+                if (CurrentTopLevel == null)
                 {
-                    if (CurrentTopLevel.worldCamera == null)
-                    {
-                        CurrentTopLevel.worldCamera = BasisLocalCameraDriver.Instance.Camera;
-                    }
-                    SortedRaycastGraphics(CurrentTopLevel, CurrentTopLevel.worldCamera, ref SortedGraphics);
-                    ProcessSortedHitsResults(CurrentTopLevel, true, SortedGraphics, SortedRays);
-                    if (SortedGraphics.Count != 0)
-                    {
-                        return true;
-                    }
+                    continue;
+                }
+                int priorityClass = GetCanvasPriority(CurrentTopLevel);
+                if (SortedGraphics.Count != 0 && priorityClass < hitPriorityClass)
+                {
+                    break;
+                }
+                if (CurrentTopLevel.worldCamera == null)
+                {
+                    CurrentTopLevel.worldCamera = BasisLocalCameraDriver.Instance.Camera;
+                }
+                SortedRaycastGraphics(CurrentTopLevel, CurrentTopLevel.worldCamera, ref CanvasScratchGraphics);
+                if (CanvasScratchGraphics.Count == 0)
+                {
+                    continue;
+                }
+                AppendValidHits(CurrentTopLevel, CanvasScratchGraphics, SortedGraphics, SortedRays);
+                if (SortedGraphics.Count != 0)
+                {
+                    hitPriorityClass = priorityClass > hitPriorityClass ? priorityClass : hitPriorityClass;
                 }
             }
-            return false;
+
+            if (SortedGraphics.Count == 0)
+            {
+                return false;
+            }
+            SortCombinedHits();
+            return true;
         }
 
-        public bool ProcessSortedHitsResults(Canvas canvas, bool hitSomething, List<BasisRaycastUIHitData> raycastHitDatums, List<RaycastResult> resultAppendList)
+        /// <summary>
+        /// Validates one canvas's ray-intersecting graphics and appends the survivors as an
+        /// ALIGNED pair into the combined hit lists — the press pipeline consumes index 0 of
+        /// both, so they must describe the same graphic. (The old split — every graphic in one
+        /// list, only valid ones in the other — could disagree after filtering.)
+        /// </summary>
+        private void AppendValidHits(Canvas canvas, List<BasisRaycastUIHitData> canvasHits, List<BasisRaycastUIHitData> hitDataOut, List<RaycastResult> rayResultsOut)
         {
-            // Now that we have a list of sorted hits, process any extra settings and filters.
-            foreach (var hitData in raycastHitDatums)
+            int count = canvasHits.Count;
+            for (int i = 0; i < count; i++)
             {
-                var validHit = true;
-
+                BasisRaycastUIHitData hitData = canvasHits[i];
                 if (hitData.graphic == null)
                 {
                     continue;
                 }
                 var go = hitData.graphic.gameObject;
+                bool validHit = true;
                 if (IgnoreReversedGraphics)
                 {
                     var forward = BasisPointRaycaster.ray.direction;
@@ -720,32 +842,92 @@ namespace Basis.Scripts.UI
                 }
 
                 validHit &= hitData.distance < BasisPointRaycaster.EffectiveMaxDistance;
-
-                if (validHit)
+                if (!validHit)
                 {
-                    var trans = go.transform;
-                    var transForward = trans.forward;
-                    var castResult = new RaycastResult
-                    {
-                        gameObject = go,
-                        module = BasisPointRaycaster,
-                        distance = hitData.distance,
-                        index = resultAppendList.Count,
-                        depth = hitData.graphic.depth,
-                        sortingLayer = canvas.sortingLayerID,
-                        sortingOrder = canvas.sortingOrder,
-                        worldPosition = hitData.worldHitPosition,
-                        worldNormal = -transForward,
-                        screenPosition = hitData.screenPosition,
-                        displayIndex = hitData.displayIndex,
-                    };
-                    resultAppendList.Add(castResult);
-
-                    hitSomething = true;
+                    continue;
                 }
+
+                var castResult = new RaycastResult
+                {
+                    gameObject = go,
+                    module = BasisPointRaycaster,
+                    distance = hitData.distance,
+                    index = rayResultsOut.Count,
+                    depth = hitData.graphic.depth,
+                    sortingLayer = canvas.sortingLayerID,
+                    sortingOrder = canvas.sortingOrder,
+                    worldPosition = hitData.worldHitPosition,
+                    worldNormal = -go.transform.forward,
+                    screenPosition = hitData.screenPosition,
+                    displayIndex = hitData.displayIndex,
+                };
+                rayResultsOut.Add(castResult);
+                hitDataOut.Add(hitData);
+            }
+        }
+
+        /// <summary>
+        /// Lockstep-sorts the combined hit lists so index 0 is the visually topmost graphic
+        /// across every canvas tested. Within one canvas that is plain depth order; across
+        /// canvases a higher sortingOrder wins, then a DESCENDANT canvas beats its ancestor
+        /// (a nested canvas renders inline on top of the ancestor content behind it), then
+        /// ray distance breaks ties between unrelated canvases.
+        /// </summary>
+        private void SortCombinedHits()
+        {
+            int count = SortedGraphics.Count;
+            if (count <= 1)
+            {
+                return;
+            }
+            for (int i = 1; i < count; i++)
+            {
+                BasisRaycastUIHitData g = SortedGraphics[i];
+                RaycastResult r = SortedRays[i];
+                int j = i - 1;
+                while (j >= 0 && CompareCombinedHits(SortedGraphics[j], g) > 0)
+                {
+                    SortedGraphics[j + 1] = SortedGraphics[j];
+                    SortedRays[j + 1] = SortedRays[j];
+                    j--;
+                }
+                SortedGraphics[j + 1] = g;
+                SortedRays[j + 1] = r;
+            }
+        }
+
+        private static int CompareCombinedHits(in BasisRaycastUIHitData a, in BasisRaycastUIHitData b)
+        {
+            Canvas canvasA = a.graphic.canvas;
+            Canvas canvasB = b.graphic.canvas;
+            if (canvasA == canvasB)
+            {
+                int depthCompare = b.graphic.depth.CompareTo(a.graphic.depth);
+                if (depthCompare != 0)
+                {
+                    return depthCompare;
+                }
+                return a.distance.CompareTo(b.distance);
             }
 
-            return hitSomething;
+            int orderCompare = canvasB.sortingOrder.CompareTo(canvasA.sortingOrder);
+            if (orderCompare != 0)
+            {
+                return orderCompare;
+            }
+
+            Transform transformA = canvasA.transform;
+            Transform transformB = canvasB.transform;
+            if (transformA.IsChildOf(transformB))
+            {
+                return -1;
+            }
+            if (transformB.IsChildOf(transformA))
+            {
+                return 1;
+            }
+
+            return a.distance.CompareTo(b.distance);
         }
 
         public void Sort<T>(IList<T> hits, Comparison<T> comparer) where T : struct => Sort(hits, comparer, hits.Count);

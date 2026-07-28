@@ -37,29 +37,43 @@ public struct JiggleJobPrepareRender : IJob {
         float3 capsuleMax = Vector3.one * -10000f;
         int sphereIdx = 0;
         int capsuleIdx = 0;
+        int sphereCapacity = sphereChunks.Length;
+        int capsuleCapacity = capsuleChunks.Length;
 
         for (int i = 0; i < personalColliderCount; i++) {
             var collider = personalColliders[i];
+            // Retired slots keep their last matrix, and freshly added ones are counted before the
+            // collider TransformAccessArray flips — so until the read job has visited them their
+            // matrix is whatever it was built with (or all zeros). Drawing either one pins a gizmo
+            // wherever the avatar was when it spawned. worldRadius is only ever set by Read, so it
+            // doubles as "this slot has been sampled at least once".
+            if (!collider.enabled || collider.worldRadius <= 0f) {
+                continue;
+            }
             var position = collider.localToWorldMatrix.c3.xyz;
             switch (collider.type) {
                 case JiggleCollider.JiggleColliderType.Sphere: {
                     sphereMin = math.min(sphereMin, position - new float3(collider.worldRadius));
                     sphereMax = math.max(sphereMax, position + new float3(collider.worldRadius));
-                    var scaleAdjust = float4x4.Scale(collider.radius * 2f);
-                    sphereChunks[sphereIdx++] = new JiggleRenderInstancer.GPUChunk() {
-                        matrix = math.mul(collider.localToWorldMatrix, scaleAdjust),
-                        color = new float4(1f, 0.5490196f, 0f, 1f),
-                    };
+                    if (sphereIdx < sphereCapacity) {
+                        var scaleAdjust = float4x4.Scale(collider.radius * 2f);
+                        sphereChunks[sphereIdx++] = new JiggleRenderInstancer.GPUChunk() {
+                            matrix = math.mul(collider.localToWorldMatrix, scaleAdjust),
+                            color = new float4(1f, 0.5490196f, 0f, 1f),
+                        };
+                    }
                     break;
                 }
                 case JiggleCollider.JiggleColliderType.Capsule: {
                     var extent = collider.worldRadius + collider.worldHeight * 0.5f;
                     capsuleMin = math.min(capsuleMin, position - new float3(extent));
                     capsuleMax = math.max(capsuleMax, position + new float3(extent));
-                    capsuleChunks[capsuleIdx++] = new JiggleRenderInstancer.GPUChunk() {
-                        matrix = BuildCapsuleMatrix(collider),
-                        color = new float4(1f, 0.5490196f, 0f, 1f),
-                    };
+                    if (capsuleIdx < capsuleCapacity) {
+                        capsuleChunks[capsuleIdx++] = new JiggleRenderInstancer.GPUChunk() {
+                            matrix = BuildCapsuleMatrix(collider),
+                            color = new float4(1f, 0.5490196f, 0f, 1f),
+                        };
+                    }
                     break;
                 }
             }
@@ -67,26 +81,33 @@ public struct JiggleJobPrepareRender : IJob {
 
         for (int i = 0; i < sceneColliderCount; i++) {
             var collider = sceneColliders[i];
+            if (!collider.enabled || collider.worldRadius <= 0f) {
+                continue;
+            }
             var position = collider.localToWorldMatrix.c3.xyz;
             switch (collider.type) {
                 case JiggleCollider.JiggleColliderType.Sphere: {
                     sphereMin = math.min(sphereMin, position - new float3(collider.worldRadius));
                     sphereMax = math.max(sphereMax, position + new float3(collider.worldRadius));
-                    var scaleAdjust = float4x4.Scale(2f * collider.radius);
-                    sphereChunks[sphereIdx++] = new JiggleRenderInstancer.GPUChunk() {
-                        matrix = math.mul(collider.localToWorldMatrix, scaleAdjust),
-                        color = new float4(0.5450981f, 0f, 0f, 1f),
-                    };
+                    if (sphereIdx < sphereCapacity) {
+                        var scaleAdjust = float4x4.Scale(2f * collider.radius);
+                        sphereChunks[sphereIdx++] = new JiggleRenderInstancer.GPUChunk() {
+                            matrix = math.mul(collider.localToWorldMatrix, scaleAdjust),
+                            color = new float4(0.5450981f, 0f, 0f, 1f),
+                        };
+                    }
                     break;
                 }
                 case JiggleCollider.JiggleColliderType.Capsule: {
                     var extent = collider.worldRadius + collider.worldHeight * 0.5f;
                     capsuleMin = math.min(capsuleMin, position - new float3(extent));
                     capsuleMax = math.max(capsuleMax, position + new float3(extent));
-                    capsuleChunks[capsuleIdx++] = new JiggleRenderInstancer.GPUChunk() {
-                        matrix = BuildCapsuleMatrix(collider),
-                        color = new float4(0.5450981f, 0f, 0f, 1f),
-                    };
+                    if (capsuleIdx < capsuleCapacity) {
+                        capsuleChunks[capsuleIdx++] = new JiggleRenderInstancer.GPUChunk() {
+                            matrix = BuildCapsuleMatrix(collider),
+                            color = new float4(0.5450981f, 0f, 0f, 1f),
+                        };
+                    }
                     break;
                 }
             }
@@ -102,10 +123,12 @@ public struct JiggleJobPrepareRender : IJob {
                         continue;
                     }
                     var radius = point.worldRadius;
-                    sphereChunks[sphereIdx++] = new JiggleRenderInstancer.GPUChunk() {
-                        matrix = float4x4.TRS(pose.position, pose.rotation, new float3(1f * radius * 2f)),
-                        color = new float4(0.5294118f, 0.8078432f, 0.9803922f, 1f),
-                    };
+                    if (sphereIdx < sphereCapacity) {
+                        sphereChunks[sphereIdx++] = new JiggleRenderInstancer.GPUChunk() {
+                            matrix = float4x4.TRS(pose.position, pose.rotation, new float3(1f * radius * 2f)),
+                            color = new float4(0.5294118f, 0.8078432f, 0.9803922f, 1f),
+                        };
+                    }
                     sphereMin = math.min(sphereMin, pose.position - new float3(1f) * radius);
                     sphereMax = math.max(sphereMax, pose.position + new float3(1f) * radius);
                 }

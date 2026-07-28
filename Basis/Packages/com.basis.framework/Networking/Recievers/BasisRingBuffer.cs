@@ -46,6 +46,18 @@ public sealed class BasisRingBuffer<T>
         }
     }
 
+    /// <summary>Returns the oldest element without removing it. False if empty.</summary>
+    public bool TryPeekOldest(out T item)
+    {
+        if (_count == 0)
+        {
+            item = default;
+            return false;
+        }
+        item = _data[_head];
+        return true;
+    }
+
     public bool TryDequeueOldest(out T item)
     {
         if (_count == 0)

@@ -76,6 +76,26 @@ public class BasisLocalEyeDriver
     const float MouthWeightNearDist = 0.10f; // if closer than this, never look at the mouth
     const float MouthWeightFullDist = 0.75f; // if farther than this, mouth is fully weighted for triangle targeting
 
+    /// <summary>
+    /// Conversational distances above are metres at adult size, so they track the viewer's own avatar —
+    /// two half-scale avatars stand at roughly half the spacing, and unscaled they read as "far apart"
+    /// and stare at each other's mouths (mouthProb ~0.77 where an adult pair gets ~0.4).
+    /// </summary>
+    private static float SocialDistanceScale()
+    {
+        float s = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+        return (float.IsNaN(s) || float.IsInfinity(s) || s <= 0f) ? 1f : s;
+    }
+
+    private static float MouthScaleForDistance(float dist)
+    {
+        float s = SocialDistanceScale();
+        float near = MouthWeightNearDist * s;
+        float full = MouthWeightFullDist * s;
+        float span = full - near;
+        return span <= 1e-6f ? 0f : math.saturate((dist - near) / span);
+    }
+
     // we track head rotation frame-to-frame so the job can compensate
     private static quaternion _prevHeadRot;
     private static float2 _headDeltaYP;
@@ -431,7 +451,7 @@ public class BasisLocalEyeDriver
             _gazeRightEye = WorldPointToCanonicalYawPitch(rightEye, localHeadPos, invLocalHeadRot);
             _gazeMouth = WorldPointToCanonicalYawPitch(_winnerMouthPos, localHeadPos, invLocalHeadRot);
             float dist = math.distance(eyeCenter, localHeadPos);
-            _gazeMouthScale = math.saturate((dist - MouthWeightNearDist) / (MouthWeightFullDist - MouthWeightNearDist));
+            _gazeMouthScale = MouthScaleForDistance(dist);
             _hasGazeTarget = true;
         }
         else if (_currentGazeTarget != null)
@@ -442,7 +462,7 @@ public class BasisLocalEyeDriver
             _gazeRightEye = yp;
             _gazeMouth = yp;
             float dist = math.distance(focus, localHeadPos);
-            _gazeMouthScale = math.saturate((dist - MouthWeightNearDist) / (MouthWeightFullDist - MouthWeightNearDist));
+            _gazeMouthScale = MouthScaleForDistance(dist);
             _hasGazeTarget = true;
         }
         else

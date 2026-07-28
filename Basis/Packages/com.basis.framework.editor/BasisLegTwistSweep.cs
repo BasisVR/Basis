@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -139,7 +139,7 @@ namespace Basis.IK.Debugging
                 float t = i * cfg.Dt;
                 Quaternion yaw = Quaternion.AngleAxis(yawDeg(t), Vector3.up);
 
-                BasisLegSolveInput li;
+                BasisLegSolveInput li = default;
                 li.Root = hip;
                 li.Mid = knee;
                 li.Tip = foot;

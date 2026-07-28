@@ -1,0 +1,24 @@
+{
+    "name": "Klak.Syphon.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:43c5c07b249414f9798d5aa4418776dc"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.core",
+            "expression": "0.0.0",
+            "define": "KLAK_SYPHON_HAS_SRP"
+        }
+    ],
+    "noEngineReferences": false
+}

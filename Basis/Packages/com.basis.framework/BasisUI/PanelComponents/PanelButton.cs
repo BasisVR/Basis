@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
-    public class PanelButton : PanelComponent
+    public class PanelButton : PanelComponent, IPointerDownHandler, IPointerUpHandler
     {
         private bool _isHovered;
 
@@ -47,6 +47,8 @@ namespace Basis.BasisUI
 
         protected override Selectable InteractableTarget => ButtonComponent;
         public Action OnClicked;
+        public Action OnPressed;
+        public Action OnReleased;
         protected bool _iconIsAddressable;
 
 
@@ -80,6 +82,17 @@ namespace Basis.BasisUI
         {
             UIAnimations.PunchScale(transform);
             OnClicked?.Invoke();
+        }
+
+        public virtual void OnPointerDown(PointerEventData eventData)
+        {
+            if (!IsInteractable) return;
+            OnPressed?.Invoke();
+        }
+
+        public virtual void OnPointerUp(PointerEventData eventData)
+        {
+            OnReleased?.Invoke();
         }
 
         /// <summary>

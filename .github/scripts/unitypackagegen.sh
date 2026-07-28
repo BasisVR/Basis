@@ -7,7 +7,7 @@ PACKAGES="Packages/org.basisvr.generator.equals-3.2.0.tgz:
         Packages/org.basisvr.simplebase-4.0.2.tgz:
         Packages/org.basisvr.bouncycastle-2.5.0.tgz"
 SUBFOLDERS="Packages/com.basis.sdk:
-        Packages/UnityJigglePhysics-upm:
+        Packages/com.gator-dragon-games.jigglephysics:
         Packages/org.basisvr.k4os.compression.lz4:
         Packages/com.basis.bundlemanagement:
         Packages/com.basis.server"
@@ -27,15 +27,20 @@ if [[ "$1" == "full" ]]; then
   # Need this for framework (But only framework)
   SUBFOLDERS+=":Packages/com.avionblock.opussharp:
               Packages/com.basis.addon.snapcontrols:
+              Packages/com.basis.camera:
               Packages/com.basis.common:
               Packages/com.basis.developer.exceptions:
               Packages/com.basis.developer.recorder:
+              Packages/com.basis.eeriemovement:
               Packages/com.basis.eventdriver:
               Packages/com.basis.examples:
               Packages/com.basis.framework:
               Packages/com.basis.framework.editor:
               Packages/com.basis.gizmos:
+              Packages/com.basis.imagepickup:
               Packages/com.basis.integration.audiolink:
+              Packages/com.basis.integration.slimevr:
+              Packages/com.basis.integration.trackerobjects:
               Packages/com.basis.integration.ytdlp:
               Packages/com.basis.mediapipe:
               Packages/com.basis.mediaplayer:
@@ -46,8 +51,11 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.profilerintergration:
               Packages/com.basis.provider.servers:
               Packages/com.basis.settings:
+              Packages/com.basis.setup:
               Packages/com.basis.shim:
+              Packages/com.basis.soundpack:
               Packages/com.basis.textmeshpro:
+              Packages/com.basis.trackerobjects:
               Packages/com.basis.vehicles:
               Packages/com.basis.visualtrackers:
               Packages/com.cnlohr.cilbox:
@@ -57,18 +65,16 @@ if [[ "$1" == "full" ]]; then
               Packages/com.steam.steamaudio:
               Packages/com.steam.steamvr:
               Packages/com.unity.3rdpersondemo:
-              Packages/com.unity.render-pipelines.core:
               Packages/com.unity.render-pipelines.universal:
-              Packages/com.unity.xr.openxr:
               Packages/com.xiph.rnnoise:
               Packages/dev.hai-vr.basis.comms:
               Packages/dev.hai-vr.basis.ndmf:
               Packages/dev.hai-vr.hvr.license-review:
+              Packages/jp.keijiro.klak.spout:
+              Packages/jp.keijiro.klak.syphon:
               Packages/nuget.meamod.dns:
               Assets/AddressableAssetsData:
               Assets/Basis:
-              Assets/MetaXR:
-              Assets/Oculus:
               Assets/Plugins:
               Assets/Resources:
               Assets/StreamingAssets:
@@ -82,21 +88,35 @@ elif [[ "$1" == "sdk" ]]; then
   echo "Producing SDK package"
   # All things are already included.
 else
-  echo "Only full and sdk targets are specified."
-  die
-  exit
+  echo "Only full and sdk targets are specified." >&2
+  exit 1
 fi
 
 set -e
 
 cd Basis
 
+MISSINGPATHS=""
+for ENTRY in $(echo "${PACKAGES}:${SUBFOLDERS}:${EXTRASUBFOLDERS}:${MOREFILES}" | tr : '\n'); do
+    if [[ ! -e $ENTRY ]]; then
+        MISSINGPATHS+=" $ENTRY"
+    fi
+done
+
+if [[ -n $MISSINGPATHS ]]; then
+    echo "ERROR: these listed paths do not exist:" >&2
+    for ENTRY in $MISSINGPATHS; do
+        echo "    $ENTRY" >&2
+    done
+    exit 1
+fi
+
 rm -rf generate_unitypackage
 mkdir -p generate_unitypackage
 
 echo $SUBFOLDERS | tr : '\n' | while read ddv; do
     # WOW! This actually works to list files with spaces!!! 
-    find $ddv -type f -name "*.meta" -print0 | while read -d $'\0' -r FV ; do
+    find $ddv -type d -name "Templates~" -prune -o -type f -name "*.meta" -print0 | while read -d $'\0' -r FV ; do
         #printf 'File found: %s\n' "$FV"
         ASSET=${FV:0:${#FV} - 5}
         GUID=$(cat "$FV" | grep guid: | cut -d' ' -f2 | cut -b-32 )
@@ -183,6 +203,8 @@ if [[ ! -z $PACKAGES ]]; then
         done
     done
 fi
+
+rm -rf tmp
 
 echo "Done exporting .tgz's"
 

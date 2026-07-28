@@ -134,9 +134,8 @@ namespace Basis.BasisUI
         private TweenGraphicColor _fillColorTween;
         private TweenScale _labelPunchTween;
         private bool _isDragging;
-        private bool _externalDriving;
-        private float _externalDriveValue;
 
+        protected override bool SupportsResetGesture => true;
 
         public static PanelSlider CreateNew(Component parent)
             => CreateNew<PanelSlider>(SliderStyles.Default, parent);
@@ -201,6 +200,15 @@ namespace Basis.BasisUI
         public void OnPointerDown(PointerEventData eventData)
         {
             if (!Application.isPlaying) return;
+
+            // Some input paths do report a real right button; honour it. BasisUIInput never fills
+            // its right-button state, so the hovered poll is the actual desktop path.
+            if (eventData.button == PointerEventData.InputButton.Right)
+            {
+                RequestReset();
+                return;
+            }
+
             BeginDragVisual();
         }
 
@@ -232,29 +240,6 @@ namespace Basis.BasisUI
                 _handleScaleTween = _handleRect.TweenScale(0.2f, _handleRect.localScale, Vector3.one)
                     .SetEase(Easing.OutBack);
             }
-        }
-
-        public void DriveExternalDelta(float delta)
-        {
-            if (!Application.isPlaying || SliderComponent == null) return;
-
-            if (!_externalDriving)
-            {
-                _externalDriving = true;
-                _externalDriveValue = SliderComponent.value;
-                BeginDragVisual();
-            }
-
-            _externalDriveValue = Mathf.Clamp(_externalDriveValue + delta, SliderComponent.minValue, SliderComponent.maxValue);
-            SliderComponent.value = _externalDriveValue;
-        }
-
-        public void EndExternalDrive()
-        {
-            if (!_externalDriving) return;
-            _externalDriving = false;
-            EndDragVisual();
-            OnSliderConfirmed();
         }
 
         // Applies visually, does not write to settings.
@@ -296,6 +281,8 @@ namespace Basis.BasisUI
         private string _cachedDecimalFormat;
         private int _cachedDecimalPlaces = -1;
         private string _lastCurrentValueText;
+        private float _lastFormattedValue;
+        private bool _hasLastFormattedValue;
 
         protected virtual void ApplySliderSettings()
         {
@@ -330,6 +317,7 @@ namespace Basis.BasisUI
                 _cachedDecimalFormat = "0." + new string('#', Mathf.Max(0, Settings.DecimalPlaces));
             }
             _lastCurrentValueText = null;
+            _hasLastFormattedValue = false;
         }
 
         public override void SetValueWithoutNotify(float value)
@@ -374,6 +362,12 @@ namespace Basis.BasisUI
             }
 
             if (CurrentValueLabel == null) return;
+
+            // The label is a pure function of Value, so an unchanged value skips the string
+            // build entirely — the dedup below only saved the SetText, not the allocation.
+            if (_hasLastFormattedValue && Value == _lastFormattedValue) return;
+            _hasLastFormattedValue = true;
+            _lastFormattedValue = Value;
 
             string next;
             switch (Settings.DisplayMode)

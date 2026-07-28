@@ -1,4 +1,6 @@
+using Basis.IK;
 using Basis.Network.Core;
+using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
@@ -28,6 +30,16 @@ public static class BasisNetworkHandleAvatar
         if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(playerId, out BasisNetworkReceiver player))
         {
             player.AccountReceivedBytes(wireBytes);
+            // Capture this full keyframe as the delta baseline (used to reconstruct later deltas on
+            // DeltaAvatarChannel). Cheap copy; P2P full frames land here too, which is exactly what
+            // v42 P2P delta senders rebaseline against.
+            byte[] arr = ssm.avatarSerialization.array;
+            if (arr != null)
+            {
+                int payloadSize = BasisAvatarBitPacking.ConvertToSize((BasisAvatarBitPacking.BitQuality)quality);
+                if (arr.Length >= payloadSize)
+                    player.CaptureKeyframeBaseline(quality, ssm.sequence, arr, payloadSize);
+            }
             BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(player, ssm);
         }
 
@@ -46,6 +58,16 @@ public static class BasisNetworkHandleAvatar
 
     public static void HandleAvatarChangeMessage(NetPacketReader reader)
     {
+        // Leading kind byte multiplexes this channel — see BasisNetworkCommons.AvatarChangeKind*.
+        byte kind = reader.GetByte();
+        if (kind == BasisNetworkCommons.AvatarChangeKindBodyFit)
+        {
+            ServerBodyFitMessage fitMsg = new ServerBodyFitMessage();
+            fitMsg.Deserialize(reader);
+            BasisBodyFitNetworking.Receive(fitMsg.uShortPlayerId.playerID, fitMsg.bodyFit);
+            return;
+        }
+
         ServerAvatarChangeMessage msg = new ServerAvatarChangeMessage();
         msg.Deserialize(reader);
 

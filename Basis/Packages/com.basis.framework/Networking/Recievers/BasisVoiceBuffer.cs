@@ -55,11 +55,23 @@ public class BasisVoiceBuffer
     // measured clock-free (a packet whose playback slot already passed, counted in
     // InsertEncoded), so this needs no high-resolution timer. The depth drives both the
     // initial pre-roll and the grace window before a gap is declared lost.
+    /// <summary>
+    /// Millisecond clock feeding the adaptive-depth and loss-decay intervals.
+    /// Defaults to wall time; the offline voice harness swaps in a virtual clock
+    /// so faster-than-real-time simulation still exercises depth adaptation.
+    /// </summary>
+    [NonSerialized] public Func<int> TickCountSource = () => Environment.TickCount;
+
     private int _adaptiveExtraDepth;
     private long _arrivalsSinceAdjust;
     private long _lateSinceAdjust;
     private int _lastDepthAdjustTick;
     private const int DepthAdjustIntervalMs = 1500;
+    private bool _underrunPending;
+    private int _underrunsSinceAdjust;
+    private int _cleanIntervals;
+    private const int CleanIntervalsBeforeShrink = 4;
+    public int GenuineUnderruns;
     // Pre-roll cap (packets). 10 ≈ 200 ms max startup buffering on a bad network.
     private const int MaxPrerollDepth = 10;
     // Running-grace cap (packets). Kept well below the decoded PCM queue (8 frames /
@@ -89,12 +101,30 @@ public class BasisVoiceBuffer
         if (elapsed >= 0 && elapsed < DepthAdjustIntervalMs) return;
         _lastDepthAdjustTick = now;
 
-        if (_arrivalsSinceAdjust >= 20)
+        bool enoughTraffic = _arrivalsSinceAdjust >= 20;
+        if (enoughTraffic || _underrunsSinceAdjust > 0)
         {
-            float lateRatio = (float)_lateSinceAdjust / _arrivalsSinceAdjust;
-            if (lateRatio > 0.05f) _adaptiveExtraDepth += 2;
-            else if (lateRatio > 0.01f) _adaptiveExtraDepth += 1;
-            else if (lateRatio < 0.002f) _adaptiveExtraDepth -= 1;
+            float lateRatio = _arrivalsSinceAdjust > 0 ? (float)_lateSinceAdjust / _arrivalsSinceAdjust : 0f;
+
+            int grow = 0;
+            if (enoughTraffic && lateRatio > 0.05f) grow = 2;
+            else if (enoughTraffic && lateRatio > 0.01f) grow = 1;
+            if (_underrunsSinceAdjust >= 2 && grow < 2) grow = 2;
+            else if (_underrunsSinceAdjust >= 1 && grow < 1) grow = 1;
+
+            if (grow > 0)
+            {
+                _adaptiveExtraDepth += grow;
+                _cleanIntervals = 0;
+            }
+            else if (enoughTraffic && lateRatio < 0.002f)
+            {
+                if (++_cleanIntervals >= CleanIntervalsBeforeShrink)
+                {
+                    _cleanIntervals = 0;
+                    _adaptiveExtraDepth -= 1;
+                }
+            }
 
             int maxExtra = MaxPrerollDepth - RemoteOpusSettings.JitterBufferSize;
             if (maxExtra < 0) maxExtra = 0;
@@ -103,6 +133,25 @@ public class BasisVoiceBuffer
         }
         _arrivalsSinceAdjust = 0;
         _lateSinceAdjust = 0;
+        _underrunsSinceAdjust = 0;
+    }
+
+    public void NoteUnderrun()
+    {
+        lock (_encodedLock)
+        {
+            if (_started && _receivedSinceStart >= TargetDepthLocked())
+            {
+                _underrunPending = true;
+                // Mid-stream dry-out with nothing buffered: require a short refill
+                // (mirrors the resync path's TargetDepth-2) before releasing more
+                // audio. Without this, playback resumes the instant one packet lands
+                // and rides a 0-1 packet queue, underrunning at the callback/packet
+                // beat — an audible bubble on every resume.
+                if (_encodedCount == 0)
+                    _receivedSinceStart = Math.Max(0, TargetDepthLocked() - 2);
+            }
+        }
     }
 
     // ==================== Decoded PCM frame queue ====================
@@ -217,12 +266,22 @@ public class BasisVoiceBuffer
 
             int distance = SeqDist(sequenceNumber, _nextPlaybackSeq);
 
+            if (_underrunPending)
+            {
+                _underrunPending = false;
+                if (silenceUnits == 0)
+                {
+                    _underrunsSinceAdjust++;
+                    GenuineUnderruns++;
+                }
+            }
+
             // Adaptive-depth telemetry: every packet is an arrival; a negative distance
             // means its playback slot already passed, i.e. it arrived too late for the
             // current depth. A rising late ratio grows the buffer (MaybeAdjustDepthLocked).
             _arrivalsSinceAdjust++;
             if (distance < 0) _lateSinceAdjust++;
-            MaybeAdjustDepthLocked(Environment.TickCount);
+            MaybeAdjustDepthLocked(TickCountSource());
 
             if (distance < 0) return; // old packet, discard
 
@@ -293,7 +352,7 @@ public class BasisVoiceBuffer
     // lifetime of the receiver.
     private void DecayRecentIfDue()
     {
-        int now = Environment.TickCount;
+        int now = TickCountSource();
         int elapsed = unchecked(now - _lastDecayTick);
         if (elapsed >= DecayIntervalMs || elapsed < 0)
         {
@@ -468,6 +527,10 @@ public class BasisVoiceBuffer
         lock (_encodedLock)
         {
             _receivedSinceStart = 0;
+            // _underrunPending deliberately survives the rearm: the packet that resumes
+            // the stream resolves it, and its silenceUnits field discriminates a sender
+            // mute (>0, discarded) from a network stall long enough to trip the idle
+            // reset (0, counted genuine so the adaptive depth can react).
         }
     }
 
@@ -479,6 +542,7 @@ public class BasisVoiceBuffer
         _hasHighest = false;
         _encodedCount = 0;
         _receivedSinceStart = 0;
+        _underrunPending = false;
     }
 
     private static int SeqDist(byte target, byte baseSeq) => (sbyte)(target - baseSeq);

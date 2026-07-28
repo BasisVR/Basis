@@ -93,6 +93,10 @@ public static class SMModuleAvatarPerformanceLimits
     }
     private static void ReconcilePlayer(BasisRemotePlayer player)
     {
+        if (player.BypassPerformanceLimits)
+        {
+            return;
+        }
         BasisLoadableBundle bundle = player.AlwaysRequestedAvatar;
         if (bundle == null || bundle.BasisBundleConnector == null)
         {

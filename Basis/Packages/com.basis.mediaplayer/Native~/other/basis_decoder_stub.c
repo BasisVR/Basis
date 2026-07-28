@@ -19,6 +19,8 @@ basis_decoder_t* basis_decoder_create(basis_media_engine_t* engine) {
 }
 void basis_decoder_destroy(basis_decoder_t* d) { free(d); }
 
+int basis_decoder_probe_video_codec(int codec) { (void)codec; return 0; }
+
 int basis_decoder_set_video_format(basis_decoder_t* d, basis_codec_t c, const uint8_t* e, int el, int w, int h) {
     (void)d;(void)c;(void)e;(void)el;(void)w;(void)h; return 0;
 }
@@ -41,10 +43,13 @@ uint64_t basis_decoder_get_frame_counter(basis_decoder_t* d) { (void)d; return 0
 int      basis_decoder_get_video_size(basis_decoder_t* d, int* w, int* h) { (void)d;(void)w;(void)h; return -1; }
 int      basis_decoder_get_frame_origin(basis_decoder_t* d) { (void)d; return 0; }
 int64_t  basis_decoder_get_position_us(basis_decoder_t* d) { (void)d; return -1; }
+void     basis_decoder_notify_end_of_stream(basis_decoder_t* d) { (void)d; }
+int      basis_decoder_presentation_pending(basis_decoder_t* d) { (void)d; return 0; }
 int      basis_decoder_get_audio_format(basis_decoder_t* d, int* r, int* c) { (void)d;(void)r;(void)c; return -1; }
 int      basis_decoder_read_audio(basis_decoder_t* d, float* o, int m) { (void)d;(void)o;(void)m; return 0; }
 int      basis_decoder_get_debug(basis_decoder_t* d, char* buf, int size) { (void)d; if (buf && size > 0) buf[0] = 0; return 0; }
 void     basis_decoder_set_buffer(basis_decoder_t* d, int mode, int ms) { (void)d;(void)mode;(void)ms; }
+void     basis_decoder_set_audio_latency(basis_decoder_t* d, int latency_us) { (void)d;(void)latency_us; }
 void     basis_decoder_set_output_texture(basis_decoder_t* d, void* nt, int w, int h) { (void)d;(void)nt;(void)w;(void)h; }
 
 /* graphics stubs */

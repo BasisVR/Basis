@@ -222,6 +222,13 @@ namespace Basis.Scripts.BasisSdk.Players
         public byte PoseSkipCounter;
 
         /// <summary>
+        /// The shadow-casting mode each entry of <c>BasisAvatar.Renders</c> shipped with, captured
+        /// at avatar load by BasisAvatarShadowLOD. Parallel to Renders; the restore values when a
+        /// distance-reduced avatar comes back into range.
+        /// </summary>
+        public UnityEngine.Rendering.ShadowCastingMode[] AuthoredShadowCasting;
+
+        /// <summary>
         /// The "always-requested" load mode for the avatar.
         /// <list type="bullet">
         /// <item><description><c>0</c> – Downloading/remote mode</description></item>
@@ -596,6 +603,10 @@ namespace Basis.Scripts.BasisSdk.Players
             // destroyed — the job holds the nameplate and mouth transforms.
             RemoveFromBoneDriver();
 
+            // Same constraint: JigglePhysics keys scene colliders off their Transform, so this
+            // has to run while those transforms are still alive.
+            RemoteAvatarDriver?.RemoveJiggleRigColliders();
+
             if (RemoteFaceDriver != null)
             {
                 RemoteFaceDriver.OnDestroy();
@@ -650,6 +661,9 @@ namespace Basis.Scripts.BasisSdk.Players
                     }
                 }
             }
+
+            BasisAvatarSkinLOD.Apply(this, grid);
+            BasisAvatarShadowLOD.Apply(this, grid);
         }
 
         #endregion

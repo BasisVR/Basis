@@ -138,13 +138,23 @@ static int hvcc_to_annexb(const uint8_t* cfg, int cfg_len, uint8_t* out, int out
     int num_arrays = cfg[22];
     int p = 23;
     for (int a = 0; a < num_arrays && p + 3 <= cfg_len; ++a) {
+        /* Only the parameter sets configure the decoder. hvcC may also carry SEI
+         * arrays -- x265 writes a verbose build-info SEI by default, which alone
+         * runs to a couple of kilobytes -- and copying those out would push the
+         * parameter sets past out_cap and lose the lot. */
+        int nal_type = cfg[p] & 0x3F;
+        int keep = (nal_type == 32 /*VPS*/ || nal_type == 33 /*SPS*/ || nal_type == 34 /*PPS*/);
         p += 1; /* array_completeness + NAL type */
         int num = (cfg[p] << 8) | cfg[p + 1]; p += 2;
         for (int n = 0; n < num && p + 2 <= cfg_len; ++n) {
             int l = (cfg[p] << 8) | cfg[p + 1]; p += 2;
-            if (p + l > cfg_len || op + 4 + l > out_cap) return -1;
-            memcpy(out + op, kStartCode, 4); op += 4;
-            memcpy(out + op, cfg + p, l); op += l; p += l;
+            if (p + l > cfg_len) return -1;
+            if (keep) {
+                if (op + 4 + l > out_cap) return -1;
+                memcpy(out + op, kStartCode, 4); op += 4;
+                memcpy(out + op, cfg + p, l); op += l;
+            }
+            p += l;
         }
     }
     return op;
@@ -203,6 +213,77 @@ int basis_aac_build_adts(uint8_t out[7], int object_type, int sample_rate,
     return 7;
 }
 
+/* ---- VP9 ----------------------------------------------------------------- */
+
+int basis_vp9_is_keyframe(const uint8_t* sample, int len) {
+    if (!sample || len < 1) return 0;
+    /* Uncompressed-header head bits, MSB first (all within the first byte —
+     * a superframe's index trails the buffer, so offset 0 is always the first
+     * sub-frame's header): frame_marker(2)=0b10, profile_low(1), profile_high(1),
+     * [reserved(1) when profile==3], show_existing_frame(1), frame_type(1)
+     * where frame_type 0 = KEY_FRAME. */
+    uint8_t b = sample[0];
+    if ((b >> 6) != 0x2) return 0;                    /* frame_marker */
+    int profile = ((b >> 4) & 1) << 1 | ((b >> 5) & 1);
+    if (profile == 3 && ((b >> 3) & 1)) return 0;     /* reserved bit must be 0 */
+    int bit = profile == 3 ? 2 : 3;                   /* skip reserved on profile 3 */
+    int show_existing = (b >> bit) & 1;
+    int frame_type = (b >> (bit - 1)) & 1;
+    return !show_existing && frame_type == 0;
+}
+
+/* ---- AV1 ----------------------------------------------------------------- */
+
+/* leb128 at p[*off], advancing *off past it. Returns 0 on truncation or an
+ * unterminated 8th byte; the value is capped to int range (a real OBU size
+ * past that fails the caller's bounds check anyway). */
+static int av1_leb128(const uint8_t* p, int len, int* off, int64_t* out) {
+    int64_t v = 0;
+    for (int i = 0; i < 8; ++i) {
+        if (*off >= len) return 0;
+        uint8_t b = p[(*off)++];
+        v |= (int64_t)(b & 0x7F) << (7 * i);
+        if (!(b & 0x80)) { *out = v; return 1; }
+    }
+    return 0;
+}
+
+int basis_av1_is_keyframe(const uint8_t* sample, int len) {
+    if (!sample || len < 2) return 0;
+    int off = 0;
+    while (off < len) {
+        uint8_t hdr = sample[off++];
+        if (hdr & 0x81) return 0;                 /* obu_forbidden_bit + obu_reserved_1bit (both MUST be 0) */
+        int type = (hdr >> 3) & 0xF;
+        int has_ext = (hdr >> 2) & 1;
+        int has_size = (hdr >> 1) & 1;
+        if (has_ext) {
+            if (off >= len) return 0;
+            if (sample[off] & 0x07) return 0;     /* extension_header reserved 3 bits MUST be 0 */
+            off++;
+        }
+        int64_t size;
+        if (has_size) {
+            if (!av1_leb128(sample, len, &off, &size)) return 0;
+            if (size < 0 || size > len - off) return 0;
+        } else {
+            size = len - off;                     /* last OBU runs to the end */
+        }
+        if (type == 1) return 1;                  /* OBU_SEQUENCE_HEADER */
+        if (type == 3 || type == 6) {             /* OBU_FRAME_HEADER / OBU_FRAME */
+            /* frame header head bits, MSB first: show_existing_frame(1),
+             * frame_type(2) where 0 = KEY_FRAME. (A reduced_still_picture_header
+             * stream omits these, but such streams always start their temporal
+             * units with a sequence header, caught above.) */
+            if (size < 1) return 0;
+            uint8_t b = sample[off];
+            return !(b >> 7) && ((b >> 5) & 0x3) == 0;
+        }
+        off += (int)size;                         /* temporal delimiter, metadata, … */
+    }
+    return 0;
+}
+
 /* ---- H.264 SPS dimensions (exp-golomb) --------------------------------- */
 
 typedef struct { const uint8_t* d; int size; int bitpos; } gb_t;
@@ -214,13 +295,14 @@ static uint32_t gb_u(gb_t* g, int n) {
         int bit = 7 - (g->bitpos & 7);
         int b = (byte < g->size) ? ((g->d[byte] >> bit) & 1) : 0;
         v = (v << 1) | (uint32_t)b;
-        g->bitpos++;
+        if (byte < g->size) g->bitpos++; /* freeze past the end; don't overflow bitpos */
     }
     return v;
 }
 static uint32_t gb_ue(gb_t* g) {
     int zeros = 0;
-    while (gb_u(g, 1) == 0 && zeros < 32) zeros++;
+    /* Cap at 31: a ue(v) with >=31 leading zeros is malformed, and 1u<<32 is UB. */
+    while (gb_u(g, 1) == 0 && zeros < 31) zeros++;
     uint32_t v = (1u << zeros) - 1 + gb_u(g, zeros);
     return v;
 }
@@ -261,6 +343,7 @@ int basis_h264_sps_dimensions(const uint8_t* sps, int len, int* width, int* heig
         gb_u(&g, 1);
         gb_se(&g); gb_se(&g);
         uint32_t n = gb_ue(&g);
+        if (n > 255) return -1;         /* malformed; H.264 caps this cycle at 255 */
         for (uint32_t i = 0; i < n; ++i) gb_se(&g);
     }
     gb_ue(&g);                          /* max_num_ref_frames */
@@ -274,10 +357,12 @@ int basis_h264_sps_dimensions(const uint8_t* sps, int len, int* width, int* heig
     uint32_t cl = 0, cr = 0, ct = 0, cb = 0;
     if (crop) { cl = gb_ue(&g); cr = gb_ue(&g); ct = gb_ue(&g); cb = gb_ue(&g); }
 
-    int w = (int)(w_mbs * 16) - (int)(cl + cr) * 2;
-    int h = (int)(h_map * 16 * (2 - frame_mbs_only)) - (int)(ct + cb) * 2;
+    /* Crop and MB counts are attacker-controlled ue(v); compute in int64 so a
+     * malformed SPS overflows nothing before the range check rejects it. */
+    int64_t w = (int64_t)w_mbs * 16 - ((int64_t)cl + cr) * 2;
+    int64_t h = (int64_t)h_map * 16 * (2 - (int64_t)frame_mbs_only) - ((int64_t)ct + cb) * 2;
     if (w <= 0 || h <= 0 || w > 8192 || h > 8192) return -1;
-    if (width) *width = w;
-    if (height) *height = h;
+    if (width) *width = (int)w;
+    if (height) *height = (int)h;
     return 0;
 }

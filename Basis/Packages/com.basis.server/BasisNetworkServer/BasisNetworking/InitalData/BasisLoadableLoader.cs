@@ -81,7 +81,7 @@ namespace BasisNetworking.InitialData
             };
         }
         public const string exampleXml = @"<BasisLoadableConfiguration>
-    <!-- Mode of the configuration -->
+    <!-- Mode: 0 = Prop (spawned at the transform below), 1 = Scene (transform ignored), 2 = Avatar (transform ignored) -->
     <Mode>0</Mode>
     <!-- Network ID -->
     <LoadedNetID></LoadedNetID>

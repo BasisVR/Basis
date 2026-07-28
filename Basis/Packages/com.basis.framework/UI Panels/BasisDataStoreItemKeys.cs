@@ -221,7 +221,10 @@ namespace Basis.Scripts.UI.UI_Panels
             if (!File.Exists(FilePath))
             {
                 BasisDebug.Log("No Item key file found. Starting fresh.");
-                await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                if (!await TryLoadFromBackup())
+                {
+                    await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                }
                 return;
             }
 
@@ -234,7 +237,10 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisDebug.LogError($"Failed to read Item key file: {e.Message}");
                 //keys = new ItemKeys { Data = System.Array.Empty<ItemKey>() };
-                await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                if (!await TryLoadFromBackup())
+                {
+                    await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                }
                 return;
             }
 
@@ -245,7 +251,10 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisDebug.LogWarning("Item key file exists but is empty. Starting fresh.");
                 //keys = new ItemKeys { Data = System.Array.Empty<ItemKey>() };
-                await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                if (!await TryLoadFromBackup())
+                {
+                    await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                }
                 return;
             }
 
@@ -262,7 +271,10 @@ namespace Basis.Scripts.UI.UI_Panels
                 {
                     BasisDebug.LogWarning("Item key file deserialized to null (malformed JSON?). Starting fresh.");
                     //keys = new ItemKeys { Data = System.Array.Empty<ItemKey>() };
-                    await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                    if (!await TryLoadFromBackup())
+                    {
+                        await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                    }
                     return;
                 }
 
@@ -297,7 +309,47 @@ namespace Basis.Scripts.UI.UI_Panels
                 // visible. The old code swallowed the type and location of the error.
                 BasisDebug.LogError($"Failed to deserialize Item keys: {e}");
                 //keys = new ItemKeys { Data = System.Array.Empty<ItemKey>() };
-                await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                if (!await TryLoadFromBackup())
+                {
+                    await WipeMemoryKeys_ValidateEmbedded_AndSave();
+                }
+            }
+        }
+
+        private static async Task<bool> TryLoadFromBackup()
+        {
+            string backupPath = FilePath + ".bak";
+            if (!File.Exists(backupPath))
+                return false;
+
+            try
+            {
+                byte[] backupData = await File.ReadAllBytesAsync(backupPath);
+                if (backupData == null || backupData.Length == 0)
+                    return false;
+
+                ItemKeys restored = BasisSerialization.DeserializeValue<ItemKeys>(backupData);
+                if (restored == null)
+                    return false;
+
+                restored.Data ??= System.Array.Empty<ItemKey>();
+                restored.Data = ScrubNullEntries(restored.Data);
+                foreach (var key in restored.Data)
+                {
+                    if (key == null) continue;
+                    EnsureKeyDefaults(key);
+                }
+
+                keys = restored;
+                ValidateEmbeddedKeys();
+                await SaveKeysToFile();
+                BasisDebug.LogWarning("Item key file was unreadable; restored from backup. Count: " + keys.Data.Length);
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                BasisDebug.LogError($"Failed to restore Item keys from backup: {e}");
+                return false;
             }
         }
 
@@ -349,7 +401,7 @@ namespace Basis.Scripts.UI.UI_Panels
             try
             {
                 if (File.Exists(FilePath))
-                    File.Replace(tempPath, FilePath, null); // atomic swap, no window where FilePath is absent
+                    File.Replace(tempPath, FilePath, FilePath + ".bak"); // atomic swap, no window where FilePath is absent; previous file kept as backup
                 else
                     File.Move(tempPath, FilePath); // first ever save, Replace would throw if destination missing
 

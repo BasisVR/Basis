@@ -73,6 +73,7 @@ struct basis_vk_present {
     pthread_mutex_t lock;
     AHardwareBuffer* pending;   /* newest decoded buffer awaiting import */
     int w, h;
+    float uv[4];                /* crop UV transform for `pending` (scale.xy, offset.zw) */
 
     /* format-keyed resolve pipeline (rebuilt only if the external format changes) */
     int      haveFormat;
@@ -95,10 +96,12 @@ struct basis_vk_present {
      * the YCbCr->RGB render pass, and rebuild that when Unity rotates the
      * underlying VkImage (rare). */
     void*         unityNativeTex;
-    VkImage       cachedUnityImage; /* the VkImage AccessTexture returned for unityNativeTex */
+    int           unityDirty;       /* handle changed on the main thread; the render thread drops the fbo */
+    VkImage       cachedUnityImage; /* the VkImage AccessTexture returned for unityNativeTex (render thread) */
     VkImageView   unityImageView;
     VkFramebuffer fbo;
-    int           unityW, unityH;
+    int           fboW, fboH;       /* extent the fbo was built with — render-thread-owned, distinct from unityW/H */
+    int           unityW, unityH;   /* C#-registered RenderTexture size; written by the setter under v->lock */
     int           unityFormat;     /* VkFormat returned by AccessTexture (UNORM or SRGB) */
 
     uint64_t frameCounter;
@@ -123,12 +126,15 @@ basis_vk_present* basis_vk_create(void) {
     return v;
 }
 
-void basis_vk_set_hardware_buffer(basis_vk_present* v, AHardwareBuffer* ahb, int w, int h) {
+void basis_vk_set_hardware_buffer(basis_vk_present* v, AHardwareBuffer* ahb, int w, int h,
+                                  const float uvXform[4]) {
     if (!v || !ahb) return;
     AHardwareBuffer_acquire(ahb);
     pthread_mutex_lock(&v->lock);
     if (v->pending) AHardwareBuffer_release(v->pending);
     v->pending = ahb; v->w = w; v->h = h;
+    if (uvXform) { v->uv[0] = uvXform[0]; v->uv[1] = uvXform[1]; v->uv[2] = uvXform[2]; v->uv[3] = uvXform[3]; }
+    else { v->uv[0] = v->uv[1] = 1.0f; v->uv[2] = v->uv[3] = 0.0f; }
     pthread_mutex_unlock(&v->lock);
 }
 
@@ -263,6 +269,25 @@ static int ensure_format_objects(basis_vk_present* v, uint64_t externalFormat,
     /* Y'CbCr conversion described by the AHB external format. */
     VkExternalFormatANDROID extFmt = { VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID };
     extFmt.externalFormat = externalFormat;
+    /* Linear filtering is only valid when the format advertises the matching
+     * feature bit, and each filter has its own bit: chroma reconstruction needs
+     * YCBCR_CONVERSION_LINEAR_FILTER, the ordinary sampler mag/min needs
+     * SAMPLED_IMAGE_FILTER_LINEAR, and the two filters may only differ when
+     * SEPARATE_RECONSTRUCTION_FILTER is present. Qualcomm's UBWC external formats
+     * (VP9/AV1 on Adreno) frequently advertise none of these, and forcing LINEAR
+     * there is undefined behaviour. Pick each filter from its own bit; when separate
+     * reconstruction is absent, force them equal (downgrading chroma to nearest if
+     * the sampler cannot do linear). */
+    VkFormatFeatureFlags features = fmt->formatFeatures;
+    int separate     = (features & VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT) != 0;
+    int linearSample = (features & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) != 0;
+    VkFilter yf = (features & VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT)
+                  ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+    VkFilter samplerFilter = linearSample ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+    if (!separate) {
+        if (yf == VK_FILTER_LINEAR && !linearSample) yf = VK_FILTER_NEAREST;
+        samplerFilter = yf;
+    }
     VkSamplerYcbcrConversionCreateInfo cy = { VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO };
     cy.pNext = &extFmt;
     cy.format = VK_FORMAT_UNDEFINED;
@@ -271,7 +296,7 @@ static int ensure_format_objects(basis_vk_present* v, uint64_t externalFormat,
     cy.components = fmt->samplerYcbcrConversionComponents;
     cy.xChromaOffset = fmt->suggestedXChromaOffset;
     cy.yChromaOffset = fmt->suggestedYChromaOffset;
-    cy.chromaFilter = VK_FILTER_LINEAR;
+    cy.chromaFilter = yf;
     if (vkCreateSamplerYcbcrConversion(v->device, &cy, NULL, &v->ycbcr) != VK_SUCCESS) return -1;
 
     /* immutable sampler with the conversion attached */
@@ -279,7 +304,7 @@ static int ensure_format_objects(basis_vk_present* v, uint64_t externalFormat,
     cvInfo.conversion = v->ycbcr;
     VkSamplerCreateInfo sci = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
     sci.pNext = &cvInfo;
-    sci.magFilter = VK_FILTER_LINEAR; sci.minFilter = VK_FILTER_LINEAR;
+    sci.magFilter = samplerFilter; sci.minFilter = samplerFilter;
     sci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sci.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sci.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -309,8 +334,11 @@ static int ensure_format_objects(basis_vk_present* v, uint64_t externalFormat,
         if (vkAllocateDescriptorSets(v->device, &dai, &v->ring[i].set) != VK_SUCCESS) return -1;
     }
 
+    /* vec4 crop UV transform, pushed per frame into the vertex stage */
+    VkPushConstantRange pcr = { VK_SHADER_STAGE_VERTEX_BIT, 0, 4 * sizeof(float) };
     VkPipelineLayoutCreateInfo plc = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
     plc.setLayoutCount = 1; plc.pSetLayouts = &v->dsLayout;
+    plc.pushConstantRangeCount = 1; plc.pPushConstantRanges = &pcr;
     if (vkCreatePipelineLayout(v->device, &plc, NULL, &v->pipeLayout) != VK_SUCCESS) return -1;
 
     /* render pass: write rgba then hand it to Unity already SHADER_READ_ONLY */
@@ -400,7 +428,7 @@ static void destroy_unity_fbo(basis_vk_present* v) {
  * or rotated under us). The image itself is OWNED BY UNITY — we never destroy
  * it, only the view and framebuffer we created on top. */
 static int ensure_unity_fbo(basis_vk_present* v, VkImage image, VkFormat format, int w, int h) {
-    if (v->fbo && v->cachedUnityImage == image && v->unityW == w && v->unityH == h) return 0;
+    if (v->fbo && v->cachedUnityImage == image && v->fboW == w && v->fboH == h) return 0;
     destroy_unity_fbo(v);
 
     VkImageViewCreateInfo vci = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
@@ -427,24 +455,28 @@ static int ensure_unity_fbo(basis_vk_present* v, VkImage image, VkFormat format,
     if (vkCreateFramebuffer(v->device, &fci, NULL, &v->fbo) != VK_SUCCESS) return -1;
 
     v->cachedUnityImage = image;
-    v->unityW = w;
-    v->unityH = h;
+    v->fboW = w;
+    v->fboH = h;
     v->unityFormat = (int)format;
     return 0;
 }
 
 void basis_vk_set_output_texture(basis_vk_present* v, void* native_texture, int w, int h) {
     if (!v) return;
-    /* If the handle changed, drop the cached framebuffer; next render_update will
-     * rebuild against the new Unity image. We intentionally don't touch
-     * cachedUnityImage here because AccessTexture may legitimately return the
-     * same VkImage for a recreated RenderTexture if Unity reused the slot. */
-    if (v->unityNativeTex != native_texture) {
-        destroy_unity_fbo(v);
+    /* Runs on the main thread while the render thread may be mid-present using the
+     * framebuffer/image-view. Don't destroy them here — just record the change
+     * under the lock and let render_update drop+rebuild the fbo on its own thread
+     * (unityDirty). We intentionally don't touch cachedUnityImage because
+     * AccessTexture may legitimately return the same VkImage for a recreated
+     * RenderTexture if Unity reused the slot. */
+    pthread_mutex_lock(&v->lock);
+    if (v->unityNativeTex != native_texture || v->unityW != w || v->unityH != h) {
         v->unityNativeTex = native_texture;
+        v->unityDirty = 1;   /* a same-handle resize still needs the fbo rebuilt */
     }
     v->unityW = w;
     v->unityH = h;
+    pthread_mutex_unlock(&v->lock);
 }
 
 /* ---- plugin-owned submission objects ------------------------------------ */
@@ -487,16 +519,31 @@ static int ensure_cmd_objects(basis_vk_present* v) {
 
 int basis_vk_render_update(basis_vk_present* v) {
     if (!v || !v->device || !v->getAHBProps) return 0;
-    /* Without a registered Unity output texture we have nowhere to render. C# is
-     * expected to call basis_media_set_output_texture once TryGetVideoSize
-     * returns a non-zero size; until then the demuxer's AHBs sit in v->pending. */
-    if (!v->unityNativeTex) return 0;
 
-    AHardwareBuffer* ahb = NULL; int w, h;
+    /* All Unity-registration state is read as one locked snapshot — no unlocked
+     * peek at unityNativeTex first. Without a registered output texture there is
+     * nowhere to render (C# calls basis_media_set_output_texture once
+     * TryGetVideoSize is non-zero; until then the demuxer's AHBs sit in pending). */
+    AHardwareBuffer* ahb = NULL; int w, h; float uv[4];
+    void* unityTex; int unityDirty; int regW, regH;
     pthread_mutex_lock(&v->lock);
-    ahb = v->pending; v->pending = NULL; w = v->w; h = v->h;
+    unityTex = v->unityNativeTex; regW = v->unityW; regH = v->unityH;
+    unityDirty = v->unityDirty;
+    w = v->w; h = v->h;
+    uv[0] = v->uv[0]; uv[1] = v->uv[1]; uv[2] = v->uv[2]; uv[3] = v->uv[3];
+    /* Only detach the pending frame when there's a texture to render it into —
+     * otherwise it stays queued (the producer replaces + releases it) instead of
+     * being dropped here with its AHB reference leaked. */
+    if (unityTex) {
+        ahb = v->pending; v->pending = NULL;
+        if (ahb) v->unityDirty = 0; /* consume the dirty flag only when this pass rebuilds+renders */
+    }
     pthread_mutex_unlock(&v->lock);
+    if (!unityTex) return 0;
     if (!ahb) return 0;
+    /* Handle changed on the main thread: drop the old framebuffer/image-view here,
+     * on the render thread, so nothing is destroyed under a present in flight. */
+    if (unityDirty) destroy_unity_fbo(v);
 
     /* AHB format + memory properties (drives the ycbcr conversion + allocation) */
     VkAndroidHardwareBufferFormatPropertiesANDROID fmtProps = { VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID };
@@ -512,16 +559,20 @@ int basis_vk_render_update(basis_vk_present* v) {
      * it. The render pass takes the attachment from UNDEFINED and returns it
      * SHADER_READ_ONLY, so no layout coordination with Unity is needed. */
     uint64_t unityImageU64 = 0; int unityFormat = 0, unityW = 0, unityH = 0;
-    if (!basis_gfx_vk_access_texture(v->unityNativeTex,
+    if (!basis_gfx_vk_access_texture(unityTex,
                                      &unityImageU64, &unityFormat, &unityW, &unityH)) {
         AHardwareBuffer_release(ahb);
         return 0;
     }
     VkImage unityImage = (VkImage)(uintptr_t)unityImageU64;
 
-    if (ensure_unity_fbo(v, unityImage, (VkFormat)unityFormat,
-                         unityW > 0 ? unityW : w,
-                         unityH > 0 ? unityH : h) != 0) {
+    /* One target extent for both the framebuffer and the render area, or the
+     * render pass area can disagree with the framebuffer it renders into. Prefer
+     * the RenderTexture's actual extent (AccessTexture), then the registered size,
+     * then the source AHB. */
+    int targetW = unityW > 0 ? unityW : (regW > 0 ? regW : w);
+    int targetH = unityH > 0 ? unityH : (regH > 0 ? regH : h);
+    if (ensure_unity_fbo(v, unityImage, (VkFormat)unityFormat, targetW, targetH) != 0) {
         AHardwareBuffer_release(ahb);
         return 0;
     }
@@ -564,7 +615,7 @@ int basis_vk_render_update(basis_vk_present* v) {
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 0, NULL, 0, NULL, 1, &toRead);
 
-    int rw = v->unityW, rh = v->unityH;
+    int rw = targetW, rh = targetH;
     VkRenderPassBeginInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     rp.renderPass = v->renderPass; rp.framebuffer = v->fbo;
     rp.renderArea.extent.width = (uint32_t)rw; rp.renderArea.extent.height = (uint32_t)rh;
@@ -579,6 +630,7 @@ int basis_vk_render_update(basis_vk_present* v) {
     vkCmdSetScissor(cmd, 0, 1, &sc);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v->pipeline);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v->pipeLayout, 0, 1, &s->set, 0, NULL);
+    vkCmdPushConstants(cmd, v->pipeLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uv), uv);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { destroy_slot(v, s); return 0; }

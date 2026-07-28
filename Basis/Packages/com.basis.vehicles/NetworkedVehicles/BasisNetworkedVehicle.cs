@@ -1,4 +1,5 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Sync;
 using Basis.Scripts.Vehicles.Main;
 using Basis.Scripts.Vehicles.Parts;
@@ -132,6 +133,15 @@ namespace Basis.Network.Vehicles
             else
             {
                 ApplyRemoteExtrasToParts(0f, 0f);
+            }
+        }
+
+        public override void OnOwnershipTransfer(BasisNetworkPlayer NetIdNewOwner)
+        {
+            base.OnOwnershipTransfer(NetIdNewOwner);
+            if (SeatSync != null && SeatSync.IsLocallyEntered() && !IsOwnedLocallyOnServer)
+            {
+                TakeOwnership();
             }
         }
 
@@ -283,7 +293,11 @@ namespace Basis.Network.Vehicles
         public void ToggleItems(bool state)
         {
             BasisDebug.Log($"Toggle Vehicle To {state}");
-            if (Rigidbody != null) Rigidbody.isKinematic = !state;
+            if (Rigidbody != null)
+            {
+                Rigidbody.isKinematic = !state;
+                Rigidbody.interpolation = state ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
+            }
             if (Colliders != null)
             {
                 for (int Index = 0; Index < Colliders.Length; Index++)

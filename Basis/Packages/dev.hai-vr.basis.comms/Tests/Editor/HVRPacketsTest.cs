@@ -252,12 +252,40 @@ namespace HVR.Basis.Comms.Tests
             // Given
             var input = new HVRPacket_DowngradeFloatToLowFrequency
             {
-                networkIds = new List<ushort> { 123, 456, 789 }
+                networkIds = new List<ushort> { 123, 234, 251 }
             };
 
             // When
             var resultSerialized = input.Serialize(false);
             var success = HVRPacket_DowngradeFloatToLowFrequency.TryDeserialize(false, new ArraySegment<byte>(resultSerialized), out var resultDeserialized);
+
+            // Then
+            Assert.IsTrue(success);
+            Assert.AreEqual(input.packetType, resultDeserialized.packetType);
+            Assert.AreEqual(input.networkIds.Count, resultDeserialized.networkIds.Count);
+            for (var i = 0; i < input.networkIds.Count; i++)
+            {
+                Assert.AreEqual(input.networkIds[i], resultDeserialized.networkIds[i]);
+            }
+        }
+
+        /// <summary>
+        /// The byte-addressed tests above all keep their ids under 256. Once a wearer announces more
+        /// variables than that, every address widens to a ushort — this covers that path, and the ids are
+        /// deliberately above 255 so a writer that silently narrowed them would drop the high byte.
+        /// </summary>
+        [Test]
+        public void It_should_serialize_and_deserialize_addresses_above_a_byte_when_ushort_addressing_is_on()
+        {
+            // Given
+            var input = new HVRPacket_DowngradeFloatToLowFrequency
+            {
+                networkIds = new List<ushort> { 123, 456, 789, ushort.MaxValue }
+            };
+
+            // When
+            var resultSerialized = input.Serialize(true);
+            var success = HVRPacket_DowngradeFloatToLowFrequency.TryDeserialize(true, new ArraySegment<byte>(resultSerialized), out var resultDeserialized);
 
             // Then
             Assert.IsTrue(success);

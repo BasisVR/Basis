@@ -90,7 +90,7 @@ namespace Cilbox
 			{
 				if( !CheckTypeSecurityRecursive(parameters[i]) )
 				{
-                    string typeName = genericArgumentsIn[i].AsMap()["n"].AsString();
+                    string typeName = parametersIn[i].AsMap()["n"].AsString();
 					Debug.LogError( $"Privilege failed for {declaringType}.{name} parameter {i} type {typeName}" );
 					return null;
 				}

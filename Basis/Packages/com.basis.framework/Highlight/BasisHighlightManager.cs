@@ -172,6 +172,11 @@ namespace Basis.Scripts.BasisSdk.Highlight
                     continue;
                 }
 
+                if (!r.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
                 Material mat = fallback;
                 if (Overrides.TryGetValue(r, out OverrideEntry ov))
                 {

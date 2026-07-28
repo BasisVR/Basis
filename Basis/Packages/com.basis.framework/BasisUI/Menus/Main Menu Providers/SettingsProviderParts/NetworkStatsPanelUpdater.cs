@@ -28,6 +28,10 @@ namespace Basis.BasisUI
         private int _updatesSincePopulated;
         private bool _layoutFrozen;
 
+        /// <summary>Per-tick scratch — this refreshes at 4 Hz the whole time the tab is open.</summary>
+        private static readonly Dictionary<string, int> sPlatformCounts = new Dictionary<string, int>();
+        private static readonly StringBuilder sDescriptionBuilder = new StringBuilder(160);
+
         private void DisableRichTextOnce()
         {
             if (_richTextDisabled) return;
@@ -124,7 +128,8 @@ namespace Basis.BasisUI
                 int receiverCount = BasisNetworkPlayers.ReceiverCount;
                 int totalPlayers = 0;
                 int headlessPlayers = 0;
-                Dictionary<string, int> platformCounts = new Dictionary<string, int>();
+                Dictionary<string, int> platformCounts = sPlatformCounts;
+                platformCounts.Clear();
                 foreach (var entry in BasisNetworkPlayers.Players)
                 {
                     totalPlayers++; // We could have players leave during the count so better to just count them all the same time.
@@ -143,7 +148,8 @@ namespace Basis.BasisUI
                 int realPlayers = totalPlayers - headlessPlayers;
                 ServerMetaDataMessage meta = BasisNetworkManagement.ServerMetaDataMessage;
                 int capacity = meta.PeerLimit;
-                StringBuilder description = new StringBuilder(160);
+                StringBuilder description = sDescriptionBuilder;
+                description.Clear();
                 description.Append(
                     $"Total: {totalPlayers} | Remote: {receiverCount}\n" +
                     $"Real: {realPlayers} | Headless: {headlessPlayers}\n" +

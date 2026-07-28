@@ -43,7 +43,7 @@ public static class JiggleRenderer {
 
     private static void FlipData(JiggleJobs job, double simulatedTime) {
         var sceneColliderCapacity = job.GetSceneColliderCapacity();
-        var personalColliderCapacity = job.GetSceneColliderCapacity();
+        var personalColliderCapacity = job.GetPersonalColliderCapacity();
         var transformCapacity = job.GetTransformCapcity();
 
         int desiredSphereCount = math.max(sceneColliderCapacity + personalColliderCapacity + transformCapacity, 1);
@@ -80,11 +80,13 @@ public static class JiggleRenderer {
         jobPrepareRender.sceneColliders = job.GetSceneColliders(out jobPrepareRender.sceneColliderCount);
         jobPrepareRender.outputPoses = job.GetInterpolatedOutputPoses(out jobPrepareRender.transformCount);
         jobPrepareRender.trees = job.GetTrees(out jobPrepareRender.treeCount);
+        // Latch only when the job actually got scheduled. Flagging unconditionally meant a frame
+        // where the sim dependencies weren't ready still completed and re-rendered the previous
+        // frame's chunk data, pinning gizmos at stale positions.
         if (job.TryGetRenderDependencies(out var handle)) {
             handleRender = jobPrepareRender.Schedule(handle);
+            hasHandleRender = true;
         }
-
-        hasHandleRender = true;
     }
 
     public static void FinishRender(Material gpuInstanceMaterial, Mesh sphere, Mesh capsule) {
@@ -92,6 +94,7 @@ public static class JiggleRenderer {
             return;
         }
         handleRender.Complete();
+        hasHandleRender = false;
         if (sphereChunks.IsCreated && sphere != null) {
             sphereInstancer.Render(jobPrepareRender.sphereBounds.Value, sphere, gpuInstanceMaterial, sphereChunks, jobPrepareRender.sphereCount.Value);
         }
@@ -101,6 +104,10 @@ public static class JiggleRenderer {
     }
 
     public static void Dispose() {
+        if (hasHandleRender) {
+            handleRender.Complete();
+            hasHandleRender = false;
+        }
         sphereInstancer?.Dispose();
         sphereInstancer = null;
         capsuleInstancer?.Dispose();

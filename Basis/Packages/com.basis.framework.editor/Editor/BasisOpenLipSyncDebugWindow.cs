@@ -305,7 +305,7 @@ public class BasisOpenLipSyncDebugWindow : EditorWindow
 
         var ctx = driver.openLipSyncContext;
         var cached = ctx.DebugVisemeWeights;
-        var applied = ctx.DebugLastApplied;
+        var applied = ctx.LastApplied;
 
         float cachedSum = 0f, cachedMax = 0f;
         int cachedPeak = 0;

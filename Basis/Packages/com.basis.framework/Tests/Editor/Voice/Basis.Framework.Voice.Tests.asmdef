@@ -1,0 +1,27 @@
+{
+    "name": "Basis.Framework.Voice.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Basis Framework",
+        "Basis Framework Editor",
+        "BasisNetworkCore",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "BasisSDK"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

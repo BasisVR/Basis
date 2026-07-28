@@ -119,6 +119,16 @@ namespace Basis.BasisUI
 
             BasisProgressReport report = new BasisProgressReport();
             report.OnProgressReport += ForwardProgress;
+            BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
+                item.Url,
+                BasisRuntimeSpawnRegistry.SpawnMode.GameObject,
+                BasisRuntimeSpawnRegistry.SpawnMethod.Local,
+                BasisLocalPlayer.Instance.UUID,
+                false,
+                item.EmbeddedSettings.IsEmbedded);
+            void ForwardPendingProgress(string uniqueId, float progress, string info) =>
+                BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
+            report.OnProgressReport += ForwardPendingProgress;
             CancellationToken cancel = default;
 
             var selector = item.Mode switch
@@ -129,37 +139,76 @@ namespace Basis.BasisUI
                 _ => BundledContentHolder.Selector.Prop
             };
 
-            GameObject createdObject = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, bundle, true, report, cancel, finalPos, finalRot, finalScale, modifyScale, selector, parentTarget ,false, ChangeColidersToCorrectLayer);
-
-            if (createdObject != null)
+            try
             {
-                BasisDebug.Log($"Library provider successfully created item {item.Url} with networking: {desiredNetworkType} at {createdObject.transform.position}. local = {local}");
-                if (!local) // if we are not local register it
+                GameObject createdObject = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, bundle, true, report, cancel, finalPos, finalRot, finalScale, modifyScale, selector, parentTarget ,false, ChangeColidersToCorrectLayer);
+
+                if (createdObject != null)
                 {
-                    BasisRuntimeSpawnRegistry.AddGameObject(
-                        item.Url,
-                        createdObject.name,
-                        createdObject,
-                        BasisLocalPlayer.Instance.UUID,
-                        false, // local items should not consider admin check
-                        item.EmbeddedSettings.IsEmbedded, // persistent
-                        BasisRuntimeSpawnRegistry.SpawnMethod.Local,
-                        bundle.BasisBundleConnector
-                        , out var instance
-                    );
+                    BasisDebug.Log($"Library provider successfully created item {item.Url} with networking: {desiredNetworkType} at {createdObject.transform.position}. local = {local}");
+                    if (!local) // if we are not local register it
+                    {
+                        BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+                        BasisRuntimeSpawnRegistry.AddGameObject(
+                            item.Url,
+                            createdObject.name,
+                            createdObject,
+                            BasisLocalPlayer.Instance.UUID,
+                            false, // local items should not consider admin check
+                            item.EmbeddedSettings.IsEmbedded, // persistent
+                            BasisRuntimeSpawnRegistry.SpawnMethod.Local,
+                            bundle.BasisBundleConnector
+                            , out var instance
+                        );
+                    }
                 }
-            }
-            else
-            {
-                BasisDebug.LogError($"Library provider failed to create desired with networking: {desiredNetworkType} with LoadSelectedItem of url {item.Url}");
-            }
+                else
+                {
+                    BasisDebug.LogError($"Library provider failed to create desired with networking: {desiredNetworkType} with LoadSelectedItem of url {item.Url}");
+                }
 
-            report.OnProgressReport -= ForwardProgress;
-            return createdObject;
+                return createdObject;
+            }
+            finally
+            {
+                report.OnProgressReport -= ForwardPendingProgress;
+                report.OnProgressReport -= ForwardProgress;
+                BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+            }
+        }
+
+        /// <summary>
+        /// Raised before a prop is spawned, with the item's Url. A handler returning true has
+        /// taken responsibility for the request and no prop is spawned.
+        /// <para>
+        /// This exists so packages the framework cannot reference can claim their own item —
+        /// the handheld camera uses it to bring a hidden instance back rather than let a
+        /// second one be created alongside it.
+        /// </para>
+        /// </summary>
+        public static event Func<string, bool> OnBeforePropSpawn;
+
+        /// <summary>
+        /// Offers the spawn to each handler in turn. Multicast delegates only surface the last
+        /// return value, so they are invoked one at a time and the first claim wins.
+        /// </summary>
+        private static bool PropSpawnClaimed(string url)
+        {
+            Func<string, bool> handlers = OnBeforePropSpawn;
+            if (handlers == null) return false;
+
+            Delegate[] list = handlers.GetInvocationList();
+            for (int Index = 0; Index < list.Length; Index++)
+            {
+                if (((Func<string, bool>)list[Index]).Invoke(url)) return true;
+            }
+            return false;
         }
 
         public static async Task LoadProp(BasisDataStoreItemKeys.ItemKey item, BundledContentHolder.NetworkType desiredNetworkType, bool persistent = false, bool admin = false, bool modifyScale = false)
         {
+            if (PropSpawnClaimed(item.Url)) return;
+
             if (CachedMetaData.TryGetMeta(item.Url, out var cached) || (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable))
             {
                 if (desiredNetworkType == BundledContentHolder.NetworkType.Predownload)
@@ -427,39 +476,57 @@ namespace Basis.BasisUI
 
                             BasisProgressReport report = new BasisProgressReport();
                             report.OnProgressReport += ForwardProgress;
+                            BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
+                                item.Url,
+                                BasisRuntimeSpawnRegistry.SpawnMode.Scene,
+                                BasisRuntimeSpawnRegistry.SpawnMethod.Local,
+                                BasisLocalPlayer.Instance.UUID,
+                                admin,
+                                persistent);
+                            void ForwardPendingProgress(string uniqueId, float progress, string info) =>
+                                BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
+                            report.OnProgressReport += ForwardPendingProgress;
                             CancellationToken cancel = default;
 
-                            Scene scene = await BasisLoadHandler.LoadSceneBundle(
-                                true, // set as active scene so skybox and RenderSettings apply
-                                bundle,
-                                report,
-                                cancel
-                            );
-
-
-                            if (scene.IsValid())
+                            try
                             {
-                                string uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
-                                BasisDebug.Log($"Library provider successfully created scene {item.Url} with loadedNetId = {uniqueID} networking: {desiredNetworkType}");
-
-                                BasisRuntimeSpawnRegistry.AddScene(
-                                    item.Url,
-                                    uniqueID,//scene.name + $"_{desiredNetworkType}_{scene.handle}",
-                                    scene,
-                                    BasisLocalPlayer.Instance.UUID,
-                                    admin,
-                                    persistent,
-                                    BasisRuntimeSpawnRegistry.SpawnMethod.Local,
-                                    bundle.BasisBundleConnector,
-                                    out BasisRuntimeSpawnRegistry.SpawnInstance instance
+                                Scene scene = await BasisLoadHandler.LoadSceneBundle(
+                                    true, // set as active scene so skybox and RenderSettings apply
+                                    bundle,
+                                    report,
+                                    cancel
                                 );
-                            }
-                            else
-                            {
-                                BasisDebug.LogError($"Library provider failed to create desired scene with networking: {desiredNetworkType} with of url {item.Url}");
-                            }
 
-                            report.OnProgressReport -= ForwardProgress;
+
+                                if (scene.IsValid())
+                                {
+                                    string uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
+                                    BasisDebug.Log($"Library provider successfully created scene {item.Url} with loadedNetId = {uniqueID} networking: {desiredNetworkType}");
+
+                                    BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+                                    BasisRuntimeSpawnRegistry.AddScene(
+                                        item.Url,
+                                        uniqueID,//scene.name + $"_{desiredNetworkType}_{scene.handle}",
+                                        scene,
+                                        BasisLocalPlayer.Instance.UUID,
+                                        admin,
+                                        persistent,
+                                        BasisRuntimeSpawnRegistry.SpawnMethod.Local,
+                                        bundle.BasisBundleConnector,
+                                        out BasisRuntimeSpawnRegistry.SpawnInstance instance
+                                    );
+                                }
+                                else
+                                {
+                                    BasisDebug.LogError($"Library provider failed to create desired scene with networking: {desiredNetworkType} with of url {item.Url}");
+                                }
+                            }
+                            finally
+                            {
+                                report.OnProgressReport -= ForwardPendingProgress;
+                                report.OnProgressReport -= ForwardProgress;
+                                BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
+                            }
                         }
                         else
                         {

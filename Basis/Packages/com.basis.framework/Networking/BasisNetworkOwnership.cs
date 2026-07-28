@@ -118,6 +118,10 @@ public static partial class BasisNetworkOwnership
     /// </summary>
     public static bool IsOwnerLocalValidation(string OwnershipId)
     {
+        if(string.IsNullOrEmpty(OwnershipId))
+        {
+            return false;
+        }
         if (BasisNetworkPlayers.OwnershipPairing.TryGetValue(OwnershipId, out ushort Unique))
         {
             if (Unique == (ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId)
@@ -129,6 +133,10 @@ public static partial class BasisNetworkOwnership
     }
     public static async Task<BasisOwnershipResult> RequestCurrentOwnershipAsync(string UniqueNetworkId, int timeoutMs = 5000)
     {
+        if(string.IsNullOrWhiteSpace(UniqueNetworkId))
+        {
+            UniqueNetworkId = string.Empty;
+        }
         if (BasisNetworkPlayers.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique))
         {
             if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort LocalID))

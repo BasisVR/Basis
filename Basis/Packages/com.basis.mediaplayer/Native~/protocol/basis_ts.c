@@ -46,13 +46,22 @@ typedef struct {
     int pkt_size;   /* 0 until detected; 188, or 192 for m2ts */
 } ts_t;
 
+/* A PES buffer only flushes on the next payload-unit-start for its PID, so a
+ * stream that sets PUSI once and never again would grow this without bound. Cap
+ * it: a single video PES (unbounded PES_packet_length, delimited by the next
+ * PUSI) can legitimately reach a few MiB at high bitrate/4K, well under this. */
+#define TS_MAX_PES (8 * 1024 * 1024)
+
 static int accum_reserve(es_accum_t* e, int extra) {
-    if (e->len + extra <= e->cap) return 1;
-    int ncap = e->cap ? e->cap * 2 : 65536;
-    while (ncap < e->len + extra) ncap *= 2;
+    int64_t need = (int64_t)e->len + extra;
+    if (need <= e->cap) return 1;
+    if (need > TS_MAX_PES) return 0;
+    int64_t ncap = e->cap ? e->cap : 65536;
+    while (ncap < need) ncap *= 2;
+    if (ncap > TS_MAX_PES) ncap = TS_MAX_PES;
     uint8_t* nb = (uint8_t*)realloc(e->buf, (size_t)ncap);
     if (!nb) return 0;
-    e->buf = nb; e->cap = ncap;
+    e->buf = nb; e->cap = (int)ncap;
     return 1;
 }
 
@@ -90,10 +99,17 @@ static void flush_video(ts_t* t) {
     if (!t->video_announced) {
         int w = 0, h = 0;
         if (t->video_codec == BASIS_CODEC_H264) {
-            int pos = 0, no, nl;
+            int pos = 0, no, nl, have_sps = 0;
             while ((pos = basis_annexb_next(au, au_len, pos, &no, &nl)) >= 0) {
-                if (nl > 0 && basis_h264_nal_type(au[no]) == 7) { basis_h264_sps_dimensions(au + no, nl, &w, &h); break; }
+                if (nl > 0 && basis_h264_nal_type(au[no]) == 7) {
+                    basis_h264_sps_dimensions(au + no, nl, &w, &h);
+                    if (w > 0 && h > 0) { have_sps = 1; break; }
+                }
             }
+            /* Mid-GOP join (or an SPS we couldn't read dimensions from): drop this
+             * AU — it can't decode without its IDR anyway — and wait for the next
+             * SPS-bearing keyframe instead of announcing 0x0 and latching. */
+            if (!have_sps) { e->len = 0; e->started = 0; return; }
         }
         t->sink->on_video_format(t->sink->user, t->video_codec, NULL, 0, w, h);
         t->video_announced = 1;
@@ -192,38 +208,43 @@ static void feed_es(ts_t* t, es_accum_t* e, int pusi, const uint8_t* payload, in
         e->started = 1;
     }
     if (!e->started) return;
-    if (!accum_reserve(e, plen)) return;
+    if (!accum_reserve(e, plen)) { e->len = 0; e->started = 0; return; } /* over cap: drop, resync on next PUSI */
     memcpy(e->buf + e->len, payload, (size_t)plen);
     e->len += plen;
 }
 
 static void parse_pat(ts_t* t, const uint8_t* p, int plen) {
-    if (plen < 1) return;
+    /* Need the pointer field plus the 8-byte section header after it. */
+    if (plen < 1 || 1 + p[0] + 8 > plen) return;
     int ptr = p[0];                 /* pointer field */
     const uint8_t* s = p + 1 + ptr;
     int avail = plen - 1 - ptr;
-    if (avail < 8) return;
     int section_len = ((s[1] & 0x0F) << 8) | s[2];
-    int n = section_len - 5 - 4;    /* minus header-after-len and CRC */
-    const uint8_t* prog = s + 8;
-    for (int i = 0; i + 4 <= n; i += 4) {
-        int program = (prog[i] << 8) | prog[i + 1];
-        int pid = ((prog[i + 2] & 0x1F) << 8) | prog[i + 3];
+    /* section_len is attacker-controlled (12 bits); this demuxer reads a single
+     * packet, so clamp it to what is present rather than run off the buffer. */
+    int total = 3 + section_len;
+    if (total > avail) total = avail;
+    int prog_bytes = total - 8 - 4; /* minus 8-byte header, 4-byte CRC */
+    for (int i = 0; i + 4 <= prog_bytes; i += 4) {
+        const uint8_t* prog = s + 8 + i;
+        int program = (prog[0] << 8) | prog[1];
+        int pid = ((prog[2] & 0x1F) << 8) | prog[3];
         if (program != 0) { t->pmt_pid = pid; break; } /* first real program */
     }
 }
 
 static void parse_pmt(ts_t* t, const uint8_t* p, int plen) {
-    if (plen < 1) return;
+    if (plen < 1 || 1 + p[0] + 12 > plen) return;
     int ptr = p[0];
     const uint8_t* s = p + 1 + ptr;
     int avail = plen - 1 - ptr;
-    if (avail < 12) return;
     int section_len = ((s[1] & 0x0F) << 8) | s[2];
     int prog_info_len = ((s[10] & 0x0F) << 8) | s[11];
-    const uint8_t* es = s + 12 + prog_info_len;
-    const uint8_t* end = s + 3 + section_len - 4; /* up to CRC */
-    while (es + 5 <= end) {
+    int total = 3 + section_len;
+    if (total > avail) total = avail; /* clamp: section_len is untrusted */
+    int es_end = total - 4;           /* up to CRC */
+    for (int i = 12 + prog_info_len; i + 5 <= es_end; ) {
+        const uint8_t* es = s + i;
         int stype = es[0];
         int pid = ((es[1] & 0x1F) << 8) | es[2];
         int eslen = ((es[3] & 0x0F) << 8) | es[4];
@@ -231,7 +252,7 @@ static void parse_pmt(ts_t* t, const uint8_t* p, int plen) {
         else if ((stype == 0x24) && t->video_pid < 0) { t->video_pid = pid; t->video_codec = BASIS_CODEC_H265; t->v.pid = pid; }
         else if ((stype == 0x0F || stype == 0x11) && t->audio_pid < 0) { t->audio_pid = pid; t->audio_codec = BASIS_CODEC_AAC; t->a.pid = pid; }
         else if (stype == 0x80 && t->audio_pid < 0) { t->audio_pid = pid; t->audio_codec = BASIS_CODEC_LPCM; t->a.pid = pid; }
-        es += 5 + eslen;
+        i += 5 + eslen;
     }
 }
 
@@ -268,6 +289,19 @@ int basis_ts_run(basis_media_sink_t* sink, basis_read_fn read, void* ctx) {
         int space = (int)sizeof(rb) - rb_len;
         if (space <= 0) { rb_len = 0; space = (int)sizeof(rb); } /* desync guard */
         int n = read(ctx, rb + rb_len, space);
+        if (n == BASIS_READ_REPOSITION) {
+            /* The source seeked. Drop the partial packet buffer and both PES
+             * accumulations so the next emitted AU is a post-seek one; a stale
+             * pre-seek AU would otherwise re-anchor pacing to the old timeline.
+             * The learned packet stride and announced formats stay valid across
+             * the same rendition. Take the seek to re-anchor the pace clock on
+             * this (demux) thread, atomically with this flush. */
+            rb_len = 0;
+            t.v.len = 0; t.v.started = 0;
+            t.a.len = 0; t.a.started = 0;
+            if (sink->take_seek) { int64_t discard; sink->take_seek(sink->user, &discard); }
+            continue;
+        }
         if (n <= 0) break;
         rb_len += n;
 

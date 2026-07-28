@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "لا توجد خوادم بعد. اضغط «إضافة خادم» لإنشاء واحد."
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "إضافة خادم"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "تحديث الكل"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "تحرير الخادم"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "خادم جديد"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "حفظ"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "إلغاء"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "إزالة"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "تحرير"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "تحديث"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "غير متصل"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "جارٍ الاستعلام..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "مشاركة"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "مرحباً بك في Basis Labs!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs هو العرض الحي لـ Basis Framework — أساس مجاني بترخيص MIT لبناء ألعاب ومنصات وتجارب الواقع الافتراضي. استكشف العوالم، وارتدِ أفاتارات مخصصة، وقابل أشخاصاً بينما تجرّب الميزات أثناء بنائها. كل شيء هنا في تطوّر مستمر — وملاحظاتك تساعد في تشكيله."
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "التالي"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "خادمك الأول"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "لا توجد خدمة مركزية لـ Basis — يمكن لأي شخص تشغيل خادم، ويمكنك استضافة خادمك الخاص من هذه اللوحة مباشرة. ولكي يكون لديك دائماً مكان تذهب إليه، نشغّل خادماً افتراضياً مميزاً بعلامة ★ في أعلى القائمة أدناه. اختر اسم مستخدم، واضغط زر «اتصال» المتوهّج، وتعال ألقِ التحية!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "فهمت!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "اختر اسم مستخدم"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "اختر الاسم الذي سيراه اللاعبون الآخرون، ثم اضغط «اتصال»."
     },
     {
       "key": "menu.servers.hostMotd",

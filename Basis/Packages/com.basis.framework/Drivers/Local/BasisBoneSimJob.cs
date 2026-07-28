@@ -43,6 +43,9 @@ namespace Basis.Scripts.Drivers
 
         public float3 OutgoingWorldPosition;
         public quaternion OutgoingWorldRotation;
+
+        public float3 IKWorldPosition;
+        public quaternion IKWorldRotation;
     }
 
     /// <summary>
@@ -73,7 +76,11 @@ namespace Basis.Scripts.Drivers
             // Loop-invariant: the lerp constants are const and DeltaTime is per-job. trackersmooth (25)
             // saturates to 1 — math.lerp/slerp don't clamp like the original Vector3.Lerp/Slerp did.
             float ts = InstantSnap != 0 ? 1f : math.saturate(BasisLocalBoneControl.trackersmooth);
-            float posLerpFactor = InstantSnap != 0 ? 1f : math.clamp(BasisLocalBoneControl.PositionLerpAmount * DeltaTime, 0f, 1f);
+            // Gated by BasisBoneChainLagTests. clamp(rate*dt) made the time constant a function of the
+            // framerate and clamped to 1 (no smoothing at all) at and below 40 fps.
+            float posLerpFactor = InstantSnap != 0
+                ? 1f
+                : BasisSmoothingProfiles.FramerateIndependentAlpha(BasisLocalBoneControl.PositionLerpAmount, DeltaTime);
             for (int k = 0; k < len; k++)
             {
                 int i = ChainIndices[k];
@@ -135,7 +142,7 @@ namespace Basis.Scripts.Drivers
 
             float timing = math.min(angle / BasisLocalBoneControl.AngleBeforeSpeedup, 1f);
             float lerpAmount = BasisLocalBoneControl.QuaternionLerp + (BasisLocalBoneControl.QuaternionLerpFastMovement - BasisLocalBoneControl.QuaternionLerp) * timing;
-            float lerpFactor = math.clamp(lerpAmount * DeltaTime, 0f, 1f);
+            float lerpFactor = BasisSmoothingProfiles.FramerateIndependentAlpha(lerpAmount, DeltaTime);
 
             return math.slerp(current, future, lerpFactor);
         }

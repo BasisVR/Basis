@@ -11,8 +11,6 @@ namespace HVR.Basis.Comms
     // - Remotes cannot send messages to each other.
     public class AvatarMessageProcessing
     {
-        internal const bool Irrelevant_NoAddressesAreInThePacket = false;
-
         public const byte NewNet_WearerData = 0;
         public const byte NewNet_WearerReady = 1;
         public const byte NewNet_RemoteRequestsInitialization = 2;

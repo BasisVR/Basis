@@ -78,6 +78,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
             public BasisPointerEventData EventData;
             public GameObject Target;
             public Canvas Canvas;
+            public BasisUIToolkitPanel Panel;
+            public BasisUIToolkitPointer ToolkitPointer;
             public Plane Plane;
             public Vector3 PrevSurface;
             public float SignedDist;
@@ -95,6 +97,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 Phase = TouchPhase.None;
                 Target = null;
                 Canvas = null;
+                Panel = null;
                 ClearHovered();
             }
         }
@@ -371,21 +374,42 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (hits == 0) { if (st.Phase != TouchPhase.None) EndTouch(st, input); return; }
 
-            // Closest canvas
+            // Closest canvas, and closest UI Toolkit panel. Panels are checked first because a
+            // panel parented under a canvas would otherwise resolve as that canvas.
             Canvas best = null;
             float bestD = float.MaxValue;
+            BasisUIToolkitPanel bestPanel = null;
+            float bestPanelD = float.MaxValue;
             for (int i = 0; i < hits; i++)
             {
                 Collider col = _hitBuffer[i];
                 if (col == null) continue;
+                float d = Vector3.Distance(tip, col.ClosestPoint(tip));
+
+                BasisUIToolkitPanel p = col.GetComponentInParent<BasisUIToolkitPanel>();
+                if (p != null && p.isActiveAndEnabled)
+                {
+                    if (d < bestPanelD) { bestPanelD = d; bestPanel = p; }
+                    continue;
+                }
+
                 Canvas c = col.GetComponent<Canvas>();
                 if (c == null) c = col.GetComponentInParent<Canvas>();
                 if (c == null) continue;
-                float d = Vector3.Distance(tip, col.ClosestPoint(tip));
                 if (d < bestD) { bestD = d; best = c; }
             }
 
+            if (bestPanel != null && (best == null || bestPanelD <= bestD))
+            {
+                ProcessTouchPanel(st, input, bestPanel, tip);
+                return;
+            }
+
             if (best == null) { if (st.Phase != TouchPhase.None) EndTouch(st, input); return; }
+
+            // Leaving a panel for a canvas: close out the panel touch so the phase machine below
+            // restarts from None instead of inheriting panel state.
+            if (st.Panel != null) EndTouch(st, input);
 
             RectTransform rt = best.GetComponent<RectTransform>();
             Vector3 fwd = CanvasFrontNormal(best, rt);
@@ -444,6 +468,98 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         UpdatePress(st, proj, cam);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Fingertip poke against a UI Toolkit panel. Mirrors the canvas phase machine above, but
+        /// drives a <see cref="BasisUIToolkitPointer"/> instead of uGUI event data. The panel's
+        /// front is fixed by its component, so no majority vote is needed.
+        /// </summary>
+        private void ProcessTouchPanel(FingerTouchState st, BasisInput input, BasisUIToolkitPanel panel, Vector3 tip)
+        {
+            // Leaving a canvas for a panel: close out the canvas touch first.
+            if (st.Panel == null && st.Phase != TouchPhase.None) EndTouch(st, input);
+
+            Vector3 fwd = panel.FrontNormal;
+            Plane plane = new Plane(fwd, panel.transform.position);
+            float sd = plane.GetDistanceToPoint(tip);
+            st.SignedDist = sd;
+            st.Plane = plane;
+
+            Vector3 handPos = input.HasControl && input.Control != null
+                ? input.Control.OutgoingWorldData.position
+                : input.RaycastCoord.position;
+            if (plane.GetDistanceToPoint(handPos) <= 0f)
+            {
+                if (st.Phase != TouchPhase.None) EndTouch(st, input);
+                return;
+            }
+
+            Vector3 proj = tip - fwd * sd;
+            if (!panel.TryGetPanelPositionFromPoint(proj, true, out Vector2 panelPoint))
+            {
+                if (st.Phase != TouchPhase.None) EndTouch(st, input);
+                return;
+            }
+
+            EnsureToolkitPointer(st);
+            st.Panel = panel;
+            st.PrevSurface = proj;
+
+            switch (st.Phase)
+            {
+                case TouchPhase.None:
+                    if (sd > 0 && sd < HoverDistance)
+                    {
+                        st.Phase = TouchPhase.Hovering;
+                        DriveToolkitPointer(st, panel, panelPoint, false);
+                        PlayTouchHaptic(input, HoverHapticDuration, HoverHapticAmplitude, HoverHapticFrequency);
+                    }
+                    break;
+
+                case TouchPhase.Hovering:
+                    if (sd > HoverDistance || sd < -HoverDistance)
+                    {
+                        EndTouch(st, input);
+                    }
+                    else if (sd <= PressDepth)
+                    {
+                        st.Phase = TouchPhase.Pressing;
+                        DriveToolkitPointer(st, panel, panelPoint, true);
+                        PlayTouchHaptic(input, PressHapticDuration, PressHapticAmplitude, PressHapticFrequency);
+                    }
+                    else
+                    {
+                        DriveToolkitPointer(st, panel, panelPoint, false);
+                    }
+                    break;
+
+                case TouchPhase.Pressing:
+                    if (sd > ReleaseDistance || sd < -HoverDistance)
+                    {
+                        DriveToolkitPointer(st, panel, panelPoint, false);
+                        PlayTouchHaptic(input, ClickHapticDuration, ClickHapticAmplitude, ClickHapticFrequency);
+                        if (sd > 0 && sd < HoverDistance) st.Phase = TouchPhase.Hovering;
+                        else EndTouch(st, input);
+                    }
+                    else
+                    {
+                        DriveToolkitPointer(st, panel, panelPoint, true);
+                    }
+                    break;
+            }
+        }
+
+        private static void EnsureToolkitPointer(FingerTouchState st)
+        {
+            if (st.ToolkitPointer == null)
+                st.ToolkitPointer = new BasisUIToolkitPointer();
+        }
+
+        private static void DriveToolkitPointer(FingerTouchState st, BasisUIToolkitPanel panel, Vector2 panelPoint, bool pressed)
+        {
+            st.ToolkitPointer.BeginFrame(pressed);
+            st.ToolkitPointer.Process(panel, panelPoint, pressed, Vector2.zero);
         }
 
         /// <summary>
@@ -644,13 +760,33 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         private void EndTouch(FingerTouchState st, BasisInput input)
         {
+            if (st.Panel != null)
+            {
+                // Release dispatches the PointerUp that fires the click, and clearing the frame
+                // edge lets a re-approach press again instead of reading as an already-held poke.
+                if (st.Phase == TouchPhase.Pressing)
+                    PlayTouchHaptic(input, ClickHapticDuration, ClickHapticAmplitude, ClickHapticFrequency);
+
+                ReleaseToolkitPointer(st);
+                st.Reset();
+                return;
+            }
+
             if (st.Phase == TouchPhase.Pressing) EndPress(st, input);
             EmitExit(st);
             st.Reset();
         }
 
+        private static void ReleaseToolkitPointer(FingerTouchState st)
+        {
+            if (st.ToolkitPointer == null) return;
+            st.ToolkitPointer.BeginFrame(false);
+            st.ToolkitPointer.Release();
+        }
+
         private static void CleanupState(FingerTouchState st)
         {
+            ReleaseToolkitPointer(st);
             if (st.EventData != null)
                 for (int i = 0; i < st.HoveredCount; i++)
                     if (st.Hovered[i] != null)

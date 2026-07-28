@@ -87,6 +87,37 @@ public abstract class BasisInputController : BasisInput
             Control.SetIncoming(Position, Rotation);
         }
     }
+
+    /// <summary>
+    /// The wrist the avatar's hand bone is actually driven to, expressed in the same unscaled player
+    /// space as <see cref="BasisInput.UnscaledDeviceCoord"/>.
+    ///
+    /// Every backend builds <see cref="HandFinal"/> as OffsetCoords ⊗ (wrist × DeviceScale), so undoing
+    /// that recovers the wrist wherever the backend's raw pose happens to sit. OpenVR already bakes the
+    /// wrist into the device coord, so this lands back on the same point and nothing changes; OpenXR
+    /// leaves the device coord on the grip pose while the bone goes to the palm minus a wrist offset, so
+    /// there the two differ by several cm per hand.
+    ///
+    /// Arm-span calibration has to sample this rather than the raw device pose: measuring a landmark the
+    /// hand bone never occupies makes the player look longer-armed than they are, and the body fit spends
+    /// the whole difference stretching the avatar's arms.
+    /// </summary>
+    public Vector3 UnscaledHandTarget
+    {
+        get
+        {
+            float scale = BasisHeightDriver.DeviceScale;
+            // HandFinal is written by the pose update, which on some backends is a subsystem callback
+            // rather than the poll — before the first one lands it is still default, and a zero world
+            // position is not a pose a tracked hand can hold.
+            if (HandFinal.position.sqrMagnitude < 1e-8f || scale <= 1e-6f || float.IsNaN(scale) || float.IsInfinity(scale))
+            {
+                return UnscaledDeviceCoord.position;
+            }
+            return (Quaternion.Inverse(OffsetCoords.rotation) * (HandFinal.position - OffsetCoords.position)) / scale;
+        }
+    }
+
     public Vector3 ChangeHandYHeight(Vector3 position)
     {
         // Mirror BasisInput.ComputeUnscaledDeviceCoord so the avatar's hand bones (driven by HandFinal,
@@ -99,6 +130,7 @@ public abstract class BasisInputController : BasisInput
             {
                 position.y += SMModuleSitStand.MissingHeightDelta;
             }
+            position.y += BasisHeightDriver.HeightModeGroundingOffset;
         }
         return position;
     }

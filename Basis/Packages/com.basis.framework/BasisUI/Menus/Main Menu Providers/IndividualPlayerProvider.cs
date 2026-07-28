@@ -46,6 +46,11 @@ namespace Basis.BasisUI
         // so unmute can restore the prior level instead of guessing 1.0.
         // Session-only — block/unblock and persisted volume already handle long-term state.
         private static readonly Dictionary<string, float> s_volumeBeforeMute = new Dictionary<string, float>();
+
+        // Volume slider runs 0..1.5. Past 1.0 the player is being amplified beyond their own
+        // level; past 1.25 it is heavy enough to warrant the hotter accent.
+        private const float VolumeBoostTintThreshold = 1f;
+        private const float VolumeBoostTintHotThreshold = 1.25f;
         private const float UnmuteFallbackVolume = 1.0f;
 
         // ===== Shared player action helpers (used by this panel and UserListProvider rows) =====
@@ -436,6 +441,7 @@ namespace Basis.BasisUI
 
             var root = tab.Descriptor.ContentParent;
             var infoGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            infoGroup.SetBackgroundVisible(false);
             infoGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.player"));
             infoGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.player.description"));
 
@@ -478,6 +484,26 @@ namespace Basis.BasisUI
             volumeSlider.UseFillColorGradient = true;
 
             volumeSlider.SetValueWithoutNotify(settings.VolumeLevel);
+
+            // Boosting a player past their natural loudness is worth seeing at a glance, so the
+            // row itself picks up the same accent tinting the Graphics page uses.
+            BasisPanelTint.Handle boostTint = BasisPanelTint.Capture(volumeSlider.Descriptor);
+
+            void RefreshBoostTint(float level, bool animate)
+            {
+                if (level <= VolumeBoostTintThreshold)
+                {
+                    BasisPanelTint.Clear(boostTint, animate);
+                    return;
+                }
+
+                BasisPanelTint.Apply(boostTint,
+                    level > VolumeBoostTintHotThreshold ? BasisPanelTint.Hot : BasisPanelTint.Caution,
+                    animate);
+            }
+
+            RefreshBoostTint(settings.VolumeLevel, false);
+            volumeSlider.OnValueChanged += level => RefreshBoostTint(level, true);
 
             // ---- Create meter UI (Addressables sprite) ----
             MeterRefs meter = await CreateVolumeMeterUIAsync(audioGroup.ContentParent);
@@ -546,6 +572,25 @@ namespace Basis.BasisUI
                 }
             };
 
+            // ---- Loudness normalisation (receive-side, per player) ----
+            PanelToggle normalizeToggle = PanelToggle.CreateNewEntry(audioGroup.ContentParent);
+            normalizeToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.normalizeLoudness"));
+            normalizeToggle.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.normalizeLoudness.description"));
+            normalizeToggle.SetValueWithoutNotify(settings.NormalizeLoudness);
+
+            normalizeToggle.OnValueChanged += async enabled =>
+            {
+                var s = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
+                s.NormalizeLoudness = enabled;
+                await BasisPlayerSettingsManager.SetPlayerSettings(s);
+
+                if (remotePlayer != null && remotePlayer.NetworkReceiver != null &&
+                    remotePlayer.NetworkReceiver.AudioReceiverModule != null)
+                {
+                    remotePlayer.NetworkReceiver.AudioReceiverModule.NormalizeLoudness = enabled;
+                }
+            };
+
             // ---- Mute toggle (audio-only, separate from full block) ----
             PanelButton muteBtn = PanelButton.CreateNew(audioGroup.ContentParent);
             muteBtn.Descriptor.SetTitle(BasisLocalization.Get(settings.VolumeLevel <= 0f ? "menu.individualPlayer.unmute" : "menu.individualPlayer.mute"));
@@ -559,7 +604,71 @@ namespace Basis.BasisUI
                 // Pull the resolved volume back so the slider mirrors the helper's restore-from-snapshot logic.
                 var refreshed = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
                 volumeSlider.SetValueWithoutNotify(refreshed.VolumeLevel);
+                RefreshBoostTint(refreshed.VolumeLevel, true);
             };
+
+            // ---- Voice recording (consent-gated capture / re-route) ----
+            var voiceRecGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            voiceRecGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.voiceRecording"));
+            voiceRecGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.voiceRecording.description"));
+
+            ushort voiceRecPlayerId = 0;
+            bool hasVoiceRecTarget = Basis.Scripts.Networking.BasisNetworkPlayers.PlayerToNetworkedPlayer(
+                remotePlayer, out BasisNetworkPlayer voiceRecNet);
+            if (hasVoiceRecTarget) voiceRecPlayerId = voiceRecNet.playerId;
+
+            Basis.Scripts.Networking.VoiceRecording.BasisRecordingHandle voiceRecHandle = null;
+            PanelButton recordBtn = PanelButton.CreateNew(voiceRecGroup.ContentParent);
+            recordBtn.Descriptor.SetTitle(BasisLocalization.Get(
+                hasVoiceRecTarget && Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.IsRecording(voiceRecPlayerId)
+                    ? "menu.individualPlayer.voiceRecording.stop"
+                    : "menu.individualPlayer.voiceRecording.start"));
+            recordBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.voiceRecording.start.description"));
+            recordBtn.OnClicked += async () =>
+            {
+                if (!hasVoiceRecTarget) return;
+                if (Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.IsRecording(voiceRecPlayerId))
+                {
+                    Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.StopRecording(voiceRecPlayerId);
+                    voiceRecHandle = null;
+                    recordBtn.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.voiceRecording.start"));
+                    return;
+                }
+                recordBtn.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.voiceRecording.requesting"));
+                voiceRecHandle = await Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.StartRecording(
+                    remotePlayer, Basis.Scripts.Networking.VoiceRecording.BasisRecordingOptions.Default);
+                recordBtn.Descriptor.SetTitle(BasisLocalization.Get(
+                    voiceRecHandle != null
+                        ? "menu.individualPlayer.voiceRecording.stop"
+                        : "menu.individualPlayer.voiceRecording.start"));
+            };
+
+            if (!string.IsNullOrEmpty(remotePlayer.UUID))
+            {
+                PanelDropdown recordPolicy = PanelDropdown.CreateNewEntry(voiceRecGroup.ContentParent);
+                recordPolicy.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.voiceRecording.policy"));
+                recordPolicy.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.voiceRecording.policy.description"));
+
+                // Order must match BasisRecordingConsentPolicy (Ask, AlwaysAllow, AlwaysDeny).
+                List<string> recordPolicyOptions = new List<string>
+                {
+                    BasisLocalization.Get("menu.individualPlayer.voiceRecording.policy.ask"),
+                    BasisLocalization.Get("menu.individualPlayer.voiceRecording.policy.allow"),
+                    BasisLocalization.Get("menu.individualPlayer.voiceRecording.policy.deny"),
+                };
+                recordPolicy.AssignEntries(recordPolicyOptions);
+                recordPolicy.SetValueWithoutNotify(recordPolicyOptions[(int)BasisRecordingConsent.GetPolicy(remotePlayer.UUID)]);
+                recordPolicy.OnValueChanged = selected =>
+                {
+                    int idx = recordPolicyOptions.IndexOf(selected);
+                    if (idx < 0) idx = 0;
+                    BasisRecordingConsent.SetPolicy(remotePlayer.UUID, (BasisRecordingConsentPolicy)idx);
+                    if ((BasisRecordingConsentPolicy)idx == BasisRecordingConsentPolicy.AlwaysDeny && hasVoiceRecTarget)
+                    {
+                        Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.RevokeConsentToRecorder(voiceRecPlayerId);
+                    }
+                };
+            }
 
             // ---- Private chat (who can hear me) ----
             var privateChatGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
@@ -606,6 +715,7 @@ namespace Basis.BasisUI
 
             // ---- Direct Connection (P2P) controls ----
             var p2pGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            p2pGroup.SetBackgroundVisible(false);
             p2pGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.directConnection"));
             p2pGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.directConnection.description"));
 
@@ -616,13 +726,31 @@ namespace Basis.BasisUI
 
             PanelButton directConnBtn = PanelButton.CreateNew(p2pGroup.ContentParent);
 
+            // Shown only while the direct link is degraded (PartialConnection): states the
+            // issue — the server is carrying this player and Try Again re-establishes the link.
+            var directConnStatus = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, p2pGroup.ContentParent);
+            directConnStatus.SetDescription(BasisLocalization.Get("menu.individualPlayer.directConnection.partial.description"));
+            directConnStatus.SetActive(false);
+
+            // "Try Again" — visible only when the link is partial or failed. Re-punches the
+            // existing session, or re-requests if it was already torn down.
+            PanelButton directConnRetryBtn = PanelButton.CreateNew(p2pGroup.ContentParent);
+            directConnRetryBtn.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.directConnection.tryAgain"));
+            directConnRetryBtn.Descriptor.SetActive(false);
+            directConnRetryBtn.OnClicked += () =>
+            {
+                if (!hasDirectConnTarget) return;
+                Basis.Scripts.Networking.BasisP2PManager.RetryDirect(directConnPlayerId);
+            };
+
             string DirectConnLabelKey(Basis.Scripts.Networking.BasisP2PManager.P2PSessionState st)
             {
                 bool blockedByPolicy = BasisSettingsDefaults.DisableDirectConnections.RawValue ||
                     (BasisNetworkModeration.GlobalDirectConnectLocked && !BasisNetworkModeration.LocalPlayerHasGlobalLockBypass());
                 if (blockedByPolicy &&
                     st != Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.Connected &&
-                    st != Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.Reconnecting)
+                    st != Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.Reconnecting &&
+                    st != Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.PartialConnection)
                 {
                     return "menu.individualPlayer.directConnection.disabled";
                 }
@@ -641,6 +769,8 @@ namespace Basis.BasisUI
                             : "menu.individualPlayer.directConnection.connected";
                     case Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.Reconnecting:
                         return "menu.individualPlayer.directConnection.reconnecting";
+                    case Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.PartialConnection:
+                        return "menu.individualPlayer.directConnection.partial";
                     case Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.Failed:
                         return "menu.individualPlayer.directConnection.failed";
                     default:
@@ -653,6 +783,14 @@ namespace Basis.BasisUI
                 if (directConnBtn == null || directConnBtn.Descriptor == null) return;
                 var st = Basis.Scripts.Networking.BasisP2PManager.GetSessionState(directConnPlayerId);
                 directConnBtn.Descriptor.SetTitle(BasisLocalization.Get(DirectConnLabelKey(st)));
+
+                // Partial: show the "using server" explanation. Partial/Failed: offer Try Again.
+                bool partial = st == Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.PartialConnection;
+                bool canRetry = partial || st == Basis.Scripts.Networking.BasisP2PManager.P2PSessionState.Failed;
+                if (directConnStatus != null) directConnStatus.SetActive(partial);
+                if (directConnRetryBtn != null && directConnRetryBtn.Descriptor != null)
+                    directConnRetryBtn.Descriptor.SetActive(canRetry);
+                p2pGroup.ForceRebuild();
             }
             RefreshDirectConnLabel();
 
@@ -796,6 +934,7 @@ namespace Basis.BasisUI
             };
 
             var avatarGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            avatarGroup.SetBackgroundVisible(false);
             avatarGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.avatar"));
             avatarGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.avatar.description"));
 
@@ -993,6 +1132,7 @@ namespace Basis.BasisUI
 
             // ---- Network metadata group ----
             var networkGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            networkGroup.SetBackgroundVisible(false);
             networkGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.network"));
             networkGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.network.description"));
 
@@ -1032,6 +1172,7 @@ namespace Basis.BasisUI
                 string targetUUID = remotePlayer.UUID;
 
                 var adminGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+                adminGroup.SetBackgroundVisible(false);
                 adminGroup.SetTitle(BasisLocalization.Get("settings.tab.admin"));
                 adminGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.admin.description"));
 
@@ -1230,6 +1371,7 @@ namespace Basis.BasisUI
             }
 
             var debugGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            debugGroup.SetBackgroundVisible(false);
             debugGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.debug"));
             debugGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.debug.description"));
 
@@ -1241,6 +1383,7 @@ namespace Basis.BasisUI
 
             // ---- Audio Debug Section ----
             var audioDebugGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            audioDebugGroup.SetBackgroundVisible(false);
             audioDebugGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.audioDebug"));
             audioDebugGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.audioDebug.description"));
 
@@ -1356,6 +1499,7 @@ namespace Basis.BasisUI
 
             // ---- Avatar Data Debug Section ----
             var avatarDataDebugGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            avatarDataDebugGroup.SetBackgroundVisible(false);
             avatarDataDebugGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.avatarDataDebug"));
             avatarDataDebugGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.avatarDataDebug.description"));
 

@@ -12,8 +12,6 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.Animations.Rigging;
-
 namespace Basis.Scripts.Drivers
 {
     /// <summary>
@@ -92,6 +90,8 @@ namespace Basis.Scripts.Drivers
         public static int SkinnedMeshRendererLength;
 
         /// <summary>All jiggle rigs under the avatar, discovered during calibration.</summary>
+        /// <summary>Filtered out of the content-harvest snapshot by BasisAvatarFactory at load;
+        /// include-inactive, entries can be destroyed later — null-and-activity gate on use.</summary>
         public static JiggleRig[] JiggleRigs = Array.Empty<JiggleRig>();
 
         /// <summary>Stores the transforms for each tracked role at calibration time.</summary>
@@ -132,8 +132,10 @@ namespace Basis.Scripts.Drivers
 
             player.LocalRigDriver.Initialize(player, Mapping);
 
+            BasisAvatarIKStageCalibration.BasisBendNormalStore.Clear();
+            BasisAvatarIKStageCalibration.BasisLimbRollStore.Clear();
+
             player.LocalRigDriver.CleanupBeforeContinue();
-            player.LocalRigDriver.AdditionalTransforms.Clear();
             GameObject AvatarAnimatorParent = player.BasisAvatar.Animator.gameObject;
             ScaleAvatarModification.ReInitialize(player.BasisAvatar.Animator);
 
@@ -145,6 +147,7 @@ namespace Basis.Scripts.Drivers
                 UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> op = Addressables.LoadAssetAsync<RuntimeAnimatorController>(Locomotion);
                 RuntimeAnimatorController RAC = op.WaitForCompletion();
                 player.BasisAvatar.Animator.runtimeAnimatorController = RAC;
+                BasisLocomotionPoseSystem.NotifyStockControllerAssigned(RAC);
             }
             player.BasisAvatar.Animator.applyRootMotion = false;
             player.BasisAvatar.HumanScale = player.BasisAvatar.Animator.humanScale;
@@ -160,13 +163,17 @@ namespace Basis.Scripts.Drivers
             // Enter T-Pose for calibration
             PutAvatarIntoTPose();
 
-            // Initialize any physics/jiggle rigs before building the rig
-            JiggleRigs = player.BasisAvatar.GetComponentsInChildren<JiggleRig>();
+            // Initialize any physics/jiggle rigs before building the rig. JiggleRigs is filtered
+            // out of the content-harvest snapshot by BasisAvatarFactory at load — no walk here.
+            // The set is include-inactive, so gate on activity the way the old scan did.
             int length = JiggleRigs.Length;
             for (int Index = 0; Index < length; Index++)
             {
                 JiggleRig Rig = JiggleRigs[Index];
-                JiggleRigData Data = Rig.GetJiggleRigData();
+                if (Rig == null || !Rig.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
                 Rig.HasAnimatedParameters = false;
                 Rig.OnInitialize();
             }
@@ -181,8 +188,6 @@ namespace Basis.Scripts.Drivers
                 }
             }
 
-            player.LocalRigDriver.Builder = BasisHelpers.GetOrAddComponent<RigBuilder>(AvatarAnimatorParent);
-            player.LocalRigDriver.Builder.enabled = false;
 
             Calibration(player);
 
@@ -293,7 +298,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Scales the head to zero, effectively hiding it (e.g., for first-person rigs).
         /// </summary>
-        public static void ScaleheadToZero()
+        public static void ScaleHeadToZero()
         {
             if (IsNormalHead == false)
             {
@@ -570,7 +575,7 @@ namespace Basis.Scripts.Drivers
                     case BasisBoneTrackedRole.CenterEye:
                         {
                             // Convert avatar-local eye position to world and apply
-                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarEyePosition), RootPosition, out float3 world);
+                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarEyePosition), RootPosition, RootRotation, out float3 world);
                             SetInitialData(rootTransform, control, role, world, RootRotation);
                             break;
                         }
@@ -578,7 +583,7 @@ namespace Basis.Scripts.Drivers
                     case BasisBoneTrackedRole.Mouth:
                         {
                             // Convert avatar-local mouth position to world and apply
-                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarMouthPosition), RootPosition, out float3 world);
+                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarMouthPosition), RootPosition, RootRotation, out float3 world);
                             SetInitialData(rootTransform, control, role, world, RootRotation);
                             break;
                         }
@@ -610,14 +615,15 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Converts a local avatar-space position to world space based on animator position.
+        /// Converts a local avatar-space position to world space based on animator position and rotation.
         /// </summary>
         /// <param name="localAvatarSpace">Point in avatar-local coordinates.</param>
         /// <param name="AnimatorPosition">Animator world position used as origin.</param>
+        /// <param name="AnimatorRotation">Animator world rotation used as the basis.</param>
         /// <param name="position">Out: computed world position.</param>
-        public void GetWorldSpacePos(Vector3 localAvatarSpace, Vector3 AnimatorPosition, out float3 position)
+        public void GetWorldSpacePos(Vector3 localAvatarSpace, Vector3 AnimatorPosition, Quaternion AnimatorRotation, out float3 position)
         {
-            position = BasisHelpers.ConvertFromLocalSpace(localAvatarSpace, AnimatorPosition);
+            position = BasisHelpers.ConvertFromLocalSpace(localAvatarSpace, AnimatorPosition, AnimatorRotation);
         }
 
         /// <summary>

@@ -24,6 +24,7 @@ public static class BasisPlayerNetworkGizmos
     public static bool Show;
     public static bool ShowLabels;
     public static bool ShowBandwidth;
+    public static bool ShowAdditionalInfo;
 
     private const float PathBaseWidth = 0.01f;
     private const float SphereBaseSize = 0.09f;
@@ -132,11 +133,14 @@ public static class BasisPlayerNetworkGizmos
             bool showState = Show && ShowLabels;
             if (showState || ShowBandwidth)
             {
-                int key = LabelKey(receiver, showState, ShowBandwidth);
-                if (g.Label <= 0 || key != g.LabelKey || g.LabelText == null)
+                if (g.Label <= 0 || BasisGizmoManager.IsTextVisible(g.Label))
                 {
-                    g.LabelKey = key;
-                    g.LabelText = BuildLabel(receiver, showState, ShowBandwidth);
+                    int key = LabelKey(receiver, showState, ShowBandwidth);
+                    if (g.Label <= 0 || key != g.LabelKey || g.LabelText == null)
+                    {
+                        g.LabelKey = key;
+                        g.LabelText = BuildLabel(receiver, showState, ShowBandwidth);
+                    }
                 }
                 Vector3 labelPos = to + Vector3.up * (LabelBaseHeight * scale);
                 Quaternion rot = BasisGizmoManager.BillboardRotation(labelPos, _camPos);
@@ -174,20 +178,13 @@ public static class BasisPlayerNetworkGizmos
     }
 
     // Cheap change-key so the label string only rebuilds when something visible moves.
+    // Bucketing lives in BasisNetworkGizmoLabelCore (with its unit tests) — deliberately
+    // coarse because the interp fraction cycles 0→1 every keyframe, so a fine key would
+    // dirty every label every frame and TMP re-tessellation dominates the gizmo cost.
     private static int LabelKey(BasisNetworkReceiver r, bool showState, bool showBw)
     {
-        int k = r.playerId * 397;
-        if (showState)
-        {
-            int t = Mathf.RoundToInt(Mathf.Clamp01((float)r.InterpolationTimeDebug) * 100f);
-            int rate = Mathf.RoundToInt(r.LastPlaybackRate * 100f);
-            k = (k * 31) ^ t ^ (r.StagedCount << 8) ^ (rate << 14);
-        }
-        if (showBw)
-        {
-            k = (k * 31) ^ Mathf.RoundToInt(r.BytesPerSecond) ^ (Mathf.RoundToInt(r.PacketsPerSecond) << 16);
-        }
-        return (k * 4) ^ (showState ? 2 : 0) ^ (showBw ? 1 : 0);
+        return BasisNetworkGizmoLabelCore.PlayerLabelKey(r.playerId, (float)r.InterpolationTimeDebug, r.LastPlaybackRate, r.StagedCount, r.BytesPerSecond, r.PacketsPerSecond, showState, showBw,
+            r.VoiceBytesPerSecond, r.VoicePacketsPerSecond, ShowAdditionalInfo);
     }
 
     private static string BuildLabel(BasisNetworkReceiver r, bool showState, bool showBw)
@@ -205,6 +202,10 @@ public static class BasisPlayerNetworkGizmos
         if (showBw)
         {
             _text.Append('\n').Append(FormatRate(r.BytesPerSecond)).Append("  ").Append(Mathf.RoundToInt(r.PacketsPerSecond)).Append(" pkt/s");
+        }
+        if (ShowAdditionalInfo)
+        {
+            _text.Append("\nvoice ").Append(FormatRate(r.VoiceBytesPerSecond)).Append("  ").Append(Mathf.RoundToInt(r.VoicePacketsPerSecond)).Append(" pkt/s");
         }
         return _text.ToString();
     }

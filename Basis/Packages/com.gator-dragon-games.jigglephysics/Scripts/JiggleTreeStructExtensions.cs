@@ -11,7 +11,7 @@ public static class JiggleTreeStructExtensions {
     }
 
     private static float3 SanitizeOutput(float3 v) {
-        if (float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z)) {
+        if (!math.all(math.isfinite(v))) {
             return float3.zero;
         }
         return v;
@@ -22,7 +22,7 @@ public static class JiggleTreeStructExtensions {
     }
     
     private static quaternion SanitizeOutput(quaternion v) {
-        if (float.IsNaN(v.value.x) || float.IsNaN(v.value.y) || float.IsNaN(v.value.z) || float.IsNaN(v.value.w)) {
+        if (!math.all(math.isfinite(v.value))) {
             return quaternion.identity;
         }
         return v;

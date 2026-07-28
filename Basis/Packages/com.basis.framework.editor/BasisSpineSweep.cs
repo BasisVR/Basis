@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Basis.IK.Debugging
 {
-    // Offline sweep of the virtual-spine solve helpers (BasisLocalVirtualSpineDriver: ComputeChainPlacement,
+    // Offline sweep of the virtual-spine solve helpers (BasisVirtualSpineCore: ComputeChainPlacement,
     // ComputeHipsPosition, ExtractYawBurst, YawDegrees) that synthesize the torso between head and hips.
     // Pure math, edit mode. Asserts the chest/spine sit on the neck→hips segment at the right fractions
     // (no inversion), hips drop the spine length below the neck, and the yaw extraction strips pitch/roll.
@@ -66,7 +66,7 @@ namespace Basis.IK.Debugging
                         float tSpine = Mathf.Lerp(0.55f, 0.9f, (float)rng.NextDouble());
                         quaternion neckYaw = RandYaw(rng);
                         quaternion hipsYaw = RandYaw(rng);
-                        BasisLocalVirtualSpineDriver.ComputeChainPlacement(neck, hips, tChest, tSpine, neckYaw, hipsYaw,
+                        BasisVirtualSpineCore.ComputeChainPlacement(neck, hips, tChest, tSpine, neckYaw, hipsYaw,
                             out float3 chest, out float3 spine, out _, out _);
 
                         float segLen = math.distance(neck, hips);
@@ -86,26 +86,26 @@ namespace Basis.IK.Debugging
                         float biasScale = Mathf.Lerp(-0.1f, 0.1f, (float)rng.NextDouble());
                         float3 desiredXZ = RandVec(rng, 1f);
                         float3 tposeHips = RandVec(rng, 1f);
-                        BasisLocalVirtualSpineDriver.ComputeHipsPosition(neck, up, lenTotal, headYaw, biasScale, desiredXZ, false, tposeHips, 0f, 0f, 0f, out float3 hipsOut);
+                        BasisVirtualSpineCore.ComputeHipsPosition(neck, neck, float3.zero, up, lenTotal, headYaw, biasScale, desiredXZ, false, tposeHips, 0f, 0f, 0f, false, 0f, 0f, out float3 hipsOut);
                         float3 fwdBias = math.mul(headYaw, new float3(0f, 0f, 1f)) * biasScale;
                         float hipsYErr = Mathf.Abs(hipsOut.y - (neck.y - lenTotal));
                         float hipsXZErr = Mathf.Sqrt(Sq(hipsOut.x - (desiredXZ.x + fwdBias.x)) + Sq(hipsOut.z - (desiredXZ.z + fwdBias.z)));
 
                         // --- hips position (freeze) ---
-                        BasisLocalVirtualSpineDriver.ComputeHipsPosition(neck, up, lenTotal, headYaw, biasScale, desiredXZ, true, tposeHips, 0f, 0f, 0f, out float3 hipsFreeze);
+                        BasisVirtualSpineCore.ComputeHipsPosition(neck, neck, float3.zero, up, lenTotal, headYaw, biasScale, desiredXZ, true, tposeHips, 0f, 0f, 0f, false, 0f, 0f, out float3 hipsFreeze);
                         float3 freezeExpect = tposeHips + new float3(0f, 0f, 1f) * biasScale;
                         float freezeErr = math.distance(hipsFreeze, freezeExpect);
 
                         // --- yaw extraction ---
                         quaternion q = RandRot(rng);
-                        BasisLocalVirtualSpineDriver.ExtractYawBurst(q, out quaternion y1);
-                        BasisLocalVirtualSpineDriver.ExtractYawBurst(y1, out quaternion y2);
+                        BasisVirtualSpineCore.ExtractYawBurst(q, out quaternion y1);
+                        BasisVirtualSpineCore.ExtractYawBurst(y1, out quaternion y2);
                         float yawFlat = Mathf.Abs(math.mul(y1, new float3(0f, 0f, 1f)).y);
                         float yawIdem = QuatAngle(y1, y2);
 
                         float yawDeg = Mathf.Lerp(-170f, 170f, (float)rng.NextDouble());
                         quaternion pureYaw = quaternion.AxisAngle(up, math.radians(yawDeg));
-                        BasisLocalVirtualSpineDriver.YawDegrees(pureYaw, out float yawDegOut);
+                        BasisVirtualSpineCore.YawDegrees(pureYaw, out float yawDegOut);
                         float yawDegErr = Mathf.Abs(Mathf.DeltaAngle(yawDegOut, yawDeg));
 
                         s.MaxChainFracErr = Mathf.Max(s.MaxChainFracErr, chainFracErr);

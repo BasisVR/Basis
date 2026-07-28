@@ -18,17 +18,15 @@ namespace Basis.Scripts.UI
         public BasisDeviceManagement BasisDeviceManagement;
         public List<BasisInput> Inputs;
         public bool HasEvent = false;
-        public const float TriggerReleaseThreshold = 0.5f;
 
-        public const float SliderJoystickDeadzone = 0.2f;
-        public const float SliderJoystickRangePerSecond = 0.6f;
-        private PanelSlider _joystickDrivenSlider;
         private Vector2 _vrScrollStick;
 
         private static bool IsTriggerDown(BasisInput input, bool wasDown)
         {
             float trigger = input.CurrentInputState.Trigger;
-            return wasDown ? trigger >= TriggerReleaseThreshold : trigger >= 1f;
+            float press = BasisSettingsDefaults.UIClickPressThreshold.RawValue;
+            float release = Mathf.Min(BasisSettingsDefaults.UIClickReleaseThreshold.RawValue, press);
+            return wasDown ? trigger >= release : trigger >= press;
         }
 
         public void Initialize()
@@ -44,12 +42,6 @@ namespace Basis.Scripts.UI
 
         public void OnDeInitialize()
         {
-            if (_joystickDrivenSlider != null)
-            {
-                _joystickDrivenSlider.EndExternalDrive();
-                _joystickDrivenSlider = null;
-            }
-
             if (HasEvent && BasisDeviceManagement != null)
             {
                 BasisDeviceManagement.AllInputDevices.OnListChanged -= AllInputDevices;
@@ -90,9 +82,13 @@ namespace Basis.Scripts.UI
 
                 if (input.HasRaycaster)
                 {
-                    // Skip ray-based UI events when direct finger touch is active for this device
+                    // Skip ray-based UI events when direct finger touch is active for this device.
+                    // The ray's panel pointer is released first, or its last hover would stay lit
+                    // on the panel for as long as the finger is poking.
                     if (BasisDirectTouch.Instance != null && BasisDirectTouch.Instance.IsDeviceTouching(input))
                     {
+                        input.BasisUIRaycast.ToolkitPointer.BeginFrame(false);
+                        input.BasisUIRaycast.ToolkitPointer.Release();
                         continue;
                     }
 
@@ -103,6 +99,8 @@ namespace Basis.Scripts.UI
                     }
 
                     bool hasActiveUITarget = input.BasisUIRaycast.WasCorrectLayer && input.BasisUIRaycast.HadRaycastUITarget;
+                    bool hasToolkitTarget = input.BasisUIRaycast.WasCorrectLayer && input.BasisUIRaycast.HadToolkitPanelTarget;
+                    BasisUIToolkitPointer toolkitPointer = input.BasisUIRaycast.ToolkitPointer;
 
                     bool isDownThisFrame = IsTriggerDown(input, eventData.WasLastDown);
 
@@ -119,8 +117,20 @@ namespace Basis.Scripts.UI
                         eventData.WasLastDown = false;
                     }
 
-                    if (hasActiveUITarget)
+                    toolkitPointer.BeginFrame(isDownThisFrame);
+
+                    if (toolkitPointer.WantsCapture && TryGetToolkitCapturePosition(input, toolkitPointer, out Vector2 capturedPanelPosition))
                     {
+                        // A pressed panel owns the pointer until release. UI Toolkit captures on
+                        // press, so this keeps driving the captured element even when the ray
+                        // leaves the panel or crosses a different one — the native equivalent of
+                        // the uGUI drag-plane capture below (#869).
+                        toolkitPointer.Process(toolkitPointer.CapturedPanel, capturedPanelPosition, isDownThisFrame, ComputeScrollDelta(input));
+                        HasTarget = true;
+                    }
+                    else if (hasActiveUITarget)
+                    {
+                        toolkitPointer.Release();
                         List<BasisRaycastUIHitData> hitData = input.BasisUIRaycast.SortedGraphics;
                         List<RaycastResult> RaycastResults = input.BasisUIRaycast.SortedRays;
 
@@ -140,9 +150,15 @@ namespace Basis.Scripts.UI
                             BasisDebug.LogWarning(nameof(BasisUIRaycastProcess) + "Skipping raycast simulate — hit data or ray results missing.");
                         }
                     }
+                    else if (hasToolkitTarget)
+                    {
+                        toolkitPointer.Process(input.BasisUIRaycast.HitToolkitPanel, input.BasisUIRaycast.ToolkitPanelPosition, isDownThisFrame, ComputeScrollDelta(input));
+                        HasTarget = true;
+                    }
                     else if (eventData.WasLastDown && eventData.pointerDrag != null &&
                         TryGetDragCapturePosition(input, eventData, out Vector2 capturePosition))
                     {
+                        toolkitPointer.Release();
                         // A held drag (slider/scrollbar/scroll view) whose ray slipped off every
                         // raycastable graphic: keep driving it from the ray projected onto the
                         // plane it was pressed on, instead of freezing until release (#869).
@@ -154,6 +170,8 @@ namespace Basis.Scripts.UI
                     }
                     else
                     {
+                        toolkitPointer.Release();
+
                         // Lost UI hit (or moved to non-UI layer): send pointerExit events and clear selection.
                         if (eventData.pointerEnter != null || eventData.hovered.Count > 0)
                         {
@@ -171,8 +189,6 @@ namespace Basis.Scripts.UI
                     }
                 }
             }
-
-            DriveActiveSliderFromJoystick(snapshot, DevicesCount);
 
             if (!HasTarget && EffectiveMouseAction)
             {
@@ -198,78 +214,6 @@ namespace Basis.Scripts.UI
                     }
                 }
             }
-        }
-
-        // Right controller stick (Y) adjusts the slider the pointer is on. Reading the stick from
-        // the right hand only keeps the left stick free for locomotion. The target comes from the
-        // panel's own hover/selection, so it resolves even when the slider is inside a scroll view.
-        private void DriveActiveSliderFromJoystick(List<BasisInput> snapshot, int DevicesCount)
-        {
-            PanelSlider target = ResolveActiveSlider();
-            if (target != null && target.SliderComponent == null)
-            {
-                target = null;
-            }
-
-            float axisY = 0f;
-            if (target != null)
-            {
-                for (int Index = 0; Index < DevicesCount; Index++)
-                {
-                    BasisInput input = snapshot[Index];
-                    if (input != null && input.TryGetRole(out BasisBoneTrackedRole role) && role == BasisBoneTrackedRole.RightHand)
-                    {
-                        axisY = input.CurrentInputState.Primary2DAxisRaw.y;
-                        break;
-                    }
-                }
-            }
-
-            bool active = target != null && Mathf.Abs(axisY) >= SliderJoystickDeadzone;
-
-            // Commit the previous slider when the stick releases or the pointer moves to another one.
-            if (_joystickDrivenSlider != null && (!active || _joystickDrivenSlider != target))
-            {
-                _joystickDrivenSlider.EndExternalDrive();
-                _joystickDrivenSlider = null;
-            }
-
-            if (!active)
-            {
-                return;
-            }
-
-            float range = target.SliderComponent.maxValue - target.SliderComponent.minValue;
-            if (range <= 0f)
-            {
-                return;
-            }
-
-            float delta = axisY * SliderJoystickRangePerSecond * range * Time.unscaledDeltaTime;
-            target.DriveExternalDelta(delta);
-            _joystickDrivenSlider = target;
-        }
-
-        // Prefer the panel under the pointer; fall back to the clicked/selected one so a slider
-        // can still be dialed after the pointer drifts off it (common inside a scroll view).
-        private static PanelSlider ResolveActiveSlider()
-        {
-            if (PanelComponent.CurrentHovered is PanelSlider hovered && hovered != null)
-            {
-                return hovered;
-            }
-
-            EventSystem eventSystem = EventSystem.current;
-            if (eventSystem != null && eventSystem.currentSelectedGameObject != null)
-            {
-                PanelSlider selected = eventSystem.currentSelectedGameObject.GetComponentInParent<PanelSlider>();
-                if (selected != null)
-                {
-                    return selected;
-                }
-            }
-
-            return null;
         }
 
         private static Vector2 ReadRightHandScrollStick(List<BasisInput> snapshot, int DevicesCount)
@@ -309,6 +253,11 @@ namespace Basis.Scripts.UI
 
             Shader.SetGlobalVector(CursorPos, hit.worldHitPosition);
 
+            // Update hover before processing a press. Touch pointers move to their target and
+            // press in the same frame, so requiring the previous frame's pointerEnter makes
+            // the first Android tap establish hover without activating the control.
+            ProcessPointerMovement(currentEventData);
+
             // ---- BUTTON DOWN ----
             if (IsDownThisFrame)
             {
@@ -335,7 +284,6 @@ namespace Basis.Scripts.UI
             // Button UP is handled in Simulate() based on trigger state
 
             // ---- OTHER POINTER EVENTS ----
-            ProcessPointerMovement(currentEventData);
             UpdateHoverHaptic(currentEventData, BaseInput);
             ProcessScrollWheel(currentEventData);
 
@@ -436,7 +384,10 @@ namespace Basis.Scripts.UI
 
             if (pressClickHandler != null && CurrentEventData.eligibleForClick)
             {
-                BaseInput.PlayHaptic(0.1f, 1f, 0.5f);
+                if (BasisSettingsDefaults.UIHaptics.RawValue)
+                {
+                    BaseInput.PlayHaptic(0.1f, 0.1f, 0.5f);
+                }
                 // BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
                 ExecuteEvents.Execute(pressClickHandler, CurrentEventData, ExecuteEvents.pointerClickHandler);
             }
@@ -458,6 +409,19 @@ namespace Basis.Scripts.UI
             CurrentEventData.pointerDrag = null;
             CurrentEventData.DragPlaneTransform = null;
             CurrentEventData.DragEventCamera = null;
+        }
+
+        private static bool TryGetToolkitCapturePosition(BasisInput input, BasisUIToolkitPointer pointer, out Vector2 panelPosition)
+        {
+            panelPosition = default;
+            BasisUIToolkitPanel panel = pointer.CapturedPanel;
+            if (panel == null)
+            {
+                return false;
+            }
+
+            Ray ray = input.BasisUIRaycast.BasisPointRaycaster.ray;
+            return panel.TryGetPanelPosition(ray, false, out panelPosition, out _, out _);
         }
 
         private static bool TryGetDragCapturePosition(BasisInput input, BasisPointerEventData eventData, out Vector2 screenPosition)
@@ -505,7 +469,7 @@ namespace Basis.Scripts.UI
             }
 
             eventData.HapticHoverTarget = interactiveRoot;
-            if (interactiveRoot != null && !eventData.WasLastDown)
+            if (interactiveRoot != null && !eventData.WasLastDown && BasisSettingsDefaults.UIHaptics.RawValue)
             {
                 input.PlayHaptic(0.02f, 0.25f, 0.5f);
             }
@@ -539,11 +503,6 @@ namespace Basis.Scripts.UI
             var scrollDelta = eventData.scrollDelta;
             if (!Mathf.Approximately(scrollDelta.sqrMagnitude, 0f))
             {
-                if (_vrScrollStick.sqrMagnitude > 0f && ResolveActiveSlider() != null)
-                {
-                    return;
-                }
-
                 GameObject scrollTarget = eventData.pointerEnter;
                 if (scrollTarget == null)
                 {

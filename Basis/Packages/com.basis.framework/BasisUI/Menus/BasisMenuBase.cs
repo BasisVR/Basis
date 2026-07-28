@@ -90,10 +90,13 @@ namespace Basis.BasisUI
         {
             foreach (PanelButton button in ProviderButtons)
             {
-                button.ReleaseInstance();
+                if (button) button.ReleaseInstance();
             }
 
             ProviderButtons.Clear();
+
+            Component parent = ProviderButtonParent;
+            if (parent == null) return;
 
             foreach (BasisMenuActionProvider<TMenu> provider in Providers)
             {
@@ -101,7 +104,9 @@ namespace Basis.BasisUI
                 {
                     PanelButton button = PanelButton.CreateNew(
                         PanelButton.ButtonStyles.Hotbar,
-                        ProviderButtonParent);
+                        parent);
+
+                    if (button == null) continue;
 
                     button.Descriptor.SetTitle(provider.Title);
                     button.SetIcon(provider.IconAddress);

@@ -16,6 +16,7 @@ public class BasisOpenXRTracker : BasisInput
     public void Initialize(InputDevice device, string usage, string UniqueID, string UnUniqueID, string subSystems)
     {
         InputDevice = device;
+        TrackingHardware = BasisTrackingHardware.InsideOut;
         InitializeTracking(UniqueID, UnUniqueID + usage, subSystems, false, BasisBoneTrackedRole.CenterEye);
         var layoutName = device.GetType().Name;
         Position = new InputActionProperty(new InputAction($"Position_{usage}", InputActionType.Value, $"<{layoutName}>{{{usage}}}/devicePosition", expectedControlType: "Vector3"));
@@ -38,8 +39,15 @@ public class BasisOpenXRTracker : BasisInput
     }
     public override void LateDoPollData()
     {
+        PollPose();
     }
     public override void RenderPollData()
+    {
+        PollPose();
+        ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
+        UpdateInputEvents();
+    }
+    private void PollPose()
     {
         if (_positionAction != null)
         {
@@ -53,9 +61,6 @@ public class BasisOpenXRTracker : BasisInput
 
         ConvertToScaledDeviceCoord();
         ControlOnlyAsDevice();
-
-        ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
-        UpdateInputEvents();
     }
     public override void ShowTrackedVisual()
     {

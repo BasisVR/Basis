@@ -1,11 +1,53 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using Basis.Scripts.Settings;
 
 namespace Basis
 {
+    public interface IBasisSettingsBinding
+    {
+        void ReloadAndNotify();
+    }
 
-    public class BasisSettingsBinding<T>
+    /// <summary>
+    /// Re-loads a settings class's bindings once the settings file has been read. Binding
+    /// constructors self-load, but static init triggered from any RuntimeInitializeOnLoadMethod
+    /// runs before BasisSettingsSystem.Initialize (a Start hook) — those bindings only ever see
+    /// defaults: saved values restore into the store but never into RawValue. Package settings
+    /// classes (which the framework's BasisSettingsDefaults.LoadAll can't know about) register
+    /// here from their static constructor.
+    /// </summary>
+    public static class BasisSettingsBindingPostLoad
+    {
+        public static void Register(Type settingsClass)
+        {
+            if (BasisSettingsSystem.SettingsLoaded)
+            {
+                return;
+            }
+
+            void Reload()
+            {
+                BasisSettingsSystem.OnSettingsFinishedChanges -= Reload;
+                foreach (FieldInfo field in settingsClass.GetFields(BindingFlags.Public | BindingFlags.Static))
+                {
+                    if (field.GetValue(null) is IBasisSettingsBinding binding)
+                    {
+                        binding.ReloadAndNotify();
+                    }
+                }
+            }
+
+            // Every invocation of this event happens with the store loaded (LoadAllSettings sets
+            // _settingsLoaded before invoking; saves defer events until loaded), so the first
+            // firing is a safe reload point.
+            BasisSettingsSystem.OnSettingsFinishedChanges += Reload;
+        }
+    }
+
+    public class BasisSettingsBinding<T> : IBasisSettingsBinding
     {
 
         public string BindingKey { get; }
@@ -45,6 +87,16 @@ namespace Basis
         public void SetValueWithoutNotify(T value)
         {
             RawValue = value;
+        }
+
+        public void ReloadAndNotify()
+        {
+            T previous = RawValue;
+            LoadBindingValue();
+            if (!EqualityComparer<T>.Default.Equals(previous, RawValue))
+            {
+                OnChanged?.Invoke(RawValue);
+            }
         }
 
         private void WriteBindingValue()

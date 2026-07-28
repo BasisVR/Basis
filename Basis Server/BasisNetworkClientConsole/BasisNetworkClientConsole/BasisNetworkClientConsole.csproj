@@ -17,4 +17,21 @@
 	  <ProjectReference Include="..\..\Contrib\Crypto\Crypto.csproj" />
 	  <ProjectReference Include="..\..\LiteNetLib\LiteNetLib.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+	  <!-- Same version as BasisNetworkServer — the face observer decodes channel-52 avatar bundles. -->
+	  <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
+	</ItemGroup>
+	<!--
+	  Real Opus, compiled from the same OpusSharp the Unity client uses, so simulated voice is
+	  decodable rather than random bytes: a real player joining the load test hears a tone instead of
+	  a decoder error, and frame sizes follow Opus VBR instead of a made-up constant.
+	  OpusSharp.Core is pure P/Invoke with no UnityEngine references, so it compiles here unchanged.
+	-->
+	<ItemGroup>
+	  <Compile Include="$(OpusSharpDir)\**\*.cs" LinkBase="OpusSharp" />
+	  <None Include="$(OpusSharpDir)\..\Plugins\win-x64\native\opus.dll" CopyToOutputDirectory="PreserveNewest" Link="opus.dll" />
+	</ItemGroup>
+	<PropertyGroup>
+	  <OpusSharpDir>$(MSBuildThisFileDirectory)..\..\..\Basis\Packages\com.avionblock.opussharp\OpusSharp.Core</OpusSharpDir>
+	</PropertyGroup>
 </Project>

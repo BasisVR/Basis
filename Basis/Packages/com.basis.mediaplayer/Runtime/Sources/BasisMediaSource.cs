@@ -19,7 +19,7 @@ public enum BasisMediaDelivery
 //
 //   rtsp://, rtspt://     RTSP (rtspt = RTP interleaved over TCP — PC/VR low latency)
 //   rtmp://, rtmps://     RTMP / RTMP-over-TLS
-//   https://, http://     fragmented MP4 (.mp4) or MPEG-TS (.ts) over HTTP(S)
+//   https://, http://     fragmented MP4 (.mp4), MPEG-TS (.ts) or WAV (.wav) over HTTP(S)
 //
 // The CPU IBasisFrameSource path (e.g. BasisSyntheticTestSource for tests) is
 // entered only by assigning BasisMediaPlayer.Source directly. Disallowed schemes

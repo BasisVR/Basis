@@ -55,6 +55,20 @@ namespace Basis.BasisUI
         {
             base.Awake();
 
+            // A live meter re-batches whichever canvas owns it while audio is moving.
+            // Nest a canvas here so those rebuilds stay confined to the meter instead
+            // of the whole menu. Safe for input: BasisUIRaycast tests every canvas
+            // under the hit collider and picks the topmost graphic across them.
+            if (Application.isPlaying && !TryGetComponent(out Canvas _))
+            {
+                Canvas parentCanvas = GetComponentInParent<Canvas>();
+                Canvas isolation = gameObject.AddComponent<Canvas>();
+                if (parentCanvas != null)
+                {
+                    isolation.additionalShaderChannels = parentCanvas.additionalShaderChannels;
+                }
+            }
+
             if (!Meter) Meter = GetComponent<BasisLocalVolumeMeterUI>();
 
             if (!Meter) return;

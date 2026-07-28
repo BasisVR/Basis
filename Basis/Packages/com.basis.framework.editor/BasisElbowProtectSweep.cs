@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -43,6 +43,12 @@ namespace Basis.IK.Debugging
         public Vector3 MaxFrac;
         public Vector3Int Steps;
 
+        /// <summary>Search the WHOLE swivel circle instead of only the natural->outDir arc. A grid sweep has
+        /// no previous frame, so the anchor is the natural pole (PrevSwivelDeg = 0), which measures the pure
+        /// DOMAIN effect with no temporal component -- exactly the comparison the gate wants. Off by default
+        /// so the historical sweep numbers stay reproducible.</summary>
+        public bool FullCircleSearch;
+
         public static BasisElbowProtectSweepConfig Default()
         {
             return new BasisElbowProtectSweepConfig
@@ -58,9 +64,9 @@ namespace Basis.IK.Debugging
                 ChestHeight = 0.32f,
                 NeckHeight = 0.52f,
                 // Production FBIK collider defaults (BasisSettingsDefaults), so absolute numbers
-                // match the live rig. Combined upper-arm+chest reach ~0.17 m.
-                ChestRadiusBase = 0.07f,
-                CollisionSkin = 0.05f,
+                // match the live rig. Combined upper-arm+chest reach ~0.13 m at the _v3 sizes.
+                ChestRadiusBase = 0.055f,
+                CollisionSkin = 0.025f,
                 HandRadius = 0.01f,
                 HandSkin = 0.03f,
 
@@ -286,6 +292,10 @@ namespace Basis.IK.Debugging
         {
             return new BasisElbowProtectInput
             {
+                // FullCircle only. A grid sweep has no previous frame, so HasPrevSwivel stays FALSE --
+                // see its doc comment: a zero-seeded anchor is a pull toward the natural pole, not a
+                // neutral start, and it measures the wrong thing.
+               //FullCircle = cfg.FullCircleSearch,
                 HipsPos = new Vector3(0f, cfg.HipsHeight, 0f),
                 SpinePos = new Vector3(0f, cfg.SpineHeight, 0f),
                 ChestPos = new Vector3(0f, cfg.ChestHeight, 0f),
@@ -473,7 +483,7 @@ namespace Basis.IK.Debugging
 
         static BasisArmSolveResult SolveArm(Vector3 shoulder, Vector3 elbow, Vector3 hand, Vector3 target, Vector3 hint)
         {
-            BasisArmSolveInput input;
+            BasisArmSolveInput input = default;
             input.Shoulder = shoulder;
             input.Elbow = elbow;
             input.Hand = hand;

@@ -6,7 +6,10 @@
         "BasisEditor",
         "BasisSDK",
         "Unity.Mathematics",
-        "Unity.Collections"
+        "Unity.Collections",
+        "OpusSharp",
+        "BasisNetworkCore",
+        "BasisSettings"
     ],
     "includePlatforms": [
         "Editor"

@@ -23,6 +23,9 @@ namespace HVR.Vixxy
         private float _value;
         private HVRAvatarComms _comms;
 
+        public HVRVixxyControl Control => control;
+        public HVRVixxyControlPresentation Presentation => presentation;
+
         private bool TryResolveActualControl(out HVRVixxyControl result)
         {
             var controlsOnThis = GetComponents<HVRVixxyControl>(); // This may return 0 elements.
@@ -150,7 +153,7 @@ namespace HVR.Vixxy
 
         private void SubmitValue()
         {
-            if (control != null)
+            if (control != null && _comms != null)
             {
                 var actualAddress = control.IsInitialized ? control.AddressId : HVRAddress.AddressToId(control.CalculateAddress());
                 _comms.VariableStore.SubmitOrDefineDefaultValue(actualAddress, _value);

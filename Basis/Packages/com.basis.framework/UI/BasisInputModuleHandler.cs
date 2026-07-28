@@ -2,6 +2,8 @@ using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.TransformBinders.BoneControl;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -27,6 +29,17 @@ namespace Basis.Scripts.UI
 
         private bool physicalKeyboardSubscribed;
         private Keyboard subscribedKeyboard;
+
+        public const float CaretRepeatDelay = 0.5f;
+        public const float CaretRepeatInterval = 0.1f;
+        public const float CaretStickThreshold = 0.5f;
+
+        private int caretHeldDirection;
+        private float caretNextRepeatTime;
+
+        private TMP_InputField lastCaretVisibilityField;
+        private int lastCaretVisibilityPosition;
+        private int lastCaretVisibilityTextLength;
 
         /// <summary>
         /// Currently selected TMP input field (if any).
@@ -94,6 +107,7 @@ namespace Basis.Scripts.UI
             base.OnDisable();
 
             UnsubscribePhysicalKeyboard();
+            BasisTextFieldCaret.RestoreOverflowMode();
 
             tabAction.Disable();
             enterAction.Disable();
@@ -151,37 +165,13 @@ namespace Basis.Scripts.UI
         {
             if (character == '\b') // Backspace
             {
-                if (CurrentSelectedTMP_InputField != null)
-                {
-                    if (CurrentSelectedTMP_InputField.text.Length > 0)
-                    {
-                        CurrentSelectedTMP_InputField.text = CurrentSelectedTMP_InputField.text.Remove(CurrentSelectedTMP_InputField.text.Length - 1);
-                        CurrentSelectedTMP_InputField.onValueChanged.Invoke(CurrentSelectedTMP_InputField.text);
-                    }
-                }
-                else if (CurrentSelectedInputField != null)
-                {
-                    if (CurrentSelectedInputField.text.Length > 0)
-                    {
-                        CurrentSelectedInputField.text = CurrentSelectedInputField.text.Remove(CurrentSelectedInputField.text.Length - 1);
-                        CurrentSelectedInputField.onValueChanged.Invoke(CurrentSelectedInputField.text);
-                    }
-                }
+                BasisTextFieldCaret.DeleteBeforeCaret(CurrentSelectedTMP_InputField, CurrentSelectedInputField);
             }
         }
 
         private void HandleTextCharacter(char character)
         {
-            if (CurrentSelectedTMP_InputField != null)
-            {
-                CurrentSelectedTMP_InputField.text += character;
-                CurrentSelectedTMP_InputField.onValueChanged.Invoke(CurrentSelectedTMP_InputField.text);
-            }
-            else if (CurrentSelectedInputField != null)
-            {
-                CurrentSelectedInputField.text += character;
-                CurrentSelectedInputField.onValueChanged.Invoke(CurrentSelectedInputField.text);
-            }
+            BasisTextFieldCaret.InsertAtCaret(CurrentSelectedTMP_InputField, CurrentSelectedInputField, character.ToString());
         }
 
         /// <summary>
@@ -258,6 +248,131 @@ namespace Basis.Scripts.UI
                     ExecuteEvents.Execute(EventSystem.currentSelectedGameObject, data, ExecuteEvents.submitHandler);
                 }
             }
+
+            if (HasHoverONInput)
+            {
+                HandleCaretNavigation();
+                TrackCaretVisibility();
+            }
+            else
+            {
+                caretHeldDirection = 0;
+                lastCaretVisibilityField = null;
+                BasisTextFieldCaret.RestoreOverflowMode();
+            }
+        }
+
+        private void TrackCaretVisibility()
+        {
+            TMP_InputField tmp = CurrentSelectedTMP_InputField;
+            if (tmp == null && BasisMenuVirtualKeyboardPanel.HasInstance)
+            {
+                tmp = BasisMenuVirtualKeyboardPanel.Instance.TMPInputField;
+            }
+            if (tmp == null)
+            {
+                lastCaretVisibilityField = null;
+                return;
+            }
+
+            int position = tmp.stringPosition;
+            int length = tmp.text != null ? tmp.text.Length : 0;
+            if (tmp != lastCaretVisibilityField || position != lastCaretVisibilityPosition || length != lastCaretVisibilityTextLength)
+            {
+                lastCaretVisibilityField = tmp;
+                lastCaretVisibilityPosition = position;
+                lastCaretVisibilityTextLength = length;
+                BasisTextFieldCaret.EnsureCaretVisible(tmp);
+            }
+        }
+
+        private void HandleCaretNavigation()
+        {
+            TMP_InputField tmp = CurrentSelectedTMP_InputField;
+            InputField legacy = CurrentSelectedInputField;
+            if (tmp == null && legacy == null && BasisMenuVirtualKeyboardPanel.HasInstance)
+            {
+                tmp = BasisMenuVirtualKeyboardPanel.Instance.TMPInputField;
+                legacy = BasisMenuVirtualKeyboardPanel.Instance.InputField;
+            }
+            if (tmp == null && legacy == null)
+            {
+                caretHeldDirection = 0;
+                return;
+            }
+
+            int direction = 0;
+            bool shift = false;
+            bool ctrl = false;
+
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                bool left = keyboard.leftArrowKey.isPressed;
+                bool right = keyboard.rightArrowKey.isPressed;
+                if (left != right)
+                {
+                    direction = right ? 1 : -1;
+                }
+                shift = keyboard.shiftKey.isPressed;
+                ctrl = keyboard.ctrlKey.isPressed;
+            }
+
+            if (direction == 0)
+            {
+                float stickX = ReadLeftHandStickX();
+                if (stickX <= -CaretStickThreshold)
+                {
+                    direction = -1;
+                }
+                else if (stickX >= CaretStickThreshold)
+                {
+                    direction = 1;
+                }
+            }
+
+            if (direction == 0)
+            {
+                caretHeldDirection = 0;
+                return;
+            }
+
+            float time = Time.unscaledTime;
+            if (direction != caretHeldDirection)
+            {
+                caretHeldDirection = direction;
+                caretNextRepeatTime = time + CaretRepeatDelay;
+            }
+            else if (time < caretNextRepeatTime)
+            {
+                return;
+            }
+            else
+            {
+                caretNextRepeatTime = time + CaretRepeatInterval;
+            }
+
+            BasisTextFieldCaret.MoveCaret(tmp, legacy, direction, shift, ctrl);
+        }
+
+        private static float ReadLeftHandStickX()
+        {
+            BasisDeviceManagement deviceManagement = BasisDeviceManagement.Instance;
+            if (deviceManagement == null)
+            {
+                return 0f;
+            }
+            var devices = deviceManagement.AllInputDevices;
+            int count = devices.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                BasisInput input = devices[Index];
+                if (input != null && input.TryGetRole(out BasisBoneTrackedRole role) && role == BasisBoneTrackedRole.LeftHand)
+                {
+                    return input.CurrentInputState.Primary2DAxisDeadZoned.x;
+                }
+            }
+            return 0f;
         }
         public bool KeyboardRequired()
         {

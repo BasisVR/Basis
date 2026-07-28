@@ -44,11 +44,36 @@ namespace Valve.VR
         protected static bool initializing = false;
 
         protected static int startupFrame = 0;
+
+        /// <summary>
+        /// Snapshot of Time.frameCount, captured on the main thread once per frame via
+        /// <see cref="CaptureMainThreadState"/>. The action update path reads this instead of
+        /// Time.frameCount so it can run off the main thread (Time is main-thread-only).
+        /// </summary>
+        public static int frameCount;
+
+        /// <summary>
+        /// Snapshot of Time.realtimeSinceStartup, captured on the main thread once per frame via
+        /// <see cref="CaptureMainThreadState"/>. Action sources stamp changedTime/updateTime with
+        /// this instead of Time.realtimeSinceStartup so updates can run off the main thread.
+        /// </summary>
+        public static float realtimeSinceStartup;
+
+        /// <summary>
+        /// Must be called on the main thread each frame before the action update runs
+        /// (directly or on a worker thread).
+        /// </summary>
+        public static void CaptureMainThreadState()
+        {
+            frameCount = Time.frameCount;
+            realtimeSinceStartup = Time.realtimeSinceStartup;
+        }
+
         public static bool isStartupFrame
         {
             get
             {
-                float Framecount = Time.frameCount;
+                float Framecount = frameCount;
                 return Framecount >= (startupFrame - 1) && Framecount <= (startupFrame + 1);
             }
         }
@@ -247,6 +272,9 @@ namespace Valve.VR
         /// Updates the states of all the visual actions (pose / skeleton)
         /// </summary>
         /// <param name="skipStateAndEventUpdates">Controls whether or not events are fired from this update call</param>
+        static readonly Unity.Profiling.ProfilerMarker sMarkerPoseActions = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.PoseActions");
+        static readonly Unity.Profiling.ProfilerMarker sMarkerSkeletonActions = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.SkeletonActions");
+        static readonly Unity.Profiling.ProfilerMarker sMarkerNonVisualActions = new Unity.Profiling.ProfilerMarker("BasisDriver.DeviceManagement.NonVisualActions");
         public static void UpdateVisualActions(bool skipStateAndEventUpdates = false)
         {
             if (initialized == false)
@@ -267,15 +295,18 @@ namespace Valve.VR
         {
             if (initialized == false)
                 return;
-            int actionsPoseLength = actionsPose.Length;
-            for (int actionIndex = 0; actionIndex < actionsPoseLength; actionIndex++)
+            using (sMarkerPoseActions.Auto())
             {
-                SteamVR_Action_Pose action = actionsPose[actionIndex];
-                action.UpdateValues(skipSendingEvents);
-            }
+                int actionsPoseLength = actionsPose.Length;
+                for (int actionIndex = 0; actionIndex < actionsPoseLength; actionIndex++)
+                {
+                    SteamVR_Action_Pose action = actionsPose[actionIndex];
+                    action.UpdateValues(skipSendingEvents);
+                }
 
-            if (onPosesUpdated != null)
-                onPosesUpdated(false);
+                if (onPosesUpdated != null)
+                    onPosesUpdated(false);
+            }
         }
 
 
@@ -288,16 +319,19 @@ namespace Valve.VR
             if (initialized == false)
                 return;
 
-            int actionsSkeletonLength = actionsSkeleton.Length;
-            for (int actionIndex = 0; actionIndex < actionsSkeletonLength; actionIndex++)
+            using (sMarkerSkeletonActions.Auto())
             {
-                SteamVR_Action_Skeleton action = actionsSkeleton[actionIndex];
+                int actionsSkeletonLength = actionsSkeleton.Length;
+                for (int actionIndex = 0; actionIndex < actionsSkeletonLength; actionIndex++)
+                {
+                    SteamVR_Action_Skeleton action = actionsSkeleton[actionIndex];
 
-                action.UpdateValue(skipSendingEvents);
+                    action.UpdateValue(skipSendingEvents);
+                }
+
+                if (onSkeletonsUpdated != null)
+                    onSkeletonsUpdated(skipSendingEvents);
             }
-
-            if (onSkeletonsUpdated != null)
-                onSkeletonsUpdated(skipSendingEvents);
         }
 
 
@@ -310,16 +344,19 @@ namespace Valve.VR
                 return;
 
             SteamVR_ActionSet_Manager.UpdateActionStates();
-            int ActionLength = actionsNonPoseNonSkeletonIn.Length;
-            for (int actionIndex = 0; actionIndex < ActionLength; actionIndex++)
+            using (sMarkerNonVisualActions.Auto())
             {
-                ISteamVR_Action_In action = actionsNonPoseNonSkeletonIn[actionIndex];
+                int ActionLength = actionsNonPoseNonSkeletonIn.Length;
+                for (int actionIndex = 0; actionIndex < ActionLength; actionIndex++)
+                {
+                    ISteamVR_Action_In action = actionsNonPoseNonSkeletonIn[actionIndex];
 
-                action.UpdateValues();
+                    action.UpdateValues();
+                }
+
+                if (onNonVisualActionsUpdated != null)
+                    onNonVisualActionsUpdated();
             }
-
-            if (onNonVisualActionsUpdated != null)
-                onNonVisualActionsUpdated();
         }
 
         private static uint sizeVRActiveActionSet_t = 0;

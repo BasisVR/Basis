@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27fed82639eaa132ae8e90e92a75fb8b, type: 3}
+  m_Name: BasisSoundPack
+  m_EditorClassIdentifier: 
+  Hover: {fileID: 8300000, guid: 054a172b5b88f6bf90785c04dd0102bf, type: 3}
+  Press: {fileID: 8300000, guid: b35c44bb6e41af1b85bbca73a9d4449e, type: 3}
+  Grab: {fileID: 8300000, guid: 4958c51b011e55d113a7c409e5001511, type: 3}
+  Chat: {fileID: 8300000, guid: e9db46a40d64f672eb38486b2c66b3e1, type: 3}
+  MicMute: {fileID: 0}
+  MicUnmute: {fileID: 0}
+  CameraShutter: {fileID: 0}
+  CameraCountdownTick: {fileID: 8300000, guid: 0aa8561748e5e811e8fe62ce94ff366d, type: 3}

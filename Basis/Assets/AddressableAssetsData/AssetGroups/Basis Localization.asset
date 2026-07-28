@@ -555,6 +555,114 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0318d7d7021c4857b9488ccf7cb60db5
+    m_Address: Languages/com.basis.imagepickup/bn
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0c65a8a5874e4303a53626998bf45173
+    m_Address: Languages/com.basis.imagepickup/nl
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 134ee596cbd94517b0453d54b556c691
+    m_Address: Languages/com.basis.imagepickup/de
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1ccaa2e3045349a6ad8fc495497a18e6
+    m_Address: Languages/com.basis.imagepickup/ur
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 485c9e87e5b9406b871deb474578f424
+    m_Address: Languages/com.basis.imagepickup/es-MX
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 502642913b3d44d0a23370f03eaf5461
+    m_Address: Languages/com.basis.imagepickup/es
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 59a4ed3bbdd349ad9e507e16f7fc7c7f
+    m_Address: Languages/com.basis.imagepickup/ar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9e7b564ad87147aba192d3cb42be0803
+    m_Address: Languages/com.basis.imagepickup/ru
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9fb5dcd490cf40528b36198cb5f1aa4c
+    m_Address: Languages/com.basis.imagepickup/pt
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a28e38f55dea4bc887a3f56c79ccbd8b
+    m_Address: Languages/com.basis.imagepickup/fr
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a9fe21e0f77d4be7b4206540d93ecf34
+    m_Address: Languages/com.basis.imagepickup/en
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: aa2e9e3031af4a3581929e843cc8fcf2
+    m_Address: Languages/com.basis.imagepickup/zh-CN
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ad967af7840042a58e190846e2349745
+    m_Address: Languages/com.basis.imagepickup/zh-Hant
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b7adc052adb94601814baa4dc8de1efb
+    m_Address: Languages/com.basis.imagepickup/zh
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b9058df935e047beae5489f05e5e3cce
+    m_Address: Languages/com.basis.imagepickup/hi
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e98a8e894d8e4e11aad363c9e4198b22
+    m_Address: Languages/com.basis.imagepickup/it
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f2fb8fdf6de845e29d63f14ef5eeef76
+    m_Address: Languages/com.basis.imagepickup/ja
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f8847dddd92e4b779ac8555b5ac4fdf7
+    m_Address: Languages/com.basis.imagepickup/zh-Hans
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 8959b13be1add604380750c0f2e2f9f5, type: 2}
   m_SchemaSet:

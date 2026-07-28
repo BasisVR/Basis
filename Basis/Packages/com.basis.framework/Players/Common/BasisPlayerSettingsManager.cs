@@ -64,6 +64,7 @@ public static class BasisPlayerSettingsManager
                     if (loaded.Version != 0)
                     {
                         if (string.IsNullOrEmpty(loaded.UUID)) loaded.UUID = uuid;
+                        loaded.UpgradeSchema();
                         data = loaded;
                         valid = true;
                     }

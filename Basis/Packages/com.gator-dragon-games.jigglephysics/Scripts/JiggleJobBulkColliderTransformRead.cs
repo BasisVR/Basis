@@ -20,7 +20,12 @@ public struct JiggleJobBulkColliderTransformRead : IJobParallelForTransform {
 
     public void Execute(int index, TransformAccess transform) {
         var collider = colliders[index];
-        if (!transform.isValid || !collider.enabled) {
+        if (!collider.enabled) {
+            return;
+        }
+        if (!transform.isValid) {
+            collider.enabled = false;
+            colliders[index] = collider;
             return;
         }
         collider.Read(transform);

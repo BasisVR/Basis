@@ -137,6 +137,19 @@ namespace Basis.Scripts.Drivers
         // stay on the head (third-person follow-head). Used to snap it back exactly once.
         private bool _listenerDetachedFromCamera;
 
+        /// <summary>
+        /// Optional external world pose for the audio listener. When set and it returns a
+        /// value, the listener is driven there instead of tracking the player's head — a
+        /// handheld camera uses it to make the world be heard from the camera's viewpoint.
+        /// Returning null defers to the normal head/camera logic.
+        /// <para>
+        /// Only one AudioListener exists per scene, so this moves the real listener rather
+        /// than adding another; the last provider to set it wins, and it must be cleared when
+        /// the source goes away or the listener would stay stuck at a dead pose.
+        /// </para>
+        /// </summary>
+        public static Func<(Vector3 position, Quaternion rotation)?> AudioListenerPoseOverride;
+
         // Cached desktop mic-icon layout. The viewport->camera-local position cancels out the
         // camera's world pose, so it is recomputed only when one of these inputs actually changes.
         private bool _micLayoutValid;
@@ -630,8 +643,15 @@ namespace Basis.Scripts.Drivers
 
                 // ListenerTransform is a child of the camera at local zero, so it tracks the camera
                 // for free in first-person and orbit-follow third-person. It only needs an explicit
-                // world pose to stay on the head while the camera orbits away (follow-head option).
-                if (IsThirdPerson && BasisSettingsDefaults.AudioListenerFollowsHead.RawValue)
+                // world pose to stay on the head while the camera orbits away (follow-head option),
+                // or when something claims the listener outright (handheld camera audio).
+                (Vector3 position, Quaternion rotation)? listenerOverride = AudioListenerPoseOverride?.Invoke();
+                if (listenerOverride.HasValue)
+                {
+                    ListenerTransform.SetPositionAndRotation(listenerOverride.Value.position, listenerOverride.Value.rotation);
+                    _listenerDetachedFromCamera = true;
+                }
+                else if (IsThirdPerson && BasisSettingsDefaults.AudioListenerFollowsHead.RawValue)
                 {
                     ListenerTransform.SetPositionAndRotation(HeadPosition, HeadRotation);
                     _listenerDetachedFromCamera = true;
@@ -801,7 +821,7 @@ namespace Basis.Scripts.Drivers
                 }
                 else
                 {
-                    BasisLocalAvatarDriver.ScaleheadToZero();
+                    BasisLocalAvatarDriver.ScaleHeadToZero();
                 }
             }
         }

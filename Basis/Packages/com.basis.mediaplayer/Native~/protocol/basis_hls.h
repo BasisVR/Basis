@@ -7,8 +7,9 @@
  * (basis_mp4_run) demuxers then consume it unchanged.
  *
  * Transport is injected as a basis_http_provider so the protocol code stays
- * portable: on Windows the engine passes the basis_win_http_* trio (TLS, redirects
- * and chunked handled there). Playlists and segments are fetched through it.
+ * portable: on Windows the engine passes the basis_win_http_* trio, on Android
+ * the basis_jni_https_* trio (TLS, redirects and chunked handled by each).
+ * Playlists and segments are fetched through it.
  *
  * Low latency: when the origin advertises EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD
  * with EXT-X-PART parts, the client starts near the live edge, reloads the media
@@ -16,7 +17,7 @@
  * produced — targeting ~PART-HOLD-BACK latency. Against a plain (non-LL) origin it
  * falls back to live-edge, segment-by-segment playback (segment-bound latency).
  *
- * Scope: clear streams, single rendition, Windows fetch. Android/Quest planned.
+ * Scope: clear streams, single rendition, Windows and Android fetch.
  */
 #ifndef BASIS_HLS_H
 #define BASIS_HLS_H
@@ -47,7 +48,10 @@ void* basis_hls_open(const char* url, const basis_http_provider_t* http,
 
 /* basis_read_fn-compatible. Serves the stitched segment/part bytes, advancing to
  * the next segment and reloading the playlist (blocking for LL-HLS) as needed.
- * Returns bytes read, 0 when the stream ends or the engine stops, <0 on error. */
+ * Returns bytes read, 0 when the stream ends or the engine stops, <0 on error.
+ * After a basis_hls_request_seek it withholds the pre-seek ring and, once the
+ * producer has requeued at the target, returns BASIS_READ_REPOSITION once at the
+ * boundary so the demuxer can drop its pre-seek state and re-anchor pacing. */
 int basis_hls_read(void* ctx, uint8_t* buf, int len);
 
 /* 1 if the opened playlist is VOD (EXT-X-ENDLIST seen), 0 if live. Reflects the

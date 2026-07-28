@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using Basis.Localization;
 using Basis.Scripts.Settings;
 
 namespace Basis.BasisUI
@@ -145,78 +146,12 @@ namespace Basis.BasisUI
         /// </summary>
         private static string DetectSystemLanguage()
         {
-            string candidate;
-            switch (Application.systemLanguage)
-            {
-                case SystemLanguage.Japanese: candidate = "ja"; break;
-                case SystemLanguage.Korean: candidate = "ko"; break;
-                case SystemLanguage.ChineseSimplified or SystemLanguage.Chinese: candidate = "zh-Hans"; break;
-                case SystemLanguage.ChineseTraditional: candidate = "zh-Hant"; break;
-                case SystemLanguage.French: candidate = "fr"; break;
-                case SystemLanguage.German: candidate = "de"; break;
-                case SystemLanguage.Spanish: candidate = "es"; break;
-                case SystemLanguage.Portuguese: candidate = "pt"; break;
-                case SystemLanguage.Italian: candidate = "it"; break;
-                case SystemLanguage.Russian: candidate = "ru"; break;
-                case SystemLanguage.Dutch: candidate = "nl"; break;
-                case SystemLanguage.Polish: candidate = "pl"; break;
-                case SystemLanguage.Turkish: candidate = "tr"; break;
-                case SystemLanguage.Arabic: candidate = "ar"; break;
-                case SystemLanguage.Swedish: candidate = "sv"; break;
-                case SystemLanguage.Norwegian: candidate = "no"; break;
-                case SystemLanguage.Danish: candidate = "da"; break;
-                case SystemLanguage.Finnish: candidate = "fi"; break;
-                case SystemLanguage.Czech: candidate = "cs"; break;
-                case SystemLanguage.Hungarian: candidate = "hu"; break;
-                case SystemLanguage.Greek: candidate = "el"; break;
-                case SystemLanguage.Hebrew: candidate = "he"; break;
-                case SystemLanguage.Vietnamese: candidate = "vi"; break;
-                case SystemLanguage.Thai: candidate = "th"; break;
-                case SystemLanguage.Ukrainian: candidate = "uk"; break;
-                case SystemLanguage.Indonesian: candidate = "id"; break;
-                case SystemLanguage.Romanian: candidate = "ro"; break;
-                case SystemLanguage.Bulgarian: candidate = "bg"; break;
-                case SystemLanguage.Catalan: candidate = "ca"; break;
-                case SystemLanguage.SerboCroatian: candidate = "sh"; break;
-                case SystemLanguage.Slovak: candidate = "sk"; break;
-                case SystemLanguage.Slovenian: candidate = "sl"; break;
-                case SystemLanguage.Estonian: candidate = "et"; break;
-                case SystemLanguage.Latvian: candidate = "lv"; break;
-                case SystemLanguage.Lithuanian: candidate = "lt"; break;
-                case SystemLanguage.Icelandic: candidate = "is"; break;
-                case SystemLanguage.Afrikaans: candidate = "af"; break;
-                case SystemLanguage.Basque: candidate = "eu"; break;
-                case SystemLanguage.Belarusian: candidate = "be"; break;
-                case SystemLanguage.Faroese: candidate = "fo"; break;
-                case SystemLanguage.English:
-                default:
-                    return DefaultLanguage;
-            }
-
+            List<string> codes = new(_available.Count);
             for (int i = 0; i < _available.Count; i++)
             {
-                if (string.Equals(_available[i].Code, candidate, StringComparison.OrdinalIgnoreCase))
-                {
-                    return _available[i].Code;
-                }
+                codes.Add(_available[i].Code);
             }
-
-            // Try a language-only fallback ("zh-Hans" → "zh") so a generic
-            // translation file can still match a region-specific OS locale.
-            int dash = candidate.IndexOf('-');
-            if (dash > 0)
-            {
-                string basePart = candidate.Substring(0, dash);
-                for (int i = 0; i < _available.Count; i++)
-                {
-                    if (string.Equals(_available[i].Code, basePart, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return _available[i].Code;
-                    }
-                }
-            }
-
-            return DefaultLanguage;
+            return BasisLocalizationCore.ResolveSystemLanguage(Application.systemLanguage, codes, DefaultLanguage);
         }
 
         /// <summary>
@@ -311,19 +246,7 @@ namespace Basis.BasisUI
         public static string Get(string key, params object[] args)
         {
             string template = Get(key);
-            if (args == null || args.Length == 0)
-            {
-                return template;
-            }
-
-            try
-            {
-                return string.Format(System.Globalization.CultureInfo.InvariantCulture, template, args);
-            }
-            catch (FormatException)
-            {
-                return template;
-            }
+            return BasisLocalizationCore.Format(template, args);
         }
 
         /// <summary>
@@ -380,10 +303,10 @@ namespace Basis.BasisUI
                     continue;
                 }
 
-                LanguageTable parsed;
+                BasisLanguageTable parsed;
                 try
                 {
-                    parsed = JsonUtility.FromJson<LanguageTable>(asset.text);
+                    parsed = JsonUtility.FromJson<BasisLanguageTable>(asset.text);
                 }
                 catch (Exception e)
                 {
@@ -401,7 +324,7 @@ namespace Basis.BasisUI
                 {
                     for (int j = 0; j < parsed.entries.Count; j++)
                     {
-                        LanguageEntry entry = parsed.entries[j];
+                        BasisLanguageEntry entry = parsed.entries[j];
                         if (entry == null || string.IsNullOrEmpty(entry.key))
                         {
                             continue;
@@ -447,21 +370,6 @@ namespace Basis.BasisUI
             }
 
             Addressables.Release(handle);
-        }
-
-        [Serializable]
-        private class LanguageTable
-        {
-            public string code;
-            public string nativeName;
-            public List<LanguageEntry> entries = new();
-        }
-
-        [Serializable]
-        private class LanguageEntry
-        {
-            public string key;
-            public string value;
         }
     }
 }

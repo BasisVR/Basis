@@ -23,6 +23,7 @@ namespace Basis.Developer.Recorder
         {
             PanelElementDescriptor recorderGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            recorderGroup.SetBackgroundVisible(false);
             recorderGroup.SetTitle(BasisLocalization.Get("settings.developer.recorder.title"));
 
             PanelTextField recorderCountdownField = PanelTextField.CreateNewEntry(recorderGroup.ContentParent);

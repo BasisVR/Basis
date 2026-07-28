@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -37,10 +40,80 @@ public static class JigglePhysics {
     private const int MaxCullingCameras = 16;
     private static readonly JiggleCullingCamera[] cullingCameraBuffer = new JiggleCullingCamera[MaxCullingCameras];
     private static int cullingCameraCount;
-    private static bool collisionFrustumCull = true;
-    private static bool collisionDistanceCull = true;
+    private static bool collisionFrustumCull = false;
+    private static bool collisionDistanceCull = false;
     private static float collisionCullDistance = 20f;
     private static readonly Plane[] cullingFrustumScratch = new Plane[6];
+
+    /// <summary>
+    /// True while a tree rebuild is pending. The rebuild measures rest lengths off live bone
+    /// positions, so a caller that poses bones with its own jobs has to let them land before
+    /// preparing — on every other frame the prepare touches no transform at all.
+    /// </summary>
+    public static bool WillRebuildTrees => _globalDirty;
+
+    private static double pendingRealTime;
+    private static bool preparedThisFrame;
+
+    /// <summary>
+    /// The main-thread half of <see cref="ScheduleSimulate"/> — substep accounting, parameter
+    /// pushes, and any pending tree or collider commit — stopping short of actually scheduling.
+    /// Returns true when there is work to dispatch.
+    ///
+    /// Split out so a caller can slot other work between the preparation and the schedule. Nothing
+    /// here reads a bone pose unless <see cref="WillRebuildTrees"/> is set, so on a steady frame
+    /// another system's jobs can still be in flight over those same bones while this runs.
+    /// </summary>
+    public static bool PrepareSimulate(double realTime, float fixedDeltaTime) {
+        preparedThisFrame = false;
+        if (hasRunThisFrame) {
+            return false;
+        }
+
+        if (!(realTime - lastFixedCurrentTime > fixedDeltaTime)) return false;
+
+        while (realTime - lastFixedCurrentTime > fixedDeltaTime) {
+            lastFixedCurrentTime += fixedDeltaTime;
+            skips = Mathf.Min(skips + 1, JiggleSettings.MaxSubsteps);
+        }
+
+        // Only the animated registry is walked — the old two full-root loops paid an interface
+        // call per root per frame (the dominant prepare cost at scale) to find the usually-empty
+        // animated set. UpdateParametersIfNeeded still self-guards on the live provider flag.
+        RebuildAnimatedRootsIfNeeded();
+        int animatedCount = animatedRootSegments.Count;
+
+        bool mutates = _globalDirty || animatedCount > 0;
+        if (mutates) {
+            jobs?.CompleteSimulate();
+        }
+
+        for (int i = 0; i < animatedCount; i++) {
+            animatedRootSegments[i].UpdateParametersIfNeeded();
+        }
+
+        jobs = GetJiggleJobs(lastFixedCurrentTime, fixedDeltaTime);
+        jobs.SetCollisionCulling(collisionFrustumCull, collisionDistanceCull, collisionCullDistance, cullingCameraBuffer, cullingCameraCount);
+
+        pendingRealTime = realTime;
+        preparedThisFrame = true;
+        return true;
+    }
+
+    /// <summary>
+    /// The scheduling half. Only does anything after a <see cref="PrepareSimulate"/> that returned
+    /// true, so calling it unconditionally is safe.
+    /// </summary>
+    public static void DispatchSimulate(JobHandle externalDependency = default) {
+        if (!preparedThisFrame) {
+            return;
+        }
+        preparedThisFrame = false;
+
+        jobs.Simulate(lastFixedCurrentTime, pendingRealTime, skips, externalDependency);
+        skips = 0;
+        hasRunThisFrame = true;
+    }
 
     public static void ScheduleSimulate(double realTime, float fixedDeltaTime) {
         if (hasRunThisFrame) {
@@ -48,18 +121,27 @@ public static class JigglePhysics {
         }
 
         if (!(realTime - lastFixedCurrentTime > fixedDeltaTime)) return;
-        
+
         while (realTime - lastFixedCurrentTime > fixedDeltaTime) {
             lastFixedCurrentTime += fixedDeltaTime;
-            skips = Mathf.Min(skips + 1, 1);
+            skips = Mathf.Min(skips + 1, JiggleSettings.MaxSubsteps);
         }
-            
-        var rootJiggleTreeSegmentsCount = rootJiggleTreeSegments.Count;
-        for (int i = 0; i < rootJiggleTreeSegmentsCount; i++) {
-            var segment = rootJiggleTreeSegments[i];
-            segment.UpdateParametersIfNeeded();
+
+        RebuildAnimatedRootsIfNeeded();
+        int animatedCount = animatedRootSegments.Count;
+
+        // Tree regeneration (JiggleTree.Set) and parameter pushes MemCpy into buffers the
+        // in-flight simulate job is still reading/writing — Simulate() completes it too late,
+        // after the mutation. Sync first whenever this frame will mutate.
+        bool mutatesSimData = _globalDirty || animatedCount > 0;
+        if (mutatesSimData) {
+            jobs?.CompleteSimulate();
         }
-            
+
+        for (int i = 0; i < animatedCount; i++) {
+            animatedRootSegments[i].UpdateParametersIfNeeded();
+        }
+
         jobs = GetJiggleJobs(lastFixedCurrentTime, fixedDeltaTime);
         jobs.SetCollisionCulling(collisionFrustumCull, collisionDistanceCull, collisionCullDistance, cullingCameraBuffer, cullingCameraCount);
         jobs.Simulate(lastFixedCurrentTime, realTime, skips);
@@ -77,6 +159,10 @@ public static class JigglePhysics {
         jobs?.CompletePoses();
     }
 
+    public static void CompleteSimulate() {
+        jobs?.CompleteSimulate();
+    }
+
     public static void OnDrawGizmos() {
         if (!Application.isPlaying) {
             return;
@@ -88,11 +174,14 @@ public static class JigglePhysics {
     
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Initialize() {
+        JiggleSettings.ResetBootLatch();
         lastFixedCurrentTime = 0f;
         accumulator = 0;
         parametersCache = new();
         rootJiggleTreeSegments = new List<JiggleTreeSegment>();
         jiggleRootLookup = new Dictionary<Transform, JiggleTreeSegment>();
+        animatedRootSegments.Clear();
+        animatedRootsDirty = true;
         initializedRendering = false;
         _globalDirty = true;
         jobs?.Dispose();
@@ -104,11 +193,21 @@ public static class JigglePhysics {
         JiggleRenderer.Dispose();
         rootJiggleTreeSegments = new List<JiggleTreeSegment>();
         jiggleRootLookup = new Dictionary<Transform, JiggleTreeSegment>();
+        animatedRootSegments.Clear();
+        animatedRootsDirty = true;
         _globalDirty = true;
         jobs = null;
+        JiggleSettings.ResetBootLatch();
+        // JiggleRenderer.Dispose released the instancers and chunk buffers, so leaving this latched
+        // would skip the OnEnable that rebuilds them and silently stop drawing gizmos for the rest
+        // of the session (Initialize only runs again on a domain reload).
+        initializedRendering = false;
     }
 
     public static void ScheduleRender() {
+        if (jobs == null) {
+            return;
+        }
         if (!initializedRendering) {
             JiggleRenderer.OnEnable(jobs);
             initializedRendering = true;
@@ -116,7 +215,14 @@ public static class JigglePhysics {
         JiggleRenderer.PrepareRender(jobs);
     }
 
+    public static void CompleteRender(Material proceduralMaterial, Mesh sphere) {
+        CompleteRender(proceduralMaterial, sphere, null);
+    }
+
     public static void CompleteRender(Material proceduralMaterial, Mesh sphere, Mesh capsule) {
+        if (jobs == null) {
+            return;
+        }
         if (!initializedRendering) {
             JiggleRenderer.OnEnable(jobs);
             initializedRendering = true;
@@ -125,7 +231,30 @@ public static class JigglePhysics {
         JiggleRenderer.FinishRender(proceduralMaterial, sphere, capsule);
     }
     
-    public static void SetGlobalDirty() => _globalDirty = true;
+    public static void SetGlobalDirty() {
+        _globalDirty = true;
+        animatedRootsDirty = true;
+    }
+
+    // Roots whose provider animates parameters, rebuilt lazily from rootJiggleTreeSegments so the
+    // per-frame parameter push iterates only them instead of interface-calling every root. Every
+    // structural change funnels through SetGlobalDirty (or the prune below); runtime flag flips
+    // arrive via the segment mirror's MarkAnimatedRootsDirty.
+    private static readonly List<JiggleTreeSegment> animatedRootSegments = new List<JiggleTreeSegment>();
+    private static bool animatedRootsDirty = true;
+
+    public static void MarkAnimatedRootsDirty() => animatedRootsDirty = true;
+
+    private static void RebuildAnimatedRootsIfNeeded() {
+        if (!animatedRootsDirty) return;
+        animatedRootsDirty = false;
+        animatedRootSegments.Clear();
+        int count = rootJiggleTreeSegments.Count;
+        for (int i = 0; i < count; i++) {
+            var seg = rootJiggleTreeSegments[i];
+            if (seg.animatedParameters) animatedRootSegments.Add(seg);
+        }
+    }
 
     public static void SetCollisionCulling(bool frustumCull, bool distanceCull, float maxDistance) {
         collisionFrustumCull = frustumCull;
@@ -137,12 +266,27 @@ public static class JigglePhysics {
         int count = 0;
         if (cameras != null) {
             var cameraCount = cameras.Count;
+            var expansion = JiggleSettings.CullFrustumExpansion;
             for (int i = 0; i < cameraCount && count < MaxCullingCameras; i++) {
                 var cam = cameras[i];
                 if (cam == null) {
                     continue;
                 }
-                GeometryUtility.CalculateFrustumPlanes(cam, cullingFrustumScratch);
+                if (expansion > 1f) {
+                    var projection = cam.projectionMatrix;
+                    var inverseExpansion = 1f / expansion;
+                    projection.m00 *= inverseExpansion;
+                    projection.m01 *= inverseExpansion;
+                    projection.m02 *= inverseExpansion;
+                    projection.m03 *= inverseExpansion;
+                    projection.m10 *= inverseExpansion;
+                    projection.m11 *= inverseExpansion;
+                    projection.m12 *= inverseExpansion;
+                    projection.m13 *= inverseExpansion;
+                    GeometryUtility.CalculateFrustumPlanes(projection * cam.worldToCameraMatrix, cullingFrustumScratch);
+                } else {
+                    GeometryUtility.CalculateFrustumPlanes(cam, cullingFrustumScratch);
+                }
                 cullingCameraBuffer[count] = new JiggleCullingCamera() {
                     plane0 = PlaneToFloat4(cullingFrustumScratch[0]),
                     plane1 = PlaneToFloat4(cullingFrustumScratch[1]),
@@ -186,18 +330,33 @@ public static class JigglePhysics {
         jobs?.ScheduleRemoveBatch(colliders);
     }
 
-    public static void FreeOnComplete(IntPtr pointer) {
-        jobs.FreeOnComplete(pointer);
+    public static unsafe void FreeOnComplete(IntPtr pointer) {
+        // Trees outlive the pipeline on shutdown and domain reload, and there is nothing left to
+        // defer the free behind at that point. Without this the dispose threw and leaked the buffer,
+        // which is why FreeOnCommitFlip below already guards the same way.
+        if (jobs != null) {
+            jobs.FreeOnComplete(pointer);
+        } else {
+            UnsafeUtility.Free((void*)pointer, Allocator.Persistent);
+        }
+    }
+
+    public static unsafe void FreeOnCommitFlip(IntPtr pointer) {
+        if (jobs != null) {
+            jobs.FreeOnCommitFlip(pointer);
+        } else {
+            UnsafeUtility.Free((void*)pointer, Allocator.Persistent);
+        }
     }
     
     public static void AddJiggleTreeSegment(JiggleTreeSegment jiggleTreeSegment) {
         if (!jiggleRootLookup.TryAdd(jiggleTreeSegment.transform, jiggleTreeSegment)) {
-            Debug.LogError("Multiple Jiggle trees detected targeting the same root transform, Jiggle Physics doesn't support this.", jiggleTreeSegment.transform);
+            Debug.LogWarning("Multiple Jiggle trees detected targeting the same root transform, Jiggle Physics doesn't support this.", jiggleTreeSegment.transform);
             return;
         }
         RemoveAddChildren(jiggleTreeSegment.transform);
         TryAddRootJiggleTreeSegment(jiggleTreeSegment);
-        _globalDirty = true;
+        SetGlobalDirty();
     }
     
     private static bool GetParentJiggleTreeSegment(Transform t, out JiggleTreeSegment parentJiggleTreeSegment) {
@@ -246,12 +405,14 @@ public static class JigglePhysics {
     
     private static JiggleJobs GetJiggleJobs(double fixedTime, float fixedDeltaTime) {
         if (!_globalDirty) {
+            jobs?.SetTreeBacklog(false);
             return jobs;
         }
         jobs ??= new JiggleJobs(fixedTime, fixedDeltaTime);
         jobs.SetFixedDeltaTime(fixedDeltaTime);
         bool backlogRemains = GetJiggleTrees();
         _globalDirty = backlogRemains;
+        jobs.SetTreeBacklog(backlogRemains);
         return jobs;
     }
 
@@ -311,6 +472,7 @@ public static class JigglePhysics {
                 if (seg.jiggleTree != null) ScheduleRemoveJiggleTree(seg.jiggleTree);
                 jiggleRootLookup.Remove(seg.transform);
                 rootJiggleTreeSegments.RemoveAt(i);
+                animatedRootsDirty = true;
                 continue;
             }
             if (!needsRegen) {
@@ -344,6 +506,12 @@ public static class JigglePhysics {
             var pos = jiggleRig.rootBone.position;
             var childPos = jiggleRig.GetValidChild(jiggleRig.rootBone, 0).position;
             var diff = pos - childPos;
+            // An exporter helper bone sitting exactly on the root leaves nothing to project along, and
+            // a virtual root landing on the root bone makes Visit treat the root as zero length and
+            // merge it away, dropping it from the simulation entirely.
+            if (diff.sqrMagnitude < MERGE_DISTANCE * MERGE_DISTANCE) {
+                diff = jiggleRig.rootBone.up * 0.25f;
+            }
             backProjection = pos + diff;
         } else {
             backProjection = jiggleRig.rootBone.position + jiggleRig.rootBone.up * 0.25f;
@@ -443,9 +611,9 @@ public static class JigglePhysics {
                         animated = false,
                     });
                     parameters.Add(lastJiggleRig.GetJiggleBoneParameter(cache.normalizedDistanceFromRoot));
-                    var record = points[parentIndex];
-                    AddChildToPoint(ref record, points.Count - 1);
-                    points[parentIndex] = record;
+                    // Registering here as well as returning the index had every caller add this tip
+                    // to its parent a second time, inflating childrenCount and making the multi child
+                    // averaging in ApplyPose weight the same tip twice.
                     newIndex = points.Count - 1;
                 }
                 return;
@@ -538,6 +706,10 @@ public static class JigglePhysics {
     
     public static void Teleport(JiggleTree tree, float3 deltaPosition) {
         jobs?.Teleport(tree, deltaPosition);
+    }
+
+    public static void Teleport(JiggleTree tree, quaternion deltaRotation, float3 pivot, float3 deltaPosition) {
+        jobs?.Teleport(tree, deltaRotation, pivot, deltaPosition);
     }
 
     public static void RemoveJiggleTreeSegment(JiggleTreeSegment jiggleTreeSegment) {

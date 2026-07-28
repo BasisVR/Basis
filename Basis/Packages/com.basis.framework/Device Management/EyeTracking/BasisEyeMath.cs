@@ -1,4 +1,5 @@
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Basis.Scripts.Device_Management.EyeTracking
 {
@@ -9,6 +10,21 @@ namespace Basis.Scripts.Device_Management.EyeTracking
     /// </summary>
     public static class BasisEyeMath
     {
+        public static void HmdRelativeGazeToWorld(
+            Vector3 hmdTrackingPos, Quaternion hmdTrackingRot,
+            Vector3 gazeTrackingPos, Quaternion gazeTrackingRot,
+            Vector3 cameraWorldPosition, Quaternion cameraWorldRotation,
+            out Vector3 worldGazeOrigin, out Vector3 worldGazeDirection)
+        {
+            Quaternion invHmdRot = Quaternion.Inverse(hmdTrackingRot);
+            Vector3 gazeRelHmdPos = invHmdRot * (gazeTrackingPos - hmdTrackingPos);
+            Quaternion gazeRelHmdRot = invHmdRot * gazeTrackingRot;
+
+            worldGazeOrigin = cameraWorldPosition + cameraWorldRotation * gazeRelHmdPos;
+            Quaternion worldGazeRot = cameraWorldRotation * gazeRelHmdRot;
+            worldGazeDirection = worldGazeRot * Vector3.forward;
+        }
+
         public static float2 WorldPointToCanonicalYawPitch(float3 target, float3 eyeCenter, quaternion invHeadRot)
         {
             float3 dir = math.normalizesafe(target - eyeCenter);

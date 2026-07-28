@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
+using Basis.IK;
 
 namespace Basis.IK.Debugging
 {
@@ -349,7 +349,7 @@ namespace Basis.IK.Debugging
 
         static BasisShoulderSolveInput BuildRaw(BasisShoulderSweepConfig cfg, Vector3 shoulder, Vector3 elbowPos, Vector3 handPos, bool hasElbow, Quaternion chest)
         {
-            BasisShoulderSolveInput input;
+            BasisShoulderSolveInput input = default;
             input.ShoulderPos = shoulder;
             input.HandTargetPos = handPos;
             input.ElbowPos = elbowPos;

@@ -40,7 +40,7 @@ jobs:
       actions: write # to allow us to manage cache
     env:
       projectPath: Basis
-      buildName: Basis Unity
+      buildName: BasisVR
     strategy:
       fail-fast: false
       matrix:
@@ -163,7 +163,7 @@ jobs:
         with:
           type: "zip"
           directory: build/${{ matrix.targetPlatform }}
-          filename: "${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }} Symbols.zip"
+          filename: "${{ github.workspace }}/BasisVR ${{ matrix.targetPlatform }} Symbols.zip"
           # This uses a wildcard because this action doesn't work correctly with spaces in path.
           path: "*_BackUpThisFolder_ButDontShipItWithYourGame"
       # workaround for exclusions not working with spaces *or* wildcards.
@@ -179,15 +179,15 @@ jobs:
         with:
           type: "zip"
           directory: build/${{ matrix.targetPlatform }}
-          filename: "${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }}.zip"
+          filename: "${{ github.workspace }}/BasisVR ${{ matrix.targetPlatform }}.zip"
       - name: "Release client zip"
         if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
         timeout-minutes: 5
         uses: "softprops/action-gh-release@v2"
         with:
           files: |
-            ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }}.zip
-            ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }} Symbols.zip
+            ${{ github.workspace }}/BasisVR ${{ matrix.targetPlatform }}.zip
+            ${{ github.workspace }}/BasisVR ${{ matrix.targetPlatform }} Symbols.zip
   build-client-android:
     name: Build client for Android
     timeout-minutes: 100
@@ -196,7 +196,7 @@ jobs:
       actions: write # to allow us to manage cache
     env:
       projectPath: Basis
-      buildName: Basis Unity
+      buildName: BasisVR
     needs: [check-secret]
     if: needs.check-secret.outputs.secret-is-set == 'true' && needs.check-secret.outputs.android-secret-is-set == 'true'
     steps:

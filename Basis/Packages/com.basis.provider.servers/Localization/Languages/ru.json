@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "Серверов пока нет. Нажмите «Добавить сервер», чтобы создать."
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "Добавить сервер"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "Обновить все"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "Изменение сервера"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "Новый сервер"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "Сохранить"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "Отмена"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "Удалить"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "Изменить"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "Обновить"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "Не в сети"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "Запрос..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "Поделиться"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Добро пожаловать в Basis Labs!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs — живая витрина Basis Framework, бесплатной основы под лицензией MIT для создания VR-игр, платформ и впечатлений. Исследуйте миры, надевайте собственные аватары и знакомьтесь с людьми, попутно пробуя функции прямо во время их разработки. Здесь всё развивается — ваши отзывы помогают этому."
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "Далее"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "Ваш первый сервер"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Централизованной службы Basis не существует — сервер может поднять кто угодно, и свой собственный вы можете разместить прямо из этой панели. Чтобы вам всегда было куда зайти, мы держим сервер по умолчанию — он отмечен значком ★ вверху списка ниже. Выберите имя пользователя, нажмите светящуюся кнопку «Подключиться» и заходите поздороваться!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "Понятно!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "Выберите имя пользователя"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "Выберите имя, которое увидят другие игроки, затем нажмите «Подключиться»."
     },
     {
       "key": "menu.servers.hostMotd",

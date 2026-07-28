@@ -27,7 +27,6 @@ namespace Basis.Scripts.BasisCharacterController
         [SerializeField] public float gravityValue = -9.81f;
         [SerializeField] public float RaycastDistance = 0.2f;
         [SerializeField] public float MinimumColliderSize = 0.01f;
-        private Quaternion currentRotation;
         public SimulationHandler JustJumped;
         public SimulationHandler JustLanded;
         public bool LastWasGrounded = true;
@@ -211,6 +210,7 @@ namespace Basis.Scripts.BasisCharacterController
                 BasisLocalPlayer.localToWorldMatrix = Matrix4x4.TRS(Position, Rotation, BasisLocalPlayerTransform.lossyScale);
                 return;
             }
+            BasisScriptedPlayerInput.ApplyLocomotion(this);
             LastBottomPoint = bottomPointLocalSpace;
             CalculateCharacterSize();
             // Two-phase landing impact: ease into dip, then ease back up
@@ -323,9 +323,13 @@ namespace Basis.Scripts.BasisCharacterController
                 {
                     float fallSpeed = Mathf.Abs(currentVerticalSpeed);
                     // Suppress hip dip in FBT to avoid fighting real hip tracker data on landing.
-                    if (!(BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue))
+                    // The comment already named the right question -- the code was asking a different one. The dip is
+                    // applied to the HIPS (BasisLocalRigDriver subtracts landingCrouchEffect from hipsPos), so only a
+                    // HIPS tracker has anything to be fought. HasFBIKTrackers is true for a chest/shoulder/elbow
+                    // tracker too, and those leave the pelvis fully IK-derived -- there the dip is correct and wanted.
+                    if (!(BasisAvatarIKStageCalibration.HasHipsFBIKTracker && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue))
                     {
-                        landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect);
+                        landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect) * BasisHeightDriver.AvatarToDefaultRatioScaled;
                     }
                     JustLanded?.Invoke();
                     currentVerticalSpeed = 0f;
@@ -396,15 +400,29 @@ namespace Basis.Scripts.BasisCharacterController
         {
             MovementVector = movement;
         }
+        /// <summary>
+        /// Horizontal facing that movement input is expressed in: the viewpoint (CenterEye) — the HMD in VR,
+        /// the mouse-look camera on desktop. Deliberately NOT the head bone. The head bone is an avatar-side
+        /// output that normally just copies the eye rotation, so the two agree until something overrides it —
+        /// camera tracking writing a Head-role tracker, or a real head tracker — and then the player walks off
+        /// at the angle their physical head is turned instead of where the camera points.
+        /// </summary>
+        public static Quaternion GetMovementFacing()
+        {
+            // Project view forward onto horizontal plane (avoids gimbal lock near ±90° pitch)
+            Quaternion viewRotation = BasisLocalBoneDriver.EyeControl.OutgoingWorldData.rotation;
+            Vector3 flatForward = viewRotation * Vector3.forward;
+            flatForward.y = 0f;
+            if (flatForward.sqrMagnitude < 0.0001f)
+            {
+                flatForward = -(viewRotation * Vector3.up);
+                flatForward.y = 0f;
+            }
+            return Quaternion.LookRotation(flatForward.normalized, Vector3.up);
+        }
         public void HandleMovement(float DeltaTime)
         {
-            // Cache current rotation and zero out x and z components
-            currentRotation = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
-            Vector3 rotationEulerAngles = currentRotation.eulerAngles;
-            rotationEulerAngles.x = 0;
-            rotationEulerAngles.z = 0;
-
-            Quaternion flattenedRotation = Quaternion.Euler(rotationEulerAngles);
+            Quaternion flattenedRotation = GetMovementFacing();
 
             if (CrouchBlendDelta != 0) UpdateCrouchBlend(CrouchBlendDelta);
             // Calculate horizontal movement direction
@@ -423,7 +441,11 @@ namespace Basis.Scripts.BasisCharacterController
             // Handle jumping and falling
             if (CanJump && HasJumpAction)
             {
-                currentVerticalSpeed = Mathf.Sqrt(jumpHeight * -2f * gravityValue);
+                // jumpHeight is an apex in metres, so it scales linearly with the avatar. That is exactly
+                // Froude-correct: v0 = sqrt(2gh), so h proportional to L gives v0 proportional to sqrt(L).
+                // Unscaled, a half-size avatar jumped 2.30 leg-lengths against an adult's 1.15 — the cause
+                // BasisFootSimulateJob already names above its airborne-detection fix.
+                currentVerticalSpeed = Mathf.Sqrt(jumpHeight * AvatarSizeRatio() * -2f * gravityValue);
                 coyoteTimeCounter = 0f; // Consume coyote time to prevent double jumps
                 JustJumped?.Invoke();
             }
@@ -432,8 +454,11 @@ namespace Basis.Scripts.BasisCharacterController
                 currentVerticalSpeed += gravityValue * DeltaTime;
             }
 
-            // Ensure we don't exceed maximum gravity value speed
-            currentVerticalSpeed = Mathf.Max(currentVerticalSpeed, -Mathf.Abs(gravityValue));
+            // Terminal velocity. This clamped against gravityValue — an m/s^2 constant used as an m/s
+            // cap, which also meant terminal was reached after exactly 1.0 s of fall on every avatar.
+            // Speeds go as sqrt(g*L), so the cap tracks avatar size by the sqrt of the ratio. The
+            // default-size value is the old 9.81 so scale-1 behaviour is unchanged.
+            currentVerticalSpeed = Mathf.Max(currentVerticalSpeed, -TerminalVelocity());
 
 
             HasJumpAction = false;
@@ -443,12 +468,48 @@ namespace Basis.Scripts.BasisCharacterController
             Flags = characterController.Move(totalMoveDirection);
             BasisLocalPlayerTransform.GetPositionAndRotation(out CurrentPosition, out CurrentRotation);
         }
+        // Authored (unscaled) capsule dimensions, captured once. CalculateCharacterSize writes
+        // avatar-scaled values back onto the controller, so re-reading the controller on a later
+        // call would compound the scale factor every time the avatar is resized.
+        private float _authoredRadius = -1f;
+        private float _authoredSkinWidth = -1f;
+        private float _authoredStepOffset = -1f;
+
+        /// <summary>Guarded avatar size ratio; 1 when the height driver has nothing sane to report.</summary>
+        public static float AvatarSizeRatio()
+        {
+            float s = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+            return (float.IsNaN(s) || float.IsInfinity(s) || s <= 0f) ? 1f : s;
+        }
+
+        /// <summary>Fall-speed cap at default avatar size, in m/s. Was implicitly abs(gravityValue).</summary>
+        private const float TerminalVelocityAtDefaultSize = 9.81f;
+
+        /// <summary>Fall-speed cap for this avatar. Speeds scale as sqrt(g*L).</summary>
+        public static float TerminalVelocity() => TerminalVelocityAtDefaultSize * Mathf.Sqrt(AvatarSizeRatio());
+
+        /// <summary>
+        /// Locomotion speed multiplier. Gait is modelled on the Froude number v/sqrt(g*L) and every step
+        /// parameter is derived from the avatar's own leg, but movement speed was a fixed m/s — so a small
+        /// avatar's v-hat inflated by 1/sqrt(scale), pinning speedScale and urgencyT at maximum and roughly
+        /// doubling step cadence at half size. Scaling speed by sqrt(ratio) holds v-hat constant, so cadence,
+        /// bob, sway and double-support all match at every size (0.5x size keeps 71% of speed, not 50%).
+        /// </summary>
+        public static float LocomotionSpeedScale() => Mathf.Sqrt(AvatarSizeRatio());
+
         public void Validate()
         {
             radius = characterController.radius;
             if (float.IsNaN(radius) || float.IsInfinity(radius) || radius <= 0f)
             {
                 radius = 0.1f;
+            }
+
+            if (_authoredRadius <= 0f)
+            {
+                _authoredRadius = radius;
+                _authoredSkinWidth = characterController.skinWidth;
+                _authoredStepOffset = characterController.stepOffset;
             }
 
             characterController.radius = radius;
@@ -459,6 +520,16 @@ namespace Basis.Scripts.BasisCharacterController
             Vector3 eyePos = hasEye
                 ? BasisLocalBoneDriver.EyeControl.OutGoingData.position
                 : default;
+
+            // Capsule radius and skin are authored in metres at default avatar size, and the player root
+            // is never scaled (the avatar transform is), so without this they stay adult-sized on every
+            // avatar — and the 2*radius height floor below then exceeds a small avatar's whole body.
+            // Derived from the authored values, never from the controller's current (already scaled) ones.
+            float sizeRatio = AvatarSizeRatio();
+            if (_authoredRadius > 0f)
+            {
+                radius = _authoredRadius * sizeRatio;
+            }
 
             // Bit-exact change check — Vector3 == uses an epsilon (~9.99e-11 squared)
             // which would silently swallow sub-epsilon eye drift; the height stays
@@ -489,6 +560,12 @@ namespace Basis.Scripts.BasisCharacterController
                 rawEyeHeight = MinimumColliderSize;
             }
 
+            if (_authoredRadius > 0f)
+            {
+                characterController.radius = radius;
+                characterController.skinWidth = _authoredSkinWidth * sizeRatio;
+            }
+
             // Ensure height is valid relative to radius
             float minHeight = 2f * radius + 0.001f;
             float finalHeight = Mathf.Max(rawEyeHeight, minHeight);
@@ -516,7 +593,10 @@ namespace Basis.Scripts.BasisCharacterController
             maxStep = Mathf.Max(0f, maxStep);
             maxStep = Mathf.Min(maxStep, finalHeight * 0.25f);
 
-            characterController.stepOffset = Mathf.Min(characterController.stepOffset, maxStep);
+            // Assignment, not Min-against-itself: Mathf.Min is monotonic decreasing, so shrinking the
+            // avatar and growing it back left stepOffset stuck at the small value for the whole session.
+            float desiredStep = _authoredStepOffset > 0f ? _authoredStepOffset * sizeRatio : maxStep;
+            characterController.stepOffset = Mathf.Min(desiredStep, maxStep);
 
             _sizeCache_HasEye = hasEye;
             _sizeCache_EyePos = eyePos;

@@ -1,4 +1,5 @@
 using Basis.Network.Core;
+using Basis.Scripts.Audio;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
@@ -138,7 +139,7 @@ public static class BasisNetworkHandleChat
             return;
         }
 
-        AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.ChatNotificationUI, BasisDeviceManagement.Instance.transform.position, SMModuleAudio.ActiveMenusVolume);
+        BasisUISounds.PlayAt(BasisUISoundEvent.Chat, BasisDeviceManagement.Instance.ChatNotificationUI, BasisDeviceManagement.Instance.transform.position, SMModuleAudio.ActiveMenusVolume);
     }
 
     private static Vector3 GetRemoteChatNotificationPosition(BasisRemotePlayer remotePlayer, Vector3 fallbackPosition)
@@ -204,7 +205,7 @@ public static class BasisNetworkHandleChat
         }
 
         Vector3 position = GetRemoteChatNotificationPosition(remotePlayer, BasisDeviceManagement.Instance.transform.position);
-        AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.ChatNotificationUI, position, SMModuleAudio.ActiveMenusVolume);
+        BasisUISounds.PlayAt(BasisUISoundEvent.Chat, BasisDeviceManagement.Instance.ChatNotificationUI, position, SMModuleAudio.ActiveMenusVolume);
     }
 
     private static bool TryGetRemotePlayer(ushort playerId, out BasisRemotePlayer remotePlayer)

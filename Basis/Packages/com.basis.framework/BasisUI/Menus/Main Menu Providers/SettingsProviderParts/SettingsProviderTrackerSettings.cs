@@ -61,11 +61,37 @@ namespace Basis.BasisUI
 
         private sealed class TabEntry
         {
-            public string Id;
+            public string Key;
             public PanelElementDescriptor Group;
-            public PanelButton IdentifyButton;
+            public PanelButton IdentifyA;
+            public PanelButton IdentifyB;
             public PanelDropdown LinkDropdown;
             public PanelDropdown RoleDropdown;
+        }
+
+        /// <summary>
+        /// One row of the list. A linked pair is ONE row, not two. The merged virtual
+        /// midpoint is what calibration actually binds a role to — <see cref="BasisVirtualMidpointInput.Initialize"/>
+        /// clears the FB role off both physical halves and the classifier skips them
+        /// (<c>if (input.IsLinked) continue;</c>), so neither half ever holds a role.
+        /// Rendering the halves as two independent rows is why both of them sat there
+        /// reporting "Unassigned" while the pair was working perfectly well.
+        /// </summary>
+        private sealed class TrackerRow
+        {
+            public BasisInput A;
+            // Null on a single-tracker row.
+            public BasisInput B;
+            // The live merged device, once the pairing service has built it.
+            public BasisVirtualMidpointInput Fused;
+            // Set when this tracker is paired to one that is not currently connected.
+            public string OfflinePartnerId;
+
+            public bool IsPair => B != null;
+
+            public string Key => B != null
+                ? A.UniqueDeviceIdentifier + "|" + B.UniqueDeviceIdentifier
+                : A.UniqueDeviceIdentifier;
         }
 
         // Per-tab-instance state captured in a closure. One instance per Settings
@@ -225,31 +251,28 @@ namespace Basis.BasisUI
             if (state.TrackersContainer == null) return;
 
             List<BasisInput> trackers = CollectEligibleTrackers();
-            List<string> newIds = new List<string>(trackers.Count);
-            for (int i = 0; i < trackers.Count; i++)
-            {
-                newIds.Add(trackers[i].UniqueDeviceIdentifier);
-            }
+            List<TrackerRow> rows = BuildRows(trackers);
 
             // Full rebuild on the first call (otherwise the empty list path
-            // would skip the "no trackers" message), any time the eligible-
-            // tracker set has changed (a tracker connected, disconnected, or
-            // shifted position in the device list — every case where the
-            // dropdown rows need to be added/removed/reordered), and as a
-            // self-healing fallback if the cached entry count has somehow
-            // gone out of sync with the tracker count.
+            // would skip the "no trackers" message), any time the row set has
+            // changed, and as a self-healing fallback if the cached entry count
+            // has somehow gone out of sync.
             //
-            // Otherwise — pairing/override graph changed but eligible trackers
-            // are the same set in the same order — we update the existing
-            // dropdowns in place. This is the path that protects the user's
-            // mid-click dropdown from being torn down underneath them.
+            // A pairing change now reshapes the LIST (two rows collapse into one,
+            // or one splits back into two), so unlike the old id-only diff it has
+            // to force a rebuild rather than just refreshing dropdown values. The
+            // key carries both halves, so that falls out of the same comparison.
+            //
+            // Otherwise — an override or identify toggle, where the rows are the
+            // same — we update in place. That is the path that protects a dropdown
+            // the user is mid-click on from being torn down underneath them.
             bool needsRebuild = !state.HasBuilt
-                || !IdsMatch(state.Entries, newIds)
-                || state.Entries.Count != trackers.Count;
+                || !KeysMatch(state.Entries, rows)
+                || state.Entries.Count != rows.Count;
 
             if (needsRebuild)
             {
-                FullRebuild(state, trackers, newIds);
+                FullRebuild(state, rows);
                 state.HasBuilt = true;
                 // Two-step layout rebuild, matching the toggle-show/hide pattern
                 // in SettingsProviderIK (advancedToggle / debugToggle handlers).
@@ -269,48 +292,126 @@ namespace Basis.BasisUI
                 return;
             }
 
-            RefreshExistingEntries(state, trackers, newIds);
+            RefreshExistingEntries(state, rows);
         }
 
-        private static bool IdsMatch(List<TabEntry> entries, List<string> b)
+        /// <summary>
+        /// Collapses the flat device list into rows: a linked pair becomes one row led
+        /// by its canonical half (the id that sorts first — the same half
+        /// <see cref="BasisTrackerPairing.IsCanonical"/> hands the role to).
+        /// </summary>
+        private static List<TrackerRow> BuildRows(List<BasisInput> trackers)
         {
-            if (entries.Count != b.Count) return false;
-            for (int i = 0; i < entries.Count; i++)
-            {
-                if (entries[i].Id != b[i]) return false;
-            }
-            return true;
-        }
+            List<TrackerRow> rows = new List<TrackerRow>(trackers.Count);
+            HashSet<string> consumed = new HashSet<string>();
 
-        private static void RefreshExistingEntries(TabState state, List<BasisInput> trackers, List<string> ids)
-        {
-            state.SuppressDropdownEvents[0] = true;
             for (int i = 0; i < trackers.Count; i++)
             {
                 BasisInput input = trackers[i];
                 string id = input.UniqueDeviceIdentifier;
+                if (consumed.Contains(id)) continue;
 
+                if (!BasisTrackerPairing.TryGetPartner(id, out string partnerId))
+                {
+                    consumed.Add(id);
+                    rows.Add(new TrackerRow { A = input });
+                    continue;
+                }
+
+                BasisInput partner = FindById(trackers, partnerId);
+                if (partner == null)
+                {
+                    // Paired to a tracker that isn't connected right now. Pairings are
+                    // persisted, so this is a normal state (partner off, battery dead,
+                    // not paired to the dongle yet) — but the old UI resolved the link
+                    // dropdown to "(unlinked)" here, which reads as "your pairing was
+                    // lost" when it is still on disk and will come straight back.
+                    consumed.Add(id);
+                    rows.Add(new TrackerRow { A = input, OfflinePartnerId = partnerId });
+                    continue;
+                }
+
+                BasisInput canonical = BasisTrackerPairing.IsCanonical(id) ? input : partner;
+                BasisInput other = ReferenceEquals(canonical, input) ? partner : input;
+                consumed.Add(canonical.UniqueDeviceIdentifier);
+                consumed.Add(other.UniqueDeviceIdentifier);
+                rows.Add(new TrackerRow
+                {
+                    A = canonical,
+                    B = other,
+                    Fused = FindFused(canonical, other),
+                });
+            }
+
+            return rows;
+        }
+
+        private static BasisInput FindById(List<BasisInput> trackers, string id)
+        {
+            for (int i = 0; i < trackers.Count; i++)
+            {
+                if (trackers[i].UniqueDeviceIdentifier == id) return trackers[i];
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// The merged device the pairing service spawned for this pair, or null if it
+        /// hasn't built one. This is the device that actually carries the pair's role.
+        /// </summary>
+        private static BasisVirtualMidpointInput FindFused(BasisInput a, BasisInput b)
+        {
+            BasisObservableList<BasisInput> devices = BasisDeviceManagement.Instance?.AllInputDevices;
+            if (devices == null) return null;
+
+            for (int i = 0; i < devices.Count; i++)
+            {
+                if (!(devices[i] is BasisVirtualMidpointInput midpoint)) continue;
+                bool forward = ReferenceEquals(midpoint.PartnerA, a) && ReferenceEquals(midpoint.PartnerB, b);
+                bool reversed = ReferenceEquals(midpoint.PartnerA, b) && ReferenceEquals(midpoint.PartnerB, a);
+                if (forward || reversed) return midpoint;
+            }
+            return null;
+        }
+
+        private static bool KeysMatch(List<TabEntry> entries, List<TrackerRow> rows)
+        {
+            if (entries.Count != rows.Count) return false;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (entries[i].Key != rows[i].Key) return false;
+            }
+            return true;
+        }
+
+        private static void RefreshExistingEntries(TabState state, List<TrackerRow> rows)
+        {
+            state.SuppressDropdownEvents[0] = true;
+            for (int i = 0; i < rows.Count; i++)
+            {
                 if (i >= state.Entries.Count) continue;
+                TrackerRow row = rows[i];
                 TabEntry entry = state.Entries[i];
 
                 if (entry.Group != null && !entry.Group.IsReleased)
                 {
-                    entry.Group.SetDescription(BuildEntryDescription(input));
+                    entry.Group.SetRichDescription(BuildRowDescription(row));
                 }
-                ApplyIdentifyVisual(entry.IdentifyButton, input);
+                ApplyIdentifyVisual(entry.IdentifyA, row.A, row.IsPair);
+                ApplyIdentifyVisual(entry.IdentifyB, row.B, row.IsPair);
                 if (entry.LinkDropdown != null && !entry.LinkDropdown.IsReleased)
                 {
-                    entry.LinkDropdown.SetValueWithoutNotify(ResolveCurrentLink(id, ids));
+                    entry.LinkDropdown.SetValueWithoutNotify(UnlinkedLabel);
                 }
                 if (entry.RoleDropdown != null && !entry.RoleDropdown.IsReleased)
                 {
-                    entry.RoleDropdown.SetValueWithoutNotify(ResolveCurrentRoleOverride(id));
+                    entry.RoleDropdown.SetValueWithoutNotify(ResolveCurrentRoleOverride(row));
                 }
             }
             state.SuppressDropdownEvents[0] = false;
         }
 
-        private static void FullRebuild(TabState state, List<BasisInput> trackers, List<string> newIds)
+        private static void FullRebuild(TabState state, List<TrackerRow> rows)
         {
             // Snapshot children before releasing — ReleaseInstance destroys the
             // GameObject and may shift sibling indices before the next iteration.
@@ -337,7 +438,7 @@ namespace Basis.BasisUI
 
             state.Entries.Clear();
 
-            if (trackers.Count == 0)
+            if (rows.Count == 0)
             {
                 PanelElementDescriptor empty = PanelElementDescriptor.CreateNew(
                     PanelElementDescriptor.ElementStyles.Group, state.TrackersContainer);
@@ -350,50 +451,142 @@ namespace Basis.BasisUI
             // callbacks depending on prefab configuration, and we'd recursively
             // rebuild as we cascade through dropdowns.
             state.SuppressDropdownEvents[0] = true;
-            for (int i = 0; i < trackers.Count; i++)
+            for (int i = 0; i < rows.Count; i++)
             {
-                BuildEntryFor(state, trackers[i], trackers, newIds);
+                BuildEntryFor(state, rows[i], rows);
             }
             state.SuppressDropdownEvents[0] = false;
         }
 
-        private static void BuildEntryFor(TabState state, BasisInput input, List<BasisInput> trackers, List<string> allIds)
+        // Height of the pair's side-by-side identify row. Matches the action rows in the
+        // modal prompts (BasisDirectConnectionPrompt and friends), which are the only
+        // other place in the menu that puts buttons next to each other.
+        private const float PairIdentifyRowHeight = 80f;
+
+        private static void BuildEntryFor(TabState state, TrackerRow row, List<TrackerRow> rows)
         {
-            string id = input.UniqueDeviceIdentifier;
+            bool[] suppressFlag = state.SuppressDropdownEvents;
+            string idA = row.A.UniqueDeviceIdentifier;
+            bool linked = row.IsPair || !string.IsNullOrEmpty(row.OfflinePartnerId);
 
             PanelElementDescriptor group = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, state.TrackersContainer);
-            group.SetTitle(BuildTrackerLabel(input));
-            group.SetDescription(BuildEntryDescription(input));
+            group.SetTitle(BuildRowTitle(row));
+            group.SetRichDescription(BuildRowDescription(row));
 
-            PanelButton identifyButton = PanelButton.CreateNew(group.ContentParent);
-            identifyButton.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.identifyLabel.tooltip"));
-            if (identifyButton.ButtonStyling != null)
+            TabEntry entry = new TabEntry
             {
-                identifyButton.ButtonStyling.ShowIndicator(false);
-            }
-            ApplyIdentifyVisual(identifyButton, input);
-            BasisInput capturedInput = input;
-            identifyButton.OnClicked += () => BasisTrackerIdentifyGizmos.Toggle(capturedInput);
+                Key = row.Key,
+                Group = group,
+            };
 
+            if (row.IsPair)
+            {
+                // Side by side, not stacked. Two full-width buttons that differ only in
+                // which half of the pair they light up read as a pile, and they belong
+                // to each other anyway.
+                PanelTabGroup identifyRow = PanelTabGroup.CreateNew(
+                    group.ContentParent, LayoutDirection.HorizontalNoBackground);
+                identifyRow.Descriptor.SetHeight(PairIdentifyRowHeight);
+                entry.IdentifyA = BuildIdentifyButton(identifyRow.TabButtonParent, PanelButton.ButtonStyles.StandardButton, row.A, true);
+                entry.IdentifyB = BuildIdentifyButton(identifyRow.TabButtonParent, PanelButton.ButtonStyles.StandardButton, row.B, true);
+            }
+            else
+            {
+                entry.IdentifyA = BuildIdentifyButton(group.ContentParent, PanelButton.ButtonStyles.Default, row.A, false);
+            }
+
+            // A pairing that already exists has nothing left to pick from a dropdown —
+            // the only thing left to say about it is whether to break it.
+            if (!linked)
+            {
+                entry.LinkDropdown = BuildLinkDropdown(group, row, rows, suppressFlag);
+            }
+
+            PanelDropdown roleDropdown = PanelDropdown.CreateNewEntry(group.ContentParent);
+            roleDropdown.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.roleOverrideLabel"));
+            roleDropdown.Descriptor.SetTooltip(BasisLocalization.Get(row.IsPair
+                ? "trackerLinking.roleOverridePair.tooltip"
+                : "trackerLinking.roleOverrideLabel.tooltip"));
+            roleDropdown.AssignEntries(BuildRoleEntries(), BuildRoleDisplayLabels());
+            roleDropdown.SetValueWithoutNotify(ResolveCurrentRoleOverride(row));
+
+            string idB = row.IsPair ? row.B.UniqueDeviceIdentifier : null;
+            roleDropdown.OnValueChanged += newValue =>
+            {
+                if (suppressFlag[0]) return;
+
+                // Calibration's TryResolveOverride reads the midpoint's override off
+                // PartnerA first, then PartnerB. Writing only the canonical half and
+                // clearing the other keeps exactly one source of truth — otherwise a
+                // stale override left on B silently outlives a switch back to Auto.
+                if (string.IsNullOrEmpty(newValue) || newValue == AutoRoleLabel())
+                {
+                    BasisTrackerRoleOverride.ClearOverride(idA);
+                    if (idB != null) BasisTrackerRoleOverride.ClearOverride(idB);
+                    return;
+                }
+                if (TryParseOverrideRole(newValue, out BasisBoneTrackedRole parsed))
+                {
+                    BasisTrackerRoleOverride.SetOverride(idA, parsed);
+                    if (idB != null) BasisTrackerRoleOverride.ClearOverride(idB);
+                }
+            };
+
+            entry.RoleDropdown = roleDropdown;
+
+            // Unlink goes last and alone. It is the one destructive control on the row,
+            // and it has no business sitting shoulder to shoulder with a button you press
+            // casually to make a light come on.
+            if (linked)
+            {
+                PanelButton unlink = PanelButton.CreateNew(group.ContentParent);
+                unlink.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.unlink"));
+                unlink.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.unlink.tooltip"));
+                unlink.SetIcon(AddressableAssets.Sprites.Unlink);
+                if (unlink.ButtonStyling != null)
+                {
+                    unlink.ButtonStyling.SetStyle("Button Danger");
+                }
+                unlink.OnClicked += () => BasisTrackerPairing.Unlink(idA);
+            }
+
+            state.Entries.Add(entry);
+        }
+
+        private static PanelButton BuildIdentifyButton(Component parent, string style, BasisInput input, bool named)
+        {
+            PanelButton button = PanelButton.CreateNew(style, parent);
+            button.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.identifyLabel.tooltip"));
+            ApplyIdentifyVisual(button, input, named);
+            button.OnClicked += () => BasisTrackerIdentifyGizmos.Toggle(input);
+            return button;
+        }
+
+        private static PanelDropdown BuildLinkDropdown(PanelElementDescriptor group, TrackerRow row, List<TrackerRow> rows, bool[] suppressFlag)
+        {
             PanelDropdown linkDropdown = PanelDropdown.CreateNewEntry(group.ContentParent);
             linkDropdown.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.linkLabel"));
             linkDropdown.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.linkLabel.tooltip"));
 
-            List<string> linkEntries = new List<string>(trackers.Count + 1) { UnlinkedLabel };
-            List<string> linkLabels = new List<string>(trackers.Count + 1) { UnlinkedDisplayLabel() };
-            for (int i = 0; i < trackers.Count; i++)
+            // Only free trackers are offered. Linking to an already-paired tracker
+            // would work — Link() drops its old pairing first — but it would silently
+            // dissolve a pair the user never touched, from a dropdown that gave no
+            // hint that was about to happen.
+            List<string> entries = new List<string> { UnlinkedLabel };
+            List<string> labels = new List<string> { UnlinkedDisplayLabel() };
+            for (int i = 0; i < rows.Count; i++)
             {
-                string otherId = trackers[i].UniqueDeviceIdentifier;
-                if (otherId == id) continue;
-                linkEntries.Add(otherId);
-                linkLabels.Add(BuildTrackerLabel(trackers[i]));
+                TrackerRow other = rows[i];
+                if (other.IsPair || !string.IsNullOrEmpty(other.OfflinePartnerId)) continue;
+                if (ReferenceEquals(other.A, row.A)) continue;
+                entries.Add(other.A.UniqueDeviceIdentifier);
+                labels.Add(BuildTrackerLabel(other.A));
             }
-            linkDropdown.AssignEntries(linkEntries, linkLabels);
-            linkDropdown.SetValueWithoutNotify(ResolveCurrentLink(id, allIds));
+            linkDropdown.AssignEntries(entries, labels);
+            linkDropdown.SetValueWithoutNotify(UnlinkedLabel);
 
-            string capturedId = id;
-            bool[] suppressFlag = state.SuppressDropdownEvents;
+            string capturedId = row.A.UniqueDeviceIdentifier;
             linkDropdown.OnValueChanged += newValue =>
             {
                 if (suppressFlag[0]) return;
@@ -406,91 +599,139 @@ namespace Basis.BasisUI
                     BasisTrackerPairing.Link(capturedId, newValue);
                 }
             };
-
-            PanelDropdown roleDropdown = PanelDropdown.CreateNewEntry(group.ContentParent);
-            roleDropdown.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.roleOverrideLabel"));
-            roleDropdown.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.roleOverrideLabel.tooltip"));
-
-            roleDropdown.AssignEntries(BuildRoleEntries(), BuildRoleDisplayLabels());
-            roleDropdown.SetValueWithoutNotify(ResolveCurrentRoleOverride(id));
-
-            roleDropdown.OnValueChanged += newValue =>
-            {
-                if (suppressFlag[0]) return;
-                if (string.IsNullOrEmpty(newValue) || newValue == AutoRoleLabel())
-                {
-                    BasisTrackerRoleOverride.ClearOverride(capturedId);
-                    return;
-                }
-                if (TryParseOverrideRole(newValue, out BasisBoneTrackedRole parsed))
-                {
-                    BasisTrackerRoleOverride.SetOverride(capturedId, parsed);
-                }
-            };
-
-            state.Entries.Add(new TabEntry
-            {
-                Id = id,
-                Group = group,
-                IdentifyButton = identifyButton,
-                LinkDropdown = linkDropdown,
-                RoleDropdown = roleDropdown,
-            });
+            return linkDropdown;
         }
 
-        private static void ApplyIdentifyVisual(PanelButton button, BasisInput input)
+        private static void ApplyIdentifyVisual(PanelButton button, BasisInput input, bool named)
         {
-            if (button == null || button.IsReleased) return;
+            if (button == null || button.IsReleased || input == null) return;
             PanelElementDescriptor descriptor = button.Descriptor;
             if (descriptor == null || !descriptor.HasTitle) return;
 
-            string label;
-            if (BasisTrackerIdentifyGizmos.TryGetColor(input, out Color color))
+            bool showing = BasisTrackerIdentifyGizmos.IsShowing(input);
+            Color color = BasisTrackerIdentifyGizmos.ColorFor(input);
+            string text = BasisLocalization.Get(showing
+                ? "trackerLinking.identifyShowing"
+                : "trackerLinking.identifyLabel");
+
+            // On a pair row there are two of these side by side, so the label has to
+            // name which half it lights up — the swatch alone is no help to anyone who
+            // can't separate the two colours.
+            if (named)
             {
-                string hex = ColorUtility.ToHtmlStringRGB(color);
-                label = $"<b><color=#{hex}>{BasisLocalization.Get("trackerLinking.identifyShowing")}</color></b>";
-            }
-            else
-            {
-                string accentHex = ColorUtility.ToHtmlStringRGB(ResolveAccentColor());
-                label = $"<b><color=#{accentHex}>{BasisLocalization.Get("trackerLinking.identifyLabel")}</color></b>";
+                text = $"{text} {NoParse(BuildTrackerLabel(input))}";
             }
 
-            if (input != null && input.TryGetRole(out BasisBoneTrackedRole role))
+            descriptor.SetTitle($"<b>{Tint(color, text)}</b>");
+            if (button.ButtonStyling != null)
             {
-                label += $" <size=85%>{BasisLocalization.Get("trackerLinking.identifyCalibratedRole", FormatRole(role))}</size>";
+                button.ButtonStyling.ShowIndicator(showing);
             }
-
-            descriptor.SetTitle(label);
         }
 
-        private static Color ResolveAccentColor()
+        private static string BuildRowTitle(TrackerRow row)
+        {
+            return row.IsPair
+                ? BasisLocalization.Get("trackerLinking.pair.title")
+                : BuildTrackerLabel(row.A);
+        }
+
+        private static string BuildRowDescription(TrackerRow row)
+        {
+            if (!row.IsPair)
+            {
+                return BuildStatusLine(row);
+            }
+
+            string plus = Tint(PaletteColor(p => p.FontColor3, MutedFallback), "+");
+            return $"{TintedName(row.A)}  {plus}  {TintedName(row.B)}\n{BuildStatusLine(row)}";
+        }
+
+        /// <summary>
+        /// The one line that tells the user whether this row is actually doing anything.
+        /// A pair's role lives on the merged midpoint, so for a pair this reads the role
+        /// off <see cref="TrackerRow.Fused"/> — never off the halves, which by design
+        /// hold none.
+        /// </summary>
+        private static string BuildStatusLine(TrackerRow row)
+        {
+            Color success = PaletteColor(p => p.SuccessColor, new Color(0.09f, 0.8f, 0.47f));
+            Color caution = PaletteColor(p => p.CautionColor, new Color(1f, 0.82f, 0.34f));
+
+            if (row.IsPair)
+            {
+                if (row.Fused == null)
+                {
+                    return Tint(caution, BasisLocalization.Get("trackerLinking.status.pairPending"));
+                }
+                if (TryGetBodyRole(row.Fused, out BasisBoneTrackedRole fusedRole))
+                {
+                    return Tint(success, BasisLocalization.Get("trackerLinking.status.pairDriving", FormatRole(fusedRole)));
+                }
+                return Tint(caution, BasisLocalization.Get("trackerLinking.status.pairUncalibrated"));
+            }
+
+            if (!string.IsNullOrEmpty(row.OfflinePartnerId))
+            {
+                return Tint(caution, BasisLocalization.Get("trackerLinking.status.partnerOffline"));
+            }
+
+            if (TryGetBodyRole(row.A, out BasisBoneTrackedRole role))
+            {
+                return Tint(success, BasisLocalization.Get("trackerLinking.status.driving", FormatRole(role)));
+            }
+            return Tint(PaletteColor(p => p.FontColor3, MutedFallback), BasisLocalization.Get("trackerLinking.status.unassigned"));
+        }
+
+        /// <summary>
+        /// A role that means something for the body. A fresh midpoint is initialized as
+        /// CenterEye as a placeholder, so a bare TryGetRole would report a brand-new,
+        /// never-calibrated pair as bound.
+        /// </summary>
+        private static bool TryGetBodyRole(BasisInput input, out BasisBoneTrackedRole role)
+        {
+            if (input != null
+                && input.TryGetRole(out role)
+                && BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(role))
+            {
+                return true;
+            }
+            role = BasisBoneTrackedRole.CenterEye;
+            return false;
+        }
+
+        private static readonly Color MutedFallback = new Color(0.65f, 0.67f, 0.69f);
+
+        private static Color PaletteColor(Func<UiStylePalette, Color> pick, Color fallback)
         {
             UiStylePalette palette = UiStyleSettings.GetActivePalette();
-            return palette != null ? palette.AccentColor : new Color(0.14f, 0.46f, 0.93f);
+            return palette != null ? pick(palette) : fallback;
         }
 
-        private static string BuildEntryDescription(BasisInput input)
+        private static string Tint(Color color, string text)
+            => $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{text}</color>";
+
+        /// <summary>
+        /// The tracker's name, in the colour its identify sphere lights up. The name
+        /// carries the colour rather than a separate swatch block — a block wants to be
+        /// a small square, and every way of drawing one in this menu is worse than not:
+        /// a shape glyph (●) has no guaranteed entry in the Latin SDF atlas, a TMP mark
+        /// highlight comes out as a bar the full height of the line, and a PanelImage
+        /// gets its own full-width row in the vertical layout.
+        /// </summary>
+        private static string TintedName(BasisInput input)
+            => Tint(BasisTrackerIdentifyGizmos.ColorFor(input), NoParse(BuildTrackerLabel(input)));
+
+        // Device names come off the hardware, so they are not ours to trust as markup.
+        private static string NoParse(string text) => $"<noparse>{text}</noparse>";
+
+        private static string ResolveCurrentRoleOverride(TrackerRow row)
         {
-            if (input.TryGetRole(out BasisBoneTrackedRole role))
+            if (BasisTrackerRoleOverride.TryGetOverride(row.A.UniqueDeviceIdentifier, out BasisBoneTrackedRole role))
             {
-                return BasisLocalization.Get("trackerLinking.entry.role", FormatRole(role));
+                return role.ToString();
             }
-            return BasisLocalization.Get("trackerLinking.entry.unassigned");
-        }
-
-        private static string ResolveCurrentLink(string id, List<string> eligibleIds)
-        {
-            if (BasisTrackerPairing.TryGetPartner(id, out string partner) && eligibleIds.Contains(partner))
-            {
-                return partner;
-            }
-            return UnlinkedLabel;
-        }
-
-        private static string ResolveCurrentRoleOverride(string id)
-        {
-            if (BasisTrackerRoleOverride.TryGetOverride(id, out BasisBoneTrackedRole role))
+            if (row.IsPair && BasisTrackerRoleOverride.TryGetOverride(row.B.UniqueDeviceIdentifier, out role))
             {
                 return role.ToString();
             }

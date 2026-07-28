@@ -87,11 +87,13 @@ namespace Basis.Network.Core.Compression
         public static readonly byte[] BPC_HIGH = new byte[]
         {
             // 3-DOF body (9): spine, chest, upperchest, neck, head, upper arms, upper legs
-            10,10,10,10,10,10,10,10,10,
+            // 12 bits (was 10): halves the per-joint quant step twice over vs 10-bit, cutting the
+            // slow-motion limb SHIMMER ~4x. Long-lever/proximal joints dominate hand/foot shimmer.
+            12,12,12,12,12,12,12,12,12,
             // 2-DOF limbs (4): lower arms, lower legs
-            10,10,10,10,
+            12,12,12,12,
             // 2-DOF extremities (6): shoulders(2), hands(2), feet(2)
-            10,10, 10,10, 9,9,
+            12,12, 12,12, 12,12,
             // toes (2)
             5,5,
             // finger proximal (10): L-Thumb,L-Index,L-Mid,L-Ring,L-Little, R-same
@@ -231,9 +233,15 @@ namespace Basis.Network.Core.Compression
             return (totalBits + 7) >> 3;
         }
 
+        // End-effector anchoring block (hand/foot world targets), High quality only —
+        // near players get precise planting; far players are repacked to lower quality without it.
+        public const int EndEffectorBlockBytes = 35;
+        public static int EndEffectorBytes(BasisAvatarBitPacking.BitQuality q)
+            => q == BasisAvatarBitPacking.BitQuality.High ? EndEffectorBlockBytes : 0;
+
         public static int ConvertToSize(BasisAvatarBitPacking.BitQuality q)
         {
-            return WritePosition + RotationBytes(q) + TailBytes;
+            return BasisAvatarBitPacking.PositionBytes(q) + RotationBytes(q) + TailBytes + EndEffectorBytes(q);
         }
 
         public static int ComputeBitOffsets(byte[] bpc, int[] outBitOffsets)

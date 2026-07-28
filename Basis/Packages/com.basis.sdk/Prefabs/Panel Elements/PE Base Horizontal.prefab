@@ -169,15 +169,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelElement
   _clearOnAwake: 1
+  _useDefaultIconForNull: 0
   <DefaultIcon>k__BackingField: {fileID: 21300000, guid: a336a8280e1dda94fbef1a59936ed578, type: 3}
   <DefaultTexture>k__BackingField: {fileID: 0}
   <DefaultTitle>k__BackingField: Title Goes Here
   <DefaultDescription>k__BackingField: Description goes here.
+  <ElementBaseImage>k__BackingField: {fileID: 2695670721113310902}
   <IconImage>k__BackingField: {fileID: 3263669264447411214}
   <TextureImage>k__BackingField: {fileID: 0}
   <IconBackground>k__BackingField: {fileID: 7348275743049059416}
   <TitleLabel>k__BackingField: {fileID: 2039101535754525982}
   <DescriptionLabel>k__BackingField: {fileID: 8451671340370077725}
+  <Header>k__BackingField: {fileID: 0}
   _contentParent: {fileID: 218847886230661513}
 --- !u!1 &2156544173709909833
 GameObject:
@@ -247,8 +250,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Description goes here.
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: d5e3db51eb660a74bacffd52668552f1, type: 2}
-  m_sharedMaterial: {fileID: 5446976611118035860, guid: d5e3db51eb660a74bacffd52668552f1, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 3961345727a7615428c1b1bf4345430a, type: 2}
+  m_sharedMaterial: {fileID: 5446976611118035860, guid: 3961345727a7615428c1b1bf4345430a, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -839,8 +842,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Title Goes Here
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: d5e3db51eb660a74bacffd52668552f1, type: 2}
-  m_sharedMaterial: {fileID: 5446976611118035860, guid: d5e3db51eb660a74bacffd52668552f1, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 3961345727a7615428c1b1bf4345430a, type: 2}
+  m_sharedMaterial: {fileID: 5446976611118035860, guid: 3961345727a7615428c1b1bf4345430a, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

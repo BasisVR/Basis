@@ -671,7 +671,7 @@ namespace Valve.VR
             localRotation = poseActionData.pose.mDeviceToAbsoluteTracking.GetRotation();
             velocity = GetUnityCoordinateVelocity(poseActionData.pose.vVelocity);
             angularVelocity = GetUnityCoordinateAngularVelocity(poseActionData.pose.vAngularVelocity);
-            updateTime = Time.realtimeSinceStartup;
+            updateTime = SteamVR_Input.realtimeSinceStartup;
         }
 
         protected bool GetChanged()

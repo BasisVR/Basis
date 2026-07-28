@@ -254,6 +254,7 @@ public class BasisRemoteAudioDebugWindow : EditorWindow
         EditorGUILayout.LabelField("State", state);
         EditorGUILayout.LabelField("PLC Count", audio.PlcCount.ToString());
         EditorGUILayout.LabelField("Silence Skipped", audio.SilenceInjectedCount.ToString());
+        EditorGUILayout.LabelField("Genuine Underruns", buf.GenuineUnderruns.ToString());
     }
 
     private void DrawJitterBuffer(BasisAudioReceiver audio)

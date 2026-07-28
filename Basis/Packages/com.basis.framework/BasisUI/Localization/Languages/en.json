@@ -379,10 +379,6 @@
       "value": "Show interaction hover spheres and lines to hovered objects."
     },
     {
-      "key": "settings.developer.fingerTouch.tooltip",
-      "value": "Show the fingertip touch sphere in VR. Gray when idle, yellow while hovering, green while pressing."
-    },
-    {
       "key": "settings.developer.seatTargets.tooltip",
       "value": "Show the seated-pose solve targets for the back, knees, and feet."
     },
@@ -1967,14 +1963,6 @@
       "value": "Connected Trackers"
     },
     {
-      "key": "trackerLinking.trustSteamVRRoles",
-      "value": "Trust SteamVR Tracker Roles"
-    },
-    {
-      "key": "trackerLinking.trustSteamVRRoles.tooltip",
-      "value": "Also bind trackers using the body-part roles assigned by hand in SteamVR settings. Only enable this if you actually set those roles yourself."
-    },
-    {
       "key": "trackerLinking.connectorTrackers",
       "value": "Show Connector Trackers"
     },
@@ -2087,6 +2075,42 @@
       "value": "Multiplies the size of every body-part accept zone used when matching trackers to roles during full-body calibration. Higher = more forgiving of unusual body proportions, high-mounted trackers, a wide stance, or an imperfect T-pose, at the cost of occasional mis-assignment. Default: 1."
     },
     {
+      "key": "trackerLinking.trustSteamVRRoles",
+      "value": "Trust SteamVR Roles"
+    },
+    {
+      "key": "trackerLinking.trustSteamVRRoles.tooltip",
+      "value": "Use the body role SteamVR reports for a tracker instead of working it out during calibration."
+    },
+    {
+      "key": "trackerLinking.unlink",
+      "value": "Unlink"
+    },
+    {
+      "key": "trackerLinking.unlink.tooltip",
+      "value": "Break this pair and return both trackers to the unpaired list."
+    },
+    {
+      "key": "trackerLinking.pair.title",
+      "value": "Paired Trackers"
+    },
+    {
+      "key": "trackerLinking.status.pairPending",
+      "value": "Pair waiting for calibration"
+    },
+    {
+      "key": "trackerLinking.status.pairUncalibrated",
+      "value": "Paired, not yet calibrated"
+    },
+    {
+      "key": "trackerLinking.status.partnerOffline",
+      "value": "Partner tracker offline"
+    },
+    {
+      "key": "trackerLinking.status.unassigned",
+      "value": "No body role assigned"
+    },
+    {
       "key": "menu.exit.dialog.title",
       "value": "Basis VR"
     },
@@ -2113,14 +2137,6 @@
     {
       "key": "calibration.calibrating",
       "value": "Calibrating"
-    },
-    {
-      "key": "calibration.pullTriggers",
-      "value": "T-Pose, then pull both triggers"
-    },
-    {
-      "key": "calibration.clickToConfirm",
-      "value": "Click again to calibrate"
     },
     {
       "key": "calibration.additionalHeight",
@@ -2189,6 +2205,14 @@
     {
       "key": "calibration.resetConfirm",
       "value": "Reset all calibration settings to defaults? You will need to recalibrate full-body tracking afterwards."
+    },
+    {
+      "key": "calibration.mirror",
+      "value": "Mirror"
+    },
+    {
+      "key": "calibration.mirror.tooltip",
+      "value": "Summon a mirror so you can watch your avatar while you calibrate."
     },
     {
       "key": "menu.servers.source.savedServers",
@@ -2621,6 +2645,14 @@
     {
       "key": "menu.individualPlayer.directConnection.ping.notConnected",
       "value": "Not connected"
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.partial.description",
+      "value": "The direct link is degraded, so the server is carrying this player's traffic. Try Again to rebuild it."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.tryAgain",
+      "value": "Try Again"
     },
     {
       "key": "menu.individualPlayer.mute",
@@ -3383,6 +3415,14 @@
       "value": "The avatar was still loaded, but the remote file could not be reached."
     },
     {
+      "key": "library.trackerPicker.title",
+      "value": "Choose a Tracker"
+    },
+    {
+      "key": "library.trackerPicker.cancel",
+      "value": "Cancel"
+    },
+    {
       "key": "settings.title",
       "value": "Settings"
     },
@@ -3397,6 +3437,18 @@
     {
       "key": "settings.general.rememberMenuState.tooltip",
       "value": "Restore each menu's scroll position, open sections, and last tab when you reopen it, and reopen the menu after loading a world."
+    },
+    {
+      "key": "settings.general.developer.title",
+      "value": "Developer"
+    },
+    {
+      "key": "settings.general.showDeveloperTab",
+      "value": "Show Developer Tab"
+    },
+    {
+      "key": "settings.general.showDeveloperTab.tooltip",
+      "value": "Add the Developer tab to Settings. It holds diagnostics, gizmos, and debug tools that are not needed for normal use."
     },
     {
       "key": "settings.audio.title",
@@ -3549,134 +3601,6 @@
     {
       "key": "settings.general.disableVRAutoHold.description",
       "value": "Ignore VR auto-hold on pickups, so you must keep holding the grab button to carry them."
-    },
-    {
-      "key": "settings.general.disableVRFingerTouch",
-      "value": "Disable VR Finger Touch"
-    },
-    {
-      "key": "settings.general.disableVRFingerTouch.tooltip",
-      "value": "Stop your index fingertip from hovering and pressing menus in VR. You can still point and click with the controller laser."
-    },
-    {
-      "key": "settings.general.disableVRFingerTouch.description",
-      "value": "Prevent direct fingertip presses on VR menus, so UI only responds to the laser pointer."
-    },
-    {
-      "key": "settings.general.fingerTouch.title",
-      "value": "VR Finger Touch"
-    },
-    {
-      "key": "settings.general.fingerTouch.finger",
-      "value": "Touch Finger"
-    },
-    {
-      "key": "settings.general.fingerTouch.finger.tooltip",
-      "value": "Which finger presses menus in VR. Falls back to the index finger if the avatar is missing the chosen finger."
-    },
-    {
-      "key": "settings.general.fingerTouch.finger.index",
-      "value": "Index"
-    },
-    {
-      "key": "settings.general.fingerTouch.finger.thumb",
-      "value": "Thumb"
-    },
-    {
-      "key": "settings.general.fingerTouch.finger.middle",
-      "value": "Middle"
-    },
-    {
-      "key": "settings.general.fingerTouch.finger.ring",
-      "value": "Ring"
-    },
-    {
-      "key": "settings.general.fingerTouch.finger.little",
-      "value": "Little"
-    },
-    {
-      "key": "settings.general.fingerTouch.hands",
-      "value": "Touch Hands"
-    },
-    {
-      "key": "settings.general.fingerTouch.hands.tooltip",
-      "value": "Limit finger touch to one hand, or allow both."
-    },
-    {
-      "key": "settings.general.fingerTouch.hands.both",
-      "value": "Both"
-    },
-    {
-      "key": "settings.general.fingerTouch.hands.left",
-      "value": "Left"
-    },
-    {
-      "key": "settings.general.fingerTouch.hands.right",
-      "value": "Right"
-    },
-    {
-      "key": "settings.general.fingerTouch.tipOffset",
-      "value": "Fingertip Offset"
-    },
-    {
-      "key": "settings.general.fingerTouch.tipOffset.tooltip",
-      "value": "How far past the last finger bone the touch point sits."
-    },
-    {
-      "key": "settings.general.fingerTouch.fingerLength",
-      "value": "Fallback Finger Length"
-    },
-    {
-      "key": "settings.general.fingerTouch.fingerLength.tooltip",
-      "value": "Distance from the hand to the touch point when the avatar has no finger bones."
-    },
-    {
-      "key": "settings.general.fingerTouch.radius",
-      "value": "Touch Radius"
-    },
-    {
-      "key": "settings.general.fingerTouch.radius.tooltip",
-      "value": "Size of the fingertip touch sphere. Bigger is easier to hit, smaller is more precise."
-    },
-    {
-      "key": "settings.general.fingerTouch.hoverDistance",
-      "value": "Hover Distance"
-    },
-    {
-      "key": "settings.general.fingerTouch.hoverDistance.tooltip",
-      "value": "How close the fingertip must get to a menu before hovering starts."
-    },
-    {
-      "key": "settings.general.fingerTouch.pressDepth",
-      "value": "Press Distance"
-    },
-    {
-      "key": "settings.general.fingerTouch.pressDepth.tooltip",
-      "value": "How close to the surface the fingertip must get to press."
-    },
-    {
-      "key": "settings.general.fingerTouch.releaseDistance",
-      "value": "Release Distance"
-    },
-    {
-      "key": "settings.general.fingerTouch.releaseDistance.tooltip",
-      "value": "How far the fingertip must pull back to release a press."
-    },
-    {
-      "key": "settings.general.fingerTouch.scrollSensitivity",
-      "value": "Scroll Sensitivity"
-    },
-    {
-      "key": "settings.general.fingerTouch.scrollSensitivity.tooltip",
-      "value": "How fast dragging your fingertip scrolls content."
-    },
-    {
-      "key": "settings.general.fingerTouch.haptics",
-      "value": "Touch Haptics"
-    },
-    {
-      "key": "settings.general.fingerTouch.haptics.tooltip",
-      "value": "Vibrate the controller when the fingertip hovers, presses, and clicks."
     },
     {
       "key": "settings.general.hud.title",
@@ -3835,6 +3759,138 @@
       "value": "Disabled"
     },
     {
+      "key": "settings.general.networking.p2pVoiceBitrateOverride",
+      "value": "Override Direct Voice Bitrate"
+    },
+    {
+      "key": "settings.general.networking.p2pVoiceBitrateOverride.tooltip",
+      "value": "Set the bitrate for direct player-to-player voice yourself instead of following the server."
+    },
+    {
+      "key": "settings.general.networking.p2pVoiceBitrate",
+      "value": "Direct Voice Bitrate"
+    },
+    {
+      "key": "settings.general.networking.p2pVoiceBitrate.description",
+      "value": "Bitrate used for voice sent straight to another player."
+    },
+    {
+      "key": "settings.general.networking.p2pVoiceBitrate.tooltip",
+      "value": "Higher sounds better and uses more bandwidth."
+    },
+    {
+      "key": "settings.general.uiHaptics",
+      "value": "UI Haptics"
+    },
+    {
+      "key": "settings.general.uiHaptics.tooltip",
+      "value": "Buzz the controller when you hover or press menu controls."
+    },
+    {
+      "key": "settings.general.hideRemoteCameras",
+      "value": "Hide Remote Cameras"
+    },
+    {
+      "key": "settings.general.hideRemoteCameras.tooltip",
+      "value": "Hide the camera props other players are holding."
+    },
+    {
+      "key": "settings.general.fingerTouch.title",
+      "value": "Finger Touch"
+    },
+    {
+      "key": "settings.general.fingerTouch.finger",
+      "value": "Touch Finger"
+    },
+    {
+      "key": "settings.general.fingerTouch.finger.tooltip",
+      "value": "Which finger drives direct touch."
+    },
+    {
+      "key": "settings.general.fingerTouch.hands",
+      "value": "Touch Hands"
+    },
+    {
+      "key": "settings.general.fingerTouch.hands.tooltip",
+      "value": "Which hands can touch directly."
+    },
+    {
+      "key": "settings.general.fingerTouch.tipOffset",
+      "value": "Tip Offset"
+    },
+    {
+      "key": "settings.general.fingerTouch.tipOffset.tooltip",
+      "value": "How far past the fingertip bone the touch point sits."
+    },
+    {
+      "key": "settings.general.fingerTouch.fingerLength",
+      "value": "Finger Length"
+    },
+    {
+      "key": "settings.general.fingerTouch.fingerLength.tooltip",
+      "value": "Length of the finger used for touch, measured from the knuckle."
+    },
+    {
+      "key": "settings.general.fingerTouch.radius",
+      "value": "Touch Radius"
+    },
+    {
+      "key": "settings.general.fingerTouch.radius.tooltip",
+      "value": "Radius of the fingertip probe. Larger is more forgiving but less precise."
+    },
+    {
+      "key": "settings.general.fingerTouch.hoverDistance",
+      "value": "Hover Distance"
+    },
+    {
+      "key": "settings.general.fingerTouch.hoverDistance.tooltip",
+      "value": "How close the fingertip must be before a control highlights."
+    },
+    {
+      "key": "settings.general.fingerTouch.pressDepth",
+      "value": "Press Depth"
+    },
+    {
+      "key": "settings.general.fingerTouch.pressDepth.tooltip",
+      "value": "How far you must push past the surface to register a press."
+    },
+    {
+      "key": "settings.general.fingerTouch.releaseDistance",
+      "value": "Release Distance"
+    },
+    {
+      "key": "settings.general.fingerTouch.releaseDistance.tooltip",
+      "value": "How far you must pull back before the press is released."
+    },
+    {
+      "key": "settings.general.fingerTouch.scrollSensitivity",
+      "value": "Scroll Sensitivity"
+    },
+    {
+      "key": "settings.general.fingerTouch.scrollSensitivity.tooltip",
+      "value": "How far lists travel for a given fingertip movement."
+    },
+    {
+      "key": "settings.general.fingerTouch.haptics",
+      "value": "Touch Haptics"
+    },
+    {
+      "key": "settings.general.fingerTouch.haptics.tooltip",
+      "value": "Buzz the controller when your fingertip touches a control."
+    },
+    {
+      "key": "settings.general.disableVRFingerTouch.description",
+      "value": "Touch menus and objects directly with your fingertips in VR."
+    },
+    {
+      "key": "settings.general.disableVRFingerTouch",
+      "value": "Disable Finger Touch"
+    },
+    {
+      "key": "settings.general.disableVRFingerTouch.tooltip",
+      "value": "Turn off direct fingertip interaction and use the pointer ray only."
+    },
+    {
       "key": "settings.audio.mixer.title",
       "value": "Volume Mixer"
     },
@@ -3889,6 +3945,58 @@
     {
       "key": "settings.audio.propVolume",
       "value": "Prop Volume"
+    },
+    {
+      "key": "settings.audio.sounds.title",
+      "value": "Interface Sounds"
+    },
+    {
+      "key": "settings.audio.sounds.hover",
+      "value": "Hover"
+    },
+    {
+      "key": "settings.audio.sounds.hover.tooltip",
+      "value": "Play a sound when the pointer moves over a control."
+    },
+    {
+      "key": "settings.audio.sounds.press",
+      "value": "Press"
+    },
+    {
+      "key": "settings.audio.sounds.press.tooltip",
+      "value": "Play a sound when you press a control."
+    },
+    {
+      "key": "settings.audio.sounds.grab",
+      "value": "Grab"
+    },
+    {
+      "key": "settings.audio.sounds.grab.tooltip",
+      "value": "Play a sound when you pick something up."
+    },
+    {
+      "key": "settings.audio.sounds.chat",
+      "value": "Chat"
+    },
+    {
+      "key": "settings.audio.sounds.chat.tooltip",
+      "value": "Play a sound when a chat message arrives."
+    },
+    {
+      "key": "settings.audio.sounds.microphone",
+      "value": "Microphone"
+    },
+    {
+      "key": "settings.audio.sounds.microphone.tooltip",
+      "value": "Play a sound when your microphone is muted or unmuted."
+    },
+    {
+      "key": "settings.audio.sounds.camera",
+      "value": "Camera"
+    },
+    {
+      "key": "settings.audio.sounds.camera.tooltip",
+      "value": "Play a shutter sound when a photo is taken."
     },
     {
       "key": "settings.microphone.group.title",
@@ -4295,6 +4403,126 @@
       "value": "Menu Styles"
     },
     {
+      "key": "settings.chat.menuBackground.title",
+      "value": "Menu Background"
+    },
+    {
+      "key": "settings.chat.menuBackground.accentAmount",
+      "value": "Accent Amount"
+    },
+    {
+      "key": "settings.chat.menuBackground.accentAmount.tooltip",
+      "value": "How strongly the coloured accent orbs show through the background."
+    },
+    {
+      "key": "settings.chat.menuBackground.accentFeather",
+      "value": "Accent Feather"
+    },
+    {
+      "key": "settings.chat.menuBackground.accentFeather.tooltip",
+      "value": "Softens the edge of each accent orb so it fades out instead of ending in a visible arc."
+    },
+    {
+      "key": "settings.chat.menuBackground.accentSoftness",
+      "value": "Accent Softness"
+    },
+    {
+      "key": "settings.chat.menuBackground.accentSoftness.tooltip",
+      "value": "Falloff curve of the accent orbs. Higher values pull them in tighter to their centres."
+    },
+    {
+      "key": "settings.chat.menuBackground.brandGradient",
+      "value": "Brand Gradient"
+    },
+    {
+      "key": "settings.chat.menuBackground.brandGradient.tooltip",
+      "value": "Blends the accent orbs from their texture colour toward the Basis brand gradient."
+    },
+    {
+      "key": "settings.chat.menuBackground.gradientCycle",
+      "value": "Gradient Cycle"
+    },
+    {
+      "key": "settings.chat.menuBackground.gradientCycle.tooltip",
+      "value": "Seconds for the brand gradient to sweep across the panel and back."
+    },
+    {
+      "key": "settings.chat.menuBackground.animationSpeed",
+      "value": "Animation Speed"
+    },
+    {
+      "key": "settings.chat.menuBackground.animationSpeed.tooltip",
+      "value": "Speed of the background animation. Set to zero to hold it still."
+    },
+    {
+      "key": "settings.chat.menuBackground.sheen",
+      "value": "Sheen"
+    },
+    {
+      "key": "settings.chat.menuBackground.sheen.tooltip",
+      "value": "Brightness of the soft light band that sweeps along the panel diagonal."
+    },
+    {
+      "key": "settings.chat.menuBackground.cursorGlowColor",
+      "value": "Pointer Glow Colour"
+    },
+    {
+      "key": "settings.chat.menuBackground.pointer.title",
+      "value": "Pointer Glow"
+    },
+    {
+      "key": "settings.chat.menuBackground.cursorGlow",
+      "value": "Pointer Glow Strength"
+    },
+    {
+      "key": "settings.chat.menuBackground.cursorGlow.tooltip",
+      "value": "Brightness of the glow that follows your pointer across the panel."
+    },
+    {
+      "key": "settings.chat.menuBackground.cursorGlowRadius",
+      "value": "Pointer Glow Radius"
+    },
+    {
+      "key": "settings.chat.menuBackground.cursorGlowRadius.tooltip",
+      "value": "Size of the pointer glow, in metres."
+    },
+    {
+      "key": "settings.chat.menuBackground.finish.title",
+      "value": "Background Finish"
+    },
+    {
+      "key": "settings.chat.menuBackground.vignette",
+      "value": "Vignette"
+    },
+    {
+      "key": "settings.chat.menuBackground.vignette.tooltip",
+      "value": "Darkens the panel corners so menu content reads in front of the background."
+    },
+    {
+      "key": "settings.chat.menuBackground.exposure",
+      "value": "Exposure"
+    },
+    {
+      "key": "settings.chat.menuBackground.exposure.tooltip",
+      "value": "Overall brightness of the background."
+    },
+    {
+      "key": "settings.chat.menuBackground.grain",
+      "value": "Grain"
+    },
+    {
+      "key": "settings.chat.menuBackground.grain.tooltip",
+      "value": "Film grain over the background. Also breaks up banding in the dark gradient."
+    },
+    {
+      "key": "settings.chat.menuBackground.grainScale",
+      "value": "Grain Scale"
+    },
+    {
+      "key": "settings.chat.menuBackground.grainScale.tooltip",
+      "value": "Size of the grain. Match this to the panel's on-screen pixel width."
+    },
+    {
       "key": "settings.chat.menuEdge.title",
       "value": "Menu Edge"
     },
@@ -4481,6 +4709,38 @@
     {
       "key": "settings.controls.roles",
       "value": "Roles"
+    },
+    {
+      "key": "settings.controls.desktopInputInVR",
+      "value": "Desktop Input in VR"
+    },
+    {
+      "key": "settings.controls.desktopInputInVR.tooltip",
+      "value": "Keep the keyboard and mouse active while a headset is connected."
+    },
+    {
+      "key": "settings.controls.uiClick.title",
+      "value": "UI Click"
+    },
+    {
+      "key": "settings.controls.uiClick.description",
+      "value": "How far the trigger must travel to click, and to let go."
+    },
+    {
+      "key": "settings.controls.uiClickPress",
+      "value": "Press Threshold"
+    },
+    {
+      "key": "settings.controls.uiClickPress.tooltip",
+      "value": "How far the trigger must be pulled to register a click."
+    },
+    {
+      "key": "settings.controls.uiClickRelease",
+      "value": "Release Threshold"
+    },
+    {
+      "key": "settings.controls.uiClickRelease.tooltip",
+      "value": "How far the trigger must be released before the click ends."
     },
     {
       "key": "settings.bodyTracking.description",
@@ -4801,6 +5061,10 @@
     {
       "key": "settings.bodyTracking.debug.calibrationState",
       "value": "Calibration State"
+    },
+    {
+      "key": "settings.bodyTracking.debug.bodyFit",
+      "value": "Body Fit"
     },
     {
       "key": "settings.bodyTracking.section.armTwist.title",
@@ -5343,6 +5607,22 @@
       "value": "Synthesized chest/spine motion when no tracker drives the torso. Per-axis cascade fractions, resting S-curve bias, and hips yaw deadband."
     },
     {
+      "key": "settings.bodyTracking.section.bodyFit.title",
+      "value": "Body Fit"
+    },
+    {
+      "key": "settings.bodyTracking.section.bodyFit.description",
+      "value": "How closely the avatar's proportions are matched to your measured body."
+    },
+    {
+      "key": "settings.bodyTracking.section.headSwing.title",
+      "value": "Head Carry (Desktop)"
+    },
+    {
+      "key": "settings.bodyTracking.section.headSwing.description",
+      "value": "Desktop only — reproduces the lever arm the headset already provides in VR."
+    },
+    {
       "key": "settings.bodyTracking.vspineChestPitchFrac.title",
       "value": "Chest Pitch Cascade"
     },
@@ -5456,7 +5736,7 @@
     },
     {
       "key": "settings.bodyTracking.smoothingStrength.title",
-      "value": "work"
+      "value": "Smoothing Strength"
     },
     {
       "key": "settings.bodyTracking.smoothingStrength.description",
@@ -6091,10 +6371,6 @@
       "value": "Interaction Hover"
     },
     {
-      "key": "settings.developer.fingerTouch",
-      "value": "Finger Touch"
-    },
-    {
       "key": "settings.developer.seatTargets",
       "value": "Seat Targets"
     },
@@ -6193,6 +6469,18 @@
     {
       "key": "settings.highPlayerCap.prompt.no",
       "value": "Not Now"
+    },
+    {
+      "key": "settings.highPlayerCap.prompt.dontAskAgain",
+      "value": "Don't ask again"
+    },
+    {
+      "key": "settings.highPlayerCap.disabled.title",
+      "value": "Prompt Turned Off"
+    },
+    {
+      "key": "settings.highPlayerCap.disabled.body",
+      "value": "You won't be asked about busy instances again. Turn it back on with \"Suggest Performance Mode\" under Settings → Graphics."
     },
     {
       "key": "settings.developer.gizmoLabels.description",
@@ -7375,6 +7663,34 @@
       "value": "Add"
     },
     {
+      "key": "settings.perf.jiggleCullExpansion",
+      "value": "Jiggle Cull Margin"
+    },
+    {
+      "key": "settings.perf.jiggleCullExpansion.tooltip",
+      "value": "How far past the view frustum jiggle keeps simulating, as a multiple of the frustum."
+    },
+    {
+      "key": "settings.perf.jiggleCullNearKeep",
+      "value": "Jiggle Keep Radius"
+    },
+    {
+      "key": "settings.perf.jiggleCullNearKeep.tooltip",
+      "value": "Jiggle closer than this keeps simulating even when it is off screen."
+    },
+    {
+      "key": "settings.perf.jiggleBroadPhaseCellSize",
+      "value": "Jiggle Grid Cell Size"
+    },
+    {
+      "key": "settings.perf.jiggleBroadPhaseCellSize.tooltip",
+      "value": "Cell size of the jiggle collision grid. Larger cells build faster but test more pairs."
+    },
+    {
+      "key": "settings.perf.jiggleBroadPhaseCellSize.restart",
+      "value": "Jiggle Grid Cell Size (restart required)"
+    },
+    {
       "key": "settings.developer.didKey.description",
       "value": "Your UUID — the long-lived identifier the server keys bans, permissions, and content shares against. Read-only; tap the eye icon to reveal."
     },
@@ -7475,6 +7791,30 @@
       "value": "Windowed"
     },
     {
+      "key": "settings.graphics.highPlayerCapSuggestions",
+      "value": "Suggest Performance Mode"
+    },
+    {
+      "key": "settings.graphics.highPlayerCapSuggestions.tooltip",
+      "value": "Offer to turn on Performance Mode when you join a busy instance."
+    },
+    {
+      "key": "settings.graphics.avatarSkinLod",
+      "value": "Avatar Skinning LOD"
+    },
+    {
+      "key": "settings.graphics.avatarSkinLod.tooltip",
+      "value": "Reduce skinning detail on distant avatars."
+    },
+    {
+      "key": "settings.graphics.avatarShadowLod",
+      "value": "Avatar Shadow LOD"
+    },
+    {
+      "key": "settings.graphics.avatarShadowLod.tooltip",
+      "value": "Reduce shadow detail on distant avatars."
+    },
+    {
       "key": "settings.microphone.mode.onActivation",
       "value": "On Activation"
     },
@@ -7539,16 +7879,64 @@
       "value": "Errors Only"
     },
     {
+      "key": "settings.developer.fingerTouch",
+      "value": "Finger Touch Gizmo"
+    },
+    {
+      "key": "settings.developer.fingerTouch.tooltip",
+      "value": "Draw the fingertip probes used for direct menu interaction."
+    },
+    {
+      "key": "settings.developer.networkAdditionalInfo",
+      "value": "Network Detail Gizmo"
+    },
+    {
+      "key": "settings.developer.networkAdditionalInfo.tooltip",
+      "value": "Draw extra networking detail above remote players."
+    },
+    {
+      "key": "settings.developer.contentPoliceLogging",
+      "value": "Content Police Logging"
+    },
+    {
+      "key": "settings.developer.contentPoliceLogging.tooltip",
+      "value": "Log every change Content Police makes while it inspects loaded content."
+    },
+    {
+      "key": "settings.developer.shaderBlocklist",
+      "value": "Shader Blocklist"
+    },
+    {
+      "key": "settings.developer.shaderBlocklist.tooltip",
+      "value": "Replace shaders matching the patterns below with a safe fallback."
+    },
+    {
+      "key": "settings.developer.shaderBlocklistPatterns",
+      "value": "Blocklist Patterns"
+    },
+    {
+      "key": "settings.developer.shaderBlocklistPatterns.tooltip",
+      "value": "Comma-separated shader name patterns. * matches any run of characters."
+    },
+    {
+      "key": "settings.developer.options.title",
+      "value": "Developer Options"
+    },
+    {
+      "key": "settings.developer.alwaysShowCalibration",
+      "value": "Always Show Calibration"
+    },
+    {
+      "key": "settings.developer.alwaysShowCalibration.tooltip",
+      "value": "Keep the calibration menu available even when full body tracking is off."
+    },
+    {
       "key": "settings.bodyTracking.seatedMode.standing",
       "value": "Standing Mode"
     },
     {
       "key": "settings.bodyTracking.seatedMode.seated",
       "value": "Seated Mode"
-    },
-    {
-      "key": "settings.bodyTracking.ikMode.auto",
-      "value": "Auto"
     },
     {
       "key": "settings.bodyTracking.ikMode.eyeHeight",
@@ -7735,8 +8123,324 @@
       "value": "Derives your arm span from eye height x ratio so your reach matches the avatar's (fixes stubby arms). Requires IK Mode = Arm Distance. Re-calibrate to apply."
     },
     {
+      "key": "settings.bodyTracking.armHeightRatio.enabled.title",
+      "value": "Match Arm Span"
+    },
+    {
+      "key": "settings.bodyTracking.armHeightRatio.enabled.title.tooltip",
+      "value": "Scale the avatar's arms to your measured arm span instead of using the authored length."
+    },
+    {
+      "key": "settings.bodyTracking.armHeightRatio.title",
+      "value": "Arm Span Ratio"
+    },
+    {
+      "key": "settings.bodyTracking.armHeightRatio.title.tooltip",
+      "value": "Arm span as a multiple of height. 1.0 is the human average; raise it for longer arms."
+    },
+    {
       "key": "settings.bodyTracking.calibSphereScale",
       "value": "Calibration Sphere Scale"
+    },
+    {
+      "key": "settings.bodyTracking.trackerVisuals.title",
+      "value": "Tracker Models"
+    },
+    {
+      "key": "settings.bodyTracking.trackerVisuals.tooltip",
+      "value": "What to draw at each tracker: the real device model, a simple shape, or nothing."
+    },
+    {
+      "key": "settings.bodyTracking.jobLocomotion",
+      "value": "Threaded Locomotion"
+    },
+    {
+      "key": "settings.bodyTracking.jobLocomotion.tooltip",
+      "value": "Run locomotion on a worker thread. Keeps movement smooth when the main thread is busy."
+    },
+    {
+      "key": "settings.bodyTracking.kneeFollowsFoot",
+      "value": "Knees Follow Feet"
+    },
+    {
+      "key": "settings.bodyTracking.kneeFollowsFoot.tooltip",
+      "value": "Aim each knee along its foot's facing instead of straight ahead, so turned feet don't twist the leg."
+    },
+    {
+      "key": "settings.bodyTracking.wristAxialBound.title",
+      "value": "Bound Wrist Twist"
+    },
+    {
+      "key": "settings.bodyTracking.wristAxialBound.title.tooltip",
+      "value": "Stop the wrist rolling past its anatomical limit when the hand tracker over-rotates."
+    },
+    {
+      "key": "settings.bodyTracking.elbowDrag.title",
+      "value": "Elbow Drag"
+    },
+    {
+      "key": "settings.bodyTracking.elbowDrag.title.tooltip",
+      "value": "Let the elbow trail behind the hand when you have no elbow tracker, so the arm feels weighted instead of snapping."
+    },
+    {
+      "key": "settings.bodyTracking.elbowDragHz.title",
+      "value": "Elbow Drag Response"
+    },
+    {
+      "key": "settings.bodyTracking.elbowDragHz.title.tooltip",
+      "value": "Corner frequency of the drag, in hertz. Lower feels heavier and lags more; higher follows the hand closely."
+    },
+    {
+      "key": "settings.bodyTracking.shoulderShrug.title",
+      "value": "Shoulder Shrug"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderShrug.title.tooltip",
+      "value": "Raise the shoulder as the hand reaches overhead, the way a real shoulder rides up."
+    },
+    {
+      "key": "settings.bodyTracking.shoulderRetraction.title",
+      "value": "Shoulder Retraction"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderRetraction.title.tooltip",
+      "value": "Pull the shoulder back as the hand reaches behind you, instead of leaving the chest square."
+    },
+    {
+      "key": "settings.bodyTracking.shoulderCoupleRatio.title",
+      "value": "Shoulder Coupling"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderCoupleRatio.title.tooltip",
+      "value": "How much of the arm's swing the shoulder takes on. 0 keeps the shoulder still; 1 lets it follow the arm fully."
+    },
+    {
+      "key": "settings.bodyTracking.shoulderMaxDeg.title",
+      "value": "Shoulder Travel Limit"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderMaxDeg.title.tooltip",
+      "value": "Largest angle the shoulder may rotate away from its bind pose, in degrees."
+    },
+    {
+      "key": "settings.bodyTracking.shoulderSlideStart.title",
+      "value": "Shoulder Slide Start"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderSlideStart.title.tooltip",
+      "value": "Arm elevation at which the shoulder starts sliding upward, in degrees."
+    },
+    {
+      "key": "settings.bodyTracking.shoulderSlideMax.title",
+      "value": "Shoulder Slide Limit"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderSlideMax.title.tooltip",
+      "value": "Largest upward slide of the shoulder once sliding has begun, in degrees."
+    },
+    {
+      "key": "settings.bodyTracking.shoulderSlideFraction.title",
+      "value": "Shoulder Slide Amount"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderSlideFraction.title.tooltip",
+      "value": "How much of the available slide range is actually used. 0 disables sliding."
+    },
+    {
+      "key": "settings.bodyTracking.bodyFit.maxDeviation.title",
+      "value": "Max Deviation"
+    },
+    {
+      "key": "settings.bodyTracking.bodyFit.maxDeviation.tooltip",
+      "value": "How far a bone may be moved from the avatar's authored proportions to fit your body."
+    },
+    {
+      "key": "settings.bodyTracking.headSwing.strength",
+      "value": "Head Carry Strength"
+    },
+    {
+      "key": "settings.bodyTracking.headSwing.strength.tooltip",
+      "value": "How far the head leads the body as you move. 0 keeps the head over the hips."
+    },
+    {
+      "key": "settings.bodyTracking.headSwing.backward",
+      "value": "Backward Carry"
+    },
+    {
+      "key": "settings.bodyTracking.headSwing.backward.tooltip",
+      "value": "How much of that carry also applies when you move backwards."
+    },
+    {
+      "key": "settings.bodyTracking.kneeFootFollow.title",
+      "value": "Knee Follows Foot (Upright)"
+    },
+    {
+      "key": "settings.bodyTracking.kneeFootFollow.title.tooltip",
+      "value": "How strongly the knee tracks its foot while you are standing upright."
+    },
+    {
+      "key": "settings.bodyTracking.spineGazeFollow.title",
+      "value": "Spine Follows Gaze"
+    },
+    {
+      "key": "settings.bodyTracking.spineGazeFollow.title.tooltip",
+      "value": "How much the spine turns toward where you are looking."
+    },
+    {
+      "key": "settings.bodyTracking.neckGazeFollow.title",
+      "value": "Neck Follows Gaze"
+    },
+    {
+      "key": "settings.bodyTracking.neckGazeFollow.title.tooltip",
+      "value": "How much the neck turns toward where you are looking."
+    },
+    {
+      "key": "settings.bodyTracking.neckGazeFollowMax.title",
+      "value": "Neck Gaze Limit"
+    },
+    {
+      "key": "settings.bodyTracking.neckGazeFollowMax.title.tooltip",
+      "value": "Largest angle the neck may turn to follow your gaze, in degrees."
+    },
+    {
+      "key": "settings.bodyTracking.thoracicBendStiffen.title",
+      "value": "Upper Back Stiffness"
+    },
+    {
+      "key": "settings.bodyTracking.thoracicBendStiffen.title.tooltip",
+      "value": "How much the upper back resists bending, keeping the curve lower in the spine."
+    },
+    {
+      "key": "settings.bodyTracking.spineTautBand.title",
+      "value": "Spine Taut Band"
+    },
+    {
+      "key": "settings.bodyTracking.spineTautBand.title.tooltip",
+      "value": "Slack in the spine chain before it pulls taut, as a fraction of spine length."
+    },
+    {
+      "key": "settings.bodyTracking.bendTwistCoupling.title",
+      "value": "Bend/Twist Coupling"
+    },
+    {
+      "key": "settings.bodyTracking.bendTwistCoupling.title.tooltip",
+      "value": "How much twisting the spine also bends it, the way a real torso couples the two."
+    },
+    {
+      "key": "settings.bodyTracking.trunkCounterbalance.title",
+      "value": "Trunk Counterbalance"
+    },
+    {
+      "key": "settings.bodyTracking.trunkCounterbalance.title.tooltip",
+      "value": "Lean the trunk against a reach to keep your weight over your feet."
+    },
+    {
+      "key": "settings.bodyTracking.trunkCounterbalanceMax.title",
+      "value": "Counterbalance Limit"
+    },
+    {
+      "key": "settings.bodyTracking.trunkCounterbalanceMax.title.tooltip",
+      "value": "Largest counterbalance lean allowed, as a fraction of the full range."
+    },
+    {
+      "key": "settings.bodyTracking.chestFollowChestShare.title",
+      "value": "Chest Follow Share"
+    },
+    {
+      "key": "settings.bodyTracking.chestFollowChestShare.title.tooltip",
+      "value": "How much of the chest tracker's motion the chest takes, with the rest passed to the spine."
+    },
+    {
+      "key": "settings.bodyTracking.chestIkWeight.title",
+      "value": "Chest IK Weight"
+    },
+    {
+      "key": "settings.bodyTracking.chestIkWeight.title.tooltip",
+      "value": "How strongly the chest is pulled onto its tracker. 0 leaves the chest to the spine solve."
+    },
+    {
+      "key": "settings.bodyTracking.chestIkIterations.title",
+      "value": "Chest IK Iterations"
+    },
+    {
+      "key": "settings.bodyTracking.chestIkIterations.title.tooltip",
+      "value": "Solver passes per frame for the chest. More is more accurate and more expensive."
+    },
+    {
+      "key": "settings.bodyTracking.chestIkSweeps.title",
+      "value": "Head Restore Sweeps"
+    },
+    {
+      "key": "settings.bodyTracking.chestIkSweeps.title.tooltip",
+      "value": "Extra passes that put the head back on target after the chest has been solved."
+    },
+    {
+      "key": "settings.bodyTracking.chestPosPullMax.title",
+      "value": "Chest Pull Limit"
+    },
+    {
+      "key": "settings.bodyTracking.chestPosPullMax.title.tooltip",
+      "value": "Largest angle the chest may swing to reach its tracker, in degrees."
+    },
+    {
+      "key": "settings.bodyTracking.chestPullMaxDist.title",
+      "value": "Chest Pull Distance"
+    },
+    {
+      "key": "settings.bodyTracking.chestPullMaxDist.title.tooltip",
+      "value": "How far the chest may be pulled toward its tracker."
+    },
+    {
+      "key": "settings.bodyTracking.trackedKneeMinCutoff.title",
+      "value": "Knee Swivel Min Cutoff"
+    },
+    {
+      "key": "settings.bodyTracking.trackedKneeMinCutoff.title.tooltip",
+      "value": "Lowest smoothing applied to tracked knee swivel; smaller values steady slow motion but add a little lag."
+    },
+    {
+      "key": "settings.bodyTracking.trackedKneeBeta.title",
+      "value": "Knee Swivel Beta"
+    },
+    {
+      "key": "settings.bodyTracking.trackedKneeBeta.title.tooltip",
+      "value": "How quickly knee swivel smoothing eases off during fast movement."
+    },
+    {
+      "key": "settings.bodyTracking.trackedKneeDerivCutoff.title",
+      "value": "Knee Swivel Derivative Cutoff"
+    },
+    {
+      "key": "settings.bodyTracking.trackedKneeDerivCutoff.title.tooltip",
+      "value": "Smoothing applied to knee swivel speed changes, suppressing jitter on quick turns."
+    },
+    {
+      "key": "settings.bodyTracking.vspinePostureModel.title",
+      "value": "Virtual Spine Posture"
+    },
+    {
+      "key": "settings.bodyTracking.vspinePostureModel.title.tooltip",
+      "value": "Shape the back with the virtual spine's posture model instead of a straight chain."
+    },
+    {
+      "key": "settings.bodyTracking.vspineHipsCompression.title",
+      "value": "Hip Compression"
+    },
+    {
+      "key": "settings.bodyTracking.vspineHipsCompression.title.tooltip",
+      "value": "How much the hips drop and compress as you crouch."
+    },
+    {
+      "key": "settings.bodyTracking.vspineHipsMaxDrop.title",
+      "value": "Max Hip Drop"
+    },
+    {
+      "key": "settings.bodyTracking.vspineHipsMaxDrop.title.tooltip",
+      "value": "Furthest the hips may drop below their standing height."
+    },
+    {
+      "key": "settings.bodyTracking.smoothing.preset.tooltip",
+      "value": "Pick a ready-made smoothing profile, or choose Custom to set the values yourself."
     },
     {
       "key": "settings.admin.opusFecLoss",
@@ -7967,6 +8671,30 @@
       "value": "Remove from Server Defaults"
     },
     {
+      "key": "settings.admin.title.remoteEndEffectorIK",
+      "value": "Remote End Effector IK"
+    },
+    {
+      "key": "settings.admin.title.remoteEndEffectorIK.tooltip",
+      "value": "Solve arms and legs for remote players instead of using the pose they send."
+    },
+    {
+      "key": "settings.admin.opusBitrate.override",
+      "value": "Override Voice Bitrate"
+    },
+    {
+      "key": "settings.admin.opusBitrate.override.tooltip",
+      "value": "Set the voice bitrate for everyone on this server instead of using the default."
+    },
+    {
+      "key": "settings.admin.opusBitrate",
+      "value": "Voice Bitrate"
+    },
+    {
+      "key": "settings.admin.opusBitrate.tooltip",
+      "value": "Opus bitrate applied to every player on this server, in bits per second."
+    },
+    {
       "key": "settings.ik.title.perBoneSettings",
       "value": "Per-Bone Settings"
     },
@@ -8005,6 +8733,114 @@
     {
       "key": "settings.ra.title.voiceBuffer",
       "value": "Voice Buffer"
+    },
+    {
+      "key": "settings.microphone.noiseGate.auto",
+      "value": "Automatic Threshold"
+    },
+    {
+      "key": "settings.microphone.noiseGate.auto.tooltip",
+      "value": "Set the gate threshold from your measured room noise instead of a fixed number."
+    },
+    {
+      "key": "settings.microphone.agc.debug",
+      "value": "AGC Status"
+    },
+    {
+      "key": "settings.microphone.agc.debug.off",
+      "value": "Automatic gain is off."
+    },
+    {
+      "key": "settings.microphone.agc.debug.listening",
+      "value": "Listening for your voice..."
+    },
+    {
+      "key": "settings.performanceMode.title",
+      "value": "Performance Mode"
+    },
+    {
+      "key": "settings.performanceMode.description",
+      "value": "Trades avatar detail for frame rate in busy instances."
+    },
+    {
+      "key": "settings.performanceMode.level",
+      "value": "Level"
+    },
+    {
+      "key": "settings.performanceMode.level.tooltip",
+      "value": "How aggressively avatars are simplified. Each entry lists the player count that arms it."
+    },
+    {
+      "key": "settings.performanceMode.level.autoLocked",
+      "value": "Turn off Follow Player Count to choose a level yourself."
+    },
+    {
+      "key": "settings.performanceMode.auto",
+      "value": "Follow Player Count"
+    },
+    {
+      "key": "settings.performanceMode.auto.tooltip",
+      "value": "Switch levels automatically as the instance fills up."
+    },
+    {
+      "key": "menu.individualPlayer.normalizeLoudness",
+      "value": "Normalize Loudness"
+    },
+    {
+      "key": "menu.individualPlayer.normalizeLoudness.description",
+      "value": "Even out this player's volume on your side, whatever their microphone is doing."
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording",
+      "value": "Voice Recording"
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.description",
+      "value": "Record this player's voice on your machine. They are asked first and can revoke it at any time."
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.start",
+      "value": "Start Recording"
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.start.description",
+      "value": "Ask this player for permission to record their voice."
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.requesting",
+      "value": "Waiting for a reply..."
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.policy",
+      "value": "Their Recording Requests"
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.policy.description",
+      "value": "What happens when this player asks to record your voice."
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.policy.ask",
+      "value": "Ask Every Time"
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.policy.allow",
+      "value": "Always Allow"
+    },
+    {
+      "key": "menu.individualPlayer.voiceRecording.policy.deny",
+      "value": "Always Deny"
+    },
+    {
+      "key": "menu.voiceRecording.consent.title",
+      "value": "Voice Recording Request"
+    },
+    {
+      "key": "menu.voiceRecording.consent.allow",
+      "value": "Allow"
+    },
+    {
+      "key": "menu.voiceRecording.consent.deny",
+      "value": "Deny"
     }
   ]
 }

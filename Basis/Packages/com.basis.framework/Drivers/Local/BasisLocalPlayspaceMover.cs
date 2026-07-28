@@ -62,6 +62,11 @@ namespace Basis.Scripts.Drivers
         private static bool _scaleDirty;
         private static float _pendingScaleHeight;
 
+        private static bool _scriptScaleDriving;
+        private static float _scriptScaleRestore;
+        private static bool _scriptScaleRestoreCustom;
+        private static float _scriptScaleApplied = float.NaN;
+
         // Net horizontal translation the mover has applied through the character controller, so it can
         // be undone on demand. Vertical is tracked separately in VerticalOffset.
         private static Vector3 _offsetPos;
@@ -102,9 +107,19 @@ namespace Basis.Scripts.Drivers
 
         public static void Simulate(BasisLocalPlayer player, float deltaTime)
         {
+            // Ticked ahead of every gate below so the restore still runs on the frame a script stops
+            // driving (or the mover bails), instead of stranding the player at a scripted size.
+            TickScriptedScale();
+
+            // The opt-in toggle and the VR requirement gate the hand-grab GESTURE. A sandboxed script
+            // supplying synthetic hands is not a gesture, so it drives the mover on its own terms
+            // (desktop included) while every safety gate below still applies to both paths.
+            bool deviceDriven = BasisSettingsDefaults.EnablePlayspaceMover.RawValue
+                && BasisDeviceManagement.IsCurrentModeVR();
+            bool scriptDriven = BasisScriptedPlayerInput.MoverActive;
+
             if (player == null || BasisLocalPlayer.PlayerReady == false
-                || BasisSettingsDefaults.EnablePlayspaceMover.RawValue == false
-                || BasisDeviceManagement.IsCurrentModeVR() == false
+                || (deviceDriven == false && scriptDriven == false)
                 || player.LocalSeatDriver.IsSeated)
             {
                 // Feature off / not VR / seated / not ready: drop any vertical offset + flip so re-enabling
@@ -159,9 +174,30 @@ namespace Basis.Scripts.Drivers
 
             // Vertical drag turned off while lifted: settle back to the floor rather than leaving the
             // player stuck at a previous offset with no way to lower it short of Reset.
-            if (BasisSettingsDefaults.PlayspaceMoverVertical.RawValue == false)
+            if (BasisSettingsDefaults.PlayspaceMoverVertical.RawValue == false
+                && BasisScriptedPlayerInput.VerticalActive == false)
             {
                 VerticalOffset = 0f;
+            }
+
+            // Applied before the no-hands bail below so a script can drive vertical/horizontal on its
+            // own without also having to synthesize a grabbing hand.
+            BasisScriptedPlayerInput.ConsumeVertical(ref VerticalOffset);
+
+            if (BasisScriptedPlayerInput.TryConsumeHorizontal(out BasisScriptedInputBlend horizontalBlend, out Vector3 horizontal))
+            {
+                // Additive nudges the play space; Override drives the NET drag to an absolute offset,
+                // mirroring the vertical channel. Routed through Apply so it goes via the character
+                // controller and still resolves walls and floors like a hand drag does.
+                Vector3 drag = horizontalBlend == BasisScriptedInputBlend.Override
+                    ? horizontal - _offsetPos
+                    : horizontal;
+                drag.y = 0f;
+                if (drag.sqrMagnitude > 1e-10f)
+                {
+                    player.transform.GetPositionAndRotation(out Vector3 hpos, out Quaternion hrot);
+                    Apply(player, hpos, hpos + drag, hrot);
+                }
             }
 
             string handMode = BasisSettingsDefaults.PlayspaceMoverHand.RawValue;
@@ -172,8 +208,8 @@ namespace Basis.Scripts.Drivers
             bool allowRotate = BasisSettingsDefaults.PlayspaceMoverRotate.RawValue;
             bool allowScale = BasisSettingsDefaults.PlayspaceMoverScale.RawValue;
 
-            GatherHand(BasisBoneTrackedRole.LeftHand, mainInput, rotateInput, out bool leftPresent, out bool leftMain, out bool leftRotate, out Vector3 leftLocal, out Vector3 leftUnscaled);
-            GatherHand(BasisBoneTrackedRole.RightHand, mainInput, rotateInput, out bool rightPresent, out bool rightMain, out bool rightRotate, out Vector3 rightLocal, out Vector3 rightUnscaled);
+            GatherHand(BasisBoneTrackedRole.LeftHand, mainInput, rotateInput, deviceDriven, out bool leftPresent, out bool leftMain, out bool leftRotate, out Vector3 leftLocal, out Vector3 leftUnscaled);
+            GatherHand(BasisBoneTrackedRole.RightHand, mainInput, rotateInput, deviceDriven, out bool rightPresent, out bool rightMain, out bool rightRotate, out Vector3 rightLocal, out Vector3 rightUnscaled);
 
             // The rotate input is a two-handed-only gesture (yaw); translation (one hand) and scale (two
             // hands) are driven by the MAIN input. A single hand on the rotate input must not engage, or a
@@ -360,6 +396,55 @@ namespace Basis.Scripts.Drivers
             localRotation = FlipRotation * localRotation;
         }
 
+        /// <summary>
+        /// Drives the player's height from a sandboxed script. Unlike the two-hand scale gesture this is
+        /// deliberately TRANSIENT: it applies live but is never written back to the CustomScale /
+        /// SelectedScale settings, and the user's configured size is restored the moment the script stops
+        /// driving — so an avatar can resize you without permanently editing your profile. The gesture
+        /// wins while it is active.
+        /// </summary>
+        private static void TickScriptedScale()
+        {
+            bool gestureActive = _scaling;
+            if (gestureActive == false && BasisScriptedPlayerInput.TryGetScale(out BasisScriptedInputBlend blend, out float height))
+            {
+                if (_scriptScaleDriving == false)
+                {
+                    _scriptScaleDriving = true;
+                    _scriptScaleRestoreCustom = BasisSettingsDefaults.CustomScale.RawValue;
+                    _scriptScaleRestore = _scriptScaleRestoreCustom
+                        ? BasisSettingsDefaults.SelectedScale.RawValue
+                        : BasisHeightDriver.SelectedUnScaledAvatarHeight;
+                    if (_scriptScaleRestore < 1e-3f) _scriptScaleRestore = BasisHeightDriver.FallbackHeightInMeters;
+                }
+
+                float target = blend == BasisScriptedInputBlend.Override ? height : _scriptScaleRestore + height;
+                ApplyScaleLive(true, Mathf.Clamp(target, MinHeight, MaxHeight));
+                return;
+            }
+
+            if (_scriptScaleDriving)
+            {
+                _scriptScaleDriving = false;
+                ApplyScaleLive(_scriptScaleRestoreCustom, _scriptScaleRestore);
+            }
+        }
+
+        // ApplyScaleAndHeight re-runs the whole height/scale pipeline, so skip it while a script holds a
+        // steady size instead of paying for it every frame.
+        private static void ApplyScaleLive(bool custom, float height)
+        {
+            if (_scriptScaleApplied == height && SMModuleCalibration.ApplyCustomScale == custom)
+            {
+                return;
+            }
+
+            _scriptScaleApplied = height;
+            SMModuleCalibration.ApplyCustomScale = custom;
+            SMModuleCalibration.SelectedScale = height;
+            BasisHeightDriver.ApplyScaleAndHeight();
+        }
+
         private static void ApplyScaleGesture(Vector3 leftUnscaled, Vector3 rightUnscaled)
         {
             // Measure from the unscaled (pre-player-scaling) device poses so changing the scale
@@ -429,6 +514,22 @@ namespace Basis.Scripts.Drivers
             // (both call Move this frame) and the controller keeps its internal position in sync.
             if (driver.characterController != null && driver.characterController.enabled)
             {
+                // This runs AFTER locomotion's gravity Move, so it is the frame's LAST Move -- and
+                // CharacterController.isGrounded only ever reflects the most recent Move. A purely
+                // horizontal drag delta (or the ~zero delta of a stationary two-hand scale) never
+                // reports "below" contact, so on its own this Move clears isGrounded; next frame's
+                // GroundCheck then reads not-grounded and drops the avatar into the falling animation
+                // for the entire time you drag or scale. When we're already grounded (locomotion's
+                // gravity Move established it earlier this same frame) re-assert the floor contact with
+                // a tiny downward stick -- the same thing gravity does every frame during normal
+                // locomotion -- so grounding, and the animation state, survive the drag. It's absorbed
+                // by the floor collision, so it doesn't actually lower the player. Left at zero when
+                // genuinely airborne so a real fall or an in-progress jump isn't disturbed.
+                if (driver.characterController.isGrounded)
+                {
+                    delta.y = -Mathf.Max(driver.characterController.skinWidth * 4f, 0.02f);
+                }
+
                 driver.characterController.Move(delta);
                 t.rotation = newRot;
             }
@@ -445,7 +546,7 @@ namespace Basis.Scripts.Drivers
             _offsetPos += finalPos - pcur;
         }
 
-        private static void GatherHand(BasisBoneTrackedRole role, string mainInput, string rotateInput, out bool present, out bool mainHeld, out bool rotateHeld, out Vector3 local, out Vector3 unscaled)
+        private static void GatherHand(BasisBoneTrackedRole role, string mainInput, string rotateInput, bool deviceDriven, out bool present, out bool mainHeld, out bool rotateHeld, out Vector3 local, out Vector3 unscaled)
         {
             present = false;
             mainHeld = false;
@@ -453,31 +554,50 @@ namespace Basis.Scripts.Drivers
             local = Vector3.zero;
             unscaled = Vector3.zero;
 
-            if (BasisDeviceManagement.Instance == null) return;
-            var devices = BasisDeviceManagement.Instance.AllInputDevices;
-            if (devices == null) return;
-
-            foreach (BasisInput device in devices)
+            if (deviceDriven && BasisDeviceManagement.Instance != null)
             {
-                if (device == null || device.HasControl == false) continue;
-                if (device.TryGetRole(out BasisBoneTrackedRole r) == false || r != role) continue;
+                var devices = BasisDeviceManagement.Instance.AllInputDevices;
+                if (devices != null)
+                {
+                    foreach (BasisInput device in devices)
+                    {
+                        if (device == null || device.HasControl == false) continue;
+                        if (device.TryGetRole(out BasisBoneTrackedRole r) == false || r != role) continue;
 
-                present = true;
-                // Grip is also the pickup input — while this hand is holding an interactable,
-                // don't let it drive the mover until the object is released.
-                if (IsHandHoldingObject(device))
-                {
-                    mainHeld = false;
-                    rotateHeld = false;
+                        present = true;
+                        // Grip is also the pickup input — while this hand is holding an interactable,
+                        // don't let it drive the mover until the object is released.
+                        if (IsHandHoldingObject(device))
+                        {
+                            mainHeld = false;
+                            rotateHeld = false;
+                        }
+                        else
+                        {
+                            mainHeld = IsHeld(device.CurrentInputState, mainInput);
+                            rotateHeld = IsHeld(device.CurrentInputState, rotateInput);
+                        }
+                        local = device.Control.OutGoingData.position;
+                        unscaled = device.UnscaledDeviceCoord.position;
+                        break;
+                    }
                 }
-                else
+            }
+
+            // Override replaces the real hand outright; Additive only fills in a hand that isn't
+            // already grabbing, so the player's own grip always wins over the script's.
+            if (BasisScriptedPlayerInput.TryGetHand(role == BasisBoneTrackedRole.LeftHand, out BasisScriptedInputBlend scriptBlend, out Vector3 scriptLocal, out Vector3 scriptUnscaled, out bool scriptGrab, out bool scriptRotate))
+            {
+                bool replace = scriptBlend == BasisScriptedInputBlend.Override
+                    || (mainHeld == false && rotateHeld == false);
+                if (replace)
                 {
-                    mainHeld = IsHeld(device.CurrentInputState, mainInput);
-                    rotateHeld = IsHeld(device.CurrentInputState, rotateInput);
+                    present = true;
+                    local = scriptLocal;
+                    unscaled = scriptUnscaled;
+                    mainHeld = scriptGrab;
+                    rotateHeld = scriptRotate;
                 }
-                local = device.Control.OutGoingData.position;
-                unscaled = device.UnscaledDeviceCoord.position;
-                return;
             }
         }
 

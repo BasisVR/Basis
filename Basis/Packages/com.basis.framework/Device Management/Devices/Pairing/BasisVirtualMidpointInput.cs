@@ -68,6 +68,12 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                 transform.SetParent(a.transform.parent, worldPositionStays: false);
             }
 
+            // The midpoint is only as steady as the noisier half it averages, so it inherits that half
+            // rather than reading as an untyped virtual device.
+            BasisTrackingHardware hardwareA = a != null ? a.TrackingHardware : BasisTrackingHardware.Unknown;
+            BasisTrackingHardware hardwareB = b != null ? b.TrackingHardware : BasisTrackingHardware.Unknown;
+            TrackingHardware = (byte)hardwareA >= (byte)hardwareB ? hardwareA : hardwareB;
+
             string id = "midpoint:" + (a?.UniqueDeviceIdentifier ?? "?") + "|" + (b?.UniqueDeviceIdentifier ?? "?");
             InitializeTracking(id, "VirtualMidpoint", "BasisTrackerPairing", false, BasisBoneTrackedRole.CenterEye);
 

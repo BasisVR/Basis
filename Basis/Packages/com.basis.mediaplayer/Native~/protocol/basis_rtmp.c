@@ -128,7 +128,7 @@ static int rtmp_read_message(rtmp_t* r) {
     }
     if (fmt == 0) {
         uint8_t sid[4]; if (basis_io_read_full(r->io, sid, 4) != 4) return -1;
-        c->stream_id = sid[0] | (sid[1]<<8) | (sid[2]<<16) | (sid[3]<<24);
+        c->stream_id = sid[0] | (sid[1]<<8) | (sid[2]<<16) | ((int)((uint32_t)sid[3]<<24));
     }
     /* Timestamp: a 24-bit field of 0xFFFFFF means the real value (absolute for Type 0,
      * delta for Type 1/2) follows in a 4-byte extended field — present on this chunk,
@@ -199,7 +199,11 @@ static void handle_video(rtmp_t* r, basis_media_sink_t* sink, chunk_state_t* c) 
             r->video_announced = 1;
         }
     } else if (avc_pkt == 1) { /* NALUs (avcc) -> annex B */
-        if (!r->video_announced) sink->on_video_format(sink->user, r->video_codec, NULL, 0, 0, 0), r->video_announced = 1;
+        /* Media before the avcC sequence header (mid-stream join): its SPS — and
+         * the frame size — only travel in the header, and nothing here decodes
+         * without it. Drop and wait for the header rather than announcing 0x0 and
+         * latching. */
+        if (!r->video_announced) return;
         int nls = r->video_nls ? r->video_nls : 4;
         int cap = basis_avcc_annexb_cap(dlen, nls);
         uint8_t* out = (uint8_t*)malloc((size_t)cap);
@@ -244,16 +248,18 @@ static void handle_audio(rtmp_t* r, basis_media_sink_t* sink, chunk_state_t* c) 
 /* find the createStream result's stream id (first AMF number after the command
  * name "_result" and transaction id). Best-effort. */
 static double amf_find_stream_id(const uint8_t* p, int len) {
-    /* skip command string */
+    /* Every multi-byte read is bounds-checked: p/len come straight off the wire,
+     * so a truncated _result must fall through to the default, not over-read. */
     int i = 0;
-    if (i < len && p[i] == 0x02) { int n=(p[i+1]<<8)|p[i+2]; i += 3 + n; }
-    /* transaction id (number) */
+    /* skip command string: 0x02, u16 len, bytes */
+    if (i + 3 <= len && p[i] == 0x02) { int n=(p[i+1]<<8)|p[i+2]; i += 3 + n; }
+    /* transaction id (number): 0x00 + 8 bytes */
     if (i < len && p[i] == 0x00) i += 9;
     /* command object / null */
     if (i < len && p[i] == 0x05) i += 1;
-    else if (i < len && p[i] == 0x03) { /* skip object */ i++; while (i+2<len){ int n=(p[i]<<8)|p[i+1]; if(n==0 && p[i+2]==0x09){i+=3;break;} i+=2+n; if(i<len){ /* skip value */ if(p[i]==0x00)i+=9; else if(p[i]==0x02){int m=(p[i+1]<<8)|p[i+2];i+=3+m;} else if(p[i]==0x01)i+=2; else i++; } } }
-    /* stream id number */
-    if (i < len && p[i] == 0x00) {
+    else if (i < len && p[i] == 0x03) { /* skip object */ i++; while (i+3<=len){ int n=(p[i]<<8)|p[i+1]; if(n==0 && p[i+2]==0x09){i+=3;break;} i+=2+n; if(i<len){ /* skip value */ if(p[i]==0x00)i+=9; else if(i+3<=len && p[i]==0x02){int m=(p[i+1]<<8)|p[i+2];i+=3+m;} else if(p[i]==0x01)i+=2; else i++; } } }
+    /* stream id number: 0x00 + 8 bytes */
+    if (i + 9 <= len && p[i] == 0x00) {
         uint64_t u=0; for(int k=0;k<8;++k) u=(u<<8)|p[i+1+k];
         double d; memcpy(&d,&u,8); return d;
     }
@@ -336,13 +342,14 @@ int basis_rtmp_run(basis_media_sink_t* sink, const basis_url_t* url) {
                 break;
             case 20: case 17: { /* AMF0 / AMF3 command */
                 const uint8_t* p = c->buf; int off = (c->type == 17) ? 1 : 0;
-                if (c->have > off + 1 && p[off] == 0x02) {
+                if (c->have > off + 2 && p[off] == 0x02) {
                     int nlen = (p[off+1]<<8)|p[off+2];
                     const char* name = (const char*)(p + off + 3);
                     /* The first _result is connect's (created==0) and carries no stream id; it
                      * falls through below to send createStream (created=-1). Only the createStream
                      * _result (created==-1) carries the stream id, so extract + play on that one. */
-                    if (created == -1 && nlen == 7 && strncmp(name, "_result", 7) == 0) {
+                    if (created == -1 && nlen == 7 && off + 3 + 7 <= c->have &&
+                        strncmp(name, "_result", 7) == 0) {
                         stream_id = (int)amf_find_stream_id(p + off, c->have - off);
                         created = 1;
                     }

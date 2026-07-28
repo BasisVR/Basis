@@ -8,6 +8,16 @@ using System.Xml.Linq;
 
 public class BasisLoadableConfigurationWindow : EditorWindow
 {
+    const string ModeTooltip =
+        "What the server tells clients to do with this entry.\n\n" +
+        "0 = Prop — loads the bee file as a GameObject and spawns it at the Position/Rotation/Scale below, checked against prop content limits.\n" +
+        "1 = Scene — loads the bee file as a world/scene. The transform below is ignored.\n" +
+        "2 = Avatar — loads the bee file as a GameObject checked against avatar content limits. The transform below is not sent for this mode.\n\n" +
+        "Any other value is rejected by the client.";
+
+    const string ModeXmlComment =
+        " Mode: 0 = Prop (spawned at the transform below), 1 = Scene (transform ignored), 2 = Avatar (transform ignored) ";
+
     // Fields
     int mode = 0;
     string loadedNetID = "";
@@ -36,7 +46,8 @@ public class BasisLoadableConfigurationWindow : EditorWindow
 
         using (new EditorGUILayout.VerticalScope("box"))
         {
-            mode = EditorGUILayout.IntField(new GUIContent("Mode", "Mode of the configuration"), mode);
+            mode = EditorGUILayout.IntField(new GUIContent("Mode", ModeTooltip), mode);
+            EditorGUILayout.LabelField(" ", DescribeMode(mode), EditorStyles.wordWrappedMiniLabel);
             loadedNetID = EditorGUILayout.TextField(new GUIContent("LoadedNetID", "Network ID"), loadedNetID);
             unlockPassword = EditorGUILayout.TextField(new GUIContent("UnlockPassword", "Unlock password (hash)"), unlockPassword);
             combinedURL = EditorGUILayout.TextField(new GUIContent("CombinedURL", "Combined URL"), combinedURL);
@@ -80,6 +91,17 @@ public class BasisLoadableConfigurationWindow : EditorWindow
         EditorGUILayout.HelpBox("Tip: This window writes the XML with the same comments and element order as your example.", MessageType.Info);
     }
 
+    static string DescribeMode(int mode)
+    {
+        switch (mode)
+        {
+            case 0: return "Prop — spawned as a GameObject at the transform below.";
+            case 1: return "Scene — loaded as a world. The transform below is ignored.";
+            case 2: return "Avatar — spawned as a GameObject under avatar content limits. The transform below is not sent.";
+            default: return "Unknown mode — clients reject this and load nothing.";
+        }
+    }
+
     void SaveXML()
     {
         var path = EditorUtility.SaveFilePanel("Save BasisLoadableConfiguration XML", "", "BasisLoadableConfiguration.xml", "xml");
@@ -95,7 +117,7 @@ public class BasisLoadableConfigurationWindow : EditorWindow
                 new XDocument(
                     new XDeclaration("1.0", "utf-8", "yes"),
                     new XElement("BasisLoadableConfiguration",
-                        new XComment(" Mode of the configuration "),
+                        new XComment(ModeXmlComment),
                         new XElement("Mode", mode),
 
                         new XComment(" Network ID "),

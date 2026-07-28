@@ -50,6 +50,20 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return baseRange * s;
         }
 
+        public static float RaycastVisualStartForwardOffset = 0.06f;
+
+        public static Vector3 RayVisualStart(Vector3 origin, Vector3 end)
+        {
+            Vector3 delta = end - origin;
+            float distance = delta.magnitude;
+            if (distance <= 1e-4f)
+            {
+                return origin;
+            }
+            float applied = Mathf.Min(AvatarScaledRange(RaycastVisualStartForwardOffset), distance * 0.5f);
+            return origin + (delta / distance) * applied;
+        }
+
         private static readonly Collider[] _grabHitBuffer = new Collider[32];
 
         [SerializeField]
@@ -334,6 +348,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         {
                             startPos = origin;
                             endPos = input.lastTarget.GetClosestPoint(startPos);
+                            startPos = RayVisualStart(origin, endPos);
                         }
 
                         if (input.input.InteractionLineRenderer != null)
@@ -385,7 +400,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         private BasisInteractableObject PointRaycasterFindInteractable(BasisInteractInput interactInput)
         {
-            bool hit = interactInput.input.BasisPointRaycaster.FirstHit(out RaycastHit rayHit, raycastDistance);
+            bool hit = interactInput.input.BasisPointRaycaster.FirstHit(out RaycastHit rayHit, AvatarScaledRange(raycastDistance));
             if (!hit)
             {
                 return null;

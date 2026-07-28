@@ -124,10 +124,14 @@ public static partial class SerializableBasis
                 return;
             }
 
-            DeserializeAdditionalData(reader);
+            DeserializeAdditionalEntries(reader);
         }
 
-        private void DeserializeAdditionalData(NetDataReader reader)
+        /// <summary>
+        /// Reads the additional-data section [size:1][linkedIndex:1][entries...]. Public so the
+        /// avatar delta receive path can attach blendshape data after reconstructing the pose payload.
+        /// </summary>
+        public void DeserializeAdditionalData(NetDataReader reader)
         {
             if (!reader.TryGetByte(out AdditionalAvatarDataSize))
             {
@@ -135,6 +139,11 @@ public static partial class SerializableBasis
                 return;
             }
 
+            DeserializeAdditionalEntries(reader);
+        }
+
+        private void DeserializeAdditionalEntries(NetDataReader reader)
+        {
             if (!reader.TryGetByte(out LinkedAvatarIndex))
             {
                 BNL.LogError("Missing LinkedAvatarIndex!");
@@ -227,14 +236,28 @@ public static partial class SerializableBasis
             // Additional data only written when present — the channel tells the receiver.
             if (AdditionalAvatarDatas != null && AdditionalAvatarDatas.Length > 0 && AdditionalAvatarDatas.Length <= 255)
             {
-                AdditionalAvatarDataSize = (byte)AdditionalAvatarDatas.Length;
-                writer.Put(AdditionalAvatarDataSize);
-                writer.Put(LinkedAvatarIndex);
+                SerializeAdditionalOnly(writer);
+            }
+        }
 
-                for (int i = 0; i < AdditionalAvatarDataSize; i++)
-                {
-                    AdditionalAvatarDatas[i].Serialize(writer);
-                }
+        /// <summary>
+        /// Writes just the additional-data section [size:1][linkedIndex:1][entries...] — the uplink
+        /// delta path appends this after the delta body (the delta header's additional bit tells the
+        /// receiver it is there), mirroring DeserializeAdditionalData.
+        /// </summary>
+        public void SerializeAdditionalOnly(NetDataWriter writer)
+        {
+            if (AdditionalAvatarDatas == null || AdditionalAvatarDatas.Length == 0 || AdditionalAvatarDatas.Length > 255)
+            {
+                return;
+            }
+            AdditionalAvatarDataSize = (byte)AdditionalAvatarDatas.Length;
+            writer.Put(AdditionalAvatarDataSize);
+            writer.Put(LinkedAvatarIndex);
+
+            for (int i = 0; i < AdditionalAvatarDataSize; i++)
+            {
+                AdditionalAvatarDatas[i].Serialize(writer);
             }
         }
     }

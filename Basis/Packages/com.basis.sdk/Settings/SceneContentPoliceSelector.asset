@@ -48,23 +48,18 @@ MonoBehaviour:
   - SteamAudio.SteamAudioProbeBatch
   - SteamAudio.SteamAudioSource
   - SteamAudio.SteamAudioStaticMesh
-  - UnityEngine.Animations.Rigging.BlendConstraint
-  - UnityEngine.Animations.Rigging.ChainIKConstraint
-  - UnityEngine.Animations.Rigging.DampedTransform
-  - UnityEngine.Animations.Rigging.MultiAimConstraint
-  - UnityEngine.Animations.Rigging.MultiParentConstraint
-  - UnityEngine.Animations.Rigging.MultiPositionConstraint
-  - UnityEngine.Animations.Rigging.MultiReferentialConstraint
-  - UnityEngine.Animations.Rigging.MultiRotationConstraint
-  - UnityEngine.Animations.Rigging.OverrideTransform
-  - UnityEngine.Animations.Rigging.TwistChainConstraint
-  - UnityEngine.Animations.Rigging.TwistCorrection
-  - UnityEngine.Animations.Rigging.TwoBoneIKConstraint
-  - UnityEngine.Animations.Rigging.Rig
-  - UnityEngine.Animations.Rigging.RigBuilder
-  - UnityEngine.Animations.Rigging.RigConstraint`3
-  - UnityEngine.Animations.Rigging.RigTransform
-  - UnityEngine.Animations.Rigging.BoneRenderer
+  - Basis.Scripts.BasisSdk.Constraints.BasisPositionConstraint
+  - Basis.Scripts.BasisSdk.Constraints.BasisRotationConstraint
+  - Basis.Scripts.BasisSdk.Constraints.BasisScaleConstraint
+  - Basis.Scripts.BasisSdk.Constraints.BasisParentConstraint
+  - Basis.Scripts.BasisSdk.Constraints.BasisAimConstraint
+  - Basis.Scripts.BasisSdk.Constraints.BasisLookAtConstraint
+  - Basis.Scripts.BasisSdk.Constraints.BasisBlendConstraint
+  - Basis.Scripts.BasisSdk.Constraints.BasisOverrideTransform
+  - Basis.Scripts.BasisSdk.Constraints.BasisDampedTransform
+  - Basis.Scripts.BasisSdk.Constraints.BasisTwistCorrection
+  - Basis.Scripts.BasisSdk.Constraints.BasisTwoBoneIK
+  - Basis.Scripts.BasisSdk.Constraints.BasisChainIK
   - BasisPickupSyncNetworking
   - BasisObjectSyncNetworking
   - Basis.Scripts.Networking.Sync.BasisSyncedObject
@@ -109,12 +104,6 @@ MonoBehaviour:
   - UnityEngine.VFX.Utility.VFXVelocityBinder
   - UnityEngine.MeshRenderer
   - UnityEngine.MeshFilter
-  - UnityEngine.Animations.AimConstraint
-  - UnityEngine.Animations.PositionConstraint
-  - UnityEngine.Animations.RotationConstraint
-  - UnityEngine.Animations.ScaleConstraint
-  - UnityEngine.Animations.LookAtConstraint
-  - UnityEngine.Animations.ParentConstraint
   - UnityEngine.Cloth
   - UnityEngine.Renderer
   - UnityEngine.Projector
@@ -363,7 +352,6 @@ MonoBehaviour:
   - UnityEngine.Rendering.ProbeTouchupVolume
   - UnityEngine.Rendering.ProbeAdjustmentVolume
   - UnityEngine.Rendering.Volume
-  - UnityEngine.Animations.Rigging.BasisFullBodyIK
   - UnityEngine.Rendering.SceneRenderPipeline
   - UnityEngine.Rendering.LensFlareComponentSRP
   - UnityEngine.Rendering.DebugUpdater

@@ -1,3 +1,4 @@
+using Basis.Scripts.Device_Management;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -489,6 +490,79 @@ namespace Basis
                 }
             }
 
+        }
+
+        [Serializable]
+        public class PendingLoad
+        {
+            public SpawnMode SpawnMode;
+            public SpawnMethod SpawnMethod;
+            public string PendingId;
+            public string Url;
+            public string UUIDOfCreator;
+            public bool isProtected;
+            public bool Persistent;
+            public DateTime StartedUtc;
+            public float Progress;
+            public string Stage;
+        }
+
+        public static event Action OnPendingLoadsChanged;
+        public static event Action<PendingLoad> OnPendingLoadProgress;
+
+        private static readonly Dictionary<string, PendingLoad> _pendingLoads = new();
+        private static readonly ConcurrentQueue<(string PendingId, float Progress, string Stage)> _pendingProgressQueue = new();
+        private static readonly Action _drainPendingProgress = DrainPendingProgress;
+
+        public static IReadOnlyCollection<PendingLoad> GetPendingLoads() => _pendingLoads.Values;
+
+        public static PendingLoad BeginPendingLoad(string url, SpawnMode mode, SpawnMethod method, string creatorUUID, bool admin, bool persistent)
+        {
+            PendingLoad pending = new PendingLoad
+            {
+                PendingId = Guid.NewGuid().ToString("N"),
+                Url = url,
+                SpawnMode = mode,
+                SpawnMethod = method,
+                UUIDOfCreator = creatorUUID,
+                isProtected = admin,
+                Persistent = persistent,
+                StartedUtc = DateTime.UtcNow,
+                Progress = 0f,
+                Stage = string.Empty
+            };
+            _pendingLoads[pending.PendingId] = pending;
+            OnPendingLoadsChanged?.Invoke();
+            return pending;
+        }
+
+        public static void EndPendingLoad(string pendingId)
+        {
+            if (string.IsNullOrEmpty(pendingId)) return;
+            if (_pendingLoads.Remove(pendingId))
+            {
+                OnPendingLoadsChanged?.Invoke();
+            }
+        }
+
+        public static void ReportPendingLoadProgress(string pendingId, float progress, string stage)
+        {
+            _pendingProgressQueue.Enqueue((pendingId, progress, stage));
+            BasisDeviceManagement.EnqueueOnMainThread(_drainPendingProgress);
+        }
+
+        private static void DrainPendingProgress()
+        {
+            while (_pendingProgressQueue.TryDequeue(out (string PendingId, float Progress, string Stage) tick))
+            {
+                if (!_pendingLoads.TryGetValue(tick.PendingId, out PendingLoad pending) || pending == null)
+                {
+                    continue;
+                }
+                pending.Progress = tick.Progress;
+                pending.Stage = tick.Stage;
+                OnPendingLoadProgress?.Invoke(pending);
+            }
         }
     }
 }

@@ -67,6 +67,16 @@ public abstract class BasisBaseTypeManagement : MonoBehaviour
     }
 
     /// <summary>
+    /// Called earlier in LateUpdate than <see cref="Simulate"/>, before any main-thread reader of
+    /// this backend's input state runs. Override to start asynchronous per-frame work (e.g. a
+    /// worker-thread input update) that <see cref="Simulate"/> then joins.
+    /// </summary>
+    public virtual void SimulateKick()
+    {
+
+    }
+
+    /// <summary>
     /// Determines if the device can be booted based on the provided request string.  
     /// Override to implement custom boot validation.
     /// </summary>

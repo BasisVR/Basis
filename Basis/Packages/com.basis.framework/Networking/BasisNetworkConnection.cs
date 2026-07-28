@@ -87,6 +87,11 @@ namespace Basis.Scripts.Networking
 
             byte[] avatarBytes = BasisBundleConversionNetwork.ConvertBasisLoadableBundleToBytes(basisLocalPlayer.AvatarMetaData);
 
+            // Calibration usually happens before ever connecting, so the body fit has to ride the very
+            // first record — otherwise the server stores identity for us and nobody sees the fitted
+            // proportions until the next recalibration happens to produce a different answer.
+            Basis.IK.BasisBodyFitResult bodyFit = Basis.Scripts.Drivers.BasisLocalRigDriver.AppliedBodyFit;
+
             var readyMessage = new ReadyMessage
             {
                 clientAvatarChangeMessage = new ClientAvatarChangeMessage
@@ -94,6 +99,9 @@ namespace Basis.Scripts.Networking
                     byteArray = avatarBytes,
                     loadMode = basisLocalPlayer.AvatarLoadMode,
                     LocalAvatarIndex = 0,
+                    ArmScale = bodyFit.HasArmFit ? bodyFit.ArmScale : 1f,
+                    LegScale = bodyFit.HasBodyFit ? bodyFit.LegScale : 1f,
+                    TorsoScale = bodyFit.HasBodyFit ? bodyFit.TorsoScale : 1f,
                 },
                 playerMetaDataMessage = new ClientMetaDataMessage
                 {
@@ -240,10 +248,12 @@ namespace Basis.Scripts.Networking
                 }
                 Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.StopMovement();
 #endif
+                BasisNetworkConnectionWatchdog.NotifyDisconnected(disconnectInfo);
                 BasisNetworkAvatarCompressor.Dispose();
                 BasisP2PManager.Shutdown();
                 BasisAvatarRateRegistry.Reset();
                 await BasisNetworkLifeCycle.RebootManagement(true, peer, disconnectInfo);
+                BasisNetworkConnectionWatchdog.NotifyRebootComplete();
 #if UNITY_SERVER
                 if (!HeadlessReconnectSuppressed)
                 {

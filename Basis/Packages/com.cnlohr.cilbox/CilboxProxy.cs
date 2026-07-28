@@ -205,7 +205,7 @@ namespace Cilbox
 			if( proxyWasSetup ) return;
 			if( proxyLoadInProgress ) return;
 			if (box == null) return;
-			if (serializedObjectData == null) return;
+			if (string.IsNullOrEmpty(serializedObjectData)) return;
 			proxyLoadInProgress = true;
 			try
 			{

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <wchar.h>
 
 #pragma comment(lib, "winhttp.lib")
 
@@ -16,9 +17,65 @@ typedef struct {
     int response_complete;
     int seekable;            /* finite Content-Length + Accept-Ranges: bytes (VOD) */
     int range_ok;            /* server answered the bytes=0- probe with a 206 */
+    long long content_length;/* body size, or -1 when unknown/chunked/live */
     wchar_t* path;           /* request path, kept for ranged re-requests */
     DWORD open_flags;        /* WINHTTP_FLAG_SECURE when https */
 } win_http_t;
+
+/* Whole-field unsigned parse, or -1 for anything that isn't one. _wcstoi64 would
+ * take a numeric prefix ("123junk" -> 123) and saturate to the signed maximum on
+ * overflow, either of which hands a bogus finite length to the seek and pacing
+ * logic. Header values are remote input, so the field must be digits and nothing
+ * else, and must fit. */
+static long long parse_u64_exact(const wchar_t* s, const wchar_t* end) {
+    if (!s || s >= end) return -1;
+    unsigned long long v = 0;
+    for (; s < end; s++) {
+        if (*s < L'0' || *s > L'9') return -1;
+        unsigned d = (unsigned)(*s - L'0');
+        if (v > (0x7FFFFFFFFFFFFFFFULL - d) / 10ULL) return -1;
+        v = v * 10ULL + d;
+    }
+    return (long long)v;
+}
+
+/* A whole field value, with the optional padding a header value may carry trimmed
+ * off. That padding is only ever legal around the value, never inside it. */
+static long long parse_u64_field(const wchar_t* s) {
+    if (!s) return -1;
+    const wchar_t* end = s + wcslen(s);
+    while (s < end && (*s == L' ' || *s == L'\t')) s++;
+    while (end > s && (end[-1] == L' ' || end[-1] == L'\t')) end--;
+    return parse_u64_exact(s, end);
+}
+
+/* Complete length out of a "bytes <first>-<last>/<complete>" Content-Range, read for
+ * the bytes=0- probe specifically. The grammar carries no whitespace of its own, so
+ * only the outer field padding is tolerated and the delimiters must be exact — a value
+ * like "not-a-range/123" must not pass on the strength of its tail. The bounds have to
+ * be coherent, and first must be 0, because that is what the probe asked for: a body
+ * starting anywhere else is not the one the caller believes it is reading. Either "*"
+ * form reports unknown. */
+static long long parse_content_range_total(const wchar_t* s) {
+    if (!s) return -1;
+    const wchar_t* end = s + wcslen(s);
+    while (s < end && (*s == L' ' || *s == L'\t')) s++;
+    while (end > s && (end[-1] == L' ' || end[-1] == L'\t')) end--;
+
+    const size_t unitLen = 6;   /* "bytes" and the single SP the grammar allows */
+    if ((size_t)(end - s) <= unitLen || _wcsnicmp(s, L"bytes ", unitLen) != 0) return -1;
+    s += unitLen;
+
+    const wchar_t* dash = wcschr(s, L'-');
+    const wchar_t* slash = wcschr(s, L'/');
+    if (!dash || !slash || dash >= slash || slash >= end) return -1;
+
+    long long first = parse_u64_exact(s, dash);
+    long long last = parse_u64_exact(dash + 1, slash);
+    long long total = parse_u64_exact(slash + 1, end);
+    if (first != 0 || last < 0 || total <= 0 || last >= total) return -1;
+    return total;
+}
 
 static wchar_t* to_w(const char* s) {
     int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, NULL, 0);
@@ -90,19 +147,57 @@ extern "C" void* basis_win_http_open(const char* url) {
     }
     h->range_ok = (code == 206);
 
-    /* Seekability (for live-vs-VOD auto-detection): a known Content-Length plus
-     * Accept-Ranges: bytes means a finite, range-fetchable body — on-demand content.
-     * Live streams are chunked / open-ended, so they report neither. Both required so
-     * an open-ended stream is never mistaken for VOD (which would mis-pace it). */
+    /* Seekability (for live-vs-VOD auto-detection): a finite, range-fetchable
+     * body — on-demand content. Range support is proven either by the probe
+     * answering 206 (nginx omits Accept-Ranges on 206 responses, so the status
+     * is the only signal there) or by an Accept-Ranges: bytes advertisement.
+     * Finiteness has to come from somewhere too, so that a chunked / open-ended
+     * live stream is never mistaken for VOD (which would mis-pace it) — either a
+     * Content-Length for the body that arrived, or a Content-Range stating the
+     * representation total. Those are different quantities and only the second is
+     * a length for the whole source; see the split below. Advertised-only range
+     * support still counts as on-demand for pacing, but never for seeking:
+     * can_reseek and reseek both additionally require the probe's 206. */
     {
-        DWORD64 clen = 0; DWORD clsz = sizeof(clen);
-        BOOL haveLen = WinHttpQueryHeaders(h->request,
-            WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER64,
-            WINHTTP_HEADER_NAME_BY_INDEX, &clen, &clsz, WINHTTP_NO_HEADER_INDEX);
+        wchar_t field[128] = {0}; DWORD fsz = sizeof(field);
+        long long bodyLen = -1;   /* what this response carries */
+        long long total = -1;     /* the whole representation, where it can be proven */
+
+        /* Content-Length is read as a string and parsed, not queried with
+         * WINHTTP_QUERY_FLAG_NUMBER64. Wine's winhttp omits NUMBER64 from its
+         * QUERY_MODIFIER_MASK, so the flag is left in the attribute index, the header
+         * lookup misses and the query fails outright — every source then looks
+         * non-seekable under Proton. The 32-bit WINHTTP_QUERY_FLAG_NUMBER that Wine does
+         * support truncates past 4GB, so it isn't the answer either. */
+        if (WinHttpQueryHeaders(h->request, WINHTTP_QUERY_CONTENT_LENGTH,
+                WINHTTP_HEADER_NAME_BY_INDEX, field, &fsz, WINHTTP_NO_HEADER_INDEX)) {
+            bodyLen = parse_u64_field(field);
+        }
+
+        if (h->range_ok) {
+            /* On a 206 the Content-Length covers the returned part, which a range-capping
+             * proxy can make far smaller than the file, so it can never stand in for the
+             * total. Content-Range is the only thing that can. */
+            field[0] = 0; fsz = sizeof(field);
+            if (WinHttpQueryHeaders(h->request, WINHTTP_QUERY_CONTENT_RANGE,
+                    WINHTTP_HEADER_NAME_BY_INDEX, field, &fsz, WINHTTP_NO_HEADER_INDEX)) {
+                total = parse_content_range_total(field);
+            }
+        } else {
+            total = bodyLen;   /* 200: the body is the whole representation */
+        }
+
         wchar_t ranges[64] = {0}; DWORD rsz = sizeof(ranges);
         BOOL haveRanges = WinHttpQueryHeaders(h->request, WINHTTP_QUERY_ACCEPT_RANGES,
             WINHTTP_HEADER_NAME_BY_INDEX, ranges, &rsz, WINHTTP_NO_HEADER_INDEX);
-        h->seekable = (haveLen && clen > 0 && haveRanges && _wcsicmp(ranges, L"bytes") == 0) ? 1 : 0;
+        int rangeable = h->range_ok || (haveRanges && _wcsicmp(ranges, L"bytes") == 0);
+
+        /* Finite and rangeable is what makes this on-demand rather than live, and that
+         * is all the delivery pacing needs. Knowing the complete length is a separate
+         * question: a 206 that won't state one still paces correctly, it just reports an
+         * unknown size rather than passing the part length off as the whole. */
+        h->seekable = ((bodyLen > 0 || total > 0) && rangeable) ? 1 : 0;
+        h->content_length = (total > 0) ? total : -1;
     }
     return h;
 }
@@ -110,6 +205,11 @@ extern "C" void* basis_win_http_open(const char* url) {
 extern "C" int basis_win_http_is_seekable(void* ctx) {
     win_http_t* h = (win_http_t*)ctx;
     return h ? h->seekable : 0;
+}
+
+extern "C" long long basis_win_http_content_length(void* ctx) {
+    win_http_t* h = (win_http_t*)ctx;
+    return h ? h->content_length : -1;
 }
 
 extern "C" int basis_win_http_can_reseek(void* ctx) {

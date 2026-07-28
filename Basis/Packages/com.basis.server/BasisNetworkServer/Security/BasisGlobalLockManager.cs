@@ -23,6 +23,8 @@ namespace BasisNetworkServer.Security
         private static int _directConnectLocked;
         private static int _cilboxLocked;
         private static int _imagesLocked;
+        // 0 = feature on (default), 1 = admin-disabled. Inverted vs the locks above — this is a default-on feature.
+        private static int _endEffectorIKDisabled;
 
         public static bool AvatarsLocked => Interlocked.CompareExchange(ref _avatarsLocked, 0, 0) == 1;
         public static bool PropsLocked => Interlocked.CompareExchange(ref _propsLocked, 0, 0) == 1;
@@ -35,6 +37,7 @@ namespace BasisNetworkServer.Security
         public static bool DirectConnectLocked => Interlocked.CompareExchange(ref _directConnectLocked, 0, 0) == 1;
         public static bool CilboxLocked => Interlocked.CompareExchange(ref _cilboxLocked, 0, 0) == 1;
         public static bool ImagesLocked => Interlocked.CompareExchange(ref _imagesLocked, 0, 0) == 1;
+        public static bool EndEffectorIKDisabled => Interlocked.CompareExchange(ref _endEffectorIKDisabled, 0, 0) == 1;
 
         /// <summary>
         /// Seed the initial lock state from the server configuration.
@@ -53,6 +56,7 @@ namespace BasisNetworkServer.Security
             Interlocked.Exchange(ref _directConnectLocked, config.DirectConnectLocked ? 1 : 0);
             Interlocked.Exchange(ref _cilboxLocked, config.CilboxLocked ? 1 : 0);
             Interlocked.Exchange(ref _imagesLocked, config.ImagesLocked ? 1 : 0);
+            Interlocked.Exchange(ref _endEffectorIKDisabled, config.EndEffectorIKDisabled ? 1 : 0);
         }
 
         /// <summary>
@@ -110,6 +114,12 @@ namespace BasisNetworkServer.Security
         public static bool ToggleImages() => Toggle(ref _imagesLocked);
 
         /// <summary>
+        /// Toggle the global remote end-effector IK disable. Returns the new state (true = disabled;
+        /// clients fall back to pure-FK playback for remote hands/feet). Enforced client-side.
+        /// </summary>
+        public static bool ToggleEndEffectorIK() => Toggle(ref _endEffectorIKDisabled);
+
+        /// <summary>
         /// Set the per-category camera photo-metadata disallow mask (set bit = disallowed).
         /// </summary>
         public static void SetCameraMetadataDisallowMask(byte mask) => Interlocked.Exchange(ref _cameraMetadataDisallowMask, mask);
@@ -153,6 +163,8 @@ namespace BasisNetworkServer.Security
             writer.Put(CilboxLocked);
             // Appended after CilboxLocked — older clients that stop reading earlier still parse.
             writer.Put(ImagesLocked);
+            // Appended after ImagesLocked — older clients that stop reading earlier still parse.
+            writer.Put(EndEffectorIKDisabled);
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
         }
@@ -183,6 +195,8 @@ namespace BasisNetworkServer.Security
             writer.Put(CilboxLocked);
             // Appended after CilboxLocked — older clients that stop reading earlier still parse.
             writer.Put(ImagesLocked);
+            // Appended after ImagesLocked — older clients that stop reading earlier still parse.
+            writer.Put(EndEffectorIKDisabled);
             NetworkServer.BroadcastMessageToClients(
                 writer,
                 BasisNetworkCommons.AdminChannel,

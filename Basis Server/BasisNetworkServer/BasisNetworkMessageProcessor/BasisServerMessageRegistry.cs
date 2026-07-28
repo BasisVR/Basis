@@ -230,6 +230,9 @@ public static class BasisServerMessageRegistry
         RegisterCore(BasisNetworkCommons.PlayerAvatarHighChannel, avatarMovement);
         RegisterCore(BasisNetworkCommons.PlayerAvatarHighAdditionalChannel, avatarMovement);
 
+        RegisterCore(BasisNetworkCommons.DeltaAvatarChannel, (peer, reader, channel, dm) =>
+            BasisServerReductionSystemEvents.HandleDeltaChannelInbound(reader, peer)); // recycles inside
+
         RegisterCore(BasisNetworkCommons.VoiceChannel, (peer, reader, channel, dm) =>
             BasisServerHandleEvents.HandleVoiceMessage(reader, peer)); // recycles inside
 
@@ -302,10 +305,14 @@ public static class BasisServerMessageRegistry
             BasisPlayerModeration.OnAdminMessage(peer, reader)); // recycles inside
 
         RegisterCore(BasisNetworkCommons.ContentShareChannel, (peer, reader, channel, dm) =>
-            BasisNetworkContentShare.HandleContentShareDrop(reader, peer)); // recycles inside
-
-        RegisterCore(BasisNetworkCommons.ContentShareCleanupChannel, (peer, reader, channel, dm) =>
-            BasisNetworkContentShare.HandleContentShareCleanup(reader, peer)); // recycles inside
+        {
+            // Multiplexed: first byte selects drop vs cleanup. Handlers recycle the reader.
+            if (!reader.TryGetByte(out byte sub)) { reader.Recycle(); return; }
+            if (sub == BasisNetworkCommons.ContentShareSub_Cleanup)
+                BasisNetworkContentShare.HandleContentShareCleanup(reader, peer);
+            else
+                BasisNetworkContentShare.HandleContentShareDrop(reader, peer);
+        });
 
         RegisterCore(BasisNetworkCommons.ServerBoundChannel, (peer, reader, channel, dm) =>
         {

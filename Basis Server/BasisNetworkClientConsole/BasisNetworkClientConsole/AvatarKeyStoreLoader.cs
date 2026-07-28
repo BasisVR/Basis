@@ -21,10 +21,26 @@ namespace Basis.Config
         private const int ModeAvatar = 0;
         private const byte LoadModeNetworkDownloadable = 0;
 
+        // Unity puts the keystore under Application.persistentDataPath =
+        // LocalLow\<companyName>\<productName>. The project still ships as "Basis Unity"
+        // (ProjectSettings.asset — the BasisVR rename never touched company/product), so probe
+        // the future name first and fall back to the current one.
+        private static readonly string[][] DefaultLocations =
+        {
+            new[] { "BasisVR", "BasisVR" },
+            new[] { "Basis Unity", "Basis Unity" },
+        };
+
         public static string ResolveDefaultPath()
         {
-            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            return Path.Combine(userProfile, "AppData", "LocalLow", "Basis Unity", "Basis Unity", "ItemKeyStore.json");
+            string localLow = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppData", "LocalLow");
+            foreach (string[] location in DefaultLocations)
+            {
+                string candidate = Path.Combine(localLow, location[0], location[1], "ItemKeyStore.json");
+                if (File.Exists(candidate)) return candidate;
+            }
+            return Path.Combine(localLow, DefaultLocations[0][0], DefaultLocations[0][1], "ItemKeyStore.json");
         }
 
         public static List<Entry> Load(string configuredPath, byte fallbackLoadMode)
@@ -34,7 +50,7 @@ namespace Basis.Config
 
             if (!File.Exists(path))
             {
-                BNL.LogWarning($"Avatar keystore not found at [{path}].");
+                BNL.LogWarning($"Avatar keystore not found at [{path}] (also probed the other default LocalLow company/product folders).");
                 return result;
             }
 

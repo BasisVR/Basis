@@ -103,6 +103,7 @@ public static class BasisNetworkContentShare
             BNL.Log($"Content sphere dropped: {msg.SphereNetID} type={msg.ContentType}");
 
             NetDataWriter writer = NetworkServer.RentWriter();
+            writer.Put(BasisNetworkCommons.ContentShareSub_Drop);
             serverMsg.Serialize(writer);
 
             // Broadcast to all clients including sender
@@ -153,11 +154,12 @@ public static class BasisNetworkContentShare
             };
 
             NetDataWriter writer = NetworkServer.RentWriter();
+            writer.Put(BasisNetworkCommons.ContentShareSub_Cleanup);
             serverMsg.Serialize(writer);
 
             NetworkServer.BroadcastMessageToClients(
                 writer,
-                BasisNetworkCommons.ContentShareCleanupChannel,
+                BasisNetworkCommons.ContentShareChannel,
                 NetworkServer.PeerSnapshot,
                 DeliveryMethod.ReliableOrdered
             );
@@ -177,6 +179,7 @@ public static class BasisNetworkContentShare
         for (int i = 0; i < spheres.Length; i++)
         {
             writer.Reset();
+            writer.Put(BasisNetworkCommons.ContentShareSub_Drop);
             spheres[i].Serialize(writer);
             NetworkServer.TrySend(
                 newConnection,
@@ -214,11 +217,12 @@ public static class BasisNetworkContentShare
                 };
 
                 NetDataWriter writer = NetworkServer.RentWriter();
+                writer.Put(BasisNetworkCommons.ContentShareSub_Cleanup);
                 serverMsg.Serialize(writer);
 
                 NetworkServer.BroadcastMessageToClients(
                     writer,
-                    BasisNetworkCommons.ContentShareCleanupChannel,
+                    BasisNetworkCommons.ContentShareChannel,
                     NetworkServer.PeerSnapshot,
                     DeliveryMethod.ReliableOrdered
                 );

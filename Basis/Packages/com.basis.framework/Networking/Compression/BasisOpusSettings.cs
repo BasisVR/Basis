@@ -61,11 +61,49 @@ public static class LocalOpusSettings
     public static int BitrateOverride = 0;
 
     /// <summary>
-    /// Effective bitrate that should currently be applied to the encoder.
+    /// User-chosen voice bitrate (bps) for direct (P2P) connections, from the
+    /// Networking section of general settings. 0 when the override toggle is off.
     /// </summary>
-    public static int EffectiveBitrate => BitrateOverride > 0 ? BitrateOverride : DefaultBitrate;
+    public static int UserDirectConnectBitrate =>
+        Basis.BasisUI.BasisSettingsDefaults.P2PVoiceBitrateOverride != null
+        && Basis.BasisUI.BasisSettingsDefaults.P2PVoiceBitrateOverride.RawValue
+        && Basis.BasisUI.BasisSettingsDefaults.P2PVoiceBitrate != null
+            ? Mathf.RoundToInt(Basis.BasisUI.BasisSettingsDefaults.P2PVoiceBitrate.RawValue)
+            : 0;
 
-    /// <summary>Fired whenever the effective bitrate changes.</summary>
+    /// <summary>
+    /// "Normal networking quality" — bitrate for voice that travels through the server
+    /// relay (every listener not on a direct link). The admin override when set, otherwise
+    /// <see cref="DefaultBitrate"/>. The direct-connect preference deliberately does not
+    /// feed into this, so a local override can never change what the server receives.
+    /// </summary>
+    public static int ServerBitrate => BitrateOverride > 0 ? BitrateOverride : DefaultBitrate;
+
+    /// <summary>
+    /// "Direct connect quality" — bitrate for voice sent over a direct (P2P) link. The
+    /// user's local override when set, otherwise it matches <see cref="ServerBitrate"/>.
+    /// </summary>
+    public static int DirectConnectBitrate
+    {
+        get
+        {
+            int userDirect = UserDirectConnectBitrate;
+            return userDirect > 0 ? userDirect : ServerBitrate;
+        }
+    }
+
+    /// <summary>
+    /// Re-pushes <see cref="ServerBitrate"/> to the live server encoder. The direct-connect
+    /// encoder tracks <see cref="DirectConnectBitrate"/> itself at encode time, so a P2P
+    /// session connecting/disconnecting or the direct-connect slider moving need not disturb
+    /// the server encoder.
+    /// </summary>
+    public static void ReevaluateEffectiveBitrate()
+    {
+        OnBitrateChanged?.Invoke(ServerBitrate);
+    }
+
+    /// <summary>Fired whenever <see cref="ServerBitrate"/> changes.</summary>
     public static event Action<int> OnBitrateChanged;
 
     /// <summary>Apply a server-pushed bitrate override (bps). Pass 0 to clear.</summary>
@@ -74,7 +112,7 @@ public static class LocalOpusSettings
         if (bps < 0) bps = 0;
         if (BitrateOverride == bps) return;
         BitrateOverride = bps;
-        OnBitrateChanged?.Invoke(EffectiveBitrate);
+        OnBitrateChanged?.Invoke(ServerBitrate);
     }
     public static void SetDeviceAudioConfig(int maxFreq)
     {

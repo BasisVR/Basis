@@ -26,9 +26,12 @@ public class JiggleMemoryFragmenter {
     
     public int GetHighestAllocatedIndex() {
         if (fragments.Count <= 0) {
-            return currentSize;
+            return currentSize - 1;
         }
         var lastFragment = fragments[^1];
+        if (lastFragment.startIndex + lastFragment.count != currentSize) {
+            return currentSize - 1;
+        }
         return lastFragment.startIndex - 1;
     }
 
@@ -55,16 +58,22 @@ public class JiggleMemoryFragmenter {
 
     public void Resize(int newSize) {
         Assert.IsTrue(currentSize <= newSize);
+        if (newSize == currentSize) {
+            return;
+        }
         if (fragments.Count != 0) {
             var fragment = fragments[^1];
-            fragment.count += newSize - currentSize;
-            fragments[^1] = fragment;
-        } else {
-            fragments.Add(new Fragment {
-                startIndex = currentSize,
-                count = newSize - currentSize
-            });
+            if (fragment.startIndex + fragment.count == currentSize) {
+                fragment.count += newSize - currentSize;
+                fragments[^1] = fragment;
+                currentSize = newSize;
+                return;
+            }
         }
+        fragments.Add(new Fragment {
+            startIndex = currentSize,
+            count = newSize - currentSize
+        });
         currentSize = newSize;
     }
 

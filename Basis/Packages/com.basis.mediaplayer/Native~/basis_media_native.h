@@ -67,7 +67,8 @@ typedef enum basis_render_op {
  * Returns NULL only on allocation failure or an unrecognised scheme; transport
  * failures surface asynchronously via basis_media_get_state / get_last_error.
  * Supported schemes: rtsp://, rtspt://, rtmp://, rtmps://, http://, https://
- * (the last two are demuxed by extension: .ts = MPEG-TS, .mp4 = fragmented MP4). */
+ * (the last two pick a demuxer by content sniff — MPEG-TS, fMP4/progressive MP4
+ * or RIFF/WAV — with the URL extension as fallback). */
 BASIS_API basis_media_engine_t* BASIS_CALL basis_media_open(const char* url);
 
 /* Split-stream / paced open. video_url carries video (e.g. an H.264-only fMP4);
@@ -148,14 +149,43 @@ BASIS_API int BASIS_CALL basis_media_poll_caption(basis_media_engine_t* engine, 
  * number of bytes written (excluding NUL), or 0 if there is no error. */
 BASIS_API int BASIS_CALL basis_media_get_last_error(basis_media_engine_t* engine, char* buf, int buf_size);
 
+/* ---- Capability ---------------------------------------------------------- */
+
+/* Video codec ids accepted by basis_media_probe_video_codec. */
+#define BASIS_VIDEO_CODEC_H264 1
+#define BASIS_VIDEO_CODEC_H265 2
+#define BASIS_VIDEO_CODEC_VP9  3
+#define BASIS_VIDEO_CODEC_AV1  4
+
+/* 1 if this platform can decode the codec end to end (decoder present AND the
+ * GPU hardware-decodes it — a decoder that would silently fall back to CPU
+ * frames the present path can't publish reports 0). Engine-less: callable
+ * before any player exists, from any thread; the result is computed once and
+ * cached for the process lifetime. Meant for stream/format selection (e.g.
+ * offering VP9 ladders only where they will actually play). */
+BASIS_API int BASIS_CALL basis_media_probe_video_codec(int codec);
+
 /* Copies a one-line diagnostic counter string (demux AU counts + decoder
  * in/out/blit/drop tallies) into buf. Returns bytes written. For tooling/logs. */
 BASIS_API int BASIS_CALL basis_media_get_debug(basis_media_engine_t* engine, char* buf, int buf_size);
+
+/* Copies a human-readable transport description into buf and returns bytes
+ * written. Protocols that negotiate a transport report the settled choice
+ * (RTSP: "RTSP over UDP", "RTSP over TCP", "RTSP over TCP (UDP unavailable)");
+ * everything else reports its URL scheme. Valid from open; refined when the
+ * protocol settles, so read it once playback has started. */
+BASIS_API int BASIS_CALL basis_media_get_transport(basis_media_engine_t* engine, char* buf, int buf_size);
 
 /* Jitter-buffer control. mode: 0 = fixed (use buffer_ms), 1 = dynamic (auto-tune;
  * buffer_ms is the starting value). buffer_ms is how far behind live video is
  * presented (latency vs smoothness). Safe to call any time after open. */
 BASIS_API void BASIS_CALL basis_media_set_buffer(basis_media_engine_t* engine, int mode, int buffer_ms);
+
+/* Reports the managed audio sink's measured output latency (microseconds). The
+ * backend paces video presentation this far behind live so audio and video land
+ * together; smaller values mean lower end-to-end latency. Backends that time
+ * audio internally (desktop) ignore it. Safe to call any time after open. */
+BASIS_API void BASIS_CALL basis_media_set_audio_latency(basis_media_engine_t* engine, int latency_us);
 
 /* ---- Zero-copy video ---------------------------------------------------- */
 

@@ -49,43 +49,43 @@
     },
     {
       "key": "menu.servers.list.empty",
-      "value": "No servers yet. Press \"Add Server\" to create one."
+      "value": "ابھی کوئی سرور نہیں۔ ایک بنانے کے لیے «سرور شامل کریں» دبائیں۔"
     },
     {
       "key": "menu.servers.list.addServer",
-      "value": "Add Server"
+      "value": "سرور شامل کریں"
     },
     {
       "key": "menu.servers.list.refreshAll",
-      "value": "Refresh All"
+      "value": "سب تازہ کریں"
     },
     {
       "key": "menu.servers.list.editing",
-      "value": "Editing Server"
+      "value": "سرور میں ترمیم"
     },
     {
       "key": "menu.servers.list.newServer",
-      "value": "New Server"
+      "value": "نیا سرور"
     },
     {
       "key": "menu.servers.list.save",
-      "value": "Save"
+      "value": "محفوظ کریں"
     },
     {
       "key": "menu.servers.list.cancel",
-      "value": "Cancel"
+      "value": "منسوخ کریں"
     },
     {
       "key": "menu.servers.list.remove",
-      "value": "Remove"
+      "value": "ہٹائیں"
     },
     {
       "key": "menu.servers.list.edit",
-      "value": "Edit"
+      "value": "ترمیم"
     },
     {
       "key": "menu.servers.list.refresh",
-      "value": "Refresh"
+      "value": "تازہ کریں"
     },
     {
       "key": "menu.servers.list.players",
@@ -93,11 +93,11 @@
     },
     {
       "key": "menu.servers.list.offline",
-      "value": "Offline"
+      "value": "آف لائن"
     },
     {
       "key": "menu.servers.list.querying",
-      "value": "Querying..."
+      "value": "دریافت جاری ہے..."
     },
     {
       "key": "menu.servers.list.ping",
@@ -113,7 +113,39 @@
     },
     {
       "key": "menu.servers.list.share",
-      "value": "Share"
+      "value": "شیئر کریں"
+    },
+    {
+      "key": "menu.servers.welcome.title",
+      "value": "Basis Labs میں خوش آمدید!"
+    },
+    {
+      "key": "menu.servers.welcome.body",
+      "value": "Basis Labs، Basis Framework کی زندہ نمائش ہے — VR گیمز، پلیٹ فارمز اور تجربات بنانے کے لیے ایک مفت، MIT لائسنس یافتہ بنیاد۔ دنیائیں دریافت کریں، کسٹم اواتار پہنیں اور فیچرز کو بنتے ہوئے آزماتے ہوئے لوگوں سے ملیں۔ یہاں سب کچھ ارتقا پذیر ہے — آپ کی رائے اسے سنوارنے میں مدد دیتی ہے۔"
+    },
+    {
+      "key": "menu.servers.welcome.next",
+      "value": "اگلا"
+    },
+    {
+      "key": "menu.servers.welcome.server.title",
+      "value": "آپ کا پہلا سرور"
+    },
+    {
+      "key": "menu.servers.welcome.server.body",
+      "value": "Basis کی کوئی مرکزی سروس نہیں — کوئی بھی سرور چلا سکتا ہے، اور آپ اسی پینل سے اپنا سرور ہوسٹ کر سکتے ہیں۔ تاکہ آپ کے پاس ہمیشہ جانے کی جگہ ہو، ہم ایک ڈیفالٹ سرور چلاتے ہیں، جو نیچے دی گئی فہرست میں سب سے اوپر ★ سے نشان زد ہے۔ صارف نام منتخب کریں، چمکتا ہوا «کنیکٹ کریں» بٹن دبائیں، اور آ کر سلام کہیں!"
+    },
+    {
+      "key": "menu.servers.welcome.ok",
+      "value": "سمجھ گیا!"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.title",
+      "value": "صارف نام منتخب کریں"
+    },
+    {
+      "key": "menu.servers.usernamePrompt.body",
+      "value": "وہ نام منتخب کریں جو دوسرے کھلاڑی دیکھیں گے، پھر «کنیکٹ کریں» دبائیں۔"
     },
     {
       "key": "menu.servers.hostMotd",

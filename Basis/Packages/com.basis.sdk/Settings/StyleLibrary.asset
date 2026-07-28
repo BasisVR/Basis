@@ -154,6 +154,20 @@ MonoBehaviour:
         Type: 0
       Sprite: {fileID: 21300000, guid: a336a8280e1dda94fbef1a59936ed578, type: 3}
       PixelsPerUnitMultiplier: 4
+    - Title: Indicator
+      Color:
+        Color: {r: 0, g: 0, b: 0, a: 0}
+        PaletteStyle: 4
+        Type: 0
+      Sprite: {fileID: 21300000, guid: 2f40c57d4ed9f194189003a5de9fa264, type: 3}
+      PixelsPerUnitMultiplier: 1
+    - Title: Indicator Spawned
+      Color:
+        Color: {r: 0, g: 0, b: 0, a: 0}
+        PaletteStyle: 4
+        Type: 0
+      Sprite: {fileID: 21300000, guid: a2c948f5f5f08b640b12f518adaa9107, type: 3}
+      PixelsPerUnitMultiplier: 4
     - Title: Button Exit
       Color:
         Color: {r: 0, g: 0, b: 0, a: 0}
@@ -393,13 +407,13 @@ MonoBehaviour:
       SelectionStyle: Visible On Hover
       BackgroundStyle: Button
       IconStyle: Icon
-      IndicatorStyle: Button
+      IndicatorStyle: Indicator
       LabelStyle: Subtitle
     - Title: Hotbar Button Danger
       SelectionStyle: Visible On Hover
       BackgroundStyle: Button
       IconStyle: Icon Danger
-      IndicatorStyle: Button
+      IndicatorStyle: Indicator
       LabelStyle: Subtitle Danger
     - Title: Button Exit
       SelectionStyle: Highlight On Hover

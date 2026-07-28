@@ -146,6 +146,16 @@ public class BasisUIVolumeSampler : MonoBehaviour
         instantaneousRms = rms;
         instantaneousPeak = peak;
     }
+    // Same quantize-and-change-detect treatment as BasisLocalVolumeMeterUI: the
+    // exponential smoothing never settles exactly, so unguarded writes re-dirty the
+    // owning canvas every frame forever — even for a silent remote player.
+    const float WriteStep = 1f / 256f;
+    float lastWrittenFill = -1f;
+    float lastWrittenPeak = -1f;
+    bool colorRouted;
+    bool tickColorRouted;
+    bool tickAnchorsInitialized;
+
     void Update()
     {
         // Map current measurement to target normalized 0..1 (can exceed 1 before clamp for overdrive detection)
@@ -157,10 +167,24 @@ public class BasisUIVolumeSampler : MonoBehaviour
         float tau = (targetClamped > smoothed) ? Mathf.Max(0.0001f, attack) : Mathf.Max(0.0001f, release);
         float coeff = 1f - Mathf.Exp(-dt / tau);
         smoothed = Mathf.Lerp(smoothed, targetClamped, coeff);
+        // Snap the asymptotic tail to rest so silence stops producing writes.
+        if (targetClamped <= 0f && smoothed < WriteStep) smoothed = 0f;
 
-        // Drive UI
-        fill.fillAmount = smoothed;
-        fill.color = colorByLevel.Evaluate(smoothed);
+        // Drive UI only when the quantized value moved a visible step.
+        float quantizedFill = Mathf.Round(smoothed / WriteStep) * WriteStep;
+        if (quantizedFill != lastWrittenFill)
+        {
+            lastWrittenFill = quantizedFill;
+            fill.fillAmount = quantizedFill;
+            // Color rides the canvasRenderer (render-time multiply) instead of
+            // Graphic.color, which would rebuild the mesh on every gradient step.
+            if (!colorRouted)
+            {
+                colorRouted = true;
+                fill.color = Color.white;
+            }
+            fill.canvasRenderer.SetColor(colorByLevel.Evaluate(quantizedFill));
+        }
 
         // Peak-hold tick (optional)
         if (peakTick)
@@ -180,14 +204,33 @@ public class BasisUIVolumeSampler : MonoBehaviour
                 else peakNorm = Mathf.Max(0f, peakNorm - peakFallPerSecond * dt);
             }
 
-            // Place tick at X = peakNorm
-            var rt = peakTick.rectTransform;
-            rt.anchorMin = new Vector2(peakNorm, 0f);
-            rt.anchorMax = new Vector2(peakNorm, 1f);
-            rt.anchoredPosition = Vector2.zero;
+            float quantizedPeak = Mathf.Round(peakNorm / WriteStep) * WriteStep;
+            if (quantizedPeak != lastWrittenPeak)
+            {
+                lastWrittenPeak = quantizedPeak;
+                // Moved by position, not by rewriting anchors: anchor writes fire
+                // OnRectTransformDimensionsChange into every parent LayoutGroup,
+                // putting the whole layout pass on the per-frame path.
+                var rt = peakTick.rectTransform;
+                if (!tickAnchorsInitialized)
+                {
+                    tickAnchorsInitialized = true;
+                    rt.anchorMin = new Vector2(0f, 0f);
+                    rt.anchorMax = new Vector2(0f, 1f);
+                }
+                RectTransform parentRect = rt.parent as RectTransform;
+                float width = parentRect != null ? parentRect.rect.width : 0f;
+                rt.anchoredPosition = new Vector2(quantizedPeak * width, 0f);
 
-            // Color tick: red on overdrive, otherwise follow gradient at that position
-            peakTick.color = (targetUnit > 1f) ? overdriveColor : colorByLevel.Evaluate(peakNorm);
+                // Color tick: red on overdrive, otherwise follow gradient at that position
+                if (!tickColorRouted)
+                {
+                    tickColorRouted = true;
+                    peakTick.color = Color.white;
+                }
+                peakTick.canvasRenderer.SetColor(
+                    (targetUnit > 1f) ? overdriveColor : colorByLevel.Evaluate(quantizedPeak));
+            }
         }
     }
     float RmsToUnit(float rms)

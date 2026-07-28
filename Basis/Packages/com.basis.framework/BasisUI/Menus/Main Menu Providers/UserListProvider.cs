@@ -362,32 +362,7 @@ namespace Basis.BasisUI
             /// </summary>
             private static RectTransform BuildActionRow(RectTransform parent, BasisNetworkPlayer netPlayer, BasisRemotePlayer remote)
             {
-                var rowGO = new GameObject("PlayerRowActions", typeof(RectTransform));
-                var rowRect = (RectTransform)rowGO.transform;
-                rowRect.SetParent(parent, false);
-
-                // Stretch across the parent's width so the row matches the player button above it.
-                rowRect.anchorMin = new Vector2(0f, 1f);
-                rowRect.anchorMax = new Vector2(1f, 1f);
-                rowRect.pivot = new Vector2(0.5f, 1f);
-
-                var hlg = rowGO.AddComponent<HorizontalLayoutGroup>();
-                hlg.childForceExpandWidth = true;
-                hlg.childForceExpandHeight = false;
-                hlg.childControlWidth = true;
-                hlg.childControlHeight = true;
-                hlg.spacing = 8f;
-                hlg.padding = new RectOffset(8, 8, 4, 8);
-
-                // Make the row size to its tallest child so the parent's vertical layout
-                // gives it a real preferred height instead of treating it as zero-height.
-                var rowFitter = rowGO.AddComponent<ContentSizeFitter>();
-                rowFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-                // Some VerticalLayoutGroups force a child width; this LayoutElement
-                // ensures the row participates in width allocation regardless.
-                var rowLayout = rowGO.AddComponent<LayoutElement>();
-                rowLayout.flexibleWidth = 1f;
+                RectTransform rowRect = PanelElementDescriptor.BuildActionRow(parent, "PlayerRowActions");
 
                 // ---- Mute ----
                 PanelButton muteBtn = PanelButton.CreateNew(rowRect);

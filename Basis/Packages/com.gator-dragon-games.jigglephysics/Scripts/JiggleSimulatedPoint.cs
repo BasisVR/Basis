@@ -25,10 +25,10 @@ public unsafe struct JiggleSimulatedPoint {
     public bool hasTransform;
 
     private static bool GetIsValid(float3 vector) {
-        return !float.IsNaN(vector.x) && !float.IsNaN(vector.y) && !float.IsNaN(vector.z);
+        return math.all(math.isfinite(vector));
     }
     private static bool GetIsValid(float value) {
-        return !float.IsNaN(value);
+        return math.isfinite(value);
     }
 
     public bool GetIsValid(int pointCount, out string failReason) {
@@ -92,29 +92,34 @@ public unsafe struct JiggleSimulatedPoint {
     }
 
     public void Sanitize() {
-        if (!GetIsValid(lastPosition)) {
-            lastPosition = float3.zero;
-        }
-        if (!GetIsValid(position)) {
-            position = float3.zero;
-        }
-        if (!GetIsValid(workingPosition)) {
-            workingPosition = float3.zero;
+        if (!GetIsValid(distanceFromRoot)) {
+            distanceFromRoot = 0.1f;
         }
         if (!GetIsValid(pose)) {
             pose = float3.zero;
         }
         if (!GetIsValid(parentPose)) {
-            parentPose = float3.zero;
+            parentPose = pose;
+        }
+        // Recover to the pose rather than world origin, and contain corrupt-but-finite state:
+        // no legitimate simulation carries a point beyond roughly its own chain length from
+        // its animated pose, but garbage reads can — and Inf/1e38 floats survive NaN checks.
+        var maxDeviation = math.max(10f, distanceFromRoot * 4f);
+        var maxDeviationSq = maxDeviation * maxDeviation;
+        if (!GetIsValid(position) || math.distancesq(position, pose) > maxDeviationSq) {
+            position = pose;
+        }
+        if (!GetIsValid(lastPosition) || math.distancesq(lastPosition, pose) > maxDeviationSq) {
+            lastPosition = position;
+        }
+        if (!GetIsValid(workingPosition) || math.distancesq(workingPosition, pose) > maxDeviationSq) {
+            workingPosition = position;
         }
         if (!GetIsValid(desiredLengthToParent)) {
             desiredLengthToParent = 0.1f;
         }
         if (!GetIsValid(worldRadius)) {
             worldRadius = 0.1f;
-        }
-        if (!GetIsValid(distanceFromRoot)) {
-            distanceFromRoot = 0.1f;
         }
     }
 }

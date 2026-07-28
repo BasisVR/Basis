@@ -95,7 +95,7 @@ namespace Basis.Scripts.Networking
         }
 
         /// <summary>
-        /// Formats a <c>basisvr://</c> invite link. Returns <see cref="string.Empty"/> if
+        /// Formats a <c>basisdemo://</c> invite link. Returns <see cref="string.Empty"/> if
         /// <paramref name="host"/> is null or empty.
         /// </summary>
         public static string FormatDeepLink(string host, ushort port, string password = null)
@@ -108,7 +108,7 @@ namespace Basis.Scripts.Networking
         }
 
         /// <summary>
-        /// Formats a <c>basisvr://</c> invite link from a <see cref="ServerDirectoryEntry"/>.
+        /// Formats a <c>basisdemo://</c> invite link from a <see cref="ServerDirectoryEntry"/>.
         /// Returns <see cref="string.Empty"/> if the entry has no address.
         /// </summary>
         public static string FormatDeepLink(ServerDirectoryEntry entry)
@@ -274,7 +274,7 @@ namespace Basis.Scripts.Networking
             try
             {
 #if UNITY_STANDALONE_WIN
-                // Application.dataPath = "C:\path\to\Basis Unity_Data" — strip suffix, add .exe
+                // Application.dataPath = "C:\path\to\BasisVR_Data" — strip suffix, add .exe
                 string dataPath = Application.dataPath.Replace('/', '\\');
                 if (!dataPath.EndsWith("_Data", StringComparison.OrdinalIgnoreCase)) return;
                 string exePath = dataPath.Substring(0, dataPath.Length - 5) + ".exe";

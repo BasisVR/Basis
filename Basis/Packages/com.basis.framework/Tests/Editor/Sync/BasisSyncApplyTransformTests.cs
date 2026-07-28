@@ -11,8 +11,9 @@ namespace Basis.Tests.Sync
     /// <summary>
     /// The far side's final step: <see cref="ApplySyncTransformsJob"/> writes the interpolated pool values onto the
     /// bound transforms. Verifies the pos+rot / pos-only / rot-only / scale paths, world vs local space, the -1
-    /// "unbound component untouched" rule, and the Active==0 skip — driven through the real Burst job over a real
-    /// TransformAccessArray.
+    /// "unbound component untouched" rule, the Active==0 skip, and the composed channels (partial position axes
+    /// holding live values, euler and quat-4-float rotation, uniform and partial scale) — driven through the real
+    /// Burst job over a real TransformAccessArray.
     /// </summary>
     public class BasisSyncApplyTransformTests
     {
@@ -25,12 +26,8 @@ namespace Basis.Tests.Sync
             GameObject[] gos = null;
             var contOut = new NativeArray<float>(12, Allocator.TempJob);
             var rotOut = new NativeArray<quaternion>(3, Allocator.TempJob);
-            var posIdx = new NativeArray<int>(5, Allocator.TempJob);
-            var rotIdx = new NativeArray<int>(5, Allocator.TempJob);
-            var scaleIdx = new NativeArray<int>(5, Allocator.TempJob);
-            var worldSpace = new NativeArray<byte>(5, Allocator.TempJob);
             var active = new NativeArray<byte>(5, Allocator.TempJob);
-            var bindSlot = new NativeArray<int>(5, Allocator.TempJob);
+            var bindings = new NativeArray<BasisSyncApplyBinding>(5, Allocator.TempJob);
             TransformAccessArray taa = default;
 
             try
@@ -53,13 +50,19 @@ namespace Basis.Tests.Sync
                 rotOut[1] = Quat(45f, 0f, 0f);
                 rotOut[2] = quaternion.identity;
 
-                posIdx[0] = 0; rotIdx[0] = 0; scaleIdx[0] = -1; worldSpace[0] = 0;
-                posIdx[1] = 3; rotIdx[1] = -1; scaleIdx[1] = -1; worldSpace[1] = 1;
-                posIdx[2] = -1; rotIdx[2] = 1; scaleIdx[2] = -1; worldSpace[2] = 0;
-                posIdx[3] = -1; rotIdx[3] = -1; scaleIdx[3] = 6; worldSpace[3] = 0;
-                posIdx[4] = 9; rotIdx[4] = 2; scaleIdx[4] = -1; worldSpace[4] = 0;
+                var b0 = BasisSyncApplyBinding.Empty;
+                b0.Slot = 0; b0.PosX = 0; b0.PosY = 1; b0.PosZ = 2; b0.RotQuat = 0;
+                var b1 = BasisSyncApplyBinding.Empty;
+                b1.Slot = 1; b1.PosX = 3; b1.PosY = 4; b1.PosZ = 5; b1.World = 1;
+                var b2 = BasisSyncApplyBinding.Empty;
+                b2.Slot = 2; b2.RotQuat = 1;
+                var b3 = BasisSyncApplyBinding.Empty;
+                b3.Slot = 3; b3.ScaleX = 6; b3.ScaleY = 7; b3.ScaleZ = 8;
+                var b4 = BasisSyncApplyBinding.Empty;
+                b4.Slot = 4; b4.PosX = 9; b4.PosY = 10; b4.PosZ = 11; b4.RotQuat = 2;
+                bindings[0] = b0; bindings[1] = b1; bindings[2] = b2; bindings[3] = b3; bindings[4] = b4;
 
-                for (int i = 0; i < 5; i++) { active[i] = 1; bindSlot[i] = i; }
+                for (int i = 0; i < 5; i++) active[i] = 1;
                 active[4] = 0;
 
                 taa = new TransformAccessArray(5);
@@ -69,12 +72,8 @@ namespace Basis.Tests.Sync
                 {
                     ContOut = contOut,
                     RotOut = rotOut,
-                    PosIdx = posIdx,
-                    RotIdx = rotIdx,
-                    ScaleIdx = scaleIdx,
-                    WorldSpace = worldSpace,
                     Active = active,
-                    BindSlot = bindSlot,
+                    Bindings = bindings,
                 }.Schedule(taa).Complete();
 
                 // b0: pos+rot in local space
@@ -97,10 +96,87 @@ namespace Basis.Tests.Sync
             {
                 if (taa.isCreated) taa.Dispose();
                 contOut.Dispose(); rotOut.Dispose();
-                posIdx.Dispose(); rotIdx.Dispose(); scaleIdx.Dispose();
-                worldSpace.Dispose(); active.Dispose(); bindSlot.Dispose();
+                active.Dispose(); bindings.Dispose();
                 if (gos != null) foreach (GameObject go in gos) if (go != null) Object.DestroyImmediate(go);
                 Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
+        public void ApplyTransforms_ComposesPartialAndAlternateChannels()
+        {
+            GameObject[] gos = null;
+            var contOut = new NativeArray<float>(8, Allocator.TempJob);
+            var rotOut = new NativeArray<quaternion>(1, Allocator.TempJob);
+            var active = new NativeArray<byte>(5, Allocator.TempJob);
+            var bindings = new NativeArray<BasisSyncApplyBinding>(5, Allocator.TempJob);
+            TransformAccessArray taa = default;
+
+            try
+            {
+                gos = new GameObject[5];
+                for (int i = 0; i < 5; i++) gos[i] = new GameObject("compose-" + i);
+
+                // binding 0: partial position (Y only) — X/Z hold the live local values, rotation untouched.
+                gos[0].transform.localPosition = new Vector3(1f, 2f, 3f);
+                gos[0].transform.localRotation = Quaternion.Euler(0f, 30f, 0f);
+                contOut[0] = 5f;
+                var b0 = BasisSyncApplyBinding.Empty;
+                b0.Slot = 0; b0.PosY = 0;
+
+                // binding 1: euler rotation (Y synced) composed against the held baseline.
+                contOut[1] = 90f;
+                var b1 = BasisSyncApplyBinding.Empty;
+                b1.Slot = 1; b1.EulerY = 1; b1.HeldEuler = new float3(10f, 0f, 70f);
+
+                // binding 2: quaternion streamed as 4 floats, unnormalized on purpose.
+                Quaternion q = Quaternion.Euler(0f, 45f, 0f);
+                contOut[2] = q.x * 2f; contOut[3] = q.y * 2f; contOut[4] = q.z * 2f; contOut[5] = q.w * 2f;
+                var b2 = BasisSyncApplyBinding.Empty;
+                b2.Slot = 2; b2.RotCont = 2;
+
+                // binding 3: uniform scale from one float.
+                contOut[6] = 2.5f;
+                var b3 = BasisSyncApplyBinding.Empty;
+                b3.Slot = 3; b3.ScaleUniform = 6;
+
+                // binding 4: partial scale (Y only) — X/Z hold the live values.
+                gos[4].transform.localScale = new Vector3(1f, 2f, 3f);
+                contOut[7] = 4f;
+                var b4 = BasisSyncApplyBinding.Empty;
+                b4.Slot = 4; b4.ScaleY = 7;
+
+                bindings[0] = b0; bindings[1] = b1; bindings[2] = b2; bindings[3] = b3; bindings[4] = b4;
+                for (int i = 0; i < 5; i++) active[i] = 1;
+
+                taa = new TransformAccessArray(5);
+                for (int i = 0; i < 5; i++) taa.Add(gos[i].transform);
+
+                new ApplySyncTransformsJob
+                {
+                    ContOut = contOut,
+                    RotOut = rotOut,
+                    Active = active,
+                    Bindings = bindings,
+                }.Schedule(taa).Complete();
+
+                AssertVec(new Vector3(1f, 5f, 3f), gos[0].transform.localPosition, "b0 partial position holds live X/Z");
+                Assert.LessOrEqual(Quaternion.Angle(gos[0].transform.localRotation, Quaternion.Euler(0f, 30f, 0f)), 0.01f, "b0 rotation untouched");
+
+                Assert.LessOrEqual(Quaternion.Angle(gos[1].transform.localRotation, Quaternion.Euler(10f, 90f, 70f)), 0.01f, "b1 euler composition");
+
+                Assert.LessOrEqual(Quaternion.Angle(gos[2].transform.localRotation, Quaternion.Euler(0f, 45f, 0f)), 0.01f, "b2 quat-4-float normalized");
+
+                AssertVec(new Vector3(2.5f, 2.5f, 2.5f), gos[3].transform.localScale, "b3 uniform scale");
+
+                AssertVec(new Vector3(1f, 4f, 3f), gos[4].transform.localScale, "b4 partial scale holds live X/Z");
+            }
+            finally
+            {
+                if (taa.isCreated) taa.Dispose();
+                contOut.Dispose(); rotOut.Dispose();
+                active.Dispose(); bindings.Dispose();
+                if (gos != null) foreach (GameObject go in gos) if (go != null) Object.DestroyImmediate(go);
             }
         }
 

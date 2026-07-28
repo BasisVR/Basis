@@ -23,7 +23,7 @@ namespace Basis.Scripts.Networking.Receivers
     [Serializable]
     public class BasisNetworkReceiver : BasisNetworkPlayer
     {
-        public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 54
+        public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 51
 
         // Cached delegates — created once, avoids per-frame Action/Comparison heap allocations.
         private static readonly Action<BasisAvatarBuffer> s_releaseBuffer = BasisAvatarBufferPool.Release;
@@ -162,12 +162,17 @@ namespace Basis.Scripts.Networking.Receivers
 
         // Received bytes-on-wire metering for the per-player network gizmos. Accumulated off the
         // main thread in AccountReceivedBytes (Interlocked) and windowed into a rate in ComputeData.
+        // Voice runs as its own pair so the gizmos can break the channels apart.
         private const double BandwidthWindow = 0.5;
         private long _bwBytes;
         private long _bwPackets;
+        private long _voiceBwBytes;
+        private long _voiceBwPackets;
         private double _bwTime;
         private float _bytesPerSecond;
         private float _packetsPerSecond;
+        private float _voiceBytesPerSecond;
+        private float _voicePacketsPerSecond;
 
         /// <summary>
         /// Sets the adaptive jitter depth parameters from a single user-facing "target depth"
@@ -201,7 +206,11 @@ namespace Basis.Scripts.Networking.Receivers
 
         public bool HasCurrentBuffer = false;
         public bool HasNextBuffer = false;
+        public bool HasPreviousBuffer = false;
         public bool SentLatest = false;
+        // Catmull-Rom control points: Previous(p0) -> Current(p1) -> Next(p2) -> peek staged(p3).
+        // Previous is the retained outgoing Current; it supplies the p0 tangent for the spline.
+        public BasisAvatarBuffer Previous { get; private set; }
         public BasisAvatarBuffer Current { get; private set; }
         public BasisAvatarBuffer Next { get; private set; }
 
@@ -213,12 +222,56 @@ namespace Basis.Scripts.Networking.Receivers
         public float CachedHumanScaleDebug => CachedHumanScale;
         public float BytesPerSecond => _bytesPerSecond;
         public float PacketsPerSecond => _packetsPerSecond;
+        public float VoiceBytesPerSecond => _voiceBytesPerSecond;
+        public float VoicePacketsPerSecond => _voicePacketsPerSecond;
+
+        /// <summary>When true, effectors the sender marked anchored (mask on the wire) are two-bone-IK'd
+        /// to their sent world targets after skeleton FK. On by default; a server admin can disable it
+        /// server-wide (BasisNetworkModeration.GlobalEndEffectorIKDisabled → BroadcastLockState). Only
+        /// world-stable effectors (tracked hands/feet) are ever anchored, so emotes and posed limbs are
+        /// untouched.</summary>
+        public static bool EndEffectorIKEnabled = true;
+
+        /// <summary>
+        /// Interpolates this player's anchored end-effector targets (hips-local offset + tip rotation)
+        /// and writes them to the remote bone job system's playerId-keyed inputs. Runs on the
+        /// pre-schedule receiver pass — no transform access; the Burst read/compute/write jobs do the
+        /// actual anchoring. Only limbs anchored in BOTH bracketing frames stay masked; the rest FK.
+        /// </summary>
+        public unsafe void WriteEffectorJobInputs()
+        {
+            BasisAvatarBuffer cur = Current, nxt = Next;
+            int mask = (cur != null && nxt != null) ? (cur.EffectorMask & nxt.EffectorMask) : 0;
+            if (mask == 0)
+            {
+                BasisRemoteNetworkDriver.ClearEffectorMask(playerId);
+                return;
+            }
+
+            float t = math.saturate((float)interpolationTime);
+            int n = BasisAvatarEndEffectors.EffectorCount;
+            float3* offsets = stackalloc float3[n];
+            quaternion* tipRots = stackalloc quaternion[n];
+            for (int i = 0; i < n; i++)
+            {
+                offsets[i] = math.lerp(cur.EffectorPos[i], nxt.EffectorPos[i], t);
+                tipRots[i] = BasisRemoteInterpolationCore.NlerpShortest(cur.EffectorRot[i], nxt.EffectorRot[i], t);
+            }
+            BasisRemoteNetworkDriver.WriteEffectorInputs(playerId, (byte)mask, offsets, tipRots);
+        }
 
         /// <summary>Records received bytes-on-wire for this player (call from the packet handler; thread-safe).</summary>
         public void AccountReceivedBytes(int bytes)
         {
             System.Threading.Interlocked.Add(ref _bwBytes, bytes);
             System.Threading.Interlocked.Increment(ref _bwPackets);
+        }
+
+        /// <summary>Records received voice bytes-on-wire for this player (call from the voice handler; thread-safe).</summary>
+        public void AccountReceivedVoiceBytes(int bytes)
+        {
+            System.Threading.Interlocked.Add(ref _voiceBwBytes, bytes);
+            System.Threading.Interlocked.Increment(ref _voiceBwPackets);
         }
 
         public bool hasRequiredData = false;
@@ -282,9 +335,13 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 long b = System.Threading.Interlocked.Exchange(ref _bwBytes, 0);
                 long p = System.Threading.Interlocked.Exchange(ref _bwPackets, 0);
+                long vb = System.Threading.Interlocked.Exchange(ref _voiceBwBytes, 0);
+                long vp = System.Threading.Interlocked.Exchange(ref _voiceBwPackets, 0);
                 float inv = (float)(1.0 / _bwTime);
                 _bytesPerSecond = b * inv;
                 _packetsPerSecond = p * inv;
+                _voiceBytesPerSecond = vb * inv;
+                _voicePacketsPerSecond = vp * inv;
                 _bwTime = 0.0;
             }
 
@@ -292,7 +349,10 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.AudioDecode");
 #endif
-            AudioReceiverModule.DrainAndDecodeThreadSafe();
+            if (!AudioReceiverModule.IsAudioActive || AudioReceiverModule.VoiceBuffer.DecodedFrameCount == 0)
+            {
+                AudioReceiverModule.DrainAndDecodeThreadSafe();
+            }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
@@ -474,10 +534,14 @@ namespace Basis.Scripts.Networking.Receivers
 
                 while (interpolationTime >= 1.0 && _stagedRing.Count != 0)
                 {
-                    if (HasCurrentBuffer)
+                    // Retain the outgoing Current as Previous (p0 tangent) rather than releasing
+                    // it; release the stale Previous first so the buffer pool doesn't leak.
+                    if (HasPreviousBuffer)
                     {
-                        ReleaseCurrent();
+                        BasisAvatarBufferPool.Release(Previous);
                     }
+                    Previous = Current;
+                    HasPreviousBuffer = HasCurrentBuffer;
 
                     Current = Next;
                     HasCurrentBuffer = true;
@@ -519,17 +583,22 @@ namespace Basis.Scripts.Networking.Receivers
 
                 if (SentLatest)
                 {
-                    var first = Current;
-                    var last = Next;
+                    var p1 = Current;
+                    var p2 = Next;
+                    // p0 = retained Previous (duplicate p1 at cold start); p3 = peek the next
+                    // staged frame (duplicate p2 on underrun). Duplicated endpoints make the
+                    // Catmull-Rom tangents one-sided — the spline stays bounded, no branch needed.
+                    var p0 = HasPreviousBuffer ? Previous : p1;
+                    var p3 = _stagedRing.TryPeekOldest(out var peek) ? peek : p2;
                     BasisRemoteNetworkDriver.SetFrameInputs(
                         playerId,
                         CachedHumanScale,
-                        first.Position, last.Position,
-                        first.Scale, last.Scale,
-                        first.Rotation, last.Rotation,
-                        first.HipsLocalDelta, last.HipsLocalDelta,
-                        first.HipsLocalRotation, last.HipsLocalRotation,
-                        first.BoneRotations, last.BoneRotations
+                        p0.Position, p1.Position, p2.Position, p3.Position,
+                        p1.Scale, p2.Scale,
+                        p0.Rotation, p1.Rotation, p2.Rotation, p3.Rotation,
+                        p1.HipsLocalDelta, p2.HipsLocalDelta,
+                        p1.HipsLocalRotation, p2.HipsLocalRotation,
+                        p0.BoneRotations, p1.BoneRotations, p2.BoneRotations, p3.BoneRotations
                     );
                     IsDataReady = true;
                     SentLatest = false;
@@ -551,6 +620,38 @@ namespace Basis.Scripts.Networking.Receivers
         }
         public bool IsDataReady = false;
 
+        // ── Avatar delta baseline (last full keyframe payload received for this player) ──
+        // Deltas on DeltaAvatarChannel reconstruct against this. Touched only on the network
+        // receive thread (BasisNetworkHandleAvatar / BasisNetworkHandleAvatarDelta), no locking.
+        private byte[] _keyframeBaseline;
+        private byte _keyframeBaselineQuality;
+        private byte _keyframeBaselineSequence;
+        private bool _hasKeyframeBaseline;
+
+        /// <summary>Stores the last full keyframe payload as the delta baseline for this player.</summary>
+        public void CaptureKeyframeBaseline(byte quality, byte sequence, byte[] payload, int length)
+        {
+            if (payload == null || length <= 0) return;
+            if (_keyframeBaseline == null || _keyframeBaseline.Length < length)
+                _keyframeBaseline = new byte[length];
+            Buffer.BlockCopy(payload, 0, _keyframeBaseline, 0, length);
+            _keyframeBaselineQuality = quality;
+            _keyframeBaselineSequence = sequence;
+            _hasKeyframeBaseline = true;
+        }
+
+        /// <summary>Returns the baseline payload if one is held at the given quality and base sequence.</summary>
+        public bool TryGetKeyframeBaseline(byte quality, byte baseSequence, out byte[] baseline)
+        {
+            if (_hasKeyframeBaseline && _keyframeBaselineQuality == quality && _keyframeBaselineSequence == baseSequence)
+            {
+                baseline = _keyframeBaseline;
+                return true;
+            }
+            baseline = null;
+            return false;
+        }
+
         public void EnQueueAvatarBuffer(BasisAvatarBuffer avatarBuffer)
         {
             Interlocked.Increment(ref _poseVersion);
@@ -569,6 +670,7 @@ namespace Basis.Scripts.Networking.Receivers
             _serverClockSeeded = false;
             _highestSequence = 0;
             _seenPackets = 0;
+            _hasKeyframeBaseline = false;
             RemotePlayer = (BasisRemotePlayer)Player;
             AudioReceiverModule.Initialize(this);
 
@@ -666,6 +768,7 @@ namespace Basis.Scripts.Networking.Receivers
             _serverClockSeeded = false;
             _highestSequence = 0;
             _seenPackets = 0;
+            _hasKeyframeBaseline = false;
             if (_stagedRing != null)
             {
                 while (_stagedRing.TryDequeueOldest(out var buf))
@@ -737,6 +840,14 @@ namespace Basis.Scripts.Networking.Receivers
             if (HasCurrentBuffer) return;
             if (_stagedRing.TryDequeueOldest(out var first))
             {
+                // Fresh window (cold start or recovery after starvation): any retained Previous
+                // predates the gap and would poison the p0 tangent, so drop it — p0 duplicates p1.
+                if (HasPreviousBuffer)
+                {
+                    BasisAvatarBufferPool.Release(Previous);
+                    Previous = null;
+                    HasPreviousBuffer = false;
+                }
                 Current = first;
                 SentLatest = true;
                 HasCurrentBuffer = true;
@@ -765,6 +876,12 @@ namespace Basis.Scripts.Networking.Receivers
 
         public void ClearAndRelease()
         {
+            if (HasPreviousBuffer)
+            {
+                BasisAvatarBufferPool.Release(Previous);
+                Previous = null;
+                HasPreviousBuffer = false;
+            }
             ReleaseCurrent();
             if (HasNextBuffer)
             {
