@@ -21,21 +21,37 @@ namespace BasisNetworkClient
         private const string PrivateKeyDID = "PrivateKeyDID";
         private const string PublicKeyDID = "PublicKeyDID";
         private const string DIDID = "DIDID";
+
+        /// <summary>
+        /// Optional per-identity namespace. When set (e.g. to an SSO subject id), the DID keypair
+        /// is stored under namespaced PlayerPrefs keys so multiple signed-in users on one machine
+        /// keep separate DIDs. Empty/null preserves the original global keys — existing installs
+        /// are unaffected. Set this before the DID provider resolves (see BasisSsoIdentityBinding).
+        /// </summary>
+        public static string IdentityNamespace;
+
+        private static string NamespacedKey(string baseKey) =>
+            string.IsNullOrEmpty(IdentityNamespace) ? baseKey : baseKey + "::" + IdentityNamespace;
+
         public static string GetOrSaveDID()
         {
 #if UNITY_2017_1_OR_NEWER
             DidUrlFragment = new DidUrlFragment(string.Empty);
 
-            string privateKeyBase64 = PlayerPrefs.GetString(PrivateKeyDID, string.Empty);
-            string publicKeyBase = PlayerPrefs.GetString(PublicKeyDID, string.Empty);
-            string didId = PlayerPrefs.GetString(DIDID, string.Empty);
+            string privateKeyKey = NamespacedKey(PrivateKeyDID);
+            string publicKeyKey = NamespacedKey(PublicKeyDID);
+            string didIdKey = NamespacedKey(DIDID);
+
+            string privateKeyBase64 = PlayerPrefs.GetString(privateKeyKey, string.Empty);
+            string publicKeyBase = PlayerPrefs.GetString(publicKeyKey, string.Empty);
+            string didId = PlayerPrefs.GetString(didIdKey, string.Empty);
 
             if (string.IsNullOrEmpty(privateKeyBase64) || string.IsNullOrEmpty(publicKeyBase) || string.IsNullOrEmpty(didId))
             {
                 ClientKeyCreation(out Key, out DID);
-                PlayerPrefs.SetString(PrivateKeyDID, Convert.ToBase64String(Key.Item2.V));
-                PlayerPrefs.SetString(PublicKeyDID, Convert.ToBase64String(Key.Item1.V));
-                PlayerPrefs.SetString(DIDID, DID.V);
+                PlayerPrefs.SetString(privateKeyKey, Convert.ToBase64String(Key.Item2.V));
+                PlayerPrefs.SetString(publicKeyKey, Convert.ToBase64String(Key.Item1.V));
+                PlayerPrefs.SetString(didIdKey, DID.V);
                 PlayerPrefs.Save();
             }
             else

@@ -1,0 +1,21 @@
+{
+    "name": "Basis.Integration.Sso.Framework",
+    "rootNamespace": "Basis.Integration.Sso.FrameworkGate",
+    "references": [
+        "Basis.Integration.Sso",
+        "Basis Framework",
+        "BasisDebug",
+        "BasisCommon",
+        "BasisNetworkClient",
+        "BasisNetworkCore"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

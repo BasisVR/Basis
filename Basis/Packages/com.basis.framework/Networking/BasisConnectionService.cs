@@ -28,6 +28,13 @@ namespace Basis.Scripts.Networking
         public static bool AutoConnectAttempted;
         private static bool _connectInProgress;
 
+        /// <summary>
+        /// Optional gate installed by an integration (e.g. the SSO launch gate). Returns a non-null
+        /// reason string to block every connection attempt (auto, manual, and CLI), or null/empty to
+        /// allow it. Kept as a delegate so the framework stays decoupled from the SSO package.
+        /// </summary>
+        public static Func<string> ConnectionBlockedReason;
+
         // Stable key the loading bar uses to merge updates for the same connection
         // attempt, distinct from the bundle-load key BasisSceneLoad reports under.
         private const string ConnectionProgressKey = "BasisServerConnection";
@@ -78,6 +85,13 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static async Task ConnectAsync(ServerDirectoryEntry entry, string userName, bool isHostMode = false)
         {
+            string blockedReason = ConnectionBlockedReason?.Invoke();
+            if (!string.IsNullOrEmpty(blockedReason))
+            {
+                ReportConnectionError(blockedReason);
+                return;
+            }
+
             if (_connectInProgress)
             {
                 BasisDebug.LogWarning("Connect requested while a connection attempt is already in progress; ignoring.");

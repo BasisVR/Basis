@@ -129,6 +129,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.integration.sso": {
+      "version": "file:com.basis.integration.sso",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.integration.ytdlp": {
       "version": "file:com.basis.integration.ytdlp",
       "depth": 0,

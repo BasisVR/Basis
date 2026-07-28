@@ -1,0 +1,25 @@
+{
+  "_comment": "Copy to Assets/StreamingAssets/basis-sso.json and fill in your IdP values. Google example shown; for Okta use issuer https://<org>.okta.com/oauth2/default, drop clientSecret, and remove extraAuthParams (use an 'offline_access' scope instead).",
+  "issuer": "https://accounts.google.com",
+  "clientId": "REPLACE_WITH_YOUR_CLIENT_ID.apps.googleusercontent.com",
+  "clientSecret": "REPLACE_WITH_YOUR_CLIENT_SECRET",
+  "scopes": ["openid", "email", "profile"],
+  "extraAuthParams": {
+    "access_type": "offline",
+    "prompt": "consent"
+  },
+  "redirect": {
+    "mode": "loopback",
+    "host": "127.0.0.1",
+    "port": 0,
+    "path": "/callback"
+  },
+  "displayNameClaims": ["name", "email"],
+  "access": {
+    "allowedGroups": [],
+    "allowedClaims": []
+  },
+  "enforcement": {
+    "allowOfflineWithinTokenValidity": true
+  }
+}

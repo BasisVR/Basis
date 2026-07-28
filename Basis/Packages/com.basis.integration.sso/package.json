@@ -1,0 +1,14 @@
+{
+  "name": "com.basis.integration.sso",
+  "displayName": "Basis SSO (OIDC) Integration",
+  "version": "0.0.1",
+  "description": "Client-side OIDC single sign-on for the BasisVR Desktop/PCVR client. Gates app launch behind an Authorization Code + PKCE login (Okta and generic OIDC), persists the session encrypted-at-rest, and binds the local DID identity to the signed-in user. Server/DID protocol is unchanged. See docs/sso-spec.md.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "vpmDependencies": {
+    "com.basis.sdk": "0.0.1"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "issuer": "https://accounts.google.com",
+  "clientId": "",
+  "clientSecret": "",
+  "scopes": ["openid", "email", "profile"],
+  "extraAuthParams": {
+    "access_type": "offline",
+    "prompt": "consent"
+  },
+  "redirect": {
+    "mode": "loopback",
+    "host": "127.0.0.1",
+    "port": 0,
+    "path": "/callback"
+  },
+  "displayNameClaims": ["name", "email"],
+  "access": {
+    "allowedGroups": [],
+    "allowedClaims": []
+  },
+  "enforcement": {
+    "allowOfflineWithinTokenValidity": true
+  }
+}
