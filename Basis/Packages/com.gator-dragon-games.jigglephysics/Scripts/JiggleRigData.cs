@@ -137,9 +137,19 @@ public struct JiggleRigData {
         return false;
     }
     
+    /// <summary>
+    /// Matches the cap OnValidate applies in the editor. OnValidate never runs for content loaded at
+    /// runtime, so without this a bundle can declare any number of colliders and each one costs a
+    /// pass per point per substep inside the simulate job.
+    /// </summary>
+    public const int MaxRuntimeJiggleColliders = 32;
+
     public void GetJiggleColliders(List<JiggleCollider> colliders) {
         colliders.Clear();
         var count = jiggleColliders.Length;
+        if (count > MaxRuntimeJiggleColliders) {
+            count = MaxRuntimeJiggleColliders;
+        }
         for(int i=0;i<count;i++) {
             colliders.Add(jiggleColliders[i].collider);
         }
@@ -195,8 +205,11 @@ public struct JiggleRigData {
         RegenerateCacheLookup();
     }
 
-    private void VisitAndSetCacheData(List<JiggleTransformCachedData> data, Transform t, Vector3 lastPosition, float currentLength, ref float maxLength) {
+    private void VisitAndSetCacheData(List<JiggleTransformCachedData> data, Transform t, Vector3 lastPosition, float currentLength, ref float maxLength, int depth = 0) {
         if (t == null || GetIsExcluded(t)) {
+            return;
+        }
+        if (depth >= JigglePhysics.MAX_VISIT_DEPTH) {
             return;
         }
         var scale = t.lossyScale;
@@ -215,7 +228,7 @@ public struct JiggleRigData {
         for (int i = 0; i < childCount; i++) {
             var child = t.GetChild(i);
             if (child == null || GetIsExcluded(child)) continue;
-            VisitAndSetCacheData(data, child, position, currentLength, ref maxLength);
+            VisitAndSetCacheData(data, child, position, currentLength, ref maxLength, depth + 1);
         }
     }
 

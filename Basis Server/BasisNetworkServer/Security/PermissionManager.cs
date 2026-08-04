@@ -1109,18 +1109,16 @@ namespace BasisPermissions
 
             public static bool HasValidRequirement(string uuid, string permNode)
             {
-                bool hasPermission = Manager.Has(uuid, permNode);
-                bool isAdmin = Manager.Has(uuid, PermNodes.All);
-
-                return hasPermission || isAdmin;
+                // Has() resolves '*' itself as its last fallthrough, so a wildcard holder is still
+                // allowed anything they have not been explicitly denied. Re-checking '*' here and
+                // OR-ing it in would resurrect exactly the nodes a '-node' deny entry just refused.
+                return Manager.Has(uuid, permNode);
             }
             public static bool HasValidRequirement(NetPeer peer, string permNode)
             {
                 if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid))
                 {
-                    bool hasPermission = Manager.Has(uuid, permNode);
-                    bool isAdmin = Manager.Has(uuid, PermNodes.All);
-                    if (hasPermission || isAdmin)
+                    if (Manager.Has(uuid, permNode))
                     {
                         return true;
                     }

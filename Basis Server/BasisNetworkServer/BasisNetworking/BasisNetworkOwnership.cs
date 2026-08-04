@@ -57,8 +57,12 @@ namespace Basis.Network.Server.Ownership
             {
                 if (ownershipByObjectId.TryGetValue(ownershipTransferMessage.ownershipID, out ushort PlayerId))
                 {
-                    if (PlayerId == ownershipTransferMessage.playerIdMessage.playerID)
+                    // Authorize against the sending peer, not the id in the packet: the client
+                    // fills that field in itself, so trusting it lets any peer release any
+                    // object by naming its owner.
+                    if (PlayerId == (ushort)Peer.Id)
                     {
+                        ownershipTransferMessage.playerIdMessage.playerID = PlayerId;
                         if (RemoveObject(ownershipTransferMessage.ownershipID))
                         {
                             NetDataWriter Writer = NetworkServer.RentWriter();

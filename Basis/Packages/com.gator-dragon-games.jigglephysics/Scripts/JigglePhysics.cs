@@ -581,8 +581,19 @@ public static class JigglePhysics {
         }
     }
 
+    /// <summary>
+    /// Ceiling on bone-chain recursion depth. JiggleTreeDepthTests builds 32 and 64 successfully and
+    /// overflows at 128, and the real limit is lower under IL2CPP than in the editor, so a chain past
+    /// this is truncated rather than allowed to abort the process.
+    /// </summary>
+    internal const int MAX_VISIT_DEPTH = 64;
+
     private static void Visit(Transform t, List<Transform> transforms, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, List<Vector3> restLocalPositions, List<Quaternion> restLocalRotations, int parentIndex, JiggleRigData lastJiggleRig, Vector3 lastPosition, float currentLength, int depth, out int newIndex) {
         if (t == null) {
+            newIndex = -1;
+            return;
+        }
+        if (depth >= MAX_VISIT_DEPTH) {
             newIndex = -1;
             return;
         }

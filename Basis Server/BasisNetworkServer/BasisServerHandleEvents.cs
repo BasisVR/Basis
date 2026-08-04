@@ -1421,7 +1421,16 @@ namespace BasisServerHandle
             UnLoadResource.Deserialize(Reader);
             Reader.Recycle();
 
-            switch (UnLoadResource.Mode)
+            // Tier comes from the stored record, not the packet: Mode is client-supplied and is
+            // never compared against the target, so a user denied world-unload could send Mode 0
+            // and have the prop permission checked instead.
+            if (!BasisNetworkResourceManagement.UshortNetworkDatabase.TryGetValue(UnLoadResource.LoadedNetID, out LocalLoadResource TargetResource))
+            {
+                BNL.LogError($"Trying to unload an object that does not exist! ID Provided was [{UnLoadResource.LoadedNetID}]");
+                return;
+            }
+
+            switch (TargetResource.Mode)
             {
                 case 0:
                     if (PermissionIntegration.HasValidRequirement(Peer, PermNodes.ResourceUnloadProp) == false)

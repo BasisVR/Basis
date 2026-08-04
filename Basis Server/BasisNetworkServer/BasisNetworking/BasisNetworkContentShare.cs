@@ -140,6 +140,14 @@ public static class BasisNetworkContentShare
         {
             return;
         }
+        // ContentShareDelete is default-granted, so the sharer check is what stops one player
+        // deleting everyone else's orbs.
+        if (existing.playerIdMessage.playerID != (ushort)peer.Id
+            && !PermissionIntegration.HasValidRequirement(peer, PermNodes.protection))
+        {
+            BNL.LogError($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} they did not share.");
+            return;
+        }
         if (ActiveSpheres.TryRemove(msg.SphereNetID, out _))
         {
             BNL.Log($"Content sphere removed: {msg.SphereNetID}");

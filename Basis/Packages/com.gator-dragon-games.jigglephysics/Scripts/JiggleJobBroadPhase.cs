@@ -109,8 +109,12 @@ public struct JiggleJobBroadPhase : IJob {
             if (entry.state == JiggleColliderBroadPhaseEntry.StateGlobal) {
                 var global = globalCell.Value;
                 unsafe {
-                    global.colliderIndices[global.count] = i;
-                    global.count = math.min(global.count + 1, MAX_COLLIDERS-1);
+                    // Bound before the store: these are raw int* writes, so an overrun is caught
+                    // neither by Burst safety checks in the editor nor by anything in a player.
+                    if (global.count < MAX_COLLIDERS) {
+                        global.colliderIndices[global.count] = i;
+                        global.count++;
+                    }
                 }
                 globalCell.Value = global;
                 continue;
@@ -127,8 +131,10 @@ public struct JiggleJobBroadPhase : IJob {
 
                     gridCell.staleness = 0;
                     unsafe {
-                        gridCell.colliderIndices[gridCell.count] = i;
-                        gridCell.count = math.min(gridCell.count + 1, MAX_COLLIDERS-1);
+                        if (gridCell.count < MAX_COLLIDERS) {
+                            gridCell.colliderIndices[gridCell.count] = i;
+                            gridCell.count++;
+                        }
                     }
                     broadPhaseMap[grid] = gridCell;
                 }

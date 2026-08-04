@@ -174,6 +174,18 @@ public static class BasisNetworkResourceManagement
             return;
         }
 
+        // Creator-or-moderator, same rule SetStatic applies. The unload permission node is in the
+        // default group, so without this any player can delete every other player's props.
+        bool isModeratorUnload = PermissionIntegration.HasValidRequirement(peer, PermNodes.protection);
+        bool isCreatorUnload = NetworkServer.AuthIdentity.NetIDToUUID(peer, out string unloadRequesterUuid)
+            && !string.IsNullOrEmpty(resource.UUIDOfCreator)
+            && unloadRequesterUuid == resource.UUIDOfCreator;
+        if (!isCreatorUnload && !isModeratorUnload)
+        {
+            BNL.LogError($"Peer {peer.Id} tried to unload [{unLoadResource.LoadedNetID}] they did not create.");
+            return;
+        }
+
         // Only remove AFTER validation
         if (!UshortNetworkDatabase.TryRemove(unLoadResource.LoadedNetID, out _))
         {

@@ -921,9 +921,16 @@ namespace BasisNetworkServer.Security
             if (config.BSRBaseMultiplier < 1) config.BSRBaseMultiplier = 1;
             if (config.BSRSIncreaseRate < 0f) config.BSRSIncreaseRate = 0f;
             if (config.BSRSlowestSendRate < 0f) config.BSRSlowestSendRate = 0f;
+            const float MaxQualityDistanceMeters = 1000f;
+
+            // Upper bounds matter as much as lower ones here: the value is persisted to config.xml
+            // and an unbounded distance pins every peer to the High avatar tier permanently.
             if (config.HighQualityDistance < 0f) config.HighQualityDistance = 0f;
+            if (config.HighQualityDistance > MaxQualityDistanceMeters) config.HighQualityDistance = MaxQualityDistanceMeters;
             if (config.MediumQualityDistance < 0f) config.MediumQualityDistance = 0f;
+            if (config.MediumQualityDistance > MaxQualityDistanceMeters) config.MediumQualityDistance = MaxQualityDistanceMeters;
             if (config.LowQualityDistance < 0f) config.LowQualityDistance = 0f;
+            if (config.LowQualityDistance > MaxQualityDistanceMeters) config.LowQualityDistance = MaxQualityDistanceMeters;
             if (config.AvatarBundleMinMessages < 1) config.AvatarBundleMinMessages = 1;
             if (config.AvatarBundleMinBytes < 0) config.AvatarBundleMinBytes = 0;
 

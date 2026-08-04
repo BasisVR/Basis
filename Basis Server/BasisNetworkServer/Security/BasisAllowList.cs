@@ -45,6 +45,14 @@ namespace BasisNetworkServer.Security
 
         public async Task AddToAllowlistAsync(string playerId)
         {
+            // The store is line-delimited, so an embedded newline would turn one requested entry
+            // into several while the admin UI still reports one.
+            playerId = playerId?.Replace("\r", string.Empty).Replace("\n", string.Empty).Trim();
+            if (string.IsNullOrEmpty(playerId))
+            {
+                return;
+            }
+
             if (!allowlistedPlayers.ContainsKey(playerId))
             {
                 allowlistedPlayers.TryAdd(playerId, 0);
