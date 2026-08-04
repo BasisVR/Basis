@@ -435,6 +435,11 @@ namespace BasisNetworkServer.Security
                         HandleGlobalToggle(peer, "Prop grabbing", BasisGlobalLockManager.TogglePropGrabbing()));
                     break;
 
+                case AdminRequestMode.GlobalToggleSafeDisplayNames:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Safe display names", BasisGlobalLockManager.ToggleSafeDisplayNames()));
+                    break;
+
                 case AdminRequestMode.SetGlobalAvatarScaleLimits:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleAvatarScaleLimitsSet(peer, reader));

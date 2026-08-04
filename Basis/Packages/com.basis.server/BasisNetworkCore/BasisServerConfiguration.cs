@@ -220,6 +220,11 @@ public class Configuration
     /// *loading* rather than handling already-spawned ones. Default off.
     /// </summary>
     public bool PropGrabbingLocked = false;
+    /// <summary>
+    /// When true, clients render other players' display names with rich-text markup stripped and
+    /// TMP rich text disabled on the nameplate. Enforced client-side. Default off.
+    /// </summary>
+    public bool SafeDisplayNamesForced = false;
 
     // ── REST API ──────────────────────────────────────────────────────────────
     /// <summary>Set to true to enable the REST management API.</summary>
@@ -321,6 +326,15 @@ public class Configuration
         ApplyEnvironmentalOverridesTo(this);
     }
 
+    private static bool IsSecretFieldName(string fieldName)
+    {
+        if (string.IsNullOrEmpty(fieldName)) return false;
+        return fieldName.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0
+            || fieldName.IndexOf("apikey", StringComparison.OrdinalIgnoreCase) >= 0
+            || fieldName.IndexOf("secret", StringComparison.OrdinalIgnoreCase) >= 0
+            || fieldName.IndexOf("token", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     private static void ApplyEnvironmentalOverridesTo(object target)
     {
         if (target == null) return;
@@ -338,7 +352,7 @@ public class Configuration
             string value = Environment.GetEnvironmentVariable(field.Name);
             if (value == null) continue;
 
-            BNL.Log($"Applying Environmental Override with Field:{field.Name} Value:{value}");
+            BNL.Log($"Applying Environmental Override with Field:{field.Name} Value:{(IsSecretFieldName(field.Name) ? "<redacted>" : value)}");
 
             if (field.FieldType == typeof(int))
             {

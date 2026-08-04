@@ -205,6 +205,7 @@ namespace Basis.Network.Core
             t.Fields.Add(new FieldDoc("VoiceChatLocked", " Drop voice (normal and shout) from peers lacking basis.voice.lockbypass. Enforced server-side, so a modified client cannot talk past it. true|false; default false. "));
             t.Fields.Add(new FieldDoc("MediaPlayerLocked", " Stop non-bypass clients from loading new media player URLs and from accepting inbound ones. Enforced client-side (media state rides the generic scene relay). Already-playing media keeps playing. true|false; default false. "));
             t.Fields.Add(new FieldDoc("CameraCaptureLocked", " Stop non-bypass clients from taking photos with the handheld camera. Enforced client-side (capture is entirely local). Separate from CameraMetadataDisallowMask, which only strips metadata. true|false; default false. "));
+            t.Fields.Add(new FieldDoc("SafeDisplayNamesForced", " Render other players' display names with rich-text markup stripped and TMP rich text off. Enforced client-side. Stops name markup being used to draw over the screen. true|false; default false. "));
             t.Fields.Add(new FieldDoc("PropGrabbingLocked", " Stop non-bypass clients from picking up or grabbing props. Enforced client-side (grabbing is local interaction logic). Separate from PropsLocked, which blocks prop loading instead. true|false; default false. "));
             _docs[typeof(global::Configuration)] = t;
         }

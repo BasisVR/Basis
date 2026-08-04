@@ -74,8 +74,6 @@ public static class BasisMediaPlayerSecurity
 
     // Blocks anything that is not global unicast, including a private/loopback target
     // smuggled through IPv4-mapped or 6to4 IPv6. allowLoopback exempts loopback only.
-    // Table lives in BasisUrlSecurity so the bundle, media and shim download paths cannot
-    // drift apart; it is still kept in lockstep with the native guard (basis_io.c).
     public static bool IsBlockedAddress(IPAddress ip, bool allowLoopback, out string reason)
         => Basis.Scripts.Common.BasisUrlSecurity.IsBlockedAddress(ip, allowLoopback, out reason);
 

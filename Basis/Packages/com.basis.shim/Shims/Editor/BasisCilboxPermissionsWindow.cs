@@ -47,7 +47,41 @@ namespace Basis.Shims.Editor
             using (BasisEditorUI.Card(BasisCilboxLoc.Get("sdk.cilbox.lookup.card")))
             {
                 BasisEditorUI.Note(BasisCilboxLoc.Get("sdk.cilbox.lookup.note"));
+
+                EditorGUILayout.BeginHorizontal();
                 _query = EditorGUILayout.TextField(BasisCilboxLoc.Get("sdk.cilbox.lookup.type"), _query);
+
+                Rect browseRect = GUILayoutUtility.GetRect(
+                    new GUIContent(BasisCilboxLoc.Get("sdk.cilbox.button.browse")),
+                    EditorStyles.miniButton, GUILayout.Width(80f), GUILayout.Height(18f));
+                BasisEditorUI.Fill(browseRect, new Color(0.31f, 0.31f, 0.31f), 6f);
+                if (GUI.Button(browseRect, BasisCilboxLoc.Get("sdk.cilbox.button.browse"), EditorStyles.miniButton))
+                {
+                    BasisCilboxPickerWindow.PickType(browseRect, picked =>
+                    {
+                        Select(picked);
+                        Host?.Repaint();
+                    });
+                }
+                EditorGUILayout.EndHorizontal();
+
+                List<Type> dropped = BasisCilboxDropTarget.Draw(
+                    BasisCilboxLoc.Get("sdk.cilbox.picker.dropHint"), out Rect area);
+                if (dropped != null && dropped.Count > 0)
+                {
+                    if (dropped.Count == 1)
+                    {
+                        Select(dropped[0].FullName);
+                    }
+                    else
+                    {
+                        BasisCilboxPickerWindow.PickType(area, picked =>
+                        {
+                            Select(picked);
+                            Host?.Repaint();
+                        }, null, dropped);
+                    }
+                }
 
                 if (!string.Equals(_query, _lastResolved, StringComparison.Ordinal))
                 {
@@ -55,6 +89,15 @@ namespace Basis.Shims.Editor
                     _resolved = BasisCilboxPermissionModel.ResolveType(_query?.Trim());
                 }
             }
+        }
+
+        /// <summary>Points the tab at a type, keeping the text field and the resolved type in step.</summary>
+        private void Select(string fullName)
+        {
+            _query = fullName ?? string.Empty;
+            _lastResolved = _query;
+            _resolved = BasisCilboxPermissionModel.ResolveType(_query.Trim());
+            GUI.FocusControl(null);
         }
 
         private void DrawTypeVerdicts()
@@ -406,6 +449,7 @@ namespace Basis.Shims.Editor
             new BasisCilboxBoxPage(CilboxBoxKind.Avatar),
             new BasisCilboxBoxPage(CilboxBoxKind.Prop),
             new BasisCilboxBoxPage(CilboxBoxKind.Scene),
+            new BasisCilboxScriptPage(),
             new BasisCilboxLookupPage(),
             new BasisCilboxApiPage(),
         };

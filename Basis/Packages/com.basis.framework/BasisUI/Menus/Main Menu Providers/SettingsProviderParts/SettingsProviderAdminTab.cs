@@ -156,6 +156,12 @@ namespace Basis.BasisUI
             propGrabbingLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalPropGrabbingLocked);
             propGrabbingLock.OnValueChanged += _ => BasisNetworkModeration.GlobalTogglePropGrabbing();
 
+            PanelToggle safeDisplayNamesToggle = PanelToggle.CreateNewEntry(container);
+            safeDisplayNamesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.safeDisplayNames"));
+            safeDisplayNamesToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.safeDisplayNames.tooltip"));
+            safeDisplayNamesToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalSafeDisplayNamesForced);
+            safeDisplayNamesToggle.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleSafeDisplayNames();
+
             // Enabled-facing: the toggle shows the feature ON (default); flipping it OFF disables it
             // server-wide. The wire flag is stored inverted (GlobalEndEffectorIKDisabled).
             PanelToggle endEffectorIKToggle = PanelToggle.CreateNewEntry(container);
@@ -181,6 +187,7 @@ namespace Basis.BasisUI
             controller.MediaPlayerLockToggle = mediaPlayerLock;
             controller.CameraCaptureLockToggle = cameraCaptureLock;
             controller.PropGrabbingLockToggle = propGrabbingLock;
+            controller.SafeDisplayNamesToggle = safeDisplayNamesToggle;
             controller.EndEffectorIKToggle = endEffectorIKToggle;
 
             PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(lockToggle, container, lockStart, false, _ => descriptor.ForceRebuild());
@@ -920,6 +927,7 @@ namespace Basis.BasisUI
             public PanelToggle MediaPlayerLockToggle;
             public PanelToggle CameraCaptureLockToggle;
             public PanelToggle PropGrabbingLockToggle;
+            public PanelToggle SafeDisplayNamesToggle;
             public PanelToggle EndEffectorIKToggle;
             public PanelSlider MinAvatarHeightSlider;
             public PanelSlider MaxAvatarHeightSlider;
@@ -1004,6 +1012,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalCameraCaptureLockedChanged += OnGlobalCameraCaptureLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged += OnGlobalPropGrabbingLockedChanged;
+                BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
+                BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged += OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged += OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
@@ -1039,6 +1049,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalMediaPlayerLockedChanged -= OnGlobalMediaPlayerLockedChanged;
                 BasisNetworkModeration.OnGlobalCameraCaptureLockedChanged -= OnGlobalCameraCaptureLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
+                BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
@@ -1068,6 +1079,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalMediaPlayerLockedChanged -= OnGlobalMediaPlayerLockedChanged;
                 BasisNetworkModeration.OnGlobalCameraCaptureLockedChanged -= OnGlobalCameraCaptureLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
+                BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
@@ -1187,6 +1199,11 @@ namespace Basis.BasisUI
             private void OnGlobalCameraCaptureLockedChanged(bool locked)
             {
                 if (CameraCaptureLockToggle != null) CameraCaptureLockToggle.SetValueWithoutNotify(locked);
+            }
+
+            private void OnGlobalSafeDisplayNamesForcedChanged(bool forced)
+            {
+                if (SafeDisplayNamesToggle != null) SafeDisplayNamesToggle.SetValueWithoutNotify(forced);
             }
 
             private void OnGlobalPropGrabbingLockedChanged(bool locked)

@@ -820,6 +820,12 @@ public static class BasisNetworkModeration
     /// </summary>
     public static bool GlobalPropGrabbingLocked { get; private set; }
 
+    /// <summary>
+    /// Server-pushed policy: while true, other players' display names render with rich-text markup
+    /// stripped and TMP rich text disabled. Applies to everyone; there is no bypass.
+    /// </summary>
+    public static bool GlobalSafeDisplayNamesForced { get; private set; }
+
     /// <summary>Fired when the text-chat lock flag changes.</summary>
     public static event Action<bool> OnGlobalTextChatLockedChanged;
 
@@ -834,6 +840,9 @@ public static class BasisNetworkModeration
 
     /// <summary>Fired when the prop-grabbing lock flag changes.</summary>
     public static event Action<bool> OnGlobalPropGrabbingLockedChanged;
+
+    /// <summary>Fired when the forced-safe-display-names flag changes.</summary>
+    public static event Action<bool> OnGlobalSafeDisplayNamesForcedChanged;
 
     /// <summary>Fired when the remote end-effector IK disable flag changes (true = disabled).</summary>
     public static event Action<bool> OnGlobalEndEffectorIKDisabledChanged;
@@ -1063,7 +1072,16 @@ public static class BasisNetworkModeration
                 OnGlobalPropGrabbingLockedChanged?.Invoke(GlobalPropGrabbingLocked);
             }
         }
-        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}, AdditionalAvatarData: {GlobalAdditionalAvatarDataLock}, CameraMask: {GlobalCameraDisallowMask}, Restriction: {GlobalUserRestrictionMode}, PlayspaceMover: {GlobalPlayspaceMoverLocked}, DirectConnect: {GlobalDirectConnectLocked}, Cilbox: {GlobalCilboxLocked}, Images: {GlobalImagesLocked}, EndEffectorIKDisabled: {GlobalEndEffectorIKDisabled}, TextChat: {GlobalTextChatLocked}, VoiceChat: {GlobalVoiceChatLocked}, MediaPlayer: {GlobalMediaPlayerLocked}, CameraCapture: {GlobalCameraCaptureLocked}, PropGrabbing: {GlobalPropGrabbingLocked}", BasisDebug.LogTag.Networking);
+        if (reader.AvailableBytes >= 1)
+        {
+            bool nextSafeDisplayNames = reader.GetBool();
+            if (nextSafeDisplayNames != GlobalSafeDisplayNamesForced)
+            {
+                GlobalSafeDisplayNamesForced = nextSafeDisplayNames;
+                OnGlobalSafeDisplayNamesForcedChanged?.Invoke(GlobalSafeDisplayNamesForced);
+            }
+        }
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}, AdditionalAvatarData: {GlobalAdditionalAvatarDataLock}, CameraMask: {GlobalCameraDisallowMask}, Restriction: {GlobalUserRestrictionMode}, PlayspaceMover: {GlobalPlayspaceMoverLocked}, DirectConnect: {GlobalDirectConnectLocked}, Cilbox: {GlobalCilboxLocked}, Images: {GlobalImagesLocked}, EndEffectorIKDisabled: {GlobalEndEffectorIKDisabled}, TextChat: {GlobalTextChatLocked}, VoiceChat: {GlobalVoiceChatLocked}, MediaPlayer: {GlobalMediaPlayerLocked}, CameraCapture: {GlobalCameraCaptureLocked}, PropGrabbing: {GlobalPropGrabbingLocked}, SafeDisplayNames: {GlobalSafeDisplayNamesForced}", BasisDebug.LogTag.Networking);
         OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked, GlobalServersLocked);
     }
 
@@ -1199,6 +1217,12 @@ public static class BasisNetworkModeration
     public static void GlobalTogglePropGrabbing()
     {
         SendAdminRequest(AdminRequestMode.GlobalTogglePropGrabbing);
+    }
+
+    /// <summary>Admin: toggle forced safe display names server-wide.</summary>
+    public static void GlobalToggleSafeDisplayNames()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleSafeDisplayNames);
     }
 
     /// <summary>

@@ -262,11 +262,8 @@ namespace LiteNetLib.Utils
 
         /// <summary>Reads the next <see cref="byte"/> from the buffer.</summary>
         /// <remarks>
-        /// The bounds check is not redundant. _data is the pooled NetPacket buffer, which is
-        /// always MaxPacketSize long regardless of how many bytes actually arrived, so reading
-        /// past _dataSize does not fault — it silently returns bytes left over from a previously
-        /// received packet. Without this an empty or truncated packet dispatches on another
-        /// peer's stale data. One predictable compare on an already-loaded field.
+        /// Not redundant: _data is the pooled NetPacket buffer and is always MaxPacketSize long,
+        /// so reading past _dataSize silently returns bytes from a previously received packet.
         /// </remarks>
         public byte GetByte()
         {
@@ -286,9 +283,7 @@ namespace LiteNetLib.Utils
         {
             ushort length = GetUShort();
             int byteLength = length * sizeof(T);
-            // Slicing _data alone only bounds against the pooled buffer's capacity, not against
-            // how many bytes this packet actually carries, so a short packet would copy the
-            // previous packet's tail into the returned array.
+            // Slicing _data alone bounds against the pooled buffer's capacity, not this packet's.
             EnsureAvailable(byteLength);
             ReadOnlySpan<byte> slice = _data.AsSpan(_position, byteLength);
             T[] result = MemoryMarshal.Cast<byte, T>(slice)

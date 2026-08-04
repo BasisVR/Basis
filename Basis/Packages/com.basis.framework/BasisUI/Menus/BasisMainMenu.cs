@@ -63,9 +63,13 @@ namespace Basis.BasisUI
             // Fade in the hotbar panel
            // UIAnimations.FadeIn(HotbarMenu, 0.2f, 0f, Easing.OutCubic);
 
-            // Stagger the hotbar buttons with fade + slide up
+            // Stagger the hotbar buttons with fade + slide up. SlideIn captures each button's
+            // CURRENT anchoredPosition as its destination, and the buttons were created this
+            // frame — the layout group has not placed them yet, so without settling the layout
+            // first every destination is the prefab default and the bar animates into a stack.
             if (ProviderButtons.Count > 0)
             {
+                PanelElementDescriptor.RebuildLayoutChain(HorizontalLayout.ContentParent, HotbarMenu.Descriptor.rectTransform);
                 RectTransform[] buttonTransforms = new RectTransform[ProviderButtons.Count];
                 for (int i = 0; i < ProviderButtons.Count; i++)
                 {

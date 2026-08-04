@@ -495,12 +495,8 @@ namespace Cilbox
 		protected abstract HashSet<string> ExtraWhiteListFields { get; }
 		protected abstract Dictionary<Type, HashSet<string>> ExtraMethodWhitelist { get; }
 
-		// Types that must never be reachable no matter what a wildcard happens to cover.
-		// "System.Int*" was written to mean Int16/Int32/Int64, but MatchesWildcard treats a
-		// trailing '*' as a bare prefix match, so it also admitted System.IntPtr — and an
-		// allowlisted IntPtr lets a script hand an arbitrary address to any native-interop
-		// method whose other parameter types are allowlisted (Texture2D.CreateExternalTexture,
-		// Texture.UpdateExternalTexture). Checked before the allowlist so it always wins.
+		// Denied regardless of what a wildcard covers: "System.Int*" is a bare prefix match
+		// and would otherwise admit System.IntPtr.
 		private static readonly HashSet<string> hardDeniedTypes = new HashSet<string>(StringComparer.Ordinal)
 		{
 			"System.IntPtr",
@@ -598,14 +594,7 @@ namespace Cilbox
 				return false;
 
 			// NativeArray<T> only bounds-checks its indexer under ENABLE_UNITY_COLLECTIONS_CHECKS,
-			// which Unity defines for the Editor and development builds but NOT for release
-			// players. In a shipped build na[hugeIndex] = v compiles down to an unchecked
-			// UnsafeUtility.WriteArrayElement — an arbitrary native write, i.e. RCE on every
-			// visitor. Scripts reach one legitimately via AsyncGPUReadbackRequest.GetData<T>(),
-			// so rather than drop the type (which would remove GPU readback entirely) restrict
-			// it to the members that copy out with real bounds checks. Reading stays available
-			// through ToArray()/CopyTo(); the raw indexer, Dispose (double-free) and the
-			// pointer/reinterpret escapes do not.
+			// which release players do not define. Restricted to the members that copy out.
 			if (declaringType != null && declaringType.IsGenericType &&
 				declaringType.GetGenericTypeDefinition().FullName == "Unity.Collections.NativeArray`1")
 			{

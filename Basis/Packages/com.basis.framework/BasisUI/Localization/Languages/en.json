@@ -10963,6 +10963,18 @@
       "value": "Stops non-admin players from picking up or grabbing props. Separate from the prop lock above, which blocks loading new props rather than handling ones already spawned. Admins are unaffected."
     },
     {
+      "key": "settings.admin.title.safeDisplayNames",
+      "value": "Safe Display Names"
+    },
+    {
+      "key": "settings.admin.title.safeDisplayNames.tooltip",
+      "value": "Show other players' names as plain text, stripping rich-text formatting. Applies to everyone, including admins."
+    },
+    {
+      "key": "settings.admin.title.safeDisplayNames.description",
+      "value": "Renders every player's name as plain text, removing rich-text tags such as size, colour and offset. Turn this on if names are being used to draw over your view. Applies to everyone, including admins, since it controls what you are shown rather than what others may do."
+    },
+    {
       "key": "settings.admin.minAvatarHeight",
       "value": "Min Avatar Height"
     },

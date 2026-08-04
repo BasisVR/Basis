@@ -116,14 +116,6 @@ namespace Basis
 	{
 		System.Collections.Generic.HashSet< UnityWebRequest > InFlight = new System.Collections.Generic.HashSet< UnityWebRequest >();
 
-		// Sandboxed world scripts call this with an arbitrary string, so the URL gets the
-		// same treatment as the media legs: scheme + literal-address gate, then a DNS
-		// check so a name pointing at a private address is caught, then redirects refused
-		// so a post-validation 302 can't reach a host that never passed either check.
-		// Without this the shim is a readable SSRF primitive against the victim's LAN.
-		// async void: the DNS leg must not block the main thread, and the caller is a
-		// sandboxed script with no way to await. Every path is wrapped because an escaping
-		// exception from an async void tears down the process.
 		public async void DownloadImage( string stringUrl, Action< IBasisImageDownload > callback )
 		{
 			try
@@ -288,9 +280,6 @@ namespace Basis
 			);
 		}
 
-		// User consent covers "do you trust this URL", not "is this URL pointed at your own
-		// network" — a trusted-list entry or an accepted prompt must still not become an
-		// SSRF primitive. Same gate + refused redirects as the image path.
 		private async void BeginRequest( string stringUrl, Action< IBasisStringDownload > callback )
 		{
 			try

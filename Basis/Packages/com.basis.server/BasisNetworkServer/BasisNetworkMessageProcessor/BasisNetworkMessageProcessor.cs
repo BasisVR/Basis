@@ -15,12 +15,7 @@ using static BasisPermissions.PermissionManager;
 public static class BasisNetworkMessageProcessor
 {
     private const int MaxErrorsBeforeWarning = 50;
-    /// <summary>
-    /// Protocol errors tolerated from one peer before it is dropped. A client with a genuine
-    /// bug or a bad connection trips the warning long before this; a peer still producing errors
-    /// at this volume is not going to recover, and every error costs the server exception
-    /// handling plus a reliable reply.
-    /// </summary>
+    /// <summary>Protocol errors tolerated from one peer before it is dropped.</summary>
     private const int MaxErrorsBeforeDisconnect = 500;
     private static readonly ConcurrentDictionary<int, int> _peerErrorCounts = new();
 
@@ -83,10 +78,8 @@ public static class BasisNetworkMessageProcessor
     }
 
     /// <summary>
-    /// Warns once at the warning threshold and disconnects at the hard limit. The counter is
-    /// deliberately left in place: clearing it on warning (the previous behaviour) reset the
-    /// peer back to zero, so the limit could never be exceeded, no peer was ever dropped, and
-    /// the server emitted one reliable warning per 50 errors indefinitely.
+    /// Warns once at the warning threshold and disconnects at the hard limit. The counter must
+    /// not be cleared on warning, or the limit can never be exceeded.
     /// </summary>
     private static void HandleErrorEscalation(NetPeer peer, int errorCount)
     {

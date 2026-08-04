@@ -28,6 +28,7 @@ namespace BasisNetworkServer.Security
         private static int _mediaPlayerLocked;
         private static int _cameraCaptureLocked;
         private static int _propGrabbingLocked;
+        private static int _safeDisplayNamesForced;
         // 0 = feature on (default), 1 = admin-disabled. Inverted vs the locks above — this is a default-on feature.
         private static int _endEffectorIKDisabled;
 
@@ -47,6 +48,7 @@ namespace BasisNetworkServer.Security
         public static bool MediaPlayerLocked => Interlocked.CompareExchange(ref _mediaPlayerLocked, 0, 0) == 1;
         public static bool CameraCaptureLocked => Interlocked.CompareExchange(ref _cameraCaptureLocked, 0, 0) == 1;
         public static bool PropGrabbingLocked => Interlocked.CompareExchange(ref _propGrabbingLocked, 0, 0) == 1;
+        public static bool SafeDisplayNamesForced => Interlocked.CompareExchange(ref _safeDisplayNamesForced, 0, 0) == 1;
         public static bool EndEffectorIKDisabled => Interlocked.CompareExchange(ref _endEffectorIKDisabled, 0, 0) == 1;
 
         /// <summary>
@@ -71,6 +73,7 @@ namespace BasisNetworkServer.Security
             Interlocked.Exchange(ref _mediaPlayerLocked, config.MediaPlayerLocked ? 1 : 0);
             Interlocked.Exchange(ref _cameraCaptureLocked, config.CameraCaptureLocked ? 1 : 0);
             Interlocked.Exchange(ref _propGrabbingLocked, config.PropGrabbingLocked ? 1 : 0);
+            Interlocked.Exchange(ref _safeDisplayNamesForced, config.SafeDisplayNamesForced ? 1 : 0);
             Interlocked.Exchange(ref _endEffectorIKDisabled, config.EndEffectorIKDisabled ? 1 : 0);
         }
 
@@ -162,6 +165,12 @@ namespace BasisNetworkServer.Security
         public static bool TogglePropGrabbing() => Toggle(ref _propGrabbingLocked);
 
         /// <summary>
+        /// Toggle forced safe display names. Returns the new state (true = clients strip rich-text
+        /// markup from display names). Enforced client-side.
+        /// </summary>
+        public static bool ToggleSafeDisplayNames() => Toggle(ref _safeDisplayNamesForced);
+
+        /// <summary>
         /// Toggle the global remote end-effector IK disable. Returns the new state (true = disabled;
         /// clients fall back to pure-FK playback for remote hands/feet). Enforced client-side.
         /// </summary>
@@ -220,6 +229,8 @@ namespace BasisNetworkServer.Security
             writer.Put(MediaPlayerLocked);
             writer.Put(CameraCaptureLocked);
             writer.Put(PropGrabbingLocked);
+            // Appended after PropGrabbingLocked — older clients that stop reading earlier still parse.
+            writer.Put(SafeDisplayNamesForced);
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
         }
@@ -259,6 +270,8 @@ namespace BasisNetworkServer.Security
             writer.Put(MediaPlayerLocked);
             writer.Put(CameraCaptureLocked);
             writer.Put(PropGrabbingLocked);
+            // Appended after PropGrabbingLocked — older clients that stop reading earlier still parse.
+            writer.Put(SafeDisplayNamesForced);
             NetworkServer.BroadcastMessageToClients(
                 writer,
                 BasisNetworkCommons.AdminChannel,

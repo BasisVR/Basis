@@ -188,6 +188,11 @@ namespace BasisNetworkCore.Serializable
             // props. Enforced client-side — grabbing is local interaction logic. Separate from
             // GlobalToggleProps, which blocks prop loading instead.
             GlobalTogglePropGrabbing,
+
+            // admin: toggle forced safe display names. While set, clients strip rich-text markup
+            // from other players' display names and disable TMP rich text on the nameplate.
+            // Enforced client-side — nameplate rendering is entirely local.
+            GlobalToggleSafeDisplayNames,
         }
     }
 }

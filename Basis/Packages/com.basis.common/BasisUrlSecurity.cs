@@ -5,27 +5,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Common
 {
-    /// <summary>
-    /// Shared server-side-request-forgery guard for every outbound fetch driven by content
-    /// we did not author: bundle/avatar URLs that arrive over the wire, media URLs, and the
-    /// download shims exposed to sandboxed world scripts.
-    ///
-    /// This lives in BasisCommon (a leaf assembly) rather than next to any one consumer
-    /// because those consumers sit in assemblies that cannot reference each other without
-    /// a cycle — BasisBundleManagement, BasisMediaPlayer and BasisShims all need the same
-    /// answer, and a second copy of the table is how the two copies drift apart.
-    ///
-    /// The rule: only globally-routable unicast destinations are allowed. Anything pointed
-    /// at the victim's own machine, their LAN, or cloud metadata is refused, so a remote
-    /// peer cannot use another player's client as a probe into a network it cannot reach.
-    /// </summary>
     public static class BasisUrlSecurity
     {
-        /// <summary>
-        /// Scheme + literal-address gate for plain HTTP(S) downloads. Callers that support
-        /// extra schemes (streaming protocols) should validate the scheme themselves and
-        /// then call <see cref="IsBlockedHost"/>.
-        /// </summary>
         public static bool IsHttpUrlAllowed(string url, out string reason)
         {
             reason = null;
@@ -58,10 +39,6 @@ namespace Basis.Scripts.Common
             return true;
         }
 
-        /// <summary>
-        /// Literal-address check. A real host name resolves to nothing here and must also go
-        /// through <see cref="ValidateResolvedHostAsync"/> before the request is issued.
-        /// </summary>
         public static bool IsBlockedHost(string host, out string reason)
         {
             reason = null;
@@ -82,14 +59,9 @@ namespace Basis.Scripts.Common
         }
 
         /// <summary>
-        /// DNS layer: resolves a real host name off the main thread and blocks it if any
-        /// resolved address is non-global. Closes the name-that-points-at-a-private-IP
-        /// bypass that the literal-only <see cref="IsBlockedHost"/> cannot see. Returns null
-        /// when the host is allowed, otherwise the reason it was refused.
-        ///
-        /// Fails closed: a resolver we cannot get an answer from could serve the real
-        /// request a private address moments later, and a genuinely dead name could not
-        /// have been fetched anyway.
+        /// Resolves a host name off the main thread and blocks it if any resolved address is
+        /// non-global. Returns null when allowed, otherwise the reason it was refused. Fails
+        /// closed: an unresolvable host is treated as blocked.
         /// </summary>
         public static async Task<string> ValidateResolvedHostAsync(string url)
         {

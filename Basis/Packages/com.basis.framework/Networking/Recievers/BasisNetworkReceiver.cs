@@ -664,12 +664,8 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogErrorOnce($"Dropped a non-finite network pose for player {playerId}: pos={avatarBuffer.Position} rot={avatarBuffer.Rotation} scale={avatarBuffer.Scale}", BasisDebug.LogTag.Networking);
                 return;
             }
-            // Finite is not sufficient. The High-quality tier carries raw float32 positions, so a
-            // peer can send values near 3.4e38 that pass the check above and then overflow to
-            // +/-Inf inside the per-frame one-euro filter's derivative term. That produces an
-            // Inf-Inf NaN which is written back into the filter's own history, so a single packet
-            // latches the player's transform permanently. Bounding the magnitude here — once per
-            // packet — keeps every downstream frame's arithmetic in range.
+            // Finite is not enough: a value near 3.4e38 overflows the per-frame filter's
+            // derivative term to Inf, and the resulting NaN latches into the filter history.
             if (!IsWithinWorldBounds(avatarBuffer.Position))
             {
                 BasisDebug.LogErrorOnce($"Dropped an out-of-range network pose for player {playerId}: pos={avatarBuffer.Position}", BasisDebug.LogTag.Networking);
@@ -684,11 +680,7 @@ namespace Basis.Scripts.Networking.Receivers
             System.Threading.Interlocked.Increment(ref _pendingCount);
         }
 
-        /// <summary>
-        /// Half-extent of the coordinate range a remote pose may occupy. Chosen far beyond any
-        /// playable world (1000 km) so it can never reject legitimate content, while staying
-        /// small enough that squaring or differencing it cannot overflow a float.
-        /// </summary>
+        /// <summary>Half-extent of the coordinate range a remote pose may occupy (1000 km).</summary>
         const float MaxNetworkPositionMagnitude = 1e6f;
 
         static bool IsWithinWorldBounds(float3 v) => math.all(math.abs(v) < MaxNetworkPositionMagnitude);

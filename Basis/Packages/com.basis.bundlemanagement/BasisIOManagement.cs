@@ -772,16 +772,13 @@ public static class BasisIOManagement
         string requestId = BasisGenerateUniqueID.GenerateUniqueID();
 
         using var req = UnityWebRequest.Get(url);
-        // A 302 after validation would reach a host that passed neither the literal nor the
-        // DNS check, so redirects are refused rather than re-validated.
         req.redirectLimit = 0;
 
         string rangeHeader = endByteInclusive.HasValue ? $"bytes={startByte}-{endByteInclusive.Value}" : $"bytes={startByte}-";
 
         req.SetRequestHeader("Range", rangeHeader);
 
-        // The handler appends, so a redirect response body would be left in the file before the
-        // retry appends the real content. Remember the length to roll back to.
+        // The handler appends, so a redirect body would be left in the file before the retry.
         long fileLengthBeforeRequest = -1;
 
         if (string.IsNullOrEmpty(toFilePath) == false)
@@ -827,8 +824,6 @@ public static class BasisIOManagement
 
         long code = req.responseCode;
 
-        // Redirects come back as a plain response because redirectLimit is 0; re-validate the
-        // target and re-issue against it rather than letting Unity follow it unchecked.
         (bool redirected, string nextUrl, string redirectError) = await TryFollowRedirectAsync(req, url);
         if (redirectError != null)
         {
@@ -841,7 +836,7 @@ public static class BasisIOManagement
             if (redirectsRemaining <= 0)
                 return BeeResult<DownloadPayload>.Fail($"Too many redirects (limit {MaxValidatedRedirects}).", code);
 
-            // Drop anything the redirect response appended so the retry writes at the right offset.
+            // Drop anything the redirect appended so the retry writes at the right offset.
             req.Dispose();
             if (fileLengthBeforeRequest >= 0)
             {
@@ -1038,10 +1033,8 @@ public static class BasisIOManagement
             return false;
         }
 
-        // These URLs arrive over the wire — a remote player's avatar change carries the
-        // address every other client then fetches. A scheme check alone lets that player
-        // aim the whole instance at 127.0.0.1, the LAN, or cloud metadata and read the
-        // outcome back through the reported HTTP status and Content-Range headers.
+        // These URLs arrive over the wire, so a scheme check alone lets a remote player aim
+        // every other client at loopback, the LAN, or cloud metadata.
         if (Basis.Scripts.Common.BasisUrlSecurity.IsBlockedHost(uri.Host, out string hostReason))
         {
             error = $"Blocked URL host '{uri.Host}': {hostReason}";
@@ -1054,28 +1047,19 @@ public static class BasisIOManagement
     }
 
     /// <summary>
-    /// DNS half of the SSRF gate. <see cref="ValidateUrl"/> only sees literal addresses, so a
-    /// host name that resolves to a private address still needs this before the request is
-    /// issued. Returns null when the host is allowed, otherwise the reason it was refused.
+    /// DNS half of the SSRF gate; <see cref="ValidateUrl"/> only sees literal addresses.
+    /// Returns null when the host is allowed, otherwise the reason it was refused.
     /// </summary>
     private static Task<string> ValidateUrlHostResolvesGlobalAsync(string url)
         => Basis.Scripts.Common.BasisUrlSecurity.ValidateResolvedHostAsync(url);
 
-    /// <summary>
-    /// Hop budget for hand-followed redirects. Content hosts legitimately bounce a bundle URL
-    /// to a signed CDN edge, so refusing redirects outright would break real downloads.
-    /// </summary>
+    /// <summary>Hop budget for hand-followed redirects.</summary>
     private const int MaxValidatedRedirects = 5;
 
     /// <summary>
-    /// UnityWebRequest's built-in redirect follower re-issues the request without ever
-    /// consulting the SSRF gate, so a public host can answer 302 with a Location of
-    /// 127.0.0.1 or 169.254.169.254 and the redirected fetch is never validated. Every
-    /// request here therefore sets <c>redirectLimit = 0</c> and follows hops by hand
-    /// through this helper, which re-runs the full literal + DNS check on each target.
-    ///
-    /// Returns true only when the response was a redirect whose target passed validation.
-    /// Costs nothing on the overwhelmingly common non-redirect path.
+    /// UnityWebRequest's built-in redirect follower re-issues the request without consulting the
+    /// SSRF gate, so every request here sets <c>redirectLimit = 0</c> and follows hops through
+    /// this helper instead. Returns true only for a redirect whose target passed validation.
     /// </summary>
     private static async Task<(bool redirected, string nextUrl, string error)> TryFollowRedirectAsync(UnityWebRequest req, string currentUrl)
     {

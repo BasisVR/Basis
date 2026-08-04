@@ -20,6 +20,9 @@ namespace Basis.Shims.Editor
         public string FieldName;
         public string TitleKey;
 
+        /// <summary>Whether entries are type names or <c>Type.field</c> pairs — picks the browse flow.</summary>
+        public CilboxPickKind Kind = CilboxPickKind.Type;
+
         /// <summary>True when this list lives in CilboxBasisCommon and every box inherits it.</summary>
         public bool Shared;
 
@@ -47,14 +50,36 @@ namespace Basis.Shims.Editor
             }
         }
 
-        public void Load(string filePath, string assetPath, string fieldName, string titleKey, bool shared)
+        public void Load(string filePath, string assetPath, string fieldName, string titleKey, bool shared,
+            CilboxPickKind kind)
         {
             FilePath = filePath;
             AssetPath = assetPath;
             FieldName = fieldName;
             TitleKey = titleKey;
             Shared = shared;
+            Kind = kind;
             Reload();
+        }
+
+        /// <summary>Whether a value is already an entry, so browsing cannot add it twice.</summary>
+        public bool Contains(string value)
+        {
+            foreach (CilboxSourceEntry entry in Working)
+            {
+                if (string.Equals(entry.Resolved, value, StringComparison.Ordinal)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Appends a value unless it is already listed. Returns false when it was a duplicate.</summary>
+        public bool TryAdd(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            value = value.Trim();
+            if (Contains(value)) return false;
+            Working.Add(BasisCilboxPermissionSource.NewEntry(Source, value));
+            return true;
         }
 
         public void Reload()
@@ -160,6 +185,9 @@ namespace Basis.Shims.Editor
         public CilboxListEditor List;
         public bool Shared;
 
+        /// <summary>The compiled type this entry restricts, for browsing its methods.</summary>
+        public Type ResolvedType;
+
         /// <summary>Resolved from the compiled dictionary, so it is right even when the source is not editable.</summary>
         public List<string> LiveMethods = new List<string>();
 
@@ -233,19 +261,20 @@ namespace Basis.Shims.Editor
             string commonPath = BasisCilboxPermissionModel.CommonSourcePath;
             string commonAsset = BasisCilboxPermissionModel.CommonAssetPath;
 
-            AddList(commonPath, commonAsset, BasisCilboxPermissionModel.FieldCommonTypes, "sdk.cilbox.list.sharedTypes", true);
-            AddList(_box.SourcePath, _box.AssetPath, BasisCilboxPermissionModel.FieldExtraTypes, "sdk.cilbox.list.boxTypes", false);
-            AddList(commonPath, commonAsset, BasisCilboxPermissionModel.FieldCommonFields, "sdk.cilbox.list.sharedFields", true);
-            AddList(_box.SourcePath, _box.AssetPath, BasisCilboxPermissionModel.FieldExtraFields, "sdk.cilbox.list.boxFields", false);
+            AddList(commonPath, commonAsset, BasisCilboxPermissionModel.FieldCommonTypes, "sdk.cilbox.list.sharedTypes", true, CilboxPickKind.Type);
+            AddList(_box.SourcePath, _box.AssetPath, BasisCilboxPermissionModel.FieldExtraTypes, "sdk.cilbox.list.boxTypes", false, CilboxPickKind.Type);
+            AddList(commonPath, commonAsset, BasisCilboxPermissionModel.FieldCommonFields, "sdk.cilbox.list.sharedFields", true, CilboxPickKind.Field);
+            AddList(_box.SourcePath, _box.AssetPath, BasisCilboxPermissionModel.FieldExtraFields, "sdk.cilbox.list.boxFields", false, CilboxPickKind.Field);
 
             LoadMethods(commonPath, commonAsset, BasisCilboxPermissionModel.FieldCommonMethods, BasisCilboxPermissionModel.CommonMethods, true);
             LoadMethods(_box.SourcePath, _box.AssetPath, BasisCilboxPermissionModel.FieldExtraMethods, _box.ExtraMethods, false);
         }
 
-        private void AddList(string path, string assetPath, string field, string titleKey, bool shared)
+        private void AddList(string path, string assetPath, string field, string titleKey, bool shared,
+            CilboxPickKind kind)
         {
             var editor = new CilboxListEditor();
-            editor.Load(path, assetPath, field, titleKey, shared);
+            editor.Load(path, assetPath, field, titleKey, shared, kind);
             _lists.Add(editor);
         }
 
@@ -262,6 +291,7 @@ namespace Basis.Shims.Editor
                 var editor = new CilboxMethodEditor
                 {
                     TypeExpression = pair.Key.FullName ?? pair.Key.Name,
+                    ResolvedType = pair.Key,
                     Shared = shared,
                 };
                 editor.LiveMethods = new List<string>(pair.Value);
@@ -457,7 +487,37 @@ namespace Basis.Shims.Editor
                 }
                 EditorGUILayout.EndHorizontal();
                 BasisEditorUI.Note(BasisCilboxLoc.Get("sdk.cilbox.label.search.note"));
+
+                DrawDropTarget();
             }
+        }
+
+        /// <summary>
+        /// Drop a prefab, scene object or script to work with the types it is actually made of.
+        /// That is usually the real question — "will this thing run as a prop?" — and it starts
+        /// from an object, not from a type name someone has to already know.
+        /// </summary>
+        private void DrawDropTarget()
+        {
+            CilboxListEditor target = null;
+            foreach (CilboxListEditor list in _lists)
+            {
+                if (list.Kind == CilboxPickKind.Type && !list.Shared) { target = list; break; }
+            }
+            if (target == null || !target.Editable) return;
+
+            List<Type> dropped = BasisCilboxDropTarget.Draw(
+                BasisCilboxLoc.Get("sdk.cilbox.picker.dropHint"), out Rect area);
+            if (dropped == null) return;
+
+            if (dropped.Count == 0)
+            {
+                _error = BasisCilboxLoc.Get("sdk.cilbox.picker.dropNothing");
+                return;
+            }
+
+            _error = null;
+            Browse(target, area, dropped);
         }
 
         private bool Matches(string value) =>
@@ -538,11 +598,23 @@ namespace Basis.Shims.Editor
                     BasisEditorUI.Divider();
                     EditorGUILayout.BeginHorizontal();
                     list.PendingAdd = EditorGUILayout.TextField(list.PendingAdd);
+
+                    Rect browseRect = GUILayoutUtility.GetRect(
+                        new GUIContent(BasisCilboxLoc.Get("sdk.cilbox.button.browse")),
+                        EditorStyles.miniButton, GUILayout.Width(80f), GUILayout.Height(18f));
+                    BasisEditorUI.Fill(browseRect, new Color(0.31f, 0.31f, 0.31f), 6f);
+                    if (GUI.Button(browseRect, BasisCilboxLoc.Get("sdk.cilbox.button.browse"), EditorStyles.miniButton))
+                    {
+                        Browse(list, browseRect);
+                    }
+
                     using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(list.PendingAdd)))
                     {
                         if (BasisEditorUI.SecondaryButton(BasisCilboxLoc.Get("sdk.cilbox.button.add"), 18f, GUILayout.Width(70f)))
                         {
-                            list.Working.Add(BasisCilboxPermissionSource.NewEntry(list.Source, list.PendingAdd.Trim()));
+                            // Typing a wildcard such as "Basis.Shims.*" is still the way to add one,
+                            // so the text field stays even though browsing is the usual route.
+                            list.TryAdd(list.PendingAdd);
                             list.PendingAdd = string.Empty;
                             GUI.FocusControl(null);
                         }
@@ -555,6 +627,36 @@ namespace Basis.Shims.Editor
                 list.Expanded = expanded;
             }
             BasisEditorUI.EndFoldout();
+        }
+
+        /// <summary>
+        /// Opens the right picker for a list. A field list needs two steps — the type, then one of
+        /// its fields — because an entry is a <c>Type.field</c> pair and guessing the type from a
+        /// bare field name would be wrong as often as not.
+        /// </summary>
+        private void Browse(CilboxListEditor list, Rect anchor, List<Type> candidates = null)
+        {
+            if (list.Kind == CilboxPickKind.Type)
+            {
+                BasisCilboxPickerWindow.PickType(anchor, picked =>
+                {
+                    list.TryAdd(picked);
+                    Host?.Repaint();
+                }, list.Contains, candidates);
+                return;
+            }
+
+            BasisCilboxPickerWindow.PickType(anchor, pickedType =>
+            {
+                Type owner = BasisCilboxPermissionModel.ResolveType(pickedType);
+                if (owner == null) return;
+
+                BasisCilboxPickerWindow.PickMember(anchor, CilboxPickKind.Field, owner, picked =>
+                {
+                    list.TryAdd(picked);
+                    Host?.Repaint();
+                }, list.Contains);
+            }, null, candidates);
         }
 
         private void DrawMethods()
@@ -660,11 +762,29 @@ namespace Basis.Shims.Editor
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(12f);
             list.PendingAdd = EditorGUILayout.TextField(list.PendingAdd);
+
+            using (new EditorGUI.DisabledScope(method.ResolvedType == null))
+            {
+                Rect browseRect = GUILayoutUtility.GetRect(
+                    new GUIContent(BasisCilboxLoc.Get("sdk.cilbox.button.browse")),
+                    EditorStyles.miniButton, GUILayout.Width(80f), GUILayout.Height(18f));
+                BasisEditorUI.Fill(browseRect, new Color(0.31f, 0.31f, 0.31f), 6f);
+                if (GUI.Button(browseRect, BasisCilboxLoc.Get("sdk.cilbox.button.browse"), EditorStyles.miniButton))
+                {
+                    BasisCilboxPickerWindow.PickMember(browseRect, CilboxPickKind.Method, method.ResolvedType,
+                        picked =>
+                        {
+                            list.TryAdd(picked);
+                            Host?.Repaint();
+                        }, list.Contains);
+                }
+            }
+
             using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(list.PendingAdd)))
             {
                 if (BasisEditorUI.SecondaryButton(BasisCilboxLoc.Get("sdk.cilbox.button.add"), 18f, GUILayout.Width(70f)))
                 {
-                    list.Working.Add(BasisCilboxPermissionSource.NewEntry(list.Source, list.PendingAdd.Trim()));
+                    list.TryAdd(list.PendingAdd);
                     list.PendingAdd = string.Empty;
                     GUI.FocusControl(null);
                 }

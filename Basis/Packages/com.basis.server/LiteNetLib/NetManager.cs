@@ -27,13 +27,9 @@ namespace LiteNetLib
             _evt = evt;
         }
 
-        // Guards against the same event being handed back to the pool twice. RecycleEvent
-        // pushes onto the free list unconditionally, so a second recycle of the same NetEvent
-        // sets evt.Next = evt: the list becomes a self-cycle and every later rent returns that
-        // one event, leaving concurrent receives sharing a single reader and packet buffer
-        // (cross-peer corruption). A handler that recycles early and then throws would hit
-        // exactly that, because the dispatcher's catch recycles again. Cleared on every rent
-        // via SetSource, which CreateEvent calls for each event it hands out.
+        // RecycleEvent pushes onto the free list unconditionally, so recycling the same event
+        // twice sets evt.Next = evt and every later rent returns that one event. Cleared on each
+        // rent via SetSource.
         private bool _recycled;
 
         internal void SetSource(NetPacket packet, int headerSize)

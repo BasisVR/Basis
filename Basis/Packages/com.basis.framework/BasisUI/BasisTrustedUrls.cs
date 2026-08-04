@@ -118,14 +118,8 @@ namespace Basis.BasisUI
             return false;
         }
 
-        // Matched per URL component, never against the raw string. A single regex over the
-        // whole URL lets '*' swallow the '/', '?' and '#' delimiters, so the trusted host
-        // only has to appear SOMEWHERE in the URL: "https://*.youtube.com/*" then also
-        // matches "https://evil.com/#.youtube.com/" and "https://evil.com/x/.youtube.com/p".
-        // Because the remember-choice flow writes exactly that pattern shape, one legitimate
-        // "trust this domain" click would arm a bypass of every consent gate built on this
-        // list. Comparing the parsed host separately also rejects the userinfo trick
-        // ("https://www.youtube.com@evil.com/"), since Uri.Host is the real authority.
+        // Matched per URL component, never against the raw string: a single regex over the whole
+        // URL lets '*' swallow the '/', '?' and '#' delimiters.
         private static bool MatchesWithWildcards(string url, string pattern)
         {
             if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(pattern)) return false;
@@ -145,10 +139,8 @@ namespace Basis.BasisUI
             if (patternHost.Length == 0) return false;
             if (!string.Equals(uri.Scheme, patternScheme, StringComparison.OrdinalIgnoreCase)) return false;
 
-            // '*' inside the authority may not cross a delimiter, so it can never leave the host.
             if (!ComponentMatches(uri.Host, patternHost, "[^/?#]*")) return false;
 
-            // A pattern naming only a host trusts that host, so any path on it is in scope.
             if (patternPath.Length == 0) return true;
             return ComponentMatches(uri.PathAndQuery + uri.Fragment, patternPath, "[\\s\\S]*");
         }

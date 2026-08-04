@@ -220,6 +220,11 @@ public class Configuration
     /// *loading* rather than handling already-spawned ones. Default off.
     /// </summary>
     public bool PropGrabbingLocked = false;
+    /// <summary>
+    /// When true, clients render other players' display names with rich-text markup stripped and
+    /// TMP rich text disabled on the nameplate. Enforced client-side. Default off.
+    /// </summary>
+    public bool SafeDisplayNamesForced = false;
 
     // ── REST API ──────────────────────────────────────────────────────────────
     /// <summary>Set to true to enable the REST management API.</summary>
@@ -321,11 +326,7 @@ public class Configuration
         ApplyEnvironmentalOverridesTo(this);
     }
 
-    /// <summary>
-    /// Field names whose values must never reach the log. Matched on the name rather than a
-    /// list of exact fields so a newly added secret is redacted by default instead of leaking
-    /// until someone remembers to update this.
-    /// </summary>
+    /// <summary>Field names whose values must never reach the log.</summary>
     private static bool IsSecretFieldName(string fieldName)
     {
         if (string.IsNullOrEmpty(fieldName)) return false;
@@ -352,10 +353,6 @@ public class Configuration
             string value = Environment.GetEnvironmentVariable(field.Name);
             if (value == null) continue;
 
-            // Environment variables are the documented Docker/Linux deployment path, so this
-            // line is exactly where the join password and REST admin key would otherwise be
-            // written verbatim into the console and the on-disk server log — which is then
-            // shippable to any peer holding the log-bundle permission.
             BNL.Log($"Applying Environmental Override with Field:{field.Name} Value:{(IsSecretFieldName(field.Name) ? "<redacted>" : value)}");
 
             if (field.FieldType == typeof(int))

@@ -139,6 +139,9 @@ namespace Basis.Scripts.UI.NamePlate
                 ? OpaqueNamePlateMaterial
                 : TransParentNamePlateMaterial;
 
+            BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnSafeDisplayNamesForcedChanged;
+            BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged += OnSafeDisplayNamesForcedChanged;
+
             NamePlateEnabled = BasisSettingsDefaults.NPEnabled.RawValue;
             NamePlateMenuOnly = BasisSettingsDefaults.NPMenuOnly.RawValue;
             NamePlateHoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
@@ -209,10 +212,6 @@ namespace Basis.Scripts.UI.NamePlate
                 Text.enableVertexGradient = false;
                 Text.textWrappingMode = TextWrappingModes.NoWrap;
                 Text.overflowMode = TextOverflowModes.Overflow;
-                // TMP parses rich text by default. A display name is attacker-controlled, so
-                // markup left enabled turns a name into layout control over everyone's screen
-                // (<size=10000>, <voffset>, <space>). Nothing here ever wants markup.
-                Text.richText = false;
             }
         }
 
@@ -555,24 +554,28 @@ namespace Basis.Scripts.UI.NamePlate
             }
         }
 
-        /// <summary>
-        /// Maximum characters baked into a nameplate. The wire format does not cap display-name
-        /// length, and mesh generation cost scales with it — a multi-kilobyte name would build a
-        /// huge mesh that is then retained and drawn every frame for as long as that player is
-        /// present.
-        /// </summary>
-        private const int MaxNamePlateCharacters = 64;
+        private static void OnSafeDisplayNamesForcedChanged(bool forced) => RebakeAllNamePlates();
+
+        /// <summary>Re-bakes every active plate so a policy change applies without a rejoin.</summary>
+        public static void RebakeAllNamePlates()
+        {
+            var arr = plates;
+            int n = count;
+            for (int i = 0; i < n; i++)
+            {
+                BasisRemoteNamePlate plate = arr[i];
+                if (plate == null) continue;
+                QueueTextBake(plate.BasisRemotePlayer, plate);
+            }
+        }
 
         public static void GenerateTextFactory(BasisRemotePlayer remotePlayer, BasisRemoteNamePlate namePlate)
         {
-            // SafeDisplayName, not DisplayName: this is the one surface that was rendering the
-            // raw network string, and it is the surface that is always on screen.
-            string displayName = remotePlayer.SafeDisplayName;
-            if (string.IsNullOrEmpty(displayName)) displayName = string.Empty;
-            if (displayName.Length > MaxNamePlateCharacters)
-            {
-                displayName = displayName.Substring(0, MaxNamePlateCharacters);
-            }
+            // Both halves are required: stripping alone leaves TMP parsing what the strip missed,
+            // disabling alone renders the raw tags as visible text.
+            bool safeNames = BasisNetworkModeration.GlobalSafeDisplayNamesForced;
+            if (Text != null) Text.richText = !safeNames;
+            string displayName = safeNames ? remotePlayer.SafeDisplayName : remotePlayer.DisplayName;
 
             if (UseGlobalNamePlateMesh)
             {
@@ -580,7 +583,7 @@ namespace Basis.Scripts.UI.NamePlate
             }
             else
             {
-                BakeNameMesh(displayName, namePlate.Filter, namePlate.Renderer);
+                BakeNameMesh(remotePlayer.DisplayName, namePlate.Filter, namePlate.Renderer);
             }
         }
 
@@ -873,6 +876,8 @@ namespace Basis.Scripts.UI.NamePlate
         {
             CompletePulseInFlight();
             pulseComputed = false;
+
+            BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnSafeDisplayNamesForcedChanged;
 
             for (int i = 0; i < count; i++)
             {

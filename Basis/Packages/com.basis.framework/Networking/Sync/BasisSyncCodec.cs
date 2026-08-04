@@ -335,11 +335,7 @@ namespace Basis.Scripts.Networking.Sync
             }
         }
 
-        /// <summary>
-        /// Half-extent accepted for a decoded continuous value. Anything larger is not a
-        /// coordinate a real object occupies, and both the Half and raw-float modes can express
-        /// NaN/Infinity directly from the wire.
-        /// </summary>
+        /// <summary>Half-extent accepted for a decoded continuous value.</summary>
         private const float MaxDecodedMagnitude = 1e6f;
 
         private static bool TryDecodeCont(ref BitReader r, BasisQuantMode mode, float min, float max, int bits, out float value)
@@ -371,12 +367,8 @@ namespace Basis.Scripts.Networking.Sync
         }
 
         /// <summary>
-        /// The Half and raw-float modes reinterpret wire bits directly, so a peer that owns a
-        /// synced object can hand us NaN or Infinity. These values go on to
-        /// Transform.SetPositionAndRotation without any further validation, and a NaN transform
-        /// never recovers — it also propagates to whatever is parented to it, so a NaN on a held
-        /// pickup travels into the holder's hand. Rejecting the field here makes the decode fail
-        /// cleanly and the last good value stand.
+        /// The Half and raw-float modes reinterpret wire bits directly, so they can carry NaN or
+        /// Infinity into Transform.SetPositionAndRotation, which never recovers.
         /// </summary>
         private static bool IsUsable(float value) =>
             !float.IsNaN(value) && !float.IsInfinity(value) &&

@@ -85,9 +85,7 @@ public static partial class SerializableBasis
                 return false;
             }
 
-            // Allocate only what the packet could actually contain. Each descriptor costs at
-            // least a byte on the wire, so a count above the remaining byte count is a lie and
-            // would otherwise turn a 4-byte packet into a large managed allocation.
+            // Each descriptor costs at least a byte on the wire.
             if (count > reader.AvailableBytes)
             {
                 BNL.LogError($"BasisMessageSupply: count {count} exceeds available {reader.AvailableBytes}");
@@ -136,8 +134,7 @@ public static partial class SerializableBasis
                 return false;
             }
 
-            // Each id is 2 bytes on the wire. Without this a 4-byte packet claiming 65535 ids
-            // allocates 128 KB straight onto the Large Object Heap, once per packet.
+            // Each id is 2 bytes on the wire.
             if (count * 2 > reader.AvailableBytes)
             {
                 BNL.LogError($"BasisMessageSubscribe: count {count} exceeds available {reader.AvailableBytes}");

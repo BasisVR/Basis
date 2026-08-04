@@ -40,6 +40,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PE Button - Hotbar Variant
       objectReference: {fileID: 0}
+    - target: {fileID: 4488211196766906647, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
+      propertyPath: m_MinWidth
+      value: 100
+      objectReference: {fileID: 0}
     - target: {fileID: 4444872279979505896, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
       propertyPath: ColorStyle
       value: Hotbar Button

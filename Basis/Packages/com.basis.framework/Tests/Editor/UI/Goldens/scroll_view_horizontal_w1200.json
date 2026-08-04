@@ -109,15 +109,15 @@
             "ActiveSelf": true,
             "ActiveInHierarchy": true,
             "AnchorMin": {
-                "x": 0.5,
+                "x": 0.0,
                 "y": 0.0
             },
             "AnchorMax": {
-                "x": 0.5,
+                "x": 0.0,
                 "y": 1.0
             },
             "Pivot": {
-                "x": 0.5,
+                "x": 0.0,
                 "y": 0.5
             },
             "AnchoredPosition": {
