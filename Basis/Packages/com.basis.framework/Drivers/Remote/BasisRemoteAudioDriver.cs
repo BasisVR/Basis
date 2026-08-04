@@ -57,7 +57,11 @@ namespace Basis.Scripts.Drivers
 
             int length = data.Length;
             receiver.OnAudioFilterRead(data, channels, length);
+            // Lip-sync reads the untinted voice: ApplySpatialTone runs after it so a
+            // talker's viseme classification doesn't change with which way their
+            // head is pointing.
             visemeDriver.ProcessAudioSamples(data, channels, length);
+            receiver.ApplySpatialTone(data, channels, length);
             AudioData?.Invoke(data, channels);
         }
         public void OnDestroy()

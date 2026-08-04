@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "وضع الجهاز النشط لهذه الجلسة." },
     { "key": "settings.platform.activeMode", "value": "وضع الجهاز النشط" },
     { "key": "settings.platform.vrRuntime", "value": "وقت تشغيل VR" },
+    { "key": "settings.platform.usePresenceSensor", "value": "استخدام مستشعر التواجد" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "اسمح لمستشعر التواجد في سماعة الرأس بالتبديل بين VR وسطح المكتب عند ارتدائها أو خلعها. أوقف هذا إذا كانت سماعتك تُبلغ عن التواجد بشكل خاطئ — لا يزال بإمكانك تبديل الأوضاع يدويًا." },
     { "key": "settings.platform.switchTo", "value": "التبديل إلى {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "هل أنت متأكد من أنك تريد التبديل إلى {0}؟" },
     { "key": "settings.platform.swapMode.title", "value": "وضع التبديل" },

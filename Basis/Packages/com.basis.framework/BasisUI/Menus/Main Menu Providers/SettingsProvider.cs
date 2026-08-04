@@ -833,6 +833,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.P2PVoiceBitrate.ResetToDefault();
             BasisSettingsDefaults.RememberMenuState.ResetToDefault();
             BasisSettingsDefaults.ShowDeveloperTab.ResetToDefault();
+            BasisSettingsDefaults.UsePresenceSensor.ResetToDefault();
         }
 
         private static PanelSlider _avatarRateSlider;
@@ -1124,6 +1125,7 @@ namespace Basis.BasisUI
                 PanelSlider.SliderSettings.Distance(BasisLocalization.Get("settings.general.microphoneRange"), BasisNetworkModeration.ServerMaxMicrophoneRangeMeters),
                 BasisSettingsDefaults.MicrophoneRange);
             sliderMicrophoneRange.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.microphoneRange.tooltip"));
+            BasisAudioRangeSliderLimit.Attach(sliderMicrophoneRange, BasisAudioRangeSliderLimit.RangeKind.Microphone);
 
             PanelToggle toggleMicrophoneRangeIndicator = PanelToggle.CreateNewEntry(microphoneGroup);
             toggleMicrophoneRangeIndicator.AssignBinding(BasisSettingsDefaults.MicrophoneRangeIndicator);

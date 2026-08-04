@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "এই সেশনের জন্য সক্রিয় ডিভাইস মোড।" },
     { "key": "settings.platform.activeMode", "value": "সক্রিয় ডিভাইস মোড" },
     { "key": "settings.platform.vrRuntime", "value": "VR রানটাইম" },
+    { "key": "settings.platform.usePresenceSensor", "value": "উপস্থিতি সেন্সর ব্যবহার করুন" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "হেডসেট পরা বা খোলার সময় উপস্থিতি সেন্সরকে VR ও ডেস্কটপের মধ্যে পরিবর্তন করতে দিন। আপনার হেডসেট ভুলভাবে উপস্থিতি জানালে এটি বন্ধ করুন — আপনি এখনও ম্যানুয়ালি মোড পরিবর্তন করতে পারবেন।" },
     { "key": "settings.platform.switchTo", "value": "{0} এ পরিবর্তন করুন" },
     { "key": "settings.platform.switchTo.confirm", "value": "আপনি কি নিশ্চিত যে আপনি {0} এ পরিবর্তন করতে চান?" },
     { "key": "settings.platform.swapMode.title", "value": "অদল-বদল মোড" },

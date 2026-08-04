@@ -8,6 +8,16 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 {
     public static class BasisNetworkAvatarDecompressor
     {
+        /// <summary>
+        /// Structural sanity bounds for a scale arriving over the wire — not a policy limit
+        /// (the server owns those). These only exist so a hostile or corrupt packet cannot hand
+        /// the renderer a degenerate or astronomically large transform. Matches the absolute
+        /// floor/ceiling the server's avatar scale limiter already refuses to go outside.
+        /// </summary>
+        public const float MinNetworkScale = 0.01f;
+        public const float MaxNetworkScale = 1000f;
+
+
         public static void DecompressAndProcessAvatar(BasisNetworkReceiver baseReceiver, ServerSideSyncPlayerMessage syncMessage)
         {
             if (syncMessage.avatarSerialization.array == null)
@@ -176,7 +186,15 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 basisAvatarBuffer.EffectorMask = 0;
             }
 
-            basisAvatarBuffer.Scale = BasisUnityBitPackerExtensionsUnsafe.DecompressScale(uScale);
+            // The 16-bit scale posit decodes 0 to exactly 0f and 0x7FFF to ~2.68e8, and the
+            // downstream finiteness check passes both. A zero scale collapses the avatar's whole
+            // subtree to a degenerate matrix; 2.68e8 explodes the SkinnedMeshRenderer bounds and
+            // every child (nameplate, audio source, jiggle colliders), which degrades culling and
+            // shadow cascades for the entire frame — not just for the offending player. Clamped
+            // here, once per packet, so nothing on the per-frame path pays for it.
+            float decodedScale = BasisUnityBitPackerExtensionsUnsafe.DecompressScale(uScale);
+            basisAvatarBuffer.Scale = decodedScale < MinNetworkScale ? MinNetworkScale
+                                    : (decodedScale > MaxNetworkScale ? MaxNetworkScale : decodedScale);
             basisAvatarBuffer.SecondsInterval = secondsInterval;
             return true;
 

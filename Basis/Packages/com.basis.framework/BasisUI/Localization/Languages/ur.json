@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "اس سیشن کے لیے فعال ڈیوائس موڈ۔" },
     { "key": "settings.platform.activeMode", "value": "فعال آلہ موڈ" },
     { "key": "settings.platform.vrRuntime", "value": "VR رن ٹائم" },
+    { "key": "settings.platform.usePresenceSensor", "value": "پریزنس سینسر استعمال کریں" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "ہیڈسیٹ پہننے یا اتارنے پر پریزنس سینسر کو VR اور ڈیسک ٹاپ کے درمیان تبدیل کرنے دیں۔ اگر آپ کا ہیڈسیٹ پریزنس غلط بتاتا ہے تو اسے بند کر دیں — آپ اب بھی دستی طور پر موڈ تبدیل کر سکتے ہیں۔" },
     { "key": "settings.platform.switchTo", "value": "{0} پر سوئچ کریں" },
     { "key": "settings.platform.switchTo.confirm", "value": "کیا آپ واقعی {0} پر سوئچ کرنا چاہتے ہیں؟" },
     { "key": "settings.platform.swapMode.title", "value": "سویپ موڈ" },

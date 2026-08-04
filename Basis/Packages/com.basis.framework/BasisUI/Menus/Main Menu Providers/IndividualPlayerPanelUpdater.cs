@@ -385,7 +385,11 @@ namespace Basis.BasisUI
                 float srcVol = src != null ? src.volume : 0f;
                 float dampen = audio.DirectionalDampeningMultiplier;
                 float listenerVol = AudioListener.volume;
-                float effective = srcVol * dampen * listenerVol;
+                // The cone and the talker's mouth directivity are part filter now, so
+                // fold in the shelves' speech-weighted equivalent or "Effective" lies.
+                float tone = BasisVoiceAcoustics.ShelfBroadbandGain(
+                    audio.DirectivityShelfDb, audio.ConeShelfDb);
+                float effective = srcVol * dampen * tone * listenerVol;
 
                 string dampenNote = dampen < 0.5f ? " (BEHIND)" : dampen < 1f ? " (off-axis)" : "";
                 string warning = effective < 0.01f && srcVol > 0f ? "\nWARNING: Near zero!" : "";
@@ -395,6 +399,7 @@ namespace Basis.BasisUI
 
                 VolumeChainField.SetDescription(
                     $"Source: {srcVol:F2} x Dampen: {dampen:F3}{dampenNote} x Listener: {listenerVol:F2}\n" +
+                    $"Tone: {tone:F3} (mouth {audio.DirectivityShelfDb:0.0} dB, cone {audio.ConeShelfDb:0.0} dB)\n" +
                     $"Effective: {effective:F3}{warning}{normalize}");
             }
 

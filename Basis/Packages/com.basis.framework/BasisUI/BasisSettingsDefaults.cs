@@ -1,3 +1,4 @@
+﻿using Basis.Scripts.Networking.Receivers;
 using System;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -264,19 +265,22 @@ namespace Basis.BasisUI
         /// </summary>
         public static BasisSettingsBinding<bool> VolumetricFogBakedAPV = new("volumetricfogbakedapv", new BasisPlatformDefault<bool>(true));
 
-        /// <summary>
-        /// When enabled, ReflectionProbe components in the scene whose mode is Realtime are
-        /// driven by Basis at the rate selected by <see cref="RealtimeReflectionProbeRate"/>.
-        /// When disabled, Basis does not modify any probe state.
-        /// </summary>
-        public static BasisSettingsBinding<bool> UseRealtimeReflectionProbes = new("userealtimereflectionprobes", new BasisPlatformDefault<bool>(false));
+        // Commented out 2026-08-04: the realtime-reflection-probe driver these described was
+        // never implemented — no UI exposes them and nothing reads them (the Performance Mode
+        // table only wrote the bool). Restore both together with the probe driver.
+        ///// <summary>
+        ///// When enabled, ReflectionProbe components in the scene whose mode is Realtime are
+        ///// driven by Basis at the rate selected by RealtimeReflectionProbeRate.
+        ///// When disabled, Basis does not modify any probe state.
+        ///// </summary>
+        //public static BasisSettingsBinding<bool> UseRealtimeReflectionProbes = new("userealtimereflectionprobes", new BasisPlatformDefault<bool>(false));
 
-        /// <summary>
-        /// Tick rate for realtime reflection probes when <see cref="UseRealtimeReflectionProbes"/>
-        /// is on. "Match Render" delegates to Unity's per-frame mode; the others use ViaScripting
-        /// and Basis calls RenderProbe at the chosen interval.
-        /// </summary>
-        public static BasisSettingsBinding<string> RealtimeReflectionProbeRate = new("realtimereflectionproberate", new BasisPlatformDefault<string>("30hz"));
+        ///// <summary>
+        ///// Tick rate for realtime reflection probes when UseRealtimeReflectionProbes
+        ///// is on. "Match Render" delegates to Unity's per-frame mode; the others use ViaScripting
+        ///// and Basis calls RenderProbe at the chosen interval.
+        ///// </summary>
+        //public static BasisSettingsBinding<string> RealtimeReflectionProbeRate = new("realtimereflectionproberate", new BasisPlatformDefault<string>("30hz"));
 
         public static BasisSettingsBinding<bool> MicrophoneDenoiser = new("voicedenoiser", new BasisPlatformDefault<bool>
         {
@@ -796,6 +800,14 @@ namespace Basis.BasisUI
         public const string SwapMode_Shutdown = "Shutdown Runtime";
         public const string SwapMode_AutoSwap = "Auto Swap";
 
+        /// <summary>
+        /// Whether the headset's presence sensor is allowed to drive the swap. Off leaves the sensor
+        /// readable but stops it changing modes, which is the way out when a headset reports presence
+        /// wrongly — a sensor stuck unworn otherwise drops the user to Desktop and keeps them there.
+        /// Only consulted under <see cref="SwapMode_AutoSwap"/>; manual mode switching is unaffected.
+        /// </summary>
+        public static BasisSettingsBinding<bool> UsePresenceSensor = new("use_presence_sensor", new BasisPlatformDefault<bool>(true));
+
         // ---------------- TRACKER VISUALS ----------------
         /// <summary>
         /// Chooses what is rendered for tracked input devices (controllers/trackers/etc.) while
@@ -874,9 +886,10 @@ namespace Basis.BasisUI
         /// </summary>
         public static BasisSettingsBinding<bool> ChatDisabled = new("chatdisabled", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> FalseBinding = new("falsebinding", new BasisPlatformDefault<bool>(false));
+        // Commented out 2026-08-04: never referenced anywhere — leftover scaffolding.
+        //public static BasisSettingsBinding<bool> FalseBinding = new("falsebinding", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<bool> TrueBinding = new("truebinding", new BasisPlatformDefault<bool>(false));
+        //public static BasisSettingsBinding<bool> TrueBinding = new("truebinding", new BasisPlatformDefault<bool>(false));
 
         // ---------------- CAMERA / PHOTO ----------------
         public const string PhotoTagging_NoOne = "No One";
@@ -1265,6 +1278,11 @@ namespace Basis.BasisUI
         // AudioSource
         public static BasisSettingsBinding<float> RAMinDistance = new("ra_mindistance", new BasisPlatformDefault<float>(0.5f));
         public static BasisSettingsBinding<float> RASpread = new("ra_spread", new BasisPlatformDefault<float>(70f));
+        // Per-source doppler scale. Whether any pitch shift actually happens is
+        // decided globally by Doppler Factor in AudioManager.asset, which the project
+        // ships at 0 — so this is the per-source multiplier on a global that is
+        // currently off, not a live pitch shift. Note the prefab authors DopplerLevel
+        // 0 and this binding overwrites it at load; the two disagree by design.
         public static BasisSettingsBinding<float> RADopplerLevel = new("ra_dopplerlevel", new BasisPlatformDefault<float>(1f));
         public static BasisSettingsBinding<float> RASpatialBlend = new("ra_spatialblend", new BasisPlatformDefault<float>(1f));
 
@@ -1280,7 +1298,11 @@ namespace Basis.BasisUI
 
         // Steam Audio - Directivity
         public static BasisSettingsBinding<bool> RADirectivity = new("ra_directivity", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> RADipoleWeight = new("ra_dipoleweight", new BasisPlatformDefault<float>(0.25f));
+        // 0.25 broadband overshot measured speech directivity by up to 2 dB behind
+        // the talker. The mouth-directivity shelf now carries the frequency-dependent
+        // part, and 0.10 is what pairs with it to land on the measured curve.
+        // Key bumped so the retune actually reaches existing installs.
+        public static BasisSettingsBinding<float> RADipoleWeight = new("ra_dipoleweight_v2", new BasisPlatformDefault<float>(BasisVoiceAcoustics.DipoleWeight));
         public static BasisSettingsBinding<float> RADipolePower = new("ra_dipolepower", new BasisPlatformDefault<float>(1f));
 
         // Steam Audio - Occlusion
@@ -1310,7 +1332,7 @@ namespace Basis.BasisUI
 
         // AudioSource - Rolloff
         public static BasisSettingsBinding<string> RARolloffMode = new("ra_rolloffmode", new BasisPlatformDefault<string>("custom"));
-        public static BasisSettingsBinding<string> RARolloffCurvePreset = new("ra_rolloffcurvepreset", new BasisPlatformDefault<string>("default"));
+        public static BasisSettingsBinding<string> RARolloffCurvePreset = new("ra_rolloffcurvepreset_v2", new BasisPlatformDefault<string>("natural"));
         public static BasisSettingsBinding<float> RACurvePoint25 = new("ra_curvepoint25", new BasisPlatformDefault<float>(0.6f));
         public static BasisSettingsBinding<float> RACurvePoint50 = new("ra_curvepoint50", new BasisPlatformDefault<float>(0.3f));
         public static BasisSettingsBinding<float> RACurvePoint75 = new("ra_curvepoint75", new BasisPlatformDefault<float>(0.1f));
@@ -1318,7 +1340,27 @@ namespace Basis.BasisUI
 
         // Listener Directional Dampening
         public static BasisSettingsBinding<float> RAListenerConeAngle = new("ra_listenerconeangle", new BasisPlatformDefault<float>(150f));
-        public static BasisSettingsBinding<float> RAListenerDampenAmount = new("ra_listenerdampenamount", new BasisPlatformDefault<float>(75f));
+        // 75 % is 12 dB, roughly 3x a real head+torso shadow, and steep enough
+        // (1.9 dB per 10 deg of head rotation) to read as a fader tracking your head.
+        // 60 % is the deepest cone whose leftover broadband term stays under the
+        // ~1.2 dB/10 deg audibility threshold once the head-shadow shelf takes its
+        // share. Key bumped so the change reaches installs that never touched it.
+        public static BasisSettingsBinding<float> RAListenerDampenAmount = new("ra_listenerdampenamount_v2", new BasisPlatformDefault<float>(60f));
+
+        /// <summary>
+        /// Distance past which a voice stops getting quieter — the critical distance
+        /// of the space, where a room's reverberant field matches the talker's direct
+        /// field. Inside it you get the full inverse distance law, which is the level
+        /// cue the old hand-drawn rolloff curve had almost entirely flattened out.
+        /// </summary>
+        public static BasisSettingsBinding<float> RAReverbDistance = new("ra_reverbdistance", new BasisPlatformDefault<float>(BasisVoiceAcoustics.DefaultReverberantDistance));
+
+        /// <summary>
+        /// Frequency-dependent spatial shaping: mouth directivity and listener head
+        /// shadow, applied per remote voice on the audio thread. Costs two one-pole
+        /// filters per audible speaker.
+        /// </summary>
+        public static BasisSettingsBinding<bool> RAVoiceToneShaping = new("ra_voicetoneshaping", new BasisPlatformDefault<bool>(true));
 
         // Steam Audio - Attenuation Input
         public static BasisSettingsBinding<string> RADistanceAttenuationInput = new("ra_distanceattenuationinput", new BasisPlatformDefault<string>("curve driven"));
@@ -1977,8 +2019,8 @@ namespace Basis.BasisUI
             UseVolumetricFogOverride.LoadBindingValue();
             VolumetricFogDensity.LoadBindingValue();
             VolumetricFogBakedAPV.LoadBindingValue();
-            UseRealtimeReflectionProbes.LoadBindingValue();
-            RealtimeReflectionProbeRate.LoadBindingValue();
+            //UseRealtimeReflectionProbes.LoadBindingValue();
+            //RealtimeReflectionProbeRate.LoadBindingValue();
             ShowGizmos.LoadBindingValue();
             GizmoSkeletonLines.LoadBindingValue();
             GizmoCalibrationSpheres.LoadBindingValue();
@@ -2142,6 +2184,7 @@ namespace Basis.BasisUI
 
             // Device Swap Mode
             SwapMode.LoadBindingValue();
+            UsePresenceSensor.LoadBindingValue();
 
             // Notifications
             JoinNotifications.LoadBindingValue();
@@ -2179,8 +2222,8 @@ namespace Basis.BasisUI
             PhotoEmbedPersonDetails.LoadBindingValue();
 
             // Misc
-            FalseBinding.LoadBindingValue();
-            TrueBinding.LoadBindingValue();
+            //FalseBinding.LoadBindingValue();
+            //TrueBinding.LoadBindingValue();
             LimitThreshold.LoadBindingValue();
             LimitKnee.LoadBindingValue();
             DisableSeats.LoadBindingValue();
@@ -2554,6 +2597,8 @@ namespace Basis.BasisUI
             RAApplyHRTFToReflections.LoadBindingValue();
             RAJitterBufferDepth.LoadBindingValue();
             RAClipBufferScalar.LoadBindingValue();
+            RAReverbDistance.LoadBindingValue();
+            RAVoiceToneShaping.LoadBindingValue();
 
             // UI Style Palette
             UIPaletteBG1.LoadBindingValue();
@@ -2595,6 +2640,10 @@ namespace Basis.BasisUI
             RaycastLineColor.LoadBindingValue();
             HighlightColor.LoadBindingValue();
             PickupLineColor.LoadBindingValue();
+
+            // Holds its binding privately (JSON blob, not a plain primitive) — reload
+            // through its own accessor so a pre-load touch can't pin the default blocklist.
+            Basis.Scripts.Avatar.BasisContentTagFilter.ReloadBinding();
 
             // Subscribers that read RawValue (Apply* in OnSettingsFinishedChanges)
             // ran during Initialize before bindings were refreshed from the file —

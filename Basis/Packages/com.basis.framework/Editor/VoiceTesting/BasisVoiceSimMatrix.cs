@@ -21,6 +21,14 @@ namespace Basis.Scripts.Networking.Voice.Testing
         /// <summary>40 consecutive losses &gt; the 32-packet ring lookahead — exercises the resync path.</summary>
         public static BasisVoiceNetProfile Burst800() => new BasisVoiceNetProfile { Name = "burst800ms", LatencyMs = 40f, BurstIntervalSeconds = 3f, BurstLossPackets = 40 };
         public static BasisVoiceNetProfile Stall600() => new BasisVoiceNetProfile { Name = "stall600ms", LatencyMs = 40f, StallAtSeconds = 2.5f, StallDurationMs = 600f };
+        /// <summary>10% of packets take an +80 ms slow path — heavy reordering, nothing lost.</summary>
+        public static BasisVoiceNetProfile Reorder10() => new BasisVoiceNetProfile { Name = "reorder10", LatencyMs = 40f, ReorderChance = 0.10f, ReorderDelayMs = 80f };
+        /// <summary>Every 2 s, 6 consecutive packets arrive +150 ms late together (wifi clump).</summary>
+        public static BasisVoiceNetProfile LateSpike() => new BasisVoiceNetProfile { Name = "latespike", LatencyMs = 40f, LateSpikeIntervalSeconds = 2f, LateSpikePackets = 6, LateSpikeDelayMs = 150f };
+        /// <summary>Delivery batched in 5-packet groups: queue depth pulses +5/-5 around target.</summary>
+        public static BasisVoiceNetProfile EarlyBurst() => new BasisVoiceNetProfile { Name = "earlyburst", LatencyMs = 40f, EarlyCoalescePackets = 5 };
+        /// <summary>Congestion swell: +250 ms transit at the midpoint of a 1.5 s window.</summary>
+        public static BasisVoiceNetProfile Congestion() => new BasisVoiceNetProfile { Name = "congestion", LatencyMs = 40f, LatencyRampAtSeconds = 2f, LatencyRampPeakMs = 250f, LatencyRampDurationSeconds = 1.5f };
         public static BasisVoiceNetProfile Chaos() => new BasisVoiceNetProfile
         {
             Name = "chaos",
@@ -57,6 +65,14 @@ namespace Basis.Scripts.Networking.Voice.Testing
                 if (!full) continue;
 
                 Add(list, "speech/lan", BasisVoiceSignal.SpeechLike, Lan(), seed);
+                Add(list, "speech/reorder10", BasisVoiceSignal.SpeechLike, Reorder10(), seed);
+                Add(list, "speech/latespike", BasisVoiceSignal.SpeechLike, LateSpike(), seed);
+                Add(list, "speech/earlyburst", BasisVoiceSignal.SpeechLike, EarlyBurst(), seed);
+                Add(list, "impulse/reorder10", BasisVoiceSignal.ImpulseTrain, Reorder10(), seed);
+                Add(list, "impulse/latespike", BasisVoiceSignal.ImpulseTrain, LateSpike(), seed);
+                Add(list, "impulse/earlyburst", BasisVoiceSignal.ImpulseTrain, EarlyBurst(), seed);
+                Add(list, "impulse/congestion", BasisVoiceSignal.ImpulseTrain, Congestion(), seed);
+                Add(list, "impulse/stall600ms", BasisVoiceSignal.ImpulseTrain, Stall600(), seed);
                 Add(list, "speech/loss15", BasisVoiceSignal.SpeechLike, Loss15(), seed);
                 Add(list, "speech/jitterloss", BasisVoiceSignal.SpeechLike, JitterLoss(), seed);
                 Add(list, "speech/burst800ms-resync", BasisVoiceSignal.SpeechLike, Burst800(), seed);
@@ -116,7 +132,7 @@ namespace Basis.Scripts.Networking.Voice.Testing
         public static string ToCsv(List<BasisVoiceSimResult> results)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("scenario,profile,signal,seed,sent,dropped,duped,delivered,silentTicks,plc,fec,silenceInjected,genuineUnderruns,rearms,finalDepth,floor,recvLossPct,latencyMs,medianSnrDb,notches,notchMs,droppedAudioMs,outputSecs,pass,failure,error");
+            sb.AppendLine("scenario,profile,signal,seed,sent,dropped,duped,delivered,silentTicks,plc,fec,silenceInjected,genuineUnderruns,rearms,finalDepth,floor,recvLossPct,latencyMs,latStartMs,latMaxMs,latEndMs,standingMax,standingEnd,starvePlc,trimmed,accel,accelMs,flushed,salvaged,expanded,medianSnrDb,notches,notchMs,droppedAudioMs,outputSecs,pass,failure,error");
             foreach (var r in results)
             {
                 sb.Append(Csv(r.ScenarioName)).Append(',');
@@ -137,6 +153,18 @@ namespace Basis.Scripts.Networking.Voice.Testing
                 sb.Append(r.PrerollFloor).Append(',');
                 sb.Append((r.ReceiverLossPercent01 * 100f).ToString("F1", CultureInfo.InvariantCulture)).Append(',');
                 sb.Append(r.LatencyMs.ToString("F0", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append(r.LatencyStartMs.ToString("F0", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append(r.LatencyMaxMs.ToString("F0", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append(r.LatencyEndMs.ToString("F0", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append(r.StandingFramesMax).Append(',');
+                sb.Append(r.StandingFramesEnd).Append(',');
+                sb.Append(r.StarvePlcCount).Append(',');
+                sb.Append(r.TrimmedQuietFrames).Append(',');
+                sb.Append(r.AcceleratedFrames).Append(',');
+                sb.Append(r.AcceleratedSavedMs.ToString("F0", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append(r.FlushedPackets).Append(',');
+                sb.Append(r.LateSalvagedCount).Append(',');
+                sb.Append(r.ExpandInsertedFrames).Append(',');
                 sb.Append(double.IsNaN(r.MedianSegSnrDb) ? "" : r.MedianSegSnrDb.ToString("F1", CultureInfo.InvariantCulture)).Append(',');
                 sb.Append(r.NotchCount).Append(',');
                 sb.Append(r.NotchTotalMs.ToString("F1", CultureInfo.InvariantCulture)).Append(',');

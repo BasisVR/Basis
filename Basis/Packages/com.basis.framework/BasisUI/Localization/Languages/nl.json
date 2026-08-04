@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "De actieve apparaatmodus voor deze sessie." },
     { "key": "settings.platform.activeMode", "value": "Actieve apparaatmodus" },
     { "key": "settings.platform.vrRuntime", "value": "VR-runtime" },
+    { "key": "settings.platform.usePresenceSensor", "value": "Aanwezigheidssensor gebruiken" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "Laat de aanwezigheidssensor van de headset wisselen tussen VR en Desktop wanneer je hem opzet of afzet. Zet dit uit als je headset de aanwezigheid verkeerd meldt — je kunt de modus nog steeds handmatig wisselen." },
     { "key": "settings.platform.switchTo", "value": "Overschakelen Naar {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "Weet je zeker dat je wilt overschakelen naar {0}?" },
     { "key": "settings.platform.swapMode.title", "value": "Wisselmodus" },

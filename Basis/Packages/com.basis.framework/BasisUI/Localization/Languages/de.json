@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "Der aktive Gerätemodus für diese Sitzung." },
     { "key": "settings.platform.activeMode", "value": "Aktiver Gerätemodus" },
     { "key": "settings.platform.vrRuntime", "value": "VR-Laufzeit" },
+    { "key": "settings.platform.usePresenceSensor", "value": "Präsenzsensor verwenden" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "Lässt den Präsenzsensor des Headsets beim Auf- und Absetzen zwischen VR und Desktop wechseln. Schalte dies aus, wenn dein Headset die Präsenz falsch meldet — du kannst den Modus weiterhin manuell wechseln." },
     { "key": "settings.platform.switchTo", "value": "Wechseln zu {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "Möchtest du wirklich zu {0} wechseln?" },
     { "key": "settings.platform.swapMode.title", "value": "Wechselmodus" },

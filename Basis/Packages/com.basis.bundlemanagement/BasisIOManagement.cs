@@ -741,10 +741,14 @@ public static class BasisIOManagement
     /// <param name="ct"></param>
     /// <param name="MaxDownloadSizeInMB">Defaults to 4GB</param>
     /// <returns></returns>
-    private static async Task<BeeResult<DownloadPayload>> DownloadRangeInternal(string url, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+    private static async Task<BeeResult<DownloadPayload>> DownloadRangeInternal(string url, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, int redirectsRemaining = MaxValidatedRedirects)
     {
         if (!ValidateUrl(url, out url, out var urlErr))
             return BeeResult<DownloadPayload>.Fail(urlErr);
+
+        string dnsErr = await ValidateUrlHostResolvesGlobalAsync(url);
+        if (dnsErr != null)
+            return BeeResult<DownloadPayload>.Fail($"Blocked URL: {dnsErr}");
 
         if (startByte < 0)
             return BeeResult<DownloadPayload>.Fail($"Invalid start byte: {startByte}");
@@ -768,10 +772,17 @@ public static class BasisIOManagement
         string requestId = BasisGenerateUniqueID.GenerateUniqueID();
 
         using var req = UnityWebRequest.Get(url);
+        // A 302 after validation would reach a host that passed neither the literal nor the
+        // DNS check, so redirects are refused rather than re-validated.
+        req.redirectLimit = 0;
 
         string rangeHeader = endByteInclusive.HasValue ? $"bytes={startByte}-{endByteInclusive.Value}" : $"bytes={startByte}-";
 
         req.SetRequestHeader("Range", rangeHeader);
+
+        // The handler appends, so a redirect response body would be left in the file before the
+        // retry appends the real content. Remember the length to roll back to.
+        long fileLengthBeforeRequest = -1;
 
         if (string.IsNullOrEmpty(toFilePath) == false)
         {
@@ -779,6 +790,9 @@ public static class BasisIOManagement
             string dir = Path.GetDirectoryName(toFilePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
+
+            try { fileLengthBeforeRequest = File.Exists(toFilePath) ? new FileInfo(toFilePath).Length : 0; }
+            catch { fileLengthBeforeRequest = -1; }
 
             req.downloadHandler = new DownloadHandlerFile(toFilePath, true) { removeFileOnAbort = true };
         }
@@ -812,6 +826,38 @@ public static class BasisIOManagement
         }
 
         long code = req.responseCode;
+
+        // Redirects come back as a plain response because redirectLimit is 0; re-validate the
+        // target and re-issue against it rather than letting Unity follow it unchecked.
+        (bool redirected, string nextUrl, string redirectError) = await TryFollowRedirectAsync(req, url);
+        if (redirectError != null)
+        {
+            progress?.ReportProgress(requestId, 100, "Downloading Complete");
+            return BeeResult<DownloadPayload>.Fail(redirectError, code);
+        }
+        if (redirected)
+        {
+            progress?.ReportProgress(requestId, 100, "Downloading Complete");
+            if (redirectsRemaining <= 0)
+                return BeeResult<DownloadPayload>.Fail($"Too many redirects (limit {MaxValidatedRedirects}).", code);
+
+            // Drop anything the redirect response appended so the retry writes at the right offset.
+            req.Dispose();
+            if (fileLengthBeforeRequest >= 0)
+            {
+                try
+                {
+                    if (File.Exists(toFilePath) && new FileInfo(toFilePath).Length != fileLengthBeforeRequest)
+                        using (FileStream fs = new FileStream(toFilePath, FileMode.Open, FileAccess.Write))
+                            fs.SetLength(fileLengthBeforeRequest);
+                }
+                catch (Exception ex)
+                {
+                    return BeeResult<DownloadPayload>.Fail($"Could not reset '{toFilePath}' before following redirect: {ex.Message}", code);
+                }
+            }
+            return await DownloadRangeInternal(nextUrl, startByte, endByteInclusive, toFilePath, progress, ct, MaxDownloadSizeInMB, redirectsRemaining - 1);
+        }
 
         // Normalize network errors first
         if (req.result != UnityWebRequest.Result.Success)
@@ -992,8 +1038,68 @@ public static class BasisIOManagement
             return false;
         }
 
+        // These URLs arrive over the wire — a remote player's avatar change carries the
+        // address every other client then fetches. A scheme check alone lets that player
+        // aim the whole instance at 127.0.0.1, the LAN, or cloud metadata and read the
+        // outcome back through the reported HTTP status and Content-Range headers.
+        if (Basis.Scripts.Common.BasisUrlSecurity.IsBlockedHost(uri.Host, out string hostReason))
+        {
+            error = $"Blocked URL host '{uri.Host}': {hostReason}";
+            BasisDebug.LogError(error);
+            return false;
+        }
+
         normalizedUrl = uri.AbsoluteUri;
         return true;
+    }
+
+    /// <summary>
+    /// DNS half of the SSRF gate. <see cref="ValidateUrl"/> only sees literal addresses, so a
+    /// host name that resolves to a private address still needs this before the request is
+    /// issued. Returns null when the host is allowed, otherwise the reason it was refused.
+    /// </summary>
+    private static Task<string> ValidateUrlHostResolvesGlobalAsync(string url)
+        => Basis.Scripts.Common.BasisUrlSecurity.ValidateResolvedHostAsync(url);
+
+    /// <summary>
+    /// Hop budget for hand-followed redirects. Content hosts legitimately bounce a bundle URL
+    /// to a signed CDN edge, so refusing redirects outright would break real downloads.
+    /// </summary>
+    private const int MaxValidatedRedirects = 5;
+
+    /// <summary>
+    /// UnityWebRequest's built-in redirect follower re-issues the request without ever
+    /// consulting the SSRF gate, so a public host can answer 302 with a Location of
+    /// 127.0.0.1 or 169.254.169.254 and the redirected fetch is never validated. Every
+    /// request here therefore sets <c>redirectLimit = 0</c> and follows hops by hand
+    /// through this helper, which re-runs the full literal + DNS check on each target.
+    ///
+    /// Returns true only when the response was a redirect whose target passed validation.
+    /// Costs nothing on the overwhelmingly common non-redirect path.
+    /// </summary>
+    private static async Task<(bool redirected, string nextUrl, string error)> TryFollowRedirectAsync(UnityWebRequest req, string currentUrl)
+    {
+        long code = req.responseCode;
+        if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308)
+            return (false, null, null);
+
+        string location = req.GetResponseHeader("Location");
+        if (string.IsNullOrWhiteSpace(location))
+            return (false, null, $"Redirect {code} without a Location header.");
+
+        // Relative targets are legal; resolve against the URL that produced them.
+        if (!Uri.TryCreate(new Uri(currentUrl), location, out Uri resolved))
+            return (false, null, $"Redirect {code} with an unparseable Location '{location}'.");
+
+        string next = resolved.AbsoluteUri;
+        if (!ValidateUrl(next, out next, out string urlErr))
+            return (false, null, $"Blocked redirect target: {urlErr}");
+
+        string dnsErr = await ValidateUrlHostResolvesGlobalAsync(next);
+        if (dnsErr != null)
+            return (false, null, $"Blocked redirect target: {dnsErr}");
+
+        return (true, next, null);
     }
 
     /// <summary>
@@ -1138,12 +1244,17 @@ public static class BasisIOManagement
     /// Returns success if the server responds with a 2xx status code,
     /// indicating the file exists and is accessible.
     /// </summary>
-    public static async Task<BeeResult<bool>> CheckRemoteFileReachable(string url, CancellationToken cancellationToken = default)
+    public static async Task<BeeResult<bool>> CheckRemoteFileReachable(string url, CancellationToken cancellationToken = default, int redirectsRemaining = MaxValidatedRedirects)
     {
         if (!ValidateUrl(url, out url, out var urlErr))
             return BeeResult<bool>.Fail($"Invalid URL: {urlErr}");
 
+        string dnsErr = await ValidateUrlHostResolvesGlobalAsync(url);
+        if (dnsErr != null)
+            return BeeResult<bool>.Fail($"Blocked URL: {dnsErr}");
+
         using var req = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
+        req.redirectLimit = 0;
         req.downloadHandler = new DownloadHandlerBuffer();
 
         var op = req.SendWebRequest();
@@ -1156,6 +1267,17 @@ public static class BasisIOManagement
                 return BeeResult<bool>.Fail("Reachability check cancelled.");
             }
             await Task.Yield();
+        }
+
+        (bool redirected, string nextUrl, string redirectError) = await TryFollowRedirectAsync(req, url);
+        if (redirectError != null)
+            return BeeResult<bool>.Fail(redirectError, req.responseCode);
+        if (redirected)
+        {
+            if (redirectsRemaining <= 0)
+                return BeeResult<bool>.Fail($"Too many redirects (limit {MaxValidatedRedirects}).", req.responseCode);
+            req.Dispose();
+            return await CheckRemoteFileReachable(nextUrl, cancellationToken, redirectsRemaining - 1);
         }
 
         long code = req.responseCode;
@@ -1197,6 +1319,12 @@ public static class BasisIOManagement
             return BeeResult<BasisRemoteValidator>.Fail($"FetchRemoteValidatorAsync: {urlErr}");
         }
 
+        string dnsErr = await ValidateUrlHostResolvesGlobalAsync(url);
+        if (dnsErr != null)
+        {
+            return BeeResult<BasisRemoteValidator>.Fail($"FetchRemoteValidatorAsync: blocked URL: {dnsErr}");
+        }
+
         BasisContentVersion.ToConditionalHeaders(cachedVersionTag, out string ifNoneMatch, out string ifModifiedSince);
 
         // HEAD first: no body at all, and it is what a compliant host answers validators on.
@@ -1217,9 +1345,10 @@ public static class BasisIOManagement
         return head.IsSuccess ? head : ranged;
     }
 
-    private static async Task<BeeResult<BasisRemoteValidator>> SendValidatorRequest(string url, string verb, string ifNoneMatch, string ifModifiedSince, string rangeHeader, CancellationToken cancellationToken)
+    private static async Task<BeeResult<BasisRemoteValidator>> SendValidatorRequest(string url, string verb, string ifNoneMatch, string ifModifiedSince, string rangeHeader, CancellationToken cancellationToken, int redirectsRemaining = MaxValidatedRedirects)
     {
         using var req = new UnityWebRequest(url, verb);
+        req.redirectLimit = 0;
         req.downloadHandler = new DownloadHandlerBuffer();
 
         if (!string.IsNullOrEmpty(rangeHeader))
@@ -1247,6 +1376,17 @@ public static class BasisIOManagement
         }
 
         long code = req.responseCode;
+
+        (bool redirected, string nextUrl, string redirectError) = await TryFollowRedirectAsync(req, url);
+        if (redirectError != null)
+            return BeeResult<BasisRemoteValidator>.Fail(redirectError, code);
+        if (redirected)
+        {
+            if (redirectsRemaining <= 0)
+                return BeeResult<BasisRemoteValidator>.Fail($"Too many redirects (limit {MaxValidatedRedirects}).", code);
+            req.Dispose();
+            return await SendValidatorRequest(nextUrl, verb, ifNoneMatch, ifModifiedSince, rangeHeader, cancellationToken, redirectsRemaining - 1);
+        }
 
         // Checked BEFORE req.result: UnityWebRequest classifies 304 as a ProtocolError, so testing
         // the result first would report the single best outcome ("your copy is current") as failure.

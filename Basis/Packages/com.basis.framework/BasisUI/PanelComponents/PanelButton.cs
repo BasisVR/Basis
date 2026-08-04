@@ -160,7 +160,7 @@ namespace Basis.BasisUI
         }
 
         public void SetHeight(float height) => SetSize(new Vector2(rectTransform.sizeDelta.x, height));
-        public void SetWidth(float width) => SetSize(new Vector2(rectTransform.sizeDelta.x, width));
+        public void SetWidth(float width) => SetSize(new Vector2(width, rectTransform.sizeDelta.y));
 
     }
 }

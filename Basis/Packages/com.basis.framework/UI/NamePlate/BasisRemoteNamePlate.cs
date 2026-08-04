@@ -363,6 +363,10 @@ namespace Basis.Scripts.UI.NamePlate
             ChatText.color = Color.white;
             ChatText.textWrappingMode =  TextWrappingModes.Normal;
             ChatText.overflowMode = TextOverflowModes.Truncate;
+            // Chat is sanitized on send but never re-sanitized on receive, so the bytes rendered
+            // here are whatever the sender's client chose to transmit. With rich text enabled a
+            // peer could use <size>/<voffset>/<space> to draw over the victim's view.
+            ChatText.richText = false;
 
             // Use same font as the loading text if available
             if (LoadingText != null && LoadingText.font != null)

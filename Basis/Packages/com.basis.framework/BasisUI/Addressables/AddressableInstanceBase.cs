@@ -1,7 +1,5 @@
 using System;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace Basis.BasisUI
 {
@@ -42,7 +40,8 @@ namespace Basis.BasisUI
         {
             try
             {
-                GameObject obj = Addressables.InstantiateAsync(referencePath).WaitForCompletion();
+                GameObject obj = BasisAddressablePrefabCache.Instantiate(referencePath, null);
+                if (obj == null) return null;
                 TInstance instance = obj.GetComponent<TInstance>();
                 if (!instance.HasRunCreateEvent) instance.OnCreateEvent();
                 return instance;
@@ -60,8 +59,8 @@ namespace Basis.BasisUI
         /// </summary>
         public static TElement CreateNew<TElement>(string referencePath, Component parent) where TElement: AddressableInstanceBase
         {
-            GameObject obj = Addressables.InstantiateAsync(referencePath,
-                new InstantiationParameters(parent.transform, false)).WaitForCompletion();
+            GameObject obj = BasisAddressablePrefabCache.Instantiate(referencePath, parent.transform);
+            if (obj == null) return null;
             TElement element = obj.GetComponent<TElement>();
             if (!element.HasRunCreateEvent) element.OnCreateEvent();
             return element;
@@ -76,7 +75,7 @@ namespace Basis.BasisUI
             _isReleased = true;
             OnReleaseEvent();
             OnInstanceReleased?.Invoke();
-            Addressables.ReleaseInstance(gameObject);
+            BasisAddressablePrefabCache.DestroyInstance(gameObject);
         }
 
         protected virtual void OnDestroy()

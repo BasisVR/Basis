@@ -27,7 +27,6 @@ namespace Basis.BasisUI
         private TweenScale _selectionPunchTween;
         private TweenCanvasGroupAlpha _listFadeTween;
         private Transform _dropdownList;
-        private int _lastChildCount = -1;
 
         public int Index
         {
@@ -133,19 +132,14 @@ namespace Basis.BasisUI
                 });
         }
 
-        private void LateUpdate()
+        private void OnTransformChildrenChanged()
         {
             if (!Application.isPlaying) return;
 
             // Unity's TMP_Dropdown doesn't expose an "opened" event, so we have to
-            // watch for the "Dropdown List" child GameObject it adds on open. Only
-            // walk the children when childCount changes — previously we called
-            // Transform.Find every frame on every dropdown, which was showing up
-            // in CanvasUpdate profiling.
-            int childCount = transform.childCount;
-            if (childCount == _lastChildCount) return;
-            _lastChildCount = childCount;
-
+            // watch for the "Dropdown List" child GameObject it adds on open. This
+            // fires only when the child list actually changes — previously a
+            // LateUpdate polled childCount on every dropdown every frame.
             Transform list = transform.Find("Dropdown List");
             if (list != null && list != _dropdownList)
             {

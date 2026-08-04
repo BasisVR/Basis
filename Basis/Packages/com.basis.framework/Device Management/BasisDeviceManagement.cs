@@ -1179,6 +1179,10 @@ namespace Basis.Scripts.Device_Management
             string swapMode = BasisSettingsSystem.LoadString("swap_mode", BasisSettingsDefaults.SwapMode_Shutdown);
             if (!string.Equals(swapMode, BasisSettingsDefaults.SwapMode_AutoSwap, StringComparison.OrdinalIgnoreCase)) return;
 
+            // Gated here rather than at the hub so the sensor keeps being read and reported while
+            // this is off — the presence state stays diagnosable, it just stops changing modes.
+            if (!BasisSettingsDefaults.UsePresenceSensor.RawValue) return;
+
             bool shouldSwitchToDesktop = !isPresent && IsCurrentModeVR();
             bool shouldSwitchToVR = isPresent && IsSoftSwapped;
 

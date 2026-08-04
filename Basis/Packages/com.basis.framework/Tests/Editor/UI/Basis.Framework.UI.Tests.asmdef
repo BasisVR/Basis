@@ -1,0 +1,27 @@
+{
+    "name": "Basis.Framework.UI.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Basis Framework",
+        "BasisSDK",
+        "BasisCommon",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

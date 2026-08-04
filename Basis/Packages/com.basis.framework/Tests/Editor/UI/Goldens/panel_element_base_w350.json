@@ -1,0 +1,380 @@
+{
+    "SettlePasses": 2,
+    "NoOpResizes": 0,
+    "Entries": [
+        {
+            "Path": "Host",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchorMax": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 350.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 350.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 216.0,
+                "y": -66.0
+            },
+            "SizeDelta": {
+                "x": 432.0,
+                "y": 132.0
+            },
+            "RectSize": {
+                "x": 432.0,
+                "y": 132.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 216.0,
+                "y": -56.0
+            },
+            "SizeDelta": {
+                "x": 400.0,
+                "y": 80.0
+            },
+            "RectSize": {
+                "x": 400.0,
+                "y": 80.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header/0:Icon Background",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -40.0
+            },
+            "SizeDelta": {
+                "x": 80.0,
+                "y": 80.0
+            },
+            "RectSize": {
+                "x": 80.0,
+                "y": 80.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header/0:Icon Background/0:Icon Image",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -30.0,
+                "y": -30.0
+            },
+            "RectSize": {
+                "x": 50.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header/1:Title",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 250.0,
+                "y": -40.0
+            },
+            "SizeDelta": {
+                "x": 300.0,
+                "y": 60.0
+            },
+            "RectSize": {
+                "x": 300.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header/1:Title/0:Title Content",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -30.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 55.65999984741211
+            },
+            "RectSize": {
+                "x": 0.0,
+                "y": 55.65999984741211
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header/1:Title/0:Title Content/0:Title Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 31.459999084472658
+            },
+            "RectSize": {
+                "x": 0.0,
+                "y": 31.459999084472658
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header/1:Title/0:Title Content/1:Description Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -31.459999084472658
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 24.200000762939454
+            },
+            "RectSize": {
+                "x": 0.0,
+                "y": 24.200000762939454
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/0:Header/1:Title/1:Element",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 150.0,
+                "y": -30.0
+            },
+            "SizeDelta": {
+                "x": 300.0,
+                "y": 60.0
+            },
+            "RectSize": {
+                "x": 300.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Panel Element Base/1:Content",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 216.0,
+                "y": -116.0
+            },
+            "SizeDelta": {
+                "x": 400.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 400.0,
+                "y": 0.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        }
+    ]
+}

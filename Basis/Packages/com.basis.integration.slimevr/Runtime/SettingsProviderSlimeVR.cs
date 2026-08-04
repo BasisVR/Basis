@@ -78,29 +78,34 @@ namespace Basis.Integration.SlimeVR
             trackerSourceDropdown.Descriptor.SetDescription(BasisLocalization.Get("settings.slimevr.trackerSourceExperimental.description"));
             trackerSourceDropdown.AssignEntries(
                 new List<string> { BasisSlimeVRSettings.TrackerSourceOff, BasisSlimeVRSettings.TrackerSourceAuto, BasisSlimeVRSettings.TrackerSourceForce },
-                new List<string> { "Off", "Auto (fallback)", "Force (override)" });
+                new List<string>
+                {
+                    BasisLocalization.Get("settings.slimevr.trackerSource.off"),
+                    BasisLocalization.Get("settings.slimevr.trackerSource.auto"),
+                    BasisLocalization.Get("settings.slimevr.trackerSource.force"),
+                });
             trackerSourceDropdown.SetValueWithoutNotify(BasisSlimeVRSettings.TrackerSource.RawValue);
             trackerSourceDropdown.OnValueChanged += value => BasisSlimeVRSettings.TrackerSource.SetValue(value);
 
             PanelSlider.CreateAndBind(content,
-                new PanelSlider.SliderSettings("Pose Countdown",
-                    "Seconds the buttons below give you to get into pose before they fire. 0 fires instantly.",
+                new PanelSlider.SliderSettings(BasisLocalization.Get("settings.slimevr.poseCountdown"),
+                    BasisLocalization.Get("settings.slimevr.poseCountdown.description"),
                     0f, 10f, true, 0, ValueDisplayMode.Raw),
                 BasisSlimeVRSettings.PoseCountdownSeconds);
 
             PanelButton yawReset = PanelButton.CreateNew(content);
-            WirePoseCountdownButton(yawReset, "Yaw Reset",
-                "Straighten the trackers. Fires after the pose countdown.",
+            WirePoseCountdownButton(yawReset, BasisLocalization.Get("settings.slimevr.yawReset"),
+                BasisLocalization.Get("settings.slimevr.yawReset.description"),
                 BasisSlimeVRPoseAction.YawReset);
 
             PanelButton fullReset = PanelButton.CreateNew(content);
-            WirePoseCountdownButton(fullReset, "Full Reset",
-                "Full reset — stand straight during the countdown.",
+            WirePoseCountdownButton(fullReset, BasisLocalization.Get("settings.slimevr.fullReset"),
+                BasisLocalization.Get("settings.slimevr.fullReset.description"),
                 BasisSlimeVRPoseAction.FullReset);
 
             PanelButton recalibrate = PanelButton.CreateNew(content);
-            WirePoseCountdownButton(recalibrate, "Recalibrate Full Body",
-                "Recapture tracker offsets — stand straight during the countdown.",
+            WirePoseCountdownButton(recalibrate, BasisLocalization.Get("settings.slimevr.recalibrate"),
+                BasisLocalization.Get("settings.slimevr.recalibrate.description"),
                 BasisSlimeVRPoseAction.RecalibrateFbt, "manual (settings)");
 
             PanelElementDescriptor statusField = PanelElementDescriptor.CreateNew(

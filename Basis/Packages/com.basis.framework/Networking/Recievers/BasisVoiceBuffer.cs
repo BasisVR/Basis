@@ -74,9 +74,37 @@ public class BasisVoiceBuffer
     public int GenuineUnderruns;
     // Pre-roll cap (packets). 10 ≈ 200 ms max startup buffering on a bad network.
     private const int MaxPrerollDepth = 10;
-    // Running-grace cap (packets). Kept well below the decoded PCM queue (8 frames /
-    // 160 ms) so holding a slot for a late packet drains that queue without underrunning.
-    private const int MaxRunningGrace = 3;
+
+    // ── Arrival-gap tracker ──
+    // The two largest wall-clock gaps between consecutive VOICE arrivals over the
+    // last few seconds (decayed in MaybeAdjustDepthLocked). Unlike the reactive
+    // late/underrun rules, this raises the target depth BEFORE damage: delivery
+    // batching, wifi clumping, or congestion spacing shows up here on the first bad
+    // packet, not after the queue has already gone dry. The depth uses the SECOND
+    // largest gap: a repeating pattern registers on it almost as fast, while a
+    // one-off outage (a 500 ms stall) doesn't get to demand 500 ms of standing
+    // buffer — one-offs are what the PLC bridge and the flush are for. Gaps
+    // following a sender mute are excluded — the resume packet's silenceUnits>0
+    // identifies them — so intentional silence never inflates the depth.
+    private int _lastArrivalTick;
+    private bool _haveLastArrival;
+    private int _peakGapMs;
+    private int _peakGap2Ms;
+    private const int GapTrackCapMs = 500;
+
+    // How many frames of decoded runway must remain when a gap at the playback
+    // cursor is finally declared lost. Holding while more runway than this exists
+    // costs nothing (playback continues off the decoded queue) and gives a
+    // reordered/late packet its maximum possible time to land — the effective
+    // late-tolerance becomes the standing buffer depth instead of a fixed grace.
+    private const int PlcReserveFrames = 2;
+
+    /// <summary>Holes at the cursor that were resolved by the late packet actually
+    /// arriving during the deadline-hold — audio that older builds would have
+    /// concealed with FEC/PLC and then discarded on arrival.</summary>
+    public int LateSalvagedCount;
+    private byte _holdingSeq;
+    private bool _holdingForSeq;
 
     /// <summary>Per-stream pre-roll depth: user floor, grown by observed lateness, capped.</summary>
     public int InitialBufferDepth
@@ -88,6 +116,18 @@ public class BasisVoiceBuffer
     private int TargetDepthLocked()
     {
         int depth = RemoteOpusSettings.JitterBufferSize + _adaptiveExtraDepth;
+
+        // Proactive component: enough packets to ride out the worst REPEATING
+        // arrival gap seen recently (second-largest, see tracker comment), plus
+        // one. Decays as the network calms.
+        if (_peakGap2Ms > 0)
+        {
+            int frameMs = RemoteOpusSettings.FrameSize * 1000 / RemoteOpusSettings.NetworkSampleRate;
+            if (frameMs < 1) frameMs = 20;
+            int needed = _peakGap2Ms / frameMs + 1;
+            if (needed > depth) depth = needed;
+        }
+
         if (depth < 1) depth = 1;
         else if (depth > MaxPrerollDepth) depth = MaxPrerollDepth;
         return depth;
@@ -134,6 +174,12 @@ public class BasisVoiceBuffer
         _arrivalsSinceAdjust = 0;
         _lateSinceAdjust = 0;
         _underrunsSinceAdjust = 0;
+
+        // Let the tracked worst arrival gaps fade: ~×0.7 per interval halves them in
+        // two, so a one-off spike stops holding the depth up after a few seconds
+        // while sustained batching keeps re-feeding them.
+        _peakGapMs = _peakGapMs * 7 / 10;
+        _peakGap2Ms = _peakGap2Ms * 7 / 10;
     }
 
     public void NoteUnderrun()
@@ -276,12 +322,34 @@ public class BasisVoiceBuffer
                 }
             }
 
+            int now = TickCountSource();
+
+            // Arrival-gap tracker (see field comment). silenceUnits > 0 marks the
+            // first packet after an intentional sender mute — that gap is not
+            // network behavior, skip it.
+            if (_haveLastArrival && silenceUnits == 0)
+            {
+                int gap = unchecked(now - _lastArrivalTick);
+                if (gap > GapTrackCapMs) gap = GapTrackCapMs;
+                if (gap > _peakGapMs)
+                {
+                    _peakGap2Ms = _peakGapMs;
+                    _peakGapMs = gap;
+                }
+                else if (gap > _peakGap2Ms)
+                {
+                    _peakGap2Ms = gap;
+                }
+            }
+            _lastArrivalTick = now;
+            _haveLastArrival = true;
+
             // Adaptive-depth telemetry: every packet is an arrival; a negative distance
             // means its playback slot already passed, i.e. it arrived too late for the
             // current depth. A rising late ratio grows the buffer (MaybeAdjustDepthLocked).
             _arrivalsSinceAdjust++;
             if (distance < 0) _lateSinceAdjust++;
-            MaybeAdjustDepthLocked(TickCountSource());
+            MaybeAdjustDepthLocked(now);
 
             if (distance < 0) return; // old packet, discard
 
@@ -307,6 +375,7 @@ public class BasisVoiceBuffer
             }
 
             int slot = sequenceNumber & EncodedSlotMask;
+            bool isNew = !_encoded[slot].Occupied || _encoded[slot].SequenceNumber != sequenceNumber;
             if (!_encoded[slot].Occupied) _encodedCount++;
             if (_encoded[slot].Data == null || _encoded[slot].Data.Length < length)
                 _encoded[slot].Data = new byte[length];
@@ -315,10 +384,14 @@ public class BasisVoiceBuffer
             _encoded[slot].SequenceNumber = sequenceNumber;
             _encoded[slot].SilenceUnits = silenceUnits;
             _encoded[slot].Occupied = true;
-            _receivedSinceStart++;
-
-            DecayRecentIfDue();
-            _recentReceived++;
+            // A duplicate delivery must not advance the pre-roll gate or the loss
+            // stats — it adds no new audio.
+            if (isNew)
+            {
+                _receivedSinceStart++;
+                DecayRecentIfDue();
+                _recentReceived++;
+            }
         }
     }
 
@@ -363,8 +436,10 @@ public class BasisVoiceBuffer
     }
 
     /// <summary>
-    /// Consume the next in-order encoded packet. Called from the main thread in DrainAndDecode.
-    /// Returns false when nothing is ready (either not started, still filling, or caught up).
+    /// Consume the next in-order encoded packet. Called from the drain (frame pass or
+    /// audio thread) under the receiver's decode gate.
+    /// Returns false when nothing is ready (not started, still filling, caught up, or
+    /// deliberately HOLDING a gap open for a late packet while decoded runway lasts).
     /// </summary>
     public bool TryConsumeEncoded(out byte[] data, out int length, out byte silenceUnits, out bool isMissing)
     {
@@ -379,6 +454,13 @@ public class BasisVoiceBuffer
             int slot = _nextPlaybackSeq & EncodedSlotMask;
             if (_encoded[slot].Occupied && _encoded[slot].SequenceNumber == _nextPlaybackSeq)
             {
+                if (_holdingForSeq && _holdingSeq == _nextPlaybackSeq)
+                {
+                    // The gap we were holding open got filled by the late packet —
+                    // full-quality audio instead of a concealment.
+                    LateSalvagedCount++;
+                }
+                _holdingForSeq = false;
                 data = _encoded[slot].Data;
                 length = _encoded[slot].Length;
                 silenceUnits = _encoded[slot].SilenceUnits;
@@ -395,26 +477,114 @@ public class BasisVoiceBuffer
                 int lead = -SeqDist(_nextPlaybackSeq, _highestReceivedSeq); // >0 when behind
                 if (lead > 0)
                 {
-                    // Grace window: don't declare the gap lost until we're this many
-                    // packets behind the newest arrival, giving a reordered/jittered
-                    // packet time to land instead of PLC-ing it immediately (= crackle on
-                    // a jittery network). Bounded by MaxRunningGrace so the hold drains
-                    // the decoded queue without underrunning it.
-                    int grace = TargetDepthLocked();
-                    if (grace > MaxRunningGrace) grace = MaxRunningGrace;
-                    if (lead >= grace)
+                    // Deadline hold: newer packets exist but this slot hasn't arrived.
+                    // As long as the decoded queue still has runway beyond the PLC
+                    // reserve, HOLD — playback continues off the queue, and a
+                    // reordered/late packet gets its maximum possible time to land.
+                    // The effective late-tolerance is therefore the standing buffer
+                    // depth itself, not a fixed grace constant; deeper adaptive
+                    // depths automatically wait longer. Only once runway is nearly
+                    // gone is the gap declared lost (FEC via the next packet, then
+                    // PLC), because from that point every held frame would become an
+                    // audible underrun instead.
+                    if (Volatile.Read(ref _frameCount) > PlcReserveFrames)
                     {
-                        isMissing = true;
-                        _nextPlaybackSeq++;
-                        DecayRecentIfDue();
-                        _recentMissing++;
-                        return true;
+                        _holdingForSeq = true;
+                        _holdingSeq = _nextPlaybackSeq;
+                        return false;
                     }
-                    // else: hold and wait for the late packet (or for `lead` to grow).
+                    _holdingForSeq = false;
+                    isMissing = true;
+                    _nextPlaybackSeq++;
+                    DecayRecentIfDue();
+                    _recentMissing++;
+                    return true;
                 }
             }
 
             return false;
+        }
+    }
+
+    /// <summary>
+    /// True when the consume cursor is parked at a missing slot with newer packets
+    /// buffered behind it (the deadline-hold state). Used by the drain to tell a
+    /// held gap apart from a genuine starve (nothing newer has arrived at all).
+    /// </summary>
+    public bool IsHoldingForLatePacket
+    {
+        get { lock (_encodedLock) return _holdingForSeq && _started; }
+    }
+
+    /// <summary>
+    /// Milliseconds since the last packet arrival (any packet, including mute
+    /// resumes). int.MaxValue before the first arrival. The starve bridge keys on
+    /// this: an empty ring moments after an arrival is the normal cadence of a
+    /// shallow queue, not a stall.
+    /// </summary>
+    public int MsSinceLastArrival()
+    {
+        lock (_encodedLock)
+        {
+            if (!_haveLastArrival) return int.MaxValue;
+            int elapsed = unchecked(TickCountSource() - _lastArrivalTick);
+            return elapsed < 0 ? 0 : elapsed;
+        }
+    }
+
+    /// <summary>
+    /// Packets of standing buffer between the playback cursor and the newest
+    /// arrival, inclusive, plus decoded-but-unplayed frames. This is the
+    /// content-time the listener is behind the newest received audio — the
+    /// standing latency the catch-up drain works to shrink. Holes count: they will
+    /// take playback time as FEC/PLC/silence when reached.
+    /// </summary>
+    public int StandingBufferedFrames
+    {
+        get
+        {
+            int encodedSpan = 0;
+            lock (_encodedLock)
+            {
+                if (_started && _hasHighest)
+                {
+                    int span = SeqDist(_highestReceivedSeq, _nextPlaybackSeq) + 1;
+                    if (span > 0) encodedSpan = span;
+                }
+            }
+            return encodedSpan + Volatile.Read(ref _frameCount);
+        }
+    }
+
+    /// <summary>
+    /// Emergency catch-up: advance the playback cursor forward, discarding the
+    /// oldest <paramref name="packets"/> packets of buffered content (played
+    /// content-time, not just occupied slots — holes are skipped with the rest).
+    /// The caller owns the audible seam: reset the Opus decoder (the skipped
+    /// content is gone from its history) and fade the join. Returns packets of
+    /// content actually skipped.
+    /// </summary>
+    public int SkipForwardEncoded(int packets)
+    {
+        if (packets <= 0) return 0;
+        lock (_encodedLock)
+        {
+            if (!_started || !_hasHighest) return 0;
+            int span = SeqDist(_highestReceivedSeq, _nextPlaybackSeq) + 1;
+            if (span <= 0) return 0;
+            if (packets > span) packets = span;
+            for (int i = 0; i < packets; i++)
+            {
+                int slot = _nextPlaybackSeq & EncodedSlotMask;
+                if (_encoded[slot].Occupied && _encoded[slot].SequenceNumber == _nextPlaybackSeq)
+                {
+                    _encoded[slot].Occupied = false;
+                    _encodedCount--;
+                }
+                _nextPlaybackSeq++;
+            }
+            _holdingForSeq = false;
+            return packets;
         }
     }
 
@@ -490,6 +660,30 @@ public class BasisVoiceBuffer
     }
 
     /// <summary>
+    /// Fade the tail of the newest decoded-but-unplayed frame to zero over
+    /// <paramref name="fadeSamples"/>. Called before a catch-up flush so the jump to
+    /// newer content starts from silence instead of a mid-waveform cut. No-op when
+    /// the newest frame is already being read (the seam then rides the underrun fade).
+    /// </summary>
+    public void FadeOutNewestDecodedTail(int fadeSamples)
+    {
+        lock (_decodedLock)
+        {
+            if (_frameCount == 0) return;
+            int newest = (_writePos - 1 + MaxDecodedFrames) % MaxDecodedFrames;
+            if (_frameCount == 1 && _readOffset > 0) return; // partially consumed
+            int len = _decodedLengths[newest];
+            int fade = fadeSamples < len ? fadeSamples : len;
+            float[] buf = _decoded[newest];
+            for (int i = 0; i < fade; i++)
+            {
+                float w = (float)(fade - 1 - i) / fade;
+                buf[len - fade + i] *= w;
+            }
+        }
+    }
+
+    /// <summary>
     /// Clear all decoded frames. Call on silence → voice transitions.
     /// </summary>
     public void ClearDecoded()
@@ -543,6 +737,8 @@ public class BasisVoiceBuffer
         _encodedCount = 0;
         _receivedSinceStart = 0;
         _underrunPending = false;
+        _holdingForSeq = false;
+        _haveLastArrival = false;
     }
 
     private static int SeqDist(byte target, byte baseSeq) => (sbyte)(target - baseSeq);

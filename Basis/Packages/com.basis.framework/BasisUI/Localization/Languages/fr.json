@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "Le mode d'appareil actif pour cette session." },
     { "key": "settings.platform.activeMode", "value": "Mode d'appareil actif" },
     { "key": "settings.platform.vrRuntime", "value": "Runtime VR" },
+    { "key": "settings.platform.usePresenceSensor", "value": "Utiliser le capteur de présence" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "Laisse le capteur de présence du casque basculer entre VR et Bureau lorsque vous le mettez ou le retirez. Désactivez cette option si votre casque signale mal la présence — vous pouvez toujours changer de mode manuellement." },
     { "key": "settings.platform.switchTo", "value": "Passer à {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "Êtes-vous sûr de vouloir passer à {0} ?" },
     { "key": "settings.platform.swapMode.title", "value": "Mode d'échange" },

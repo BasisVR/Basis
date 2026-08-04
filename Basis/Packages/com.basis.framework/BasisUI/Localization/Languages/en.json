@@ -7611,6 +7611,14 @@
       "value": "VR Runtime"
     },
     {
+      "key": "settings.platform.usePresenceSensor",
+      "value": "Use Presence Sensor"
+    },
+    {
+      "key": "settings.platform.usePresenceSensor.tooltip",
+      "value": "Let the headset's presence sensor swap you between VR and Desktop when you put it on or take it off. Turn this off if your headset reports presence incorrectly — you can still switch modes manually."
+    },
+    {
       "key": "settings.platform.switchTo",
       "value": "Switch To {0}"
     },
@@ -10295,6 +10303,30 @@
       "value": "Default"
     },
     {
+      "key": "settings.remoteAudio.curve.natural",
+      "value": "Natural"
+    },
+    {
+      "key": "settings.remoteAudio.curve.legacy",
+      "value": "Legacy"
+    },
+    {
+      "key": "settings.remoteAudio.reverbDistance",
+      "value": "Reverberant Distance"
+    },
+    {
+      "key": "settings.remoteAudio.reverbDistance.tooltip",
+      "value": "Distance past which voices stop getting quieter. Closer than this, level follows the real inverse distance law; beyond it, a room's reflected sound takes over and level flattens out. Smaller values feel like a small, dry room; larger values carry voices further."
+    },
+    {
+      "key": "settings.remoteAudio.toneShaping",
+      "value": "Natural Tone Shaping"
+    },
+    {
+      "key": "settings.remoteAudio.toneShaping.tooltip",
+      "value": "Makes voices change tone, not just volume, with direction. A player facing away sounds muffled the way a real person does, and someone behind you sounds shadowed by your own head instead of simply turned down."
+    },
+    {
       "key": "settings.remoteAudio.curve.sharp",
       "value": "Sharp Falloff"
     },
@@ -12199,6 +12231,258 @@
     {
       "key": "settings.admin.playerOpusBitrate.clear.tooltip",
       "value": "Drop the override and return the player to the server-wide bitrate."
+    },
+    {
+      "key": "settings.admin.confirm.ban.body",
+      "value": "Ban the player with this UUID? This may be irreversible depending on server policy."
+    },
+    {
+      "key": "settings.admin.confirm.ban.confirm",
+      "value": "Ban"
+    },
+    {
+      "key": "settings.admin.confirm.ban.title",
+      "value": "Ban player?"
+    },
+    {
+      "key": "settings.admin.confirm.bitrateApply.body",
+      "value": "Force the selected player's Opus encoder to this bitrate for the rest of the session?"
+    },
+    {
+      "key": "settings.admin.confirm.bitrateApply.confirm",
+      "value": "Override"
+    },
+    {
+      "key": "settings.admin.confirm.bitrateApply.title",
+      "value": "Override this player's voice bitrate?"
+    },
+    {
+      "key": "settings.admin.confirm.bitrateClear.body",
+      "value": "Return the selected player to the server-wide bitrate?"
+    },
+    {
+      "key": "settings.admin.confirm.bitrateClear.confirm",
+      "value": "Clear"
+    },
+    {
+      "key": "settings.admin.confirm.bitrateClear.title",
+      "value": "Clear the bitrate override?"
+    },
+    {
+      "key": "settings.admin.confirm.fullQualityDisable.body",
+      "value": "Return this player to the normal distance reduction system?"
+    },
+    {
+      "key": "settings.admin.confirm.fullQualityDisable.confirm",
+      "value": "Disable"
+    },
+    {
+      "key": "settings.admin.confirm.fullQualityDisable.title",
+      "value": "Disable full-quality broadcast?"
+    },
+    {
+      "key": "settings.admin.confirm.fullQualityEnable.body",
+      "value": "Send this player's full-quality avatar data to everyone, bypassing the distance reduction system? Uses more bandwidth."
+    },
+    {
+      "key": "settings.admin.confirm.fullQualityEnable.confirm",
+      "value": "Enable"
+    },
+    {
+      "key": "settings.admin.confirm.fullQualityEnable.title",
+      "value": "Enable full-quality broadcast?"
+    },
+    {
+      "key": "settings.admin.confirm.ipBan.body",
+      "value": "IP-ban the player with this UUID? This can affect multiple accounts on the same connection."
+    },
+    {
+      "key": "settings.admin.confirm.ipBan.confirm",
+      "value": "IP Ban"
+    },
+    {
+      "key": "settings.admin.confirm.ipBan.title",
+      "value": "IP ban player?"
+    },
+    {
+      "key": "settings.admin.confirm.kick.body",
+      "value": "Kick the player with this UUID?"
+    },
+    {
+      "key": "settings.admin.confirm.kick.confirm",
+      "value": "Kick"
+    },
+    {
+      "key": "settings.admin.confirm.kick.title",
+      "value": "Kick player?"
+    },
+    {
+      "key": "settings.admin.confirm.sendAll.body",
+      "value": "Send this message to ALL players?"
+    },
+    {
+      "key": "settings.admin.confirm.sendAll.confirm",
+      "value": "Broadcast"
+    },
+    {
+      "key": "settings.admin.confirm.sendAll.title",
+      "value": "Broadcast message?"
+    },
+    {
+      "key": "settings.admin.confirm.sendMessage.body",
+      "value": "Send this message to the target player?"
+    },
+    {
+      "key": "settings.admin.confirm.sendMessage.confirm",
+      "value": "Send"
+    },
+    {
+      "key": "settings.admin.confirm.sendMessage.title",
+      "value": "Send message?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutDisable.body",
+      "value": "Disable non-spatialized broadcast voice for this player?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutDisable.confirm",
+      "value": "Disable"
+    },
+    {
+      "key": "settings.admin.confirm.shoutDisable.title",
+      "value": "Disable shout mode?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutEnable.body",
+      "value": "Enable non-spatialized broadcast voice for this player?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutEnable.confirm",
+      "value": "Enable"
+    },
+    {
+      "key": "settings.admin.confirm.shoutEnable.title",
+      "value": "Enable shout mode?"
+    },
+    {
+      "key": "settings.admin.confirm.teleportAll.body",
+      "value": "This will teleport ALL players to the selected target's location. Continue?"
+    },
+    {
+      "key": "settings.admin.confirm.teleportAll.confirm",
+      "value": "Teleport"
+    },
+    {
+      "key": "settings.admin.confirm.teleportAll.title",
+      "value": "Teleport everyone?"
+    },
+    {
+      "key": "settings.admin.confirm.teleportHere.body",
+      "value": "Teleport the selected player to your location?"
+    },
+    {
+      "key": "settings.admin.confirm.teleportHere.confirm",
+      "value": "Teleport"
+    },
+    {
+      "key": "settings.admin.confirm.teleportHere.title",
+      "value": "Teleport player to you?"
+    },
+    {
+      "key": "settings.admin.confirm.teleportTo.body",
+      "value": "Teleport you to the selected player's location?"
+    },
+    {
+      "key": "settings.admin.confirm.teleportTo.confirm",
+      "value": "Teleport"
+    },
+    {
+      "key": "settings.admin.confirm.teleportTo.title",
+      "value": "Teleport to player?"
+    },
+    {
+      "key": "settings.admin.confirm.unIpBan.body",
+      "value": "Lift the IP ban recorded for this UUID? Every account banned on that address is unbanned."
+    },
+    {
+      "key": "settings.admin.confirm.unIpBan.confirm",
+      "value": "Remove IP Ban"
+    },
+    {
+      "key": "settings.admin.confirm.unIpBan.title",
+      "value": "Remove IP ban?"
+    },
+    {
+      "key": "settings.admin.confirm.unban.body",
+      "value": "Remove the ban for this UUID?"
+    },
+    {
+      "key": "settings.admin.confirm.unban.confirm",
+      "value": "Unban"
+    },
+    {
+      "key": "settings.admin.confirm.unban.title",
+      "value": "Unban player?"
+    },
+    {
+      "key": "settings.remoteAudio.bufferedFrames.description",
+      "value": "Each frame is 20 ms. 1 = ~20 ms (default, low latency, more dropouts).\n5 = ~100 ms. 15 = ~300 ms (max resilience)."
+    },
+    {
+      "key": "settings.remoteAudio.clipBuffer.description",
+      "value": "Multiplier on the per-player AudioClip length used by Unity's AudioSource.\nLower = tighter coupling to the decoded queue (less latency, more sensitive\nto underruns). Default: 2. Live audio sources reload in place when changed."
+    },
+    {
+      "key": "settings.remoteAudio.lipSyncSlots.description",
+      "value": "Number of concurrent OpenLipSync (neural viseme) instances.\nHigher = better lip sync on more players, but more CPU.\nDefault: 30. Players beyond this get no visemes until a slot frees up."
+    },
+    {
+      "key": "settings.slimevr.fullReset",
+      "value": "Full Reset"
+    },
+    {
+      "key": "settings.slimevr.fullReset.description",
+      "value": "Full reset — stand straight during the countdown."
+    },
+    {
+      "key": "settings.slimevr.poseCountdown",
+      "value": "Pose Countdown"
+    },
+    {
+      "key": "settings.slimevr.poseCountdown.description",
+      "value": "Seconds the buttons below give you to get into pose before they fire. 0 fires instantly."
+    },
+    {
+      "key": "settings.slimevr.recalibrate",
+      "value": "Recalibrate Full Body"
+    },
+    {
+      "key": "settings.slimevr.recalibrate.description",
+      "value": "Recapture tracker offsets — stand straight during the countdown."
+    },
+    {
+      "key": "settings.slimevr.trackerSource.auto",
+      "value": "Auto (fallback)"
+    },
+    {
+      "key": "settings.slimevr.trackerSource.force",
+      "value": "Force (override)"
+    },
+    {
+      "key": "settings.slimevr.trackerSource.off",
+      "value": "Off"
+    },
+    {
+      "key": "settings.slimevr.yawReset",
+      "value": "Yaw Reset"
+    },
+    {
+      "key": "settings.slimevr.yawReset.description",
+      "value": "Straighten the trackers. Fires after the pose countdown."
+    },
+    {
+      "key": "menu.individualPlayer.uuid",
+      "value": "UUID"
     }
   ]
 }

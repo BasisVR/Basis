@@ -153,6 +153,16 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     /// <summary>Last visibility state reported by the mesh renderer check.</summary>
     public bool LastVisibilityState = false;
 
+    /// <summary>
+    /// Whether the prop's viewfinder mesh is in some camera's view. Starts true: a renderer that
+    /// has never been culled has never reported either way, and a camera that has just spawned
+    /// should be rendering rather than waiting to be looked at.
+    /// </summary>
+    private bool rendererVisible = true;
+
+    /// <summary>True while the settings panel is bound to this camera and showing its preview.</summary>
+    private bool panelPreviewActive;
+
     /// <summary>Renderer visibility observer.</summary>
     private BasisMeshRendererCheck basisMeshRendererCheck;
 
@@ -484,7 +494,7 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
         // Hiding the preview mesh drops Renderer.isVisible, which would otherwise cull the
         // capture camera and stop the feed the moment the prop went invisible.
-        VisibilityFlag(Renderer != null && Renderer.isVisible);
+        UpdateRenderGate();
         UpdateOnPropUIVisibility();
     }
 
@@ -1180,7 +1190,7 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     /// </summary>
     private void SimulateLate()
     {
-        ApplyRenderRateLimit();
+        UpdateRenderGate();
 
         if (IsOverridingDesktopView)
         {
@@ -1221,7 +1231,7 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
         SetDirectToScreenOverlayActive(IsOverridingDesktopView);
 
-        VisibilityFlag(Renderer != null && Renderer.isVisible);
+        UpdateRenderGate();
         UpdatePreviewScreen();
     }
 
@@ -1337,11 +1347,52 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     }
 
     /// <summary>
-    /// Gates the capture camera to the developer render-rate override (0 = uncapped); never throttles the desktop-override output.
+    /// True while something other than the prop's own viewfinder is showing this camera's feed:
+    /// the settings panel's preview, the detached preview screen, the desktop output, or a live
+    /// video stream. Each draws the render texture somewhere the prop's own visibility says
+    /// nothing about, so each has to keep the camera rendering on its own account — otherwise it
+    /// freezes on whatever frame the prop was last on screen for.
     /// </summary>
-    private void ApplyRenderRateLimit()
+    private bool HasOffPropFeedConsumer =>
+        IsOverridingDesktopView || IsAnyVideoOutputActive || panelPreviewActive || IsPreviewScreenVisible;
+
+    /// <summary>
+    /// Told by the settings panel while it is open on this camera. Its preview is a second window
+    /// onto the same feed, drawn wherever the menu is rather than on the prop, so the camera has
+    /// to keep rendering for it even when the prop itself is nowhere in view.
+    /// </summary>
+    public void SetPanelPreviewActive(bool active)
     {
-        if (!LastVisibilityState) return;
+        if (panelPreviewActive == active) return;
+        panelPreviewActive = active;
+        UpdateRenderGate();
+    }
+
+    /// <summary>
+    /// Decides whether the capture camera renders this frame and how often: off entirely when
+    /// nothing is showing the feed, otherwise gated to the developer render-rate override
+    /// (0 = uncapped), and never throttled while it is driving the desktop output.
+    /// <para>
+    /// Re-evaluated every frame from <see cref="SimulateLate"/> rather than only when the prop's
+    /// visibility changes. A viewer can arrive or leave while the prop is off screen — opening the
+    /// settings panel on a camera you have flown away is the obvious one — and a gate that ran
+    /// only on visibility transitions would not hear about it until the prop was next looked at.
+    /// </para>
+    /// </summary>
+    private void UpdateRenderGate()
+    {
+        if (captureCamera == null) return;
+
+        // Hiding the prop drops its renderer's visibility, which must not stop the camera: a
+        // hidden camera is still live and everything downstream of it keeps running.
+        bool shouldRender = rendererVisible || cameraHidden || HasOffPropFeedConsumer;
+        LastVisibilityState = shouldRender;
+        if (!shouldRender)
+        {
+            captureCamera.enabled = false;
+            return;
+        }
+
         if (IsOverridingDesktopView)
         {
             captureCamera.enabled = true;
@@ -1377,20 +1428,28 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     }
 
     /// <summary>
-    /// Called when the preview renderer enters/exits visibility; toggles camera.enabled accordingly.
+    /// Called when the prop's viewfinder mesh enters or leaves every camera's view. It only
+    /// records the state: whether that stops the capture camera is <see cref="UpdateRenderGate"/>'s
+    /// call, since the viewfinder is not the only surface that can be showing the feed.
     /// </summary>
     private void VisibilityFlag(bool isVisible)
     {
         if (BasisLocalPlayer.Instance == null)
             return;
 
-        // While streaming, the RT feeds a receiver that has no idea whether the prop is on
-        // screen — culling the capture camera would freeze the stream on its last frame.
-        bool shouldRender = isVisible || IsOverridingDesktopView || IsAnyVideoOutputActive || cameraHidden;
-        if (shouldRender == LastVisibilityState)
-            return;
-
-        captureCamera.enabled = shouldRender;
-        LastVisibilityState = shouldRender;
+        rendererVisible = isVisible;
+        UpdateRenderGate();
     }
+
+#if UNITY_INCLUDE_TESTS
+    /// <summary>
+    /// Test-only stand-in for the prop's viewfinder entering or leaving view, which otherwise
+    /// only arrives from Unity's culling through <see cref="BasisMeshRendererCheck"/>.
+    /// </summary>
+    public void SetRendererVisibleForTest(bool visible)
+    {
+        rendererVisible = visible;
+        UpdateRenderGate();
+    }
+#endif
 }

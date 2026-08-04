@@ -65,32 +65,91 @@ namespace Basis.Scripts.Networking.Voice.Testing
             if (!HasStructure(er) || !HasStructure(ec)) return -1.0;
 
             int maxLag = (int)(maxLagMs / binMs);
-            int n = Math.Min(er.Length, ec.Length);
+            var scores = new double[maxLag + 1];
             double best = double.MinValue;
-            int bestLag = 0;
             for (int lag = 0; lag <= maxLag; lag++)
             {
+                // Overlap always spans the whole reference when the candidate reaches
+                // that far. Shrinking the overlap with the lag (min(n - lag, ...))
+                // makes large lags trivially easier — fewer events left that must
+                // match — and a one-event window can outscore the true alignment.
+                int count = Math.Min(er.Length, ec.Length - lag);
+                if (count < 50) { scores[lag] = -1; continue; }
+
+                // Pearson correlation of the envelope windows. Mean-centering matters:
+                // a raw dot product lets a shared noise floor / DC level correlate at
+                // EVERY lag, drowning the actual event structure and letting the
+                // tiebreak below pick an arbitrary alias.
+                double sr = 0, sc = 0;
+                for (int i = 0; i < count; i++) { sr += er[i]; sc += ec[i + lag]; }
+                double mr = sr / count, mc = sc / count;
                 double dot = 0, nr = 0, nc = 0;
-                int count = Math.Min(n - lag, er.Length);
-                if (count < 50) break;
                 for (int i = 0; i < count; i++)
                 {
-                    if (i + lag >= ec.Length) break;
-                    double r = er[i];
-                    double c = ec[i + lag];
+                    double r = er[i] - mr;
+                    double c = ec[i + lag] - mc;
                     dot += r * c;
                     nr += r * r;
                     nc += c * c;
                 }
                 double denom = Math.Sqrt(nr * nc);
                 double score = denom > 1e-12 ? dot / denom : 0.0;
-                if (score > best)
-                {
-                    best = score;
-                    bestLag = lag;
-                }
+                scores[lag] = score;
+                if (score > best) best = score;
             }
-            return bestLag * binMs;
+            if (best < 0.25) return -1.0; // no confident alignment anywhere
+            // Periodic content (impulse trains, steady syllable rhythm) scores nearly the
+            // same at the true lag and at true+period aliases. Take the SMALLEST lag whose
+            // score is within a whisker of the best — the true delay is always the first.
+            for (int lag = 0; lag <= maxLag; lag++)
+            {
+                if (scores[lag] >= best - 0.02 && scores[lag] >= best * 0.97)
+                    return lag * binMs;
+            }
+            return -1.0;
+        }
+
+        /// <summary>
+        /// Latency measured over time: windows the pair and estimates the lag of each
+        /// window independently, so a latency change mid-run (stall recovery, buffer
+        /// backlog, catch-up) is visible instead of averaged away. Windows without
+        /// enough envelope structure (silence, steady tones) are skipped.
+        /// </summary>
+        public struct LagPoint
+        {
+            public double TimeSec;   // window start, reference timeline
+            public double LagMs;
+        }
+
+        public static List<LagPoint> LatencyCurve(
+            float[] reference, int refRate, float[] candidate, int candRate,
+            double maxLagMs = 1200.0, double windowSec = 1.2, double hopSec = 0.3)
+        {
+            var curve = new List<LagPoint>();
+            int refWin = (int)(windowSec * refRate);
+            int refHop = (int)(hopSec * refRate);
+            if (refWin <= 0 || refHop <= 0) return curve;
+            for (int start = 0; start + refWin <= reference.Length; start += refHop)
+            {
+                double t0 = start / (double)refRate;
+                // Candidate window: same start time, extended by the max lag so the
+                // delayed content is inside it.
+                int candStart = (int)(t0 * candRate);
+                int candLen = (int)((windowSec + maxLagMs / 1000.0) * candRate);
+                if (candStart >= candidate.Length) break;
+                if (candStart + candLen > candidate.Length) candLen = candidate.Length - candStart;
+                if (candLen < candRate / 10) break;
+
+                float[] refWinBuf = new float[refWin];
+                Array.Copy(reference, start, refWinBuf, 0, refWin);
+                float[] candWinBuf = new float[candLen];
+                Array.Copy(candidate, candStart, candWinBuf, 0, candLen);
+
+                double lag = EstimateLagMs(refWinBuf, refRate, candWinBuf, candRate, maxLagMs);
+                if (lag >= 0)
+                    curve.Add(new LagPoint { TimeSec = t0, LagMs = lag });
+            }
+            return curve;
         }
 
         static bool HasEnergy(float[] env)
@@ -123,16 +182,27 @@ namespace Basis.Scripts.Networking.Voice.Testing
         /// <paramref name="minMs"/> and <paramref name="maxMs"/> long whose flanks
         /// (within <paramref name="flankMs"/> on both sides) carry real signal.
         /// Long gaps (word pauses, mutes) are ignored by the max-length bound.
+        /// The flank window is deliberately tight: an underrun fade cuts from full
+        /// amplitude to digital silence within ~2 ms, so real notches have loud
+        /// IMMEDIATE neighbours. Additionally the dip must contain a run of true
+        /// digital-zero samples — the underrun path writes exact 0s once its fade
+        /// lands, whereas codec-shaped speech (a gain-quantized syllable trough or a
+        /// decaying utterance tail) merely OSCILLATES through zero and never rests
+        /// there. Without the zero-run requirement those codec artifacts, which are
+        /// masked and inaudible, would count as playback faults.
         /// </summary>
         public static List<Notch> FindNotches(
             float[] mono, int sampleRate,
-            double minMs = 0.4, double maxMs = 25.0, double flankMs = 8.0,
+            double minMs = 0.4, double maxMs = 25.0, double flankMs = 3.0,
             float silenceFloor = 0.004f, float flankLevel = 0.03f)
         {
             const double binMs = 0.25;
+            const float digitalZero = 1e-5f;
+            const int zeroRunNeeded = 8; // ~0.17 ms at 48 kHz — a sine crossing yields 1-2
             float[] env = PeakEnvelope(mono, sampleRate, binMs);
             var notches = new List<Notch>();
             int flankBins = (int)(flankMs / binMs);
+            int samplesPerBin = Math.Max(1, (int)Math.Round(sampleRate * binMs / 1000.0));
 
             int i = 0;
             while (i < env.Length)
@@ -149,8 +219,23 @@ namespace Basis.Scripts.Networking.Voice.Testing
                     if (env[k] >= flankLevel) { leftLoud = true; break; }
                 for (int k = end; k < Math.Min(env.Length, end + flankBins); k++)
                     if (env[k] >= flankLevel) { rightLoud = true; break; }
+                if (!leftLoud || !rightLoud) continue;
 
-                if (leftLoud && rightLoud)
+                int sampleStart = start * samplesPerBin;
+                int sampleEnd = Math.Min(mono.Length, end * samplesPerBin);
+                int zeroRun = 0;
+                bool hasZeroRun = false;
+                for (int s = sampleStart; s < sampleEnd; s++)
+                {
+                    float a = mono[s] < 0f ? -mono[s] : mono[s];
+                    if (a <= digitalZero)
+                    {
+                        if (++zeroRun >= zeroRunNeeded) { hasZeroRun = true; break; }
+                    }
+                    else zeroRun = 0;
+                }
+
+                if (hasZeroRun)
                     notches.Add(new Notch { StartMs = start * binMs, DurationMs = durMs });
             }
             return notches;

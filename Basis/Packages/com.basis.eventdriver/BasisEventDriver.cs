@@ -250,6 +250,13 @@ namespace Basis.EventDriver
                 using (Prof.VisemeSimulate.Auto())
                 {
                     BasisLocalPlayer.Instance.LocalVisemeDriver.Simulate(DeltaTime);
+
+                    // Dispatch here rather than leaving it to the remote-audio stage further
+                    // down: that stage runs AFTER the local viseme Apply, so the local mouth
+                    // could never pick up work queued in the same frame and was permanently a
+                    // frame behind the mic. The batch task drains anything the remote stage
+                    // adds later, so starting early costs the remote players nothing.
+                    BasisOpenLipSyncContext.ProcessAllPending();
                 }
             }
             // Drain everything that arrived from worker threads

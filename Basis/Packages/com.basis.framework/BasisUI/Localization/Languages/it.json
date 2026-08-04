@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "La modalità dispositivo attiva per questa sessione." },
     { "key": "settings.platform.activeMode", "value": "Modalità dispositivo attiva" },
     { "key": "settings.platform.vrRuntime", "value": "Runtime VR" },
+    { "key": "settings.platform.usePresenceSensor", "value": "Usa il sensore di presenza" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "Consente al sensore di presenza del visore di passare tra VR e Desktop quando lo indossi o lo togli. Disattivalo se il tuo visore rileva la presenza in modo errato: puoi comunque cambiare modalità manualmente." },
     { "key": "settings.platform.switchTo", "value": "Passa a {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "Sei sicuro di voler passare a {0}?" },
     { "key": "settings.platform.swapMode.title", "value": "Modalità di scambio" },

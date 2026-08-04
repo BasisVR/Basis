@@ -1,0 +1,176 @@
+{
+    "SettlePasses": 2,
+    "NoOpResizes": 0,
+    "Entries": [
+        {
+            "Path": "Menu Panel",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 1500.0,
+                "y": 1000.0
+            },
+            "RectSize": {
+                "x": 1500.0,
+                "y": 1000.0
+            },
+            "LocalScale": {
+                "x": 0.00039999998989515007,
+                "y": 0.00039999998989515007,
+                "z": 0.00039999998989515007
+            }
+        },
+        {
+            "Path": "Menu Panel/0:Edge",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 6.0,
+                "y": 6.0
+            },
+            "RectSize": {
+                "x": 1506.0,
+                "y": 1006.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Menu Panel/1:Background",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 1500.0,
+                "y": 1000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Menu Panel/1:Background/0:Background Image",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 1500.0,
+                "y": 1000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Menu Panel/1:Background/1:Content",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -32.0,
+                "y": -32.0
+            },
+            "RectSize": {
+                "x": 1468.0,
+                "y": 968.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        }
+    ]
+}

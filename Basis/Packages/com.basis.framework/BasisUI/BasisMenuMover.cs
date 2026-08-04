@@ -88,6 +88,9 @@ namespace Basis.BasisUI
         private bool _stableHasAnchor;
         private Vector3 _stableLocalPos;
         private Quaternion _stableLocalRot = Quaternion.identity;
+        private bool _hasLastStableWrite;
+        private Vector3 _lastStablePos;
+        private Quaternion _lastStableRot;
 
         private void OnEnable()
         {
@@ -412,6 +415,10 @@ namespace Basis.BasisUI
             {
                 _hasLastEyeWrite = false;
             }
+            if (mode != PanelGroupRootMode.PlaySpaceStable)
+            {
+                _hasLastStableWrite = false;
+            }
             switch (mode)
             {
                 case PanelGroupRootMode.World:
@@ -488,7 +495,18 @@ namespace Basis.BasisUI
             BasisLocalPlayer.Instance.PlayerSelf.GetPositionAndRotation(out Vector3 playPosWS, out Quaternion playRotWS);
 
             // Apply playspace transform to captured playspace-local anchor
-            transform.SetPositionAndRotation(playPosWS + (playRotWS * _stableLocalPos), playRotWS * _stableLocalRot);
+            Vector3 targetPos = playPosWS + (playRotWS * _stableLocalPos);
+            Quaternion targetRot = playRotWS * _stableLocalRot;
+
+            if (_hasLastStableWrite && _lastStablePos == targetPos && _lastStableRot == targetRot)
+            {
+                return;
+            }
+
+            transform.SetPositionAndRotation(targetPos, targetRot);
+            _lastStablePos = targetPos;
+            _lastStableRot = targetRot;
+            _hasLastStableWrite = true;
         }
 
         private static float ExtractPitchDegreesNoRoll(Quaternion localRot)

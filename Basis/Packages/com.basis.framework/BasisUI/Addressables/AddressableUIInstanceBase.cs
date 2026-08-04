@@ -1,8 +1,6 @@
 using System;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.EventSystems;
-using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace Basis.BasisUI
 {
@@ -37,7 +35,8 @@ namespace Basis.BasisUI
         /// </summary>
         public static TInstance CreateNew<TInstance>(string referencePath) where TInstance: AddressableUIInstanceBase
         {
-            GameObject obj = Addressables.InstantiateAsync(referencePath).WaitForCompletion();
+            GameObject obj = BasisAddressablePrefabCache.Instantiate(referencePath, null);
+            if (obj == null) return null;
             TInstance instance = obj.GetComponent<TInstance>();
             if (!instance.HasRunCreateEvent) instance.OnCreateEvent();
             return instance;
@@ -56,11 +55,10 @@ namespace Basis.BasisUI
             }
             try
             {
-                GameObject obj = Addressables.InstantiateAsync(referencePath, new InstantiationParameters(parent.transform, false)).WaitForCompletion();
+                GameObject obj = BasisAddressablePrefabCache.Instantiate(referencePath, parent.transform);
 
                 if(obj == null)
                 {
-                    BasisDebug.LogError($"Failed to load Addressable at path:\n{referencePath} Missing Gameobject");
                     return null;
                 }
                 if (obj.TryGetComponent<TElement>(out TElement element))
@@ -121,7 +119,7 @@ namespace Basis.BasisUI
 
         /// <summary>
         /// <paramref name="dropFromLayout"/> deactivates the object before releasing it.
-        /// <see cref="Addressables.ReleaseInstance(GameObject)"/> destroys via
+        /// <see cref="BasisAddressablePrefabCache.DestroyInstance"/> destroys via
         /// <see cref="Object.Destroy"/>, which Unity defers to the end of the frame, so a released
         /// element otherwise stays an active child and keeps contributing to its parent layout
         /// group for the rest of this frame — the layout then lands wrong for exactly one frame
@@ -141,7 +139,7 @@ namespace Basis.BasisUI
             if (this != null)
             {
                 if (dropFromLayout) gameObject.SetActive(false);
-                Addressables.ReleaseInstance(gameObject);
+                BasisAddressablePrefabCache.DestroyInstance(gameObject);
             }
         }
 

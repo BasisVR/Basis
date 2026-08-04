@@ -7,7 +7,8 @@
         "BasisDebug",
         "Unity.Addressables",
         "Unity.ResourceManager",
-        "glTFast"
+        "glTFast",
+        "BasisCommon"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

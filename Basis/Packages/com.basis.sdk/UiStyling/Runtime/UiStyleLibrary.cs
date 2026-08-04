@@ -101,9 +101,38 @@ namespace Basis.BasisUI.Styling
     {
         public List<T> Styles;
 
+        [NonSerialized] private Dictionary<string, T> _index;
+        [NonSerialized] private int _indexedCount;
+
         public T GetStyle(string title)
         {
-            return Styles.FirstOrDefault(style => style.Title == title);
+            if (Styles == null || title == null)
+            {
+                return null;
+            }
+
+            if (_index == null || _indexedCount != Styles.Count)
+            {
+                Dictionary<string, T> index = new Dictionary<string, T>(Styles.Count);
+                for (int i = 0; i < Styles.Count; i++)
+                {
+                    T style = Styles[i];
+                    if (style != null && style.Title != null && !index.ContainsKey(style.Title))
+                    {
+                        index.Add(style.Title, style);
+                    }
+                }
+                _index = index;
+                _indexedCount = Styles.Count;
+            }
+
+            return _index.TryGetValue(title, out T match) ? match : null;
+        }
+
+        public void InvalidateIndex()
+        {
+            _index = null;
+            _indexedCount = -1;
         }
 
         public string[] GetInfo()
@@ -173,6 +202,15 @@ namespace Basis.BasisUI.Styling
 
         private void OnValidate()
         {
+            ImageStyles.InvalidateIndex();
+            LabelStyles.InvalidateIndex();
+            SelectableStyles.InvalidateIndex();
+            ButtonStyles.InvalidateIndex();
+            ToggleStyles.InvalidateIndex();
+            SliderStyles.InvalidateIndex();
+            ScrollbarStyles.InvalidateIndex();
+            DropdownStyles.InvalidateIndex();
+
             #if UNITY_EDITOR
                 // Don't call Addressables during import/build — they aren't available yet
                 if (!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)

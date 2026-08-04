@@ -1,0 +1,210 @@
+{
+    "SettlePasses": 2,
+    "NoOpResizes": 0,
+    "Entries": [
+        {
+            "Path": "Host",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchorMax": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Tab Group Vertical",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 600.0,
+                "y": -1000.0
+            },
+            "SizeDelta": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Tab Group Vertical/0:Tabs",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 26.0,
+                "y": -58.0
+            },
+            "SizeDelta": {
+                "x": 350.0,
+                "y": 116.0
+            },
+            "RectSize": {
+                "x": 350.0,
+                "y": 116.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Tab Group Vertical/0:Tabs/0:Tab Button Container",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -50.0
+            },
+            "SizeDelta": {
+                "x": 350.0,
+                "y": 100.0
+            },
+            "RectSize": {
+                "x": 350.0,
+                "y": 100.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Tab Group Vertical/0:Tabs/1:Tab Extras Container",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -116.0
+            },
+            "SizeDelta": {
+                "x": 350.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 350.0,
+                "y": 0.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Tab Group Vertical/1:Pages",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 775.0,
+                "y": -1000.0
+            },
+            "SizeDelta": {
+                "x": 798.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 798.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        }
+    ]
+}

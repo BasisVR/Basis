@@ -282,6 +282,36 @@ namespace Basis.BasisUI
             ApplySliderSettings();
         }
 
+        /// <summary>
+        /// Moves the slider's upper bound after creation, for ceilings that can change while the
+        /// panel is up (see <see cref="BasisAudioRangeSliderLimit"/>). Only the range and its
+        /// labels are touched — a full <see cref="SetSliderSettings"/> would also rewrite the title
+        /// and description, which callers commonly set after the settings.
+        /// <para>
+        /// A lowered bound clamps the handle but is deliberately never written back to the settings
+        /// binding: whoever consumes the value caps it themselves, so raising the ceiling again has
+        /// to restore the choice the user actually made.
+        /// </para>
+        /// </summary>
+        public void SetSliderMax(float max)
+        {
+            if (Settings.SliderMax == max) return;
+
+            SliderSettings settings = Settings;
+            settings.SliderMax = max;
+            Settings = settings;
+            ApplySliderRange();
+
+            // Re-seat on the stored preference. An earlier, lower bound may have clamped the handle
+            // below it, and the Slider has no way back up on its own — raising the bound would
+            // otherwise leave the handle on the old ceiling while the value actually in force is the
+            // higher stored one. Skipped mid-drag rather than yank the handle out from under the user.
+            if (SettingsBinding != null && !_isDragging)
+            {
+                SetValueWithoutNotify(SettingsBinding.RawValue);
+            }
+        }
+
         private string _cachedDecimalFormat;
         private int _cachedDecimalPlaces = -1;
         private string _lastCurrentValueText;
@@ -292,6 +322,32 @@ namespace Basis.BasisUI
         {
             Descriptor.SetTitle(Settings.Title);
             Descriptor.SetDescription(Settings.Description);
+
+            if (CurrentValueLabel)
+            {
+                CurrentValueLabel.richText = false;
+            }
+
+            // Prebuild the decimal format string once so ApplyValue doesn't allocate
+            // a fresh "0.##" string every time the slider moves.
+            if (_cachedDecimalPlaces != Settings.DecimalPlaces)
+            {
+                _cachedDecimalPlaces = Settings.DecimalPlaces;
+                _cachedDecimalFormat = "0." + new string('#', Mathf.Max(0, Settings.DecimalPlaces));
+            }
+
+            ApplySliderRange();
+        }
+
+        /// <summary>
+        /// Pushes <see cref="SliderSettings.SliderMin"/>/<see cref="SliderSettings.SliderMax"/> onto
+        /// the Slider and repaints everything that reads from them. Split out of
+        /// <see cref="ApplySliderSettings"/> so a live bound change can reuse it without touching
+        /// the title, description or number formatting.
+        /// </summary>
+        private void ApplySliderRange()
+        {
+            if (SliderComponent == null) return;
 
             SliderComponent.minValue = Settings.SliderMin;
             SliderComponent.maxValue = Settings.SliderMax;
@@ -308,18 +364,7 @@ namespace Basis.BasisUI
                 MaxValueLabel.richText = false;
                 MaxValueLabel.SetText(Settings.SliderMax.ToString(CultureInfo.InvariantCulture));
             }
-            if (CurrentValueLabel)
-            {
-                CurrentValueLabel.richText = false;
-            }
 
-            // Prebuild the decimal format string once so ApplyValue doesn't allocate
-            // a fresh "0.##" string every time the slider moves.
-            if (_cachedDecimalPlaces != Settings.DecimalPlaces)
-            {
-                _cachedDecimalPlaces = Settings.DecimalPlaces;
-                _cachedDecimalFormat = "0." + new string('#', Mathf.Max(0, Settings.DecimalPlaces));
-            }
             _lastCurrentValueText = null;
             _hasLastFormattedValue = false;
 

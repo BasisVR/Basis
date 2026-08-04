@@ -848,8 +848,14 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         /// <summary>
         /// Reports whether the headset is actually being worn into <see cref="BasisHMDPresence"/>,
         /// every frame. Sources are tried in order of trust and the first that answers wins:
-        /// Unity XR's userPresence feature, then OpenVR's user-interaction events on a headset that
-        /// reports a proximity sensor.
+        /// OpenVR's user-interaction events on a headset that reports a proximity sensor, then
+        /// Unity XR's userPresence feature.
+        /// <para>
+        /// The proximity sensor is asked first because it is the only source here wired to the
+        /// physical face sensor. Valve's XR plugin answers the userPresence query on every head
+        /// device whether or not it tracks anything, so preferring it pinned presence worn for the
+        /// whole session and no take-off edge ever reached the hub.
+        /// </para>
         /// <para>
         /// The activity level is deliberately not consulted. It is motion-based — the HMD drops to
         /// <see cref="EDeviceActivityLevel.k_EDeviceActivityLevel_Idle"/> after roughly ten seconds
@@ -866,17 +872,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             if (Valve.VR.OpenVR.System == null) return;
 
-            if (TryReadUserPresenceFeature(out bool worn))
-            {
-                SetPresenceSource(HMDPresenceSource.UserPresenceFeature);
-                BasisHMDPresence.ReportPresence(worn);
-                return;
-            }
-
             if (HasProximitySensor())
             {
                 SetPresenceSource(HMDPresenceSource.ProximitySensorEvents);
                 BasisHMDPresence.ReportPresence(ProximityWorn);
+                return;
+            }
+
+            if (TryReadUserPresenceFeature(out bool worn))
+            {
+                SetPresenceSource(HMDPresenceSource.UserPresenceFeature);
+                BasisHMDPresence.ReportPresence(worn);
                 return;
             }
 
@@ -885,11 +891,12 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
 
         /// <summary>
-        /// Reads the head device's userPresence feature — the same signal the OpenXR path uses, and
-        /// implemented by Valve's XR plugin, so it is preferred wherever it answers. It arrives
-        /// through the Unity XR input subsystem, so it goes quiet if
-        /// <see cref="CutUnityXRInputSubsystems"/> is ever turned on; the proximity-event path below
-        /// is what keeps presence working in that case.
+        /// Reads the head device's userPresence feature — the same signal the OpenXR path uses.
+        /// Only consulted for headsets that report no proximity sensor, because the return value
+        /// says the feature was answered, not that anything drives it: Valve's XR plugin answers it
+        /// on any head device and leaves it pinned worn. It arrives through the Unity XR input
+        /// subsystem, so it also goes quiet if <see cref="CutUnityXRInputSubsystems"/> is ever
+        /// turned on.
         /// </summary>
         private static bool TryReadUserPresenceFeature(out bool worn)
         {
@@ -942,10 +949,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             switch (Source)
             {
                 case HMDPresenceSource.UserPresenceFeature:
-                    BasisDebug.Log("OpenVR: HMD presence read from the userPresence feature", BasisDebug.LogTag.Device);
+                    BasisDebug.Log("OpenVR: HMD presence read from the userPresence feature (headset reports no proximity sensor)", BasisDebug.LogTag.Device);
                     break;
                 case HMDPresenceSource.ProximitySensorEvents:
-                    BasisDebug.Log("OpenVR: HMD presence read from proximity sensor events (userPresence unavailable)", BasisDebug.LogTag.Device);
+                    BasisDebug.Log("OpenVR: HMD presence read from proximity sensor events", BasisDebug.LogTag.Device);
                     break;
                 case HMDPresenceSource.NoProximitySignal:
                     BasisDebug.Log("OpenVR: headset reports no proximity sensor and userPresence is unavailable — presence pinned worn, auto swap will not trigger", BasisDebug.LogTag.Device);

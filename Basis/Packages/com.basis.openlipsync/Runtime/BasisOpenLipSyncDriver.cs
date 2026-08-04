@@ -181,11 +181,25 @@ public static class BasisOpenLipSyncDriver
     }
 
     /// <summary>
+    /// Test seam. When non-null this stands in for the ONNX session, so the scheduling around
+    /// inference — batching, result publication, how many frames the mouth ends up behind the
+    /// audio — can be measured offline with a controllable inference cost and no model load.
+    /// Null in normal play; the read costs one static load per inference.
+    /// </summary>
+    public static Func<uint, float[], int, Frame, Result> ProcessFrameOverride;
+
+    /// <summary>
     /// Overload that processes only the first <paramref name="sampleCount"/> samples
     /// from the buffer, avoiding the need to allocate a trimmed copy.
     /// </summary>
     public static Result ProcessFrame(uint contextHandle, float[] audioData, int sampleCount, Frame frame)
     {
+        var over = ProcessFrameOverride;
+        if (over != null)
+        {
+            return over(contextHandle, audioData, sampleCount, frame);
+        }
+
         return !_initialized || _backend == null ? Result.Unknown : _backend.ProcessFrameFloat(contextHandle, new ReadOnlySpan<float>(audioData, 0, sampleCount), stereo: false, ref frame);
     }
 

@@ -41,16 +41,19 @@ namespace Basis.Integration.SlimeVR
         public static readonly BasisSettingsBinding<bool> RecalibrateOnMountingChange =
             new BasisSettingsBinding<bool>("slimevr_recalibrate_on_reset", new BasisPlatformDefault<bool>(true));
 
-        /// <summary>
-        /// EXPERIMENTAL, default off. Pull SlimeVR's solved skeleton (bones datafeed + tracker
-        /// positions) and use it to seed the FBT position offsets after calibration, instead of relying
-        /// only on the calibration-pose capture. Guarded: it solves the SlimeVR→Basis frame from the
-        /// shared trackers, refuses to apply when that fit is poor, seeds position only (rotation stays
-        /// empirical), and rejects any per-tracker seed that departs too far from the captured offset.
-        /// Requesting the extra datafeed data is the only added bandwidth, and only while this is on.
-        /// </summary>
-        public static readonly BasisSettingsBinding<bool> SkeletonSeeding =
-            new BasisSettingsBinding<bool>("slimevr_skeleton_seeding", new BasisPlatformDefault<bool>(false));
+        // Commented out 2026-08-04: the skeleton-seeding implementation this described is not
+        // in the codebase — no UI exposes the toggle and nothing reads it. Restore alongside
+        // the seeding logic if it lands again.
+        ///// <summary>
+        ///// EXPERIMENTAL, default off. Pull SlimeVR's solved skeleton (bones datafeed + tracker
+        ///// positions) and use it to seed the FBT position offsets after calibration, instead of relying
+        ///// only on the calibration-pose capture. Guarded: it solves the SlimeVR→Basis frame from the
+        ///// shared trackers, refuses to apply when that fit is poor, seeds position only (rotation stays
+        ///// empirical), and rejects any per-tracker seed that departs too far from the captured offset.
+        ///// Requesting the extra datafeed data is the only added bandwidth, and only while this is on.
+        ///// </summary>
+        //public static readonly BasisSettingsBinding<bool> SkeletonSeeding =
+        //    new BasisSettingsBinding<bool>("slimevr_skeleton_seeding", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
         /// Seconds the reset/recalibrate buttons wait before firing, giving time to get into pose.

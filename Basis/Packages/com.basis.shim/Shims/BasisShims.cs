@@ -116,15 +116,45 @@ namespace Basis
 	{
 		System.Collections.Generic.HashSet< UnityWebRequest > InFlight = new System.Collections.Generic.HashSet< UnityWebRequest >();
 
-		public void DownloadImage( string stringUrl, Action< IBasisImageDownload > callback )
+		// Sandboxed world scripts call this with an arbitrary string, so the URL gets the
+		// same treatment as the media legs: scheme + literal-address gate, then a DNS
+		// check so a name pointing at a private address is caught, then redirects refused
+		// so a post-validation 302 can't reach a host that never passed either check.
+		// Without this the shim is a readable SSRF primitive against the victim's LAN.
+		// async void: the DNS leg must not block the main thread, and the caller is a
+		// sandboxed script with no way to await. Every path is wrapped because an escaping
+		// exception from an async void tears down the process.
+		public async void DownloadImage( string stringUrl, Action< IBasisImageDownload > callback )
 		{
-			if( stringUrl.Substring(0, 7) != "http://" && stringUrl.Substring(0, 8) != "https://" )
+			try
 			{
-				callback( new IBasisImageDownload( null, null, "Security Failure" ) );
+				await DownloadImageAsync( stringUrl, callback );
+			}
+			catch( Exception e )
+			{
+				Debug.LogError( $"[BasisImageDownloader] Download failed: {e}" );
+			}
+		}
+
+		private async System.Threading.Tasks.Task DownloadImageAsync( string stringUrl, Action< IBasisImageDownload > callback )
+		{
+			if( callback == null ) return;
+
+			if( !BasisMediaPlayerSecurity.IsUrlAllowed( stringUrl, out string reason ) )
+			{
+				callback( new IBasisImageDownload( null, null, "Security Failure: " + reason ) );
+				return;
+			}
+
+			string dnsReason = await BasisMediaPlayerSecurity.ValidateResolvedHostAsync( stringUrl );
+			if( dnsReason != null )
+			{
+				callback( new IBasisImageDownload( null, null, "Security Failure: " + dnsReason ) );
 				return;
 			}
 
 			UnityWebRequest www = new UnityWebRequest( stringUrl );
+			www.redirectLimit = 0;
 
 			/////////////////////////////////////////////////////////////////
 			DownloadHandlerTexture dht = new DownloadHandlerTexture(true);
@@ -258,9 +288,40 @@ namespace Basis
 			);
 		}
 
-		private void BeginRequest( string stringUrl, Action< IBasisStringDownload > callback )
+		// User consent covers "do you trust this URL", not "is this URL pointed at your own
+		// network" — a trusted-list entry or an accepted prompt must still not become an
+		// SSRF primitive. Same gate + refused redirects as the image path.
+		private async void BeginRequest( string stringUrl, Action< IBasisStringDownload > callback )
 		{
+			try
+			{
+				await BeginRequestAsync( stringUrl, callback );
+			}
+			catch( Exception e )
+			{
+				Debug.LogError( $"[BasisStringDownloader] Download failed: {e}" );
+			}
+		}
+
+		private async System.Threading.Tasks.Task BeginRequestAsync( string stringUrl, Action< IBasisStringDownload > callback )
+		{
+			if( callback == null ) return;
+
+			if( !BasisMediaPlayerSecurity.IsUrlAllowed( stringUrl, out string reason ) )
+			{
+				callback( new IBasisStringDownload( null, "Security Failure: " + reason ) );
+				return;
+			}
+
+			string dnsReason = await BasisMediaPlayerSecurity.ValidateResolvedHostAsync( stringUrl );
+			if( dnsReason != null )
+			{
+				callback( new IBasisStringDownload( null, "Security Failure: " + dnsReason ) );
+				return;
+			}
+
 			UnityWebRequest www = UnityWebRequest.Get( stringUrl );
+			www.redirectLimit = 0;
 
 			bool bCompleted = false;
 			UnityWebRequestAsyncOperation req = www.SendWebRequest();

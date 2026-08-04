@@ -1,4 +1,4 @@
-using Basis.BasisUI;
+﻿using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
@@ -94,6 +94,20 @@ public partial class BasisTransmissionResults
     /// Copied to managed AudioReceiverModule after the job completes.
     /// </summary>
     private NativeArray<float> directionalDampening;
+
+    /// <summary>
+    /// Per-index mouth facing direction, the companion to <see cref="targetPositions"/>.
+    /// Voice directivity needs the axis the talker's mouth radiates along.
+    /// </summary>
+    private NativeArray<float3> targetForwards;
+
+    /// <summary>
+    /// Per-index high-shelf depths, in dB, produced alongside the dampening
+    /// multiplier: the listener's head shadow and the talker's mouth directivity.
+    /// Applied on the audio thread by <see cref="BasisVoiceToneShaper"/>.
+    /// </summary>
+    private NativeArray<float> coneShelfDb;
+    private NativeArray<float> directivityShelfDb;
 
     /// <summary>
     /// Pre-computed per-index flag: true when the remote player currently has an
@@ -259,6 +273,7 @@ public partial class BasisTransmissionResults
         unsafe
         {
             float3* pTargetPositions = (float3*)targetPositions.GetUnsafePtr();
+            float3* pTargetForwards = (float3*)targetForwards.GetUnsafePtr();
             bool* pHasRealAvatar = (bool*)hasRealAvatarLoaded.GetUnsafePtr();
             bool* pHasActiveAudio = (bool*)hasActiveAudioSource.GetUnsafePtr();
 
@@ -278,6 +293,8 @@ public partial class BasisTransmissionResults
                 {
                     pTargetPositions[Index] = farAway;
                 }
+                RemoteBoneJobSystem.GetOutGoingMouthForward(id, out float3 mouthForward);
+                pTargetForwards[Index] = mouthForward;
                 pHasRealAvatar[Index] = remotePlayer.InAvatarRange && !remotePlayer.IsConsideredFallBackAvatar;
                 pHasActiveAudio[Index] = remote.AudioReceiverModule.HasAudioSource;
             }
@@ -358,8 +375,13 @@ public partial class BasisTransmissionResults
 
         // Directional dampening job: only reads targetPositions (shared ReadOnly
         // with distance job) — no dependencies, runs in parallel with everything.
+        // Runs whenever EITHER the listener cone or the frequency-dependent tone
+        // shaping is on: tone shaping is orientation-driven and is meaningful even
+        // with the cone wide open.
         float coneAngle = BasisSettingsDefaults.RAListenerConeAngle.RawValue;
-        bool dampenEnabled = coneAngle < 360f;
+        bool coneEnabled = coneAngle < 360f;
+        bool toneEnabled = BasisSettingsDefaults.RAVoiceToneShaping.RawValue;
+        bool dampenEnabled = coneEnabled || toneEnabled;
         if (dampenEnabled)
         {
             float dampenPercent = Mathf.Clamp(BasisSettingsDefaults.RAListenerDampenAmount.RawValue, 1f, 95f);
@@ -371,6 +393,14 @@ public partial class BasisTransmissionResults
             dampenJob.CosHalfCone = cosHalfCone;
             dampenJob.HalfConeRad = halfConeRad;
             dampenJob.MinVolume = 1f - (dampenPercent / 100f);
+
+            dampenJob.ConeEnabled = coneEnabled;
+            dampenJob.ToneEnabled = toneEnabled;
+            dampenJob.ConeMaxShelfDb = BasisVoiceAcoustics.ConeMaxShelfDb;
+            dampenJob.ConeHighFrequencyShare = BasisVoiceAcoustics.ConeHighFrequencyShare;
+            dampenJob.ConeShelfBroadbandDb = BasisVoiceAcoustics.ConeShelfBroadbandDb;
+            dampenJob.DirectivityShelfMaxDb = BasisVoiceAcoustics.DirectivityShelfMaxDb;
+            dampenJob.DirectivityShapePower = BasisVoiceAcoustics.DirectivityShapePower;
 
             dampenJobHandle = dampenJob.Schedule(receiverCount, 64);
         }
@@ -521,6 +551,8 @@ public partial class BasisTransmissionResults
             bool* pHearingRange = (bool*)hearingRange.GetUnsafeReadOnlyPtr();
             float* pDistanceSq = (float*)distanceSq.GetUnsafeReadOnlyPtr();
             float* pDampening = dampenEnabled ? (float*)directionalDampening.GetUnsafeReadOnlyPtr() : null;
+            float* pConeShelf = dampenEnabled ? (float*)coneShelfDb.GetUnsafeReadOnlyPtr() : null;
+            float* pDirectivityShelf = dampenEnabled ? (float*)directivityShelfDb.GetUnsafeReadOnlyPtr() : null;
             bool* pAvatarRange = (bool*)AvatarRange.GetUnsafeReadOnlyPtr();
             bool* pMeshLodRange = (bool*)MeshLodRange.GetUnsafeReadOnlyPtr();
             short* pMeshLodLevel = (short*)MeshLodLevel.GetUnsafeReadOnlyPtr();
@@ -565,6 +597,20 @@ public partial class BasisTransmissionResults
                 if (audio.DirectionalDampeningMultiplier != dampening)
                 {
                     audio.DirectionalDampeningMultiplier = dampening;
+                }
+
+                // Same read-before-write reasoning as the dampening multiplier
+                // above: these are volatile, and for most players on most ticks
+                // the value has not moved.
+                float coneShelf = pConeShelf != null ? pConeShelf[i] : 0f;
+                if (audio.ConeShelfDb != coneShelf)
+                {
+                    audio.ConeShelfDb = coneShelf;
+                }
+                float directivityShelf = pDirectivityShelf != null ? pDirectivityShelf[i] : 0f;
+                if (audio.DirectivityShelfDb != directivityShelf)
+                {
+                    audio.DirectivityShelfDb = directivityShelf;
                 }
 
                 // Viseme distance cutoff: skip lip-sync for players beyond half
@@ -963,6 +1009,9 @@ public partial class BasisTransmissionResults
         hasRealAvatarLoaded = new NativeArray<bool>(newCap, Allocator.Persistent);
         avatarCapEntries = new NativeArray<AvatarCapEntry>(newCap, Allocator.Persistent);
         directionalDampening = new NativeArray<float>(newCap, Allocator.Persistent);
+        targetForwards = new NativeArray<float3>(newCap, Allocator.Persistent);
+        coneShelfDb = new NativeArray<float>(newCap, Allocator.Persistent);
+        directivityShelfDb = new NativeArray<float>(newCap, Allocator.Persistent);
         hasActiveAudioSource = new NativeArray<bool>(newCap, Allocator.Persistent);
         audioCapEntries = new NativeArray<AudioCapEntry>(newCap, Allocator.Persistent);
 
@@ -1007,7 +1056,10 @@ public partial class BasisTransmissionResults
         audioCapJob.StickinessBonus = 0.75f;
 
         dampenJob.TargetPositions = targetPositions;
+        dampenJob.TargetForwards = targetForwards;
         dampenJob.Multipliers = directionalDampening;
+        dampenJob.ConeShelfDb = coneShelfDb;
+        dampenJob.DirectivityShelfDb = directivityShelfDb;
 
         LengthOfArrays = -1; // will be set on next Simulate call
     }
@@ -1085,6 +1137,9 @@ public partial class BasisTransmissionResults
         if (hasRealAvatarLoaded.IsCreated) hasRealAvatarLoaded.Dispose();
         if (avatarCapEntries.IsCreated) avatarCapEntries.Dispose();
         if (directionalDampening.IsCreated) directionalDampening.Dispose();
+        if (targetForwards.IsCreated) targetForwards.Dispose();
+        if (coneShelfDb.IsCreated) coneShelfDb.Dispose();
+        if (directivityShelfDb.IsCreated) directivityShelfDb.Dispose();
         if (hasActiveAudioSource.IsCreated) hasActiveAudioSource.Dispose();
         if (audioCapEntries.IsCreated) audioCapEntries.Dispose();
 

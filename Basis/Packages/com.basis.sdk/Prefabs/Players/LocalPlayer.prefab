@@ -752,7 +752,6 @@ MonoBehaviour:
     EligibleForOpenLipSync: 0
     TrackedAudioSource: {fileID: 0}
     WasSuccessful: 0
-    HashInstanceID: -1
     FaceVisible: 1
     InVisemeRange: 1
   FacialBlinkDriver:

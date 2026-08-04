@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "El modo de dispositivo activo para esta sesión." },
     { "key": "settings.platform.activeMode", "value": "Modo de dispositivo activo" },
     { "key": "settings.platform.vrRuntime", "value": "Runtime de VR" },
+    { "key": "settings.platform.usePresenceSensor", "value": "Usar sensor de presencia" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "Permite que el sensor de presencia del visor cambie entre VR y Escritorio al ponértelo o quitártelo. Desactívalo si tu visor informa la presencia de forma incorrecta: aún puedes cambiar de modo manualmente." },
     { "key": "settings.platform.switchTo", "value": "Cambiar a {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "¿Estás seguro de que quieres cambiar a {0}?" },
     { "key": "settings.platform.swapMode.title", "value": "Modo de cambio" },

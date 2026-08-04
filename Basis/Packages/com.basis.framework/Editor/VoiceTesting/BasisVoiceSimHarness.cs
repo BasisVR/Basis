@@ -47,9 +47,49 @@ namespace Basis.Scripts.Networking.Voice.Testing
         public float StallAtSeconds = 0f;
         public float StallDurationMs = 0f;
 
+        /// <summary>
+        /// Chance a packet individually takes a slow path: +<see cref="ReorderDelayMs"/>
+        /// transit on top of base latency/jitter, arriving out of order behind packets
+        /// sent after it. The classic "late arrival" a jitter buffer must re-slot.
+        /// </summary>
+        public float ReorderChance = 0f;
+        public float ReorderDelayMs = 0f;
+
+        /// <summary>
+        /// Every interval, <see cref="LateSpikePackets"/> consecutive packets are all
+        /// delayed by +<see cref="LateSpikeDelayMs"/> — a correlated lateness burst
+        /// (wifi retransmit clump, bufferbloat pulse). Nothing is lost; everything
+        /// arrives, late and bunched.
+        /// </summary>
+        public float LateSpikeIntervalSeconds = 0f;
+        public int LateSpikePackets = 0;
+        public float LateSpikeDelayMs = 0f;
+
+        /// <summary>
+        /// Delivery batching: arrivals are held and released together on a grid of
+        /// this many packet-periods (20 ms each). Models transports that coalesce
+        /// datagrams — the tail of each batch arrives EARLY relative to its playback
+        /// slot, piling queue depth in steps instead of a smooth 1-in-1-out cadence.
+        /// </summary>
+        public int EarlyCoalescePackets = 0;
+
+        /// <summary>
+        /// Congestion swell: transit latency ramps linearly from base up to
+        /// +<see cref="LatencyRampPeakMs"/> at the midpoint of the window and back
+        /// down by its end. The falling edge naturally delivers packets out of order
+        /// (later-sent overtakes earlier-sent), exactly like a clearing queue.
+        /// </summary>
+        public float LatencyRampAtSeconds = 0f;
+        public float LatencyRampPeakMs = 0f;
+        public float LatencyRampDurationSeconds = 0f;
+
         public bool Impaired =>
             JitterMs > 0f || LossChance > 0f || DupChance > 0f ||
-            (BurstIntervalSeconds > 0f && BurstLossPackets > 0) || StallDurationMs > 0f;
+            (BurstIntervalSeconds > 0f && BurstLossPackets > 0) || StallDurationMs > 0f ||
+            (ReorderChance > 0f && ReorderDelayMs > 0f) ||
+            (LateSpikeIntervalSeconds > 0f && LateSpikePackets > 0 && LateSpikeDelayMs > 0f) ||
+            EarlyCoalescePackets > 1 ||
+            (LatencyRampPeakMs > 0f && LatencyRampDurationSeconds > 0f);
 
         public BasisVoiceNetProfile Clone() => (BasisVoiceNetProfile)MemberwiseClone();
     }
@@ -122,6 +162,13 @@ namespace Basis.Scripts.Networking.Voice.Testing
         public int FinalPrerollDepth;
         public int PrerollFloor;
         public float ReceiverLossPercent01;
+        public int StarvePlcCount;
+        public int TrimmedQuietFrames;
+        public int AcceleratedFrames;
+        public double AcceleratedSavedMs;
+        public int FlushedPackets;
+        public int LateSalvagedCount;
+        public int ExpandInsertedFrames;
 
         // Rendered-audio quality
         public double LatencyMs = -1;
@@ -130,6 +177,21 @@ namespace Basis.Scripts.Networking.Voice.Testing
         public double NotchTotalMs;
         public double DroppedAudioMs;
         public double OutputSeconds;
+
+        // Latency over time (windowed envelope alignment; empty when the signal has
+        // no envelope structure to align on). Start/Max/End summarize the curve so a
+        // latency spike that never drains back down is visible as End >> Start.
+        public List<BasisVoiceQualityAnalysis.LagPoint> LatencyCurve = new List<BasisVoiceQualityAnalysis.LagPoint>();
+        public double LatencyStartMs = -1;
+        public double LatencyMaxMs = -1;
+        public double LatencyEndMs = -1;
+
+        // Ground-truth standing buffer depth (packets, encoded span + decoded),
+        // sampled at every audio callback from the live jitter buffer. Exact — no
+        // content alignment involved — so tests assert on these for latency
+        // recovery. Max ignores the first second (initial pre-roll fill).
+        public int StandingFramesMax;
+        public int StandingFramesEnd;
 
         public bool Passed;
         public string Failure = "";
@@ -145,7 +207,13 @@ namespace Basis.Scripts.Networking.Voice.Testing
         public string Summary =>
             $"{ScenarioName} [{ProfileName}] sent={PacketsSent} lost={PacketsDropped} plc={PlcCount} fec={FecRecoveredCount} " +
             $"underruns={GenuineUnderruns} depth={FinalPrerollDepth}/{PrerollFloor} notches={NotchCount} " +
-            $"snr={MedianSegSnrDb:F1}dB lat={LatencyMs:F0}ms {(Passed ? "PASS" : "FAIL " + Failure)}{Error}";
+            $"snr={MedianSegSnrDb:F1}dB lat={LatencyMs:F0}ms" +
+            (LatencyEndMs >= 0 ? $" latCurve={LatencyStartMs:F0}>{LatencyMaxMs:F0}>{LatencyEndMs:F0}ms" : "") +
+            $" standing={StandingFramesMax}>{StandingFramesEnd}" +
+            (StarvePlcCount + TrimmedQuietFrames + AcceleratedFrames + FlushedPackets + LateSalvagedCount + ExpandInsertedFrames > 0
+                ? $" bridge={StarvePlcCount} trim={TrimmedQuietFrames} accel={AcceleratedFrames}({AcceleratedSavedMs:F0}ms) flush={FlushedPackets} salvage={LateSalvagedCount} expand={ExpandInsertedFrames}"
+                : "") +
+            $" {(Passed ? "PASS" : "FAIL " + Failure)}{Error}";
     }
 
     public static class BasisVoiceSim
@@ -283,6 +351,12 @@ namespace Basis.Scripts.Networking.Voice.Testing
                     {
                         rig.SetTime(tCb);
                         net.DeliverDue(tCb, deliver);
+                        int standingSample = rig.Receiver.VoiceBuffer.StandingBufferedFrames;
+                        if (tCb >= 1.0 && standingSample > result.StandingFramesMax)
+                            result.StandingFramesMax = standingSample;
+                        if (tCb <= s.DurationSeconds)
+                            result.StandingFramesEnd = standingSample;
+
                         bool inHang = s.ReceiverHangDurationMs > 0f && tCb >= s.ReceiverHangAtSeconds && tCb < hangEnd;
                         if (inHang)
                         {
@@ -327,6 +401,13 @@ namespace Basis.Scripts.Networking.Voice.Testing
                 result.GenuineUnderruns = rig.Receiver.VoiceBuffer.GenuineUnderruns;
                 result.FinalPrerollDepth = rig.Receiver.VoiceBuffer.InitialBufferDepth;
                 result.ReceiverLossPercent01 = rig.Receiver.VoiceBuffer.LossPercent01;
+                result.StarvePlcCount = rig.Receiver.StarvePlcCount;
+                result.TrimmedQuietFrames = rig.Receiver.TrimmedQuietFrames;
+                result.AcceleratedFrames = rig.Receiver.AcceleratedFrames;
+                result.AcceleratedSavedMs = rig.Receiver.AcceleratedSavedSamples * 1000.0 / RemoteOpusSettings.NetworkSampleRate;
+                result.FlushedPackets = rig.Receiver.FlushedPackets;
+                result.LateSalvagedCount = rig.Receiver.VoiceBuffer.LateSalvagedCount;
+                result.ExpandInsertedFrames = rig.Receiver.ExpandInsertedFrames;
 
                 result.OutputMono = output.ToArray();
                 result.OutputSeconds = result.OutputMono.Length / (double)s.OutputSampleRate;
@@ -353,6 +434,17 @@ namespace Basis.Scripts.Networking.Voice.Testing
             r.LatencyMs = BasisVoiceQualityAnalysis.EstimateLagMs(
                 r.ReferenceMono, LocalOpusSettings.MicrophoneSampleRate,
                 r.OutputMono, s.OutputSampleRate, 1200.0);
+
+            r.LatencyCurve = BasisVoiceQualityAnalysis.LatencyCurve(
+                r.ReferenceMono, LocalOpusSettings.MicrophoneSampleRate,
+                r.OutputMono, s.OutputSampleRate);
+            if (r.LatencyCurve.Count > 0)
+            {
+                r.LatencyStartMs = r.LatencyCurve[0].LagMs;
+                r.LatencyEndMs = r.LatencyCurve[r.LatencyCurve.Count - 1].LagMs;
+                foreach (var p in r.LatencyCurve)
+                    if (p.LagMs > r.LatencyMaxMs) r.LatencyMaxMs = p.LagMs;
+            }
 
             var notches = BasisVoiceQualityAnalysis.FindNotches(r.OutputMono, s.OutputSampleRate);
             r.NotchCount = notches.Count;
@@ -433,15 +525,20 @@ namespace Basis.Scripts.Networking.Voice.Testing
                 {
                     for (int i = 0; i < n; i++)
                         x[i] = 0.008f * (float)(rng.NextDouble() * 2.0 - 1.0);
-                    int clickPeriod = rate / 2;
+                    // Aperiodic click spacing (330-650 ms, seeded): a strictly periodic
+                    // train lets windowed cross-correlation lock onto a neighbouring
+                    // click one period away, aliasing the latency estimate. Unequal
+                    // gaps make every window's click pattern unique.
                     int clickLen = rate * 5 / 1000;
-                    for (int c = clickPeriod / 2; c + clickLen < n; c += clickPeriod)
+                    int c = rate / 4;
+                    while (c + clickLen < n)
                     {
                         for (int k = 0; k < clickLen; k++)
                         {
                             double decay = Math.Exp(-6.0 * k / clickLen);
                             x[c + k] += 0.8f * (float)(Math.Sin(2.0 * Math.PI * 1500.0 * k / rate) * decay);
                         }
+                        c += (int)((0.33 + rng.NextDouble() * 0.32) * rate);
                     }
                     break;
                 }
@@ -593,7 +690,7 @@ namespace Basis.Scripts.Networking.Voice.Testing
 
         public VoiceSimReceiverRig(int outputSampleRate)
         {
-            Receiver.Initialize(null);
+            Receiver.InitializeWithOutputRate(null, outputSampleRate);
             BasisAudioReceiver.outputSampleRate = outputSampleRate;
             Receiver.VoiceBuffer.TickCountSource = () => _virtualTickMs;
             Receiver.HasAudioSource = true;
@@ -642,6 +739,8 @@ namespace Basis.Scripts.Networking.Voice.Testing
         readonly NetDataWriter _relayWriter = new NetDataWriter();
         double _nextBurstAt;
         int _burstRemaining;
+        double _nextLateSpikeAt;
+        int _lateSpikeRemaining;
         int _sendIndex;
 
         public int Dropped, Duped, Delivered;
@@ -652,6 +751,9 @@ namespace Basis.Scripts.Networking.Voice.Testing
             _rng = rng;
             _nextBurstAt = profile.BurstIntervalSeconds > 0f && profile.BurstLossPackets > 0
                 ? profile.BurstIntervalSeconds
+                : double.MaxValue;
+            _nextLateSpikeAt = profile.LateSpikeIntervalSeconds > 0f && profile.LateSpikePackets > 0
+                ? profile.LateSpikeIntervalSeconds
                 : double.MaxValue;
         }
 
@@ -699,6 +801,43 @@ namespace Basis.Scripts.Networking.Voice.Testing
         {
             double jitter = _p.JitterMs > 0f ? (_rng.NextDouble() * 2.0 - 1.0) * _p.JitterMs / 1000.0 : 0.0;
             double arrival = now + _p.LatencyMs / 1000.0 + jitter;
+
+            // Congestion swell: extra transit ramps up to the peak and back down over
+            // the window, keyed on SEND time (queueing happens on entry).
+            if (_p.LatencyRampPeakMs > 0f && _p.LatencyRampDurationSeconds > 0f)
+            {
+                double u = (now - _p.LatencyRampAtSeconds) / _p.LatencyRampDurationSeconds;
+                if (u > 0.0 && u < 1.0)
+                {
+                    double tri = u < 0.5 ? u * 2.0 : (1.0 - u) * 2.0;
+                    arrival += tri * _p.LatencyRampPeakMs / 1000.0;
+                }
+            }
+
+            // Correlated lateness burst: N consecutive packets all take the slow path.
+            if (now >= _nextLateSpikeAt && _lateSpikeRemaining == 0)
+            {
+                _lateSpikeRemaining = _p.LateSpikePackets;
+                _nextLateSpikeAt += _p.LateSpikeIntervalSeconds;
+            }
+            if (_lateSpikeRemaining > 0)
+            {
+                _lateSpikeRemaining--;
+                arrival += _p.LateSpikeDelayMs / 1000.0;
+            }
+
+            // Independent straggler: this one packet takes a slow path and arrives
+            // behind packets sent after it.
+            if (_p.ReorderChance > 0f && _p.ReorderDelayMs > 0f && _rng.NextDouble() < _p.ReorderChance)
+                arrival += _p.ReorderDelayMs / 1000.0;
+
+            // Delivery batching: quantize arrivals up to a batch grid.
+            if (_p.EarlyCoalescePackets > 1)
+            {
+                double period = _p.EarlyCoalescePackets * 0.02;
+                arrival = Math.Ceiling(arrival / period) * period;
+            }
+
             if (arrival < now) arrival = now;
             if (_p.StallDurationMs > 0f)
             {

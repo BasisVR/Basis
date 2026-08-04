@@ -1,0 +1,516 @@
+{
+    "SettlePasses": 2,
+    "NoOpResizes": 2,
+    "Entries": [
+        {
+            "Path": "Host",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchorMax": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 600.0,
+                "y": -1000.0
+            },
+            "SizeDelta": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 600.0,
+                "y": -1000.0
+            },
+            "SizeDelta": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/0:Icon Background",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -1000.0
+            },
+            "SizeDelta": {
+                "x": 60.0,
+                "y": 60.0
+            },
+            "RectSize": {
+                "x": 60.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/0:Icon Background/0:Icon Image",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -24.0,
+                "y": -24.0
+            },
+            "RectSize": {
+                "x": 36.0,
+                "y": 36.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 640.0,
+                "y": -1000.0
+            },
+            "SizeDelta": {
+                "x": 1120.0,
+                "y": 55.65999984741211
+            },
+            "RectSize": {
+                "x": 1120.0,
+                "y": 55.65999984741211
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/0:Title Content",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 280.0,
+                "y": -27.829999923706056
+            },
+            "SizeDelta": {
+                "x": 560.0,
+                "y": 55.65999984741211
+            },
+            "RectSize": {
+                "x": 560.0,
+                "y": 55.65999984741211
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/0:Title Content/0:Title Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 94.54000091552735,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 189.0800018310547,
+                "y": 31.459999084472658
+            },
+            "RectSize": {
+                "x": 189.0800018310547,
+                "y": 31.459999084472658
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/0:Title Content/1:Description Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 101.46499633789063,
+                "y": -31.459999084472658
+            },
+            "SizeDelta": {
+                "x": 202.92999267578126,
+                "y": 24.200000762939454
+            },
+            "RectSize": {
+                "x": 202.92999267578126,
+                "y": 24.200000762939454
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/1:Text Field",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 840.0,
+                "y": -27.829999923706056
+            },
+            "SizeDelta": {
+                "x": 560.0,
+                "y": 50.0
+            },
+            "RectSize": {
+                "x": 560.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/1:Text Field/0:Text Area",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -40.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 520.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/1:Text Field/0:Text Area/0:Placeholder",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 520.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/1:Text Field/0:Text Area/1:Text",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 520.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/0:Header/1:Title/2:Element",
+            "ActiveSelf": false,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 512.0,
+                "y": -30.0
+            },
+            "SizeDelta": {
+                "x": 300.0,
+                "y": 60.0
+            },
+            "RectSize": {
+                "x": 300.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Text Field - Entry Variant/1:Content",
+            "ActiveSelf": false,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        }
+    ]
+}

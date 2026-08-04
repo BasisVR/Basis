@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "Активный режим устройства для этой сессии." },
     { "key": "settings.platform.activeMode", "value": "Активный режим устройства" },
     { "key": "settings.platform.vrRuntime", "value": "Среда выполнения VR" },
+    { "key": "settings.platform.usePresenceSensor", "value": "Использовать датчик присутствия" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "Позволяет датчику присутствия гарнитуры переключать VR и режим рабочего стола при её надевании и снятии. Отключите, если гарнитура определяет присутствие неверно — режим можно переключать вручную." },
     { "key": "settings.platform.switchTo", "value": "Переключить на {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "Вы уверены, что хотите переключиться на {0}?" },
     { "key": "settings.platform.swapMode.title", "value": "Режим переключения" },

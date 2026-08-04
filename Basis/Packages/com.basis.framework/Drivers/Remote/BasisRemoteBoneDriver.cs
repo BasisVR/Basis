@@ -138,6 +138,13 @@ public struct BasisRemoteBoneJob : IJobParallelFor
     /// <summary>Separate mouth-only positions for fast lookup (avoids full RemoteFrameOutput copy).</summary>
     [WriteOnly]
     public NativeArray<float3> MouthPositions;
+    /// <summary>
+    /// Mouth facing direction, same lookup rationale as <see cref="MouthPositions"/>.
+    /// Voice directivity needs the axis the mouth radiates along, and reading it
+    /// off the Transform on the main thread would stall on this very job.
+    /// </summary>
+    [WriteOnly]
+    public NativeArray<float3> MouthForwards;
     /// <summary>Writable per-frame scale cache (scaled TPose and offsets).</summary>
     public NativeArray<RemoteScaleCache> GeneratedScales;
 
@@ -210,6 +217,7 @@ public struct BasisRemoteBoneJob : IJobParallelFor
             HeightAvatarHipCoord = difference.y * 1.2f,
         };
         MouthPositions[i] = mouthP;
+        MouthForwards[i] = math.mul(headR, new float3(0f, 0f, 1f));
     }
     private readonly float3 SafeDivide(float3 numerator, float3 denominator)
     {
@@ -517,6 +525,8 @@ public static class RemoteBoneJobSystem
     static NativeList<RemoteFrameOutput> sOut;
     /// <summary>Separate mouth-only world positions for fast lookup (avoids full RemoteFrameOutput copy).</summary>
     static NativeList<float3> sMouthPositions;
+    /// <summary>Mouth facing directions, kept beside <see cref="sMouthPositions"/>.</summary>
+    static NativeList<float3> sMouthForwards;
 
     // Cached TPose quats (job friendly)
     /// <summary>TPose head quaternions per avatar.</summary>
@@ -693,6 +703,7 @@ public static class RemoteBoneJobSystem
         sScale = new NativeList<RemoteScaleCache>(initialCapacity, Allocator.Persistent);
         sOut = new NativeList<RemoteFrameOutput>(initialCapacity, Allocator.Persistent);
         sMouthPositions = new NativeList<float3>(initialCapacity, Allocator.Persistent);
+        sMouthForwards = new NativeList<float3>(initialCapacity, Allocator.Persistent);
 
         sTPoseHeadRot = new NativeList<quaternion>(initialCapacity, Allocator.Persistent);
         sTPoseHipsRot = new NativeList<quaternion>(initialCapacity, Allocator.Persistent);
@@ -736,6 +747,7 @@ public static class RemoteBoneJobSystem
         if (sScale.IsCreated) sScale.Dispose();
         if (sOut.IsCreated) sOut.Dispose();
         if (sMouthPositions.IsCreated) sMouthPositions.Dispose();
+        if (sMouthForwards.IsCreated) sMouthForwards.Dispose();
 
         if (sTPoseHeadRot.IsCreated) sTPoseHeadRot.Dispose();
         if (sTPoseHipsRot.IsCreated) sTPoseHipsRot.Dispose();
@@ -936,6 +948,7 @@ public static class RemoteBoneJobSystem
         sScale[idx] = new RemoteScaleCache();
         sOut[idx] = default;
         sMouthPositions[idx] = default;
+        sMouthForwards[idx] = new float3(0f, 0f, 1f);
 
         sTPoseHeadRot[idx] = p.TposeHeadRot;
         sTPoseHipsRot[idx] = p.TposeHipsRot;
@@ -1003,6 +1016,7 @@ public static class RemoteBoneJobSystem
         sScale.Add(new RemoteScaleCache());
         sOut.Add(default);
         sMouthPositions.Add(default);
+        sMouthForwards.Add(new float3(0f, 0f, 1f));
 
         sTPoseHeadRot.Add(p.TposeHeadRot);
         sTPoseHipsRot.Add(p.TposeHipsRot);
@@ -1097,6 +1111,7 @@ public static class RemoteBoneJobSystem
             sScale[idx] = sScale[last];
             sOut[idx] = sOut[last];
             sMouthPositions[idx] = sMouthPositions[last];
+            sMouthForwards[idx] = sMouthForwards[last];
             sTPoseHeadRot[idx] = sTPoseHeadRot[last];
             sTPoseHipsRot[idx] = sTPoseHipsRot[last];
             sTPoseHipsLocalPos[idx] = sTPoseHipsLocalPos[last];
@@ -1160,6 +1175,7 @@ public static class RemoteBoneJobSystem
         sScale.RemoveAt(last);
         sOut.RemoveAt(last);
         sMouthPositions.RemoveAt(last);
+        sMouthForwards.RemoveAt(last);
         sTPoseHeadRot.RemoveAt(last);
         sTPoseHipsRot.RemoveAt(last);
         sTPoseHipsLocalPos.RemoveAt(last);
@@ -1576,7 +1592,8 @@ public static class RemoteBoneJobSystem
             TposeHipsRot = sTPoseHipsRot.AsDeferredJobArray(),
             GeneratedScales = sScale.AsDeferredJobArray(),
             Out = sOut.AsDeferredJobArray(),
-            MouthPositions = sMouthPositions.AsDeferredJobArray()
+            MouthPositions = sMouthPositions.AsDeferredJobArray(),
+            MouthForwards = sMouthForwards.AsDeferredJobArray()
         }.Schedule(AuthoringLength, simBatch, gathers);
 
         // ── One Burst dispatch fans out ALL per-player network state and
@@ -1825,6 +1842,29 @@ public static class RemoteBoneJobSystem
             return false;
         }
         outgoing = ((float3*)sMouthPositions.GetUnsafeReadOnlyPtr())[idx];
+        return true;
+    }
+    /// <summary>
+    /// Retrieves the computed mouth facing direction for an avatar by key. Paired
+    /// with <see cref="GetOutGoingMouth"/> — voice directivity needs both.
+    /// </summary>
+    /// <param name="key">Avatar key used when adding the player.</param>
+    /// <param name="forward">On success, the unit mouth forward; otherwise world forward.</param>
+    /// <returns><c>true</c> if the key is found; otherwise <c>false</c>.</returns>
+    public static unsafe bool GetOutGoingMouthForward(int key, out float3 forward)
+    {
+        if ((uint)key >= (uint)sKeyToIndex.Length)
+        {
+            forward = new float3(0f, 0f, 1f);
+            return false;
+        }
+        int idx = sKeyToIndex[key];
+        if (idx < 0)
+        {
+            forward = new float3(0f, 0f, 1f);
+            return false;
+        }
+        forward = ((float3*)sMouthForwards.GetUnsafeReadOnlyPtr())[idx];
         return true;
     }
     /// <summary>

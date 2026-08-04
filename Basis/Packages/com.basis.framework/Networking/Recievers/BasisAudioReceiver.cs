@@ -35,6 +35,27 @@ namespace Basis.Scripts.Networking.Receivers
         public volatile bool HasAudioSource = false;
         public volatile float DirectionalDampeningMultiplier = 1f;
 
+        /// <summary>
+        /// High-shelf depth in dB from the listener cone-of-influence — the part of
+        /// the cone that models the listener's own head being in the way, rather
+        /// than the broadband part folded into
+        /// <see cref="DirectionalDampeningMultiplier"/>. Written by the spatial
+        /// voice job on the main thread, consumed on the audio thread.
+        /// </summary>
+        public volatile float ConeShelfDb;
+
+        /// <summary>
+        /// High-shelf depth in dB from the talker's mouth directivity: how far
+        /// off-axis this player's head is from pointing at you. This is the cue
+        /// Steam Audio's broadband dipole structurally cannot supply — a real mouth
+        /// turned away loses roughly 12 dB more at 4 kHz than at 250 Hz.
+        /// </summary>
+        public volatile float DirectivityShelfDb;
+
+        // Applied AFTER the viseme pass (see BasisRemoteAudioDriver) so lip-sync
+        // classifies the talker's own spectrum rather than an orientation-tinted one.
+        private readonly BasisVoiceToneShaper _toneShaper = new BasisVoiceToneShaper();
+
         // ── Debug metering (audio-thread writer, main-thread reader) ──
         // Peak amplitude of the decoded voice, sampled per audio callback for the
         // BasisAudioGizmos level meter. This is the raw signal BEFORE any per-sample
@@ -84,6 +105,42 @@ namespace Basis.Scripts.Networking.Receivers
         public volatile int FecRecoveredCount;
         /// <summary>Times the idle-reset rearmed the initial-fill gate (diagnostic counter).</summary>
         public volatile int RearmCount;
+        /// <summary>PLC frames synthesized to bridge a mid-stream starve (nothing newer
+        /// buffered) before fading to silence — the expand half of the adaptive
+        /// latency loop (diagnostic counter).</summary>
+        public volatile int StarvePlcCount;
+        /// <summary>Near-silent frames dropped by the catch-up drain (diagnostic counter).</summary>
+        public volatile int TrimmedQuietFrames;
+        /// <summary>Frames shortened by one pitch period by the catch-up drain (diagnostic counter).</summary>
+        public volatile int AcceleratedFrames;
+        /// <summary>Total samples reclaimed by acceleration (drain-side, read for diagnostics).</summary>
+        public long AcceleratedSavedSamples;
+        /// <summary>Packets discarded by the emergency flush when standing latency exceeded the hard bound (diagnostic counter).</summary>
+        public volatile int FlushedPackets;
+
+        // ── Catch-up drain state (touched only under the decode gate) ──
+        // Standing buffered audio beyond the adaptive target is drained back down:
+        // near-silent frames are dropped outright, voiced frames are shortened by
+        // one pitch period (BasisVoiceTimeCompress), and a hopeless backlog is
+        // flushed. Without this, every network stall/late burst permanently added
+        // its duration to the listener's latency until the sender happened to pause.
+        private bool _catchupActive;
+        private int _starvePlcBudget;
+        private bool _starveEpisode;
+        private bool _fadeInNextDecodedFrame;
+        private int _framesSinceExpand;
+        private const float QuietTrimPeak = 0.02f;       // ≈ -34 dBFS (codec noise floors ride above -40)
+        private const float QuietTrimSoft = 0.05f;       // background bound when no pitch structure found
+        private const int StarvePlcMaxFrames = 6;        // ≈ 120 ms bridge at 20 ms frames
+        private const int CatchupSlackFrames = 2;        // engage above target+slack
+        private const int FlushSlackFrames = 8;          // hard bound above target...
+        private const int FlushMinFrames = 16;           // ...but never below this absolute depth
+        private const int ExpandMinSpacingFrames = 25;   // ≥ half a second between inserted frames
+
+        /// <summary>PLC frames inserted between real frames to raise standing depth toward
+        /// a grown target — the mid-stream buffer build the pre-roll can't provide on a
+        /// continuous talker (diagnostic counter).</summary>
+        public volatile int ExpandInsertedFrames;
 
         /// <summary>
         /// Maximum consecutive missing slots that trigger Opus PLC.
@@ -213,7 +270,7 @@ namespace Basis.Scripts.Networking.Receivers
                 try
                 {
                     pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.MaxFrameSize, false);
-                    VoiceBuffer.PushDecoded(pcmBuffer, pcmLength, true);
+                    PushCurrentFrame(true);
                     OnDecodedFrame?.Invoke(pcmBuffer, pcmLength);
                 }
                 catch
@@ -222,6 +279,86 @@ namespace Basis.Scripts.Networking.Receivers
                 }
             }
 #endif
+        }
+
+        /// <summary>
+        /// Decode path while the catch-up drain is active: after decoding (and feeding
+        /// the recording tap, which keeps full content), a frame still in excess of the
+        /// target either gets dropped entirely when near-silent, or shortened by one
+        /// pitch period when voiced. Either way playback slides toward the live edge.
+        /// </summary>
+        private void OnDecodeCatchup(byte[] data, int length, int targetDepth)
+        {
+#if UNITY_SERVER
+            return;
+#else
+            if (!HasAudioSource) return;
+            try
+            {
+                pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.MaxFrameSize, false);
+            }
+            catch
+            {
+                OnDecodePLC();
+                return;
+            }
+            OnDecodedFrame?.Invoke(pcmBuffer, pcmLength);
+
+            // +1: the frame in hand is part of the standing audio.
+            if (VoiceBuffer.StandingBufferedFrames + 1 > targetDepth + 1)
+            {
+                float peak = 0f;
+                for (int i = 0; i < pcmLength; i++)
+                {
+                    float a = pcmBuffer[i] < 0f ? -pcmBuffer[i] : pcmBuffer[i];
+                    if (a > peak) peak = a;
+                }
+                if (peak < QuietTrimPeak)
+                {
+                    // Inaudible content — drop the whole frame, soften both seam sides.
+                    System.Threading.Interlocked.Increment(ref TrimmedQuietFrames);
+                    VoiceBuffer.FadeOutNewestDecodedTail(48);
+                    _fadeInNextDecodedFrame = true;
+                    return;
+                }
+                int newLength = BasisVoiceTimeCompress.AccelerateInPlace(
+                    pcmBuffer, pcmLength, RemoteOpusSettings.NetworkSampleRate, out int saved);
+                if (saved > 0)
+                {
+                    pcmLength = newLength;
+                    System.Threading.Interlocked.Increment(ref AcceleratedFrames);
+                    AcceleratedSavedSamples += saved;
+                }
+                else if (peak < QuietTrimSoft)
+                {
+                    // No pitch structure AND quiet: background (room tone, codec
+                    // noise floor) rather than speech — safe to drop while behind.
+                    System.Threading.Interlocked.Increment(ref TrimmedQuietFrames);
+                    VoiceBuffer.FadeOutNewestDecodedTail(48);
+                    _fadeInNextDecodedFrame = true;
+                    return;
+                }
+            }
+            PushCurrentFrame(true);
+#endif
+        }
+
+        /// <summary>
+        /// Push <see cref="pcmBuffer"/> into the playback queue, applying a short
+        /// fade-in first when the previous frame was removed by a trim or flush (the
+        /// splice would otherwise step mid-waveform).
+        /// </summary>
+        private void PushCurrentFrame(bool hasRealAudio)
+        {
+            if (_fadeInNextDecodedFrame)
+            {
+                _fadeInNextDecodedFrame = false;
+                int fade = pcmLength < 48 ? pcmLength : 48;
+                float invFade = fade > 0 ? 1f / fade : 0f;
+                for (int i = 0; i < fade; i++)
+                    pcmBuffer[i] *= i * invFade;
+            }
+            VoiceBuffer.PushDecoded(pcmBuffer, pcmLength, hasRealAudio);
         }
 
         public void OnDecodePLC()
@@ -234,7 +371,7 @@ namespace Basis.Scripts.Networking.Receivers
                 try
                 {
                     pcmLength = decoder.Decode(null, 0, pcmBuffer, RemoteOpusSettings.FrameSize, false);
-                    VoiceBuffer.PushDecoded(pcmBuffer, pcmLength, true);
+                    PushCurrentFrame(true);
                     OnDecodedFrame?.Invoke(pcmBuffer, pcmLength);
                 }
                 catch
@@ -260,7 +397,7 @@ namespace Basis.Scripts.Networking.Receivers
             try
             {
                 pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.FrameSize, true);
-                VoiceBuffer.PushDecoded(pcmBuffer, pcmLength, true);
+                PushCurrentFrame(true);
                 OnDecodedFrame?.Invoke(pcmBuffer, pcmLength);
             }
             catch
@@ -327,6 +464,44 @@ namespace Basis.Scripts.Networking.Receivers
                 _idleResetDone = false;
             }
 
+            // ── Standing-latency control ──
+            // Target is the adaptive jitter depth; anything buffered beyond it is
+            // latency the listener is carrying for no benefit. Small excess drains
+            // via quiet-frame trims and pitch-period compression (in the decode
+            // path below); a hopeless backlog — a recovered network stall can pile
+            // up 500+ ms — is flushed outright, keeping the newest audio and the
+            // decoded runway so playback never gaps while the cursor jumps.
+            int targetDepth = VoiceBuffer.InitialBufferDepth;
+            int standingNow = VoiceBuffer.StandingBufferedFrames;
+            if (!_catchupActive && standingNow > targetDepth + CatchupSlackFrames)
+                _catchupActive = true;
+            else if (_catchupActive && standingNow <= targetDepth + 1)
+                _catchupActive = false;
+
+            int flushBound = targetDepth + FlushSlackFrames;
+            if (flushBound < FlushMinFrames) flushBound = FlushMinFrames;
+            if (standingNow > flushBound)
+            {
+                int skipped = VoiceBuffer.SkipForwardEncoded(standingNow - (targetDepth + CatchupSlackFrames));
+                if (skipped > 0)
+                {
+                    FlushedPackets += skipped;
+                    // The skipped content is gone from the decoder's history — reset
+                    // it, and soften both sides of the seam.
+                    VoiceBuffer.FadeOutNewestDecodedTail(96);
+                    _fadeInNextDecodedFrame = true;
+                    _consecutiveMissing = 0;
+                    _starveEpisode = false;
+#if !UNITY_SERVER
+                    if (decoder != null)
+                    {
+                        try { decoder.Ctl(OpusSharp.Core.GenericCTL.OPUS_RESET_STATE); }
+                        catch (OpusSharp.Core.OpusException) { }
+                    }
+#endif
+                }
+            }
+
             while (true)
             {
                 // Backpressure: don't decode faster than the audio thread can drain.
@@ -335,7 +510,45 @@ namespace Basis.Scripts.Networking.Receivers
                     break;
 
                 if (!VoiceBuffer.TryConsumeEncoded(out byte[] data, out int length, out byte silenceUnits, out bool isMissing))
+                {
+                    // Starve bridge: the stream is live but nothing newer has arrived
+                    // and the decoded runway is nearly dry. Bridge with Opus PLC —
+                    // waveform extrapolation — instead of fading to silence, up to
+                    // ~120 ms. A late burst then resumes seamlessly (the buffered
+                    // content plays after the bridge and the catch-up drain reclaims
+                    // the added lag); a genuine sender mute just gets a natural
+                    // trail-off, since the pre-mute hangover is near-silent anyway.
+                    if (VoiceBuffer.Started && !VoiceBuffer.IsHoldingForLatePacket
+                        && VoiceBuffer.DecodedFrameCount <= 2)
+                    {
+                        // Entry needs evidence the stream actually STOPPED: an empty
+                        // ring right after an arrival is just the normal cadence of a
+                        // shallow queue (e.g. the release moment after a re-preroll),
+                        // and bridging there would mis-latch an underrun mid-speech.
+                        int frameMs = RemoteOpusSettings.FrameSize * 1000 / RemoteOpusSettings.NetworkSampleRate;
+                        if (!_starveEpisode
+                            && VoiceBuffer.EncodedBufferedCount == 0
+                            && VoiceBuffer.ReceivedSinceStart >= targetDepth
+                            && VoiceBuffer.MsSinceLastArrival() > frameMs * 5 / 2)
+                        {
+                            _starveEpisode = true;
+                            _starvePlcBudget = StarvePlcMaxFrames;
+                            // Latch the underrun classification now (resolved by the
+                            // next arrival's silenceUnits) and require a short refill
+                            // before more audio releases, so the resume doesn't ride
+                            // a 1-packet queue.
+                            VoiceBuffer.NoteUnderrun();
+                        }
+                        if (_starveEpisode && _starvePlcBudget > 0)
+                        {
+                            _starvePlcBudget--;
+                            System.Threading.Interlocked.Increment(ref StarvePlcCount);
+                            OnDecodePLC();
+                            _lastDrainDecoded = true;
+                        }
+                    }
                     break;
+                }
 
                 if (isMissing)
                 {
@@ -387,6 +600,7 @@ namespace Basis.Scripts.Networking.Receivers
 #endif
                     }
                     _consecutiveMissing = 0;
+                    _starveEpisode = false;
                     if (silenceUnits > 0)
                     {
                         int localUnits = System.Threading.Interlocked.Exchange(ref _silentUnits20ms, 0);
@@ -394,7 +608,33 @@ namespace Basis.Scripts.Networking.Receivers
                         if (missing > 0)
                             System.Threading.Interlocked.Add(ref SilenceInjectedCount, missing);
                     }
-                    OnDecode(data, length);
+
+                    // Preemptive expand: when the adaptive target has grown above the
+                    // standing depth, a continuous talker never re-prerolls, so the
+                    // extra protection would stay theoretical — the deadline-hold and
+                    // gap headroom only exist in audio actually buffered. Slip one PLC
+                    // frame in ahead of the real one (rate-limited, ~+40 ms/s) until
+                    // standing meets the target. The complement of the catch-up drain.
+                    _framesSinceExpand++;
+                    int standingWithFrame = VoiceBuffer.StandingBufferedFrames + 1;
+                    int expandSpacing = targetDepth - standingWithFrame >= 3
+                        ? ExpandMinSpacingFrames / 2   // far behind target: build protection faster
+                        : ExpandMinSpacingFrames;
+                    if (!_catchupActive && silenceUnits == 0
+                        && _framesSinceExpand >= expandSpacing
+                        && VoiceBuffer.ReceivedSinceStart >= targetDepth
+                        && standingWithFrame < targetDepth - 1
+                        && VoiceBuffer.DecodedFrameCount < VoiceBuffer.DecodedFrameCapacity - 1)
+                    {
+                        _framesSinceExpand = 0;
+                        System.Threading.Interlocked.Increment(ref ExpandInsertedFrames);
+                        OnDecodePLC();
+                    }
+
+                    if (_catchupActive)
+                        OnDecodeCatchup(data, length, targetDepth);
+                    else
+                        OnDecode(data, length);
                     _lastDrainDecoded = true;
                 }
             }
@@ -515,8 +755,14 @@ namespace Basis.Scripts.Networking.Receivers
 
         public void ApplyRangeData(float Distance)
         {
-            if (HasAudioSource)
-                audioSource.maxDistance = Distance;
+            if (!HasAudioSource) return;
+            audioSource.maxDistance = Distance;
+            // Unity evaluates a custom rolloff at distance/maxDistance, so the curve
+            // is expressed in units of the hearing range. A range change therefore
+            // rescales the whole shape — a 10 m range would move the metre where the
+            // inverse law starts to 40 cm — and the model-generated curves have to be
+            // rebuilt against the new range rather than stretched with it.
+            SettingsProviderRemoteAudio.ApplyDistanceCurves(this);
         }
 
         public async Task LoadAudioSource(BasisNetworkReceiver networkedPlayer, Transform MouthParent, float MaxDistance)
@@ -634,7 +880,21 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            outputSampleRate = AudioSettings.outputSampleRate;
+            InitializeWithOutputRate(networkedPlayer, AudioSettings.outputSampleRate);
+#endif
+        }
+
+        /// <summary>
+        /// Testability seam: same as <see cref="Initialize"/> but with the output device
+        /// rate passed in, so headless harnesses can construct the receiver without
+        /// Unity's audio engine (AudioSettings is an engine-internal call).
+        /// </summary>
+        public void InitializeWithOutputRate(BasisNetworkReceiver networkedPlayer, int deviceOutputRate)
+        {
+#if UNITY_SERVER
+            return;
+#else
+            outputSampleRate = deviceOutputRate;
             silentData ??= new float[RemoteOpusSettings.MaxFrameSize];
             BasisNetworkReceiver = networkedPlayer;
             LogOutputRateOnce();
@@ -787,6 +1047,26 @@ namespace Basis.Scripts.Networking.Receivers
             _gainPrimed = false;
             _fadeEnvelope = 0f;
             _lastOutputSample = 0f;
+            _toneShaper.Reset();
+        }
+
+        /// <summary>
+        /// Applies the orientation-dependent tone shaping — talker mouth directivity
+        /// and listener head shadow — to the already-written output buffer.
+        ///
+        /// Deliberately NOT folded into <see cref="ApplyGainAndWrite"/>: the viseme
+        /// driver reads this same buffer straight after the receiver writes it, and
+        /// tilting the spectrum before lip-sync sees it would make a talker's mouth
+        /// shapes depend on which way their head is pointing. So the driver calls
+        /// this after <c>ProcessAudioSamples</c> instead. The shaper only ever cuts,
+        /// so running it downstream of the soft limiter cannot reintroduce clipping.
+        /// </summary>
+        public void ApplySpatialTone(float[] data, int channels, int length)
+        {
+            if (data == null || channels <= 0) return;
+            int rate = outputSampleRate > 0 ? outputSampleRate : RemoteOpusSettings.NetworkSampleRate;
+            _toneShaper.Process(data, channels, length / channels, rate,
+                                DirectivityShelfDb, ConeShelfDb);
         }
 
         public void OnAudioFilterRead(float[] data, int channels, int length)

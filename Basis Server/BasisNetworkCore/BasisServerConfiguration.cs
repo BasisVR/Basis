@@ -321,6 +321,20 @@ public class Configuration
         ApplyEnvironmentalOverridesTo(this);
     }
 
+    /// <summary>
+    /// Field names whose values must never reach the log. Matched on the name rather than a
+    /// list of exact fields so a newly added secret is redacted by default instead of leaking
+    /// until someone remembers to update this.
+    /// </summary>
+    private static bool IsSecretFieldName(string fieldName)
+    {
+        if (string.IsNullOrEmpty(fieldName)) return false;
+        return fieldName.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0
+            || fieldName.IndexOf("apikey", StringComparison.OrdinalIgnoreCase) >= 0
+            || fieldName.IndexOf("secret", StringComparison.OrdinalIgnoreCase) >= 0
+            || fieldName.IndexOf("token", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     private static void ApplyEnvironmentalOverridesTo(object target)
     {
         if (target == null) return;
@@ -338,7 +352,11 @@ public class Configuration
             string value = Environment.GetEnvironmentVariable(field.Name);
             if (value == null) continue;
 
-            BNL.Log($"Applying Environmental Override with Field:{field.Name} Value:{value}");
+            // Environment variables are the documented Docker/Linux deployment path, so this
+            // line is exactly where the join password and REST admin key would otherwise be
+            // written verbatim into the console and the on-disk server log — which is then
+            // shippable to any peer holding the log-bundle permission.
+            BNL.Log($"Applying Environmental Override with Field:{field.Name} Value:{(IsSecretFieldName(field.Name) ? "<redacted>" : value)}");
 
             if (field.FieldType == typeof(int))
             {

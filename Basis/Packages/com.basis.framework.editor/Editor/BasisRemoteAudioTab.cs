@@ -248,6 +248,13 @@ public sealed class BasisRemoteAudioTab : BasisEditorTabPage
         EditorGUILayout.LabelField("PLC Count", audio.PlcCount.ToString());
         EditorGUILayout.LabelField("Silence Skipped", audio.SilenceInjectedCount.ToString());
         EditorGUILayout.LabelField("Genuine Underruns", buf.GenuineUnderruns.ToString());
+        EditorGUILayout.LabelField("Late Salvaged", buf.LateSalvagedCount.ToString());
+        EditorGUILayout.LabelField("Starve Bridged (PLC)", audio.StarvePlcCount.ToString());
+        EditorGUILayout.LabelField("Catch-up Trimmed", audio.TrimmedQuietFrames.ToString());
+        EditorGUILayout.LabelField("Catch-up Accelerated", audio.AcceleratedFrames.ToString());
+        EditorGUILayout.LabelField("Backlog Flushed", audio.FlushedPackets.ToString());
+        EditorGUILayout.LabelField("Expand Inserted", audio.ExpandInsertedFrames.ToString());
+        EditorGUILayout.LabelField("Standing Depth", $"{buf.StandingBufferedFrames} frames");
     }
 
     private void DrawJitterBuffer(BasisAudioReceiver audio)

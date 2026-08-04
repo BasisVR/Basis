@@ -206,7 +206,7 @@ public partial class BasisHandHeldCamera
 
         webPacing = default;
         IsWebStreamActive = true;
-        VisibilityFlag(Renderer != null && Renderer.isVisible);
+        UpdateRenderGate();
         BasisDebug.Log($"Web stream started at {webSink.Url} — open it in a browser, or add it to OBS as a Browser source.", BasisDebug.LogTag.Camera);
         return true;
     }
@@ -263,7 +263,7 @@ public partial class BasisHandHeldCamera
             Destroy(webStreamTexture);
             webStreamTexture = null;
         }
-        if (wasActive) VisibilityFlag(Renderer != null && Renderer.isVisible);
+        if (wasActive) UpdateRenderGate();
     }
 
     private void TickWebStream()
@@ -326,7 +326,7 @@ public partial class BasisHandHeldCamera
         }
         videoPacing = default;
         IsVideoOutputActive = true;
-        VisibilityFlag(Renderer != null && Renderer.isVisible);
+        UpdateRenderGate();
         BasisDebug.Log($"{VideoOutputBackendName} output started as '{settings.SenderName}': {settings.Width}x{settings.Height} @ {settings.FrameRate}fps", BasisDebug.LogTag.Camera);
         return true;
 #else
@@ -352,7 +352,7 @@ public partial class BasisHandHeldCamera
             Destroy(videoStreamTexture);
             videoStreamTexture = null;
         }
-        if (wasActive) VisibilityFlag(Renderer != null && Renderer.isVisible);
+        if (wasActive) UpdateRenderGate();
 #endif
     }
 

@@ -1,0 +1,244 @@
+{
+    "SettlePasses": 2,
+    "NoOpResizes": 4,
+    "Entries": [
+        {
+            "Path": "Host",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchorMax": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 1200.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Scroll View Vertical",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 600.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 1200.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 1200.0,
+                "y": 0.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Scroll View Vertical/0:Viewport",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -22.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 1178.0,
+                "y": 0.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Scroll View Vertical/0:Viewport/0:Content",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 1178.0,
+                "y": 0.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Scroll View Vertical/1:Scrollbar Vertical",
+            "ActiveSelf": false,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 1.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 25.0,
+                "y": -32.0
+            },
+            "RectSize": {
+                "x": 25.0,
+                "y": -32.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Scroll View Vertical/1:Scrollbar Vertical/0:Sliding Area",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 25.0,
+                "y": -32.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:Scroll View Vertical/1:Scrollbar Vertical/0:Sliding Area/0:Handle",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -8.0,
+                "y": -8.0
+            },
+            "RectSize": {
+                "x": 17.0,
+                "y": -40.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        }
+    ]
+}

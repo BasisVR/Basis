@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "इस सत्र के लिए सक्रिय डिवाइस मोड।" },
     { "key": "settings.platform.activeMode", "value": "सक्रिय डिवाइस मोड" },
     { "key": "settings.platform.vrRuntime", "value": "VR रनटाइम" },
+    { "key": "settings.platform.usePresenceSensor", "value": "उपस्थिति सेंसर का उपयोग करें" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "हेडसेट पहनने या उतारने पर उपस्थिति सेंसर को VR और डेस्कटॉप के बीच स्विच करने दें। यदि आपका हेडसेट उपस्थिति गलत बताता है तो इसे बंद करें — आप अब भी मोड मैन्युअल रूप से बदल सकते हैं।" },
     { "key": "settings.platform.switchTo", "value": "{0} पर स्विच करें" },
     { "key": "settings.platform.switchTo.confirm", "value": "क्या आप वाकई {0} पर स्विच करना चाहते हैं?" },
     { "key": "settings.platform.swapMode.title", "value": "स्वैप मोड" },

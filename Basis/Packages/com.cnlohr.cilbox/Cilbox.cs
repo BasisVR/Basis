@@ -1359,6 +1359,11 @@ spiperf.Begin();
 						if( stackBuffer[sp].type > StackType.Ulong )
 							throw new CilboxInterpreterRuntimeException("Invalid type, processing new array", parentClass.className, methodName, pc);
 						int size = stackBuffer[sp].i;
+						// The time budget cannot preempt a single allocation, so an uncapped
+						// newarr lets one instruction commit gigabytes (or throw a negative-size
+						// exception) before the interpreter ever gets to check the clock.
+						if( size < 0 || size > Cilbox.maxInterpreterArrayLength )
+							throw new CilboxInterpreterRuntimeException( $"Array length {size} out of range (max {Cilbox.maxInterpreterArrayLength})", parentClass.className, methodName, pc );
 						CilMetadataTokenInfo arrMeta = box.metadatas[otyp];
 						if( arrMeta.nativeTypeIsCilboxProxy )
 							stackBuffer[sp].LoadObject( new object[size] );
@@ -2253,6 +2258,20 @@ spiperf.End();
 		public virtual long MaxTimeoutLengthUs => 1000000; // 1 second. Can be overridden by specific Cilbox application.
 
 		[HideInInspector] public uint interpreterAccountingDepth = 0;
+
+		/// <summary>
+		/// Hard ceiling on nested interpreted calls. Sized to stay far inside the managed stack
+		/// (each level is a real InterpretInner frame plus a fresh stack buffer) while leaving
+		/// far more headroom than legitimate script recursion needs.
+		/// </summary>
+		public const uint maxInterpreterDepth = 128;
+
+		/// <summary>
+		/// Largest array a sandboxed script may allocate in one newarr. Generous for real content
+		/// (a 4M-element array is already far past anything a world script needs) while keeping a
+		/// single instruction from exhausting client memory.
+		/// </summary>
+		public const int maxInterpreterArrayLength = 4 * 1024 * 1024;
 		[HideInInspector] public long interpreterAccountingDropDead = 0;
 		[HideInInspector] public long interpreterAccountingCumulitiveTicks = 0;
 		[HideInInspector] public long interpreterInstructionsCount = 0;
@@ -2627,6 +2646,20 @@ spiperf.End();
 					--interpreterAccountingDepth;
 					Monitor.Exit( this );
 					throw new CilboxException( $"Function {m.parentClass.className} {m.fullSignature} timed out." );
+				}
+
+				// The instruction-count/time budget cannot save us from runaway recursion:
+				// each interpreted frame is a real managed frame, so unbounded nesting raises
+				// StackOverflowException, which .NET makes uncatchable and which terminates the
+				// whole process. Hundreds of thousands of frames are reachable well inside the
+				// time budget, so depth has to be capped separately. A script whose maxStack and
+				// local count are both zero does not even advance the interpreter's own stack
+				// head, making the self-call free.
+				if( interpreterAccountingDepth > maxInterpreterDepth )
+				{
+					--interpreterAccountingDepth;
+					Monitor.Exit( this );
+					throw new CilboxException( $"Function {m.parentClass.className} {m.fullSignature} exceeded maximum call depth of {maxInterpreterDepth}." );
 				}
 
 				// Otherwise we are recursively being called. All is well.

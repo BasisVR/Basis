@@ -7,7 +7,10 @@
         "BasisNetworkCore",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "BasisSDK"
+        "BasisSDK",
+        "Basis.OpenLipSync.Runtime",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [
         "Editor"

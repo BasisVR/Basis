@@ -112,6 +112,23 @@ namespace Basis.Scripts.Avatar
         }
 
         /// <summary>
+        /// Re-reads the persisted blocklist after the settings file has loaded. The binding
+        /// self-loads at static init, which can run before BasisSettingsSystem has read
+        /// settingsConfig.json — leaving RawValue (and the parse cache) on the default
+        /// blocklist for the whole session. Called from BasisSettingsDefaults.LoadAll.
+        /// </summary>
+        public static void ReloadBinding()
+        {
+            string before = _binding.RawValue;
+            _binding.LoadBindingValue();
+            if (!string.Equals(before, _binding.RawValue, StringComparison.Ordinal))
+            {
+                _cacheValid = false;
+                OnChanged?.Invoke();
+            }
+        }
+
+        /// <summary>
         /// True if the user has at least one tag on their blocklist. Cheap so the
         /// gate can short-circuit before iterating the bundle's tags.
         /// </summary>

@@ -2076,6 +2076,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "此会话的当前设备模式。" },
     { "key": "settings.platform.activeMode", "value": "活动设备模式" },
     { "key": "settings.platform.vrRuntime", "value": "VR 运行时" },
+    { "key": "settings.platform.usePresenceSensor", "value": "使用佩戴传感器" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "让头显的佩戴传感器在你戴上或摘下时自动在 VR 与桌面模式之间切换。如果头显的佩戴检测不准确，请关闭此项 — 你仍可手动切换模式。" },
     { "key": "settings.platform.switchTo", "value": "切换到 {0}" },
     { "key": "settings.platform.switchTo.confirm", "value": "确定要切换到 {0} 吗？" },
     { "key": "settings.platform.swapMode.title", "value": "切换模式" },

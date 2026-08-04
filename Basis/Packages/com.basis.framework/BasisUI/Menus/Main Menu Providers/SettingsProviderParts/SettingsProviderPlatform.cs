@@ -42,6 +42,17 @@ public static class SettingsProviderPlatform
             softSwapField.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.vrRuntime"));
             softSwapField.SetValue($"{dm.AutoSwapPreviousVRMode} (kept alive)");
         }
+
+        // Offered next to the manual switch buttons because turning it off is what leaves those
+        // buttons as the only way to change mode. Hidden where no SDK reports presence at all,
+        // since the toggle would govern a signal that never arrives.
+        if (BasisHMDPresence.HasPresenceProvider)
+        {
+            PanelToggle togglePresenceSensor = PanelToggle.CreateNewEntry(infoGroup.ContentParent);
+            togglePresenceSensor.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.usePresenceSensor"));
+            togglePresenceSensor.Descriptor.SetTooltip(BasisLocalization.Get("settings.platform.usePresenceSensor.tooltip"));
+            togglePresenceSensor.AssignBinding(BasisSettingsDefaults.UsePresenceSensor);
+        }
 #endif
 
         // Discover available modes from registered BaseTypes

@@ -1,0 +1,822 @@
+{
+    "SettlePasses": 2,
+    "NoOpResizes": 0,
+    "Entries": [
+        {
+            "Path": "Host",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchorMax": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 350.0,
+                "y": 2000.0
+            },
+            "RectSize": {
+                "x": 350.0,
+                "y": 2000.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 290.0,
+                "y": -40.0
+            },
+            "SizeDelta": {
+                "x": 580.0,
+                "y": 80.0
+            },
+            "RectSize": {
+                "x": 580.0,
+                "y": 80.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 290.0,
+                "y": -40.0
+            },
+            "SizeDelta": {
+                "x": 580.0,
+                "y": 80.0
+            },
+            "RectSize": {
+                "x": 580.0,
+                "y": 80.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/0:Icon Background",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -40.0
+            },
+            "SizeDelta": {
+                "x": 60.0,
+                "y": 60.0
+            },
+            "RectSize": {
+                "x": 60.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/0:Icon Background/0:Icon Image",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -24.0,
+                "y": -24.0
+            },
+            "RectSize": {
+                "x": 36.0,
+                "y": 36.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 330.0,
+                "y": -40.0
+            },
+            "SizeDelta": {
+                "x": 500.0,
+                "y": 60.0
+            },
+            "RectSize": {
+                "x": 500.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/0:Title Content",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -30.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 55.65999984741211
+            },
+            "RectSize": {
+                "x": 0.0,
+                "y": 55.65999984741211
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/0:Title Content/0:Title Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 31.459999084472658
+            },
+            "RectSize": {
+                "x": 0.0,
+                "y": 31.459999084472658
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/0:Title Content/1:Description Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": -31.459999084472658
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 24.200000762939454
+            },
+            "RectSize": {
+                "x": 0.0,
+                "y": 24.200000762939454
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 250.0,
+                "y": -30.0
+            },
+            "SizeDelta": {
+                "x": 500.0,
+                "y": 60.0
+            },
+            "RectSize": {
+                "x": 500.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 500.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/0:Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": -15.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -70.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 430.0,
+                "y": 60.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/1:Arrow",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": true,
+            "AnchorMin": {
+                "x": 1.0,
+                "y": 0.5
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 0.5
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": -30.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 40.0,
+                "y": 40.0
+            },
+            "RectSize": {
+                "x": 40.0,
+                "y": 40.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template",
+            "ActiveSelf": false,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 0.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 10.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 200.0
+            },
+            "RectSize": {
+                "x": 500.0,
+                "y": 200.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/0:Viewport",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -17.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 483.0,
+                "y": 200.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/0:Viewport/0:Content",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 0.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 200.00003051757813
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 50.0
+            },
+            "RectSize": {
+                "x": 483.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/0:Viewport/0:Content/0:Item",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 483.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/0:Viewport/0:Content/0:Item/0:Item Background",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 483.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/0:Viewport/0:Content/0:Item/1:Item Checkmark",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 0.5
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 30.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 20.0,
+                "y": 20.0
+            },
+            "RectSize": {
+                "x": 20.0,
+                "y": 20.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/0:Viewport/0:Content/0:Item/2:Item Label",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 25.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -50.000003814697269,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 433.0,
+                "y": 50.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/1:Scrollbar",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 1.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 20.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 20.0,
+                "y": 200.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/1:Scrollbar/0:Sliding Area",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": -6.0,
+                "y": -6.0
+            },
+            "RectSize": {
+                "x": 14.0,
+                "y": 194.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/0:Header/1:Title/1:Element/0:Dropdown/2:Template/1:Scrollbar/0:Sliding Area/0:Handle",
+            "ActiveSelf": true,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "AnchorMax": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "SizeDelta": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 14.0,
+                "y": 194.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "Path": "Host/0:PE Dropdown - Entry Variant/1:Content",
+            "ActiveSelf": false,
+            "ActiveInHierarchy": false,
+            "AnchorMin": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "AnchorMax": {
+                "x": 0.0,
+                "y": 1.0
+            },
+            "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "AnchoredPosition": {
+                "x": 480.0,
+                "y": -80.0
+            },
+            "SizeDelta": {
+                "x": 960.0,
+                "y": 0.0
+            },
+            "RectSize": {
+                "x": 960.0,
+                "y": 0.0
+            },
+            "LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        }
+    ]
+}

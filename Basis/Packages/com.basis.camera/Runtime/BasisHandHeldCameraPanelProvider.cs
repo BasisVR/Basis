@@ -743,7 +743,9 @@ namespace Basis.BasisUI.HandHeldCamera
             _webPortField = null;
             _openStreamButton = null;
             _videoSenderNameField = null;
-            _activeCamera = null;
+            // Releases the preview request as well: the panel is gone, so the camera goes back to
+            // rendering only for the surfaces that are still showing it.
+            SetActiveCamera(null);
             _lastVideoOutputActive = null;
             _lastWebStreamActive = null;
             _lastWebStreamDescription = null;
@@ -1575,6 +1577,28 @@ namespace Basis.BasisUI.HandHeldCamera
             _topButtons.Add(_resetTopButton);
         }
 
+        /// <summary>
+        /// Binds the panel to a camera, and tells that camera its feed is being watched from here.
+        /// <para>
+        /// The preview draws the camera's render texture, but the camera only renders while its
+        /// own prop is in view — so a camera that has been flown away, sent to follow from behind,
+        /// or simply left facing the wrong way stops rendering and the preview sits on its last
+        /// frame. Every other camera is cleared as well as the outgoing one, so a request can
+        /// never be left behind on a camera the panel has moved off.
+        /// </para>
+        /// </summary>
+        private void SetActiveCamera(BasisHandHeldCamera camera)
+        {
+            _activeCamera = camera;
+
+            IReadOnlyList<BasisHandHeldCamera> cameras = BasisHandHeldCameraRegistry.Cameras;
+            for (int Index = 0; Index < cameras.Count; Index++)
+            {
+                BasisHandHeldCamera entry = cameras[Index];
+                if (entry != null) entry.SetPanelPreviewActive(entry == camera);
+            }
+        }
+
         private void RebuildSelector()
         {
             if (_selector == null) return;
@@ -1600,7 +1624,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 _selector.gameObject.SetActive(false);
                 _emptyState?.SetActive(true);
                 SetGroupsActive(false);
-                _activeCamera = null;
+                SetActiveCamera(null);
                 return;
             }
 
@@ -1610,7 +1634,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             int selected = _activeCamera != null ? _entries.IndexOf(_activeCamera) : 0;
             if (selected < 0) selected = 0;
-            _activeCamera = _entries[selected];
+            SetActiveCamera(_entries[selected]);
             _selector.SetValueWithoutNotify(labels[selected]);
 
             ApplyActiveCameraToControls();
@@ -1622,7 +1646,7 @@ namespace Basis.BasisUI.HandHeldCamera
             if (_selector == null) return;
             int index = _selector.Index;
             if (index < 0 || index >= _entries.Count) return;
-            _activeCamera = _entries[index];
+            SetActiveCamera(_entries[index]);
             ApplyActiveCameraToControls();
         }
 

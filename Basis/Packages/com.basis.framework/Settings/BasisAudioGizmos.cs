@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -388,7 +388,11 @@ public static class BasisAudioGizmos
             occ = Mathf.Clamp01(sa.occlusionValue);
         }
 #endif
-        float netGain = slider * cone * main * dist * dir * occ;
+        // The listener cone and the talker's mouth directivity are now part filter,
+        // part gain. Fold the shelves' speech-weighted broadband equivalent in, or the
+        // meter under-reports everything that is actually reaching the listener.
+        float tone = BasisVoiceAcoustics.ShelfBroadbandGain(audio.DirectivityShelfDb, audio.ConeShelfDb);
+        float netGain = slider * cone * main * dist * dir * occ * tone;
         float net = source * netGain;
         Color fillColor = GainColor(netGain);
 

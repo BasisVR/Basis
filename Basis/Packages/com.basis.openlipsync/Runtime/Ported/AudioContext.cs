@@ -21,17 +21,9 @@ namespace OpenLipSync.Inference
         private readonly MelSpectrogramProcessor _melProcessor;
         private readonly AudioResampler _resampler;
 
-        private readonly float[] _latestVisemeResults;
+        private readonly VisemeSmoother _smoother;
         private readonly float[] _probabilityBuffer;
         private readonly int _melBands;
-
-        // Smoothing keeps its historical meaning -- arg1/100 is the weight kept on the previous
-        // value -- but is now applied once per MEL FRAME (a fixed 100 Hz) instead of once per
-        // audio callback. Callbacks deliver a variable number of samples, so the old code's
-        // effective smoothing silently changed with buffer size and output sample rate; the
-        // same "0.7" meant a different time constant on different machines.
-        // At 100 Hz, 0.7 corresponds to a ~28 ms time constant.
-        private float _frameAlpha = 0.3f;
 
         private int _frameNumber;
         private bool _disposed;
@@ -60,9 +52,14 @@ namespace OpenLipSync.Inference
                 : null;
 
             int visemeCount = modelVisemeCount > 0 ? modelVisemeCount : Frame.VisemeCount;
-            _latestVisemeResults = new float[visemeCount];
+            // Smoothing keeps its historical meaning -- arg1/100 is the weight kept on the
+            // previous value -- and is applied once per MEL FRAME (a fixed 100 Hz) rather than
+            // once per audio callback. Callbacks deliver a variable number of samples, so
+            // smoothing per callback silently changed with buffer size and output sample rate;
+            // the same "0.7" meant a different time constant on different machines. The pole's
+            // own group delay is cancelled inside the smoother -- see VisemeSmoother.
+            _smoother = new VisemeSmoother(visemeCount, 0.3f);
             _probabilityBuffer = new float[visemeCount];
-            _latestVisemeResults[0] = 1f;               // start closed-mouth / silent
 
             _melBands = audioConfig.NMels;
             _streaming = streaming;
@@ -107,13 +104,7 @@ namespace OpenLipSync.Inference
         /// is actively harmful, because it distorts exactly the graded weights that drive
         /// blendshape blending. It is gone.
         /// </summary>
-        private void Smooth(float[] probabilities)
-        {
-            int n = Math.Min(_latestVisemeResults.Length, probabilities.Length);
-            float a = _frameAlpha;
-            for (int i = 0; i < n; i++)
-                _latestVisemeResults[i] = _latestVisemeResults[i] * a + probabilities[i] * (1f - a);
-        }
+        private void Smooth(float[] probabilities) => _smoother.Step(probabilities);
 
         // ------------------------------------------------------------------ legacy path
         public void AccumulateMelFrame(float[] melFrame)
@@ -154,8 +145,9 @@ namespace OpenLipSync.Inference
             frame.frameNumber = ++_frameNumber;
             frame.frameDelay = 0;
 
-            int copy = Math.Min(_latestVisemeResults.Length, frame.Visemes.Length);
-            Array.Copy(_latestVisemeResults, frame.Visemes, copy);
+            float[] latest = _smoother.Output;
+            int copy = Math.Min(latest.Length, frame.Visemes.Length);
+            Array.Copy(latest, frame.Visemes, copy);
             if (copy < frame.Visemes.Length)
                 Array.Clear(frame.Visemes, copy, frame.Visemes.Length - copy);
 
@@ -173,7 +165,7 @@ namespace OpenLipSync.Inference
                     // value), so existing callers -- e.g. BasisOpenLipSyncContext passes 70 --
                     // keep their tuning. What changed is that it is now applied once per mel
                     // frame at a fixed 100 Hz rather than once per variable-sized audio callback.
-                    _frameAlpha = Math.Clamp(arg1 / 100f, 0f, 0.99f);
+                    _smoother.Alpha = arg1 / 100f;
                     return Result.Success;
 
                 default:
@@ -186,8 +178,7 @@ namespace OpenLipSync.Inference
             if (_disposed) return;
 
             _ringBuffer.Clear();
-            Array.Clear(_latestVisemeResults, 0, _latestVisemeResults.Length);
-            _latestVisemeResults[0] = 1f;
+            _smoother.Reset();
             _frameNumber = 0;
 
             _streaming?.Reset();

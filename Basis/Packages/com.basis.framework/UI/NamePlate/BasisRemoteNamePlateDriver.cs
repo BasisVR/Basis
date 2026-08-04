@@ -209,6 +209,10 @@ namespace Basis.Scripts.UI.NamePlate
                 Text.enableVertexGradient = false;
                 Text.textWrappingMode = TextWrappingModes.NoWrap;
                 Text.overflowMode = TextOverflowModes.Overflow;
+                // TMP parses rich text by default. A display name is attacker-controlled, so
+                // markup left enabled turns a name into layout control over everyone's screen
+                // (<size=10000>, <voffset>, <space>). Nothing here ever wants markup.
+                Text.richText = false;
             }
         }
 
@@ -551,15 +555,32 @@ namespace Basis.Scripts.UI.NamePlate
             }
         }
 
+        /// <summary>
+        /// Maximum characters baked into a nameplate. The wire format does not cap display-name
+        /// length, and mesh generation cost scales with it — a multi-kilobyte name would build a
+        /// huge mesh that is then retained and drawn every frame for as long as that player is
+        /// present.
+        /// </summary>
+        private const int MaxNamePlateCharacters = 64;
+
         public static void GenerateTextFactory(BasisRemotePlayer remotePlayer, BasisRemoteNamePlate namePlate)
         {
+            // SafeDisplayName, not DisplayName: this is the one surface that was rendering the
+            // raw network string, and it is the surface that is always on screen.
+            string displayName = remotePlayer.SafeDisplayName;
+            if (string.IsNullOrEmpty(displayName)) displayName = string.Empty;
+            if (displayName.Length > MaxNamePlateCharacters)
+            {
+                displayName = displayName.Substring(0, MaxNamePlateCharacters);
+            }
+
             if (UseGlobalNamePlateMesh)
             {
-                BakeNameMeshGlobal(remotePlayer.DisplayName, namePlate);
+                BakeNameMeshGlobal(displayName, namePlate);
             }
             else
             {
-                BakeNameMesh(remotePlayer.DisplayName, namePlate.Filter, namePlate.Renderer);
+                BakeNameMesh(displayName, namePlate.Filter, namePlate.Renderer);
             }
         }
 

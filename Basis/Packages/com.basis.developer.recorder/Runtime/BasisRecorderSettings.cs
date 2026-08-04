@@ -9,6 +9,11 @@ namespace Basis.Developer.Recorder
     /// </summary>
     public static class BasisRecorderSettings
     {
+        static BasisRecorderSettings()
+        {
+            BasisSettingsBindingPostLoad.Register(typeof(BasisRecorderSettings));
+        }
+
         public static BasisSettingsBinding<string> CountdownSeconds = new("recordercountdownseconds", new BasisPlatformDefault<string>("3"));
         public static BasisSettingsBinding<bool> AutoStop = new("recorderautostop", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<string> MaxDurationSeconds = new("recordermaxdurationseconds", new BasisPlatformDefault<string>("30"));

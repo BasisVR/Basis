@@ -2107,6 +2107,8 @@
     { "key": "settings.platform.deviceMode.description", "value": "このセッションでアクティブなデバイスモード。" },
     { "key": "settings.platform.activeMode", "value": "アクティブなデバイスモード" },
     { "key": "settings.platform.vrRuntime", "value": "VRランタイム" },
+    { "key": "settings.platform.usePresenceSensor", "value": "装着センサーを使用" },
+    { "key": "settings.platform.usePresenceSensor.tooltip", "value": "ヘッドセットの装着センサーで、着脱時に VR とデスクトップを自動的に切り替えます。センサーが正しく認識されない場合はオフにしてください。手動でのモード切替は引き続き可能です。" },
     { "key": "settings.platform.switchTo", "value": "{0}に切替" },
     { "key": "settings.platform.switchTo.confirm", "value": "{0}に切り替えてもよろしいですか？" },
     { "key": "settings.platform.swapMode.title", "value": "切替モード" },

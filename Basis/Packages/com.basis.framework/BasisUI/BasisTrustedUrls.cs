@@ -118,13 +118,45 @@ namespace Basis.BasisUI
             return false;
         }
 
+        // Matched per URL component, never against the raw string. A single regex over the
+        // whole URL lets '*' swallow the '/', '?' and '#' delimiters, so the trusted host
+        // only has to appear SOMEWHERE in the URL: "https://*.youtube.com/*" then also
+        // matches "https://evil.com/#.youtube.com/" and "https://evil.com/x/.youtube.com/p".
+        // Because the remember-choice flow writes exactly that pattern shape, one legitimate
+        // "trust this domain" click would arm a bypass of every consent gate built on this
+        // list. Comparing the parsed host separately also rejects the userinfo trick
+        // ("https://www.youtube.com@evil.com/"), since Uri.Host is the real authority.
         private static bool MatchesWithWildcards(string url, string pattern)
         {
-            // Convert wildcard pattern to regex-like matching
-            string regexPattern = "^" + Regex.Escape(pattern)
-                .Replace("\\*", ".*") + "$";
-            return Regex.IsMatch(url, regexPattern,
-                RegexOptions.IgnoreCase);
+            if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(pattern)) return false;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return false;
+
+            int schemeEnd = pattern.IndexOf("://", StringComparison.Ordinal);
+            if (schemeEnd <= 0) return false;
+            int hostStart = schemeEnd + 3;
+            int hostEnd = pattern.IndexOf('/', hostStart);
+
+            string patternScheme = pattern.Substring(0, schemeEnd);
+            string patternHost = hostEnd < 0
+                ? pattern.Substring(hostStart)
+                : pattern.Substring(hostStart, hostEnd - hostStart);
+            string patternPath = hostEnd < 0 ? string.Empty : pattern.Substring(hostEnd);
+
+            if (patternHost.Length == 0) return false;
+            if (!string.Equals(uri.Scheme, patternScheme, StringComparison.OrdinalIgnoreCase)) return false;
+
+            // '*' inside the authority may not cross a delimiter, so it can never leave the host.
+            if (!ComponentMatches(uri.Host, patternHost, "[^/?#]*")) return false;
+
+            // A pattern naming only a host trusts that host, so any path on it is in scope.
+            if (patternPath.Length == 0) return true;
+            return ComponentMatches(uri.PathAndQuery + uri.Fragment, patternPath, "[\\s\\S]*");
+        }
+
+        private static bool ComponentMatches(string value, string pattern, string wildcard)
+        {
+            string regexPattern = "^" + Regex.Escape(pattern).Replace("\\*", wildcard) + "$";
+            return Regex.IsMatch(value, regexPattern, RegexOptions.IgnoreCase);
         }
 
         public static void Add(string url)

@@ -335,6 +335,13 @@ namespace Basis.Scripts.Networking.Sync
             }
         }
 
+        /// <summary>
+        /// Half-extent accepted for a decoded continuous value. Anything larger is not a
+        /// coordinate a real object occupies, and both the Half and raw-float modes can express
+        /// NaN/Infinity directly from the wire.
+        /// </summary>
+        private const float MaxDecodedMagnitude = 1e6f;
+
         private static bool TryDecodeCont(ref BitReader r, BasisQuantMode mode, float min, float max, int bits, out float value)
         {
             value = 0f;
@@ -344,7 +351,7 @@ namespace Basis.Scripts.Networking.Sync
                 {
                     if (!r.TryReadBits(16, out uint raw)) return false;
                     value = math.f16tof32(raw);
-                    return true;
+                    return IsUsable(value);
                 }
                 case BasisQuantMode.Ranged:
                 {
@@ -358,10 +365,22 @@ namespace Basis.Scripts.Networking.Sync
                 {
                     if (!r.TryReadBits(32, out uint raw)) return false;
                     value = BitsToFloat(raw);
-                    return true;
+                    return IsUsable(value);
                 }
             }
         }
+
+        /// <summary>
+        /// The Half and raw-float modes reinterpret wire bits directly, so a peer that owns a
+        /// synced object can hand us NaN or Infinity. These values go on to
+        /// Transform.SetPositionAndRotation without any further validation, and a NaN transform
+        /// never recovers — it also propagates to whatever is parented to it, so a NaN on a held
+        /// pickup travels into the holder's hand. Rejecting the field here makes the decode fail
+        /// cleanly and the last good value stand.
+        /// </summary>
+        private static bool IsUsable(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) &&
+            value > -MaxDecodedMagnitude && value < MaxDecodedMagnitude;
 
         private static void WriteVarInt(ref BitWriter w, int value) => WriteVarUInt(ref w, (uint)((value << 1) ^ (value >> 31)));
 

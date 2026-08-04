@@ -579,6 +579,20 @@ namespace Basis.BasisUI
                 }
                 _orderBuffer.Sort(CompareForCurrentSort);
 
+                int expected = _firstPlayerSiblingIndex;
+                bool inOrder = true;
+                for (int i = 0; i < _orderBuffer.Count && inOrder; i++)
+                {
+                    if (_entries.TryGetValue(_orderBuffer[i].playerId, out PlayerEntry check))
+                    {
+                        if (check.Button != null && check.Button.transform.GetSiblingIndex() != expected++)
+                            inOrder = false;
+                        if (inOrder && check.ActionRow != null && check.ActionRow.GetSiblingIndex() != expected++)
+                            inOrder = false;
+                    }
+                }
+                if (inOrder) return;
+
                 // Place the player button followed by its action row, so each player
                 // occupies up to two consecutive sibling slots in GridParent.
                 int sibling = _firstPlayerSiblingIndex;

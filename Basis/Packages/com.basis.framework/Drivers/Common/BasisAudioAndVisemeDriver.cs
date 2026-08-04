@@ -83,9 +83,12 @@ namespace Basis.Scripts.Drivers
         public bool WasSuccessful;
 
         /// <summary>
-        /// Cached entity id of the face renderer used to safely bind/unbind events.
+        /// The visibility check this driver actually subscribed to. The swap-time unsubscribe
+        /// must target it — by the time TryInitialize runs for the incoming avatar, the player's
+        /// FaceRenderer already points at the NEW check while the outgoing avatar's check stays
+        /// alive (and fires DestroyCalled) until its end-of-frame destroy.
         /// </summary>
-        public EntityId HashInstanceID = EntityId.None;
+        private BasisMeshRendererCheck subscribedFaceRenderer;
 
         /// <summary>
         /// Configures lip-sync for the given player and avatar. Records eligibility
@@ -95,6 +98,7 @@ namespace Basis.Scripts.Drivers
         public bool TryInitialize(IBasisPlayer BasisPlayer)
         {
             WasSuccessful = false;
+            UnsubscribeFaceRenderer();
             Avatar = BasisPlayer.BasisAvatar;
             Player = BasisPlayer;
 
@@ -140,11 +144,12 @@ namespace Basis.Scripts.Drivers
                 HasViseme[Index] = Avatar.FaceVisemeMovement[Index] != -1;
             }
 
-            // Wire visibility and lifetime callbacks (only once per renderer instance)
-            if (Player != null && Player.FaceRenderer != null && HashInstanceID != Player.FaceRenderer.GetEntityId())
+            // Wire visibility and lifetime callbacks
+            if (Player != null && Player.FaceRenderer != null)
             {
-                Player.FaceRenderer.Check += UpdateFaceVisibility;
-                Player.FaceRenderer.DestroyCalled += TryShutdown;
+                subscribedFaceRenderer = Player.FaceRenderer;
+                subscribedFaceRenderer.Check += UpdateFaceVisibility;
+                subscribedFaceRenderer.DestroyCalled += TryShutdown;
             }
 
             UpdateFaceVisibility(Player.FaceIsVisible);
@@ -312,17 +317,20 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Unbinds face renderer callbacks if the same renderer instance is still present.
+        /// Unbinds the face renderer callbacks this driver subscribed.
         /// </summary>
         public void OnDeInitialize()
         {
-            if (Player != null)
+            UnsubscribeFaceRenderer();
+        }
+
+        private void UnsubscribeFaceRenderer()
+        {
+            if (subscribedFaceRenderer != null)
             {
-                if (Player.FaceRenderer != null && HashInstanceID == Player.FaceRenderer.GetEntityId())
-                {
-                    Player.FaceRenderer.Check -= UpdateFaceVisibility;
-                    Player.FaceRenderer.DestroyCalled -= TryShutdown;
-                }
+                subscribedFaceRenderer.Check -= UpdateFaceVisibility;
+                subscribedFaceRenderer.DestroyCalled -= TryShutdown;
+                subscribedFaceRenderer = null;
             }
         }
 

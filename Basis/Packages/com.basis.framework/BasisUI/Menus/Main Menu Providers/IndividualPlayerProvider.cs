@@ -521,7 +521,7 @@ namespace Basis.BasisUI
             };
 
             var uuidField = PanelTextField.CreateNewEntry(root);
-            uuidField.Descriptor.SetTitle("UUID");
+            uuidField.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.uuid"));
             uuidField.SetValueWithoutNotify(remotePlayer.UUID);
             uuidField._inputField.readOnly = true;
 
