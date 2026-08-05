@@ -8,6 +8,7 @@ namespace Basis.Config
         public static string Ip = "localhost";
         public static int Port = 4296;
         public static int ClientCount = 250;
+        public static int ConnectionDelayMs = 20;
 
         public static string AvatarPassword = "default_avatar_password";
         public static string AvatarUrl = "http://localhost/avatar";
@@ -180,6 +181,8 @@ namespace Basis.Config
                                 new XElement("Port", Port),
                                 new XComment(" Number of simulated clients to spawn for load testing. int (>= 1); higher counts need more CPU, memory and sockets. "),
                                 new XElement("ClientCount", ClientCount),
+                                new XComment(" Milliseconds to wait between starting each client, so a large run ramps in instead of hitting the server and its authentication with every connection at once. int (>= 0), default 20; 0 connects as fast as the loop can go, which is fine at a few hundred clients but overloads auth past roughly 1000. Total ramp is about ClientCount x this, so 2000 clients at 20 ms take around 40 seconds to all be online. Waits shorter than the OS timer granularity (about 15 ms on Windows) are rounded up to it, so the real ramp can be longer than the arithmetic suggests. "),
+                                new XElement("ConnectionDelayMs", ConnectionDelayMs),
                                 new XComment(" Avatar unlock password/key sent with the avatar; used to decrypt the (encrypted .BEE) bundle at <AvatarUrl>. string. "),
                                 new XElement("AvatarPassword", AvatarPassword),
                                 new XComment(" Avatar source each fake client advertises. For AvatarLoadMode 0 this is the (encrypted .BEE) bundle download URL. string. "),
@@ -276,6 +279,12 @@ namespace Basis.Config
                     Ip = ReadString(root, "Ip", Ip);
                     Port = ReadInt(root, "Port", Port);
                     ClientCount = ReadInt(root, "ClientCount", ClientCount);
+                    ConnectionDelayMs = ReadInt(root, "ConnectionDelayMs", ConnectionDelayMs);
+                    if (ConnectionDelayMs < 0)
+                    {
+                        BNL.Log($"Invalid <ConnectionDelayMs> value {ConnectionDelayMs}, clamping to 0.");
+                        ConnectionDelayMs = 0;
+                    }
 
                     AvatarPassword = ReadString(root, "AvatarPassword", AvatarPassword);
                     AvatarUrl = ReadString(root, "AvatarUrl", AvatarUrl);

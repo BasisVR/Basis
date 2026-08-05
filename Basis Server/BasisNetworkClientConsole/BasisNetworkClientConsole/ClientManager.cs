@@ -130,6 +130,9 @@ namespace Basis.Network
 
         public async Task StartClientsAsync()
         {
+            int connectionDelayMs = Math.Max(0, ConfigManager.ConnectionDelayMs);
+            BNL.Log($"Connecting {ClientCount} clients, {connectionDelayMs}ms apart (~{ClientCount * connectionDelayMs / 1000.0:F1}s ramp).");
+
             for (int Index = 0; Index < ClientCount; Index++)
             {
                 var name = NameGenerator.GenerateRandomPlayerName();
@@ -181,8 +184,10 @@ namespace Basis.Network
                     BNL.Log($"Connecting: {name} ({identity.Did})");
                 }
 
-                await Task.Delay(1, cts.Token);
+                await Task.Delay(connectionDelayMs, cts.Token);
             }
+
+            BNL.Log($"All {ClientCount} clients have been started.");
         }
         public async Task ReconnectClientAsync(int index)
         {
