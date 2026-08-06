@@ -119,12 +119,17 @@ namespace Basis.BasisUI
         public readonly struct MetaOnlyLoadOutcome
         {
             public readonly BasisLoadableBundleWrapper Wrapper;
-            public readonly bool IsTransient;
+            /// <summary>
+            /// The load failed without positive evidence the content is bad, so the item was kept
+            /// and nothing downstream may delete it. Named for what it authorizes, not for a guess
+            /// at the cause — reading "is this transient?" as "may I delete this?" was the bug.
+            /// </summary>
+            public readonly bool Deferred;
 
-            public MetaOnlyLoadOutcome(BasisLoadableBundleWrapper wrapper, bool isTransient)
+            public MetaOnlyLoadOutcome(BasisLoadableBundleWrapper wrapper, bool deferred)
             {
                 Wrapper = wrapper;
-                IsTransient = isTransient;
+                Deferred = deferred;
             }
         }
 
@@ -133,17 +138,21 @@ namespace Basis.BasisUI
             // make a new wrapper to load the metadata into
             BasisLoadableBundleWrapper newWrapper = CreateNewWrapperFromItem(item);
 
-            // new report and CancellationSource source
+            // new report and CancellationSource source. Bounded and disposed: a deferred item is no
+            // longer deleted after one attempt, so an unreachable host is now retried on every
+            // library refresh and would otherwise hold a _preloadGate slot for the OS connect
+            // timeout each time. Same budget BasisAvatarFarLOD already uses per attempt.
             BasisProgressReport Report = new BasisProgressReport();
-            CancellationTokenSource CancellationSource = new CancellationTokenSource();
+            using CancellationTokenSource CancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
             // perform the action to download the file or grab it from disc?
             BasisMetaLoadResult metaResult = await BasisBeeManagement.HandleMetaOnlyLoad(newWrapper.basisTrackedBundleWrapper, Report, CancellationSource.Token);
 
-            // On transient (network/SSL/cancel) failure, do NOT fall through to LoadWrapperFromDisc —
-            // that path auto-removes the key when IsMetaDataOnDisc returns false, which would delete
-            // the user's cached item just because the remote is unreachable right now.
-            if (!metaResult.Loaded && metaResult.IsTransient)
+            // Unless the load positively identified unusable bytes, do NOT fall through to
+            // LoadWrapperFromDisc — that path auto-removes the key when IsMetaDataOnDisc returns
+            // false, which would delete the user's saved item just because we could not fetch its
+            // metadata right now.
+            if (!metaResult.Loaded && !metaResult.IsCorrupt)
             {
                 return new MetaOnlyLoadOutcome(null, true);
             }
@@ -164,12 +173,13 @@ namespace Basis.BasisUI
         public readonly struct CacheNewItemResult
         {
             public readonly CachedContent Cached;
-            public readonly bool IsTransient;
+            /// <summary>See <see cref="MetaOnlyLoadOutcome.Deferred"/>. Keep the item.</summary>
+            public readonly bool Deferred;
 
-            public CacheNewItemResult(CachedContent cached, bool isTransient)
+            public CacheNewItemResult(CachedContent cached, bool deferred)
             {
                 Cached = cached;
-                IsTransient = isTransient;
+                Deferred = deferred;
             }
         }
 
@@ -177,7 +187,7 @@ namespace Basis.BasisUI
         {
             MetaOnlyLoadOutcome outcome = await CreateWrapperAndPerformMetaOnlyLoad(item);
 
-            if (outcome.IsTransient)
+            if (outcome.Deferred)
             {
                 return new CacheNewItemResult(null, true);
             }
@@ -222,7 +232,7 @@ namespace Basis.BasisUI
             try
             {
                 CachedContent cached = null;
-                bool isTransient = false;
+                bool deferred = false;
 
                 if (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
                 {
@@ -248,11 +258,16 @@ namespace Basis.BasisUI
                                 BasisLoadableBundle = null,
                             };
                             break;
+                        // These two produce no CachedContent, and no reader ever looked at any bytes,
+                        // so they must not fall through to the eviction branch below. Not knowing how
+                        // to present an embedded item is our gap, not evidence the item is bad.
                         case BundledContentHolder.Mode.World:
                             BasisDebug.LogWarning($"CachedMetaData cannot determine {item.Url} with item.Mode = {item.Mode}");
+                            deferred = true;
                             break;
                         default:
                             BasisDebug.LogWarning($"CachedMetaData cannot determine what to do with embedded item = {item.Url} with item.Mode = {item.Mode}");
+                            deferred = true;
                             break;
                     }
                 }
@@ -260,16 +275,25 @@ namespace Basis.BasisUI
                 {
                     CacheNewItemResult result = await CacheNewItem(item);
                     cached = result.Cached;
-                    isTransient = result.IsTransient;
+                    deferred = result.Deferred;
                 }
 
-                if (isTransient)
+                if (deferred)
                 {
-                    // Remote unreachable (SSL / DNS / cancel). Leave the item in the library and try again later.
-                    BasisDebug.LogWarning($"Deferred meta preload for '{urlKey}' — remote unreachable. Keeping cached item intact.");
+                    // We could not get the metadata, but nothing told us the content is bad —
+                    // unreachable host, refused URL, disk fault, cancellation. Leave the item in the
+                    // library and try again on the next preload.
+                    BasisDebug.LogWarning($"Deferred meta preload for '{urlKey}' — metadata unavailable. Keeping the library entry.");
                     return;
                 }
 
+                // Reached only when a load ran and did not defer. Note this branch is narrower than
+                // its message suggests and always has been: a corrupt CACHED bee does not arrive
+                // here, because LoadWrapperFromDisc finds the file still present and hands back the
+                // placeholder wrapper CreateNewWrapperFromItem built, whose connector is non-null.
+                // What actually lands here is a load that reported success without producing a
+                // connector, or LoadWrapperFromDisc returning null because the meta cache has no
+                // record. Evicting a genuinely unreadable cached bee is a separate gap.
                 if (cached == null || cached.BasisBundleConnector == null)
                 {
                     BasisDebug.LogError($"Item '{urlKey}' has corrupt or invalid data. Removing from library.");
@@ -282,23 +306,14 @@ namespace Basis.BasisUI
             }
             catch (Exception ex)
             {
-                string exMessage = ex.Message + " " + (ex.InnerException?.Message ?? string.Empty);
-                if (BasisMetaLoadResult.LooksLikeTransientError(exMessage))
-                {
-                    BasisDebug.LogWarning($"Deferred meta preload for '{item?.Url}' — transient error: {ex.Message}");
-                    return;
-                }
-
-                BasisDebug.LogError($"Failed to load metadata for '{item?.Url}'. Removing from library. Error: {ex.Message}");
-                try
-                {
-                    BasisStorageManagement.DeleteStoredFile(item?.Url);
-                    await BasisDataStoreItemKeys.RemoveKey(item);
-                }
-                catch (Exception cleanupEx)
-                {
-                    BasisDebug.LogError(cleanupEx);
-                }
+                // An exception is never positive evidence that the user's content is bad. Every
+                // throw reachable from here is ours — a locked or unreadable cache file, a cache
+                // path not yet initialised, a cancellation, a null dereference. Deciding to delete
+                // the item because the exception text did not happen to contain one of four words
+                // is what destroyed people's libraries; the structural checks that CAN prove bad
+                // bytes all return a classified failure instead of throwing, so nothing that
+                // should be evicted stops being evicted by keeping the item here.
+                BasisDebug.LogWarning($"Deferred meta preload for '{item?.Url}' — {ex.GetType().Name}: {ex.Message}. Keeping the library entry.");
             }
         }
         [HideInCallstack]

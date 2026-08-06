@@ -118,13 +118,15 @@ public static class BasisBundleManagement
     }
 
     /// <summary>
-    /// Reads only the connector from an already-downloaded .BEE file.
+    /// Reads only the connector from an already-downloaded .BEE file. The third tuple element
+    /// carries the reader's verdict; only <see cref="BasisLoadFailureKind.Corrupt"/> may be treated
+    /// by a caller as grounds for deleting the user's content.
     /// </summary>
-    public static async Task<(BasisBundleConnector Connector, string ErrorMessage)> ReadConnectorFile(BasisTrackedBundleWrapper bundleWrapper, BasisStoredEncryptedBundle storedBundle, BasisProgressReport progressCallback, CancellationToken cancellationToken)
+    public static async Task<(BasisBundleConnector Connector, string ErrorMessage, BasisLoadFailureKind FailureKind)> ReadConnectorFile(BasisTrackedBundleWrapper bundleWrapper, BasisStoredEncryptedBundle storedBundle, BasisProgressReport progressCallback, CancellationToken cancellationToken)
     {
         if (!BasisBeeValidator.IsValidBundleWrapper(bundleWrapper, out string wrapperErr) || storedBundle is null)
         {
-            return (null, wrapperErr ?? "Stored bundle is null.");
+            return (null, wrapperErr ?? "Stored bundle is null.", BasisLoadFailureKind.Unspecified);
         }
 
         string readPath = null;
@@ -139,23 +141,23 @@ public static class BasisBundleManagement
 
         if (string.IsNullOrWhiteSpace(readPath))
         {
-            return (null, "Stored bundle path is null or empty.");
+            return (null, "Stored bundle path is null or empty.", BasisLoadFailureKind.Unspecified);
         }
 
         if (string.IsNullOrWhiteSpace(bundleWrapper.LoadableBundle.UnlockPassword))
         {
-            return (null, "Unlock password is null or empty.");
+            return (null, "Unlock password is null or empty.", BasisLoadFailureKind.Unspecified);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return (null, "Cancelled before starting.");
+            return (null, "Cancelled before starting.", BasisLoadFailureKind.Unspecified);
         }
         BeeResult<BeeReadResult> result = await BasisIOManagement.ReadBEEConnectorFileEx(readPath, bundleWrapper.LoadableBundle.UnlockPassword, progressCallback, cancellationToken).ConfigureAwait(false);
 
         if (!result.IsSuccess || result.Value is null)
         {
-            return (null, "ReadBEEFileEx failed. " + (result.Error ?? "No details."));
+            return (null, "ReadBEEFileEx failed. " + (result.Error ?? "No details."), result.FailureKind);
         }
 
         BasisIOManagement.BeeReadResult data = result.Value;
@@ -163,32 +165,38 @@ public static class BasisBundleManagement
 
         if (!BasisBeeValidator.IsValidConnector(data.Connector, out string connErr))
         {
-            return (null, connErr);
+            // Unspecified, not Corrupt: IsValidConnector only null-checks, and every caller above
+            // already returned on a null connector, so reaching this is an internal invariant
+            // violation rather than a statement about the user's bytes. If this check ever grows
+            // real field validation, classify each new rejection before letting it evict.
+            return (null, connErr, BasisLoadFailureKind.Unspecified);
         }
 
-        return (data.Connector, string.Empty);
+        return (data.Connector, string.Empty, BasisLoadFailureKind.Unspecified);
     }
 
     /// <summary>
     /// Downloads connector only and returns it.
     /// </summary>
-    public static async Task<(BasisBundleConnector Connector, string ErrorMessage)> DownloadConnectorFile(BasisTrackedBundleWrapper bundleWrapper, BasisProgressReport progressCallback, CancellationToken cancellationToken, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+    public static async Task<(BasisBundleConnector Connector, string ErrorMessage, BasisLoadFailureKind FailureKind)> DownloadConnectorFile(BasisTrackedBundleWrapper bundleWrapper, BasisProgressReport progressCallback, CancellationToken cancellationToken, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
+        // Refusing to start is not the same as the content being bad: an unsupported scheme, a
+        // blocked host or a missing password all land here and must never evict.
         if (!BasisBeeValidator.ValidateWrapperPasswordAndUrl(bundleWrapper, out string url, out string err))
         {
-            return (null, err);
+            return (null, err, BasisLoadFailureKind.Unspecified);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return (null, "Cancelled before starting.");
+            return (null, "Cancelled before starting.", BasisLoadFailureKind.Unspecified);
         }
         BasisDebug.Log("Downloading BEE (connector-only) from " + url);
         BeeResult<(BasisBundleConnector, string, string)> result = await BasisIOManagement.DownloadConnectorOnlyEx(url, bundleWrapper.LoadableBundle.UnlockPassword!, progressCallback, cancellationToken, MaxDownloadSizeInMB);
 
         if (!result.IsSuccess || result.Value.Item1 is null)
         {
-            return (null, BasisBeeValidator.BuildResultError("DownloadConnectorOnlyEx failed", !string.IsNullOrEmpty(result.Error), result.ResponseCode != -1 && result.ResponseCode != 0, result.Error, result.ResponseCode));
+            return (null, BasisBeeValidator.BuildResultError("DownloadConnectorOnlyEx failed", !string.IsNullOrEmpty(result.Error), result.ResponseCode != -1 && result.ResponseCode != 0, result.Error, result.ResponseCode), result.FailureKind);
         }
 
         bundleWrapper.LoadableBundle.BasisBundleConnector = result.Value.Item1;
@@ -197,11 +205,15 @@ public static class BasisBundleManagement
 
         if (!BasisBeeValidator.IsValidConnector(result.Value.Item1, out string connErr))
         {
-            return (null, connErr);
+            // Unspecified, not Corrupt: IsValidConnector only null-checks, and every caller above
+            // already returned on a null connector, so reaching this is an internal invariant
+            // violation rather than a statement about the user's bytes. If this check ever grows
+            // real field validation, classify each new rejection before letting it evict.
+            return (null, connErr, BasisLoadFailureKind.Unspecified);
         }
 
         BasisDebug.Log("Successfully obtained connector (connector-only).");
-        return (result.Value.Item1, string.Empty);
+        return (result.Value.Item1, string.Empty, BasisLoadFailureKind.Unspecified);
     }
 
     /// <summary>
@@ -272,32 +284,33 @@ public static class BasisBundleManagement
     /// Reads only the connector from a local BEE file, trying the remote-format layout first and
     /// falling back to the full-file cache layout. Used by meta-only loads (library cards).
     /// </summary>
-    public static async Task<(BasisBundleConnector Connector, string ErrorMessage)> LocalDirectConnectorFile(BasisTrackedBundleWrapper bundleWrapper, string localPath, BasisProgressReport progressCallback, CancellationToken cancellationToken)
+    public static async Task<(BasisBundleConnector Connector, string ErrorMessage, BasisLoadFailureKind FailureKind)> LocalDirectConnectorFile(BasisTrackedBundleWrapper bundleWrapper, string localPath, BasisProgressReport progressCallback, CancellationToken cancellationToken)
     {
         if (!BasisBeeValidator.IsValidBundleWrapper(bundleWrapper, out string wrapperErr))
         {
-            return (null, wrapperErr);
+            return (null, wrapperErr, BasisLoadFailureKind.Unspecified);
         }
 
         if (string.IsNullOrWhiteSpace(localPath))
         {
-            return (null, "Local bee path is null or empty.");
+            return (null, "Local bee path is null or empty.", BasisLoadFailureKind.Unspecified);
         }
 
         if (string.IsNullOrWhiteSpace(bundleWrapper.LoadableBundle.UnlockPassword))
         {
-            return (null, "Unlock password is null or empty.");
+            return (null, "Unlock password is null or empty.", BasisLoadFailureKind.Unspecified);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return (null, "Cancelled before starting.");
+            return (null, "Cancelled before starting.", BasisLoadFailureKind.Unspecified);
         }
 
         string password = bundleWrapper.LoadableBundle.UnlockPassword;
         BasisDebug.Log("Reading local bee connector from disk: " + localPath);
 
         BeeResult<BeeReadResult> result = await BasisIOManagement.ReadRemoteBeeFromDiskEx(localPath, password, progressCallback, cancellationToken, includeSection: false).ConfigureAwait(false);
+        BasisLoadFailureKind remoteFormatKind = result.IsSuccess ? BasisLoadFailureKind.Unspecified : result.FailureKind;
         if (!result.IsSuccess || result.Value is null)
         {
             result = await BasisIOManagement.ReadBEEConnectorFileEx(localPath, password, progressCallback, cancellationToken).ConfigureAwait(false);
@@ -305,7 +318,16 @@ public static class BasisBundleManagement
 
         if (!result.IsSuccess || result.Value is null)
         {
-            return (null, "Local bee connector read failed. " + (result.Error ?? "No details."));
+            // Reading this file with the wrong layout is EXPECTED — the two readers are a
+            // format probe, and whichever one runs second is parsing a header it was never
+            // meant to see, so its verdict alone means nothing. Only call the file unusable
+            // when both layouts positively rejected it; otherwise the fallback's confusion
+            // would delete a local bee that is merely in the other format, or one this
+            // reader declined for a reason the first reader deliberately left unclassified.
+            BasisLoadFailureKind kind = remoteFormatKind == BasisLoadFailureKind.Corrupt && result.FailureKind == BasisLoadFailureKind.Corrupt
+                ? BasisLoadFailureKind.Corrupt
+                : BasisLoadFailureKind.Unspecified;
+            return (null, "Local bee connector read failed. " + (result.Error ?? "No details."), kind);
         }
 
         bundleWrapper.LoadableBundle.BasisBundleConnector = result.Value.Connector;
@@ -313,10 +335,14 @@ public static class BasisBundleManagement
 
         if (!BasisBeeValidator.IsValidConnector(result.Value.Connector, out string connErr))
         {
-            return (null, connErr);
+            // Unspecified, not Corrupt: IsValidConnector only null-checks, and every caller above
+            // already returned on a null connector, so reaching this is an internal invariant
+            // violation rather than a statement about the user's bytes. If this check ever grows
+            // real field validation, classify each new rejection before letting it evict.
+            return (null, connErr, BasisLoadFailureKind.Unspecified);
         }
 
-        return (result.Value.Connector, string.Empty);
+        return (result.Value.Connector, string.Empty, BasisLoadFailureKind.Unspecified);
     }
 
     private static bool TryGetPlatform(BasisBundleConnector connector, out BasisBundleGenerated generated, out string error)

@@ -5,30 +5,76 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// Result of a meta-only load attempt. Distinguishes transient network failures
-/// (caller should keep cached state intact and retry later) from genuine corruption
-/// or missing data (caller may safely evict the item).
+/// Result of a meta-only load attempt.
+///
+/// <para><see cref="IsCorrupt"/> is the ONLY field that may authorize destroying the user's cached
+/// bee or their library entry, and it is set only when a reader positively identified unusable
+/// bytes (<see cref="BasisLoadFailureKind.Corrupt"/>). Failing to obtain the connector — because a
+/// host was refused, DNS did not resolve, a disk was full, or a token was cancelled — is not
+/// evidence the content is bad, and must leave the item alone.</para>
+///
+/// <para><see cref="IsTransient"/> is a softer, non-destructive signal: "is retrying worth it?".
+/// It drives retry budgets only. Being wrong about it costs one request.</para>
 /// </summary>
 public readonly struct BasisMetaLoadResult
 {
     public readonly bool Loaded;
     public readonly bool IsTransient;
+    /// <summary>The load positively identified unusable bytes. The only grounds for eviction.</summary>
+    public readonly bool IsCorrupt;
     public readonly string Error;
 
-    private BasisMetaLoadResult(bool loaded, bool isTransient, string error)
+    private BasisMetaLoadResult(bool loaded, bool isTransient, bool isCorrupt, string error)
     {
         Loaded = loaded;
         IsTransient = isTransient;
+        IsCorrupt = isCorrupt;
         Error = error;
     }
 
-    public static BasisMetaLoadResult Success => new BasisMetaLoadResult(true, false, null);
-    public static BasisMetaLoadResult Transient(string error) => new BasisMetaLoadResult(false, true, error);
-    public static BasisMetaLoadResult Corrupt(string error) => new BasisMetaLoadResult(false, false, error);
+    public static BasisMetaLoadResult Success => new BasisMetaLoadResult(true, false, false, null);
+    /// <summary>Equivalent to <c>Failed(error, retryable: true)</c>; retained for callers outside
+    /// this repo. Prefer <see cref="FromFailure"/>, which picks the verdict for you.</summary>
+    public static BasisMetaLoadResult Transient(string error) => new BasisMetaLoadResult(false, true, false, error);
+    public static BasisMetaLoadResult Corrupt(string error) => new BasisMetaLoadResult(false, false, true, error);
+    /// <summary>
+    /// A failure that was NOT positively attributed to bad bytes. Keeps the item.
+    /// <paramref name="retryable"/> only chooses whether a caller with a retry budget should spend
+    /// it; it has no bearing on whether anything is deleted.
+    /// </summary>
+    public static BasisMetaLoadResult Failed(string error, bool retryable) => new BasisMetaLoadResult(false, retryable, false, error);
+
+    /// <summary>
+    /// The single place a reader's verdict becomes a caller's licence to delete. Corrupt is granted
+    /// only when <paramref name="kind"/> already says so — never re-derived from the message text —
+    /// and every other failure keeps the item, using the text heuristic solely to size a retry.
+    ///
+    /// <para>Both load paths route through here so the rule cannot drift apart between them, and so
+    /// it can be tested without a disk or a network.</para>
+    /// </summary>
+    public static BasisMetaLoadResult FromFailure(BasisLoadFailureKind kind, string error)
+    {
+        if (kind == BasisLoadFailureKind.Corrupt)
+        {
+            return Corrupt(error);
+        }
+        return Failed(error, LooksLikeTransientError(error));
+    }
 
     // Implicit bool conversion preserves legacy `bool x = await HandleMetaOnlyLoad(...)` call sites.
     public static implicit operator bool(BasisMetaLoadResult r) => r.Loaded;
 
+    /// <summary>
+    /// Guesses, from message text, whether retrying might help. This is a HEURISTIC over strings
+    /// that embed URLs, file paths and connector contents, so it is wrong in both directions — a
+    /// bee served from a host containing "ssl" makes every error for that item look transient.
+    /// That is tolerable here because the answer only sizes a retry.
+    ///
+    /// <para>It must never gate a destructive action. Deciding what to delete from this was the
+    /// bug: policy refusals and DNS failures contain none of these tokens, so "we could not fetch
+    /// it" read as "the bytes are bad" and the user's saved worlds and avatars were deleted. Use
+    /// <see cref="IsCorrupt"/> for that.</para>
+    /// </summary>
     public static bool LooksLikeTransientError(string error)
     {
         if (string.IsNullOrEmpty(error)) return false;
@@ -130,7 +176,7 @@ public static class BasisBeeManagement
             {
                 try
                 {
-                    var (connector, connectorError) = await BasisBundleManagement.DownloadConnectorFile(wrapper, new BasisProgressReport(), cancellationToken, MaxDownloadSizeInBytes);
+                    var (connector, connectorError, _) = await BasisBundleManagement.DownloadConnectorFile(wrapper, new BasisProgressReport(), cancellationToken, MaxDownloadSizeInBytes);
                     if (connector == null)
                     {
                         BasisDebug.Log($"Connector prefetch unavailable ({connectorError}) — continuing with the full download.", BasisDebug.LogTag.Event);
@@ -366,10 +412,23 @@ public static class BasisBeeManagement
         string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
         if (BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
         {
-            var (localConnector, localErr) = await BasisBundleManagement.LocalDirectConnectorFile(wrapper, localBeePath, report, cancellationToken);
+            var (localConnector, localErr, localKind) = await BasisBundleManagement.LocalDirectConnectorFile(wrapper, localBeePath, report, cancellationToken);
             if (localConnector == null || !string.IsNullOrEmpty(localErr))
             {
-                return BasisMetaLoadResult.Corrupt(localErr ?? "Local connector read failed.");
+                string localMessage = localErr ?? "Local connector read failed.";
+                // This branch used to hard-code Corrupt, so a cancelled read or a locked file
+                // deleted a local bee the user cannot re-download. Only an actually unreadable
+                // file — one that parsed as neither on-disk layout — evicts now.
+                BasisMetaLoadResult localResult = BasisMetaLoadResult.FromFailure(localKind, localMessage);
+                if (localResult.IsCorrupt)
+                {
+                    BasisDebug.LogError($"Local bee is unreadable: {localMessage}");
+                }
+                else
+                {
+                    BasisDebug.LogWarning($"Local meta-only load deferred: {localMessage}");
+                }
+                return localResult;
             }
             return BasisMetaLoadResult.Success;
         }
@@ -379,7 +438,7 @@ public static class BasisBeeManagement
         // here, so without it a card would keep showing the previous name/thumbnail/date after the
         // bee behind its url was replaced.
         bool useCachedConnector = IsMetaOnDisc && CacheIsCurrentForRequestedVersion(wrapper, MetaInfo, beeLocation, evictStaleCache: false);
-        (BasisBundleConnector Connector, string ErrorMessage) output;
+        (BasisBundleConnector Connector, string ErrorMessage, BasisLoadFailureKind FailureKind) output;
         if (useCachedConnector)
         {
             output = await BasisBundleManagement.ReadConnectorFile(wrapper, MetaInfo.StoredLocal, report, cancellationToken).ConfigureAwait(false);
@@ -391,16 +450,23 @@ public static class BasisBeeManagement
         }
         if (!string.IsNullOrEmpty(output.ErrorMessage))
         {
-            // A transient failure (SSL/DNS/timeout/cancel) must not be treated as corruption by the caller.
-            // The on-disc cache (if any) is still intact; only the download attempt failed.
-            if (BasisMetaLoadResult.LooksLikeTransientError(output.ErrorMessage))
+            // Corrupt is the caller's licence to delete the user's cached bee and their saved
+            // library entry, so it is granted only where a reader positively identified unusable
+            // bytes. It is never re-derived here from the message text: the string carries URLs and
+            // file paths, and "we declined to fetch it" / "we could not reach it" read identically
+            // to "the bytes are wrong".
+            BasisMetaLoadResult failure = BasisMetaLoadResult.FromFailure(output.FailureKind, output.ErrorMessage);
+            if (failure.IsCorrupt)
             {
-                BasisDebug.LogWarning($"Meta-only load deferred (transient): {output.ErrorMessage}");
-                return BasisMetaLoadResult.Transient(output.ErrorMessage);
+                BasisDebug.LogError($"Meta-only load found unusable content: {output.ErrorMessage}");
             }
-
-            BasisDebug.LogError($"Missing BundleArray {output.ErrorMessage}");
-            return BasisMetaLoadResult.Corrupt(output.ErrorMessage);
+            else
+            {
+                // The connector was not obtained. Keep whatever is cached and let the next preload
+                // try again; IsTransient only sizes a retry budget.
+                BasisDebug.LogWarning($"Meta-only load deferred (retryable={failure.IsTransient}): {output.ErrorMessage}");
+            }
+            return failure;
         }
         if (useCachedConnector == false)
         {

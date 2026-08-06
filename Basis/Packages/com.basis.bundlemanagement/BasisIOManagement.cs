@@ -404,17 +404,22 @@ public static class BasisIOManagement
         // Header
         var headerRes = await DownloadRangeInternal(url, 0, BasisBeeConstants.RemoteHeaderSize - 1, null, progressCallback, cancellationToken, MaxDownloadSizeInMB);
         if (!headerRes.IsSuccess || headerRes.Value?.Data == null)
-            return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: Failed to read header. {headerRes.Error ?? "No data"}", headerRes.ResponseCode);
+            return BeeResult<(BasisBundleConnector, string, string)>.FailFrom(headerRes, $"DownloadConnectorOnlyEx: Failed to read header. {headerRes.Error ?? "No data"}");
 
+        // Transport, not content: a range request that came back the wrong size can be a proxy
+        // truncating us. Left unclassified so it never evicts.
         if (headerRes.Value.Data.Length != BasisBeeConstants.RemoteHeaderSize)
             return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: Header size mismatch. Expected {BasisBeeConstants.RemoteHeaderSize}, got {headerRes.Value.Data.Length}.", headerRes.ResponseCode);
 
         string observedVersionTag = headerRes.Value.Validator.Tag;
 
         long connectorLength = ReadInt64LittleEndian(headerRes.Value.Data);
+        // The file's OWN header declares a length no BEE can have. That is the bytes being wrong.
         if (connectorLength <= 0)
-            return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: Invalid connector length {connectorLength}.");
+            return BeeResult<(BasisBundleConnector, string, string)>.FailCorrupt($"DownloadConnectorOnlyEx: Invalid connector length {connectorLength}.");
 
+        // Our cap, not the format's — a future cap change must not retroactively make valid
+        // content "corrupt", so this stays unclassified.
         if (connectorLength > BasisBeeConstants.MaxConnectorBytes)
             return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: Connector length {connectorLength} exceeds max allowed {BasisBeeConstants.MaxConnectorBytes}.");
 
@@ -426,18 +431,27 @@ public static class BasisIOManagement
 
         if (connectorRes.IsSuccess == false && connectorRes.Error != string.Empty)
         {
-            return BeeResult<(BasisBundleConnector, string, string)>.Fail(connectorRes.Error, connectorRes.ResponseCode);
+            return BeeResult<(BasisBundleConnector, string, string)>.FailFrom(connectorRes, connectorRes.Error);
         }
 
         if (!connectorRes.IsSuccess || connectorRes.Value?.Data == null)
-            return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: Failed to read connector bytes. {connectorRes.Error ?? "No data"}", connectorRes.ResponseCode);
+            return BeeResult<(BasisBundleConnector, string, string)>.FailFrom(connectorRes, $"DownloadConnectorOnlyEx: Failed to read connector bytes. {connectorRes.Error ?? "No data"}");
 
+        // Also transport: we asked for an exact range and got a different count.
         if (connectorRes.Value.Data.LongLength != connectorLength)
             return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: Expected {connectorLength} bytes, got {connectorRes.Value.Data.LongLength}.", connectorRes.ResponseCode);
 
         var connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorRes.Value.Data, progressCallback);
         if (connector == null)
         {
+            // NOT classified Corrupt, despite looking like the obvious place for it.
+            // GenerateMetaFromBytes flattens BasisDecryptResult to null, and BasisDecryptError.Unknown
+            // is produced by a catch-all that swallows every exception in the decrypt path — including
+            // OutOfMemoryException from the defensive copy and the output buffer. A memory spike while
+            // four connectors parse concurrently must not read as "your saved world is corrupt".
+            // WrongPasswordOrCorruptedData is likewise ambiguous by name: a rotated password is not bad
+            // bytes. Recovering a real verdict here means surfacing BasisDecryptError from
+            // BasisEncryptionToData; until then this stays non-destructive.
             return BeeResult<(BasisBundleConnector, string, string)>.Fail("DownloadConnectorOnlyEx: Failed to parse connector metadata (null).");
         }
 
@@ -551,26 +565,34 @@ public static class BasisIOManagement
 
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 96 * 1024, useAsync: true);
 
+        // These checks read the on-disk header the format defines: a file that cannot satisfy its
+        // own declared sizes is not a BEE in this layout, so they are the one place that reports
+        // Corrupt. Note the verdict alone is not permission to delete anything — when this runs as
+        // the second half of the local-bee format probe (LocalDirectConnectorFile) the path is an
+        // arbitrary user file that may simply be in the other layout, and that caller requires BOTH
+        // readers to agree before it treats the file as unusable.
         if (fs.Length < BasisBeeConstants.DiskHeaderSize)
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: File too small to contain header. Size={fs.Length} bytes.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadBEEFileEx: File too small to contain header. Size={fs.Length} bytes.");
 
         // Read Int32 connector size (little-endian)
         byte[] sizeBytes = await ReadExactAsync(fs, BasisBeeConstants.DiskHeaderSize, cancellationToken).ConfigureAwait(false);
         if (sizeBytes.Length != BasisBeeConstants.DiskHeaderSize)
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read connector size (header). Got {sizeBytes.Length} bytes.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadBEEFileEx: Failed to read connector size (header). Got {sizeBytes.Length} bytes.");
 
         int connectorSize = ReadInt32LittleEndian(sizeBytes);
         long remainingPossible = fs.Length - fs.Position;
         if (connectorSize <= 0 || connectorSize > remainingPossible)
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Invalid connector size {connectorSize}. Remaining file bytes: {remainingPossible}. File may be corrupt.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadBEEFileEx: Invalid connector size {connectorSize}. Remaining file bytes: {remainingPossible}. File may be corrupt.");
 
         // Read connector bytes
         byte[] connectorBytes = await ReadExactAsync(fs, connectorSize, cancellationToken).ConfigureAwait(false);
         if (connectorBytes.Length != connectorSize)
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full connector block. Expected {connectorSize}, got {connectorBytes.Length}.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadBEEFileEx: Failed to read full connector block. Expected {connectorSize}, got {connectorBytes.Length}.");
 
         BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback).ConfigureAwait(false);
 
+        // Not Corrupt: a null here also covers a wrong password and any swallowed exception
+        // (including OOM) inside the decrypt path. See the note in DownloadConnectorOnlyEx.
         if (connector == null)
             return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: Failed to regenerate connector metadata (null).");
 
@@ -597,28 +619,30 @@ public static class BasisIOManagement
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 96 * 1024, useAsync: true);
 
         if (fs.Length < BasisBeeConstants.RemoteHeaderSize)
-            return BeeResult<BeeReadResult>.Fail($"ReadRemoteBeeFromDiskEx: File too small to contain remote header. Size={fs.Length} bytes.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadRemoteBeeFromDiskEx: File too small to contain remote header. Size={fs.Length} bytes.");
 
         byte[] headerBytes = await ReadExactAsync(fs, BasisBeeConstants.RemoteHeaderSize, cancellationToken).ConfigureAwait(false);
         if (headerBytes.Length != BasisBeeConstants.RemoteHeaderSize)
-            return BeeResult<BeeReadResult>.Fail($"ReadRemoteBeeFromDiskEx: Failed to read remote header. Got {headerBytes.Length} bytes.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadRemoteBeeFromDiskEx: Failed to read remote header. Got {headerBytes.Length} bytes.");
 
         long connectorLength = ReadInt64LittleEndian(headerBytes);
         if (connectorLength <= 0)
-            return BeeResult<BeeReadResult>.Fail($"ReadRemoteBeeFromDiskEx: Invalid connector length {connectorLength}. File may not be a remote-format BEE.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadRemoteBeeFromDiskEx: Invalid connector length {connectorLength}. File may not be a remote-format BEE.");
 
+        // Our cap, not the format's — left unclassified, same as the download path.
         if (connectorLength > BasisBeeConstants.MaxConnectorBytes)
             return BeeResult<BeeReadResult>.Fail($"ReadRemoteBeeFromDiskEx: Connector length {connectorLength} exceeds max allowed {BasisBeeConstants.MaxConnectorBytes}.");
 
         long remainingAfterHeader = fs.Length - fs.Position;
         if (connectorLength > remainingAfterHeader)
-            return BeeResult<BeeReadResult>.Fail($"ReadRemoteBeeFromDiskEx: Connector length {connectorLength} exceeds file remainder {remainingAfterHeader}.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadRemoteBeeFromDiskEx: Connector length {connectorLength} exceeds file remainder {remainingAfterHeader}.");
 
         byte[] connectorBytes = await ReadExactAsync(fs, checked((int)connectorLength), cancellationToken).ConfigureAwait(false);
         if (connectorBytes.LongLength != connectorLength)
-            return BeeResult<BeeReadResult>.Fail($"ReadRemoteBeeFromDiskEx: Failed to read full connector block. Expected {connectorLength}, got {connectorBytes.Length}.");
+            return BeeResult<BeeReadResult>.FailCorrupt($"ReadRemoteBeeFromDiskEx: Failed to read full connector block. Expected {connectorLength}, got {connectorBytes.Length}.");
 
         BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback).ConfigureAwait(false);
+        // Not Corrupt: same decrypt-result ambiguity as the other two readers.
         if (connector == null)
             return BeeResult<BeeReadResult>.Fail("ReadRemoteBeeFromDiskEx: Failed to parse connector metadata (null).");
 
