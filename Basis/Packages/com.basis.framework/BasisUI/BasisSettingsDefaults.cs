@@ -1734,6 +1734,13 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> FBIKBodyFit = new("fbikbodyfit", new BasisPlatformDefault<bool>(true));
 
+        // Master switch for the avatar-authored constraint solve (BasisConstraintSystem): aim, parent,
+        // twist correction, twist chain, damped, and the rest. Off leaves constrained bones holding
+        // whatever the last solve gave them rather than snapping to bind, so it is usable as a live A/B
+        // on an avatar whose constraints are fighting something else for a bone.
+        public static BasisSettingsBinding<bool> AvatarConstraintsEnabled = new("avatarconstraintsenabled", new BasisPlatformDefault<bool>(true));
+
+
         // Job-driven locomotion: step the stock locomotion controller as data and blend its baked clips
         // in a Burst job overlapping Simulate, instead of evaluating the Animator on the main thread.
         // Only engages on avatars wearing the stock controller; custom animators keep the Animator path.
@@ -2687,6 +2694,7 @@ namespace Basis.BasisUI
             FBIKAnatPelvicTwistRouting.LoadBindingValue();
             FBIKLegSwivelSmoothing.LoadBindingValue();
             FBIKTrackerBendNormal.LoadBindingValue();
+            AvatarConstraintsEnabled.LoadBindingValue();
             FBIKLordosisPitchGainDeg.LoadBindingValue();
             FBIKLordosisBaseDeg.LoadBindingValue();
             FBIKLordosisNeckShare.LoadBindingValue();

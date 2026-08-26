@@ -584,6 +584,19 @@ public static class SettingsProviderIK
                 "settings.bodyTracking.anat.trackerBendNormal.description");
         });
 
+        // ============== Avatar constraints ==============
+        // The avatar-authored constraint solve runs after the IK, so it gets the last word on any bone
+        // it drives. Turning it off is the quickest way to tell an IK problem apart from a constraint
+        // on the same bone -- and on an avatar whose constraints fight the solver, a usable workaround.
+        CreateCollapsibleSection(tabDesc, colliderGroup,
+            BasisLocalization.Get("settings.bodyTracking.section.constraints.title"),
+            BasisLocalization.Get("settings.bodyTracking.section.constraints.description"), false, constraintParent =>
+        {
+            AddAnatomyToggle(constraintParent, BasisSettingsDefaults.AvatarConstraintsEnabled,
+                "settings.bodyTracking.constraints.enabled.title",
+                "settings.bodyTracking.constraints.enabled.description");
+        });
+
         // ============== Desktop head carry ==============
         // Desktop only: in VR the headset already rides the lever arm this reproduces.
         CreateCollapsibleSection(tabDesc, colliderGroup,
@@ -1417,6 +1430,19 @@ public static class SettingsProviderIK
                 stageToggle.AssignBinding(stages[i].Binding);
                 gated.Add(stageToggle.Descriptor);
             }
+
+            // Diagnostics: why nothing is on screen. Gated with the stages so they hide with them.
+            var solveGizmoDiagnose = PanelToggle.CreateNewEntry(gizmoParent);
+            solveGizmoDiagnose.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.ikGizmos.diagnose"));
+            solveGizmoDiagnose.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.ikGizmos.diagnose.tooltip"));
+            solveGizmoDiagnose.AssignBinding(Basis.Scripts.Debugging.BasisIKSolveGizmoStages.Diagnose);
+            gated.Add(solveGizmoDiagnose.Descriptor);
+
+            var solveGizmoSelfTest = PanelToggle.CreateNewEntry(gizmoParent);
+            solveGizmoSelfTest.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.ikGizmos.selfTest"));
+            solveGizmoSelfTest.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.ikGizmos.selfTest.tooltip"));
+            solveGizmoSelfTest.AssignBinding(Basis.Scripts.Debugging.BasisIKSolveGizmoStages.DiagnoseSelfTest);
+            gated.Add(solveGizmoSelfTest.Descriptor);
 
             var solveGizmoLabels = PanelToggle.CreateNewEntry(gizmoParent);
             solveGizmoLabels.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.ikGizmos.labels"));

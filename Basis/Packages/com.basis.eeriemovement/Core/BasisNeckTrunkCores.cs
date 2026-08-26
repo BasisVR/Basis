@@ -4,7 +4,13 @@ namespace Basis.IK
     public static class BasisCervicalSolveCore
     {
         const float sqrEpsilon = 1e-8f;
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
         public static void Solve(in BasisCervicalInput i, out BasisCervicalResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisCervicalInput i, out BasisCervicalResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
 

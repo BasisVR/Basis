@@ -1,12 +1,13 @@
 # Third-Party Notices
 
-This package (`com.basis.framework`, MIT) redistributes the third-party data below. Everything
-listed here is **test-only** and is **not shipped in player builds**.
+This package (`com.basis.eeriemovement.tests`, MIT) redistributes the third-party data below.
+Everything listed here is **test-only** and is **not shipped in player builds**.
 
 ## CMU Graphics Lab Motion Capture Database
 
 - Project: http://mocap.cs.cmu.edu/
-- Redistributed in: `Tests/MocapCorpus~/*.bvh` (20 clips, ~10 MB)
+- Redistributed in: `Tests/MocapCorpus~/**/*.bvh` (109 clips, ~97 MB — 20 in the root corpus plus the
+  `posture/`, `dynamic/` and `slow/` sub-corpora; `Tests/MocapCorpus~/NOTICE.md` says which clip is which)
 - License: **unrestricted, including commercial use** (see terms below)
 
 Human motion-capture recordings used as ground truth by `BasisMocapAccuracyTests` and

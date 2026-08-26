@@ -445,7 +445,7 @@ namespace Basis.IK
                 input.UpperBendRoll = 0f;
             }
 
-            BasisSpineBendCore.Solve(input, out BasisSpineBendResult r);
+            BasisSpineBendCore.Solve(input, out BasisSpineBendResult r, ref gizmos);
             if (r.EarlyOut)
             {
                 return;
@@ -511,7 +511,7 @@ namespace Basis.IK
             input.CrouchDepth = crouchDepth;
             input.StandingHeadHeight = standingHeadHeight;
             input.Fade = fade;
-            BasisCrouchOffsetCore.Solve(input, out BasisCrouchOffsetResult result);
+            BasisCrouchOffsetCore.Solve(input, out BasisCrouchOffsetResult result, ref gizmos);
             return result.HipsPos;
         }
         public void ApplyCervicalLordosis()
@@ -553,7 +553,7 @@ namespace Basis.IK
             input.HeadTargetRot = targetRotationHead;
             input.HasUpperChest = plan.hasUpperChest;
 
-            BasisCervicalSolveCore.Solve(input, out BasisCervicalResult result);
+            BasisCervicalSolveCore.Solve(input, out BasisCervicalResult result, ref gizmos);
             if (result.EarlyOut)
             {
                 if (plan.hasHead)

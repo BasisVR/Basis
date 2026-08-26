@@ -162,7 +162,7 @@ namespace Basis.Tests.IK
         static List<BasisMotionClip> LoadCorpus()
         {
             var clips = new List<BasisMotionClip>();
-            foreach (string dir in new[] { Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~"), Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~/posture") })
+            foreach (string dir in new[] { Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~"), Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~/posture") })
             {
                 if (!Directory.Exists(dir)) continue;
                 foreach (string f in Directory.GetFiles(dir, "*.bvh"))

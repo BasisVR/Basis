@@ -25,6 +25,13 @@ namespace Basis.Scripts.Debugging
         public static readonly BasisSettingsBinding<bool> Enabled = new("gizmoiksolve_enabled", new BasisPlatformDefault<bool>(false));
         public static readonly BasisSettingsBinding<bool> Labels = new("gizmoiksolve_labels", new BasisPlatformDefault<bool>(false));
         public static readonly BasisSettingsBinding<float> Scale = new("gizmoiksolve_scale", new BasisPlatformDefault<float>(1f));
+
+        /// <summary>Logs one line a second naming which link of the gizmo chain is empty.</summary>
+        public static readonly BasisSettingsBinding<bool> Diagnose = new("gizmoiksolve_diagnose", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>Draws a magenta line in front of the camera through BasisGizmoManager alone,
+        /// with none of the IK gizmo path in the way. Missing means the break is below this layer.</summary>
+        public static readonly BasisSettingsBinding<bool> DiagnoseSelfTest = new("gizmoiksolve_diagnoseselftest", new BasisPlatformDefault<bool>(false));
         public const float ScaleMin = 0.25f;
         public const float ScaleMax = 4f;
         public static readonly BasisIKSolveGizmoStageInfo[] All =
@@ -59,6 +66,8 @@ namespace Basis.Scripts.Debugging
         {
             Enabled.ReloadAndNotify();
             Labels.ReloadAndNotify();
+            Diagnose.ReloadAndNotify();
+            DiagnoseSelfTest.ReloadAndNotify();
             Scale.ReloadAndNotify();
             for (int i = 0; i < All.Length; i++)
             {
@@ -69,6 +78,8 @@ namespace Basis.Scripts.Debugging
         {
             Enabled.ResetToDefault();
             Labels.ResetToDefault();
+            Diagnose.ResetToDefault();
+            DiagnoseSelfTest.ResetToDefault();
             Scale.ResetToDefault();
             for (int i = 0; i < All.Length; i++)
             {

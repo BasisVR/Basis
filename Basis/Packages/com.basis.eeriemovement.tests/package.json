@@ -1,0 +1,24 @@
+{
+  "name": "com.basis.eeriemovement.tests",
+  "displayName": "Basis Eerie Movement Tests",
+  "version": "0.0.1",
+  "description": "Test suite and measurement harness for the Basis Eerie Movement IK solver: the EditMode tests, the mocap accuracy / motion-quality / sweep code that grades the solver against real human motion, and the CMU BVH corpus it reads. Editor-only - nothing here ships in a player build.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.burst": "1.8.29",
+    "com.unity.collections": "2.6.6",
+    "com.unity.mathematics": "1.3.3",
+    "com.unity.test-framework": "1.0.0"
+  },
+  "vpmDependencies": {
+    "com.basis.eeriemovement": "0.0.1",
+    "com.basis.framework": "0.0.1",
+    "com.basis.common": "0.0.1",
+    "com.basis.gizmos": "0.0.1",
+    "com.basis.textmeshpro": "0.0.1"
+  }
+}

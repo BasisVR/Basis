@@ -8,7 +8,7 @@ namespace Basis.Tests.IK
 {
     public class BasisDynamicCorpusTests
     {
-        static string CorpusDir => Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~/dynamic");
+        static string CorpusDir => Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~/dynamic");
         static List<BasisMotionClip> RequireCorpus()
         {
             var clips = new List<BasisMotionClip>();

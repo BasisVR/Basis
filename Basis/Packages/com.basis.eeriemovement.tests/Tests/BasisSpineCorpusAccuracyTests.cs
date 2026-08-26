@@ -12,7 +12,7 @@ namespace Basis.Tests.IK
     using BasisMotionClip = Basis.IK.Mocap.BasisMotionClip;
     public sealed class BasisSpineCorpusAccuracyTests
     {
-        static string CorpusDir => Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~");
+        static string CorpusDir => Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~");
         // Bend/squat clips (the spine actually works) + a posture spread (ordinary standing/gesturing).
         static readonly (string dir, string name)[] k_Clips =
         {

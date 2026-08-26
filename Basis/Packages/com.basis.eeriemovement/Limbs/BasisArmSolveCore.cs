@@ -11,7 +11,13 @@ namespace Basis.IK
         public const float TrackerForearmRollMaxDeg = 120f, WristKeepFrac = 0.15f, WristKeepMaxDeg = 15f;
         public const float TrackerPoleAnchorFrac = 0.05f, TrackerPoleTrustFrac = 0.12f;
         const float wristWrapFadeStartDeg = 155f, wristWrapFadeEndDeg = 178f;
-        public static void Solve(in BasisArmSolveInput i, out BasisArmSolveResult r, BasisIKGizmoRecorder gizmos = default)
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
+        public static void Solve(in BasisArmSolveInput i, out BasisArmSolveResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisArmSolveInput i, out BasisArmSolveResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
 

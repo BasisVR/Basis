@@ -68,6 +68,7 @@ namespace Basis.Scripts.UI
         private static void Tick()
         {
             if (!dirty) return;
+            if (BasisDeviceManagement.Instance == null) return;
             dirty = false;
 
             var shouldBeVisible = ShouldBeVisible;

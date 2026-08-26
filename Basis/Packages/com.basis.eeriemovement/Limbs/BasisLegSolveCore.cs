@@ -38,7 +38,13 @@ namespace Basis.IK
 
             return wrapped < 0f ? -compressed : compressed;
         }
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
         public static void Solve(in BasisLegSolveInput i, out BasisLegSolveResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisLegSolveInput i, out BasisLegSolveResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
 
@@ -274,7 +280,13 @@ namespace Basis.IK
         public const float LegUprightFadeStartDot = 0.25f, LegUprightFadeFullDot = 0.55f, RefCondSinFadeStart = 0.15f;
         public const float RefCondSinFadeFull = 0.35f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-10f;
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
         public static void Solve(in BasisKneeForwardInput i, out BasisKneeForwardResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisKneeForwardInput i, out BasisKneeForwardResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
 

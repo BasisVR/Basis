@@ -168,7 +168,13 @@ namespace Basis.IK
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public const float DefaultHoldCondLo = 0.05f, DefaultHoldCondHi = 0.12f;
         const float holdReseedDeg = 25f;
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
         public static void Solve(in BasisSwivelSmootherInput i, out BasisSwivelSmootherResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisSwivelSmootherInput i, out BasisSwivelSmootherResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
             r.DesiredMid = i.Mid;

@@ -89,7 +89,7 @@ namespace Basis.IK
             input.HasHintRotation = leg.hintRoll;
             input.HintIsTracker = hintIsTracker;
 
-            BasisLegSolveCore.Solve(input, out BasisLegSolveResult result);
+            BasisLegSolveCore.Solve(input, out BasisLegSolveResult result, ref gizmos);
 
             if (plan.hasLegDiagnostics)
             {
@@ -182,7 +182,7 @@ namespace Basis.IK
             input.State = leg.Swivel;
             input.Seeded = leg.SwivelSeeded;
 
-            BasisSwivelSmootherCore.Solve(input, out BasisSwivelSmootherResult result);
+            BasisSwivelSmootherCore.Solve(input, out BasisSwivelSmootherResult result, ref gizmos);
             if (plan.hasLegDiagnostics)
             {
                 ref BasisLegDiagnostics d = ref Ref(legDiagnostics, slot);

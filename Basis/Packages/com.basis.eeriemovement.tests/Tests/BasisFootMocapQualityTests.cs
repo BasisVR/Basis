@@ -11,7 +11,7 @@ namespace Basis.Tests.IK
     using BasisMotionClip = Basis.IK.Mocap.BasisMotionClip;
     public sealed class BasisFootMocapQualityTests
     {
-        static string CorpusDir => Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~");
+        static string CorpusDir => Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~");
         const float WalkLo = 0.14f, WalkHi = 0.60f;   // v-hat range that is walking (Fr < 0.5)
         static List<BasisMotionClip> LoadWalks()
         {

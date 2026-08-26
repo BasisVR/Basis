@@ -45,7 +45,17 @@ public static class BasisLocalPose
         {
             if (ReferenceEquals(sEntries[i].T, t))
             {
-                sEntries[i].Valid = Field.None;
+                // PlayerRoot and AvatarRoot are ancestors of Hips and Head, so a write to either
+                // moves those two as well and clearing one slot would leave the descendants
+                // holding world poses from before it. Slot order encodes that: 0 and 1 are roots.
+                if (i <= (int)BasisPoseSlot.AvatarRoot)
+                {
+                    sVersion++;
+                }
+                else
+                {
+                    sEntries[i].Valid = Field.None;
+                }
                 return;
             }
         }

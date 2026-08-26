@@ -8,7 +8,13 @@ namespace Basis.IK
         const float shrugHangStart = 0.75f, shrugHangFull = 0.92f, shrugRiseStartFrac = 0.02f;
         const float shrugRiseFullFrac = 0.065f, shrugBendFadeStartFrac = 0.09f, shrugBendFadeEndFrac = 0.14f;
         const float shrugMaxDeg = 44f;
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
         public static void Solve(in BasisShoulderSolveInput i, out BasisShoulderSolveResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisShoulderSolveInput i, out BasisShoulderSolveResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
 

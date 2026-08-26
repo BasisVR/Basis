@@ -67,6 +67,11 @@ namespace Basis.Scripts.Debugging
         {
             EnsureMasterToggleHook();
 
+            if (Trace)
+            {
+                TraceChain(ref job);
+            }
+
             if (!job.gizmos.IsCreated || job.gizmos.StageMask == 0)
             {
                 Hide();
@@ -235,6 +240,83 @@ namespace Basis.Scripts.Debugging
             }
             ResetState();
         }
+        /// <summary>
+        /// One line per second naming which link of the gizmo chain is empty. The chain is
+        /// mask -> recorder -> job records -> Drain renders -> BasisGizmoManager slots, and every
+        /// link fails the same way from the outside: nothing on screen. This prints all of them.
+        /// </summary>
+        public static bool Trace => BasisIKSolveGizmoStages.Diagnose.RawValue;
+        static float nextTrace;
+        static void TraceChain(ref BasisEerieMovement job)
+        {
+            if (Time.realtimeSinceStartup < nextTrace)
+            {
+                return;
+            }
+            nextTrace = Time.realtimeSinceStartup + 1f;
+
+            DrawSelfTestLine();
+
+            int mask = BasisIKSolveGizmoStages.Mask();
+            bool scratchOn = (mask & (int)BasisIKGizmoStage.Scratch) != 0;
+            int recorded = job.gizmos.Draws.IsCreated ? job.gizmos.Draws.Length : -1;
+            int capacity = job.gizmos.Draws.IsCreated ? job.gizmos.Draws.Capacity : -1;
+            int scratchRecorded = 0;
+            if (job.gizmos.Draws.IsCreated)
+            {
+                int scratchIndex = BasisIKGizmoRecorder.StageIndex(BasisIKGizmoStage.Scratch);
+                for (int i = 0; i < job.gizmos.Draws.Length; i++)
+                {
+                    if (job.gizmos.Draws[i].Stage == scratchIndex)
+                    {
+                        scratchRecorded++;
+                    }
+                }
+            }
+            int dropped = job.gizmos.Overflow.IsCreated ? job.gizmos.Overflow[BasisIKGizmoRecorder.OverflowDraws] : -1;
+
+            BasisDebug.Log(
+                $"[IKSolveGizmos] enabled={BasisIKSolveGizmoStages.Enabled.RawValue} mask=0x{mask:X} scratchStage={scratchOn} "
+                + $"| recorder created={job.gizmos.IsCreated} jobMask=0x{job.gizmos.StageMask:X} lineWidth={job.gizmos.LineWidth:F4} "
+                + $"| recorded={recorded}/{capacity} (scratch={scratchRecorded}, dropped={dropped}) "
+                + $"| rendered lines={linesShown} spheres={spheresShown} "
+                + $"| manager maxDrawDistance={BasisGizmoManager.MaxDrawDistance}",
+                BasisDebug.LogTag.Gizmo);
+        }
+
+        /// <summary>
+        /// A line submitted straight to BasisGizmoManager, one metre in front of the camera, with
+        /// none of the IK gizmo layer in the way -- no stage mask, no recorder, no job, no Drain.
+        /// It bisects the problem in one look: if this magenta line is missing too, nothing above
+        /// BasisGizmoManager is at fault and the answer is the manager, the camera or the layer. If
+        /// it draws and the recorded ones do not, the break is in the IK gizmo path.
+        /// </summary>
+        public static bool TraceSelfTest => BasisIKSolveGizmoStages.DiagnoseSelfTest.RawValue;
+        static int selfTestLine = -1;
+        static void DrawSelfTestLine()
+        {
+            if (!TraceSelfTest)
+            {
+                if (selfTestLine > 0)
+                {
+                    BasisGizmoManager.SetGizmoActive(selfTestLine, false);
+                }
+                return;
+            }
+            Vector3 eye = BasisLocalCameraDriver.Position;
+            Vector3 forward = BasisLocalCameraDriver.Instance != null
+                ? BasisLocalCameraDriver.Instance.transform.forward
+                : Vector3.forward;
+            Vector3 from = eye + forward * 1f;
+            Vector3 to = from + Vector3.up * 0.5f;
+            if (selfTestLine <= 0)
+            {
+                BasisGizmoManager.CreateLineGizmo("IKSolve_SelfTest", out selfTestLine, from, to, LineWidthBase, Color.magenta);
+            }
+            BasisGizmoManager.SetGizmoActive(selfTestLine, true);
+            BasisGizmoManager.UpdateLineGizmo(selfTestLine, from, to, LineWidthBase, (Color32)Color.magenta);
+        }
+
         static void EnsureMasterToggleHook()
         {
             if (registered)

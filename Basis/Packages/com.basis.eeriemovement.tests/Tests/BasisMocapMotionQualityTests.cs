@@ -13,7 +13,7 @@ namespace Basis.Tests.IK
     using BasisMotionClip = Basis.IK.Mocap.BasisMotionClip;
     public sealed class BasisMocapMotionQualityTests
     {
-        static string CorpusDir => Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~");
+        static string CorpusDir => Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~");
         static List<BasisMotionClip> LoadCorpus()
         {
             var clips = new List<BasisMotionClip>();

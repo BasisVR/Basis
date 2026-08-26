@@ -32,6 +32,7 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.developer.exceptions:
               Packages/com.basis.developer.recorder:
               Packages/com.basis.eeriemovement:
+              Packages/com.basis.eeriemovement.tests:
               Packages/com.basis.eventdriver:
               Packages/com.basis.examples:
               Packages/com.basis.framework:

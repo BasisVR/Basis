@@ -4,7 +4,7 @@ Ground truth for `BasisMocapAccuracyTests` (is the solved pose RIGHT?) and `Basi
 (is the solved MOTION right?). Not shipped in player builds and not imported by Unity: the trailing `~` on
 the folder name keeps it out of the asset database entirely.
 
-**Licensing is recorded in `Packages/com.basis.framework/THIRD_PARTY_NOTICES.md`** — the package-root file
+**Licensing is recorded in `Packages/com.basis.eeriemovement.tests/THIRD_PARTY_NOTICES.md`** — the package-root file
 the rest of the repo uses for this. The short version is repeated at the bottom of this file so nobody has
 to go looking, but the notices file is the authority.
 

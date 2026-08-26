@@ -133,7 +133,7 @@ namespace Basis.IK
             input.TrackerFinal = isLeft ? targetRotationLeftShoulder * offsetRotationLeftShoulder : targetRotationRightShoulder * offsetRotationRightShoulder;
             input.IsLeft = isLeft;
 
-            BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result);
+            BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result, ref gizmos);
             if (result.Apply)
             {
                 poseStream.SetRotation(shoulderHandle, result.ShoulderRotation);
@@ -280,7 +280,7 @@ namespace Basis.IK
                 }
             }
 
-            BasisArmSolveCore.Solve(input, out BasisArmSolveResult result, gizmos);
+            BasisArmSolveCore.Solve(input, out BasisArmSolveResult result, ref gizmos);
 
             if (slotOk)
             {
@@ -307,8 +307,10 @@ namespace Basis.IK
             //poseStream.SetRotation(mid, result.MidPostRoll * poseStream.GetRotation(mid));
             poseStream.SetRotation(root, result.RootRotation);
             poseStream.SetRotation(mid, result.MidRotation);
-            if (arm.hasUpperTwist) poseStream.SetRotation(rootTwist, poseStream.GetRotation(root));
-            if (arm.hasLowerTwist) poseStream.SetRotation(midTwist, poseStream.GetRotation(mid));
+            // Twist bones are held at their bind local by the ResetToRest above and not written
+            // again. A world-space write here would not pin them: the stream stores locals, so
+            // SetRotation converts once against the parent as it stands right now and the elbow
+            // protect, the weight blend and ApplySwingContinuity all turn that parent afterwards.
             poseStream.SetRotation(tip, result.TipRotation);
 
             int collisionState = 0;
@@ -331,7 +333,7 @@ namespace Basis.IK
                 epi.PlayerUp = playerUp;
                 epi.BodyRight = bodyRight;
 
-                BasisElbowProtectCore.Solve(epi, out BasisElbowProtectResult epr);
+                BasisElbowProtectCore.Solve(epi, out BasisElbowProtectResult epr, ref gizmos);
                 if (epr.Engaged)
                 {
                     poseStream.GetPositionAndRotation(tip, out Vector3 preservedHandPos, out Quaternion preservedHandRot);

@@ -9,7 +9,7 @@ namespace Basis.Tests.IK
     using BasisMotionClip = Basis.IK.Mocap.BasisMotionClip;
     public sealed class BasisSpineAnatomyCorpusTests
     {
-        static string MainDir => Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~");
+        static string MainDir => Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~");
         static string PostureDir => Path.Combine(MainDir, "posture");
         // Every clip a segment fires on more than this fraction of is treated as the table being too tight.
         // The Python pre-measurement put every segment under 0.6%; 2% is generous headroom for the handful of

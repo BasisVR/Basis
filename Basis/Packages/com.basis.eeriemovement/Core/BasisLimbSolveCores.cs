@@ -7,7 +7,13 @@ namespace Basis.IK
         public const float PullInStartRatio = 0.97f, PullInFullRatio = 0.60f, PullInFloor = 0.20f;
         public const float EngageFullThreshold = 0.30f, DefaultMaxOpenDeg = 60f;
         const float epsilon = 1e-5f;
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
         public static void Solve(in BasisButterflyKneeInput i, out BasisButterflyKneeResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisButterflyKneeInput i, out BasisButterflyKneeResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
 

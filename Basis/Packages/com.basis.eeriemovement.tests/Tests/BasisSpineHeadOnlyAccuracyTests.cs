@@ -14,7 +14,7 @@ namespace Basis.Tests.IK
     using BasisMotionClip = Basis.IK.Mocap.BasisMotionClip;
     public sealed class BasisSpineHeadOnlyAccuracyTests
     {
-        static string CorpusDir => Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~");
+        static string CorpusDir => Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~");
         static readonly (string dir, string name)[] clipsWanted =
         {
             ("", "26_09"), ("", "143_11"), ("", "69_70"), ("", "143_18"),

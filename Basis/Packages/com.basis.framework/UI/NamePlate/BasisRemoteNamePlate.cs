@@ -242,11 +242,16 @@ namespace Basis.Scripts.UI.NamePlate
         {
             if (this == null)
             {
-                BasisDebug.LogErrorOnce("Nameplate was already destroyed when its player tore down (expected during app/scene shutdown).");
                 return;
             }
             DeInitialize();
             AddressableResourceProcess.ReleaseGameobject(gameObject);
+        }
+
+        public override void OnDestroy()
+        {
+            UnsubscribeFromPlayer();
+            base.OnDestroy();
         }
 
         /// <summary>
@@ -409,6 +414,29 @@ namespace Basis.Scripts.UI.NamePlate
             chatOverlayCulled = false;
         }
 
+        private void UnsubscribeFromPlayer()
+        {
+            if (BasisRemotePlayer == null)
+            {
+                return;
+            }
+            // Unsubscribe all events we hooked up
+            BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
+            BasisRemotePlayer.AudioReceived -= OnAudioReceived;
+            BasisRemotePlayer.OnAvatarSwitched -= RebuildRenderCheck;
+
+            BasisRemotePlayer.OnAvatarFailedStateChanged -= RefreshFailedStateColor;
+            BasisRemotePlayer.OnChatMessageReceived -= SetChatText;
+            BasisRemotePlayer.OnChatTypingStateChanged -= SetTypingIndicatorVisible;
+            BasisRemotePlayer.OnNamePlateActiveStateShouldRefresh -= RefreshActiveState;
+            BasisRemotePlayer.OnRemotePlayerDestroying -= HandlePlayerDestroying;
+            BasisRemotePlayer.OnTalkModeChanged -= HandleTalkModeChanged;
+            if (BasisRemotePlayer.NamePlateTransformProvider == GetSelfTransform)
+            {
+                BasisRemotePlayer.NamePlateTransformProvider = null;
+            }
+        }
+
         public void DeInitialize()
         {
             BasisRemoteNamePlateDriver.Unregister(this);
@@ -417,24 +445,7 @@ namespace Basis.Scripts.UI.NamePlate
             // new player. Replaces the per-plate Unity null check in GatherFromBoneSystem.
             RenderActive = false;
             PushPoseGate(false);
-            if (BasisRemotePlayer != null)
-            {
-                // Unsubscribe all events we hooked up
-                BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
-                BasisRemotePlayer.AudioReceived -= OnAudioReceived;
-                BasisRemotePlayer.OnAvatarSwitched -= RebuildRenderCheck;
-
-                BasisRemotePlayer.OnAvatarFailedStateChanged -= RefreshFailedStateColor;
-                BasisRemotePlayer.OnChatMessageReceived -= SetChatText;
-                BasisRemotePlayer.OnChatTypingStateChanged -= SetTypingIndicatorVisible;
-                BasisRemotePlayer.OnNamePlateActiveStateShouldRefresh -= RefreshActiveState;
-                BasisRemotePlayer.OnRemotePlayerDestroying -= HandlePlayerDestroying;
-                BasisRemotePlayer.OnTalkModeChanged -= HandleTalkModeChanged;
-                if (BasisRemotePlayer.NamePlateTransformProvider == GetSelfTransform)
-                {
-                    BasisRemotePlayer.NamePlateTransformProvider = null;
-                }
-            }
+            UnsubscribeFromPlayer();
 
             // Clean up chat display
             if (ChatBubbleFilter != null && ChatBubbleFilter.sharedMesh != null) Destroy(ChatBubbleFilter.sharedMesh);

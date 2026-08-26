@@ -12,7 +12,13 @@ namespace Basis.IK
             public Vector3 ShoulderPos, AcDir, CurrentDir, ElbowCenter, BodyLat, BodyFwd;
             public float ElbowRadius, UpperArmR, ChestR, SpineR, HipsR, ThetaOut, SwingPreference;
         }
+        /// <summary>Convenience overload for callers with nothing to draw into.</summary>
         public static void Solve(in BasisElbowProtectInput i, out BasisElbowProtectResult r)
+        {
+            BasisIKGizmoRecorder gizmos = default;
+            Solve(i, out r, ref gizmos);
+        }
+        public static void Solve(in BasisElbowProtectInput i, out BasisElbowProtectResult r, ref BasisIKGizmoRecorder gizmos)
         {
             r = default;
             r.DesiredElbow = i.Elbow;

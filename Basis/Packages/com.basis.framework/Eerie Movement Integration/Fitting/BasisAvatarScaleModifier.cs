@@ -49,6 +49,10 @@ namespace Basis.Scripts.Drivers
             if (lp != null && lp.BasisAvatar != null)
             {
                 lp.BasisAvatar.transform.localScale = FinalScale;
+                // Scaling the avatar root moves every bone under it, so the whole pose cache is
+                // stale -- not just this transform. NotifyWrite matches one Transform by reference
+                // and would leave the Hips and Head slots holding pre-scale world positions.
+                BasisLocalPose.InvalidateAll();
             }
         }
     }

@@ -17235,6 +17235,38 @@
     {
       "key": "settings.developer.spawnAnchors.anchorName.tooltip",
       "value": "Renames the selected anchor. The name shows on its handle and in the anchor dropdown."
+    },
+    {
+      "key": "settings.bodyTracking.section.constraints.title",
+      "value": "Avatar Constraints"
+    },
+    {
+      "key": "settings.bodyTracking.section.constraints.description",
+      "value": "Constraints the avatar author built into the rig."
+    },
+    {
+      "key": "settings.bodyTracking.constraints.enabled.title",
+      "value": "Enable Avatar Constraints"
+    },
+    {
+      "key": "settings.bodyTracking.constraints.enabled.description",
+      "value": "Runs the constraints an avatar author built into its rig - aim, parent, twist correction, twist chain and the rest. They solve after the body IK, so they get the last word on any bone they drive. Turning this off is the quickest way to tell an IK problem apart from a constraint fighting the solver over the same bone, and a workaround for an avatar whose constraints misbehave. Bones keep the pose the last solve gave them instead of snapping back to bind."
+    },
+    {
+      "key": "settings.bodyTracking.ikGizmos.diagnose",
+      "value": "Diagnose Gizmo Chain"
+    },
+    {
+      "key": "settings.bodyTracking.ikGizmos.diagnose.tooltip",
+      "value": "Logs one line a second saying how many gizmos were recorded, how many were dropped, and how many reached the renderer. Use it when gizmos are enabled but nothing appears - the first count that reads zero is where the chain breaks."
+    },
+    {
+      "key": "settings.bodyTracking.ikGizmos.selfTest",
+      "value": "Gizmo Self Test"
+    },
+    {
+      "key": "settings.bodyTracking.ikGizmos.selfTest.tooltip",
+      "value": "Draws a magenta line in front of you using the gizmo renderer directly, skipping the IK gizmo path entirely. If this line is missing too, the problem is the renderer, the camera or the layer rather than anything in the IK solve."
     }
   ]
 }

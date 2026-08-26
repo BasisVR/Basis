@@ -251,7 +251,10 @@ public static class BasisHeightDriver
     {
         BasisLocalPlayer.Instance.ExecuteNextFrame(() =>
         {
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame?.Invoke(Mode);
+            // Split per subscriber while the tracer is armed. The chain runs in a coroutine,
+            // so a subscriber that moves the player or the avatar does it in the one window
+            // BasisLocalPose never re-stamps -- and a later subscriber then reads it stale.
+            BasisBoneWriteTracer.InvokeTraced(BasisLocalPlayer.OnPlayersHeightChangedNextFrame, Mode, "HeightChange");
         });
     }
     public static void ApplyScale(bool ScaleAvatar, float SelectedScale)

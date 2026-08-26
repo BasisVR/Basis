@@ -10,7 +10,7 @@ namespace Basis.Tests.IK
     using BasisMotionClip = Basis.IK.Mocap.BasisMotionClip;
     public sealed class BasisSpineBendOverGroundTruthTests
     {
-        static string CorpusDir => Path.GetFullPath("Packages/com.basis.framework/Tests/MocapCorpus~");
+        static string CorpusDir => Path.GetFullPath("Packages/com.basis.eeriemovement.tests/Tests/MocapCorpus~");
         // The clips in the corpus where a human actually folds up.
         static readonly string[] bendOverClips = { "26_09", "143_11", "69_70", "143_18" };
         static List<BasisMotionClip> LoadBendOverClips()

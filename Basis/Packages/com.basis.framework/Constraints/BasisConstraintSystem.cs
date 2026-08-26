@@ -426,6 +426,16 @@ namespace Basis.Scripts.Constraints
             // otherwise leave sPending in flight while the next Rebuild clears everything.
             CompletePending();
 
+            // Master switch. Placed after the fence so flipping it off never strands a job in flight,
+            // and ahead of Rebuild so a disabled system costs nothing per frame. The tables are left
+            // as they are and sDirty survives, so switching back on rebuilds on the next Schedule.
+            // Constrained bones hold their last solved pose rather than reverting to bind -- which is
+            // what makes this an A/B rather than a second kind of pose change to reason about.
+            if (!Basis.BasisUI.BasisSettingsDefaults.AvatarConstraintsEnabled.RawValue)
+            {
+                return default;
+            }
+
             // A pending rebuild is honoured even with no registrations left, so unregistering the
             // last constraint actually clears the tables instead of stranding stale slots.
             // A component destroyed without an OnDisable (scene teardown, DestroyImmediate) has to
