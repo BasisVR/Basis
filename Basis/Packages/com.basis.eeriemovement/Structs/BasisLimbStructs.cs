@@ -87,7 +87,7 @@ namespace Basis.IK
     }
     public struct BasisArmSolveResult
     {
-        public Quaternion MidDelta, RootDelta, HintDelta, MidPostRoll, TipRotation;
+        public Quaternion RootRotation, MidRotation, MidDelta, RootDelta, HintDelta, MidPostRoll, TipRotation;
         public bool HintApplied;
         public Vector3 ElbowSolved, HandSolved;
         public Quaternion RootRotationSolved, MidRotationSolved;

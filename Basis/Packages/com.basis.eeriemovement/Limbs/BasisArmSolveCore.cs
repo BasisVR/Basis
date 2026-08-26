@@ -11,7 +11,7 @@ namespace Basis.IK
         public const float TrackerForearmRollMaxDeg = 120f, WristKeepFrac = 0.15f, WristKeepMaxDeg = 15f;
         public const float TrackerPoleAnchorFrac = 0.05f, TrackerPoleTrustFrac = 0.12f;
         const float wristWrapFadeStartDeg = 155f, wristWrapFadeEndDeg = 178f;
-        public static void Solve(in BasisArmSolveInput i, out BasisArmSolveResult r)
+        public static void Solve(in BasisArmSolveInput i, out BasisArmSolveResult r, BasisIKGizmoRecorder gizmos = default)
         {
             r = default;
 
@@ -331,6 +331,31 @@ namespace Basis.IK
                     }
                 }
             }
+
+            // cache old rotations in our temporary Z forward Y up space
+            var cachedRootRotation = Quaternion.LookRotation(i.Elbow - i.Shoulder, i.Hand - i.Shoulder);
+            cachedRootRotation *= Quaternion.Euler(0f, 0f, 90f);
+            var cachedMidRotation = Quaternion.LookRotation(i.Hand - i.Elbow, i.Shoulder - i.Hand);
+            cachedMidRotation *= Quaternion.Euler(0f, 0f, 90f);
+
+            // Solve triangle in temporary Z forward Y up space
+            var rootRotation = Quaternion.LookRotation(i.TargetPosition - i.Shoulder, i.HintPosition - i.Shoulder);
+            rootRotation *= Quaternion.Euler(-a * Mathf.Rad2Deg, 0f, 0f);
+            var projectedElbow = i.Shoulder + rootRotation * Vector3.forward * ab.magnitude;
+            var midRotation = Quaternion.LookRotation(i.TargetPosition - projectedElbow, rootRotation * Vector3.left);
+
+            // Get custom space deltas
+            rootDelta = rootRotation * Quaternion.Inverse(cachedRootRotation);
+            var midDelta = midRotation * Quaternion.Inverse(cachedMidRotation);
+
+            gizmos.Segment(i.Shoulder, i.Shoulder + cachedRootRotation * Vector3.forward, Color.blue);
+            gizmos.Segment(i.Shoulder, i.Shoulder + cachedRootRotation * Vector3.up, Color.green);
+            gizmos.Segment(i.Shoulder, i.Shoulder + rootRotation * Vector3.forward, Color.blue);
+            gizmos.Segment(i.Shoulder, i.Shoulder + rootRotation * Vector3.up, Color.green);
+
+            // Apply deltas to original bone rotations
+            r.RootRotation = rootDelta * i.RootRotation;
+            r.MidRotation = midDelta * i.MidRotation;
 
             r.MidDelta = deltaR;
             r.RootDelta = rootDelta;

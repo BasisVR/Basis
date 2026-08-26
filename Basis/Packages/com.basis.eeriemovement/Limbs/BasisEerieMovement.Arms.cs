@@ -32,10 +32,10 @@ namespace Basis.IK
                 ApplySwingContinuity(swingRightElbow, handleRightUpperArm, handleRightLowerArm, handleRightHand, targetPositionRightHand);
             }
 
-            if (plan.leftArm.lowerTwist) SolveArmTwist(handleLeftLowerArm, handleLeftHand, handleLeftLowerArmTwist, lowerArmTwistFraction, tposeLeftLowerArmChildBind, tposeLeftLowerArmTwistBind);
-            if (plan.rightArm.lowerTwist) SolveArmTwist(handleRightLowerArm, handleRightHand, handleRightLowerArmTwist, lowerArmTwistFraction, tposeRightLowerArmChildBind, tposeRightLowerArmTwistBind);
-            if (plan.leftArm.upperTwist) SolveArmTwist(handleLeftUpperArm, handleLeftLowerArm, handleLeftUpperArmTwist, upperArmTwistFraction, tposeLeftUpperArmChildBind, tposeLeftUpperArmTwistBind);
-            if (plan.rightArm.upperTwist) SolveArmTwist(handleRightUpperArm, handleRightLowerArm, handleRightUpperArmTwist, upperArmTwistFraction, tposeRightUpperArmChildBind, tposeRightUpperArmTwistBind);
+            //if (plan.leftArm.lowerTwist) SolveArmTwist(handleLeftLowerArm, handleLeftHand, handleLeftLowerArmTwist, lowerArmTwistFraction, tposeLeftLowerArmChildBind, tposeLeftLowerArmTwistBind);
+            //if (plan.rightArm.lowerTwist) SolveArmTwist(handleRightLowerArm, handleRightHand, handleRightLowerArmTwist, lowerArmTwistFraction, tposeRightLowerArmChildBind, tposeRightLowerArmTwistBind);
+            //if (plan.leftArm.upperTwist) SolveArmTwist(handleLeftUpperArm, handleLeftLowerArm, handleLeftUpperArmTwist, upperArmTwistFraction, tposeLeftUpperArmChildBind, tposeLeftUpperArmTwistBind);
+            //if (plan.rightArm.upperTwist) SolveArmTwist(handleRightUpperArm, handleRightLowerArm, handleRightUpperArmTwist, upperArmTwistFraction, tposeRightUpperArmChildBind, tposeRightUpperArmTwistBind);
         }
         void ApplyShoulderSlide()
         {
@@ -209,6 +209,8 @@ namespace Basis.IK
             BasisBoneHandle root = isLeft ? handleLeftUpperArm : handleRightUpperArm;
             BasisBoneHandle mid = isLeft ? handleLeftLowerArm : handleRightLowerArm;
             BasisBoneHandle tip = isLeft ? handleLeftHand : handleRightHand;
+            BasisBoneHandle rootTwist = isLeft ? handleLeftUpperArmTwist : handleRightUpperArmTwist;
+            BasisBoneHandle midTwist = isLeft ? handleLeftLowerArmTwist : handleRightLowerArmTwist;
             Vector3 tgtPos = isLeft ? targetPositionLeftHand : targetPositionRightHand;
             Quaternion tgtRot = isLeft ? targetRotationLeftHand : targetRotationRightHand;
             Vector3 hintPos = isLeft ? hintPositionLeftHand : hintPositionRightHand;
@@ -278,7 +280,7 @@ namespace Basis.IK
                 }
             }
 
-            BasisArmSolveCore.Solve(input, out BasisArmSolveResult result);
+            BasisArmSolveCore.Solve(input, out BasisArmSolveResult result, gizmos);
 
             if (slotOk)
             {
@@ -299,10 +301,14 @@ namespace Basis.IK
                 }
             }
 
-            poseStream.SetRotation(mid, result.MidDelta * poseStream.GetRotation(mid));
-            poseStream.SetRotation(root, result.RootDelta * poseStream.GetRotation(root));
-            poseStream.SetRotation(root, result.HintDelta * poseStream.GetRotation(root));
-            poseStream.SetRotation(mid, result.MidPostRoll * poseStream.GetRotation(mid));
+            //poseStream.SetRotation(mid, result.MidDelta * poseStream.GetRotation(mid));
+            //poseStream.SetRotation(root, result.RootDelta * poseStream.GetRotation(root));
+            //poseStream.SetRotation(root, result.HintDelta * poseStream.GetRotation(root));
+            //poseStream.SetRotation(mid, result.MidPostRoll * poseStream.GetRotation(mid));
+            poseStream.SetRotation(root, result.RootRotation);
+            poseStream.SetRotation(mid, result.MidRotation);
+            if (arm.hasUpperTwist) poseStream.SetRotation(rootTwist, poseStream.GetRotation(root));
+            if (arm.hasLowerTwist) poseStream.SetRotation(midTwist, poseStream.GetRotation(mid));
             poseStream.SetRotation(tip, result.TipRotation);
 
             int collisionState = 0;
