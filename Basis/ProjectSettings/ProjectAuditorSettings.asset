@@ -19,9 +19,9 @@ MonoBehaviour:
     - PlatformGroup:
         m_String: Unknown
       m_SerializedParams:
-      - Key: StreamingAssetsFolderSizeLimit
-        Value: 50
       - Key: SpriteAtlasEmptySpaceLimit
+        Value: 50
+      - Key: StreamingAssetsFolderSizeLimit
         Value: 50
       - Key: TextureStreamingMipmapsSizeLimit
         Value: 4000

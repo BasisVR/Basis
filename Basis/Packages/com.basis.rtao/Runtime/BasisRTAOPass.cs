@@ -140,6 +140,49 @@ namespace Basis.Rendering.RTAO
             applyMode = apply;
             backend = resolved;
             debugView = debug;
+
+            ReportBackendOnce(resolved, mode);
+        }
+
+        private static BasisRTAOBackend lastReportedBackend = (BasisRTAOBackend)(-1);
+
+        /// <summary>
+        /// Says which backend is actually running, once, whenever it changes.
+        ///
+        /// Nothing used to report this, and the difference is not cosmetic: the screen space path reads the
+        /// depth buffer rather than the acceleration structure, so the layer mask, BasisRTAOExclude and the
+        /// shadow casting filter all silently stop applying. Occlusion from the whole scene then looks like a
+        /// layer mask that is not working, rather than like a backend that never consults one.
+        /// </summary>
+        private static void ReportBackendOnce(BasisRTAOBackend resolved, BasisRTAOTracingMode mode)
+        {
+            if (resolved == lastReportedBackend)
+                return;
+
+            lastReportedBackend = resolved;
+
+            switch (resolved)
+            {
+                case BasisRTAOBackend.Hardware:
+                    Debug.Log("[BasisRTAO] Tracing on hardware ray tracing.");
+                    break;
+                case BasisRTAOBackend.ScreenSpace:
+                    Debug.LogWarning(
+                        $"[BasisRTAO] Tracing mode {mode} resolved to the screen space fallback" +
+                        (mode == BasisRTAOTracingMode.Auto
+                            ? " because this device reports no hardware ray tracing - on Windows that needs Direct3D12, and Direct3D11 has no ray tracing path at all."
+                            : ".") +
+                        " That path reads the depth buffer instead of the acceleration structure, so the layer" +
+                        " mask, BasisRTAOExclude and the shadow casting filter do not apply and everything drawn" +
+                        " occludes.");
+                    break;
+                case BasisRTAOBackend.ComputeBvh:
+                    Debug.Log("[BasisRTAO] Tracing on the compute BVH backend.");
+                    break;
+                default:
+                    Debug.LogWarning("[BasisRTAO] No usable backend; ambient occlusion is not running.");
+                    break;
+            }
         }
 
         public bool EnsureReady()

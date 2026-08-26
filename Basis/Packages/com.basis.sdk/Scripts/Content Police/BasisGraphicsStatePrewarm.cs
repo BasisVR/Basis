@@ -41,17 +41,32 @@ public static class BasisGraphicsStatePrewarm
     private static bool _tracing;
     private static string _filePath;
     private static GraphicsStateCollection _warm;
+    private static GraphicsStateCollection _seed;
     private static GraphicsStateCollection _trace;
     private static JobHandle _warmHandle;
+    private static float _initTime;
+    private static float _lastFlushTime;
+    private static int _variantsAtLastFlush;
+    private static bool _drainLogged;
+
+    public static bool Active => _initialized && _supported;
+    public static int SeedVariantCount { get; private set; }
+    public static int UserVariantCount { get; private set; }
+    public static int TracedVariantCount => _trace != null ? _trace.variantCount : 0;
 
     // Warming creates GPU pipeline objects; cap per call so a large collection can't schedule an
     // unbounded burst on one content load. Each load drains another chunk.
-    private const int MaxWarmupPerCall = 64;
+    public static int MaxWarmupPerCall = 128;
+    public static int MaxWarmupPerPump = 8;
 
     // Hard ceiling on persisted variants. A busy social instance traces low thousands; this leaves
     // generous headroom while still bounding disk + next-launch warm cost. When exceeded, the
     // lowest-priority variants are evicted at flush.
     private const int MaxVariants = 8192;
+
+    public static float FlushIntervalSeconds = 120f;
+    public static int FlushVariantDelta = 64;
+    private const string SeedResourcePath = "BasisPso/basis_pso_seed";
 
     // Only the explicit-PSO backends benefit. On GL / D3D11 the driver builds pipeline state
     // lazily and a precompiled cache buys nothing, so stay off and don't touch disk there.
@@ -101,12 +116,21 @@ public static class BasisGraphicsStatePrewarm
             _trace = LoadCollection(onDisk);
             _trace.BeginTrace();
             _tracing = _trace.isTracing;
+
+            _seed = LoadSeed();
+            SeedVariantCount = _seed != null ? _seed.variantCount : 0;
+            UserVariantCount = _warm != null ? _warm.variantCount : 0;
+            _initTime = Time.realtimeSinceStartup;
+            _lastFlushTime = _initTime;
+            _variantsAtLastFlush = _trace.variantCount;
+            BasisDebug.Log($"BasisGraphicsStatePrewarm: {SystemInfo.graphicsDeviceType} seed {SeedVariantCount} variant(s), user cache {UserVariantCount} variant(s)", BasisDebug.LogTag.Event);
         }
         catch (System.Exception e)
         {
             BasisDebug.LogWarning($"BasisGraphicsStatePrewarm: init failed, disabling ({e.Message})", BasisDebug.LogTag.Event);
             _supported = false;
             _warm = null;
+            _seed = null;
             _trace = null;
         }
     }
@@ -131,6 +155,37 @@ public static class BasisGraphicsStatePrewarm
         return collection;
     }
 
+    public static string SeedResourceNameFor(GraphicsDeviceType api)
+    {
+        return $"{SeedResourcePath}_{api}";
+    }
+
+    private static GraphicsStateCollection LoadSeed()
+    {
+        TextAsset asset = Resources.Load<TextAsset>(SeedResourceNameFor(SystemInfo.graphicsDeviceType));
+        if (asset == null)
+        {
+            return null;
+        }
+        try
+        {
+            string staged = System.IO.Path.Combine(Application.temporaryCachePath, $"basis_pso_seed.{SystemInfo.graphicsDeviceType}.gpsc");
+            System.IO.File.WriteAllBytes(staged, asset.bytes);
+            GraphicsStateCollection collection = new GraphicsStateCollection();
+            collection.LoadFromFile(staged);
+            return collection.variantCount > 0 ? collection : null;
+        }
+        catch (System.Exception e)
+        {
+            BasisDebug.LogWarning($"BasisGraphicsStatePrewarm: seed load failed, ignoring ({e.Message})", BasisDebug.LogTag.Event);
+            return null;
+        }
+        finally
+        {
+            Resources.UnloadAsset(asset);
+        }
+    }
+
     /// <summary>
     /// Warms a bounded chunk of the persisted PSOs. Called from the same loading-screen point as
     /// <see cref="BasisShaderPrewarm.Warm"/>, where the shaders for the content just loaded are
@@ -143,23 +198,57 @@ public static class BasisGraphicsStatePrewarm
             return;
         }
         EnsureInitialized();
-        if (!_supported || _warm == null)
+        if (!_supported)
         {
             return;
         }
+        Drain(MaxWarmupPerCall, label);
+    }
+
+    public static void Pump()
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+        EnsureInitialized();
+        if (!_supported)
+        {
+            return;
+        }
+        Drain(MaxWarmupPerPump, null);
+        MaybeFlush();
+    }
+
+    private static void Drain(int budget, string label)
+    {
         try
         {
-            if (_warm.variantCount == 0 || _warm.isWarmedUp)
+            if (TryWarm(_seed, budget) || TryWarm(_warm, budget))
             {
                 return;
             }
-            // Chain on the previous warm so successive loads queue instead of racing.
-            _warmHandle = _warm.WarmUpProgressively(MaxWarmupPerCall, _warmHandle);
+            if (!_drainLogged && SeedVariantCount + UserVariantCount > 0)
+            {
+                _drainLogged = true;
+                BasisDebug.Log($"BasisGraphicsStatePrewarm: {SeedVariantCount + UserVariantCount} cached variant(s) warmed in {Time.realtimeSinceStartup - _initTime:F1}s", BasisDebug.LogTag.Event);
+            }
         }
         catch (System.Exception e)
         {
-            BasisDebug.LogWarning($"BasisGraphicsStatePrewarm: warm '{label}' failed ({e.Message})", BasisDebug.LogTag.Event);
+            BasisDebug.LogWarning($"BasisGraphicsStatePrewarm: warm '{label ?? "pump"}' failed ({e.Message})", BasisDebug.LogTag.Event);
         }
+    }
+
+    private static bool TryWarm(GraphicsStateCollection collection, int budget)
+    {
+        if (collection == null || budget <= 0 || collection.variantCount == 0 || collection.isWarmedUp)
+        {
+            return false;
+        }
+        // Chain on the previous warm so successive loads queue instead of racing.
+        _warmHandle = collection.WarmUpProgressively(budget, _warmHandle);
+        return true;
     }
 
     /// <summary>
@@ -167,6 +256,30 @@ public static class BasisGraphicsStatePrewarm
     /// play-mode exit so the PSOs traced this session survive to warm the next one.
     /// </summary>
     public static void Flush()
+    {
+        Persist(false);
+    }
+
+    private static void MaybeFlush()
+    {
+        if (!_tracing || _trace == null)
+        {
+            return;
+        }
+        float now = Time.realtimeSinceStartup;
+        if (now - _lastFlushTime < FlushIntervalSeconds)
+        {
+            return;
+        }
+        _lastFlushTime = now;
+        if (_trace.variantCount - _variantsAtLastFlush < FlushVariantDelta)
+        {
+            return;
+        }
+        Persist(true);
+    }
+
+    private static void Persist(bool resumeTracing)
     {
         if (!_initialized || !_supported || _trace == null)
         {
@@ -187,6 +300,13 @@ public static class BasisGraphicsStatePrewarm
             if (_filePath != null && _trace.variantCount > 0)
             {
                 _trace.SaveToFile(_filePath);
+            }
+            _variantsAtLastFlush = _trace.variantCount;
+
+            if (resumeTracing)
+            {
+                _trace.BeginTrace();
+                _tracing = _trace.isTracing;
             }
         }
         catch (System.Exception e)

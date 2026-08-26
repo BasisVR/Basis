@@ -165,6 +165,16 @@ public partial class ValveRenderModelFeature : OpenXRFeature
         return true;
     }
     
+    public bool DestroyRenderModelHandle(ulong renderModel)
+    {
+        if (!XrSucceeded(_xrDestroyRenderModelEXT(renderModel)))
+        {
+            Debug.LogError($"xrDestroyRenderModelEXT failed!");
+            return false;
+        }
+
+        return true;
+    }
     
  #region "OpenXRFeature overrides"   
  

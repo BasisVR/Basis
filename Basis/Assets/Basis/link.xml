@@ -13,6 +13,7 @@
     <assembly fullname="Basis.Integration.SlimeVR" preserve="all" />
     <assembly fullname="Basis.Integration.TrackerObjects" preserve="all" />
     <assembly fullname="Basis.OpenLipSync.Runtime" preserve="all" />
+    <assembly fullname="Basis.RTAO" preserve="all" />
     <assembly fullname="Basis.Shims.Samples" preserve="all" />
     <assembly fullname="BasisBundleManagement" preserve="all" />
     <assembly fullname="BasisCamera" preserve="all" />
@@ -23,6 +24,7 @@
     <assembly fullname="BasisEventDriver" preserve="all" />
     <assembly fullname="BasisExamples" preserve="all" />
     <assembly fullname="BasisGizmos" preserve="all" />
+    <assembly fullname="BasisGlobalIllumination" preserve="all" />
     <assembly fullname="BasisMediaPipe" preserve="all" />
     <assembly fullname="BasisMediaPipe.Homuler" preserve="all" />
     <assembly fullname="BasisMediaPlayer" preserve="all" />

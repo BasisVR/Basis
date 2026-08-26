@@ -1774,7 +1774,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4a56c6d5c174b54adc1aa638f8a793c, type: 3}
   m_Name: ValveRenderModelFeature Standalone
   m_EditorClassIdentifier: BasisOpenXR::ValveRenderModelFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Valve Utils: Render Model Sample'
   version: 0.1.0
   featureIdInternal: com.valve.openxr.feature.render_models

@@ -250,6 +250,9 @@ namespace Basis.Scripts.Device_Management
                 Basis.BasisUI.BasisLocalization.Initialize();
                 Basis.BasisUI.BasisTMPFontFallbacks.RefreshJapanesePriority();
                 BasisSettingsDefaults.LoadAll();
+                // First thing after the settings land: a renderer swap can only happen by
+                // relaunching, so it has to be decided before anything is built to throw away.
+                Basis.Scripts.Rendering.BasisGraphicsApiSelection.ApplyStartupSetting();
                 BasisPersistentDataMigrationPrompt.ShowIfPending();
                 Basis.BasisUI.SettingsProvider.ApplyJiggleStartupSettings();
                 // Applied here and nowhere else: the GPU Resident Drawer rebuild this triggers is only

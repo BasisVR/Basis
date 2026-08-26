@@ -1991,6 +1991,13 @@ namespace Basis.BasisUI
 
                 bool rtaoCanTrace = Basis.Rendering.RTAO.BasisRTAOContext.HardwareSupported;
 
+                // Without hardware ray tracing this falls back to a screen space approximation, and the rows
+                // that describe what goes into the acceleration structure - the tracing mode and whether
+                // avatars cast - are hidden below because that backend never consults one. Hiding them with no
+                // explanation reads as the settings being ignored, so say what happened.
+                if (!rtaoCanTrace)
+                    toggleRtao.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.enable.tooltip.screenSpace"));
+
                 PanelDropdown dropdownRtaoMode = PanelDropdown.CreateNewEntry(rtaoGroup.ContentParent);
                 dropdownRtaoMode.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.rtao.mode"));
                 dropdownRtaoMode.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.mode.tooltip"));
@@ -2619,6 +2626,10 @@ namespace Basis.BasisUI
             // merged here so users see all rendering / quality / cost controls together.
             SettingsProviderPerformanceLimits.BuildPerformanceLimitsContent(container, true);
 
+            // Last on the page: the one control here that cannot take effect at all without a
+            // restart, so nothing above it looks like it needs one.
+            BuildRendererSection(container);
+
             // Every control this page carries now exists, so the bottleneck readout can find the
             // ones that move CPU or GPU cost and light them up while it is blaming that side.
             SettingsProviderBottleneckHints.Bind(descriptor);
@@ -2735,6 +2746,95 @@ namespace Basis.BasisUI
             };
         }
 
+        /// <summary>
+        /// Graphics API the player starts on, at the foot of the Graphics page. Only the APIs this
+        /// build actually ships for the running platform are listed — a player cannot start on one
+        /// it has no shaders for — and the entry the session is running is marked as such, so the
+        /// list never claims a renderer that is not really on offer. Unity takes the API from the
+        /// command line and nowhere else, so a change is carried by the same relaunch the rest of
+        /// the menu uses; a single-choice platform never builds the section at all.
+        /// </summary>
+        private static void BuildRendererSection(RectTransform container)
+        {
+            if (!BasisGraphicsApiSelection.IsOffered)
+            {
+                return;
+            }
+
+            PanelElementDescriptor group =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            group.SetTitle(BasisLocalization.Get("settings.graphics.renderer.title"));
+            group.SetDescription(BasisLocalization.Get("settings.graphics.renderer.description",
+                BasisGraphicsApiSelection.CurrentDisplayName));
+
+            PanelDropdown dropdownGraphicsApi = PanelDropdown.CreateNewEntry(group.ContentParent);
+            dropdownGraphicsApi.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.renderer.api.tooltip"));
+
+            List<string> apiIds = new List<string>();
+            List<string> apiLabels = new List<string>();
+            BasisGraphicsApiSelection.BuildDropdownEntries(apiIds, apiLabels);
+            dropdownGraphicsApi.AssignEntries(apiIds, apiLabels);
+
+            // Assigned first so the control writes through the binding, then moved onto the running
+            // API: with nothing saved the binding is empty, which is no entry in this list.
+            dropdownGraphicsApi.AssignBinding(BasisSettingsDefaults.GraphicsApi);
+            dropdownGraphicsApi.SetValueWithoutNotify(BasisGraphicsApiSelection.SelectedId);
+
+            void SyncGraphicsApiRestartNotice(string _)
+            {
+                dropdownGraphicsApi.SetValueWithoutNotify(BasisGraphicsApiSelection.SelectedId);
+                dropdownGraphicsApi.Descriptor.SetTitle(BasisGraphicsApiSelection.NeedsRestart
+                    ? BasisLocalization.Get("settings.graphics.renderer.api.restart")
+                    : BasisLocalization.Get("settings.graphics.renderer.api"));
+            }
+
+            SyncGraphicsApiRestartNotice(null);
+
+            // Shown but locked in the editor: the graphics device the editor started on is held for
+            // its whole session, and toggling play mode cannot hand it a different one.
+            if (!BasisGraphicsApiSelection.IsSupported)
+            {
+                dropdownGraphicsApi.SetInteractable(false, BasisLocalization.Get("settings.graphics.renderer.api.editorLocked"));
+                return;
+            }
+
+            BasisSettingsDefaults.GraphicsApi.OnChanged += SyncGraphicsApiRestartNotice;
+            dropdownGraphicsApi.OnInstanceReleased += () =>
+                BasisSettingsDefaults.GraphicsApi.OnChanged -= SyncGraphicsApiRestartNotice;
+
+            // Offered on the control's own change only, the same way GPU occlusion culling does it,
+            // so resetting the whole graphics tab doesn't throw a relaunch prompt. Picking the API
+            // already running clears NeedsRestart and asks nothing.
+            dropdownGraphicsApi.OnValueChanged += _ =>
+            {
+                if (!BasisGraphicsApiSelection.NeedsRestart)
+                {
+                    return;
+                }
+
+                if (BasisMainMenu.Instance == null)
+                {
+                    return;
+                }
+
+                if (BasisMainMenu.Instance.Dialogue)
+                {
+                    BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+                }
+
+                BasisMainMenu.Instance.OpenDialogue(
+                    BasisLocalization.Get("settings.graphics.renderer.restart.title"),
+                    BasisLocalization.Get("settings.graphics.renderer.restart.prompt",
+                        BasisGraphicsApiSelection.SelectedDisplayName),
+                    BasisLocalization.Get("settings.graphics.renderer.restart.now"),
+                    BasisLocalization.Get("settings.graphics.renderer.restart.later"),
+                    accepted =>
+                    {
+                        if (accepted) BasisAppRelaunch.RebootAndReconnect();
+                    });
+            };
+        }
+
         private static void ResetGraphicsDefaults()
         {
             BasisPerformanceMode.SetLevel(BasisPerformanceLevel.Off);
@@ -2777,6 +2877,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.UseAvatarShadowLod.ResetToDefault();
             BasisSettingsDefaults.UseAvatarVisibilityCull.ResetToDefault();
             BasisSettingsDefaults.UseGpuOcclusionCulling.ResetToDefault();
+            BasisGraphicsApiSelection.ResetToRunning();
             BasisSettingsDefaults.GlobalMeshLOD.ResetToDefault();
             BasisSettingsDefaults.LocalHeadBlendShapes.ResetToDefault();
 

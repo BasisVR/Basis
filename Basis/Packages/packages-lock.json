@@ -752,14 +752,14 @@
       "url": "https://packages.unity.com"
     },
     "com.valvesoftware.openxr.utils": {
-      "version": "https://github.com/ValveSoftware/Unity.git?path=com.valvesoftware.openxr.utils#28c3b8d9a4ecd7a128906e11c398944d3c8524dc",
+      "version": "https://github.com/ValveSoftware/Unity.git?path=com.valvesoftware.openxr.utils#b933e9322ff1ebd60914e90f6496314dc7044dfb",
       "depth": 0,
       "source": "git",
       "dependencies": {
         "com.unity.xr.openxr": "1.10.0",
         "com.unity.inputsystem": "1.7.0"
       },
-      "hash": "28c3b8d9a4ecd7a128906e11c398944d3c8524dc"
+      "hash": "b933e9322ff1ebd60914e90f6496314dc7044dfb"
     },
     "com.valvesoftware.unity.openvr": {
       "version": "file:com.valvesoftware.unity.openvr",

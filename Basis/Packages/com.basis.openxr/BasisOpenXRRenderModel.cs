@@ -81,8 +81,7 @@ public class BasisOpenXRRenderModel : MonoBehaviour
             waited += RenderModelCheckInterval;
         }
 
-        if (!TryGetAssetData(isLeftHand, out ulong renderModelAssetHandle, out byte[] gltfBytes)
-            || gltfBytes == null || gltfBytes.Length == 0)
+        if (!TryGetAssetData(isLeftHand, out byte[] gltfBytes) || gltfBytes == null || gltfBytes.Length == 0)
         {
             Fallback();
             yield break;
@@ -107,27 +106,34 @@ public class BasisOpenXRRenderModel : MonoBehaviour
             yield break;
         }
 
-        if (renderModelAssetHandle != 0)
-        {
-            feature.DestroyRenderModel(renderModelAssetHandle);
-        }
-
         loadRoutine = null;
         AttachVisualTracker();
     }
 
-    private bool TryGetAssetData(bool isLeftHand, out ulong assetHandle, out byte[] bytes)
+    private bool TryGetAssetData(bool isLeftHand, out byte[] bytes)
     {
-        assetHandle = 0;
         bytes = null;
+        ulong modelHandle = 0;
+        ulong assetHandle = 0;
         try
         {
-            return feature.GetRenderModelAssetData(isLeftHand, out _, out assetHandle, out _, out bytes);
+            return feature.GetRenderModelAssetData(isLeftHand, out modelHandle, out assetHandle, out _, out bytes);
         }
         catch (System.Exception e)
         {
             BasisDebug.LogError($"OpenXR render model query failed: {e.Message}");
             return false;
+        }
+        finally
+        {
+            if (assetHandle != 0)
+            {
+                feature.DestroyRenderModel(assetHandle);
+            }
+            if (modelHandle != 0)
+            {
+                feature.DestroyRenderModelHandle(modelHandle);
+            }
         }
     }
 

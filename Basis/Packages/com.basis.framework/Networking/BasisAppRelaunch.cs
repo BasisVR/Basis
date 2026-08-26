@@ -9,7 +9,8 @@ namespace Basis.Scripts.Networking
     /// <summary>
     /// Restarts the application and reconnects to the current server, restoring the
     /// active device mode. In a standalone player this relaunches the process with
-    /// <c>--force-&lt;mode&gt;</c> and <c>--connection=ip:port#password</c> args. In the
+    /// <c>--force-&lt;mode&gt;</c>, the saved renderer's <c>-force-&lt;api&gt;</c> flag and
+    /// <c>--connection=ip:port#password</c> args. In the
     /// editor it stores the intent and toggles play mode off then on, restoring the same
     /// mode and reconnecting on the next play session.
     /// </summary>
@@ -220,6 +221,12 @@ namespace Basis.Scripts.Networking
 
             string mode = BasisDeviceManagement.StaticCurrentMode;
             if (IsRestorableMode(mode)) Append(builder, "--force-" + mode);
+
+            if (Basis.Scripts.Rendering.BasisGraphicsApiSelection.TryGetRelaunchArguments(out string forceApi, out string apiMarker))
+            {
+                Append(builder, forceApi);
+                Append(builder, apiMarker);
+            }
 
             if (BasisNetworkConnection.LocalPlayerIsConnected)
             {
