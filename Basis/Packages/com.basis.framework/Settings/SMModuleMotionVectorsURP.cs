@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class SMModuleMotionVectorsURP : BasisSettingsBase
 {
+    public static bool SpaceWarpActive;
+
     public override void Awake()
     {
         base.Awake();
@@ -34,8 +36,11 @@ public class SMModuleMotionVectorsURP : BasisSettingsBase
         BasisLocalCameraDriver driver = BasisLocalCameraDriver.Instance;
         if (driver == null || driver.Camera == null) return;
 
-        DepthTextureMode mode = driver.Camera.depthTextureMode | DepthTextureMode.MotionVectors;
-        if (driver.Camera.depthTextureMode != mode)
+        DepthTextureMode current = driver.Camera.depthTextureMode;
+        DepthTextureMode mode = SpaceWarpActive
+            ? current | DepthTextureMode.MotionVectors
+            : current & ~DepthTextureMode.MotionVectors;
+        if (current != mode)
         {
             driver.Camera.depthTextureMode = mode;
         }

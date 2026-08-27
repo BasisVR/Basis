@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Management;
+using UnityEngine.XR.OpenXR;
 
 namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 {
@@ -108,6 +109,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
         {
             IsSuspended = false;
             BasisDebug.Log("Stopping SDK for BasisOpenXRManagement");
+            BasisOpenXRRefreshRate.Unhook();
 
             foreach (var device in controls)
             {
@@ -135,6 +137,10 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             CreatePhysicalHeadTracker("Head OPENXR", "Head OPENXR");
             LeftHand = CreatePhysicalHandTracker("Left Hand OPENXR", "Left Hand OPENXR", BasisBoneTrackedRole.LeftHand);
             RightHand = CreatePhysicalHandTracker("Right Hand OPENXR", "Right Hand OPENXR", BasisBoneTrackedRole.RightHand);
+            BasisOpenXRRefreshRate.Hook();
+            SMModuleMotionVectorsURP.SpaceWarpActive = OpenXRRuntime.IsExtensionEnabled("XR_FB_space_warp");
+            SMModuleMotionVectorsURP.ApplyMotionVectors();
+            BasisDebug.Log($"SpaceWarp extension {(SMModuleMotionVectorsURP.SpaceWarpActive ? "present" : "absent")}; motion vectors {(SMModuleMotionVectorsURP.SpaceWarpActive ? "on" : "off")}", BasisDebug.LogTag.Device);
             BasisDebug.Log("SDK started successfully.");
             InputSystem.onDeviceChange += onDeviceChange;
             BasisDeviceManagement.OnDeviceManagementLoop += CheckTrackersPulse;

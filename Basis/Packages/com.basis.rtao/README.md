@@ -88,14 +88,32 @@ interval (2 s by default, or immediately on `MarkDirty()`), updates transforms f
 only rebuilds when something actually changed. Filtering is layer mask, renderer enabled state, shadow
 casting mode, and an explicit `BasisRTAOExclude` component.
 
+⚠️ **An instance can only be removed by handle while the mesh it was registered against is alive**, and the
+two backends fail in opposite directions once it is not. The hardware one drops the instance itself the
+moment Unity destroys its mesh and hands the handle straight back out, so a late `RemoveInstance` takes
+whichever instance inherited it. The compute one copied the geometry into its own BLAS pool, keyed by the
+mesh's instance id, and never hears that the mesh died — skip the removal there and the old geometry occludes
+for the rest of the session, and the next mesh Unity hands that recycled id to inherits its BLAS. An avatar
+bundle unloading out from under a swap is how a registered mesh dies first, so that case escalates to
+`ResetStructure()`: clear every instance and re-add the entries that still resolve to geometry.
+`StructureResetCount` counts them, and it should stay near zero — a number that climbs per swap means
+something is releasing too late.
+
 ### Avatars
 
 Avatars are skinned meshes, so they only occlude when skinned mode is on, and they are the reason it now
 defaults to Dynamic. Both the local and remote avatars go through the same path:
 
-- Every avatar lifecycle event — local avatar switch, remote join, remote leave — calls
-  `BasisRTAOFeature.MarkSceneDirty()` from `BasisRTAOIntegration`, so a new avatar is in the structure on
-  the next frame rather than whenever the rescan interval happens to come round.
+- Every avatar **install** — local switch, remote switch, fallback, far LOD — calls
+  `BasisRTAOFeature.MarkSceneDirty()` from `BasisRTAOIntegration`, off the single funnel all of them go
+  through (`BasisAvatarFactory.OnAnyAvatarInstalled`), so the new body is in the structure the same frame
+  rather than whenever the rescan interval happens to come round. Unity has already processed the outgoing
+  avatar's `Destroy` by the time the pass records, so the forced rescan drops the old one in that same frame.
+  ⚠️ **Not off `OnRemotePlayerJoined`/`Left`**, which is what this used to be: those only fire when the
+  room's *population* changes, so a remote switching avatars — or dropping to their far LOD on the way out
+  of range, which is a whole new mesh — reached neither and kept occluding as the body they had left until
+  the rescan came round. `BasisNetworkLifeCycle` also nulls both actions on shutdown, which left this deaf
+  to remotes entirely after the first disconnect.
 - Every avatar's instance transform follows its own transform every frame, near or far, so a remote never
   occludes from where it used to be standing.
 - The **pose** re-bake is what costs, so that is what the occlusion quality actually buys on avatars:
@@ -111,7 +129,11 @@ defaults to Dynamic. Both the local and remote avatars go through the same path:
   re-pose every four frames. **Avatars Re-posed Per Frame** on the Developer tab pins the budget against the
   quality level, which is how you measure what a busy instance costs; zero means follow the quality.
 - Only avatars within `skinnedMaxDistance` (15 m) spend the budget. Past that an avatar keeps its last pose
-  — still occluding, from the right place, just not re-posed.
+  — still occluding, from the right place, just not re-posed. ⚠️ **The first bake is exempt from that gate
+  and from the interval.** `AddEntry` snapshots a body the frame it enters the structure, and a freshly
+  installed avatar has not been posed yet — it is still standing in the pose its mesh was imported in.
+  Apply the gate to that bake and everyone who loads in beyond 15 m occludes as a T-pose for as long as they
+  stay out there. `Entry.needsPosedBake` carries the exemption and clears on the first bake that lands.
 - ⚠️ **Do not filter avatars on `shadowCastingMode`.** It is an authoring signal on world geometry, but
   `BasisAvatarShadowLOD` writes `ShadowCastingMode.Off` onto every remote renderer past mesh LOD 2 (roughly
   14 m). Treating that as "does not occlude" silently drops most of the room out of the acceleration
@@ -120,7 +142,9 @@ defaults to Dynamic. Both the local and remote avatars go through the same path:
 Skinned meshes default to **Dynamic**, because avatars are what people look at and an avatar that casts no
 contact shadow reads as floating. Dynamic bakes them on a per frame budget (2 per frame, one every 4 frames
 each, within 8 m) and re-adds the instance so the BLAS is rebuilt. That is real CPU and GPU cost per avatar;
-`Static` bakes once and `Off` skips them entirely if a world needs the frame time back.
+`Static` bakes once and `Off` skips them entirely if a world needs the frame time back. Static's "once" is
+still the first **posed** bake, not `AddEntry`'s snapshot — `BakeFirstPoses` is the one thing Static does per
+frame, and without it every avatar would occlude as its import pose forever.
 
 ## Denoising
 

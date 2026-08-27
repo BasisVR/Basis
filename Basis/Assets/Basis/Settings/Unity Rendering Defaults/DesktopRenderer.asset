@@ -19,6 +19,7 @@ MonoBehaviour:
   m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}
   m_RayTracingComputeFallback: 0
   m_ReflectionProbes: 1
+  m_Mirrors: 1
   m_RenderingDebugger: 0
   m_NormalsPrepass: 0
 --- !u!114 &-7061326814219087741
@@ -64,7 +65,7 @@ MonoBehaviour:
   m_Active: 1
   resources: {fileID: 11400000, guid: d8c73d1f224d1aa4731366a9d7678bfc, type: 2}
   quality: 3
-  overrideQualityPreset: 1
+  overrideQualityPreset: 0
   settings:
     raysPerPixel: 2
     resolutionDivider: 2
@@ -311,6 +312,7 @@ MonoBehaviour:
   m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}
   m_RayTracingComputeFallback: 0
   m_ReflectionProbes: 1
+  m_Mirrors: 1
   m_RenderingDebugger: 0
   m_NormalsPrepass: 0
 --- !u!114 &8304327589836468309

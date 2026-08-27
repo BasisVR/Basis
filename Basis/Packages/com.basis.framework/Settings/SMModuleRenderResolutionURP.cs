@@ -3,6 +3,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Rendering;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 
 public class SMModuleRenderResolutionURP : BasisSettingsBase
@@ -22,6 +23,31 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
     private static string K_DYNAMIC_RESOLUTION_MAXIMUM => BasisSettingsDefaults.DynamicResolutionMaximumScale.BindingKey;
     private static string K_DYNAMIC_RESOLUTION_TARGET_OVERRIDE => BasisSettingsDefaults.DynamicResolutionTargetOverride.BindingKey;
     private static string K_DYNAMIC_RESOLUTION_TARGET => BasisSettingsDefaults.DynamicResolutionTargetFrameRate.BindingKey;
+
+    private void OnEnable()
+    {
+        BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+    }
+
+    private void OnDisable()
+    {
+        BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+    }
+
+    private void OnBootModeChanged(string mode)
+    {
+        ReapplyDisplaySettings();
+    }
+
+    /// <summary>
+    /// Foveation and render scale both need a live XR display, so the value loaded at startup is
+    /// dropped when it arrives before the loader has one. Re-apply once the boot mode settles.
+    /// </summary>
+    public void ReapplyDisplaySettings()
+    {
+        HandleRenderResolution(BasisSettingsDefaults.RenderResolution.RawValue);
+        HandleFoveatedRendering(BasisSettingsDefaults.FoveatedRendering.RawValue);
+    }
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
@@ -75,7 +101,12 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
 
         RenderScale = option;
 
-      //  BasisDynamicResolution.SetUserRenderScale(option);
+        UniversalRenderPipelineAsset asset = QualitySettings.renderPipeline as UniversalRenderPipelineAsset;
+        if (asset != null && !Mathf.Approximately(asset.renderScale, option))
+        {
+            asset.renderScale = option;
+            BasisDebug.Log($"Render scale set to {option:F3}", BasisDebug.LogTag.Video);
+        }
     }
 
     private void HandleDynamicResolution()

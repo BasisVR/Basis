@@ -1265,12 +1265,12 @@ MonoBehaviour:
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
     m_List: 00000000
-  m_depthSubmissionMode: 1
+  m_depthSubmissionMode: 0
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 1
-  m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
+  m_symmetricProjection: 1
+  m_optimizeMultiviewRenderRegions: 1
+  m_multiviewRenderRegionsOptimizationMode: 1
   m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 1
   m_useOpenXRPredictedTime: 1
@@ -2071,7 +2071,7 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   optimizeBufferDiscards: 1
-  lateLatchingMode: 0
+  lateLatchingMode: 1
   lateLatchingDebug: 0
 --- !u!114 &4488616393402168616
 MonoBehaviour:
@@ -2212,9 +2212,9 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  symmetricProjection: 0
-  optimizeMultiviewRenderRegions: 0
-  multiviewRenderRegionsOptimizationMode: 0
+  symmetricProjection: 1
+  optimizeMultiviewRenderRegions: 1
+  multiviewRenderRegionsOptimizationMode: 1
   m_hasMigratedMultiviewRenderRegions: 0
 --- !u!114 &5205117698541507489
 MonoBehaviour:

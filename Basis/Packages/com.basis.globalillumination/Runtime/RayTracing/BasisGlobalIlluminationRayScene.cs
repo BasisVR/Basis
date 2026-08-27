@@ -24,6 +24,11 @@ public struct BasisGlobalIlluminationRaySceneSettings
     public float skinnedMaxDistance;
     public bool textureAlbedo;
     public bool emissiveSurfaces;
+    /// <summary>
+    /// Skip the emission of a baked-emissive surface that already carries a lightmap, because that
+    /// light is in the lightmap and injecting it again lights the room twice from one lamp.
+    /// </summary>
+    public bool respectBakedEmission;
 
     public static BasisGlobalIlluminationRaySceneSettings Default => new BasisGlobalIlluminationRaySceneSettings
     {
@@ -35,7 +40,8 @@ public struct BasisGlobalIlluminationRaySceneSettings
         skinnedBakeInterval = 4,
         skinnedMaxDistance = 16f,
         textureAlbedo = true,
-        emissiveSurfaces = true
+        emissiveSurfaces = true,
+        respectBakedEmission = true
     };
 }
 
@@ -557,6 +563,21 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
     }
 
     /// <summary>
+    /// Whether this surface's light is already sitting in a lightmap.
+    ///
+    /// Both halves are required. `BakedEmissive` alone only says the author intended it to be baked - the
+    /// world may never have been baked at all, and then refusing the emission would lose the light
+    /// entirely. A lightmap index alone only says the renderer is baked - its emission may be realtime.
+    /// Together they say this exact renderer was baked with this emission folded into it.
+    /// </summary>
+    public static bool IsBakedEmissive(Material material, Renderer renderer)
+    {
+        if (material == null || renderer == null) { return false; }
+        if ((material.globalIlluminationFlags & MaterialGlobalIlluminationFlags.BakedEmissive) == 0) { return false; }
+        return renderer.lightmapIndex >= 0 && renderer.lightmapIndex < LightmapSettings.lightmaps.Length;
+    }
+
+    /// <summary>
     /// The colour a hit on this material bounces and the light it emits on its own. Textures are folded in as
     /// an average because a hit only carries a per-instance colour, and almost every lit material leaves its
     /// base colour white and puts the actual colour in the map.
@@ -602,6 +623,18 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         albedo = new Color(Mathf.Clamp01(albedo.r), Mathf.Clamp01(albedo.g), Mathf.Clamp01(albedo.b), 1f);
 
         if (!settings.emissiveSurfaces) { return; }
+
+        // A surface whose emission was BAKED, on a renderer that actually carries a lightmap, has already
+        // delivered every photon it is going to deliver - into that lightmap, at bake time. Injecting it
+        // again as a realtime source lights the room twice from one lamp, which is the usual way an
+        // emissive quad used as an area light reads far too bright once this effect is switched on.
+        //
+        // Gated on BOTH halves, and that is what makes it safe next to the note below about not trusting
+        // globalIlluminationFlags on its own. The worry there is a stale flag on a material whose emission
+        // is driven at runtime; a renderer with a lightmap index is baked static geometry, and driving its
+        // emission at runtime is already broken for the lightmap that geometry is lit by. Dynamic
+        // renderers, realtime emission and unbaked worlds all keep the live material read below.
+        if (settings.respectBakedEmission && IsBakedEmissive(material, renderer)) { return; }
 
         Color blockEmission = Color.black;
         bool hasBlockEmission = block != null && TryGetBlockColor(block, EmissionColorId, out blockEmission);

@@ -34,6 +34,7 @@ public struct BasisGlobalIlluminationState
     public bool Emitters;
     public float EmitterIntensity;
     public bool ReflectionProbes;
+    public bool Mirrors;
     public bool Capture;
 
     public static BasisGlobalIlluminationState FromDefaults()
@@ -58,6 +59,7 @@ public struct BasisGlobalIlluminationState
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.DefaultValue.GetDefault(),
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.DefaultValue.GetDefault(),
             ReflectionProbes = BasisSettingsDefaults.GlobalIlluminationReflectionProbes.DefaultValue.GetDefault(),
+            Mirrors = BasisSettingsDefaults.GlobalIlluminationMirrors.DefaultValue.GetDefault(),
             Capture = false
         };
     }
@@ -84,6 +86,7 @@ public struct BasisGlobalIlluminationState
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.RawValue,
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.RawValue,
             ReflectionProbes = BasisSettingsDefaults.GlobalIlluminationReflectionProbes.RawValue,
+            Mirrors = BasisSettingsDefaults.GlobalIlluminationMirrors.RawValue,
             Capture = false
         };
     }
@@ -130,6 +133,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_EMITTERS => BasisSettingsDefaults.GlobalIlluminationEmitters.BindingKey;
     private static string K_GI_EMITTER_INTENSITY => BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.BindingKey;
     private static string K_GI_REFLECTION_PROBES => BasisSettingsDefaults.GlobalIlluminationReflectionProbes.BindingKey;
+    private static string K_GI_MIRRORS => BasisSettingsDefaults.GlobalIlluminationMirrors.BindingKey;
     private static string K_GI_DEBUG_VIEW => BasisSettingsDefaults.DevGiDebugView.BindingKey;
 
     public override void Awake()
@@ -159,6 +163,15 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
         if (localCamera == null || ReferenceEquals(camera, localCamera))
         {
             return true;
+        }
+        // Mirrors are not registered by anything - they are created by whatever world the player walked
+        // into, not by a Basis system that could announce them - so an allow-list of registered cameras
+        // rejects every one of them. That is why a mirror has never shown a bounce. The feature itself
+        // decides whether mirrors are wanted; this only stops the allow-list from being the thing that
+        // silently answers the question.
+        if (BasisGlobalIlluminationFeature.IsMirrorReflection(camera))
+        {
+            return !suspendedCameras.Contains(camera);
         }
         return registeredCameras.Contains(camera) && !suspendedCameras.Contains(camera);
     }
@@ -261,6 +274,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_RAY_REUSE) { state.RayReuse = optionValue == "true"; }
         else if (matchedSettingName == K_GI_EMITTERS) { state.Emitters = optionValue == "true"; }
         else if (matchedSettingName == K_GI_REFLECTION_PROBES) { state.ReflectionProbes = optionValue == "true"; }
+        else if (matchedSettingName == K_GI_MIRRORS) { state.Mirrors = optionValue == "true"; }
         else if (matchedSettingName == K_GI_DEBUG_VIEW)
         {
             BasisGlobalIlluminationFeature feature = FindFeature();
@@ -473,7 +487,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     {
         BasisGlobalIlluminationFeature feature = FindFeature();
         RememberAuthoredFeatureValues(feature);
-        Apply(feature, state.Enabled, state.ReflectionProbes);
+        Apply(feature, state.Enabled, state.ReflectionProbes, state.Mirrors);
     }
 
     // The feature is a sub-asset of the renderer, not a scene object, so writing to it in the editor
@@ -481,6 +495,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private bool hasAuthoredFeatureValues;
     private bool authoredActive;
     private bool authoredReflectionProbes;
+    private bool authoredMirrors;
 
     private void RememberAuthoredFeatureValues(BasisGlobalIlluminationFeature feature)
     {
@@ -491,6 +506,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
         hasAuthoredFeatureValues = true;
         authoredActive = feature.isActive;
         authoredReflectionProbes = feature.ReflectionProbes;
+        authoredMirrors = feature.Mirrors;
     }
 
     public void RestoreAuthoredFeatureValues()
@@ -500,16 +516,17 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
             return;
         }
         hasAuthoredFeatureValues = false;
-        Apply(FindFeature(), authoredActive, authoredReflectionProbes);
+        Apply(FindFeature(), authoredActive, authoredReflectionProbes, authoredMirrors);
     }
 
-    public static void Apply(BasisGlobalIlluminationFeature feature, bool enabled, bool reflectionProbes)
+    public static void Apply(BasisGlobalIlluminationFeature feature, bool enabled, bool reflectionProbes, bool mirrors)
     {
         if (feature == null)
         {
             return;
         }
         feature.ReflectionProbes = reflectionProbes;
+        feature.Mirrors = mirrors;
         if (feature.isActive != enabled)
         {
             feature.SetActive(enabled);

@@ -4,6 +4,7 @@
 #if BASIS_HAS_RTAO && !UNITY_ANDROID
 using Basis.BasisUI;
 using Basis.Rendering.RTAO;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -32,9 +33,14 @@ namespace Basis.Scripts.Rendering
             BasisSettingsSystem.OnSettingsFinishedChanges += Apply;
 
             // An avatar that is not in the acceleration structure casts no contact shadow, and avatars change
-            // far more often than the scene rescan interval, so every lifecycle event forces a refresh.
-            BasisLocalPlayer.OnLocalAvatarChanged += OnLocalAvatarChanged;
-            BasisNetworkPlayer.OnRemotePlayerJoined += OnRemotePlayerChanged;
+            // far more often than the scene rescan interval, so every install forces a refresh.
+            //
+            // The install funnel, not the join/leave pair: those only fire when the room's population
+            // changes, so a remote SWITCHING avatars — or dropping to their far LOD on the way out of range,
+            // which is a whole new mesh — reached neither, and the structure went on tracing the body they
+            // had already left until the 2 s rescan came round. BasisNetworkLifeCycle also nulls both
+            // actions on shutdown, which left this deaf to remotes entirely after the first disconnect.
+            BasisAvatarFactory.OnAnyAvatarInstalled += OnAvatarInstalled;
             BasisNetworkPlayer.OnRemotePlayerLeft += OnRemotePlayerChanged;
 
             if (BasisSettingsSystem.SettingsLoaded)
@@ -49,8 +55,7 @@ namespace Basis.Scripts.Rendering
             installed = false;
             BasisSettingsSystem.OnSettingChanged -= OnSettingChanged;
             BasisSettingsSystem.OnSettingsFinishedChanges -= Apply;
-            BasisLocalPlayer.OnLocalAvatarChanged -= OnLocalAvatarChanged;
-            BasisNetworkPlayer.OnRemotePlayerJoined -= OnRemotePlayerChanged;
+            BasisAvatarFactory.OnAnyAvatarInstalled -= OnAvatarInstalled;
             BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayerChanged;
             BasisRTAOFeature.CameraFilter = null;
             BasisRTAOFeature.ViewerPosition = null;
@@ -76,7 +81,7 @@ namespace Basis.Scripts.Rendering
             return BasisLocalCameraDriver.HasInstance ? BasisLocalCameraDriver.Position : Vector3.zero;
         }
 
-        private static void OnLocalAvatarChanged()
+        private static void OnAvatarInstalled(IBasisPlayer player)
         {
             BasisRTAOFeature.MarkSceneDirty();
         }

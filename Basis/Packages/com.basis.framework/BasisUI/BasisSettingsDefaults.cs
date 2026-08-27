@@ -95,7 +95,14 @@ namespace Basis.BasisUI
         /// </summary>
         public static BasisSettingsBinding<bool> EnableEyeTracking = new("enableeyetracking", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<float> AvatarRange = new("avatarrange", new BasisPlatformDefault<float>(25));
+        public static BasisSettingsBinding<float> AvatarRange = new("avatarrange", new BasisPlatformDefault<float>
+        {
+            windows = 25,
+            android = 15,
+            ios = 15,
+            linux = 25,
+            other = 25
+        });
 
         /// <summary>
         /// Maximum number of remote players allowed to show their real avatar at once.
@@ -103,8 +110,22 @@ namespace Basis.BasisUI
         /// Players beyond this limit fall back to the default avatar.
         /// Closest players get priority; currently-visible avatars are sticky to prevent pulsing.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxVisibleAvatars = new("maxvisibleavatars", new BasisPlatformDefault<float>(0));
-        public static BasisSettingsBinding<bool> UseMaxVisibleAvatars = new("usemaxvisibleavatars", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxVisibleAvatars = new("maxvisibleavatars", new BasisPlatformDefault<float>
+        {
+            windows = 0,
+            android = 12,
+            ios = 12,
+            linux = 0,
+            other = 0
+        });
+        public static BasisSettingsBinding<bool> UseMaxVisibleAvatars = new("usemaxvisibleavatars", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
 
         /// <summary>
         /// When enabled, joining or being in an instance with a very high player count offers
@@ -148,21 +169,49 @@ namespace Basis.BasisUI
         /// Players beyond this limit lose their audio source.
         /// Closest players get priority; currently-active sources are sticky to prevent popping.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxAudioSources = new("maxaudiosources", new BasisPlatformDefault<float>(0));
-        public static BasisSettingsBinding<bool> UseMaxAudioSources = new("usemaxaudiosources", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxAudioSources = new("maxaudiosources", new BasisPlatformDefault<float>
+        {
+            windows = 0,
+            android = 12,
+            ios = 12,
+            linux = 0,
+            other = 0
+        });
+        public static BasisSettingsBinding<bool> UseMaxAudioSources = new("usemaxaudiosources", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
 
         /// <summary>
         /// When enabled, caps the number of OpenLipSync (neural viseme) slots to <see cref="OpenLipSyncMaxSlots"/>.
         /// When disabled (default), slot count is unlimited — bounded only by the number of players in viseme range.
         /// </summary>
-        public static BasisSettingsBinding<bool> UseOpenLipSyncLimit = new("useopenlipsynclimit", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> UseOpenLipSyncLimit = new("useopenlipsynclimit", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
 
         /// <summary>
         /// Maximum number of OpenLipSync (neural viseme) slots when <see cref="UseOpenLipSyncLimit"/> is enabled.
         /// Players beyond this limit get no visemes until a slot frees up.
         /// Higher values look better in crowds but cost more CPU.
         /// </summary>
-        public static BasisSettingsBinding<float> OpenLipSyncMaxSlots = new("openlipsyncmaxslots", new BasisPlatformDefault<float>(30));
+        public static BasisSettingsBinding<float> OpenLipSyncMaxSlots = new("openlipsyncmaxslots", new BasisPlatformDefault<float>
+        {
+            windows = 30,
+            android = 8,
+            ios = 8,
+            linux = 30,
+            other = 30
+        });
 
         /// <summary>
         /// When enabled, only remote players within the local player's view cone
@@ -176,7 +225,14 @@ namespace Basis.BasisUI
         /// 4 = default (LOD 3 updates every 8th frame).
         /// 8 = aggressive (LOD 3 updates every 32nd frame).
         /// </summary>
-        public static BasisSettingsBinding<float> PoseLOD = new("poselod", new BasisPlatformDefault<float>(0));
+        public static BasisSettingsBinding<float> PoseLOD = new("poselod", new BasisPlatformDefault<float>
+        {
+            windows = 0,
+            android = 3,
+            ios = 3,
+            linux = 0,
+            other = 0
+        });
 
         public static BasisSettingsBinding<float> SnapTurnAngle = new("snapturnangle", new BasisPlatformDefault<float>(25f));
 
@@ -368,6 +424,13 @@ namespace Basis.BasisUI
         public const float GI_EMITTER_INTENSITY_MAX = 8f;
         // Off by default: a realtime reflection probe pays for the whole effect once per face.
         public static BasisSettingsBinding<bool> GlobalIlluminationReflectionProbes = new("globalilluminationreflectionprobes", new BasisPlatformDefault<bool>(false));
+        /// <summary>
+        /// Whether mirrors show the bounce. On by default because the alternative is a mirror rendering the
+        /// room without any of the light the same room has when looked at directly, which reads as a broken
+        /// mirror rather than as a performance setting. Each mirror camera pays for its own gather, so this
+        /// is the lever for a world where that is too much.
+        /// </summary>
+        public static BasisSettingsBinding<bool> GlobalIlluminationMirrors = new("globalilluminationmirrors", new BasisPlatformDefault<bool>(true));
 
         // Ray traced ambient occlusion. Off by default because it is a real slice of the frame and it
         // needs a ray tracing GPU for the traced path.
@@ -440,7 +503,14 @@ namespace Basis.BasisUI
             other = false
         });
 
-        public static BasisSettingsBinding<string> Antialiasing = new("antialiasing", new BasisPlatformDefault<string>("msaa 2x"));
+        public static BasisSettingsBinding<string> Antialiasing = new("antialiasing", new BasisPlatformDefault<string>
+        {
+            windows = "msaa 2x",
+            android = "msaa 4x",
+            ios = "msaa 4x",
+            linux = "msaa 2x",
+            other = "msaa 2x"
+        });
 
         public static BasisSettingsBinding<bool> DevVariableRateShading = new("devvariablerateshading", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> DevVariableRateShadingDesktop = new("devvariablerateshadingdesktop", new BasisPlatformDefault<bool>(false));
@@ -722,9 +792,23 @@ namespace Basis.BasisUI
         public const float FOV_MIN = 50;
         public const float FOV_MAX = 120;
 
-        public static BasisSettingsBinding<float> AvatarDownloadSize = new("avatardownloadsize", new BasisPlatformDefault<float>(256));
+        public static BasisSettingsBinding<float> AvatarDownloadSize = new("avatardownloadsize", new BasisPlatformDefault<float>
+        {
+            windows = 256,
+            android = 64,
+            ios = 64,
+            linux = 256,
+            other = 256
+        });
 
-        public static BasisSettingsBinding<float> CacheMaxSizeGB = new("cachemaxsizegb", new BasisPlatformDefault<float>(128));
+        public static BasisSettingsBinding<float> CacheMaxSizeGB = new("cachemaxsizegb", new BasisPlatformDefault<float>
+        {
+            windows = 128,
+            android = 8,
+            ios = 8,
+            linux = 128,
+            other = 128
+        });
 
         /// <summary>
         /// Maximum number of avatar asset bundles that can be downloaded from the network
@@ -733,21 +817,42 @@ namespace Basis.BasisUI
         /// longer on the loading avatar. Tune higher only if you have lots of bandwidth and
         /// the server is fast.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxConcurrentAvatarDownloads = new("maxconcurrentavatardownloads", new BasisPlatformDefault<float>(5));
+        public static BasisSettingsBinding<float> MaxConcurrentAvatarDownloads = new("maxconcurrentavatardownloads", new BasisPlatformDefault<float>
+        {
+            windows = 5,
+            android = 3,
+            ios = 3,
+            linux = 5,
+            other = 5
+        });
 
         /// <summary>
         /// Maximum number of cached avatar asset bundles that can be loaded from disc at
         /// once. Disc loads are I/O + decryption + bundle-decompression bound. This can be
         /// higher than the download gate because no network is involved.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxConcurrentAvatarDiscLoads = new("maxconcurrentavatardiscloads", new BasisPlatformDefault<float>(15));
+        public static BasisSettingsBinding<float> MaxConcurrentAvatarDiscLoads = new("maxconcurrentavatardiscloads", new BasisPlatformDefault<float>
+        {
+            windows = 15,
+            android = 4,
+            ios = 4,
+            linux = 15,
+            other = 15
+        });
 
         /// <summary>
         /// Maximum number of addressable (in-build) avatars that can be instantiated
         /// concurrently. Addressable loads are CPU-bound and typically very fast, so this
         /// gate can be the largest of the three.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxConcurrentAvatarAddressables = new("maxconcurrentavataraddressables", new BasisPlatformDefault<float>(25));
+        public static BasisSettingsBinding<float> MaxConcurrentAvatarAddressables = new("maxconcurrentavataraddressables", new BasisPlatformDefault<float>
+        {
+            windows = 25,
+            android = 6,
+            ios = 6,
+            linux = 25,
+            other = 25
+        });
 
         // ---------------- AVATAR PERFORMANCE LIMITS ----------------
         // Client-side safety net that inspects the pre-download metadata header on each
@@ -759,7 +864,14 @@ namespace Basis.BasisUI
         // avatar (see SMModuleAvatarPerformanceLimits).
 
         public static BasisSettingsBinding<bool> UsePerfLimitTriangles = new("useperflimittriangles", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfTriangles = new("maxperftriangles", new BasisPlatformDefault<float>(2000000));
+        public static BasisSettingsBinding<float> MaxPerfTriangles = new("maxperftriangles", new BasisPlatformDefault<float>
+        {
+            windows = 2000000,
+            android = 100000,
+            ios = 100000,
+            linux = 2000000,
+            other = 2000000
+        });
 
         public static BasisSettingsBinding<bool> UsePerfLimitBoundsSize = new("useperflimitboundssize", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> MaxPerfBoundsSize = new("maxperfboundssize", new BasisPlatformDefault<float>(50f));
@@ -767,26 +879,75 @@ namespace Basis.BasisUI
         // Texture memory defaults on — 512 MB is generous for a single avatar but
         // catches the 2–4 GB outliers that trip out-of-memory on lower-end hardware.
         public static BasisSettingsBinding<bool> UsePerfLimitTextureMemory = new("useperflimittexturememory", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfTextureMemoryMB = new("maxperftexturememorymb", new BasisPlatformDefault<float>(512));
+        public static BasisSettingsBinding<float> MaxPerfTextureMemoryMB = new("maxperftexturememorymb", new BasisPlatformDefault<float>
+        {
+            windows = 512,
+            android = 64,
+            ios = 64,
+            linux = 512,
+            other = 512
+        });
 
         public static BasisSettingsBinding<bool> UsePerfLimitSkinnedMeshes = new("useperflimitskinnedmeshes", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfSkinnedMeshes = new("maxperfskinnedmeshes", new BasisPlatformDefault<float>(64));
+        public static BasisSettingsBinding<float> MaxPerfSkinnedMeshes = new("maxperfskinnedmeshes", new BasisPlatformDefault<float>
+        {
+            windows = 64,
+            android = 8,
+            ios = 8,
+            linux = 64,
+            other = 64
+        });
 
         public static BasisSettingsBinding<bool> UsePerfLimitBasicMeshes = new("useperflimitbasicmeshes", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfBasicMeshes = new("maxperfbasicmeshes", new BasisPlatformDefault<float>(128));
+        public static BasisSettingsBinding<float> MaxPerfBasicMeshes = new("maxperfbasicmeshes", new BasisPlatformDefault<float>
+        {
+            windows = 128,
+            android = 16,
+            ios = 16,
+            linux = 128,
+            other = 128
+        });
 
         public static BasisSettingsBinding<bool> UsePerfLimitMaterialSlots = new("useperflimitmaterialslots", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfMaterialSlots = new("maxperfmaterialslots", new BasisPlatformDefault<float>(256));
+        public static BasisSettingsBinding<float> MaxPerfMaterialSlots = new("maxperfmaterialslots", new BasisPlatformDefault<float>
+        {
+            windows = 256,
+            android = 16,
+            ios = 16,
+            linux = 256,
+            other = 256
+        });
 
         public static BasisSettingsBinding<bool> UsePerfLimitJiggleBones = new("useperflimitjigglebones", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfJiggleBones = new("maxperfjigglebones", new BasisPlatformDefault<float>(128));
+        public static BasisSettingsBinding<float> MaxPerfJiggleBones = new("maxperfjigglebones", new BasisPlatformDefault<float>
+        {
+            windows = 128,
+            android = 48,
+            ios = 48,
+            linux = 128,
+            other = 128
+        });
 
         public static BasisSettingsBinding<bool> UsePerfLimitJiggleColliders = new("useperflimitjigglecolliders", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfJiggleColliders = new("maxperfjigglecolliders", new BasisPlatformDefault<float>(64));
+        public static BasisSettingsBinding<float> MaxPerfJiggleColliders = new("maxperfjigglecolliders", new BasisPlatformDefault<float>
+        {
+            windows = 64,
+            android = 16,
+            ios = 16,
+            linux = 64,
+            other = 64
+        });
 
         public static BasisSettingsBinding<bool> UseJiggleCollisionFrustumCull = new("usejigglecollisionfrustumcull", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> UseJiggleCollisionDistanceCull = new("usejigglecollisiondistancecull", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> JiggleCollisionCullDistance = new("jigglecollisionculldistance", new BasisPlatformDefault<float>(20));
+        public static BasisSettingsBinding<float> JiggleCollisionCullDistance = new("jigglecollisionculldistance", new BasisPlatformDefault<float>
+        {
+            windows = 20,
+            android = 10,
+            ios = 10,
+            linux = 20,
+            other = 20
+        });
         public static BasisSettingsBinding<float> JiggleCullFrustumExpansion = new("jigglecullfrustumexpansion", new BasisPlatformDefault<float>(1.2f));
         public static BasisSettingsBinding<float> JiggleCullNearKeepRadius = new("jigglecullnearkeepradius", new BasisPlatformDefault<float>(2.5f));
         public static BasisSettingsBinding<float> JiggleBroadPhaseCellSize = new("jigglebroadphasecellsize", new BasisPlatformDefault<float>(0.5f));
@@ -795,9 +956,30 @@ namespace Basis.BasisUI
         // colliders (hands become a single sphere), past Mid drop the arm/foot colliders too, past
         // Far remove them entirely.
         public static BasisSettingsBinding<bool> UseJiggleColliderDistanceLod = new("usejigglecolliderdistancelod", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> JiggleColliderLodNearDistance = new("jigglecolliderlodneardistance", new BasisPlatformDefault<float>(25));
-        public static BasisSettingsBinding<float> JiggleColliderLodMidDistance = new("jigglecolliderlodmiddistance", new BasisPlatformDefault<float>(50));
-        public static BasisSettingsBinding<float> JiggleColliderLodFarDistance = new("jigglecolliderlodfardistance", new BasisPlatformDefault<float>(100));
+        public static BasisSettingsBinding<float> JiggleColliderLodNearDistance = new("jigglecolliderlodneardistance", new BasisPlatformDefault<float>
+        {
+            windows = 25,
+            android = 10,
+            ios = 10,
+            linux = 25,
+            other = 25
+        });
+        public static BasisSettingsBinding<float> JiggleColliderLodMidDistance = new("jigglecolliderlodmiddistance", new BasisPlatformDefault<float>
+        {
+            windows = 50,
+            android = 20,
+            ios = 20,
+            linux = 50,
+            other = 50
+        });
+        public static BasisSettingsBinding<float> JiggleColliderLodFarDistance = new("jigglecolliderlodfardistance", new BasisPlatformDefault<float>
+        {
+            windows = 100,
+            android = 40,
+            ios = 40,
+            linux = 100,
+            other = 100
+        });
 
         // Animators default on at 1 — extras are a common perf trap (every child
         // Animator ticks every frame). Excess Animators are trimmed, not blocked.
@@ -818,19 +1000,47 @@ namespace Basis.BasisUI
         // Particles default on at 4 — a few ambient systems are fine, more is a
         // hand grenade in a crowd. Trimmed, not blocked.
         public static BasisSettingsBinding<bool> UsePerfLimitParticleSystems = new("useperflimitparticlesystems", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfParticleSystems = new("maxperfparticlesystems_v2", new BasisPlatformDefault<float>(4));
+        public static BasisSettingsBinding<float> MaxPerfParticleSystems = new("maxperfparticlesystems_v2", new BasisPlatformDefault<float>
+        {
+            windows = 4,
+            android = 1,
+            ios = 1,
+            linux = 4,
+            other = 4
+        });
 
         // Trails default on at 4.
         public static BasisSettingsBinding<bool> UsePerfLimitTrailRenderers = new("useperflimittrailrenderers", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfTrailRenderers = new("maxperftrailrenderers_v2", new BasisPlatformDefault<float>(4));
+        public static BasisSettingsBinding<float> MaxPerfTrailRenderers = new("maxperftrailrenderers_v2", new BasisPlatformDefault<float>
+        {
+            windows = 4,
+            android = 1,
+            ios = 1,
+            linux = 4,
+            other = 4
+        });
 
         // Line renderers default on at 4.
         public static BasisSettingsBinding<bool> UsePerfLimitLineRenderers = new("useperflimitlinerenderers", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfLineRenderers = new("maxperflinerenderers_v2", new BasisPlatformDefault<float>(4));
+        public static BasisSettingsBinding<float> MaxPerfLineRenderers = new("maxperflinerenderers_v2", new BasisPlatformDefault<float>
+        {
+            windows = 4,
+            android = 1,
+            ios = 1,
+            linux = 4,
+            other = 4
+        });
 
         // Cloth defaults on at 1 — Unity Cloth is CPU-expensive per instance.
         public static BasisSettingsBinding<bool> UsePerfLimitCloth = new("useperflimitcloth", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfCloth = new("maxperfcloth", new BasisPlatformDefault<float>(1));
+        public static BasisSettingsBinding<float> MaxPerfCloth = new("maxperfcloth", new BasisPlatformDefault<float>
+        {
+            windows = 1,
+            android = 0,
+            ios = 0,
+            linux = 1,
+            other = 1
+        });
 
         // Unity colliders default on at 1 — physics colliders on an avatar
         // aren't free. Jiggle colliders are a separate limit.
@@ -840,7 +1050,14 @@ namespace Basis.BasisUI
         // Cilbox script behaviours default on at 5 — every CilboxProxy on a remote
         // avatar is one sandboxed MonoBehaviour with its own Update/FixedUpdate tick.
         public static BasisSettingsBinding<bool> UsePerfLimitCilboxBehaviours = new("useperflimitcilboxbehaviours", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfCilboxBehaviours = new("maxperfcilboxbehaviours", new BasisPlatformDefault<float>(5));
+        public static BasisSettingsBinding<float> MaxPerfCilboxBehaviours = new("maxperfcilboxbehaviours", new BasisPlatformDefault<float>
+        {
+            windows = 5,
+            android = 2,
+            ios = 2,
+            linux = 5,
+            other = 5
+        });
 
         public static BasisSettingsBinding<float> AvatarMeshLOD = new("avatarmeshlod", new BasisPlatformDefault<float>
         {
@@ -860,7 +1077,14 @@ namespace Basis.BasisUI
         // Nothing wrote shadowCastingMode on a remote renderer before this, so a distant crowd was
         // paying a full extra skinned draw per shadow cascade each.
         public static BasisSettingsBinding<bool> UseAvatarShadowLod = new("useavatarshadowlod", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<bool> UseAvatarVisibilityCull = new("useavatarvisibilitycull", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> UseAvatarVisibilityCull = new("useavatarvisibilitycull", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
 
         // URP's GPU Resident Drawer occlusion test, for world geometry (MeshRenderer only — avatars
         // are skinned and the drawer never sees them). Read at boot only: the drawer snapshots its
@@ -918,6 +1142,12 @@ namespace Basis.BasisUI
             other = "On"
         });
 
+        /// <summary>
+        /// Display refresh rate to ask the headset for. Auto keeps whatever the OpenXR runtime
+        /// chose. A rate the headset does not enumerate falls back to the closest one it does.
+        /// </summary>
+        public static BasisSettingsBinding<string> HeadsetRefreshRate = new("headsetrefreshrate", new BasisPlatformDefault<string>("Auto"));
+
         public static BasisSettingsBinding<float> RenderResolution = new("render resolution", new BasisPlatformDefault<float>(1));
 
         public static BasisSettingsBinding<bool> DynamicResolutionEnabled = new("dynamicresolutionenabled", new BasisPlatformDefault<bool>(false));
@@ -928,7 +1158,14 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> DynamicResolutionTargetOverride = new("dynamicresolutiontargetoverride", new BasisPlatformDefault<bool>(false));
 
-        public static BasisSettingsBinding<float> DynamicResolutionTargetFrameRate = new("dynamicresolutiontargetframerate", new BasisPlatformDefault<float>(90));
+        public static BasisSettingsBinding<float> DynamicResolutionTargetFrameRate = new("dynamicresolutiontargetframerate", new BasisPlatformDefault<float>
+        {
+            windows = 90,
+            android = 72,
+            ios = 72,
+            linux = 90,
+            other = 90
+        });
 
         public static BasisSettingsBinding<string> MicrophoneMode = new("microphonemode", new BasisPlatformDefault<string>("onactivation"));
 
@@ -2265,6 +2502,7 @@ namespace Basis.BasisUI
             GlobalIlluminationEmitters.LoadBindingValue();
             GlobalIlluminationEmitterIntensity.LoadBindingValue();
             GlobalIlluminationReflectionProbes.LoadBindingValue();
+            GlobalIlluminationMirrors.LoadBindingValue();
 
             UseRayTracedAmbientOcclusion.LoadBindingValue();
             RayTracedAmbientOcclusionMode.LoadBindingValue();
@@ -2376,6 +2614,7 @@ namespace Basis.BasisUI
             DynamicResolutionTargetFrameRate.LoadBindingValue();
             VSync.LoadBindingValue();
             VSyncCapFps.LoadBindingValue();
+            HeadsetRefreshRate.LoadBindingValue();
 
             // Mirror
             UseMirrorQualityOverride.LoadBindingValue();

@@ -136,6 +136,12 @@ namespace Basis.Rendering.RTAO
             // A flag, not "skinned != null": a destroyed SkinnedMeshRenderer compares equal to null, so the
             // component answers no exactly when the entry has to come out of skinnedEntries.
             public bool isStatic, seen, isSkinned;
+            // The bake AddEntry takes is of a body that has not been posed yet — a freshly instantiated
+            // avatar still stands in the pose its mesh was imported in. The first re-bake therefore ignores
+            // both the interval and the distance gate. Without that, an avatar installing further away than
+            // skinnedMaxDistance wears that import pose as its occlusion for good, because the distance gate
+            // is exactly what stops distant avatars from ever being re-posed.
+            public bool needsPosedBake;
             public int lastBakeFrame;
         }
 
@@ -150,6 +156,11 @@ namespace Basis.Rendering.RTAO
         private int skinnedCursor;
         private bool structureDirty = true;
         private bool everBuilt;
+        // Set when an entry had to be dropped while the mesh its instances were registered against was
+        // already destroyed, which is the one case a per handle removal cannot recover from. See
+        // ReleaseInstances.
+        private bool needsReset;
+        private int resetCount;
 
         public IRayTracingAccelStruct AccelerationStructure => accelStruct;
         public int InstanceCount => entries.Count;
@@ -166,6 +177,24 @@ namespace Basis.Rendering.RTAO
         }
         public bool NeedsBuild => structureDirty || !everBuilt;
         public bool HasGeometry => entries.Count > 0;
+        /// <summary>
+        /// How many times a destroyed registered mesh has forced the structure to be rebuilt from
+        /// scratch. Only moves when an avatar's bundle unloaded before its entry was released, so a
+        /// number that climbs every swap means something is releasing too late.
+        /// </summary>
+        public int StructureResetCount => resetCount;
+
+        /// <summary>
+        /// The mesh this scene baked for <paramref name="renderer"/>, or null if it holds no skinned entry
+        /// for it. The bake is owned here and lives exactly as long as its entry, so this is what shows
+        /// whether a swap replaced an avatar's geometry or merely added the new body alongside the old one.
+        /// </summary>
+        internal Mesh BakedMeshFor(Renderer renderer)
+        {
+            if (renderer == null)
+                return null;
+            return entries.TryGetValue(renderer.GetEntityId(), out Entry entry) ? entry.bakedMesh : null;
+        }
 
         public BasisRTAOScene(BasisRTAOContext context)
         {
@@ -236,6 +265,12 @@ namespace Basis.Rendering.RTAO
 
             if (settings.skinnedMode == BasisRTAOSkinnedMode.Dynamic)
                 UpdateSkinned(settings, viewerPosition, frameCount);
+            else if (settings.skinnedMode == BasisRTAOSkinnedMode.Static)
+                BakeFirstPoses(settings, frameCount);
+
+            // Last, so it sees everything the sweep and the re-bakes dropped this frame, and so the
+            // structure handed to Build is already whole again.
+            ResetStructure();
         }
 
         public void Rescan(in BasisRTAOSceneSettings settings)
@@ -281,6 +316,8 @@ namespace Basis.Rendering.RTAO
                 if (entries.TryGetValue(pendingRemoval[i], out Entry dead))
                     RemoveEntry(pendingRemoval[i], dead);
             }
+
+            ResetStructure();
         }
 
         private void AddEntry(Renderer renderer, Mesh mesh, SkinnedMeshRenderer skinned)
@@ -329,6 +366,7 @@ namespace Basis.Rendering.RTAO
                 isStatic = renderer.gameObject.isStatic && skinned == null,
                 seen = true,
                 isSkinned = skinned != null,
+                needsPosedBake = skinned != null,
                 lastBakeFrame = Time.frameCount
             };
 
@@ -372,14 +410,35 @@ namespace Basis.Rendering.RTAO
             return handles;
         }
 
+        /// <summary>
+        /// Takes an entry's instances back out of the structure.
+        ///
+        /// Removing by handle is only correct while the mesh the instances were registered against is
+        /// still alive, and the two backends fail in opposite directions once it is not. The hardware
+        /// one drops the instance itself the moment Unity destroys its mesh and hands the handle straight
+        /// back out, so a late RemoveInstance takes whichever instance inherited it — on an avatar swap,
+        /// usually the body that just replaced this one. The compute one does the reverse: it copied the
+        /// geometry into its own BLAS pool, keyed by the mesh's instance id, and never hears that the mesh
+        /// died, so skipping the removal leaves the old body occluding from where it stood for the rest of
+        /// the session, and hands that stale BLAS to the next mesh Unity gives the recycled id to.
+        ///
+        /// Neither is recoverable one handle at a time, so a dead registered mesh escalates to
+        /// <see cref="ResetStructure"/> instead of guessing.
+        /// </summary>
         private void ReleaseInstances(Entry entry)
         {
             int[] handles = entry.handles;
             Mesh registered = entry.instanceMesh;
             entry.handles = null;
             entry.instanceMesh = null;
-            if (handles == null || registered == null)
+            if (handles == null)
                 return;
+
+            if (registered == null)
+            {
+                needsReset = true;
+                return;
+            }
 
             for (int i = 0; i < handles.Length; i++)
             {
@@ -391,6 +450,71 @@ namespace Basis.Rendering.RTAO
                 {
                 }
             }
+        }
+
+        /// <summary>
+        /// Re-registers every live entry against a cleared structure, and drops the ones that no longer
+        /// resolve to geometry.
+        ///
+        /// This is the recovery for an entry whose registered mesh was destroyed before it could be
+        /// released — an avatar bundle unloading out from under a swap is how that happens — where a per
+        /// handle removal would either miss it or hit the wrong instance. Clearing invalidates every
+        /// handle at once, which is the only statement both backends agree on, and re-adding rebuilds the
+        /// bottom level structures from the meshes that are actually still here.
+        /// </summary>
+        private void ResetStructure()
+        {
+            if (!needsReset)
+                return;
+
+            needsReset = false;
+            if (accelStruct == null)
+                return;
+
+            try
+            {
+                accelStruct.ClearInstances();
+            }
+            catch (Exception)
+            {
+            }
+
+            pendingRemoval.Clear();
+            foreach (KeyValuePair<EntityId, Entry> pair in entries)
+            {
+                Entry entry = pair.Value;
+                // The clear above already invalidated these. Dropping them first is what keeps the
+                // RemoveEntry sweep below — and so ReleaseInstances — from arming the flag again.
+                entry.handles = null;
+                entry.instanceMesh = null;
+
+                Mesh geometry = entry.isSkinned ? entry.bakedMesh : entry.sourceMesh;
+                if (entry.renderer == null || entry.transform == null || !IsUsableMesh(geometry))
+                {
+                    pendingRemoval.Add(pair.Key);
+                    continue;
+                }
+
+                entry.matrix = MatrixFor(entry.renderer, entry.skinned);
+                entry.handles = AddInstances(geometry, entry.matrix);
+                if (entry.handles == null)
+                {
+                    pendingRemoval.Add(pair.Key);
+                    continue;
+                }
+
+                entry.instanceMesh = geometry;
+            }
+
+            for (int i = 0; i < pendingRemoval.Count; i++)
+            {
+                if (entries.TryGetValue(pendingRemoval[i], out Entry dead))
+                    RemoveEntry(pendingRemoval[i], dead);
+            }
+            pendingRemoval.Clear();
+
+            structureDirty = true;
+            resetCount++;
         }
 
         private void RemoveEntry(EntityId id, Entry entry)
@@ -466,9 +590,45 @@ namespace Basis.Rendering.RTAO
                 Entry entry = skinnedEntries[skinnedCursor];
                 if (entry.skinned == null || entry.bakedMesh == null || entry.transform == null)
                     continue;
-                if (frameCount - entry.lastBakeFrame < settings.skinnedBakeInterval)
+                // Both gates are about re-posing, and neither applies to an avatar that has never been
+                // posed at all. See Entry.needsPosedBake.
+                if (!entry.needsPosedBake)
+                {
+                    if (frameCount - entry.lastBakeFrame < settings.skinnedBakeInterval)
+                        continue;
+                    if (maxDistanceSq > 0f && (entry.transform.position - viewerPosition).sqrMagnitude > maxDistanceSq)
+                        continue;
+                }
+
+                entry.lastBakeFrame = frameCount;
+                budget--;
+                RebakeSkinned(entry);
+            }
+        }
+
+        /// <summary>
+        /// The one thing Static mode still has to do every frame: give an avatar that has never been posed
+        /// its first real bake.
+        ///
+        /// Static bakes an avatar once and never re-poses it, and the bake AddEntry takes is of a body that
+        /// was instantiated moments earlier and is still standing in the pose its mesh was imported in.
+        /// Without this pass that import pose IS the avatar's occlusion for the rest of the session — a
+        /// T-pose worth of limbs casting from where no limb is. Budgeted the same way Dynamic is, because a
+        /// room filling up is a room full of first bakes.
+        /// </summary>
+        private void BakeFirstPoses(in BasisRTAOSceneSettings settings, int frameCount)
+        {
+            int budget = settings.skinnedBakesPerFrame;
+            if (budget <= 0)
+                return;
+
+            // Backwards: RebakeSkinned drops the entry if the re-add fails, and that compacts this list.
+            for (int i = skinnedEntries.Count - 1; i >= 0 && budget > 0; i--)
+            {
+                Entry entry = skinnedEntries[i];
+                if (!entry.needsPosedBake)
                     continue;
-                if (maxDistanceSq > 0f && (entry.transform.position - viewerPosition).sqrMagnitude > maxDistanceSq)
+                if (entry.skinned == null || entry.bakedMesh == null || entry.transform == null)
                     continue;
 
                 entry.lastBakeFrame = frameCount;
@@ -503,6 +663,10 @@ namespace Basis.Rendering.RTAO
                 return;
             }
 
+            // Only once the bake actually landed: a throw leaves the import pose in place, and that entry
+            // still has to be first in line next frame.
+            entry.needsPosedBake = false;
+
             ReleaseInstances(entry);
 
             Matrix4x4 matrix = MatrixFor(entry.renderer, entry.skinned);
@@ -532,16 +696,21 @@ namespace Basis.Rendering.RTAO
 
         public void Dispose()
         {
+            // Outside the null check: the baked meshes are HideAndDontSave, so nothing else will ever
+            // collect them, and a scene torn down after its structure had already gone would leak one
+            // per avatar it was tracing.
+            foreach (KeyValuePair<EntityId, Entry> pair in entries)
+            {
+                if (pair.Value.bakedMesh != null)
+                    UnityEngine.Object.DestroyImmediate(pair.Value.bakedMesh);
+            }
+
             if (accelStruct != null)
             {
-                foreach (KeyValuePair<EntityId, Entry> pair in entries)
-                {
-                    if (pair.Value.bakedMesh != null)
-                        UnityEngine.Object.DestroyImmediate(pair.Value.bakedMesh);
-                }
                 accelStruct.Dispose();
                 accelStruct = null;
             }
+            needsReset = false;
             entries.Clear();
             skinnedEntries.Clear();
             pendingRemoval.Clear();

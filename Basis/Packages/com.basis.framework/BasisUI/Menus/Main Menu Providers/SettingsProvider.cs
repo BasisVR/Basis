@@ -1736,6 +1736,15 @@ namespace Basis.BasisUI
                 new List<string> { "settings.graphics.vsync.on.tooltip", null, "settings.graphics.vsync.off.tooltip" });
             dropdownVSync.AssignBinding(BasisSettingsDefaults.VSync);
 
+            PanelDropdown dropdownRefreshRate = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
+            dropdownRefreshRate.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.refreshRate"));
+            dropdownRefreshRate.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.refreshRate.tooltip"));
+            dropdownRefreshRate.AssignLocalizedEntries(
+                new List<string> { "Auto", "72", "90", "120", "144" },
+                new List<string> { "settings.graphics.refreshRate.auto", "settings.graphics.refreshRate.72", "settings.graphics.refreshRate.90", "settings.graphics.refreshRate.120", "settings.graphics.refreshRate.144" },
+                new List<string> { "settings.graphics.refreshRate.auto.tooltip" });
+            dropdownRefreshRate.AssignBinding(BasisSettingsDefaults.HeadsetRefreshRate);
+
             PanelTextField fpsCapField = PanelTextField.CreateNewEntry(qualityGroup.ContentParent);
             fpsCapField.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.frameRateCap"));
             fpsCapField.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.frameRateCap.tooltip"));
@@ -2881,6 +2890,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.Antialiasing.ResetToDefault();
             BasisSettingsDefaults.VSync.ResetToDefault();
             BasisSettingsDefaults.VSyncCapFps.ResetToDefault();
+            BasisSettingsDefaults.HeadsetRefreshRate.ResetToDefault();
 
             BasisSettingsDefaults.DevVariableRateShading.ResetToDefault();
             BasisSettingsDefaults.VrsFovealInnerRadius.ResetToDefault();

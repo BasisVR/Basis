@@ -28,6 +28,19 @@ namespace Basis.Scripts.Avatar
         // outer marker happened to contain it (transmit tick, bundle continuation, join).
 
         /// <summary>
+        /// Raised once an avatar has finished installing on a player — local switch, remote switch,
+        /// fallback, or far LOD, because every one of them lands in <see cref="SetupPlayerAvatar"/>.
+        ///
+        /// Systems that key off avatar geometry but keep no player list of their own cannot use the
+        /// per-player <c>OnAvatarSwitched</c> events, and the two they are usually pointed at instead —
+        /// <c>BasisNetworkPlayer.OnRemotePlayerJoined</c>/<c>Left</c> — only fire when the room's
+        /// population changes and are nulled outright by <c>BasisNetworkLifeCycle</c> on shutdown, so a
+        /// subscriber goes deaf after the first disconnect. This one is static, lives for the process,
+        /// and fires for every swap.
+        /// </summary>
+        public static Action<IBasisPlayer> OnAnyAvatarInstalled;
+
+        /// <summary>
         /// Cached prefab for the loading/fallback avatar. Loaded once, instantiated many times.
         /// </summary>
         private static GameObject CachedLoadingAvatarPrefab;
@@ -640,6 +653,12 @@ namespace Basis.Scripts.Avatar
                     SetupRemoteAvatar(remotePlayer);
                     break;
             }
+
+            // After the driver setup, so a subscriber that walks the avatar finds a finished install
+            // rather than a half wired one. The outgoing avatar's GameObject was Destroy()ed above; Unity
+            // processes that before rendering, so a subscriber that rescans during the frame's render pass
+            // will not find it, but one that scans during Update still will.
+            OnAnyAvatarInstalled?.Invoke(Player);
         }
 
         /// <summary>

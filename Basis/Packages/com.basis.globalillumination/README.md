@@ -28,6 +28,50 @@ For every pixel of the traced buffer:
    resolution or that are off screen entirely.
 7. The result goes through the denoiser below, then is bilaterally upsampled and composited.
 
+## Which cameras it runs on
+
+The player's own camera always. Beyond that:
+
+- **Mirrors** render it by default (`Mirrors` on the feature, `globalilluminationmirrors` as a setting).
+  A mirror is recognised by `UniversalAdditionalCameraData.isMirrorReflectionCamera`, not by camera type -
+  `CameraType.Reflection` means a reflection *probe* capture, which has its own separate toggle. Mirrors are
+  deliberately **exempt from the Render Post Processing requirement**: they ship with that off, and this
+  effect is not part of the post stack - it composites before transparents off the depth buffer. Gating on
+  it left a mirror rendering the room with no bounce light beside a direct view of the same room with it,
+  and nothing connected the two settings. Each mirror camera pays for its own gather and keeps its own
+  temporal history, so a world with a large mirror pays roughly twice; that setting is the lever.
+- **The handheld camera** registers itself, and a still capture forces Full resolution with the temporal
+  filter off. The live preview stays at the player's own resolution with accumulation running, so a photo
+  will not match the preview pixel for pixel - that is deliberate, not a defect.
+- **360 capture** suspends the effect outright. A screen space gather resolves differently on each of the
+  six cube faces, so the seams would be visible along every edge.
+- **Reflection probes** are off by default; a realtime probe would pay for the effect once per face.
+
+## Lightmapped worlds
+
+⚠️ **Half handled.** Worth knowing before switching this on in a baked world.
+
+**Baked emission is handled.** An emissive quad used as an area light is how a baked world is usually lit,
+and its light was already written into the lightmap at bake time - the surface still renders bright because
+URP draws emission regardless of how it was baked. Reading that brightness and injecting it again lights the
+room twice from one lamp. A surface that is **both** flagged `BakedEmissive` **and** on a renderer carrying a
+real lightmap is now skipped by the ray traced gather (`Respect Baked Emission`, on by default). Both halves
+are required: the flag alone would steal the light in a world nobody ever baked, and a lightmap index alone
+says nothing about whether the emission was baked.
+
+**Receiving is NOT handled.** The composite is `Blend DstColor Zero` emitting `obscurance + indirect`, so
+the frame becomes `sceneColor * (obscurance + indirect)`. On a lightmapped surface `sceneColor` already
+contains the baked bounce and the baked ambient occlusion, so the effect multiplies a second bounce onto
+light that has already bounced, and darkens creases that are already dark. In a carefully baked world that
+reads as blown out and crushed at the same time. Lowering Intensity is the only lever today.
+
+Fixing it properly needs a per-pixel answer to "is this pixel lightmapped", which a fullscreen pass does not
+have. The shape it would take: a mask pass at traced resolution drawing only the renderers with no lightmap
+(`lightmapIndex < 0` - avatars and props, a few dozen draws rather than the whole world), depth tested,
+writing one; the effect then applies where the mask is set and stands back on baked static geometry, which
+already has its bounce. Dynamic objects keep full realtime GI, which is exactly what a lightmap does not
+cover for them.
+
 ## The march
 
 A uniform march spends its whole step budget evenly along the ray: **Ray Steps** steps across the whole of

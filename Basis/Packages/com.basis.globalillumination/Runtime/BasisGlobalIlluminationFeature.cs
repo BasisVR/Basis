@@ -22,6 +22,8 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
     [SerializeField] private bool m_RayTracingComputeFallback = false;
     [Tooltip("Render in reflection probe captures. Realtime probes pay for the effect once per face.")]
     [SerializeField] private bool m_ReflectionProbes = false;
+    [Tooltip("Render in mirror reflections. Off leaves a mirror showing the room without any bounce light, which does not match what the same room looks like directly. Each mirror camera pays for its own gather, so a world with a large mirror pays roughly twice.")]
+    [SerializeField] private bool m_Mirrors = true;
     [Tooltip("Render while a Rendering Debugger lighting view is active. Off keeps the individual lighting previews clean.")]
     [SerializeField] private bool m_RenderingDebugger = false;
     [Tooltip("Request URP's depth-normals prepass so the volume's Normals Texture source has data. Costs an extra prepass, and surfaces whose shader has no DepthNormals pass still read nothing - the reconstructed source needs none of this.")]
@@ -34,6 +36,7 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
     private BasisGlobalIlluminationDebugView m_DebugView;
 
     public bool ReflectionProbes { get { return m_ReflectionProbes; } set { m_ReflectionProbes = value; } }
+    public bool Mirrors { get { return m_Mirrors; } set { m_Mirrors = value; } }
     public bool RenderingDebugger { get { return m_RenderingDebugger; } set { m_RenderingDebugger = value; } }
     public bool NormalsPrepass { get { return m_NormalsPrepass; } set { m_NormalsPrepass = value; } }
     public bool RayTracingComputeFallback { get { return m_RayTracingComputeFallback; } set { m_RayTracingComputeFallback = value; } }
@@ -135,13 +138,37 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         renderer.EnqueuePass(m_Pass);
     }
 
+    /// <summary>
+    /// Whether <paramref name="camera"/> is one of the cameras a mirror renders its reflection from.
+    ///
+    /// Read off the additional camera data rather than the camera type: a mirror is an ordinary Game
+    /// camera pointed at a reflected pose, not a CameraType.Reflection, which is the type Unity uses for
+    /// reflection PROBE captures. TryGetComponent rather than GetUniversalAdditionalCameraData, because
+    /// that helper adds the component when it is missing and this is asked on every camera in the frame.
+    /// </summary>
+    public static bool IsMirrorReflection(Camera camera)
+    {
+        return camera != null
+            && camera.TryGetComponent(out UniversalAdditionalCameraData data)
+            && data.isMirrorReflectionCamera;
+    }
+
     public bool ShouldRender(Camera camera, CameraType cameraType, bool postProcessEnabled)
     {
         if (!isActive) { return false; }
         if (!SupportsPlatform()) { return false; }
         if (cameraType == CameraType.Preview) { return false; }
         if (cameraType == CameraType.Reflection && !m_ReflectionProbes) { return false; }
-        if (!postProcessEnabled) { return false; }
+
+        bool mirror = IsMirrorReflection(camera);
+        if (mirror && !m_Mirrors) { return false; }
+        // A mirror is exempt from the post processing requirement, and the exemption is the whole reason
+        // mirrors have never shown a bounce. Mirrors ship with Render Post Processing OFF - it is a sensible
+        // default for a camera that renders the room a second time - and this effect is not part of that
+        // stack: it composites before transparents, off the depth buffer, and needs nothing the post stack
+        // provides. Gating it on that toggle meant a mirror showed the room unlit next to a direct view of
+        // the same room lit, and no author would have connected the two settings.
+        if (!postProcessEnabled && !mirror) { return false; }
         if (!m_RenderingDebugger && !KeepRenderingWithDebugger && DebugManager.instance.isAnyDebugUIActive) { return false; }
         Func<Camera, bool> filter = CameraFilter;
         return filter == null || camera == null || filter(camera);

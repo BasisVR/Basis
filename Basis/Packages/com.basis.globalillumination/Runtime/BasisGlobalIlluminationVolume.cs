@@ -173,6 +173,20 @@ public sealed class BasisGlobalIlluminationVolume : VolumeComponent, IPostProces
     public ClampedFloatParameter rayTracedLightIntensity = new ClampedFloatParameter(1f, LightIntensityMin, LightIntensityMax);
     public BoolParameter rayTracedShadows = new BoolParameter(true);
     public BoolParameter rayTracedEmissiveSurfaces = new BoolParameter(true);
+    /// <summary>
+    /// Leave a baked-emissive surface's light to the lightmap that already holds it.
+    ///
+    /// An emissive quad used as an area light is the standard way a lightmapped world is lit. Its light was
+    /// computed once, at bake time, and written into the lightmap; the surface still renders bright because
+    /// URP draws emission regardless of how it was baked. A gather that reads that brightness and injects
+    /// it again is lighting the room twice from one lamp, and it is the reason this effect can make a
+    /// carefully baked world look blown out the moment it is switched on.
+    ///
+    /// Only surfaces that are BOTH flagged baked-emissive AND carrying a real lightmap are skipped, which
+    /// is what keeps this from stealing light in a world nobody ever baked. Realtime emission, dynamic
+    /// renderers and unbaked worlds are untouched.
+    /// </summary>
+    public BoolParameter respectBakedEmission = new BoolParameter(true);
     public BoolParameter rayTracedTextureAlbedo = new BoolParameter(true);
     public BasisGlobalIlluminationRaySkinnedModeParameter rayTracedSkinnedMeshes = new BasisGlobalIlluminationRaySkinnedModeParameter(BasisGlobalIlluminationRaySkinnedMode.Dynamic, true);
     public ClampedIntParameter rayTracedSkinnedBudget = new ClampedIntParameter(2, SkinnedBudgetMin, SkinnedBudgetMax);
@@ -428,7 +442,8 @@ public sealed class BasisGlobalIlluminationVolume : VolumeComponent, IPostProces
             skinnedBakeInterval = rayTracedSkinnedInterval.value,
             skinnedMaxDistance = rayTracedSkinnedDistance.value,
             textureAlbedo = rayTracedTextureAlbedo.value,
-            emissiveSurfaces = rayTracedEmissiveSurfaces.value
+            emissiveSurfaces = rayTracedEmissiveSurfaces.value,
+            respectBakedEmission = respectBakedEmission.value
         };
     }
 

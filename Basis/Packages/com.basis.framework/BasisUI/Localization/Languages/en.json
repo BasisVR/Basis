@@ -6999,6 +6999,38 @@
       "value": "Vertical Sync"
     },
     {
+      "key": "settings.graphics.refreshRate",
+      "value": "Headset Refresh Rate"
+    },
+    {
+      "key": "settings.graphics.refreshRate.tooltip",
+      "value": "How many times a second the headset shows a new image. Higher is smoother and costs more GPU time and battery; the headset falls back to the closest rate it supports."
+    },
+    {
+      "key": "settings.graphics.refreshRate.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.graphics.refreshRate.auto.tooltip",
+      "value": "Keep whatever rate the headset runtime chose."
+    },
+    {
+      "key": "settings.graphics.refreshRate.72",
+      "value": "72 Hz"
+    },
+    {
+      "key": "settings.graphics.refreshRate.90",
+      "value": "90 Hz"
+    },
+    {
+      "key": "settings.graphics.refreshRate.120",
+      "value": "120 Hz"
+    },
+    {
+      "key": "settings.graphics.refreshRate.144",
+      "value": "144 Hz"
+    },
+    {
       "key": "settings.graphics.verticalSync.description",
       "value": "VR uses headset refreshrate"
     },

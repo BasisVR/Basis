@@ -464,10 +464,10 @@ namespace Basis.Tests.Graphics
             BasisGlobalIlluminationFeature feature = ScriptableObject.CreateInstance<BasisGlobalIlluminationFeature>();
             try
             {
-                SMModuleGlobalIlluminationURP.Apply(feature, false, false);
+                SMModuleGlobalIlluminationURP.Apply(feature, false, false, true);
                 Assert.IsFalse(feature.isActive);
 
-                SMModuleGlobalIlluminationURP.Apply(feature, true, false);
+                SMModuleGlobalIlluminationURP.Apply(feature, true, false, true);
                 Assert.IsTrue(feature.isActive);
             }
             finally
@@ -482,11 +482,13 @@ namespace Basis.Tests.Graphics
             BasisGlobalIlluminationFeature feature = ScriptableObject.CreateInstance<BasisGlobalIlluminationFeature>();
             try
             {
-                SMModuleGlobalIlluminationURP.Apply(feature, true, true);
+                SMModuleGlobalIlluminationURP.Apply(feature, true, true, true);
                 Assert.IsTrue(feature.ReflectionProbes);
+                Assert.IsTrue(feature.Mirrors);
 
-                SMModuleGlobalIlluminationURP.Apply(feature, true, false);
+                SMModuleGlobalIlluminationURP.Apply(feature, true, false, false);
                 Assert.IsFalse(feature.ReflectionProbes);
+                Assert.IsFalse(feature.Mirrors, "switching mirrors off did not reach the feature, so the setting cannot turn a mirror's bounce back off");
             }
             finally
             {
@@ -498,7 +500,7 @@ namespace Basis.Tests.Graphics
         public void ApplyingRendererOptionsWithoutAFeatureIsHarmless()
         {
             // Android ships a renderer without the feature, so the lookup returns null every frame there.
-            Assert.DoesNotThrow(() => SMModuleGlobalIlluminationURP.Apply((BasisGlobalIlluminationFeature)null, true, true));
+            Assert.DoesNotThrow(() => SMModuleGlobalIlluminationURP.Apply((BasisGlobalIlluminationFeature)null, true, true, true));
             Assert.IsNull(SMModuleGlobalIlluminationURP.FindFeature(null));
         }
 
