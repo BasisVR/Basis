@@ -40,6 +40,8 @@ public sealed class BasisGlobalIlluminationRayTracer : IDisposable
 
     private int lastRefreshFrame = -1;
 
+    private readonly BasisGlobalIlluminationRayViewerSet viewers = new BasisGlobalIlluminationRayViewerSet();
+
     private BasisGlobalIlluminationRayTracer(BasisGlobalIlluminationRayContext context)
     {
         Context = context;
@@ -79,15 +81,33 @@ public sealed class BasisGlobalIlluminationRayTracer : IDisposable
         return hash;
     }
 
+    /// <summary>
+    /// Records that <paramref name="camera"/> is drawing the effect, so the shared structure is built to
+    /// cover what it can see as well.
+    ///
+    /// Called by every camera on every frame it renders, INCLUDING the frames where the refresh below
+    /// early-outs because another camera already did it. That is the whole point: the refresh runs on
+    /// whichever camera reaches it first, and the only way for that camera to know about the others is for
+    /// them to have registered on the frames before. A camera rendering the effect for the very first time
+    /// registers itself here before the refresh it triggers, so the worst case for any camera after that
+    /// first frame is nothing at all.
+    /// </summary>
+    public void SubmitViewer(Camera camera, int frame)
+    {
+        viewers.Submit(camera, frame);
+    }
+
     /// <summary>Refreshes the scene once per frame no matter how many cameras ask for it.</summary>
     public bool Refresh(in BasisGlobalIlluminationRaySceneSettings sceneSettings, in BasisGlobalIlluminationRayLightSettings lightSettings,
-        Vector3 viewerPosition, int frame, float time)
+        Camera camera, int frame, float time)
     {
+        SubmitViewer(camera, frame);
         if (frame == lastRefreshFrame) { return Ready; }
         lastRefreshFrame = frame;
 
-        Scene.Refresh(sceneSettings, viewerPosition, time, frame);
-        Lights.Refresh(lightSettings, viewerPosition, time);
+        BasisGlobalIlluminationRayViewers resolved = viewers.Resolve(camera, frame);
+        Scene.Refresh(sceneSettings, resolved, time, frame);
+        Lights.Refresh(lightSettings, resolved, time);
         return Ready;
     }
 
@@ -133,6 +153,7 @@ public sealed class BasisGlobalIlluminationRayTracer : IDisposable
 
     public void Dispose()
     {
+        viewers.Clear();
         Scene?.Dispose();
         Scene = null;
         Lights?.Dispose();

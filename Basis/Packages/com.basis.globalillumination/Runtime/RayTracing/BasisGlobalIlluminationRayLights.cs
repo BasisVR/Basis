@@ -65,9 +65,9 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
     }
 
     /// <summary>Runs the selection without touching the GPU, so a test can ask what made the budget.</summary>
-    public int GatherForTest(in BasisGlobalIlluminationRayLightSettings settings, Vector3 viewerPosition)
+    public int GatherForTest(in BasisGlobalIlluminationRayLightSettings settings, in BasisGlobalIlluminationRayViewers viewers)
     {
-        count = Gather(settings, viewerPosition);
+        count = Gather(settings, viewers);
         return count;
     }
 
@@ -79,7 +79,7 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
 
     public void MarkDirty() { nextScanTime = 0f; }
 
-    public void Refresh(in BasisGlobalIlluminationRayLightSettings settings, Vector3 viewerPosition, float time)
+    public void Refresh(in BasisGlobalIlluminationRayLightSettings settings, in BasisGlobalIlluminationRayViewers viewers, float time)
     {
         if (time >= nextScanTime)
         {
@@ -87,7 +87,7 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
             Rescan();
         }
 
-        count = Gather(settings, viewerPosition);
+        count = Gather(settings, viewers);
         Upload();
     }
 
@@ -115,15 +115,15 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
         return light.type == LightType.Directional || light.range > 0f;
     }
 
-    public static float Score(Light light, Vector3 viewerPosition)
+    public static float Score(Light light, in BasisGlobalIlluminationRayViewers viewers)
     {
         if (light.type == LightType.Directional) { return float.MaxValue; }
         float power = light.intensity * Mathf.Max(light.color.r, Mathf.Max(light.color.g, light.color.b));
-        float distanceSquared = (light.transform.position - viewerPosition).sqrMagnitude;
+        float distanceSquared = viewers.DistanceSquared(light.transform.position);
         return power / Mathf.Max(0.01f, distanceSquared);
     }
 
-    private int Gather(in BasisGlobalIlluminationRayLightSettings settings, Vector3 viewerPosition)
+    private int Gather(in BasisGlobalIlluminationRayLightSettings settings, in BasisGlobalIlluminationRayViewers viewers)
     {
         candidates.Clear();
         for (int index = scanned.Count - 1; index >= 0; index--)
@@ -147,10 +147,10 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
         for (int slot = 0; slot < selected; slot++)
         {
             int best = slot;
-            float bestScore = Score(candidates[slot], viewerPosition);
+            float bestScore = Score(candidates[slot], viewers);
             for (int candidate = slot + 1; candidate < candidates.Count; candidate++)
             {
-                float score = Score(candidates[candidate], viewerPosition);
+                float score = Score(candidates[candidate], viewers);
                 if (score > bestScore) { best = candidate; bestScore = score; }
             }
             if (best == slot) { continue; }
@@ -159,7 +159,7 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
             candidates[best] = swap;
         }
 
-        float boundary = BoundaryWeight(candidates, viewerPosition, selected);
+        float boundary = BoundaryWeight(candidates, viewers, selected);
         for (int slot = 0; slot < selected; slot++)
         {
             BasisGlobalIlluminationRayLight described = Describe(candidates[slot], settings);
@@ -172,7 +172,7 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
         candidates.Clear();
 
         int total = selected;
-        if (settings.emitters) { total = AppendEmitters(settings, viewerPosition, total, limit); }
+        if (settings.emitters) { total = AppendEmitters(settings, viewers, total, limit); }
         for (int slot = total; slot < MaxLights; slot++) { data[slot] = default; }
         return total;
     }
@@ -186,18 +186,18 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
     /// A directional light is exempt: its score does not depend on where the viewer is standing, so its
     /// place in the budget cannot change from one frame to the next and there is nothing to smooth over.
     /// </summary>
-    public static float BoundaryWeight(List<Light> ranked, Vector3 viewerPosition, int selected)
+    public static float BoundaryWeight(List<Light> ranked, in BasisGlobalIlluminationRayViewers viewers, int selected)
     {
         if (selected <= 0 || ranked.Count <= selected) { return 1f; }
 
-        float kept = Score(ranked[selected - 1], viewerPosition);
+        float kept = Score(ranked[selected - 1], viewers);
         if (float.IsInfinity(kept) || kept >= float.MaxValue) { return 1f; }
         if (kept <= 0f) { return 0f; }
 
         float dropped = 0f;
         for (int index = selected; index < ranked.Count; index++)
         {
-            dropped = Mathf.Max(dropped, Score(ranked[index], viewerPosition));
+            dropped = Mathf.Max(dropped, Score(ranked[index], viewers));
         }
         return Mathf.Clamp01(1f - dropped / kept);
     }
@@ -207,12 +207,12 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
     /// it could not see keeps working when the player switches to the ray traced mode - and they are ranked
     /// through the same call, so the two modes agree on which ones made the cut.
     /// </summary>
-    private int AppendEmitters(in BasisGlobalIlluminationRayLightSettings settings, Vector3 viewerPosition, int start, int limit)
+    private int AppendEmitters(in BasisGlobalIlluminationRayLightSettings settings, in BasisGlobalIlluminationRayViewers viewers, int start, int limit)
     {
         int room = Mathf.Max(0, limit - start);
         if (room <= 0) { return start; }
 
-        BasisGlobalIlluminationEmitter.Selection selection = BasisGlobalIlluminationEmitter.Rank(emitterScratch, viewerPosition, room);
+        BasisGlobalIlluminationEmitter.Selection selection = BasisGlobalIlluminationEmitter.Rank(emitterScratch, viewers, room);
         int slot = start;
         for (int index = 0; index < selection.Count; index++)
         {

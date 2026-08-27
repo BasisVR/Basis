@@ -29,8 +29,72 @@ public sealed class BasisGlobalIlluminationHistory
     public Matrix4x4[] PreviousViewProjection = new Matrix4x4[2] { Matrix4x4.identity, Matrix4x4.identity };
     public int LastFrame = -1;
 
+    // How many rendered frames apart this camera's last two renders were. A camera that renders every
+    // frame leaves these at one; a rate limited one - the handheld camera capped to 30Hz on a 90Hz
+    // headset - leaves them at three, and that is the whole reason they exist. See AllowedGap.
+    public int Stride;
+    public int SpecularStride;
+
     public int Read => 1 - Write;
     public int SpecularRead => 1 - SpecularWrite;
+
+    /// <summary>
+    /// How many rendered frames may separate two renders of the same camera before the accumulation
+    /// between them is thrown away.
+    ///
+    /// A fixed window of two was the whole gate, which reads as "the camera rendered last frame or the
+    /// one before". Every camera that renders EVERY frame satisfies it and no other camera ever can: the
+    /// handheld camera limited to 30Hz on a 90Hz headset renders one frame in three, so the gate failed
+    /// on every single render and the temporal filter was discarded every time. Its feed stayed a one
+    /// sample per pixel trace - visibly noisier than the direct view of the same room beside it - and
+    /// nothing named the cause, because a render rate limiter and a denoiser have nothing to do with
+    /// each other on paper.
+    ///
+    /// What the window is really protecting is the reprojection. Camera motion is carried by the stored
+    /// view projection and survives any gap; scene motion is only valid for about one step, so the
+    /// budget has to be counted in the camera's OWN renders rather than the application's frames. One
+    /// stride plus a frame of slack absorbs the limiter's jitter - its accumulator alternates 3,3,4 -
+    /// while still failing on a genuinely dropped render. The ceiling is what stops a camera that
+    /// stopped for a second and came back from reprojecting through the second: under roughly 6Hz on a
+    /// 90Hz display the history resets, by which point the feed is a slideshow anyway.
+    /// </summary>
+    public const int MaxGap = 16;
+
+    public static int AllowedGap(int stride)
+    {
+        return Mathf.Clamp(stride + 1, 2, MaxGap);
+    }
+
+    public bool Contiguous(int frame)
+    {
+        return LastFrame >= 0 && frame - LastFrame <= AllowedGap(Stride);
+    }
+
+    public bool SpecularContiguous(int frame)
+    {
+        return LastSpecularFrame >= 0 && frame - LastSpecularFrame <= AllowedGap(SpecularStride);
+    }
+
+    /// <summary>
+    /// Stamps this render and records how far it was from the one before it.
+    ///
+    /// A SECOND render of the same camera inside one frame is not a cadence sample and is deliberately not
+    /// counted: a still capture brackets an explicit Render() call at the end of a frame the live preview
+    /// has already drawn, and reading that as a stride of zero would drop the camera back to the window it
+    /// had before it learned its own rate - one wasted reset on the next real render, i.e. a visibly noisy
+    /// preview frame every time a photo is taken.
+    /// </summary>
+    public void RecordFrame(int frame)
+    {
+        if (LastFrame >= 0 && frame > LastFrame) { Stride = Mathf.Clamp(frame - LastFrame, 0, MaxGap); }
+        LastFrame = frame;
+    }
+
+    public void RecordSpecularFrame(int frame)
+    {
+        if (LastSpecularFrame >= 0 && frame > LastSpecularFrame) { SpecularStride = Mathf.Clamp(frame - LastSpecularFrame, 0, MaxGap); }
+        LastSpecularFrame = frame;
+    }
 
     public static int ComputeHash(Camera camera, XRPass xr)
     {
@@ -170,5 +234,7 @@ public sealed class BasisGlobalIlluminationHistory
         ReleaseSpecular();
         Width = Height = 0;
         Valid = false;
+        Stride = 0;
+        SpecularStride = 0;
     }
 }

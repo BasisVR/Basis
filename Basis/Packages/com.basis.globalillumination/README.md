@@ -42,7 +42,23 @@ The player's own camera always. Beyond that:
   temporal history, so a world with a large mirror pays roughly twice; that setting is the lever.
 - **The handheld camera** registers itself, and a still capture forces Full resolution with the temporal
   filter off. The live preview stays at the player's own resolution with accumulation running, so a photo
-  will not match the preview pixel for pixel - that is deliberate, not a defect.
+  will not match the preview pixel for pixel - that is deliberate, not a defect. Two things about it are
+  not like the player's own camera and both had to be answered for:
+  - It **does not render every frame**. The panel offers a render rate limit, and the render gate stops it
+    outright whenever nothing is showing the feed. The accumulation window between one render and the next
+    is therefore counted in the camera's OWN renders rather than in application frames, or a camera capped
+    to 30Hz on a 90Hz headset would discard its temporal filter on every single render and show a raw one
+    sample per pixel trace beside a direct view of the same room that is fully denoised. See
+    `BasisGlobalIlluminationHistory.AllowedGap`.
+  - It **is not where the player is**. It can be flown across the room or set to follow from behind, and
+    the ray traced mode shares ONE acceleration structure, light budget and emitter budget across every
+    camera in the frame. Those are built around the set of every camera drawing the effect, distance
+    measured to the nearest of them, rather than around whichever camera reached the refresh first - so an
+    avatar standing in front of the handheld camera is baked into the structure even when the player is
+    past Skinned Max Distance from it. See `BasisGlobalIlluminationRayViewerSet`. The budgets are then
+    genuinely shared: a light close to the handheld camera can take a slot from one that was only just
+    making the cut for the player, which is the price of two viewpoints out of one list and far cheaper
+    than a second structure per camera per frame.
 - **360 capture** suspends the effect outright. A screen space gather resolves differently on each of the
   six cube faces, so the seams would be visible along every edge.
 - **Reflection probes** are off by default; a realtime probe would pay for the effect once per face.

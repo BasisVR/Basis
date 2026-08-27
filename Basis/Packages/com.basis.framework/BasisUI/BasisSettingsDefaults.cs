@@ -110,22 +110,8 @@ namespace Basis.BasisUI
         /// Players beyond this limit fall back to the default avatar.
         /// Closest players get priority; currently-visible avatars are sticky to prevent pulsing.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxVisibleAvatars = new("maxvisibleavatars", new BasisPlatformDefault<float>
-        {
-            windows = 0,
-            android = 12,
-            ios = 12,
-            linux = 0,
-            other = 0
-        });
-        public static BasisSettingsBinding<bool> UseMaxVisibleAvatars = new("usemaxvisibleavatars", new BasisPlatformDefault<bool>
-        {
-            windows = false,
-            android = true,
-            ios = true,
-            linux = false,
-            other = false
-        });
+        public static BasisSettingsBinding<float> MaxVisibleAvatars = new("maxvisibleavatars", new BasisPlatformDefault<float>(0));
+        public static BasisSettingsBinding<bool> UseMaxVisibleAvatars = new("usemaxvisibleavatars", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
         /// When enabled, joining or being in an instance with a very high player count offers
@@ -169,49 +155,21 @@ namespace Basis.BasisUI
         /// Players beyond this limit lose their audio source.
         /// Closest players get priority; currently-active sources are sticky to prevent popping.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxAudioSources = new("maxaudiosources", new BasisPlatformDefault<float>
-        {
-            windows = 0,
-            android = 12,
-            ios = 12,
-            linux = 0,
-            other = 0
-        });
-        public static BasisSettingsBinding<bool> UseMaxAudioSources = new("usemaxaudiosources", new BasisPlatformDefault<bool>
-        {
-            windows = false,
-            android = true,
-            ios = true,
-            linux = false,
-            other = false
-        });
+        public static BasisSettingsBinding<float> MaxAudioSources = new("maxaudiosources", new BasisPlatformDefault<float>(0));
+        public static BasisSettingsBinding<bool> UseMaxAudioSources = new("usemaxaudiosources", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
         /// When enabled, caps the number of OpenLipSync (neural viseme) slots to <see cref="OpenLipSyncMaxSlots"/>.
         /// When disabled (default), slot count is unlimited — bounded only by the number of players in viseme range.
         /// </summary>
-        public static BasisSettingsBinding<bool> UseOpenLipSyncLimit = new("useopenlipsynclimit", new BasisPlatformDefault<bool>
-        {
-            windows = false,
-            android = true,
-            ios = true,
-            linux = false,
-            other = false
-        });
+        public static BasisSettingsBinding<bool> UseOpenLipSyncLimit = new("useopenlipsynclimit", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
         /// Maximum number of OpenLipSync (neural viseme) slots when <see cref="UseOpenLipSyncLimit"/> is enabled.
         /// Players beyond this limit get no visemes until a slot frees up.
         /// Higher values look better in crowds but cost more CPU.
         /// </summary>
-        public static BasisSettingsBinding<float> OpenLipSyncMaxSlots = new("openlipsyncmaxslots", new BasisPlatformDefault<float>
-        {
-            windows = 30,
-            android = 8,
-            ios = 8,
-            linux = 30,
-            other = 30
-        });
+        public static BasisSettingsBinding<float> OpenLipSyncMaxSlots = new("openlipsyncmaxslots", new BasisPlatformDefault<float>(100));
 
         /// <summary>
         /// When enabled, only remote players within the local player's view cone

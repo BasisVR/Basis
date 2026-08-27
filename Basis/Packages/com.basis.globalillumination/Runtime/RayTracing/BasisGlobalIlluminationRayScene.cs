@@ -184,7 +184,7 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         return mesh != null && mesh.subMeshCount > 0 && mesh.vertexCount > 0 && mesh.HasVertexAttribute(VertexAttribute.Position);
     }
 
-    public void Refresh(in BasisGlobalIlluminationRaySceneSettings settings, Vector3 viewerPosition, float time, int frameCount)
+    public void Refresh(in BasisGlobalIlluminationRaySceneSettings settings, in BasisGlobalIlluminationRayViewers viewers, float time, int frameCount)
     {
         if (accelStruct == null) { return; }
 
@@ -206,7 +206,7 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
 
         if (settings.skinnedMode == BasisGlobalIlluminationRaySkinnedMode.Dynamic)
         {
-            UpdateSkinned(settings, viewerPosition, frameCount);
+            UpdateSkinned(settings, viewers, frameCount);
         }
 
         Upload();
@@ -769,7 +769,7 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         }
     }
 
-    private void UpdateSkinned(in BasisGlobalIlluminationRaySceneSettings settings, Vector3 viewerPosition, int frameCount)
+    private void UpdateSkinned(in BasisGlobalIlluminationRaySceneSettings settings, in BasisGlobalIlluminationRayViewers viewers, int frameCount)
     {
         if (skinnedEntries.Count == 0 || settings.skinnedBakesPerFrame <= 0) { return; }
 
@@ -785,7 +785,7 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
             Entry entry = skinnedEntries[skinnedCursor];
             if (entry.skinned == null || entry.bakedMesh == null || entry.transform == null) { continue; }
             if (frameCount - entry.lastBakeFrame < settings.skinnedBakeInterval) { continue; }
-            if (maxDistanceSquared > 0f && (entry.transform.position - viewerPosition).sqrMagnitude > maxDistanceSquared) { continue; }
+            if (maxDistanceSquared > 0f && viewers.DistanceSquared(entry.transform.position) > maxDistanceSquared) { continue; }
 
             entry.lastBakeFrame = frameCount;
             budget--;

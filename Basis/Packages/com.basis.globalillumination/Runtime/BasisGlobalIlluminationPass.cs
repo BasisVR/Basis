@@ -223,7 +223,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         int frame = Time.renderedFrameCount;
         int hash = BasisGlobalIlluminationHistory.ComputeHash(camera, cameraData.xr);
         BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(hash);
-        bool contiguous = history.LastFrame >= 0 && frame - history.LastFrame <= 2;
+        bool contiguous = history.Contiguous(frame);
         history.EnsureAllocated(descriptor, tracedWidth, tracedHeight);
         bool historyValid = volume.temporalFilter.value && history.Valid && contiguous;
 
@@ -411,7 +411,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         StoreViewProjection(cameraData, history.PreviousViewProjection);
         history.Write = history.Read;
         history.Valid = volume.temporalFilter.value;
-        history.LastFrame = frame;
+        history.RecordFrame(frame);
         BasisGlobalIlluminationHistory.PruneStale(frame, HistoryMaxAge);
     }
 
@@ -452,7 +452,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         }
 
         loggedRayTracingFallback = false;
-        return tracer.Refresh(volume.ResolvedSceneSettings(), volume.ResolvedLightSettings(), camera.transform.position, frame, Time.unscaledTime);
+        return tracer.Refresh(volume.ResolvedSceneSettings(), volume.ResolvedLightSettings(), camera, frame, Time.unscaledTime);
     }
 
     /// <summary>Why the ray traced mode cannot run, phrased as something a player or an author can act on.</summary>

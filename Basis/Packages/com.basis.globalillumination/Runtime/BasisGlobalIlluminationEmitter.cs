@@ -65,11 +65,11 @@ public sealed class BasisGlobalIlluminationEmitter : MonoBehaviour
     }
 
     /// <summary>Brightness over distance squared: what decides which emitters a budget keeps.</summary>
-    public static float Score(BasisGlobalIlluminationEmitter emitter, Vector3 viewer)
+    public static float Score(BasisGlobalIlluminationEmitter emitter, in BasisGlobalIlluminationRayViewers viewer)
     {
         Vector3 radiance = emitter.Radiance;
         float power = Mathf.Max(radiance.x, Mathf.Max(radiance.y, radiance.z));
-        float distanceSquared = (emitter.WorldPosition - viewer).sqrMagnitude;
+        float distanceSquared = viewer.DistanceSquared(emitter.WorldPosition);
         return power / Mathf.Max(0.01f, distanceSquared);
     }
 
@@ -104,7 +104,7 @@ public sealed class BasisGlobalIlluminationEmitter : MonoBehaviour
     /// so that one alone is faded by how clearly it beat the best emitter that missed the cut: by the time
     /// the two swap places they are both contributing nothing and the swap is invisible.
     /// </summary>
-    public static Selection Rank(List<BasisGlobalIlluminationEmitter> destination, Vector3 viewer, int limit)
+    public static Selection Rank(List<BasisGlobalIlluminationEmitter> destination, in BasisGlobalIlluminationRayViewers viewer, int limit)
     {
         PruneDestroyed();
         destination.Clear();
@@ -133,7 +133,7 @@ public sealed class BasisGlobalIlluminationEmitter : MonoBehaviour
         return new Selection(selected, BoundaryWeight(destination, viewer, selected));
     }
 
-    private static float BoundaryWeight(List<BasisGlobalIlluminationEmitter> ranked, Vector3 viewer, int selected)
+    private static float BoundaryWeight(List<BasisGlobalIlluminationEmitter> ranked, in BasisGlobalIlluminationRayViewers viewer, int selected)
     {
         if (selected <= 0 || ranked.Count <= selected) { return 1f; }
 

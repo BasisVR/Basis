@@ -15,6 +15,19 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
 
     public float foveatedRenderingLevel = 0;
 
+    /// <summary>
+    /// Set while a device manager owns the XR eye-texture allocation itself — OpenVR derives it
+    /// from the compositor's recommended render target, which this module cannot see. While set,
+    /// the user's value is handed to that owner through <see cref="UserRenderScaleChanged"/>
+    /// instead of being written to <c>XRSettings.eyeTextureResolutionScale</c> here, so the two
+    /// never fight over the same property.
+    /// </summary>
+    public static bool ExternalXRScaleOwner;
+
+    public static event System.Action<float> UserRenderScaleChanged;
+
+    public static float UserRenderScale => Mathf.Clamp(BasisSettingsDefaults.RenderResolution.RawValue, 0.1f, 2f);
+
     // --- Canonical setting keys (from defaults) ---
     private static string K_RENDER_RESOLUTION => BasisSettingsDefaults.RenderResolution.BindingKey;     // "render resolution"
     private static string K_FOVEATED_RENDERING => BasisSettingsDefaults.FoveatedRendering.BindingKey;   // "foveated rendering"
@@ -99,9 +112,34 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             XRSettings.useOcclusionMesh = true;
         }
 
+        option = Mathf.Clamp(option, 0.1f, 2f);
         RenderScale = option;
 
         UniversalRenderPipelineAsset asset = QualitySettings.renderPipeline as UniversalRenderPipelineAsset;
+
+        if (XRSettings.enabled && BasisDeviceManagement.IsCurrentModeVR())
+        {
+            if (asset != null && !Mathf.Approximately(asset.renderScale, 1f))
+            {
+                asset.renderScale = 1f;
+            }
+            if (ExternalXRScaleOwner)
+            {
+                UserRenderScaleChanged?.Invoke(option);
+                return;
+            }
+            if (!Mathf.Approximately(XRSettings.eyeTextureResolutionScale, option))
+            {
+                XRSettings.eyeTextureResolutionScale = option;
+                BasisDebug.Log($"XR eye texture scale set to {option:F3}", BasisDebug.LogTag.Video);
+            }
+            return;
+        }
+
+        if (!Mathf.Approximately(XRSettings.eyeTextureResolutionScale, 1f))
+        {
+            XRSettings.eyeTextureResolutionScale = 1f;
+        }
         if (asset != null && !Mathf.Approximately(asset.renderScale, option))
         {
             asset.renderScale = option;

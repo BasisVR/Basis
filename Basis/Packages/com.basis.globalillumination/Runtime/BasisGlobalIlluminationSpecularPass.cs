@@ -90,7 +90,7 @@ public sealed partial class BasisGlobalIlluminationPass
             BasisGlobalIlluminationRayTracer tracer = BasisGlobalIlluminationRayTracer.GetOrCreate(rayTraceShader, rayTraceCompute, rayComputeFallback);
             if (tracer == null) { return false; }
 
-            return tracer.Refresh(volume.ResolvedSceneSettings(), volume.ResolvedLightSettings(), camera.transform.position, frame, Time.unscaledTime);
+            return tracer.Refresh(volume.ResolvedSceneSettings(), volume.ResolvedLightSettings(), camera, frame, Time.unscaledTime);
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
@@ -121,7 +121,7 @@ public sealed partial class BasisGlobalIlluminationPass
             int hash = BasisGlobalIlluminationHistory.ComputeHash(camera, cameraData.xr);
             BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(hash);
             history.EnsureAllocated(descriptor, tracedWidth, tracedHeight, true);
-            bool contiguous = history.LastSpecularFrame >= 0 && frame - history.LastSpecularFrame <= 2;
+            bool contiguous = history.SpecularContiguous(frame);
             bool historyValid = volume.specularTemporal.value && history.SpecularValid && contiguous;
 
             ApplyKeywords(volume);
@@ -328,7 +328,7 @@ public sealed partial class BasisGlobalIlluminationPass
             StoreViewProjection(cameraData, history.PreviousSpecularViewProjection);
             history.SpecularWrite = history.SpecularRead;
             history.SpecularValid = volume.specularTemporal.value;
-            history.LastSpecularFrame = frame;
+            history.RecordSpecularFrame(frame);
             // The diffuse pass prunes too, but a world running reflections with the diffuse gather switched
             // off never reaches that call, and cameras that stopped rendering would keep their accumulation
             // for as long as the application ran.
