@@ -434,6 +434,50 @@ namespace Basis.Rendering.RTAO.Tests
         }
 
         [Test]
+        public void SwappedAvatarsLeaveTheStructureAndTheSkinnedList()
+        {
+            GameObject avatar = SkinnedAvatar("BasisRTAOSwapAvatar", new Vector3(1f, 0f, 0f));
+
+            BasisRTAOSceneSettings settings = BasisRTAOTestSettings.EveryLayer;
+            settings.skinnedMode = BasisRTAOSkinnedMode.Dynamic;
+
+            scene.Rescan(settings);
+            int withAvatar = scene.InstanceCount;
+            Assert.AreEqual(1, scene.SkinnedCount);
+
+            Object.DestroyImmediate(avatar);
+            spawned.Remove(avatar);
+            scene.Rescan(settings);
+
+            Assert.AreEqual(withAvatar - 1, scene.InstanceCount,
+                "The avatar you took off goes on occluding until its instances leave the structure: the geometry is a baked copy this class owns, so destroying the avatar does not take it with it.");
+            Assert.AreEqual(0, scene.SkinnedCount,
+                "A destroyed SkinnedMeshRenderer compares equal to null, so whether an entry is skinned has to be remembered as a flag - asking the component answers no exactly when the entry needs taking out of the re-bake list.");
+        }
+
+        [Test]
+        public void ADestroyedAvatarLeavesBeforeTheNextRescanIsDue()
+        {
+            GameObject avatar = SkinnedAvatar("BasisRTAOSwapAvatarBetweenScans", new Vector3(1f, 0f, 0f));
+
+            BasisRTAOSceneSettings settings = BasisRTAOTestSettings.EveryLayer;
+            settings.skinnedMode = BasisRTAOSkinnedMode.Dynamic;
+            settings.rescanInterval = 10000f;
+
+            scene.Refresh(settings, Vector3.zero, 1f, 900);
+            int withAvatar = scene.InstanceCount;
+            Assert.Greater(withAvatar, 0);
+
+            Object.DestroyImmediate(avatar);
+            spawned.Remove(avatar);
+            scene.Refresh(settings, Vector3.zero, 2f, 901);
+
+            Assert.AreEqual(withAvatar - 1, scene.InstanceCount,
+                "Avatars are destroyed the moment they are swapped, which is almost never on a scan boundary. Waiting for the interval leaves the old body occluding for up to that long.");
+            Assert.AreEqual(0, scene.SkinnedCount);
+        }
+
+        [Test]
         public void DisposeReleasesEverything()
         {
             Cube("BasisRTAOSceneA", Vector3.zero);

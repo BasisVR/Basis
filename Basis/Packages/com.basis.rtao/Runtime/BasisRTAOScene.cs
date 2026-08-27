@@ -123,13 +123,19 @@ namespace Basis.Rendering.RTAO
     {
         internal sealed class Entry
         {
+            public EntityId id;
             public Renderer renderer;
             public Transform transform;
             public SkinnedMeshRenderer skinned;
-            public Mesh sourceMesh, bakedMesh;
+            // The mesh the handles were registered against. Unity drops an instance itself when the mesh
+            // behind it dies and hands the handle out again, so removing by handle is only safe while this
+            // is alive.
+            public Mesh sourceMesh, bakedMesh, instanceMesh;
             public Matrix4x4 matrix;
             public int[] handles;
-            public bool isStatic, seen;
+            // A flag, not "skinned != null": a destroyed SkinnedMeshRenderer compares equal to null, so the
+            // component answers no exactly when the entry has to come out of skinnedEntries.
+            public bool isStatic, seen, isSkinned;
             public int lastBakeFrame;
         }
 
@@ -312,20 +318,23 @@ namespace Basis.Rendering.RTAO
 
             Entry entry = new Entry
             {
+                id = renderer.GetEntityId(),
                 renderer = renderer,
                 transform = renderer.transform,
                 skinned = skinned,
                 sourceMesh = mesh,
                 bakedMesh = baked,
+                instanceMesh = geometry,
                 matrix = matrix,
                 handles = handles,
                 isStatic = renderer.gameObject.isStatic && skinned == null,
                 seen = true,
+                isSkinned = skinned != null,
                 lastBakeFrame = Time.frameCount
             };
 
-            entries[renderer.GetEntityId()] = entry;
-            if (skinned != null)
+            entries[entry.id] = entry;
+            if (entry.isSkinned)
                 skinnedEntries.Add(entry);
             structureDirty = true;
         }
@@ -364,27 +373,57 @@ namespace Basis.Rendering.RTAO
             return handles;
         }
 
+        private void ReleaseInstances(Entry entry)
+        {
+            int[] handles = entry.handles;
+            Mesh registered = entry.instanceMesh;
+            entry.handles = null;
+            entry.instanceMesh = null;
+            if (handles == null || registered == null)
+                return;
+
+            for (int i = 0; i < handles.Length; i++)
+            {
+                try
+                {
+                    accelStruct.RemoveInstance(handles[i]);
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
         private void RemoveEntry(EntityId id, Entry entry)
         {
-            if (entry.handles != null)
-            {
-                for (int i = 0; i < entry.handles.Length; i++)
-                    accelStruct.RemoveInstance(entry.handles[i]);
-            }
+            ReleaseInstances(entry);
             if (entry.bakedMesh != null)
                 UnityEngine.Object.DestroyImmediate(entry.bakedMesh);
-            if (entry.skinned != null)
+            entry.bakedMesh = null;
+            if (entry.isSkinned)
+            {
                 skinnedEntries.Remove(entry);
+                entry.isSkinned = false;
+            }
             entries.Remove(id);
             structureDirty = true;
         }
 
+        // Dead entries are swept here rather than only on the rescan: an avatar is destroyed the moment it
+        // is swapped, and the geometry it left behind was baked into a mesh this class owns, so it outlives
+        // the avatar and keeps occluding from wherever the old body was standing.
         private void UpdateTransforms()
         {
+            pendingRemoval.Clear();
             foreach (KeyValuePair<EntityId, Entry> pair in entries)
             {
                 Entry entry = pair.Value;
-                if (entry.isStatic || entry.transform == null || entry.skinned != null)
+                if (entry.renderer == null || entry.transform == null || entry.instanceMesh == null)
+                {
+                    pendingRemoval.Add(pair.Key);
+                    continue;
+                }
+                if (entry.isStatic || entry.isSkinned)
                     continue;
 
                 Matrix4x4 matrix = entry.transform.localToWorldMatrix;
@@ -396,6 +435,13 @@ namespace Basis.Rendering.RTAO
                     accelStruct.UpdateInstanceTransform(entry.handles[i], matrix);
                 structureDirty = true;
             }
+
+            for (int i = 0; i < pendingRemoval.Count; i++)
+            {
+                if (entries.TryGetValue(pendingRemoval[i], out Entry dead))
+                    RemoveEntry(pendingRemoval[i], dead);
+            }
+            pendingRemoval.Clear();
         }
 
         private void UpdateSkinned(in BasisRTAOSceneSettings settings, Vector3 viewerPosition, int frameCount)
@@ -458,21 +504,18 @@ namespace Basis.Rendering.RTAO
                 return;
             }
 
-            for (int i = 0; i < entry.handles.Length; i++)
-                accelStruct.RemoveInstance(entry.handles[i]);
+            ReleaseInstances(entry);
 
             Matrix4x4 matrix = MatrixFor(entry.renderer, entry.skinned);
             int[] handles = AddInstances(entry.bakedMesh, matrix);
             if (handles == null)
             {
-                if (entry.renderer != null)
-                    entries.Remove(entry.renderer.GetEntityId());
-                skinnedEntries.Remove(entry);
-                structureDirty = true;
+                RemoveEntry(entry.id, entry);
                 return;
             }
 
             entry.handles = handles;
+            entry.instanceMesh = entry.bakedMesh;
             entry.matrix = matrix;
             structureDirty = true;
         }

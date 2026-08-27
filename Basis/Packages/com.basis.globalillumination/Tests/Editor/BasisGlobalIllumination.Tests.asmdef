@@ -1,0 +1,28 @@
+{
+    "name": "BasisGlobalIllumination.Tests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:e35bc0e358d246bf90af67ca7dc38f0e",
+        "GUID:9f0c933ae2464bf4b7276d9743d3e04e",
+        "GUID:15fc0a57446b3144c949da3e2b9737a9",
+        "GUID:df380645f10b7bc4b97d4f5eb6303d95",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.UnifiedRayTracing.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

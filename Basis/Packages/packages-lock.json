@@ -119,6 +119,14 @@
         "com.unity.ugui": "2.0.0"
       }
     },
+    "com.basis.globalillumination": {
+      "version": "file:com.basis.globalillumination",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.render-pipelines.universal": "17.0.0"
+      }
+    },
     "com.basis.imagepickup": {
       "version": "file:com.basis.imagepickup",
       "depth": 0,

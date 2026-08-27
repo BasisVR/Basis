@@ -53,6 +53,7 @@ public static class BasisGraphicsStatePrewarm
     public static int SeedVariantCount { get; private set; }
     public static int UserVariantCount { get; private set; }
     public static int TracedVariantCount => _trace != null ? _trace.variantCount : 0;
+    public static int PrunedVariantCount { get; private set; }
 
     // Warming creates GPU pipeline objects; cap per call so a large collection can't schedule an
     // unbounded burst on one content load. Each load drains another chunk.
@@ -111,9 +112,12 @@ public static class BasisGraphicsStatePrewarm
 
             // Warm source: last session's PSOs, never traced so it stays warmable.
             _warm = LoadCollection(onDisk);
+            int loaded = _warm != null ? _warm.variantCount : 0;
+            PrunedVariantCount = PruneUnresolved(_warm);
 
             // Trace sink: starts from the same on-disk set and appends this session's real PSOs.
             _trace = LoadCollection(onDisk);
+            PruneUnresolved(_trace);
             _trace.BeginTrace();
             _tracing = _trace.isTracing;
 
@@ -123,7 +127,7 @@ public static class BasisGraphicsStatePrewarm
             _initTime = Time.realtimeSinceStartup;
             _lastFlushTime = _initTime;
             _variantsAtLastFlush = _trace.variantCount;
-            BasisDebug.Log($"BasisGraphicsStatePrewarm: {SystemInfo.graphicsDeviceType} seed {SeedVariantCount} variant(s), user cache {UserVariantCount} variant(s)", BasisDebug.LogTag.Event);
+            BasisDebug.Log($"BasisGraphicsStatePrewarm: {SystemInfo.graphicsDeviceType} seed {SeedVariantCount} variant(s), user cache {UserVariantCount} of {loaded} replayable ({PrunedVariantCount} unresolvable pruned)", BasisDebug.LogTag.Event);
         }
         catch (System.Exception e)
         {
@@ -153,6 +157,32 @@ public static class BasisGraphicsStatePrewarm
             }
         }
         return collection;
+    }
+
+    private static int PruneUnresolved(GraphicsStateCollection collection)
+    {
+        if (collection == null || collection.variantCount == 0)
+        {
+            return 0;
+        }
+        int before = collection.variantCount;
+        List<GraphicsStateCollection.ShaderVariant> variants = new List<GraphicsStateCollection.ShaderVariant>();
+        collection.GetVariants(variants);
+        for (int i = 0; i < variants.Count; i++)
+        {
+            if (variants[i].shader != null)
+            {
+                continue;
+            }
+            try
+            {
+                collection.RemoveVariant(variants[i].shader, variants[i].passId, variants[i].keywords);
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+        return before - collection.variantCount;
     }
 
     public static string SeedResourceNameFor(GraphicsDeviceType api)

@@ -1,5 +1,26 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-7114999317531425910
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86b1c04415934baea3137b1b95303b4b, type: 3}
+  m_Name: BasisGlobalIlluminationFeature
+  m_EditorClassIdentifier: BasisGlobalIllumination::BasisGlobalIlluminationFeature
+  m_Active: 1
+  m_Shader: {fileID: 4800000, guid: 03edcf40bafe4c3d8424f23fcf1d3ff1, type: 3}
+  m_RayStagesShader: {fileID: 4800000, guid: d844523f25c598748831a41b5572ff82, type: 3}
+  m_RayTraceShader: {fileID: 4807578003741378534, guid: 4d1b09960d174e54eb42461cb8005e17, type: 3}
+  m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}
+  m_RayTracingComputeFallback: 0
+  m_ReflectionProbes: 1
+  m_RenderingDebugger: 0
+  m_NormalsPrepass: 0
 --- !u!114 &-7061326814219087741
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -151,7 +172,8 @@ MonoBehaviour:
   - {fileID: -1772261579603543917}
   - {fileID: -7061326814219087741}
   - {fileID: -5241983207764330912}
-  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e60f6a4b60bbc40b7
+  - {fileID: -7114999317531425910}
+  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e60f6a4b60bbc40b78a83644dd171429d
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3

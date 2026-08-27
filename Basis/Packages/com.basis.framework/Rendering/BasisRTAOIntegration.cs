@@ -119,7 +119,11 @@ namespace Basis.Scripts.Rendering
             BasisRTAOFeature.RuntimeEnabled = BasisSettingsDefaults.UseRayTracedAmbientOcclusion.RawValue;
 
             BasisRTAOFeature.HasTracingModeOverride = true;
-            BasisRTAOFeature.TracingModeOverride = BasisRTAOSettingsMap.ReadMode(BasisSettingsDefaults.RayTracedAmbientOcclusionMode.RawValue);
+            // Clamped to what this device can actually offer. The mode dropdown is hidden when the GPU cannot
+            // ray trace, so a value stored on a machine that could - or from before this check existed - would
+            // otherwise keep selecting a backend the user can no longer see or change.
+            BasisRTAOFeature.TracingModeOverride = ClampTracingMode(
+                BasisRTAOSettingsMap.ReadMode(BasisSettingsDefaults.RayTracedAmbientOcclusionMode.RawValue));
 
             BasisRTAOFeature.HasQualityOverride = true;
             BasisRTAOFeature.QualityOverride = ClampQuality(BasisRTAOSettingsMap.ReadQuality(BasisSettingsDefaults.RayTracedAmbientOcclusionQuality.RawValue));
@@ -181,6 +185,35 @@ namespace Basis.Scripts.Rendering
 
         // The graphics quality level caps how much of the frame this may take, the same way shadows and
         // HDR clamp themselves, rather than writing the player's dropdown back down.
+        public static BasisRTAOTracingMode ClampTracingMode(BasisRTAOTracingMode requested)
+        {
+            return ClampTracingMode(requested, BasisRTAOContext.HardwareSupported);
+        }
+
+        /// <summary>
+        /// Keeps the applied tracing mode inside what the UI can represent on this device.
+        ///
+        /// Without hardware ray tracing, Ray Traced resolves to no backend at all - occlusion silently stops -
+        /// and Compute BVH resolves to a software BVH traversal in a compute shader, which is far slower than
+        /// the screen space path and reads as the effect being broken rather than as a deliberate choice.
+        /// Neither is reachable from the UI on such a device, because the mode dropdown is hidden, so neither
+        /// should be reachable from a stored value either.
+        /// </summary>
+        public static BasisRTAOTracingMode ClampTracingMode(BasisRTAOTracingMode requested, bool hardwareSupported)
+        {
+            if (hardwareSupported)
+                return requested;
+
+            switch (requested)
+            {
+                case BasisRTAOTracingMode.RayTracedOnly:
+                case BasisRTAOTracingMode.ComputeBvh:
+                    return BasisRTAOTracingMode.Auto;
+                default:
+                    return requested;
+            }
+        }
+
         public static BasisRTAOQuality ClampQuality(BasisRTAOQuality requested)
         {
             return ClampQuality(requested, BasisQualityTier.Current);
