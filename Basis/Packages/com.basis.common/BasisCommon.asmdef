@@ -3,7 +3,9 @@
     "rootNamespace": "",
     "references": [
         "Unity.Mathematics",
-        "BasisDebug"
+        "BasisDebug",
+        "Unity.Burst",
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

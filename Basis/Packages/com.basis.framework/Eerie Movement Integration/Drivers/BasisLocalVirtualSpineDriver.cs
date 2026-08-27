@@ -184,7 +184,7 @@ namespace Basis.IK
                 TorsoYawBlendSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawBlendSpeed.RawValue,
 
                 HipsFreeze = (byte)(HipsFreezeToTpose ? 1 : 0),
-                IsLocomoting = (byte)(BasisLocalPlayer.Instance.LocalCharacterDriver.MovementVector.sqrMagnitude > 0.001f ? 1 : 0),
+                IsLocomoting = (byte)(BasisLocalPlayer.Instance.LocalCharacterDriver.IsLocomoting ? 1 : 0),
 
                 LenTotal = lenSpineTotal,
                 TChest = chestTransform,

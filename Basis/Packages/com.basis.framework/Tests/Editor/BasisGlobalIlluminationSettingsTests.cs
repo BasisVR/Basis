@@ -138,8 +138,10 @@ namespace Basis.Tests.Graphics
         [TestCase("Off", BasisGlobalIlluminationRaySkinnedMode.Off)]
         [TestCase("static", BasisGlobalIlluminationRaySkinnedMode.Static)]
         [TestCase("DYNAMIC", BasisGlobalIlluminationRaySkinnedMode.Dynamic)]
-        [TestCase("garbage", BasisGlobalIlluminationRaySkinnedMode.Dynamic)]
-        [TestCase(null, BasisGlobalIlluminationRaySkinnedMode.Dynamic)]
+        [TestCase("Proxy", BasisGlobalIlluminationRaySkinnedMode.Proxy)]
+        // Unreadable input lands on the shipped default, which is now the proxy path.
+        [TestCase("garbage", BasisGlobalIlluminationRaySkinnedMode.Proxy)]
+        [TestCase(null, BasisGlobalIlluminationRaySkinnedMode.Proxy)]
         public void SkinnedMeshDropdownValuesParseCaseInsensitively(string option, BasisGlobalIlluminationRaySkinnedMode expected)
         {
             Assert.AreEqual(expected, SMModuleGlobalIlluminationURP.ReadSkinnedMode(option));

@@ -68,7 +68,7 @@ public enum BasisGlobalIlluminationDebugView
 /// </summary>
 public sealed class BasisGlobalIlluminationSettings
 {
-    public const float IntensityMin = 0f, IntensityMax = 4f;
+    public const float IntensityMin = 0f, IntensityMax = 8f;
     public const float ObscuranceMin = 0f, ObscuranceMax = 1f;
     public const float SaturationMin = 0f, SaturationMax = 2f;
     public const float RayLengthMin = 0.25f, RayLengthMax = 128f;
@@ -81,6 +81,7 @@ public sealed class BasisGlobalIlluminationSettings
     public const float TemporalResponseMin = 0.02f, TemporalResponseMax = 1f;
     public const float FallbackIntensityMin = 0f, FallbackIntensityMax = 4f;
     public const float EmitterIntensityMin = 0f, EmitterIntensityMax = 8f;
+    public const float EmissionScaleMin = 0f, EmissionScaleMax = 8f;
     public const float FireflyClampMin = 1f, FireflyClampMax = 32f;
     public const int RayCountMin = 1, RayCountMax = 16;
     public const int RayStepsMin = 4, RayStepsMax = 128;
@@ -159,8 +160,27 @@ public sealed class BasisGlobalIlluminationSettings
     /// is what keeps this from stealing light in a world nobody ever baked.
     /// </summary>
     public bool respectBakedEmission = true;
+
+    /// <summary>
+    /// How much of an emissive surface's brightness is allowed into the bounce, split by what the surface
+    /// belongs to.
+    ///
+    /// The two want different numbers and always did. A world's emissive geometry IS its lighting - a strip
+    /// light, a sign, a window - and the whole point of the gather is to carry that into the room, so it
+    /// can take a multiplier. An avatar's emission is decoration on a surface the player is standing next
+    /// to: it is authored to look right on the avatar, nobody balanced it as a light source, and at close
+    /// range a single bright emissive texture will wash the whole gather. Cranking Intensity to light a
+    /// dim room used to mean accepting that, because one number scaled both.
+    ///
+    /// Applied where the instance's emission is packed, so it costs nothing at trace time. Ray traced mode
+    /// only: the screen space march gathers colour off the camera image and has no idea which pixel came
+    /// from whom. A change lands on the next material refresh rather than the next frame.
+    /// </summary>
+    public float emissionScale = 2f;
+    public float avatarEmissionScale = 1f;
+
     public bool rayTracedTextureAlbedo = true;
-    public BasisGlobalIlluminationRaySkinnedMode rayTracedSkinnedMeshes = BasisGlobalIlluminationRaySkinnedMode.Dynamic;
+    public BasisGlobalIlluminationRaySkinnedMode rayTracedSkinnedMeshes = BasisGlobalIlluminationRaySkinnedMode.Proxy;
     public int rayTracedSkinnedBudget = 2;
     public int rayTracedSkinnedInterval = 4;
     public float rayTracedSkinnedDistance = 16f;
@@ -249,6 +269,8 @@ public sealed class BasisGlobalIlluminationSettings
         smoothing = Mathf.Clamp(smoothing, SmoothingMin, SmoothingMax);
         fallbackIntensity = Mathf.Clamp(fallbackIntensity, FallbackIntensityMin, FallbackIntensityMax);
         emitterIntensity = Mathf.Clamp(emitterIntensity, EmitterIntensityMin, EmitterIntensityMax);
+        emissionScale = Mathf.Clamp(emissionScale, EmissionScaleMin, EmissionScaleMax);
+        avatarEmissionScale = Mathf.Clamp(avatarEmissionScale, EmissionScaleMin, EmissionScaleMax);
         bounces = Mathf.Clamp(bounces, BouncesMin, BouncesMax);
         rayTracedLightIntensity = Mathf.Clamp(rayTracedLightIntensity, LightIntensityMin, LightIntensityMax);
         rayTracedSkinnedBudget = Mathf.Clamp(rayTracedSkinnedBudget, SkinnedBudgetMin, SkinnedBudgetMax);
@@ -283,6 +305,7 @@ public sealed class BasisGlobalIlluminationSettings
         bounces = other.bounces; rayTracedLights = other.rayTracedLights;
         rayTracedLightIntensity = other.rayTracedLightIntensity; rayTracedShadows = other.rayTracedShadows;
         rayTracedEmissiveSurfaces = other.rayTracedEmissiveSurfaces; respectBakedEmission = other.respectBakedEmission;
+        emissionScale = other.emissionScale; avatarEmissionScale = other.avatarEmissionScale;
         rayTracedTextureAlbedo = other.rayTracedTextureAlbedo; rayTracedSkinnedMeshes = other.rayTracedSkinnedMeshes;
         rayTracedSkinnedBudget = other.rayTracedSkinnedBudget; rayTracedSkinnedInterval = other.rayTracedSkinnedInterval;
         rayTracedSkinnedDistance = other.rayTracedSkinnedDistance; rayTracedLayerMask = other.rayTracedLayerMask;
@@ -383,6 +406,31 @@ public sealed class BasisGlobalIlluminationSettings
         return mask;
     }
 
+    private static int avatarLayers;
+    private static bool avatarLayersResolved;
+
+    /// <summary>
+    /// The layers an avatar's renderers live on. Deliberately the LAYER rather than "is it a skinned
+    /// mesh": an avatar carries rigid props, accessories and shells that are ordinary MeshRenderers, and
+    /// those are exactly the parts most likely to be wearing a bright emissive texture.
+    /// </summary>
+    public static int AvatarLayers()
+    {
+        if (avatarLayersResolved) { return avatarLayers; }
+
+        int mask = 0;
+        string[] names = { "LocalPlayerAvatar", "RemotePlayerAvatar" };
+        for (int index = 0; index < names.Length; index++)
+        {
+            int layer = LayerMask.NameToLayer(names[index]);
+            if (layer >= 0) { mask |= 1 << layer; }
+        }
+
+        avatarLayers = mask;
+        avatarLayersResolved = true;
+        return mask;
+    }
+
     /// <summary>
     /// The layers the trace actually walks. Everything means the mask was left alone, and the interface
     /// layers come out of it; any other mask was chosen by somebody and is taken exactly as written.
@@ -452,7 +500,9 @@ public sealed class BasisGlobalIlluminationSettings
             skinnedMaxDistance = rayTracedSkinnedDistance,
             textureAlbedo = rayTracedTextureAlbedo,
             emissiveSurfaces = rayTracedEmissiveSurfaces,
-            respectBakedEmission = respectBakedEmission
+            respectBakedEmission = respectBakedEmission,
+            emissionScale = emissionScale,
+            avatarEmissionScale = avatarEmissionScale
         };
     }
 

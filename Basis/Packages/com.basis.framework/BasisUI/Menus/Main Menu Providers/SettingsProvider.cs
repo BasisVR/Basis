@@ -1797,8 +1797,8 @@ namespace Basis.BasisUI
                 dropdownGiSkinned.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.skinned"));
                 dropdownGiSkinned.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.skinned.tooltip"));
                 dropdownGiSkinned.AssignLocalizedEntries(
-                    new List<string> { "Off", "Static", "Dynamic" },
-                    new List<string> { "settings.graphics.gi.skinned.off", "settings.graphics.gi.skinned.static", "settings.graphics.gi.skinned.dynamic" });
+                    new List<string> { "Off", "Static", "Proxy", "Dynamic" },
+                    new List<string> { "settings.graphics.gi.skinned.off", "settings.graphics.gi.skinned.static", "settings.graphics.gi.skinned.proxy", "settings.graphics.gi.skinned.dynamic" });
                 dropdownGiSkinned.AssignBinding(BasisSettingsDefaults.GlobalIlluminationSkinnedMeshes);
                 SettingsProviderBottleneckHints.Mark(dropdownGiSkinned, BasisFrameCostSide.Cpu);
 
@@ -2095,12 +2095,21 @@ namespace Basis.BasisUI
                 toggleRtaoOtherCameras.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.otherCameras.tooltip"));
                 SettingsProviderBottleneckHints.Mark(toggleRtaoOtherCameras, BasisFrameCostSide.Gpu);
 
+                PanelDropdown dropdownRtaoLayers = PanelDropdown.CreateNewEntry(rtaoGroup.ContentParent);
+                dropdownRtaoLayers.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.rtao.layers"));
+                dropdownRtaoLayers.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.layers.tooltip"));
+                dropdownRtaoLayers.AssignLocalizedEntries(
+                    new List<string> { "Avatars", "Avatars And World", "Everything" },
+                    new List<string> { "settings.graphics.rtao.layers.avatars", "settings.graphics.rtao.layers.avatarsandworld", "settings.graphics.rtao.layers.everything" });
+                dropdownRtaoLayers.AssignBinding(BasisSettingsDefaults.RayTracedAmbientOcclusionLayers);
+                SettingsProviderBottleneckHints.Mark(dropdownRtaoLayers, BasisFrameCostSide.Gpu);
+
                 PanelDropdown dropdownRtaoSkinned = PanelDropdown.CreateNewEntry(rtaoGroup.ContentParent);
                 dropdownRtaoSkinned.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.rtao.skinned"));
                 dropdownRtaoSkinned.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.skinned.tooltip"));
                 dropdownRtaoSkinned.AssignLocalizedEntries(
-                    new List<string> { "Off", "Static", "Dynamic" },
-                    new List<string> { "settings.graphics.rtao.skinned.off", "settings.graphics.rtao.skinned.static", "settings.graphics.rtao.skinned.dynamic" });
+                    new List<string> { "Off", "Static", "Proxy", "Dynamic" },
+                    new List<string> { "settings.graphics.rtao.skinned.off", "settings.graphics.rtao.skinned.static", "settings.graphics.rtao.skinned.proxy", "settings.graphics.rtao.skinned.dynamic" });
                 dropdownRtaoSkinned.AssignBinding(BasisSettingsDefaults.RayTracedAmbientOcclusionSkinnedMeshes);
                 SettingsProviderBottleneckHints.Mark(dropdownRtaoSkinned, BasisFrameCostSide.Cpu);
 
@@ -2952,6 +2961,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationReflectionProbes.ResetToDefault();
             BasisSettingsDefaults.UseRayTracedAmbientOcclusion.ResetToDefault();
+            BasisSettingsDefaults.RayTracedAmbientOcclusionLayers.ResetToDefault();
             BasisSettingsDefaults.RayTracedAmbientOcclusionMode.ResetToDefault();
             BasisSettingsDefaults.RayTracedAmbientOcclusionQuality.ResetToDefault();
             BasisSettingsDefaults.RayTracedAmbientOcclusionIntensity.ResetToDefault();

@@ -2,6 +2,7 @@
     "name": "BasisGlobalIllumination.Tests",
     "rootNamespace": "",
     "references": [
+        "BasisCommon",
         "GUID:e35bc0e358d246bf90af67ca7dc38f0e",
         "GUID:9f0c933ae2464bf4b7276d9743d3e04e",
         "GUID:15fc0a57446b3144c949da3e2b9737a9",

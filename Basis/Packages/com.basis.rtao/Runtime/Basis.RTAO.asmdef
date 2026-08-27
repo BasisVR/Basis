@@ -2,6 +2,7 @@
     "name": "Basis.RTAO",
     "rootNamespace": "Basis.Rendering.RTAO",
     "references": [
+        "BasisCommon",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.UnifiedRayTracing.Runtime",

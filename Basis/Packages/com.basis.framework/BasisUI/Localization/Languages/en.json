@@ -7439,6 +7439,26 @@
       "value": "Whether mirrors and the handheld camera get their own ambient occlusion. On, a mirror shows the room the same way you see it and photos match the view. Off, only your own view is traced, which is the first thing to turn off when the frame gets tight since every extra camera costs its own pass."
     },
     {
+      "key": "settings.graphics.rtao.layers",
+      "value": "Occlusion Layers"
+    },
+    {
+      "key": "settings.graphics.rtao.layers.tooltip",
+      "value": "Which surfaces are traced for occlusion. Avatars is what the effect was built for and the cheapest: the people in the room darken what they stand near. The wider sets put world geometry into the acceleration structure too, which buys occlusion under furniture and in corners at the cost of rebuilding far more of it."
+    },
+    {
+      "key": "settings.graphics.rtao.layers.avatars",
+      "value": "Avatars"
+    },
+    {
+      "key": "settings.graphics.rtao.layers.avatarsandworld",
+      "value": "Avatars And World"
+    },
+    {
+      "key": "settings.graphics.rtao.layers.everything",
+      "value": "Everything"
+    },
+    {
       "key": "settings.graphics.rtao.skinned",
       "value": "Avatars Cast Occlusion"
     },
@@ -7453,6 +7473,10 @@
     {
       "key": "settings.graphics.rtao.skinned.static",
       "value": "Static"
+    },
+    {
+      "key": "settings.graphics.rtao.skinned.proxy",
+      "value": "Proxy"
     },
     {
       "key": "settings.graphics.rtao.skinned.dynamic",
@@ -7497,6 +7521,10 @@
     {
       "key": "settings.graphics.gi.skinned.static",
       "value": "Static"
+    },
+    {
+      "key": "settings.graphics.gi.skinned.proxy",
+      "value": "Proxy"
     },
     {
       "key": "settings.graphics.gi.skinned.dynamic",

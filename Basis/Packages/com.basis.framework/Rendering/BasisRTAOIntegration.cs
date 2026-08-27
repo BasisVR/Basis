@@ -109,6 +109,7 @@ namespace Basis.Scripts.Rendering
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionQuality.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionIntensity.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionRadius.BindingKey
+                || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionLayers.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionSkinnedMeshes.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionDirectStrength.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionDenoise.BindingKey
@@ -150,6 +151,9 @@ namespace Basis.Scripts.Rendering
 
             BasisRTAOFeature.HasDenoisePassesOverride = true;
             BasisRTAOFeature.DenoisePassesOverride = BasisRTAOSettingsMap.ReadDenoisePasses(BasisSettingsDefaults.RayTracedAmbientOcclusionDenoise.RawValue);
+
+            BasisRTAOFeature.HasLayerMaskOverride = true;
+            BasisRTAOFeature.LayerMaskOverride = BasisRTAOSettingsMap.ReadLayers(BasisSettingsDefaults.RayTracedAmbientOcclusionLayers.RawValue);
 
             BasisRTAOFeature.HasSkinnedModeOverride = true;
             BasisRTAOFeature.SkinnedModeOverride = BasisRTAOSettingsMap.ReadSkinnedMode(BasisSettingsDefaults.RayTracedAmbientOcclusionSkinnedMeshes.RawValue);

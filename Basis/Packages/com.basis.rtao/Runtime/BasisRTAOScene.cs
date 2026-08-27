@@ -10,7 +10,13 @@ namespace Basis.Rendering.RTAO
     {
         Off = 0,
         Static = 1,
-        Dynamic = 2
+        Dynamic = 2,
+        /// <summary>
+        /// Avatars are traced as capsules on their bones rather than as their own deforming mesh, so every
+        /// avatar updates every frame instead of waiting its turn in a bake budget. Shares its poses with
+        /// the global illumination tracer - see BasisAvatarProxy in Common.
+        /// </summary>
+        Proxy = 3
     }
 
     [Serializable]
@@ -63,6 +69,41 @@ namespace Basis.Rendering.RTAO
             }
         }
 
+        /// <summary>
+        /// Avatars plus the world geometry around them. Occlusion under furniture and in corners, which the
+        /// avatar-only set cannot produce because the surfaces casting it are not in the structure.
+        /// </summary>
+        public static LayerMask AvatarAndWorldLayers
+        {
+            get
+            {
+                int mask = AvatarLayers.value;
+                int world = LayerMask.NameToLayer("Default");
+                if (world >= 0) { mask |= 1 << world; }
+                return mask;
+            }
+        }
+
+        /// <summary>
+        /// Everything except the interface layers. A menu panel in the acceleration structure occludes the
+        /// room behind a surface the player reads as an overlay - the same trap the global illumination
+        /// trace hit, and the reason neither of them ever means literally everything.
+        /// </summary>
+        public static LayerMask EverythingButInterfaceLayers
+        {
+            get
+            {
+                int mask = ~0;
+                string[] interfaceLayers = { "UI", "OverlayUI", "HandHeldCameraUI" };
+                for (int index = 0; index < interfaceLayers.Length; index++)
+                {
+                    int layer = LayerMask.NameToLayer(interfaceLayers[index]);
+                    if (layer >= 0) { mask &= ~(1 << layer); }
+                }
+                return mask;
+            }
+        }
+
         public static BasisRTAOSceneSettings Default => FromQuality(BasisRTAOQuality.Medium);
 
         public static BasisRTAOSceneSettings FromQuality(BasisRTAOQuality quality)
@@ -72,7 +113,7 @@ namespace Basis.Rendering.RTAO
                 layerMask = AvatarLayerMask,
                 requireShadowCasting = true,
                 rescanInterval = 2f,
-                skinnedMode = BasisRTAOSkinnedMode.Dynamic,
+                skinnedMode = BasisRTAOSkinnedMode.Proxy,
                 skinnedMaxDistance = 15f
             };
 
@@ -147,6 +188,23 @@ namespace Basis.Rendering.RTAO
 
         private readonly BasisRTAOContext context;
         private readonly Dictionary<EntityId, Entry> entries = new Dictionary<EntityId, Entry>();
+
+        /// <summary>
+        /// One avatar's capsules. The pose behind it is shared with every other tracer looking at the same
+        /// avatar, so a room costs one set of bone reads per frame however many effects are tracing it.
+        /// </summary>
+        private sealed class ProxyEntry
+        {
+            public Animator animator;
+            public BasisAvatarProxyPose pose;
+            public int[] handles;
+            public bool seen;
+        }
+
+        private readonly Dictionary<EntityId, ProxyEntry> proxies = new Dictionary<EntityId, ProxyEntry>();
+        private readonly List<EntityId> proxyRemoval = new List<EntityId>();
+
+        public int ProxyCount => proxies.Count;
         private readonly List<EntityId> pendingRemoval = new List<EntityId>();
         private readonly List<Entry> skinnedEntries = new List<Entry>();
         private IRayTracingAccelStruct accelStruct;
@@ -225,7 +283,7 @@ namespace Basis.Rendering.RTAO
         public static bool IsSupportedRendererType(Renderer renderer, BasisRTAOSkinnedMode skinnedMode)
         {
             if (renderer is SkinnedMeshRenderer)
-                return skinnedMode != BasisRTAOSkinnedMode.Off;
+                return skinnedMode != BasisRTAOSkinnedMode.Off && skinnedMode != BasisRTAOSkinnedMode.Proxy;
             return renderer is MeshRenderer;
         }
 
@@ -259,6 +317,10 @@ namespace Basis.Rendering.RTAO
             {
                 nextScanTime = time + Mathf.Max(0.1f, settings.rescanInterval);
                 Rescan(settings);
+                if (settings.skinnedMode == BasisRTAOSkinnedMode.Proxy)
+                    RescanProxies(settings);
+                else if (proxies.Count > 0)
+                    ClearProxies();
             }
 
             UpdateTransforms();
@@ -267,6 +329,8 @@ namespace Basis.Rendering.RTAO
                 UpdateSkinned(settings, viewerPosition, frameCount);
             else if (settings.skinnedMode == BasisRTAOSkinnedMode.Static)
                 BakeFirstPoses(settings, frameCount);
+            else if (settings.skinnedMode == BasisRTAOSkinnedMode.Proxy)
+                UpdateProxies(frameCount);
 
             // Last, so it sees everything the sweep and the re-bakes dropped this frame, and so the
             // structure handed to Build is already whole again.
@@ -381,6 +445,148 @@ namespace Basis.Rendering.RTAO
             if (skinned == null)
                 return renderer.transform.localToWorldMatrix;
             return Matrix4x4.TRS(renderer.transform.position, renderer.transform.rotation, Vector3.one);
+        }
+
+        /// <summary>
+        /// Finds the humanoids whose capsules belong in the structure and drops the ones that have gone.
+        /// Runs on the rescan cadence; the poses themselves are updated every frame by UpdateProxies.
+        /// </summary>
+        private void RescanProxies(in BasisRTAOSceneSettings settings)
+        {
+            foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+                pair.Value.seen = false;
+
+            Animator[] animators = UnityEngine.Object.FindObjectsByType<Animator>(FindObjectsInactive.Exclude);
+            for (int i = 0; i < animators.Length; i++)
+            {
+                Animator animator = animators[i];
+                if (animator == null || !animator.isHuman)
+                    continue;
+                if ((settings.layerMask.value & (1 << animator.gameObject.layer)) == 0)
+                    continue;
+
+                EntityId id = animator.GetEntityId();
+                if (proxies.TryGetValue(id, out ProxyEntry existing))
+                {
+                    existing.seen = true;
+                    continue;
+                }
+
+                BasisAvatarProxyPose pose = BasisAvatarProxy.PoseFor(animator);
+                if (pose == null || pose.Count == 0)
+                    continue;
+                AddProxy(animator, pose);
+            }
+
+            proxyRemoval.Clear();
+            foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+            {
+                if (!pair.Value.seen || pair.Value.animator == null)
+                    proxyRemoval.Add(pair.Key);
+            }
+            for (int i = 0; i < proxyRemoval.Count; i++)
+            {
+                if (proxies.TryGetValue(proxyRemoval[i], out ProxyEntry dead))
+                    RemoveProxy(proxyRemoval[i], dead);
+            }
+            proxyRemoval.Clear();
+        }
+
+        private void AddProxy(Animator animator, BasisAvatarProxyPose pose)
+        {
+            Mesh capsule = BasisAvatarProxy.SharedCapsule();
+            if (capsule == null)
+                return;
+
+            pose.Update(Time.renderedFrameCount);
+            int[] handles = new int[pose.Count];
+            for (int i = 0; i < pose.Count; i++)
+                handles[i] = -1;
+
+            for (int i = 0; i < pose.Count; i++)
+            {
+                try
+                {
+                    MeshInstanceDesc desc = new MeshInstanceDesc(capsule, 0)
+                    {
+                        localToWorldMatrix = pose.MatrixAt(i),
+                        mask = 0xff,
+                        enableTriangleCulling = false,
+                        opaqueGeometry = true
+                    };
+                    handles[i] = accelStruct.AddInstance(desc);
+                }
+                catch (Exception)
+                {
+                    for (int j = 0; j < i; j++)
+                    {
+                        if (handles[j] >= 0)
+                            accelStruct.RemoveInstance(handles[j]);
+                    }
+                    return;
+                }
+            }
+
+            proxies[animator.GetEntityId()] = new ProxyEntry { animator = animator, pose = pose, handles = handles, seen = true };
+            structureDirty = true;
+        }
+
+        /// <summary>
+        /// Every limb of every avatar, every frame. No bake, no readback, no geometry change and so no
+        /// BLAS rebuild - only the transform each capsule sits at.
+        /// </summary>
+        private void UpdateProxies(int frameCount)
+        {
+            foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+            {
+                ProxyEntry entry = pair.Value;
+                if (entry.animator == null || entry.handles == null || entry.pose == null)
+                    continue;
+
+                // Idempotent. Normally the frame hook has already sampled this avatar and the global
+                // illumination tracer is reading the same matrices - one set of bone reads for the room.
+                entry.pose.Update(frameCount);
+
+                for (int i = 0; i < entry.handles.Length && i < entry.pose.Count; i++)
+                {
+                    if (entry.handles[i] < 0)
+                        continue;
+                    accelStruct.UpdateInstanceTransform(entry.handles[i], entry.pose.MatrixAt(i));
+                }
+                structureDirty = true;
+            }
+        }
+
+        private void RemoveProxy(EntityId id, ProxyEntry entry)
+        {
+            if (entry.handles != null)
+            {
+                for (int i = 0; i < entry.handles.Length; i++)
+                {
+                    if (entry.handles[i] >= 0)
+                        accelStruct.RemoveInstance(entry.handles[i]);
+                    entry.handles[i] = -1;
+                }
+            }
+            proxies.Remove(id);
+            structureDirty = true;
+        }
+
+        private void ClearProxies()
+        {
+            foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+            {
+                if (pair.Value.handles == null)
+                    continue;
+                for (int i = 0; i < pair.Value.handles.Length; i++)
+                {
+                    if (pair.Value.handles[i] >= 0)
+                        accelStruct.RemoveInstance(pair.Value.handles[i]);
+                }
+            }
+            proxies.Clear();
+            proxyRemoval.Clear();
+            structureDirty = true;
         }
 
         private int[] AddInstances(Mesh mesh, Matrix4x4 matrix)
@@ -712,6 +918,7 @@ namespace Basis.Rendering.RTAO
             }
             needsReset = false;
             entries.Clear();
+            ClearProxies();
             skinnedEntries.Clear();
             pendingRemoval.Clear();
         }

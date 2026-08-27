@@ -2,6 +2,7 @@
     "name": "BasisGlobalIllumination",
     "rootNamespace": "",
     "references": [
+        "BasisCommon",
         "GUID:df380645f10b7bc4b97d4f5eb6303d95",
         "GUID:15fc0a57446b3144c949da3e2b9737a9",
         "Unity.UnifiedRayTracing.Runtime",

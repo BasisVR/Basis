@@ -298,7 +298,7 @@ MonoBehaviour:
       m_Bits: 192
     requireShadowCasting: 1
     rescanInterval: 2
-    skinnedMode: 2
+    skinnedMode: 3
     skinnedBakesPerFrame: 4
     skinnedBakeInterval: 4
     skinnedMaxDistance: 15

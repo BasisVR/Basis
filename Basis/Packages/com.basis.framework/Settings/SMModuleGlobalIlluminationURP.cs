@@ -328,7 +328,8 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
         {
             case "off": return BasisGlobalIlluminationRaySkinnedMode.Off;
             case "static": return BasisGlobalIlluminationRaySkinnedMode.Static;
-            default: return BasisGlobalIlluminationRaySkinnedMode.Dynamic;
+            case "dynamic": return BasisGlobalIlluminationRaySkinnedMode.Dynamic;
+            default: return BasisGlobalIlluminationRaySkinnedMode.Proxy;
         }
     }
 

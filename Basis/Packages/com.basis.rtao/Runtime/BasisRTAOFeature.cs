@@ -46,6 +46,8 @@ namespace Basis.Rendering.RTAO
         public static int DenoisePassesOverride = 2;
         public static bool HasTracingModeOverride;
         public static BasisRTAOTracingMode TracingModeOverride = BasisRTAOTracingMode.Auto;
+        public static bool HasLayerMaskOverride;
+        public static LayerMask LayerMaskOverride = BasisRTAOSceneSettings.AvatarLayerMask;
         public static bool HasSkinnedModeOverride;
         public static BasisRTAOSkinnedMode SkinnedModeOverride = BasisRTAOSkinnedMode.Off;
         public static bool HasSkinnedBudgetOverride;
@@ -124,6 +126,8 @@ namespace Basis.Rendering.RTAO
                 resolved.skinnedBakeInterval = BasisRTAOSceneSettings.BakeIntervalForQuality(EffectiveQuality);
             }
 
+            if (HasLayerMaskOverride)
+                resolved.layerMask = LayerMaskOverride;
             if (HasSkinnedModeOverride)
                 resolved.skinnedMode = SkinnedModeOverride;
             if (HasSkinnedBudgetOverride)

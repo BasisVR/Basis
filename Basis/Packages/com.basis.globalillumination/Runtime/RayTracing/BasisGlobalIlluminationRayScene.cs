@@ -9,7 +9,13 @@ public enum BasisGlobalIlluminationRaySkinnedMode
 {
     Off = 0,
     Static = 1,
-    Dynamic = 2
+    Dynamic = 2,
+    /// <summary>
+    /// Avatars are traced as capsules on their bones rather than as their own deforming mesh. Every avatar
+    /// updates every frame for a fraction of what one Dynamic re-bake costs, which is what removes the
+    /// staggered staleness Dynamic cannot avoid. See BasisAvatarProxy.
+    /// </summary>
+    Proxy = 3
 }
 
 [Serializable]
@@ -29,6 +35,9 @@ public struct BasisGlobalIlluminationRaySceneSettings
     /// light is in the lightmap and injecting it again lights the room twice from one lamp.
     /// </summary>
     public bool respectBakedEmission;
+    /// <summary>Emission multiplier for world geometry, and for anything on an avatar layer.</summary>
+    public float emissionScale;
+    public float avatarEmissionScale;
 
     public static BasisGlobalIlluminationRaySceneSettings Default => new BasisGlobalIlluminationRaySceneSettings
     {
@@ -41,7 +50,9 @@ public struct BasisGlobalIlluminationRaySceneSettings
         skinnedMaxDistance = 16f,
         textureAlbedo = true,
         emissiveSurfaces = true,
-        respectBakedEmission = true
+        respectBakedEmission = true,
+        emissionScale = 2f,
+        avatarEmissionScale = 1f
     };
 }
 
@@ -114,6 +125,25 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
     private readonly Dictionary<EntityId, Entry> entries = new Dictionary<EntityId, Entry>();
     private readonly Dictionary<EntityId, MeshGeometry> meshCache = new Dictionary<EntityId, MeshGeometry>();
     private readonly List<Entry> skinnedEntries = new List<Entry>();
+
+    /// <summary>
+    /// One avatar's capsules. The limbs never change shape, so this holds nothing but instance handles and
+    /// the transforms to read each frame - there is no mesh here to go stale.
+    /// </summary>
+    private sealed class ProxyEntry
+    {
+        public Animator animator;
+        /// <summary>Shared with every other tracer looking at this avatar, sampled once per frame.</summary>
+        public BasisAvatarProxyPose pose;
+        public int[] handles;
+        public int[] instanceIds;
+        public MeshGeometry geometry;
+        public bool seen;
+    }
+
+    private readonly Dictionary<EntityId, ProxyEntry> proxies = new Dictionary<EntityId, ProxyEntry>();
+    private readonly List<EntityId> proxyRemoval = new List<EntityId>();
+    public int ProxyCount => proxies.Count;
     private readonly List<EntityId> pendingRemoval = new List<EntityId>();
     private readonly List<int> freeInstanceIds = new List<int>();
     private readonly List<Vector3> normalScratch = new List<Vector3>();
@@ -167,7 +197,11 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
 
     public static bool IsSupportedRendererType(Renderer renderer, BasisGlobalIlluminationRaySkinnedMode skinnedMode)
     {
-        if (renderer is SkinnedMeshRenderer) { return skinnedMode != BasisGlobalIlluminationRaySkinnedMode.Off; }
+        if (renderer is SkinnedMeshRenderer)
+        {
+            return skinnedMode != BasisGlobalIlluminationRaySkinnedMode.Off
+                && skinnedMode != BasisGlobalIlluminationRaySkinnedMode.Proxy;
+        }
         return renderer is MeshRenderer;
     }
 
@@ -208,6 +242,10 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         {
             UpdateSkinned(settings, viewers, frameCount);
         }
+        else if (settings.skinnedMode == BasisGlobalIlluminationRaySkinnedMode.Proxy)
+        {
+            UpdateProxies(frameCount);
+        }
 
         Upload();
     }
@@ -242,6 +280,9 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
             if (instanceHighWater >= MaxInstances) { continue; }
             AddEntry(renderer, mesh, renderer as SkinnedMeshRenderer, settings);
         }
+
+        if (settings.skinnedMode == BasisGlobalIlluminationRaySkinnedMode.Proxy) { RescanProxies(settings); }
+        else if (proxies.Count > 0) { ClearProxies(); }
 
         pendingRemoval.Clear();
         foreach (KeyValuePair<EntityId, Entry> pair in entries)
@@ -543,6 +584,7 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
 
         materialScratch.Clear();
         entry.renderer.GetSharedMaterials(materialScratch);
+        bool avatarEntry = (BasisGlobalIlluminationSettings.AvatarLayers() & (1 << entry.renderer.gameObject.layer)) != 0;
         for (int index = 0; index < entry.instanceIds.Length; index++)
         {
             int instanceId = entry.instanceIds[index];
@@ -552,7 +594,8 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
             int blockIndex = index < materialScratch.Count ? index : -1;
             ReadSurface(material, entry.renderer, blockIndex, settings, textures, out Color albedo, out Color emission);
             Vector4 packedAlbedo = new Vector4(albedo.r, albedo.g, albedo.b, 1f);
-            Vector4 packedEmission = new Vector4(emission.r, emission.g, emission.b, 0f);
+            float emissionScale = avatarEntry ? settings.avatarEmissionScale : settings.emissionScale;
+            Vector4 packedEmission = new Vector4(emission.r * emissionScale, emission.g * emissionScale, emission.b * emissionScale, 0f);
             if (instances[instanceId].albedo == packedAlbedo && instances[instanceId].emission == packedEmission) { continue; }
 
             instances[instanceId].albedo = packedAlbedo;
@@ -769,6 +812,224 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         }
     }
 
+    /// <summary>
+    /// Finds the humanoids whose capsules belong in the structure, and drops the ones that have gone.
+    ///
+    /// Discovery is by Animator rather than by renderer because the bone map is what the capsules hang on,
+    /// and it runs on the same rescan cadence as everything else. A non-humanoid avatar resolves to nothing
+    /// and is simply absent - a body-shaped guess at a rig this cannot read would be worse than no bounce.
+    /// </summary>
+    private void RescanProxies(in BasisGlobalIlluminationRaySceneSettings settings)
+    {
+        foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies) { pair.Value.seen = false; }
+
+        Animator[] animators = UnityEngine.Object.FindObjectsByType<Animator>(FindObjectsInactive.Exclude);
+        for (int index = 0; index < animators.Length; index++)
+        {
+            Animator animator = animators[index];
+            if (animator == null || !animator.isHuman) { continue; }
+            if ((settings.layerMask.value & (1 << animator.gameObject.layer)) == 0) { continue; }
+
+            EntityId id = animator.GetEntityId();
+            if (proxies.TryGetValue(id, out ProxyEntry existing))
+            {
+                existing.seen = true;
+                WriteProxyMaterials(existing, settings);
+                continue;
+            }
+
+            BasisAvatarProxyPose pose = BasisAvatarProxy.PoseFor(animator);
+            if (pose == null || pose.Count == 0) { continue; }
+            if (instanceHighWater + pose.Count >= MaxInstances) { continue; }
+            AddProxy(animator, pose, settings);
+        }
+
+        proxyRemoval.Clear();
+        foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+        {
+            if (!pair.Value.seen || pair.Value.animator == null) { proxyRemoval.Add(pair.Key); }
+        }
+        for (int index = 0; index < proxyRemoval.Count; index++)
+        {
+            if (proxies.TryGetValue(proxyRemoval[index], out ProxyEntry dead)) { RemoveProxy(proxyRemoval[index], dead); }
+        }
+        proxyRemoval.Clear();
+    }
+
+    private void AddProxy(Animator animator, BasisAvatarProxyPose pose, in BasisGlobalIlluminationRaySceneSettings settings)
+    {
+        Mesh capsule = BasisAvatarProxy.SharedCapsule();
+        if (!IsUsableMesh(capsule)) { return; }
+
+        pose.Update(Time.renderedFrameCount);
+        ProxyEntry entry = new ProxyEntry { animator = animator, pose = pose, seen = true };
+        // Every limb of every avatar is an instance of the same mesh, so this resolves to one cached
+        // geometry and one BLAS for the whole room, however many people are in it.
+        entry.geometry = AcquireGeometry(capsule);
+        entry.handles = new int[pose.Count];
+        entry.instanceIds = new int[pose.Count];
+
+        for (int index = 0; index < pose.Count; index++)
+        {
+            entry.handles[index] = -1;
+            entry.instanceIds[index] = -1;
+        }
+
+        for (int index = 0; index < pose.Count; index++)
+        {
+            int instanceId = AllocateInstanceId();
+            if (instanceId < 0) { RemoveProxyInstances(entry); ReleaseGeometryBlocks(entry.geometry); return; }
+
+            Matrix4x4 matrix = pose.MatrixAt(index);
+            try
+            {
+                MeshInstanceDesc desc = new MeshInstanceDesc(capsule, 0)
+                {
+                    localToWorldMatrix = matrix,
+                    mask = 0xff,
+                    instanceID = (uint)instanceId,
+                    enableTriangleCulling = false,
+                    opaqueGeometry = true
+                };
+                entry.handles[index] = accelStruct.AddInstance(desc);
+            }
+            catch (Exception)
+            {
+                freeInstanceIds.Add(instanceId);
+                RemoveProxyInstances(entry);
+                ReleaseGeometryBlocks(entry.geometry);
+                return;
+            }
+
+            entry.instanceIds[index] = instanceId;
+            BasisGlobalIlluminationRayArena.Block indices = entry.geometry.indices != null && entry.geometry.indices.Length > 0
+                ? entry.geometry.indices[0]
+                : BasisGlobalIlluminationRayArena.Block.None;
+
+            instances[instanceId].indexOffset = (uint)indices.Offset;
+            instances[instanceId].indexCount = (uint)indices.Count;
+            instances[instanceId].vertexOffset = (uint)entry.geometry.normals.Offset;
+            instances[instanceId].flags = entry.geometry.hasNormals && indices.IsValid ? BasisGlobalIlluminationRayInstance.FlagHasNormals : 0u;
+            instances[instanceId].SetNormalMatrix(matrix);
+            MarkInstanceDirty(instanceId);
+        }
+
+        proxies[animator.GetEntityId()] = entry;
+        WriteProxyMaterials(entry, settings);
+        structureDirty = true;
+    }
+
+    /// <summary>
+    /// What an avatar's capsules bounce. There is no per-limb material to read - a capsule is not a piece
+    /// of the avatar's mesh - so the whole body takes one colour, read off the first renderer that has a
+    /// usable material. A body's bounce is a soft wash of its overall colour at this resolution; the cost
+    /// of getting that colour per limb would be a material read per limb per rescan for a difference the
+    /// denoiser removes.
+    /// </summary>
+    private void WriteProxyMaterials(ProxyEntry entry, in BasisGlobalIlluminationRaySceneSettings settings)
+    {
+        if (entry.animator == null || entry.instanceIds == null) { return; }
+
+        Color albedo = Color.grey;
+        Color emission = Color.black;
+        Renderer[] renderers = entry.animator.GetComponentsInChildren<Renderer>(false);
+        for (int index = 0; index < renderers.Length; index++)
+        {
+            Renderer renderer = renderers[index];
+            if (renderer == null) { continue; }
+            Material material = renderer.sharedMaterial;
+            if (material == null) { continue; }
+            ReadSurface(material, settings, textures, out albedo, out emission);
+            break;
+        }
+
+        float scale = settings.avatarEmissionScale;
+        Vector4 packedAlbedo = new Vector4(albedo.r, albedo.g, albedo.b, 1f);
+        Vector4 packedEmission = new Vector4(emission.r * scale, emission.g * scale, emission.b * scale, 0f);
+
+        for (int index = 0; index < entry.instanceIds.Length; index++)
+        {
+            int instanceId = entry.instanceIds[index];
+            if (instanceId < 0) { continue; }
+            if (instances[instanceId].albedo == packedAlbedo && instances[instanceId].emission == packedEmission) { continue; }
+            instances[instanceId].albedo = packedAlbedo;
+            instances[instanceId].emission = packedEmission;
+            MarkInstanceDirty(instanceId);
+        }
+    }
+
+    /// <summary>
+    /// Every limb of every avatar, every frame. This is the whole point: no bake, no readback, no geometry
+    /// change and so no BLAS rebuild - just the transform each capsule sits at. There is no budget and no
+    /// cursor because there is nothing here expensive enough to need one.
+    /// </summary>
+    private void UpdateProxies(int frame)
+    {
+        foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+        {
+            ProxyEntry entry = pair.Value;
+            if (entry.animator == null || entry.handles == null || entry.pose == null) { continue; }
+
+            // Idempotent: the frame hook has normally already sampled this, and the second caller in a
+            // frame gets the same matrices rather than re-reading the bones at a different instant.
+            entry.pose.Update(frame);
+
+            for (int index = 0; index < entry.handles.Length && index < entry.pose.Count; index++)
+            {
+                if (entry.handles[index] < 0) { continue; }
+
+                Matrix4x4 matrix = entry.pose.MatrixAt(index);
+                accelStruct.UpdateInstanceTransform(entry.handles[index], matrix);
+
+                int instanceId = entry.instanceIds[index];
+                if (instanceId >= 0)
+                {
+                    instances[instanceId].SetNormalMatrix(matrix);
+                    MarkInstanceDirty(instanceId);
+                }
+            }
+            structureDirty = true;
+        }
+    }
+
+    private void RemoveProxyInstances(ProxyEntry entry)
+    {
+        if (entry.handles == null) { return; }
+        for (int index = 0; index < entry.handles.Length; index++)
+        {
+            if (entry.handles[index] >= 0)
+            {
+                accelStruct.RemoveInstance(entry.handles[index]);
+                entry.handles[index] = -1;
+            }
+            if (entry.instanceIds[index] >= 0)
+            {
+                freeInstanceIds.Add(entry.instanceIds[index]);
+                entry.instanceIds[index] = -1;
+            }
+        }
+    }
+
+    private void ClearProxies()
+    {
+        foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+        {
+            RemoveProxyInstances(pair.Value);
+            ReleaseGeometryBlocks(pair.Value.geometry);
+        }
+        proxies.Clear();
+        proxyRemoval.Clear();
+        structureDirty = true;
+    }
+
+    private void RemoveProxy(EntityId id, ProxyEntry entry)
+    {
+        RemoveProxyInstances(entry);
+        ReleaseGeometryBlocks(entry.geometry);
+        proxies.Remove(id);
+        structureDirty = true;
+    }
+
     private void UpdateSkinned(in BasisGlobalIlluminationRaySceneSettings settings, in BasisGlobalIlluminationRayViewers viewers, int frameCount)
     {
         if (skinnedEntries.Count == 0 || settings.skinnedBakesPerFrame <= 0) { return; }
@@ -905,6 +1166,7 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         }
         entries.Clear();
         meshCache.Clear();
+        ClearProxies();
         skinnedEntries.Clear();
         pendingRemoval.Clear();
         freeInstanceIds.Clear();

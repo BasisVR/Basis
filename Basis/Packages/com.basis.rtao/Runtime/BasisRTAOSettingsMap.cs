@@ -131,12 +131,35 @@ namespace Basis.Rendering.RTAO
             return mode == BasisRTAOApplyMode.AfterOpaque ? ApplyFinalImage : ApplyLighting;
         }
 
+        /// <summary>
+        /// Which layers the trace walks, as a preset rather than a raw mask - the settings panel has no
+        /// multi-select control, and the three sets below are the ones that differ in what a player can
+        /// actually see. Anything finer belongs on the renderer feature, where a mask field already exists.
+        /// </summary>
+        public static UnityEngine.LayerMask ReadLayers(string value)
+        {
+            switch (Normalise(value))
+            {
+                case "avatars and world": return BasisRTAOSceneSettings.AvatarAndWorldLayers;
+                case "everything": return BasisRTAOSceneSettings.EverythingButInterfaceLayers;
+                default: return BasisRTAOSceneSettings.AvatarLayers;
+            }
+        }
+
+        public static string WriteLayers(UnityEngine.LayerMask mask)
+        {
+            if (mask.value == BasisRTAOSceneSettings.EverythingButInterfaceLayers.value) { return "Everything"; }
+            if (mask.value == BasisRTAOSceneSettings.AvatarAndWorldLayers.value) { return "Avatars And World"; }
+            return "Avatars";
+        }
+
         public static BasisRTAOSkinnedMode ReadSkinnedMode(string value)
         {
             switch (Normalise(value))
             {
                 case "static": return BasisRTAOSkinnedMode.Static;
                 case "dynamic": return BasisRTAOSkinnedMode.Dynamic;
+                case "proxy": return BasisRTAOSkinnedMode.Proxy;
                 default: return BasisRTAOSkinnedMode.Off;
             }
         }
@@ -147,6 +170,7 @@ namespace Basis.Rendering.RTAO
             {
                 case BasisRTAOSkinnedMode.Static: return "Static";
                 case BasisRTAOSkinnedMode.Dynamic: return "Dynamic";
+                case BasisRTAOSkinnedMode.Proxy: return "Proxy";
                 default: return "Off";
             }
         }

@@ -342,7 +342,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> GlobalIlluminationMode = new("globalilluminationmode", new BasisPlatformDefault<string>("Screen Space"));
         // Avatars are skinned meshes, so this is what decides whether the people in the room bounce and
         // occlude light in the pose they are standing in. Dynamic re-bakes them on a per-frame budget.
-        public static BasisSettingsBinding<string> GlobalIlluminationSkinnedMeshes = new("globalilluminationskinnedmeshes", new BasisPlatformDefault<string>("Dynamic"));
+        public static BasisSettingsBinding<string> GlobalIlluminationSkinnedMeshes = new("globalilluminationskinnedmeshes", new BasisPlatformDefault<string>("Proxy"));
         public static BasisSettingsBinding<string> GlobalIlluminationQuality = new("globalilluminationquality", new BasisPlatformDefault<string>("Medium"));
         // Half resolution is what makes the effect affordable at VR framerates; Full is for photo mode and
         // for people who would rather spend the frame on it.
@@ -350,7 +350,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> GlobalIlluminationFallback = new("globalilluminationfallback", new BasisPlatformDefault<string>("Reflection Probe"));
         public static BasisSettingsBinding<float> GlobalIlluminationIntensity = new("globalilluminationintensity", new BasisPlatformDefault<float>(1f));
         public const float GI_INTENSITY_MIN = 0.1f;
-        public const float GI_INTENSITY_MAX = 4f;
+        public const float GI_INTENSITY_MAX = 8f;
         public static BasisSettingsBinding<float> GlobalIlluminationSaturation = new("globalilluminationsaturation", new BasisPlatformDefault<float>(1f));
         public const float GI_SATURATION_MIN = 0.1f;
         public const float GI_SATURATION_MAX = 2f;
@@ -407,7 +407,11 @@ namespace Basis.BasisUI
         public const float RTAO_RADIUS_MAX = 0.1f;
         // Avatars are skinned meshes, so this decides whether people in the room cast contact shadows.
         // Dynamic re-bakes them on a per-frame budget, which is CPU the traced path does not otherwise spend.
-        public static BasisSettingsBinding<string> RayTracedAmbientOcclusionSkinnedMeshes = new("raytracedambientocclusionskinnedmeshes", new BasisPlatformDefault<string>("Dynamic"));
+        // Avatars only, which is what the effect was built for and what the renderer already shipped as
+        // its authored default. The wider sets cost acceleration structure rebuilds over the whole world.
+        public static BasisSettingsBinding<string> RayTracedAmbientOcclusionLayers = new("raytracedambientocclusionlayers", new BasisPlatformDefault<string>("Avatars"));
+
+        public static BasisSettingsBinding<string> RayTracedAmbientOcclusionSkinnedMeshes = new("raytracedambientocclusionskinnedmeshes", new BasisPlatformDefault<string>("Proxy"));
         // URP multiplies the whole indirect term by the occlusion but only lerps the direct term toward it by
         // this much, so in a scene carried by a bright directional light the effect reads far weaker than the
         // occlusion buffer looks. Raising this pulls the shaded image back toward the buffer.
@@ -2472,6 +2476,7 @@ namespace Basis.BasisUI
             RayTracedAmbientOcclusionDenoise.LoadBindingValue();
             RayTracedAmbientOcclusionOtherCameras.LoadBindingValue();
             RayTracedAmbientOcclusionApply.LoadBindingValue();
+            RayTracedAmbientOcclusionLayers.LoadBindingValue();
             DevRtaoDebugView.LoadBindingValue();
             DevRtaoDebugStage.LoadBindingValue();
             DevRtaoSkinnedBudget.LoadBindingValue();
