@@ -135,6 +135,81 @@ namespace Basis.Tests.GlobalIllumination
             Assert.LessOrEqual(volume.thickness.value, BasisGlobalIlluminationVolume.ThicknessMax);
             Assert.GreaterOrEqual(volume.fireflyClamp.value, BasisGlobalIlluminationVolume.FireflyClampMin);
             Assert.LessOrEqual(volume.fireflyClamp.value, BasisGlobalIlluminationVolume.FireflyClampMax);
+            Assert.GreaterOrEqual(volume.specularIntensity.value, BasisGlobalIlluminationVolume.IntensityMin);
+            Assert.LessOrEqual(volume.specularIntensity.value, BasisGlobalIlluminationVolume.IntensityMax);
+            Assert.GreaterOrEqual(volume.specularMaxRoughness.value, BasisGlobalIlluminationVolume.SpecularRoughnessMin);
+            Assert.LessOrEqual(volume.specularMaxRoughness.value, BasisGlobalIlluminationVolume.SpecularRoughnessMax);
+            Assert.GreaterOrEqual(volume.specularRayLength.value, BasisGlobalIlluminationVolume.RayLengthMin);
+            Assert.LessOrEqual(volume.specularRayLength.value, BasisGlobalIlluminationVolume.SpecularRayLengthMax);
+            Assert.GreaterOrEqual(volume.specularBounces.value, BasisGlobalIlluminationVolume.BouncesMin);
+            Assert.LessOrEqual(volume.specularBounces.value, BasisGlobalIlluminationVolume.BouncesMax);
+        }
+
+        [Test]
+        public void ReflectionsAreOffByDefault()
+        {
+            volume.enable.value = true;
+            Assert.IsFalse(volume.specular.value);
+            Assert.IsFalse(volume.SpecularActive());
+        }
+
+        /// <summary>
+        /// The two gathers are independent switches, and each has to be able to run without the other:
+        /// reflections are worth having over a screen space diffuse gather, and the diffuse gather is worth
+        /// having without them. IsActive is the union, because it is what decides whether the feature
+        /// enqueues anything at all.
+        /// </summary>
+        [Test]
+        public void DiffuseAndReflectionsGateIndependently()
+        {
+            volume.enable.value = true;
+
+            volume.intensity.value = 1f;
+            volume.specular.value = false;
+            Assert.IsTrue(volume.DiffuseActive());
+            Assert.IsFalse(volume.SpecularActive());
+            Assert.IsTrue(volume.IsActive());
+
+            volume.intensity.value = 0f;
+            volume.specular.value = true;
+            volume.specularIntensity.value = 1f;
+            Assert.IsFalse(volume.DiffuseActive(), "a zero diffuse intensity still has to mean the diffuse gather is off");
+            Assert.IsTrue(volume.SpecularActive());
+            Assert.IsTrue(volume.IsActive(), "reflections alone have to keep the feature enqueuing its passes");
+
+            volume.specularIntensity.value = 0f;
+            Assert.IsFalse(volume.SpecularActive());
+            Assert.IsFalse(volume.IsActive());
+        }
+
+        /// <summary>The component's own switch still turns everything off, reflections included.</summary>
+        [Test]
+        public void DisablingTheComponentTurnsReflectionsOffToo()
+        {
+            volume.enable.value = false;
+            volume.specular.value = true;
+            volume.specularIntensity.value = 1f;
+            Assert.IsFalse(volume.SpecularActive());
+            Assert.IsFalse(volume.IsActive());
+        }
+
+        /// <summary>
+        /// Reflections are independent of Mode. The trace needs the ray traced backend either way, but a
+        /// world running the screen space diffuse gather must still be able to ask for them.
+        /// </summary>
+        [Test]
+        public void ReflectionsDoNotDependOnTheDiffuseMode()
+        {
+            volume.enable.value = true;
+            volume.specular.value = true;
+            volume.specularIntensity.value = 1f;
+
+            volume.mode.value = BasisGlobalIlluminationMode.ScreenSpace;
+            Assert.IsTrue(volume.SpecularActive());
+            Assert.IsFalse(volume.IsRayTraced());
+
+            volume.mode.value = BasisGlobalIlluminationMode.RayTraced;
+            Assert.IsTrue(volume.SpecularActive());
         }
     }
 }

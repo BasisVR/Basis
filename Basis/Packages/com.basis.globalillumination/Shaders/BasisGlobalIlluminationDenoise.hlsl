@@ -28,6 +28,43 @@ float4 BasisGILoadHistory(float2 uv)
     return SAMPLE_TEXTURE2D_X_LOD(_BasisGIHistory, sampler_BasisGIHistory, UnityStereoTransformScreenSpaceTex(saturate(uv)), 0);
 }
 
+/// <summary>
+/// Where the surface under this pixel was on screen last frame, and whether it was on screen at all.
+///
+/// The matrix form walks the CURRENT world position back through the PREVIOUS view-projection. That is
+/// exact for a world which stood still, and wrong for everything in it that did not: it carries the
+/// camera's motion and nothing else. Two consequences, and the second is the expensive one.
+///
+/// A pixel now on a moving surface reprojects to whatever was behind that surface last frame, so its
+/// history is rejected on depth every single frame and the accumulation never starts - which is why, in
+/// a room of avatars, the avatars are the noisiest thing in it. And where the surface moved roughly along
+/// its own plane, the depth it lands on matches, nothing rejects anything, and the history that gets
+/// blended in belongs to a different part of the surface. That one is a smear rather than noise.
+///
+/// Motion vectors carry the camera's motion and the object's together, which is what makes this strictly
+/// better rather than a trade: where a renderer has no motion pass of its own URP has already written the
+/// camera's motion into those texels, so the fallback is the matrix result, arrived at by other means.
+/// </summary>
+bool BasisGIReproject(float2 uv, float3 worldPosition, out float2 previousUv)
+{
+#if defined(_BASISGI_MOTION_VECTORS)
+    // Forward vector, current minus previous, already in UV space with the v flip folded in - so the
+    // previous position is this pixel minus what the texel holds, and there is no second flip to apply.
+    float2 motion = SAMPLE_TEXTURE2D_X_LOD(_BasisGIMotion, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0).xy;
+    previousUv = uv - motion;
+#else
+    float4 previousClip = mul(BasisGIPreviousViewProjection(), float4(worldPosition, 1.0));
+    if (previousClip.w <= BASISGI_EPSILON) { previousUv = uv; return false; }
+
+    previousUv = previousClip.xy / previousClip.w * 0.5 + 0.5;
+    #if UNITY_UV_STARTS_AT_TOP
+    previousUv.y = 1.0 - previousUv.y;
+    #endif
+#endif
+
+    return all(previousUv >= 0.0) && all(previousUv <= 1.0);
+}
+
 struct BasisGINeighbourhood
 {
     float4 mean;
@@ -121,17 +158,17 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     float luminance = Luminance(max(0.0, current.rgb));
 
     output.indirect = current;
-    output.stats = float4(eyeDepth, 1.0, luminance, 0.0);
+    // Sky is written as a zero depth rather than as the far plane. Everything downstream reads its
+    // neighbours' depth out of this channel, and a far plane reads as a perfectly ordinary distant surface -
+    // the spatial filter would accept sky as a neighbour, and this pass's own reprojection would accept a
+    // distant surface's history from a texel that only ever held sky. Zero is already the "no history here"
+    // value the reprojection tests for, so it says both at once.
+    output.stats = float4(isSky ? 0.0 : eyeDepth, 1.0, luminance, 0.0);
 
     if (isSky || _BasisGIHistoryValid < 0.5) { return output; }
-    float4 previousClip = mul(BasisGIPreviousViewProjection(), float4(worldPosition, 1.0));
-    if (previousClip.w <= BASISGI_EPSILON) { return output; }
 
-    float2 previousUv = previousClip.xy / previousClip.w * 0.5 + 0.5;
-#if UNITY_UV_STARTS_AT_TOP
-    previousUv.y = 1.0 - previousUv.y;
-#endif
-    if (any(previousUv < 0.0) || any(previousUv > 1.0)) { return output; }
+    float2 previousUv;
+    if (!BasisGIReproject(uv, worldPosition, previousUv)) { return output; }
 
     float4 historyStats = BasisGILoadHistoryStats(previousUv);
     float relativeDelta = abs(historyStats.r - eyeDepth) / max(eyeDepth, BASISGI_EPSILON);
@@ -212,9 +249,11 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
 float4 BasisGIBilateralBlur(float2 uv)
 {
     float centreRaw = BasisGISampleRawDepth(uv);
+    float centreEye = BasisGILinearEyeDepth(centreRaw);
     float3 centrePosition = BasisGIWorldPosition(uv, centreRaw);
     // Taken before any branch: screen space derivatives are only meaningful where the whole quad agrees.
     float3 centreNormal = BasisGIPlaneNormal(centrePosition);
+    BasisGIPlaneBasis basis = BasisGIBuildPlaneBasis(centrePosition, centreNormal, centreEye, _BasisGITracedTexelSize.xy);
     float4 centre = BasisGILoadIndirect(uv);
 
     if (BasisGIIsSky(centreRaw)) { return centre; }
@@ -223,11 +262,8 @@ float4 BasisGIBilateralBlur(float2 uv)
     float taps = _BasisGIBlurAxis.z;
     if (taps <= 0.0) { return centre; }
 
-    float centreEye = BasisGILinearEyeDepth(centreRaw);
     float centreLuminance = Luminance(max(0.0, centre.rgb));
-    float planeScale = BasisGIPlaneTolerance(centreEye);
-
-    float2 centreAccumulation = BasisGIAccumulation(uv);
+    float3 centreStats = BasisGIStats(uv);
     float unresolved = BASISGI_FIREFLY_CLAMP / max(1.0, BASISGI_RAY_COUNT);
 
     float4 total = centre;
@@ -242,18 +278,36 @@ float4 BasisGIBilateralBlur(float2 uv)
         UNITY_UNROLL
         for (int side = 0; side < 2; side++)
         {
-            float2 sampleUv = uv + axis * (float)offset * (side == 0 ? 1.0 : -1.0);
+            float2 uvOffset = axis * ((float)offset * (side == 0 ? 1.0 : -1.0));
+            float2 sampleUv = uv + uvOffset;
             if (any(sampleUv < 0.0) || any(sampleUv > 1.0)) { continue; }
 
-            float sampleRaw = BasisGISampleRawDepth(sampleUv);
-            if (BasisGIIsSky(sampleRaw)) { continue; }
+            // One fetch, three answers: the tap's depth for the plane test, and the two accumulation
+            // numbers the luminance gate is opened by. The depth used to come from a second fetch into the
+            // full resolution depth texture, at a stride that doubles every a-trous level, and the position
+            // it fed cost an inverse view projection per tap on top.
+            float3 tapStats = BasisGIStats(sampleUv);
+            float plane;
+            bool onSurface;
 
-            float plane = abs(dot(centreNormal, BasisGIWorldPosition(sampleUv, sampleRaw) - centrePosition));
-            float planeWeight = exp(-plane / planeScale);
+            UNITY_BRANCH
+            if (basis.usable)
+            {
+                onSurface = tapStats.x > 0.0;
+                plane = BasisGIPlaneDistance(basis, uvOffset, tapStats.x);
+            }
+            else
+            {
+                float sampleRaw = BasisGISampleRawDepth(sampleUv);
+                onSurface = !BasisGIIsSky(sampleRaw);
+                plane = abs(dot(centreNormal, BasisGIWorldPosition(sampleUv, sampleRaw) - centrePosition));
+            }
 
-            float2 tapAccumulation = BasisGIAccumulation(sampleUv);
-            float convergence = saturate(min(centreAccumulation.x, tapAccumulation.x) / BASISGI_BLUR_CONVERGED);
-            float deviation = sqrt(max(centreAccumulation.y, tapAccumulation.y));
+            if (!onSurface) { continue; }
+            float planeWeight = exp(-plane / basis.scale);
+
+            float convergence = saturate(min(centreStats.y, tapStats.y) / BASISGI_BLUR_CONVERGED);
+            float deviation = sqrt(max(centreStats.z, tapStats.z));
             float luminanceScale = BASISGI_BLUR_LUMINANCE * lerp(unresolved, deviation, convergence) + BASISGI_BLUR_LUMINANCE_FLOOR;
 
             float4 sampleValue = BasisGILoadIndirect(sampleUv);

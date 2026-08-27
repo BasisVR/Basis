@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -25,6 +25,7 @@ namespace Basis.Rendering.RTAO
         public static readonly int StereoCoherent = Shader.PropertyToID("_BasisRtaoStereoCoherent");
         public static readonly int PositionTex = Shader.PropertyToID("_BasisRtaoPositionTex");
         public static readonly int NormalTex = Shader.PropertyToID("_BasisRtaoNormalTex");
+        public static readonly int DepthTex = Shader.PropertyToID("_BasisRtaoDepthTex");
         public static readonly int RawTex = Shader.PropertyToID("_BasisRtaoRawTex");
         public static readonly int ResultTex = Shader.PropertyToID("_BasisRtaoResultTex");
         public static readonly int HistoryTex = Shader.PropertyToID("_BasisRtaoHistoryTex");
@@ -40,11 +41,12 @@ namespace Basis.Rendering.RTAO
         public static readonly int DebugResolvedTex = Shader.PropertyToID("_BasisRtaoDebugResolvedTex");
         public static readonly int DebugFromStageArray = Shader.PropertyToID("_BasisRtaoDebugFromStageArray");
         public static readonly int DebugInterpretation = Shader.PropertyToID("_BasisRtaoDebugInterpretation");
-        public static readonly int DebugStageScale = Shader.PropertyToID("_BasisRtaoDebugStageScale");
+        public static readonly int DebugStageScale = Shader.PropertyToID("_BasisRtaoDebugStageScale");
         public static readonly int ViewPlane = Shader.PropertyToID("_BasisRtaoViewPlane");
         public static readonly int PrevViewPlane = Shader.PropertyToID("_BasisRtaoPrevViewPlane");
         public static readonly int PrevViewProj = Shader.PropertyToID("_BasisRtaoPrevViewProj");
         public static readonly int TemporalParams = Shader.PropertyToID("_BasisRtaoTemporalParams");
+        public static readonly int TemporalClamp = Shader.PropertyToID("_BasisRtaoTemporalClamp");
         public static readonly int BlurParams = Shader.PropertyToID("_BasisRtaoBlurParams");
         public static readonly int BlurDirection = Shader.PropertyToID("_BasisRtaoBlurDirection");
         public static readonly int HasHistory = Shader.PropertyToID("_BasisRtaoHasHistory");
@@ -323,7 +325,7 @@ namespace Basis.Rendering.RTAO
             public TextureHandle position, normal, raw, historyIn, historyDepthIn, historyOut, historyDepthOut;
             public Matrix4x4[] previousViewProjection;
             public Vector4[] viewPlane, previousViewPlane;
-            public Vector4 reference, size, temporalParams;
+            public Vector4 reference, size, temporalParams, temporalClamp;
             public int viewCount, hasHistory, width, height;
         }
 
@@ -331,9 +333,8 @@ namespace Basis.Rendering.RTAO
         {
             public ComputeShader shader;
             public int kernel;
-            public TextureHandle position, source, target;
-            public Vector4[] viewPlane;
-            public Vector4 reference, size, blurParams, direction, temporalParams;
+            public TextureHandle traceDepth, source, target;
+            public Vector4 size, blurParams, direction, temporalParams;
             public int viewCount, width, height;
         }
 
@@ -341,13 +342,14 @@ namespace Basis.Rendering.RTAO
         {
             public Material material;
             public MaterialPropertyBlock block;
-            public TextureHandle ao, position, depth;
+            public TextureHandle ao, traceDepth, depth;
         }
 
         private class GlobalData
         {
             public TextureHandle resolved;
             public float directLightingStrength;
+            public float specularOcclusionRelief;
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
@@ -418,7 +420,9 @@ namespace Basis.Rendering.RTAO
             TextureHandle historyOut = renderGraph.ImportTexture(historyEntry.CurrentVisibility);
             TextureHandle historyDepthOut = renderGraph.ImportTexture(historyEntry.CurrentDepth);
 
-            RecordPrepass(renderGraph, resourceData, positionTexture, normalTexture, referenceVector, fullSize, scale);
+            Vector4 compositeVector = new Vector4(settings.intensity, settings.power, settings.fadeStart, settings.fadeEnd);
+
+            RecordPrepass(renderGraph, resourceData, positionTexture, normalTexture, referenceVector, fullSize, compositeVector, scale);
             if (rayTraced)
             {
                 RecordTrace(renderGraph, positionTexture, normalTexture, rawTexture, referenceVector, traceSizeVector, traceSize, viewCount);
@@ -448,10 +452,10 @@ namespace Basis.Rendering.RTAO
                 for (int pass = 0; pass < denoisePasses; pass++)
                 {
                     int stride = 1 << pass;
-                    RecordBlur(renderGraph, positionTexture, source, scratch, new Vector4(1f, 0f, stride, 0f),
-                        referenceVector, traceSizeVector, traceSize, viewCount, pass);
-                    RecordBlur(renderGraph, positionTexture, scratch, result, new Vector4(0f, 1f, stride, 0f),
-                        referenceVector, traceSizeVector, traceSize, viewCount, pass);
+                    RecordBlur(renderGraph, historyDepthOut, source, scratch, new Vector4(1f, 0f, stride, 0f),
+                        traceSizeVector, traceSize, viewCount, pass, true);
+                    RecordBlur(renderGraph, historyDepthOut, scratch, result, new Vector4(0f, 1f, stride, 0f),
+                        traceSizeVector, traceSize, viewCount, pass, false);
                     source = result;
                 }
                 denoised = source;
@@ -465,8 +469,8 @@ namespace Basis.Rendering.RTAO
             resolvedDescriptor.autoGenerateMips = false;
             TextureHandle resolved = UniversalRenderer.CreateRenderGraphTexture(renderGraph, resolvedDescriptor, "_ScreenSpaceOcclusionTexture", false, FilterMode.Bilinear);
 
-            RecordComposite(renderGraph, resourceData, denoised, positionTexture, resolved, referenceVector, fullSize,
-                new Vector4(traceSize.x, traceSize.y, 1f / traceSize.x, 1f / traceSize.y), scale);
+            RecordComposite(renderGraph, resourceData, denoised, historyDepthOut, resolved,
+                new Vector4(traceSize.x, traceSize.y, 1f / traceSize.x, 1f / traceSize.y), compositeVector, scale);
             if (applyMode == BasisRTAOApplyMode.Lighting)
                 RecordGlobal(renderGraph, resolved);
 
@@ -489,12 +493,13 @@ namespace Basis.Rendering.RTAO
         }
 
         private void RecordPrepass(RenderGraph renderGraph, UniversalResourceData resourceData, TextureHandle position, TextureHandle normal,
-            Vector4 reference, Vector4 fullSize, int scale)
+            Vector4 reference, Vector4 fullSize, Vector4 composite, int scale)
         {
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<PrepassData>("BasisRTAO Prepass", out PrepassData data, profilingSampler))
             {
                 prepassMaterial.SetVector(BasisRTAOShaderIds.Reference, reference);
                 prepassMaterial.SetVector(BasisRTAOShaderIds.FullSize, fullSize);
+                prepassMaterial.SetVector(BasisRTAOShaderIds.Composite, composite);
                 prepassMaterial.SetInteger(BasisRTAOShaderIds.Scale, scale);
 
                 data.material = prepassMaterial;
@@ -639,6 +644,7 @@ namespace Basis.Rendering.RTAO
                 data.reference = reference;
                 data.size = size;
                 data.temporalParams = new Vector4(settings.temporalFrames, settings.temporalMinAlpha, settings.temporalDepthTolerance, settings.temporalNormalTolerance);
+                data.temporalClamp = new Vector4(settings.temporalVarianceGamma, VarianceFloorFor(EffectiveSampleCount()), 0f, 0f);
                 data.viewCount = viewCount;
                 data.hasHistory = hasHistory ? 1 : 0;
                 data.width = traceSize.x;
@@ -669,6 +675,7 @@ namespace Basis.Rendering.RTAO
                     cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.Reference, data.reference);
                     cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.Size, data.size);
                     cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.TemporalParams, data.temporalParams);
+                    cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.TemporalClamp, data.temporalClamp);
                     cmd.SetComputeIntParam(data.shader, BasisRTAOShaderIds.ViewCount, data.viewCount);
                     cmd.SetComputeIntParam(data.shader, BasisRTAOShaderIds.HasHistory, data.hasHistory);
                     cmd.DispatchCompute(data.shader, data.kernel,
@@ -679,21 +686,32 @@ namespace Basis.Rendering.RTAO
             }
         }
 
-        private void RecordBlur(RenderGraph renderGraph, TextureHandle position, TextureHandle source, TextureHandle target,
-            Vector4 direction, Vector4 reference, Vector4 size, Vector2Int traceSize, int viewCount, int iteration = 0)
+        // Interpolated once per pass per direction per camera per frame is a string allocation every one of
+        // them; the shapes are known up front, so name them up front.
+        private static readonly string[] HorizontalBlurNames =
         {
-            string passName = direction.x > 0f
-                ? $"BasisRTAO Denoise {iteration} Horizontal"
-                : $"BasisRTAO Denoise {iteration} Vertical";
+            "BasisRTAO Denoise 0 Horizontal", "BasisRTAO Denoise 1 Horizontal",
+            "BasisRTAO Denoise 2 Horizontal", "BasisRTAO Denoise 3 Horizontal"
+        };
+
+        private static readonly string[] VerticalBlurNames =
+        {
+            "BasisRTAO Denoise 0 Vertical", "BasisRTAO Denoise 1 Vertical",
+            "BasisRTAO Denoise 2 Vertical", "BasisRTAO Denoise 3 Vertical"
+        };
+
+        private void RecordBlur(RenderGraph renderGraph, TextureHandle traceDepth, TextureHandle source, TextureHandle target,
+            Vector4 direction, Vector4 size, Vector2Int traceSize, int viewCount, int iteration, bool horizontal)
+        {
+            string[] names = horizontal ? HorizontalBlurNames : VerticalBlurNames;
+            string passName = names[Mathf.Clamp(iteration, 0, names.Length - 1)];
             using (IComputeRenderGraphBuilder builder = renderGraph.AddComputePass<BlurData>(passName, out BlurData data, profilingSampler))
             {
                 data.shader = denoise;
                 data.kernel = blurKernel;
-                data.position = position;
+                data.traceDepth = traceDepth;
                 data.source = source;
                 data.target = target;
-                data.viewPlane = viewPlane;
-                data.reference = reference;
                 data.size = size;
                 data.blurParams = new Vector4(settings.blurMaxRadius, settings.blurMinRadius, settings.blurDepthSigma, settings.blurNormalPower);
                 data.temporalParams = new Vector4(settings.temporalFrames, settings.temporalMinAlpha, settings.temporalDepthTolerance, settings.temporalNormalTolerance);
@@ -702,7 +720,7 @@ namespace Basis.Rendering.RTAO
                 data.width = traceSize.x;
                 data.height = traceSize.y;
 
-                builder.UseTexture(position, AccessFlags.Read);
+                builder.UseTexture(traceDepth, AccessFlags.Read);
                 builder.UseTexture(source, AccessFlags.Read);
                 builder.UseTexture(target, AccessFlags.Write);
                 builder.AllowPassCulling(false);
@@ -710,11 +728,9 @@ namespace Basis.Rendering.RTAO
                 builder.SetRenderFunc(static (BlurData data, ComputeGraphContext ctx) =>
                 {
                     ComputeCommandBuffer cmd = ctx.cmd;
-                    cmd.SetComputeTextureParam(data.shader, data.kernel, BasisRTAOShaderIds.PositionTex, data.position);
+                    cmd.SetComputeTextureParam(data.shader, data.kernel, BasisRTAOShaderIds.DepthTex, data.traceDepth);
                     cmd.SetComputeTextureParam(data.shader, data.kernel, BasisRTAOShaderIds.BlurSourceTex, data.source);
                     cmd.SetComputeTextureParam(data.shader, data.kernel, BasisRTAOShaderIds.BlurTargetTex, data.target);
-                    cmd.SetComputeVectorArrayParam(data.shader, BasisRTAOShaderIds.ViewPlane, data.viewPlane);
-                    cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.Reference, data.reference);
                     cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.Size, data.size);
                     cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.BlurParams, data.blurParams);
                     cmd.SetComputeVectorParam(data.shader, BasisRTAOShaderIds.TemporalParams, data.temporalParams);
@@ -728,27 +744,24 @@ namespace Basis.Rendering.RTAO
             }
         }
 
-        private void RecordComposite(RenderGraph renderGraph, UniversalResourceData resourceData, TextureHandle ao, TextureHandle position,
-            TextureHandle target, Vector4 reference, Vector4 fullSize, Vector4 aoSize, int scale)
+        private void RecordComposite(RenderGraph renderGraph, UniversalResourceData resourceData, TextureHandle ao, TextureHandle traceDepth,
+            TextureHandle target, Vector4 aoSize, Vector4 composite, int scale)
         {
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<CompositeData>("BasisRTAO Composite", out CompositeData data, profilingSampler))
             {
-                compositeMaterial.SetVector(BasisRTAOShaderIds.Reference, reference);
-                compositeMaterial.SetVector(BasisRTAOShaderIds.FullSize, fullSize);
                 compositeMaterial.SetVector(BasisRTAOShaderIds.AOSize, aoSize);
-                compositeMaterial.SetVector(BasisRTAOShaderIds.Composite,
-                    new Vector4(settings.intensity, settings.power, settings.fadeStart, settings.fadeEnd));
+                compositeMaterial.SetVector(BasisRTAOShaderIds.Composite, composite);
                 compositeMaterial.SetInteger(BasisRTAOShaderIds.Scale, scale);
 
                 data.material = compositeMaterial;
                 data.block = compositeBlock;
                 data.ao = ao;
-                data.position = position;
+                data.traceDepth = traceDepth;
                 data.depth = resourceData.cameraDepthTexture;
 
                 builder.SetRenderAttachment(target, 0, AccessFlags.WriteAll);
                 builder.UseTexture(ao, AccessFlags.Read);
-                builder.UseTexture(position, AccessFlags.Read);
+                builder.UseTexture(traceDepth, AccessFlags.Read);
                 builder.UseTexture(data.depth, AccessFlags.Read);
                 builder.AllowPassCulling(false);
 
@@ -756,10 +769,23 @@ namespace Basis.Rendering.RTAO
                 {
                     data.block.Clear();
                     data.block.SetTexture(BasisRTAOShaderIds.AOTex, data.ao);
-                    data.block.SetTexture(BasisRTAOShaderIds.PositionTex, data.position);
+                    data.block.SetTexture(BasisRTAOShaderIds.DepthTex, data.traceDepth);
                     CoreUtils.DrawFullScreen(ctx.cmd, data.material, data.block, 0);
                 });
             }
+        }
+
+        // The clamp box must not close on the noise the trace is made of, only on history that disagrees
+        // with the frame outright, so it never narrows past the spread a binary visibility estimate has at
+        // this many samples. The screen space estimator takes four taps for every ray the traced path casts.
+        private int EffectiveSampleCount()
+        {
+            return BasisRTAOTracing.IsRayTraced(backend) ? settings.raysPerPixel : Mathf.Max(4, settings.raysPerPixel * 4);
+        }
+
+        public static float VarianceFloorFor(int sampleCount)
+        {
+            return 0.5f / Mathf.Sqrt(Mathf.Max(1, sampleCount));
         }
 
         private void RecordGlobal(RenderGraph renderGraph, TextureHandle resolved)
@@ -768,6 +794,7 @@ namespace Basis.Rendering.RTAO
             {
                 data.resolved = resolved;
                 data.directLightingStrength = settings.directLightingStrength;
+                data.specularOcclusionRelief = settings.specularOcclusionRelief;
 
                 builder.AllowGlobalStateModification(true);
                 builder.UseTexture(resolved, AccessFlags.Read);
@@ -777,7 +804,11 @@ namespace Basis.Rendering.RTAO
                 builder.SetRenderFunc(static (GlobalData data, RasterGraphContext ctx) =>
                 {
                     ctx.cmd.SetKeyword(OcclusionKeyword, true);
-                    ctx.cmd.SetGlobalVector(BasisRTAOShaderIds.AmbientOcclusionParam, new Vector4(1f, 0f, 0f, data.directLightingStrength));
+                    // y is specular occlusion strength. Without it URP multiplied the environment
+                    // reflection by the full hemispherical occlusion, which is wrong for anything smooth
+                    // and is the most visible on exactly the surfaces a ray traced term improves.
+                    // See GetSpecularOcclusion in the forked URP's GlobalIllumination.hlsl.
+                    ctx.cmd.SetGlobalVector(BasisRTAOShaderIds.AmbientOcclusionParam, new Vector4(1f, 1f - data.specularOcclusionRelief, 0f, data.directLightingStrength));
                 });
             }
         }

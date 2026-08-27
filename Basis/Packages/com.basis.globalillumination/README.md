@@ -18,7 +18,8 @@ For every pixel of the traced buffer:
 
 1. A world position and a normal are recovered from the **depth buffer**. The normal is reconstructed
    from depth by default, so nothing is required of the surface's shader beyond writing depth.
-2. One or more cosine-weighted rays are marched **through the depth buffer** in screen space.
+2. One or more cosine-weighted rays are marched **through the depth buffer** in screen space, coarse to
+   fine - see [The march](#the-march) below.
 3. Where a ray hits a surface, the **camera colour at that point is gathered as incoming radiance**.
    Because the colour sampled is the previous frame's, bounces compound over frames.
 4. Rays that hit nothing fall back to the reflection probe or the sky.
@@ -26,6 +27,51 @@ For every pixel of the traced buffer:
 6. Registered **emitters** inject light analytically, for sources too small to survive at traced
    resolution or that are off screen entirely.
 7. The result goes through the denoiser below, then is bilaterally upsampled and composited.
+
+## The march
+
+A uniform march spends its whole step budget evenly along the ray: **Ray Steps** steps across the whole of
+**Max Ray Length**, which at the shipped default is twenty steps over sixteen metres. Near the origin each
+stride is tens of texels, and a stride that long walks straight over anything thinner than itself. The
+**Thickness** setting exists to paper over the result, and it papers over misses and false hits alike -
+stepping past the leg of a chair loses the bounce beneath it, while accepting a surface the ray passed far
+behind puts light where none belongs.
+
+**Hierarchical Match** (on by default) splits the walk instead of compensating for it:
+
+1. A two pass reduction builds a coarse summary of the depth buffer - one texel per **8x8 block of traced
+   texels**, holding the **closest** real surface under it and the **furthest**. Sky contributes to
+   neither, so a block of open sky is skipped by both tests below.
+2. The ray crosses that summary a cell at a time. A cell is dismissed outright on either of two grounds,
+   each a statement about the whole cell rather than any texel in it:
+   - the ray stays **nearer than the closest** thing in the cell for its whole passage, so it cannot have
+     hit anything inside; or
+   - it is already **further than the furthest**, by more than the thickness the crossing test would
+     accept, so it has passed clean out the far side.
+3. Anything else is a maybe, and a maybe is answered properly: the march drops to about **a texel a step**
+   through the real depth buffer, with the same crossing test and binary refine the uniform march uses.
+
+Because a cosine hemisphere ray can be aimed back towards the viewer, which end of a cell is deepest is not
+known in advance, so both bounds come off the pair of entry and exit depths rather than off the exit alone.
+The "in front of the depth buffer" state is carried across the **whole** walk rather than rebuilt per cell,
+which is what keeps the thickness test a crossing test rather than a proximity test.
+
+Fine walking is capped per ray at four times Ray Steps. That is a backstop for a ray threading heavy depth
+complexity, not a routine limiter, and the distinction is not subtle - see the note in
+`BasisGlobalIlluminationTrace.hlsl` before tightening it.
+
+**Measured** (2026-08-27, against the same estimator given six times the step budget, which is what it
+converges to):
+
+| probe | uniform, 20 steps | hierarchical | converged, 128 steps |
+| --- | --- | --- | --- |
+| bounce at a slat's contact with the floor | 0.6655 (**-9.1%**) | 0.7411 (**+1.2%**) | 0.7324 |
+| open floor a metre and a half away | 0.3982 (**-10.5%**) | 0.4495 (**+1.0%**) | 0.4449 |
+
+So the uniform march at the shipped budget was losing about a tenth of the bounce outright, and the
+hierarchical one recovers essentially all of it without raising the budget. ⚠️ **GPU cost has not been
+measured** - only correctness. The reason to expect it to be close is that empty space costs one tap per
+eight texels where it used to cost a step per stride, but that is an argument, not a measurement.
 
 ## How Ray Traced works
 
@@ -48,6 +94,18 @@ For every pixel of the traced buffer:
 One or two rays per pixel is a very sparse estimate of a hemisphere, and what makes it look like light
 rather than like noise is entirely the filter behind it. The chain is temporal accumulation first, then a
 spatial cascade, both driven by the same per-pixel statistics.
+
+**Motion Vectors** (off by default, and off for a reason) would reproject through URP's motion vector
+texture instead of the matrix below. The matrix carries the **camera's** motion and nothing else, so a
+pixel on a moving surface is walked back onto whatever was behind it - its history is rejected on depth
+every frame and never accumulates, which is why avatars can be the noisiest thing in a room. The code is
+written against URP's own `CalcNdcMotionVectorFromCsPositions` and is believed correct, but it is
+**unverified**: an EditMode render loop never advances the engine frame counter that URP's motion vector
+pass differences against, so in this harness that texture holds a fixed vector unrelated to the scene -
+measured at roughly 1.5 pixels with nothing moving and the camera bolted down. Everything the harness can
+say about this setting is a measurement of that. Settling it needs play mode or a headset; until then the
+matrix is what ships, because the matrix is what has been measured. `BasisGlobalIlluminationMotionTests`
+guards itself on the frame counter and will start measuring for real wherever the engine is really ticking.
 
 **Temporal accumulation** reprojects the previous frame through the previous view-projection, rejects
 what has moved out from behind the camera or changed depth, and blends by how many frames the pixel has
@@ -157,6 +215,32 @@ gathers needs no material data to be reconstructed, and the surface receiving th
 screen colour as the albedo it modulates the bounce by. That is what lets the effect work with
 avatar shaders that have no `UniversalGBuffer` pass — the previous integration had to guess an albedo
 for those, and content already built into asset bundles could never gain the pass.
+
+## Reflections
+
+`Reflections` in the volume turns on a ray traced specular gather. It is one mirror ray per pixel,
+shaded at the hit by the same lights and emissive surfaces the diffuse bounce uses, with the sky as
+the fallback for a miss. It needs the ray traced backend, but it is independent of `Mode`: reflections
+are worth having over a screen space diffuse gather.
+
+**Why a mirror ray and not a roughness-shaped lobe.** Nothing at trace time knows the roughness of the
+surface the ray leaves — that is the same missing GBuffer as above. So the trace answers the one
+question it can answer exactly, and the lit shader, which does know its own roughness, decides how
+much of that answer applies. Below `Specular Max Roughness` the traced reflection is blended in;
+above it the reflection probe is kept. There is no keyword: the shader branches on a uniform, so a
+frame without reflections costs a scalar compare rather than doubling every lit shader's variants.
+
+**Why it is a second render pass.** The diffuse gather composites into the camera image and runs at
+`BeforeRenderingTransparents`. A reflection has to exist *before* the opaque draws, because those are
+what consume it — so `SpecularPass` sits just after the prepasses, the way RTAO does. The two share
+the kernel, the acceleration structure, the light list and the sky; what they cannot share is a
+dispatch.
+
+**What it cannot do.** The reflection direction comes from a normal reconstructed from depth, not from
+the surface's normal map, so a strongly normal-mapped surface reflects along its geometric normal.
+Transparents are excluded — they are drawn after the buffer is built and are not in the depth it was
+reconstructed from. The published buffer is full resolution so the bilateral upsample can keep
+reflections from bleeding across silhouettes, which costs one RGBA16F screen-sized target.
 
 ## Setup
 

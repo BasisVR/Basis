@@ -1916,9 +1916,25 @@ namespace Basis.BasisUI
                 toggleGiReflectionProbes.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.reflectionProbes.tooltip"));
                 SettingsProviderBottleneckHints.Mark(toggleGiReflectionProbes, BasisFrameCostSide.Gpu);
 
+                // Ray Traced is a request, not a guarantee: a GPU with no ray tracing backend, or a build
+                // whose trace shaders never resolved, falls the frame back to the screen space gather, and
+                // the player's choice is deliberately left standing rather than rewritten under them. The
+                // rows follow the gather that actually runs, so the panel never offers Skinned Meshes -
+                // which cannot act on a screen space frame - while hiding Ray Reuse, which can.
+                bool EffectiveRayTraced()
+                {
+                    if (dropdownGiMode.Value != "Ray Traced")
+                    {
+                        return false;
+                    }
+
+                    BasisGlobalIlluminationFeature feature = SMModuleGlobalIlluminationURP.FindFeature();
+                    return feature == null || feature.RayTracingAvailable;
+                }
+
                 void SetGiRowsActive(bool val)
                 {
-                    bool rayTraced = val && dropdownGiMode.Value == "Ray Traced";
+                    bool rayTraced = val && EffectiveRayTraced();
                     dropdownGiMode.Descriptor.SetActive(val);
                     dropdownGiSkinned.Descriptor.SetActive(rayTraced);
                     dropdownGiQuality.Descriptor.SetActive(val);

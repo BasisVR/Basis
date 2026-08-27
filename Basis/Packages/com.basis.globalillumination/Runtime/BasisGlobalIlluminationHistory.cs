@@ -12,6 +12,17 @@ public sealed class BasisGlobalIlluminationHistory
 
     public RTHandle[] Indirect = new RTHandle[2];
     public RTHandle[] Stats = new RTHandle[2];
+    // Reflections accumulate separately from the diffuse bounce and only exist while they are switched on,
+    // so a world that never asked for them never pays the two extra targets.
+    public RTHandle[] Specular = new RTHandle[2];
+    public RTHandle[] SpecularStats = new RTHandle[2];
+    public bool SpecularAllocated;
+    public bool SpecularValid;
+    public int SpecularWrite;
+    public Matrix4x4[] PreviousSpecularViewProjection = new Matrix4x4[2] { Matrix4x4.identity, Matrix4x4.identity };
+    // Reflections and the diffuse bounce are written by two passes at different points in the frame, and
+    // either can be running without the other, so they cannot share a frame stamp or a buffer parity.
+    public int LastSpecularFrame = -1;
     public int Write;
     public bool Valid;
     public int Width, Height;
@@ -19,6 +30,7 @@ public sealed class BasisGlobalIlluminationHistory
     public int LastFrame = -1;
 
     public int Read => 1 - Write;
+    public int SpecularRead => 1 - SpecularWrite;
 
     public static int ComputeHash(Camera camera, XRPass xr)
     {
@@ -42,7 +54,20 @@ public sealed class BasisGlobalIlluminationHistory
         pruneScratch.Clear();
         foreach (KeyValuePair<int, BasisGlobalIlluminationHistory> entry in stores)
         {
-            if (entry.Value.LastFrame >= 0 && frame - entry.Value.LastFrame > maxAge) { pruneScratch.Add(entry.Key); }
+            // Whichever of the two passes touched this camera most recently keeps it alive. A camera running
+            // reflections with the diffuse gather switched off never moves LastFrame, and pruning it would
+            // release the accumulation out from under a pass that is still using it every frame.
+            BasisGlobalIlluminationHistory store = entry.Value;
+            int touched = Mathf.Max(store.LastFrame, store.LastSpecularFrame);
+            if (touched >= 0 && frame - touched > maxAge) { pruneScratch.Add(entry.Key); continue; }
+
+            // A camera that is still rendering but stopped asking for reflections - the volume switched off,
+            // the player walked out of it - hands those two targets back on the same timer, without taking
+            // the diffuse accumulation with them.
+            if (store.SpecularAllocated && store.LastSpecularFrame >= 0 && frame - store.LastSpecularFrame > maxAge)
+            {
+                store.ReleaseSpecular();
+            }
         }
         for (int index = 0; index < pruneScratch.Count; index++)
         {
@@ -59,6 +84,11 @@ public sealed class BasisGlobalIlluminationHistory
     }
 
     public bool EnsureAllocated(in RenderTextureDescriptor cameraDescriptor, int width, int height)
+    {
+        return EnsureAllocated(cameraDescriptor, width, height, false);
+    }
+
+    public bool EnsureAllocated(in RenderTextureDescriptor cameraDescriptor, int width, int height, bool needsSpecular)
     {
         bool reallocated = width != Width || height != Height;
         Width = width;
@@ -92,8 +122,40 @@ public sealed class BasisGlobalIlluminationHistory
             reallocated |= RenderingUtils.ReAllocateHandleIfNeeded(ref Stats[slot], in statsDescriptor, FilterMode.Point, TextureWrapMode.Clamp, name: "_BasisGIHistoryStats" + slot);
         }
 
+        if (needsSpecular)
+        {
+            bool specularReallocated = !SpecularAllocated;
+            for (int slot = 0; slot < 2; slot++)
+            {
+                specularReallocated |= RenderingUtils.ReAllocateHandleIfNeeded(ref Specular[slot], in indirectDescriptor, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_BasisGIHistorySpecular" + slot);
+                specularReallocated |= RenderingUtils.ReAllocateHandleIfNeeded(ref SpecularStats[slot], in statsDescriptor, FilterMode.Point, TextureWrapMode.Clamp, name: "_BasisGIHistorySpecularStats" + slot);
+            }
+            SpecularAllocated = true;
+            // A resize invalidates reflections for the same reason it invalidates the diffuse history, and
+            // so does switching them back on after they were released - the targets are new either way.
+            if (specularReallocated || reallocated) { SpecularValid = false; }
+        }
+
+        // Deliberately no release on the false branch. Two passes share this store and both call through
+        // here in the same frame - the reflection pass asking for the reflection targets, the diffuse pass
+        // not asking for them - so releasing on "not asked for" would free targets the reflection pass had
+        // already imported into this frame's render graph. Reclaiming them is PruneStale's job, which
+        // decides on how long it has actually been since anything wanted them.
         if (reallocated) { Valid = false; }
         return reallocated;
+    }
+
+    internal void ReleaseSpecular()
+    {
+        for (int slot = 0; slot < 2; slot++)
+        {
+            Specular[slot]?.Release();
+            Specular[slot] = null;
+            SpecularStats[slot]?.Release();
+            SpecularStats[slot] = null;
+        }
+        SpecularAllocated = false;
+        SpecularValid = false;
     }
 
     public void Release()
@@ -105,6 +167,7 @@ public sealed class BasisGlobalIlluminationHistory
             Stats[slot]?.Release();
             Stats[slot] = null;
         }
+        ReleaseSpecular();
         Width = Height = 0;
         Valid = false;
     }

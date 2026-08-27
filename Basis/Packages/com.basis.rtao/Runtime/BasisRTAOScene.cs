@@ -188,7 +188,7 @@ namespace Basis.Rendering.RTAO
                 return false;
             if (settings.requireShadowCasting && !(renderer is SkinnedMeshRenderer) && renderer.shadowCastingMode == ShadowCastingMode.Off)
                 return false;
-            if (renderer.GetComponent<BasisRTAOExclude>() != null)
+            if (renderer.TryGetComponent(out BasisRTAOExclude _))
                 return false;
             return true;
         }
@@ -206,8 +206,7 @@ namespace Basis.Rendering.RTAO
                 return null;
             if (renderer is SkinnedMeshRenderer skinned)
                 return skinned.sharedMesh;
-            MeshFilter filter = renderer.GetComponent<MeshFilter>();
-            return filter != null ? filter.sharedMesh : null;
+            return renderer.TryGetComponent(out MeshFilter filter) ? filter.sharedMesh : null;
         }
 
         public static bool IsUsableMesh(Mesh mesh)

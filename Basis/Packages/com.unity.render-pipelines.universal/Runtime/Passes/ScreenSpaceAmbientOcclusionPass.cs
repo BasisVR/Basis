@@ -443,7 +443,10 @@ namespace UnityEngine.Rendering.Universal
                     {
                         // We only want URP shaders to sample SSAO if After Opaque is disabled...
                         ctx.cmd.SetKeyword(ShaderGlobalKeywords.ScreenSpaceOcclusion, true);
-                        ctx.cmd.SetGlobalVector(s_AmbientOcclusionParamID, new Vector4(1f, 0f, 0f, data.directLightingStrength));
+                        // Basis fork addition. y is specular occlusion strength; see GetSpecularOcclusion
+                        // in GlobalIllumination.hlsl. URP's own SSAO exposes no authoring control for it,
+                        // so it asks for the physical answer.
+                        ctx.cmd.SetGlobalVector(s_AmbientOcclusionParamID, new Vector4(1f, 1f, 0f, data.directLightingStrength));
                     });
                 }
             }

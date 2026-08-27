@@ -30,6 +30,7 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
     private Material m_Material;
     private Material m_RayStagesMaterial;
     private BasisGlobalIlluminationPass m_Pass;
+    private BasisGlobalIlluminationPass.SpecularPass m_SpecularPass;
     private BasisGlobalIlluminationDebugView m_DebugView;
 
     public bool ReflectionProbes { get { return m_ReflectionProbes; } set { m_ReflectionProbes = value; } }
@@ -90,6 +91,7 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         m_Pass = new BasisGlobalIlluminationPass(m_Material);
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.DebugView = m_DebugView;
+        m_SpecularPass = new BasisGlobalIlluminationPass.SpecularPass();
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -102,13 +104,34 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         BasisGlobalIlluminationVolume volume = VolumeManager.instance.stack.GetComponent<BasisGlobalIlluminationVolume>();
         if (volume == null || !volume.IsActive()) { return; }
 
+        // Reflections have to be published before the opaque draws that consume them, so they are a separate
+        // pass at a separate injection point rather than another stage of the one below. See SpecularPass.
+        if (volume.SpecularActive() && m_SpecularPass != null)
+        {
+            m_SpecularPass.Setup(m_Material, m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback, RayTracingAvailable);
+            m_SpecularPass.ConfigureInput(ScriptableRenderPassInput.Depth);
+            renderer.EnqueuePass(m_SpecularPass);
+        }
+
+        if (!volume.DiffuseActive()) { return; }
+
         bool wantsNormals = m_NormalsPrepass && volume.normalSource.value == BasisGlobalIlluminationNormalSource.NormalsTexture;
+        // Motion is asked for only when the temporal filter is going to reproject through it. URP renders
+        // a whole extra pass to produce that texture, and a frame that will not read it should not pay for
+        // one - whereas a frame that will read it must declare the need here, because a pass that is never
+        // requested is never scheduled and the texture arrives invalid.
+        bool wantsMotion = volume.temporalFilter.value && volume.motionVectors.value;
+        ScriptableRenderPassInput inputs = ScriptableRenderPassInput.Depth;
+        if (wantsNormals) { inputs |= ScriptableRenderPassInput.Normal; }
+        if (wantsMotion) { inputs |= ScriptableRenderPassInput.Motion; }
+
         m_Pass.UseNormalsTexture = wantsNormals;
+        m_Pass.UseMotionVectors = wantsMotion;
         m_Pass.DebugView = m_DebugView;
         m_Pass.SetMaterial(m_Material);
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.RayTracingAvailable = RayTracingAvailable;
-        m_Pass.ConfigureInput(wantsNormals ? ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal : ScriptableRenderPassInput.Depth);
+        m_Pass.ConfigureInput(inputs);
         renderer.EnqueuePass(m_Pass);
     }
 
@@ -159,6 +182,7 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         base.Dispose(disposing);
         m_Pass?.Dispose();
         m_Pass = null;
+        m_SpecularPass = null;
         CoreUtils.Destroy(m_Material);
         m_Material = null;
         CoreUtils.Destroy(m_RayStagesMaterial);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 namespace Basis.Rendering.RTAO
@@ -21,6 +21,18 @@ namespace Basis.Rendering.RTAO
         [Range(0f, 4f)] public float intensity;
         [Range(0.25f, 4f)] public float power;
         [Range(0f, 1f)] public float directLightingStrength;
+        // How much of the physical specular occlusion to give back. 0 - the default - is the physical
+        // answer: the reflection lobe is narrow, so it is occluded by roughly the fraction of the occluded
+        // hemisphere it actually overlaps, which the shader derives from roughness and view angle. 1 leaves
+        // reflections untouched by occlusion entirely, for a world authored before the pipeline occluded
+        // them at all. Neither end restores the old behaviour of occluding a reflection by the full diffuse
+        // term, because that was never right.
+        //
+        // Phrased as relief rather than strength on purpose. Unity deserialises a field an asset was saved
+        // without as zero, so every renderer asset already in the wild - and every one a running editor
+        // rewrites before it has recompiled this assembly - has to come out of that at the correct default
+        // rather than at "feature silently off". Zero is the correct default only if zero means physical.
+        [Range(0f, 1f)] public float specularOcclusionRelief;
         [Min(0f)] public float fadeStart;
         [Min(0f)] public float fadeEnd;
         [Min(0f)] public float normalBias;
@@ -31,6 +43,7 @@ namespace Basis.Rendering.RTAO
         [Range(0f, 1f)] public float temporalMinAlpha;
         [Range(0.001f, 0.5f)] public float temporalDepthTolerance;
         [Range(0f, 1f)] public float temporalNormalTolerance;
+        [Range(0f, 4f)] public float temporalVarianceGamma;
         [Range(0, 4)] public int denoisePasses;
         [Range(0, 8)] public int blurMaxRadius;
         [Range(0, 8)] public int blurMinRadius;
@@ -60,6 +73,7 @@ namespace Basis.Rendering.RTAO
                 temporalMinAlpha = 0.05f,
                 temporalDepthTolerance = 0.03f,
                 temporalNormalTolerance = 0.9f,
+                temporalVarianceGamma = 1.25f,
                 denoisePasses = 2,
                 blurMaxRadius = 4,
                 blurMinRadius = 1,
@@ -121,6 +135,7 @@ namespace Basis.Rendering.RTAO
             copy.intensity = Mathf.Clamp(copy.intensity, 0f, 4f);
             copy.power = Mathf.Clamp(copy.power, 0.25f, 4f);
             copy.directLightingStrength = Mathf.Clamp01(copy.directLightingStrength);
+            copy.specularOcclusionRelief = Mathf.Clamp01(copy.specularOcclusionRelief);
             copy.fadeStart = Mathf.Max(0f, copy.fadeStart);
             copy.fadeEnd = Mathf.Max(copy.fadeStart + 0.01f, copy.fadeEnd);
             copy.normalBias = Mathf.Max(0f, copy.normalBias);
@@ -130,6 +145,7 @@ namespace Basis.Rendering.RTAO
             copy.temporalMinAlpha = Mathf.Clamp01(copy.temporalMinAlpha);
             copy.temporalDepthTolerance = Mathf.Clamp(copy.temporalDepthTolerance, 0.001f, 0.5f);
             copy.temporalNormalTolerance = Mathf.Clamp01(copy.temporalNormalTolerance);
+            copy.temporalVarianceGamma = Mathf.Clamp(copy.temporalVarianceGamma, 0f, 4f);
             copy.denoisePasses = Mathf.Clamp(copy.denoisePasses, 0, 4);
             copy.blurMaxRadius = Mathf.Clamp(copy.blurMaxRadius, 0, 8);
             copy.blurMinRadius = Mathf.Clamp(copy.blurMinRadius, 0, copy.blurMaxRadius);

@@ -31,8 +31,15 @@ depth neighbourhood, picking the less discontinuous neighbour on each axis. It n
 `_CameraNormalsTexture`, which is what lets it coexist with MSAA depth priming.
 
 At the default divider of 2 the prepass picks the nearest of each 2×2 depth block, so the trace samples sit
-on real surfaces rather than on interpolated edges, and the composite bilaterally upsamples using the
-full resolution depth.
+on real surfaces rather than on interpolated edges, and the composite bilaterally upsamples by comparing
+the full resolution depth against the view depth the trace resolution pixel recorded. Not the distance
+between two world positions: a full resolution pixel is laterally offset from its trace resolution parents
+by construction, so weighting on the whole offset docks a tap for being where it was always going to be,
+and picks the nearest tap rather than the one on the same surface.
+
+The prepass also marks anything past **Fade End** as having no geometry. The composite multiplies that
+range by zero, so there is nothing to be gained by tracing it, accumulating it or filtering it — the whole
+chain skips those pixels rather than resolving an occlusion that is then thrown away.
 
 ## VR
 
@@ -45,6 +52,13 @@ per camera and per eye, and it is dropped whenever the view count or resolution 
 `noiseCellSize` (1 cm by default) rather than from the pixel coordinate, so both eyes reconstructing the
 same surface point draw the same ray directions. Independent per eye noise is the thing that reads as
 shimmer between the eyes in a headset; this removes it at the source instead of leaning on the denoiser.
+
+The hash sets where in the sample square a pixel starts. **The frame index then walks that start along the
+R2 lattice** rather than re-hashing the cell with it. Re-hashing draws an independent offset every frame,
+so what the temporal filter averages is a random walk that converges at `1/sqrt(n)`; R2 is low discrepancy
+in time, so the same number of accumulated frames covers the square far more evenly and the same ray budget
+lands visibly less noise. Both eyes advance by the same amount from the same start, so stereo coherence is
+untouched.
 
 ## Backends
 
@@ -114,11 +128,30 @@ Two stages, both toggleable through the settings:
 
 1. **Temporal accumulation** — reverse reprojection with depth and normal rejection, blending toward the new
    trace at `1/(frames+1)` down to a floor so lighting changes still land.
+
+   Reprojection walks this frame's world position back through last frame's matrix, so it carries the
+   *camera's* motion and nothing else. A floor that stayed still while an avatar walked across it reprojects
+   perfectly onto history that still holds the shadow the avatar has since left; depth and normal both
+   agree, so neither rejection test sees anything wrong, and the shadow drags for as many frames as the
+   accumulation is long. In a room full of moving avatars that is the artifact you actually see.
+
+   **Temporal Variance Gamma** (1.25) bounds the history by what the 3×3 raw neighbourhood is reading now —
+   `mean ± gamma·sigma`, with confidence falling by how far the clamp had to move so the blend opens up in
+   the same breath. `sigma` never narrows past the spread a visibility estimate genuinely has at this many
+   rays, because nine taps of a one ray estimate agree outright often enough to matter and a box measured
+   from that alone would have zero width. Zero turns the clamp off.
 2. **Spatial à-trous cascade** — `Noise Reduction` picks how many passes run. Each pass is a separable
    edge-aware bilateral whose taps spread twice as far as the last, so the reach doubles per pass at a fixed
    tap count: Off, Standard (1 pass), High (2, the default), Maximum (3). Because the stride widens, the
    depth and normal edge stopping tightens with it, or the later passes would smear occlusion across creases
    the first pass respected.
+
+   Two things bound how wide a given pixel may be filtered and the narrower wins. Accumulated frames say how
+   much noise is left to remove. The accumulated **mean hit distance** says how much detail the occlusion
+   there has to lose: rays that all struck within a centimetre describe a shadow that varies over a
+   centimetre, and filtering it over the reach of one whose rays flew the whole radius is exactly how a
+   contact shadow becomes a smudge. The trace has always written that distance; until now nothing read it,
+   which is why the sharpest occlusion in the frame was the most heavily filtered part of it.
 
 Fewer rays need more filtering, so the quality presets scale the two together: Low traces 1 ray and denoises
 3 passes, Ultra traces 6 and denoises 1.
@@ -237,8 +270,14 @@ resolution and stereo plumbing, and shader compilation. Beyond that it runs real
 
 - `BasisRTAOCommonHlslTests` dispatches the shipped `BasisRTAOCommon.hlsl` and checks the octahedral round
   trip, that the hemisphere sampler is cosine weighted (mean `cos θ` of 2/3, not a uniform 1/2), that the
-  Hammersley sequence is stratified, and that two positions inside one noise cell hash to the same seed —
-  the property stereo coherence rests on.
+  Hammersley sequence is stratified, that two positions inside one noise cell produce the same offset —
+  the property stereo coherence rests on — and that sixteen consecutive frames of one pixel keep a minimum
+  pairwise separation white noise does not reach, which is what stops a re-hash quietly replacing the R2
+  advance.
+- `BasisRTAODenoiseTests` covers the accumulation arithmetic with the variance clamp off, then the clamp on
+  its own: that it pulls back history the frame disagrees with, that it leaves agreeing history untouched,
+  and that the sigma floor keeps the box open when nine taps agree by luck. It also checks the blur narrows
+  both as history matures and where the rays struck close.
 - `BasisRTAOTraceTests` builds an acceleration structure, traces the real ray generation shader with
   `depth = 2`, and checks that a ceiling occludes the ground under it, that a flat surface does not self
   occlude, and that the two array slices are traced from their own inputs.

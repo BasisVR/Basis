@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -40,6 +40,8 @@ namespace Basis.Rendering.RTAO
         public static float RadiusOverride = 0.1f;
         public static bool HasDirectStrengthOverride;
         public static float DirectStrengthOverride = 0.5f;
+        public static bool HasSpecularOcclusionOverride;
+        public static float SpecularOcclusionReliefOverride;
         public static bool HasDenoisePassesOverride;
         public static int DenoisePassesOverride = 2;
         public static bool HasTracingModeOverride;
@@ -102,6 +104,8 @@ namespace Basis.Rendering.RTAO
                 resolved.radius = RadiusOverride;
             if (HasDirectStrengthOverride)
                 resolved.directLightingStrength = DirectStrengthOverride;
+            if (HasSpecularOcclusionOverride)
+                resolved.specularOcclusionRelief = SpecularOcclusionReliefOverride;
             if (HasDenoisePassesOverride)
                 resolved.denoisePasses = DenoisePassesOverride;
 

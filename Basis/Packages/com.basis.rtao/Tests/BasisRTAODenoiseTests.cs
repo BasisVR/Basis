@@ -46,7 +46,7 @@ namespace Basis.Rendering.RTAO.Tests
 
         private sealed class Frame
         {
-            public Texture2DArray position, normal, raw, history, historyDepth;
+            public Texture2DArray position, normal, raw, history, historyDepth, traceDepth;
             public RenderTexture output, outputDepth;
         }
 
@@ -107,9 +107,10 @@ namespace Basis.Rendering.RTAO.Tests
                 normal = MakeArray(TextureFormat.RGBAFloat, slices),
                 raw = MakeArray(TextureFormat.RGFloat, slices),
                 history = MakeArray(TextureFormat.RGBAFloat, slices),
-                historyDepth = MakeArray(TextureFormat.RFloat, slices),
+                historyDepth = MakeArray(TextureFormat.RGFloat, slices),
+                traceDepth = MakeArray(TextureFormat.RGFloat, slices),
                 output = MakeTarget(GraphicsFormat.R16G16B16A16_SFloat, slices),
-                outputDepth = MakeTarget(GraphicsFormat.R32_SFloat, slices)
+                outputDepth = MakeTarget(GraphicsFormat.R16G16_SFloat, slices)
             };
 
             for (int slice = 0; slice < slices; slice++)
@@ -118,7 +119,7 @@ namespace Basis.Rendering.RTAO.Tests
                 Fill(frame.normal, slice, (x, y) => new Color(encoded.x, encoded.y, 0f, 0f));
                 Fill(frame.raw, slice, (x, y) => new Color(rawVisibility, 0.5f, 0f, 0f));
                 Fill(frame.history, slice, (x, y) => new Color(historyVisibility, historyFrames, encoded.x, encoded.y));
-                Fill(frame.historyDepth, slice, (x, y) => new Color(historyDepthOverride, 0f, 0f, 0f));
+                Fill(frame.historyDepth, slice, (x, y) => new Color(historyDepthOverride, 0.5f, 0f, 0f));
             }
 
             frame.position.Apply(false, false);
@@ -126,7 +127,30 @@ namespace Basis.Rendering.RTAO.Tests
             frame.raw.Apply(false, false);
             frame.history.Apply(false, false);
             frame.historyDepth.Apply(false, false);
+            FillTraceDepth(frame, (x, y) => planeZ, 1f, slices);
             return frame;
+        }
+
+        // What the temporal pass hands the blur and the composite: view depth in x, zero for no geometry,
+        // and the accumulated mean hit distance in y.
+        private void FillTraceDepth(Frame frame, System.Func<int, int, float> planeZ, float hitDistance, int slices = 1)
+        {
+            Vector4 plane = PlaneOf(camera);
+            for (int slice = 0; slice < slices; slice++)
+            {
+                Fill(frame.traceDepth, slice, (x, y) =>
+                {
+                    Vector3 point = WorldOf(x, y, planeZ(x, y));
+                    return new Color(plane.x * point.x + plane.y * point.y + plane.z * point.z + plane.w, hitDistance, 0f, 0f);
+                });
+            }
+            frame.traceDepth.Apply(false, false);
+        }
+
+        private void FillTraceDepthAsSky(Frame frame)
+        {
+            Fill(frame.traceDepth, 0, (x, y) => new Color(0f, 0f, 0f, 0f));
+            frame.traceDepth.Apply(false, false);
         }
 
         private static Vector3 WorldOf(int x, int y, float planeZ)
@@ -134,8 +158,12 @@ namespace Basis.Rendering.RTAO.Tests
             return new Vector3((x - (Width - 1) * 0.5f) * 0.1f, (y - (Height - 1) * 0.5f) * 0.1f, planeZ);
         }
 
+        // varianceGamma defaults to off here so these cases pin the accumulation arithmetic on its own. The
+        // clamp is a separate contract with its own tests, and it is deliberately loud enough to swamp the
+        // blend it sits in front of.
         private Vector4[] RunTemporal(Frame frame, bool hasHistory, Matrix4x4 previousViewProjection, Vector4 viewPlane, Vector4 previousViewPlane,
-            float maxFrames = 24f, float minAlpha = 0.05f, float depthTolerance = 0.03f, float normalTolerance = 0.9f, int slices = 1)
+            float maxFrames = 24f, float minAlpha = 0.05f, float depthTolerance = 0.03f, float normalTolerance = 0.9f, int slices = 1,
+            float varianceGamma = 0f, float varianceFloor = 0f)
         {
             denoise.SetTexture(temporalKernel, BasisRTAOShaderIds.PositionTex, frame.position);
             denoise.SetTexture(temporalKernel, BasisRTAOShaderIds.NormalTex, frame.normal);
@@ -150,6 +178,7 @@ namespace Basis.Rendering.RTAO.Tests
             denoise.SetVector(BasisRTAOShaderIds.Reference, Vector4.zero);
             denoise.SetVector(BasisRTAOShaderIds.Size, new Vector4(Width, Height, 1f / Width, 1f / Height));
             denoise.SetVector(BasisRTAOShaderIds.TemporalParams, new Vector4(maxFrames, minAlpha, depthTolerance, normalTolerance));
+            denoise.SetVector(BasisRTAOShaderIds.TemporalClamp, new Vector4(varianceGamma, varianceFloor, 0f, 0f));
             denoise.SetInt(BasisRTAOShaderIds.ViewCount, slices);
             denoise.SetInt(BasisRTAOShaderIds.HasHistory, hasHistory ? 1 : 0);
             denoise.Dispatch(temporalKernel, (Width + 7) / 8, (Height + 7) / 8, slices);
@@ -323,6 +352,48 @@ namespace Basis.Rendering.RTAO.Tests
         }
 
         [Test]
+        public void VarianceClampPullsBackHistoryTheFrameDisagreesWith()
+        {
+            Frame loose = BuildFlatFrame(0f, 1f, 0.2f, 20f, Vector3.back, 5f);
+            Vector4[] unclamped = RunTemporal(loose, true, ViewProjectionOf(camera), PlaneOf(camera), PlaneOf(camera));
+
+            Frame tight = BuildFlatFrame(0f, 1f, 0.2f, 20f, Vector3.back, 5f);
+            Vector4[] clamped = RunTemporal(tight, true, ViewProjectionOf(camera), PlaneOf(camera), PlaneOf(camera),
+                varianceGamma: 1.25f, varianceFloor: 0.35f);
+
+            Assert.Greater(Mean(clamped), Mean(unclamped) + 0.2f,
+                $"Reprojection carries camera motion only, so an avatar walking off a floor leaves history the depth and normal tests both accept. Clamped {Mean(clamped):F3} against unclamped {Mean(unclamped):F3} means the box never closed on it.");
+            Assert.Less(Mean(clamped, 1), Mean(unclamped, 1),
+                "Confidence has to fall by how far the clamp had to move, or the blend stays as slow as the ghost it just cut.");
+        }
+
+        [Test]
+        public void VarianceClampLeavesAgreeingHistoryAlone()
+        {
+            Frame loose = BuildFlatFrame(0f, 0.5f, 0.55f, 20f, Vector3.back, 5f);
+            Vector4[] unclamped = RunTemporal(loose, true, ViewProjectionOf(camera), PlaneOf(camera), PlaneOf(camera));
+
+            Frame tight = BuildFlatFrame(0f, 0.5f, 0.55f, 20f, Vector3.back, 5f);
+            Vector4[] clamped = RunTemporal(tight, true, ViewProjectionOf(camera), PlaneOf(camera), PlaneOf(camera),
+                varianceGamma: 1.25f, varianceFloor: 0.35f);
+
+            Assert.AreEqual(Mean(unclamped), Mean(clamped), 1e-3f,
+                "History inside the neighbourhood's spread is the accumulation working. Clipping it there would throw away the convergence the filter exists to build.");
+            Assert.AreEqual(Mean(unclamped, 1), Mean(clamped, 1), 1e-2f, "An untouched history must keep its confidence.");
+        }
+
+        [Test]
+        public void VarianceFloorKeepsTheBoxOpenWhenTheNeighbourhoodAgreesByLuck()
+        {
+            Frame frame = BuildFlatFrame(0f, 0.5f, 0.55f, 20f, Vector3.back, 5f);
+            Vector4[] result = RunTemporal(frame, true, ViewProjectionOf(camera), PlaneOf(camera), PlaneOf(camera),
+                varianceGamma: 1.25f, varianceFloor: 0.35f);
+
+            Assert.Greater(Mean(result, 1), 20f,
+                "Nine taps of a one ray estimate agree outright often enough to matter, and a box measured from that alone has zero width. Without the floor every such pixel resets and the frame sparkles.");
+        }
+
+        [Test]
         public void BlurAveragesAcrossAFlatSurface()
         {
             Frame frame = BuildFlatFrame(0f, 0.5f, 0.5f, 24f, Vector3.back, 5f);
@@ -348,12 +419,7 @@ namespace Basis.Rendering.RTAO.Tests
         public void BlurDoesNotCrossADepthDiscontinuity()
         {
             Frame frame = BuildFlatFrame(0f, 0.5f, 0.5f, 24f, Vector3.back, 5f);
-            Fill(frame.position, 0, (x, y) =>
-            {
-                Vector3 point = WorldOf(x, y, x < Width / 2 ? 0f : 30f);
-                return new Color(point.x, point.y, point.z, 1f);
-            });
-            frame.position.Apply(false, false);
+            FillTraceDepth(frame, (x, y) => x < Width / 2 ? 0f : 30f, 1f);
 
             Texture2DArray source = MakeArray(TextureFormat.RGBAFloat);
             Vector2 encoded = EncodeNormal(Vector3.back);
@@ -374,8 +440,7 @@ namespace Basis.Rendering.RTAO.Tests
         public void BlurLeavesSkyPixelsAlone()
         {
             Frame frame = BuildFlatFrame(0f, 0.5f, 0.5f, 24f, Vector3.back, 5f);
-            Fill(frame.position, 0, (x, y) => new Color(0f, 0f, 0f, 0f));
-            frame.position.Apply(false, false);
+            FillTraceDepthAsSky(frame);
 
             Texture2DArray source = MakeArray(TextureFormat.RGBAFloat);
             Fill(source, 0, (x, y) => new Color(0.37f, 24f, 0f, 0f));
@@ -412,6 +477,30 @@ namespace Basis.Rendering.RTAO.Tests
         }
 
         [Test]
+        public void BlurNarrowsWhereTheRaysStruckClose()
+        {
+            Vector2 encoded = EncodeNormal(Vector3.back);
+
+            Frame close = BuildFlatFrame(0f, 0.5f, 0.5f, 0f, Vector3.back, 5f);
+            FillTraceDepth(close, (x, y) => 0f, 0f);
+            Texture2DArray sourceClose = MakeArray(TextureFormat.RGBAFloat);
+            Fill(sourceClose, 0, (x, y) => new Color(x % 2 == 0 ? 0f : 1f, 0f, encoded.x, encoded.y));
+            sourceClose.Apply(false, false);
+            Vector4[] closeResult = RunBlur(close, sourceClose, MakeTarget(GraphicsFormat.R16G16B16A16_SFloat),
+                new Vector4(1f, 0f, 0f, 0f), maxRadius: 4f, minRadius: 0f);
+
+            Frame open = BuildFlatFrame(0f, 0.5f, 0.5f, 0f, Vector3.back, 5f);
+            Texture2DArray sourceOpen = MakeArray(TextureFormat.RGBAFloat);
+            Fill(sourceOpen, 0, (x, y) => new Color(x % 2 == 0 ? 0f : 1f, 0f, encoded.x, encoded.y));
+            sourceOpen.Apply(false, false);
+            Vector4[] openResult = RunBlur(open, sourceOpen, MakeTarget(GraphicsFormat.R16G16B16A16_SFloat),
+                new Vector4(1f, 0f, 0f, 0f), maxRadius: 4f, minRadius: 0f);
+
+            Assert.Greater(Spread(closeResult), Spread(openResult),
+                "Both pixels are equally unconverged, so only the hit distance separates them. Occlusion whose rays all struck at zero distance varies over that distance and must keep it; occlusion whose rays flew the whole radius is low frequency and can take the wide filter.");
+        }
+
+        [Test]
         public void AWiderStrideReachesFurther()
         {
             Frame frame = BuildFlatFrame(0f, 0.5f, 0.5f, 24f, Vector3.back, 5f);
@@ -442,12 +531,7 @@ namespace Basis.Rendering.RTAO.Tests
         public void StrideStillRefusesToCrossADepthStep()
         {
             Frame frame = BuildFlatFrame(0f, 0.5f, 0.5f, 24f, Vector3.back, 5f);
-            Fill(frame.position, 0, (x, y) =>
-            {
-                Vector3 point = WorldOf(x, y, x < Width / 2 ? 0f : 30f);
-                return new Color(point.x, point.y, point.z, 1f);
-            });
-            frame.position.Apply(false, false);
+            FillTraceDepth(frame, (x, y) => x < Width / 2 ? 0f : 30f, 1f);
 
             Vector2 encoded = EncodeNormal(Vector3.back);
             Texture2DArray source = MakeArray(TextureFormat.RGBAFloat);
@@ -475,11 +559,9 @@ namespace Basis.Rendering.RTAO.Tests
 
         private Vector4[] RunBlur(Frame frame, Texture2DArray source, RenderTexture target, Vector4 direction, float maxRadius, float minRadius, int slices = 1, int stride = 1)
         {
-            denoise.SetTexture(blurKernel, BasisRTAOShaderIds.PositionTex, frame.position);
+            denoise.SetTexture(blurKernel, BasisRTAOShaderIds.DepthTex, frame.traceDepth);
             denoise.SetTexture(blurKernel, BasisRTAOShaderIds.BlurSourceTex, source);
             denoise.SetTexture(blurKernel, BasisRTAOShaderIds.BlurTargetTex, target);
-            denoise.SetVectorArray(BasisRTAOShaderIds.ViewPlane, new[] { PlaneOf(camera), PlaneOf(camera) });
-            denoise.SetVector(BasisRTAOShaderIds.Reference, Vector4.zero);
             denoise.SetVector(BasisRTAOShaderIds.Size, new Vector4(Width, Height, 1f / Width, 1f / Height));
             denoise.SetVector(BasisRTAOShaderIds.BlurParams, new Vector4(maxRadius, minRadius, 0.05f, 16f));
             denoise.SetVector(BasisRTAOShaderIds.TemporalParams, new Vector4(24f, 0.05f, 0.03f, 0.9f));

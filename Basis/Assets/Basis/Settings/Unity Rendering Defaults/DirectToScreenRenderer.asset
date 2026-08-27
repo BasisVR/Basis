@@ -286,6 +286,7 @@ MonoBehaviour:
     temporalMinAlpha: 0.05
     temporalDepthTolerance: 0.03
     temporalNormalTolerance: 0.9
+    temporalVarianceGamma: 1.25
     denoisePasses: 2
     blurMaxRadius: 4
     blurMinRadius: 1

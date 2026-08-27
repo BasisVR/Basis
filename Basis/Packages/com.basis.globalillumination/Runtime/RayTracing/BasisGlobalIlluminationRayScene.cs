@@ -99,6 +99,7 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
     private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
     private static readonly int EmissionMapId = Shader.PropertyToID("_EmissionMap");
     private static readonly int EmissionEnabledId = Shader.PropertyToID("_EmissionEnabled");
+    private const string EmissionKeyword = "_EMISSION";
 
     private readonly BasisGlobalIlluminationRayContext context;
     private readonly BasisGlobalIlluminationRayTextureAverage textures = new BasisGlobalIlluminationRayTextureAverage();
@@ -112,6 +113,9 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
     private readonly List<Vector3> normalScratch = new List<Vector3>();
     private readonly List<int> indexScratch = new List<int>();
     private readonly List<Material> materialScratch = new List<Material>();
+    // One shared block: the surface read runs over every instance in the scene, and a fresh
+    // MaterialPropertyBlock per surface would be garbage on a path that now runs every frame.
+    private static readonly MaterialPropertyBlock blockScratch = new MaterialPropertyBlock();
 
     private BasisGlobalIlluminationRayInstance[] instances = new BasisGlobalIlluminationRayInstance[256];
     private GraphicsBuffer instanceBuffer;
@@ -187,6 +191,10 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         {
             RefreshMaterials(settings);
         }
+        else
+        {
+            RefreshBlockMaterials(settings);
+        }
 
         UpdateTransforms();
 
@@ -245,6 +253,23 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
     {
         textureVersion = textures.Version;
         foreach (KeyValuePair<EntityId, Entry> pair in entries) { WriteMaterials(pair.Value, settings); }
+    }
+
+    /// <summary>
+    /// Re-reads the surfaces driven by a MaterialPropertyBlock, every frame rather than on the rescan timer.
+    /// A block is how emission gets animated - that is what it is for - so a bounce that only notices the
+    /// change when the next rescan comes round is whole seconds behind a light the player is watching pulse,
+    /// which reads as the emission never reaching the scene at all. Only renderers actually carrying a block
+    /// pay for this; a surface changed through the material itself is rare enough to ride the rescan.
+    /// </summary>
+    private void RefreshBlockMaterials(in BasisGlobalIlluminationRaySceneSettings settings)
+    {
+        foreach (KeyValuePair<EntityId, Entry> pair in entries)
+        {
+            Entry entry = pair.Value;
+            if (entry.renderer == null || !entry.renderer.HasPropertyBlock()) { continue; }
+            WriteMaterials(entry, settings);
+        }
     }
 
     private void AddEntry(Renderer renderer, Mesh mesh, SkinnedMeshRenderer skinned, in BasisGlobalIlluminationRaySceneSettings settings)
@@ -518,7 +543,8 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
             if (instanceId < 0) { continue; }
 
             Material material = index < materialScratch.Count ? materialScratch[index] : null;
-            ReadSurface(material, settings, textures, out Color albedo, out Color emission);
+            int blockIndex = index < materialScratch.Count ? index : -1;
+            ReadSurface(material, entry.renderer, blockIndex, settings, textures, out Color albedo, out Color emission);
             Vector4 packedAlbedo = new Vector4(albedo.r, albedo.g, albedo.b, 1f);
             Vector4 packedEmission = new Vector4(emission.r, emission.g, emission.b, 0f);
             if (instances[instanceId].albedo == packedAlbedo && instances[instanceId].emission == packedEmission) { continue; }
@@ -537,12 +563,34 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
     /// </summary>
     public static void ReadSurface(Material material, in BasisGlobalIlluminationRaySceneSettings settings, BasisGlobalIlluminationRayTextureAverage textures, out Color albedo, out Color emission)
     {
+        ReadSurface(material, null, -1, settings, textures, out albedo, out emission);
+    }
+
+    /// <summary>
+    /// The same read with the renderer's MaterialPropertyBlock overrides on top. A block is the usual way a
+    /// colour - emission above all - is driven at runtime, and it never touches the material, so a gather
+    /// reading the material alone sees a surface pinned at whatever it was authored with while the frame
+    /// plainly shows it changing. Only colours are taken from the block: a block-overridden map would have
+    /// to be averaged and versioned like the material's own, and emission is driven by colour.
+    /// </summary>
+    public static void ReadSurface(Material material, Renderer renderer, int materialIndex,
+        in BasisGlobalIlluminationRaySceneSettings settings, BasisGlobalIlluminationRayTextureAverage textures,
+        out Color albedo, out Color emission)
+    {
         albedo = Color.white;
         emission = Color.black;
         if (material == null) { return; }
 
+        MaterialPropertyBlock block = ResolveBlock(renderer, materialIndex);
+
         if (material.HasColor(BaseColorId)) { albedo = material.GetColor(BaseColorId); }
         else if (material.HasColor(ColorId)) { albedo = material.GetColor(ColorId); }
+
+        if (block != null)
+        {
+            if (TryGetBlockColor(block, BaseColorId, out Color overriddenAlbedo)) { albedo = overriddenAlbedo; }
+            else if (TryGetBlockColor(block, ColorId, out overriddenAlbedo)) { albedo = overriddenAlbedo; }
+        }
 
         if (settings.textureAlbedo)
         {
@@ -554,17 +602,77 @@ public sealed class BasisGlobalIlluminationRayScene : IDisposable
         albedo = new Color(Mathf.Clamp01(albedo.r), Mathf.Clamp01(albedo.g), Mathf.Clamp01(albedo.b), 1f);
 
         if (!settings.emissiveSurfaces) { return; }
-        if (material.globalIlluminationFlags == MaterialGlobalIlluminationFlags.EmissiveIsBlack) { return; }
-        if (!material.HasColor(EmissionColorId)) { return; }
-        if (material.HasFloat(EmissionEnabledId) && material.GetFloat(EmissionEnabledId) < 0.5f) { return; }
 
-        emission = material.GetColor(EmissionColorId);
+        Color blockEmission = Color.black;
+        bool hasBlockEmission = block != null && TryGetBlockColor(block, EmissionColorId, out blockEmission);
+        if (!hasBlockEmission && !material.HasColor(EmissionColorId)) { return; }
+
+        // Deliberately NOT gated on globalIlluminationFlags. That flag is written by the shader GUI when the
+        // material is authored and nothing refreshes it afterwards, so a surface whose _EmissionColor is
+        // raised at runtime keeps reporting EmissiveIsBlack forever: it visibly glows in the frame and the
+        // bounce never sees a photon of it. Everything below is live material state, which is what the
+        // surface is actually rendering with.
+        //
+        // The keyword is only honoured where the shader declares one - URP's Lit multiplies its emission by
+        // it, so a material with the box unchecked genuinely emits nothing and reading its leftover colour
+        // would light the room from a surface that is black on screen. Shaders that emit without declaring
+        // _EMISSION (Poiyomi among them) have no such switch to read, and there the colour is the only
+        // honest answer.
+        LocalKeyword emissionKeyword = material.shader.keywordSpace.FindKeyword(EmissionKeyword);
+        if (emissionKeyword.isValid && !material.IsKeywordEnabled(emissionKeyword)) { return; }
+
+        // Absent on the material means no switch to fail, not a switch that is off - the original read only
+        // applied this gate where the property existed. A block may drive it like any other property.
+        float emissionEnabled = material.HasFloat(EmissionEnabledId) ? material.GetFloat(EmissionEnabledId) : 1f;
+        if (block != null && block.HasFloat(EmissionEnabledId)) { emissionEnabled = block.GetFloat(EmissionEnabledId); }
+        if (emissionEnabled < 0.5f) { return; }
+
+        emission = hasBlockEmission ? blockEmission : material.GetColor(EmissionColorId);
         if (settings.textureAlbedo && material.HasTexture(EmissionMapId))
         {
             Texture emissionMap = material.GetTexture(EmissionMapId);
             if (emissionMap != null && textures != null) { emission *= textures.Get(emissionMap); }
         }
         emission = new Color(Mathf.Max(0f, emission.r), Mathf.Max(0f, emission.g), Mathf.Max(0f, emission.b), 0f);
+    }
+
+    /// <summary>
+    /// The renderer's property block for this material slot, or null when it carries none. A block set for
+    /// one slot and a block set for the whole renderer are both reachable here, and the per slot one wins
+    /// where both exist - the order the renderer itself applies them.
+    /// </summary>
+    private static MaterialPropertyBlock ResolveBlock(Renderer renderer, int materialIndex)
+    {
+        if (renderer == null || !renderer.HasPropertyBlock()) { return null; }
+
+        if (materialIndex >= 0)
+        {
+            blockScratch.Clear();
+            renderer.GetPropertyBlock(blockScratch, materialIndex);
+            if (!blockScratch.isEmpty) { return blockScratch; }
+        }
+
+        blockScratch.Clear();
+        renderer.GetPropertyBlock(blockScratch);
+        return blockScratch.isEmpty ? null : blockScratch;
+    }
+
+    /// <summary>
+    /// A colour out of a property block, however it was put there. SetColor and SetVector write the same
+    /// slot, and a tint driven with SetVector is still the emission the surface renders.
+    /// </summary>
+    private static bool TryGetBlockColor(MaterialPropertyBlock block, int nameId, out Color value)
+    {
+        if (block.HasColor(nameId)) { value = block.GetColor(nameId); return true; }
+        if (block.HasVector(nameId))
+        {
+            Vector4 vector = block.GetVector(nameId);
+            value = new Color(vector.x, vector.y, vector.z, vector.w);
+            return true;
+        }
+
+        value = Color.black;
+        return false;
     }
 
     private void RemoveEntry(EntityId id, Entry entry)

@@ -423,6 +423,7 @@ namespace Basis.Tests.GlobalIllumination
             try
             {
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                material.EnableKeyword("_EMISSION");
                 if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", new Color(2f, 1f, 0.5f)); }
                 if (material.HasProperty("_EmissionEnabled")) { material.SetFloat("_EmissionEnabled", 1f); }
 
@@ -453,7 +454,76 @@ namespace Basis.Tests.GlobalIllumination
             Material material = new Material(shader);
             try
             {
+                // The colour, not the author-time flag. A surface emits nothing because it is black, and
+                // that is the one test of it that stays true when the colour is driven at runtime.
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                material.EnableKeyword("_EMISSION");
+                if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", Color.black); }
+
+                BasisGlobalIlluminationRayScene.ReadSurface(material, BasisGlobalIlluminationRaySceneSettings.Default, null, out Color _, out Color emission);
+                Assert.AreEqual(0f, emission.r);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+            }
+        }
+
+        /// <summary>
+        /// The regression behind "emission raised at runtime never reaches the bounce". globalIlluminationFlags
+        /// is stamped by the shader GUI when the material is authored and never refreshed afterwards, so a
+        /// material that was not emissive at author time carries EmissiveIsBlack for the rest of its life.
+        /// Reading emission through that flag meant a surface could be visibly glowing in the frame and
+        /// contribute nothing at all to the traced gather.
+        /// </summary>
+        [Test]
+        public void EmissionRaisedAtRuntimeIsSeenThroughAStaleAuthoredFlag()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            if (shader == null) { Assert.Ignore("No lit shader available in this project to build a material from."); }
+
+            Material material = new Material(shader);
+            try
+            {
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+                material.EnableKeyword("_EMISSION");
+                if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", new Color(3f, 2f, 1f)); }
+                if (material.HasProperty("_EmissionEnabled")) { material.SetFloat("_EmissionEnabled", 1f); }
+
+                BasisGlobalIlluminationRaySceneSettings settings = BasisGlobalIlluminationRaySceneSettings.Default;
+                settings.textureAlbedo = false;
+
+                BasisGlobalIlluminationRayScene.ReadSurface(material, settings, null, out Color _, out Color emission);
+                Assert.Greater(emission.r, 0f, "a runtime emission change is invisible to the traced gather");
+                Assert.Greater(emission.r, emission.b, "the emission colour was not carried through");
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+            }
+        }
+
+        /// <summary>
+        /// The other half of that trade: URP's Lit multiplies emission by the _EMISSION keyword, so a
+        /// material with the box unchecked emits nothing however bright the leftover colour is. Dropping the
+        /// authored flag must not start lighting rooms from surfaces that are black on screen.
+        /// </summary>
+        [Test]
+        public void EmissionIsIgnoredWhileTheShaderKeywordIsOff()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            if (shader == null) { Assert.Ignore("No lit shader available in this project to build a material from."); }
+
+            Material material = new Material(shader);
+            try
+            {
+                if (!material.shader.keywordSpace.FindKeyword("_EMISSION").isValid)
+                {
+                    Assert.Ignore("This shader declares no _EMISSION keyword, so there is no switch to read.");
+                }
+
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                material.DisableKeyword("_EMISSION");
                 if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", Color.white); }
 
                 BasisGlobalIlluminationRayScene.ReadSurface(material, BasisGlobalIlluminationRaySceneSettings.Default, null, out Color _, out Color emission);
@@ -462,6 +532,82 @@ namespace Basis.Tests.GlobalIllumination
             finally
             {
                 Object.DestroyImmediate(material);
+            }
+        }
+
+        /// <summary>
+        /// A MaterialPropertyBlock is how emission is driven at runtime, and it never touches the material
+        /// the renderer shares. Reading the material alone left a surface pinned at its authored colour
+        /// while the frame showed it pulsing, so none of it ever reached the bounce.
+        /// </summary>
+        [Test]
+        public void EmissionDrivenByAPropertyBlockReachesTheGather()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            if (shader == null) { Assert.Ignore("No lit shader available in this project to build a material from."); }
+
+            GameObject host = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = new Material(shader);
+            try
+            {
+                material.EnableKeyword("_EMISSION");
+                if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", Color.black); }
+
+                MeshRenderer renderer = host.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = material;
+
+                BasisGlobalIlluminationRaySceneSettings settings = BasisGlobalIlluminationRaySceneSettings.Default;
+                settings.textureAlbedo = false;
+
+                BasisGlobalIlluminationRayScene.ReadSurface(material, renderer, 0, settings, null, out Color _, out Color dark);
+                Assert.AreEqual(0f, dark.r, "the material is black and nothing overrides it yet");
+
+                MaterialPropertyBlock block = new MaterialPropertyBlock();
+                block.SetColor("_EmissionColor", new Color(4f, 1f, 0.25f));
+                renderer.SetPropertyBlock(block);
+
+                BasisGlobalIlluminationRayScene.ReadSurface(material, renderer, 0, settings, null, out Color _, out Color lit);
+                Assert.Greater(lit.r, 0f, "a property block drove emission and the gather never saw it");
+                Assert.Greater(lit.r, lit.b, "the block's emission colour was not carried through");
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void APropertyBlockOverridesTheMaterialAlbedo()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            if (shader == null) { Assert.Ignore("No lit shader available in this project to build a material from."); }
+
+            GameObject host = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = new Material(shader);
+            try
+            {
+                if (material.HasProperty("_BaseColor")) { material.SetColor("_BaseColor", Color.white); }
+                if (material.HasProperty("_Color")) { material.SetColor("_Color", Color.white); }
+
+                MeshRenderer renderer = host.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = material;
+
+                BasisGlobalIlluminationRaySceneSettings settings = BasisGlobalIlluminationRaySceneSettings.Default;
+                settings.textureAlbedo = false;
+
+                MaterialPropertyBlock block = new MaterialPropertyBlock();
+                block.SetColor(material.HasProperty("_BaseColor") ? "_BaseColor" : "_Color", new Color(0.2f, 0.8f, 0.4f));
+                renderer.SetPropertyBlock(block);
+
+                BasisGlobalIlluminationRayScene.ReadSurface(material, renderer, 0, settings, null, out Color albedo, out Color _);
+                Assert.Greater(albedo.g, albedo.r, "the block's base colour was not carried through");
+                Assert.Greater(albedo.g, albedo.b, "the block's base colour was not carried through");
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(host);
             }
         }
 

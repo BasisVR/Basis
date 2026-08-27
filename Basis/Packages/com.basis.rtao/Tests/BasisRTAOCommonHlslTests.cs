@@ -178,11 +178,11 @@ namespace Basis.Rendering.RTAO.Tests
             Vector4[] output = harness.RunLinearKernel("TestNoiseSeed", input, input.Length, (shader, kernel) =>
                 shader.SetVector("_TestParams", new Vector4(cellSize, 11f, 0f, 0f)));
 
-            Assert.AreEqual(output[0].w, output[1].w,
-                "Two eyes reconstruct slightly different world positions for the same surface point. Inside one cell the seed must match, or each eye traces different rays and the frame shimmers between them.");
-            Assert.AreEqual(output[0].x, output[1].x, 1e-6f);
-            Assert.AreEqual(output[0].y, output[1].y, 1e-6f);
-            Assert.AreEqual(output[0].z, output[1].z, 1e-6f);
+            Assert.AreEqual(output[0].x, output[1].x,
+                "Two eyes reconstruct slightly different world positions for the same surface point. Inside one cell the sample offset must match, or each eye traces different rays and the frame shimmers between them.");
+            Assert.AreEqual(output[0].y, output[1].y);
+            Assert.AreEqual(output[0].z, output[1].z, 1e-6f, "The same offset must produce the same ray.");
+            Assert.AreEqual(output[0].w, output[1].w, 1e-6f);
         }
 
         [Test]
@@ -200,9 +200,9 @@ namespace Basis.Rendering.RTAO.Tests
             Vector4[] output = harness.RunLinearKernel("TestNoiseSeed", input, input.Length, (shader, kernel) =>
                 shader.SetVector("_TestParams", new Vector4(cellSize, 11f, 0f, 0f)));
 
-            Assert.AreNotEqual(output[0].w, output[1].w, "Neighbouring cells on x must decorrelate.");
-            Assert.AreNotEqual(output[0].w, output[2].w, "Neighbouring cells on y must decorrelate.");
-            Assert.AreNotEqual(output[0].w, output[3].w, "Neighbouring cells on z must decorrelate.");
+            Assert.AreNotEqual(output[0].x, output[1].x, "Neighbouring cells on x must decorrelate.");
+            Assert.AreNotEqual(output[0].x, output[2].x, "Neighbouring cells on y must decorrelate.");
+            Assert.AreNotEqual(output[0].x, output[3].x, "Neighbouring cells on z must decorrelate.");
         }
 
         [Test]
@@ -215,8 +215,57 @@ namespace Basis.Rendering.RTAO.Tests
             Vector4[] frameB = harness.RunLinearKernel("TestNoiseSeed", input, 1, (shader, kernel) =>
                 shader.SetVector("_TestParams", new Vector4(0.01f, 5f, 0f, 0f)));
 
-            Assert.AreNotEqual(frameA[0].w, frameB[0].w,
-                "The seed must advance with the frame index, otherwise temporal accumulation averages the same rays forever and never converges.");
+            Assert.AreNotEqual(frameA[0].x, frameB[0].x,
+                "The offset must advance with the frame index, otherwise temporal accumulation averages the same rays forever and never converges.");
+        }
+
+        [Test]
+        public void TheFrameSequenceIsLowDiscrepancyNotWhiteNoise()
+        {
+            const int frames = 16;
+            Vector4[] input = { new Vector4(1.2345f, 0.5f, -3.21f, 0f) };
+
+            Vector2[] offsets = new Vector2[frames];
+            for (int frame = 0; frame < frames; frame++)
+            {
+                int captured = frame;
+                Vector4[] output = harness.RunLinearKernel("TestNoiseSeed", input, 1, (shader, kernel) =>
+                    shader.SetVector("_TestParams", new Vector4(0.01f, captured, 0f, 0f)));
+                offsets[frame] = new Vector2(output[0].x, output[0].y);
+            }
+
+            float closest = float.MaxValue;
+            for (int i = 0; i < frames; i++)
+            {
+                for (int j = i + 1; j < frames; j++)
+                    closest = Mathf.Min(closest, ToroidalDistance(offsets[i], offsets[j]));
+            }
+
+            // R2 holds 0.17 at sixteen points. Independent draws sit at 0.04 and clear 0.084 only one time
+            // in twenty, so this separates the two outright.
+            Assert.Greater(closest, 0.12f,
+                $"Re-hashing the cell with the frame index draws an independent offset every frame, and what the accumulator then averages converges at 1/sqrt(n). The closest pair of sixteen consecutive offsets was {closest:F3}, which is what white noise looks like.");
+        }
+
+        [Test]
+        public void TheFrameSequenceStillAdvancesHoursIn()
+        {
+            Vector4[] input = { new Vector4(1.2345f, 0.5f, -3.21f, 0f) };
+
+            Vector4[] first = harness.RunLinearKernel("TestNoiseSeed", input, 1, (shader, kernel) =>
+                shader.SetVector("_TestParams", new Vector4(0.01f, 100000f, 0f, 0f)));
+            Vector4[] second = harness.RunLinearKernel("TestNoiseSeed", input, 1, (shader, kernel) =>
+                shader.SetVector("_TestParams", new Vector4(0.01f, 100001f, 0f, 0f)));
+
+            Assert.AreNotEqual(first[0].x, second[0].x,
+                "A raw frame counter reaches six figures inside an hour of play, and a float multiplied by it has no fraction left to carry. Wrap the index before it scales the lattice or the offset silently stops moving.");
+        }
+
+        private static float ToroidalDistance(Vector2 a, Vector2 b)
+        {
+            float dx = Mathf.Abs(a.x - b.x);
+            float dy = Mathf.Abs(a.y - b.y);
+            return new Vector2(Mathf.Min(dx, 1f - dx), Mathf.Min(dy, 1f - dy)).magnitude;
         }
 
         [Test]

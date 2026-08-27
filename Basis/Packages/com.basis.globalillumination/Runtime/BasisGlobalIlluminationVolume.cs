@@ -97,6 +97,10 @@ public sealed class BasisGlobalIlluminationVolume : VolumeComponent, IPostProces
     public const float ObscuranceMin = 0f, ObscuranceMax = 1f;
     public const float SaturationMin = 0f, SaturationMax = 2f;
     public const float RayLengthMin = 0.25f, RayLengthMax = 128f;
+    // A reflection carries much further than a bounce does - the far wall of a room is a bounce nobody can
+    // see and a reflection everybody can - so its reach is allowed past the diffuse ceiling.
+    public const float SpecularRayLengthMax = 512f;
+    public const float SpecularRoughnessMin = 0.05f, SpecularRoughnessMax = 1f;
     public const float ThicknessMin = 0.02f, ThicknessMax = 4f;
     public const float SmoothingMin = 0f, SmoothingMax = 4f;
     public const float TemporalResponseMin = 0.02f, TemporalResponseMax = 1f;
@@ -132,6 +136,24 @@ public sealed class BasisGlobalIlluminationVolume : VolumeComponent, IPostProces
     public ClampedIntParameter rayCount = new ClampedIntParameter(2, RayCountMin, RayCountMax);
     public ClampedIntParameter rayMaxSteps = new ClampedIntParameter(24, RayStepsMin, RayStepsMax);
     public ClampedFloatParameter thickness = new ClampedFloatParameter(0.35f, ThicknessMin, ThicknessMax);
+    /// <summary>
+    /// Walks the screen space ray through a coarse depth summary first, and only looks at individual
+    /// texels inside a region that summary says could contain a hit.
+    ///
+    /// The plain march spends its whole step budget uniformly along the ray: Ray Steps steps over the
+    /// entire Max Ray Length, so at the shipped default that is twenty steps across sixteen metres. Near
+    /// the origin each stride can be tens of texels, and a stride that long simply passes over anything
+    /// thinner than itself - the Thickness setting exists to paper over the resulting mess, and it papers
+    /// over misses and false hits in equal measure. Stepping over the leg of a chair loses the bounce
+    /// under it; accepting a surface the ray actually passed far behind puts light where none belongs.
+    ///
+    /// Splitting the walk fixes the stride rather than compensating for it. Empty space is crossed eight
+    /// texels at a time by consulting one summary texel, and the moment a region could hold a hit the
+    /// march drops to about a texel a step through the real depth buffer, where it cannot skip a surface
+    /// at all. Cost lands close to the plain march because the fine steps are only spent where something
+    /// is; what changes is that they are spent in the right place.
+    /// </summary>
+    public BoolParameter hierarchicalMarch = new BoolParameter(true);
     public ClampedFloatParameter jitter = new ClampedFloatParameter(1f, 0f, 1f);
     public ClampedFloatParameter smoothing = new ClampedFloatParameter(1f, SmoothingMin, SmoothingMax);
     public BoolParameter wideBlur = new BoolParameter(true);
@@ -161,10 +183,78 @@ public sealed class BasisGlobalIlluminationVolume : VolumeComponent, IPostProces
     public ClampedFloatParameter rayTracedRescanInterval = new ClampedFloatParameter(2f, RescanIntervalMin, RescanIntervalMax);
     public ClampedFloatParameter rayTracedNormalBias = new ClampedFloatParameter(0.02f, RayTracedNormalBiasMin, RayTracedNormalBiasMax);
 
+    /// <summary>
+    /// Ray traced reflections. The gather is a single mirror ray per pixel, shaded at the hit with the same
+    /// lights and emissive surfaces the diffuse bounce uses, published for URP's lit shaders to consume in
+    /// place of the reflection probe.
+    ///
+    /// Why a mirror ray and not a roughness-shaped lobe: nothing at trace time knows the roughness of the
+    /// surface the ray leaves. That would need a GBuffer, and avatar shaders do not write one - the same
+    /// wall the screen space gather ran into. So the trace answers the one question it can answer exactly,
+    /// and the lit shader - which does know its own roughness - decides how much of the answer to use and
+    /// hands the rest back to the reflection probe. Rough surfaces barely notice; smooth ones, where the
+    /// reflection is the thing you actually look at, get a real one.
+    ///
+    /// This needs the ray traced backend. It is deliberately independent of Mode, because reflections are
+    /// worth having over a screen space diffuse gather, and a diffuse gather is worth having without them.
+    /// </summary>
+    [Header("Reflections")]
+    public BoolParameter specular = new BoolParameter(false, BoolParameter.DisplayType.EnumPopup);
+    public ClampedFloatParameter specularIntensity = new ClampedFloatParameter(1f, IntensityMin, IntensityMax);
+    /// <summary>
+    /// The roughness at which the traced mirror ray stops being a usable stand-in and the reflection probe
+    /// takes over completely. Below it the two are blended, so there is no visible line across a surface
+    /// whose roughness varies.
+    /// </summary>
+    public ClampedFloatParameter specularMaxRoughness = new ClampedFloatParameter(0.5f, SpecularRoughnessMin, SpecularRoughnessMax);
+    public ClampedFloatParameter specularRayLength = new ClampedFloatParameter(64f, RayLengthMin, SpecularRayLengthMax);
+    public MinFloatParameter specularFadeDistance = new MinFloatParameter(80f, 1f);
+    /// <summary>
+    /// Path length from the mirror hit. 1 shades the hit with direct light and emission only. Past that the
+    /// continuation is diffuse rather than a second mirror, because the instance buffer carries albedo and
+    /// emission and no roughness - which is what stops the reflection of an unlit corner being black.
+    /// </summary>
+    public ClampedIntParameter specularBounces = new ClampedIntParameter(1, BouncesMin, BouncesMax);
+    public BoolParameter specularTemporal = new BoolParameter(true);
+
     [Header("Performance")]
     public BasisGlobalIlluminationResolutionParameter resolution = new BasisGlobalIlluminationResolutionParameter(BasisGlobalIlluminationResolution.Half, true);
     public BoolParameter temporalFilter = new BoolParameter(true);
     public ClampedFloatParameter temporalResponse = new ClampedFloatParameter(0.15f, TemporalResponseMin, TemporalResponseMax);
+    /// <summary>
+    /// Reprojects the history through the frame's motion vectors rather than through the previous
+    /// view-projection alone.
+    ///
+    /// The matrix carries the CAMERA's motion and nothing else, so it is only correct where the world
+    /// stood still. Walk this frame's world position back through last frame's matrix and a surface that
+    /// moved lands on whatever was behind it - and lands there convincingly, at almost the same depth, so
+    /// the depth rejection below never fires. In a room full of avatars that is not an edge case, it is
+    /// most of the frame: the floor somebody has just stepped off keeps their bounce for as long as the
+    /// accumulation runs, and the bounce arrives on the floor they are about to reach a little late.
+    ///
+    /// Motion vectors already carry both motions together, which is why this should be the better source:
+    /// where URP has no per-object motion for a renderer it writes the camera's own, which is exactly what
+    /// the matrix would have produced.
+    ///
+    /// ⚠️ OFF BY DEFAULT BECAUSE IT IS UNVERIFIED, and the reason is worth knowing before anyone turns it
+    /// on or spends another day measuring it. URP advances the previous-frame matrix that feeds the motion
+    /// vector pass once per ENGINE frame. An EditMode test drives the camera with Camera.Render() in a
+    /// loop, which never advances that frame counter - measured 2026-08-27: `Time.frameCount` moved by
+    /// zero across a twelve frame run, `yield return null` in a UnityTest did not help, and in a scene
+    /// where nothing moved and the camera was bolted down the motion texture still read about 0.009 in UV,
+    /// roughly 1.5 pixels, where every vector had to be exactly zero.
+    ///
+    /// So every number the render harness produces about this setting is a measurement of that broken
+    /// input, not of the reprojection - which is exactly how it reads: turning it on cost 5-7x of the
+    /// probe's spatial detail at every speed, including speeds at which nothing was moving. The shader
+    /// itself is written against URP's own CalcNdcMotionVectorFromCsPositions (a forward vector, already
+    /// halved into UV space, already carrying the platform v flip, so previous = uv - texel and nothing
+    /// else), but reading the source is not the same as seeing it work.
+    ///
+    /// What would settle it: play mode, or a headset, with a person walking across the view. Until then
+    /// the matrix is what ships, because it is what has been measured.
+    /// </summary>
+    public BoolParameter motionVectors = new BoolParameter(false);
     public ClampedFloatParameter depthRejection = new ClampedFloatParameter(0.1f, 0.005f, 1f);
     /// <summary>
     /// Clips the reprojected history into the current frame's neighbourhood, to reject ghosting.
@@ -190,7 +280,16 @@ public sealed class BasisGlobalIlluminationVolume : VolumeComponent, IPostProces
     public ClampedFloatParameter fireflyClamp = new ClampedFloatParameter(6f, FireflyClampMin, FireflyClampMax);
     public BoolParameter bilateralUpsample = new BoolParameter(true);
 
-    public bool IsActive() => enable.value && intensity.value > 0f;
+    /// <summary>The diffuse gather. Intensity 0 has always meant off, and still does.</summary>
+    public bool DiffuseActive() => enable.value && intensity.value > 0f;
+
+    /// <summary>
+    /// Ray traced reflections. Whether the backend can actually serve them is a separate question the
+    /// feature answers - this is only what the volume asked for.
+    /// </summary>
+    public bool SpecularActive() => enable.value && specular.value && specularIntensity.value > 0f;
+
+    public bool IsActive() => DiffuseActive() || SpecularActive();
 
     public int ResolvedRayCount()
     {

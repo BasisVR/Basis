@@ -55,6 +55,13 @@ public static class BasisGlobalIlluminationDiagnostic
                 if (!(data.rendererFeatures[index] is BasisGlobalIlluminationFeature feature)) { continue; }
                 found = true;
                 report.AppendLine($"  feature          : on '{data.name}', active={feature.isActive}, material={feature.Material != null}, rayTracing={feature.RayTracingAvailable}");
+                // A debug view left on makes the pass replace the camera image instead of compositing into
+                // it, and then every setting that only scales indirect colour reads as doing nothing while
+                // the master switch still visibly works. That is this report's most common cause, so the
+                // view a diagnostic was taken through is stated rather than assumed.
+                report.AppendLine(feature.DebugView == BasisGlobalIlluminationDebugView.None
+                    ? "  debug view       : Off (the effect is compositing into the camera image)"
+                    : $"  debug view       : {feature.DebugView} - THE PASS IS REPLACING THE CAMERA IMAGE. Intensity, saturation, tint, the fallbacks and the emitters will all read as doing nothing until this is set back to Off.");
             }
         }
         if (!found)

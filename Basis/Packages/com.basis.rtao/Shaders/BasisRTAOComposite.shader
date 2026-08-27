@@ -19,10 +19,8 @@ Shader "Hidden/Basis/RTAO/Composite"
         #endif
 
         TEXTURE2D_ARRAY(_BasisRtaoAOTex);
-        TEXTURE2D_ARRAY(_BasisRtaoPositionTex);
+        TEXTURE2D_ARRAY(_BasisRtaoDepthTex);
 
-        float4 _BasisRtaoReference;
-        float4 _BasisRtaoFullSize;
         float4 _BasisRtaoAOSize;
         float4 _BasisRtaoComposite;
         int _BasisRtaoScale;
@@ -52,9 +50,10 @@ Shader "Hidden/Basis/RTAO/Composite"
 
             linearDepth = LinearEyeDepth(deviceDepth, _ZBufferParams);
 
-            float2 positionNDC = (float2(fullCoord) + 0.5) * _BasisRtaoFullSize.zw;
-            float3 positionWS = ComputeWorldSpacePosition(positionNDC, deviceDepth, UNITY_MATRIX_I_VP);
-            float3 relativeWS = positionWS - _BasisRtaoReference.xyz;
+            // ShapeVisibility multiplies everything past the fade end by zero and the prepass stopped
+            // tracing there for the same reason, so there is nothing here to gather.
+            if (COMPOSITE_FADE_END > 0.0 && linearDepth >= COMPOSITE_FADE_END)
+                return 1.0;
 
             if (_BasisRtaoScale <= 1)
                 return LOAD_TEXTURE2D_ARRAY(_BasisRtaoAOTex, fullCoord, BASIS_RTAO_SLICE).x;
@@ -74,16 +73,21 @@ Shader "Hidden/Basis/RTAO/Composite"
             float sumVisibility = 0.0;
             float tolerance = max(0.02, 0.05 * linearDepth);
 
+            // View depth, not the distance between two world positions. A full resolution pixel is
+            // laterally offset from its trace resolution parents by construction, so weighting on the
+            // whole offset docks a tap for being where it was always going to be, and picks the
+            // nearest tap rather than the one on this surface. It also costs a world space
+            // reconstruction and four square roots per pixel at full resolution, for a discriminator
+            // that answers the question worse. Depth agreement is the question.
             UNITY_UNROLL
             for (int t = 0; t < 4; ++t)
             {
                 int2 tapCoord = clamp(baseCoord + int2(t & 1, t >> 1), int2(0, 0), int2(_BasisRtaoAOSize.xy) - 1);
-                float4 tapPacked = LOAD_TEXTURE2D_ARRAY(_BasisRtaoPositionTex, tapCoord, BASIS_RTAO_SLICE);
-                if (tapPacked.w < 0.5)
+                float tapDepth = LOAD_TEXTURE2D_ARRAY(_BasisRtaoDepthTex, tapCoord, BASIS_RTAO_SLICE).x;
+                if (tapDepth <= 0.0)
                     continue;
 
-                float tapOffset = length(tapPacked.xyz - relativeWS);
-                float weight = weights[t] / (1.0 + tapOffset / tolerance);
+                float weight = weights[t] / (1.0 + abs(tapDepth - linearDepth) / tolerance);
                 sumWeight += weight;
                 sumVisibility += weight * LOAD_TEXTURE2D_ARRAY(_BasisRtaoAOTex, tapCoord, BASIS_RTAO_SLICE).x;
             }

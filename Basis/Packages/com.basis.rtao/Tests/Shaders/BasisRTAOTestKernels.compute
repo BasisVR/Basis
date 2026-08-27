@@ -74,9 +74,8 @@ void TestNoiseSeed(uint3 id : SV_DispatchThreadID)
     if ((int)id.x >= _TestCount)
         return;
     float3 positionWS = _TestInput[id.x].xyz;
-    int3 cell = int3(floor(positionWS / max(1e-4, _TestParams.x)));
-    uint seed = BasisRtaoHashCell(cell, (uint)_TestParams.y);
-    float2 jitter = float2(BasisRtaoUnitFloat(seed), BasisRtaoUnitFloat(BasisRtaoHash(seed ^ 0x9e3779b9u)));
+    // A view distance of one makes the distance scaled cell exactly _TestParams.x across.
+    float2 jitter = BasisRtaoSampleJitter(positionWS, 1.0, max(1e-4, _TestParams.x), id, (uint)_TestParams.y, true);
     float3 direction = BasisRtaoCosineHemisphere(BasisRtaoHammersley(0, 4, jitter), float3(0, 1, 0));
-    _TestOutput[id.x] = float4(direction, asfloat(seed));
+    _TestOutput[id.x] = float4(jitter, direction.x, direction.z);
 }

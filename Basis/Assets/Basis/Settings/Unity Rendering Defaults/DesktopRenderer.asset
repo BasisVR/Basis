@@ -64,7 +64,7 @@ MonoBehaviour:
   m_Active: 1
   resources: {fileID: 11400000, guid: d8c73d1f224d1aa4731366a9d7678bfc, type: 2}
   quality: 3
-  overrideQualityPreset: 0
+  overrideQualityPreset: 1
   settings:
     raysPerPixel: 2
     resolutionDivider: 2
@@ -73,6 +73,7 @@ MonoBehaviour:
     intensity: 1
     power: 1
     directLightingStrength: 0.5
+    specularOcclusionRelief: 0
     fadeStart: 40
     fadeEnd: 60
     normalBias: 0.005
@@ -83,6 +84,7 @@ MonoBehaviour:
     temporalMinAlpha: 0.05
     temporalDepthTolerance: 0.03
     temporalNormalTolerance: 0.9
+    temporalVarianceGamma: 1.25
     denoisePasses: 2
     blurMaxRadius: 4
     blurMinRadius: 1

@@ -221,24 +221,42 @@ namespace Basis.Scripts.BasisSdk.Highlight
             int glowIterations = Mathf.Max(0, _settings.glowIterations);
             if (glowIterations > 0 && _settings.glowIntensity > 0f)
             {
+                // The halo carries nothing the mask resolution is protecting - the composite feathers it
+                // against the ring's outer edge and never reads a hard boundary out of it - so the gaussian
+                // runs at half the mask's resolution and the composite's bilinear read puts it back. That is
+                // a quarter of the fragments across every glow blit, and at the shipped desktop settings
+                // (two iterations, four blits) the glow is the largest single cost in the chain.
+                //
+                // The kernel offsets come from the SOURCE texel size, so the extent has to be kept by hand:
+                // the first blit still reads the mask-resolution dilated texture and keeps the authored
+                // radius, every blit after it reads a texture with twice the texel size and halves it. All
+                // nine taps then land on the screen positions they occupied before, so the halo keeps its
+                // width rather than doubling it.
+                RenderTextureDescriptor glowDesc = maskDesc;
+                glowDesc.width = Mathf.Max(1, maskDesc.width / 2);
+                glowDesc.height = Mathf.Max(1, maskDesc.height / 2);
+
                 TextureHandle bufA = UniversalRenderer.CreateRenderGraphTexture(
-                    renderGraph, maskDesc, "_BasisHighlightBlurA", clear: false);
+                    renderGraph, glowDesc, "_BasisHighlightBlurA", clear: false);
                 TextureHandle bufB = UniversalRenderer.CreateRenderGraphTexture(
-                    renderGraph, maskDesc, "_BasisHighlightBlurB", clear: false);
+                    renderGraph, glowDesc, "_BasisHighlightBlurB", clear: false);
 
                 TextureHandle src = dilated;
                 TextureHandle dst = bufA;
-                float glowRadius = _settings.glowRadius;
+                float maskResRadius = _settings.glowRadius;
+                float glowResRadius = _settings.glowRadius * 0.5f;
+                bool readingMaskRes = true;
 
                 for (int i = 0; i < glowIterations; i++)
                 {
                     Blit1D(renderGraph, src, dst, _settings.blurMaterial, PassBlurH,
-                        glowRadius, 0f, "BasisHighlight BlurH");
+                        readingMaskRes ? maskResRadius : glowResRadius, 0f, "BasisHighlight BlurH");
+                    readingMaskRes = false;
                     src = dst;
                     dst = src.Equals(bufA) ? bufB : bufA;
 
                     Blit1D(renderGraph, src, dst, _settings.blurMaterial, PassBlurV,
-                        glowRadius, 0f, "BasisHighlight BlurV");
+                        glowResRadius, 0f, "BasisHighlight BlurV");
                     src = dst;
                     dst = src.Equals(bufA) ? bufB : bufA;
                 }

@@ -503,6 +503,84 @@ half3 SubtractDirectMainLightFromLightmap(Light mainLight, half3 normalWS, half3
     return min(bakedGI, realtimeShadow);
 }
 
+// Basis fork addition. Ambient occlusion is a cosine weighted visibility average over the whole hemisphere,
+// so multiplying environment specular by it - which is what `return color * occlusion` did below, with the
+// occlusion argument to GlossyEnvironmentReflection pinned to 1 so the multiply landed on diffuse and
+// specular alike - darkens a narrow reflection lobe by as much as it darkens diffuse. A polished floor in a
+// corner loses its reflection, and smooth surfaces are exactly the ones where the reflection is the thing
+// you see. Ray traced AO makes this worse rather than better, because it resolves the small scale contact
+// darkening that a coarse SSAO term never had.
+//
+// A specular lobe only samples a cone whose width follows roughness, so how much of the occluded hemisphere
+// it overlaps follows roughness too: at roughness 1 the cone is the hemisphere and specular occlusion is
+// just AO, at roughness 0 it is a single direction and almost nothing occludes it. This is Lagarde's
+// approximation from "Moving Frostbite to PBR" with the view angle folded in, so a grazing view - where the
+// lobe skims along the surface and really does pick up its neighbours - occludes more than a head on one.
+//
+// _AmbientOcclusionParam.y scales the result back towards unoccluded specular, for content authored against
+// a pipeline that never occluded it at all. 1 is the physical answer and the default; the old behaviour is
+// not on the dial, because the old behaviour is the bug. Everything that writes this vector writes 1 unless
+// a renderer explicitly asked otherwise - see BasisRTAOSettings.specularOcclusionRelief for why the authored
+// side of that knob is phrased as its complement.
+// The exponent runs down to exp2(-17), which is a subnormal in true fp16, so the curve is evaluated at
+// float precision and narrowed once at the end rather than being computed in half.
+half GetSpecularOcclusion(half NoV, half ambientOcclusion, half roughness)
+{
+    float ao = ambientOcclusion;
+    float specularOcclusion = saturate(PositivePow(NoV + ao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ao);
+    return lerp(half(1.0), half(specularOcclusion), _AmbientOcclusionParam.y);
+}
+
+// Basis fork addition. Ray traced reflections, published by com.basis.globalillumination's specular pass
+// before the opaque draws, consumed here in place of the reflection probe.
+//
+// Uniform gated rather than keyword gated on purpose. A global keyword would mean a multi_compile on Lit,
+// SimpleLit, ComplexLit and every ShaderGraph lit target, which doubles their variant count for a feature
+// most frames do not use - and this project already spends real effort stripping variants. The branch below
+// is on a uniform, so it is coherent across an entire draw and costs a scalar compare when it is off.
+//
+// x gates the effect; y is the reciprocal of the roughness at which the traced mirror ray stops being a
+// usable stand-in for the lobe. Both are zero when nothing published a reflection this frame, which is what
+// makes the untouched case free.
+TEXTURE2D_X(_BasisGISpecularTexture);
+half4 _BasisGISpecularParams;
+
+/// <summary>
+/// Blends the traced reflection over the probe reflection.
+///
+/// The trace is a mirror ray - it has no way to know the roughness of the surface it left, because that
+/// would need a GBuffer and avatar shaders do not write one. This function is where that missing half comes
+/// back: the lit shader does know its own roughness, so it decides how much of the exact answer applies.
+/// A mirror takes all of it, a rough surface takes none and keeps the probe, and everything between is a
+/// blend so there is no visible line across a surface whose roughness varies.
+///
+/// Alpha carries the trace's confidence: pixels whose reflection ray found neither geometry nor a sky, and
+/// pixels the upsample could not resolve against a neighbour on the same surface, come back at zero and
+/// keep the probe rather than reflecting a black hole.
+/// </summary>
+half3 BasisSampleTracedReflection(half3 probeSpecular, float2 normalizedScreenSpaceUV, half perceptualRoughness, half specularOcclusion)
+{
+    // Transparents are drawn after the reflection buffer is built and are not in the depth it was
+    // reconstructed from, so a lookup here would hand them the reflection of whatever opaque surface sits
+    // behind them.
+    #if defined(_SURFACE_TYPE_TRANSPARENT)
+        return probeSpecular;
+    #else
+        UNITY_BRANCH
+        if (_BasisGISpecularParams.x <= 0.0h) { return probeSpecular; }
+
+        float2 uv = UnityStereoTransformScreenSpaceTex(normalizedScreenSpaceUV);
+        half4 traced = half4(SAMPLE_TEXTURE2D_X_LOD(_BasisGISpecularTexture, sampler_LinearClamp, uv, 0));
+
+        half roughnessWeight = saturate(1.0h - perceptualRoughness * _BasisGISpecularParams.y);
+        half weight = traced.a * roughnessWeight * _BasisGISpecularParams.x;
+
+        // The traced radiance is occluded by the same term the probe reflection is. It is the surface's own
+        // contact occlusion and it applies to a reflection whatever the reflection was gathered from.
+        return lerp(probeSpecular, traced.rgb * specularOcclusion, weight);
+    #endif
+}
+
 half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float clearCoatMask,
     half3 bakedGI, half occlusion, float3 positionWS,
     half3 normalWS, half3 viewDirectionWS, float2 normalizedScreenSpaceUV)
@@ -511,18 +589,30 @@ half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float cl
     half NoV = saturate(dot(normalWS, viewDirectionWS));
     half fresnelTerm = Pow4(1.0 - NoV);
 
-    half3 indirectDiffuse = bakedGI;
-    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h, normalizedScreenSpaceUV);
+    // Basis fork addition. Each term carries the occlusion that belongs to it, so nothing is applied to the
+    // combined result afterwards. GlossyEnvironmentReflection already multiplies by the occlusion it is
+    // handed, which is why the specular term needs no second multiply here.
+    half3 indirectDiffuse = bakedGI * occlusion;
+    half specularOcclusion = GetSpecularOcclusion(NoV, occlusion, brdfData.roughness);
+    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfData.perceptualRoughness, specularOcclusion, normalizedScreenSpaceUV);
+    indirectSpecular = BasisSampleTracedReflection(indirectSpecular, normalizedScreenSpaceUV, brdfData.perceptualRoughness, specularOcclusion);
 
     half3 color = EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
 
     if (IsOnlyAOLightingFeatureEnabled())
     {
-        color = half3(1,1,1); // "Base white" for AO debug lighting mode
+        // Basis fork addition. Returns here rather than falling through, so the AO debug view stays a view
+        // of the AO term. Previously the clear coat branch below added a coat reflection on top of the
+        // "base white", and that reflection is not ambient occlusion.
+        return half3(1,1,1) * occlusion; // "Base white" for AO debug lighting mode
     }
 
 #if defined(_CLEARCOAT) || defined(_CLEARCOATMAP)
-    half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfDataClearCoat.perceptualRoughness, 1.0h, normalizedScreenSpaceUV);
+    half coatSpecularOcclusion = GetSpecularOcclusion(NoV, occlusion, brdfDataClearCoat.roughness);
+    half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfDataClearCoat.perceptualRoughness, coatSpecularOcclusion, normalizedScreenSpaceUV);
+    // Basis fork addition. A clear coat is the smoothest layer on the surface, so it is the one the traced
+    // reflection has most to offer.
+    coatIndirectSpecular = BasisSampleTracedReflection(coatIndirectSpecular, normalizedScreenSpaceUV, brdfDataClearCoat.perceptualRoughness, coatSpecularOcclusion);
     // TODO: "grazing term" causes problems on full roughness
     half3 coatColor = EnvironmentBRDFClearCoat(brdfDataClearCoat, clearCoatMask, coatIndirectSpecular, fresnelTerm);
 
@@ -530,9 +620,9 @@ half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float cl
     // Smooth surface & "ambiguous" lighting
     // NOTE: fresnelTerm (above) is pow4 instead of pow5, but should be ok as blend weight.
     half coatFresnel = kDielectricSpec.x + kDielectricSpec.a * fresnelTerm;
-    return (color * (1.0 - coatFresnel * clearCoatMask) + coatColor) * occlusion;
+    return color * (1.0 - coatFresnel * clearCoatMask) + coatColor;
 #else
-    return color * occlusion;
+    return color;
 #endif
 }
 
@@ -560,13 +650,14 @@ half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float cl
     half NoV = saturate(dot(normalWS, viewDirectionWS));
     half fresnelTerm = Pow4(1.0 - NoV);
 
-    half3 indirectDiffuse = bakedGI;
-    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfData.perceptualRoughness, half(1.0));
+    // Basis fork addition. Same split as the positionWS overload above - see GetSpecularOcclusion.
+    half3 indirectDiffuse = bakedGI * occlusion;
+    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfData.perceptualRoughness, GetSpecularOcclusion(NoV, occlusion, brdfData.roughness));
 
     half3 color = EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
 
 #if defined(_CLEARCOAT) || defined(_CLEARCOATMAP)
-    half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfDataClearCoat.perceptualRoughness, half(1.0));
+    half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfDataClearCoat.perceptualRoughness, GetSpecularOcclusion(NoV, occlusion, brdfDataClearCoat.roughness));
     // TODO: "grazing term" causes problems on full roughness
     half3 coatColor = EnvironmentBRDFClearCoat(brdfDataClearCoat, clearCoatMask, coatIndirectSpecular, fresnelTerm);
 
@@ -574,9 +665,9 @@ half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float cl
     // Smooth surface & "ambiguous" lighting
     // NOTE: fresnelTerm (above) is pow4 instead of pow5, but should be ok as blend weight.
     half coatFresnel = kDielectricSpec.x + kDielectricSpec.a * fresnelTerm;
-    return (color * (1.0 - coatFresnel * clearCoatMask) + coatColor) * occlusion;
+    return color * (1.0 - coatFresnel * clearCoatMask) + coatColor;
 #else
-    return color * occlusion;
+    return color;
 #endif
 }
 

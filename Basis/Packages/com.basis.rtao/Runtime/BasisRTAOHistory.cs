@@ -106,7 +106,7 @@ namespace Basis.Rendering.RTAO
             for (int i = 0; i < 2; i++)
             {
                 entry.visibilityTextures[i] = CreateTexture(width, height, viewCount, GraphicsFormat.R16G16B16A16_SFloat, $"BasisRTAOHistory_{cameraName}_{i}");
-                entry.depthTextures[i] = CreateTexture(width, height, viewCount, GraphicsFormat.R32_SFloat, $"BasisRTAOHistoryDepth_{cameraName}_{i}");
+                entry.depthTextures[i] = CreateTexture(width, height, viewCount, GraphicsFormat.R16G16_SFloat, $"BasisRTAOHistoryDepth_{cameraName}_{i}");
                 entry.visibility[i] = RTHandles.Alloc(entry.visibilityTextures[i]);
                 entry.depth[i] = RTHandles.Alloc(entry.depthTextures[i]);
             }

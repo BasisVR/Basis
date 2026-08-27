@@ -121,7 +121,8 @@ half4 _MainLightOcclusionProbes;
 uint _MainLightLayerMask;
 
 // x: SSAO Enabled/Disabled (Needed for situations when OFF keyword is stripped out but feature disabled in runtime)
-// yz are currently unused
+// y: specular occlusion strength (Basis fork addition - see GetSpecularOcclusion in GlobalIllumination.hlsl)
+// z is currently unused
 // w: directLightStrength
 half4 _AmbientOcclusionParam;
 

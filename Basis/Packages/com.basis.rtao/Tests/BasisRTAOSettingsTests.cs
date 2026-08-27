@@ -130,13 +130,50 @@ namespace Basis.Rendering.RTAO.Tests
         {
             BasisRTAOSettings settings = BasisRTAOSettings.Default;
             settings.directLightingStrength = 4f;
+            settings.specularOcclusionRelief = -2f;
             settings.temporalMinAlpha = -1f;
             settings.temporalNormalTolerance = 3f;
             BasisRTAOSettings validated = settings.Validated();
 
             Assert.AreEqual(1f, validated.directLightingStrength);
+            Assert.AreEqual(0f, validated.specularOcclusionRelief);
             Assert.AreEqual(0f, validated.temporalMinAlpha);
             Assert.AreEqual(1f, validated.temporalNormalTolerance);
+        }
+
+        /// <summary>
+        /// The whole point of phrasing this as relief rather than strength: Unity deserialises a field an
+        /// asset predates as zero, so zero has to be the physical answer. If this ever flips to a non-zero
+        /// default, every renderer asset already saved silently loses specular occlusion - and it loses it
+        /// invisibly, because the picture still looks plausible.
+        /// </summary>
+        [Test]
+        public void SpecularOcclusionReliefDefaultsToZeroSoOldAssetsGetThePhysicalAnswer()
+        {
+            Assert.AreEqual(0f, BasisRTAOSettings.Default.specularOcclusionRelief, 1e-4f);
+            Assert.AreEqual(0f, default(BasisRTAOSettings).specularOcclusionRelief, 1e-4f,
+                "an asset saved before the field existed deserialises to default(struct)");
+
+            foreach (BasisRTAOQuality quality in System.Enum.GetValues(typeof(BasisRTAOQuality)))
+            {
+                Assert.AreEqual(0f, BasisRTAOSettings.FromQuality(quality).specularOcclusionRelief, 1e-4f, $"quality {quality}");
+            }
+        }
+
+        // A quality tier decides how many rays are cast, not how the shading looks, and specular occlusion
+        // is a look. It has to survive the preset merge at every tier or the authored value is silently
+        // replaced by whatever the preset happens to carry.
+        [Test]
+        public void SpecularOcclusionReliefSurvivesCostMerge()
+        {
+            BasisRTAOSettings authored = BasisRTAOSettings.Default;
+            authored.specularOcclusionRelief = 0.25f;
+
+            foreach (BasisRTAOQuality quality in System.Enum.GetValues(typeof(BasisRTAOQuality)))
+            {
+                BasisRTAOSettings merged = authored.WithCostFrom(BasisRTAOSettings.FromQuality(quality));
+                Assert.AreEqual(0.25f, merged.specularOcclusionRelief, 1e-4f, $"quality {quality} overwrote the authored value");
+            }
         }
 
         [Test]

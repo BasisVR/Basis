@@ -6,9 +6,18 @@ using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.UnifiedRayTracing;
 using UnityEngine.Rendering.Universal;
 
-public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
+// Partial so the reflection pass can live in its own file and still reach the shader id table, the stage
+// enum and the Execute switch this one owns. See BasisGlobalIlluminationSpecularPass.cs for why reflections
+// need a second pass rather than another stage of this one.
+public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 {
     public const int PassTrace = 0, PassTemporal = 1, PassBlur = 2, PassComposite = 3, PassDebug = 4, PassCopyColor = 5;
+    public const int PassSpecularUpsample = 6;
+    public const int PassCoarseSeed = 7, PassCoarseReduce = 8;
+    // How many traced texels one texel of the finished coarse summary stands for. Eight is the point
+    // where a cell is big enough that skipping one is worth the tap that decided it, and still small
+    // enough that the fine walk inside a cell it cannot rule out is only eight steps long.
+    public const int CoarseBlock = 8;
     public const int PassRayPrepass = 0, PassRayResolve = 1;
     public const int MaxEmitters = 48;
     public const int HistoryMaxAge = 60;
@@ -30,14 +39,14 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
     // scaled, not ignored - so a player who wants a snappier bounce still gets one.
     public const float RayTemporalResponseScale = 0.35f;
 
-    private enum Stage { CopyColor, Trace, Temporal, Blur, Composite, RayPrepass, RayResolve }
+    private enum Stage { CopyColor, Trace, Temporal, Blur, Composite, RayPrepass, RayResolve, Coarse }
 
     private sealed class PassData
     {
         public Stage stage;
         public Material material;
         public int materialPass;
-        public TextureHandle source, sceneColor, indirect, history, historyStats, normals, rayResult, stats;
+        public TextureHandle source, sceneColor, indirect, history, historyStats, normals, motion, rayResult, stats;
         public Vector4 blurAxis;
         public bool historyValid, statsValid;
         public Matrix4x4[] previousViewProjection;
@@ -48,22 +57,35 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         public Vector4[] emitterSpheres, emitterRadiance;
         public Vector4 rayReference, rayFullSize;
         public int rayScale;
+        public TextureHandle coarse;
+        public Vector4 coarseTexelSize, coarseParams;
+        public bool coarseValid;
     }
 
     private sealed class RayTraceData
     {
         public BasisGlobalIlluminationRayTracer tracer;
-        public TextureHandle position, normal, result;
+        public TextureHandle position, normal, result, specular;
         public Texture skyCube;
-        public Vector4 reference, size, trace, bias, options, sky, skyDecode;
+        public Vector4 reference, size, trace, bias, options, sky, skyDecode, specularParams;
         public int rayCount, bounces, lightCount, lightSamples, viewCount, frameIndex;
         public int width, height;
+        // The kernel serves both gathers from one entry point, and the two passes that use it want different
+        // halves. Render graph pools this object and does not clear it between frames, so both flags are
+        // written explicitly at every call site rather than relying on a field initialiser that only ever
+        // runs on the first allocation.
+        public bool diffuseEnabled;
+        public bool specularEnabled;
     }
 
     private static readonly int idSceneColor = Shader.PropertyToID("_BasisGISceneColor");
     private static readonly int idIndirect = Shader.PropertyToID("_BasisGIIndirect");
     private static readonly int idHistory = Shader.PropertyToID("_BasisGIHistory");
     private static readonly int idHistoryStats = Shader.PropertyToID("_BasisGIHistoryStats");
+    private static readonly int idMotion = Shader.PropertyToID("_BasisGIMotion");
+    private static readonly int idCoarseDepth = Shader.PropertyToID("_BasisGICoarseDepth");
+    private static readonly int idCoarseTexelSize = Shader.PropertyToID("_BasisGICoarseTexelSize");
+    private static readonly int idCoarseParams = Shader.PropertyToID("_BasisGICoarseParams");
     private static readonly int idStats = Shader.PropertyToID("_BasisGIStats");
     private static readonly int idStatsValid = Shader.PropertyToID("_BasisGIStatsValid");
     private static readonly int idNormals = Shader.PropertyToID("_BasisGINormals");
@@ -115,6 +137,7 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly ProfilingSampler samplerRayTrace = new ProfilingSampler("Basis GI Ray Trace");
     private static readonly ProfilingSampler samplerRayResolve = new ProfilingSampler("Basis GI Ray Resolve");
     private static readonly ProfilingSampler samplerCopy = new ProfilingSampler("Basis GI Copy Color");
+    private static readonly ProfilingSampler samplerCoarse = new ProfilingSampler("Basis GI Coarse Depth");
     private static readonly ProfilingSampler samplerTrace = new ProfilingSampler("Basis GI Trace");
     private static readonly ProfilingSampler samplerTemporal = new ProfilingSampler("Basis GI Temporal");
     private static readonly ProfilingSampler samplerBlur = new ProfilingSampler("Basis GI Blur");
@@ -125,6 +148,7 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly List<BasisGlobalIlluminationEmitter> emitterScratch = new List<BasisGlobalIlluminationEmitter>();
     private readonly Matrix4x4[] previousViewProjection = new Matrix4x4[2];
     private readonly Vector4[] constants = new Vector4[4];
+    private Vector4 coarseTexelSize;
 
     private Material material;
     private Material rayStagesMaterial;
@@ -133,6 +157,7 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
     private bool rayComputeFallback;
     public BasisGlobalIlluminationDebugView DebugView;
     public bool UseNormalsTexture;
+    public bool UseMotionVectors;
     public bool RayTracingAvailable;
     private bool loggedRayTracingFallback;
     private bool loggedComputeBackend;
@@ -184,7 +209,9 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
         UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
         BasisGlobalIlluminationVolume volume = VolumeManager.instance.stack.GetComponent<BasisGlobalIlluminationVolume>();
-        if (volume == null || !volume.IsActive()) { return; }
+        // DiffuseActive, not IsActive: IsActive is now true for a volume that only asked for reflections,
+        // and those are recorded by SpecularPass at a different point in the frame.
+        if (volume == null || !volume.DiffuseActive()) { return; }
         if (!resourceData.cameraColor.IsValid() || !resourceData.cameraDepthTexture.IsValid()) { return; }
 
         Camera camera = cameraData.camera;
@@ -200,7 +227,13 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         history.EnsureAllocated(descriptor, tracedWidth, tracedHeight);
         bool historyValid = volume.temporalFilter.value && history.Valid && contiguous;
 
-        ApplyKeywords(volume);
+        // Requesting Motion is not the same as getting it: a camera type URP renders no motion pass for
+        // still resolves to an invalid handle, and the reprojection has to fall back to the matrix rather
+        // than read an unbound texture. The keyword follows the handle, not the setting, for that reason.
+        TextureHandle motion = UseMotionVectors && resourceData.motionVectorColor.IsValid() ? resourceData.motionVectorColor : TextureHandle.nullHandle;
+        bool motionValid = motion.IsValid();
+
+        ApplyKeywords(volume, motionValid);
 
         RenderTextureDescriptor sceneColorDescriptor = descriptor;
         sceneColorDescriptor.width = tracedWidth;
@@ -280,6 +313,10 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
             }
 
+            TextureHandle coarse = volume.hierarchicalMarch.value
+                ? RecordCoarseDepth(renderGraph, resourceData, descriptor, tracedWidth, tracedHeight, divisor)
+                : TextureHandle.nullHandle;
+
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Trace", out PassData passData, samplerTrace))
             {
                 passData.stage = Stage.Trace;
@@ -288,9 +325,14 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
                 passData.source = sceneColor;
                 passData.sceneColor = sceneColor;
                 passData.normals = normals;
+                passData.coarse = coarse;
+                passData.coarseValid = coarse.IsValid();
+                passData.coarseTexelSize = coarseTexelSize;
+                passData.coarseParams = new Vector4(0f, 0f, 0f, CoarseBlock);
                 builder.SetRenderAttachment(traced, 0, AccessFlags.WriteAll);
                 builder.UseTexture(sceneColor);
                 builder.UseTexture(resourceData.cameraDepthTexture);
+                if (coarse.IsValid()) { builder.UseTexture(coarse); }
                 if (normals.IsValid()) { builder.UseTexture(normals); }
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
@@ -310,6 +352,7 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
                 passData.history = historyRead;
                 passData.historyStats = historyReadStats;
                 passData.historyValid = historyValid;
+                passData.motion = motion;
                 passData.previousViewProjection = previousViewProjection;
                 previousViewProjection[0] = history.PreviousViewProjection[0];
                 previousViewProjection[1] = history.PreviousViewProjection[1];
@@ -319,6 +362,7 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
                 builder.UseTexture(historyRead);
                 builder.UseTexture(historyReadStats);
                 builder.UseTexture(resourceData.cameraDepthTexture);
+                if (motionValid) { builder.UseTexture(motion); }
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
             }
@@ -349,8 +393,15 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
             passData.source = denoiseSource;
             passData.indirect = denoiseSource;
             passData.normals = normals;
+            // The upsample takes each traced parent's depth out of the statistics that parent wrote, rather
+            // than out of the full resolution depth texture. Anything else that calls BasisGIUpsample has to
+            // bind these two as well - the shader falls back to the depth texture when the valid flag is
+            // clear, but not when it is left set by whichever pass ran before it.
+            passData.stats = historyWriteStats;
+            passData.statsValid = statsValid;
             builder.SetRenderAttachment(resourceData.cameraColor, 0, AccessFlags.ReadWrite);
             builder.UseTexture(denoiseSource);
+            builder.UseTexture(historyWriteStats);
             builder.UseTexture(resourceData.cameraDepthTexture);
             if (normals.IsValid()) { builder.UseTexture(normals); }
             builder.AllowGlobalStateModification(true);
@@ -476,6 +527,10 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
             data.options = new Vector4(volume.fireflyClamp.value, RayBounceThreshold, volume.rayTracedShadows.value ? 1f : 0f, 0f);
             data.sky = new Vector4(sky.Mip, sky.IsValid ? sky.Intensity : 0f, 0f, 0f);
             data.skyDecode = sky.Decode;
+            data.specularParams = Vector4.zero;
+            data.specular = result;
+            data.diffuseEnabled = true;
+            data.specularEnabled = false;
             data.rayCount = rayCount;
             data.bounces = bounces;
             data.lightCount = tracer.Lights.Count;
@@ -532,7 +587,11 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         shader.SetAccelerationStructure(cmd, RtAccelName, scene.AccelerationStructure);
         shader.SetTextureParam(cmd, idRtPositionTex, data.position);
         shader.SetTextureParam(cmd, idRtNormalTex, data.normal);
-        shader.SetTextureParam(cmd, idRtResultTex, data.result);
+        // Both outputs are declared in the kernel whether or not this dispatch writes them, and an unbound
+        // RWTexture is a device removal on some backends rather than a silently ignored write - so whichever
+        // half is off still gets the other half's target bound to it. The enables are what stop the write.
+        shader.SetTextureParam(cmd, idRtResultTex, data.diffuseEnabled ? data.result : data.specular);
+        shader.SetTextureParam(cmd, idRtSpecularTex, data.specularEnabled ? data.specular : data.result);
         if (data.skyCube != null) { shader.SetTextureParam(cmd, idRtSkyCube, data.skyCube); }
 
         shader.SetBufferParam(cmd, idRtInstances, scene.InstanceBuffer);
@@ -547,6 +606,9 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         shader.SetVectorParam(cmd, idRtOptions, data.options);
         shader.SetVectorParam(cmd, idRtSky, data.sky);
         shader.SetVectorParam(cmd, idRtSkyDecode, data.skyDecode);
+        shader.SetVectorParam(cmd, idRtSpecular, data.specularParams);
+        shader.SetIntParam(cmd, idRtDiffuseEnabled, data.diffuseEnabled ? 1 : 0);
+        shader.SetIntParam(cmd, idRtSpecularEnabled, data.specularEnabled ? 1 : 0);
         shader.SetIntParam(cmd, idRtRayCount, data.rayCount);
         shader.SetIntParam(cmd, idRtBounces, data.bounces);
         shader.SetIntParam(cmd, idRtLightCount, data.lightCount);
@@ -556,6 +618,79 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
 
         GraphicsBuffer scratch = tracer.Context.GetTraceScratch(data.width, data.height, data.viewCount);
         shader.Dispatch(cmd, scratch, (uint)data.width, (uint)data.height, (uint)data.viewCount);
+    }
+
+    /// <summary>
+    /// Builds the coarse depth summary the hierarchical march skips through: one texel for every
+    /// <see cref="CoarseBlock"/> traced texels, carrying the closest and the furthest real surface beneath it.
+    ///
+    /// Two passes, and the reason each reads a DIFFERENT texture is worth stating, because the obvious
+    /// implementations of this are both wrong. Folding full resolution straight down to a block of sixty
+    /// four would put hundreds of taps in a single fragment and leave the machine idle while a handful of
+    /// threads did all the work. Folding through the mip chain of ONE texture would have a pass sampling
+    /// the level below the level it is writing - render graph rejects that outright as a resource used for
+    /// input and output at once, and it is a real read-write hazard even where a validator lets it past.
+    /// Two plain textures have neither problem and cost a few hundred kilobytes.
+    /// </summary>
+    private TextureHandle RecordCoarseDepth(RenderGraph renderGraph, UniversalResourceData resourceData,
+        in RenderTextureDescriptor descriptor, int tracedWidth, int tracedHeight, int divisor)
+    {
+        int seedWidth = Mathf.Max(1, (tracedWidth + 1) / 2);
+        int seedHeight = Mathf.Max(1, (tracedHeight + 1) / 2);
+        int coarseWidth = Mathf.Max(1, (seedWidth + 3) / 4);
+        int coarseHeight = Mathf.Max(1, (seedHeight + 3) / 4);
+
+        RenderTextureDescriptor coarseDescriptor = descriptor;
+        coarseDescriptor.msaaSamples = 1;
+        coarseDescriptor.depthStencilFormat = GraphicsFormat.None;
+        coarseDescriptor.depthBufferBits = 0;
+        coarseDescriptor.useMipMap = false;
+        coarseDescriptor.autoGenerateMips = false;
+        // Two channels of half. Eye depth resolves to about a twentieth of a percent there, and what this
+        // feeds is a conservative "could anything in this block be hit" test with the thickness setting
+        // already sitting between it and a wrong answer.
+        coarseDescriptor.graphicsFormat = GraphicsFormat.R16G16_SFloat;
+
+        coarseDescriptor.width = seedWidth;
+        coarseDescriptor.height = seedHeight;
+        TextureHandle seed = UniversalRenderer.CreateRenderGraphTexture(renderGraph, coarseDescriptor, "_BasisGICoarseSeed", false, FilterMode.Point, TextureWrapMode.Clamp);
+
+        coarseDescriptor.width = coarseWidth;
+        coarseDescriptor.height = coarseHeight;
+        TextureHandle coarse = UniversalRenderer.CreateRenderGraphTexture(renderGraph, coarseDescriptor, "_BasisGICoarseDepth", false, FilterMode.Point, TextureWrapMode.Clamp);
+
+        coarseTexelSize = new Vector4(1f / coarseWidth, 1f / coarseHeight, coarseWidth, coarseHeight);
+
+        using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Coarse Seed", out PassData passData, samplerCoarse))
+        {
+            passData.stage = Stage.Coarse;
+            passData.material = material;
+            passData.materialPass = PassCoarseSeed;
+            passData.source = resourceData.cameraDepthTexture;
+            passData.coarseParams = new Vector4(2 * divisor, descriptor.width, descriptor.height, CoarseBlock);
+            passData.coarseValid = false;
+            builder.SetRenderAttachment(seed, 0, AccessFlags.WriteAll);
+            builder.UseTexture(resourceData.cameraDepthTexture);
+            builder.AllowGlobalStateModification(true);
+            builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
+        }
+
+        using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Coarse Reduce", out PassData passData, samplerCoarse))
+        {
+            passData.stage = Stage.Coarse;
+            passData.material = material;
+            passData.materialPass = PassCoarseReduce;
+            passData.source = seed;
+            passData.coarse = seed;
+            passData.coarseValid = true;
+            passData.coarseParams = new Vector4(4, seedWidth, seedHeight, CoarseBlock);
+            builder.SetRenderAttachment(coarse, 0, AccessFlags.WriteAll);
+            builder.UseTexture(seed);
+            builder.AllowGlobalStateModification(true);
+            builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
+        }
+
+        return coarse;
     }
 
     private TextureHandle RecordBlur(RenderGraph renderGraph, UniversalResourceData resourceData, TextureHandle source, TextureHandle target,
@@ -594,8 +729,9 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         target[1] = stereo ? ComputeViewProjection(cameraData, 1) : target[0];
     }
 
-    private void ApplyKeywords(BasisGlobalIlluminationVolume volume)
+    private void ApplyKeywords(BasisGlobalIlluminationVolume volume, bool motionValid)
     {
+        CoreUtils.SetKeyword(material, "_BASISGI_MOTION_VECTORS", motionValid);
         bool normalsTexture = UseNormalsTexture && volume.normalSource.value == BasisGlobalIlluminationNormalSource.NormalsTexture;
         CoreUtils.SetKeyword(material, "_BASISGI_NORMALS_TEXTURE", normalsTexture);
         CoreUtils.SetKeyword(material, "_BASISGI_FALLBACK_SKY", volume.fallback.value == BasisGlobalIlluminationFallback.Sky);
@@ -604,6 +740,7 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         CoreUtils.SetKeyword(material, "_BASISGI_EMITTER_OCCLUSION", volume.emitters.value && volume.emitterOcclusion.value);
         CoreUtils.SetKeyword(material, "_BASISGI_RAY_REUSE", volume.rayReuse.value);
         CoreUtils.SetKeyword(material, "_BASISGI_HIT_NORMAL", volume.quality.value >= BasisGlobalIlluminationQuality.High);
+        CoreUtils.SetKeyword(material, "_BASISGI_HIERARCHICAL_MARCH", volume.hierarchicalMarch.value);
         CoreUtils.SetKeyword(material, "_BASISGI_NEIGHBOURHOOD_CLAMP", volume.neighbourhoodClamp.value);
         CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", volume.bilateralUpsample.value && volume.ResolvedResolutionDivisor() > 1);
     }
@@ -677,14 +814,25 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
             case Stage.RayResolve:
                 cmd.SetGlobalTexture(idRtResolveSource, data.rayResult);
                 break;
+            case Stage.Coarse:
+                cmd.SetGlobalVector(idCoarseParams, data.coarseParams);
+                if (data.coarseValid) { cmd.SetGlobalTexture(idCoarseDepth, data.coarse); }
+                break;
             case Stage.Trace:
                 cmd.SetGlobalTexture(idSceneColor, data.sceneColor);
+                if (data.coarseValid)
+                {
+                    cmd.SetGlobalTexture(idCoarseDepth, data.coarse);
+                    cmd.SetGlobalVector(idCoarseTexelSize, data.coarseTexelSize);
+                    cmd.SetGlobalVector(idCoarseParams, data.coarseParams);
+                }
                 if (data.normals.IsValid()) { cmd.SetGlobalTexture(idNormals, data.normals); }
                 break;
             case Stage.Temporal:
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idHistory, data.history);
                 cmd.SetGlobalTexture(idHistoryStats, data.historyStats);
+                if (data.motion.IsValid()) { cmd.SetGlobalTexture(idMotion, data.motion); }
                 cmd.SetGlobalFloat(idHistoryValid, data.historyValid ? 1f : 0f);
                 cmd.SetGlobalMatrixArray(idPrevViewProjection, data.previousViewProjection);
                 break;
@@ -696,6 +844,8 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
                 break;
             case Stage.Composite:
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
+                cmd.SetGlobalTexture(idStats, data.stats);
+                cmd.SetGlobalFloat(idStatsValid, data.statsValid ? 1f : 0f);
                 if (data.normals.IsValid()) { cmd.SetGlobalTexture(idNormals, data.normals); }
                 break;
         }

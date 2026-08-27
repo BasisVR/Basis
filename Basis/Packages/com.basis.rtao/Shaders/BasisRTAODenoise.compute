@@ -8,11 +8,15 @@ Texture2DArray<float4> _BasisRtaoPositionTex;
 Texture2DArray<float4> _BasisRtaoNormalTex;
 Texture2DArray<float2> _BasisRtaoRawTex;
 Texture2DArray<float4> _BasisRtaoHistoryTex;
-Texture2DArray<float> _BasisRtaoHistoryDepthTex;
+Texture2DArray<float2> _BasisRtaoHistoryDepthTex;
 RWTexture2DArray<float4> _BasisRtaoTemporalOutTex;
-RWTexture2DArray<float> _BasisRtaoTemporalDepthOutTex;
+RWTexture2DArray<float2> _BasisRtaoTemporalDepthOutTex;
 
 Texture2DArray<float4> _BasisRtaoBlurSourceTex;
+// View depth in x and the accumulated mean hit distance in y, both written by the temporal pass. The
+// blur wants exactly those two numbers and nothing else the position texture carries, and this is a
+// quarter of its footprint per tap.
+Texture2DArray<float2> _BasisRtaoDepthTex;
 RWTexture2DArray<float4> _BasisRtaoBlurTargetTex;
 
 float4x4 _BasisRtaoPrevViewProj[2];
@@ -21,6 +25,7 @@ float4 _BasisRtaoPrevViewPlane[2];
 float4 _BasisRtaoReference;
 float4 _BasisRtaoSize;
 float4 _BasisRtaoTemporalParams;
+float4 _BasisRtaoTemporalClamp;
 float4 _BasisRtaoBlurParams;
 float4 _BasisRtaoBlurDirection;
 int _BasisRtaoViewCount;
@@ -30,6 +35,9 @@ int _BasisRtaoHasHistory;
 #define TEMPORAL_MIN_ALPHA _BasisRtaoTemporalParams.y
 #define TEMPORAL_DEPTH_TOLERANCE _BasisRtaoTemporalParams.z
 #define TEMPORAL_NORMAL_TOLERANCE _BasisRtaoTemporalParams.w
+
+#define TEMPORAL_CLAMP_GAMMA _BasisRtaoTemporalClamp.x
+#define TEMPORAL_CLAMP_FLOOR _BasisRtaoTemporalClamp.y
 
 #define BLUR_MAX_RADIUS _BasisRtaoBlurParams.x
 #define BLUR_MIN_RADIUS _BasisRtaoBlurParams.y
@@ -61,7 +69,7 @@ void BasisRTAOTemporal(uint3 id : SV_DispatchThreadID)
     if (packed.w < 0.5)
     {
         _BasisRtaoTemporalOutTex[id] = float4(1.0, TEMPORAL_MAX_FRAMES, 0.0, 0.0);
-        _BasisRtaoTemporalDepthOutTex[id] = 0.0;
+        _BasisRtaoTemporalDepthOutTex[id] = float2(0.0, 1.0);
         return;
     }
 
@@ -73,6 +81,7 @@ void BasisRTAOTemporal(uint3 id : SV_DispatchThreadID)
     float currentDepth = BasisRtaoViewDepth(_BasisRtaoViewPlane[id.z], positionWS);
 
     float historyVisibility = raw.x;
+    float historyHitDistance = raw.y;
     float frames = 0.0;
 
     if (_BasisRtaoHasHistory != 0)
@@ -98,6 +107,7 @@ void BasisRTAOTemporal(uint3 id : SV_DispatchThreadID)
                 float sumWeight = 0.0;
                 float sumVisibility = 0.0;
                 float sumFrames = 0.0;
+                float sumHitDistance = 0.0;
 
                 UNITY_UNROLL
                 for (int t = 0; t < 4; ++t)
@@ -106,10 +116,10 @@ void BasisRTAOTemporal(uint3 id : SV_DispatchThreadID)
                     if (any(tapCoord < 0) || any(tapCoord >= int2(_BasisRtaoSize.xy)))
                         continue;
 
-                    float tapDepth = _BasisRtaoHistoryDepthTex.Load(int4(tapCoord, id.z, 0));
-                    if (tapDepth <= 0.0)
+                    float2 tapDepth = _BasisRtaoHistoryDepthTex.Load(int4(tapCoord, id.z, 0));
+                    if (tapDepth.x <= 0.0)
                         continue;
-                    if (abs(tapDepth - prevDepth) > TEMPORAL_DEPTH_TOLERANCE * max(prevDepth, 1e-3))
+                    if (abs(tapDepth.x - prevDepth) > TEMPORAL_DEPTH_TOLERANCE * max(prevDepth, 1e-3))
                         continue;
 
                     float4 tapHistory = _BasisRtaoHistoryTex.Load(int4(tapCoord, id.z, 0));
@@ -119,23 +129,59 @@ void BasisRTAOTemporal(uint3 id : SV_DispatchThreadID)
                     sumWeight += weights[t];
                     sumVisibility += weights[t] * tapHistory.x;
                     sumFrames += weights[t] * tapHistory.y;
+                    sumHitDistance += weights[t] * tapDepth.y;
                 }
 
                 if (sumWeight > 1e-4)
                 {
                     float rcpWeight = 1.0 / sumWeight;
                     historyVisibility = sumVisibility * rcpWeight;
+                    historyHitDistance = sumHitDistance * rcpWeight;
                     frames = min(sumFrames * rcpWeight + 1.0, TEMPORAL_MAX_FRAMES);
                 }
             }
         }
     }
 
+    // Reprojection carries the camera's motion and nothing else: it walks this frame's world position
+    // back through last frame's matrix, so a surface that stayed still while an avatar walked across it
+    // reprojects perfectly onto history that still holds the shadow the avatar has since left. Depth and
+    // normal both agree, so neither rejection test sees anything wrong, and the shadow drags for as many
+    // frames as the accumulation is long.
+    //
+    // So bound the history by what the neighbourhood is actually reading now. sigma is the spread of the
+    // raw estimate itself, which at a couple of rays per pixel is wide, and the floor keeps it wide even
+    // where nine taps happen to agree - the box is meant to catch history that disagrees with the frame
+    // outright, not to chase the noise. Confidence falls by how far the clamp had to move, so the blend
+    // opens up in the same breath rather than snapping.
+    if (TEMPORAL_CLAMP_GAMMA > 0.0 && frames > 0.0)
+    {
+        float sum = 0.0, sumSquares = 0.0;
+
+        UNITY_UNROLL
+        for (int t = 0; t < 9; ++t)
+        {
+            int2 tapCoord = clamp(int2(id.xy) + int2(t % 3 - 1, t / 3 - 1), int2(0, 0), int2(_BasisRtaoSize.xy) - 1);
+            float tapVisibility = _BasisRtaoRawTex.Load(int4(tapCoord, id.z, 0)).x;
+            sum += tapVisibility;
+            sumSquares += tapVisibility * tapVisibility;
+        }
+
+        float mean = sum * (1.0 / 9.0);
+        float sigma = max(TEMPORAL_CLAMP_FLOOR, sqrt(max(0.0, sumSquares * (1.0 / 9.0) - mean * mean)));
+        float extent = TEMPORAL_CLAMP_GAMMA * sigma;
+        float clamped = clamp(historyVisibility, mean - extent, mean + extent);
+
+        frames *= 1.0 - saturate(abs(clamped - historyVisibility) / max(1e-4, 2.0 * extent));
+        historyVisibility = clamped;
+    }
+
     float alpha = max(1.0 / (frames + 1.0), TEMPORAL_MIN_ALPHA);
     float visibility = saturate(lerp(historyVisibility, raw.x, alpha));
+    float hitDistance = saturate(lerp(historyHitDistance, raw.y, alpha));
 
     _BasisRtaoTemporalOutTex[id] = float4(visibility, frames, encodedNormal);
-    _BasisRtaoTemporalDepthOutTex[id] = currentDepth;
+    _BasisRtaoTemporalDepthOutTex[id] = float2(currentDepth, hitDistance);
 }
 
 [numthreads(8, 8, 1)]
@@ -145,18 +191,26 @@ void BasisRTAOBlur(uint3 id : SV_DispatchThreadID)
         return;
 
     float4 center = _BasisRtaoBlurSourceTex.Load(int4(id.xy, id.z, 0));
-    float4 centerPacked = _BasisRtaoPositionTex.Load(int4(id.xy, id.z, 0));
-    if (centerPacked.w < 0.5)
+    float2 centerDepth = _BasisRtaoDepthTex.Load(int4(id.xy, id.z, 0));
+    if (centerDepth.x <= 0.0)
     {
         _BasisRtaoBlurTargetTex[id] = center;
         return;
     }
 
-    float3 centerPosition = centerPacked.xyz;
     float3 centerNormal = BasisRtaoDecodeNormal(center.zw);
-    float centerDepth = BasisRtaoViewDepth(_BasisRtaoViewPlane[id.z], centerPosition + _BasisRtaoReference.xyz);
 
-    float radius = lerp(BLUR_MAX_RADIUS, BLUR_MIN_RADIUS, saturate(center.y / max(1.0, TEMPORAL_MAX_FRAMES)));
+    // Two things say how wide this pixel may be filtered and the narrower of them wins. Accumulated
+    // frames say how much noise is left to remove, and want the filter wide while there is none.
+    //
+    // The accumulated mean hit distance says how much detail the occlusion here has to lose: rays that
+    // all struck within a centimetre describe a shadow that varies over a centimetre, and filtering it
+    // over the reach of one whose rays flew the whole radius is exactly how a contact shadow becomes a
+    // smudge. That is the term the old radius was missing, and it is why the sharpest occlusion in the
+    // frame was the most heavily filtered part of it.
+    float confidence = saturate(center.y / max(1.0, TEMPORAL_MAX_FRAMES));
+    float reach = saturate(centerDepth.y);
+    float radius = min(lerp(BLUR_MAX_RADIUS, BLUR_MIN_RADIUS, confidence), lerp(BLUR_MIN_RADIUS, BLUR_MAX_RADIUS, reach));
     int steps = (int)max(0.0, round(radius));
     int stride = BLUR_STRIDE;
 
@@ -168,7 +222,7 @@ void BasisRTAOBlur(uint3 id : SV_DispatchThreadID)
 
     // A wider stride reaches across more geometry, so the edge stopping has to tighten with it or the
     // later iterations smear occlusion over creases the first iteration respected.
-    float depthSigma = max(1e-4, BLUR_DEPTH_SIGMA / float(stride));
+    float rcpDepthSigma = float(stride) / (max(1e-4, BLUR_DEPTH_SIGMA) * max(centerDepth.x, 1e-3));
     float normalPower = BLUR_NORMAL_POWER * float(stride);
 
     for (int offset = -steps; offset <= steps; ++offset)
@@ -180,17 +234,13 @@ void BasisRTAOBlur(uint3 id : SV_DispatchThreadID)
         if (any(tapCoord < 0) || any(tapCoord >= int2(_BasisRtaoSize.xy)))
             continue;
 
-        float4 tapPacked = _BasisRtaoPositionTex.Load(int4(tapCoord, id.z, 0));
-        if (tapPacked.w < 0.5)
+        float tapDepth = _BasisRtaoDepthTex.Load(int4(tapCoord, id.z, 0)).x;
+        if (tapDepth <= 0.0)
             continue;
 
         float4 tap = _BasisRtaoBlurSourceTex.Load(int4(tapCoord, id.z, 0));
-        float tapDepth = BasisRtaoViewDepth(_BasisRtaoViewPlane[id.z], tapPacked.xyz + _BasisRtaoReference.xyz);
-
-        float depthWeight = exp(-abs(tapDepth - centerDepth) / (depthSigma * max(centerDepth, 1e-3)));
         float normalWeight = pow(saturate(dot(BasisRtaoDecodeNormal(tap.zw), centerNormal)), normalPower);
-        float spatialWeight = exp(-float(offset * offset) * rcpTwoSigmaSq);
-        float weight = spatialWeight * depthWeight * normalWeight;
+        float weight = exp(-float(offset * offset) * rcpTwoSigmaSq - abs(tapDepth - centerDepth.x) * rcpDepthSigma) * normalWeight;
 
         sumWeight += weight;
         sumVisibility += weight * tap.x;

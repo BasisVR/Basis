@@ -48,23 +48,9 @@ void BasisRTAOScreenSpaceTrace(uint3 id : SV_DispatchThreadID)
     float3 normalWS = BasisRtaoDecodeNormal(_BasisRtaoNormalTex.Load(int4(id.xy, id.z, 0)).xy);
 
     float viewDistance = length(packed.xyz);
-    uint seed;
-    if (_BasisRtaoStereoCoherent != 0)
-    {
-        // A fixed world grid is many pixels across up close and sub pixel far away, so it reads as blocky
-        // patches on anything near the camera that quietly vanish with distance. Scaling the cell with view
-        // distance keeps it roughly one screen pixel everywhere, and both eyes still see the same distance
-        // for the same surface point, so they still agree on the seed.
-        float noiseCell = max(1e-5, _BasisRtaoBias.z * max(0.05, viewDistance));
-        int3 cell = int3(floor(positionWS / noiseCell));
-        seed = BasisRtaoHashCell(cell, (uint)_BasisRtaoFrameIndex);
-    }
-    else
-    {
-        seed = BasisRtaoHash(id.x * 1973u + id.y * 9277u + id.z * 26699u + (uint)_BasisRtaoFrameIndex * 6151u);
-    }
-    float rotation = BasisRtaoUnitFloat(seed) * 6.2831853071795864;
-    float2 jitter = float2(0.0, BasisRtaoUnitFloat(BasisRtaoHash(seed ^ 0x9e3779b9u)));
+    float2 sequence = BasisRtaoSampleJitter(positionWS, viewDistance, _BasisRtaoBias.z, id, (uint)_BasisRtaoFrameIndex, _BasisRtaoStereoCoherent != 0);
+    float rotation = sequence.x * 6.2831853071795864;
+    float2 jitter = float2(0.0, sequence.y);
 
     float radius = _BasisRtaoTrace.y;
     float viewDepth = max(1e-3, BasisRtaoViewDepth(_BasisRtaoViewPlane[id.z], positionWS));

@@ -25,7 +25,10 @@ Shader "Hidden/Basis/RTAO/Prepass"
 
             float4 _BasisRtaoReference;
             float4 _BasisRtaoFullSize;
+            float4 _BasisRtaoComposite;
             int _BasisRtaoScale;
+
+            #define COMPOSITE_FADE_END _BasisRtaoComposite.w
 
             struct FragOutput
             {
@@ -124,8 +127,15 @@ Shader "Hidden/Basis/RTAO/Prepass"
                     }
                 }
 
+                // Past the composite's fade end its output is exactly one whatever was traced, so marking
+                // those pixels as having no geometry skips the trace, the accumulation and the whole blur
+                // cascade for them rather than resolving an occlusion that is then multiplied by zero. The
+                // block picked the nearest of its four depths, so a block straddling the boundary keeps
+                // whichever part of it can still darken.
+                float centerLinear = IsSky(bestDepth) ? 0.0 : LinearEyeDepth(bestDepth, _ZBufferParams);
+
                 FragOutput output;
-                if (IsSky(bestDepth))
+                if (IsSky(bestDepth) || (COMPOSITE_FADE_END > 0.0 && centerLinear >= COMPOSITE_FADE_END))
                 {
                     output.position = float4(0.0, 0.0, 0.0, 0.0);
                     output.normal = float4(0.0, 0.0, 0.0, 0.0);
@@ -133,7 +143,6 @@ Shader "Hidden/Basis/RTAO/Prepass"
                 }
 
                 float3 positionWS = WorldFromCoord(bestCoord, bestDepth);
-                float centerLinear = LinearEyeDepth(bestDepth, _ZBufferParams);
                 float3 viewVector = _BasisRtaoReference.xyz - positionWS;
 
                 float3 tangentX = TangentAlong(bestCoord, int2(1, 0), positionWS, centerLinear);

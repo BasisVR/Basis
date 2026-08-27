@@ -39,22 +39,7 @@ void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
 
     float viewDistance = length(packed.xyz);
 
-    uint seed;
-    if (_BasisRtaoStereoCoherent != 0)
-    {
-        // A fixed world grid is many pixels across up close and sub pixel far away, so it reads as blocky
-        // patches on anything near the camera that quietly vanish with distance. Scaling the cell with view
-        // distance keeps it roughly one screen pixel everywhere, and both eyes still see the same distance
-        // for the same surface point, so they still agree on the seed.
-        float noiseCell = max(1e-5, _BasisRtaoBias.z * max(0.05, viewDistance));
-        int3 cell = int3(floor(positionWS / noiseCell));
-        seed = BasisRtaoHashCell(cell, (uint)_BasisRtaoFrameIndex);
-    }
-    else
-    {
-        seed = BasisRtaoHash(id.x * 1973u + id.y * 9277u + id.z * 26699u + (uint)_BasisRtaoFrameIndex * 6151u);
-    }
-    float2 jitter = float2(BasisRtaoUnitFloat(seed), BasisRtaoUnitFloat(BasisRtaoHash(seed ^ 0x9e3779b9u)));
+    float2 jitter = BasisRtaoSampleJitter(positionWS, viewDistance, _BasisRtaoBias.z, id, (uint)_BasisRtaoFrameIndex, _BasisRtaoStereoCoherent != 0);
 
     // The distance term exists to clear the half float precision of the stored position, which is about
     // d/2048, so it has to grow with distance. But it must never grow into the search itself: at a 10 cm

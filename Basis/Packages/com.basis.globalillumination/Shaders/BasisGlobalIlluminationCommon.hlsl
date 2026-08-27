@@ -43,6 +43,29 @@ SAMPLER(sampler_BasisGIHistory);
 TEXTURE2D_X(_BasisGIHistoryStats);
 TEXTURE2D_X(_BasisGIStats);
 TEXTURE2D_X(_BasisGINormals);
+/// URP's motion vectors: a FORWARD vector in screen UV space, current minus previous, with the platform's
+/// v flip and the NDC to UV halving already folded in by CalcNdcMotionVectorFromCsPositions. URP draws a
+/// fullscreen camera motion quad before any per object motion, so every pixel carries a usable vector -
+/// geometry with no motion pass of its own reads the camera's own motion, which is exactly what the
+/// previous view-projection would have produced for it.
+TEXTURE2D_X(_BasisGIMotion);
+/// A coarse summary of the depth buffer for the hierarchical march: one texel per block of traced texels,
+/// holding the CLOSEST eye depth in that block in r and the FURTHEST in g. Sky contributes to neither -
+/// it writes r at the sky sentinel and leaves g at zero, so a block of pure sky is skipped by both tests.
+TEXTURE2D_X(_BasisGICoarseDepth);
+/// (1/width, 1/height, width, height) of the coarse buffer the march reads.
+float4 _BasisGICoarseTexelSize;
+/// x: how many source texels one destination texel folds, per side, while building.
+/// yz: the source texture's size, for clamping those taps.
+/// w: how many TRACED texels one finished coarse texel spans, which is the march's cell size.
+float4 _BasisGICoarseParams;
+
+#define BASISGI_COARSE_SPAN        _BasisGICoarseParams.x
+#define BASISGI_COARSE_SOURCE_SIZE _BasisGICoarseParams.yz
+#define BASISGI_COARSE_BLOCK       _BasisGICoarseParams.w
+/// Half's largest finite value. A block with nothing in it has to read as further away than any ray can
+/// reach, and this is the largest number the R16 target can actually hold.
+#define BASISGI_SKY_DEPTH          65504.0
 TEXTURECUBE(_BasisGISkyCube);
 SAMPLER(sampler_BasisGISkyCube);
 
@@ -247,15 +270,21 @@ float3 BasisGIFallbackRadiance(float3 direction)
 }
 
 /// <summary>
-/// Frames accumulated in x, and the variance of the luminance the accumulation is holding in y.
-/// Zero frames means the temporal filter did not run, and the spatial filter then has to treat every
-/// pixel as unresolved rather than trusting statistics that were never gathered.
+/// Eye depth in x - zero where the pixel was sky - frames accumulated in y, and the variance of the
+/// luminance the accumulation is holding in z. Zero frames means the temporal filter did not run, and the
+/// spatial filter then has to treat every pixel as unresolved rather than trusting statistics that were
+/// never gathered.
+///
+/// The depth rides here because every consumer of the statistics is already fetching this texel and every
+/// one of them also wants the neighbour's depth. Reading it out of the full resolution depth texture
+/// instead costs a second fetch per tap, at a stride that grows with the a-trous level and so falls out of
+/// cache exactly when the filter is widest.
 /// </summary>
-float2 BasisGIAccumulation(float2 uv)
+float3 BasisGIStats(float2 uv)
 {
-    if (_BasisGIStatsValid < 0.5) { return float2(0.0, 0.0); }
+    if (_BasisGIStatsValid < 0.5) { return float3(0.0, 0.0, 0.0); }
     float4 stats = SAMPLE_TEXTURE2D_X_LOD(_BasisGIStats, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(saturate(uv)), 0);
-    return float2(stats.g, max(0.0, stats.a));
+    return float3(stats.r, stats.g, max(0.0, stats.a));
 }
 
 /// <summary>
@@ -282,6 +311,49 @@ float3 BasisGIPlaneNormal(float3 worldPosition)
 float BasisGIPlaneTolerance(float eyeDepth)
 {
     return max(BASISGI_BLUR_PLANE_FLOOR, eyeDepth * BASISGI_BLUR_PLANE);
+}
+
+/// <summary>
+/// The centre pixel's surface plane, in the only form the filters ever evaluate it in: how far a neighbour
+/// sits off it, from that neighbour's uv offset and eye depth alone.
+///
+/// Under perspective every point a pixel can hold lies on one ray, p = camera + V(uv) * eyeDepth, and V
+/// carries no depth term at all - so dot(normal, p) is (a*u + b*v + c) * eyeDepth, affine in uv, with the
+/// same two gradients everywhere on screen. ddx/ddy of V recovers them exactly, and because V is
+/// depth independent the pair survives a silhouette that would make a derivative of the world position
+/// meaningless. What is left per tap is a multiply-add and a subtract, where the direct form spends an
+/// inverse view projection and a divide on every neighbour.
+///
+/// Orthographic cameras do not fit p = camera + V * eyeDepth, and with no statistics there is no depth to
+/// read, so both fall back to the direct form rather than being approximated.
+/// </summary>
+struct BasisGIPlaneBasis
+{
+    float3 gradient;
+    float centre, scale;
+    bool usable;
+};
+
+BasisGIPlaneBasis BasisGIBuildPlaneBasis(float3 centrePosition, float3 centreNormal, float centreEye, float2 texelSize)
+{
+    float3 viewRay = (centrePosition - GetCameraPositionWS()) / max(centreEye, BASISGI_EPSILON);
+    float3 rayDdx = ddx(viewRay), rayDdy = ddy(viewRay);
+    float atCentre = dot(centreNormal, viewRay);
+
+    BasisGIPlaneBasis basis;
+    basis.gradient = float3(dot(centreNormal, rayDdx) / max(texelSize.x, BASISGI_EPSILON),
+                            dot(centreNormal, rayDdy) / max(texelSize.y, BASISGI_EPSILON),
+                            atCentre);
+    basis.centre = atCentre * centreEye;
+    basis.scale = BasisGIPlaneTolerance(centreEye);
+    basis.usable = _BasisGIStatsValid >= 0.5 && unity_OrthoParams.w < 0.5;
+    return basis;
+}
+
+/// <summary>How far the neighbour at uvOffset from the centre, holding eyeDepth, sits off the centre's plane.</summary>
+float BasisGIPlaneDistance(BasisGIPlaneBasis basis, float2 uvOffset, float eyeDepth)
+{
+    return abs((basis.gradient.z + dot(basis.gradient.xy, uvOffset)) * eyeDepth - basis.centre);
 }
 
 float BasisGIDistanceFade(float eyeDepth)

@@ -28,6 +28,11 @@ MonoBehaviour:
   OpenFolderOnDisc: 1
   RebakeOcclusionCulling: 1
   GenerateGenericGLTF: 1
+  StripLodCrossFadeVariants: 1
+  StripBakeOnlyShaderPasses: 1
+  StripSpaceWarpPassOffQuest: 1
+  StripDotsInstancingVariants: 0
+  WriteShaderVariantReport: 1
   BuildTarget: 19
   BuildAssetBundleOptions: 256
   AssetBundleDirectory: ./AssetBundles

@@ -60,8 +60,8 @@ namespace Basis.Rendering.RTAO.Tests
         {
             BasisRTAOHistory.Entry entry = history.Get(camera, 16, 16, 1, 0);
             Assert.AreEqual(GraphicsFormat.R16G16B16A16_SFloat, entry.visibilityTextures[0].graphicsFormat);
-            Assert.AreEqual(GraphicsFormat.R32_SFloat, entry.depthTextures[0].graphicsFormat,
-                "Reprojection compares view depth against the history, so it needs full float precision.");
+            Assert.AreEqual(GraphicsFormat.R16G16_SFloat, entry.depthTextures[0].graphicsFormat,
+                "View depth in x and the accumulated mean hit distance in y, in the same four bytes the depth alone used to take. Half float resolves view depth to about a twentieth of a percent, and the rejection test it feeds runs at three percent.");
         }
 
         [Test]

@@ -53,16 +53,63 @@ float2 BasisRtaoHammersley(uint index, uint count, float2 offset)
     return frac(float2(float(index) / float(count), float(bits) * 2.3283064365386963e-10) + offset);
 }
 
+// Duff et al., branchless and stable for every n including n.z near -1, which the naive
+// cross-with-an-axis basis is not.
+void BasisRtaoOrthonormalBasis(float3 n, out float3 tangent, out float3 bitangent)
+{
+    float s = n.z >= 0.0 ? 1.0 : -1.0;
+    float a = -1.0 / (s + n.z);
+    float b = n.x * n.y * a;
+    tangent = float3(1.0 + s * n.x * n.x * a, s * b, -s * n.x);
+    bitangent = float3(b, s + n.y * n.y * a, -n.y);
+}
+
+// Concentric disc lifted onto the hemisphere, in the surface's own tangent frame. The older form
+// normalised normalWS plus a uniform sphere point: also exactly cosine distributed, but its
+// stratification lives in world axes rather than the surface frame, so how evenly a handful of rays
+// cover the hemisphere depended on which way the surface happened to face, and the sphere point
+// landing near -normalWS collapsed the sum to nothing and fell back to firing straight up.
 float3 BasisRtaoCosineHemisphere(float2 u, float3 normalWS)
 {
-    float z = 1.0 - 2.0 * u.x;
-    z = clamp(z, -0.99999, 0.99999);
-    float r = sqrt(1.0 - z * z);
+    float3 tangent, bitangent;
+    BasisRtaoOrthonormalBasis(normalWS, tangent, bitangent);
+    float radius = sqrt(saturate(u.x));
     float phi = 6.2831853071795864 * u.y;
-    float3 sphere = float3(r * cos(phi), r * sin(phi), z);
-    float3 dir = normalWS + sphere;
-    float lenSq = dot(dir, dir);
-    return lenSq < 1e-6 ? normalWS : dir * rsqrt(lenSq);
+    return tangent * (radius * cos(phi)) + bitangent * (radius * sin(phi)) + normalWS * sqrt(saturate(1.0 - u.x));
+}
+
+// The per pixel start of the sample sequence, and how it advances between frames.
+//
+// A fixed world grid is many pixels across up close and sub pixel far away, so it reads as blocky
+// patches on anything near the camera that quietly vanish with distance. Scaling the cell with view
+// distance keeps it roughly one screen pixel everywhere, and both eyes still see the same distance
+// for the same surface point, so they still agree on the seed.
+//
+// The frame index advances the offset along the R2 lattice instead of re-hashing the cell with it.
+// Re-hashing draws an independent white noise offset every frame, so what the temporal filter
+// averages is a random walk that converges at 1/sqrt(n); R2 is low discrepancy in time, so the same
+// number of accumulated frames covers the square far more evenly. Both eyes advance by the same
+// amount from the same start, so stereo coherence is untouched.
+//
+// The index wraps first. A raw frame counter reaches six figures inside an hour, and by then a float
+// has no fraction left to carry - the lattice collapses onto a handful of values and the sequence
+// quietly stops advancing. The longest accumulation is 64 frames, so a period of 1024 is never
+// something the filter can see.
+float2 BasisRtaoSampleJitter(float3 positionWS, float viewDistance, float cellSize, uint3 pixel, uint frameIndex, bool stereoCoherent)
+{
+    uint seed;
+    if (stereoCoherent)
+    {
+        float noiseCell = max(1e-5, cellSize * max(0.05, viewDistance));
+        seed = BasisRtaoHashCell(int3(floor(positionWS / noiseCell)), 0u);
+    }
+    else
+    {
+        seed = BasisRtaoHash(pixel.x * 1973u + pixel.y * 9277u + pixel.z * 26699u);
+    }
+
+    float2 origin = float2(BasisRtaoUnitFloat(seed), BasisRtaoUnitFloat(BasisRtaoHash(seed ^ 0x9e3779b9u)));
+    return frac(origin + float(frameIndex & 1023u) * float2(0.7548776662466927, 0.5698402909980532));
 }
 
 float2 BasisRtaoProjectToScreenUV(float4x4 viewProj, float3 positionWS, out float clipW)

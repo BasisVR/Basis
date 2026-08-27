@@ -1131,6 +1131,11 @@ namespace UnityEngine.Rendering.Universal
             }
         }
         
+        // Basis fork addition. Matches _BasisGISpecularParams in GlobalIllumination.hlsl, published by
+        // com.basis.globalillumination's reflection pass. Named here rather than referenced from that
+        // package because URP cannot depend on it.
+        static readonly int BasisSpecularReflectionParamId = Shader.PropertyToID("_BasisGISpecularParams");
+
         static void ClearRenderingState(IBaseCommandBuffer cmd)
         {
             using var profScope = new ProfilingScope(Profiling.clearRenderingState);
@@ -1156,7 +1161,16 @@ namespace UnityEngine.Rendering.Universal
             cmd.SetKeyword(ShaderGlobalKeywords.LinearToSRGBConversion, false);
             cmd.SetKeyword(ShaderGlobalKeywords.LightLayers, false);
             cmd.SetKeyword(ShaderGlobalKeywords.ScreenSpaceOcclusion, false);
-            cmd.SetGlobalVector(ScreenSpaceAmbientOcclusionPass.s_AmbientOcclusionParamID, Vector4.zero);
+            // Basis fork addition. y is specular occlusion strength, and it stays at full even with no
+            // screen space AO feature running: a material's own occlusion map is hemispherical occlusion
+            // too, and it reaches GlobalIllumination() by this same argument.
+            cmd.SetGlobalVector(ScreenSpaceAmbientOcclusionPass.s_AmbientOcclusionParamID, new Vector4(0f, 1f, 0f, 0f));
+            // Basis fork addition. Ray traced reflections are published by a renderer feature, and a camera
+            // that does not run it - a different renderer, the volume switched off, a mirror the feature's
+            // filter rejects - would otherwise keep sampling whatever the last camera that did run it left
+            // bound. x is the gate, so zeroing it here is what makes "no feature" mean "no reflections"
+            // rather than "last frame's reflections". Same reason the AO reset above exists.
+            cmd.SetGlobalVector(BasisSpecularReflectionParamId, Vector4.zero);
         }
 
         // Scene filtering is enabled when in prefab editing mode
