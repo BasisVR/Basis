@@ -10,6 +10,21 @@ public partial class ValveRenderModelFeature : OpenXRFeature
     private delegate XrResult GetInstanceProcAddrDelegate(ulong instance, string name, ref IntPtr procAddr);
     private GetInstanceProcAddrDelegate _getInstanceProcAddr;
     
+    /// <summary>
+    /// Resolves one OpenXR instance function, and NEVER throws.
+    ///
+    /// This is called from OnInstanceCreate, which OpenXR invokes as a native to managed callback while it
+    /// is creating the instance. An exception thrown out of there does not fail the feature cleanly - it
+    /// unwinds through the callback, leaves every proc pointer below null while OpenXR still believes the
+    /// feature came up, and the session continues into that state.
+    ///
+    /// It can throw, and the way it does is not obvious. Mono's GetDelegateForFunctionPointer caches by
+    /// FUNCTION POINTER, and a domain reload gives the delegate type a new managed identity while the
+    /// native cache still holds one built against the old one. Re-entering VR after a script recompile
+    /// therefore casts the cached delegate to a type it no longer matches and throws InvalidCastException
+    /// out of castclass - not a marshalling error, which is why it reads as nonsense at this call site.
+    /// Common in the editor, rare in a player, fatal in both.
+    /// </summary>
     private T GetOpenXrInstanceProc<T>(string procName)
     {
         if (_getInstanceProcAddr == null)
@@ -20,7 +35,18 @@ public partial class ValveRenderModelFeature : OpenXRFeature
                 return default;
             }
 
-            _getInstanceProcAddr = Marshal.GetDelegateForFunctionPointer<GetInstanceProcAddrDelegate>(xrGetInstanceProcAddr);
+            try
+            {
+                _getInstanceProcAddr = Marshal.GetDelegateForFunctionPointer<GetInstanceProcAddrDelegate>(xrGetInstanceProcAddr);
+            }
+            catch (Exception exception)
+            {
+                // Left null deliberately, so a later instance creation gets to try again rather than
+                // inheriting this failure for the rest of the session.
+                _getInstanceProcAddr = null;
+                Debug.LogWarning($"[RenderModelFeature] Could not bind the OpenXR instance procedure accessor, so controller render models are unavailable this session: {exception.Message}");
+                return default;
+            }
         }
 
         IntPtr resultProcAddr = IntPtr.Zero;
@@ -35,8 +61,18 @@ public partial class ValveRenderModelFeature : OpenXRFeature
                 return default;
             }
         }
-        
-        return Marshal.GetDelegateForFunctionPointer<T>(resultProcAddr);
+
+        if (resultProcAddr == IntPtr.Zero) { return default; }
+
+        try
+        {
+            return Marshal.GetDelegateForFunctionPointer<T>(resultProcAddr);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"[RenderModelFeature] OpenXR instance function '{procName}' could not be bound as {typeof(T).Name}: {exception.Message}");
+            return default;
+        }
     }
 
     private bool XrSucceeded(int xrResult)

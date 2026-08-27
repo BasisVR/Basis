@@ -199,6 +199,17 @@ public partial class ValveRenderModelFeature : OpenXRFeature
         _xrEnumerateInteractionRenderModelIdsEXT = GetOpenXrInstanceProc<PFN_xrEnumerateInteractionRenderModelIdsEXT>("xrEnumerateInteractionRenderModelIdsEXT");
         _xrEnumerateRenderModelSubactionPathsEXT = GetOpenXrInstanceProc<PFN_xrEnumerateRenderModelSubactionPathsEXT>("xrEnumerateRenderModelSubactionPathsEXT");
 
+        // Reporting success with null procs is worse than reporting failure: OpenXR goes on believing the
+        // feature is live and everything downstream calls through a null delegate. These four are what the
+        // rest of the feature is built on, so if they did not bind, the honest answer is that it did not
+        // come up - the session then runs without controller render models instead of into a crash.
+        if (_xrGetRenderModelPropertiesEXT == null || _xrCreateRenderModelEXT == null
+            || _xrCreateRenderModelAssetEXT == null || _xrGetRenderModelAssetDataEXT == null)
+        {
+            Debug.LogWarning("[RenderModelFeature] The OpenXR render model entry points did not bind, so this feature is inactive for this session. Controllers fall back to their built in models.");
+            return false;
+        }
+
         return true;
     }
     
