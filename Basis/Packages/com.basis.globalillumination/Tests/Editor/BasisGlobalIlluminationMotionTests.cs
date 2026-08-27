@@ -69,7 +69,7 @@ namespace Basis.Tests.GlobalIllumination
 
             harness.Camera.transform.position = CameraOrigin;
             harness.Camera.transform.rotation = Quaternion.LookRotation(CameraAim - CameraOrigin, Vector3.up);
-            harness.Settings.fallback.value = BasisGlobalIlluminationFallback.None;
+            harness.Settings.fallback = BasisGlobalIlluminationFallback.None;
         }
 
         /// <summary>
@@ -139,7 +139,7 @@ namespace Basis.Tests.GlobalIllumination
             // multiply, so a probe on a lit box is mostly box: measured that way both reprojections read a
             // swing of 0.00% and the measurement says nothing at all about either of them.
             harness.SetDebugView(BasisGlobalIlluminationDebugView.Indirect);
-            harness.Settings.motionVectors.value = motionVectors;
+            harness.Settings.motionVectors = motionVectors;
             float metresPerFrame = MetresPerFrameForTexels(tracedTexelsPerFrame);
             harness.Camera.transform.position = CameraOrigin;
             harness.Camera.transform.rotation = Quaternion.LookRotation(CameraAim - CameraOrigin, Vector3.up);
@@ -161,7 +161,7 @@ namespace Basis.Tests.GlobalIllumination
             // comparison strict, because a reprojection error that the composite would have buried under
             // the box's own shading has nowhere to hide in the raw indirect.
             harness.SetDebugView(BasisGlobalIlluminationDebugView.Indirect);
-            harness.Settings.motionVectors.value = motionVectors;
+            harness.Settings.motionVectors = motionVectors;
             mover.transform.position = MoverCentre;
 
             Color[] samples = new Color[frames];

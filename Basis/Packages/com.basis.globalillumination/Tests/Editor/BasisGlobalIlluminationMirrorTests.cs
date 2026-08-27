@@ -55,7 +55,7 @@ namespace Basis.Tests.GlobalIllumination
             Vector3 origin = new Vector3(0f, 1.15f, -2.5f);
             harness.Camera.transform.position = origin;
             harness.Camera.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 0.15f, 0.35f) - origin, Vector3.up);
-            harness.Settings.fallback.value = BasisGlobalIlluminationFallback.None;
+            harness.Settings.fallback = BasisGlobalIlluminationFallback.None;
         }
 
         /// <summary>The floor in front of the slat, where the red bounce lands.</summary>

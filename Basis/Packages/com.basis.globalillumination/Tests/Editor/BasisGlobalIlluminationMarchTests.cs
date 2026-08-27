@@ -56,8 +56,8 @@ namespace Basis.Tests.GlobalIllumination
             harness.Camera.transform.rotation = Quaternion.LookRotation(CameraAim - CameraOrigin, Vector3.up);
             // Only what the march itself brought back: with the environment on, most rays miss and return a
             // smooth convolved cubemap that swamps the difference being measured.
-            harness.Settings.fallback.value = BasisGlobalIlluminationFallback.None;
-            harness.Settings.emitters.value = false;
+            harness.Settings.fallback = BasisGlobalIlluminationFallback.None;
+            harness.Settings.emitters = false;
         }
 
         private RectInt FloorPatch(float nearZ, float farZ)
@@ -83,12 +83,12 @@ namespace Basis.Tests.GlobalIllumination
         /// </summary>
         private Color Measure(RectInt region, bool hierarchical, int steps)
         {
-            harness.Settings.mode.value = BasisGlobalIlluminationMode.ScreenSpace;
-            harness.Settings.hierarchicalMarch.value = hierarchical;
-            harness.Settings.overrideQualityCounts.value = true;
-            harness.Settings.rayCount.value = 2;
-            harness.Settings.bounces.value = 1;
-            harness.Settings.rayMaxSteps.value = steps;
+            harness.Settings.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            harness.Settings.hierarchicalMarch = hierarchical;
+            harness.Settings.overrideQualityCounts = true;
+            harness.Settings.rayCount = 2;
+            harness.Settings.bounces = 1;
+            harness.Settings.rayMaxSteps = steps;
             harness.SetDebugView(BasisGlobalIlluminationDebugView.Indirect);
             return harness.Converged(region);
         }
@@ -105,7 +105,7 @@ namespace Basis.Tests.GlobalIllumination
         /// </summary>
         private Color Reference(RectInt region)
         {
-            return Measure(region, false, BasisGlobalIlluminationVolume.RayStepsMax);
+            return Measure(region, false, BasisGlobalIlluminationSettings.RayStepsMax);
         }
 
         [Test]
@@ -131,9 +131,9 @@ namespace Basis.Tests.GlobalIllumination
             float referenceNear = referenceContact.r, referenceDistant = referenceFar.r;
 
             Debug.Log($"[BasisGI] march contact bounce: plain@{ShippedSteps}={plainNear:F4} hierarchical={sharpNear:F4} " +
-                      $"plain@{BasisGlobalIlluminationVolume.RayStepsMax}={referenceNear:F4}\n" +
+                      $"plain@{BasisGlobalIlluminationSettings.RayStepsMax}={referenceNear:F4}\n" +
                       $"[BasisGI] march far field:      plain@{ShippedSteps}={plainDistant:F4} hierarchical={sharpDistant:F4} " +
-                      $"plain@{BasisGlobalIlluminationVolume.RayStepsMax}={referenceDistant:F4}\n" +
+                      $"plain@{BasisGlobalIlluminationSettings.RayStepsMax}={referenceDistant:F4}\n" +
                       harness.Describe());
 
             Assert.Greater(sharpNear, 0.002f,

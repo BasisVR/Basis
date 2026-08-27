@@ -33,8 +33,6 @@ public static class BasisGlobalIlluminationDiagnostic
         DescribeFeature(pipeline, report);
         DescribeStack(report);
         DescribeCameras(report);
-        DescribeVolumes(report);
-        DescribeDefaultProfiles(report);
         return report.ToString();
     }
 
@@ -72,19 +70,17 @@ public static class BasisGlobalIlluminationDiagnostic
 
     private static void DescribeStack(StringBuilder report)
     {
-        VolumeStack stack = VolumeManager.instance != null ? VolumeManager.instance.stack : null;
-        BasisGlobalIlluminationVolume resolved = stack != null ? stack.GetComponent<BasisGlobalIlluminationVolume>() : null;
-        if (resolved == null)
+        // Exactly what the feature and both passes will read this frame. There is no blend and no stack to
+        // reason about any more - the settings provider writes here and the effect renders what it finds.
+        BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
+        report.AppendLine("  settings         : " +
+            $"enable={settings.enable} mode={settings.mode} intensity={settings.intensity:F3} " +
+            $"saturation={settings.saturation:F3} emitterIntensity={settings.emitterIntensity:F3} " +
+            $"quality={settings.quality} resolution={settings.resolution} fallback={settings.fallback}");
+        if (!settings.IsActive())
         {
-            report.AppendLine("  resolved stack   : no global illumination component in the stack - nothing will render");
-            return;
+            report.AppendLine("  resolved         : INACTIVE - enable is off, or intensity is zero, so nothing renders");
         }
-
-        // These are the values the shader will actually read this frame, after every volume has blended.
-        report.AppendLine("  resolved stack   : " +
-            $"enable={resolved.enable.value} mode={resolved.mode.value} intensity={resolved.intensity.value:F3} " +
-            $"saturation={resolved.saturation.value:F3} emitterIntensity={resolved.emitterIntensity.value:F3} " +
-            $"quality={resolved.quality.value} resolution={resolved.resolution.value} fallback={resolved.fallback.value}");
     }
 
     private static void DescribeCameras(StringBuilder report)
@@ -99,56 +95,6 @@ public static class BasisGlobalIlluminationDiagnostic
             report.AppendLine($"  camera '{camera.name}' : postFx={data.renderPostProcessing} volumeMask={LayerMaskText(data.volumeLayerMask)} " +
                 $"trigger={(data.volumeTrigger != null ? data.volumeTrigger.name : "<self>")}");
         }
-    }
-
-    private static void DescribeVolumes(StringBuilder report)
-    {
-        Volume[] volumes = Object.FindObjectsByType<Volume>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        List<string> carriers = new List<string>();
-        for (int index = 0; index < volumes.Length; index++)
-        {
-            Volume volume = volumes[index];
-            if (volume == null) { continue; }
-            // profileRef is internal; asking for the instantiated profile only when there is one avoids the
-            // profile getter cloning a copy just to look at it.
-            VolumeProfile profile = volume.HasInstantiatedProfile() ? volume.profile : volume.sharedProfile;
-            if (profile == null || !profile.TryGet(out BasisGlobalIlluminationVolume component)) { continue; }
-
-            // Priority is what settles a disagreement, and the settings module sits at 1000. Anything above
-            // that overriding the same parameters is what makes the panel look dead.
-            carriers.Add($"    '{volume.name}' layer={LayerMask.LayerToName(volume.gameObject.layer)}({volume.gameObject.layer}) " +
-                $"priority={volume.priority} weight={volume.weight} global={volume.isGlobal} " +
-                $"enabled={volume.enabled} overrides[enable={component.enable.overrideState} intensity={component.intensity.overrideState}] " +
-                $"intensity={component.intensity.value:F3}");
-        }
-
-        report.AppendLine($"  volumes carrying global illumination : {carriers.Count}");
-        for (int index = 0; index < carriers.Count; index++) { report.AppendLine(carriers[index]); }
-        if (carriers.Count > 1)
-        {
-            report.AppendLine("    (more than one: the highest priority that overrides a parameter wins it, and the settings module uses 1000)");
-        }
-    }
-
-    private static void DescribeDefaultProfiles(StringBuilder report)
-    {
-        DescribeProfile("global default ", VolumeManager.instance != null ? VolumeManager.instance.globalDefaultProfile : null, report);
-        DescribeProfile("quality default", VolumeManager.instance != null ? VolumeManager.instance.qualityDefaultProfile : null, report);
-    }
-
-    private static void DescribeProfile(string label, VolumeProfile profile, StringBuilder report)
-    {
-        if (profile == null)
-        {
-            report.AppendLine($"  {label}  : <none>");
-            return;
-        }
-        if (!profile.TryGet(out BasisGlobalIlluminationVolume component))
-        {
-            report.AppendLine($"  {label}  : '{profile.name}' carries no global illumination component");
-            return;
-        }
-        report.AppendLine($"  {label}  : '{profile.name}' enable={component.enable.value} intensity={component.intensity.value:F3} emitterIntensity={component.emitterIntensity.value:F3}");
     }
 
     private static string LayerMaskText(LayerMask mask)

@@ -28,8 +28,7 @@ namespace Basis.Tests.GlobalIllumination
 
         public Camera Camera { get; private set; }
         public RenderTexture Target { get; private set; }
-        public BasisGlobalIlluminationVolume Settings { get; private set; }
-        public Volume Volume { get; private set; }
+        public BasisGlobalIlluminationSettings Settings { get; private set; }
         /// <summary>The renderer feature the active pipeline actually runs, or null when it carries none.</summary>
         public BasisGlobalIlluminationFeature Feature { get; private set; }
 
@@ -138,13 +137,10 @@ namespace Basis.Tests.GlobalIllumination
                     .Append("]");
             }
 
-            BasisGlobalIlluminationVolume stacked = VolumeManager.instance.stack != null
-                ? VolumeManager.instance.stack.GetComponent<BasisGlobalIlluminationVolume>()
-                : null;
-            text.Append(" stacked=").Append(stacked != null)
-                .Append(" stackedActive=").Append(stacked != null && stacked.IsActive())
-                .Append(" stackedMode=").Append(stacked != null ? stacked.mode.value.ToString() : "?")
-                .Append(" stackedIntensity=").Append(stacked != null ? stacked.intensity.value : -1f);
+            BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
+            text.Append(" active=").Append(settings.IsActive())
+                .Append(" mode=").Append(settings.mode)
+                .Append(" intensity=").Append(settings.intensity);
 
             UniversalAdditionalCameraData cameraData = Camera.GetUniversalAdditionalCameraData();
             text.Append(" postFx=").Append(cameraData != null && cameraData.renderPostProcessing);
@@ -216,27 +212,16 @@ namespace Basis.Tests.GlobalIllumination
             cameraData.volumeLayerMask = ~0;
             cameraData.antialiasing = AntialiasingMode.None;
 
-            VolumeProfile profile = Own(ScriptableObject.CreateInstance<VolumeProfile>()) as VolumeProfile;
-            profile.name = "BasisGIHarnessProfile";
-            Settings = profile.Add<BasisGlobalIlluminationVolume>(true);
-
-            GameObject volumeHost = Own(new GameObject("BasisGIHarnessVolume"));
-            Volume = volumeHost.AddComponent<Volume>();
-            Volume.isGlobal = true;
-            Volume.priority = 10000f;
-            Volume.sharedProfile = profile;
-
-            // Every parameter this harness sets has to override whatever the project's own default profile
-            // says, so the tests describe the state they are testing rather than inheriting it.
-            OverrideEverything(Settings);
-            Settings.enable.value = true;
-            Settings.mode.value = BasisGlobalIlluminationMode.ScreenSpace;
+            // One settings object, restored on Dispose. No profile to author, no volume to out-prioritise,
+            // and nothing for the project's own defaults to leak in through - a test states what it is
+            // testing and that is exactly what renders.
+            Settings = BasisGlobalIlluminationSettings.Current;
+            authoredSettings = Settings.Clone();
+            Settings.enable = true;
+            Settings.mode = BasisGlobalIlluminationMode.ScreenSpace;
         }
 
-        private static void OverrideEverything(VolumeComponent component)
-        {
-            for (int index = 0; index < component.parameters.Count; index++) { component.parameters[index].overrideState = true; }
-        }
+        private BasisGlobalIlluminationSettings authoredSettings;
 
         public T Own<T>(T target) where T : UnityEngine.Object
         {
@@ -757,6 +742,8 @@ namespace Basis.Tests.GlobalIllumination
             if (Feature != null) { Feature.DebugView = previousDebugView; }
             RenderSettings.customReflectionTexture = previousReflection;
             RenderSettings.defaultReflectionMode = previousReflectionMode;
+
+            if (authoredSettings != null) { BasisGlobalIlluminationSettings.Current.CopyFrom(authoredSettings); authoredSettings = null; }
 
             if (Camera != null) { Camera.targetTexture = null; }
             for (int index = owned.Count - 1; index >= 0; index--)

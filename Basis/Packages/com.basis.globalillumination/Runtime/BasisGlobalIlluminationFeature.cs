@@ -104,26 +104,26 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         ref CameraData cameraData = ref renderingData.cameraData;
         if (!ShouldRender(cameraData.camera, cameraData.cameraType, cameraData.postProcessEnabled)) { return; }
 
-        BasisGlobalIlluminationVolume volume = VolumeManager.instance.stack.GetComponent<BasisGlobalIlluminationVolume>();
-        if (volume == null || !volume.IsActive()) { return; }
+        BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
+        if (!settings.IsActive()) { return; }
 
         // Reflections have to be published before the opaque draws that consume them, so they are a separate
         // pass at a separate injection point rather than another stage of the one below. See SpecularPass.
-        if (volume.SpecularActive() && m_SpecularPass != null)
+        if (settings.SpecularActive() && m_SpecularPass != null)
         {
             m_SpecularPass.Setup(m_Material, m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback, RayTracingAvailable);
             m_SpecularPass.ConfigureInput(ScriptableRenderPassInput.Depth);
             renderer.EnqueuePass(m_SpecularPass);
         }
 
-        if (!volume.DiffuseActive()) { return; }
+        if (!settings.DiffuseActive()) { return; }
 
-        bool wantsNormals = m_NormalsPrepass && volume.normalSource.value == BasisGlobalIlluminationNormalSource.NormalsTexture;
+        bool wantsNormals = m_NormalsPrepass && settings.normalSource == BasisGlobalIlluminationNormalSource.NormalsTexture;
         // Motion is asked for only when the temporal filter is going to reproject through it. URP renders
         // a whole extra pass to produce that texture, and a frame that will not read it should not pay for
         // one - whereas a frame that will read it must declare the need here, because a pass that is never
         // requested is never scheduled and the texture arrives invalid.
-        bool wantsMotion = volume.temporalFilter.value && volume.motionVectors.value;
+        bool wantsMotion = settings.temporalFilter && settings.motionVectors;
         ScriptableRenderPassInput inputs = ScriptableRenderPassInput.Depth;
         if (wantsNormals) { inputs |= ScriptableRenderPassInput.Normal; }
         if (wantsMotion) { inputs |= ScriptableRenderPassInput.Motion; }

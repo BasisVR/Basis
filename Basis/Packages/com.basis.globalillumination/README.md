@@ -3,7 +3,7 @@
 Real-time global illumination for the Universal Render Pipeline, replacing the
 `com.jiaozi158.unityssgiurp` integration Basis shipped previously.
 
-Two modes share one denoise and composite chain, chosen by the volume's **Mode**:
+Two modes share one denoise and composite chain, chosen by **Mode**:
 
 | | Screen Space | Ray Traced |
 | --- | --- | --- |
@@ -278,7 +278,7 @@ for those, and content already built into asset bundles could never gain the pas
 
 ## Reflections
 
-`Reflections` in the volume turns on a ray traced specular gather. It is one mirror ray per pixel,
+`Reflections` turns on a ray traced specular gather. It is one mirror ray per pixel,
 shaded at the hit by the same lights and emissive surfaces the diffuse bounce uses, with the sky as
 the fallback for a miss. It needs the ray traced backend, but it is independent of `Mode`: reflections
 are worth having over a screen space diffuse gather.
@@ -304,9 +304,19 @@ reflections from bleeding across silhouettes, which costs one RGBA16F screen-siz
 
 ## Setup
 
-Add the **Basis Global Illumination** renderer feature to a URP renderer, then drive
-`BasisGlobalIlluminationVolume` from any Volume. In Basis the feature is on `DesktopRenderer` and the
-volume is driven by `SMModuleGlobalIlluminationURP` from the graphics settings panel.
+Add the **Basis Global Illumination** renderer feature to a URP renderer, then write
+`BasisGlobalIlluminationSettings.Current`. In Basis the feature is on `DesktopRenderer` and
+`SMModuleGlobalIlluminationURP` writes that object from the graphics settings panel.
+
+**There is deliberately no VolumeComponent.** The settings used to be blended out of URP's volume stack
+and that model cost far more than it paid: the settings module had to own a volume at priority 1000 to
+beat anything a scene had authored, so a scene volume and the player's settings could disagree and the
+player would never know which won; it wrote the player's values into the pipeline's SHARED default
+profile assets and had to remember the authored values to put back, so a crash left a profile on disk
+holding somebody's runtime state; and because the handheld camera renders on its own volume layer, a
+duplicate volume had to be built per uncovered layer just so a second camera saw the same numbers.
+Three mechanisms, all load-bearing, none visible in a debugger - and whether the effect ran at all
+depended on all three agreeing. One object, written directly, answers the same question by reading it.
 
 Mobile GPUs are not a target: the feature declines to render on them.
 
@@ -336,6 +346,6 @@ structure. It still renders normally.
 ## Design lineage
 
 The screen space pipeline shape — raymarching, colour-buffer radiance gathering, near-field
-obscurance, virtual emitters, reflection-probe fallback, and a bilateral/wide/temporal denoise chain
-driven through the Volume system — follows the design of Kronnect's *Radiant Global Illumination*.
+obscurance, virtual emitters, reflection-probe fallback, and a bilateral/wide/temporal denoise chain —
+follows the design of Kronnect's *Radiant Global Illumination*.
 No code from that asset is used here; this is an independent implementation.

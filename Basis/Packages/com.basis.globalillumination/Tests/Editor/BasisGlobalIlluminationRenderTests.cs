@@ -108,7 +108,7 @@ namespace Basis.Tests.GlobalIllumination
             Assert.IsTrue(OnScreen(Probe(FarProbe)), $"the far floor probe {Probe(FarProbe)} fell outside the target");
             Assert.IsTrue(OnScreen(Probe(BlockCentre)), $"the emissive block {Probe(BlockCentre)} fell outside the target, so the screen space gather could never find it");
 
-            harness.Settings.enable.value = false;
+            harness.Settings.enable = false;
             harness.Render();
             Color block = harness.Sample(Probe(BlockCentre, 2));
             Color floor = harness.Sample(Probe(NearProbe));
@@ -124,11 +124,11 @@ namespace Basis.Tests.GlobalIllumination
             AddEmissiveBlock(new Color(16f, 0.5f, 0.5f));
             RectInt probe = Probe(NearProbe);
 
-            harness.Settings.enable.value = false;
+            harness.Settings.enable = false;
             for (int frame = 0; frame < 4; frame++) { harness.Render(); }
             Color off = harness.RenderAndSample(probe);
 
-            harness.Settings.enable.value = true;
+            harness.Settings.enable = true;
             for (int frame = 0; frame < 16; frame++) { harness.Render(); }
             Color on = harness.RenderAndSample(probe);
 
@@ -311,7 +311,7 @@ namespace Basis.Tests.GlobalIllumination
         /// <summary>Switches to the traced gather and rebuilds the structure so it sees the scene as it is now.</summary>
         private void UseRayTracing()
         {
-            harness.Settings.mode.value = BasisGlobalIlluminationMode.RayTraced;
+            harness.Settings.mode = BasisGlobalIlluminationMode.RayTraced;
             harness.ResetRayTracing();
         }
 

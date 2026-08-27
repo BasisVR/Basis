@@ -70,7 +70,7 @@ namespace Basis.Tests.GlobalIllumination
             harness.Camera.transform.rotation = Quaternion.LookRotation(new Vector3(-0.1f, 0.3f, 0.6f) - harness.Camera.transform.position, Vector3.up);
 
             // Only what the rays themselves brought back. See the class note.
-            harness.Settings.fallback.value = BasisGlobalIlluminationFallback.None;
+            harness.Settings.fallback = BasisGlobalIlluminationFallback.None;
         }
 
         /// <summary>The patch of open floor the grain is read off, as pixels of the target.</summary>
@@ -95,7 +95,7 @@ namespace Basis.Tests.GlobalIllumination
         /// </summary>
         private void UseRayTracing()
         {
-            harness.Settings.mode.value = BasisGlobalIlluminationMode.RayTraced;
+            harness.Settings.mode = BasisGlobalIlluminationMode.RayTraced;
             harness.ResetRayTracing();
             AsyncGPUReadback.WaitAllRequests();
         }
@@ -112,9 +112,9 @@ namespace Basis.Tests.GlobalIllumination
         private BasisGlobalIlluminationRenderHarness.Grain Grain(bool temporal, float smoothing, bool wide,
             BasisGlobalIlluminationDebugView view = BasisGlobalIlluminationDebugView.Indirect, bool moving = false)
         {
-            harness.Settings.temporalFilter.value = temporal;
-            harness.Settings.smoothing.value = smoothing;
-            harness.Settings.wideBlur.value = wide;
+            harness.Settings.temporalFilter = temporal;
+            harness.Settings.smoothing = smoothing;
+            harness.Settings.wideBlur = wide;
             harness.SetDebugView(view);
             BasisGlobalIlluminationRenderHarness.Grain grain = harness.MeasuredGrain(
                 Region(), BasisGlobalIlluminationRenderHarness.Luma,
@@ -140,7 +140,7 @@ namespace Basis.Tests.GlobalIllumination
             Assert.Greater(region.width * region.height, 900,
                 $"the grain region {region} is too small to estimate a deviation from");
 
-            harness.Settings.enable.value = false;
+            harness.Settings.enable = false;
             harness.Render();
             Color floor = harness.Sample(region);
             float grain = harness.SpatialNoise(region, BasisGlobalIlluminationRenderHarness.Luma);

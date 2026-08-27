@@ -41,8 +41,8 @@ namespace Basis.Tests.GlobalIllumination
         private sealed class Setting
         {
             public string Name;
-            public Action<BasisGlobalIlluminationVolume> Low;
-            public Action<BasisGlobalIlluminationVolume> High;
+            public Action<BasisGlobalIlluminationSettings> Low;
+            public Action<BasisGlobalIlluminationSettings> High;
             /// <summary>False where the setting only drives one of the two gathers by design.</summary>
             public bool ScreenSpace = true;
             public bool RayTraced = true;
@@ -124,80 +124,80 @@ namespace Basis.Tests.GlobalIllumination
         /// actually running and can be turned off; everything else mid-range so both ends of each sweep have
         /// somewhere to go.
         /// </summary>
-        private static void Baseline(BasisGlobalIlluminationVolume v)
+        private static void Baseline(BasisGlobalIlluminationSettings v)
         {
-            v.enable.value = true;
-            v.intensity.value = 1f;
-            v.saturation.value = 1f;
-            v.tint.value = Color.white;
-            v.obscuranceIntensity.value = 0.5f;
-            v.obscuranceRadius.value = 0.5f;
-            v.maxRayLength.value = 16f;
-            v.fadeDistance.value = 120f;
-            v.quality.value = BasisGlobalIlluminationQuality.Medium;
-            v.overrideQualityCounts.value = false;
-            v.smoothing.value = 1f;
-            v.wideBlur.value = true;
-            v.resolution.value = BasisGlobalIlluminationResolution.Half;
-            v.temporalFilter.value = true;
-            v.temporalResponse.value = 0.15f;
-            v.neighbourhoodClamp.value = true;
-            v.bilateralUpsample.value = true;
-            v.fireflyClamp.value = 6f;
-            v.fallback.value = BasisGlobalIlluminationFallback.ReflectionProbe;
-            v.fallbackIntensity.value = 1f;
-            v.emitters.value = true;
-            v.emitterIntensity.value = 1f;
-            v.emitterOcclusion.value = true;
-            v.rayReuse.value = true;
-            v.bounces.value = 1;
-            v.rayTracedLights.value = true;
-            v.rayTracedLightIntensity.value = 1f;
-            v.rayTracedShadows.value = true;
-            v.rayTracedEmissiveSurfaces.value = true;
-            v.rayTracedTextureAlbedo.value = true;
-            v.rayTracedNormalBias.value = 0.02f;
+            v.enable = true;
+            v.intensity = 1f;
+            v.saturation = 1f;
+            v.tint = Color.white;
+            v.obscuranceIntensity = 0.5f;
+            v.obscuranceRadius = 0.5f;
+            v.maxRayLength = 16f;
+            v.fadeDistance = 120f;
+            v.quality = BasisGlobalIlluminationQuality.Medium;
+            v.overrideQualityCounts = false;
+            v.smoothing = 1f;
+            v.wideBlur = true;
+            v.resolution = BasisGlobalIlluminationResolution.Half;
+            v.temporalFilter = true;
+            v.temporalResponse = 0.15f;
+            v.neighbourhoodClamp = true;
+            v.bilateralUpsample = true;
+            v.fireflyClamp = 6f;
+            v.fallback = BasisGlobalIlluminationFallback.ReflectionProbe;
+            v.fallbackIntensity = 1f;
+            v.emitters = true;
+            v.emitterIntensity = 1f;
+            v.emitterOcclusion = true;
+            v.rayReuse = true;
+            v.bounces = 1;
+            v.rayTracedLights = true;
+            v.rayTracedLightIntensity = 1f;
+            v.rayTracedShadows = true;
+            v.rayTracedEmissiveSurfaces = true;
+            v.rayTracedTextureAlbedo = true;
+            v.rayTracedNormalBias = 0.02f;
         }
 
         private static List<Setting> Settings()
         {
             return new List<Setting>
             {
-                new Setting { Name = "intensity",          Low = v => v.intensity.value = 0.1f,  High = v => v.intensity.value = 4f },
-                new Setting { Name = "saturation",         Low = v => v.saturation.value = 0.1f, High = v => v.saturation.value = 2f },
-                new Setting { Name = "tint",               Low = v => v.tint.value = Color.white, High = v => v.tint.value = new Color(0.2f, 0.2f, 1f) },
-                new Setting { Name = "obscurance",         Low = v => v.obscuranceIntensity.value = 0.05f, High = v => v.obscuranceIntensity.value = 1f },
-                new Setting { Name = "obscuranceRadius",   Low = v => v.obscuranceRadius.value = 0.05f, High = v => v.obscuranceRadius.value = 4f },
-                new Setting { Name = "maxRayLength",       Low = v => v.maxRayLength.value = 1f, High = v => v.maxRayLength.value = 64f },
-                new Setting { Name = "fadeDistance",       Low = v => v.fadeDistance.value = 1.5f, High = v => v.fadeDistance.value = 120f },
-                new Setting { Name = "smoothing",          Low = v => v.smoothing.value = 0f,    High = v => v.smoothing.value = 2f },
-                new Setting { Name = "wideBlur",           Low = v => v.wideBlur.value = false,  High = v => v.wideBlur.value = true },
-                new Setting { Name = "temporalFilter",     Low = v => v.temporalFilter.value = false, High = v => v.temporalFilter.value = true },
-                new Setting { Name = "temporalResponse",   Low = v => v.temporalResponse.value = 0.05f, High = v => v.temporalResponse.value = 1f },
-                new Setting { Name = "quality",            Low = v => v.quality.value = BasisGlobalIlluminationQuality.Low, High = v => v.quality.value = BasisGlobalIlluminationQuality.Ultra },
-                new Setting { Name = "resolution",         Low = v => v.resolution.value = BasisGlobalIlluminationResolution.Quarter, High = v => v.resolution.value = BasisGlobalIlluminationResolution.Half },
-                new Setting { Name = "fallback",           Low = v => v.fallback.value = BasisGlobalIlluminationFallback.None, High = v => v.fallback.value = BasisGlobalIlluminationFallback.Sky },
-                new Setting { Name = "fallbackIntensity",  Low = v => v.fallbackIntensity.value = 0f, High = v => v.fallbackIntensity.value = 4f },
-                new Setting { Name = "emitters",           Low = v => v.emitters.value = false,  High = v => v.emitters.value = true },
-                new Setting { Name = "emitterIntensity",   Low = v => v.emitterIntensity.value = 0.1f, High = v => v.emitterIntensity.value = 8f },
-                new Setting { Name = "emitterOcclusion",   Low = v => v.emitterOcclusion.value = false, High = v => v.emitterOcclusion.value = true, RayTraced = false },
-                new Setting { Name = "rayReuse",           Low = v => v.rayReuse.value = false,  High = v => v.rayReuse.value = true, RayTraced = false },
-                new Setting { Name = "neighbourhoodClamp", Low = v => v.neighbourhoodClamp.value = false, High = v => v.neighbourhoodClamp.value = true },
-                new Setting { Name = "bilateralUpsample",  Low = v => v.bilateralUpsample.value = false, High = v => v.bilateralUpsample.value = true },
-                new Setting { Name = "fireflyClamp",       Low = v => v.fireflyClamp.value = 1f, High = v => v.fireflyClamp.value = 32f },
-                new Setting { Name = "bounces",            Low = v => { v.overrideQualityCounts.value = true; v.bounces.value = 1; }, High = v => { v.overrideQualityCounts.value = true; v.bounces.value = 4; }, ScreenSpace = false },
-                new Setting { Name = "rayTracedLights",    Low = v => v.rayTracedLights.value = false, High = v => v.rayTracedLights.value = true, ScreenSpace = false },
-                new Setting { Name = "rayTracedLightIntensity", Low = v => v.rayTracedLightIntensity.value = 0f, High = v => v.rayTracedLightIntensity.value = 4f, ScreenSpace = false },
-                new Setting { Name = "rayTracedShadows",   Low = v => v.rayTracedShadows.value = false, High = v => v.rayTracedShadows.value = true, ScreenSpace = false },
-                new Setting { Name = "rayTracedEmissive",  Low = v => v.rayTracedEmissiveSurfaces.value = false, High = v => v.rayTracedEmissiveSurfaces.value = true, ScreenSpace = false },
+                new Setting { Name = "intensity",          Low = v => v.intensity = 0.1f,  High = v => v.intensity = 4f },
+                new Setting { Name = "saturation",         Low = v => v.saturation = 0.1f, High = v => v.saturation = 2f },
+                new Setting { Name = "tint",               Low = v => v.tint = Color.white, High = v => v.tint = new Color(0.2f, 0.2f, 1f) },
+                new Setting { Name = "obscurance",         Low = v => v.obscuranceIntensity = 0.05f, High = v => v.obscuranceIntensity = 1f },
+                new Setting { Name = "obscuranceRadius",   Low = v => v.obscuranceRadius = 0.05f, High = v => v.obscuranceRadius = 4f },
+                new Setting { Name = "maxRayLength",       Low = v => v.maxRayLength = 1f, High = v => v.maxRayLength = 64f },
+                new Setting { Name = "fadeDistance",       Low = v => v.fadeDistance = 1.5f, High = v => v.fadeDistance = 120f },
+                new Setting { Name = "smoothing",          Low = v => v.smoothing = 0f,    High = v => v.smoothing = 2f },
+                new Setting { Name = "wideBlur",           Low = v => v.wideBlur = false,  High = v => v.wideBlur = true },
+                new Setting { Name = "temporalFilter",     Low = v => v.temporalFilter = false, High = v => v.temporalFilter = true },
+                new Setting { Name = "temporalResponse",   Low = v => v.temporalResponse = 0.05f, High = v => v.temporalResponse = 1f },
+                new Setting { Name = "quality",            Low = v => v.quality = BasisGlobalIlluminationQuality.Low, High = v => v.quality = BasisGlobalIlluminationQuality.Ultra },
+                new Setting { Name = "resolution",         Low = v => v.resolution = BasisGlobalIlluminationResolution.Quarter, High = v => v.resolution = BasisGlobalIlluminationResolution.Half },
+                new Setting { Name = "fallback",           Low = v => v.fallback = BasisGlobalIlluminationFallback.None, High = v => v.fallback = BasisGlobalIlluminationFallback.Sky },
+                new Setting { Name = "fallbackIntensity",  Low = v => v.fallbackIntensity = 0f, High = v => v.fallbackIntensity = 4f },
+                new Setting { Name = "emitters",           Low = v => v.emitters = false,  High = v => v.emitters = true },
+                new Setting { Name = "emitterIntensity",   Low = v => v.emitterIntensity = 0.1f, High = v => v.emitterIntensity = 8f },
+                new Setting { Name = "emitterOcclusion",   Low = v => v.emitterOcclusion = false, High = v => v.emitterOcclusion = true, RayTraced = false },
+                new Setting { Name = "rayReuse",           Low = v => v.rayReuse = false,  High = v => v.rayReuse = true, RayTraced = false },
+                new Setting { Name = "neighbourhoodClamp", Low = v => v.neighbourhoodClamp = false, High = v => v.neighbourhoodClamp = true },
+                new Setting { Name = "bilateralUpsample",  Low = v => v.bilateralUpsample = false, High = v => v.bilateralUpsample = true },
+                new Setting { Name = "fireflyClamp",       Low = v => v.fireflyClamp = 1f, High = v => v.fireflyClamp = 32f },
+                new Setting { Name = "bounces",            Low = v => { v.overrideQualityCounts = true; v.bounces = 1; }, High = v => { v.overrideQualityCounts = true; v.bounces = 4; }, ScreenSpace = false },
+                new Setting { Name = "rayTracedLights",    Low = v => v.rayTracedLights = false, High = v => v.rayTracedLights = true, ScreenSpace = false },
+                new Setting { Name = "rayTracedLightIntensity", Low = v => v.rayTracedLightIntensity = 0f, High = v => v.rayTracedLightIntensity = 4f, ScreenSpace = false },
+                new Setting { Name = "rayTracedShadows",   Low = v => v.rayTracedShadows = false, High = v => v.rayTracedShadows = true, ScreenSpace = false },
+                new Setting { Name = "rayTracedEmissive",  Low = v => v.rayTracedEmissiveSurfaces = false, High = v => v.rayTracedEmissiveSurfaces = true, ScreenSpace = false },
                 // Unconfirmed: the traced albedo folds a base map in as an averaged async readback, and those
                 // callbacks are dispatched by the editor loop, which a manual render loop never reaches. The
                 // harness forces them with WaitAllRequests after a rebuild, so this ought to resolve - but it
                 // reads as inert either way and I have not proved which. Do not read this annotation as a
                 // claim that the setting works.
-                new Setting { Name = "rayTracedAlbedo",    Low = v => v.rayTracedTextureAlbedo.value = false, High = v => v.rayTracedTextureAlbedo.value = true, ScreenSpace = false,
+                new Setting { Name = "rayTracedAlbedo",    Low = v => v.rayTracedTextureAlbedo = false, High = v => v.rayTracedTextureAlbedo = true, ScreenSpace = false,
                               KnownInert = "may be the harness, not the setting - the map average is an async readback this rig cannot be sure resolved" },
-                new Setting { Name = "rayTracedNormalBias", Low = v => v.rayTracedNormalBias.value = 0f, High = v => v.rayTracedNormalBias.value = 0.5f, ScreenSpace = false },
+                new Setting { Name = "rayTracedNormalBias", Low = v => v.rayTracedNormalBias = 0f, High = v => v.rayTracedNormalBias = 0.5f, ScreenSpace = false },
             };
         }
 
@@ -236,7 +236,7 @@ namespace Basis.Tests.GlobalIllumination
         private void Sweep(BasisGlobalIlluminationMode mode, List<string> dead, StringBuilder report)
         {
             List<Setting> settings = Settings();
-            harness.Settings.mode.value = mode;
+            harness.Settings.mode = mode;
 
             // What the same measurement taken twice disagrees by. Anything a setting moves the image by less
             // than this cannot be told apart from the gather's own noise, so it is the floor to judge against.

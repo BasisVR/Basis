@@ -208,15 +208,15 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 
         UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
         UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-        BasisGlobalIlluminationVolume volume = VolumeManager.instance.stack.GetComponent<BasisGlobalIlluminationVolume>();
-        // DiffuseActive, not IsActive: IsActive is now true for a volume that only asked for reflections,
-        // and those are recorded by SpecularPass at a different point in the frame.
-        if (volume == null || !volume.DiffuseActive()) { return; }
+        BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
+        // DiffuseActive, not IsActive: IsActive is also true when only reflections were asked for, and
+        // those are recorded by SpecularPass at a different point in the frame.
+        if (!settings.DiffuseActive()) { return; }
         if (!resourceData.cameraColor.IsValid() || !resourceData.cameraDepthTexture.IsValid()) { return; }
 
         Camera camera = cameraData.camera;
         RenderTextureDescriptor descriptor = cameraData.cameraTargetDescriptor;
-        int divisor = volume.ResolvedResolutionDivisor();
+        int divisor = settings.ResolvedResolutionDivisor();
         int tracedWidth = Mathf.Max(1, descriptor.width / divisor);
         int tracedHeight = Mathf.Max(1, descriptor.height / divisor);
 
@@ -225,7 +225,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(hash);
         bool contiguous = history.Contiguous(frame);
         history.EnsureAllocated(descriptor, tracedWidth, tracedHeight);
-        bool historyValid = volume.temporalFilter.value && history.Valid && contiguous;
+        bool historyValid = settings.temporalFilter && history.Valid && contiguous;
 
         // Requesting Motion is not the same as getting it: a camera type URP renders no motion pass for
         // still resolves to an invalid handle, and the reprojection has to fall back to the matrix rather
@@ -233,7 +233,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         TextureHandle motion = UseMotionVectors && resourceData.motionVectorColor.IsValid() ? resourceData.motionVectorColor : TextureHandle.nullHandle;
         bool motionValid = motion.IsValid();
 
-        ApplyKeywords(volume, motionValid);
+        ApplyKeywords(settings, motionValid);
 
         RenderTextureDescriptor sceneColorDescriptor = descriptor;
         sceneColorDescriptor.width = tracedWidth;
@@ -262,25 +262,25 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // The ray traced mode replaces the screen space gather and nothing else: the temporal filter, the
         // bilateral blur and the composite downstream read the same traced texture either way. A GPU or a
         // scene that cannot serve the trace falls back to the screen space gather rather than to nothing.
-        bool rayTraced = volume.IsRayTraced() && PrepareRayTracing(volume, camera, frame);
+        bool rayTraced = settings.IsRayTraced() && PrepareRayTracing(settings, camera, frame);
 
         // The ray budget is resolved before anything reads it, because the denoiser is driven by how many
         // samples a pixel actually paid for: a ceiling applied further down would leave the filter
         // trusting a sample count that was never taken.
-        int rayCount = volume.ResolvedRayCount();
-        int bounces = volume.ResolvedBounces();
-        int lightSamples = volume.ResolvedRayTracedLightSamples();
+        int rayCount = settings.ResolvedRayCount();
+        int bounces = settings.ResolvedBounces();
+        int lightSamples = settings.ResolvedRayTracedLightSamples();
         if (rayTraced && BasisGlobalIlluminationRayTracer.Instance.Context.Backend == RayTracingBackend.Compute)
         {
             rayCount = Mathf.Min(rayCount, ComputeBackendRayCeiling);
             bounces = Mathf.Min(bounces, ComputeBackendBounceCeiling);
             lightSamples = Mathf.Min(lightSamples, ComputeBackendLightSampleCeiling);
-            ReportComputeBackend(volume);
+            ReportComputeBackend(settings);
         }
 
         // Resolved once for the whole frame and handed to both gathers, so a ray that misses is worth
         // the same thing either side of a mode switch.
-        BasisGlobalIlluminationRayTracer.SkyBinding sky = BasisGlobalIlluminationRayTracer.ResolveSky(volume.fallback.value, volume.fallbackIntensity.value);
+        BasisGlobalIlluminationRayTracer.SkyBinding sky = BasisGlobalIlluminationRayTracer.ResolveSky(settings.fallback, settings.fallbackIntensity);
         // A raster pass can only bind render graph resources and this is an engine texture, so the cubemap
         // goes on the global slot directly rather than through the command buffer. That is only safe
         // because of an invariant worth stating: ResolveSky picks the cubemap from RenderSettings alone, so
@@ -291,12 +291,12 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // command buffer or the last camera to record will decide the sky for every camera that renders.
         if (sky.Cube != null) { Shader.SetGlobalTexture(idSkyCube, sky.Cube); }
 
-        FillConstants(volume, frame, rayTraced, rayCount);
-        int emitterCount = volume.emitters.value ? GatherEmitters(camera, volume.ResolvedMaxEmitters()) : 0;
+        FillConstants(settings, frame, rayTraced, rayCount);
+        int emitterCount = settings.emitters ? GatherEmitters(camera, settings.ResolvedMaxEmitters()) : 0;
 
         if (rayTraced)
         {
-            RecordRayTraced(renderGraph, resourceData, cameraData, volume, traced, tracedWidth, tracedHeight, descriptor, frame, emitterCount, rayCount, bounces, lightSamples, sky);
+            RecordRayTraced(renderGraph, resourceData, cameraData, settings, traced, tracedWidth, tracedHeight, descriptor, frame, emitterCount, rayCount, bounces, lightSamples, sky);
         }
         else
         {
@@ -306,14 +306,14 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 passData.material = material;
                 passData.materialPass = PassCopyColor;
                 passData.source = resourceData.cameraColor;
-                Configure(passData, volume, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
+                Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
                 builder.SetRenderAttachment(sceneColor, 0, AccessFlags.WriteAll);
                 builder.UseTexture(resourceData.cameraColor);
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
             }
 
-            TextureHandle coarse = volume.hierarchicalMarch.value
+            TextureHandle coarse = settings.hierarchicalMarch
                 ? RecordCoarseDepth(renderGraph, resourceData, descriptor, tracedWidth, tracedHeight, divisor)
                 : TextureHandle.nullHandle;
 
@@ -340,7 +340,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         }
 
         TextureHandle denoiseSource = traced;
-        if (volume.temporalFilter.value)
+        if (settings.temporalFilter)
         {
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Temporal", out PassData passData, samplerTemporal))
             {
@@ -372,11 +372,11 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // The filter reads the statistics the temporal pass just wrote, so it knows how many frames each
         // pixel has behind it and how far its own luminance has been swinging. Where the temporal filter is
         // switched off there are none, and the filter falls back to treating every pixel as unresolved.
-        bool statsValid = volume.temporalFilter.value;
-        int taps = Mathf.Clamp(Mathf.RoundToInt(volume.smoothing.value * 2f), 0, 4);
+        bool statsValid = settings.temporalFilter;
+        int taps = Mathf.Clamp(Mathf.RoundToInt(settings.smoothing * 2f), 0, 4);
         if (taps > 0)
         {
-            int levels = volume.wideBlur.value ? BlurLevels : BlurLevels - 1;
+            int levels = settings.wideBlur ? BlurLevels : BlurLevels - 1;
             for (int level = 0; level < levels; level++)
             {
                 float stride = 1 << level;
@@ -410,18 +410,18 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 
         StoreViewProjection(cameraData, history.PreviousViewProjection);
         history.Write = history.Read;
-        history.Valid = volume.temporalFilter.value;
+        history.Valid = settings.temporalFilter;
         history.RecordFrame(frame);
         BasisGlobalIlluminationHistory.PruneStale(frame, HistoryMaxAge);
     }
 
-    private void Configure(PassData passData, BasisGlobalIlluminationVolume volume, int tracedWidth, int tracedHeight, in RenderTextureDescriptor descriptor,
+    private void Configure(PassData passData, BasisGlobalIlluminationSettings settings, int tracedWidth, int tracedHeight, in RenderTextureDescriptor descriptor,
         int emitterCount, in BasisGlobalIlluminationRayTracer.SkyBinding sky)
     {
         passData.constants = constants;
         passData.sky = new Vector4(sky.Mip, sky.IsValid ? sky.Intensity : 0f, 0f, 0f);
         passData.skyDecode = sky.Decode;
-        passData.tint = volume.tint.value.linear;
+        passData.tint = settings.tint.linear;
         passData.tracedTexelSize = new Vector4(1f / tracedWidth, 1f / tracedHeight, tracedWidth, tracedHeight);
         passData.sourceTexelSize = new Vector4(1f / descriptor.width, 1f / descriptor.height, descriptor.width, descriptor.height);
         passData.debugView = (int)DebugView;
@@ -435,7 +435,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     /// run - no ray tracing on this GPU, the context failed to come up, or the scene holds no traceable
     /// geometry yet - and the caller then renders the screen space gather instead.
     /// </summary>
-    private bool PrepareRayTracing(BasisGlobalIlluminationVolume volume, Camera camera, int frame)
+    private bool PrepareRayTracing(BasisGlobalIlluminationSettings settings, Camera camera, int frame)
     {
         if (camera == null) { return false; }
         if (!RayTracingAvailable || rayStagesMaterial == null)
@@ -452,7 +452,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         }
 
         loggedRayTracingFallback = false;
-        return tracer.Refresh(volume.ResolvedSceneSettings(), volume.ResolvedLightSettings(), camera, frame, Time.unscaledTime);
+        return tracer.Refresh(settings.ResolvedSceneSettings(), settings.ResolvedLightSettings(), camera, frame, Time.unscaledTime);
     }
 
     /// <summary>Why the ray traced mode cannot run, phrased as something a player or an author can act on.</summary>
@@ -476,14 +476,14 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     }
 
     private void RecordRayTraced(RenderGraph renderGraph, UniversalResourceData resourceData, UniversalCameraData cameraData,
-        BasisGlobalIlluminationVolume volume, TextureHandle traced, int tracedWidth, int tracedHeight,
+        BasisGlobalIlluminationSettings settings, TextureHandle traced, int tracedWidth, int tracedHeight,
         in RenderTextureDescriptor descriptor, int frame, int emitterCount, int rayCount, int bounces, int lightSamples,
         BasisGlobalIlluminationRayTracer.SkyBinding sky)
     {
         BasisGlobalIlluminationRayTracer tracer = BasisGlobalIlluminationRayTracer.Instance;
 
         int viewCount = ViewCountOf(cameraData);
-        int scale = Mathf.Clamp(volume.ResolvedResolutionDivisor(), 1, 4);
+        int scale = Mathf.Clamp(settings.ResolvedResolutionDivisor(), 1, 4);
         Vector3 viewer = cameraData.camera.transform.position;
         Vector4 reference = new Vector4(viewer.x, viewer.y, viewer.z, 0f);
         Vector4 fullSize = new Vector4(descriptor.width, descriptor.height, 1f / descriptor.width, 1f / descriptor.height);
@@ -504,7 +504,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             passData.rayReference = reference;
             passData.rayFullSize = fullSize;
             passData.rayScale = scale;
-            Configure(passData, volume, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
+            Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
             builder.SetRenderAttachment(position, 0, AccessFlags.WriteAll);
             builder.SetRenderAttachment(normal, 1, AccessFlags.WriteAll);
             builder.UseTexture(resourceData.cameraDepthTexture);
@@ -522,9 +522,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             data.skyCube = sky.Cube;
             data.reference = reference;
             data.size = new Vector4(tracedWidth, tracedHeight, 1f / tracedWidth, 1f / tracedHeight);
-            data.trace = new Vector4(volume.maxRayLength.value, volume.obscuranceRadius.value, volume.obscuranceIntensity.value, volume.fadeDistance.value);
-            data.bias = new Vector4(volume.rayTracedNormalBias.value, RayDistanceBias, volume.emitterIntensity.value, volume.rayTracedLightIntensity.value);
-            data.options = new Vector4(volume.fireflyClamp.value, RayBounceThreshold, volume.rayTracedShadows.value ? 1f : 0f, 0f);
+            data.trace = new Vector4(settings.maxRayLength, settings.obscuranceRadius, settings.obscuranceIntensity, settings.fadeDistance);
+            data.bias = new Vector4(settings.rayTracedNormalBias, RayDistanceBias, settings.emitterIntensity, settings.rayTracedLightIntensity);
+            data.options = new Vector4(settings.fireflyClamp, RayBounceThreshold, settings.rayTracedShadows ? 1f : 0f, 0f);
             data.sky = new Vector4(sky.Mip, sky.IsValid ? sky.Intensity : 0f, 0f, 0f);
             data.skyDecode = sky.Decode;
             data.specularParams = Vector4.zero;
@@ -563,11 +563,11 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         }
     }
 
-    private void ReportComputeBackend(BasisGlobalIlluminationVolume volume)
+    private void ReportComputeBackend(BasisGlobalIlluminationSettings settings)
     {
         if (loggedComputeBackend) { return; }
         loggedComputeBackend = true;
-        bool clamped = volume.ResolvedRayCount() > ComputeBackendRayCeiling || volume.ResolvedBounces() > ComputeBackendBounceCeiling;
+        bool clamped = settings.ResolvedRayCount() > ComputeBackendRayCeiling || settings.ResolvedBounces() > ComputeBackendBounceCeiling;
         string budget = clamped
             ? $" The ray budget is capped at {ComputeBackendRayCeiling} ray and {ComputeBackendBounceCeiling} bounce per pixel there, so raising Quality will not change the trace."
             : string.Empty;
@@ -729,31 +729,31 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         target[1] = stereo ? ComputeViewProjection(cameraData, 1) : target[0];
     }
 
-    private void ApplyKeywords(BasisGlobalIlluminationVolume volume, bool motionValid)
+    private void ApplyKeywords(BasisGlobalIlluminationSettings settings, bool motionValid)
     {
         CoreUtils.SetKeyword(material, "_BASISGI_MOTION_VECTORS", motionValid);
-        bool normalsTexture = UseNormalsTexture && volume.normalSource.value == BasisGlobalIlluminationNormalSource.NormalsTexture;
+        bool normalsTexture = UseNormalsTexture && settings.normalSource == BasisGlobalIlluminationNormalSource.NormalsTexture;
         CoreUtils.SetKeyword(material, "_BASISGI_NORMALS_TEXTURE", normalsTexture);
-        CoreUtils.SetKeyword(material, "_BASISGI_FALLBACK_SKY", volume.fallback.value == BasisGlobalIlluminationFallback.Sky);
-        CoreUtils.SetKeyword(material, "_BASISGI_FALLBACK_PROBE", volume.fallback.value == BasisGlobalIlluminationFallback.ReflectionProbe);
-        CoreUtils.SetKeyword(material, "_BASISGI_EMITTERS", volume.emitters.value);
-        CoreUtils.SetKeyword(material, "_BASISGI_EMITTER_OCCLUSION", volume.emitters.value && volume.emitterOcclusion.value);
-        CoreUtils.SetKeyword(material, "_BASISGI_RAY_REUSE", volume.rayReuse.value);
-        CoreUtils.SetKeyword(material, "_BASISGI_HIT_NORMAL", volume.quality.value >= BasisGlobalIlluminationQuality.High);
-        CoreUtils.SetKeyword(material, "_BASISGI_HIERARCHICAL_MARCH", volume.hierarchicalMarch.value);
-        CoreUtils.SetKeyword(material, "_BASISGI_NEIGHBOURHOOD_CLAMP", volume.neighbourhoodClamp.value);
-        CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", volume.bilateralUpsample.value && volume.ResolvedResolutionDivisor() > 1);
+        CoreUtils.SetKeyword(material, "_BASISGI_FALLBACK_SKY", settings.fallback == BasisGlobalIlluminationFallback.Sky);
+        CoreUtils.SetKeyword(material, "_BASISGI_FALLBACK_PROBE", settings.fallback == BasisGlobalIlluminationFallback.ReflectionProbe);
+        CoreUtils.SetKeyword(material, "_BASISGI_EMITTERS", settings.emitters);
+        CoreUtils.SetKeyword(material, "_BASISGI_EMITTER_OCCLUSION", settings.emitters && settings.emitterOcclusion);
+        CoreUtils.SetKeyword(material, "_BASISGI_RAY_REUSE", settings.rayReuse);
+        CoreUtils.SetKeyword(material, "_BASISGI_HIT_NORMAL", settings.quality >= BasisGlobalIlluminationQuality.High);
+        CoreUtils.SetKeyword(material, "_BASISGI_HIERARCHICAL_MARCH", settings.hierarchicalMarch);
+        CoreUtils.SetKeyword(material, "_BASISGI_NEIGHBOURHOOD_CLAMP", settings.neighbourhoodClamp);
+        CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", settings.bilateralUpsample && settings.ResolvedResolutionDivisor() > 1);
     }
 
-    private void FillConstants(BasisGlobalIlluminationVolume volume, int frame, bool rayTraced, int rayCount)
+    private void FillConstants(BasisGlobalIlluminationSettings settings, int frame, bool rayTraced, int rayCount)
     {
-        constants[0] = new Vector4(volume.intensity.value, volume.saturation.value, volume.obscuranceIntensity.value, volume.obscuranceRadius.value);
-        constants[1] = new Vector4(volume.maxRayLength.value, volume.thickness.value, volume.jitter.value, volume.fadeDistance.value);
+        constants[0] = new Vector4(settings.intensity, settings.saturation, settings.obscuranceIntensity, settings.obscuranceRadius);
+        constants[1] = new Vector4(settings.maxRayLength, settings.thickness, settings.jitter, settings.fadeDistance);
         // The fallback's intensity rides with the sky binding rather than here, because that is where the
         // cubemap it applies to comes from.
-        constants[2] = new Vector4(rayCount, volume.ResolvedRaySteps(), volume.fireflyClamp.value, 0f);
-        float temporalResponse = rayTraced ? volume.temporalResponse.value * RayTemporalResponseScale : volume.temporalResponse.value;
-        constants[3] = new Vector4(frame % 64, temporalResponse, volume.depthRejection.value, volume.emitterIntensity.value);
+        constants[2] = new Vector4(rayCount, settings.ResolvedRaySteps(), settings.fireflyClamp, 0f);
+        float temporalResponse = rayTraced ? settings.temporalResponse * RayTemporalResponseScale : settings.temporalResponse;
+        constants[3] = new Vector4(frame % 64, temporalResponse, settings.depthRejection, settings.emitterIntensity);
     }
 
     /// <summary>The emitter position and radius the shader would read at this slot.</summary>

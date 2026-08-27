@@ -28,14 +28,13 @@ namespace Basis.Tests.Graphics
         private const int Height = 128;
 
         private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
-        private readonly List<VolumeComponent> restoreTargets = new List<VolumeComponent>();
-        private readonly List<VolumeComponent> restoreCopies = new List<VolumeComponent>();
 
         private Func<UnityEngine.Camera, bool> previousFilter;
         private bool previousKeepWithDebugger;
         private bool previousFeatureActive;
         private BasisGlobalIlluminationFeature feature;
         private GameObject host;
+        private BasisGlobalIlluminationSettings authoredSettings;
         private UnityEngine.Camera camera;
         private RenderTexture target;
         private Texture2D readback;
@@ -60,8 +59,7 @@ namespace Basis.Tests.Graphics
 
             // The module writes the pipeline's own default profiles, which are project assets. Snapshot them
             // so a test run does not silently re-author what the project ships with.
-            Remember(VolumeManager.instance.globalDefaultProfile);
-            Remember(VolumeManager.instance.qualityDefaultProfile);
+            authoredSettings = BasisGlobalIlluminationSettings.Current.Clone();
 
             BuildScene();
         }
@@ -75,23 +73,12 @@ namespace Basis.Tests.Graphics
             if (host != null)
             {
                 SMModuleGlobalIlluminationURP module = host.GetComponent<SMModuleGlobalIlluminationURP>();
-                if (module != null)
-                {
-                    module.RestoreAuthoredProfiles();
-                    module.RestoreAuthoredFeatureValues();
-                    if (module.Volume != null && module.Volume.sharedProfile != null)
-                    {
-                        UnityEngine.Object.DestroyImmediate(module.Volume.sharedProfile);
-                    }
-                }
+                if (module != null) { module.RestoreAuthoredFeatureValues(); }
                 UnityEngine.Object.DestroyImmediate(host);
                 host = null;
             }
 
-            for (int index = 0; index < restoreTargets.Count; index++) { CopyParameters(restoreCopies[index], restoreTargets[index]); }
-            for (int index = 0; index < restoreCopies.Count; index++) { UnityEngine.Object.DestroyImmediate(restoreCopies[index]); }
-            restoreTargets.Clear();
-            restoreCopies.Clear();
+            if (authoredSettings != null) { BasisGlobalIlluminationSettings.Current.CopyFrom(authoredSettings); authoredSettings = null; }
 
             if (feature != null) { feature.SetActive(previousFeatureActive); }
 
@@ -106,25 +93,6 @@ namespace Basis.Tests.Graphics
             if (target != null) { target.Release(); UnityEngine.Object.DestroyImmediate(target); target = null; }
         }
 
-        private void Remember(VolumeProfile profile)
-        {
-            if (profile == null || !profile.TryGet(out BasisGlobalIlluminationVolume component)) { return; }
-            VolumeComponent copy = UnityEngine.Object.Instantiate(component);
-            copy.hideFlags = HideFlags.HideAndDontSave;
-            restoreTargets.Add(component);
-            restoreCopies.Add(copy);
-        }
-
-        private static void CopyParameters(VolumeComponent from, VolumeComponent to)
-        {
-            if (from == null || to == null) { return; }
-            for (int index = 0; index < to.parameters.Count && index < from.parameters.Count; index++)
-            {
-                to.parameters[index].SetValue(from.parameters[index]);
-                to.parameters[index].overrideState = from.parameters[index].overrideState;
-            }
-            to.active = from.active;
-        }
 
         private T Own<T>(T value) where T : UnityEngine.Object
         {
@@ -227,9 +195,9 @@ namespace Basis.Tests.Graphics
         }
 
         /// <summary>What the shader will actually read, as opposed to what the module wrote.</summary>
-        private static BasisGlobalIlluminationVolume Stacked()
+        private static BasisGlobalIlluminationSettings Stacked()
         {
-            return VolumeManager.instance.stack != null ? VolumeManager.instance.stack.GetComponent<BasisGlobalIlluminationVolume>() : null;
+            return BasisGlobalIlluminationSettings.Current;
         }
 
         private SMModuleGlobalIlluminationURP StartModule(BasisGlobalIlluminationMode mode)
@@ -243,7 +211,7 @@ namespace Basis.Tests.Graphics
             return module;
         }
 
-        private void AssertSliderMovesTheImage(BasisGlobalIlluminationMode mode, string bindingKey, float low, float high, Func<BasisGlobalIlluminationVolume, float> read)
+        private void AssertSliderMovesTheImage(BasisGlobalIlluminationMode mode, string bindingKey, float low, float high, Func<BasisGlobalIlluminationSettings, float> read)
         {
             SMModuleGlobalIlluminationURP module = StartModule(mode);
 
@@ -273,7 +241,7 @@ namespace Basis.Tests.Graphics
             AssertSliderMovesTheImage(BasisGlobalIlluminationMode.ScreenSpace,
                 BasisSettingsDefaults.GlobalIlluminationIntensity.BindingKey,
                 BasisSettingsDefaults.GI_INTENSITY_MIN, BasisSettingsDefaults.GI_INTENSITY_MAX,
-                gi => gi.intensity.value);
+                gi => gi.intensity);
         }
 
         [Test]
@@ -282,7 +250,7 @@ namespace Basis.Tests.Graphics
             AssertSliderMovesTheImage(BasisGlobalIlluminationMode.RayTraced,
                 BasisSettingsDefaults.GlobalIlluminationIntensity.BindingKey,
                 BasisSettingsDefaults.GI_INTENSITY_MIN, BasisSettingsDefaults.GI_INTENSITY_MAX,
-                gi => gi.intensity.value);
+                gi => gi.intensity);
         }
 
         [Test]
@@ -291,7 +259,7 @@ namespace Basis.Tests.Graphics
             AssertSliderMovesTheImage(BasisGlobalIlluminationMode.ScreenSpace,
                 BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.BindingKey,
                 BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX,
-                gi => gi.emitterIntensity.value);
+                gi => gi.emitterIntensity);
         }
 
         [Test]
@@ -300,7 +268,7 @@ namespace Basis.Tests.Graphics
             AssertSliderMovesTheImage(BasisGlobalIlluminationMode.RayTraced,
                 BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.BindingKey,
                 BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX,
-                gi => gi.emitterIntensity.value);
+                gi => gi.emitterIntensity);
         }
     }
 }

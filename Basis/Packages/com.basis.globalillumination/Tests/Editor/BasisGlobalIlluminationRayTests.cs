@@ -7,18 +7,12 @@ namespace Basis.Tests.GlobalIllumination
 {
     public class BasisGlobalIlluminationRayTests
     {
-        private BasisGlobalIlluminationVolume volume;
+        private BasisGlobalIlluminationSettings volume;
 
         [SetUp]
         public void SetUp()
         {
-            volume = ScriptableObject.CreateInstance<BasisGlobalIlluminationVolume>();
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            if (volume != null) { Object.DestroyImmediate(volume); }
+            volume = new BasisGlobalIlluminationSettings();
         }
 
         // The trace kernel declares matching structs and reads them out of a StructuredBuffer, so a field
@@ -38,14 +32,14 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void ScreenSpaceIsTheDefaultMode()
         {
-            Assert.AreEqual(BasisGlobalIlluminationMode.ScreenSpace, volume.mode.value);
+            Assert.AreEqual(BasisGlobalIlluminationMode.ScreenSpace, volume.mode);
             Assert.IsFalse(volume.IsRayTraced());
         }
 
         [Test]
         public void RayTracedModeIsReported()
         {
-            volume.mode.value = BasisGlobalIlluminationMode.RayTraced;
+            volume.mode = BasisGlobalIlluminationMode.RayTraced;
             Assert.IsTrue(volume.IsRayTraced());
         }
 
@@ -55,24 +49,24 @@ namespace Basis.Tests.GlobalIllumination
         [TestCase(BasisGlobalIlluminationQuality.Ultra, 3)]
         public void QualityDrivesTheBounceCount(BasisGlobalIlluminationQuality quality, int expected)
         {
-            volume.quality.value = quality;
-            volume.overrideQualityCounts.value = false;
+            volume.quality = quality;
+            volume.overrideQualityCounts = false;
             Assert.AreEqual(expected, volume.ResolvedBounces());
         }
 
         [Test]
         public void OverridingQualityCountsTakesTheAuthoredBounceCount()
         {
-            volume.quality.value = BasisGlobalIlluminationQuality.Low;
-            volume.overrideQualityCounts.value = true;
-            volume.bounces.value = 3;
+            volume.quality = BasisGlobalIlluminationQuality.Low;
+            volume.overrideQualityCounts = true;
+            volume.bounces = 3;
             Assert.AreEqual(3, volume.ResolvedBounces());
         }
 
         [Test]
         public void QualityLightLimitIsMonotonic()
         {
-            volume.rayTracedLights.value = true;
+            volume.rayTracedLights = true;
             int previous = 0;
             BasisGlobalIlluminationQuality[] ladder =
             {
@@ -83,7 +77,7 @@ namespace Basis.Tests.GlobalIllumination
             };
             for (int index = 0; index < ladder.Length; index++)
             {
-                volume.quality.value = ladder[index];
+                volume.quality = ladder[index];
                 int limit = volume.ResolvedRayTracedLightLimit();
                 Assert.GreaterOrEqual(limit, previous, ladder[index].ToString());
                 Assert.LessOrEqual(limit, BasisGlobalIlluminationRayLights.MaxLights);
@@ -94,20 +88,20 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void LightsOffGathersNoLights()
         {
-            volume.rayTracedLights.value = false;
+            volume.rayTracedLights = false;
             Assert.AreEqual(0, volume.ResolvedRayTracedLightLimit());
         }
 
         [Test]
         public void SceneSettingsCarryTheVolumeValues()
         {
-            volume.rayTracedSkinnedMeshes.value = BasisGlobalIlluminationRaySkinnedMode.Static;
-            volume.rayTracedSkinnedBudget.value = 5;
-            volume.rayTracedSkinnedInterval.value = 7;
-            volume.rayTracedSkinnedDistance.value = 21f;
-            volume.rayTracedTextureAlbedo.value = false;
-            volume.rayTracedEmissiveSurfaces.value = false;
-            volume.rayTracedShadowCastersOnly.value = true;
+            volume.rayTracedSkinnedMeshes = BasisGlobalIlluminationRaySkinnedMode.Static;
+            volume.rayTracedSkinnedBudget = 5;
+            volume.rayTracedSkinnedInterval = 7;
+            volume.rayTracedSkinnedDistance = 21f;
+            volume.rayTracedTextureAlbedo = false;
+            volume.rayTracedEmissiveSurfaces = false;
+            volume.rayTracedShadowCastersOnly = true;
 
             BasisGlobalIlluminationRaySceneSettings settings = volume.ResolvedSceneSettings();
             Assert.AreEqual(BasisGlobalIlluminationRaySkinnedMode.Static, settings.skinnedMode);
@@ -122,9 +116,9 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void LightSettingsShareTheEmitterControls()
         {
-            volume.emitters.value = true;
-            volume.emitterIntensity.value = 2.5f;
-            volume.rayTracedShadows.value = false;
+            volume.emitters = true;
+            volume.emitterIntensity = 2.5f;
+            volume.rayTracedShadows = false;
 
             BasisGlobalIlluminationRayLightSettings settings = volume.ResolvedLightSettings();
             Assert.IsTrue(settings.emitters);

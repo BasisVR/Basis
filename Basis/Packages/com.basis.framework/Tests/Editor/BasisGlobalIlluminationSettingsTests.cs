@@ -33,11 +33,6 @@ namespace Basis.Tests.Graphics
             BasisLocalCameraDriver.CameraInstance = previousCameraInstance;
             if (host != null)
             {
-                SMModuleGlobalIlluminationURP module = host.GetComponent<SMModuleGlobalIlluminationURP>();
-                if (module != null && module.Volume != null && module.Volume.sharedProfile != null)
-                {
-                    UnityEngine.Object.DestroyImmediate(module.Volume.sharedProfile);
-                }
                 UnityEngine.Object.DestroyImmediate(host);
                 host = null;
             }
@@ -49,9 +44,9 @@ namespace Basis.Tests.Graphics
             return host.AddComponent<SMModuleGlobalIlluminationURP>();
         }
 
-        private static BasisGlobalIlluminationVolume NewVolume()
+        private static BasisGlobalIlluminationSettings NewVolume()
         {
-            return ScriptableObject.CreateInstance<BasisGlobalIlluminationVolume>();
+            return new BasisGlobalIlluminationSettings();
         }
 
         private static string Invariant(float value)
@@ -95,24 +90,24 @@ namespace Basis.Tests.Graphics
         }
 
         [Test]
-        public void EverySettingsRangeSitsInsideTheVolumeParameterRangeItDrives()
+        public void EverySettingsRangeSitsInsideTheRangeItDrives()
         {
             // A binding range wider than the volume's own would silently clip in the inspector and read
             // back a different value than the player chose.
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_INTENSITY_MIN, BasisGlobalIlluminationVolume.IntensityMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_INTENSITY_MAX, BasisGlobalIlluminationVolume.IntensityMax);
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_SATURATION_MIN, BasisGlobalIlluminationVolume.SaturationMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_SATURATION_MAX, BasisGlobalIlluminationVolume.SaturationMax);
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_OBSCURANCE_MIN, BasisGlobalIlluminationVolume.ObscuranceMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, BasisGlobalIlluminationVolume.ObscuranceMax);
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MIN, BasisGlobalIlluminationVolume.RayLengthMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, BasisGlobalIlluminationVolume.RayLengthMax);
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, BasisGlobalIlluminationVolume.SmoothingMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_SMOOTHING_MAX, BasisGlobalIlluminationVolume.SmoothingMax);
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, BasisGlobalIlluminationVolume.TemporalResponseMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, BasisGlobalIlluminationVolume.TemporalResponseMax);
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisGlobalIlluminationVolume.EmitterIntensityMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, BasisGlobalIlluminationVolume.EmitterIntensityMax);
+            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_INTENSITY_MIN, BasisGlobalIlluminationSettings.IntensityMin);
+            Assert.LessOrEqual(BasisSettingsDefaults.GI_INTENSITY_MAX, BasisGlobalIlluminationSettings.IntensityMax);
+            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_SATURATION_MIN, BasisGlobalIlluminationSettings.SaturationMin);
+            Assert.LessOrEqual(BasisSettingsDefaults.GI_SATURATION_MAX, BasisGlobalIlluminationSettings.SaturationMax);
+            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_OBSCURANCE_MIN, BasisGlobalIlluminationSettings.ObscuranceMin);
+            Assert.LessOrEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, BasisGlobalIlluminationSettings.ObscuranceMax);
+            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MIN, BasisGlobalIlluminationSettings.RayLengthMin);
+            Assert.LessOrEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, BasisGlobalIlluminationSettings.RayLengthMax);
+            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, BasisGlobalIlluminationSettings.SmoothingMin);
+            Assert.LessOrEqual(BasisSettingsDefaults.GI_SMOOTHING_MAX, BasisGlobalIlluminationSettings.SmoothingMax);
+            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, BasisGlobalIlluminationSettings.TemporalResponseMin);
+            Assert.LessOrEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, BasisGlobalIlluminationSettings.TemporalResponseMax);
+            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisGlobalIlluminationSettings.EmitterIntensityMin);
+            Assert.LessOrEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, BasisGlobalIlluminationSettings.EmitterIntensityMax);
         }
 
         // ----- dropdown parsing -----
@@ -221,9 +216,9 @@ namespace Basis.Tests.Graphics
         // ----- apply to the volume -----
 
         [Test]
-        public void ApplyDrivesEveryPlayerFacingParameterAndOverridesIt()
+        public void ApplyDrivesEveryPlayerFacingParameter()
         {
-            BasisGlobalIlluminationVolume gi = NewVolume();
+            BasisGlobalIlluminationSettings gi = NewVolume();
             try
             {
                 BasisGlobalIlluminationState state = BasisGlobalIlluminationState.FromDefaults();
@@ -240,72 +235,29 @@ namespace Basis.Tests.Graphics
                 state.EmitterIntensity = 2f;
                 SMModuleGlobalIlluminationURP.Apply(gi, state);
 
-                Assert.IsTrue(gi.enable.overrideState);
-                Assert.IsTrue(gi.enable.value);
-                Assert.AreEqual(BasisGlobalIlluminationQuality.High, gi.quality.value);
-                Assert.AreEqual(BasisGlobalIlluminationResolution.Quarter, gi.resolution.value);
-                Assert.AreEqual(BasisGlobalIlluminationFallback.Sky, gi.fallback.value);
-                Assert.AreEqual(1.5f, gi.intensity.value, 0.0001f);
-                Assert.AreEqual(0.5f, gi.saturation.value, 0.0001f);
-                Assert.AreEqual(0.75f, gi.obscuranceIntensity.value, 0.0001f);
-                Assert.AreEqual(32f, gi.maxRayLength.value, 0.0001f);
-                Assert.AreEqual(1.5f, gi.smoothing.value, 0.0001f);
-                Assert.AreEqual(0.4f, gi.temporalResponse.value, 0.0001f);
-                Assert.AreEqual(2f, gi.emitterIntensity.value, 0.0001f);
+                Assert.IsTrue(gi.enable);
+                Assert.AreEqual(BasisGlobalIlluminationQuality.High, gi.quality);
+                Assert.AreEqual(BasisGlobalIlluminationResolution.Quarter, gi.resolution);
+                Assert.AreEqual(BasisGlobalIlluminationFallback.Sky, gi.fallback);
+                Assert.AreEqual(1.5f, gi.intensity, 0.0001f);
+                Assert.AreEqual(0.5f, gi.saturation, 0.0001f);
+                Assert.AreEqual(0.75f, gi.obscuranceIntensity, 0.0001f);
+                Assert.AreEqual(32f, gi.maxRayLength, 0.0001f);
+                Assert.AreEqual(1.5f, gi.smoothing, 0.0001f);
+                Assert.AreEqual(0.4f, gi.temporalResponse, 0.0001f);
+                Assert.AreEqual(2f, gi.emitterIntensity, 0.0001f);
 
-                Assert.IsTrue(gi.quality.overrideState);
-                Assert.IsTrue(gi.resolution.overrideState);
-                Assert.IsTrue(gi.fallback.overrideState);
-                Assert.IsTrue(gi.intensity.overrideState);
-                Assert.IsTrue(gi.saturation.overrideState);
-                Assert.IsTrue(gi.obscuranceIntensity.overrideState);
-                Assert.IsTrue(gi.maxRayLength.overrideState);
-                Assert.IsTrue(gi.smoothing.overrideState);
-                Assert.IsTrue(gi.temporalResponse.overrideState);
-                Assert.IsTrue(gi.temporalFilter.overrideState);
-                Assert.IsTrue(gi.emitterIntensity.overrideState);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gi);
             }
         }
 
-        [Test]
-        public void ApplyLeavesTheArtisticParametersToTheWorld()
-        {
-            // Thickness, jitter, the firefly clamp, the depth rejection threshold and the tint are
-            // authoring decisions, so a world's own volume still wins on them.
-            BasisGlobalIlluminationVolume gi = NewVolume();
-            try
-            {
-                BasisGlobalIlluminationState state = BasisGlobalIlluminationState.FromDefaults();
-                state.Enabled = true;
-                SMModuleGlobalIlluminationURP.Apply(gi, state);
-
-                Assert.IsFalse(gi.thickness.overrideState);
-                Assert.IsFalse(gi.jitter.overrideState);
-                Assert.IsFalse(gi.fireflyClamp.overrideState);
-                Assert.IsFalse(gi.depthRejection.overrideState);
-                Assert.IsFalse(gi.tint.overrideState);
-                Assert.IsFalse(gi.fadeDistance.overrideState);
-                Assert.IsFalse(gi.obscuranceRadius.overrideState);
-                Assert.IsFalse(gi.normalSource.overrideState);
-                Assert.IsFalse(gi.bilateralUpsample.overrideState);
-                Assert.IsFalse(gi.neighbourhoodClamp.overrideState);
-                Assert.IsFalse(gi.fallbackIntensity.overrideState);
-                Assert.IsFalse(gi.emitterOcclusion.overrideState);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(gi);
-            }
-        }
 
         [Test]
         public void EverySliderIsClampedToItsSettingsRange()
         {
-            BasisGlobalIlluminationVolume gi = NewVolume();
+            BasisGlobalIlluminationSettings gi = NewVolume();
             try
             {
                 BasisGlobalIlluminationState high = BasisGlobalIlluminationState.FromDefaults();
@@ -319,13 +271,13 @@ namespace Basis.Tests.Graphics
                 high.EmitterIntensity = 999f;
                 SMModuleGlobalIlluminationURP.Apply(gi, high);
 
-                Assert.AreEqual(BasisSettingsDefaults.GI_INTENSITY_MAX, gi.intensity.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MAX, gi.saturation.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, gi.obscuranceIntensity.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, gi.maxRayLength.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MAX, gi.smoothing.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, gi.temporalResponse.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, gi.emitterIntensity.value, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_INTENSITY_MAX, gi.intensity, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MAX, gi.saturation, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, gi.obscuranceIntensity, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, gi.maxRayLength, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MAX, gi.smoothing, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, gi.temporalResponse, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, gi.emitterIntensity, 0.0001f);
 
                 BasisGlobalIlluminationState low = BasisGlobalIlluminationState.FromDefaults();
                 low.Enabled = true;
@@ -338,45 +290,41 @@ namespace Basis.Tests.Graphics
                 low.EmitterIntensity = -5f;
                 SMModuleGlobalIlluminationURP.Apply(gi, low);
 
-                Assert.AreEqual(BasisSettingsDefaults.GI_INTENSITY_MIN, gi.intensity.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MIN, gi.saturation.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MIN, gi.obscuranceIntensity.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MIN, gi.maxRayLength.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, gi.smoothing.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, gi.temporalResponse.value, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, gi.emitterIntensity.value, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_INTENSITY_MIN, gi.intensity, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MIN, gi.saturation, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MIN, gi.obscuranceIntensity, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MIN, gi.maxRayLength, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, gi.smoothing, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, gi.temporalResponse, 0.0001f);
+                Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, gi.emitterIntensity, 0.0001f);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gi);
             }
         }
 
         [Test]
-        public void DisablingKeepsTheOverrideSoAWorldCannotForceItBackOn()
+        public void DisablingActuallyDisables()
         {
-            BasisGlobalIlluminationVolume gi = NewVolume();
+            BasisGlobalIlluminationSettings gi = NewVolume();
             try
             {
                 BasisGlobalIlluminationState state = BasisGlobalIlluminationState.FromDefaults();
                 state.Enabled = false;
                 SMModuleGlobalIlluminationURP.Apply(gi, state);
 
-                Assert.IsTrue(gi.active);
-                Assert.IsTrue(gi.enable.overrideState);
-                Assert.IsFalse(gi.enable.value);
+                Assert.IsFalse(gi.enable);
                 Assert.IsFalse(gi.IsActive());
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gi);
             }
         }
 
         [Test]
         public void ACaptureRaisesResolutionAndRayBudgetOnlyWhileItLasts()
         {
-            BasisGlobalIlluminationVolume gi = NewVolume();
+            BasisGlobalIlluminationSettings gi = NewVolume();
             try
             {
                 BasisGlobalIlluminationState state = BasisGlobalIlluminationState.FromDefaults();
@@ -386,28 +334,27 @@ namespace Basis.Tests.Graphics
                 state.Capture = true;
                 SMModuleGlobalIlluminationURP.Apply(gi, state);
 
-                Assert.AreEqual(BasisGlobalIlluminationResolution.Full, gi.resolution.value);
-                Assert.IsTrue(gi.overrideQualityCounts.value);
+                Assert.AreEqual(BasisGlobalIlluminationResolution.Full, gi.resolution);
+                Assert.IsTrue(gi.overrideQualityCounts);
                 Assert.AreEqual(SMModuleGlobalIlluminationURP.CaptureRayCount, gi.ResolvedRayCount());
                 Assert.AreEqual(SMModuleGlobalIlluminationURP.CaptureRaySteps, gi.ResolvedRaySteps());
-                Assert.AreEqual(BasisGlobalIlluminationQuality.Low, gi.quality.value);
+                Assert.AreEqual(BasisGlobalIlluminationQuality.Low, gi.quality);
 
                 state.Capture = false;
                 SMModuleGlobalIlluminationURP.Apply(gi, state);
-                Assert.AreEqual(BasisGlobalIlluminationResolution.Quarter, gi.resolution.value);
-                Assert.IsFalse(gi.overrideQualityCounts.value);
+                Assert.AreEqual(BasisGlobalIlluminationResolution.Quarter, gi.resolution);
+                Assert.IsFalse(gi.overrideQualityCounts);
                 Assert.AreEqual(1, gi.ResolvedRayCount());
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gi);
             }
         }
 
         [Test]
         public void ACaptureTurnsTheTemporalFilterOffBecauseAPhotoHasNoHistory()
         {
-            BasisGlobalIlluminationVolume gi = NewVolume();
+            BasisGlobalIlluminationSettings gi = NewVolume();
             try
             {
                 BasisGlobalIlluminationState state = BasisGlobalIlluminationState.FromDefaults();
@@ -415,15 +362,14 @@ namespace Basis.Tests.Graphics
                 state.TemporalFilter = true;
                 state.Capture = true;
                 SMModuleGlobalIlluminationURP.Apply(gi, state);
-                Assert.IsFalse(gi.temporalFilter.value);
+                Assert.IsFalse(gi.temporalFilter);
 
                 state.Capture = false;
                 SMModuleGlobalIlluminationURP.Apply(gi, state);
-                Assert.IsTrue(gi.temporalFilter.value);
+                Assert.IsTrue(gi.temporalFilter);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gi);
             }
         }
 
@@ -432,25 +378,24 @@ namespace Basis.Tests.Graphics
         {
             // A photo that traced fewer rays than the player's own quality tier would be noisier than
             // what they were looking at when they pressed the shutter.
-            BasisGlobalIlluminationVolume gi = NewVolume();
+            BasisGlobalIlluminationSettings gi = NewVolume();
             try
             {
-                gi.quality.value = BasisGlobalIlluminationQuality.Ultra;
+                gi.quality = BasisGlobalIlluminationQuality.Ultra;
                 Assert.GreaterOrEqual(SMModuleGlobalIlluminationURP.CaptureRayCount, gi.ResolvedRayCount());
                 Assert.GreaterOrEqual(SMModuleGlobalIlluminationURP.CaptureRaySteps, gi.ResolvedRaySteps());
-                Assert.LessOrEqual(SMModuleGlobalIlluminationURP.CaptureRayCount, BasisGlobalIlluminationVolume.RayCountMax);
-                Assert.LessOrEqual(SMModuleGlobalIlluminationURP.CaptureRaySteps, BasisGlobalIlluminationVolume.RayStepsMax);
+                Assert.LessOrEqual(SMModuleGlobalIlluminationURP.CaptureRayCount, BasisGlobalIlluminationSettings.RayCountMax);
+                Assert.LessOrEqual(SMModuleGlobalIlluminationURP.CaptureRaySteps, BasisGlobalIlluminationSettings.RayStepsMax);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gi);
             }
         }
 
         [Test]
-        public void ApplyingToANullVolumeIsHarmless()
+        public void ApplyingToNullSettingsIsHarmless()
         {
-            Assert.DoesNotThrow(() => SMModuleGlobalIlluminationURP.Apply((BasisGlobalIlluminationVolume)null, BasisGlobalIlluminationState.FromDefaults()));
+            Assert.DoesNotThrow(() => SMModuleGlobalIlluminationURP.Apply((BasisGlobalIlluminationSettings)null, BasisGlobalIlluminationState.FromDefaults()));
         }
 
         // ----- the feature -----
@@ -504,30 +449,6 @@ namespace Basis.Tests.Graphics
             Assert.IsNull(SMModuleGlobalIlluminationURP.FindFeature(null));
         }
 
-        [Test]
-        public void TheShippedRendererAndPipelineProfilesCarryTheEffectSwitchedOff()
-        {
-            // The setting defaults to off, so everything the project ships has to agree with it: a
-            // renderer feature left active or a pipeline default profile left enabled renders bounce
-            // light before the settings module has run at all.
-            BasisGlobalIlluminationFeature feature = SMModuleGlobalIlluminationURP.FindFeature();
-            if (feature == null)
-            {
-                Assert.Ignore("The active render pipeline carries no global illumination feature.");
-            }
-            Assert.IsFalse(feature.isActive, "The renderer ships with the global illumination feature active.");
-            AssertProfileCarriesTheEffectOff(VolumeManager.instance.globalDefaultProfile);
-            AssertProfileCarriesTheEffectOff(VolumeManager.instance.qualityDefaultProfile);
-        }
-
-        private static void AssertProfileCarriesTheEffectOff(VolumeProfile profile)
-        {
-            if (profile == null || !profile.TryGet(out BasisGlobalIlluminationVolume gi))
-            {
-                return;
-            }
-            Assert.IsFalse(gi.enable.value, profile.name + " ships with global illumination enabled.");
-        }
 
         [Test]
         public void TheModuleDrivesTheFeatureActiveStateFromTheSetting()
@@ -556,7 +477,7 @@ namespace Basis.Tests.Graphics
         // ----- settings plumbing -----
 
         [Test]
-        public void EverySliderReachesTheOwnedVolume()
+        public void EverySliderReachesTheSettings()
         {
             // Regression shape: a slider persisted and threaded through the state but never read at the
             // point of application looks wired up and changes nothing on screen.
@@ -564,67 +485,67 @@ namespace Basis.Tests.Graphics
             module.ApplyOverride();
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationIntensity.BindingKey, Invariant(BasisSettingsDefaults.GI_INTENSITY_MAX));
-            Assert.AreEqual(BasisSettingsDefaults.GI_INTENSITY_MAX, module.GlobalIllumination.intensity.value, 0.0001f);
+            Assert.AreEqual(BasisSettingsDefaults.GI_INTENSITY_MAX, module.GlobalIllumination.intensity, 0.0001f);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationSaturation.BindingKey, Invariant(BasisSettingsDefaults.GI_SATURATION_MIN));
-            Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MIN, module.GlobalIllumination.saturation.value, 0.0001f);
+            Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MIN, module.GlobalIllumination.saturation, 0.0001f);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationObscurance.BindingKey, Invariant(BasisSettingsDefaults.GI_OBSCURANCE_MAX));
-            Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, module.GlobalIllumination.obscuranceIntensity.value, 0.0001f);
+            Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, module.GlobalIllumination.obscuranceIntensity, 0.0001f);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationRayLength.BindingKey, Invariant(BasisSettingsDefaults.GI_RAY_LENGTH_MAX));
-            Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, module.GlobalIllumination.maxRayLength.value, 0.0001f);
+            Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, module.GlobalIllumination.maxRayLength, 0.0001f);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationSmoothing.BindingKey, Invariant(BasisSettingsDefaults.GI_SMOOTHING_MIN));
-            Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, module.GlobalIllumination.smoothing.value, 0.0001f);
+            Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, module.GlobalIllumination.smoothing, 0.0001f);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationTemporalResponse.BindingKey, Invariant(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX));
-            Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, module.GlobalIllumination.temporalResponse.value, 0.0001f);
+            Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, module.GlobalIllumination.temporalResponse, 0.0001f);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.BindingKey, Invariant(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX));
-            Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, module.GlobalIllumination.emitterIntensity.value, 0.0001f);
+            Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, module.GlobalIllumination.emitterIntensity, 0.0001f);
         }
 
         [Test]
-        public void EveryToggleAndDropdownReachesTheOwnedVolume()
+        public void EveryToggleAndDropdownReachesTheSettings()
         {
             SMModuleGlobalIlluminationURP module = NewModule();
             module.ApplyOverride();
 
             module.ValidSettingsChange(BasisSettingsDefaults.UseGlobalIllumination.BindingKey, "true");
-            Assert.IsTrue(module.GlobalIllumination.enable.value);
+            Assert.IsTrue(module.GlobalIllumination.enable);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationQuality.BindingKey, "ultra");
-            Assert.AreEqual(BasisGlobalIlluminationQuality.Ultra, module.GlobalIllumination.quality.value);
+            Assert.AreEqual(BasisGlobalIlluminationQuality.Ultra, module.GlobalIllumination.quality);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationResolution.BindingKey, "quarter");
-            Assert.AreEqual(BasisGlobalIlluminationResolution.Quarter, module.GlobalIllumination.resolution.value);
+            Assert.AreEqual(BasisGlobalIlluminationResolution.Quarter, module.GlobalIllumination.resolution);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationFallback.BindingKey, "sky");
-            Assert.AreEqual(BasisGlobalIlluminationFallback.Sky, module.GlobalIllumination.fallback.value);
+            Assert.AreEqual(BasisGlobalIlluminationFallback.Sky, module.GlobalIllumination.fallback);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationTemporalFilter.BindingKey, "false");
-            Assert.IsFalse(module.GlobalIllumination.temporalFilter.value);
+            Assert.IsFalse(module.GlobalIllumination.temporalFilter);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationWideBlur.BindingKey, "false");
-            Assert.IsFalse(module.GlobalIllumination.wideBlur.value);
+            Assert.IsFalse(module.GlobalIllumination.wideBlur);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationRayReuse.BindingKey, "false");
-            Assert.IsFalse(module.GlobalIllumination.rayReuse.value);
+            Assert.IsFalse(module.GlobalIllumination.rayReuse);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationEmitters.BindingKey, "false");
-            Assert.IsFalse(module.GlobalIllumination.emitters.value);
+            Assert.IsFalse(module.GlobalIllumination.emitters);
         }
 
         [Test]
-        public void AnUnparseableSliderValueLeavesTheVolumeAlone()
+        public void AnUnparseableSliderValueLeavesTheSettingsAlone()
         {
             SMModuleGlobalIlluminationURP module = NewModule();
             module.ApplyOverride();
-            float before = module.GlobalIllumination.intensity.value;
+            float before = module.GlobalIllumination.intensity;
 
             Assert.DoesNotThrow(() => module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationIntensity.BindingKey, "not a number"));
-            Assert.AreEqual(before, module.GlobalIllumination.intensity.value, 0.0001f);
+            Assert.AreEqual(before, module.GlobalIllumination.intensity, 0.0001f);
         }
 
         [Test]
@@ -633,7 +554,7 @@ namespace Basis.Tests.Graphics
             SMModuleGlobalIlluminationURP module = NewModule();
             module.ApplyOverride();
             Assert.DoesNotThrow(() => module.ValidSettingsChange("somethingelse", "true"));
-            Assert.IsFalse(module.GlobalIllumination.enable.value);
+            Assert.IsFalse(module.GlobalIllumination.enable);
         }
 
         [Test]
@@ -644,115 +565,11 @@ namespace Basis.Tests.Graphics
             Assert.DoesNotThrow(() => module.ValidSettingsChange(BasisSettingsDefaults.DevGiDebugView.BindingKey, "obscurance"));
         }
 
-        [Test]
-        public void TheTogglePropagatesToThePipelinesOwnDefaultVolumeProfile()
-        {
-            // URP seeds every camera's stack from the default profile before any scene volume, so unless
-            // the toggle reaches it the effect is pinned to whatever that asset ships with.
-            SMModuleGlobalIlluminationURP module = NewModule();
-            module.ApplyOverride();
 
-            VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            try
-            {
-                BasisGlobalIlluminationVolume seeded = profile.Add<BasisGlobalIlluminationVolume>(false);
-                seeded.enable.overrideState = true;
-                seeded.enable.value = true;
-
-                module.ValidSettingsChange(BasisSettingsDefaults.UseGlobalIllumination.BindingKey, "false");
-                module.ApplyToProfile(profile);
-
-                Assert.IsTrue(seeded.enable.overrideState);
-                Assert.IsFalse(seeded.enable.value, "Turning the setting off must also clear the pipeline default profile.");
-
-                module.ValidSettingsChange(BasisSettingsDefaults.UseGlobalIllumination.BindingKey, "true");
-                module.ApplyToProfile(profile);
-                Assert.IsTrue(seeded.enable.value);
-
-                module.RestoreAuthoredProfiles();
-                Assert.IsTrue(seeded.enable.value, "Teardown restores what the asset was authored with.");
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(profile);
-            }
-        }
-
-        [Test]
-        public void ApplyingToAProfileWithoutTheComponentIsHarmless()
-        {
-            SMModuleGlobalIlluminationURP module = NewModule();
-            module.ApplyOverride();
-            VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            try
-            {
-                Assert.DoesNotThrow(() => module.ApplyToProfile(profile));
-                Assert.DoesNotThrow(() => module.ApplyToProfile(null));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(profile);
-            }
-        }
 
         // ----- the module's own volumes -----
 
-        [Test]
-        public void ModuleOwnsOneGlobalVolumeOnTheDefaultLayerThatStartsDisabled()
-        {
-            SMModuleGlobalIlluminationURP module = NewModule();
-            module.ApplyOverride();
 
-            Volume volume = module.Volume;
-            Assert.IsNotNull(volume);
-            Assert.IsTrue(volume.isGlobal);
-            Assert.AreEqual(SMModuleGlobalIlluminationURP.OverridePriority, volume.priority);
-            Assert.AreEqual(0, volume.gameObject.layer);
-            Assert.AreEqual(host.transform, volume.transform.parent);
-            Assert.IsTrue(volume.gameObject.activeSelf);
-            Assert.IsTrue(volume.sharedProfile.TryGet(out BasisGlobalIlluminationVolume gi));
-            Assert.AreSame(module.GlobalIllumination, gi);
-            Assert.IsTrue(gi.enable.overrideState);
-            Assert.IsFalse(gi.enable.value);
-            Assert.IsFalse(module.Capturing);
-
-            module.ApplyOverride();
-            Assert.AreSame(volume, module.Volume);
-            Assert.AreEqual(1, host.transform.childCount);
-            Assert.AreEqual(0, module.CameraVolumes.Count);
-        }
-
-        [Test]
-        public void ModuleCoversARegisteredCamerasVolumeLayerWithTheSameProfile()
-        {
-            SMModuleGlobalIlluminationURP module = NewModule();
-            GameObject captureObject = new GameObject("capture-camera");
-            UnityEngine.Camera capture = captureObject.AddComponent<UnityEngine.Camera>();
-            try
-            {
-                captureObject.AddComponent<UniversalAdditionalCameraData>().volumeLayerMask = 1 << 11;
-                SMModuleGlobalIlluminationURP.RegisterCamera(capture);
-
-                module.ApplyOverride();
-
-                Assert.IsTrue(module.CameraVolumes.TryGetValue(11, out Volume layerVolume));
-                Assert.AreEqual(11, layerVolume.gameObject.layer);
-                Assert.IsTrue(layerVolume.isGlobal);
-                Assert.AreEqual(SMModuleGlobalIlluminationURP.OverridePriority, layerVolume.priority);
-                Assert.AreEqual(host.transform, layerVolume.transform.parent);
-                Assert.AreSame(module.Volume.sharedProfile, layerVolume.sharedProfile);
-                Assert.AreEqual(2, host.transform.childCount);
-
-                module.ApplyOverride();
-                Assert.AreEqual(1, module.CameraVolumes.Count);
-                Assert.AreEqual(2, host.transform.childCount);
-            }
-            finally
-            {
-                SMModuleGlobalIlluminationURP.UnregisterCamera(capture);
-                UnityEngine.Object.DestroyImmediate(captureObject);
-            }
-        }
 
         // ----- the camera gate -----
 
@@ -822,33 +639,6 @@ namespace Basis.Tests.Graphics
             }
         }
 
-        [Test]
-        public void UncoveredVolumeLayerIsTheLowestLayerOutsideTheDefaultVolumeMask()
-        {
-            GameObject captureObject = new GameObject("capture-camera");
-            try
-            {
-                UnityEngine.Camera capture = captureObject.AddComponent<UnityEngine.Camera>();
-                Assert.AreEqual(-1, SMModuleGlobalIlluminationURP.UncoveredVolumeLayer(null));
-                Assert.AreEqual(-1, SMModuleGlobalIlluminationURP.UncoveredVolumeLayer(capture));
-
-                UniversalAdditionalCameraData cameraData = captureObject.AddComponent<UniversalAdditionalCameraData>();
-                cameraData.volumeLayerMask = 1 << 11;
-                Assert.AreEqual(11, SMModuleGlobalIlluminationURP.UncoveredVolumeLayer(capture));
-                cameraData.volumeLayerMask = (1 << 11) | (1 << 5);
-                Assert.AreEqual(5, SMModuleGlobalIlluminationURP.UncoveredVolumeLayer(capture));
-                cameraData.volumeLayerMask = 1;
-                Assert.AreEqual(-1, SMModuleGlobalIlluminationURP.UncoveredVolumeLayer(capture));
-                cameraData.volumeLayerMask = ~0;
-                Assert.AreEqual(-1, SMModuleGlobalIlluminationURP.UncoveredVolumeLayer(capture));
-                cameraData.volumeLayerMask = 0;
-                Assert.AreEqual(-1, SMModuleGlobalIlluminationURP.UncoveredVolumeLayer(capture));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(captureObject);
-            }
-        }
 
         // ----- capture lifecycle -----
 
@@ -874,11 +664,11 @@ namespace Basis.Tests.Graphics
                 SMModuleGlobalIlluminationURP.RegisterCamera(capture);
                 SMModuleGlobalIlluminationURP.BeginCapture(capture);
                 Assert.IsTrue(module.Capturing);
-                Assert.AreEqual(BasisGlobalIlluminationResolution.Full, module.GlobalIllumination.resolution.value);
+                Assert.AreEqual(BasisGlobalIlluminationResolution.Full, module.GlobalIllumination.resolution);
 
                 SMModuleGlobalIlluminationURP.EndCapture();
                 Assert.IsFalse(module.Capturing);
-                Assert.AreEqual(BasisGlobalIlluminationResolution.Half, module.GlobalIllumination.resolution.value);
+                Assert.AreEqual(BasisGlobalIlluminationResolution.Half, module.GlobalIllumination.resolution);
 
                 Assert.DoesNotThrow(SMModuleGlobalIlluminationURP.EndCapture);
             }

@@ -3,42 +3,36 @@ using UnityEngine;
 
 namespace Basis.Tests.GlobalIllumination
 {
-    public class BasisGlobalIlluminationVolumeTests
+    public class BasisGlobalIlluminationSettingsTests
     {
-        private BasisGlobalIlluminationVolume volume;
+        private BasisGlobalIlluminationSettings volume;
 
         [SetUp]
         public void SetUp()
         {
-            volume = ScriptableObject.CreateInstance<BasisGlobalIlluminationVolume>();
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            if (volume != null) { Object.DestroyImmediate(volume); }
+            volume = new BasisGlobalIlluminationSettings();
         }
 
         [Test]
         public void EffectIsOffByDefault()
         {
-            Assert.IsFalse(volume.enable.value);
+            Assert.IsFalse(volume.enable);
             Assert.IsFalse(volume.IsActive());
         }
 
         [Test]
         public void EnabledWithZeroIntensityIsNotActive()
         {
-            volume.enable.value = true;
-            volume.intensity.value = 0f;
+            volume.enable = true;
+            volume.intensity = 0f;
             Assert.IsFalse(volume.IsActive());
         }
 
         [Test]
         public void EnabledWithIntensityIsActive()
         {
-            volume.enable.value = true;
-            volume.intensity.value = 1f;
+            volume.enable = true;
+            volume.intensity = 1f;
             Assert.IsTrue(volume.IsActive());
         }
 
@@ -48,7 +42,7 @@ namespace Basis.Tests.GlobalIllumination
         [TestCase(BasisGlobalIlluminationQuality.Ultra, 8, 48)]
         public void QualityDrivesRayBudget(BasisGlobalIlluminationQuality quality, int expectedRays, int expectedSteps)
         {
-            volume.quality.value = quality;
+            volume.quality = quality;
             Assert.AreEqual(expectedRays, volume.ResolvedRayCount());
             Assert.AreEqual(expectedSteps, volume.ResolvedRaySteps());
         }
@@ -66,7 +60,7 @@ namespace Basis.Tests.GlobalIllumination
             };
             for (int index = 0; index < ladder.Length; index++)
             {
-                volume.quality.value = ladder[index];
+                volume.quality = ladder[index];
                 Assert.Greater(volume.ResolvedRayCount(), previousRays);
                 Assert.Greater(volume.ResolvedRaySteps(), previousSteps);
                 Assert.Greater(volume.ResolvedMaxEmitters(), previousEmitters);
@@ -79,10 +73,10 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void OverrideTakesPrecedenceOverQuality()
         {
-            volume.quality.value = BasisGlobalIlluminationQuality.Low;
-            volume.overrideQualityCounts.value = true;
-            volume.rayCount.value = 7;
-            volume.rayMaxSteps.value = 41;
+            volume.quality = BasisGlobalIlluminationQuality.Low;
+            volume.overrideQualityCounts = true;
+            volume.rayCount = 7;
+            volume.rayMaxSteps = 41;
             Assert.AreEqual(7, volume.ResolvedRayCount());
             Assert.AreEqual(41, volume.ResolvedRaySteps());
         }
@@ -99,7 +93,7 @@ namespace Basis.Tests.GlobalIllumination
             };
             for (int index = 0; index < ladder.Length; index++)
             {
-                volume.quality.value = ladder[index];
+                volume.quality = ladder[index];
                 Assert.LessOrEqual(volume.ResolvedMaxEmitters(), BasisGlobalIlluminationPass.MaxEmitters);
             }
         }
@@ -109,47 +103,47 @@ namespace Basis.Tests.GlobalIllumination
         [TestCase(BasisGlobalIlluminationResolution.Quarter, 4)]
         public void ResolutionDivisorMatchesTheEnum(BasisGlobalIlluminationResolution resolution, int expected)
         {
-            volume.resolution.value = resolution;
+            volume.resolution = resolution;
             Assert.AreEqual(expected, volume.ResolvedResolutionDivisor());
         }
 
         [Test]
         public void RayCountRangeCoversEveryQualityTier()
         {
-            Assert.LessOrEqual(BasisGlobalIlluminationVolume.RayCountMin, 1);
-            volume.quality.value = BasisGlobalIlluminationQuality.Ultra;
-            Assert.LessOrEqual(volume.ResolvedRayCount(), BasisGlobalIlluminationVolume.RayCountMax);
-            Assert.LessOrEqual(volume.ResolvedRaySteps(), BasisGlobalIlluminationVolume.RayStepsMax);
+            Assert.LessOrEqual(BasisGlobalIlluminationSettings.RayCountMin, 1);
+            volume.quality = BasisGlobalIlluminationQuality.Ultra;
+            Assert.LessOrEqual(volume.ResolvedRayCount(), BasisGlobalIlluminationSettings.RayCountMax);
+            Assert.LessOrEqual(volume.ResolvedRaySteps(), BasisGlobalIlluminationSettings.RayStepsMax);
         }
 
         [Test]
         public void DefaultsSitInsideTheirOwnRanges()
         {
-            Assert.GreaterOrEqual(volume.intensity.value, BasisGlobalIlluminationVolume.IntensityMin);
-            Assert.LessOrEqual(volume.intensity.value, BasisGlobalIlluminationVolume.IntensityMax);
-            Assert.GreaterOrEqual(volume.temporalResponse.value, BasisGlobalIlluminationVolume.TemporalResponseMin);
-            Assert.LessOrEqual(volume.temporalResponse.value, BasisGlobalIlluminationVolume.TemporalResponseMax);
-            Assert.GreaterOrEqual(volume.maxRayLength.value, BasisGlobalIlluminationVolume.RayLengthMin);
-            Assert.LessOrEqual(volume.maxRayLength.value, BasisGlobalIlluminationVolume.RayLengthMax);
-            Assert.GreaterOrEqual(volume.thickness.value, BasisGlobalIlluminationVolume.ThicknessMin);
-            Assert.LessOrEqual(volume.thickness.value, BasisGlobalIlluminationVolume.ThicknessMax);
-            Assert.GreaterOrEqual(volume.fireflyClamp.value, BasisGlobalIlluminationVolume.FireflyClampMin);
-            Assert.LessOrEqual(volume.fireflyClamp.value, BasisGlobalIlluminationVolume.FireflyClampMax);
-            Assert.GreaterOrEqual(volume.specularIntensity.value, BasisGlobalIlluminationVolume.IntensityMin);
-            Assert.LessOrEqual(volume.specularIntensity.value, BasisGlobalIlluminationVolume.IntensityMax);
-            Assert.GreaterOrEqual(volume.specularMaxRoughness.value, BasisGlobalIlluminationVolume.SpecularRoughnessMin);
-            Assert.LessOrEqual(volume.specularMaxRoughness.value, BasisGlobalIlluminationVolume.SpecularRoughnessMax);
-            Assert.GreaterOrEqual(volume.specularRayLength.value, BasisGlobalIlluminationVolume.RayLengthMin);
-            Assert.LessOrEqual(volume.specularRayLength.value, BasisGlobalIlluminationVolume.SpecularRayLengthMax);
-            Assert.GreaterOrEqual(volume.specularBounces.value, BasisGlobalIlluminationVolume.BouncesMin);
-            Assert.LessOrEqual(volume.specularBounces.value, BasisGlobalIlluminationVolume.BouncesMax);
+            Assert.GreaterOrEqual(volume.intensity, BasisGlobalIlluminationSettings.IntensityMin);
+            Assert.LessOrEqual(volume.intensity, BasisGlobalIlluminationSettings.IntensityMax);
+            Assert.GreaterOrEqual(volume.temporalResponse, BasisGlobalIlluminationSettings.TemporalResponseMin);
+            Assert.LessOrEqual(volume.temporalResponse, BasisGlobalIlluminationSettings.TemporalResponseMax);
+            Assert.GreaterOrEqual(volume.maxRayLength, BasisGlobalIlluminationSettings.RayLengthMin);
+            Assert.LessOrEqual(volume.maxRayLength, BasisGlobalIlluminationSettings.RayLengthMax);
+            Assert.GreaterOrEqual(volume.thickness, BasisGlobalIlluminationSettings.ThicknessMin);
+            Assert.LessOrEqual(volume.thickness, BasisGlobalIlluminationSettings.ThicknessMax);
+            Assert.GreaterOrEqual(volume.fireflyClamp, BasisGlobalIlluminationSettings.FireflyClampMin);
+            Assert.LessOrEqual(volume.fireflyClamp, BasisGlobalIlluminationSettings.FireflyClampMax);
+            Assert.GreaterOrEqual(volume.specularIntensity, BasisGlobalIlluminationSettings.IntensityMin);
+            Assert.LessOrEqual(volume.specularIntensity, BasisGlobalIlluminationSettings.IntensityMax);
+            Assert.GreaterOrEqual(volume.specularMaxRoughness, BasisGlobalIlluminationSettings.SpecularRoughnessMin);
+            Assert.LessOrEqual(volume.specularMaxRoughness, BasisGlobalIlluminationSettings.SpecularRoughnessMax);
+            Assert.GreaterOrEqual(volume.specularRayLength, BasisGlobalIlluminationSettings.RayLengthMin);
+            Assert.LessOrEqual(volume.specularRayLength, BasisGlobalIlluminationSettings.SpecularRayLengthMax);
+            Assert.GreaterOrEqual(volume.specularBounces, BasisGlobalIlluminationSettings.BouncesMin);
+            Assert.LessOrEqual(volume.specularBounces, BasisGlobalIlluminationSettings.BouncesMax);
         }
 
         [Test]
         public void ReflectionsAreOffByDefault()
         {
-            volume.enable.value = true;
-            Assert.IsFalse(volume.specular.value);
+            volume.enable = true;
+            Assert.IsFalse(volume.specular);
             Assert.IsFalse(volume.SpecularActive());
         }
 
@@ -162,22 +156,22 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void DiffuseAndReflectionsGateIndependently()
         {
-            volume.enable.value = true;
+            volume.enable = true;
 
-            volume.intensity.value = 1f;
-            volume.specular.value = false;
+            volume.intensity = 1f;
+            volume.specular = false;
             Assert.IsTrue(volume.DiffuseActive());
             Assert.IsFalse(volume.SpecularActive());
             Assert.IsTrue(volume.IsActive());
 
-            volume.intensity.value = 0f;
-            volume.specular.value = true;
-            volume.specularIntensity.value = 1f;
+            volume.intensity = 0f;
+            volume.specular = true;
+            volume.specularIntensity = 1f;
             Assert.IsFalse(volume.DiffuseActive(), "a zero diffuse intensity still has to mean the diffuse gather is off");
             Assert.IsTrue(volume.SpecularActive());
             Assert.IsTrue(volume.IsActive(), "reflections alone have to keep the feature enqueuing its passes");
 
-            volume.specularIntensity.value = 0f;
+            volume.specularIntensity = 0f;
             Assert.IsFalse(volume.SpecularActive());
             Assert.IsFalse(volume.IsActive());
         }
@@ -186,9 +180,9 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void DisablingTheComponentTurnsReflectionsOffToo()
         {
-            volume.enable.value = false;
-            volume.specular.value = true;
-            volume.specularIntensity.value = 1f;
+            volume.enable = false;
+            volume.specular = true;
+            volume.specularIntensity = 1f;
             Assert.IsFalse(volume.SpecularActive());
             Assert.IsFalse(volume.IsActive());
         }
@@ -200,15 +194,15 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void ReflectionsDoNotDependOnTheDiffuseMode()
         {
-            volume.enable.value = true;
-            volume.specular.value = true;
-            volume.specularIntensity.value = 1f;
+            volume.enable = true;
+            volume.specular = true;
+            volume.specularIntensity = 1f;
 
-            volume.mode.value = BasisGlobalIlluminationMode.ScreenSpace;
+            volume.mode = BasisGlobalIlluminationMode.ScreenSpace;
             Assert.IsTrue(volume.SpecularActive());
             Assert.IsFalse(volume.IsRayTraced());
 
-            volume.mode.value = BasisGlobalIlluminationMode.RayTraced;
+            volume.mode = BasisGlobalIlluminationMode.RayTraced;
             Assert.IsTrue(volume.SpecularActive());
         }
     }

@@ -81,16 +81,16 @@ public sealed partial class BasisGlobalIlluminationPass
         /// Whether this camera will actually get reflections, which is a stricter question than whether the
         /// volume asked for them: the backend has to exist and the scene has to hold traceable geometry.
         /// </summary>
-        public bool CanRender(BasisGlobalIlluminationVolume volume, Camera camera, int frame)
+        public bool CanRender(BasisGlobalIlluminationSettings settings, Camera camera, int frame)
         {
             if (material == null || rayStagesMaterial == null) { return false; }
-            if (volume == null || !volume.SpecularActive()) { return false; }
+            if (!settings.SpecularActive()) { return false; }
             if (!rayTracingAvailable) { return false; }
 
             BasisGlobalIlluminationRayTracer tracer = BasisGlobalIlluminationRayTracer.GetOrCreate(rayTraceShader, rayTraceCompute, rayComputeFallback);
             if (tracer == null) { return false; }
 
-            return tracer.Refresh(volume.ResolvedSceneSettings(), volume.ResolvedLightSettings(), camera, frame, Time.unscaledTime);
+            return tracer.Refresh(settings.ResolvedSceneSettings(), settings.ResolvedLightSettings(), camera, frame, Time.unscaledTime);
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
@@ -101,16 +101,16 @@ public sealed partial class BasisGlobalIlluminationPass
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             if (!resourceData.cameraDepthTexture.IsValid()) { return; }
 
-            BasisGlobalIlluminationVolume volume = VolumeManager.instance.stack.GetComponent<BasisGlobalIlluminationVolume>();
-            if (volume == null || !volume.SpecularActive()) { return; }
+            BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
+            if (!settings.SpecularActive()) { return; }
 
             Camera camera = cameraData.camera;
             int frame = Time.renderedFrameCount;
-            if (!CanRender(volume, camera, frame)) { return; }
+            if (!CanRender(settings, camera, frame)) { return; }
 
             BasisGlobalIlluminationRayTracer tracer = BasisGlobalIlluminationRayTracer.Instance;
             RenderTextureDescriptor descriptor = cameraData.cameraTargetDescriptor;
-            int divisor = volume.ResolvedResolutionDivisor();
+            int divisor = settings.ResolvedResolutionDivisor();
             int tracedWidth = Mathf.Max(1, descriptor.width / divisor);
             int tracedHeight = Mathf.Max(1, descriptor.height / divisor);
             int viewCount = ViewCountOf(cameraData);
@@ -122,25 +122,25 @@ public sealed partial class BasisGlobalIlluminationPass
             BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(hash);
             history.EnsureAllocated(descriptor, tracedWidth, tracedHeight, true);
             bool contiguous = history.SpecularContiguous(frame);
-            bool historyValid = volume.specularTemporal.value && history.SpecularValid && contiguous;
+            bool historyValid = settings.specularTemporal && history.SpecularValid && contiguous;
 
-            ApplyKeywords(volume);
-            FillConstants(volume, frame);
+            ApplyKeywords(settings);
+            FillConstants(settings, frame);
 
             Vector3 viewer = camera.transform.position;
             Vector4 reference = new Vector4(viewer.x, viewer.y, viewer.z, 0f);
             Vector4 fullSize = new Vector4(descriptor.width, descriptor.height, 1f / descriptor.width, 1f / descriptor.height);
-            BasisGlobalIlluminationRayTracer.SkyBinding sky = BasisGlobalIlluminationRayTracer.ResolveSky(volume.fallback.value, volume.fallbackIntensity.value);
+            BasisGlobalIlluminationRayTracer.SkyBinding sky = BasisGlobalIlluminationRayTracer.ResolveSky(settings.fallback, settings.fallbackIntensity);
             if (sky.Cube != null) { Shader.SetGlobalTexture(idSkyCube, sky.Cube); }
 
-            int emitterCount = volume.emitters.value ? GatherEmitters(camera, volume.ResolvedMaxEmitters()) : 0;
+            int emitterCount = settings.emitters ? GatherEmitters(camera, settings.ResolvedMaxEmitters()) : 0;
 
             // Without hardware ray tracing the BVH is walked in a compute shader, and the diffuse gather
             // already caps itself there rather than asking a GPU that cannot afford it for the full budget.
             // A reflection is one ray per pixel whatever happens, so the cap that is left to apply is on the
             // path continued from the hit and on how many lights each of those hits shadow-rays.
-            int specularBounces = volume.specularBounces.value;
-            int lightSamples = volume.ResolvedRayTracedLightSamples();
+            int specularBounces = settings.specularBounces;
+            int lightSamples = settings.ResolvedRayTracedLightSamples();
             if (tracer.Context.Backend == RayTracingBackend.Compute)
             {
                 specularBounces = Mathf.Min(specularBounces, ComputeBackendBounceCeiling);
@@ -189,7 +189,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 passData.rayReference = reference;
                 passData.rayFullSize = fullSize;
                 passData.rayScale = scale;
-                Configure(passData, volume, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
+                Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
                 builder.SetRenderAttachment(position, 0, AccessFlags.WriteAll);
                 builder.SetRenderAttachment(normal, 1, AccessFlags.WriteAll);
                 builder.UseTexture(resourceData.cameraDepthTexture);
@@ -208,11 +208,11 @@ public sealed partial class BasisGlobalIlluminationPass
                 data.skyCube = sky.Cube;
                 data.reference = reference;
                 data.size = new Vector4(tracedWidth, tracedHeight, 1f / tracedWidth, 1f / tracedHeight);
-                data.trace = new Vector4(volume.maxRayLength.value, volume.obscuranceRadius.value, volume.obscuranceIntensity.value, volume.fadeDistance.value);
-                data.bias = new Vector4(volume.rayTracedNormalBias.value, RayDistanceBias, volume.emitterIntensity.value, volume.rayTracedLightIntensity.value);
-                data.options = new Vector4(volume.fireflyClamp.value, RayBounceThreshold, volume.rayTracedShadows.value ? 1f : 0f, 0f);
-                data.specularParams = new Vector4(volume.specularRayLength.value, volume.specularIntensity.value,
-                    volume.specularFadeDistance.value, specularBounces);
+                data.trace = new Vector4(settings.maxRayLength, settings.obscuranceRadius, settings.obscuranceIntensity, settings.fadeDistance);
+                data.bias = new Vector4(settings.rayTracedNormalBias, RayDistanceBias, settings.emitterIntensity, settings.rayTracedLightIntensity);
+                data.options = new Vector4(settings.fireflyClamp, RayBounceThreshold, settings.rayTracedShadows ? 1f : 0f, 0f);
+                data.specularParams = new Vector4(settings.specularRayLength, settings.specularIntensity,
+                    settings.specularFadeDistance, specularBounces);
                 data.sky = new Vector4(sky.Mip, sky.IsValid ? sky.Intensity : 0f, 0f, 0f);
                 data.skyDecode = sky.Decode;
                 data.diffuseEnabled = false;
@@ -247,7 +247,7 @@ public sealed partial class BasisGlobalIlluminationPass
             }
 
             TextureHandle denoiseSource = traced;
-            if (volume.specularTemporal.value)
+            if (settings.specularTemporal)
             {
                 using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Specular Temporal", out PassData passData, samplerTemporal))
                 {
@@ -277,8 +277,8 @@ public sealed partial class BasisGlobalIlluminationPass
             // Half the taps the diffuse gather uses. A mirror ray is exact, so the only thing left to filter
             // is the light resampling at the hit; blurring past that starts destroying the detail that makes
             // a reflection read as a reflection rather than as a coloured sheen.
-            bool statsValid = volume.specularTemporal.value;
-            int taps = Mathf.Clamp(Mathf.RoundToInt(volume.smoothing.value), 0, 4);
+            bool statsValid = settings.specularTemporal;
+            int taps = Mathf.Clamp(Mathf.RoundToInt(settings.smoothing), 0, 4);
             if (taps > 0)
             {
                 denoiseSource = RecordSpecularBlur(renderGraph, resourceData, denoiseSource, blurA, historyWriteStats, statsValid,
@@ -314,7 +314,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 // x gates the whole thing in the lit shader; y is the reciprocal of the roughness at which
                 // the traced mirror stops standing in for the lobe, so the shader does a multiply rather
                 // than a divide per pixel.
-                data.parameters = new Vector4(1f, 1f / Mathf.Max(0.01f, volume.specularMaxRoughness.value), 0f, 0f);
+                data.parameters = new Vector4(1f, 1f / Mathf.Max(0.01f, settings.specularMaxRoughness), 0f, 0f);
                 builder.UseTexture(published, AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(published, idSpecularTexture);
                 builder.AllowGlobalStateModification(true);
@@ -327,7 +327,7 @@ public sealed partial class BasisGlobalIlluminationPass
 
             StoreViewProjection(cameraData, history.PreviousSpecularViewProjection);
             history.SpecularWrite = history.SpecularRead;
-            history.SpecularValid = volume.specularTemporal.value;
+            history.SpecularValid = settings.specularTemporal;
             history.RecordSpecularFrame(frame);
             // The diffuse pass prunes too, but a world running reflections with the diffuse gather switched
             // off never reaches that call, and cameras that stopped rendering would keep their accumulation
@@ -374,17 +374,17 @@ public sealed partial class BasisGlobalIlluminationPass
         /// the diffuse gather's look controls and are deliberately left at neutral here: a reflection that
         /// was tinted or desaturated would no longer match the surface it is reflecting.
         /// </summary>
-        private void FillConstants(BasisGlobalIlluminationVolume volume, int frame)
+        private void FillConstants(BasisGlobalIlluminationSettings settings, int frame)
         {
-            constants[0] = new Vector4(1f, 1f, volume.obscuranceIntensity.value, volume.obscuranceRadius.value);
-            constants[1] = new Vector4(volume.specularRayLength.value, volume.thickness.value, volume.jitter.value, volume.specularFadeDistance.value);
-            constants[2] = new Vector4(1f, volume.ResolvedRaySteps(), volume.fireflyClamp.value, 0f);
-            float temporalResponse = Mathf.Clamp(volume.temporalResponse.value * SpecularTemporalResponseScale,
-                BasisGlobalIlluminationVolume.TemporalResponseMin, BasisGlobalIlluminationVolume.TemporalResponseMax);
-            constants[3] = new Vector4(frame % 64, temporalResponse, volume.depthRejection.value, volume.emitterIntensity.value);
+            constants[0] = new Vector4(1f, 1f, settings.obscuranceIntensity, settings.obscuranceRadius);
+            constants[1] = new Vector4(settings.specularRayLength, settings.thickness, settings.jitter, settings.specularFadeDistance);
+            constants[2] = new Vector4(1f, settings.ResolvedRaySteps(), settings.fireflyClamp, 0f);
+            float temporalResponse = Mathf.Clamp(settings.temporalResponse * SpecularTemporalResponseScale,
+                BasisGlobalIlluminationSettings.TemporalResponseMin, BasisGlobalIlluminationSettings.TemporalResponseMax);
+            constants[3] = new Vector4(frame % 64, temporalResponse, settings.depthRejection, settings.emitterIntensity);
         }
 
-        private void Configure(PassData passData, BasisGlobalIlluminationVolume volume, int tracedWidth, int tracedHeight,
+        private void Configure(PassData passData, BasisGlobalIlluminationSettings settings, int tracedWidth, int tracedHeight,
             in RenderTextureDescriptor descriptor, int emitterCount, in BasisGlobalIlluminationRayTracer.SkyBinding sky)
         {
             passData.constants = constants;
@@ -401,13 +401,13 @@ public sealed partial class BasisGlobalIlluminationPass
 
         /// <summary>
         /// The two keywords the reflection stages depend on. The diffuse pass sets these too, from the same
-        /// volume, but it records later in the frame - so on a frame where only reflections run they would
+        /// settings, but it records later in the frame - so on a frame where only reflections run they would
         /// otherwise still be carrying the previous frame's values.
         /// </summary>
-        private void ApplyKeywords(BasisGlobalIlluminationVolume volume)
+        private void ApplyKeywords(BasisGlobalIlluminationSettings settings)
         {
-            CoreUtils.SetKeyword(material, "_BASISGI_NEIGHBOURHOOD_CLAMP", volume.neighbourhoodClamp.value);
-            CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", volume.bilateralUpsample.value && volume.ResolvedResolutionDivisor() > 1);
+            CoreUtils.SetKeyword(material, "_BASISGI_NEIGHBOURHOOD_CLAMP", settings.neighbourhoodClamp);
+            CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", settings.bilateralUpsample && settings.ResolvedResolutionDivisor() > 1);
         }
     }
 
