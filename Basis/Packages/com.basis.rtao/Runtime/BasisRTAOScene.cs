@@ -494,9 +494,25 @@ namespace Basis.Rendering.RTAO
 
         private void AddProxy(Animator animator, BasisAvatarProxyPose pose)
         {
-            Mesh capsule = BasisAvatarProxy.SharedCapsule();
-            if (capsule == null)
+            int[] handles = AddProxyInstances(pose);
+            if (handles == null)
                 return;
+
+            proxies[animator.GetEntityId()] = new ProxyEntry { animator = animator, pose = pose, handles = handles, seen = true };
+            structureDirty = true;
+        }
+
+        /// <summary>
+        /// Issues one instance per limb against the shared capsule. Also used by ResetStructure, which
+        /// clears every instance in the structure and has to hand the proxies new handles the same way it
+        /// hands the mesh entries new ones - an old handle after that clear is not stale, it is somebody
+        /// else's, and driving a transform through it is what took the editor down on a layer change.
+        /// </summary>
+        private int[] AddProxyInstances(BasisAvatarProxyPose pose)
+        {
+            Mesh capsule = BasisAvatarProxy.SharedCapsule();
+            if (capsule == null || pose == null || pose.Count == 0)
+                return null;
 
             pose.Update(Time.renderedFrameCount);
             int[] handles = new int[pose.Count];
@@ -523,12 +539,10 @@ namespace Basis.Rendering.RTAO
                         if (handles[j] >= 0)
                             accelStruct.RemoveInstance(handles[j]);
                     }
-                    return;
+                    return null;
                 }
             }
-
-            proxies[animator.GetEntityId()] = new ProxyEntry { animator = animator, pose = pose, handles = handles, seen = true };
-            structureDirty = true;
+            return handles;
         }
 
         /// <summary>
@@ -684,6 +698,27 @@ namespace Basis.Rendering.RTAO
             catch (Exception)
             {
             }
+
+            // The same reasoning as the entries below, and the reason a layer change took the editor
+            // down: ClearInstances invalidated every proxy handle too, and UpdateProxies would have gone
+            // on driving transforms through whatever instance inherited each id.
+            proxyRemoval.Clear();
+            foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
+            {
+                ProxyEntry proxy = pair.Value;
+                proxy.handles = null;
+                if (proxy.animator == null)
+                {
+                    proxyRemoval.Add(pair.Key);
+                    continue;
+                }
+                proxy.handles = AddProxyInstances(proxy.pose);
+                if (proxy.handles == null)
+                    proxyRemoval.Add(pair.Key);
+            }
+            for (int i = 0; i < proxyRemoval.Count; i++)
+                proxies.Remove(proxyRemoval[i]);
+            proxyRemoval.Clear();
 
             pendingRemoval.Clear();
             foreach (KeyValuePair<EntityId, Entry> pair in entries)
