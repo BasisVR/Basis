@@ -29,6 +29,18 @@ namespace Basis.Tests.GlobalIllumination
             BasisGlobalIlluminationRenderHarness.SkipIfUnavailable();
             BasisGlobalIlluminationEmitter.Registered.Clear();
             harness = new BasisGlobalIlluminationRenderHarness();
+
+            // The debug view lives on the renderer feature, which is a project asset shared by every test in
+            // the session. A view left switched on replaces the composite wholesale - Obscurance, for one,
+            // outputs the occlusion term alone - so every setting that only scales indirect colour measures
+            // as doing nothing. That is indistinguishable from the bug this sweep exists to find, so the
+            // view a measurement is taken through is stated here rather than inherited.
+            BasisGlobalIlluminationDebugView inherited = harness.Feature != null ? harness.Feature.DebugView : BasisGlobalIlluminationDebugView.None;
+            if (inherited != BasisGlobalIlluminationDebugView.None)
+            {
+                Debug.Log($"[BasisGI] inherited debug view {inherited} from an earlier test; forcing None");
+            }
+            harness.SetDebugView(BasisGlobalIlluminationDebugView.None);
         }
 
         [TearDown]

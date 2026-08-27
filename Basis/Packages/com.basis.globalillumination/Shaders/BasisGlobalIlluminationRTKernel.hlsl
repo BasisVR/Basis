@@ -212,12 +212,25 @@ void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
     float3 positionWS = packed.xyz + _BasisGIRtReference.xyz;
     float3 normalWS = BasisGIRtDecodeNormal(_BasisGIRtNormalTex.Load(int4(id.xy, id.z, 0)).xy);
 
-    // The per-pixel rotation of the ray set comes from interleaved gradient noise walked by the R2
-    // low-discrepancy sequence each frame: spatially decorrelated for the blur, temporally even for the
-    // accumulation. A plain hash here is white noise, which survives both.
-    float gradient = BasisGIRtInterleavedGradientNoise(float2(id.xy), float(_BasisGIRtFrameIndex));
-    float2 jitter = frac(float2(gradient, gradient * 1.6180339887) + float(_BasisGIRtFrameIndex) * float2(0.7548776662, 0.5698402909));
     uint seed = BasisGIRtHash(id.x * 1973u + id.y * 9277u + id.z * 26699u + (uint)_BasisGIRtFrameIndex * 6151u);
+
+    // The per-pixel rotation of the ray set, walked by the R2 low-discrepancy sequence each frame so it is
+    // temporally even for the accumulation.
+    //
+    // Its two axes have to be independent of each other. Deriving the second from the first - as
+    // multiplying the gradient by the golden ratio does - puts every pixel's offsets on a single line of
+    // the unit square, so the pixel draws its rays from a one parameter family, and so does each of the
+    // neighbours the filter would average it with. Interleaved gradient noise cannot supply the second
+    // either, because every value it can produce is the same one dot product.
+    //
+    // The second axis is an R2 lattice: a different linear form of the pixel, so it does not collapse onto
+    // the gradient, and still low discrepancy across the screen. Substituting the pixel's hash here is the
+    // obvious move and is measurably worse - white noise is independent per pixel but no longer spread
+    // evenly between neighbours, and even spread is precisely what the spatial filter needs in order to
+    // cancel it.
+    float gradient = BasisGIRtInterleavedGradientNoise(float2(id.xy), float(_BasisGIRtFrameIndex));
+    float lattice = frac(dot(float2(id.xy), float2(0.7548776662, 0.5698402909)));
+    float2 jitter = frac(float2(gradient, lattice) + float(_BasisGIRtFrameIndex) * float2(0.7548776662, 0.5698402909));
 
     UnifiedRT::RayTracingAccelStruct accelStruct = UNIFIED_RT_GET_ACCEL_STRUCT(_BasisGIRtAccel);
     uint rayCount = (uint)max(1, _BasisGIRtRayCount);

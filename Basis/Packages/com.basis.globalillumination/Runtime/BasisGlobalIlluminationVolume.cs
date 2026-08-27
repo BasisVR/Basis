@@ -166,6 +166,26 @@ public sealed class BasisGlobalIlluminationVolume : VolumeComponent, IPostProces
     public BoolParameter temporalFilter = new BoolParameter(true);
     public ClampedFloatParameter temporalResponse = new ClampedFloatParameter(0.15f, TemporalResponseMin, TemporalResponseMax);
     public ClampedFloatParameter depthRejection = new ClampedFloatParameter(0.1f, 0.005f, 1f);
+    /// <summary>
+    /// Clips the reprojected history into the current frame's neighbourhood, to reject ghosting.
+    ///
+    /// ⚠️ Measured 2026-08-27: this barely engages any more, and in the ray traced path not at all - it moves
+    /// a settled image by 0.0003 against a repeatability floor of 0.024, where every live setting moves it by
+    /// more than the floor. Two independent changes did that and they compound, so anyone reconsidering this
+    /// toggle has to look at both:
+    ///
+    ///   - the clip box gained a floor (BASISGI_TEMPORAL_CLIP_RARE) so a neighbourhood of misses could not
+    ///     collapse it onto zero and erase an accumulated highlight. That alone already had it an order of
+    ///     magnitude under its own floor in the traced path: delta 0.0032 against floor 0.0859.
+    ///   - the temporal blend then started taking a plane-gated neighbourhood mean rather than the raw pixel,
+    ///     so the value being clipped now arrives close to the box centre. That took it 10x further, to 0.0003.
+    ///
+    /// Neither is a defect - a safety net that stops engaging because its input got clean is working. But the
+    /// toggle now costs a 3x3 fetch and a branch to do nothing measurable, and the honest options are to drop
+    /// it or to give it back its bite where a slow Temporal Response still lets history survive long enough
+    /// to ghost. It is deliberately left as a failing sweep entry rather than annotated away, so the decision
+    /// stays visible. Do not remove the binding without handling the persisted setting key.
+    /// </summary>
     public BoolParameter neighbourhoodClamp = new BoolParameter(true);
     public ClampedFloatParameter fireflyClamp = new ClampedFloatParameter(6f, FireflyClampMin, FireflyClampMax);
     public BoolParameter bilateralUpsample = new BoolParameter(true);

@@ -2628,7 +2628,7 @@ namespace Basis.BasisUI
 
             // Last on the page: the one control here that cannot take effect at all without a
             // restart, so nothing above it looks like it needs one.
-            BuildRendererSection(container);
+            BuildRendererSection(container, descriptor);
 
             // Every control this page carries now exists, so the bottleneck readout can find the
             // ones that move CPU or GPU cost and light them up while it is blaming that side.
@@ -2754,18 +2754,24 @@ namespace Basis.BasisUI
         /// command line and nowhere else, so a change is carried by the same relaunch the rest of
         /// the menu uses; a single-choice platform never builds the section at all.
         /// </summary>
-        private static void BuildRendererSection(RectTransform container)
+        private static void BuildRendererSection(RectTransform container, PanelElementDescriptor descriptor)
         {
             if (!BasisGraphicsApiSelection.IsOffered)
             {
                 return;
             }
 
+            PanelSectionToggle rendererToggle = PanelSectionToggle.CreateNewEntry(container);
+            rendererToggle.SetTitle(BasisLocalization.Get("settings.graphics.renderer.title"));
+
             PanelElementDescriptor group =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            group.SetTitle(BasisLocalization.Get("settings.graphics.renderer.title"));
+            // The collapse bar carries the section title, so the group header is left holding the
+            // running-API line alone rather than printing the name twice.
+            group.SetTitle(string.Empty);
             group.SetDescription(BasisLocalization.Get("settings.graphics.renderer.description",
                 BasisGraphicsApiSelection.CurrentDisplayName));
+            rendererToggle.RegisterContentContainer(group);
 
             PanelDropdown dropdownGraphicsApi = PanelDropdown.CreateNewEntry(group.ContentParent);
             dropdownGraphicsApi.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.renderer.api.tooltip"));
@@ -2795,44 +2801,48 @@ namespace Basis.BasisUI
             if (!BasisGraphicsApiSelection.IsSupported)
             {
                 dropdownGraphicsApi.SetInteractable(false, BasisLocalization.Get("settings.graphics.renderer.api.editorLocked"));
-                return;
+            }
+            else
+            {
+                BasisSettingsDefaults.GraphicsApi.OnChanged += SyncGraphicsApiRestartNotice;
+                dropdownGraphicsApi.OnInstanceReleased += () =>
+                    BasisSettingsDefaults.GraphicsApi.OnChanged -= SyncGraphicsApiRestartNotice;
+
+                // Offered on the control's own change only, the same way GPU occlusion culling does it,
+                // so resetting the whole graphics tab doesn't throw a relaunch prompt. Picking the API
+                // already running clears NeedsRestart and asks nothing.
+                dropdownGraphicsApi.OnValueChanged += _ =>
+                {
+                    if (!BasisGraphicsApiSelection.NeedsRestart)
+                    {
+                        return;
+                    }
+
+                    if (BasisMainMenu.Instance == null)
+                    {
+                        return;
+                    }
+
+                    if (BasisMainMenu.Instance.Dialogue)
+                    {
+                        BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+                    }
+
+                    BasisMainMenu.Instance.OpenDialogue(
+                        BasisLocalization.Get("settings.graphics.renderer.restart.title"),
+                        BasisLocalization.Get("settings.graphics.renderer.restart.prompt",
+                            BasisGraphicsApiSelection.SelectedDisplayName),
+                        BasisLocalization.Get("settings.graphics.renderer.restart.now"),
+                        BasisLocalization.Get("settings.graphics.renderer.restart.later"),
+                        accepted =>
+                        {
+                            if (accepted) BasisAppRelaunch.RebootAndReconnect();
+                        });
+                };
             }
 
-            BasisSettingsDefaults.GraphicsApi.OnChanged += SyncGraphicsApiRestartNotice;
-            dropdownGraphicsApi.OnInstanceReleased += () =>
-                BasisSettingsDefaults.GraphicsApi.OnChanged -= SyncGraphicsApiRestartNotice;
-
-            // Offered on the control's own change only, the same way GPU occlusion culling does it,
-            // so resetting the whole graphics tab doesn't throw a relaunch prompt. Picking the API
-            // already running clears NeedsRestart and asks nothing.
-            dropdownGraphicsApi.OnValueChanged += _ =>
-            {
-                if (!BasisGraphicsApiSelection.NeedsRestart)
-                {
-                    return;
-                }
-
-                if (BasisMainMenu.Instance == null)
-                {
-                    return;
-                }
-
-                if (BasisMainMenu.Instance.Dialogue)
-                {
-                    BasisMainMenu.Instance.Dialogue.ReleaseInstance();
-                }
-
-                BasisMainMenu.Instance.OpenDialogue(
-                    BasisLocalization.Get("settings.graphics.renderer.restart.title"),
-                    BasisLocalization.Get("settings.graphics.renderer.restart.prompt",
-                        BasisGraphicsApiSelection.SelectedDisplayName),
-                    BasisLocalization.Get("settings.graphics.renderer.restart.now"),
-                    BasisLocalization.Get("settings.graphics.renderer.restart.later"),
-                    accepted =>
-                    {
-                        if (accepted) BasisAppRelaunch.RebootAndReconnect();
-                    });
-            };
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(rendererToggle, group, false,
+                _ => descriptor.ForceRebuild());
         }
 
         private static void ResetGraphicsDefaults()

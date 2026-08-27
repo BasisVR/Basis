@@ -19,7 +19,7 @@ namespace Basis.Rendering.RTAO.Tests
     {
         private const int RenderWidth = 640;
         private const int RenderHeight = 400;
-        private const int WarmupFrames = 8;
+        private const int WarmupFrames = 8;
         private const float ScanRange = 100f;
 
         private readonly List<Object> created = new List<Object>();
@@ -118,6 +118,39 @@ namespace Basis.Rendering.RTAO.Tests
             pipeline.msaaSampleCount = msaaSamples;
             rendererData.depthPrimingMode = priming;
             rendererData.SetDirty();
+            RebuildTarget(msaaSamples);
+        }
+
+        /// <summary>
+        /// Setting the sample count on the pipeline asset is not enough to make the camera render multisampled,
+        /// and until this existed none of the parameterised MSAA cases rendered at more than one sample - four
+        /// runs of the same frame, passing whatever they were asked. UniversalRenderPipeline only reads the
+        /// asset's count when <c>camera.allowMSAA</c> is set, and when the camera draws into a render texture
+        /// that texture's own <c>antiAliasing</c> is what it takes instead (UniversalRenderPipeline.cs, the
+        /// msaaSamples block in InitializeCameraData). The fixture set neither.
+        /// </summary>
+        private void RebuildTarget(int antiAliasing)
+        {
+            int samples = Mathf.Max(1, antiAliasing);
+            if (target != null && target.antiAliasing == samples)
+                return;
+
+            if (target != null)
+            {
+                camera.targetTexture = null;
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+
+            target = new RenderTexture(RenderWidth, RenderHeight, 24, RenderTextureFormat.ARGB32)
+            {
+                name = "BasisRTAODepthScanTarget",
+                antiAliasing = samples,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            target.Create();
+            camera.allowMSAA = samples > 1;
+            camera.targetTexture = target;
         }
 
         private T Track<T>(T value) where T : Object
@@ -154,15 +187,8 @@ namespace Basis.Rendering.RTAO.Tests
             camera.fieldOfView = 60f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = Color.black;
-            camera.allowMSAA = false;
 
-            target = new RenderTexture(RenderWidth, RenderHeight, 24, RenderTextureFormat.ARGB32)
-            {
-                name = "BasisRTAODepthScanTarget",
-                hideFlags = HideFlags.HideAndDontSave
-            };
-            target.Create();
-            camera.targetTexture = target;
+            RebuildTarget(1);
         }
 
         private Texture2D RenderAndReadback()
@@ -170,12 +196,22 @@ namespace Basis.Rendering.RTAO.Tests
             for (int i = 0; i < WarmupFrames; i++)
                 camera.Render();
 
+            // ReadPixels cannot read a multisampled surface, so the frame is resolved through a copy that
+            // carries the target's own format and colour space - the normal decode below undoes an sRGB
+            // encode, and a resolve that changed it would tilt every normal it read.
+            RenderTextureDescriptor descriptor = target.descriptor;
+            descriptor.msaaSamples = 1;
+            descriptor.depthBufferBits = 0;
+            RenderTexture resolved = RenderTexture.GetTemporary(descriptor);
+
             RenderTexture previous = RenderTexture.active;
-            RenderTexture.active = target;
+            Graphics.Blit(target, resolved);
+            RenderTexture.active = resolved;
             Texture2D image = new Texture2D(RenderWidth, RenderHeight, TextureFormat.RGBA32, false);
             image.ReadPixels(new Rect(0f, 0f, RenderWidth, RenderHeight), 0, 0);
             image.Apply();
             RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(resolved);
             return image;
         }
 
@@ -512,7 +548,8 @@ namespace Basis.Rendering.RTAO.Tests
             ConfigureRenderer(msaaSamples, priming);
 
             StringBuilder report = new StringBuilder();
-            report.AppendLine($"--- bare floor, camera {eyeHeight:F2} m, MSAA {msaaSamples}, priming {priming} ---");
+            report.AppendLine($"--- bare floor, camera {eyeHeight:F2} m, MSAA {msaaSamples} " +
+                $"(target {target.antiAliasing}x, allowMSAA {camera.allowMSAA}, asset {pipeline.msaaSampleCount}x), priming {priming} ---");
 
             foreach (BasisRTAODebugStage stage in new[]
                      { BasisRTAODebugStage.Normal, BasisRTAODebugStage.Position, BasisRTAODebugStage.Raw })
@@ -721,6 +758,76 @@ namespace Basis.Rendering.RTAO.Tests
             }
 
             TestContext.WriteLine(report.ToString());
+        }
+
+        /// <summary>
+        /// The wall version of the floor check above, and the one that matters: a wall is the case where the
+        /// wrong answer is smooth. When the reconstruction gives up it substitutes the view vector, which
+        /// fans radially out from the screen centre - no step anywhere for a continuity scan to catch, and
+        /// on a floor it is within a few degrees of the truth so an agreement check there passes too. Only a
+        /// surface square to the camera separates the two, because there the view vector and the real normal
+        /// disagree by the full half angle of the frustum at the edge of the screen.
+        /// </summary>
+        [Test]
+        public void TheNormalBufferAgreesWithTheWallItIsReconstructedFrom([Values(0.25f, 0.5f, 1f, 2f)] float distance)
+        {
+            ShowTheNormalBuffer();
+            StandCloseToAFlatWall(distance);
+
+            Texture2D image = RenderAndReadback();
+            List<NormalSample> samples;
+            try
+            {
+                samples = ScanNormalsAcrossTheScreen(image);
+            }
+            finally
+            {
+                Object.DestroyImmediate(image);
+            }
+
+            Assert.Greater(samples.Count, 20);
+
+            float worst = 0f;
+            int worstAt = 0;
+            for (int i = 0; i < samples.Count; i++)
+            {
+                float error = Vector3.Angle(samples[i].normal, samples[i].surface);
+                if (error > worst)
+                {
+                    worst = error;
+                    worstAt = i;
+                }
+            }
+
+            Assert.Less(worst, 12f,
+                $"The reconstructed normal was {worst:F1} degrees off the collider's own normal at screen " +
+                $"column {samples[worstAt].row}, on a flat wall {distance:F2} m away. Every pixel of that " +
+                "wall faces the camera, so every pixel has the same normal.");
+        }
+
+        /// <summary>
+        /// Across rather than down, because the view vector this is trying to catch fans out horizontally as
+        /// well and a wall fills the screen in both directions.
+        /// </summary>
+        private List<NormalSample> ScanNormalsAcrossTheScreen(Texture2D image)
+        {
+            Physics.SyncTransforms();
+
+            List<NormalSample> samples = new List<NormalSample>();
+            int y = RenderHeight / 2;
+
+            for (int x = 4; x < RenderWidth - 4; x += 2)
+            {
+                Ray ray = camera.ScreenPointToRay(new Vector3(x, y, 0f));
+                if (!Physics.Raycast(ray, out RaycastHit hit, ScanRange))
+                    continue;
+
+                Vector3 normal = DecodeNormal(image.GetPixel(x, y));
+                if (normal != Vector3.zero)
+                    samples.Add(new NormalSample { row = x, normal = normal, surface = hit.normal });
+            }
+
+            return samples;
         }
 
         [Test]

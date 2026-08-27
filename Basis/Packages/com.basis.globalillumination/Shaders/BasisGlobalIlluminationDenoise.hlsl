@@ -28,21 +28,102 @@ float4 BasisGILoadHistory(float2 uv)
     return SAMPLE_TEXTURE2D_X_LOD(_BasisGIHistory, sampler_BasisGIHistory, UnityStereoTransformScreenSpaceTex(saturate(uv)), 0);
 }
 
+struct BasisGINeighbourhood
+{
+    float4 mean;
+    float4 deviation;
+    /// <summary>How many samples are really behind the mean, once the gate has had its say.</summary>
+    float samples;
+};
+
+/// <summary>
+/// The three by three of the frame that has just arrived, reduced to a mean, a spread, and how much
+/// evidence is actually behind them. Two jobs out of one set of taps.
+///
+/// The mean is the frame the accumulation is handed. Neighbouring pixels rotate their ray sets
+/// independently, so nine of them are close to nine independent estimates of the same patch of surface,
+/// and averaging them costs one pass where buying the same variance in rays would cost nine times the
+/// trace. Doing it here rather than after the blend is the whole point: what gets remembered is then the
+/// clean estimate, and every later frame compounds on that instead of on one or two rays that the
+/// spatial pass has to tidy up again on the way out.
+///
+/// The spread is what the clip box downstream is built from, and it has to describe the same taps that
+/// produced the mean - a box centred on one estimate and sized by a differently weighted one is not a
+/// box around anything.
+///
+/// Taps are weighted by how far they sit off the centre pixel's own plane, which is what keeps a corner
+/// or a silhouette from averaging two surfaces into one. Sky is not evidence about a surface and is
+/// dropped outright. The count returned is the effective one, (sum w)^2 / sum w^2: where the gate threw
+/// most of the neighbourhood away the pixel is still carrying nearly one tap's worth of noise, and
+/// everything downstream that reasons about how many samples it has needs to be told that rather than
+/// assuming nine.
+/// </summary>
+BasisGINeighbourhood BasisGIGather(float2 uv, float3 centrePosition, float3 centreNormal, float centreEye)
+{
+    float2 texel = _BasisGITracedTexelSize.xy;
+    float planeScale = BasisGIPlaneTolerance(centreEye);
+
+    float4 centre = BasisGILoadIndirect(uv);
+    float4 weighted = centre;
+    float4 weightedSquares = centre * centre;
+    float weightSum = 1.0;
+    float weightSquaredSum = 1.0;
+
+    UNITY_UNROLL
+    for (int y = -1; y <= 1; y++)
+    {
+        UNITY_UNROLL
+        for (int x = -1; x <= 1; x++)
+        {
+            if (x == 0 && y == 0) { continue; }
+
+            float2 sampleUv = uv + float2(x, y) * texel;
+            float sampleRaw = BasisGISampleRawDepth(sampleUv);
+            if (BasisGIIsSky(sampleRaw)) { continue; }
+
+            float plane = abs(dot(centreNormal, BasisGIWorldPosition(sampleUv, sampleRaw) - centrePosition));
+            float weight = exp(-plane / planeScale);
+
+            float4 neighbour = BasisGILoadIndirect(sampleUv);
+            weighted += neighbour * weight;
+            weightedSquares += neighbour * neighbour * weight;
+            weightSum += weight;
+            weightSquaredSum += weight * weight;
+        }
+    }
+
+    BasisGINeighbourhood hood;
+    float rcpWeight = rcp(max(weightSum, BASISGI_EPSILON));
+    hood.mean = weighted * rcpWeight;
+    hood.deviation = sqrt(max(0.0, weightedSquares * rcpWeight - hood.mean * hood.mean));
+    hood.samples = weightSum * weightSum * rcp(max(weightSquaredSum, BASISGI_EPSILON));
+    return hood;
+}
+
 BasisGITemporalOutput BasisGITemporal(float2 uv)
 {
     BasisGITemporalOutput output;
 
-    float4 current = BasisGILoadIndirect(uv);
     float rawDepth = BasisGISampleRawDepth(uv);
     float eyeDepth = BasisGILinearEyeDepth(rawDepth);
+    float3 worldPosition = BasisGIWorldPosition(uv, rawDepth);
+    // Taken before any early out: screen space derivatives are only meaningful where the whole quad agrees
+    // on whether to take them.
+    float3 planeNormal = BasisGIPlaneNormal(worldPosition);
+
+    // The reconstruction has to happen up here, above every early out, because the pixels that need it
+    // most are the ones that take those exits - a pixel with no history behind it is handed straight to
+    // the spatial pass carrying its raw one or two rays, and that is exactly the case a moving camera
+    // spends most of its frame in.
+    bool isSky = BasisGIIsSky(rawDepth);
+    BasisGINeighbourhood hood = BasisGIGather(uv, worldPosition, planeNormal, eyeDepth);
+    float4 current = isSky ? BasisGILoadIndirect(uv) : hood.mean;
     float luminance = Luminance(max(0.0, current.rgb));
 
     output.indirect = current;
     output.stats = float4(eyeDepth, 1.0, luminance, 0.0);
 
-    if (BasisGIIsSky(rawDepth) || _BasisGIHistoryValid < 0.5) { return output; }
-
-    float3 worldPosition = BasisGIWorldPosition(uv, rawDepth);
+    if (isSky || _BasisGIHistoryValid < 0.5) { return output; }
     float4 previousClip = mul(BasisGIPreviousViewProjection(), float4(worldPosition, 1.0));
     if (previousClip.w <= BASISGI_EPSILON) { return output; }
 
@@ -62,30 +143,20 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     // Variance clipping rather than a min/max box. At one or two rays per pixel the neighbourhood's extremes
     // are themselves noise, so clamping to them feeds that noise back into the history every frame and the
     // accumulation never settles. Mean plus a couple of standard deviations rejects real ghosting while
-    // leaving a noisy but unbiased history alone.
-    float4 moment1 = current;
-    float4 moment2 = current * current;
-    float2 texel = _BasisGITracedTexelSize.xy;
-    UNITY_UNROLL
-    for (int y = -1; y <= 1; y++)
-    {
-        UNITY_UNROLL
-        for (int x = -1; x <= 1; x++)
-        {
-            if (x == 0 && y == 0) { continue; }
-            float4 neighbour = BasisGILoadIndirect(uv + float2(x, y) * texel);
-            moment1 += neighbour;
-            moment2 += neighbour * neighbour;
-        }
-    }
-    float4 mean = moment1 * (1.0 / BASISGI_TEMPORAL_NEIGHBOURS);
-    float4 deviation = sqrt(max(0.0, moment2 * (1.0 / BASISGI_TEMPORAL_NEIGHBOURS) - mean * mean));
+    // leaving a noisy but unbiased history alone. Both numbers come from the taps the reconstruction above
+    // already paid for, so the box is centred on exactly the frame being blended in rather than on a
+    // second, differently weighted estimate of it.
+    float4 mean = hood.mean;
+    float4 deviation = hood.deviation;
 
     // The box is never allowed to be narrower than what a run of misses could plausibly have hidden.
     // Colour is bounded per sample by the firefly ceiling and obscurance by its own intensity, so the
     // floor is written in each channel's own units rather than as one number that would be wrong for
-    // both, and it tightens on its own as the ray budget rises.
-    float sampleCount = BASISGI_TEMPORAL_NEIGHBOURS * max(1.0, BASISGI_RAY_COUNT);
+    // both, and it tightens on its own as the ray budget rises. What it tightens against is how many
+    // samples are really behind the mean rather than how many taps were offered: where the plane gate
+    // threw most of the neighbourhood away - a corner, a silhouette - the pixel is still carrying close
+    // to one tap's worth of noise, and the floor has to stay as wide as that admits.
+    float sampleCount = max(1.0, hood.samples) * max(1.0, BASISGI_RAY_COUNT);
     float rare = BASISGI_TEMPORAL_CLIP_RARE / sampleCount;
     float4 ceiling = float4(BASISGI_FIREFLY_CLAMP.xxx, max(BASISGI_OBSCURANCE, BASISGI_EPSILON));
     float4 halfWidth = max(deviation * BASISGI_TEMPORAL_CLIP_SIGMA, rare * ceiling);

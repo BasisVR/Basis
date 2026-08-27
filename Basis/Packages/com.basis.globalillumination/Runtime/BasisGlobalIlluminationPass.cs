@@ -248,9 +248,14 @@ public sealed class BasisGlobalIlluminationPass : ScriptableRenderPass
         // Resolved once for the whole frame and handed to both gathers, so a ray that misses is worth
         // the same thing either side of a mode switch.
         BasisGlobalIlluminationRayTracer.SkyBinding sky = BasisGlobalIlluminationRayTracer.ResolveSky(volume.fallback.value, volume.fallbackIntensity.value);
-        // A raster pass can only bind render graph resources, and this is an engine texture; it is also
-        // resolved from the render settings, so it is the same for every camera in the frame and a plain
-        // global is the honest place for it.
+        // A raster pass can only bind render graph resources and this is an engine texture, so the cubemap
+        // goes on the global slot directly rather than through the command buffer. That is only safe
+        // because of an invariant worth stating: ResolveSky picks the cubemap from RenderSettings alone, so
+        // every camera in the frame resolves the SAME texture. Only the mip and the intensity vary per
+        // camera - those come from the volume - and both ride _BasisGISky through the command buffer, where
+        // they are sequenced against pass execution properly. An immediate global is not sequenced, so if
+        // the cubemap ever becomes per camera (a per volume custom reflection, say) this has to move to the
+        // command buffer or the last camera to record will decide the sky for every camera that renders.
         if (sky.Cube != null) { Shader.SetGlobalTexture(idSkyCube, sky.Cube); }
 
         FillConstants(volume, frame, rayTraced, rayCount);

@@ -51,11 +51,32 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         }
     }
 
+    /// <summary>
+    /// Which visualisation the pass draws instead of the effect.
+    ///
+    /// Every view other than None makes the pass REPLACE the camera image rather than composite into it,
+    /// and the replacement is dominated by terms the player's settings do not scale. Intensity, saturation,
+    /// tint, the fallbacks and the emitters then move the frame by a few percent of a flat grey, which is
+    /// indistinguishable from those settings being broken - and is exactly how it gets reported. Leaving it
+    /// on is easy because the result still looks like a plausibly lit room, so it says so once, loudly.
+    /// </summary>
     public BasisGlobalIlluminationDebugView DebugView
     {
         get { return m_DebugView; }
         set
         {
+            if (value != m_DebugView)
+            {
+                if (value != BasisGlobalIlluminationDebugView.None)
+                {
+                    Debug.LogWarning($"[BasisGI] Debug view '{value}' is on. The global illumination pass now replaces the camera image with a visualisation instead of compositing into it, so intensity, saturation, tint, the fallbacks and the emitters will all look like they do nothing until it is set back to Off.");
+                }
+                else if (m_DebugView != BasisGlobalIlluminationDebugView.None)
+                {
+                    Debug.Log("[BasisGI] Debug view off; the effect is compositing into the camera image again.");
+                }
+            }
+
             m_DebugView = value;
             if (m_Pass != null) { m_Pass.DebugView = value; }
         }

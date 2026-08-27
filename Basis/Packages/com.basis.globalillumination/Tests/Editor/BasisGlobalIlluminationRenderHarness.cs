@@ -174,6 +174,14 @@ namespace Basis.Tests.GlobalIllumination
             Feature = ResolveFeature();
             previousDebugView = Feature != null ? Feature.DebugView : BasisGlobalIlluminationDebugView.None;
 
+            // The feature is the live one the pipeline runs, so its debug view outlives any single harness:
+            // a test that sets one and does not put it back hands the next test a frame that is not the
+            // composite at all. Any debug view replaces the composite outright rather than blending into it,
+            // and Obscurance or IndirectOnly are dominated by a near-constant term, so what a probe reads
+            // through one barely responds to the settings under test - it reads as a dead setting rather
+            // than as a wrong view. Starting from a known view costs nothing and makes that impossible.
+            if (Feature != null) { Feature.DebugView = BasisGlobalIlluminationDebugView.None; }
+
             // A dim but non-black environment, so the fallback a missed ray reads is something rather than
             // nothing. Without one the fallback settings are untestable - not because they do not work, but
             // because there is no sky in the room for them to let through.
@@ -666,27 +674,41 @@ namespace Basis.Tests.GlobalIllumination
             return count == 0 ? 0f : total / count;
         }
 
-        /// <summary>What a region reads on average and how much grain sits on it, over a run of frames.</summary>
+        /// <summary>
+        /// What a region reads on average, how much grain sits on it across pixels, and how far the whole
+        /// region moved between consecutive frames - the two axes noise can arrive on, from one run.
+        /// </summary>
         public struct Grain
         {
             public float Level;
             public float Noise;
+            /// <summary>The largest frame-to-frame move of the region's own mean, as a fraction of it.</summary>
+            public float Swing;
             /// <summary>Grain as a fraction of the level it sits on - what a viewer actually sees as noise.</summary>
             public float Relative => Level <= 1e-5f ? 0f : Noise / Level;
-            public override string ToString() { return $"level={Level:F4} noise={Noise:F5} rel={Relative:P1}"; }
+            public override string ToString() { return $"level={Level:F4} noise={Noise:F5} rel={Relative:P1} swing={Swing:P1}"; }
         }
 
         /// <summary>
         /// Grain measured over a run of frames with the camera never quite still, which is the state the
         /// filter is actually asked to hold up in. A still camera lets the accumulation settle onto one set
         /// of rays and reports a frame far cleaner than anything a player would see.
+        ///
+        /// A drift of a few centimetres a frame is what separates a filter that looks good in a screenshot
+        /// from one that looks good to somebody walking: the reprojection stops finding history, pixels
+        /// arrive with nothing behind them, and whatever the spatial pass can do on its own is all there is.
+        /// The warmup drifts too, so what is measured is the moving steady state rather than a settled
+        /// accumulation being disturbed for the first time.
         /// </summary>
-        public Grain MeasuredGrain(RectInt region, Func<Color, float> channel, int frames = 8, int warmup = 32, float jitterDegrees = 0.02f)
+        public Grain MeasuredGrain(RectInt region, Func<Color, float> channel, int frames = 8, int warmup = 32,
+            float jitterDegrees = 0.02f, Vector3 drift = default)
         {
             Quaternion baseRotation = Camera.transform.rotation;
             Vector3 basePosition = Camera.transform.position;
             Grain grain = new Grain();
             int counted = 0;
+            float previousLevel = float.NaN;
+            float worstStep = 0f;
 
             for (int frame = 0; frame < warmup + frames; frame++)
             {
@@ -695,14 +717,19 @@ namespace Basis.Tests.GlobalIllumination
                     Mathf.Cos(phase * 6.2831853f * 1.618f) * jitterDegrees,
                     Mathf.Sin(phase * 6.2831853f) * jitterDegrees,
                     0f);
-                Camera.transform.position = basePosition + new Vector3(0f, 0f, Mathf.Sin(phase * 3f) * 0.0005f);
+                Camera.transform.position = basePosition
+                    + new Vector3(0f, 0f, Mathf.Sin(phase * 3f) * 0.0005f)
+                    + drift * frame;
 
                 Render();
                 if (frame < warmup) { continue; }
 
                 Capture();
-                grain.Level += MeanOfCapture(region, channel);
+                float level = MeanOfCapture(region, channel);
+                grain.Level += level;
                 grain.Noise += SpatialNoiseOfCapture(region, channel);
+                if (!float.IsNaN(previousLevel)) { worstStep = Mathf.Max(worstStep, Mathf.Abs(level - previousLevel)); }
+                previousLevel = level;
                 counted++;
             }
 
@@ -712,6 +739,7 @@ namespace Basis.Tests.GlobalIllumination
             {
                 grain.Level /= counted;
                 grain.Noise /= counted;
+                grain.Swing = grain.Level <= 1e-5f ? 0f : worstStep / grain.Level;
             }
             return grain;
         }

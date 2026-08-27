@@ -139,9 +139,25 @@ Shader "Hidden/Basis/RTAO/Prepass"
                 float3 tangentX = TangentAlong(bestCoord, int2(1, 0), positionWS, centerLinear);
                 float3 tangentY = TangentAlong(bestCoord, int2(0, 1), positionWS, centerLinear);
 
-                float3 normalWS = cross(tangentX, tangentY);
-                float lengthSq = dot(normalWS, normalWS);
-                normalWS = lengthSq < 1e-12 ? normalize(viewVector) : normalWS * rsqrt(lengthSq);
+                // Normalised before the cross, so the only thing left to test is the angle between the two
+                // tangents. Crossing them raw makes the result scale with the fourth power of how much world
+                // a pixel covers, so a fixed floor under it is a distance test wearing a degeneracy test's
+                // clothes: past about a millimetre of world per pixel every surface falls through to the view
+                // vector at once, and a flat wall up close reads as a sphere.
+                float lengthXSq = dot(tangentX, tangentX);
+                float lengthYSq = dot(tangentY, tangentY);
+
+                float3 normalWS;
+                if (lengthXSq < 1e-30 || lengthYSq < 1e-30)
+                {
+                    normalWS = normalize(viewVector);
+                }
+                else
+                {
+                    normalWS = cross(tangentX * rsqrt(lengthXSq), tangentY * rsqrt(lengthYSq));
+                    float lengthSq = dot(normalWS, normalWS);
+                    normalWS = lengthSq < 1e-8 ? normalize(viewVector) : normalWS * rsqrt(lengthSq);
+                }
 
                 // A cross product of two tangents has an arbitrary sign, so point it back at the camera.
                 if (dot(normalWS, viewVector) < 0.0)

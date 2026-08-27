@@ -20,7 +20,6 @@
 // light the accumulation had spent a second finding. Three over N is the standard bound on how often
 // such a hit could have been missed, and it is the width the box is never allowed to fall below.
 #define BASISGI_TEMPORAL_CLIP_RARE 3.0
-#define BASISGI_TEMPORAL_NEIGHBOURS 9.0
 // How wide the spatial filter's luminance gate is, in standard deviations of what the pixel has
 // actually been accumulating, and how many frames of history count as settled. Below that a pixel is
 // treated as unresolved and the gate opens wide enough to let a neighbour's bright sample through,
