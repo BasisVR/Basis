@@ -107,6 +107,15 @@ public static class BasisAvatarProxy
     /// describe. A non-humanoid avatar has no bone map to hang capsules on, so the caller keeps whatever it
     /// was doing before rather than getting a body-shaped guess.
     /// </summary>
+    /// <summary>The layer Basis puts the local player's own avatar on, resolved once.</summary>
+    private static int localAvatarLayer = -2;
+
+    private static bool IsLocalAvatar(Animator animator)
+    {
+        if (localAvatarLayer == -2) { localAvatarLayer = LayerMask.NameToLayer("LocalPlayerAvatar"); }
+        return localAvatarLayer >= 0 && animator.gameObject.layer == localAvatarLayer;
+    }
+
     public static bool TryResolve(Animator animator, List<ResolvedLimb> destination)
     {
         destination.Clear();
@@ -122,9 +131,13 @@ public static class BasisAvatarProxy
         float reference = Vector3.Distance(hips.position, head.position);
         if (reference <= 0.0001f) { return false; }
 
+        bool local = IsLocalAvatar(animator);
         for (int index = 0; index < Body.Length; index++)
         {
             Limb limb = Body[index];
+            // Same reason as the head ball below: this one reaches the head bone, and in VR that is where
+            // the camera is standing.
+            if (local && limb.To == HumanBodyBones.Head) { continue; }
             Transform from = animator.GetBoneTransform(limb.From);
             Transform to = animator.GetBoneTransform(limb.To);
             // Chest and Neck are both optional on a humanoid rig. A missing joint collapses its two
@@ -133,8 +146,18 @@ public static class BasisAvatarProxy
             destination.Add(new ResolvedLimb(from, to, reference * limb.RadiusFactor, 0f));
         }
 
-        Transform neck = animator.GetBoneTransform(HumanBodyBones.Neck) ?? animator.GetBoneTransform(HumanBodyBones.Chest) ?? hips;
-        destination.Add(new ResolvedLimb(neck, head, reference * HeadRadiusFactor, reference * HeadRadiusFactor));
+        // Your own head is not in your own trace, because in VR your camera is INSIDE it. Basis already
+        // scales the local head bone to zero so the mesh does not render into your eyes
+        // (BasisLocalAvatarDriver.ScaleHeadToZero); a capsule built from the bone POSITION ignores that
+        // scale and puts a solid ball around the viewpoint, which each eye then renders the inside of - a
+        // circle over the whole view. The structure is shared by every camera, so this cannot be decided
+        // per camera: the cost is that your own head casts no bounce in a mirror or a photo, which is a far
+        // smaller error than a disc across both eyes.
+        if (!local)
+        {
+            Transform neck = animator.GetBoneTransform(HumanBodyBones.Neck) ?? animator.GetBoneTransform(HumanBodyBones.Chest) ?? hips;
+            destination.Add(new ResolvedLimb(neck, head, reference * HeadRadiusFactor, reference * HeadRadiusFactor));
+        }
 
         return destination.Count > 0;
     }
