@@ -1206,7 +1206,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     /// hierarchical march writes zero here and the march skips the far test rather than reading whatever
     /// texture and dimensions the previous camera left in the slots.
     /// </summary>
-    internal static void BindCoarseFar(RasterCommandBuffer cmd, PassData data)
+    private static void BindCoarseFar(RasterCommandBuffer cmd, PassData data)
     {
         cmd.SetGlobalFloat(idCoarseFarBlock, data.coarseFarBlock);
         if (data.coarseFarBlock < 1f) { return; }
