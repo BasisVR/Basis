@@ -85,6 +85,7 @@ MonoBehaviour:
   m_SupportScreenSpaceLensFlare: 0
   m_GPUResidentDrawerMode: 1
   m_SmallMeshScreenPercentage: 0
+  m_ShadowSmallMeshScreenPercentages: {x: 0, y: 1, z: 2, w: 3}
   m_GPUResidentDrawerEnableOcclusionCullingInCameras: 0
   m_ShadowType: 1
   m_LocalShadowsSupported: 0

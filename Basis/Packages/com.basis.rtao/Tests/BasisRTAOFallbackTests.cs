@@ -204,6 +204,29 @@ namespace Basis.Rendering.RTAO.Tests
                 $"A flat plane facing the camera must read as open, got {Mean(result):F3}. Anything less means the estimator is occluding against its own surface.");
         }
 
+        // The head-on case above is the one pose where dividing the summed slice visibility by the slice
+        // COUNT happens to be right: every slice sits square to the surface, so its fully-open value is
+        // exactly 1 and a mean and a ratio agree. Tilt the plane and they stop agreeing - a slice's open
+        // value becomes projectedLength * (cos(gamma) + gamma * sin(gamma)), which is not 1 and differs
+        // per slice - so the mean form under-reads a surface that is not occluded by anything at all. The
+        // taps here all lie ON the plane, so no horizon can rise above it and the correct answer is 1
+        // whatever the tilt, the slice count, or the per-frame slice rotation.
+        [Test]
+        public void TiltedUnoccludedSurfaceIsAlsoOpen([Values(1, 4, 16)] int samples)
+        {
+            // A plane through (0.4, 0.4, 5) receding in z as x grows: dp/dx = (0.05, 0, 0.05), dp/dy =
+            // (0, 0.05, 0), so it leans 45 degrees away from a camera at the origin. The normal faces the
+            // camera, matching the flat case's Vector3.back convention.
+            Vector3 tilted = new Vector3(1f, 0f, -1f).normalized;
+            Vector4[] result = RunScreenSpace(
+                (x, y) => new Vector4(x * 0.05f, y * 0.05f, 5f + (x - 8) * 0.05f, 1f), tilted, 1f, samples);
+
+            Assert.Greater(Mean(result), 0.95f,
+                $"A tilted plane with nothing in front of it must still read as open at {samples} samples, " +
+                $"got {Mean(result):F3}. Below this the estimator is normalising against the slice count " +
+                "rather than against how much hemisphere those slices could see.");
+        }
+
         [Test]
         public void SkyPixelsReportFullVisibility()
         {

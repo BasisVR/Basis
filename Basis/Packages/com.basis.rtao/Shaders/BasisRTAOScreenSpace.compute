@@ -116,6 +116,19 @@ void BasisRTAOScreenSpaceTrace(uint3 id : SV_DispatchThreadID)
     float3 axisY = _BasisRtaoScreenAxisY[id.z].xyz;
 
     float visibility = 0.0;
+    // The same arc integral with both horizons fully open, accumulated alongside the real one so the
+    // answer below is a RATIO rather than a mean. A slice contributes projectedLength * arc, and the
+    // fully-open value of that is projectedLength * open - which is not 1, and is not even constant: it
+    // varies with the slice's angle to the surface. Dividing by the slice COUNT therefore only reads 1 on
+    // an unoccluded surface when every slice happens to sit square to it (gamma = 0, projectedLength = 1),
+    // which is exactly the head-on flat plane the "flat = 1, infinite wall = 0.5" calibration was measured
+    // against - so that calibration is untouched by this, both forms are identical there. Off that pose it
+    // under-reads, and because the slice set rotates per frame on _BasisRtaoFrameIndex the amount changes
+    // every frame: an unoccluded plane at 45 degrees swings between 0.707 and 1.0 at one slice, 0.985 and
+    // 1.0 at two, and at 75 degrees between 0.259 and 1.0. Low and Medium both resolve to ONE slice
+    // (budget/8 floors to 1 below 16 rays), and Medium is the default, so the shipping configuration sits
+    // on the worst of it - phantom darkening on every grazing surface plus the shimmer of it moving.
+    float openSum = 0.0;
     float occlusionSum = 0.0;
     float occludedDistanceSum = 0.0;
 
@@ -132,13 +145,15 @@ void BasisRTAOScreenSpaceTrace(uint3 id : SV_DispatchThreadID)
         // are what the arc below is integrated around.
         float3 tangent = sliceWorld - dot(sliceWorld, toCamera) * toCamera;
         float tangentLengthSq = dot(tangent, tangent);
-        if (tangentLengthSq < 1e-8) { visibility += 1.0; continue; }
+        // A degenerate slice votes fully open on both sides, so it cancels out of the ratio below
+        // instead of dragging it toward zero.
+        if (tangentLengthSq < 1e-8) { visibility += 1.0; openSum += 1.0; continue; }
         tangent *= rsqrt(tangentLengthSq);
 
         float3 sliceNormal = cross(tangent, toCamera);
         float3 projectedNormal = normalWS - sliceNormal * dot(normalWS, sliceNormal);
         float projectedLength = length(projectedNormal);
-        if (projectedLength < 1e-6) { visibility += 1.0; continue; }
+        if (projectedLength < 1e-6) { visibility += 1.0; openSum += 1.0; continue; }
 
         float cosGamma = clamp(dot(projectedNormal, toCamera) / projectedLength, -1.0, 1.0);
         float gammaSign = dot(projectedNormal, tangent) >= 0.0 ? 1.0 : -1.0;
@@ -163,7 +178,17 @@ void BasisRTAOScreenSpaceTrace(uint3 id : SV_DispatchThreadID)
             UNITY_LOOP
             for (uint step = 0; step < stepsPerSide; step++)
             {
-                float pixels = max(1.0, (float(step) + sequence.y) / float(stepsPerSide) * radiusPixels);
+                // Squared rather than even spacing along the walk, plus a floor of just over a texel.
+                // The horizon is a MAX over the taps, and what raises it most is the nearest occluder, so
+                // spending taps evenly out to the radius spends most of them where they can least change
+                // the answer. At Medium - four steps a side - even spacing puts the first tap anywhere in
+                // [1, radius/4) and the other three beyond radius/4, so a contact shadow inside that first
+                // quarter is caught by one jittered tap or not at all. Squared puts two taps inside the
+                // first eighth and pins the first to ~1.3 texels, for the same tap count and the same
+                // bandwidth. It is the distribution every GTAO reference uses, URP 17.6's included, and
+                // the cost is a sparser far field where the distance falloff is already discounting.
+                float fraction = (float(step) + sequence.y) / float(stepsPerSide);
+                float pixels = fraction * fraction * radiusPixels + 1.3;
                 int2 tapCoord = int2(id.xy) + int2(round(texelDirection * (direction * pixels)));
                 if (all(tapCoord == int2(id.xy))) { continue; }
                 if (any(tapCoord < 0) || any(tapCoord >= int2(_BasisRtaoSize.xy))) { break; }
@@ -211,6 +236,7 @@ void BasisRTAOScreenSpaceTrace(uint3 id : SV_DispatchThreadID)
         float open = cosGamma + gamma * sinGamma;
         float sliceVisibility = projectedLength * arc;
         visibility += sliceVisibility;
+        openSum += projectedLength * open;
 
         // What the blur wants to know is how close the occlusion it is about to filter was found - rays
         // that all struck within centimetres describe a shadow that varies over centimetres. Weight each
@@ -224,7 +250,7 @@ void BasisRTAOScreenSpaceTrace(uint3 id : SV_DispatchThreadID)
         }
     }
 
-    visibility = saturate(visibility / float(sliceCount));
+    visibility = openSum > kEpsilon ? saturate(visibility / openSum) : 1.0;
     float meanDistance = occlusionSum > kEpsilon ? occludedDistanceSum / occlusionSum : 1.0;
     _BasisRtaoResultTex[id] = float2(visibility, saturate(meanDistance));
 }

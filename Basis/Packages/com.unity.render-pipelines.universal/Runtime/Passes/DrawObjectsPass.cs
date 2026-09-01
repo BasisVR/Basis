@@ -216,8 +216,16 @@ namespace UnityEngine.Rendering.Universal.Internal
 #endif
             DrawingSettings drawSettings = RenderingUtils.CreateDrawingSettings(m_ShaderTagIdList, renderingData, cameraData, lightData, sortFlags);
 
-            m_RenderStateBlock.depthState = DepthState.defaultValue;
-            m_RenderStateBlock.mask &= ~RenderStateMask.Depth;
+            if (zWriteOff && !MustKeepDepthWritable(cameraData))
+            {
+                m_RenderStateBlock.depthState = new DepthState(false, CompareFunction.Equal);
+                m_RenderStateBlock.mask |= RenderStateMask.Depth;
+            }
+            else
+            {
+                m_RenderStateBlock.depthState = DepthState.defaultValue;
+                m_RenderStateBlock.mask &= ~RenderStateMask.Depth;
+            }
 
             var activeDebugHandler = GetActiveDebugHandler(cameraData);
             if (activeDebugHandler != null)
@@ -234,6 +242,21 @@ namespace UnityEngine.Rendering.Universal.Internal
         internal static bool CanDisableZWrite(UniversalCameraData cameraData, bool isOpaque)
         {
             return cameraData.renderer.useDepthPriming && isOpaque && (cameraData.renderType == CameraRenderType.Base || cameraData.clearDepth);
+        }
+
+        /// BASISVR MODIFIED - see UniversalRendererRenderGraph, which forces depth priming on with MSAA.
+        // Under MSAA the primed depth cannot be re-tested with CompareFunction.Equal: the prepass and the
+        // opaque pass do not agree per sample, which is the artifact Unity cited when they blocked priming
+        // on MSAA outright. So with MSAA we keep a plain LEqual + ZWrite pass and take only the early-Z
+        // benefit of an already-populated depth buffer. With MSAA OFF there is no such disagreement, and
+        // stock URP would have primed here anyway (its isNotMSAA gate is exactly msaaSamples == 1), so the
+        // ZWrite-off + Equal path is restored: opaque overdraw stops being shaded, depth stops being
+        // written, and render graph can treat depth as read-only. Matters most on the render targets that
+        // clamp to a single sample regardless of the quality setting - mirrors, the handheld camera,
+        // headless - where the scene is being drawn a second time.
+        internal static bool MustKeepDepthWritable(UniversalCameraData cameraData)
+        {
+            return cameraData.cameraTargetDescriptor.msaaSamples > 1;
         }
 
         internal void Render(RenderGraph renderGraph, ContextContainer frameData, in TextureHandle colorTarget, in TextureHandle depthTarget, in TextureHandle mainShadowsTexture, in TextureHandle additionalShadowsTexture, uint batchLayerMask = uint.MaxValue, bool isMainOpaquePass = false)
@@ -259,7 +282,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
                 if (depthTarget.IsValid())
                 {
-                    var depthAccessFlags = AccessFlags.ReadWrite;
+                    var depthAccessFlags = (disableZWrite && !MustKeepDepthWritable(cameraData)) ? AccessFlags.Read : AccessFlags.ReadWrite;
                     passData.depthHdl = depthTarget;
                     builder.SetRenderAttachmentDepth(depthTarget, depthAccessFlags);
                 }
@@ -423,7 +446,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 builder.SetRenderAttachment(renderingLayersTexture, 1, AccessFlags.Write);
 
                 bool disableZWrite = CanDisableZWrite(cameraData, passData.basePassData.isOpaque);
-                var depthAccessFlags = AccessFlags.ReadWrite;
+                var depthAccessFlags = (disableZWrite && !MustKeepDepthWritable(cameraData)) ? AccessFlags.Read : AccessFlags.ReadWrite;
                 passData.basePassData.depthHdl = depthTarget;
                 builder.SetRenderAttachmentDepth(depthTarget, depthAccessFlags);
 

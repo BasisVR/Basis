@@ -55,6 +55,16 @@ TEXTURE2D_X(_BasisGIMotion);
 TEXTURE2D_X(_BasisGICoarseDepth);
 /// (1/width, 1/height, width, height) of the coarse buffer the march reads.
 float4 _BasisGICoarseTexelSize;
+/// The same pair again, folded one more time: one texel per block of COARSE texels, so one texel per
+/// BASISGI_COARSE_FAR_BLOCK traced texels. A minimum of minima is still a minimum and a maximum of maxima
+/// is still a maximum, so a ray dismissed against this is dismissed against every coarse cell underneath
+/// it - which is the whole point, because clearing it costs one tap instead of eight.
+TEXTURE2D_X(_BasisGICoarseFarDepth);
+/// (1/width, 1/height, width, height) of the far buffer above.
+float4 _BasisGICoarseFarTexelSize;
+/// How many TRACED texels one far texel spans, and the flag for whether the far level exists at all: zero
+/// when it was not built, which is every path that does not run the hierarchical march.
+float _BasisGICoarseFarBlock;
 /// The same pair of numbers as _BasisGICoarseDepth, one texel per TRACED texel rather than per block of
 /// them, and already linearised: the closest real surface under this texel in r and the furthest in g.
 /// This is what the march walks. Sky contributes to neither, so an empty texel reads the sky sentinel in

@@ -128,6 +128,13 @@ float2 BasisGILoadCoarse(float2 tracedPosition)
     return LOAD_TEXTURE2D_X(_BasisGICoarseDepth, cell).rg;
 }
 
+float2 BasisGILoadCoarseFar(float2 tracedPosition)
+{
+    int2 cell = int2(tracedPosition / max(1.0, _BasisGICoarseFarBlock));
+    cell = clamp(cell, int2(0, 0), int2(_BasisGICoarseFarTexelSize.zw) - 1);
+    return LOAD_TEXTURE2D_X(_BasisGICoarseFarDepth, cell).rg;
+}
+
 /// <summary>
 /// Walks the fine depth buffer across one coarse cell the summary could not rule out, one texel or so at
 /// a time, and returns the first surface the ray actually crosses.
@@ -319,6 +326,48 @@ BasisGIHit BasisGIMarchHierarchicalCore(bool startInFront, int maxCells, float4 
             hit.uv = saturate(position / size);
             hit.distance = t * rayLength;
             return hit;
+        }
+
+        // Ask the far level first. It answers for a whole block of coarse cells at once, so a ray crossing
+        // empty room clears eight cells per tap instead of one, and the cell ceiling stops being a limit on
+        // REACH and becomes a limit on complexity actually met. This is what the reflection ray needed: its
+        // ceiling was raised to 128 cells because a mirror ray has to cross the screen, and every one of
+        // those cells was a tap whether or not anything was in it.
+        //
+        // Both dismissals below are the same two statements the coarse test makes, asked of a bigger block.
+        // The fold guarantees they still hold: the far texel's r is the minimum of the minima underneath it
+        // and its g the maximum of the maxima, so a ray in front of r is in front of every coarse cell in
+        // the block, and one behind g is behind all of them. Nothing here can dismiss a cell the coarse
+        // level would have kept - it can only reach the same answer sooner.
+        if (_BasisGICoarseFarBlock >= 1.0)
+        {
+            float farExitT = min(1.0, BasisGICellExit(origin, direction, position, _BasisGICoarseFarBlock));
+            float farEntryEye = 1.0 / max(BASISGI_EPSILON, lerp(invStartW, invEndW, t));
+            float farExitEye = 1.0 / max(BASISGI_EPSILON, lerp(invStartW, invEndW, farExitT));
+            float farDeepest = max(farEntryEye, farExitEye);
+            float farShallowest = min(farEntryEye, farExitEye);
+
+            // Not named "far": that is a legacy reserved identifier in the D3D headers some HLSL
+            // toolchains still pull in, and it fails to compile on the ones that do.
+            float2 farCoarse = BasisGILoadCoarseFar(position);
+
+            // The carried state updates exactly as the coarse skips below do, and for the same reason: a
+            // block crossed entirely in front holds no crossing, so the refine floor may advance past all
+            // of it. observed is untouched - this is looking, not assuming.
+            if (farDeepest <= farCoarse.r)
+            {
+                inFront = true;
+                bracketFloor = farExitT;
+                t = farExitT;
+                continue;
+            }
+            if (farShallowest > farCoarse.g + BasisGIThicknessAt(farCoarse.g))
+            {
+                inFront = false;
+                bracketFloor = farExitT;
+                t = farExitT;
+                continue;
+            }
         }
 
         float exitT = min(1.0, BasisGICellExit(origin, direction, position, cellSize));

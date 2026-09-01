@@ -379,7 +379,7 @@ public sealed partial class BasisGlobalIlluminationPass
             // march carries it instead of guessing; the diffuse pyramid is untouched, and with its two
             // channels equal the interval tests reduce to the exact arithmetic it always ran.
             owner.RecordDepthPyramid(renderGraph, resourceData, descriptor, tracedWidth, tracedHeight, divisor,
-                settings.hierarchicalMarch, true, out tracedDepth, out TextureHandle coarse);
+                settings.hierarchicalMarch, true, out tracedDepth, out TextureHandle coarse, out TextureHandle coarseFar);
 
             RenderTextureDescriptor distanceDescriptor = descriptor;
             distanceDescriptor.width = tracedWidth;
@@ -420,6 +420,9 @@ public sealed partial class BasisGlobalIlluminationPass
                 passData.coarseValid = coarse.IsValid();
                 passData.coarseTexelSize = owner.coarseTexelSize;
                 passData.coarseParams = new Vector4(0f, 0f, 0f, CoarseBlock);
+                passData.coarseFar = coarseFar;
+                passData.coarseFarTexelSize = owner.coarseFarTexelSize;
+                passData.coarseFarBlock = coarseFar.IsValid() ? owner.coarseFarBlock : 0f;
                 passData.tracedDepth = tracedDepth;
                 passData.tracedDepthValid = true;
                 // Pooled PassData: written whether or not the prepass ran, or a stale handle rides in.
@@ -429,6 +432,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 builder.UseTexture(resourceData.cameraDepthTexture);
                 builder.UseTexture(tracedDepth);
                 if (coarse.IsValid()) { builder.UseTexture(coarse); }
+                if (coarseFar.IsValid()) { builder.UseTexture(coarseFar); }
                 if (priorValid) { builder.UseTexture(prior); }
                 if (normals.IsValid()) { builder.UseTexture(normals); }
                 builder.AllowPassCulling(false);
@@ -454,6 +458,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 cmd.SetGlobalVector(idCoarseTexelSize, data.coarseTexelSize);
                 cmd.SetGlobalVector(idCoarseParams, data.coarseParams);
             }
+            BindCoarseFar(cmd, data);
             if (data.sceneColor.IsValid()) { cmd.SetGlobalTexture(idSpecularPriorColor, data.sceneColor); }
             if (data.normals.IsValid()) { cmd.SetGlobalTexture(idNormals, data.normals); }
             cmd.SetGlobalMatrixArray(idPrevViewProjection, data.previousViewProjection);
