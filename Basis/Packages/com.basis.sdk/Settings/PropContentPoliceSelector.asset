@@ -338,3 +338,4 @@ MonoBehaviour:
   - UnityEngine.Video.VideoPlayer
   - Basis.Scripts.BasisSdk.Highlight.BasisHighlightOverride
   - Basis.Shims.BasisActionTrigger
+  - Basis.Shims.BasisPermissionEventShim

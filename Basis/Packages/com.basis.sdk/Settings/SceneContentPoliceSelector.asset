@@ -386,3 +386,4 @@ MonoBehaviour:
   - BakeryPackAsSingleSquare
   - BakerySharedLodUv
   - Basis.Shims.BasisActionTrigger
+  - Basis.Shims.BasisPermissionEventShim

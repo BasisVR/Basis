@@ -171,3 +171,4 @@ MonoBehaviour:
   - HVR.Vixxy.HVRVixxyMenuItem
   - HVR.Vixxy.HVRVixxyAggregator
   - HVR.Basis.Comms.HVRMeasure
+  - Basis.Shims.BasisPermissionEventShim
