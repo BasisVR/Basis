@@ -598,6 +598,11 @@ public static class BasisBundleBuild
 
             EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), BasisEditorLocalization.Get("sdk.bundleBuild.progress.start"), 10);
 
+            // Stamped from the component the SDK was asked to build, not from the census walked off
+            // the build clone: build hooks are free to add components to that clone, and one adding
+            // a BasisAvatar to a prop used to be indistinguishable from an avatar afterwards.
+            MetaData.ContentKind = ResolveContentKind(basisContentBase);
+
             BasisBundleConnector basisBundleConnector = new BasisBundleConnector(
                 generatedID,
                 basisContentBase.BasisBundleDescription,
@@ -692,6 +697,18 @@ public static class BasisBundleBuild
             return (false, $"BuildBundle Exception: {ex.Message}");
         }
     }
+    /// <summary>
+    /// The kind the connector declares, read off the content component the build was started from.
+    /// Null for anything else, which leaves the reader on the component census.
+    /// </summary>
+    public static string ResolveContentKind(BasisContentBase basisContentBase)
+    {
+        if (basisContentBase is BasisAvatar) return BasisBundleConnector.AvatarContentKind;
+        if (basisContentBase is BasisProp) return BasisBundleConnector.PropContentKind;
+        if (basisContentBase is BasisScene) return BasisBundleConnector.SceneContentKind;
+        return null;
+    }
+
     private static string EnsureBuildOutputDirectory(string rootOutDir, string folderName, bool deleteIfExists)
     {
         if (string.IsNullOrEmpty(rootOutDir))

@@ -37,10 +37,14 @@ namespace Basis.Scripts.Networking.Receivers
         public volatile float DirectionalDampeningMultiplier = 1f;
 
         /// <summary>
-        /// Broadband boost for a player in <see cref="BasisTalkMode.Shout"/> — the "louder" half
-        /// of shout, the wider rolloff being the other. Written by the transmit tick on the main
-        /// thread, consumed on the audio thread, and ramped there like every other gain term, so
-        /// entering or leaving shout does not step the waveform.
+        /// Boost for a player in <see cref="BasisTalkMode.Shout"/> — the "louder" half of shout,
+        /// the wider rolloff being the other. Not a constant: it is
+        /// <see cref="BasisVoiceAcoustics.ShoutBoost"/> at this listener's distance, so it is 1
+        /// point blank and grows out to <see cref="BasisShout.Gain"/>. Written by the transmit
+        /// tick on the main thread, consumed on the audio thread, and ramped there like every
+        /// other gain term, so entering or leaving shout does not step the waveform. It also
+        /// raises the <see cref="SoftLimit"/> ceiling, without which the limiter takes the boost
+        /// straight back off a signal the talker's own AGC already left near full scale.
         /// </summary>
         public volatile float ShoutGain = 1f;
 
@@ -50,6 +54,13 @@ namespace Basis.Scripts.Networking.Receivers
         /// longer the same for every remote and the transmit tick needs to know whose is stale.
         /// </summary>
         public float AppliedRange = -1f;
+
+        /// <summary>
+        /// The custom rolloff last handed to the AudioSource, kept so <see cref="RolloffAt"/> can
+        /// read it without GetCustomCurve, which returns a fresh AnimationCurve every call. Null
+        /// while the rolloff mode is one of the two with a closed form.
+        /// </summary>
+        public AnimationCurve RolloffCurve;
 
         /// <summary>
         /// High-shelf depth in dB from the listener cone-of-influence — the part of
@@ -231,6 +242,7 @@ namespace Basis.Scripts.Networking.Receivers
         // instead of stepping per callback (kills zippering on head movement /
         // DirectionalDampeningMultiplier changes).
         private float _lastGain;
+        private float _lastCeiling = 1f;
         private bool _gainPrimed;
 
         // Silence<->audio envelope: short ramp on underrun entry/exit to avoid
@@ -785,6 +797,27 @@ namespace Basis.Scripts.Networking.Receivers
             }
         }
 
+        /// <summary>
+        /// Attenuation this source applies at <paramref name="distance"/>, 0..1, matching whichever
+        /// rolloff mode the remote-audio settings put on it. Main thread; this is the headroom the
+        /// shout boost is allowed to spend, since the rolloff runs after the filter that applies it.
+        /// </summary>
+        public float RolloffAt(float distance)
+        {
+            if (audioSource == null) return 1f;
+            float max = Mathf.Max(0.01f, audioSource.maxDistance);
+            float min = Mathf.Max(0.01f, audioSource.minDistance);
+            switch (audioSource.rolloffMode)
+            {
+                case AudioRolloffMode.Custom:
+                    return RolloffCurve == null ? 1f : Mathf.Max(0f, RolloffCurve.Evaluate(Mathf.Clamp01(distance / max)));
+                case AudioRolloffMode.Linear:
+                    return Mathf.Clamp01(1f - (distance - min) / Mathf.Max(1e-4f, max - min));
+                default:
+                    return min / Mathf.Max(distance, min);
+            }
+        }
+
         public void ApplyRangeData(float Distance)
         {
             AppliedRange = Distance;
@@ -1085,6 +1118,7 @@ namespace Basis.Scripts.Networking.Receivers
             // its delay line must not be mutated from the main thread mid-callback.
             _sincResetRequested = true;
             _lastGain = 0f;
+            _lastCeiling = 1f;
             _gainPrimed = false;
             _fadeEnvelope = 0f;
             _lastOutputSample = 0f;
@@ -1242,20 +1276,27 @@ namespace Basis.Scripts.Networking.Receivers
         }
 
         /// <summary>
-        /// Soft peak limiter: transparent below ±0.8, then a smooth knee that
-        /// asymptotically approaches ±1 instead of hard-clamping. Per-player volume can
-        /// boost up to 1.5×, which pushes loud syllables past full scale; a hard clamp
+        /// Soft peak limiter: transparent below ±0.8 of <paramref name="ceiling"/>, then a smooth
+        /// knee that asymptotically approaches ±ceiling instead of hard-clamping. Per-player volume
+        /// can boost up to 1.5×, which pushes loud syllables past full scale; a hard clamp
         /// there is audible buzz/crackle, so round the peaks instead. C1-continuous at the
-        /// knee (slope 1) and never exceeds ±1, so it can't overshoot the output buffer.
+        /// knee (slope 1) and never exceeds ±ceiling.
+        ///
+        /// The ceiling is 1 for everyone except a shouter. Theirs is <see cref="ShoutGain"/>,
+        /// which is bounded by the distance attenuation Unity applies after this filter — this
+        /// runs in OnAudioFilterRead, the 3D rolloff comes later — so peaks allowed past full
+        /// scale here are still under it by the time they reach the output buffer. Without that
+        /// the knee simply took the shout boost back off, since the talker's own AGC and limiter
+        /// deliver speech already sitting near full scale.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static float SoftLimit(float x)
+        private static float SoftLimit(float x, float ceiling)
         {
-            const float t = 0.8f;        // linear region
-            const float range = 1f - t;  // headroom to the ±1 ceiling
+            float t = 0.8f * ceiling;      // linear region
+            float range = ceiling - t;     // headroom to the ±ceiling asymptote
             float ax = x < 0f ? -x : x;
             if (ax <= t) return x;
-            if (ax >= 8f) return x < 0f ? -1f : 1f; // guard Inf/huge -> NaN in the ratio
+            if (ax >= 8f * ceiling) return x < 0f ? -ceiling : ceiling; // guard Inf/huge -> NaN in the ratio
             float over = ax - t;
             float comp = t + range * (over / (over + range));
             return x < 0f ? -comp : comp;
@@ -1451,14 +1492,19 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         private void ApplyGainAndWrite(ReadOnlySpan<float> source, Span<float> data, int frames, int channels)
         {
-            float targetGain = DirectionalDampeningMultiplier * SMModuleAudio.ActiveMainVolume * _perPlayerVolume * ShoutGain;
+            float shoutGain = ShoutGain;
+            float targetGain = DirectionalDampeningMultiplier * SMModuleAudio.ActiveMainVolume * _perPlayerVolume * shoutGain;
+            float targetCeiling = shoutGain > 1f ? shoutGain : 1f;
             if (!_gainPrimed)
             {
                 _lastGain = targetGain;
+                _lastCeiling = targetCeiling;
                 _gainPrimed = true;
             }
             float gainStep = (targetGain - _lastGain) / Mathf.Max(1, frames);
+            float ceilingStep = (targetCeiling - _lastCeiling) / Mathf.Max(1, frames);
             float gain = _lastGain;
+            float ceiling = _lastCeiling;
             float env = _fadeEnvelope;
 
             float normStart = _normalizerAmp;
@@ -1481,11 +1527,12 @@ namespace Basis.Scripts.Networking.Receivers
                 float absRaw = raw < 0f ? -raw : raw;
                 if (absRaw > blockPeak) blockPeak = absRaw;
                 sumSq += (double)raw * raw;
-                float sample = SoftLimit(raw * norm * gain * env);
+                float sample = SoftLimit(raw * norm * gain * env, ceiling);
                 for (int c = 0; c < channels; c++)
                     data[idx++] = sample;
                 lastWritten = sample;
                 gain += gainStep;
+                ceiling += ceilingStep;
                 norm += normStep;
             }
 
@@ -1501,6 +1548,7 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             _lastGain = targetGain;
+            _lastCeiling = targetCeiling;
             _normalizerAmp = normEnd;
             _fadeEnvelope = env;
             _lastOutputSample = lastWritten;

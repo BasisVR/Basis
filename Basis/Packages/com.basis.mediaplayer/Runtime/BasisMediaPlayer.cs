@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Basis.BasisUI;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -228,6 +229,7 @@ public sealed class BasisMediaPlayer : MonoBehaviour
         set
         {
             if (ReferenceEquals(source, value)) return;
+            ClearPendingUrlApproval();
             // Assigning a CPU frame source takes over from the OS-codec engine.
             TeardownNativeEngine();
             DetachSource();
@@ -527,6 +529,10 @@ public sealed class BasisMediaPlayer : MonoBehaviour
     private Exception pendingError;
     private bool firstFrameEmittedThisPlay;
     private bool audioRateMismatchReported;
+    private bool urlApprovalPending;
+    private bool playRequestedWhileUrlApprovalPending;
+    private string pendingApprovalUrl = string.Empty;
+    private int urlApprovalRequestId;
 
     public long HeadFramePtsUs => videoQueue.TryPeek(out var head) ? head.PresentationTimeUs : -1;
     public long TailFramePtsUs => System.Threading.Interlocked.Read(ref lastEnqueuedPtsUs);
@@ -569,6 +575,110 @@ public sealed class BasisMediaPlayer : MonoBehaviour
         // "www.example.com/…" routes and loads as an absolute URL instead of being
         // mis-read as a direct/transport source.
         url = BasisMediaUrlRouter.NormalizeUrl(url);
+
+        // LoadUrl is always a user-consent boundary, regardless of where the
+        // player lives. Remembered/trusted URLs may pass immediately; every
+        // other URL uses the standard prompt before any resolver/network work.
+        if (!BasisTrustedUrls.IsTrusted(url))
+        {
+            RequestUrlApproval(url);
+            return;
+        }
+
+        LoadApprovedUrl(url);
+    }
+
+    private void RequestUrlApproval(string url)
+    {
+        ClearPendingUrlApproval();
+        if (!BasisMediaPlayerSecurity.IsUrlAllowed(url, out string blockReason))
+        {
+            BasisDebug.LogWarning(
+                $"BasisMediaPlayer refused URL '{BasisMediaUrlRouter.Redact(url)}': {blockReason}",
+                BasisDebug.LogTag.Video);
+            return;
+        }
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+        {
+            BasisDebug.LogWarning("BasisMediaPlayer refused invalid URL.", BasisDebug.LogTag.Video);
+            return;
+        }
+
+        pendingApprovalUrl = url;
+        urlApprovalPending = true;
+        int requestId = ++urlApprovalRequestId;
+
+        if (!BasisNotificationCenter.RouteToNotifications)
+        {
+            BasisMainMenu.Open();
+        }
+
+        BasisMenuURLPromptPanel.CreateNew(
+            url,
+            response =>
+            {
+                if (this == null ||
+                    !urlApprovalPending ||
+                    urlApprovalRequestId != requestId ||
+                    !string.Equals(pendingApprovalUrl, url, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                bool playAfterApproval = playRequestedWhileUrlApprovalPending;
+                ClearPendingUrlApproval();
+
+                if (!response.Accepted)
+                {
+                    return;
+                }
+
+                if (response.RememberChoice)
+                {
+                    switch (response.Scope)
+                    {
+                        case BasisMenuURLPromptPanel.RememberChoiceScope.URL:
+                            BasisTrustedUrls.Add(url);
+                            break;
+                        case BasisMenuURLPromptPanel.RememberChoiceScope.Hostname:
+                            BasisTrustedUrls.Add(uri.Scheme + "://" + uri.Host + "/*");
+                            break;
+                        case BasisMenuURLPromptPanel.RememberChoiceScope.Domain:
+                            string[] parts = uri.Host.Split('.');
+                            string domain = parts.Length >= 2
+                                ? parts[parts.Length - 2] + "." + parts[parts.Length - 1]
+                                : uri.Host;
+                            BasisTrustedUrls.Add(uri.Scheme + "://*." + domain + "/*");
+                            break;
+                    }
+                }
+
+                LoadApprovedUrl(url);
+                if (playAfterApproval)
+                {
+                    Play();
+                }
+            },
+            divertible: true);
+    }
+
+    private void ClearPendingUrlApproval()
+    {
+        if (!urlApprovalPending && !playRequestedWhileUrlApprovalPending && string.IsNullOrEmpty(pendingApprovalUrl))
+        {
+            return;
+        }
+
+        urlApprovalPending = false;
+        playRequestedWhileUrlApprovalPending = false;
+        pendingApprovalUrl = string.Empty;
+        urlApprovalRequestId++;
+    }
+
+    private void LoadApprovedUrl(string url)
+    {
+        ClearPendingUrlApproval();
         LastErrorMessage = null;
         LoadGeneration++;
         // Seed URL-derived metadata for the REQUESTED url now, so consumers see
@@ -656,6 +766,7 @@ public sealed class BasisMediaPlayer : MonoBehaviour
     // code that assigns Source directly (e.g. BasisSyntheticTestSource for tests).
     public void LoadSource(BasisMediaSource media)
     {
+        ClearPendingUrlApproval();
         if (media == null)
         {
             throw new ArgumentNullException(nameof(media));
@@ -826,6 +937,12 @@ public sealed class BasisMediaPlayer : MonoBehaviour
 
     public void Play()
     {
+        if (urlApprovalPending)
+        {
+            playRequestedWhileUrlApprovalPending = true;
+            return;
+        }
+
         if (nativeEngine != null)
         {
             runtimeIsPaused = false;
@@ -868,6 +985,7 @@ public sealed class BasisMediaPlayer : MonoBehaviour
 
     public void Stop()
     {
+        playRequestedWhileUrlApprovalPending = false;
         sleepTimerArmed = false;
         if (nativeEngine != null)
         {
@@ -1069,6 +1187,7 @@ public sealed class BasisMediaPlayer : MonoBehaviour
 
     private void OnDestroy()
     {
+        ClearPendingUrlApproval();
         BasisMediaPlayerRegistry.Remove(this);
         subtitleEngine.Clear();
         TeardownNativeEngine();

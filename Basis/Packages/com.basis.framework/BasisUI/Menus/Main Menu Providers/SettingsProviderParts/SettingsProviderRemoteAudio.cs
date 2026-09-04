@@ -821,9 +821,14 @@ namespace Basis.BasisUI
 
             if (source.rolloffMode == AudioRolloffMode.Custom)
             {
-                source.SetCustomCurve(AudioSourceCurveType.CustomRolloff,
-                    GetRolloffCurvePreset(BasisSettingsDefaults.RARolloffCurvePreset.RawValue,
-                                          source.maxDistance));
+                AnimationCurve rolloff = GetRolloffCurvePreset(BasisSettingsDefaults.RARolloffCurvePreset.RawValue,
+                                                               source.maxDistance);
+                receiver.RolloffCurve = rolloff;
+                source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, rolloff);
+            }
+            else
+            {
+                receiver.RolloffCurve = null;
             }
         }
 

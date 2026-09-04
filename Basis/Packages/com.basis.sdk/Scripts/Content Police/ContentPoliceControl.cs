@@ -20,6 +20,13 @@ public static class ContentPoliceControl
     // Reused renderer buffer for the no-content-removal path when no harvest is
     // supplied. Main-thread only; consumed synchronously by prewarm/correction.
     private static readonly List<Renderer> NoRemovalRendererScratch = new List<Renderer>(64);
+    private const string MediaPlayerStreamingAssemblyQualifiedTypeName = "BasisMediaPlayerStreaming, BasisMediaPlayer";
+    private const string MediaPlayerStreamingTypeName = "BasisMediaPlayerStreaming";
+    private const string MediaPlayerStreamingAutoStartFieldName = "ConfigureOnStart";
+    private static Type mediaPlayerStreamingType;
+    private static FieldInfo mediaPlayerStreamingAutoStartField;
+    private static bool mediaPlayerStreamingPolicyResolved;
+    private static bool mediaPlayerStreamingPolicyInvalidLogged;
 
     // Server-pushed admin lock, mirrored from BasisNetworkModeration.GlobalCilboxLocked by the
     // shim bridge. While set, the avatar content walk strips the Cilbox sandbox host + proxies so
@@ -38,6 +45,65 @@ public static class ContentPoliceControl
     // approved list, so the lookup below can only ever say yes. Skips a FullName + hash probe
     // for one component per GameObject, which on a bone-heavy avatar is most of the walk.
     private static bool IsAlwaysApproved(Component component) => component is Transform;
+
+    private static bool IsAvatarOrPropSelector(BundledContentHolder.Selector selector)
+        => selector == BundledContentHolder.Selector.Avatar || selector == BundledContentHolder.Selector.Prop;
+
+    // BasisSDK intentionally does not reference the media-player assembly. Resolve the optional
+    // runtime type/field lazily and cache them so the normal Content Police walk only pays a Type
+    // reference comparison per component. If the media-player assembly is not loaded yet, leave
+    // the policy unresolved so a later content load can retry.
+    private static bool TryGetMediaPlayerStreamingPolicy(out Type streamingType, out FieldInfo autoStartField)
+    {
+        if (!mediaPlayerStreamingPolicyResolved)
+        {
+            Type resolvedType = Type.GetType(MediaPlayerStreamingAssemblyQualifiedTypeName, throwOnError: false);
+            if (resolvedType != null)
+            {
+                mediaPlayerStreamingType = resolvedType;
+                mediaPlayerStreamingAutoStartField = resolvedType.GetField(
+                    MediaPlayerStreamingAutoStartFieldName,
+                    BindingFlags.Public | BindingFlags.Instance);
+                mediaPlayerStreamingPolicyResolved = true;
+
+                if ((mediaPlayerStreamingAutoStartField == null || mediaPlayerStreamingAutoStartField.FieldType != typeof(bool)) &&
+                    !mediaPlayerStreamingPolicyInvalidLogged)
+                {
+                    mediaPlayerStreamingPolicyInvalidLogged = true;
+                    BasisDebug.LogWarning(
+                        $"[ContentPolice] {MediaPlayerStreamingTypeName} no longer exposes a public bool {MediaPlayerStreamingAutoStartFieldName}; avatar/prop auto-start could not be disabled.",
+                        BasisDebug.LogTag.Event);
+                }
+            }
+        }
+
+        streamingType = mediaPlayerStreamingType;
+        autoStartField = mediaPlayerStreamingAutoStartField;
+        return streamingType != null && autoStartField != null && autoStartField.FieldType == typeof(bool);
+    }
+
+    private static void DisableMediaPlayerStreamingAutoStart(Component component, Type streamingType, FieldInfo autoStartField)
+    {
+        if (component != null && component.GetType() == streamingType)
+        {
+            autoStartField.SetValue(component, false);
+        }
+    }
+
+    private static void DisableMediaPlayerStreamingAutoStart(GameObject root, BundledContentHolder.Selector selector)
+    {
+        if (!IsAvatarOrPropSelector(selector) || root == null ||
+            !TryGetMediaPlayerStreamingPolicy(out Type streamingType, out FieldInfo autoStartField))
+        {
+            return;
+        }
+
+        Component[] streamingComponents = root.GetComponentsInChildren(streamingType, true);
+        for (int i = 0; i < streamingComponents.Length; i++)
+        {
+            autoStartField.SetValue(streamingComponents[i], false);
+        }
+    }
 
     /// <summary>
     /// Creates a copy of a GameObject, removes any unapproved MonoBehaviours, and returns the cleaned copy through instantiation. 
@@ -107,6 +173,11 @@ public static class ContentPoliceControl
             {
                 SearchAndDestroy = GameObject.Instantiate(SearchAndDestroy, Position, Rotation, Parent);
             }
+            // Avatar/prop media streaming must not auto-start from authored data. This path skips
+            // the normal component-removal walk, so apply the content-specific rewrite explicitly
+            // immediately after Instantiate; Unity Start has not run yet.
+            DisableMediaPlayerStreamingAutoStart(SearchAndDestroy, Selector);
+
             // No content-removal walk happened, so a dedicated Renderer-typed walk is the only
             // way to feed the prewarm here. Cheaper than the full component walk above. Only the
             // renderer bucket is filled; the harvest's other buckets stay null so EnsureHarvest
@@ -174,6 +245,10 @@ public static class ContentPoliceControl
                 // is appended only when the caller passed a non-null collector — that way the
                 // data flows back through the call chain rather than living on BasisAvatar.
                 BasisConstraintConversion.Report constraintReport = default;
+                Type streamingType = null;
+                FieldInfo streamingAutoStartField = null;
+                bool sanitizeStreamingAutoStart = IsAvatarOrPropSelector(Selector) &&
+                    TryGetMediaPlayerStreamingPolicy(out streamingType, out streamingAutoStartField);
                 for (int Index = 0; Index < count; Index++)
                 {
                     Component component = components[Index];
@@ -181,6 +256,9 @@ public static class ContentPoliceControl
                     //do this first before we nuke stuff
                     switch (component)
                     {
+                        case Component streaming when sanitizeStreamingAutoStart && streaming.GetType() == streamingType:
+                            DisableMediaPlayerStreamingAutoStart(streaming, streamingType, streamingAutoStartField);
+                            break;
                         case BasisHeadChop headChop:
                             // Authoring-only component: harvest its targets (when a collector
                             // was supplied — local-avatar loads only) and then destroy it so
@@ -409,6 +487,10 @@ public static class ContentPoliceControl
         List<Renderer> renderersForPrewarm = new List<Renderer>();
         List<Component> components = new List<Component>();
         BasisConstraintConversion.Report constraintReport = default;
+        Type streamingType = null;
+        FieldInfo streamingAutoStartField = null;
+        bool sanitizeStreamingAutoStart = IsAvatarOrPropSelector(selector) &&
+            TryGetMediaPlayerStreamingPolicy(out streamingType, out streamingAutoStartField);
         for (int RootIndex = 0; RootIndex < roots.Count; RootIndex++)
         {
             roots[RootIndex].transform.GetComponentsInChildren(includeInactive, components);
@@ -419,6 +501,9 @@ public static class ContentPoliceControl
                 //do this first before we nuke stuff
                 switch (component)
                 {
+                    case Component streaming when sanitizeStreamingAutoStart && streaming.GetType() == streamingType:
+                        DisableMediaPlayerStreamingAutoStart(streaming, streamingType, streamingAutoStartField);
+                        break;
                     case Animator animator:
                         // See the Animator case in the GameObject overload for the
                         // full threat-model comment. AnimationEvents fire via

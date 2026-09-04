@@ -9,6 +9,11 @@ namespace Basis.Tests.UI
     /// in the world next to its BasisScene; reading that census last-one-wins filed a world holding
     /// a single prop under Props. The scene AssetMode on the bundle's sections is the signal that
     /// settles it, and only the SDK's scene build path ever writes it.
+    ///
+    /// The census has the same blind spot on prefab bundles, and there a build hook can create it:
+    /// NDMF's, run over a prop, added a BasisAvatar to the build clone and every prop built with it
+    /// installed then filed under Avatars. The ContentKind stamp names what the SDK was asked to
+    /// build and outranks both signals; bundles built before it keep resolving off the census.
     /// </summary>
     public class BasisLibraryContentModeTests
     {
@@ -162,6 +167,58 @@ namespace Basis.Tests.UI
             BasisBundleConnector connector = Connector(BasisBundleConnector.GameObjectAssetMode, null, "BasisProp");
 
             Assert.That(LibraryProvider.ResolveModeFromConnector(connector), Is.EqualTo(BundledContentHolder.Mode.Prop));
+        }
+
+        [Test]
+        public void ContentKindOutranksAnAvatarWeldedIntoAProp()
+        {
+            BasisBundleConnector connector = Connector(BasisBundleConnector.GameObjectAssetMode, "BasisProp", "BasisAvatar", "NDMFAvatarRoot");
+            connector.MetaData.ContentKind = BasisBundleConnector.PropContentKind;
+
+            Assert.That(LibraryProvider.ResolveModeFromConnector(connector), Is.EqualTo(BundledContentHolder.Mode.Prop),
+                "a build hook adding a BasisAvatar to the build clone does not turn a prop into an avatar.");
+        }
+
+        [TestCase("Avatar", BundledContentHolder.Mode.Avatar)]
+        [TestCase("Prop", BundledContentHolder.Mode.Prop)]
+        [TestCase("Scene", BundledContentHolder.Mode.World)]
+        [TestCase("prop", BundledContentHolder.Mode.Prop)]
+        public void ContentKindStampDecidesTheType(string contentKind, BundledContentHolder.Mode expected)
+        {
+            BasisBundleConnector connector = Connector(BasisBundleConnector.GameObjectAssetMode);
+            connector.MetaData.ContentKind = contentKind;
+
+            Assert.That(LibraryProvider.ResolveModeFromConnector(connector), Is.EqualTo(expected),
+                "the stamp is written from the component the SDK built and is matched case-insensitively.");
+        }
+
+        [Test]
+        public void SceneContentKindWinsOverAnAvatarStandingInTheWorld()
+        {
+            BasisBundleConnector connector = Connector(BasisBundleConnector.SceneAssetMode, "BasisScene", "BasisAvatar");
+            connector.MetaData.ContentKind = BasisBundleConnector.SceneContentKind;
+
+            Assert.That(LibraryProvider.ResolveModeFromConnector(connector), Is.EqualTo(BundledContentHolder.Mode.World));
+        }
+
+        [Test]
+        public void UnstampedBundleStillFallsBackToTheCensus()
+        {
+            BasisBundleConnector connector = Connector(BasisBundleConnector.GameObjectAssetMode, "BasisProp");
+            connector.MetaData.ContentKind = null;
+
+            Assert.That(LibraryProvider.ResolveModeFromConnector(connector), Is.EqualTo(BundledContentHolder.Mode.Prop),
+                "bundles built before the stamp existed must keep resolving exactly as they did.");
+        }
+
+        [Test]
+        public void UnrecognisedContentKindFallsBackToTheCensus()
+        {
+            BasisBundleConnector connector = Connector(BasisBundleConnector.GameObjectAssetMode, "BasisAvatar");
+            connector.MetaData.ContentKind = "SomethingElse";
+
+            Assert.That(LibraryProvider.ResolveModeFromConnector(connector), Is.EqualTo(BundledContentHolder.Mode.Avatar),
+                "a stamp this client does not know is not a reason to refuse to file the bundle.");
         }
     }
 }

@@ -683,6 +683,9 @@ public partial class BasisTransmissionResults
             bool* pTargetShouldSimulate = (bool*)targetShouldSimulate.GetUnsafeReadOnlyPtr();
             bool* pRemoteShouting = (bool*)remoteIsShouting.GetUnsafeReadOnlyPtr();
             float shoutVoiceDistance = ConvertedVoiceDistance * BasisShout.RangeMultiplier;
+            // Same minDistance the rolloff curve is baked against, because the boost is defined
+            // as the fraction of that curve's loss a shout gives back.
+            float shoutMinDistance = BasisSettingsDefaults.RAMinDistance.RawValue;
 
             for (int i = 0; i < receiverCount; i++)
             {
@@ -692,11 +695,6 @@ public partial class BasisTransmissionResults
 
                 bool remoteShouting = pRemoteShouting[i];
                 float wantVoiceDistance = remoteShouting ? shoutVoiceDistance : ConvertedVoiceDistance;
-                float wantShoutGain = remoteShouting ? BasisShout.Gain : 1f;
-                if (audio.ShoutGain != wantShoutGain)
-                {
-                    audio.ShoutGain = wantShoutGain;
-                }
 
                 // Always check for HasAudioSource/hearingRange mismatch rather than
                 // only on transitions. This ensures StartAudio is retried if a previous
@@ -742,6 +740,18 @@ public partial class BasisTransmissionResults
                 if (RevaluteAudioRanges || audio.AppliedRange != wantVoiceDistance)
                 {
                     audio.ApplyRangeData(wantVoiceDistance);
+                }
+
+                // After ApplyRangeData, because the boost is bounded by the rolloff that range
+                // just rebuilt. Not a constant: it gives back what distance took, so it is
+                // nothing at all point blank and largest out where they were barely audible.
+                float wantShoutGain = remoteShouting
+                    ? BasisVoiceAcoustics.ShoutBoost(pDistanceSq[i], shoutMinDistance, BasisShout.Gain,
+                                                     audio.RolloffAt(Mathf.Sqrt(pDistanceSq[i])))
+                    : 1f;
+                if (audio.ShoutGain != wantShoutGain)
+                {
+                    audio.ShoutGain = wantShoutGain;
                 }
 
                 // Guarded because the field is volatile: the write is a release store the audio

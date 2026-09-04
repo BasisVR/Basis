@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System;
+using System.Reflection;
 
 namespace Cilbox
 {
@@ -13,6 +14,20 @@ namespace Cilbox
 			"Basis.BasisImageDownloader",
 			"Basis.IBasisImageDownload",
 			"Basis.BasisStringDownloader",
+			// Basis media-player components. BasisMediaPlayer keeps its native API; LoadUrl
+			// enforces URL approval internally, while unsafe lower-level entry points are blocked below.
+			"BasisMediaPlayer",
+			"BasisMediaPlayer+QueueOverflowPolicy",
+			"BasisMediaPlayerStatus",
+			"BasisVideoBufferMode",
+			"BasisMediaPlayerAudio",
+			"BasisMediaPlayerStreaming",
+			"BasisVideoMaterialOutput",
+			"BasisVideoMaterialOutput+MaterialTarget",
+			"BasisVideoProjectionMode",
+			"BasisVideoStereoEye",
+			"BasisVideoAspectMode",
+			"BasisVideoPicture",
 			"Basis.IBasisStringDownload",
             "Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
             "Basis.Scripts.Networking.BasisNetworkPlayers", // Restrictive, see method whitelist (TryGetPlayerByUUID only).
@@ -120,6 +135,17 @@ namespace Cilbox
 			// Read-only local head scale (Vector3) so cloned mirror heads match the local player.
 			"Basis.Scripts.Drivers.BasisLocalAvatarDriver.HeadScale",
 			"Basis.Scripts.Drivers.BasisLocalCameraDriver.CameraInstance",
+			// Media-player configuration is safe to read/write from a prop. Network/file
+			// entry points are methods and are gated separately in CheckMethodAllowed.
+			"BasisMediaPlayer.*",
+			"BasisMediaPlayerAudio.*",
+			// Streaming URLs/platform selection are script-configurable, but ConfigureOnStart
+			// is intentionally withheld so Cilbox cannot re-enable content auto-start.
+			"BasisMediaPlayerStreaming.StreamUrl",
+			"BasisMediaPlayerStreaming.AutoSelectPerPlatform",
+			"BasisMediaPlayerStreaming.PcUrl",
+			"BasisMediaPlayerStreaming.QuestUrl",
+			"BasisVideoMaterialOutput.*",
 		};
 
 		static readonly Dictionary<Type, HashSet<string>> extraMethodWhitelist = new Dictionary<Type, HashSet<string>>()
@@ -278,9 +304,12 @@ namespace Cilbox
 				typeof(global::BasisPickupSyncNetworking),
 				new HashSet<string>()
 			},
+#if BASIS_HAS_EXAMPLES
 			// BasisInteractableButton: only the setter a prop needs to wire its own "pressed" handler.
 			// ButtonUp, both getters and TriggerButtonDown/Up are withheld until a script actually
 			// needs them - get_ButtonDown/Up would hand back another script's live delegate.
+			// Lives in com.basis.examples, which headless builds strip; the string whitelist entries
+			// above stay unconditional and are simply unmatchable when the package is absent.
 			{
 				typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton),
 				new HashSet<string>
@@ -288,11 +317,35 @@ namespace Cilbox
 					"set_ButtonDown",
 				}
 			},
+#endif
 		};
 
 		protected override HashSet<string> ExtraWhiteListType => extraWhiteListType;
 		protected override HashSet<string> ExtraWhiteListFields => extraWhiteListFields;
 		protected override Dictionary<Type, HashSet<string>> ExtraMethodWhitelist => extraMethodWhitelist;
+
+		public override bool CheckMethodAllowed(out MethodInfo mi, Type declaringType, string name,
+			SerializedTypeDescriptor[] parametersIn, SerializedTypeDescriptor[] genericArgumentsIn, string fullSignature)
+		{
+			if (declaringType == typeof(global::BasisMediaPlayer))
+			{
+				// Do not let a prop bypass URL consent through source/file APIs or write
+				// screenshots to disk. Normal playback controls, status, and events remain
+				// available on the real BasisMediaPlayer component.
+				if (name == nameof(global::BasisMediaPlayer.LoadLocalPath) ||
+					name == nameof(global::BasisMediaPlayer.LoadSource) ||
+					name == nameof(global::BasisMediaPlayer.LoadResolvedSource) ||
+					name == nameof(global::BasisMediaPlayer.CaptureScreenshot) ||
+					name == "set_Source" ||
+					name == "set_Renderer")
+				{
+					mi = null;
+					return false;
+				}
+			}
+
+			return base.CheckMethodAllowed(out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature);
+		}
 
 		static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);
 		public static HashSet<string> GetWhiteListTypes() => mergedWhiteListType;

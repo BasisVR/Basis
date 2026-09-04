@@ -426,19 +426,31 @@ namespace Basis.BasisUI
         /// <summary>
         /// Content type of a bundle read off its connector alone.
         ///
-        /// The sections are asked first, and they settle worlds outright: a scene AssetMode is
-        /// written by the one build path a world can come from, and by every version of it, so it
-        /// also names worlds too old to carry a component census.
+        /// The build-time ContentKind stamp is asked first and settles everything it answers: the
+        /// SDK writes it from the BasisAvatar/BasisProp/BasisScene the build was started from, so
+        /// it says what the bundle <i>is</i> rather than what ended up inside it. Build hooks mutate
+        /// the clone the census is walked off — NDMF's, running over a prop, added a BasisAvatar to
+        /// its root — and nothing downstream of the census could tell that apart from an avatar.
         ///
-        /// The census is the fallback, and it can only ever say what a bundle <i>contains</i>. A
-        /// world's census is summed over every root in the scene, so a world holding one prop
-        /// counts a BasisProp next to its BasisScene — which is why the names are ranked
-        /// most-specific-first here instead of scanned last-one-wins, where a world was handed
-        /// back as a Prop purely because its prop happened to be walked after its BasisScene.
+        /// The sections are asked next, and they settle worlds outright: a scene AssetMode is
+        /// written by the one build path a world can come from, and by every version of it, so it
+        /// also names worlds too old to carry a stamp or a component census.
+        ///
+        /// The census is the last fallback, for bundles built before the stamp existed, and it can
+        /// only ever say what a bundle <i>contains</i>. A world's census is summed over every root
+        /// in the scene, so a world holding one prop counts a BasisProp next to its BasisScene —
+        /// which is why the names are ranked most-specific-first here instead of scanned
+        /// last-one-wins, where a world was handed back as a Prop purely because its prop happened
+        /// to be walked after its BasisScene.
         /// </summary>
         public static BundledContentHolder.Mode ResolveModeFromConnector(BasisBundleConnector connector)
         {
             if (connector == null) return BundledContentHolder.Mode.Legacy;
+
+            if (BasisBundleConnector.IsContentKind(connector, BasisBundleConnector.SceneContentKind)) return BundledContentHolder.Mode.World;
+            if (BasisBundleConnector.IsContentKind(connector, BasisBundleConnector.AvatarContentKind)) return BundledContentHolder.Mode.Avatar;
+            if (BasisBundleConnector.IsContentKind(connector, BasisBundleConnector.PropContentKind)) return BundledContentHolder.Mode.Prop;
+
             if (BasisBundleConnector.IsSceneBundle(connector)) return BundledContentHolder.Mode.World;
 
             // MetaData is a struct (value type) so it can't appear in a ?. chain — the null gate
