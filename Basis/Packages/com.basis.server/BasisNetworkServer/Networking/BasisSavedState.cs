@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Basis.Network.Core;
 using static SerializableBasis;
 
@@ -15,6 +16,9 @@ namespace Basis.Network.Server.Generic
         private static readonly ConcurrentDictionary<int, List<NetPeer>> resolvedVoicePeers = new();
         private static readonly ConcurrentDictionary<int, bool> announceModeStates = new();
         private static readonly ConcurrentDictionary<int, bool> shoutModeStates = new();
+
+        private static readonly ConcurrentQueue<int> pendingVoicePurges = new();
+        private static int voicePurgeActive;
 
         /// <summary>
         /// Removes all state data for a specific player and purges them
@@ -30,22 +34,52 @@ namespace Basis.Network.Server.Generic
 
             // Purge the disconnected peer from all other players' cached lists
             // so voice packets aren't sent to a dead peer until the next recipient update.
-            foreach (var kvp in resolvedVoicePeers)
-            {
-                List<NetPeer> peers = kvp.Value;
-                if (peers == null) continue;
+            // Coalesced: the purge is O(all lists) and takes each list's lock — the same
+            // lock the per-packet voice fanout takes — so a disconnect cascade batches into
+            // one sweep over the lists instead of one full sweep per departure.
+            pendingVoicePurges.Enqueue(id);
+            PurgeVoicePeers();
+        }
 
-                lock (peers)
+        private static void PurgeVoicePeers()
+        {
+            while (true)
+            {
+                if (Interlocked.CompareExchange(ref voicePurgeActive, 1, 0) != 0) return;
+                try
                 {
-                    for (int i = peers.Count - 1; i >= 0; i--)
+                    while (!pendingVoicePurges.IsEmpty)
                     {
-                        NetPeer p = peers[i];
-                        if (p != null && p.Id == id)
+                        HashSet<int> ids = new HashSet<int>();
+                        while (pendingVoicePurges.TryDequeue(out int pending)) ids.Add(pending);
+                        if (ids.Count == 0) break;
+
+                        foreach (var kvp in resolvedVoicePeers)
                         {
-                            peers.RemoveAt(i);
+                            List<NetPeer> peers = kvp.Value;
+                            if (peers == null) continue;
+
+                            lock (peers)
+                            {
+                                for (int i = peers.Count - 1; i >= 0; i--)
+                                {
+                                    NetPeer p = peers[i];
+                                    if (p != null && ids.Contains(p.Id))
+                                    {
+                                        peers.RemoveAt(i);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+                finally
+                {
+                    Interlocked.Exchange(ref voicePurgeActive, 0);
+                }
+                // An id enqueued between the inner drain and the flag release would otherwise
+                // sit until the next disconnect; re-check so it is swept now.
+                if (pendingVoicePurges.IsEmpty) return;
             }
         }
 

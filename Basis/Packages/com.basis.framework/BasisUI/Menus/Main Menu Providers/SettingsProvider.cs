@@ -1866,6 +1866,8 @@ namespace Basis.BasisUI
                     new List<string> { "settings.graphics.gi.preset.natural", "settings.graphics.gi.preset.unnatural" });
                 dropdownGiPreset.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPreset);
 
+                bool giCanTrace = BasisGlobalIlluminationRayContext.HardwareSupported;
+
                 PanelDropdown dropdownGiMode = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiMode.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.mode"));
                 dropdownGiMode.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.mode.tooltip"));
@@ -2178,9 +2180,9 @@ namespace Basis.BasisUI
 
                 void SetGiRowsActive(bool val)
                 {
-                    bool rayTraced = val && dropdownGiMode.Value == "Ray Traced";
+                    bool rayTraced = val && giCanTrace && dropdownGiMode.Value == "Ray Traced";
                     dropdownGiPreset.Descriptor.SetActive(val);
-                    dropdownGiMode.Descriptor.SetActive(val);
+                    dropdownGiMode.Descriptor.SetActive(val && giCanTrace);
                     // Both of these describe what goes into the acceleration structure, which only the ray
                     // traced path builds. On screen space the trace walks the depth buffer, so neither has
                     // anything to act on and showing them promises a control that does nothing.

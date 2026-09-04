@@ -2938,6 +2938,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Avatar: return AddressableAssets.Sprites.Avatars;
                 case BasisShareableKind.World: return AddressableAssets.Sprites.World;
                 case BasisShareableKind.Server: return AddressableAssets.Sprites.Network;
+                case BasisShareableKind.DollyTrack: return AddressableAssets.Sprites.Camera;
                 default: return AddressableAssets.Sprites.Items;
             }
         }
@@ -2951,6 +2952,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.World: return BasisLocalization.Get("library.shareable.world");
                 case BasisShareableKind.Server: return BasisLocalization.Get("library.shareable.server");
                 case BasisShareableKind.Image: return BasisLocalization.Get("library.shareable.image");
+                case BasisShareableKind.DollyTrack: return BasisLocalization.Get("library.shareable.dollyTrack");
                 default: return BasisLocalization.Get("library.shareable.other");
             }
         }

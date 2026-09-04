@@ -32,6 +32,13 @@ namespace Basis.Cinematics
         /// </summary>
         public const int MaxPresets = 64;
 
+        /// <summary>
+        /// What a received track with no usable name of its own is called. Not localized: this
+        /// becomes the stored record's name, and a name that read differently depending on the
+        /// language selected when it arrived would not be one name.
+        /// </summary>
+        public const string UnnamedSharedTrack = "Shared Track";
+
         [Serializable]
         private class PresetFile
         {
@@ -150,6 +157,77 @@ namespace Basis.Cinematics
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Takes in a track that came from somebody else. Unlike <see cref="Store"/> this never
+        /// writes over a saved track of the same name: the name on a received track is the sharer's
+        /// word, not an instruction to replace yours, so a clash is given a free name beside it.
+        /// Re-accepting a track you already hold is recognised and stored once.
+        /// </summary>
+        /// <param name="storedName">The name it went in under, or null when nothing was stored.</param>
+        /// <param name="error">Localization key describing why nothing was stored, or null on success.</param>
+        public static bool Adopt(BasisCameraDollyPreset preset, out string storedName, out string error)
+        {
+            storedName = null;
+            error = null;
+
+            if (preset == null)
+            {
+                error = "camera.dollyPreset.error.empty";
+                return false;
+            }
+
+            Repair(preset);
+            if (preset.Count == 0)
+            {
+                error = "camera.dollyPreset.error.noPoints";
+                return false;
+            }
+
+            string cleaned = BasisCameraDollyPreset.SanitizeName(preset.name) ?? UnnamedSharedTrack;
+
+            BasisCameraDollyPreset existing = Find(cleaned);
+            if (existing != null && existing.SameShapeAs(preset))
+            {
+                storedName = existing.name;
+                return true;
+            }
+
+            preset.name = existing == null ? cleaned : FreeNameBeside(cleaned);
+            if (preset.name == null)
+            {
+                error = "camera.dollyPreset.error.full";
+                return false;
+            }
+
+            if (!Store(preset, out error)) return false;
+
+            storedName = preset.name;
+            return true;
+        }
+
+        /// <summary>
+        /// "Sweep" already taken becomes "Sweep 2". Bounded by the preset cap: past that there is no
+        /// free name to find because there is no room to store one either.
+        /// </summary>
+        private static string FreeNameBeside(string taken)
+        {
+            for (int Suffix = 2; Suffix <= MaxPresets + 1; Suffix++)
+            {
+                string tail = " " + Suffix;
+                // Sanitize truncates at the length cap, so a name already at it would come back
+                // unchanged and collide forever. Make room for the suffix rather than append past it.
+                string head = taken.Length + tail.Length > BasisCameraDollyPreset.MaxNameLength
+                    ? taken.Substring(0, BasisCameraDollyPreset.MaxNameLength - tail.Length)
+                    : taken;
+
+                string candidate = BasisCameraDollyPreset.SanitizeName(head + tail);
+                if (candidate == null || Exists(candidate)) continue;
+
+                return candidate;
+            }
+            return null;
         }
 
         // ---- The traded folder -------------------------------------------------------------
@@ -326,12 +404,14 @@ namespace Basis.Cinematics
         }
 
         /// <summary>
-        /// Makes a record off disk safe to lay out. These files are text and are meant to be passed
-        /// around, so every one of them has been somewhere this code has not: a zero scale divides
-        /// the shape away, an unrotated quaternion arrives as four zeroes rather than identity, and
-        /// a move carrying an ease that does not exist would index past the curve table.
+        /// Makes a record off disk or off the wire safe to lay out. These are text and are meant to
+        /// be passed around, so every one of them has been somewhere this code has not: a zero scale
+        /// divides the shape away, an unrotated quaternion arrives as four zeroes rather than
+        /// identity, and a move carrying an ease that does not exist would index past the curve
+        /// table. Every float is forced finite as well, because a NaN reaching a waypoint spreads
+        /// into the bounds of everything drawn near it and does not come back out.
         /// </summary>
-        private static void Repair(BasisCameraDollyPreset preset)
+        internal static void Repair(BasisCameraDollyPreset preset)
         {
             preset.points ??= new List<BasisCameraDollyPresetPoint>();
             while (preset.points.Count > BasisCameraDollyPreset.MaxPoints)
@@ -346,20 +426,26 @@ namespace Basis.Cinematics
                 float length = rotation.x * rotation.x + rotation.y * rotation.y +
                                rotation.z * rotation.z + rotation.w * rotation.w;
 
-                point.rotation = length < 1e-6f || float.IsNaN(length) ? Quaternion.identity : rotation.normalized;
+                point.rotation = !IsFinite(length) || length < 1e-6f ? Quaternion.identity : rotation.normalized;
+                point.position = Finite(point.position);
                 preset.points[Index] = point;
             }
 
+            preset.anchorPosition = Finite(preset.anchorPosition);
+            preset.anchorYaw = Finite(preset.anchorYaw, 0f);
             if (!(preset.anchorScale > 0.001f))
             {
                 preset.anchorScale = 1f;
             }
-            preset.gridSize = Mathf.Clamp(preset.gridSize, 0.05f, 2f);
+            preset.gridSize = Mathf.Clamp(Finite(preset.gridSize, 0.25f), 0.05f, 2f);
 
             BasisCameraDollySettings motion = preset.motion;
             motion.playing = false;
             motion.syncMode = BasisCameraDollySync.LocalOnly;
-            motion.damping = Mathf.Max(0f, motion.damping);
+            motion.position = Finite(motion.position, 0f);
+            motion.damping = Mathf.Max(0f, Finite(motion.damping, 0f));
+            motion.speed = Finite(motion.speed, BasisCameraDollySettings.Default.speed);
+            motion.offset = Finite(motion.offset);
             if (!Enum.IsDefined(typeof(BasisCameraDollyMode), motion.mode))
             {
                 motion.mode = BasisCameraDollyMode.Manual;
@@ -372,10 +458,17 @@ namespace Basis.Cinematics
             {
                 motion.easeOut = BasisCameraEase.Linear;
             }
-            motion.easeInPortion = Mathf.Clamp(motion.easeInPortion, 0f, BasisCameraDollySpeed.MaximumEasePortion);
-            motion.easeOutPortion = Mathf.Clamp(motion.easeOutPortion, 0f, BasisCameraDollySpeed.MaximumEasePortion);
+            motion.easeInPortion = Mathf.Clamp(Finite(motion.easeInPortion, 0f), 0f, BasisCameraDollySpeed.MaximumEasePortion);
+            motion.easeOutPortion = Mathf.Clamp(Finite(motion.easeOutPortion, 0f), 0f, BasisCameraDollySpeed.MaximumEasePortion);
             preset.motion = motion;
         }
+
+        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private static float Finite(float value, float fallback) => IsFinite(value) ? value : fallback;
+
+        private static Vector3 Finite(Vector3 value) =>
+            new Vector3(Finite(value.x, 0f), Finite(value.y, 0f), Finite(value.z, 0f));
 
         private static void Save()
         {

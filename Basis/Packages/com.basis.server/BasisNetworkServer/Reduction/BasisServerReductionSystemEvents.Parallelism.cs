@@ -210,6 +210,11 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             MaxDegreeOfParallelism = 4
         };
 
+        // The tick-thread's tuned worker budget, shared with per-tick fanouts that live outside
+        // this partial (the PIP camera sweep) so they ride the same width instead of the
+        // scheduler default.
+        internal static ParallelOptions SharedParallelOptions => parallelOptions;
+
         // Retunes the worker count for what the next pass is expected to cost. Called once per tick
         // from the send phase, and moves on the core allocator's cadence rather than the tick's:
         // the grant it is clamped to only changes that often, and resizing a pool at ~275 Hz costs

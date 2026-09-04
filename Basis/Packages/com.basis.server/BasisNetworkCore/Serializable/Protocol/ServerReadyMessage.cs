@@ -43,21 +43,34 @@ public static partial class SerializableBasis
 
         public void Serialize(NetDataWriter writer)
         {
-            byte[] body = Payload ?? Array.Empty<byte>();
-            byte[] framed = body;
-            bool compressed = false;
+            byte[] framed = Compress(Payload ?? Array.Empty<byte>(), out bool compressed);
+            SerializePreCompressed(writer, framed, compressed);
+        }
 
+        /// <summary>
+        /// The Deflate half of <see cref="Serialize"/> on its own, so a join fill with many
+        /// batches can compress them in parallel and then write the frames out in order.
+        /// Returns the bytes to frame; <paramref name="compressed"/> says whether they won.
+        /// </summary>
+        public static byte[] Compress(byte[] body, out bool compressed)
+        {
+            compressed = false;
             if (body.Length >= MinCompressBytes)
             {
                 byte[] deflated = Deflate(body);
                 // Only pay for compression when it actually wins; a high-entropy batch can grow.
                 if (deflated.Length < body.Length)
                 {
-                    framed = deflated;
                     compressed = true;
+                    return deflated;
                 }
             }
+            return body;
+        }
 
+        /// <summary>Writes the wire frame for a body <see cref="Compress"/> already produced.</summary>
+        public void SerializePreCompressed(NetDataWriter writer, byte[] framed, bool compressed)
+        {
             WasCompressed = compressed;
             writer.Put(Count);
             writer.Put(compressed);

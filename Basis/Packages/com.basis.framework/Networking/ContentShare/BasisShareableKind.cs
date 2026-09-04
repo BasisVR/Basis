@@ -5,5 +5,6 @@ public enum BasisShareableKind
     Prop,
     Avatar,
     Image,
+    DollyTrack,
     Other
 }

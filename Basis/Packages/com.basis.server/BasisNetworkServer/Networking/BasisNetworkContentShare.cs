@@ -62,10 +62,24 @@ public static class BasisNetworkContentShare
                     !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassServer);
                 contentName = "Server share";
                 break;
+            case ContentShareType.DollyTrack:
+                // ContentURL carries the track itself as JSON. There is no bundle to gate and no
+                // global lock of its own: a track is a shape somebody drew, so the create
+                // permission, the per-player sphere cap and the payload ceiling below are the
+                // whole of what limits it.
+                contentName = "Dolly track";
+                break;
             default:
                 BNL.LogError($"Unknown content share type {(byte)msg.ContentType} from peer {peer.Id}");
                 return;
         }
+        if (ContentSharePayload.IsPayloadType(msg.ContentType)
+            && (msg.ContentURL == null || msg.ContentURL.Length > ContentSharePayload.MaxLength))
+        {
+            BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLength}.");
+            return;
+        }
+
         if (blocked)
         {
             BNL.Log($"{contentName} content sharing is globally disabled. Rejected from peer {peer.Id}");

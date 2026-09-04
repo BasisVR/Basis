@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Basis.Cinematics;
+using Basis.Scripts.Networking;
 using UnityEngine;
 
 namespace Basis.BasisUI.HandHeldCamera
@@ -184,6 +185,7 @@ namespace Basis.BasisUI.HandHeldCamera
         private PanelButton _dollyPresetLoadInPlaceButton;
         private PanelButton _dollyPresetRemoveButton;
         private PanelButton _dollyPresetExportButton;
+        private PanelButton _dollyPresetShareButton;
         private readonly List<string> _dollyPresetKeys = new List<string>();
         private int _lastDollyPresetRevision = -1;
         private readonly List<string> _waypointKeys = new List<string>();
@@ -1441,6 +1443,13 @@ namespace Basis.BasisUI.HandHeldCamera
             folder.Descriptor.SetTooltip(BasisLocalization.Get("camera.dollyPreset.folder.tooltip"));
             folder.OnClicked += () => BasisCameraDollyPresets.RevealExportFolder();
 
+            RectTransform shareRow = PanelElementDescriptor.BuildActionRow(content, "CameraDollyPresetShareRow");
+
+            _dollyPresetShareButton = PanelButton.CreateNew(shareRow);
+            _dollyPresetShareButton.Descriptor.SetTitle(BasisLocalization.Get("camera.dollyPreset.share"));
+            _dollyPresetShareButton.Descriptor.SetTooltip(BasisLocalization.Get("camera.dollyPreset.share.tooltip"));
+            _dollyPresetShareButton.OnClicked += ShareDollyPreset;
+
             RebuildDollyPresetList();
         }
 
@@ -1502,6 +1511,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             SetButtonInteractable(_dollyPresetSaveButton, named && hasTrack);
             SetButtonInteractable(_dollyPresetExportButton, exists);
+            SetButtonInteractable(_dollyPresetShareButton, exists && BasisNetworkConnection.LocalPlayerIsConnected);
             SetButtonInteractable(_dollyPresetRemoveButton, exists);
             SetButtonInteractable(_dollyPresetLoadButton, exists);
             SetButtonInteractable(_dollyPresetLoadInPlaceButton, exists);
@@ -1599,6 +1609,34 @@ namespace Basis.BasisUI.HandHeldCamera
 
             ShowDollyPresetMessage(BasisLocalization.Get("camera.dollyPreset.exported",
                 System.IO.Path.GetFileName(path)));
+        }
+
+        /// <summary>
+        /// Puts the selected track in the room as an orb for anyone to keep. Placement takes over
+        /// from here, so the panel says nothing more until it comes back.
+        /// </summary>
+        private void ShareDollyPreset()
+        {
+            BasisCameraDollyPreset preset = BasisCameraDollyPresets.Find(EditedDollyPresetName());
+            if (preset == null)
+            {
+                ShowDollyPresetMessage("camera.dollyPreset.error.missing");
+                return;
+            }
+
+            if (!BasisNetworkConnection.LocalPlayerIsConnected)
+            {
+                ShowDollyPresetMessage("camera.dollyPreset.error.shareOffline");
+                return;
+            }
+
+            if (!BasisCameraDollyShare.Share(preset, out string error))
+            {
+                ShowDollyPresetMessage(error);
+                return;
+            }
+
+            ShowDollyPresetMessage(BasisLocalization.Get("camera.dollyPreset.shared", preset.name));
         }
 
         private void ImportDollyPresets()

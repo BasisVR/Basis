@@ -6251,6 +6251,10 @@
       "value": "Shared Image"
     },
     {
+      "key": "library.shareable.dollyTrack",
+      "value": "Shared Dolly Track"
+    },
+    {
       "key": "library.shareable.other",
       "value": "Shared Item"
     },
@@ -18079,6 +18083,26 @@
     {
       "key": "camera.dollyPreset.error.importFailed",
       "value": "The presets folder could not be read. See the log."
+    },
+    {
+      "key": "camera.dollyPreset.share",
+      "value": "Share"
+    },
+    {
+      "key": "camera.dollyPreset.share.tooltip",
+      "value": "Put this track in the room as an orb. Anyone who takes it keeps their own copy of the track; it does not touch the one you have laid out."
+    },
+    {
+      "key": "camera.dollyPreset.shared",
+      "value": "Placed \"{0}\" for the room to take."
+    },
+    {
+      "key": "camera.dollyPreset.error.shareTooLarge",
+      "value": "This track is too large to share."
+    },
+    {
+      "key": "camera.dollyPreset.error.shareOffline",
+      "value": "Join a server to share a track."
     },
     {
       "key": "settings.microphone.test.title",

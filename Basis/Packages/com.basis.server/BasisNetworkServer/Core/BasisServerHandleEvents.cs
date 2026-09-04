@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static BasisPermissions.PermissionManager;
@@ -189,9 +190,10 @@ namespace BasisServerHandle
 
                 // Peers that joined before this whole batch take the identical bytes, which is the
                 // common case; only the joiners inside the batch need a trimmed copy of their own.
-                Dictionary<int, byte[]> framedByStart = new Dictionary<int, byte[]>();
-                long sent = 0, bytes = 0;
-
+                // Each distinct start-offset costs a full serialize + Deflate, so with K joins in
+                // the window the K+1 frames build in parallel; the fanout itself stays serial.
+                List<(NetPeer peer, int start)> targets = new List<(NetPeer, int)>(peers.Length);
+                List<int> distinctStarts = new List<int>();
                 foreach (NetPeer peer in peers)
                 {
                     if (peer == null) continue;
@@ -201,12 +203,31 @@ namespace BasisServerHandle
                     while (start < batch.Length && batch[start].Seq <= peerSeq) start++;
                     if (start >= batch.Length) continue;
 
-                    if (!framedByStart.TryGetValue(start, out byte[] framed))
-                    {
-                        framed = Frame(batch, start);
-                        framedByStart[start] = framed;
-                    }
+                    targets.Add((peer, start));
+                    if (!distinctStarts.Contains(start)) distinctStarts.Add(start);
+                }
 
+                Dictionary<int, byte[]> framedByStart = new Dictionary<int, byte[]>();
+                if (distinctStarts.Count == 1)
+                {
+                    framedByStart[distinctStarts[0]] = Frame(batch, distinctStarts[0]);
+                }
+                else if (distinctStarts.Count > 1)
+                {
+                    byte[][] framedResults = new byte[distinctStarts.Count][];
+                    Parallel.For(0, distinctStarts.Count, BasisServerReductionSystemEvents.SharedParallelOptions,
+                        i => framedResults[i] = Frame(batch, distinctStarts[i]));
+                    for (int i = 0; i < distinctStarts.Count; i++)
+                    {
+                        framedByStart[distinctStarts[i]] = framedResults[i];
+                    }
+                }
+
+                long sent = 0, bytes = 0;
+                for (int t = 0; t < targets.Count; t++)
+                {
+                    (NetPeer peer, int start) = targets[t];
+                    byte[] framed = framedByStart[start];
                     try
                     {
                         peer.Send(framed, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
@@ -1261,6 +1282,7 @@ namespace BasisServerHandle
                 NetDataWriter batchBuffer = NetworkServer.RentWriter();
                 NetDataWriter sendWriter = NetworkServer.RentWriter();
                 ushort batched = 0;
+                List<(ushort count, byte[] payload)> readyBatches = new List<(ushort, byte[])>();
 
                 foreach (var peer in peers)
                 {
@@ -1278,11 +1300,35 @@ namespace BasisServerHandle
 
                     if (batchBuffer.Length >= ServerReadyBatchMessage.MaxPayloadBytes)
                     {
-                        FlushReadyBatch(authClient, batchBuffer, sendWriter, ref batched);
+                        CollectReadyBatch(readyBatches, batchBuffer, ref batched);
                     }
                 }
 
-                FlushReadyBatch(authClient, batchBuffer, sendWriter, ref batched);
+                CollectReadyBatch(readyBatches, batchBuffer, ref batched);
+
+                // At scale the Deflate(Optimal) passes dominate this path (~16 batches of 32 KB
+                // at 2000 players, all previously serial on the accept thread). The batches are
+                // independent, so compress them in parallel and keep only the ordered sends serial.
+                int batchTotal = readyBatches.Count;
+                if (batchTotal == 1)
+                {
+                    SendReadyBatch(authClient, sendWriter, readyBatches[0].count,
+                        ServerReadyBatchMessage.Compress(readyBatches[0].payload, out bool compressed), compressed);
+                }
+                else if (batchTotal > 1)
+                {
+                    byte[][] framed = new byte[batchTotal][];
+                    bool[] framedCompressed = new bool[batchTotal];
+                    Parallel.For(0, batchTotal, BasisServerReductionSystemEvents.SharedParallelOptions, i =>
+                    {
+                        framed[i] = ServerReadyBatchMessage.Compress(readyBatches[i].payload, out bool compressed);
+                        framedCompressed[i] = compressed;
+                    });
+                    for (int i = 0; i < batchTotal; i++)
+                    {
+                        SendReadyBatch(authClient, sendWriter, readyBatches[i].count, framed[i], framedCompressed[i]);
+                    }
+                }
 
                 NetworkServer.ReturnWriter(sendWriter);
                 NetworkServer.ReturnWriter(batchBuffer);
@@ -1293,25 +1339,23 @@ namespace BasisServerHandle
             }
         }
 
-        private static void FlushReadyBatch(NetPeer authClient, NetDataWriter batchBuffer, NetDataWriter sendWriter, ref ushort batched)
+        private static void CollectReadyBatch(List<(ushort count, byte[] payload)> readyBatches, NetDataWriter batchBuffer, ref ushort batched)
         {
             if (batched == 0)
             {
                 return;
             }
-
-            ServerReadyBatchMessage batch = new ServerReadyBatchMessage
-            {
-                Count = batched,
-                Payload = batchBuffer.CopyData(),
-            };
-
-            sendWriter.Reset();
-            batch.Serialize(sendWriter);
-            NetworkServer.TrySend(authClient, sendWriter, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
-
+            readyBatches.Add((batched, batchBuffer.CopyData()));
             batchBuffer.Reset();
             batched = 0;
+        }
+
+        private static void SendReadyBatch(NetPeer authClient, NetDataWriter sendWriter, ushort count, byte[] framed, bool compressed)
+        {
+            ServerReadyBatchMessage batch = new ServerReadyBatchMessage { Count = count };
+            sendWriter.Reset();
+            batch.SerializePreCompressed(sendWriter, framed, compressed);
+            NetworkServer.TrySend(authClient, sendWriter, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
         }
         /// <param name="viewerPosition">Where the joining player is. Selects the quality tier for
         /// <paramref name="peer"/>, exactly as the steady-state send loop would.</param>

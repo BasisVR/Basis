@@ -42,7 +42,15 @@ namespace Basis.Network.Server
 
             // Prefix must end with slash. IPv6 address literals need bracket notation.
             httpListener.Prefixes.Add($"http://{FormatHost(host)}:{port}/");
-            httpListener.Start();
+            try
+            {
+                httpListener.Start();
+            }
+            catch (HttpListenerException ex)
+            {
+                BNL.LogError($"HTTP health check disabled: could not listen on 'http://{FormatHost(host)}:{port}/' ({ex.Message})");
+                return;
+            }
 
             startTimeUtc = DateTimeOffset.UtcNow;
 

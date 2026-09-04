@@ -55,10 +55,15 @@ public class BasisContentSphere : BasisInteractableObject
 
         // Server shares carry a connection string in ContentURL — there's no
         // bundle to introspect, so skip the metadata fetch and just show the
-        // address as the label.
+        // address as the label. Inline payloads carry the content itself and
+        // have nothing to fetch either.
         if (contentType == ContentShareType.Server)
         {
-            ApplyServerLabel();
+            ApplyLocalLabel(ServerAddressLabel());
+        }
+        else if (ContentSharePayload.IsPayloadType(contentType))
+        {
+            ApplyLocalLabel(BasisContentSharePayloadRegistry.Describe(contentType, ContentURL));
         }
         else
         {
@@ -73,14 +78,28 @@ public class BasisContentSphere : BasisInteractableObject
         }
     }
 
-    private void ApplyServerLabel()
+    private string ServerAddressLabel()
     {
         string display = ContentURL ?? string.Empty;
         if (SavedServerStore.TryParseConnectionString(display, out string addr, out ushort port, out bool _, out string _))
         {
             display = $"{addr}:{port}";
         }
-        if (Label != null) Label.text = $"{GetContentTypeName()}\n{ClampName(display)}";
+        return display;
+    }
+
+    /// <summary>
+    /// Labels and colours a sphere whose content never leaves the message, so there is no bundle
+    /// metadata to wait on. A detail of null leaves just the type name.
+    /// </summary>
+    private void ApplyLocalLabel(string detail)
+    {
+        if (Label != null)
+        {
+            Label.text = string.IsNullOrEmpty(detail)
+                ? GetContentTypeName()
+                : $"{GetContentTypeName()}\n{ClampName(detail)}";
+        }
 
         if (Renderer != null)
         {
@@ -257,6 +276,12 @@ public class BasisContentSphere : BasisInteractableObject
                 addrLine = $"{a}:{p}";
             description = $"{sharerLine}\n\nAdd {addrLine} to your saved server list?";
         }
+        else if (ContentSharePayload.IsPayloadType(ContentType))
+        {
+            string detail = BasisContentSharePayloadRegistry.Describe(ContentType, ContentURL);
+            string named = string.IsNullOrEmpty(detail) ? typeName.ToLower() : $"\"{ClampName(detail)}\"";
+            description = $"{sharerLine}\n\nSave {named} to your saved {typeName.ToLower()}s?";
+        }
         else
         {
             description = $"{sharerLine}\n\nSave this shared {typeName.ToLower()} to your library?";
@@ -281,6 +306,18 @@ public class BasisContentSphere : BasisInteractableObject
         if (ContentType == ContentShareType.Server)
         {
             SaveServerToSavedList();
+            return;
+        }
+
+        if (ContentSharePayload.IsPayloadType(ContentType))
+        {
+            string stored = BasisContentSharePayloadRegistry.Accept(ContentType, ContentURL);
+            if (stored == null)
+            {
+                BasisDebug.LogWarning($"Shared {GetContentTypeName()} could not be saved.", BasisDebug.LogTag.Networking);
+                return;
+            }
+            BasisDebug.Log($"Saved shared {GetContentTypeName()} as '{stored}'.", BasisDebug.LogTag.Networking);
             return;
         }
 
@@ -357,7 +394,10 @@ public class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Prop: return new Color(0.3f, 1.0f, 0.5f, 1f);
             case ContentShareType.World: return new Color(1.0f, 0.6f, 0.2f, 1f);
             case ContentShareType.Server: return new Color(0.8f, 0.4f, 1.0f, 1f);
-            default: return Color.white;
+            default:
+                return BasisContentSharePayloadRegistry.TryGet(ContentType, out BasisContentSharePayloadKind colorKind)
+                    ? colorKind.Color
+                    : Color.white;
         }
     }
 
@@ -369,7 +409,10 @@ public class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Prop: return "Prop";
             case ContentShareType.World: return "World";
             case ContentShareType.Server: return "Server";
-            default: return "Unknown";
+            default:
+                return BasisContentSharePayloadRegistry.TryGet(ContentType, out BasisContentSharePayloadKind nameKind)
+                    ? nameKind.Name
+                    : "Unknown";
         }
     }
 
