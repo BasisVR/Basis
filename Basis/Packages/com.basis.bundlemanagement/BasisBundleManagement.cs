@@ -9,40 +9,40 @@ public static class BasisBundleManagement
     /// <summary>
     /// Downloads remote BEE, stores it, and returns the platform-matching generated metadata + bundle bytes.
     /// </summary>
-    public static async Task<(BasisBundleGenerated Generated, byte[] BundleBytes, string ErrorMessage)> DownloadLoadBundleConnector(BasisTrackedBundleWrapper bundleWrapper, BasisProgressReport progressCallback, CancellationToken cancellationToken, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+    public static async Task<(BasisBundleGenerated Generated, BasisBundleSection Section, string ErrorMessage)> DownloadLoadBundleConnector(BasisTrackedBundleWrapper bundleWrapper, BasisProgressReport progressCallback, CancellationToken cancellationToken, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
         if (!BasisBeeValidator.ValidateWrapperPasswordAndUrl(bundleWrapper, out string url, out string err))
         {
-            return (null, null, err);
+            return (null, default, err);
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return (null, null, "Cancelled before starting.");
+            return (null, default, "Cancelled before starting.");
         }
         BasisDebug.Log("Starting download process for " + url);
         BeeResult<BeeDownloadResult> result = await BasisIOManagement.DownloadBEEEx(url, bundleWrapper.LoadableBundle.UnlockPassword, progressCallback, cancellationToken,MaxDownloadSizeInMB);
 
         if (!result.IsSuccess || result.Value is null)
         {
-            return (null, null, BasisBeeValidator.BuildResultError("DownloadBEEEx failed", string.IsNullOrEmpty(result.Error), result.ResponseCode != -1 && result.ResponseCode != 0, result.Error, result.ResponseCode));
+            return (null, default, BasisBeeValidator.BuildResultError("DownloadBEEEx failed", string.IsNullOrEmpty(result.Error), result.ResponseCode != -1 && result.ResponseCode != 0, result.Error, result.ResponseCode));
         }
 
         BasisIOManagement.BeeDownloadResult bee = result.Value;
 
         if (string.IsNullOrWhiteSpace(bee.LocalPath))
         {
-            return (null, null, "Download completed but local file path is empty.");
+            return (null, default, "Download completed but local file path is empty.");
         }
 
         if (bee.Connector is null)
         {
-            return (null, null, "Connector is null after download.");
+            return (null, default, "Connector is null after download.");
         }
 
         if (bee.SectionData is null || bee.SectionData.Length == 0)
         {
-            return (null, null, "Section data is missing after download.");
+            return (null, default, "Section data is missing after download.");
         }
 
         // persist references to wrapper
@@ -55,16 +55,46 @@ public static class BasisBundleManagement
         BasisDebug.Log("Parsing downloaded connector & resolving platform bundle from " + url);
         if (!TryGetPlatform(bundleWrapper.LoadableBundle.BasisBundleConnector, out BasisBundleGenerated generated, out string pfErr))
         {
-            return (null, null, "Connector loaded, but " + pfErr + " (platform=" + Application.platform + ").");
+            return (null, default, "Connector loaded, but " + pfErr + " (platform=" + Application.platform + ").");
         }
 
-        return (generated, bee.SectionData, string.Empty);
+        return (generated, BasisBundleSection.FromBytes(bee.SectionData), string.Empty);
     }
 
     /// <summary>
-    /// Reads connector and section bytes from an already-downloaded .BEE file.
+    /// Reads connector and section LENGTH from an already-downloaded .BEE file, without pulling the
+    /// encrypted section into memory. For callers that only need to confirm the cached file is
+    /// intact and complete — reading the bytes to length-check them costs a full-bundle managed
+    /// allocation per item, which on the LOH is never handed back to the OS.
     /// </summary>
-    public static async Task<(BasisBundleGenerated Generated, byte[] BundleBytes, string ErrorMessage)> LocalLoadBundleConnector(BasisTrackedBundleWrapper bundleWrapper, BasisStoredEncryptedBundle storedBundle, BasisProgressReport progressCallback, CancellationToken cancellationToken)
+    public static async Task<(BasisBundleGenerated Generated, long SectionLength, string ErrorMessage)> LocalVerifyBundleConnector(BasisTrackedBundleWrapper bundleWrapper, BasisStoredEncryptedBundle storedBundle, BasisProgressReport progressCallback, CancellationToken cancellationToken)
+    {
+        var (generated, result, error) = await LocalReadBundleConnector(bundleWrapper, storedBundle, progressCallback, cancellationToken);
+        if (generated == null || !string.IsNullOrEmpty(error))
+        {
+            return (null, 0, error);
+        }
+
+        return (generated, result.SectionLength, string.Empty);
+    }
+
+    /// <summary>
+    /// Locates the connector and the platform section of an already-downloaded .BEE file. The
+    /// section is returned as a range of that file rather than as bytes: it is decrypted straight
+    /// off disk, so a cached load never holds the encrypted bundle in managed memory at all.
+    /// </summary>
+    public static async Task<(BasisBundleGenerated Generated, BasisBundleSection Section, string ErrorMessage)> LocalLoadBundleConnector(BasisTrackedBundleWrapper bundleWrapper, BasisStoredEncryptedBundle storedBundle, BasisProgressReport progressCallback, CancellationToken cancellationToken)
+    {
+        var (generated, result, error) = await LocalReadBundleConnector(bundleWrapper, storedBundle, progressCallback, cancellationToken);
+        if (generated == null || !string.IsNullOrEmpty(error))
+        {
+            return (null, default, error);
+        }
+
+        return (generated, BasisBundleSection.FromFile(storedBundle.DownloadedBeeFileLocation, result.SectionOffset, result.SectionLength), string.Empty);
+    }
+
+    private static async Task<(BasisBundleGenerated Generated, BeeReadResult Result, string ErrorMessage)> LocalReadBundleConnector(BasisTrackedBundleWrapper bundleWrapper, BasisStoredEncryptedBundle storedBundle, BasisProgressReport progressCallback, CancellationToken cancellationToken)
     {
         if (!BasisBeeValidator.IsValidBundleWrapper(bundleWrapper, out string wrapperErr) || storedBundle is null)
         {
@@ -93,7 +123,7 @@ public static class BasisBundleManagement
             return (null, null, "Cancelled before starting.");
         }
         BasisDebug.Log("Processing on-disk meta at " + storedBundle.DownloadedBeeFileLocation);
-        BeeResult<BeeReadResult> result = await BasisIOManagement.ReadBEEFileEx(storedBundle.DownloadedBeeFileLocation, bundleWrapper.LoadableBundle.UnlockPassword!, progressCallback, cancellationToken).ConfigureAwait(false);
+        BeeResult<BeeReadResult> result = await BasisIOManagement.ReadBEEFileEx(storedBundle.DownloadedBeeFileLocation, bundleWrapper.LoadableBundle.UnlockPassword!, progressCallback, cancellationToken, includeSection: false).ConfigureAwait(false);
 
         if (!result.IsSuccess || result.Value is null)
         {
@@ -114,7 +144,7 @@ public static class BasisBundleManagement
             return (null!, null!, "Was able to load connector but " + pfErr + " (platform=" + Application.platform + ").");
         }
 
-        return (generated, data.SectionData, string.Empty);
+        return (generated, data, string.Empty);
     }
 
     /// <summary>
@@ -209,26 +239,26 @@ public static class BasisBundleManagement
     /// layout (8-byte header, all platform sections — the SDK export) first, then falls back to the
     /// full-file cache layout (4-byte header, single section), so either on-disk format loads.
     /// </summary>
-    public static async Task<(BasisBundleGenerated Generated, byte[] BundleBytes, string ErrorMessage)> LocalDirectLoadBundleConnector(BasisTrackedBundleWrapper bundleWrapper, string localPath, BasisProgressReport progressCallback, CancellationToken cancellationToken)
+    public static async Task<(BasisBundleGenerated Generated, BasisBundleSection Section, string ErrorMessage)> LocalDirectLoadBundleConnector(BasisTrackedBundleWrapper bundleWrapper, string localPath, BasisProgressReport progressCallback, CancellationToken cancellationToken)
     {
         if (!BasisBeeValidator.IsValidBundleWrapper(bundleWrapper, out string wrapperErr))
         {
-            return (null, null, wrapperErr);
+            return (null, default, wrapperErr);
         }
 
         if (string.IsNullOrWhiteSpace(localPath))
         {
-            return (null, null, "Local bee path is null or empty.");
+            return (null, default, "Local bee path is null or empty.");
         }
 
         if (string.IsNullOrWhiteSpace(bundleWrapper.LoadableBundle.UnlockPassword))
         {
-            return (null, null, "Unlock password is null or empty.");
+            return (null, default, "Unlock password is null or empty.");
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return (null, null, "Cancelled before starting.");
+            return (null, default, "Cancelled before starting.");
         }
 
         string password = bundleWrapper.LoadableBundle.UnlockPassword;
@@ -243,7 +273,7 @@ public static class BasisBundleManagement
 
         if (!result.IsSuccess || result.Value is null)
         {
-            return (null, null, "Local bee read failed. " + (result.Error ?? "No details."));
+            return (null, default, "Local bee read failed. " + (result.Error ?? "No details."));
         }
 
         BeeReadResult data = result.Value;
@@ -252,20 +282,20 @@ public static class BasisBundleManagement
 
         if (!BasisBeeValidator.IsValidConnector(data.Connector, out string connErr))
         {
-            return (null, null, connErr);
+            return (null, default, connErr);
         }
 
         if (data.SectionData is null || data.SectionData.Length == 0)
         {
-            return (null, null, "Section data is missing after local read.");
+            return (null, default, "Section data is missing after local read.");
         }
 
         if (!TryGetPlatform(bundleWrapper.LoadableBundle.BasisBundleConnector, out BasisBundleGenerated generated, out string pfErr))
         {
-            return (null, null, "Local bee loaded connector but " + pfErr + " (platform=" + Application.platform + ").");
+            return (null, default, "Local bee loaded connector but " + pfErr + " (platform=" + Application.platform + ").");
         }
 
-        return (generated, data.SectionData, string.Empty);
+        return (generated, BasisBundleSection.FromBytes(data.SectionData), string.Empty);
     }
 
     /// <summary>

@@ -37,10 +37,10 @@ namespace Basis.Scripts.Networking.Transmitters
         private volatile bool _accumResetRequested;
 #endif
         /// <summary>
-        /// When true, voice is sent on ShoutVoiceChannel (channel 0) instead of VoiceChannel (channel 3).
-        /// Set by admin via BasisNetworkModeration when shout mode is granted to the local player.
+        /// When true, voice is sent on AnnounceVoiceChannel (channel 4) instead of VoiceChannel (channel 3).
+        /// Set by admin via BasisNetworkModeration when announce mode is granted to the local player.
         /// </summary>
-        public static volatile bool IsInShoutMode = false;
+        public static volatile bool IsInAnnounceMode = false;
         public void Initialize(BasisNetworkPlayer networkedPlayer)
         {
             NetworkedPlayer = networkedPlayer;
@@ -228,9 +228,9 @@ namespace Basis.Scripts.Networking.Transmitters
 #if UNITY_SERVER
             return;
 #else
-            // In shout mode we always send (everyone hears us).
+            // In announce mode we always send (everyone hears us).
             // In normal mode we only send if someone is in range.
-            if (!IsInShoutMode && !NetworkedPlayer.HasReasonToSendAudio)
+            if (!IsInAnnounceMode && !NetworkedPlayer.HasReasonToSendAudio)
             {
                 _frameAccumFilled = 0;
                 return;
@@ -318,10 +318,10 @@ namespace Basis.Scripts.Networking.Transmitters
                 }
                 if (!BasisTalkModeManager.TransmitBlockedLocally)
                 {
-                    byte channel = IsInShoutMode ? BasisNetworkCommons.ShoutVoiceChannel : BasisNetworkCommons.VoiceChannel;
+                    byte channel = IsInAnnounceMode ? BasisNetworkCommons.AnnounceVoiceChannel : BasisNetworkCommons.VoiceChannel;
                     BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, Segment.LengthUsed);
                     peer.Send(writer, channel, DeliveryMethod.Unreliable);
-                    if (!IsInShoutMode)
+                    if (!IsInAnnounceMode)
                     {
                         NetDataWriter directWriter = writer;
                         if (BasisP2PManager.HasAnyConnectedSession())
@@ -388,7 +388,7 @@ namespace Basis.Scripts.Networking.Transmitters
 #else
             _frameAccumFilled = 0;
 
-            if (!IsInShoutMode && !NetworkedPlayer.HasReasonToSendAudio)
+            if (!IsInAnnounceMode && !NetworkedPlayer.HasReasonToSendAudio)
             {
                 return;
             }

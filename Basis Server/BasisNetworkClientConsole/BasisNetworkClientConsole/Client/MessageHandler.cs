@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using K4os.Compression.LZ4;
@@ -18,7 +18,7 @@ namespace Basis.Network
 
         // Bundle capture needs SniffBundle to run (that is where the decoded body exists), so it
         // turns sniffing on by itself rather than making the operator remember to pair the flags.
-        private static bool Sniffing => MovementSender.EmitFaceData || ObserveOnly || BundleCaptureSink.Enabled;
+        private static bool Sniffing => MovementSender.EmitFaceData || ObserveOnly || BundleCaptureSink.Enabled || PoseObserver.Enabled;
         public static long PoseOnlyKeyframes;       // even avatar channels (no additional section)
         public static long FaceKeyframesSmall;      // odd byte-id channels (7/9/11/13)
         public static long FaceKeyframesLarge;      // odd ushort-id channels (42/44/46/48)
@@ -101,6 +101,10 @@ namespace Basis.Network
                 case BasisNetworkCommons.PlayerAvatarHighLargeChannel:
                     Interlocked.Increment(ref PoseOnlyKeyframes);
                     NoteVoiceRange(clientIndex, reader, channel);
+                    if (PoseObserver.Enabled)
+                    {
+                        SniffKeyframe(clientIndex, reader.RawData, reader.Position, reader.AvailableBytes, channel, viaBundle: false);
+                    }
                     break;
                 case BasisNetworkCommons.PlayerAvatarVeryLowAdditionalChannel:
                 case BasisNetworkCommons.PlayerAvatarLowAdditionalChannel:
@@ -268,6 +272,10 @@ namespace Basis.Network
                     else
                     {
                         Interlocked.Increment(ref PoseOnlyKeyframes);
+                        if (PoseObserver.Enabled)
+                        {
+                            SniffKeyframe(clientIndex, scratch, offset, msgLen, innerChannel, viaBundle: true);
+                        }
                     }
                     offset += msgLen;
                 }
@@ -294,6 +302,12 @@ namespace Basis.Network
                     BNL.LogError($"[FaceObserver] keyframe on ch{channel} left {inner.AvailableBytes} unread bytes");
                     return;
                 }
+
+                PoseObserver.ObserveKeyframe(ssm.playerIdMessage.playerID, ssm.sequence, ssm.avatarSerialization);
+
+                // Pose-only frames reach here too when the pose observer is on; only the
+                // additional-data channels carry a face section to account for.
+                if (!BasisNetworkCommons.ChannelHasAdditionalData(channel)) return;
 
                 if (viaBundle) Interlocked.Increment(ref FaceViaBundleKeyframes);
                 else if (BasisNetworkCommons.IsLargePlayerIdChannel(channel)) Interlocked.Increment(ref FaceKeyframesLarge);
@@ -332,7 +346,7 @@ namespace Basis.Network
                 else { if (!inner.TryGetByte(out byte b)) return; playerId = b; }
                 if (!inner.TryGetByte(out _)) return; // interval
                 if (!inner.TryGetByte(out _)) return; // sequence
-                if (!inner.TryGetByte(out _)) return; // baseSeq
+                if (!inner.TryGetByte(out byte baseSeq)) return;
 
                 int bodyLen = BasisAvatarDeltaCompression.DeltaBodyLength(inner.RawData, inner.Position, inner.AvailableBytes, q);
                 if (bodyLen < 0 || bodyLen > inner.AvailableBytes)
@@ -340,6 +354,7 @@ namespace Basis.Network
                     Interlocked.Increment(ref ParseFailures);
                     return;
                 }
+                PoseObserver.ObserveDelta(playerId, quality, baseSeq, inner.RawData, inner.Position, bodyLen);
                 inner.SkipBytes(bodyLen);
 
                 if (!hasAdditional)

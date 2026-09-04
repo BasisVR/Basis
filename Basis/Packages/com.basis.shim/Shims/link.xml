@@ -265,6 +265,7 @@
         <type fullname="Basis.SafeUtil" preserve="all"/>
         <type fullname="Basis.Shims.BasisBlendShapeSyncShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisOsc*" preserve="all"/>
+        <type fullname="Basis.Shims.BasisPermissionEventShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisTransformSyncShim" preserve="all"/>
     </assembly>
     <assembly fullname="Basis Framework">

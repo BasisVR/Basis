@@ -1,5 +1,6 @@
 ﻿using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
 using System.Collections.Generic;
@@ -31,8 +32,10 @@ namespace Basis.Scripts.UI.NamePlate
         public static Color DirectTalkColor = new Color(0.49803922f, 0.92156863f, 0.6509804f, 1f);
         public static Color ThisPersonColor = new Color(1f, 0.3098039f, 0.627451f, 1f);
         public static Color ThisPersonTalkColor = new Color(1f, 0.6588235f, 0.8156863f, 1f);
-        public static Color ShoutColor = new Color(1f, 0.5490196f, 0f, 1f);
-        public static Color ShoutTalkColor = new Color(1f, 0.7215686f, 0.3764706f, 1f);
+        public static Color AnnounceColor = new Color(1f, 0.5490196f, 0f, 1f);
+        public static Color AnnounceTalkColor = new Color(1f, 0.7215686f, 0.3764706f, 1f);
+        public static Color ShoutColor = new Color(1f, 0.8117647f, 0.1607843f, 1f);
+        public static Color ShoutTalkColor = new Color(1f, 0.8901961f, 0.5254902f, 1f);
         public static Color NoOneColor = new Color(0.3921569f, 0.5882353f, 0.7843137f, 1f);
         public static Color NoOneTalkColor = new Color(0.6431373f, 0.7686275f, 0.8862745f, 1f);
         public static Color MutedColor = new Color(0.12f, 0.14f, 0.18f, 1f);
@@ -50,6 +53,8 @@ namespace Basis.Scripts.UI.NamePlate
         public static Color StaticDirectTalkColor;
         public static Color StaticThisPersonColor;
         public static Color StaticThisPersonTalkColor;
+        public static Color StaticAnnounceColor;
+        public static Color StaticAnnounceTalkColor;
         public static Color StaticShoutColor;
         public static Color StaticShoutTalkColor;
         public static Color StaticNoOneColor;
@@ -150,7 +155,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             EnsureAssetsLoaded();
 
-            SelectedNamePlateMaterial = BasisDeviceManagement.IsMobileHardware()
+            SelectedNamePlateMaterial = BasisGpuDetection.IsMobileGpu
                 ? OpaqueNamePlateMaterial
                 : TransParentNamePlateMaterial;
 
@@ -397,6 +402,8 @@ namespace Basis.Scripts.UI.NamePlate
             StaticDirectTalkColor = new Color(DirectTalkColor.r, DirectTalkColor.g, DirectTalkColor.b, transparency);
             StaticThisPersonColor = new Color(ThisPersonColor.r, ThisPersonColor.g, ThisPersonColor.b, transparency);
             StaticThisPersonTalkColor = new Color(ThisPersonTalkColor.r, ThisPersonTalkColor.g, ThisPersonTalkColor.b, transparency);
+            StaticAnnounceColor = new Color(AnnounceColor.r, AnnounceColor.g, AnnounceColor.b, transparency);
+            StaticAnnounceTalkColor = new Color(AnnounceTalkColor.r, AnnounceTalkColor.g, AnnounceTalkColor.b, transparency);
             StaticShoutColor = new Color(ShoutColor.r, ShoutColor.g, ShoutColor.b, transparency);
             StaticShoutTalkColor = new Color(ShoutTalkColor.r, ShoutTalkColor.g, ShoutTalkColor.b, transparency);
             StaticNoOneColor = new Color(NoOneColor.r, NoOneColor.g, NoOneColor.b, transparency);
@@ -412,6 +419,7 @@ namespace Basis.Scripts.UI.NamePlate
                 case BasisTalkMode.Private: return StaticPrivateColor;
                 case BasisTalkMode.Direct: return StaticDirectColor;
                 case BasisTalkMode.ThisPerson: return StaticThisPersonColor;
+                case BasisTalkMode.Announce: return StaticAnnounceColor;
                 case BasisTalkMode.Shout: return StaticShoutColor;
                 case BasisTalkMode.NoOne: return StaticNoOneColor;
                 default: return StaticNormalColor;
@@ -425,6 +433,7 @@ namespace Basis.Scripts.UI.NamePlate
                 case BasisTalkMode.Private: return StaticPrivateTalkColor;
                 case BasisTalkMode.Direct: return StaticDirectTalkColor;
                 case BasisTalkMode.ThisPerson: return StaticThisPersonTalkColor;
+                case BasisTalkMode.Announce: return StaticAnnounceTalkColor;
                 case BasisTalkMode.Shout: return StaticShoutTalkColor;
                 case BasisTalkMode.NoOne: return StaticNoOneTalkColor;
                 default: return StaticIsTalkingColor;

@@ -60,6 +60,10 @@ public static class BasisAvatarModelCache
         /// <summary>Which bones exist on this avatar (from AutoDetectReferences). Indexed by HumanBodyBones.</summary>
         public BonePresenceData BonePresence;
 
+        /// <summary>Local pose every transform under the animator root ends up in after the T-pose
+        /// animator round trip. See <see cref="TposeHierarchyData"/>.</summary>
+        public TposeHierarchyData TposeHierarchy;
+
         /// <summary>Animator.humanScale for this avatar model.</summary>
         public float HumanScale;
         public bool HasHumanScale;
@@ -192,6 +196,27 @@ public static class BasisAvatarModelCache
     {
         /// <summary>True if the bone exists. Length = 55 (HumanBodyBones.LastBone).</summary>
         public bool[] HasBone;
+    }
+
+    /// <summary>
+    /// The local position/rotation every transform under the animator root holds once the T-pose
+    /// controller has been applied and evaluated, in <c>GetComponentsInChildren</c> order.
+    /// </summary>
+    /// <remarks>
+    /// Posing an avatar into its T-pose costs two <c>runtimeAnimatorController</c> assignments (an
+    /// animator rebind each) plus a full humanoid <c>Animator.Update</c> — the same pair
+    /// <c>BasisRemoteAvatarDriver</c> already skips for far LOD avatars, and the dominant cost of
+    /// installing the loading dummy inline on the transmit tick when a player leaves avatar range.
+    /// The result is a property of the model, not the instance: the same prefab instantiated again
+    /// starts from the same authored locals and the same clip drives it to the same pose. Recording
+    /// it once lets every later install of that model write the locals back directly.
+    /// <para>Index 0 is the animator root itself and is never replayed — its local transform is the
+    /// instance's placement under <c>AvatarParent</c>, not a bone pose.</para>
+    /// </remarks>
+    public class TposeHierarchyData
+    {
+        public Vector3[] LocalPositions;
+        public Quaternion[] LocalRotations;
     }
 
     // ────────────────────────────────────────────────────────────
@@ -347,7 +372,7 @@ public static class BasisAvatarModelCache
     public static int Count => _cache.Count;
 
     /// <summary>
-    /// Clears all cached data. Called on domain reload.
+    /// Clears all cached data. Called when play mode starts, and in the Editor when it ends.
     /// </summary>
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     public static void Clear()
@@ -368,6 +393,89 @@ public static class BasisAvatarModelCache
         }
         _retiredCells.Clear();
         _cache.Clear();
+    }
+
+#if UNITY_EDITOR
+    [UnityEditor.InitializeOnLoadMethod]
+    private static void HookEditorPlayModeClear()
+    {
+        UnityEditor.EditorApplication.playModeStateChanged -= OnEditorPlayModeStateChanged;
+        UnityEditor.EditorApplication.playModeStateChanged += OnEditorPlayModeStateChanged;
+    }
+
+    private static void OnEditorPlayModeStateChanged(UnityEditor.PlayModeStateChange change)
+    {
+        if (change == UnityEditor.PlayModeStateChange.EnteredEditMode)
+        {
+            Clear();
+        }
+    }
+#endif
+
+    // ────────────────────────────────────────────────────────────
+    //  T-pose hierarchy replay — see TposeHierarchyData
+    // ────────────────────────────────────────────────────────────
+
+    private static readonly List<Transform> _hierarchyScratch = new List<Transform>(256);
+
+    /// <summary>
+    /// Records the animator root's hierarchy exactly as the T-pose animator round trip left it.
+    /// Call immediately after posing and before anything writes bone locals (body fit, pose snap).
+    /// Keeps the first recording — every instance of the model produces the same one.
+    /// </summary>
+    public static void StoreTposeHierarchy(Animator animator)
+    {
+        EntityId key = GetKey(animator);
+        if (key == EntityId.None)
+        {
+            return;
+        }
+        Entry entry = GetOrCreate(key, animator.avatar);
+        if (entry.TposeHierarchy != null)
+        {
+            return;
+        }
+        animator.transform.GetComponentsInChildren(true, _hierarchyScratch);
+        int count = _hierarchyScratch.Count;
+        Vector3[] positions = new Vector3[count];
+        Quaternion[] rotations = new Quaternion[count];
+        for (int Index = 0; Index < count; Index++)
+        {
+            _hierarchyScratch[Index].GetLocalPositionAndRotation(out positions[Index], out rotations[Index]);
+        }
+        _hierarchyScratch.Clear();
+        entry.TposeHierarchy = new TposeHierarchyData { LocalPositions = positions, LocalRotations = rotations };
+    }
+
+    /// <summary>
+    /// Writes a previously recorded T-pose back onto this instance, replacing the animator round
+    /// trip. Returns false when there is nothing recorded for the model — or when the live
+    /// hierarchy does not match the recorded one, which can only happen if two different rigs
+    /// share an Avatar asset — and the caller must pose through the animator instead.
+    /// </summary>
+    public static bool TryReplayTposeHierarchy(Animator animator)
+    {
+        EntityId key = GetKey(animator);
+        if (key == EntityId.None || !TryGet(key, out Entry entry) || entry.TposeHierarchy == null)
+        {
+            return false;
+        }
+        Vector3[] positions = entry.TposeHierarchy.LocalPositions;
+        Quaternion[] rotations = entry.TposeHierarchy.LocalRotations;
+        animator.transform.GetComponentsInChildren(true, _hierarchyScratch);
+        int count = _hierarchyScratch.Count;
+        if (count != positions.Length)
+        {
+            _hierarchyScratch.Clear();
+            return false;
+        }
+        const int firstBoneIndex = 1;
+        for (int Index = firstBoneIndex; Index < count; Index++)
+        {
+            _hierarchyScratch[Index].SetLocalPositionAndRotation(positions[Index], rotations[Index]);
+        }
+        _hierarchyScratch.Clear();
+        return true;
     }
 
     // ────────────────────────────────────────────────────────────

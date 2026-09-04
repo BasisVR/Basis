@@ -89,8 +89,10 @@ namespace Basis.Scripts.Drivers
         public Color UnMutedMutedIconColorActive = Color.white;
         public Color UnMutedMutedIconColorInactive = Color.grey;
         public Color MutedColor = Color.grey;
-        public Color ShoutColorActive = new Color(1f, 0.5490196f, 0f, 1f);
-        public Color ShoutColorInactive = new Color(0.6f, 0.3294118f, 0f, 1f);
+        public Color AnnounceColorActive = new Color(1f, 0.5490196f, 0f, 1f);
+        public Color AnnounceColorInactive = new Color(0.6f, 0.3294118f, 0f, 1f);
+        public Color ShoutColorActive = new Color(1f, 0.8117647f, 0.1607843f, 1f);
+        public Color ShoutColorInactive = new Color(0.6f, 0.4870588f, 0.0964706f, 1f);
         public Color PrivateColorActive = new Color(0.6078432f, 0.1882353f, 1f, 1f);
         public Color PrivateColorInactive = new Color(0.3647059f, 0.1129412f, 0.6f, 1f);
         public Color DirectColorActive = new Color(0.12156863f, 0.7490196f, 0.3529412f, 1f);
@@ -446,7 +448,7 @@ namespace Basis.Scripts.Drivers
             }
         }
 
-        public void OnShoutModeChanged()
+        public void OnAnnounceModeChanged()
         {
             RecomputeColorIntent();
         }
@@ -482,9 +484,9 @@ namespace Basis.Scripts.Drivers
                 return LocalIsTransmitting ? NoOneColorActive : NoOneColorInactive;
             }
 
-            if (BasisAudioTransmission.IsInShoutMode)
+            if (BasisAudioTransmission.IsInAnnounceMode)
             {
-                return LocalIsTransmitting ? ShoutColorActive : ShoutColorInactive;
+                return LocalIsTransmitting ? AnnounceColorActive : AnnounceColorInactive;
             }
 
             switch (BasisTalkModeManager.CurrentMode)
@@ -495,6 +497,8 @@ namespace Basis.Scripts.Drivers
                     return LocalIsTransmitting ? DirectColorActive : DirectColorInactive;
                 case BasisTalkMode.ThisPerson:
                     return LocalIsTransmitting ? ThisPersonColorActive : ThisPersonColorInactive;
+                case BasisTalkMode.Shout:
+                    return LocalIsTransmitting ? ShoutColorActive : ShoutColorInactive;
                 case BasisTalkMode.NoOne:
                     return LocalIsTransmitting ? NoOneColorActive : NoOneColorInactive;
                 default:

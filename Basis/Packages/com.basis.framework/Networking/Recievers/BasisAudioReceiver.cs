@@ -37,6 +37,21 @@ namespace Basis.Scripts.Networking.Receivers
         public volatile float DirectionalDampeningMultiplier = 1f;
 
         /// <summary>
+        /// Broadband boost for a player in <see cref="BasisTalkMode.Shout"/> — the "louder" half
+        /// of shout, the wider rolloff being the other. Written by the transmit tick on the main
+        /// thread, consumed on the audio thread, and ramped there like every other gain term, so
+        /// entering or leaving shout does not step the waveform.
+        /// </summary>
+        public volatile float ShoutGain = 1f;
+
+        /// <summary>
+        /// Last value handed to <see cref="ApplyRangeData"/>. A shouting player's source is given
+        /// <see cref="BasisShout.RangeMultiplier"/> times the hearing distance, so the range is no
+        /// longer the same for every remote and the transmit tick needs to know whose is stale.
+        /// </summary>
+        public float AppliedRange = -1f;
+
+        /// <summary>
         /// High-shelf depth in dB from the listener cone-of-influence — the part of
         /// the cone that models the listener's own head being in the way, rather
         /// than the broadband part folded into
@@ -772,6 +787,7 @@ namespace Basis.Scripts.Networking.Receivers
 
         public void ApplyRangeData(float Distance)
         {
+            AppliedRange = Distance;
             if (!HasAudioSource) return;
             audioSource.maxDistance = Distance;
             // Unity evaluates a custom rolloff at distance/maxDistance, so the curve
@@ -798,13 +814,17 @@ namespace Basis.Scripts.Networking.Receivers
                 audioSource.spatializePostEffects = true;
                 audioSource.enabled = true;
                 audioSource.Play();
-                audioSource.maxDistance = MaxDistance;
             }
             else if (!audioSource.enabled)
             {
                 audioSource.enabled = true;
                 audioSource.Play();
             }
+            // Outside the branch: a pooled source coming back for a second utterance keeps
+            // whatever range it was last given, which is the wrong one the moment ranges stopped
+            // being identical for every remote (a shouter carries BasisShout.RangeMultiplier×).
+            audioSource.maxDistance = MaxDistance;
+            AppliedRange = MaxDistance;
             _audioEnabled = true;
             _audioPlaying = true;
             HasAudioSource = true;
@@ -1431,7 +1451,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         private void ApplyGainAndWrite(ReadOnlySpan<float> source, Span<float> data, int frames, int channels)
         {
-            float targetGain = DirectionalDampeningMultiplier * SMModuleAudio.ActiveMainVolume * _perPlayerVolume;
+            float targetGain = DirectionalDampeningMultiplier * SMModuleAudio.ActiveMainVolume * _perPlayerVolume * ShoutGain;
             if (!_gainPrimed)
             {
                 _lastGain = targetGain;

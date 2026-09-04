@@ -19,6 +19,10 @@ public sealed class BasisRgba32FrameRenderer : IBasisFrameRenderer
     public bool Present(BasisVideoFrame frame)
     {
         if (frame == null || frame.Data == null) return false;
+        if (frame.Width <= 0 || frame.Height <= 0) return false;
+        // LoadRawTextureData overreads a short buffer, so the decoder's declared size has to agree
+        // with the texture we are about to build before any of it reaches native code.
+        if ((long)frame.Width * frame.Height * 4 != frame.Data.Length) return false;
         EnsureTexture(frame.Width, frame.Height);
 
         texture.LoadRawTextureData(frame.Data);

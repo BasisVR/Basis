@@ -30,8 +30,79 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         private static byte[] _deviceIntervalByte = Array.Empty<byte>();
         private static byte[] _deviceQuality = Array.Empty<byte>();
 
-        // CachedIntervalTicks for every interval byte, so the device never has to send it.
+        // The tick count for every interval byte. This used to be a convenience so the device never had
+        // to send the ticks; it is now the only copy, because storing the decoded value beside the byte
+        // that decodes to it cost four bytes on every ordered pair of players in the instance.
         private static int[] _intervalTickTable;
+        // The base interval the table was built against, so a server reconfigured at runtime rebuilds it
+        // rather than pacing every pair off the interval it booted with.
+        private static int _intervalTickTableBase = -1;
+
+        /// <summary>
+        /// How far back a forced send dates its last-sent stamp. Comfortably longer than the longest
+        /// interval the encoding can express, so the interval gate is open however the wrapping tick
+        /// counter happens to stand.
+        /// </summary>
+        internal static readonly uint ForceSendBackdateTicks = (uint)Math.Min(int.MaxValue, (long)(600_000 * MsToTick));
+
+        /// <summary>
+        /// The interval-byte to ticks table, built on first use.
+        ///
+        /// Called once per send pass rather than per pair. It cannot be a field initializer: the base
+        /// interval it is derived from is read out of configuration after type initialization, and it
+        /// used to be built inside the distance sweep - which the send loop can and does run before.
+        /// </summary>
+        internal static int[] EnsureIntervalTickTable()
+        {
+            int[] table = _intervalTickTable;
+            if (table != null && _intervalTickTableBase == BSRSMillisecondDefaultInterval)
+            {
+                return table;
+            }
+
+            table = BuildIntervalTickTable(BSRSMillisecondDefaultInterval);
+            _intervalTickTableBase = BSRSMillisecondDefaultInterval;
+            _intervalTickTable = table;
+            return table;
+        }
+
+        /// <summary>
+        /// The table for a given base interval, touching nothing. Separate from the cached accessor so a
+        /// test can ask what a different base would produce without writing the configuration static that
+        /// every other pass in the system reads.
+        /// </summary>
+        internal static int[] BuildIntervalTickTable(int baseIntervalMs)
+        {
+            int[] table = new int[256];
+            for (int b = 0; b < 256; b++)
+            {
+                table[b] = (int)(BasisNetworkCommons.DecodeAvatarIntervalMs((byte)b, baseIntervalMs) * MsToTick);
+            }
+            return table;
+        }
+
+        /// <summary>
+        /// The active roster, ordered by player id.
+        ///
+        /// The order matters for one reason and it is a big one. Both O(N squared) passes walk the roster
+        /// as the inner loop and index each receiver's per-peer table by the sender's ID - so the order
+        /// the roster happens to be in is the order those tables are touched in. Unordered, the distance
+        /// sweep computes eight lanes of SIMD and then scatters them to eight unrelated places in an
+        /// array that is megabytes wide at scale; every write is its own cache line and the vector work
+        /// in front of it is wasted. Sorted, the same writes march forward through the table and the pass
+        /// streams. The sort itself is O(N log N) and only runs when somebody joins or leaves, against
+        /// O(N squared) of work per sweep that it makes sequential.
+        ///
+        /// Nothing downstream depends on any particular order - the send loop rotates its start point,
+        /// the position snapshot is written in this same order, and the device path indexes both by the
+        /// same roster position - so this is free to choose the order that the memory likes.
+        /// </summary>
+        private static (int id, PlayerState state)[] BuildActiveRoster()
+        {
+            var roster = _activePlayers.ToArray();
+            Array.Sort(roster, static (a, b) => a.id.CompareTo(b.id));
+            return roster;
+        }
 
         private static IBasisDistanceSolver _distanceSolver;
         private static bool _distanceSolverTried;
@@ -71,7 +142,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     if (_activePlayersDirty)
                     {
-                        _activePlayersSnapshot = _activePlayers.ToArray();
+                        _activePlayersSnapshot = BuildActiveRoster();
                         _activePlayersDirty = false;
                     }
                 }
@@ -212,8 +283,15 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         }
 #endif
 
-        // Grow tracking array if needed (same logic as send loop)
-        private static PeerTrackingData[] GrowPeerTracking(PlayerState state, int jId)
+        /// <summary>
+        /// Grows a receiver's per-peer arrays to cover <paramref name="jId"/>.
+        ///
+        /// The two arrays are one logical table split for cache reasons, so they are grown together and
+        /// under one lock: a reader that found PeerTracking long enough must never then index a
+        /// PeerLastSeenGeneration that is still short. Rare - only when a peer id exceeds the current
+        /// capacity - so the lock costs nothing on the hot path.
+        /// </summary>
+        internal static PeerTrackingData[] GrowPeerTracking(PlayerState state, int jId)
         {
             lock (state)
             {
@@ -221,6 +299,18 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     int newLen = Math.Max(state.PeerTracking.Length * 2, jId + 1);
                     Array.Resize(ref state.PeerTracking, newLen);
+                }
+                // Null as well as short: a PlayerState built without the companion array - which
+                // several test fixtures do, and which any future construction site could - would
+                // otherwise make the send loop skip that receiver entirely and silently. Repairing it
+                // here means the two arrays cannot be observed out of step no matter who allocated them.
+                if (state.PeerLastSeenGeneration == null)
+                {
+                    state.PeerLastSeenGeneration = new uint[state.PeerTracking.Length];
+                }
+                else if (state.PeerLastSeenGeneration.Length < state.PeerTracking.Length)
+                {
+                    Array.Resize(ref state.PeerLastSeenGeneration, state.PeerTracking.Length);
                 }
                 return state.PeerTracking;
             }
@@ -297,9 +387,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
                             if (jId >= tracking.Length) tracking = GrowPeerTracking(state, jId);
 
-                            tracking[jId].CachedIntervalTicks = (int)(actualIntervalsMs[lane] * msToTick);
                             tracking[jId].CachedQualityIndex = (byte)qualityIndices[lane];
                             tracking[jId].CachedIntervalByte = (byte)encodedIntervals[lane];
+                            tracking[jId].HasDistanceCache = true;
                         }
                     }
                 }
@@ -319,9 +409,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
                     CalculateIntervalFromDistanceSq(distSq, out byte intervalByte, out int actualInterval);
 
-                    tracking[jId].CachedIntervalTicks = (int)(actualInterval * MsToTick);
                     tracking[jId].CachedQualityIndex = (byte)GetQualityIndex(distSq);
                     tracking[jId].CachedIntervalByte = intervalByte;
+                    tracking[jId].HasDistanceCache = true;
                 }
             });
         }
@@ -336,11 +426,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             if (_distanceSolverTried) return;
             _distanceSolverTried = true;
 
-            _intervalTickTable = new int[256];
-            for (int b = 0; b < 256; b++)
-            {
-                _intervalTickTable[b] = (int)(BasisNetworkCommons.DecodeAvatarIntervalMs((byte)b, BSRSMillisecondDefaultInterval) * MsToTick);
-            }
+            EnsureIntervalTickTable();
 
             if (!EnableComputeOffload)
             {
@@ -550,9 +636,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     }
 
                     byte encoded = _deviceIntervalByte[baseOffset + index];
-                    tracking[jId].CachedIntervalTicks = tickTable[encoded];
                     tracking[jId].CachedQualityIndex = _deviceQuality[baseOffset + index];
                     tracking[jId].CachedIntervalByte = encoded;
+                    tracking[jId].HasDistanceCache = true;
                 }
             });
         }

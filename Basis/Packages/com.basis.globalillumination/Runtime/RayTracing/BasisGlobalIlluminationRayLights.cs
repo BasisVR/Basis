@@ -53,6 +53,7 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
     private readonly BasisGlobalIlluminationRayLight[] data = new BasisGlobalIlluminationRayLight[MaxLights];
     private GraphicsBuffer buffer;
     private float nextScanTime;
+    private bool scanPhased;
     private int count;
 
     public GraphicsBuffer Buffer => buffer;
@@ -78,24 +79,30 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
         if (IsSupportedType(light)) { scanned.Add(light); }
     }
 
-    public void MarkDirty() { nextScanTime = 0f; }
+    public void MarkDirty() { nextScanTime = 0f; scanPhased = false; }
 
     public void Refresh(in BasisGlobalIlluminationRayLightSettings settings, in BasisGlobalIlluminationRayViewers viewers, float time)
     {
         if (time >= nextScanTime)
         {
-            nextScanTime = time + Mathf.Max(0.1f, settings.rescanInterval);
-            Rescan();
+            float interval = Mathf.Max(0.1f, settings.rescanInterval);
+            // A quarter interval of extra delay the first time, so the light walk settles between the
+            // geometry pass and the avatar pass rather than on top of either. The scene's three discovery
+            // walks otherwise fire from timers that all started at zero and advance by the same interval,
+            // which keeps them in lockstep on one frame out of every hundred and idle on the rest.
+            nextScanTime = time + (scanPhased ? interval : interval * 1.25f);
+            scanPhased = true;
+            Rescan(interval);
         }
 
         count = Gather(settings, viewers);
         Upload();
     }
 
-    private void Rescan()
+    private void Rescan(float interval)
     {
         scanned.Clear();
-        Light[] found = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude);
+        Light[] found = BasisSceneScan.Take<Light>(interval);
         for (int index = 0; index < found.Length; index++)
         {
             if (IsSupportedType(found[index])) { scanned.Add(found[index]); }
@@ -270,7 +277,12 @@ public sealed class BasisGlobalIlluminationRayLights : IDisposable
         float intensity = light.intensity * Mathf.Max(0f, light.bounceIntensity);
         Vector3 radiance = new Vector3(linear.r, linear.g, linear.b) * intensity;
         Vector3 position = transform.position;
-        Vector3 forward = transform.forward;
+        // Normalised HERE, once per light per frame, because the kernel no longer does it: both the
+        // directional branch of BasisGIRtDirectLighting and BasisGIRtSpotAttenuation read direction.xyz as
+        // a unit vector. transform.forward already is one, and this only costs something on the rare rig
+        // whose transform is scaled to zero - which normalized answers with the zero vector rather than a
+        // NaN, so a degenerate light goes dark instead of poisoning the gather.
+        Vector3 forward = transform.forward.normalized;
         float range = light.type == LightType.Directional ? 0f : Mathf.Max(0.0001f, light.range);
         float shadow = settings.shadowRays && light.shadows != LightShadows.None ? 1f : 0f;
 

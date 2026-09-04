@@ -13,6 +13,7 @@ namespace Basis.Network.Server.Generic
         private static readonly ConcurrentDictionary<int, ClientAvatarChangeMessage> avatarChangeStates = new();
         private static readonly ConcurrentDictionary<int, ClientMetaDataMessage> playerMetaDataMessages = new();
         private static readonly ConcurrentDictionary<int, List<NetPeer>> resolvedVoicePeers = new();
+        private static readonly ConcurrentDictionary<int, bool> announceModeStates = new();
         private static readonly ConcurrentDictionary<int, bool> shoutModeStates = new();
 
         /// <summary>
@@ -24,6 +25,7 @@ namespace Basis.Network.Server.Generic
             avatarChangeStates.TryRemove(id, out _);
             playerMetaDataMessages.TryRemove(id, out _);
             resolvedVoicePeers.TryRemove(id, out _);
+            announceModeStates.TryRemove(id, out _);
             shoutModeStates.TryRemove(id, out _);
 
             // Purge the disconnected peer from all other players' cached lists
@@ -155,7 +157,38 @@ namespace Basis.Network.Server.Generic
         }
 
         /// <summary>
-        /// Sets shout mode state for a player.
+        /// Sets announce mode state for a player.
+        /// </summary>
+        public static void SetAnnounceMode(int peerId, bool enabled)
+        {
+            if (enabled)
+            {
+                announceModeStates[peerId] = true;
+            }
+            else
+            {
+                announceModeStates.TryRemove(peerId, out _);
+            }
+        }
+
+        /// <summary>
+        /// Returns true if the player is currently in announce mode.
+        /// </summary>
+        public static bool IsInAnnounceMode(int peerId)
+        {
+            return announceModeStates.TryGetValue(peerId, out _);
+        }
+
+        /// <summary>
+        /// Returns all player IDs currently in announce mode.
+        /// </summary>
+        public static int[] GetAllAnnounceModePlayers()
+        {
+            return announceModeStates.Keys.ToArray();
+        }
+
+        /// <summary>
+        /// Sets admin-granted shout mode state for a player.
         /// </summary>
         public static void SetShoutMode(int peerId, bool enabled)
         {
@@ -170,7 +203,7 @@ namespace Basis.Network.Server.Generic
         }
 
         /// <summary>
-        /// Returns true if the player is currently in shout mode.
+        /// Returns true if an admin currently has the player in shout mode.
         /// </summary>
         public static bool IsInShoutMode(int peerId)
         {
@@ -178,7 +211,7 @@ namespace Basis.Network.Server.Generic
         }
 
         /// <summary>
-        /// Returns all player IDs currently in shout mode.
+        /// Returns all player IDs an admin currently has in shout mode.
         /// </summary>
         public static int[] GetAllShoutModePlayers()
         {

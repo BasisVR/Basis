@@ -91,6 +91,17 @@ public class BasisBundleConnector
     /// <see cref="BasisBundleGenerated.GenericAvatarDataJson"/>.
     /// </summary>
     public const string GltfAssetMode = "GLTF";
+    /// <summary>
+    /// AssetMode of a section built from a Unity scene. Only the scene branch of the SDK build
+    /// pipeline writes it, and it writes it for every world ever built, so it names a world
+    /// outright — unlike the component census, which also counts the props and avatars standing
+    /// inside the world alongside its BasisScene.
+    /// </summary>
+    public const string SceneAssetMode = "Scene";
+    /// <summary>
+    /// AssetMode of a section built from a prefab: an avatar or a prop, told apart by the census.
+    /// </summary>
+    public const string GameObjectAssetMode = "GameObject";
 
     public bool GetPlatform(out BasisBundleGenerated platformBundle)
     {
@@ -114,6 +125,26 @@ public class BasisBundleConnector
     public static bool IsGltfMode(BasisBundleGenerated bundle)
     {
         return bundle != null && string.Equals(bundle.AssetMode, GltfAssetMode, StringComparison.OrdinalIgnoreCase);
+    }
+    public static bool IsSceneMode(BasisBundleGenerated bundle)
+    {
+        return bundle != null && string.Equals(bundle.AssetMode, SceneAssetMode, StringComparison.OrdinalIgnoreCase);
+    }
+    /// <summary>
+    /// True when any section of this bundle was built from a scene, which makes the whole bundle a
+    /// world. Reads every section rather than the one matching this platform, so a world built for
+    /// another platform is still recognised as a world here.
+    /// </summary>
+    public static bool IsSceneBundle(BasisBundleConnector connector)
+    {
+        BasisBundleGenerated[] sections = connector?.BasisBundleGenerated;
+        if (sections == null) return false;
+
+        for (int Index = 0; Index < sections.Length; Index++)
+        {
+            if (IsSceneMode(sections[Index])) return true;
+        }
+        return false;
     }
     private static readonly Dictionary<string, HashSet<RuntimePlatform>> platformMappings = new Dictionary<string, HashSet<RuntimePlatform>>()
     {

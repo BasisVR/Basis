@@ -1228,6 +1228,55 @@ internal unsafe class JiggleMemoryBusTests {
         Assert.AreEqual(1, bus.grabConstraintCount);
         Assert.IsTrue(bus.grabConstraints.TryGetFirstValue(tree.rootID, out _, out _));
     }
+
+    /// <summary>
+    /// Removing a rig parks a pooled dummy in every slot it vacated, and the fragmenter puts a rig
+    /// wherever there is room, so in a populated world the first removal asks for a high slot index.
+    /// The pool used to fill densely up to whatever it was asked for, which meant that one removal
+    /// created every GameObject below it as well — thousands of them, inside the commit, for the
+    /// handful of slots that actually needed a placeholder.
+    /// </summary>
+    [Test]
+    public void GetDummyTransform_AtAHighSlot_CreatesOnlyThatSlot() {
+        // Its own range, well clear of the one JiggleCommitPerformanceSimulation seeds: the pool is
+        // process wide and latched, so a slot another fixture already asked for proves nothing here.
+        const int HighSlot = 1 << 24;
+        const int Neighbour = HighSlot - 1;
+        var before = JiggleRuntimeStatics.DummyTransformPoolCount;
+        Assert.IsFalse(JiggleRuntimeStatics.DummyTransformPoolContains(HighSlot),
+            $"the probe slot has to start unused, pool holds {before}");
+
+        var dummy = JiggleMemoryBus.GetDummyTransform(HighSlot);
+
+        Assert.IsNotNull(dummy);
+        Assert.IsTrue(JiggleRuntimeStatics.DummyTransformPoolContains(HighSlot),
+            $"the slot asked for was not pooled, pool went {before} to {JiggleRuntimeStatics.DummyTransformPoolCount}");
+        Assert.IsFalse(JiggleRuntimeStatics.DummyTransformPoolContains(Neighbour),
+            "the dummy pool filled densely up to the requested slot instead of creating just that one " +
+            $"(pool went {before} to {JiggleRuntimeStatics.DummyTransformPoolCount})");
+        Assert.AreSame(dummy, JiggleMemoryBus.GetDummyTransform(HighSlot),
+            "a slot has to keep the same dummy, or an in-place write and a rebuild disagree about it");
+    }
+
+    /// <summary>
+    /// JIGGLE_VALIDATE used to gate per-frame diagnostics that re-walked every tree, every point,
+    /// every collider and every transform inside the commit, and that could not Burst-compile inside
+    /// JiggleJobSimulate.Execute. That code is deleted, so the define buys nothing now — but it has
+    /// come back in ProjectSettings.asset twice already (the asset is shared and the editor rewrites
+    /// it), each time surfacing as a multi-millisecond JiggleJobs.Simulate.Commit nobody could
+    /// attribute. A failure here means the define is back, and probably the gated code with it.
+    /// </summary>
+    [Test]
+    public void JiggleValidate_IsNotDefined() {
+        #if JIGGLE_VALIDATE
+        Assert.Fail("JIGGLE_VALIDATE is in Scripting Define Symbols (Project Settings > Player). " +
+            "It gates per-frame jiggle validation that costs whole milliseconds inside the commit " +
+            "and stops JiggleJobSimulate Burst-compiling in the editor. Remove it, and check whether " +
+            "the validation code came back with it.");
+        #else
+        Assert.Pass("JIGGLE_VALIDATE is not defined.");
+        #endif
+    }
 }
 
 }

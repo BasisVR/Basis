@@ -46,7 +46,7 @@ public class PermissionBitsetMapTests
         "basis.moderation.message",       // 21
         "basis.moderation.messageall",    // 22
         "basis.moderation.teleport",      // 23
-        "basis.moderation.shout",         // 24
+        "basis.moderation.announce",         // 24
         "basis.permissions.view",         // 25
         "basis.permissions.edit",         // 26
         "basis.moderation.headlessaudio", // 27
@@ -607,7 +607,7 @@ public class MessageCatalogTests
         (1, "basis.core.metadata"),
         (2, "basis.core.disconnection"),
         (3, "basis.core.voice"),
-        (4, "basis.core.voice.shout"),
+        (4, "basis.core.voice.announce"),
         (5, "basis.core.voice.recipients"),
         (6, "basis.core.avatar.verylow"),
         (7, "basis.core.avatar.verylow.additional"),
@@ -972,7 +972,7 @@ public class NetworkChannelConstantTests
         (nameof(BasisNetworkCommons.metaDataChannel), BasisNetworkCommons.metaDataChannel, 1),
         (nameof(BasisNetworkCommons.DisconnectionChannel), BasisNetworkCommons.DisconnectionChannel, 2),
         (nameof(BasisNetworkCommons.VoiceChannel), BasisNetworkCommons.VoiceChannel, 3),
-        (nameof(BasisNetworkCommons.ShoutVoiceChannel), BasisNetworkCommons.ShoutVoiceChannel, 4),
+        (nameof(BasisNetworkCommons.AnnounceVoiceChannel), BasisNetworkCommons.AnnounceVoiceChannel, 4),
         (nameof(BasisNetworkCommons.AudioRecipientsChannel), BasisNetworkCommons.AudioRecipientsChannel, 5),
         (nameof(BasisNetworkCommons.PlayerAvatarVeryLowChannel), BasisNetworkCommons.PlayerAvatarVeryLowChannel, 6),
         (nameof(BasisNetworkCommons.PlayerAvatarVeryLowAdditionalChannel), BasisNetworkCommons.PlayerAvatarVeryLowAdditionalChannel, 7),

@@ -755,6 +755,7 @@ namespace BasisServerHandle
                 BasisNetworkServer.Security.BasisPlayerModeration.SendImageBandwidthToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendPeerLimitToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerMuteManager.SendStateToPeerIfMuted(newPeer);
+                SendAnnounceStateToPeer(newPeer);
                 SendShoutStateToPeer(newPeer);
             }
             else
@@ -859,7 +860,7 @@ namespace BasisServerHandle
         /// <summary>
         /// True when this peer may not transmit voice: the global voice lock is on and they lack
         /// basis.voice.lockbypass, or a moderator voice-muted them. Shared by the normal and
-        /// shout voice paths.
+        /// announce voice paths.
         /// </summary>
         public static bool IsVoiceBlockedFor(NetPeer peer)
         {
@@ -906,15 +907,15 @@ namespace BasisServerHandle
         }
 
         /// <summary>
-        /// Handles shout voice sent by a client on ShoutVoiceChannel (channel 0).
-        /// Only processes if the sender is authorized for shout mode.
+        /// Handles announce voice sent by a client on AnnounceVoiceChannel (channel 4).
+        /// Only processes if the sender is authorized for announce mode.
         /// Broadcasts to ALL connected peers.
         /// </summary>
-        public static void HandleShoutVoiceMessage(NetPacketReader reader, NetPeer peer)
+        public static void HandleAnnounceVoiceMessage(NetPacketReader reader, NetPeer peer)
         {
-            if (!BasisSavedState.IsInShoutMode(peer.Id))
+            if (!BasisSavedState.IsInAnnounceMode(peer.Id))
             {
-                BNL.LogError($"Peer {peer.Id} sent shout voice but is not in shout mode. Ignoring.");
+                BNL.LogError($"Peer {peer.Id} sent announce voice but is not in announce mode. Ignoring.");
                 reader.Recycle();
                 return;
             }
@@ -943,7 +944,7 @@ namespace BasisServerHandle
             serverAudio.Serialize(writer);
             int len = writer.Length;
             byte[] data = writer.Data;
-            byte channel = BasisNetworkCommons.ShoutVoiceChannel;
+            byte channel = BasisNetworkCommons.AnnounceVoiceChannel;
             int senderId = peer.Id;
 
             var clients = NetworkServer.PeerSnapshot;
@@ -962,7 +963,49 @@ namespace BasisServerHandle
         }
 
         /// <summary>
-        /// Broadcasts a shout mode state change to all clients via the AdminChannel.
+        /// Broadcasts an announce mode state change to all clients via the AdminChannel.
+        /// </summary>
+        public static void BroadcastAnnounceModeState(ushort targetPlayerId, bool enabled, ushort initiatorPlayerId)
+        {
+            var writer = NetworkServer.RentWriter();
+            AdminRequestMode mode = enabled ? AdminRequestMode.EnableAnnounceMode : AdminRequestMode.DisableAnnounceMode;
+            new AdminRequest().Serialize(writer, mode);
+            writer.Put(targetPlayerId);
+            writer.Put(initiatorPlayerId);
+
+            NetPeer[] peers = NetworkServer.PeerSnapshot;
+            foreach (var client in peers)
+            {
+                BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.AdminChannel, writer.Length);
+                client.Send(writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+
+            NetworkServer.ReturnWriter(writer);
+        }
+
+        /// <summary>
+        /// Sends current announce mode states to a newly connected peer.
+        /// </summary>
+        public static void SendAnnounceStateToPeer(NetPeer newPeer)
+        {
+            int[] announcePlayers = BasisSavedState.GetAllAnnounceModePlayers();
+            if (announcePlayers.Length == 0) return;
+
+            var writer = NetworkServer.RentWriter();
+            foreach (int peerId in announcePlayers)
+            {
+                writer.Reset();
+                new AdminRequest().Serialize(writer, AdminRequestMode.EnableAnnounceMode);
+                writer.Put((ushort)peerId);
+                writer.Put((ushort)peerId);
+                BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.AdminChannel, writer.Length);
+                newPeer.Send(writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+            NetworkServer.ReturnWriter(writer);
+        }
+
+        /// <summary>
+        /// Broadcasts an admin-granted shout mode state change to all clients via the AdminChannel.
         /// </summary>
         public static void BroadcastShoutModeState(ushort targetPlayerId, bool enabled, ushort initiatorPlayerId)
         {
@@ -983,7 +1026,7 @@ namespace BasisServerHandle
         }
 
         /// <summary>
-        /// Sends current shout mode states to a newly connected peer.
+        /// Sends current admin-granted shout mode states to a newly connected peer.
         /// </summary>
         public static void SendShoutStateToPeer(NetPeer newPeer)
         {

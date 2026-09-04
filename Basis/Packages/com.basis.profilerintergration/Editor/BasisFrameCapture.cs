@@ -80,7 +80,7 @@ namespace Basis.Scripts.Profiler.EditorTools
             BasisNetworkProfiler.AvatarChangeMessageText,
             BasisNetworkProfiler.ServerAvatarDataMessageText,
             BasisNetworkProfiler.DisconnectionMessageText,
-            BasisNetworkProfiler.ShoutVoiceMessageText,
+            BasisNetworkProfiler.AnnounceVoiceMessageText,
             BasisNetworkProfiler.GetOwnershipMessageText,
             BasisNetworkProfiler.ChangeOwnershipMessageText,
             BasisNetworkProfiler.RemoveOwnershipMessageText,

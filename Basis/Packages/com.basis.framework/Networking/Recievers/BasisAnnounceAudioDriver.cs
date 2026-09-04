@@ -14,18 +14,18 @@ using static SerializableBasis;
 namespace Basis.Scripts.Networking.Receivers
 {
     /// <summary>
-    /// Global driver for shout-mode audio sources.
-    /// Shout audio sources are NOT parented to remote players and are NOT
+    /// Global driver for announce-mode audio sources.
+    /// Announce audio sources are NOT parented to remote players and are NOT
     /// affected by distance culling, LOD, avatar unloading, or spatialization.
-    /// Each shouting player gets one non-spatialized (2D) AudioSource parented
+    /// Each announcing player gets one non-spatialized (2D) AudioSource parented
     /// to BasisDeviceManagement.Instance so it persists across scene loads.
     /// </summary>
-    public static class BasisShoutAudioDriver
+    public static class BasisAnnounceAudioDriver
     {
         /// <summary>
-        /// Per-player shout audio state.
+        /// Per-player announce audio state.
         /// </summary>
-        private class ShoutAudioEntry
+        private class AnnounceAudioEntry
         {
             public ushort PlayerId;
             public BasisAudioReceiver Receiver;
@@ -34,22 +34,22 @@ namespace Basis.Scripts.Networking.Receivers
             public GameObject Root;
 
             /// <summary>
-            /// The player's own viseme driver, borrowed for the duration of the shout. Held here
+            /// The player's own viseme driver, borrowed for the duration of the announce. Held here
             /// so teardown can hand it back without a receiver lookup that may already be gone.
             /// </summary>
             public BasisAudioAndVisemeDriver VisemeDriver;
         }
 
-        private static readonly Dictionary<ushort, ShoutAudioEntry> _entries = new Dictionary<ushort, ShoutAudioEntry>();
+        private static readonly Dictionary<ushort, AnnounceAudioEntry> _entries = new Dictionary<ushort, AnnounceAudioEntry>();
 
         /// <summary>
-        /// Enables shout mode for a player. Creates a non-spatialized audio source
+        /// Enables announce mode for a player. Creates a non-spatialized audio source
         /// on BasisDeviceManagement.Instance, independent of the remote player hierarchy.
         /// </summary>
-        public static void EnableShoutMode(ushort playerId)
+        public static void EnableAnnounceMode(ushort playerId)
         {
 #if UNITY_SERVER
-            BasisDebug.LogWarning($"Ignoring shout audio enable for player {playerId} on server/headless build.");
+            BasisDebug.LogWarning($"Ignoring announce audio enable for player {playerId} on server/headless build.");
             return;
 #else
             if (_entries.ContainsKey(playerId))
@@ -59,14 +59,14 @@ namespace Basis.Scripts.Networking.Receivers
 
             if (BasisDeviceManagement.Instance == null)
             {
-                BasisDebug.LogError("BasisDeviceManagement.Instance is null, cannot create shout audio source.");
+                BasisDebug.LogError("BasisDeviceManagement.Instance is null, cannot create announce audio source.");
                 return;
             }
 
-            var entry = new ShoutAudioEntry();
+            var entry = new AnnounceAudioEntry();
             entry.PlayerId = playerId;
 
-            // Create a new BasisAudioReceiver for the shout channel
+            // Create a new BasisAudioReceiver for the announce channel
             entry.Receiver = new BasisAudioReceiver();
 
             // Initialize the decoder
@@ -79,10 +79,10 @@ namespace Basis.Scripts.Networking.Receivers
             entry.Receiver.decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 
-            // Own GameObject per shouter: OnAudioFilterRead scripts run for every
+            // Own GameObject per announcer: OnAudioFilterRead scripts run for every
             // AudioSource on the same GameObject, so shared hosting breaks with
-            // multiple simultaneous shouters.
-            entry.Root = new GameObject($"Shout Audio {playerId}");
+            // multiple simultaneous announcers.
+            entry.Root = new GameObject($"Announce Audio {playerId}");
             entry.Root.transform.SetParent(BasisDeviceManagement.Instance.transform, false);
             entry.AudioSource = entry.Root.AddComponent<AudioSource>();
             entry.AudioSource.clip = BasisAudioClipPool.Get(playerId);
@@ -104,8 +104,8 @@ namespace Basis.Scripts.Networking.Receivers
             entry.Driver.BasisAudioReceiver = entry.Receiver;
 
             // This source, not the player's silent spatial one, feeds lip-sync for the duration
-            // of the shout. See BasisRemoteAudioDriver.OwnsVisemeTap.
-            entry.Driver.IsShoutSource = true;
+            // of the announce. See BasisRemoteAudioDriver.OwnsVisemeTap.
+            entry.Driver.IsAnnounceSource = true;
 
             entry.Receiver.audioSource = entry.AudioSource;
             entry.Receiver.AudioSourceTransform = entry.Root.transform;
@@ -118,13 +118,13 @@ namespace Basis.Scripts.Networking.Receivers
             // Now safe to enable - OnAudioFilterRead can process correctly
             entry.Receiver.HasAudioSource = true;
 
-            // Wire up the player's existing viseme driver so lip-sync works during shout mode
+            // Wire up the player's existing viseme driver so lip-sync works during announce mode
             if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(playerId, out BasisNetworkReceiver receiver))
             {
                 BasisAudioAndVisemeDriver viseme = receiver.AudioReceiverModule.visemeDriver;
                 entry.VisemeDriver = viseme;
 
-                // Order matters here. By the time a shout starts, the normal path has usually
+                // Order matters here. By the time an announce starts, the normal path has usually
                 // already retired this driver: the viseme distance cutoff drops it out of
                 // ActiveDrivers, and going out of hearing range pools the player's spatial
                 // AudioSource, whose ResetForPool unregisters the driver and releases its
@@ -132,7 +132,7 @@ namespace Basis.Scripts.Networking.Receivers
                 // and stops the distance pass fighting us), force it back in range, and only then
                 // Initialize — which re-registers it when the pool return had dropped it, and adds
                 // it to ActiveDrivers because InVisemeRange is true again by that point.
-                viseme.ShoutActive = true;
+                viseme.AnnounceActive = true;
                 BasisRemoteAudioDriver.SetVisemeRange(viseme, true);
                 entry.Driver.Initialize(viseme);
             }
@@ -144,15 +144,15 @@ namespace Basis.Scripts.Networking.Receivers
             entry.AudioSource.Play();
 
             _entries[playerId] = entry;
-            BasisVoiceRecording.OnShoutReceiverCreated(playerId, entry.Receiver);
-            BasisDebug.Log($"Shout audio enabled for player {playerId}");
+            BasisVoiceRecording.OnAnnounceReceiverCreated(playerId, entry.Receiver);
+            BasisDebug.Log($"Announce audio enabled for player {playerId}");
 #endif
         }
 
         /// <summary>
-        /// Disables shout mode for a player. Destroys their audio components.
+        /// Disables announce mode for a player. Destroys their audio components.
         /// </summary>
-        public static void DisableShoutMode(ushort playerId)
+        public static void DisableAnnounceMode(ushort playerId)
         {
             if (!_entries.TryGetValue(playerId, out var entry))
             {
@@ -183,10 +183,10 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 // Hand the driver back to the distance rule; the next transmission tick recomputes
                 // InVisemeRange and retires it if they really are too far to read.
-                entry.VisemeDriver.ShoutActive = false;
+                entry.VisemeDriver.AnnounceActive = false;
 
                 // If the player's own spatial AudioSource is not currently holding this driver —
-                // the out-of-range shouter, whose source was pooled — then the shout path was its
+                // the out-of-range announcer, whose source was pooled — then the announce path was its
                 // only owner and it has to be retired here, or it dangles in the static registry
                 // being ticked every frame with nothing left to feed it.
                 bool spatialPathOwnsIt =
@@ -217,24 +217,24 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             _entries.Remove(playerId);
-            BasisDebug.Log($"Shout audio disabled for player {playerId}");
+            BasisDebug.Log($"Announce audio disabled for player {playerId}");
         }
 
         /// <summary>
-        /// Returns true if a player currently has an active shout audio source.
+        /// Returns true if a player currently has an active announce audio source.
         /// </summary>
-        public static bool IsInShoutMode(ushort playerId)
+        public static bool IsInAnnounceMode(ushort playerId)
         {
             return _entries.ContainsKey(playerId);
         }
 
         /// <summary>
-        /// Exposes a shouting player's receiver so the voice-recording tap can follow the
-        /// shout audio path. Returns false when the player is not currently shouting.
+        /// Exposes a announcing player's receiver so the voice-recording tap can follow the
+        /// announce audio path. Returns false when the player is not currently announcing.
         /// </summary>
         internal static bool TryGetReceiver(ushort playerId, out BasisAudioReceiver receiver)
         {
-            if (_entries.TryGetValue(playerId, out ShoutAudioEntry entry))
+            if (_entries.TryGetValue(playerId, out AnnounceAudioEntry entry))
             {
                 receiver = entry.Receiver;
                 return true;
@@ -244,15 +244,15 @@ namespace Basis.Scripts.Networking.Receivers
         }
 
         /// <summary>
-        /// Inserts an audio segment into the shout receiver's jitter buffer.
-        /// Auto-enables shout mode if not already active.
+        /// Inserts an audio segment into the announce receiver's jitter buffer.
+        /// Auto-enables announce mode if not already active.
         /// </summary>
-        public static void ReceiveShoutAudio(ushort playerId, AudioSegmentDataMessage audioData)
+        public static void ReceiveAnnounceAudio(ushort playerId, AudioSegmentDataMessage audioData)
         {
             if (!_entries.TryGetValue(playerId, out var entry))
             {
-                // Auto-enable when we receive shout audio (handles late joiners)
-                EnableShoutMode(playerId);
+                // Auto-enable when we receive announce audio (handles late joiners)
+                EnableAnnounceMode(playerId);
                 if (!_entries.TryGetValue(playerId, out entry))
                 {
                     return; // failed to create
@@ -310,26 +310,26 @@ namespace Basis.Scripts.Networking.Receivers
         }
 
         /// <summary>
-        /// Cleans up a player's shout state (call on disconnect).
+        /// Cleans up a player's announce state (call on disconnect).
         /// </summary>
         public static void RemovePlayer(ushort playerId)
         {
-            DisableShoutMode(playerId);
+            DisableAnnounceMode(playerId);
         }
 
         /// <summary>
-        /// Cleans up all shout audio sources and resets local shout state (call on disconnect from server).
+        /// Cleans up all announce audio sources and resets local announce state (call on disconnect from server).
         /// </summary>
         public static void DeInitialize()
         {
             var keys = new List<ushort>(_entries.Keys);
             foreach (var key in keys)
             {
-                DisableShoutMode(key);
+                DisableAnnounceMode(key);
             }
 
-            // Reset local player shout state
-            Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInShoutMode = false;
+            // Reset local player announce state
+            Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInAnnounceMode = false;
         }
     }
 }

@@ -88,13 +88,14 @@ public static class BasisNetworkLifeCycle
 #endif
             BasisAvatarLoadThread.Flush();//drop join packets decoded for the connection going away
             BasisNetworkPlayers.ClearAllRegistries();//remove players
-            Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DeInitialize();//remove shout audio sources
+            Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.DeInitialize();//remove announce audio sources
             Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.DeInitialize();//remove voice recordings
             await BasisNetworkSpawnItem.Reset();//remove items
             BasisNetworkPreloadManager.Reset();//remove preloaded resources
             BasisContentShareManager.Reset();//remove content spheres
             BasisNetworkIdResolver.KnownIdMap.Clear();
             BasisNetworkIdResolver.PendingResolutions.Clear();
+            BasisNetworkGenericMessages.ReleaseConnectionRegistrations();//message indices belong to the connection that assigned them
             BasisNetworkManagement.Transmitter = null;
             BasisNetworkConnection.NetworkClient?.Disconnect();//disconnect the local client last.
             BasisNetworkConnection.LocalPlayerIsConnected = false;
@@ -137,21 +138,27 @@ public static class BasisNetworkLifeCycle
         BasisRemoteNetworkDriver.Shutdown();//complete in-flight jobs before disposing anything
         BasisAvatarLoadThread.Flush();//drop join packets decoded for the connection going away
         BasisNetworkPlayers.ClearAllRegistries();//remove players
-        Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DeInitialize();//remove shout audio sources
+        Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.DeInitialize();//remove announce audio sources
         Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.DeInitialize();//remove voice recordings
         await BasisNetworkSpawnItem.Reset();//remove items
         BasisNetworkPreloadManager.Reset();//remove preloaded resources
         BasisContentShareManager.Reset();//remove content spheres
         BasisNetworkIdResolver.KnownIdMap.Clear();
         BasisNetworkIdResolver.PendingResolutions.Clear();
+        BasisNetworkGenericMessages.ReleaseConnectionRegistrations();//message indices belong to the connection that assigned them
         BasisAudioRemoteSource.DeInitialize();//release memory for audio gameobject
         BasisNetworkManagement.Transmitter = null;
-        // Clear delegates / events
-        BasisNetworkPlayer.OnOwnershipTransfer = null;
-        BasisNetworkPlayer.OnLocalPlayerJoined = null;
-        BasisNetworkPlayer.OnRemotePlayerJoined = null;
-        BasisNetworkPlayer.OnLocalPlayerLeft = null;
-        BasisNetworkPlayer.OnRemotePlayerLeft = null;
+        // The player lifecycle delegates are owned by whoever subscribed, not by the connection, and they are
+        // how a service learns the next connection has arrived. Clearing them here unhooked every subscriber
+        // that arms once - a RuntimeInitializeOnLoadMethod or a one-shot Initialize - so from the second server
+        // onwards nothing re-subscribed and those services were simply deaf: OnLocalPlayerJoined never reached
+        // BasisImagePickupManager or BasisCameraDollyManager again, and OnRemotePlayerJoined/Left never reached
+        // BasisTalkModeManager, BasisBodyFitNetworking or BasisRTAOIntegration. Nulling OnOwnershipTransfer also
+        // stranded any ownership request awaiting a reply, which could then only end in its timeout. Every
+        // subscriber in the tree unsubscribes from its own teardown, so there is nothing to clean up here.
+        // OnEnableInstanceCreate is deliberately still cleared: it is a one-shot "the network layer exists"
+        // arm whose subscribers connect on it, and Initialize raises it, so leaving it armed across a server
+        // switch would fire a second connect underneath the one already being made.
         BasisNetworkManagement.OnEnableInstanceCreate = null;
         BasisNetworkConnection.LocalPlayerPeer = null;
         BasisNetworkManagement.LocalAccessTransmitter = null;

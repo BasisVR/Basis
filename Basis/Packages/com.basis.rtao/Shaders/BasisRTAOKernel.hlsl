@@ -162,7 +162,14 @@ void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
             if (proxyMask != 0u)
             {
                 float proxyDistance;
-                if (BasisRtaoTraceProxies(dispatchInfo, accelStruct, ray.origin, ray.direction, ray.tMax, proxyMask, proxyDistance))
+                // The capsule walk is bounded by the answer real geometry already gave, because only the
+                // NEARER of the two survives the min below: a body found behind the wall the ray already
+                // stopped at cannot change this ray's occlusion, and every metre traversed looking for one
+                // is spent for nothing. The falloff branch is where this matters - the any-hit branch below
+                // never had a distance to bound with. Shortening the reach can only turn a hit that would
+                // have lost the min into a miss, and a miss there leaves best exactly where it was.
+                float proxyReach = anyHit ? min(ray.tMax, best) : ray.tMax;
+                if (BasisRtaoTraceProxies(dispatchInfo, accelStruct, ray.origin, ray.direction, proxyReach, proxyMask, proxyDistance))
                 {
                     best = anyHit ? min(best, proxyDistance) : proxyDistance;
                     anyHit = true;

@@ -17,6 +17,7 @@ MonoBehaviour:
   - BasisMediaPlayer
   - BasisMediaPlayerNetworking
   - BasisMediaPlayerAudio
+  - BasisMediaPlayerAudioTap
   - BasisMediaAudioChannel
   - BasisMediaPlayerStreaming
   - BasisMediaPlayerSynthetic
@@ -315,7 +316,6 @@ MonoBehaviour:
   - ExampleMovingChair
   - ExampleRotatingChair
   - Cilbox.CilboxPropBasis
-  - BasisNetworkedVehicles
   - Basis.Scripts.Vehicles.Parts.BasisVehicleSteeringWheel
   - Basis.Scripts.Vehicles.Parts.BasisVehicleEngineAudio
   - Basis.Network.Vehicles.BasisNetworkedVehicle
@@ -368,7 +368,6 @@ MonoBehaviour:
   - Basis.BasisInteractableShim
   - Basis.BasisNetworkShim
   - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton
-  - Basis.Shims.MediaPlayerShim
   - Basis.Shims.BasisInteractableShim
   - Basis.Shims.BasisOsc
   - UnityEngine.Video.VideoPlayer

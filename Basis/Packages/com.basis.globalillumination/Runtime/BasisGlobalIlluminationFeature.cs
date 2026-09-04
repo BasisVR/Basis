@@ -1,4 +1,5 @@
 using System;
+using Basis.Scripts.Common;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -193,7 +194,7 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
 
     public static bool SupportsPlatform()
     {
-        return !Application.isMobilePlatform && SystemInfo.graphicsShaderLevel >= 35;
+        return !BasisGpuDetection.IsMobileGpu && SystemInfo.graphicsShaderLevel >= 35;
     }
 
     /// <summary>

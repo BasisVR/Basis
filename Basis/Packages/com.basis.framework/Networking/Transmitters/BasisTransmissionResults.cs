@@ -111,6 +111,16 @@ public partial class BasisTransmissionResults
     private NativeArray<bool> hasActiveAudioSource;
 
     /// <summary>
+    /// Pre-computed per-index flag: true when the remote player is in
+    /// <see cref="BasisTalkMode.Shout"/>. Their voice reaches
+    /// <see cref="BasisShout.RangeMultiplier"/> times as far, so the hearing test in
+    /// <see cref="BasisDistanceJobParallel"/> has to widen for them alone — a global
+    /// range would widen it for everyone. Filled in the positions loop with the rest
+    /// of the managed mirrors.
+    /// </summary>
+    private NativeArray<bool> remoteIsShouting;
+
+    /// <summary>
     /// Scratch buffer for audio-cap sorting. Sized to capacity, reused each tick.
     /// </summary>
     private NativeArray<AudioCapEntry> audioCapEntries;
@@ -223,6 +233,14 @@ public partial class BasisTransmissionResults
     public static bool RevaluteAudioRanges = false;
     public static float ConvertedVoiceDistance;
 
+    /// <summary>
+    /// The squared microphone range actually fed to the distance job this tick — the setting,
+    /// times <see cref="BasisShout.RangeMultiplierSquared"/> while the local player is shouting.
+    /// Tracked separately from the setting so entering or leaving shout counts as a range change
+    /// and re-evaluates the recipient list, exactly as moving the slider does.
+    /// </summary>
+    public static float EffectiveMicrophoneRange;
+
     /// <summary>Set by BasisTalkModeManager to force a recipient-list resend on the next tick after a talk-mode change.</summary>
     public static bool ForceVoiceRecipientResend;
 
@@ -330,6 +348,7 @@ public partial class BasisTransmissionResults
             float3* pTargetForwards = (float3*)targetForwards.GetUnsafePtr();
             bool* pHasRealAvatar = (bool*)hasRealAvatarLoaded.GetUnsafePtr();
             bool* pHasActiveAudio = (bool*)hasActiveAudioSource.GetUnsafePtr();
+            bool* pRemoteIsShouting = (bool*)remoteIsShouting.GetUnsafePtr();
             bool* pHasJiggleColliders = (bool*)hasJiggleCollidersState.GetUnsafePtr();
             BasisJiggleColliderTier* pCurrentColliderTier = (BasisJiggleColliderTier*)currentColliderTier.GetUnsafePtr();
             bool* pHasJiggleRigs = (bool*)hasJiggleRigsState.GetUnsafePtr();
@@ -355,6 +374,7 @@ public partial class BasisTransmissionResults
                 pTargetForwards[Index] = mouthForward;
                 pHasRealAvatar[Index] = remotePlayer.InAvatarRange && !remotePlayer.IsConsideredFallBackAvatar;
                 pHasActiveAudio[Index] = remote.AudioReceiverModule.HasAudioSource;
+                pRemoteIsShouting[Index] = remotePlayer.TalkMode == BasisTalkMode.Shout;
 
                 // Mirror for BasisJiggleLodJob: same driver instance PostProcess later applies
                 // any resulting tier/simulate change through, read once here (not twice, once per
@@ -389,7 +409,16 @@ public partial class BasisTransmissionResults
         // Configure job inputs (only what changes per tick)
         distanceJob.SquaredAvatarDistance = SMModuleDistanceBasedReductions.AvatarRange;
         distanceJob.SquaredHearingDistance = SMModuleDistanceBasedReductions.HearingRange;
-        distanceJob.SquaredVoiceDistance = SMModuleDistanceBasedReductions.MicrophoneRange;
+
+        // Shouting widens the recipient list this client sends to the server, so people between
+        // one and two microphone ranges away start being relayed our voice. The listener half of
+        // the same widening is per-remote (RemoteIsShouting) — the server only relays what the
+        // talker asked for, and the listener only builds a source for who they can hear, so both
+        // ends have to agree or a shout dies at whichever end stayed narrow.
+        EffectiveMicrophoneRange = SMModuleDistanceBasedReductions.MicrophoneRange
+            * (BasisTalkModeManager.LocalIsShouting ? BasisShout.RangeMultiplierSquared : 1f);
+        distanceJob.SquaredVoiceDistance = EffectiveMicrophoneRange;
+        distanceJob.ShoutRangeMultiplierSquared = BasisShout.RangeMultiplierSquared;
 
         // Range culling is keyed off the player's head, not the rendering camera, so
         // third-person doesn't push avatars/audio out of range from behind the player.
@@ -585,7 +614,7 @@ public partial class BasisTransmissionResults
         // they pass the exit threshold check. Force a full re-eval on range changes.
         float curAvatarRange = SMModuleDistanceBasedReductions.AvatarRange;
         float curHearingRange = SMModuleDistanceBasedReductions.HearingRange;
-        float curMicRange = SMModuleDistanceBasedReductions.MicrophoneRange;
+        float curMicRange = EffectiveMicrophoneRange;
 
         if (_lastAvatarRange != curAvatarRange)
         {
@@ -652,12 +681,22 @@ public partial class BasisTransmissionResults
             short* pPoseLodLevel = (short*)PoseLodLevel.GetUnsafeReadOnlyPtr();
             BasisJiggleColliderTier* pTargetColliderTier = (BasisJiggleColliderTier*)targetColliderTier.GetUnsafeReadOnlyPtr();
             bool* pTargetShouldSimulate = (bool*)targetShouldSimulate.GetUnsafeReadOnlyPtr();
+            bool* pRemoteShouting = (bool*)remoteIsShouting.GetUnsafeReadOnlyPtr();
+            float shoutVoiceDistance = ConvertedVoiceDistance * BasisShout.RangeMultiplier;
 
             for (int i = 0; i < receiverCount; i++)
             {
                 var receiver = snapshot[i];
                 var audio = receiver.AudioReceiverModule;
                 var remote = receiver.RemotePlayer;
+
+                bool remoteShouting = pRemoteShouting[i];
+                float wantVoiceDistance = remoteShouting ? shoutVoiceDistance : ConvertedVoiceDistance;
+                float wantShoutGain = remoteShouting ? BasisShout.Gain : 1f;
+                if (audio.ShoutGain != wantShoutGain)
+                {
+                    audio.ShoutGain = wantShoutGain;
+                }
 
                 // Always check for HasAudioSource/hearingRange mismatch rather than
                 // only on transitions. This ensures StartAudio is retried if a previous
@@ -681,7 +720,7 @@ public partial class BasisTransmissionResults
                             sAudioStartClock.Start();
                             using (BasisNetworkMarkers.TransmitAudioStartStop.Auto())
                             {
-                                audio.StartAudio(ConvertedVoiceDistance);
+                                audio.StartAudio(wantVoiceDistance);
                                 remote.OutOfRangeFromLocal = false;
                             }
                             sAudioStartClock.Stop();
@@ -697,9 +736,12 @@ public partial class BasisTransmissionResults
                     }
                 }
 
-                if (RevaluteAudioRanges)
+                // AppliedRange, not just RevaluteAudioRanges: the global hearing range can sit
+                // still while this one player starts or stops shouting, and only their source
+                // needs rebuilding against the new distance.
+                if (RevaluteAudioRanges || audio.AppliedRange != wantVoiceDistance)
                 {
-                    audio.ApplyRangeData(ConvertedVoiceDistance);
+                    audio.ApplyRangeData(wantVoiceDistance);
                 }
 
                 // Guarded because the field is volatile: the write is a release store the audio
@@ -728,8 +770,10 @@ public partial class BasisTransmissionResults
                 // Viseme distance cutoff: skip lip-sync for players beyond half
                 // the hearing distance — too far to see mouth shapes. Routed
                 // through SetVisemeRange so BasisRemoteAudioDriver.ActiveDrivers
-                // stays in sync on transitions.
-                BasisRemoteAudioDriver.SetVisemeRange(audio.visemeDriver, pDistanceSq[i] < visemeRangeSq);
+                // stays in sync on transitions. A shouter is audible further out,
+                // so their cutoff scales with the range their voice actually carries.
+                float cutoffSq = remoteShouting ? visemeRangeSq * BasisShout.RangeMultiplierSquared : visemeRangeSq;
+                BasisRemoteAudioDriver.SetVisemeRange(audio.visemeDriver, pDistanceSq[i] < cutoffSq);
 
                 // Avatar range transition with debounce. Always runs (not gated on
                 // avatarChange) so a pending transition started on a previous tick can
@@ -1155,6 +1199,7 @@ public partial class BasisTransmissionResults
         directivityShelfDb = new NativeArray<float>(newCap, Allocator.Persistent);
         hasActiveAudioSource = new NativeArray<bool>(newCap, Allocator.Persistent);
         audioCapEntries = new NativeArray<AudioCapEntry>(newCap, Allocator.Persistent);
+        remoteIsShouting = new NativeArray<bool>(newCap, Allocator.Persistent);
 
         hasJiggleCollidersState = new NativeArray<bool>(newCap, Allocator.Persistent);
         currentColliderTier = new NativeArray<BasisJiggleColliderTier>(newCap, Allocator.Persistent);
@@ -1185,6 +1230,7 @@ public partial class BasisTransmissionResults
 
         distanceJob.PerIndexMinD2 = perIndexMinD2;
         distanceJob.PerIndexMask = perIndexMask;
+        distanceJob.RemoteIsShouting = remoteIsShouting;
 
         reduceJob.PerIndexMinD2 = perIndexMinD2;
         reduceJob.PerIndexMask = perIndexMask;
@@ -1299,6 +1345,7 @@ public partial class BasisTransmissionResults
         if (directivityShelfDb.IsCreated) directivityShelfDb.Dispose();
         if (hasActiveAudioSource.IsCreated) hasActiveAudioSource.Dispose();
         if (audioCapEntries.IsCreated) audioCapEntries.Dispose();
+        if (remoteIsShouting.IsCreated) remoteIsShouting.Dispose();
 
         if (hasJiggleCollidersState.IsCreated) hasJiggleCollidersState.Dispose();
         if (currentColliderTier.IsCreated) currentColliderTier.Dispose();

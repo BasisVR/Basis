@@ -284,8 +284,8 @@ namespace Basis.Scripts.Networking.VoiceRecording
             }
         }
 
-        /// <summary>Called when a shout source is (re)created so an active tap follows the shout receiver.</summary>
-        internal static void OnShoutReceiverCreated(ushort playerId, BasisAudioReceiver shoutReceiver)
+        /// <summary>Called when an announce source is (re)created so an active tap follows the announce receiver.</summary>
+        internal static void OnAnnounceReceiverCreated(ushort playerId, BasisAudioReceiver announceReceiver)
         {
             if (_captures.TryGetValue(playerId, out Capture cap))
             {
@@ -624,7 +624,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
                 }
             }
 
-            /// <summary>Installs the current tap delegates on the normal and shout receivers.</summary>
+            /// <summary>Installs the current tap delegates on the normal and announce receivers.</summary>
             public void RefreshTaps()
             {
                 Action<float[], int> decoded = (Recording != null && DecodedSink != null) ? WriteDecoded : null;
@@ -636,10 +636,10 @@ namespace Basis.Scripts.Networking.VoiceRecording
                     recv.AudioReceiverModule.OnDecodedFrame = decoded;
                     recv.AudioReceiverModule.OnEncodedFrame = encoded;
                 }
-                if (BasisShoutAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver shoutReceiver) && shoutReceiver != null)
+                if (BasisAnnounceAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver announceReceiver) && announceReceiver != null)
                 {
-                    shoutReceiver.OnDecodedFrame = decoded;
-                    shoutReceiver.OnEncodedFrame = encoded;
+                    announceReceiver.OnDecodedFrame = decoded;
+                    announceReceiver.OnEncodedFrame = encoded;
                 }
             }
 
@@ -651,10 +651,10 @@ namespace Basis.Scripts.Networking.VoiceRecording
                     recv.AudioReceiverModule.OnDecodedFrame = null;
                     recv.AudioReceiverModule.OnEncodedFrame = null;
                 }
-                if (BasisShoutAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver shoutReceiver) && shoutReceiver != null)
+                if (BasisAnnounceAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver announceReceiver) && announceReceiver != null)
                 {
-                    shoutReceiver.OnDecodedFrame = null;
-                    shoutReceiver.OnEncodedFrame = null;
+                    announceReceiver.OnDecodedFrame = null;
+                    announceReceiver.OnEncodedFrame = null;
                 }
             }
 

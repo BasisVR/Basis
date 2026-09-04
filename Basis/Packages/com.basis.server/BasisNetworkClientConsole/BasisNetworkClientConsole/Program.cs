@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Basis.Logging;
 using Basis.Network;
@@ -67,6 +67,14 @@ namespace Basis
                 MessageHandler.ObserveOnly = true;
                 BNL.Log("[FaceObserver] Observe-only: reporting additional data from other clients.");
             }
+            // BASIS_POSE_OBSERVE=1: decode the rotation region of every avatar frame this
+            // process RECEIVES and report the pose a remote would draw. Frame counts prove
+            // delivery; this proves the frames carry a pose rather than a T-pose.
+            if (Environment.GetEnvironmentVariable("BASIS_POSE_OBSERVE") == "1")
+            {
+                PoseObserver.Enabled = true;
+                BNL.Log("[PoseObserver] Decoding received bone rotations.");
+            }
 
             var clientManager = new ClientManager();
             clientManager.Prepare();
@@ -134,7 +142,7 @@ namespace Basis
             }
 
             // Periodic observer summary so a timed run ends with machine-readable totals.
-            if (MovementSender.EmitFaceData || MessageHandler.ObserveOnly)
+            if (MovementSender.EmitFaceData || MessageHandler.ObserveOnly || PoseObserver.Enabled)
             {
                 _ = Task.Run(async () =>
                 {
@@ -142,6 +150,7 @@ namespace Basis
                     {
                         await Task.Delay(5000);
                         BNL.Log(MessageHandler.Summary());
+                        if (PoseObserver.Enabled) BNL.Log(PoseObserver.Summary());
                     }
                 });
             }

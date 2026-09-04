@@ -200,7 +200,7 @@ namespace Basis.Scripts.Networking
             {
                 Parallel.For(0, s_parallelCount, s_parallelOptions, s_parallelComputeBody);
             }
-            Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.ComputeAll();
+            Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.ComputeAll();
         }
 
         static void ComputeThreadLoop()
@@ -279,7 +279,7 @@ namespace Basis.Scripts.Networking
             }
 
             BasisNetworkPlayers.PublishReceiversSnapshot();
-            Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.PublishComputeSnapshot();
+            Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.PublishComputeSnapshot();
 
             UnscaledDeltaTime = Math.Max(UnscaledDeltaTime, 0f);
             if (!math.isfinite(UnscaledDeltaTime))
@@ -329,13 +329,13 @@ namespace Basis.Scripts.Networking
             }
             else
             {
-                Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.ComputeAll();
+                Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.ComputeAll();
             }
         }
 
         /// <summary>
         /// Joins the background compute from <see cref="BeginNetworkCompute"/>, then runs the
-        /// main-thread finish: Phase 3 AudioSource apply, interpolation job schedule, shout drain,
+        /// main-thread finish: Phase 3 AudioSource apply, interpolation job schedule, announce drain,
         /// and profiler update. Must run before any receiver state is mutated this frame.
         /// </summary>
         public static void CompleteNetworkCompute(float DeltaTime)
@@ -356,7 +356,7 @@ namespace Basis.Scripts.Networking
             }
 
             BasisRemoteNetworkDriver.Compute();
-            Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DrainAll();
+            Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.DrainAll();
             Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.Tick();
 #if UNITY_EDITOR
             // Editor-only: counters are fed by AddToCounter, which is [Conditional("UNITY_EDITOR")].
@@ -453,7 +453,7 @@ namespace Basis.Scripts.Networking
                 if (poseLodEnabled && remote.PoseSkipCounter > 0 && !receiver.HasOverriddenDestination)
                 {
                     remote.PoseSkipCounter--;
-                    if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.FixedCapacity) skipPtr[receiver.playerId] = 1;
+                    if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.Capacity) skipPtr[receiver.playerId] = 1;
                     if (endEffectorIK) BasisRemoteNetworkDriver.ClearEffectorMask(receiver.playerId);
 #if UNITY_EDITOR
                     _skipped++;
@@ -473,7 +473,7 @@ namespace Basis.Scripts.Networking
                     int lod = math.clamp(remote.CurrentLodLevel, 0, 3);
                     remote.PoseSkipCounter = SMModuleDistanceBasedReductions.PoseSkipByLod[lod];
                 }
-                if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.FixedCapacity) skipPtr[receiver.playerId] = 0;
+                if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.Capacity) skipPtr[receiver.playerId] = 0;
                 if (endEffectorIK) receiver.WriteEffectorJobInputs();
             }
             // The loop above is the last writer of the filtered hips overrides this job reads, so

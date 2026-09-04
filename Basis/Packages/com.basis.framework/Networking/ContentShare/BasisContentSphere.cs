@@ -208,7 +208,8 @@ public class BasisContentSphere : BasisInteractableObject
         {
             BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
             {
-                RemoteBeeFileLocation = ContentURL
+                RemoteBeeFileLocation = ContentURL,
+                IsNetworkSourced = true
             },
             UnlockPassword = UnlockPassword,
             BasisBundleConnector = new BasisBundleConnector(),

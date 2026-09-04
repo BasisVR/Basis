@@ -223,7 +223,7 @@ public class VoicePriorityQueueTests
         Assert.Equal(BasisNetworkCommons.TotalChannels, map.Length);
 
         Assert.True(map[BasisNetworkCommons.VoiceChannel]);
-        Assert.True(map[BasisNetworkCommons.ShoutVoiceChannel]);
+        Assert.True(map[BasisNetworkCommons.AnnounceVoiceChannel]);
         Assert.True(map[BasisNetworkCommons.VoiceLargeChannel]);
 
         Assert.False(map[BasisNetworkCommons.AudioRecipientsChannel]);

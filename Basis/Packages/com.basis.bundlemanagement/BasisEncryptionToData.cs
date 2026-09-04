@@ -4,7 +4,17 @@ using System.Threading.Tasks;
 using UnityEngine;
 public static class BasisEncryptionToData
 {
-    public static async Task<AssetBundleCreateRequest> GenerateBundleFromFile(string Password, byte[] Bytes, uint CRC, BasisProgressReport progressCallback)
+    public static Task<BasisEncryptionWrapper.BasisDecryptResult> DecryptSection(string uniqueID, BasisEncryptionWrapper.BasisPassword password, BasisBundleSection section, BasisProgressReport progressCallback, System.Threading.CancellationToken ct = default)
+    {
+        if (section.Bytes != null)
+        {
+            return BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueID, password, section.Bytes, progressCallback, ct);
+        }
+
+        return BasisEncryptionWrapper.DecryptFromFileAsync(uniqueID, password, section.FilePath, section.Offset, section.Length, progressCallback, ct);
+    }
+
+    public static async Task<AssetBundleCreateRequest> GenerateBundleFromFile(string Password, BasisBundleSection Section, uint CRC, BasisProgressReport progressCallback)
     {
         // Define the password object for decryption
         var BasisPassword = new BasisEncryptionWrapper.BasisPassword
@@ -13,7 +23,7 @@ public static class BasisEncryptionToData
         };
         string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
         // Decrypt the file asynchronously
-        var decrypted = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, Bytes, progressCallback);
+        var decrypted = await DecryptSection(UniqueID, BasisPassword, Section, progressCallback);
 
         if (!decrypted.Success || decrypted.Data == null || decrypted.Data.Length == 0)
         {

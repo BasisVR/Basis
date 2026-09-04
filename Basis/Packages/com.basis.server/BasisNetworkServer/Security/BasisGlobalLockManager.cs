@@ -170,7 +170,7 @@ namespace BasisNetworkServer.Security
         public static bool ToggleTextChat() => Toggle(ref _textChatLocked);
 
         /// <summary>
-        /// Toggle the global voice lock. Returns the new state (true = normal and shout voice from
+        /// Toggle the global voice lock. Returns the new state (true = normal and announce voice from
         /// peers without <c>basis.voice.lockbypass</c> are dropped at the server).
         /// </summary>
         public static bool ToggleVoiceChat() => Toggle(ref _voiceChatLocked);

@@ -2071,7 +2071,7 @@ public static class RemoteBoneJobSystem
                 ReadLocalRot = sIkReadLocalRot,
                 OverrideMask = sIkOverrideMask,
                 BoneCount = BasisBoneRotationCompression.SyncBoneCount,
-                CapacityFixed = BasisRemoteNetworkDriver.FixedCapacity,
+                CapacityFixed = BasisRemoteNetworkDriver.Capacity,
             }.ScheduleReadOnly(sSkeletonBones,
                 math.max(1, math.min(maxBatchSize, (totalBones + workerCount - 1) / workerCount)),
                 JobHandle.CombineDependencies(hipsWorldJob, skeletonJob));

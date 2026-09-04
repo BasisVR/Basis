@@ -143,6 +143,12 @@ namespace Cilbox
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigName),
 				nameof(Basis.Shims.BasisJiggleEventShim.FindJiggleRig),
 				} },
+			// Local permission changes. Same shape as the jiggle events above: fetching the
+			// component is the opt-in, Rebind is only for proxies that appear late, and the
+			// callback is resolved by name off the script.
+			{ typeof(Basis.Shims.BasisPermissionEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisPermissionEventShim.Rebind),
+				} },
 			{ typeof(UnityEngine.Rendering.AsyncGPUReadback), new HashSet<string>{ "Request" } },
 			{ typeof(BitConverter), new HashSet<string>{
 				"GetBytes", "ToBoolean", "ToChar", "ToDouble", "ToInt16", "ToInt32",

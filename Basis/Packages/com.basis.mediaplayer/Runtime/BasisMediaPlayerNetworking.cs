@@ -284,6 +284,22 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
             if (deliberateControl)
             {
                 BroadcastFullState();
+                return;
+            }
+
+            // Owning ourselves through that grant also means nobody will ever tell us
+            // what is playing: the owner branch of RequestState is us, and the custodian
+            // answer in OnPlayerJoined already ran while this component was still
+            // unregistered. That is invisible for a player active at join time, but a
+            // world that keeps its screen disabled until someone switches it on
+            // registers long after every custodian has answered, so ask the room here.
+            if (HasNetworkID && string.IsNullOrEmpty(currentSyncedUrl))
+            {
+                SendCustomNetworkEvent(RequestStateBytes, DeliveryMethod.ReliableOrdered, null);
+                if (VerboseLogging)
+                {
+                    BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} owns an ownerless player implicitly and holds no state, asked the room.", BasisDebug.LogTag.Video);
+                }
             }
 
             return;
@@ -293,6 +309,23 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
 
         if (!HasNetworkID)
         {
+            return;
+        }
+
+        // Holding nothing of our own, ask the room instead of only the owner. An owner
+        // that holds the object through the join-time grant cannot answer - it is not a
+        // driving owner and has no url - and an ownerless object has nobody to target at
+        // all, so a targeted request is silence in both cases. Custodians answer a
+        // broadcast only while they still read the object as ownerless, so a real
+        // controlling owner keeps answering on its own and this adds no duplicate.
+        if (string.IsNullOrEmpty(currentSyncedUrl))
+        {
+            SendCustomNetworkEvent(RequestStateBytes, DeliveryMethod.ReliableOrdered, null);
+            if (VerboseLogging)
+            {
+                BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} holds no state, asked the room rather than owner {CurrentOwnerId}.", BasisDebug.LogTag.Video);
+            }
+
             return;
         }
 
@@ -529,6 +562,22 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                 {
                     singleRecipient[0] = senderId;
                     SendFullStateTo(singleRecipient);
+                    return;
+                }
+
+                // The asker owns itself through the join-time grant, so the owner answer
+                // above is the asker and nobody replies. Custodians answer it exactly as
+                // they answer a joiner in OnPlayerJoined - the grant is unicast, so this
+                // side still reads the object as ownerless - and duplicates collapse on
+                // the asker because every copy carries the same url and load nonce.
+                if (!IsOwnedLocallyOnClient && !pendingRemoteApply && !string.IsNullOrEmpty(currentSyncedUrl) && !HasPresentOwner())
+                {
+                    singleRecipient[0] = senderId;
+                    SendFullStateTo(singleRecipient);
+                    if (VerboseLogging)
+                    {
+                        BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} sent custodian state to player {senderId} on request.", BasisDebug.LogTag.Video);
+                    }
                 }
 
                 return;

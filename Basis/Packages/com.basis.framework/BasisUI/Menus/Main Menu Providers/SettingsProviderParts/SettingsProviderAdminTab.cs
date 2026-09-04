@@ -55,17 +55,25 @@ namespace Basis.BasisUI
 
             AdminTabController controller = tab.gameObject.AddComponent<AdminTabController>();
 
-            // --- Menu-bar shout (local opt-in; off by default) ---
-            PanelSectionToggle shoutToggle = PanelSectionToggle.CreateNewEntry(container);
-            shoutToggle.SetTitle(BasisLocalization.Get("settings.admin.title.shout"));
-            int shoutStart = container.childCount;
+            // --- Audio modes (local opt-in; both off by default) ---
+            // This whole tab is gated on PermNodes.PermissionsView, so both toggles are
+            // admin-only by construction and neither mode reaches the mic-mode button
+            // until an admin opts into it here.
+            PanelSectionToggle audioModesToggle = PanelSectionToggle.CreateNewEntry(container);
+            audioModesToggle.SetTitle(BasisLocalization.Get("settings.admin.title.audioModes"));
+            int audioModesStart = container.childCount;
+
+            PanelToggle announceOnMenuBarToggle = PanelToggle.CreateNewEntry(container);
+            announceOnMenuBarToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.showAnnounceOnMenuBar"));
+            announceOnMenuBarToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.showAnnounceOnMenuBar.tooltip"));
+            announceOnMenuBarToggle.AssignBinding(BasisSettingsDefaults.AnnounceShowOnMenuBar);
 
             PanelToggle shoutOnMenuBarToggle = PanelToggle.CreateNewEntry(container);
             shoutOnMenuBarToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.showShoutOnMenuBar"));
             shoutOnMenuBarToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.showShoutOnMenuBar.tooltip"));
-            shoutOnMenuBarToggle.AssignBinding(BasisSettingsDefaults.ShoutShowOnMenuBar);
+            shoutOnMenuBarToggle.AssignBinding(BasisSettingsDefaults.ShoutMode);
 
-            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(shoutToggle, container, shoutStart, false, _ => descriptor.ForceRebuild());
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(audioModesToggle, container, audioModesStart, false, _ => descriptor.ForceRebuild());
 
             // --- Global lock group ---
             PanelSectionToggle lockToggle = PanelSectionToggle.CreateNewEntry(container);

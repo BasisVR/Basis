@@ -81,14 +81,40 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             // tick costs one dictionary enumeration instead of one per removal.
             foreach (var kvp in playerStates)
             {
-                var tracking = kvp.Value.PeerTracking;
-                for (int r = 0; r < removedCount; r++)
+                ClearDepartedPeerSlots(kvp.Value, removedIds.Slice(0, removedCount));
+            }
+        }
+
+        /// <summary>
+        /// Forgets everything one receiver knew about a batch of departed senders.
+        ///
+        /// ⚠️ BOTH halves of the per-peer table. The generation lives in its own array for cache
+        /// reasons, and it is the field this whole pass exists for: clearing only the record would leave
+        /// the next player given this id facing the previous occupant's high generation, and the send
+        /// loop's new-data gate would reject every frame they ever send until their own counter climbed
+        /// past it. Nothing else in the system would report anything wrong.
+        ///
+        /// Split out of the drain so it can be tested against a receiver the test owns, rather than
+        /// against the shared player table that the tick thread and every other fixture also write.
+        /// </summary>
+        internal static void ClearDepartedPeerSlots(PlayerState state, ReadOnlySpan<int> removedIds)
+        {
+            var tracking = state.PeerTracking;
+            if (tracking == null)
+            {
+                return;
+            }
+            var lastSeen = state.PeerLastSeenGeneration;
+            for (int r = 0; r < removedIds.Length; r++)
+            {
+                int removedId = removedIds[r];
+                if (removedId < tracking.Length)
                 {
-                    int removedId = removedIds[r];
-                    if (removedId < tracking.Length)
-                    {
-                        tracking[removedId] = default;
-                    }
+                    tracking[removedId] = default;
+                }
+                if (lastSeen != null && removedId < lastSeen.Length)
+                {
+                    lastSeen[removedId] = 0;
                 }
             }
         }

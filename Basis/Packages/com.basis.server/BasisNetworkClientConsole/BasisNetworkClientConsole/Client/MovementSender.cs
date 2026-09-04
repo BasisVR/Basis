@@ -45,6 +45,8 @@ namespace Basis.Network
             public LocalAvatarSyncMessage Message;
             public byte SequenceByte;
             public float PhaseOffset;
+            /// <summary>Per-client seed for the resting pose, so a crowd is not a thousand clones.</summary>
+            public int PoseSeed;
             // v42 uplink delta state — mirrors the real client: a full keyframe every
             // UplinkKeyframeIntervalMs on the High channel (which the server snapshots as the
             // baseline), dirty-mask deltas against it on DeltaAvatarChannel in between.
@@ -116,8 +118,11 @@ namespace Basis.Network
                 array = new byte[ClientManager.Size],
             };
 
-            // Per-player random phase offset so idle animations aren't synchronized
-            float phase = (float)(Random.Shared.NextDouble() * MathF.PI * 2f);
+            // Phase and pose seed both come from the player index, so the throwaway payload the
+            // join snapshot is built from and the one ProcessSingle streams describe the same
+            // client instead of two different people wearing one avatar.
+            int poseSeed = playerIndex >= 0 ? playerIndex : Random.Shared.Next();
+            float phase = (poseSeed * 2654435761u % 100000u) * (MathF.PI * 2f / 100000f);
 
             Scripts.Networking.Compression.Vector3 spawn =
                 (playerIndex >= 0 && PlayersCurrentPosition != null && playerIndex < PlayersCurrentPosition.Length)
@@ -125,17 +130,18 @@ namespace Basis.Network
                     : Randomizer.GetSpawnPosition(Basis.Config.ConfigManager.SpawnRadiusMeters);
 
             // Build the full initial payload (position, bone rotations, scale, hips rotation)
-            WriteInitialPayload(ref message, phase, spawn);
+            WriteInitialPayload(ref message, phase, poseSeed, spawn);
 
             return new PlayerData
             {
                 Writer = new NetDataWriter(),
                 Message = message,
                 PhaseOffset = phase,
+                PoseSeed = poseSeed,
             };
         }
 
-        private static void WriteInitialPayload(ref LocalAvatarSyncMessage message, float phase, Scripts.Networking.Compression.Vector3 spawn)
+        private static void WriteInitialPayload(ref LocalAvatarSyncMessage message, float phase, int poseSeed, Scripts.Networking.Compression.Vector3 spawn)
         {
             // Make sure buffer is correct size for High
             int size = BasisAvatarBitPacking.ConvertToSize(BitQuality.High);
@@ -149,13 +155,13 @@ namespace Basis.Network
             WritePosition(spawn, ref message.array, ref offset);
 
             // 2) Bone rotations: natural standing pose with idle animation
-            FakePoseGenerator.WriteBoneRotations(message.array, RotationRegionOffset, BitQuality.High, time, phase);
+            FakePoseGenerator.WriteBoneRotations(message.array, RotationRegionOffset, BitQuality.High, time, phase, poseSeed);
 
             // 3) Scale
             WriteScaleUShort(CompressedScale, message.array, ScaleOffset);
 
             // 4) Hips world rotation: slight body orientation
-            FakePoseGenerator.WriteCompressedHipsRotation(message.array, HipsRotationOffset, time, phase);
+            FakePoseGenerator.WriteCompressedHipsRotation(message.array, HipsRotationOffset, time, phase, poseSeed);
 
             // 5) Hips local-position delta — left as zero bytes; the receiver's
             //    signed-short decode treats that as a zero delta, so no synthetic
@@ -633,6 +639,7 @@ namespace Basis.Network
 
             double time = AnimTimer.Elapsed.TotalSeconds;
             float phase = pd.PhaseOffset;
+            int poseSeed = pd.PoseSeed;
 
             // Update position (held fixed when pinned to a distance tier)
             if (PinSpacingMeters <= 0f)
@@ -646,13 +653,14 @@ namespace Basis.Network
             int offset = 0;
             WritePosition(PlayersCurrentPosition[index], ref msg.array, ref offset);
 
-            // 2) Animated bone rotations (natural pose + idle animation, all 51 bones fresh per send)
-            FakePoseGenerator.WriteBoneRotations(msg.array, RotationRegionOffset, BitQuality.High, time, phase);
+            // 2) Animated bone rotations (standing pose + per-client spread + idle animation,
+            //    every wire slot fresh per send)
+            FakePoseGenerator.WriteBoneRotations(msg.array, RotationRegionOffset, BitQuality.High, time, phase, poseSeed);
 
             // 3) Scale unchanged
 
             // 4) Animated hips rotation
-            FakePoseGenerator.WriteCompressedHipsRotation(msg.array, HipsRotationOffset, time, phase);
+            FakePoseGenerator.WriteCompressedHipsRotation(msg.array, HipsRotationOffset, time, phase, poseSeed);
 
             byte seq = pd.SequenceByte;
             unchecked { pd.SequenceByte++; }

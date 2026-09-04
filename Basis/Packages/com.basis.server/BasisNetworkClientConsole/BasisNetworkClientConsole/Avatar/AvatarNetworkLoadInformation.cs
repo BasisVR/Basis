@@ -18,6 +18,8 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         public string VersionTag;
 
+        public const int MaxDecodedBytes = 256 * 1024;
+
         /// <summary>
         /// Encodes the structure to compressed byte data using custom string serialization and DeflateStream compression.
         /// </summary>
@@ -49,10 +51,7 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             using var compressedStream = new MemoryStream(compressedData);
             using var deflateStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
-            using var decompressedStream = new MemoryStream();
-            deflateStream.CopyTo(decompressedStream);
-
-            byte[] rawData = decompressedStream.ToArray();
+            byte[] rawData = Basis.Network.Core.BasisBoundedStream.ReadAllBounded(deflateStream, MaxDecodedBytes, "Avatar network load");
 
             using var memoryStream = new MemoryStream(rawData);
             using var reader = new BinaryReader(memoryStream);

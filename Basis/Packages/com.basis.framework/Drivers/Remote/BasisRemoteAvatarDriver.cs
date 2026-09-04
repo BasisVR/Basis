@@ -130,12 +130,25 @@ namespace Basis.Scripts.Drivers
             // locals straight onto the bones — the hierarchy is already in the pose before we get
             // here. The pair costs two runtimeAnimatorController assignments (an animator rebind
             // each) plus a full humanoid Animator.Update, per install, on the transmit tick.
+            // The same pair is skipped a second way below: once any instance of this model has been
+            // posed, the locals it landed on are cached against the Avatar asset and replayed
+            // straight onto the bones. The loading dummy is one prefab shared by every remote, so
+            // the range-exit install that runs inline on the transmit tick never rebinds at all
+            // after the first one in the session.
             NeedsTposeReset = !Player.BasisAvatar.IsFarLodAvatar;
             if (NeedsTposeReset)
             {
                 using (BasisAvatarMarkers.CalibrateTpose.Auto())
                 {
-                    PutAvatarIntoTPose();
+                    if (BasisAvatarModelCache.TryReplayTposeHierarchy(Player.BasisAvatar.Animator))
+                    {
+                        NeedsTposeReset = false;
+                    }
+                    else
+                    {
+                        PutAvatarIntoTPose();
+                        BasisAvatarModelCache.StoreTposeHierarchy(Player.BasisAvatar.Animator);
+                    }
                 }
             }
 

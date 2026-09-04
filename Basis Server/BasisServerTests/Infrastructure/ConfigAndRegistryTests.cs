@@ -886,7 +886,7 @@ public class ServerMessageRegistryBindingTableTests
     {
         BasisNetworkCommons.AuthIdentityChannel,
         BasisNetworkCommons.VoiceChannel,
-        BasisNetworkCommons.ShoutVoiceChannel,
+        BasisNetworkCommons.AnnounceVoiceChannel,
         BasisNetworkCommons.AudioRecipientsChannel,
         BasisNetworkCommons.PlayerAvatarHighChannel,
         BasisNetworkCommons.PlayerAvatarHighAdditionalChannel,

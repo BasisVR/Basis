@@ -24,6 +24,16 @@ public static partial class SerializableBasis
         /// and well under the 64 KB ushort-length ceiling used elsewhere in this protocol.</summary>
         public const int MaxPayloadBytes = 32 * 1024;
 
+        /// <summary>
+        /// Hard ceiling the RECEIVER enforces on an inflated payload, deliberately larger than
+        /// <see cref="MaxPayloadBytes"/>. Producers append a whole record and flush once the buffer
+        /// has REACHED the cap, and JoinBroadcast.Flush always takes at least one record however
+        /// large, so a real batch runs one record past it. The headroom covers the biggest record
+        /// the protocol can express — a 64 KB avatar blob plus a 64 KB additional-data section and
+        /// their framing — while still refusing a bomb long before it costs anything.
+        /// </summary>
+        public const int MaxInflatedBytes = 256 * 1024;
+
         /// <summary>Below this a Deflate block header costs more than it saves.</summary>
         public const int MinCompressBytes = 256;
 
@@ -78,6 +88,10 @@ public static partial class SerializableBasis
             {
                 throw new ArgumentException($"Ready batch length {length} exceeds available data ({reader.AvailableBytes} bytes).");
             }
+            if (!WasCompressed && length > MaxInflatedBytes)
+            {
+                throw new ArgumentException($"Ready batch payload {length} exceeds the {MaxInflatedBytes} byte cap.");
+            }
 
             byte[] framed = new byte[length];
             reader.GetBytes(framed, 0, length);
@@ -98,9 +112,7 @@ public static partial class SerializableBasis
         {
             using var input = new MemoryStream(compressed);
             using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-            using var output = new MemoryStream();
-            deflate.CopyTo(output, 8192);
-            return output.ToArray();
+            return BasisBoundedStream.ReadAllBounded(deflate, MaxInflatedBytes, "Ready batch");
         }
     }
 

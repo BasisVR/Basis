@@ -3,7 +3,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
     /// <summary>
     /// Thread-safe ring for decoded mono PCM feeding the recording path (NOT the playback
     /// path). Decode threads call <see cref="Write"/>; the main thread drains with
-    /// <see cref="Drain"/>. A player can be decoded by both a normal and a shout receiver on
+    /// <see cref="Drain"/>. A player can be decoded by both a normal and an announce receiver on
     /// independent audio threads during a mode transition, so this must tolerate multiple
     /// producers — a short lock guards the cursors and slots. The lock is only ever taken by
     /// the recording side-tap, never by voice playback, so it cannot degrade audio output.

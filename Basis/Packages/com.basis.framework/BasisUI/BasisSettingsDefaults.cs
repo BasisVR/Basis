@@ -1122,6 +1122,8 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> TalkToNoOne = new("talktonoone", new BasisPlatformDefault<bool>(false));
 
+        public static BasisSettingsBinding<bool> ShoutMode = new("shoutmode", new BasisPlatformDefault<bool>(false));
+
         public static BasisSettingsBinding<bool> UseAutomaticGain = new("automaticgainenabled", new BasisPlatformDefault<bool>
         {
             windows = true,
@@ -2190,7 +2192,7 @@ namespace Basis.BasisUI
         // ---------------- ADMIN ----------------
         public static BasisSettingsBinding<bool> AdminAutoRefreshPlayerList = new("admin_autorefresh_playerlist", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> ShoutShowOnMenuBar = new("admin_shout_on_menubar", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> AnnounceShowOnMenuBar = new("admin_announce_on_menubar", new BasisPlatformDefault<bool>(false));
 
         // Limiter
         public static BasisSettingsBinding<float> LimitThreshold = new("limitthreshold", new BasisPlatformDefault<float>(0.95f)); // pre-clip
@@ -2304,6 +2306,7 @@ namespace Basis.BasisUI
             MicStartBehavior.LoadBindingValue();
             MicMuteBehavior.LoadBindingValue();
             TalkToNoOne.LoadBindingValue();
+            ShoutMode.LoadBindingValue();
             UseAutomaticGain.LoadBindingValue();
             DenoiseMakeupDb.LoadBindingValue();
             DenoiseWet.LoadBindingValue();
@@ -3046,7 +3049,7 @@ namespace Basis.BasisUI
 
             // Admin
             AdminAutoRefreshPlayerList.LoadBindingValue();
-            ShoutShowOnMenuBar.LoadBindingValue();
+            AnnounceShowOnMenuBar.LoadBindingValue();
 
             // Remote Player Audio
             RAMinDistance.LoadBindingValue();

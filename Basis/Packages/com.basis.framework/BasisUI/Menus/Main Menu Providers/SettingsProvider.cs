@@ -1565,6 +1565,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.MicrophoneMode.ResetToDefault();
             BasisSettingsDefaults.MicMuteBehavior.ResetToDefault();
             BasisSettingsDefaults.TalkToNoOne.ResetToDefault();
+            BasisSettingsDefaults.ShoutMode.ResetToDefault();
             BasisSettingsDefaults.MicrophoneIcon.ResetToDefault();
             BasisSettingsDefaults.MicrophoneIconLevelRing.ResetToDefault();
             BasisSettingsDefaults.MicrophoneIconOffsetX.ResetToDefault();

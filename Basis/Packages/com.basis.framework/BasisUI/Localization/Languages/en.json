@@ -3543,12 +3543,12 @@
       "value": "Open the folder where all crash reports are stored on your computer."
     },
     {
-      "key": "settings.admin.title.showShoutOnMenuBar.tooltip",
-      "value": "Show the Shout option on your menu bar's microphone mode button."
+      "key": "settings.admin.title.showAnnounceOnMenuBar.tooltip",
+      "value": "Show the Announce option on your menu bar's microphone mode button."
     },
     {
-      "key": "settings.admin.title.showShoutOnMenuBar.description",
-      "value": "Adds the Shout option to the mic-mode button on your main menu bar. Off by default, so the button stays hidden until you enable it here."
+      "key": "settings.admin.title.showAnnounceOnMenuBar.description",
+      "value": "Adds the Announce option to the mic-mode button on your main menu bar. Off by default, so the button stays hidden until you enable it here."
     },
     {
       "key": "settings.admin.title.lockAvatars.tooltip",
@@ -3847,11 +3847,11 @@
       "value": "Broadcast the reason text as a message to every player."
     },
     {
-      "key": "menu.individualPlayer.shout.enable.tooltip",
+      "key": "menu.individualPlayer.announce.enable.tooltip",
       "value": "Let this player's voice broadcast to everyone without distance falloff."
     },
     {
-      "key": "menu.individualPlayer.shout.disable.tooltip",
+      "key": "menu.individualPlayer.announce.disable.tooltip",
       "value": "Return this player's voice to normal distance-based spatial audio."
     },
     {
@@ -4097,6 +4097,10 @@
     {
       "key": "menu.provider.micmode.shout",
       "value": "Shout"
+    },
+    {
+      "key": "menu.provider.micmode.announce",
+      "value": "Announce"
     },
     {
       "key": "menu.provider.micmode.noone",
@@ -5447,8 +5451,8 @@
       "value": "Teleport this player to your location."
     },
     {
-      "key": "menu.individualPlayer.shout.enable",
-      "value": "Enable Shout Mode"
+      "key": "menu.individualPlayer.announce.enable",
+      "value": "Enable Announce Mode"
     },
     {
       "key": "menu.individualPlayer.fullquality.enable",
@@ -5459,12 +5463,32 @@
       "value": "Disable Full-Quality Broadcast"
     },
     {
+      "key": "menu.individualPlayer.announce.disable",
+      "value": "Disable Announce Mode"
+    },
+    {
+      "key": "menu.individualPlayer.announce.description",
+      "value": "Toggle non-spatialized broadcast voice for this player."
+    },
+    {
+      "key": "menu.individualPlayer.shout.description",
+      "value": "Toggle shout mode for this player - double range and louder, still spatial."
+    },
+    {
+      "key": "menu.individualPlayer.shout.enable",
+      "value": "Enable Shout Mode"
+    },
+    {
+      "key": "menu.individualPlayer.shout.enable.tooltip",
+      "value": "Let this player's voice carry twice as far and louder, while staying spatial."
+    },
+    {
       "key": "menu.individualPlayer.shout.disable",
       "value": "Disable Shout Mode"
     },
     {
-      "key": "menu.individualPlayer.shout.description",
-      "value": "Toggle non-spatialized broadcast voice for this player."
+      "key": "menu.individualPlayer.shout.disable.tooltip",
+      "value": "Return this player's voice to its normal range and level."
     },
     {
       "key": "menu.individualPlayer.muteVoice",
@@ -7133,6 +7157,14 @@
     {
       "key": "settings.microphone.talkToNoOne.tooltip",
       "value": "Adds a \"No One\" step to the mic mode button next to mute. Your microphone stays on so your avatar’s mouth keeps moving, but nobody hears you."
+    },
+    {
+      "key": "settings.admin.title.showShoutOnMenuBar",
+      "value": "Show Shout On Menu Bar"
+    },
+    {
+      "key": "settings.admin.title.showShoutOnMenuBar.tooltip",
+      "value": "Adds Shout to the mic-mode button. Shout carries your voice twice as far and louder, and stays fully spatial, so people still hear where you are."
     },
     {
       "key": "settings.microphone.muteBehavior.title",
@@ -14237,12 +14269,16 @@
       "value": "Copies all fields to clipboard."
     },
     {
-      "key": "settings.admin.title.shout",
-      "value": "Shout"
+      "key": "settings.admin.title.announce",
+      "value": "Announce"
     },
     {
-      "key": "settings.admin.title.showShoutOnMenuBar",
-      "value": "Show Shout On Menu Bar"
+      "key": "settings.admin.title.audioModes",
+      "value": "Audio Modes"
+    },
+    {
+      "key": "settings.admin.title.showAnnounceOnMenuBar",
+      "value": "Show Announce On Menu Bar"
     },
     {
       "key": "settings.admin.title.globalContentLocks",
@@ -16445,28 +16481,52 @@
       "value": "Send message?"
     },
     {
-      "key": "settings.admin.confirm.shoutDisable.body",
+      "key": "settings.admin.confirm.announceDisable.body",
       "value": "Disable non-spatialized broadcast voice for this player?"
     },
     {
-      "key": "settings.admin.confirm.shoutDisable.confirm",
+      "key": "settings.admin.confirm.announceDisable.confirm",
       "value": "Disable"
     },
     {
-      "key": "settings.admin.confirm.shoutDisable.title",
-      "value": "Disable shout mode?"
+      "key": "settings.admin.confirm.announceDisable.title",
+      "value": "Disable announce mode?"
+    },
+    {
+      "key": "settings.admin.confirm.announceEnable.body",
+      "value": "Enable non-spatialized broadcast voice for this player?"
+    },
+    {
+      "key": "settings.admin.confirm.announceEnable.confirm",
+      "value": "Enable"
+    },
+    {
+      "key": "settings.admin.confirm.announceEnable.title",
+      "value": "Enable announce mode?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutEnable.title",
+      "value": "Enable shout mode?"
     },
     {
       "key": "settings.admin.confirm.shoutEnable.body",
-      "value": "Enable non-spatialized broadcast voice for this player?"
+      "value": "Give this player double voice range and more level, with the audio still spatial?"
     },
     {
       "key": "settings.admin.confirm.shoutEnable.confirm",
       "value": "Enable"
     },
     {
-      "key": "settings.admin.confirm.shoutEnable.title",
-      "value": "Enable shout mode?"
+      "key": "settings.admin.confirm.shoutDisable.title",
+      "value": "Disable shout mode?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutDisable.body",
+      "value": "Return this player's voice to its normal range and level?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutDisable.confirm",
+      "value": "Disable"
     },
     {
       "key": "settings.admin.confirm.teleportAll.body",

@@ -43,7 +43,7 @@ public static partial class SerializableBasis
             Add(BasisNetworkCommons.metaDataChannel, "basis.core.metadata");
             Add(BasisNetworkCommons.DisconnectionChannel, "basis.core.disconnection");
             Add(BasisNetworkCommons.VoiceChannel, "basis.core.voice");
-            Add(BasisNetworkCommons.ShoutVoiceChannel, "basis.core.voice.shout");
+            Add(BasisNetworkCommons.AnnounceVoiceChannel, "basis.core.voice.announce");
             Add(BasisNetworkCommons.AudioRecipientsChannel, "basis.core.voice.recipients");
             Add(BasisNetworkCommons.PlayerAvatarVeryLowChannel, "basis.core.avatar.verylow");
             Add(BasisNetworkCommons.PlayerAvatarVeryLowAdditionalChannel, "basis.core.avatar.verylow.additional");

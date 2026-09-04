@@ -155,7 +155,12 @@ public static class BasisBeeManagement
     public static async Task HandleBundleAndMetaLoading(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken, long MaxDownloadSizeInBytes = 4L * 1024 * 1024 * 1024)
     {
         string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
-        if (BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
+        bool networkSourced = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced;
+        if (networkSourced && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
+        {
+            throw new Exception($"Refusing networked content location: {locationError}");
+        }
+        if (!networkSourced && BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
         {
             await HandleLocalBeeBundle(wrapper, localBeePath, report, cancellationToken);
             return;
@@ -176,7 +181,7 @@ public static class BasisBeeManagement
             shouldUseOnDiskMeta = false;
         }
 
-        (BasisBundleGenerated, byte[], string) output;
+        (BasisBundleGenerated, BasisBundleSection, string) output;
         if (shouldUseOnDiskMeta)
         {
             output = await BasisBundleManagement.LocalLoadBundleConnector(wrapper, MetaInfo.StoredLocal, report, cancellationToken);
@@ -206,7 +211,7 @@ public static class BasisBeeManagement
             }
             output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
         }
-        if(output.Item2 == null || output.Item2.Length == 0)
+        if(!output.Item2.HasPayload)
         {
             //lets force download it again. this guards against partial file, corrupt file or reattempt at downloading if it fails.
             BasisDebug.Log("Local load returned null section data, forcing re-download", BasisDebug.LogTag.Event);
@@ -234,7 +239,7 @@ public static class BasisBeeManagement
                 output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
                 didForceRedownload = true;
 
-                if (output.Item1 == null || output.Item2 == null || output.Item2.Length == 0 || !string.IsNullOrEmpty(output.Item3))
+                if (output.Item1 == null || !output.Item2.HasPayload || !string.IsNullOrEmpty(output.Item3))
                 {
                     throw new Exception($"Unable to reload generic (glTF) section after cache mismatch. {output.Item3}");
                 }
@@ -284,7 +289,7 @@ public static class BasisBeeManagement
                     output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
                     didForceRedownload = true;
 
-                    if (output.Item1 == null || output.Item2 == null || output.Item2.Length == 0 || !string.IsNullOrEmpty(output.Item3))
+                    if (output.Item1 == null || !output.Item2.HasPayload || !string.IsNullOrEmpty(output.Item3))
                     {
                         throw new Exception($"Unable to reload bundle after cache mismatch. {output.Item3}");
                     }
@@ -324,7 +329,7 @@ public static class BasisBeeManagement
             throw new Exception($"Local bundle load failed for {localBeePath}: {output.Item3}");
         }
 
-        if (output.Item2 == null || output.Item2.Length == 0)
+        if (!output.Item2.HasPayload)
         {
             throw new Exception($"Local bundle load returned no section data for {localBeePath}.");
         }
@@ -427,7 +432,12 @@ public static class BasisBeeManagement
     public static async Task<BasisMetaLoadResult> HandleMetaOnlyLoad(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
     {
         string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
-        if (BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
+        bool networkSourced = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced;
+        if (networkSourced && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
+        {
+            return BasisMetaLoadResult.Corrupt($"Refusing networked content location: {locationError}");
+        }
+        if (!networkSourced && BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
         {
             var (localConnector, localErr) = await BasisBundleManagement.LocalDirectConnectorFile(wrapper, localBeePath, report, cancellationToken);
             if (localConnector == null || !string.IsNullOrEmpty(localErr))

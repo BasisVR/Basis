@@ -234,6 +234,13 @@ float3 BasisGIRtDirectLighting(UnifiedRT::DispatchInfo dispatchInfo, UnifiedRT::
     float chosenShadow[BASISGI_RT_MAX_LIGHT_SAMPLES];
     uint reservoirSeed[BASISGI_RT_MAX_LIGHT_SAMPLES];
 
+    // These six arrays are indexed dynamically, which makes them indexable temps rather than registers.
+    // Unrolling the three loops over BASISGI_RT_MAX_LIGHT_SAMPLES to make every index a constant DOES
+    // clear that on the DXIL backends - all twenty allocas go - but it is a 2.1x instruction-count
+    // regression through fxc (141 -> 296 slots on an isolated probe, at both /O1 and /O3), fxc keeps the
+    // six indexable temps anyway, and its optimiser gives up with "did not converge". d3d11 compiles this
+    // kernel's compute fallback through fxc, so the unrolled form is not worth having. Measured
+    // 2026-09-03; do not re-land it without ISA level numbers from both backends.
     UNITY_LOOP
     for (int reservoirIndex = 0; reservoirIndex < samples; reservoirIndex++)
     {
@@ -257,29 +264,46 @@ float3 BasisGIRtDirectLighting(UnifiedRT::DispatchInfo dispatchInfo, UnifiedRT::
         BasisGIRtLight light = _BasisGIRtLights[index];
 
         float3 toLight;
-        float attenuation;
-        float distanceToLight;
+        float attenuation, distanceToLight, cosine;
 
         if (light.direction.w < 0.5)
         {
-            toLight = -normalize(light.direction.xyz);
+            // Already unit length: BasisGlobalIlluminationRayLights normalises the forward vector on the
+            // way into the buffer, so the direction a light is pointing is normalised once per light per
+            // frame on the CPU rather than once per light per hit here.
+            toLight = -light.direction.xyz;
+            cosine = dot(normalWS, toLight);
+            if (cosine <= 0.0) { continue; }
             attenuation = 1.0;
             distanceToLight = BASISGI_RT_RAY_LENGTH * 4.0;
         }
         else
         {
             float3 delta = light.position.xyz - positionWS;
+            // The hemisphere test decided before any of the falloff is paid for. toLight is delta scaled
+            // by a positive reciprocal, so this dot product already carries the sign of the cosine the
+            // contribution below tests, and a light behind the surface contributes exactly nothing to it
+            // however bright or close it is. In a room, roughly half the list is behind any given hit.
+            float facing = dot(normalWS, delta);
+            if (facing <= 0.0) { continue; }
+
             float radius = max(light.spot.w, 0.0);
             float distanceSquared = max(dot(delta, delta), max(1e-4, radius * radius));
-            distanceToLight = sqrt(distanceSquared);
-            if (distanceToLight > light.position.w) { continue; }
+            // Range rejected on the square. sqrt is monotonic over non-negatives, so this is the test the
+            // sqrt form ran, minus the sqrt on every light the test throws away. The range is clamped
+            // because squaring loses the sign a negative one would have carried into the comparison.
+            float range = max(light.position.w, 0.0);
+            if (distanceSquared > range * range) { continue; }
 
-            toLight = delta * rcp(max(distanceToLight, 1e-4));
+            distanceToLight = sqrt(distanceSquared);
+            float rcpDistance = rcp(max(distanceToLight, 1e-4));
+            toLight = delta * rcpDistance;
+            cosine = facing * rcpDistance;
             attenuation = BasisGIRtDistanceAttenuation(distanceSquared, light.spot.z);
             if (light.direction.w > 1.5) { attenuation *= BasisGIRtSpotAttenuation(light, toLight); }
         }
 
-        float contribution = saturate(dot(normalWS, toLight)) * attenuation;
+        float contribution = saturate(cosine) * attenuation;
         if (contribution <= 1e-4) { continue; }
 
         float3 radiance = light.color.rgb * contribution;
@@ -313,10 +337,16 @@ float3 BasisGIRtDirectLighting(UnifiedRT::DispatchInfo dispatchInfo, UnifiedRT::
     UNITY_LOOP
     for (int resultIndex = 0; resultIndex < samples; resultIndex++)
     {
-        if (chosenWeight[resultIndex] <= 0.0) { continue; }
+        // Read once into locals rather than re-indexing the arrays at each of the five uses below: the
+        // slot cannot change inside the iteration, and every one of those indexed reads is an indexable
+        // temp load.
+        float slotWeight = chosenWeight[resultIndex];
+        if (slotWeight <= 0.0) { continue; }
+        float slotDistance = chosenDistance[resultIndex], slotShadow = chosenShadow[resultIndex];
+        float3 slotRadiance = chosenRadiance[resultIndex], slotDirection = chosenDirection[resultIndex];
 
         float visibility = 1.0;
-        if (BASISGI_RT_SHADOW_RAYS > 0.5 && chosenShadow[resultIndex] > 0.5)
+        if (BASISGI_RT_SHADOW_RAYS > 0.5 && slotShadow > 0.5)
         {
             // A point on an avatar's visible chest sits INSIDE that avatar's own torso capsule, so a ray
             // towards a light leaves through the capsule wall and stops there - every lit avatar wearing the
@@ -333,7 +363,7 @@ float3 BasisGIRtDirectLighting(UnifiedRT::DispatchInfo dispatchInfo, UnifiedRT::
             // Inside the proxy-only trace every hit IS a capsule, so a back face there can only mean the ray
             // started inside a body. A capsule met FRONT face on is somebody else in the way and shadows.
             float3 shadowOrigin = OffsetRayOrigin(positionWS, normalWS, BASISGI_RT_NORMAL_BIAS);
-            float shadowReach = max(0.0, chosenDistance[resultIndex] - BASISGI_RT_NORMAL_BIAS * 2.0);
+            float shadowReach = max(0.0, slotDistance - BASISGI_RT_NORMAL_BIAS * 2.0);
 
             uint shadowMask = (uint)_BasisGIRtTraceMask;
             uint solidMask = shadowMask & ~BASISGI_RT_CATEGORY_AVATAR_PROXY;
@@ -342,7 +372,7 @@ float3 BasisGIRtDirectLighting(UnifiedRT::DispatchInfo dispatchInfo, UnifiedRT::
             UnifiedRT::Ray shadowRay;
             shadowRay.origin = shadowOrigin;
             shadowRay.tMin = 0.0;
-            shadowRay.direction = chosenDirection[resultIndex];
+            shadowRay.direction = slotDirection;
             shadowRay.tMax = shadowReach;
 
             bool blocked = solidMask != 0u
@@ -350,12 +380,12 @@ float3 BasisGIRtDirectLighting(UnifiedRT::DispatchInfo dispatchInfo, UnifiedRT::
             if (!blocked && proxyMask != 0u)
             {
                 float3 walk = shadowOrigin;
-                blocked = BasisGIRtTraceEscapingProxies(dispatchInfo, accelStruct, walk, chosenDirection[resultIndex], shadowReach, proxyMask).IsValid();
+                blocked = BasisGIRtTraceEscapingProxies(dispatchInfo, accelStruct, walk, slotDirection, shadowReach, proxyMask).IsValid();
             }
             visibility = blocked ? 0.0 : 1.0;
         }
 
-        total += chosenRadiance[resultIndex] * ((weightSum / chosenWeight[resultIndex]) * visibility);
+        total += slotRadiance * ((weightSum / slotWeight) * visibility);
     }
 
     return total * (BASISGI_RT_LIGHT_INTENSITY / (float)samples);

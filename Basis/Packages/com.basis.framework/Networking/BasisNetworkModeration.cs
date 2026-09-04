@@ -320,6 +320,7 @@ public static class BasisNetworkModeration
     /// </summary>
     public static void RequestAllLogs()
     {
+        BasisLogBundleReceiver.ArmForLocalRequest();
         SendAdminRequest(AdminRequestMode.RequestAllLogs);
     }
 
@@ -417,9 +418,18 @@ public static class BasisNetworkModeration
                 HandlePermissionsResponse(reader);
                 break;
 
+            case AdminRequestMode.QueryPermissionResult:
+                HandlePermissionQueryResult(reader);
+                break;
+
             case AdminRequestMode.EnableShoutMode:
             case AdminRequestMode.DisableShoutMode:
                 HandleShoutModeChanged(reader, mode == AdminRequestMode.EnableShoutMode);
+                break;
+
+            case AdminRequestMode.EnableAnnounceMode:
+            case AdminRequestMode.DisableAnnounceMode:
+                HandleAnnounceModeChanged(reader, mode == AdminRequestMode.EnableAnnounceMode);
                 break;
 
             case AdminRequestMode.GlobalGetLockState:
@@ -508,17 +518,80 @@ public static class BasisNetworkModeration
         }
     }
 
+    #region Announce Mode
+
+    /// <summary>
+    /// Fired when a player's announce mode state changes.
+    /// </summary>
+    public static event Action<ushort, bool> OnAnnounceModeChanged;
+
+    /// <summary>
+    /// True if the local player is currently in announce mode.
+    /// </summary>
+    public static bool LocalPlayerInAnnounceMode => Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInAnnounceMode;
+
+    private static void HandleAnnounceModeChanged(NetDataReader reader, bool enabled)
+    {
+        ushort targetPlayerId = reader.GetUShort();
+        ushort initiatorPlayerId = reader.AvailableBytes >= 2 ? reader.GetUShort() : targetPlayerId;
+        string state = enabled ? "enabled" : "disabled";
+        BasisDebug.Log($"Announce mode {state} for player {targetPlayerId}", BasisDebug.LogTag.Networking);
+
+        // Check if this is the local player
+        bool isLocalPlayer = BasisNetworkPlayer.LocalPlayer != null && targetPlayerId == BasisNetworkPlayer.LocalPlayer.playerId;
+        if (isLocalPlayer)
+        {
+            // Set the local transmission channel
+            Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInAnnounceMode = enabled;
+            BasisDebug.Log($"Local player announce mode {state}", BasisDebug.LogTag.Networking);
+
+            bool forcedByOther = initiatorPlayerId != targetPlayerId;
+            if (forcedByOther && !BasisTalkModeManager.LocalCanAnnounce())
+            {
+                string initiatorName = ResolveDisplayName(initiatorPlayerId);
+                DisplayMessage(enabled
+                    ? $"{initiatorName} enabled announce mode for you - your voice is now broadcast to everyone."
+                    : $"{initiatorName} disabled announce mode for you - your voice is back to normal.");
+            }
+        }
+        else
+        {
+            // For remote players, manage the global announce audio source
+            if (enabled)
+            {
+                BasisAnnounceAudioDriver.EnableAnnounceMode(targetPlayerId);
+            }
+            else
+            {
+                BasisAnnounceAudioDriver.DisableAnnounceMode(targetPlayerId);
+            }
+        }
+
+        OnAnnounceModeChanged?.Invoke(targetPlayerId, enabled);
+    }
+
+    #endregion
+
     #region Shout Mode
 
     /// <summary>
-    /// Fired when a player's shout mode state changes.
+    /// Fired when an admin grants or revokes shout mode for a player.
     /// </summary>
     public static event Action<ushort, bool> OnShoutModeChanged;
 
+    private static readonly HashSet<ushort> adminShoutPlayers = new HashSet<ushort>();
+
     /// <summary>
-    /// True if the local player is currently in shout mode.
+    /// True if an admin currently has this player in shout mode. This is the GRANT, not the
+    /// mode: a player who picked shout from their own menu bar is not in here. The audio
+    /// widening keys off <see cref="BasisRemotePlayer.TalkMode"/> either way; this only drives
+    /// the admin UI's enable/disable label.
     /// </summary>
-    public static bool LocalPlayerInShoutMode => Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInShoutMode;
+    public static bool IsInShoutMode(ushort playerId) => adminShoutPlayers.Contains(playerId);
+
+    /// <summary>True if an admin currently has the local player in shout mode.</summary>
+    public static bool LocalPlayerInShoutMode =>
+        BasisNetworkPlayer.LocalPlayer != null && adminShoutPlayers.Contains(BasisNetworkPlayer.LocalPlayer.playerId);
 
     private static void HandleShoutModeChanged(NetDataReader reader, bool enabled)
     {
@@ -527,38 +600,51 @@ public static class BasisNetworkModeration
         string state = enabled ? "enabled" : "disabled";
         BasisDebug.Log($"Shout mode {state} for player {targetPlayerId}", BasisDebug.LogTag.Networking);
 
-        // Check if this is the local player
+        if (enabled) adminShoutPlayers.Add(targetPlayerId);
+        else adminShoutPlayers.Remove(targetPlayerId);
+
+        // Only the target acts on this. Unlike announce there is no second audio path to build
+        // for a remote shouter: the target enters the mode, its ordinary talk-mode broadcast
+        // reaches every client, and each listener's own transmit tick widens from there.
         bool isLocalPlayer = BasisNetworkPlayer.LocalPlayer != null && targetPlayerId == BasisNetworkPlayer.LocalPlayer.playerId;
         if (isLocalPlayer)
         {
-            // Set the local transmission channel
-            Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInShoutMode = enabled;
-            BasisDebug.Log($"Local player shout mode {state}", BasisDebug.LogTag.Networking);
+            BasisTalkModeManager.OnAdminShoutChanged(enabled);
 
             bool forcedByOther = initiatorPlayerId != targetPlayerId;
             if (forcedByOther && !BasisTalkModeManager.LocalCanShout())
             {
                 string initiatorName = ResolveDisplayName(initiatorPlayerId);
                 DisplayMessage(enabled
-                    ? $"{initiatorName} enabled shout mode for you - your voice is now broadcast to everyone."
-                    : $"{initiatorName} disabled shout mode for you - your voice is back to normal.");
-            }
-        }
-        else
-        {
-            // For remote players, manage the global shout audio source
-            if (enabled)
-            {
-                BasisShoutAudioDriver.EnableShoutMode(targetPlayerId);
-            }
-            else
-            {
-                BasisShoutAudioDriver.DisableShoutMode(targetPlayerId);
+                    ? $"{initiatorName} put you in shout mode - your voice now carries twice as far."
+                    : $"{initiatorName} took you out of shout mode - your voice is back to normal.");
             }
         }
 
         OnShoutModeChanged?.Invoke(targetPlayerId, enabled);
     }
+
+    /// <summary>
+    /// Admin: put a player into shout mode (double range, louder, still spatialized).
+    /// </summary>
+    public static void EnableShoutMode(ushort playerId)
+    {
+        SendAdminRequest(AdminRequestMode.EnableShoutMode,
+            w => w.Put(playerId));
+    }
+
+    /// <summary>
+    /// Admin: take a player back out of shout mode.
+    /// </summary>
+    public static void DisableShoutMode(ushort playerId)
+    {
+        SendAdminRequest(AdminRequestMode.DisableShoutMode,
+            w => w.Put(playerId));
+    }
+
+    #endregion
+
+    #region Announce Mode (continued)
 
     private static string ResolveDisplayName(ushort playerId)
     {
@@ -571,20 +657,20 @@ public static class BasisNetworkModeration
     }
 
     /// <summary>
-    /// Admin: Enable shout mode for a player (non-spatialized broadcast voice).
+    /// Admin: Enable announce mode for a player (non-spatialized broadcast voice).
     /// </summary>
-    public static void EnableShoutMode(ushort playerId)
+    public static void EnableAnnounceMode(ushort playerId)
     {
-        SendAdminRequest(AdminRequestMode.EnableShoutMode,
+        SendAdminRequest(AdminRequestMode.EnableAnnounceMode,
             w => w.Put(playerId));
     }
 
     /// <summary>
-    /// Admin: Disable shout mode for a player.
+    /// Admin: Disable announce mode for a player.
     /// </summary>
-    public static void DisableShoutMode(ushort playerId)
+    public static void DisableAnnounceMode(ushort playerId)
     {
-        SendAdminRequest(AdminRequestMode.DisableShoutMode,
+        SendAdminRequest(AdminRequestMode.DisableAnnounceMode,
             w => w.Put(playerId));
     }
 
@@ -753,6 +839,86 @@ public static class BasisNetworkModeration
     public static void RequestPermissions()
     {
         SendAdminRequest(AdminRequestMode.GetPermissions);
+    }
+
+    /// <summary>
+    /// One server answer to <see cref="QueryPermissionNode"/> or <see cref="QueryPermissionGroup"/>.
+    /// The request is echoed back in full, so a caller matches a reply by comparing what it asked
+    /// rather than by tracking a request id — which also means one reply satisfies every caller
+    /// that happened to ask the same question.
+    /// </summary>
+    public struct PermissionQueryResult
+    {
+        /// <summary>Player the question was about.</summary>
+        public ushort PlayerId;
+
+        /// <summary>Whether <see cref="Value"/> named a permission node or a group.</summary>
+        public AdminPermissionQueryKind Kind;
+
+        /// <summary>The node or group name that was asked about.</summary>
+        public string Value;
+
+        /// <summary>The answer. Always false when <see cref="PlayerFound"/> is false.</summary>
+        public bool Held;
+
+        /// <summary>False when that player was not connected by the time the server looked.</summary>
+        public bool PlayerFound;
+    }
+
+    /// <summary>
+    /// Fired for every permission query answered by the server.
+    /// </summary>
+    public static event Action<PermissionQueryResult> OnPermissionQueryResult;
+
+    /// <summary>
+    /// Ask the server whether one player currently in this instance holds a permission node.
+    /// Any user may ask — unlike <see cref="RequestPermissions"/>, this returns one yes/no about
+    /// one player rather than the whole table. The answer arrives on
+    /// <see cref="OnPermissionQueryResult"/>; the server rate limits per peer and silently drops
+    /// what is over budget, so a query is not guaranteed an answer. For the local player read
+    /// <see cref="BasisNetworkManagement.LocalPermissions"/> directly instead — it is already here.
+    /// </summary>
+    public static void QueryPermissionNode(ushort playerId, string node)
+    {
+        if (ValidateString(node, nameof(node)))
+        {
+            SendPermissionQuery(playerId, AdminPermissionQueryKind.Node, node);
+        }
+    }
+
+    /// <summary>
+    /// Ask the server whether one player currently in this instance belongs to a permission group
+    /// ("role"), counting groups inherited through a parent chain. Same delivery and limits as
+    /// <see cref="QueryPermissionNode"/>.
+    /// </summary>
+    public static void QueryPermissionGroup(ushort playerId, string group)
+    {
+        if (ValidateString(group, nameof(group)))
+        {
+            SendPermissionQuery(playerId, AdminPermissionQueryKind.Group, group);
+        }
+    }
+
+    private static void SendPermissionQuery(ushort playerId, AdminPermissionQueryKind kind, string value)
+    {
+        SendAdminRequest(AdminRequestMode.QueryPermission,
+            w => w.Put(playerId),
+            w => w.Put((byte)kind),
+            w => w.Put(value));
+    }
+
+    private static void HandlePermissionQueryResult(NetDataReader reader)
+    {
+        PermissionQueryResult result = new PermissionQueryResult
+        {
+            PlayerId = reader.GetUShort(),
+            Kind = (AdminPermissionQueryKind)reader.GetByte(),
+            Value = reader.GetString(),
+            Held = reader.GetBool(),
+            PlayerFound = reader.GetBool(),
+        };
+
+        OnPermissionQueryResult?.Invoke(result);
     }
 
     /// <summary>
@@ -1443,7 +1609,7 @@ public static class BasisNetworkModeration
     }
 
     /// <summary>
-    /// Admin: toggle the global voice lock. While set the server drops normal and shout voice from
+    /// Admin: toggle the global voice lock. While set the server drops normal and announce voice from
     /// peers without basis.voice.lockbypass, and those clients stop transmitting.
     /// </summary>
     public static void GlobalToggleVoiceChat()
@@ -2032,18 +2198,29 @@ public static class BasisNetworkModeration
             return;
         }
 
+        BasisDataStoreItemKeys.EmbeddedSettings embedded = embeddedSource switch
+        {
+            1 => BasisDataStoreItemKeys.EmbeddedSettings.BEEUrl,
+            2 => BasisDataStoreItemKeys.EmbeddedSettings.Addressable,
+            _ => BasisDataStoreItemKeys.EmbeddedSettings.Default,
+        };
+
+        // An addressable names content already inside this build, so there is no url to vet.
+        // Everything else is fetched from the url as written, and that must be http(s).
+        bool isAddressable = embedded.IsEmbedded && embedded.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable;
+        if (!isAddressable && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(url, out string urlReason))
+        {
+            BasisDebug.LogError($"Refusing forced avatar url: {urlReason}", BasisDebug.LogTag.Networking);
+            return;
+        }
+
         BasisDataStoreItemKeys.ItemKey item = new BasisDataStoreItemKeys.ItemKey
         {
             Mode = BundledContentHolder.Mode.Avatar,
             PlacementType = BundledContentHolder.PlacementType.SpawnAtRaycast,
             Url = url,
             Pass = password ?? string.Empty,
-            EmbeddedSettings = embeddedSource switch
-            {
-                1 => BasisDataStoreItemKeys.EmbeddedSettings.BEEUrl,
-                2 => BasisDataStoreItemKeys.EmbeddedSettings.Addressable,
-                _ => BasisDataStoreItemKeys.EmbeddedSettings.Default,
-            },
+            EmbeddedSettings = embedded,
             PinnedSettings = BasisDataStoreItemKeys.PinnedSettings.Default,
         };
 

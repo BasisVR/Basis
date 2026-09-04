@@ -218,6 +218,7 @@ namespace BasisNetworkServer.BasisNetworking
 
         public sealed class Snapshot
         {
+            public const int MaxDecompressedBytes = 64 * 1024;
             // Back-compat (inbound):
             public readonly Dictionary<byte, IndexStats> PerIndex;
             // New (outbound):
@@ -367,9 +368,7 @@ namespace BasisNetworkServer.BasisNetworking
             {
                 using var input = new MemoryStream(comp.ToArray());
                 using var bs = new BrotliStream(input, CompressionMode.Decompress);
-                using var output = new MemoryStream(512);
-                bs.CopyTo(output);
-                return output.ToArray();
+                return Basis.Network.Core.BasisBoundedStream.ReadAllBounded(bs, MaxDecompressedBytes, "Statistics snapshot");
             }
         }
     }

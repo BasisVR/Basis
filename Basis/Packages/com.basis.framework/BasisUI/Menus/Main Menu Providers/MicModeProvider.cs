@@ -68,7 +68,8 @@ namespace Basis.BasisUI
         private static readonly Color PrivateColor = new Color(0.6078432f, 0.1882353f, 1f, 1f);
         private static readonly Color DirectColor = new Color(0.12156863f, 0.7490196f, 0.3529412f, 1f);
         private static readonly Color ThisPersonColor = new Color(1f, 0.3098039f, 0.627451f, 1f);
-        private static readonly Color ShoutColor = new Color(1f, 0.5490196f, 0f, 1f);
+        private static readonly Color AnnounceColor = new Color(1f, 0.5490196f, 0f, 1f);
+        private static readonly Color ShoutColor = new Color(1f, 0.8117647f, 0.1607843f, 1f);
         private static readonly Color NoOneColor = new Color(0.3921569f, 0.5882353f, 0.7843137f, 1f);
 
         private void UpdateButtonVisuals(PanelButton button)
@@ -88,6 +89,7 @@ namespace Basis.BasisUI
                 case BasisTalkMode.Private: return PrivateColor;
                 case BasisTalkMode.Direct: return DirectColor;
                 case BasisTalkMode.ThisPerson: return ThisPersonColor;
+                case BasisTalkMode.Announce: return AnnounceColor;
                 case BasisTalkMode.Shout: return ShoutColor;
                 case BasisTalkMode.NoOne: return NoOneColor;
                 default: return NormalColor;
@@ -101,6 +103,7 @@ namespace Basis.BasisUI
                 case BasisTalkMode.Private: return "menu.provider.micmode.private";
                 case BasisTalkMode.Direct: return "menu.provider.micmode.direct";
                 case BasisTalkMode.ThisPerson: return "menu.provider.micmode.thisperson";
+                case BasisTalkMode.Announce: return "menu.provider.micmode.announce";
                 case BasisTalkMode.Shout: return "menu.provider.micmode.shout";
                 case BasisTalkMode.NoOne: return "menu.provider.micmode.noone";
                 default: return "menu.provider.micmode.normal";

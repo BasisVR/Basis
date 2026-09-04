@@ -378,8 +378,8 @@ MonoBehaviour:
     UnMutedMutedIconColorActive: {r: 1, g: 1, b: 1, a: 0.67058825}
     UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.67058825}
     MutedColor: {r: 1, g: 0, b: 0, a: 0.67058825}
-    ShoutColorActive: {r: 1, g: 0.5490196, b: 0, a: 1}
-    ShoutColorInactive: {r: 0.6, g: 0.3294118, b: 0, a: 1}
+    AnnounceColorActive: {r: 1, g: 0.5490196, b: 0, a: 1}
+    AnnounceColorInactive: {r: 0.6, g: 0.3294118, b: 0, a: 1}
     PrivateColorActive: {r: 0.6078432, g: 0.1882353, b: 1, a: 1}
     PrivateColorInactive: {r: 0.3647059, g: 0.1129412, b: 0.6, a: 1}
     DirectColorActive: {r: 0.12156863, g: 0.7490196, b: 0.3529412, a: 1}

@@ -158,31 +158,53 @@ namespace Basis.Scripts.Constraints
         private static Transform[] sTargetArray = Array.Empty<Transform>();
         /// <summary>Target transform to its row in the results/write arrays; deduplicates stacked constraints.</summary>
         private static readonly Dictionary<Transform, int> sTargetRowLookup = new Dictionary<Transform, int>();
-        private static readonly List<int> sOrderScratch = new List<int>();
-        private static readonly List<int> sDepthScratch = new List<int>();
         private static readonly List<int> sSourceMapScratch = new List<int>();
-        /// <summary>Transform row → the slots that drive it, for the dependency sort.</summary>
-        private static readonly Dictionary<int, List<int>> sProducers = new Dictionary<int, List<int>>();
-        /// <summary>Producer lists, kept across rebuilds and handed out in turn so the sort does not allocate.</summary>
-        private static readonly List<List<int>> sProducerPool = new List<List<int>>();
-        private static int sProducerPoolUsed;
-        /// <summary>Per-slot consumer lists, kept across rebuilds so the sort does not allocate.</summary>
-        private static readonly List<List<int>> sConsumers = new List<List<int>>();
-        private static readonly List<int> sInDegree = new List<int>();
-        private static readonly List<bool> sEmitted = new List<bool>();
+
+        /// <summary>
+        /// The dependency sort and the grouping run on flat int arrays rather than lists of lists.
+        /// Both walk the whole table on every rebuild, and a rebuild is global — one avatar joining
+        /// re-sorts every constraint in the session — so what they cost is a per-element constant
+        /// multiplied by the population. A dictionary probe and a list-of-lists indirection per edge
+        /// were most of that constant, and neither buys anything the row and slot indices, which are
+        /// dense by construction, do not already give: the row index IS the bucket.
+        ///
+        /// Grown, never shrunk, and only ever read below their live count, so the tail a shrinking
+        /// population leaves behind costs nothing but the memory.
+        /// </summary>
+        private static int[] sSolveOrderScratch = Array.Empty<int>();
+        private static int sSolveOrderCount;
+        private static int[] sDepth = Array.Empty<int>();
+        /// <summary>Transform row → first slot driving it, then slot → next slot driving the same row.</summary>
+        private static int[] sProducerHead = Array.Empty<int>();
+        private static int[] sProducerNext = Array.Empty<int>();
+        /// <summary>Consumer edges in CSR form: slot i owns sConsumerItems[sConsumerStart[i]..[i+1]).</summary>
+        private static int[] sConsumerStart = Array.Empty<int>();
+        private static int[] sConsumerItems = Array.Empty<int>();
+        private static int[] sInDegree = Array.Empty<int>();
+        private static bool[] sEmitted = Array.Empty<bool>();
         /// <summary>Binary min-heap of slots whose dependencies are all met, ordered by depth.</summary>
-        private static readonly List<int> sReadyHeap = new List<int>();
+        private static int[] sReadyHeap = Array.Empty<int>();
+        private static int sReadyCount;
 
         /// <summary>Union-find over slots, merging any two that cannot be solved independently.</summary>
-        private static readonly List<int> sGroupParent = new List<int>();
+        private static int[] sGroupParent = Array.Empty<int>();
         /// <summary>Transform row → the first slot that writes it, or -1 for a row nothing writes.</summary>
-        private static readonly List<int> sRowWriter = new List<int>();
-        /// <summary>Slots bucketed per group. Kept across rebuilds so the grouping does not allocate.</summary>
-        private static readonly List<List<int>> sGroupBuckets = new List<List<int>>();
-        /// <summary>Union-find representative → its index in <see cref="sGroupBuckets"/>.</summary>
-        private static readonly Dictionary<int, int> sGroupIndexOf = new Dictionary<int, int>();
+        private static int[] sRowWriter = Array.Empty<int>();
+        /// <summary>Union-find representative → its group number, -1 until the group is first seen.</summary>
+        private static int[] sGroupOf = Array.Empty<int>();
+        /// <summary>Write cursor per bucket, shared by the CSR fill and the group scatter.</summary>
+        private static int[] sScatterCursor = Array.Empty<int>();
         private static readonly List<BasisConstraintSourceEntry> sSourceScratch =
             new List<BasisConstraintSourceEntry>();
+
+        /// <summary>
+        /// Hierarchy depth per transform, remembered for the length of one rebuild. Depth is a walk
+        /// to the root, and every constraint on an avatar walks the same spine — so without this the
+        /// flatten pays one native parent read per ancestor per constraint, which is the population
+        /// times the rig depth. Ancestors are shared, so remembering them makes it the population.
+        /// </summary>
+        private static readonly Dictionary<Transform, int> sDepthCache = new Dictionary<Transform, int>();
+        private static readonly List<Transform> sDepthStack = new List<Transform>();
 
         private static NativeList<BasisConstraintSlot> sSlots;
         private static NativeList<BasisConstraintSource> sSources;
@@ -306,17 +328,24 @@ namespace Basis.Scripts.Constraints
             sTargetRowLookup.Clear();
             sTrackedScratch.Clear();
             sTargetScratch.Clear();
-            sOrderScratch.Clear();
-            sDepthScratch.Clear();
             sSourceScratch.Clear();
-            sProducers.Clear();
-            sConsumers.Clear();
-            sGroupParent.Clear();
-            sRowWriter.Clear();
-            sGroupBuckets.Clear();
-            sGroupIndexOf.Clear();
-            sProducerPool.Clear();
-            sProducerPoolUsed = 0;
+            sDepthCache.Clear();
+            sDepthStack.Clear();
+            sSolveOrderScratch = Array.Empty<int>();
+            sSolveOrderCount = 0;
+            sDepth = Array.Empty<int>();
+            sProducerHead = Array.Empty<int>();
+            sProducerNext = Array.Empty<int>();
+            sConsumerStart = Array.Empty<int>();
+            sConsumerItems = Array.Empty<int>();
+            sInDegree = Array.Empty<int>();
+            sEmitted = Array.Empty<bool>();
+            sReadyHeap = Array.Empty<int>();
+            sReadyCount = 0;
+            sGroupParent = Array.Empty<int>();
+            sRowWriter = Array.Empty<int>();
+            sGroupOf = Array.Empty<int>();
+            sScatterCursor = Array.Empty<int>();
             sAvatarGroups.Clear();
             sAvatarLookup.Clear();
             sAvatarRoots.Clear();
@@ -622,8 +651,7 @@ namespace Basis.Scripts.Constraints
             sTrackedScratch.Clear();
             sTargetScratch.Clear();
             sTargetRowLookup.Clear();
-            sOrderScratch.Clear();
-            sDepthScratch.Clear();
+            sDepthCache.Clear();
 
             for (int Index = sRegistrations.Count - 1; Index >= 0; Index--)
             {
@@ -634,6 +662,8 @@ namespace Basis.Scripts.Constraints
                 }
             }
 
+            BasisConstraintMarkers.RebuildFlatten.Begin();
+            EnsureCapacity(ref sDepth, sRegistrations.Count);
             for (int Index = 0; Index < sRegistrations.Count; Index++)
             {
                 Registration registration = sRegistrations[Index];
@@ -641,12 +671,11 @@ namespace Basis.Scripts.Constraints
                 Transform target = component.transform;
 
                 int targetIndex = InternTransform(target);
-                int parentIndex = target.parent != null ? InternTransform(target.parent) : -1;
+                Transform parent = target.parent;
+                int parentIndex = parent != null ? InternTransform(parent) : -1;
 
                 // ParentIndex rides in the local-pose row; the sample job preserves it.
-                BasisConstraintTransform local = sLocal[targetIndex];
-                local.ParentIndex = parentIndex;
-                sLocal[targetIndex] = local;
+                sLocal.ElementAt(targetIndex).ParentIndex = parentIndex;
 
                 registration.SlotIndex = sSlots.Length;
                 registration.SourceStart = sSources.Length;
@@ -711,7 +740,7 @@ namespace Basis.Scripts.Constraints
                 registration.Aim = component as BasisAimConstraint;
                 registration.LookAt = component as BasisLookAtConstraint;
                 registration.WatchesWorldUpObject = registration.Aim != null || registration.LookAt != null;
-                registration.AvatarId = InternAvatar(component.transform, Index);
+                registration.AvatarId = InternAvatar(target, Index);
                 slot.AvatarId = registration.AvatarId;
                 FillScalarState(component, registration, ref slot);
                 sSlots.Add(slot);
@@ -724,17 +753,29 @@ namespace Basis.Scripts.Constraints
                 // all write through a single row so the parallel write job never doubles up.
                 sTargetRow.Add(InternTargetRow(target));
 
-                sOrderScratch.Add(registration.SlotIndex);
-                sDepthScratch.Add(slot.Depth);
+                sDepth[registration.SlotIndex] = slot.Depth;
             }
 
-            BuildSolveOrder();
-            BuildSolveGroups();
+            // Interning grew these in blocks; the tables past this point are read by row count, so
+            // hand back the exact one.
+            sWorld.Resize(sTrackedScratch.Count, NativeArrayOptions.ClearMemory);
+            sLocal.Resize(sTrackedScratch.Count, NativeArrayOptions.ClearMemory);
+            BasisConstraintMarkers.RebuildFlatten.End();
 
+            using (BasisConstraintMarkers.RebuildOrder.Auto())
+            {
+                BuildSolveOrder();
+            }
+            using (BasisConstraintMarkers.RebuildGroups.Auto())
+            {
+                BuildSolveGroups();
+            }
+
+            BasisConstraintMarkers.RebuildBind.Begin();
             int longestChain = 0;
             for (int Index = 0; Index < sSlots.Length; Index++)
             {
-                longestChain = math.max(longestChain, sSlots[Index].ChainCount);
+                longestChain = math.max(longestChain, sSlots.ElementAt(Index).ChainCount);
             }
             // A window per group rather than one for the whole solve: groups reach concurrently, and
             // sharing one buffer between two of them would have them overwrite each other's reach.
@@ -747,10 +788,42 @@ namespace Basis.Scripts.Constraints
             // SetTransforms needs an exact-length array, so these cannot be spans — but they can be
             // kept and reused. A rebuild triggered by anything other than a population change hands
             // back the same lengths, and this runs on every join.
-            sTracked.SetTransforms(FillArray(sTrackedScratch, ref sTrackedArray));
-            sTargets.SetTransforms(FillArray(sTargetScratch, ref sTargetArray));
+            BindTransforms(ref sTracked, sTrackedScratch, ref sTrackedArray);
+            BindTransforms(ref sTargets, sTargetScratch, ref sTargetArray);
+            BasisConstraintMarkers.RebuildBind.End();
 
             sDirty = false;
+        }
+
+        /// <summary>
+        /// Hands a transform set to its access array, but only when it is actually a different set.
+        /// Binding is a native rebind of every entry, and most rebuilds are not population changes —
+        /// a source retargeted, a world-up object swapped, a component reshaping its list — so the
+        /// same transforms in the same order come back out the far end and the bind is pure cost.
+        ///
+        /// The length check is not redundant with the element walk: a TransformAccessArray silently
+        /// drops destroyed transforms and compacts, so a set that still matches the cache element for
+        /// element can already be short a row, and that has to rebind.
+        /// </summary>
+        private static void BindTransforms(ref TransformAccessArray access, List<Transform> desired, ref Transform[] cache)
+        {
+            if (access.length == desired.Count && cache.Length == desired.Count)
+            {
+                bool same = true;
+                for (int Index = 0; Index < cache.Length; Index++)
+                {
+                    if (!ReferenceEquals(cache[Index], desired[Index]))
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+                if (same)
+                {
+                    return;
+                }
+            }
+            access.SetTransforms(FillArray(desired, ref cache));
         }
 
         /// <summary>
@@ -766,64 +839,86 @@ namespace Basis.Scripts.Constraints
         private static void BuildSolveOrder()
         {
             int count = sSlots.Length;
+            int rows = sTrackedScratch.Count;
+            EnsureCapacity(ref sProducerHead, rows);
+            EnsureCapacity(ref sProducerNext, count);
+            EnsureCapacity(ref sInDegree, count);
+            EnsureCapacity(ref sEmitted, count);
+            EnsureCapacity(ref sReadyHeap, count);
+            EnsureCapacity(ref sSolveOrderScratch, count);
+            EnsureCapacity(ref sConsumerStart, count + 1);
+            EnsureCapacity(ref sScatterCursor, count + 1);
+            Array.Fill(sProducerHead, -1, 0, rows);
+            Array.Clear(sInDegree, 0, count);
+            Array.Clear(sEmitted, 0, count);
+            Array.Clear(sConsumerStart, 0, count + 1);
 
-            // Which slots drive each transform row. Several may drive one row (stacked constraints).
-            sProducers.Clear();
-            sProducerPoolUsed = 0;
-            for (int Index = 0; Index < count; Index++)
+            // Which slots drive each transform row. Several may drive one row (stacked constraints),
+            // so a row needs a list of them — but a slot drives exactly one row, so it can carry its
+            // own link and the list costs nothing beyond a head per row. Walked backwards only so
+            // each row's chain comes out in ascending slot order, the way the list it replaced read.
+            for (int Index = count - 1; Index >= 0; Index--)
             {
-                int targetIndex = sSlots[Index].TargetIndex;
+                int targetIndex = sSlots.ElementAt(Index).TargetIndex;
                 if (targetIndex < 0)
                 {
+                    sProducerNext[Index] = -1;
                     continue;
                 }
-                if (!sProducers.TryGetValue(targetIndex, out List<int> producers))
-                {
-                    if (sProducerPool.Count <= sProducerPoolUsed)
-                    {
-                        sProducerPool.Add(new List<int>());
-                    }
-                    producers = sProducerPool[sProducerPoolUsed];
-                    sProducerPoolUsed++;
-                    producers.Clear();
-                    sProducers[targetIndex] = producers;
-                }
-                producers.Add(Index);
+                sProducerNext[Index] = sProducerHead[targetIndex];
+                sProducerHead[targetIndex] = Index;
             }
 
-            while (sConsumers.Count < count)
-            {
-                sConsumers.Add(new List<int>());
-            }
-            sInDegree.Clear();
-            sEmitted.Clear();
+            // Edges counted, then written, into one flat block instead of a list per slot. The count
+            // pass is the same walk as the fill, which is cheaper than it sounds — it is a pointer
+            // chase over arrays either way, and it buys back every per-slot list and its growth.
+            int edges = 0;
             for (int Index = 0; Index < count; Index++)
             {
-                sConsumers[Index].Clear();
-                sInDegree.Add(0);
-                sEmitted.Add(false);
-            }
-
-            for (int Index = 0; Index < count; Index++)
-            {
-                BasisConstraintSlot slot = sSlots[Index];
+                ref BasisConstraintSlot slot = ref sSlots.ElementAt(Index);
                 for (int SourceIndex = 0; SourceIndex < slot.SourceCount; SourceIndex++)
                 {
-                    int transformIndex = sSources[slot.SourceStart + SourceIndex].TransformIndex;
-                    if (transformIndex < 0 || !sProducers.TryGetValue(transformIndex, out List<int> producers))
+                    int transformIndex = sSources.ElementAt(slot.SourceStart + SourceIndex).TransformIndex;
+                    if (transformIndex < 0)
                     {
                         continue;
                     }
-                    for (int ProducerIndex = 0; ProducerIndex < producers.Count; ProducerIndex++)
+                    for (int Producer = sProducerHead[transformIndex]; Producer >= 0; Producer = sProducerNext[Producer])
                     {
-                        int producer = producers[ProducerIndex];
-                        if (producer == Index)
+                        if (Producer == Index)
                         {
                             // A constraint sourcing its own target imposes no ordering on itself.
                             continue;
                         }
-                        sConsumers[producer].Add(Index);
+                        sConsumerStart[Producer + 1]++;
                         sInDegree[Index]++;
+                        edges++;
+                    }
+                }
+            }
+            for (int Index = 0; Index < count; Index++)
+            {
+                sConsumerStart[Index + 1] += sConsumerStart[Index];
+            }
+            EnsureCapacity(ref sConsumerItems, math.max(1, edges));
+            Array.Copy(sConsumerStart, sScatterCursor, count);
+            for (int Index = 0; Index < count; Index++)
+            {
+                ref BasisConstraintSlot slot = ref sSlots.ElementAt(Index);
+                for (int SourceIndex = 0; SourceIndex < slot.SourceCount; SourceIndex++)
+                {
+                    int transformIndex = sSources.ElementAt(slot.SourceStart + SourceIndex).TransformIndex;
+                    if (transformIndex < 0)
+                    {
+                        continue;
+                    }
+                    for (int Producer = sProducerHead[transformIndex]; Producer >= 0; Producer = sProducerNext[Producer])
+                    {
+                        if (Producer == Index)
+                        {
+                            continue;
+                        }
+                        sConsumerItems[sScatterCursor[Producer]++] = Index;
                     }
                 }
             }
@@ -832,8 +927,8 @@ namespace Basis.Scripts.Constraints
             // ready one instead would be O(slots²) per rebuild, and the rebuild is global: one avatar
             // joining re-sorts every constraint in the session. The heap keeps that at O(E log V),
             // which is what makes a join storm affordable.
-            sOrderScratch.Clear();
-            sReadyHeap.Clear();
+            sSolveOrderCount = 0;
+            sReadyCount = 0;
             int brokenCycles = 0;
             for (int Index = 0; Index < count; Index++)
             {
@@ -843,10 +938,10 @@ namespace Basis.Scripts.Constraints
                 }
             }
 
-            while (sOrderScratch.Count < count)
+            while (sSolveOrderCount < count)
             {
                 int chosen = -1;
-                while (sReadyHeap.Count > 0)
+                while (sReadyCount > 0)
                 {
                     int candidate = PopReady();
                     // A slot forced out of a cycle below can be queued again once its remaining
@@ -862,7 +957,7 @@ namespace Basis.Scripts.Constraints
                 {
                     // Nothing is ready and slots remain: a cycle. Break it at the shallowest member,
                     // which costs that one slot a frame of lag.
-                    chosen = PickShallowest(count, readyOnly: false);
+                    chosen = PickShallowest(count);
                     if (chosen < 0)
                     {
                         break;
@@ -871,12 +966,12 @@ namespace Basis.Scripts.Constraints
                 }
 
                 sEmitted[chosen] = true;
-                sOrderScratch.Add(chosen);
+                sSolveOrderScratch[sSolveOrderCount++] = chosen;
 
-                List<int> consumers = sConsumers[chosen];
-                for (int ConsumerIndex = 0; ConsumerIndex < consumers.Count; ConsumerIndex++)
+                int consumerEnd = sConsumerStart[chosen + 1];
+                for (int ConsumerIndex = sConsumerStart[chosen]; ConsumerIndex < consumerEnd; ConsumerIndex++)
                 {
-                    int consumer = consumers[ConsumerIndex];
+                    int consumer = sConsumerItems[ConsumerIndex];
                     sInDegree[consumer] = sInDegree[consumer] - 1;
                     if (sInDegree[consumer] <= 0 && !sEmitted[consumer])
                     {
@@ -909,22 +1004,29 @@ namespace Basis.Scripts.Constraints
         /// </summary>
         private static bool ReadyPrecedes(int left, int right)
         {
-            int leftOrder = sSlots[left].AuthoredOrder;
-            int rightOrder = sSlots[right].AuthoredOrder;
+            int leftOrder = sSlots.ElementAt(left).AuthoredOrder;
+            int rightOrder = sSlots.ElementAt(right).AuthoredOrder;
             if (leftOrder != rightOrder)
             {
                 return leftOrder < rightOrder;
             }
 
-            int leftDepth = sDepthScratch[left];
-            int rightDepth = sDepthScratch[right];
+            int leftDepth = sDepth[left];
+            int rightDepth = sDepth[right];
             return leftDepth != rightDepth ? leftDepth < rightDepth : left < right;
         }
 
         private static void PushReady(int slotIndex)
         {
-            sReadyHeap.Add(slotIndex);
-            int child = sReadyHeap.Count - 1;
+            // Resized rather than pre-sized: the heap holds at most one entry per slot in every case
+            // this can reach, but a duplicate queued around a broken cycle is exactly what the pop
+            // above guards against, and a heap that cannot hold one would throw instead.
+            if (sReadyCount == sReadyHeap.Length)
+            {
+                Array.Resize(ref sReadyHeap, math.max(4, sReadyHeap.Length * 2));
+            }
+            int child = sReadyCount;
+            sReadyHeap[sReadyCount++] = slotIndex;
             while (child > 0)
             {
                 int parent = (child - 1) / 2;
@@ -940,9 +1042,7 @@ namespace Basis.Scripts.Constraints
         private static int PopReady()
         {
             int top = sReadyHeap[0];
-            int last = sReadyHeap.Count - 1;
-            sReadyHeap[0] = sReadyHeap[last];
-            sReadyHeap.RemoveAt(last);
+            sReadyHeap[0] = sReadyHeap[--sReadyCount];
 
             int parent = 0;
             while (true)
@@ -950,11 +1050,11 @@ namespace Basis.Scripts.Constraints
                 int left = (parent * 2) + 1;
                 int right = left + 1;
                 int best = parent;
-                if (left < sReadyHeap.Count && ReadyPrecedes(sReadyHeap[left], sReadyHeap[best]))
+                if (left < sReadyCount && ReadyPrecedes(sReadyHeap[left], sReadyHeap[best]))
                 {
                     best = left;
                 }
-                if (right < sReadyHeap.Count && ReadyPrecedes(sReadyHeap[right], sReadyHeap[best]))
+                if (right < sReadyCount && ReadyPrecedes(sReadyHeap[right], sReadyHeap[best]))
                 {
                     best = right;
                 }
@@ -969,20 +1069,19 @@ namespace Basis.Scripts.Constraints
         }
 
         /// <summary>
-        /// Shallowest un-emitted slot, optionally restricted to those with no unmet dependency.
-        /// In-degree is compared with &gt; 0 rather than != 0 so a cycle broken above, which can push
-        /// a counter negative, still leaves its dependents selectable.
+        /// Shallowest un-emitted slot. Only reached to break a cycle, which is an authoring error
+        /// the caller logs, so the linear scan is deliberate: a table with no cycle never runs it.
         /// </summary>
-        private static int PickShallowest(int count, bool readyOnly)
+        private static int PickShallowest(int count)
         {
             int chosen = -1;
             for (int Index = 0; Index < count; Index++)
             {
-                if (sEmitted[Index] || (readyOnly && sInDegree[Index] > 0))
+                if (sEmitted[Index])
                 {
                     continue;
                 }
-                if (chosen < 0 || sDepthScratch[Index] < sDepthScratch[chosen])
+                if (chosen < 0 || sDepth[Index] < sDepth[chosen])
                 {
                     chosen = Index;
                 }
@@ -1011,30 +1110,29 @@ namespace Basis.Scripts.Constraints
         /// </summary>
         private static void BuildSolveGroups()
         {
-            sOrder.Clear();
             sSolveGroups.Clear();
 
             int count = sSlots.Length;
-            sGroupParent.Clear();
+            int rows = sTrackedScratch.Count;
+            EnsureCapacity(ref sGroupParent, count);
+            EnsureCapacity(ref sRowWriter, rows);
+            EnsureCapacity(ref sGroupOf, count);
+            EnsureCapacity(ref sScatterCursor, count + 1);
             for (int Index = 0; Index < count; Index++)
             {
-                sGroupParent.Add(Index);
+                sGroupParent[Index] = Index;
             }
-
-            sRowWriter.Clear();
-            for (int Index = 0; Index < sTrackedScratch.Count; Index++)
-            {
-                sRowWriter.Add(-1);
-            }
+            Array.Fill(sRowWriter, -1, 0, rows);
 
             // Pass one: claim the written rows, merging any two slots that write the same one.
             for (int Index = 0; Index < count; Index++)
             {
-                BasisConstraintSlot slot = sSlots[Index];
+                ref BasisConstraintSlot slot = ref sSlots.ElementAt(Index);
                 ClaimWrite(Index, slot.TargetIndex);
-                for (int Bone = 0; Bone < slot.ChainCount; Bone++)
+                int chainStart = slot.ChainStart, chainCount = slot.ChainCount;
+                for (int Bone = 0; Bone < chainCount; Bone++)
                 {
-                    ClaimWrite(Index, sChain[slot.ChainStart + Bone].x);
+                    ClaimWrite(Index, sChain.ElementAt(chainStart + Bone).x);
                 }
             }
 
@@ -1043,55 +1141,81 @@ namespace Basis.Scripts.Constraints
             // and split off on its own.
             for (int Index = 0; Index < count; Index++)
             {
-                BasisConstraintSlot slot = sSlots[Index];
+                ref BasisConstraintSlot slot = ref sSlots.ElementAt(Index);
                 LinkRead(Index, slot.WorldUpIndex);
                 LinkRead(Index, ParentRowOf(slot.TargetIndex));
-                for (int Source = 0; Source < slot.SourceCount; Source++)
+                int sourceStart = slot.SourceStart, sourceCount = slot.SourceCount;
+                int chainStart = slot.ChainStart, chainCount = slot.ChainCount;
+                for (int Source = 0; Source < sourceCount; Source++)
                 {
-                    LinkRead(Index, sSources[slot.SourceStart + Source].TransformIndex);
+                    LinkRead(Index, sSources.ElementAt(sourceStart + Source).TransformIndex);
                 }
-                for (int Bone = 0; Bone < slot.ChainCount; Bone++)
+                for (int Bone = 0; Bone < chainCount; Bone++)
                 {
-                    int boneRow = sChain[slot.ChainStart + Bone].x;
+                    int boneRow = sChain.ElementAt(chainStart + Bone).x;
                     LinkRead(Index, boneRow);
                     LinkRead(Index, ParentRowOf(boneRow));
                 }
             }
 
-            // Bucket in solve order, so every group comes out holding the sequence it was given.
-            sGroupIndexOf.Clear();
+            // Numbered in solve order, so every group comes out holding the sequence it was given.
+            // The representative is a slot index, so the group it maps to is an array entry rather
+            // than a dictionary probe, and the members can then be counted and scattered straight
+            // into sOrder — no bucket list per group, and none of them to clear next time.
+            Array.Fill(sGroupOf, -1, 0, count);
+            Array.Clear(sScatterCursor, 0, count + 1);
             int used = 0;
-            for (int Index = 0; Index < sOrderScratch.Count; Index++)
+            for (int Index = 0; Index < sSolveOrderCount; Index++)
             {
-                int slotIndex = sOrderScratch[Index];
-                int root = FindGroup(slotIndex);
-                if (!sGroupIndexOf.TryGetValue(root, out int group))
+                int root = FindGroup(sSolveOrderScratch[Index]);
+                int group = sGroupOf[root];
+                if (group < 0)
                 {
                     group = used++;
-                    sGroupIndexOf[root] = group;
-                    if (sGroupBuckets.Count < used)
-                    {
-                        sGroupBuckets.Add(new List<int>());
-                    }
-                    // Buckets outlive the rebuild that filled them, so this one starts over rather
-                    // than appending to whatever the last population left in it.
-                    sGroupBuckets[group].Clear();
+                    sGroupOf[root] = group;
                 }
-                sGroupBuckets[group].Add(slotIndex);
+                sScatterCursor[group + 1]++;
             }
 
+            int running = 0;
             for (int Group = 0; Group < used; Group++)
             {
-                List<int> bucket = sGroupBuckets[Group];
-                sSolveGroups.Add(new int2(sOrder.Length, bucket.Count));
-                for (int Index = 0; Index < bucket.Count; Index++)
+                int size = sScatterCursor[Group + 1];
+                sSolveGroups.Add(new int2(running, size));
+                sScatterCursor[Group] = running;
+                running += size;
+            }
+
+            sOrder.Resize(running, NativeArrayOptions.UninitializedMemory);
+            if (running > 0)
+            {
+                NativeArray<int> order = sOrder.AsArray();
+                for (int Index = 0; Index < sSolveOrderCount; Index++)
                 {
-                    sOrder.Add(bucket[Index]);
+                    int slotIndex = sSolveOrderScratch[Index];
+                    order[sScatterCursor[sGroupOf[FindGroup(slotIndex)]]++] = slotIndex;
                 }
             }
         }
 
-        private static int ParentRowOf(int row) => row >= 0 ? sLocal[row].ParentIndex : -1;
+        /// <summary>Grows a scratch array to hold at least <paramref name="needed"/>, never shrinking it.</summary>
+        private static void EnsureCapacity(ref int[] array, int needed)
+        {
+            if (array.Length < needed)
+            {
+                array = new int[math.max(needed, array.Length * 2)];
+            }
+        }
+
+        private static void EnsureCapacity(ref bool[] array, int needed)
+        {
+            if (array.Length < needed)
+            {
+                array = new bool[math.max(needed, array.Length * 2)];
+            }
+        }
+
+        private static int ParentRowOf(int row) => row >= 0 ? sLocal.ElementAt(row).ParentIndex : -1;
 
         /// <summary>
         /// Records that a slot can write a transform row, merging it with whoever claimed the row
@@ -1177,8 +1301,16 @@ namespace Basis.Scripts.Constraints
             sTransformLookup[transform] = index;
             sTrackedScratch.Add(transform);
 
-            sWorld.Resize(index + 1, NativeArrayOptions.ClearMemory);
-            sLocal.Resize(index + 1, NativeArrayOptions.ClearMemory);
+            // Doubled rather than grown a row at a time: this is the inner loop of the flatten and
+            // every transform in the session passes through it. Trimmed back to the exact count when
+            // the flatten finishes — the sampled row count has to match the tracked array exactly or
+            // the desync check rebuilds on every frame.
+            if (index >= sWorld.Length)
+            {
+                int grown = math.max(index + 1, sWorld.Length * 2);
+                sWorld.Resize(grown, NativeArrayOptions.ClearMemory);
+                sLocal.Resize(grown, NativeArrayOptions.ClearMemory);
+            }
             sLocal[index] = new BasisConstraintTransform
             {
                 LocalPosition = float3.zero,
@@ -1676,10 +1808,11 @@ namespace Basis.Scripts.Constraints
             // Resolve the bone's parent row too. Without it the solve would hand back each bone's
             // world rotation as though it were a local one, and the write would then compose it under
             // a parent that had already moved — the limb lands bent when it should be straight.
-            int parentIndex = bone.parent != null ? InternTransform(bone.parent) : -1;
-            BasisConstraintTransform local = sLocal[boneIndex];
-            local.ParentIndex = parentIndex;
-            sLocal[boneIndex] = local;
+            // Interned before the row is touched: interning can grow the table, and a ref taken into
+            // it beforehand would be left pointing at the buffer it grew out of.
+            Transform parent = bone.parent;
+            int parentIndex = parent != null ? InternTransform(parent) : -1;
+            sLocal.ElementAt(boneIndex).ParentIndex = parentIndex;
 
             sChain.Add(new int2(boneIndex, InternTargetRow(bone)));
             // Kept index-parallel with sChain for every kind, so the solve can index one from the
@@ -1743,16 +1876,46 @@ namespace Basis.Scripts.Constraints
         /// </summary>
         private static BasisConstraintKind ToKind(BasisConstraintType type) => (BasisConstraintKind)type;
 
+        /// <summary>
+        /// Ancestors between this transform and its root. Climbs only as far as the first ancestor
+        /// already measured this rebuild, then records everything it passed on the way back down:
+        /// the constraints on one avatar share a spine, so the second one up it stops at the first
+        /// bone. Walking the whole chain each time made this the population times the rig depth in
+        /// native parent reads, which is what a rebuild could least afford.
+        /// </summary>
         private static int ToDepth(Transform transform)
         {
-            int depth = 0;
+            // Started at the parent, not here: a constraint's own target is asked for once and never
+            // again, so remembering it would only ever cost an insert. Ancestors are the shared part.
             Transform cursor = transform.parent;
+            if (cursor == null)
+            {
+                return 0;
+            }
+
+            sDepthStack.Clear();
+            int depth = -1;
             while (cursor != null)
             {
-                depth++;
+                if (sDepthCache.TryGetValue(cursor, out depth))
+                {
+                    break;
+                }
+                sDepthStack.Add(cursor);
                 cursor = cursor.parent;
             }
-            return depth;
+            // Ran off the top: the last one pushed is a root, and a root sits at zero.
+            if (cursor == null)
+            {
+                depth = -1;
+            }
+            for (int Index = sDepthStack.Count - 1; Index >= 0; Index--)
+            {
+                depth++;
+                sDepthCache[sDepthStack[Index]] = depth;
+            }
+            // depth is the parent's; the transform itself sits one below it.
+            return depth + 1;
         }
 
         private static quaternion ToQuaternion(Vector3 eulerDegrees) => Quaternion.Euler(eulerDegrees);

@@ -155,8 +155,14 @@ namespace Basis
                     BasisDebug.LogError("Was not successful at TryGetNetworkGUIDIdentifier NetworkGUID");
                     return;
                 }
+                // A behaviour that outlives a server switch - anything under DontDestroyOnLoad, or a reconnect
+                // with no scene reload - runs this a second time to re-resolve its id against the new server,
+                // so remove before adding or the handlers stack one copy per connection.
+                BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
                 BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
+                BasisNetworkPlayer.OnOwnershipReleased -= LowLevelOwnershipReleased;
                 BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
+                BasisNetworkPlayer.OnPlayerJoined -= LowLevelResolvePendingOwner;
                 BasisNetworkPlayer.OnPlayerJoined += LowLevelResolvePendingOwner;
 
                 Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(ContentInformation.LoadedNetID);

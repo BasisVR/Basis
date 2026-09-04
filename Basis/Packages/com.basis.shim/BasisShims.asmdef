@@ -5,6 +5,7 @@
         "Unity.Mathematics",
         "LiteNetLib",
         "BasisNetworkCore",
+        "BasisNetworkServer",
         "BasisDebug",
         "Cilbox",
         "BasisEventDriver",

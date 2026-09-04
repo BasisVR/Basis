@@ -388,7 +388,7 @@ public class Configuration
     /// </summary>
     public bool TextChatLocked = false;
     /// <summary>
-    /// When true, the server refuses to relay voice (normal and shout) from peers lacking
+    /// When true, the server refuses to relay voice (normal and announce) from peers lacking
     /// basis.voice.lockbypass. Enforced server-side — voice has its own channels, so a modified
     /// client cannot talk past the lock. Seeds BasisGlobalLockManager at boot, can be toggled live
     /// from the admin panel, and is broadcast to clients in GlobalGetLockState so they also stop

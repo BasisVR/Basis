@@ -16,6 +16,7 @@ namespace Cilbox
 			"Basis.Shims.BasisAvatarShim+AvatarReadyEvent",
 			"Basis.Shims.BasisCilboxInstantiateShim",
 			"Basis.Shims.BasisJiggleEventShim", // Restrictive, see method whitelist.
+			"Basis.Shims.BasisPermissionEventShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisDebugPropsShim",
 			"Basis.Shims.BasisPlayspaceInputShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisPlayerInputBlend",
@@ -55,6 +56,12 @@ namespace Cilbox
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigCount),
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigName),
 				nameof(Basis.Shims.BasisJiggleEventShim.FindJiggleRig),
+				} },
+			// Local permission changes. Same shape as the jiggle events above: fetching the
+			// component is the opt-in, Rebind is only for proxies that appear late, and the
+			// callback is resolved by name off the script.
+			{ typeof(Basis.Shims.BasisPermissionEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisPermissionEventShim.Rebind),
 				} },
 			{ typeof(UnityEngine.GameObject), new HashSet<string>{
 				typeof(GameObject).GetProperty(nameof(GameObject.transform)).GetGetMethod().Name,

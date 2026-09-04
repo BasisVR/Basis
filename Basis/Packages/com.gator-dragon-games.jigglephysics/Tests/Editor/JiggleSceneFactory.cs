@@ -148,23 +148,43 @@ internal static class JiggleRuntimeStatics {
     /// rather than something the tests assert on, so standing it up by hand is safe.
     /// </summary>
     private static void FillDummyTransformPool() {
+        var field = GetDummyTransformPoolField();
+        if (field.GetValue(null) is not Dictionary<int, Transform> pool) {
+            pool = new Dictionary<int, Transform>();
+            field.SetValue(null, pool);
+        }
+        for (int index = 0; index < DummyTransformPoolSize; index++) {
+            if (pool.ContainsKey(index)) {
+                continue;
+            }
+            var dummy = new GameObject($"JiggleTestDummyTransform{index}") {
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            pool.Add(index, dummy.transform);
+        }
+    }
+
+    private static FieldInfo GetDummyTransformPoolField() {
         const string fieldName = "dummyTransforms";
         var field = typeof(JiggleMemoryBus).GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic);
         if (field == null) {
             throw new InvalidOperationException(
                 $"JiggleMemoryBus.{fieldName} was renamed; the edit mode dummy transform pool needs updating.");
         }
-        if (field.GetValue(null) is not List<Transform> pool) {
-            pool = new List<Transform>();
-            field.SetValue(null, pool);
-        }
-        while (pool.Count < DummyTransformPoolSize) {
-            var dummy = new GameObject($"JiggleTestDummyTransform{pool.Count}") {
-                hideFlags = HideFlags.HideAndDontSave,
-            };
-            pool.Add(dummy.transform);
-        }
+        return field;
     }
+
+    /// <summary>
+    /// How many dummies the pool is actually holding, so a test can assert it stays sparse. The pool
+    /// is keyed by slot index and a rig lands wherever the fragmenter has room, so a dense pool would
+    /// size itself to the arena rather than to the number of parked slots.
+    /// </summary>
+    public static int DummyTransformPoolCount =>
+        GetDummyTransformPoolField().GetValue(null) is Dictionary<int, Transform> pool ? pool.Count : 0;
+
+    /// <summary>Whether the pool has a dummy standing for that slot index.</summary>
+    public static bool DummyTransformPoolContains(int index) =>
+        GetDummyTransformPoolField().GetValue(null) is Dictionary<int, Transform> pool && pool.ContainsKey(index);
 
     public static void Shutdown() {
         JigglePhysics.Dispose();

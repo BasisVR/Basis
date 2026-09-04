@@ -845,33 +845,38 @@ public static class BasisRemoteFaceManagement
 
         int cacheLength = faceCache.Length;
 
-        for (int Index = 0; Index < count; Index++)
+        try
         {
-            BasisNetworkReceiver receiver = snapshot[Index];
-            BasisRemoteFaceDriver Face = receiver.RemotePlayer.RemoteFaceDriver;
-            int previous = Face.FaceSlotIndex;
-
-            if ((uint)previous < (uint)capacity && previous < cacheLength && ReferenceEquals(faceCache[previous], Face))
+            for (int Index = 0; Index < count; Index++)
             {
-                pEyeStates[Index] = prevEyeStates[previous];
-                pBlinkStates[Index] = prevBlinkStates[previous];
-                pEyeOut[Index] = prevEyeOut[previous];
-                pBlinkOut[Index] = prevBlinkOut[previous];
-                pLastBlinkApplied[Index] = prevLastBlink[previous];
-            }
-            else
-            {
-                SeedSlot(Index, nowTime, receiver.EyesAndMouth, baseSeed, pEyeStates, pBlinkStates, pEyeOut, pBlinkOut, pLastBlinkApplied);
-            }
+                BasisNetworkReceiver receiver = snapshot[Index];
+                BasisRemoteFaceDriver Face = receiver.RemotePlayer.RemoteFaceDriver;
+                int previous = Face.FaceSlotIndex;
 
-            Face.FaceSlotIndex = Index;
+                if ((uint)previous < (uint)capacity && previous < cacheLength && ReferenceEquals(faceCache[previous], Face))
+                {
+                    pEyeStates[Index] = prevEyeStates[previous];
+                    pBlinkStates[Index] = prevBlinkStates[previous];
+                    pEyeOut[Index] = prevEyeOut[previous];
+                    pBlinkOut[Index] = prevBlinkOut[previous];
+                    pLastBlinkApplied[Index] = prevLastBlink[previous];
+                }
+                else
+                {
+                    SeedSlot(Index, nowTime, receiver.EyesAndMouth, baseSeed, pEyeStates, pBlinkStates, pEyeOut, pBlinkOut, pLastBlinkApplied);
+                }
+
+                Face.FaceSlotIndex = Index;
+            }
         }
-
-        prevEyeStates.Dispose();
-        prevBlinkStates.Dispose();
-        prevEyeOut.Dispose();
-        prevBlinkOut.Dispose();
-        prevLastBlink.Dispose();
+        finally
+        {
+            prevEyeStates.Dispose();
+            prevBlinkStates.Dispose();
+            prevEyeOut.Dispose();
+            prevBlinkOut.Dispose();
+            prevLastBlink.Dispose();
+        }
 
         return true;
     }

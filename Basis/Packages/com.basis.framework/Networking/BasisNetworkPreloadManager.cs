@@ -65,7 +65,8 @@ public static class BasisNetworkPreloadManager
             {
                 BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle()
                 {
-                    RemoteBeeFileLocation = resource.CombinedURL
+                    RemoteBeeFileLocation = resource.CombinedURL,
+                    IsNetworkSourced = true
                 },
                 UnlockPassword = resource.UnlockPassword,
             };
@@ -83,29 +84,42 @@ public static class BasisNetworkPreloadManager
             // Check if the full BEE file is already on disk
             var (isOnDisc, metaInfo) = await BasisLoadHandler.IsMetaDataOnDiscAsync(resource.CombinedURL);
 
-            (BasisBundleGenerated Generated, byte[] BundleBytes, string ErrorMessage) output;
+            BasisBundleGenerated generated;
+            long sectionLength;
+            string errorMessage;
 
             if (isOnDisc)
             {
-                // Already downloaded - just read connector + bundle bytes to verify integrity
-                output = await BasisBundleManagement.LocalLoadBundleConnector(wrapper, metaInfo.StoredLocal, report, cancel);
+                // Already downloaded - confirm the connector parses and the section is present.
+                // This never spawns an AssetBundle, so reading the encrypted section only to
+                // length-check it would allocate the whole bundle on the LOH for nothing.
+                var verified = await BasisBundleManagement.LocalVerifyBundleConnector(wrapper, metaInfo.StoredLocal, report, cancel);
+                generated = verified.Generated;
+                sectionLength = verified.SectionLength;
+                errorMessage = verified.ErrorMessage;
             }
             else
             {
                 // Download the full BEE file to disk
-                output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancel);
+                var downloaded = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancel);
+                generated = downloaded.Generated;
+                sectionLength = downloaded.Section.Length;
+                errorMessage = downloaded.ErrorMessage;
             }
 
             // Retry if local read returned empty data
-            if (output.BundleBytes == null || output.BundleBytes.Length == 0)
+            if (sectionLength == 0)
             {
-                output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancel);
+                var downloaded = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancel);
+                generated = downloaded.Generated;
+                sectionLength = downloaded.Section.Length;
+                errorMessage = downloaded.ErrorMessage;
                 isOnDisc = false; // was re-downloaded
             }
 
-            if (output.Generated == null || output.ErrorMessage != string.Empty)
+            if (generated == null || errorMessage != string.Empty)
             {
-                throw new Exception($"Failed to download BEE file: {output.ErrorMessage}");
+                throw new Exception($"Failed to download BEE file: {errorMessage}");
             }
 
             // Save metadata to disk so the normal load path finds the file later

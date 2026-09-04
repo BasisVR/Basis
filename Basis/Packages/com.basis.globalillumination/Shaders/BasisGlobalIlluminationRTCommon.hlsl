@@ -134,9 +134,12 @@ float BasisGIRtDistanceAttenuation(float distanceSquared, float inverseRangeSqua
     return attenuation * smoothFactor * smoothFactor;
 }
 
+/// direction.xyz arrives unit length - BasisGlobalIlluminationRayLights normalises it once per light per
+/// frame on the CPU - so there is no normalize here. Normalising a per-light constant at every hit of every
+/// bounce is a reciprocal square root the light list can pay for once instead.
 float BasisGIRtSpotAttenuation(BasisGIRtLight light, float3 toLight)
 {
-    float cosAngle = dot(-toLight, normalize(light.direction.xyz));
+    float cosAngle = dot(-toLight, light.direction.xyz);
     float attenuation = saturate(cosAngle * light.spot.x + light.spot.y);
     return attenuation * attenuation;
 }

@@ -484,8 +484,8 @@ public class BasisSavedStateTests
         Assert.False(BasisSavedState.GetLastAvatarChangeState(stranger, out _));
         Assert.False(BasisSavedState.GetLastPlayerMetaData(stranger, out _));
         Assert.False(BasisSavedState.GetResolvedVoicePeers(stranger, out _));
-        Assert.False(BasisSavedState.IsInShoutMode(stranger.Id));
-        Assert.DoesNotContain(stranger.Id, BasisSavedState.GetAllShoutModePlayers());
+        Assert.False(BasisSavedState.IsInAnnounceMode(stranger.Id));
+        Assert.DoesNotContain(stranger.Id, BasisSavedState.GetAllAnnounceModePlayers());
     }
 
     [Fact]
@@ -499,14 +499,14 @@ public class BasisSavedStateTests
         };
         BasisSavedState.AddLastData(peer, ready);
         BasisSavedState.GetOrCreateResolvedList(peer.Id);
-        BasisSavedState.SetShoutMode(peer.Id, true);
+        BasisSavedState.SetAnnounceMode(peer.Id, true);
 
         BasisSavedState.RemovePlayer(peer.Id);
 
         Assert.False(BasisSavedState.GetLastAvatarChangeState(peer, out _));
         Assert.False(BasisSavedState.GetLastPlayerMetaData(peer, out _));
         Assert.False(BasisSavedState.GetResolvedVoicePeers(peer, out _));
-        Assert.False(BasisSavedState.IsInShoutMode(peer.Id));
+        Assert.False(BasisSavedState.IsInAnnounceMode(peer.Id));
     }
 
     [Fact]
@@ -594,27 +594,27 @@ public class BasisSavedStateTests
     }
 
     [Fact]
-    public void ShoutMode_SetQueryAndEnumerate()
+    public void AnnounceMode_SetQueryAndEnumerate()
     {
         const int id = 51008;
         try
         {
-            Assert.False(BasisSavedState.IsInShoutMode(id));
+            Assert.False(BasisSavedState.IsInAnnounceMode(id));
 
-            BasisSavedState.SetShoutMode(id, true);
-            Assert.True(BasisSavedState.IsInShoutMode(id));
-            Assert.Contains(id, BasisSavedState.GetAllShoutModePlayers());
+            BasisSavedState.SetAnnounceMode(id, true);
+            Assert.True(BasisSavedState.IsInAnnounceMode(id));
+            Assert.Contains(id, BasisSavedState.GetAllAnnounceModePlayers());
 
-            BasisSavedState.SetShoutMode(id, true);
-            Assert.True(BasisSavedState.IsInShoutMode(id));
+            BasisSavedState.SetAnnounceMode(id, true);
+            Assert.True(BasisSavedState.IsInAnnounceMode(id));
 
-            BasisSavedState.SetShoutMode(id, false);
-            Assert.False(BasisSavedState.IsInShoutMode(id));
-            Assert.DoesNotContain(id, BasisSavedState.GetAllShoutModePlayers());
+            BasisSavedState.SetAnnounceMode(id, false);
+            Assert.False(BasisSavedState.IsInAnnounceMode(id));
+            Assert.DoesNotContain(id, BasisSavedState.GetAllAnnounceModePlayers());
         }
         finally
         {
-            BasisSavedState.SetShoutMode(id, false);
+            BasisSavedState.SetAnnounceMode(id, false);
         }
     }
 
@@ -630,7 +630,7 @@ public class BasisSavedStateTests
                 int id = BaseId + i;
                 var peer = new OwnershipFakeNetPeer(id);
                 BasisSavedState.AddLastData(peer, new ClientAvatarChangeMessage { loadMode = 1, byteArray = new[] { (byte)i }, LocalAvatarIndex = (byte)i });
-                BasisSavedState.SetShoutMode(id, (i & 1) == 0);
+                BasisSavedState.SetAnnounceMode(id, (i & 1) == 0);
                 Assert.True(BasisSavedState.GetLastAvatarChangeState(peer, out var avatar));
                 Assert.Equal((byte)i, avatar.LocalAvatarIndex);
             });
@@ -640,7 +640,7 @@ public class BasisSavedStateTests
                 var peer = new OwnershipFakeNetPeer(BaseId + i);
                 Assert.True(BasisSavedState.GetLastAvatarChangeState(peer, out var avatar));
                 Assert.Equal((byte)i, avatar.byteArray[0]);
-                Assert.Equal((i & 1) == 0, BasisSavedState.IsInShoutMode(BaseId + i));
+                Assert.Equal((i & 1) == 0, BasisSavedState.IsInAnnounceMode(BaseId + i));
             }
         }
         finally

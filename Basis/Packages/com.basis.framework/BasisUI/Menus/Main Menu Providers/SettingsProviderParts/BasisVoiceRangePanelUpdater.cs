@@ -73,7 +73,9 @@ namespace Basis.BasisUI
             int count = BasisNetworkPlayers.ReceiverCount;
 
             float hearingSq = SMModuleDistanceBasedReductions.HearingRange;
-            float micSq = SMModuleDistanceBasedReductions.MicrophoneRange;
+            float shoutHearingSq = hearingSq * BasisShout.RangeMultiplierSquared;
+            float micSq = SMModuleDistanceBasedReductions.MicrophoneRange
+                * (BasisTalkModeManager.LocalIsShouting ? BasisShout.RangeMultiplierSquared : 1f);
             float3 head = BasisLocalCameraDriver.HeadPosition;
 
             int players = 0;
@@ -100,7 +102,7 @@ namespace Basis.BasisUI
                 {
                     float d2 = math.lengthsq(mouth - head);
                     meters = math.sqrt(d2);
-                    inHearing = d2 < hearingSq;
+                    inHearing = d2 < (remote.TalkMode == BasisTalkMode.Shout ? shoutHearingSq : hearingSq);
                     inMic = d2 < micSq;
                 }
 

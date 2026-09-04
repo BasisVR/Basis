@@ -21,7 +21,7 @@ namespace Basis.Scripts.Profiler
         AvatarChange,
         ServerAvatarData,
         Disconnection,
-        ShoutVoice,
+        AnnounceVoice,
         GetOwnership,
         ChangeOwnership,
         RemoveOwnership,

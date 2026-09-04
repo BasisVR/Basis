@@ -18,7 +18,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     if (_activePlayersDirty)
                     {
-                        _activePlayersSnapshot = _activePlayers.ToArray();
+                        _activePlayersSnapshot = BuildActiveRoster();
                         _activePlayersDirty = false;
                     }
                 }
@@ -56,6 +56,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             // Fallback interval for pairs not yet in the distance cache (new players).
             long minIntervalTicks = (long)(BSRSMillisecondDefaultInterval * BSRBaseMultiplier * MsToTick);
+            // Hoisted once per pass: the send loop is the only reader that can run before the distance
+            // sweep has ever built it, so it is the one that has to guarantee it exists.
+            int[] intervalTickTable = EnsureIntervalTickTable();
 
             // Floor on the interval we advertise this tick: a receiver is only visited every
             // _sliceCount ticks, so nothing can actually arrive faster than that regardless of what
@@ -99,6 +102,14 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     return;
                 }
+                var lastSeen = stateI.PeerLastSeenGeneration;
+                if (lastSeen == null || lastSeen.Length < tracking.Length)
+                {
+                    // Repaired rather than skipped: returning here would drop the receiver from the
+                    // pass without a word.
+                    tracking = GrowPeerTracking(stateI, tracking.Length - 1);
+                    lastSeen = stateI.PeerLastSeenGeneration;
+                }
 
                 // Per-receiver pending buffer: collect what would be sent this tick
                 // and decide compress-or-individual at the end. Lazily grown.
@@ -140,18 +151,11 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         continue;
                     }
 
-                    // Bounds check — grow array if needed (rare, only when IDs exceed capacity)
+                    // Bounds check — grow both arrays if needed (rare, only when IDs exceed capacity)
                     if (jId >= tracking.Length)
                     {
-                        lock (stateI)
-                        {
-                            if (jId >= stateI.PeerTracking.Length)
-                            {
-                                int newLen = Math.Max(stateI.PeerTracking.Length * 2, jId + 1);
-                                Array.Resize(ref stateI.PeerTracking, newLen);
-                            }
-                            tracking = stateI.PeerTracking;
-                        }
+                        tracking = GrowPeerTracking(stateI, jId);
+                        lastSeen = stateI.PeerLastSeenGeneration;
                     }
 
                     // 1. New data check — plain array read, no pointer chase. This is the cheapest
@@ -159,8 +163,11 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     // so nothing more expensive may run above it. The P2P check in particular used to
                     // sit higher up, paying a ConcurrentDictionary lookup on every pair in the matrix
                     // instead of only the ones that survive this gate.
-                    long senderGen = _generationSnapshot[jId];
-                    if (senderGen <= tracking[jId].LastSeenGeneration)
+                    // Truncated to 32 bits on both sides: the snapshot is a counter of avatar updates
+                    // and the low half takes over a year to wrap at full rate. See
+                    // PlayerState.PeerLastSeenGeneration for why this one field is not in the record.
+                    uint senderGen = (uint)_generationSnapshot[jId];
+                    if (senderGen <= lastSeen[jId])
                     {
                         continue;
                     }
@@ -192,9 +199,12 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     //    threshold doubles the interval, so degradation is graded by distance.
                     if (!bypassReduction)
                     {
-                        long elapsed = nowTicks - tracking[jId].LastSentTime;
-                        long required = tracking[jId].CachedIntervalTicks;
-                        if (required <= 0) required = minIntervalTicks;
+                        // Unsigned subtraction: LastSentTime is the low 32 bits of the tick counter and
+                        // wrapping is the intended arithmetic, not an overflow. See PeerTrackingData.
+                        uint elapsed = (uint)nowTicks - tracking[jId].LastSentTime;
+                        long required = tracking[jId].HasDistanceCache
+                            ? intervalTickTable[tracking[jId].CachedIntervalByte]
+                            : minIntervalTicks;
 
                         int shedSteps = _loadShedTier - qi;
                         if (shedSteps > 0)
@@ -248,7 +258,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     bool sendDelta = EnableAvatarDeltaCompression
                         && !bypassReduction
                         && !stateJ.CurrentIsKeyframe
-                        && tracking[jId].BaselineKeyframeGen == stateJ.KeyframeGen
+                        && tracking[jId].BaselineKeyframeGen == (uint)stateJ.KeyframeGen
                         && tracking[jId].BaselineQuality == qi
                         && stateJ.SerializedDeltaLength[qi] > 0
                         && stateJ.SerializedDelta[qi] != null;
@@ -281,7 +291,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         // keyframe frame layout: [playerId:1|2][interval:1]...
                         intervalOffset = (byte)(stateJ.SmallId ? 1 : 2);
                         // Receiver now holds this keyframe generation + quality; subsequent deltas apply.
-                        tracking[jId].BaselineKeyframeGen = stateJ.KeyframeGen;
+                        tracking[jId].BaselineKeyframeGen = (uint)stateJ.KeyframeGen;
                         tracking[jId].BaselineQuality = (byte)qi;
                     }
 
@@ -301,8 +311,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
                     MarkQualityUsed(ref stateJ.UsedQualities, qi);
 
-                    tracking[jId].LastSentTime = nowTicks;
-                    tracking[jId].LastSeenGeneration = senderGen;
+                    tracking[jId].LastSentTime = (uint)nowTicks;
+                    lastSeen[jId] = senderGen;
 
                     localSends++;
                 }

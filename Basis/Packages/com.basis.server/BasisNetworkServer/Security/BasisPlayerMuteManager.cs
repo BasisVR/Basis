@@ -15,7 +15,7 @@ namespace BasisNetworkServer.Security
     /// Per-player moderation mutes: voice and text chat as independent flags on one UUID-keyed
     /// record, persisted to muted_players.xml the way bans are so a rejoin or server restart
     /// keeps the mute. Enforcement lives in the shared gates the global locks already use
-    /// (IsChatBlockedFor / IsVoiceBlockedFor), so chat, typing, normal voice and shout are all
+    /// (IsChatBlockedFor / IsVoiceBlockedFor), so chat, typing, normal voice and announce are all
     /// covered; MuteStateApply keeps the target's own client honest about what the server drops.
     /// </summary>
     public static class BasisPlayerMuteManager

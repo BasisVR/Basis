@@ -1,4 +1,3 @@
-using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -802,26 +801,14 @@ public struct JiggleJobSimulate : IJobFor {
         }
     }
 
-    #if UNITY_EDITOR && JIGGLE_VALIDATE
-    // Opt-in via the JIGGLE_VALIDATE scripting define. Kept out of Execute by default: the out-string +
-    // throw can't be Burst-compiled, so its presence forces the whole simulate job to run as managed IL
-    // in the editor. Sanitize() (below) already repairs NaNs every frame regardless.
-    private bool Validate(JiggleTreeJobData tree) {
-        if (!tree.GetIsValid(out string failReason)) {
-            throw new InvalidOperationException(failReason);
-        }
-
-        return true;
-    }
-    #endif
+    // No per-tree Validate() here, deliberately. It used `tree.GetIsValid(out string)` + throw, none
+    // of which Burst can compile, so merely defining the symbol that gated it dropped this entire
+    // Execute — Cache, VerletIntegrate, Constrain, the lot — back to managed IL in the editor and
+    // made every jiggle profile taken there meaningless. Sanitize() below already repairs NaNs every
+    // frame, so the check only ever bought a message. See JiggleMemoryBus for the full story.
 
     public unsafe void Execute(int index) {
         var tree = jiggleTrees[index];
-        #if UNITY_EDITOR && JIGGLE_VALIDATE
-        if (!Validate(tree)) {
-            return;
-        }
-        #endif
         // Cache reads the animated pose, which has a single sample per frame, so it is hoisted out of
         // the substep loop. Each substep is then a whole fixed step: two of them advance the sim by
         // exactly as much as two frames would, which is what makes the result frame rate independent.

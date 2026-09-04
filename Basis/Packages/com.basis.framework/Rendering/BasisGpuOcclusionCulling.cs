@@ -1,4 +1,5 @@
 using Basis.BasisUI;
+using Basis.Scripts.Common;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -21,15 +22,16 @@ namespace Basis.Scripts.Rendering
         private static bool _appliedKnown;
 
         /// <summary>
-        /// Whether the option is worth offering: a non-Android build whose active pipeline asset
-        /// actually runs the GPU Resident Drawer. Android ships the drawer disabled, and URP
-        /// refuses GPU occlusion on tile-only renderers and on Qualcomm GPUs anyway.
+        /// Whether the option is worth offering: a build on a desktop GPU whose active pipeline
+        /// asset actually runs the GPU Resident Drawer. Android ships the drawer disabled, and URP
+        /// refuses GPU occlusion on tile-only renderers and on Qualcomm GPUs anyway, which a
+        /// Windows build on Frame hardware is as much as the Android build is.
         /// </summary>
         public static bool IsSupported
         {
             get
             {
-                if (Application.platform == RuntimePlatform.Android)
+                if (Application.platform == RuntimePlatform.Android || BasisGpuDetection.IsMobileGpu)
                 {
                     return false;
                 }

@@ -2,6 +2,7 @@ using Basis.BasisUI;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Command_Line_Args;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Networking;
@@ -237,6 +238,7 @@ namespace Basis.Scripts.Device_Management
 
             // Detect Wine/Proton once up front so any subsystem can branch on it.
             BasisProtonDetection.Initialize();
+            BasisGpuDetection.Initialize();
 
             StaticCurrentMode = BasisConstants.None;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;

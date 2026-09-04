@@ -14,6 +14,13 @@ public struct BasisDistanceJobParallel : IJobParallelFor
     public float SquaredVoiceDistance;
     public float SquaredHearingDistance;
     public float SquaredAvatarDistance;
+
+    /// <summary>Squared range multiplier applied to the hearing test for a shouting remote.</summary>
+    public float ShoutRangeMultiplierSquared;
+
+    /// <summary>Per-index: true when that remote is shouting, and so is audible at
+    /// <see cref="ShoutRangeMultiplierSquared"/> times the squared hearing range.</summary>
+    [ReadOnly] public NativeArray<bool> RemoteIsShouting;
     /// <summary>Multiplier for exit threshold (use > 1 for hysteresis, e.g. 1.10f)</summary>
     public float HysteresisPercent;
 
@@ -68,7 +75,7 @@ public struct BasisDistanceJobParallel : IJobParallelFor
         distanceSq[i] = d2;
 
         float voiceEnter = SquaredVoiceDistance;
-        float hearEnter = SquaredHearingDistance;
+        float hearEnter = RemoteIsShouting[i] ? SquaredHearingDistance * ShoutRangeMultiplierSquared : SquaredHearingDistance;
         float avEnter = SquaredAvatarDistance;
 
         float voiceExit = voiceEnter * HysteresisPercent;

@@ -62,7 +62,7 @@ namespace BasisPermissions
         public const string ModerationMessage = "basis.moderation.message";
         public const string ModerationMessageAll = "basis.moderation.messageall";
         public const string ModerationTeleport = "basis.moderation.teleport";
-        public const string ModerationShout = "basis.moderation.shout";
+        public const string ModerationAnnounce = "basis.moderation.announce";
         public const string ModerationGlobalLock = "basis.moderation.globallock";
         public const string ModerationHeadlessAudio = "basis.moderation.headlessaudio";
         public const string ModerationOpusBitrate = "basis.moderation.opusbitrate";
@@ -284,6 +284,87 @@ namespace BasisPermissions
         public bool Has(string uuid, string node)
         {
             return GetEffective(uuid).Has(node);
+        }
+
+        /// <summary>
+        /// True when the user belongs to <paramref name="group"/>, directly or through the parent
+        /// chain of a group they are in. Walks the same edges <see cref="ApplyGroupRecursive_NoLock"/>
+        /// does, so a role check and a node check never disagree about inheritance, and treats a
+        /// user absent from the store as a member of the implicit "default" group for the same
+        /// reason <see cref="BuildEffective_NoLock"/> does.
+        ///
+        /// A membership naming a group with no row still counts: the assignment on the user is the
+        /// fact being asked about, and one can name a group that was never defined — AddUserToGroup
+        /// does not create it, and hand-edited xml need not either. (Deleting a group is not such a
+        /// path: DeleteGroup scrubs the membership off every user.)
+        /// </summary>
+        public bool IsInGroup(string uuid, string group)
+        {
+            if (string.IsNullOrWhiteSpace(uuid) || string.IsNullOrWhiteSpace(group))
+            {
+                return false;
+            }
+
+            group = group.Trim();
+
+            _lock.EnterReadLock();
+            try
+            {
+                HashSet<string> memberships = _store.Users.TryGetValue(uuid, out PermissionUser user)
+                    ? user.Groups
+                    : ImplicitDefaultGroups;
+
+                var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string g in memberships)
+                {
+                    if (InheritsGroup_NoLock(g, group, visited))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            finally { _lock.ExitReadLock(); }
+        }
+
+        private static readonly HashSet<string> ImplicitDefaultGroups =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "default" };
+
+        private bool InheritsGroup_NoLock(string groupName, string target, HashSet<string> visited)
+        {
+            if (string.IsNullOrWhiteSpace(groupName))
+            {
+                return false;
+            }
+
+            groupName = groupName.Trim();
+
+            // Also the cycle guard: a group graph with a loop would otherwise recurse forever.
+            if (!visited.Add(groupName))
+            {
+                return false;
+            }
+
+            if (string.Equals(groupName, target, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!_store.Groups.TryGetValue(groupName, out PermissionGroup group))
+            {
+                return false;
+            }
+
+            foreach (string parent in group.Parents)
+            {
+                if (InheritsGroup_NoLock(parent, target, visited))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public IReadOnlyCollection<string> GetAllAllowedRules(string uuid)
@@ -799,7 +880,7 @@ namespace BasisPermissions
                     adm.Nodes.Add(PermNodes.ModerationMessage);
                     adm.Nodes.Add(PermNodes.ModerationMessageAll);
                     adm.Nodes.Add(PermNodes.ModerationTeleport);
-                    adm.Nodes.Add(PermNodes.ModerationShout);
+                    adm.Nodes.Add(PermNodes.ModerationAnnounce);
                     adm.Nodes.Add(PermNodes.ModerationGlobalLock);
                     adm.Nodes.Add(PermNodes.ModerationHeadlessAudio);
                     adm.Nodes.Add(PermNodes.ModerationOpusBitrate);
@@ -856,6 +937,23 @@ namespace BasisPermissions
             //     </User>
             //   </Users>
             // </Permissions>
+
+            /// <summary>
+            /// Node names are stored verbatim in permissions.xml, so renaming one orphans every
+            /// grant an operator already wrote. Rewrite retired spellings on the way in — a
+            /// negated node ("-basis.moderation.shout") has to migrate too, or a deny silently
+            /// stops denying, which is the dangerous direction.
+            /// </summary>
+            private static string MigrateLegacyNode(string node)
+            {
+                const string legacy = "basis.moderation.shout";
+                if (node.Equals(legacy, StringComparison.OrdinalIgnoreCase))
+                    return PermNodes.ModerationAnnounce;
+                if (node.Length == legacy.Length + 1 && node[0] == '-'
+                    && node.AsSpan(1).Equals(legacy.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                    return "-" + PermNodes.ModerationAnnounce;
+                return node;
+            }
 
             public static PermissionStore Load(string path)
             {
@@ -939,7 +1037,7 @@ namespace BasisPermissions
                                     if (string.IsNullOrWhiteSpace(node))
                                         break;
 
-                                    node = node.Trim();
+                                    node = MigrateLegacyNode(node.Trim());
 
                                     if (inGroups && currentGroupDef != null)
                                         currentGroupDef.Nodes.Add(node);

@@ -13,9 +13,9 @@ using UnityEngine;
 /// </summary>
 public static class BasisGltfAvatarLoader
 {
-    public static async Task<bool> LoadTemplate(BasisTrackedBundleWrapper wrapper, BasisBundleGenerated generated, byte[] encryptedSection, BasisProgressReport report)
+    public static async Task<bool> LoadTemplate(BasisTrackedBundleWrapper wrapper, BasisBundleGenerated generated, BasisBundleSection encryptedSection, BasisProgressReport report)
     {
-        if (wrapper?.LoadableBundle == null || generated == null || encryptedSection == null || encryptedSection.Length == 0)
+        if (wrapper?.LoadableBundle == null || generated == null || !encryptedSection.HasPayload)
         {
             BasisDebug.LogError("Generic (glTF) load: missing wrapper, section entry, or section bytes.");
             return false;
@@ -30,7 +30,7 @@ public static class BasisGltfAvatarLoader
 
         var basisPassword = new BasisEncryptionWrapper.BasisPassword { VP = wrapper.LoadableBundle.UnlockPassword };
         string uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
-        var decrypted = await BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueID, basisPassword, encryptedSection, report);
+        var decrypted = await BasisEncryptionToData.DecryptSection(uniqueID, basisPassword, encryptedSection, report);
         if (!decrypted.Success || decrypted.Data == null || decrypted.Data.Length == 0)
         {
             BasisDebug.LogError($"Generic (glTF) load: decrypt failed. {decrypted.Error} | {decrypted.Message}");

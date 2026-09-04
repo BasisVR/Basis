@@ -136,6 +136,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     AvatarHigh = high,
                     HighArrayActualSize = expectedPayloadSize,
                     PeerTracking = new PeerTrackingData[InitialPlayerArrayCapacity],
+                    PeerLastSeenGeneration = new uint[InitialPlayerArrayCapacity],
                     // Stagger the periodic keyframe phase per player. A keyframe tick serialises all
                     // four qualities instead of just the used ones (~4x the work) and puts a much
                     // larger payload on the wire. Seeding every player from their first frame makes a

@@ -22,6 +22,13 @@ public static class BasisLogBundleReceiver
     private const long MaxBytes = 256L * 1024 * 1024;
     private const int MaxChunks = 4_000_000;
 
+    // A log bundle is only ever the answer to RequestAllLogs. Without this the server can start an
+    // unsolicited transfer: a 256 MB allocation, a write into persistentDataPath and a popup, none
+    // of which the local player asked for.
+    private const double ArmedWindowSeconds = 300d;
+    private static bool _armed;
+    private static DateTime _armedUtc;
+
     private static bool _active;
     private static string _serverNameSafe;
     private static bool _isCompressed;
@@ -54,8 +61,22 @@ public static class BasisLogBundleReceiver
     // Reporting 100 removes the entry (and closes the bar if nothing else is loading).
     private static void ClearProgress() => BasisUILoadingBar.ProgressReport(ProgressKey, 100f, DownloadLabel);
 
+    public static void ArmForLocalRequest()
+    {
+        _armed = true;
+        _armedUtc = DateTime.UtcNow;
+    }
+
     public static void Begin(NetDataReader reader)
     {
+        if (!_armed || (DateTime.UtcNow - _armedUtc).TotalSeconds > ArmedWindowSeconds)
+        {
+            _armed = false;
+            BasisDebug.LogError("Ignoring a log bundle that was never requested from this client.");
+            Reset();
+            return;
+        }
+        _armed = false;
         try
         {
             string serverNameSafe = reader.GetString();

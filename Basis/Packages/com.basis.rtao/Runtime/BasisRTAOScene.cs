@@ -207,10 +207,36 @@ namespace Basis.Rendering.RTAO
         private readonly Dictionary<EntityId, ProxyEntry> proxies = new Dictionary<EntityId, ProxyEntry>();
         private readonly List<EntityId> proxyRemoval = new List<EntityId>();
 
+        /// <summary>
+        /// The most capsule instances the avatars in a room may take, matching global illumination's own
+        /// BasisGlobalIlluminationRayScene.MaxInstances.
+        ///
+        /// Nothing else here has a ceiling because nothing else scales with the player count: a world's
+        /// geometry is whatever the world author built, and it is registered once. Bodies are not - a
+        /// public instance can hold far more people than a room holds props, every humanoid animator in it
+        /// is discovered by the rescan, and each one is fifteen more instances in the top level structure
+        /// that a moving room rebuilds every frame. Past some number the acceleration structure costs more
+        /// than the occlusion is worth, and the honest failure is for the people beyond it to stop
+        /// occluding rather than for the frame to fall over. Counted over proxies alone rather than over
+        /// every instance, because this is the only part that grows without bound.
+        /// </summary>
+        public const int MaxProxyInstances = 8192;
+
         public int ProxyCount => proxies.Count;
         private readonly List<EntityId> pendingRemoval = new List<EntityId>();
         private IRayTracingAccelStruct accelStruct;
         private float nextScanTime;
+        /// <summary>
+        /// How many candidates the geometry pass walks per frame. See the twin in
+        /// BasisGlobalIlluminationRayScene for why the walk rather than the scene scan in front of it is
+        /// what had to be spread out.
+        /// </summary>
+        private const int ScanBudget = 256;
+        private Renderer[] scanBatch;
+        private int scanCursor;
+        private bool scanning;
+        private float nextProxyScanTime;
+        private bool proxyScanPhased;
         private int lastRefreshFrame = int.MinValue;
         private bool forceRefresh = true;
         private bool structureDirty = true;
@@ -311,6 +337,16 @@ namespace Basis.Rendering.RTAO
         public void MarkDirty()
         {
             nextScanTime = 0f;
+            nextProxyScanTime = 0f;
+            // A pass in flight is walking a snapshot from before whatever changed, so it is abandoned
+            // rather than finished. Nothing is left half applied: the next pass re-marks every entry
+            // unseen and walks the whole set again, and the sweep only runs at the end of a completed
+            // pass. Invalidate so that next pass takes a fresh walk rather than the cached one this call
+            // is saying is out of date.
+            scanning = false;
+            scanBatch = null;
+            scanCursor = 0;
+            BasisSceneScan.Invalidate();
             structureDirty = true;
             forceRefresh = true;
         }
@@ -364,15 +400,30 @@ namespace Basis.Rendering.RTAO
             lastRefreshFrame = frameCount;
             forceRefresh = false;
 
-            if (time >= nextScanTime)
+            float interval = Mathf.Max(0.1f, settings.rescanInterval);
+
+            if (!scanning && time >= nextScanTime)
             {
-                nextScanTime = time + Mathf.Max(0.1f, settings.rescanInterval);
-                Rescan(settings);
-                if (settings.skinnedMode == BasisRTAOSkinnedMode.Proxy)
-                    RescanProxies(settings);
-                else if (proxies.Count > 0)
-                    ClearProxies();
+                nextScanTime = time + interval;
+                BeginScan(interval);
             }
+            if (scanning)
+                StepScan(settings, ScanBudget);
+
+            if (settings.skinnedMode == BasisRTAOSkinnedMode.Proxy)
+            {
+                if (time >= nextProxyScanTime)
+                {
+                    // The first reschedule is a half interval longer than the rest, which parks the
+                    // animator walk permanently between two geometry walks instead of on the same frame
+                    // as one. Both still run immediately at startup.
+                    nextProxyScanTime = time + (proxyScanPhased ? interval : interval * 1.5f);
+                    proxyScanPhased = true;
+                    RescanProxies(settings, interval);
+                }
+            }
+            else if (proxies.Count > 0)
+                ClearProxies();
 
             UpdateTransforms();
 
@@ -384,15 +435,42 @@ namespace Basis.Rendering.RTAO
             ResetStructure();
         }
 
+        /// <summary>
+        /// The whole geometry pass at once. Refresh drives the sliced form below instead; this is for a
+        /// caller that has just changed the world and wants the structure to agree before the next frame.
+        /// </summary>
         public void Rescan(in BasisRTAOSceneSettings settings)
+        {
+            BeginScan(Mathf.Max(0.1f, settings.rescanInterval));
+            StepScan(settings, int.MaxValue);
+        }
+
+        private void BeginScan(float interval)
         {
             foreach (KeyValuePair<EntityId, Entry> pair in entries)
                 pair.Value.seen = false;
 
-            Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude);
-            for (int i = 0; i < renderers.Length; i++)
+            // Shared with global illumination, which wants the same set on the same cadence: whichever of
+            // the two asks first in the window pays for the walk and the other reads its array.
+            scanBatch = BasisSceneScan.Take<Renderer>(interval);
+            scanCursor = 0;
+            scanning = true;
+        }
+
+        private void StepScan(in BasisRTAOSceneSettings settings, int budget)
+        {
+            if (!scanning)
+                return;
+            if (scanBatch == null)
             {
-                Renderer renderer = renderers[i];
+                FinishScan();
+                return;
+            }
+
+            int end = budget >= scanBatch.Length - scanCursor ? scanBatch.Length : scanCursor + budget;
+            for (; scanCursor < end; scanCursor++)
+            {
+                Renderer renderer = scanBatch[scanCursor];
                 if (!IsSupportedRendererType(renderer, settings.skinnedMode))
                     continue;
                 if (!ShouldInclude(renderer, settings))
@@ -416,6 +494,17 @@ namespace Basis.Rendering.RTAO
                 AddEntry(renderer, mesh);
             }
 
+            if (scanCursor >= scanBatch.Length)
+                FinishScan();
+        }
+
+        /// <summary>
+        /// Drops whatever the pass did not find. Only at the END of a pass: an entry the cursor has not
+        /// reached yet is unvisited, not missing, and sweeping mid-pass would delete the whole structure
+        /// and rebuild it a slice at a time.
+        /// </summary>
+        private void FinishScan()
+        {
             pendingRemoval.Clear();
             foreach (KeyValuePair<EntityId, Entry> pair in entries)
             {
@@ -427,6 +516,10 @@ namespace Basis.Rendering.RTAO
                 if (entries.TryGetValue(pendingRemoval[i], out Entry dead))
                     RemoveEntry(pendingRemoval[i], dead);
             }
+
+            scanBatch = null;
+            scanCursor = 0;
+            scanning = false;
 
             ResetStructure();
         }
@@ -463,12 +556,13 @@ namespace Basis.Rendering.RTAO
         /// Finds the humanoids whose capsules belong in the structure and drops the ones that have gone.
         /// Runs on the rescan cadence; the poses themselves are updated every frame by UpdateProxies.
         /// </summary>
-        private void RescanProxies(in BasisRTAOSceneSettings settings)
+        private void RescanProxies(in BasisRTAOSceneSettings settings, float interval)
         {
             foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies)
                 pair.Value.seen = false;
 
-            Animator[] animators = UnityEngine.Object.FindObjectsByType<Animator>(FindObjectsInactive.Exclude);
+            // Shared with global illumination, which discovers the same humanoids the same way.
+            Animator[] animators = BasisSceneScan.Take<Animator>(interval);
             for (int i = 0; i < animators.Length; i++)
             {
                 Animator animator = animators[i];
@@ -486,6 +580,12 @@ namespace Basis.Rendering.RTAO
 
                 BasisAvatarProxyPose pose = BasisAvatarProxy.PoseFor(animator);
                 if (pose == null || pose.Count == 0)
+                    continue;
+                // Every avatar carries the same limb set, so the count already registered is proxies.Count
+                // times that, and there is nothing to track separately. Already-registered avatars are
+                // never dropped by this - they took their slots first and keep them, exactly as global
+                // illumination's ceiling behaves.
+                if ((proxies.Count + 1) * pose.Count > MaxProxyInstances)
                     continue;
                 AddProxy(animator, pose);
             }

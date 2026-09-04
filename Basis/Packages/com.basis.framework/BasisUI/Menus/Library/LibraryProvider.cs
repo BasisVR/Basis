@@ -384,11 +384,12 @@ namespace Basis.BasisUI
         }
 
         /// <summary>
-        /// Resolve the bundle's content type by fetching its meta-only payload and
-        /// inspecting <c>ComponentNames</c>. Returns <see cref="BundledContentHolder.Mode.Legacy"/>
-        /// when the URL is unreachable, the meta load fails, or the bundle predates
-        /// component-name metadata. Used by the in-game add dialog and the admin
-        /// "default library" add UI so they share one detection path.
+        /// Resolve the bundle's content type by fetching its meta-only payload and handing the
+        /// connector to <see cref="ResolveModeFromConnector"/>. Returns
+        /// <see cref="BundledContentHolder.Mode.Legacy"/> when the URL is unreachable, the meta
+        /// load fails, or the bundle declares nothing the connector can be read for. Used by the
+        /// in-game add dialog, the BEE drop and the admin "default library" add UI so they share
+        /// one detection path.
         /// </summary>
         public static async Task<BundledContentHolder.Mode> TryDetectModeFromUrl(string url, string password)
         {
@@ -419,27 +420,47 @@ namespace Basis.BasisUI
             if (!isValid) return BundledContentHolder.Mode.Legacy;
 
             BasisLoadableBundleWrapper loaded = await LoadWrapperFromDisc(tempItem, tempWrapper);
-            BundledContentHolder.Mode itemType = BundledContentHolder.Mode.Legacy;
-            // MetaData is a struct (value type) so it can't appear in a ?. chain — gate
-            // up to BasisBundleConnector with ?., then read MetaData.ComponentNames directly.
-            var connector = loaded?.BasisLoadableBundle?.BasisBundleConnector;
-            if (connector != null)
+            return ResolveModeFromConnector(loaded?.BasisLoadableBundle?.BasisBundleConnector);
+        }
+
+        /// <summary>
+        /// Content type of a bundle read off its connector alone.
+        ///
+        /// The sections are asked first, and they settle worlds outright: a scene AssetMode is
+        /// written by the one build path a world can come from, and by every version of it, so it
+        /// also names worlds too old to carry a component census.
+        ///
+        /// The census is the fallback, and it can only ever say what a bundle <i>contains</i>. A
+        /// world's census is summed over every root in the scene, so a world holding one prop
+        /// counts a BasisProp next to its BasisScene — which is why the names are ranked
+        /// most-specific-first here instead of scanned last-one-wins, where a world was handed
+        /// back as a Prop purely because its prop happened to be walked after its BasisScene.
+        /// </summary>
+        public static BundledContentHolder.Mode ResolveModeFromConnector(BasisBundleConnector connector)
+        {
+            if (connector == null) return BundledContentHolder.Mode.Legacy;
+            if (BasisBundleConnector.IsSceneBundle(connector)) return BundledContentHolder.Mode.World;
+
+            // MetaData is a struct (value type) so it can't appear in a ?. chain — the null gate
+            // above covers the connector, then MetaData.ComponentNames is read directly.
+            BasisBundleConnector.BasisComponentName[] components = connector.MetaData.ComponentNames;
+            if (components == null) return BundledContentHolder.Mode.Legacy;
+
+            bool hasScene = false, hasAvatar = false, hasProp = false;
+            for (int Index = 0; Index < components.Length; Index++)
             {
-                var components = connector.MetaData.ComponentNames;
-                if (components != null)
+                switch (components[Index].Name?.ToLowerInvariant())
                 {
-                    foreach (BasisBundleConnector.BasisComponentName comp in components)
-                    {
-                        switch (comp.Name?.ToLower())
-                        {
-                            case "basisprop": itemType = BundledContentHolder.Mode.Prop; break;
-                            case "basisavatar": itemType = BundledContentHolder.Mode.Avatar; break;
-                            case "basisscene": itemType = BundledContentHolder.Mode.World; break;
-                        }
-                    }
+                    case "basisscene": hasScene = true; break;
+                    case "basisavatar": hasAvatar = true; break;
+                    case "basisprop": hasProp = true; break;
                 }
             }
-            return itemType;
+
+            if (hasScene) return BundledContentHolder.Mode.World;
+            if (hasAvatar) return BundledContentHolder.Mode.Avatar;
+            if (hasProp) return BundledContentHolder.Mode.Prop;
+            return BundledContentHolder.Mode.Legacy;
         }
 
         #endregion

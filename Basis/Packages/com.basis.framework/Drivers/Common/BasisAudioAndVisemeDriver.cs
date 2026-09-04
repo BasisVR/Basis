@@ -79,17 +79,17 @@ namespace Basis.Scripts.Drivers
         public bool AudioSourceInactive;
 
         /// <summary>
-        /// True while this player's voice is arriving on the shout channel instead of through
-        /// their own spatial AudioSource. Set by BasisShoutAudioDriver.
-        /// <para>Both of the rules that normally retire a viseme driver describe a shouting
-        /// player wrongly. A shouter sends on <c>ShoutVoiceChannel</c> only, so their spatial
+        /// True while this player's voice is arriving on the announce channel instead of through
+        /// their own spatial AudioSource. Set by BasisAnnounceAudioDriver.
+        /// <para>Both of the rules that normally retire a viseme driver describe a announcing
+        /// player wrongly. An announcer sends on <c>AnnounceVoiceChannel</c> only, so their spatial
         /// receiver goes idle and <see cref="AudioSourceInactive"/> latches even though they are
-        /// mid-sentence; and shout deliberately ignores distance culling, so the viseme distance
-        /// cutoff retires exactly the players shout exists to make audible. Without this flag the
+        /// mid-sentence; and announce deliberately ignores distance culling, so the viseme distance
+        /// cutoff retires exactly the players announce exists to make audible. Without this flag the
         /// driver releases and re-acquires its OpenLipSync context every single frame, which
         /// throws away the buffered audio before inference ever runs.</para>
         /// </summary>
-        public volatile bool ShoutActive;
+        public volatile bool AnnounceActive;
 
         public volatile bool Muted;
 
@@ -100,7 +100,7 @@ namespace Basis.Scripts.Drivers
 
         /// <summary>
         /// Smoothed RMS of this player's voice, written by whichever source is currently feeding
-        /// them — <see cref="BasisRemoteAudioDriver"/> for a remote (spatial or shout, whichever
+        /// them — <see cref="BasisRemoteAudioDriver"/> for a remote (spatial or announce, whichever
         /// owns the tap), the microphone chain for the wearer. Read through
         /// <see cref="VoiceLevel01"/>.
         /// </summary>
@@ -113,7 +113,7 @@ namespace Basis.Scripts.Drivers
         /// with no face mesh at all still reports its wearer's voice here.
         /// </summary>
         public float VoiceLevel01 =>
-            TrackedAudioSource != null && AudioSourceInactive && !ShoutActive
+            TrackedAudioSource != null && AudioSourceInactive && !AnnounceActive
                 ? 0f
                 : BasisVoiceLevel.RmsToUnit(VoiceRms);
 
@@ -284,7 +284,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Whether the player has gone quiet long enough to hand their OpenLipSync slot to
         /// somebody closer. Judged from <see cref="TrackedAudioSource"/>, which is the player's
-        /// SPATIAL source — so a shouter, who sends on the shout channel and therefore never
+        /// SPATIAL source — so an announcer, who sends on the announce channel and therefore never
         /// feeds that source at all, reads as idle while mid-sentence. Releasing then is not
         /// merely wasteful: <c>ProcessAudioSamples</c> immediately asks for the context back, so
         /// the driver churns a fresh context every frame and the buffered audio is discarded
@@ -292,7 +292,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public bool ShouldReleaseForIdleSource()
         {
-            return TrackedAudioSource != null && AudioSourceInactive && !ShoutActive;
+            return TrackedAudioSource != null && AudioSourceInactive && !AnnounceActive;
         }
 
         private bool _overrideZeroed;

@@ -30683,7 +30683,7 @@ MonoBehaviour:
     IsMemberOverride: 0
     Summary: "Joins the background compute from BeginNetworkCompute, then runs the\n
       main-thread finish: Phase 3 AudioSource apply, interpolation job schedule,
-      shout drain,\n and profiler update. Must run before any receiver state is mutated
+      announce drain,\n and profiler update. Must run before any receiver state is mutated
       this frame."
     Remarks: 
     Returns: 
@@ -31454,7 +31454,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Fired when a player's shout mode state changes.
+    Summary: Fired when a player's announce mode state changes.
     Remarks: 
     Returns: 
     Value: 
@@ -31469,7 +31469,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
-    MemberName: LocalPlayerInShoutMode
+    MemberName: LocalPlayerInAnnounceMode
     Kind: Property
     ParamCount: 0
     ParamNames: []
@@ -31485,7 +31485,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: True if the local player is currently in shout mode.
+    Summary: True if the local player is currently in announce mode.
     Remarks: 
     Returns: 
     Value: 
@@ -31500,7 +31500,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
-    MemberName: EnableShoutMode
+    MemberName: EnableAnnounceMode
     Kind: Method
     ParamCount: 1
     ParamNames:
@@ -31517,7 +31517,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: 'Admin: Enable shout mode for a player (non-spatialized broadcast voice).'
+    Summary: 'Admin: Enable announce mode for a player (non-spatialized broadcast voice).'
     Remarks: 
     Returns: 
     Value: 
@@ -31532,7 +31532,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
-    MemberName: DisableShoutMode
+    MemberName: DisableAnnounceMode
     Kind: Method
     ParamCount: 1
     ParamNames:
@@ -31549,7 +31549,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: 'Admin: Disable shout mode for a player.'
+    Summary: 'Admin: Disable announce mode for a player.'
     Remarks: 
     Returns: 
     Value: 
@@ -33840,7 +33840,7 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: "Admin: toggle the global voice lock. While set the server drops normal
-      and shout voice from\n peers without basis.voice.lockbypass, and those clients
+      and announce voice from\n peers without basis.voice.lockbypass, and those clients
       stop transmitting."
     Remarks: 
     Returns: 
@@ -37093,7 +37093,7 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: "True only when there is a reason to expose the mic-mode button: we're
-      already\n in a non-normal mode, shout is enabled on the menu bar, have a private
+      already\n in a non-normal mode, announce is enabled on the menu bar, have a private
       set, a\n marked person, or at least one P2P-connected peer."
     Remarks: 
     Returns: 
@@ -40509,7 +40509,7 @@ MonoBehaviour:
     Summary: "Floating overall network readout \u2014 the \"additional information\"
       gizmo. One billboarded\n label ahead of the viewer totalling the received traffic
       per channel: the avatar channel\n (every remote player's pose stream), the
-      voice channel (spatial + shout audio), and the\n scene channel (every spawned/synced
+      voice channel (spatial + announce audio), and the\n scene channel (every spawned/synced
       object). Driven each frame from\n SMModuleDebugOptions; the label text only
       re-tessellates when a\n quantized total moves (see BasisNetworkGizmoLabelCore.OverviewKey)."
     Remarks: 
@@ -55391,7 +55391,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisAudioAndVisemeDriver
-    MemberName: ShoutActive
+    MemberName: AnnounceActive
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -55407,13 +55407,13 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "True while this player's voice is arriving on the shout channel instead
-      of through\n their own spatial AudioSource. Set by BasisShoutAudioDriver.\n
-      \n\nBoth of the rules that normally retire a viseme driver describe a shouting\n
-      player wrongly. A shouter sends on `ShoutVoiceChannel` only, so their spatial\n
+    Summary: "True while this player's voice is arriving on the announce channel instead
+      of through\n their own spatial AudioSource. Set by BasisAnnounceAudioDriver.\n
+      \n\nBoth of the rules that normally retire a viseme driver describe a announcing\n
+      player wrongly. A announcer sends on `AnnounceVoiceChannel` only, so their spatial\n
       receiver goes idle and AudioSourceInactive latches even though they are\n mid-sentence;
-      and shout deliberately ignores distance culling, so the viseme distance\n cutoff
-      retires exactly the players shout exists to make audible. Without this flag
+      and announce deliberately ignores distance culling, so the viseme distance\n cutoff
+      retires exactly the players announce exists to make audible. Without this flag
       the\n driver releases and re-acquires its OpenLipSync context every single
       frame, which\n throws away the buffered audio before inference ever runs."
     Remarks: 
@@ -55479,7 +55479,7 @@ MonoBehaviour:
     IsMemberOverride: 0
     Summary: "Smoothed RMS of this player's voice, written by whichever source is
       currently feeding\n them \u2014 BasisRemoteAudioDriver for a remote (spatial
-      or shout, whichever\n owns the tap), the microphone chain for the wearer. Read
+      or announce, whichever\n owns the tap), the microphone chain for the wearer. Read
       through\n VoiceLevel01."
     Remarks: 
     Returns: 
@@ -55617,7 +55617,7 @@ MonoBehaviour:
     IsMemberOverride: 0
     Summary: "Whether the player has gone quiet long enough to hand their OpenLipSync
       slot to\n somebody closer. Judged from TrackedAudioSource, which is the player's\n
-      SPATIAL source \u2014 so a shouter, who sends on the shout channel and therefore
+      SPATIAL source \u2014 so a announcer, who sends on the announce channel and therefore
       never\n feeds that source at all, reads as idle while mid-sentence. Releasing
       then is not\n merely wasteful: `ProcessAudioSamples` immediately asks for the
       context back, so\n the driver churns a fresh context every frame and the buffered
@@ -70431,7 +70431,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisRemoteAudioDriver
-    MemberName: IsShoutSource
+    MemberName: IsAnnounceSource
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -70447,8 +70447,8 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "True on the driver Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver\n
-      creates for a shouting player. See OwnsVisemeTap."
+    Summary: "True on the driver Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver\n
+      creates for a announcing player. See OwnsVisemeTap."
     Remarks: 
     Returns: 
     Value: 
@@ -70481,17 +70481,17 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: "Whether this driver may feed the shared viseme analyser this callback.\n
-      \n\nWhile a player shouts, TWO AudioSources point at the same\n BasisAudioAndVisemeDriver:
-      the shout source carrying their voice, and\n their own spatial source, which
-      receives nothing (a shouter transmits on the shout\n channel only) and therefore
+      \n\nWhile a player announces, TWO AudioSources point at the same\n BasisAudioAndVisemeDriver:
+      the announce source carrying their voice, and\n their own spatial source, which
+      receives nothing (a announcer transmits on the announce\n channel only) and therefore
       writes a buffer of silence every callback. Feeding both\n splices that silence
       through the mel front-end between real speech \u2014 poisoning the\n streaming
       convolution caches the model carries between hops \u2014 and races the analyser's\n
-      ingest buffer, which is written assuming a single producer. So the shout source
-      takes\n the tap on its own for as long as the shout lasts.\n\n\n\nOwnership
+      ingest buffer, which is written assuming a single producer. So the announce source
+      takes\n the tap on its own for as long as the announce lasts.\n\n\n\nOwnership
       is a match between the source's kind and the player's current mode\n rather
-      than \"shout wins\": that makes it exactly one owner in BOTH directions off
-      a\n single volatile read, so the teardown window \u2014 where the shout driver
+      than \"announce wins\": that makes it exactly one owner in BOTH directions off
+      a\n single volatile read, so the teardown window \u2014 where the announce driver
       still holds a\n live viseme driver for the rest of the frame, because Object.Destroy
       is deferred \u2014\n cannot briefly double up."
     Remarks: 
@@ -82860,11 +82860,11 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
-    MemberName: HandleShoutAudioUpdate
+    MemberName: HandleAnnounceAudioUpdate
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - shoutSemaphore.WaitAsync(TimeoutMilliseconds)
+    - announceSemaphore.WaitAsync(TimeoutMilliseconds)
     ParamDocs: []
     BaseTypeName: 
     Interfaces: []
@@ -82877,8 +82877,8 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Handles shout voice audio arriving on ShoutVoiceChannel (channel 0).\n
-      Routes to the non-spatialized shout audio receiver on the remote player."
+    Summary: "Handles announce voice audio arriving on AnnounceVoiceChannel (channel 0).\n
+      Routes to the non-spatialized announce audio receiver on the remote player."
     Remarks: 
     Returns: 
     Value: 
@@ -88914,8 +88914,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver
-    MemberName: BasisShoutAudioDriver
+  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver
+    MemberName: BasisAnnounceAudioDriver
     Kind: Type
     ParamCount: 0
     ParamNames: []
@@ -88931,9 +88931,9 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Global driver for shout-mode audio sources.\n Shout audio sources are
+    Summary: "Global driver for announce-mode audio sources.\n Announce audio sources are
       NOT parented to remote players and are NOT\n affected by distance culling,
-      LOD, avatar unloading, or spatialization.\n Each shouting player gets one non-spatialized
+      LOD, avatar unloading, or spatialization.\n Each announcing player gets one non-spatialized
       (2D) AudioSource parented\n to BasisDeviceManagement.Instance so it persists
       across scene loads."
     Remarks: 
@@ -88949,8 +88949,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver+ShoutAudioEntry
-    MemberName: ShoutAudioEntry
+  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver+AnnounceAudioEntry
+    MemberName: AnnounceAudioEntry
     Kind: Type
     ParamCount: 0
     ParamNames: []
@@ -88966,7 +88966,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Per-player shout audio state.
+    Summary: Per-player announce audio state.
     Remarks: 
     Returns: 
     Value: 
@@ -88980,7 +88980,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver+ShoutAudioEntry
+  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver+AnnounceAudioEntry
     MemberName: VisemeDriver
     Kind: Field
     ParamCount: 0
@@ -88997,7 +88997,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "The player's own viseme driver, borrowed for the duration of the shout.
+    Summary: "The player's own viseme driver, borrowed for the duration of the announce.
       Held here\n so teardown can hand it back without a receiver lookup that may
       already be gone."
     Remarks: 
@@ -89013,8 +89013,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver
-    MemberName: EnableShoutMode
+  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver
+    MemberName: EnableAnnounceMode
     Kind: Method
     ParamCount: 1
     ParamNames:
@@ -89031,7 +89031,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Enables shout mode for a player. Creates a non-spatialized audio source\n
+    Summary: "Enables announce mode for a player. Creates a non-spatialized audio source\n
       on BasisDeviceManagement.Instance, independent of the remote player hierarchy."
     Remarks: 
     Returns: 
@@ -89047,7 +89047,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: DisableShoutMode
+    MemberName: DisableAnnounceMode
     Kind: Method
     ParamCount: 1
     ParamNames:
@@ -89064,7 +89064,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Disables shout mode for a player. Destroys their audio components.
+    Summary: Disables announce mode for a player. Destroys their audio components.
     Remarks: 
     Returns: 
     Value: 
@@ -89079,7 +89079,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: IsInShoutMode
+    MemberName: IsInAnnounceMode
     Kind: Method
     ParamCount: 1
     ParamNames:
@@ -89096,7 +89096,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Returns true if a player currently has an active shout audio source.
+    Summary: Returns true if a player currently has an active announce audio source.
     Remarks: 
     Returns: 
     Value: 
@@ -89129,9 +89129,9 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Exposes a shouting player's receiver so the voice-recording tap can
-      follow the\n shout audio path. Returns false when the player is not currently
-      shouting."
+    Summary: "Exposes a announcing player's receiver so the voice-recording tap can
+      follow the\n announce audio path. Returns false when the player is not currently
+      announcing."
     Remarks: 
     Returns: 
     Value: 
@@ -89146,7 +89146,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: ReceiveShoutAudio
+    MemberName: ReceiveAnnounceAudio
     Kind: Method
     ParamCount: 2
     ParamNames:
@@ -89164,8 +89164,8 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Inserts an audio segment into the shout receiver's jitter buffer.\n
-      Auto-enables shout mode if not already active."
+    Summary: "Inserts an audio segment into the announce receiver's jitter buffer.\n
+      Auto-enables announce mode if not already active."
     Remarks: 
     Returns: 
     Value: 
@@ -89216,7 +89216,7 @@ MonoBehaviour:
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - DisableShoutMode(playerId
+    - DisableAnnounceMode(playerId
     ParamDocs: []
     BaseTypeName: 
     Interfaces: []
@@ -89229,7 +89229,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Cleans up a player's shout state (call on disconnect).
+    Summary: Cleans up a player's announce state (call on disconnect).
     Remarks: 
     Returns: 
     Value: 
@@ -89248,7 +89248,7 @@ MonoBehaviour:
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - DisableShoutMode(key
+    - DisableAnnounceMode(key
     ParamDocs: []
     BaseTypeName: 
     Interfaces: []
@@ -89261,7 +89261,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Cleans up all shout audio sources and resets local shout state (call
+    Summary: Cleans up all announce audio sources and resets local announce state (call
       on disconnect from server).
     Remarks: 
     Returns: 
@@ -93443,7 +93443,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.Transmitters.BasisAudioTransmission
-    MemberName: IsInShoutMode
+    MemberName: IsInAnnounceMode
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -93459,8 +93459,8 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "When true, voice is sent on ShoutVoiceChannel (channel 0) instead of
-      VoiceChannel (channel 3).\n Set by admin via BasisNetworkModeration when shout
+    Summary: "When true, voice is sent on AnnounceVoiceChannel (channel 0) instead of
+      VoiceChannel (channel 3).\n Set by admin via BasisNetworkModeration when announce
       mode is granted to the local player."
     Remarks: 
     Returns: 
@@ -94944,7 +94944,7 @@ MonoBehaviour:
     IsMemberOverride: 0
     Summary: "A standalone spatialized (3D) audio source that re-emits a consented
       remote\n player's voice from a caller-supplied anchor transform \u2014 e.g.
-      a radio object\n (issue #911). It mirrors BasisShoutAudioDriver's per-shouter
+      a radio object\n (issue #911). It mirrors BasisAnnounceAudioDriver's per-announcer
       source\n but is 3D and parented to the anchor, and is fed encoded frames tapped
       from the\n player's receiver instead of read from the network directly. It
       never exposes PCM\n to its creator; callers only position it via the anchor."
@@ -95516,7 +95516,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.VoiceRecording.
-    MemberName: OnShoutReceiverCreated
+    MemberName: OnAnnounceReceiverCreated
     Kind: Method
     ParamCount: 2
     ParamNames:
@@ -95534,8 +95534,8 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Called when a shout source is (re)created so an active tap follows the
-      shout receiver.
+    Summary: Called when a announce source is (re)created so an active tap follows the
+      announce receiver.
     Remarks: 
     Returns: 
     Value: 
@@ -95634,7 +95634,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Installs the current tap delegates on the normal and shout receivers.
+    Summary: Installs the current tap delegates on the normal and announce receivers.
     Remarks: 
     Returns: 
     Value: 
@@ -95667,7 +95667,7 @@ MonoBehaviour:
     IsMemberOverride: 0
     Summary: "Thread-safe ring for decoded mono PCM feeding the recording path (NOT
       the playback\n path). Decode threads call Write; the main thread drains with\n
-      Drain. A player can be decoded by both a normal and a shout receiver on\n independent
+      Drain. A player can be decoded by both a normal and a announce receiver on\n independent
       audio threads during a mode transition, so this must tolerate multiple\n producers
       \u2014 a short lock guards the cursors and slots. The lock is only ever taken
       by\n the recording side-tap, never by voice playback, so it cannot degrade
@@ -123287,8 +123287,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: BasisShoutVisemeTests
-    MemberName: BasisShoutVisemeTests
+  - TypeFullName: BasisAnnounceVisemeTests
+    MemberName: BasisAnnounceVisemeTests
     Kind: Type
     ParamCount: 0
     ParamNames: []
@@ -123304,11 +123304,11 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Shout mode routes a player's voice onto the shout channel and plays
+    Summary: "Announce mode routes a player's voice onto the announce channel and plays
       it through a separate,\n non-spatialised AudioSource that ignores distance
       culling. The viseme driver is shared with\n the normal path, and both of the
       rules that normally retire it \u2014 the viseme distance cutoff\n and \"the
-      tracked AudioSource went idle\" \u2014 misread a shouter as somebody who has
+      tracked AudioSource went idle\" \u2014 misread a announcer as somebody who has
       stopped\n talking. These lock the exemptions that keep their mouth moving."
     Remarks: 
     Returns: 
@@ -124672,7 +124672,7 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: "Per-user moderation tab \u2014 player list, kicks/bans/IP-bans/unbans,\n
-      teleports, direct messages, broadcast, and shout-mode toggles.\n Server config
+      teleports, direct messages, broadcast, and announce-mode toggles.\n Server config
       and other persistent admin tools live on the Admin tab."
     Remarks: 
     Returns: 
@@ -149880,7 +149880,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Network.Core.
-    MemberName: ShoutVoiceChannel
+    MemberName: AnnounceVoiceChannel
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -149896,7 +149896,7 @@ MonoBehaviour:
     IsMemberConst: 1
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Shout mode voice. Non-spatialized audio broadcast to all clients.
+    Summary: Announce mode voice. Non-spatialized audio broadcast to all clients.
     Remarks: 
     Returns: 
     Value: 
@@ -151091,7 +151091,7 @@ MonoBehaviour:
     IsMemberConst: 1
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Per-player talk mode for nameplate coloring (Normal/Private/Direct/ThisPerson/Shout).
+    Summary: Per-player talk mode for nameplate coloring (Normal/Private/Direct/ThisPerson/Announce).
     Remarks: 
     Returns: 
     Value: 
@@ -153971,7 +153971,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "When true, the server refuses to relay voice (normal and shout) from
+    Summary: "When true, the server refuses to relay voice (normal and announce) from
       peers lacking\n basis.voice.lockbypass. Enforced server-side \u2014 voice has
       its own channels, so a modified\n client cannot talk past the lock. Seeds BasisGlobalLockManager
       at boot, can be toggled live\n from the admin panel, and is broadcast to clients
@@ -156244,7 +156244,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: BasisServerHandle.
-    MemberName: HandleShoutVoiceMessage
+    MemberName: HandleAnnounceVoiceMessage
     Kind: Method
     ParamCount: 2
     ParamNames:
@@ -156262,8 +156262,8 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Handles shout voice sent by a client on ShoutVoiceChannel (channel
-      0).\n Only processes if the sender is authorized for shout mode.\n Broadcasts
+    Summary: "Handles announce voice sent by a client on AnnounceVoiceChannel (channel
+      0).\n Only processes if the sender is authorized for announce mode.\n Broadcasts
       to ALL connected peers."
     Remarks: 
     Returns: 
@@ -156279,7 +156279,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: BasisServerHandle.
-    MemberName: BroadcastShoutModeState
+    MemberName: BroadcastAnnounceModeState
     Kind: Method
     ParamCount: 3
     ParamNames:
@@ -156298,7 +156298,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Broadcasts a shout mode state change to all clients via the AdminChannel.
+    Summary: Broadcasts a announce mode state change to all clients via the AdminChannel.
     Remarks: 
     Returns: 
     Value: 
@@ -156313,7 +156313,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: BasisServerHandle.
-    MemberName: SendShoutStateToPeer
+    MemberName: SendAnnounceStateToPeer
     Kind: Method
     ParamCount: 1
     ParamNames:
@@ -156330,7 +156330,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Sends current shout mode states to a newly connected peer.
+    Summary: Sends current announce mode states to a newly connected peer.
     Remarks: 
     Returns: 
     Value: 
@@ -157611,7 +157611,7 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: "Voice is the other server-enforced lock, and it gates BOTH the normal
-      and shout paths \u2014\n a shout-mode user must not keep broadcasting through
+      and announce paths \u2014\n a announce-mode user must not keep broadcasting through
       a voice lock they can't bypass."
     Remarks: 
     Returns: 
@@ -174241,7 +174241,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Network.Server.Generic.
-    MemberName: SetShoutMode
+    MemberName: SetAnnounceMode
     Kind: Method
     ParamCount: 2
     ParamNames:
@@ -174259,7 +174259,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Sets shout mode state for a player.
+    Summary: Sets announce mode state for a player.
     Remarks: 
     Returns: 
     Value: 
@@ -174274,7 +174274,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Network.Server.Generic.
-    MemberName: IsInShoutMode
+    MemberName: IsInAnnounceMode
     Kind: Method
     ParamCount: 1
     ParamNames:
@@ -174291,7 +174291,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Returns true if the player is currently in shout mode.
+    Summary: Returns true if the player is currently in announce mode.
     Remarks: 
     Returns: 
     Value: 
@@ -174306,11 +174306,11 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Network.Server.Generic.
-    MemberName: GetAllShoutModePlayers
+    MemberName: GetAllAnnounceModePlayers
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - shoutModeStates.Keys.ToArray(
+    - announceModeStates.Keys.ToArray(
     ParamDocs: []
     BaseTypeName: 
     Interfaces: []
@@ -174323,7 +174323,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: Returns all player IDs currently in shout mode.
+    Summary: Returns all player IDs currently in announce mode.
     Remarks: 
     Returns: 
     Value: 
@@ -176833,7 +176833,7 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: "Toggle the global voice lock. Returns the new state (true = normal
-      and shout voice from\n peers without `basis.voice.lockbypass` are dropped at
+      and announce voice from\n peers without `basis.voice.lockbypass` are dropped at
       the server)."
     Remarks: 
     Returns: 

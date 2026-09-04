@@ -111,8 +111,8 @@ public static class BasisNetworkHandleRemoval
             }
             BasisNetworkPlayer.OnPlayerLeft?.Invoke(network);
 
-            // Clean up any shout audio for this player
-            BasisShoutAudioDriver.RemovePlayer(disconnectedID);
+            // Clean up any announce audio for this player
+            BasisAnnounceAudioDriver.RemovePlayer(disconnectedID);
             Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.OnPlayerLeft(disconnectedID);
 
             // Notify avatar BasisAvatarMonoBehaviours that the network is going away

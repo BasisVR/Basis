@@ -2,6 +2,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.Player;
 using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -302,10 +303,38 @@ namespace Basis.Scripts.Drivers
         const int MuscleLeftThumb = 55;
 
         /// <summary>
+        /// The thirty finger bones in the order the grid indexes them — finger*3 + joint, left
+        /// thumb through right little, proximal/intermediate/distal.
+        /// </summary>
+        static readonly HumanBodyBones[] FingerBones =
+        {
+            HumanBodyBones.LeftThumbProximal, HumanBodyBones.LeftThumbIntermediate, HumanBodyBones.LeftThumbDistal,
+            HumanBodyBones.LeftIndexProximal, HumanBodyBones.LeftIndexIntermediate, HumanBodyBones.LeftIndexDistal,
+            HumanBodyBones.LeftMiddleProximal, HumanBodyBones.LeftMiddleIntermediate, HumanBodyBones.LeftMiddleDistal,
+            HumanBodyBones.LeftRingProximal, HumanBodyBones.LeftRingIntermediate, HumanBodyBones.LeftRingDistal,
+            HumanBodyBones.LeftLittleProximal, HumanBodyBones.LeftLittleIntermediate, HumanBodyBones.LeftLittleDistal,
+            HumanBodyBones.RightThumbProximal, HumanBodyBones.RightThumbIntermediate, HumanBodyBones.RightThumbDistal,
+            HumanBodyBones.RightIndexProximal, HumanBodyBones.RightIndexIntermediate, HumanBodyBones.RightIndexDistal,
+            HumanBodyBones.RightMiddleProximal, HumanBodyBones.RightMiddleIntermediate, HumanBodyBones.RightMiddleDistal,
+            HumanBodyBones.RightRingProximal, HumanBodyBones.RightRingIntermediate, HumanBodyBones.RightRingDistal,
+            HumanBodyBones.RightLittleProximal, HumanBodyBones.RightLittleIntermediate, HumanBodyBones.RightLittleDistal,
+        };
+
+        /// <summary>
+        /// Bake scratch, reused across every bake in the process. The sweep used to allocate a
+        /// BasisPoseData plus its ten Quaternion[3] arrays PER GRID CELL — 442 * 11 objects for one
+        /// avatar model, on the main thread, inside the calibration spike. A bake is main thread
+        /// only and cannot nest, so one set of buffers serves all of them.
+        /// </summary>
+        static readonly Transform[] sBakeJoints = new Transform[JointCount];
+        static readonly bool[] sBakePresent = new bool[JointCount];
+        static readonly Quaternion[] sBakeRotations = new Quaternion[JointCount];
+
+        /// <summary>
         /// Bakes the grid off a hidden duplicate of <paramref name="source"/>. The duplicate is
         /// destroyed before returning; the source animator is never posed.
         /// </summary>
-        public bool TryBake(Animator source, float increment, out BakeResult result)
+        public unsafe bool TryBake(Animator source, float increment, out BakeResult result)
         {
             result = default;
             if (source == null) return false;
@@ -324,15 +353,22 @@ namespace Basis.Scripts.Drivers
             try
             {
                 if (!copy.TryGetComponent(out Animator animator)) return false;
-
-                BasisTransformMapping mapping = new BasisTransformMapping();
-                if (!BasisTransformMapping.AutoDetectReferences(animator, animator.transform, ref mapping, detectArmTwist: false))
+                if (!animator.isHuman)
                 {
+                    BasisDebug.LogError("We need a Humanoid Animator");
                     return false;
                 }
 
-                Transform[] joints = AggregateFingerTransforms(mapping);
-                bool[] present = AggregateHasProximal(mapping);
+                Transform[] joints = sBakeJoints;
+                bool[] present = sBakePresent;
+                bool anyFinger = false;
+                for (int index = 0; index < JointCount; index++)
+                {
+                    Transform bone = animator.GetBoneTransform(FingerBones[index]);
+                    joints[index] = bone;
+                    present[index] = bone != null;
+                    anyFinger |= bone != null;
+                }
 
                 PutIntoTPose(animator);
 
@@ -366,20 +402,51 @@ namespace Basis.Scripts.Drivers
                     Cells = new NativeArray<quaternion>(FingerCount * FingerStride, Allocator.Persistent);
                     OwnsCells = true;
 
-                    var muscles = new[]
-                    {
-                        result.LeftThumb, result.LeftIndex, result.LeftMiddle, result.LeftRing, result.LeftLittle,
-                        result.RightThumb, result.RightIndex, result.RightMiddle, result.RightRing, result.RightLittle,
-                    };
+                    // The sweep writes the finger muscles straight into the pose and the resulting
+                    // local rotations straight into the cells. It used to round-trip both through
+                    // per-finger float[4] slices and a freshly allocated BasisPoseData per cell.
+                    float[] muscles = tpose.muscles;
+                    Quaternion[] rotations = sBakeRotations;
+                    quaternion* cells = (quaternion*)Cells.GetUnsafePtr();
 
-                    for (int xi = 0; xi < GridWidth; xi++)
+                    // A rig with no finger bones records identity in every cell whatever the sweep
+                    // poses it to, so the 441 SetHumanPose calls buy nothing. The far LOD skeleton
+                    // is exactly this — twenty core bones, no hands — and every far LOD version was
+                    // paying a full sweep for a grid of identities. Write them directly; the
+                    // allocation zero-inits to (0,0,0,0), which is not a rotation and would come out
+                    // of the sampler's slerp as NaN.
+                    if (!anyFinger)
                     {
-                        for (int yi = 0; yi < GridHeight; yi++)
+                        for (int cell = 0; cell < Cells.Length; cell++) cells[cell] = quaternion.identity;
+                    }
+                    else
+                    {
+                        for (int xi = 0; xi < GridWidth; xi++)
                         {
                             float curl = -1f + xi * Increment;
-                            float splay = -1f + yi * Increment;
-                            BasisPoseData pose = SetAndRecord(curl, splay, poseHandler, ref tpose, joints, present, muscles);
-                            WriteGridCell(xi * GridHeight + yi, pose);
+                            for (int yi = 0; yi < GridHeight; yi++)
+                            {
+                                float splay = -1f + yi * Increment;
+                                for (int finger = 0; finger < FingerCount; finger++)
+                                {
+                                    int muscle = MuscleLeftThumb + finger * 4;
+                                    muscles[muscle] = curl;
+                                    muscles[muscle + 1] = splay;
+                                    muscles[muscle + 2] = curl;
+                                    muscles[muscle + 3] = curl;
+                                }
+                                poseHandler.SetHumanPose(ref tpose);
+                                RecordPoseInto(joints, present, rotations);
+
+                                int cellBase = (xi * GridHeight + yi) * JointsPerFinger;
+                                for (int finger = 0; finger < FingerCount; finger++)
+                                {
+                                    int cell = finger * FingerStride + cellBase, joint = finger * JointsPerFinger;
+                                    cells[cell] = rotations[joint];
+                                    cells[cell + 1] = rotations[joint + 1];
+                                    cells[cell + 2] = rotations[joint + 2];
+                                }
+                            }
                         }
                     }
                 }
@@ -414,41 +481,13 @@ namespace Basis.Scripts.Drivers
             return muscles;
         }
 
-        BasisPoseData SetAndRecord(float curl, float splay, HumanPoseHandler poseHandler, ref HumanPose pose,
-            Transform[] joints, bool[] present, float[][] muscles)
+        /// <summary>Reads the thirty finger local rotations into a flat finger*3 + joint buffer.</summary>
+        static void RecordPoseInto(Transform[] joints, bool[] present, Quaternion[] destination)
         {
-            for (int finger = 0; finger < FingerCount; finger++)
+            for (int index = 0; index < JointCount; index++)
             {
-                float[] slice = muscles[finger];
-                Array.Fill(slice, curl);
-                slice[1] = splay;
-                Array.Copy(slice, 0, pose.muscles, MuscleLeftThumb + finger * 4, 4);
+                destination[index] = present[index] ? joints[index].localRotation : Quaternion.identity;
             }
-
-            poseHandler.SetHumanPose(ref pose);
-            return RecordPose(joints, present);
-        }
-
-        void WriteGridCell(int gridIdx, BasisPoseData pose)
-        {
-            WriteFinger(0, gridIdx, pose.LeftThumb);
-            WriteFinger(1, gridIdx, pose.LeftIndex);
-            WriteFinger(2, gridIdx, pose.LeftMiddle);
-            WriteFinger(3, gridIdx, pose.LeftRing);
-            WriteFinger(4, gridIdx, pose.LeftLittle);
-            WriteFinger(5, gridIdx, pose.RightThumb);
-            WriteFinger(6, gridIdx, pose.RightIndex);
-            WriteFinger(7, gridIdx, pose.RightMiddle);
-            WriteFinger(8, gridIdx, pose.RightRing);
-            WriteFinger(9, gridIdx, pose.RightLittle);
-        }
-
-        void WriteFinger(int fingerIdx, int gridIdx, Quaternion[] finger)
-        {
-            int idx = fingerIdx * FingerStride + gridIdx * JointsPerFinger;
-            Cells[idx] = finger[0];
-            Cells[idx + 1] = finger[1];
-            Cells[idx + 2] = finger[2];
         }
 
         static BasisPoseData RecordPose(Transform[] joints, bool[] present)
@@ -475,36 +514,6 @@ namespace Basis.Scripts.Drivers
             Assign(ref pose.RightLittle);
 
             return pose;
-        }
-
-        static Transform[] AggregateFingerTransforms(BasisTransformMapping m)
-        {
-            var all = new Transform[JointCount];
-            var fingers = new[]
-            {
-                m.LeftThumb, m.LeftIndex, m.LeftMiddle, m.LeftRing, m.LeftLittle,
-                m.RightThumb, m.RightIndex, m.RightMiddle, m.RightRing, m.RightLittle,
-            };
-            for (int f = 0; f < FingerCount; f++)
-            {
-                for (int j = 0; j < JointsPerFinger; j++) all[f * JointsPerFinger + j] = fingers[f][j];
-            }
-            return all;
-        }
-
-        static bool[] AggregateHasProximal(BasisTransformMapping m)
-        {
-            var all = new bool[JointCount];
-            var has = new[]
-            {
-                m.HasLeftThumb, m.HasLeftIndex, m.HasLeftMiddle, m.HasLeftRing, m.HasLeftLittle,
-                m.HasRightThumb, m.HasRightIndex, m.HasRightMiddle, m.HasRightRing, m.HasRightLittle,
-            };
-            for (int f = 0; f < FingerCount; f++)
-            {
-                for (int j = 0; j < JointsPerFinger; j++) all[f * JointsPerFinger + j] = has[f][j];
-            }
-            return all;
         }
 
         /// <summary>

@@ -58,6 +58,32 @@ public static class BasisNetworkGenericMessages
         _directHandlers.Remove(messageIndex);
     }
 
+    /// <summary>
+    /// Drops every scene-data registration and everything still queued for one. Called when a connection ends,
+    /// because a message index means nothing outside the connection that issued it: the server assigns indices
+    /// from a counter that restarts on an empty instance, so the next server hands the same numbers to
+    /// different objects. Anything kept across a disconnect is therefore actively wrong - a stale registration
+    /// points a live index at the wrong subsystem, and a payload nobody claimed on the last server is replayed
+    /// into whoever claims that index on the next one, carrying a player id from a room that no longer exists.
+    ///
+    /// Everything dropped here re-registers itself on the next connection: <c>BasisNetworkBehaviour</c> from
+    /// <c>Start</c> on the world and prop objects the teardown rebuilds, and the static services from their own
+    /// join hooks. Batch demux is the one exception - it is session-wide policy rather than per connection, so
+    /// it is re-armed here instead of waiting for a <c>SetEnabled</c> call that will never come again.
+    /// </summary>
+    public static void ReleaseConnectionRegistrations()
+    {
+        _handlers.Clear();
+        _directHandlers.Clear();
+        _deferredMessages.Clear();
+        _deferredDirectMessages.Clear();
+
+        if (BasisSyncBatchCollector.Enabled)
+        {
+            RegisterBatchHandler();
+        }
+    }
+
     public static void DispatchServerSceneDataMessage(ServerSceneDataMessage serverSceneDataMessage, DeliveryMethod deliveryMethod, bool direct)
     {
         ushort playerID = serverSceneDataMessage.playerIdMessage.playerID;
@@ -256,7 +282,11 @@ public static class BasisNetworkGenericMessages
             {
                 RemoteAvatarDataMessage output = SADM.avatarDataMessage;
 
-                if (player.NetworkBehaviours.Length > output.messageIndex)
+                // Null between NotifyNetworkBehavioursTerminated and the GetComponentsInChildren that
+                // refills it: BasisAvatar is assigned by the factory well before AvatarLoadComplete
+                // runs, and the install is budgeted across frames, so every first load and every
+                // avatar swap has a window where the avatar is live and this array is not.
+                if (player.NetworkBehaviours != null && player.NetworkBehaviours.Length > output.messageIndex)
                 {
                     bool isDifferentAvatar = output.AvatarLinkIndex != player.LastLinkedAvatarIndex;
 

@@ -230,6 +230,10 @@ namespace Basis.Network
                     array = MovementSender.Generate(index).Message.array,
                     AdditionalAvatarDataSize = 0,
                     LinkedAvatarIndex = 0,
+                    // ReadyMessage.Serialize sizes the payload from this field and replaces a
+                    // mismatched array with a fresh zeroed one, so leaving it at the default 0
+                    // (VeryLow) rejoined the client with a blank pose.
+                    DataQualityLevel = (byte)BitQuality.High,
                 }
             };
 

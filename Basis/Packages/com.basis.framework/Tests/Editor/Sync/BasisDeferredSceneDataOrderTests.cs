@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Basis.Network.Core;
+using Basis.Scripts.Networking.Sync;
 using NUnit.Framework;
+using static SerializableBasis;
 
 namespace Basis.Framework.Sync.Tests
 {
@@ -22,6 +24,7 @@ namespace Basis.Framework.Sync.Tests
             _seen.Clear();
             BasisNetworkGenericMessages.UnregisterDirectHandler(MessageIndex);
             BasisNetworkGenericMessages.UnregisterHandler(MessageIndex);
+            BasisNetworkGenericMessages.ReleaseConnectionRegistrations();
         }
 
         [TearDown]
@@ -139,6 +142,108 @@ namespace Basis.Framework.Sync.Tests
             BasisNetworkGenericMessages.RegisterDirectHandler(MessageIndex, Record);
 
             Assert.That(_seen, Is.EqualTo(new List<byte> { 1, 2, 3, 4 }));
+        }
+
+        /// <summary>
+        /// A message index is only meaningful inside the connection that assigned it, so anything still
+        /// waiting for a handler when the connection ends has to be dropped. Left in the queue it is replayed
+        /// into whichever subsystem claims that index on the next server - which is how a client that visited
+        /// two servers ended up with the first server's image traffic arriving in the second one's session.
+        /// </summary>
+        [Test]
+        public void ReleasingDropsSceneDataTheLastConnectionNeverDelivered()
+        {
+            SendDirect(1);
+            SendDirect(2);
+
+            BasisNetworkGenericMessages.ReleaseConnectionRegistrations();
+            BasisNetworkGenericMessages.RegisterDirectHandler(MessageIndex, Record);
+
+            Assert.That(_seen, Is.Empty, "the previous connection's undelivered payloads must not replay");
+        }
+
+        /// <summary>
+        /// The same index belongs to a different object on the next server, so a registration that outlived
+        /// its connection would hand one subsystem another's traffic. Everything re-registers on join.
+        /// </summary>
+        [Test]
+        public void ReleasingDropsHandlerRegistrationsSoTheNextConnectionRebindsThem()
+        {
+            BasisNetworkGenericMessages.RegisterDirectHandler(MessageIndex, Record);
+            BasisNetworkGenericMessages.ReleaseConnectionRegistrations();
+
+            SendDirect(5);
+            Assert.That(_seen, Is.Empty, "the registration must not survive the connection that issued the index");
+
+            // Delivered only once something claims the index again, which proves it was held rather than run.
+            BasisNetworkGenericMessages.RegisterDirectHandler(MessageIndex, Record);
+            Assert.That(_seen, Is.EqualTo(new List<byte> { 5 }));
+        }
+
+        [Test]
+        public void ReleasingDropsRelayedRegistrationsToo()
+        {
+            var seen = new List<byte>();
+            BasisNetworkGenericMessages.RegisterHandler(MessageIndex, (sender, payload, method) => seen.Add(payload[0]));
+            BasisNetworkGenericMessages.ReleaseConnectionRegistrations();
+
+            BasisNetworkGenericMessages.DispatchServerSceneDataMessage(
+                BuildRelayed(MessageIndex, new byte[] { 6 }),
+                DeliveryMethod.ReliableOrdered,
+                false
+            );
+
+            Assert.That(seen, Is.Empty, "the relay table has to be swept as well as the direct one");
+        }
+
+        /// <summary>
+        /// Batch demux is session-wide policy rather than per connection, and SetEnabled short-circuits when
+        /// the flag is already set, so a sweep that dropped it would leave batching permanently unreceivable.
+        /// </summary>
+        [Test]
+        public void ReleasingReArmsBatchDemuxWhileBatchingIsOn()
+        {
+            BasisSyncBatchCollector.SetEnabled(true);
+            try
+            {
+                BasisNetworkGenericMessages.ReleaseConnectionRegistrations();
+
+                // Batches ride the relay table, which is the one the sweep empties. An empty batch is
+                // consumed and produces nothing; had the demux been swept away this would instead be held,
+                // and the recorder registered afterwards would receive the replay.
+                BasisNetworkGenericMessages.DispatchServerSceneDataMessage(
+                    BuildRelayed(BasisSyncBatchCollector.BatchMessageIndex, new byte[0]),
+                    DeliveryMethod.ReliableOrdered,
+                    false
+                );
+
+                var seen = new List<byte>();
+                BasisNetworkGenericMessages.RegisterHandler(
+                    BasisSyncBatchCollector.BatchMessageIndex,
+                    (sender, payload, method) => seen.Add(0)
+                );
+                Assert.That(seen, Is.Empty, "the batch demux must still be registered after a sweep");
+            }
+            finally
+            {
+                BasisSyncBatchCollector.SetEnabled(false);
+                BasisNetworkGenericMessages.UnregisterHandler(BasisSyncBatchCollector.BatchMessageIndex);
+                BasisNetworkGenericMessages.ReleaseConnectionRegistrations();
+            }
+        }
+
+        private static ServerSceneDataMessage BuildRelayed(ushort messageIndex, byte[] payload)
+        {
+            return new ServerSceneDataMessage
+            {
+                playerIdMessage = new PlayerIdMessage { playerID = Sender },
+                sceneDataMessage = new RemoteSceneDataMessage
+                {
+                    messageIndex = messageIndex,
+                    payload = payload,
+                    payloadLength = payload.Length,
+                },
+            };
         }
     }
 }

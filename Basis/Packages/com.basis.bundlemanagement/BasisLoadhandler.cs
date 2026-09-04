@@ -78,17 +78,30 @@ public static class BasisLoadHandler
         {
             return false;
         }
+        // Claim, don't just read. An IsInUse check here and an Unload(true) below is a gap another
+        // thread can Increment through, handing out a reservation on a bundle that is one statement
+        // from having every asset destroyed under it.
+        List<BasisTrackedBundleWrapper> claimed = null;
         foreach (BasisTrackedBundleWrapper other in LoadedBundles.Values)
         {
             if (other == null || ReferenceEquals(other, wrapper) || !ReferenceEquals(other.AssetBundle, bundle))
             {
                 continue;
             }
-            if (other.IsInUse)
+            if (!other.TryClaimUnload())
             {
                 BasisDebug.Log($"Skipping unload of {bundle.name}; another loaded wrapper still has instances of it.", BasisDebug.LogTag.Event);
+                if (claimed != null)
+                {
+                    foreach (BasisTrackedBundleWrapper release in claimed)
+                    {
+                        release.ReleaseUnloadClaim();
+                    }
+                }
                 return false;
             }
+            claimed ??= new List<BasisTrackedBundleWrapper>();
+            claimed.Add(other);
         }
         wrapper.IsUnloaded = true;
         foreach (KeyValuePair<string, BasisTrackedBundleWrapper> pair in LoadedBundles)
@@ -168,7 +181,13 @@ public static class BasisLoadHandler
         string Key = GetBundleKey(loadableBundle);
         if (LoadedBundles.TryGetValue(Key, out BasisTrackedBundleWrapper wrapper))
         {
-            if (wrapper.IsUnloaded)
+            // Reserve BEFORE any await: the unload grace period re-checks the count, and
+            // the budgeted instantiate spans frames. Incrementing only at instantiate-end
+            // (the old LoadFromWrapper behavior) let the grace expire mid-load on a
+            // range-boundary re-entry and Unload(true) killed the clone's assets.
+            // A refused Increment means an unload is already claimed, which is the same MISS
+            // as an IsUnloaded husk.
+            if (wrapper.IsUnloaded || !wrapper.Increment())
             {
                 // Unload(true) already destroyed this wrapper's assets — instantiating from
                 // it produces an avatar whose Animator.avatar and meshes are dead. Drop the
@@ -180,11 +199,6 @@ public static class BasisLoadHandler
             }
             else
             {
-                // Reserve BEFORE any await: the unload grace period re-checks the count, and
-                // the budgeted instantiate spans frames. Incrementing only at instantiate-end
-                // (the old LoadFromWrapper behavior) let the grace expire mid-load on a
-                // range-boundary re-entry and Unload(true) killed the clone's assets.
-                wrapper.Increment();
                 // Ticket the reservation with the wrapper it was taken on, so the release finds
                 // this exact wrapper rather than re-deriving a key that may have drifted.
                 loadableBundle.ReservedWrapperKey = wrapper.RegisteredKey ?? Key;
@@ -230,15 +244,23 @@ public static class BasisLoadHandler
             }
             wrapper = null;
         }
+        // Reserve BEFORE any await, exactly as the GameObject path does. A scene wrapper sits
+        // at zero between unloads (its durable count is taken by LoadSceneFromBundleAsync only
+        // once the scene is live), so without this the awaits below span a window where the
+        // grace period can expire — or an aliasing wrapper reaching zero can Unload(true) the
+        // bundle we are about to load the scene out of. A refused Increment is an unload already
+        // claimed: same MISS as a husk.
+        if (wrapper != null && !wrapper.Increment())
+        {
+            if (LoadedBundles.TryGetValue(Key, out BasisTrackedBundleWrapper claimedStale) && ReferenceEquals(claimedStale, wrapper))
+            {
+                LoadedBundles.Remove(Key, out var husk);
+            }
+            wrapper = null;
+        }
         if (wrapper != null)
         {
             BasisDebug.Log($"Bundle On Disc Loading", BasisDebug.LogTag.Networking);
-            // Reserve BEFORE any await, exactly as the GameObject path does. A scene wrapper sits
-            // at zero between unloads (its durable count is taken by LoadSceneFromBundleAsync only
-            // once the scene is live), so without this the awaits below span a window where the
-            // grace period can expire — or an aliasing wrapper reaching zero can Unload(true) the
-            // bundle we are about to load the scene out of.
-            wrapper.Increment();
             try
             {
                 if (wrapper.AssetBundle == null)
@@ -274,16 +296,18 @@ public static class BasisLoadHandler
         string Key = GetBundleKey(loadableBundle);
         BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper { AssetBundle = null, LoadableBundle = loadableBundle, RegisteredKey = Key };
 
+        // Held across the load for the same reason as the GameObject path: until the scene is
+        // live nothing counts this wrapper as in use, and an aliasing wrapper reaching zero
+        // would Unload(true) the bundle out from under the load in flight. Taken before the
+        // wrapper is published so no other thread can claim an unload on it at zero first.
+        wrapper.Increment();
+
         if (!LoadedBundles.TryAdd(Key, wrapper))
         {
             BasisDebug.LogError("Unable to add bundle wrapper.");
             return new Scene();
         }
 
-        // Held across the load for the same reason as the GameObject path: until the scene is
-        // live nothing counts this wrapper as in use, and an aliasing wrapper reaching zero
-        // would Unload(true) the bundle out from under the load in flight.
-        wrapper.Increment();
         try
         {
             await BasisBeeManagement.HandleBundleAndMetaLoading(wrapper, report, cancellationToken, MaxDownloadSizeInMB);
@@ -317,15 +341,17 @@ public static class BasisLoadHandler
             RegisteredKey = Key
         };
 
+        // The instantiate reservation, held from registration so the unload grace can never
+        // fire between the download completing and the budgeted instantiate finishing. Taken
+        // before the wrapper is published so no other thread can claim an unload on it at zero.
+        wrapper.Increment();
+
         if (!LoadedBundles.TryAdd(Key, wrapper))
         {
             BasisDebug.LogError("Unable to add bundle wrapper.");
             return null;
         }
 
-        // The instantiate reservation, held from registration so the unload grace can never
-        // fire between the download completing and the budgeted instantiate finishing.
-        wrapper.Increment();
         // Ticket the reservation with the wrapper it was taken on, so the release finds this
         // exact wrapper rather than re-deriving a key that may have drifted.
         loadableBundle.ReservedWrapperKey = wrapper.RegisteredKey ?? Key;

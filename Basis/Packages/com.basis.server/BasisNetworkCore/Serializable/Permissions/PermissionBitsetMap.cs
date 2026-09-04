@@ -36,7 +36,7 @@ namespace Basis.Network.Core
             "basis.moderation.message",       // 21
             "basis.moderation.messageall",    // 22
             "basis.moderation.teleport",      // 23
-            "basis.moderation.shout",         // 24
+            "basis.moderation.announce",      // 24
             "basis.permissions.view",         // 25
             "basis.permissions.edit",         // 26
             "basis.moderation.headlessaudio", // 27

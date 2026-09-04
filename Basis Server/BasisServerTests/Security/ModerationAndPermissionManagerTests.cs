@@ -209,7 +209,7 @@ public class PermissionManagerTests
         Assert.Equal("basis.moderation.message", PermNodes.ModerationMessage);
         Assert.Equal("basis.moderation.messageall", PermNodes.ModerationMessageAll);
         Assert.Equal("basis.moderation.teleport", PermNodes.ModerationTeleport);
-        Assert.Equal("basis.moderation.shout", PermNodes.ModerationShout);
+        Assert.Equal("basis.moderation.announce", PermNodes.ModerationAnnounce);
         Assert.Equal("basis.moderation.globallock", PermNodes.ModerationGlobalLock);
         Assert.Equal("basis.moderation.headlessaudio", PermNodes.ModerationHeadlessAudio);
         Assert.Equal("basis.moderation.opusbitrate", PermNodes.ModerationOpusBitrate);
@@ -249,7 +249,7 @@ public class PermissionManagerTests
         "basis.moderation.message",
         "basis.moderation.messageall",
         "basis.moderation.teleport",
-        "basis.moderation.shout",
+        "basis.moderation.announce",
         "basis.permissions.view",
         "basis.permissions.edit",
         "basis.moderation.headlessaudio",
@@ -395,6 +395,70 @@ public class PermissionManagerTests
         Assert.True(m.TryGetGroup("admin", out var adminGroup));
         Assert.Contains("*", adminGroup.Nodes);
         Assert.Contains("moderator", adminGroup.Parents);
+    }
+
+    [Fact]
+    public void IsInGroup_WalksParentChain_AndAgreesWithNodeInheritance()
+    {
+        PermissionManager m = CreateManager();
+        m.EnsureDefaults();
+
+        string admin = NewUuid();
+        m.AddUserToGroup(admin, "admin");
+
+        // admin -> moderator -> default, the chain EnsureDefaults builds. A role check has to see
+        // the whole chain, or a world badging "moderator" would miss every admin.
+        Assert.True(m.IsInGroup(admin, "admin"));
+        Assert.True(m.IsInGroup(admin, "moderator"));
+        Assert.True(m.IsInGroup(admin, "default"));
+
+        // ...and not the other way round.
+        string mod = NewUuid();
+        m.AddUserToGroup(mod, "moderator");
+        Assert.True(m.IsInGroup(mod, "moderator"));
+        Assert.False(m.IsInGroup(mod, "admin"));
+
+        Assert.True(m.IsInGroup(admin, "ADMIN"), "group names compare case-insensitively");
+        Assert.False(m.IsInGroup(admin, $"absent-{Guid.NewGuid():N}"));
+        Assert.False(m.IsInGroup(admin, ""));
+        Assert.False(m.IsInGroup("", "admin"));
+    }
+
+    [Fact]
+    public void IsInGroup_UnknownUserIsInDefault_AndSurvivesGroupCycles()
+    {
+        PermissionManager m = CreateManager();
+        m.EnsureDefaults();
+
+        // Same implicit membership BuildEffective_NoLock grants, so a role check and a node check
+        // answer consistently for someone with no row of their own.
+        string stranger = NewUuid();
+        Assert.True(m.IsInGroup(stranger, "default"));
+        Assert.False(m.IsInGroup(stranger, "moderator"));
+
+        // A parent cycle is reachable through the admin UI; the walk has to terminate on it.
+        m.GetOrCreateGroup("loop-a");
+        m.GetOrCreateGroup("loop-b");
+        m.AddGroupParent("loop-a", "loop-b");
+        m.AddGroupParent("loop-b", "loop-a");
+
+        string looped = NewUuid();
+        m.AddUserToGroup(looped, "loop-a");
+        Assert.True(m.IsInGroup(looped, "loop-a"));
+        Assert.True(m.IsInGroup(looped, "loop-b"));
+        Assert.False(m.IsInGroup(looped, "admin"));
+
+        // A membership naming a group with no row still counts — AddUserToGroup does not create
+        // the group, and hand-edited xml can name one that was never defined. The membership on
+        // the user is the fact being asked about; inheritance simply has nothing to walk.
+        string rowless = NewUuid();
+        m.AddUserToGroup(rowless, "never-defined");
+        Assert.True(m.IsInGroup(rowless, "never-defined"));
+        Assert.False(m.IsInGroup(rowless, "loop-b"));
+
+        // Deleting a group does scrub it off every user, so that path leaves nothing behind.
+        m.DeleteGroup("loop-a");
+        Assert.False(m.IsInGroup(looped, "loop-a"));
     }
 
     [Fact]

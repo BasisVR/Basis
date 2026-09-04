@@ -170,6 +170,7 @@ namespace Basis.Network.Core
     public partial class NetPacketReader : NetDataReader
     {
         Action RecycleInternal;
+        bool recycled;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		internal byte channel;
@@ -192,6 +193,11 @@ namespace Basis.Network.Core
 
         public void Recycle(bool IsOkTOHaveEmptyData = false)
         {
+            if (recycled)
+            {
+                return;
+            }
+            recycled = true;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			if (IsOkTOHaveEmptyData == false)
 			{

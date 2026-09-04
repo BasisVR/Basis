@@ -126,7 +126,7 @@ public static class BasisAssetBundlePipeline
                     targetDirectory,
                     settings,
                     uniqueID,
-                    isScene ? "Scene" : "GameObject",
+                    isScene ? BasisBundleConnector.SceneAssetMode : BasisBundleConnector.GameObjectAssetMode,
                     Password,
                     Target,
                     ResolveContentKind(isScene, asset));

@@ -432,6 +432,37 @@ internal unsafe class JiggleTreeBuildTests {
         Assert.IsTrue(before == tree.GetStruct().points);
     }
 
+    /// <summary>
+    /// The managed staging array behind those buffers has to be kept too. It is MAX_CHILDREN ints
+    /// per point — 128 bytes against a bone reference's 8, far the largest array on the tree — and a
+    /// regeneration rewrites all of it. Reallocating rather than copying into it put that much
+    /// garbage per rebuilt rig under JiggleRoot.GetJiggleTrees, which is where the regeneration
+    /// budget spends every flush a dirty backlog is draining.
+    /// </summary>
+    [Test]
+    public void Regenerate_WithTheSamePointCount_KeepsTheChildIndexArray() {
+        var root = scene.Chain(3);
+        var rig = JiggleSceneFactory.Rig(root);
+        var tree = Build(rig);
+        var before = tree.childrenIndices;
+
+        Build(rig, tree);
+
+        Assert.AreSame(before, tree.childrenIndices);
+    }
+
+    /// <summary>The other half: a shape change still has to resize it, or the stride runs off the end.</summary>
+    [Test]
+    public void Regenerate_AfterExcludingABone_ResizesTheChildIndexArray() {
+        var root = scene.Chain(4);
+        var bones = JiggleBoneScene.Descend(root, 4);
+        var tree = Build(JiggleSceneFactory.Rig(root));
+
+        Build(JiggleSceneFactory.Rig(root, bones[2]), tree);
+
+        Assert.AreEqual(tree.points.Length * JiggleSimulatedPoint.MAX_CHILDREN, tree.childrenIndices.Length);
+    }
+
     [Test]
     public void RootID_IsStableAcrossRegeneration() {
         var root = scene.Chain(3);

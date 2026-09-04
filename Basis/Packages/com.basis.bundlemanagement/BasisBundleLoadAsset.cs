@@ -15,7 +15,7 @@ public static class BasisBundleLoadAsset
             {
                 switch (Generated.AssetMode)
                 {
-                    case "GameObject":
+                    case BasisBundleConnector.GameObjectAssetMode:
                         {
                             string ReplacedName = Generated.AssetToLoadName.Replace(".bundle", ".prefab");
 

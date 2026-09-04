@@ -977,8 +977,8 @@ namespace Basis.Network.Core
         // ── Voice ────────────────────────────────────────────────────────────
         /// <summary>Spatialized voice data</summary>
         public const byte VoiceChannel = 3;
-        /// <summary>Shout mode voice. Non-spatialized audio broadcast to all clients.</summary>
-        public const byte ShoutVoiceChannel = 4;
+        /// <summary>Announce mode voice. Non-spatialized audio broadcast to all clients.</summary>
+        public const byte AnnounceVoiceChannel = 4;
         /// <summary>Voice recipient list (byte count, ≤255 recipients)</summary>
         public const byte AudioRecipientsChannel = 5;
         /// <summary>Voice recipient list (ushort count, >255 recipients)</summary>
@@ -1116,7 +1116,7 @@ namespace Basis.Network.Core
         // Wire (client→server): [eventType:1][intervalMs:2]
         // Wire (server→client): [eventType:1][senderId:2][intervalMs:2]
         public const byte EventType_AvatarRateChange = 3;
-        /// <summary>Per-player talk mode for nameplate coloring (Normal/Private/Direct/ThisPerson/Shout).</summary>
+        /// <summary>Per-player talk mode for nameplate coloring (Normal/Private/Direct/ThisPerson/Announce).</summary>
         // Wire (client→server): [eventType:1][modeByte:1]
         // Wire (server→client): [eventType:1][senderId:2][modeByte:1]
         public const byte EventType_TalkModeChanged = 4;
@@ -1356,7 +1356,7 @@ namespace Basis.Network.Core
         {
             bool[] map = new bool[TotalChannels];
             map[VoiceChannel] = true;
-            map[ShoutVoiceChannel] = true;
+            map[AnnounceVoiceChannel] = true;
             map[VoiceLargeChannel] = true;
             return map;
         }

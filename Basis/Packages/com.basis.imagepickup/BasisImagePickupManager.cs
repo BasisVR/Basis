@@ -363,6 +363,16 @@ namespace Basis.ImagePickup
         /// </summary>
         private static readonly HashSet<Guid> _serverHeldImages = new();
         private static bool _initialized;
+
+        /// <summary>
+        /// Bumped every time this client leaves an instance. The network id resolve is asynchronous, so a
+        /// reply still in flight when the connection went away would otherwise arm the next server with the
+        /// previous server's id; the resolve captures this and drops its answer if it moved.
+        /// <see cref="_identityResolveGeneration"/> doubles as the in-flight token, so several joins arriving
+        /// before the first answer do not each start their own resolve.
+        /// </summary>
+        private static int _connectionGeneration;
+        private static int _identityResolveGeneration = -1;
         private static float _nextRecipientRangeRefreshTime;
 
         /// <summary>
@@ -442,10 +452,7 @@ namespace Basis.ImagePickup
             BasisNetworkPlayer.OnPlayerLeft -= OnPlayerLeft;
             Application.quitting -= Shutdown;
 
-            if (HasNetworkID)
-                BasisNetworkGenericMessages.UnregisterDirectHandler(NetworkID);
-            HasNetworkID = false;
-            NetworkID = 0;
+            ReleaseNetworkIdentity();
 
             _scratchIds.Clear();
             foreach (Guid id in _images.Keys)
@@ -534,14 +541,19 @@ namespace Basis.ImagePickup
                 BasisDebug.LogError("Image pickup manager cannot start; the local player is not connected.", LogTag);
                 return;
             }
-            if (HasNetworkID)
+            int generation = _connectionGeneration;
+            if (HasNetworkID || _identityResolveGeneration == generation)
                 return;
+            _identityResolveGeneration = generation;
 
             BasisIdResolutionResult resolution = await BasisNetworkIdResolver.ResolveAsync(FixedNetworkIdentifier);
-            if (!_initialized || HasNetworkID)
+            // The id belongs to whichever connection answered. If that connection is gone the answer is the
+            // previous server's index, and arming with it leaves us listening on nothing.
+            if (!_initialized || HasNetworkID || generation != _connectionGeneration)
                 return;
             if (!resolution.Success)
             {
+                _identityResolveGeneration = -1;
                 BasisDebug.LogError(
                     $"Image pickup manager could not resolve the network identifier '{FixedNetworkIdentifier}'.",
                     LogTag
@@ -552,8 +564,8 @@ namespace Basis.ImagePickup
             NetworkID = resolution.Id;
             HasNetworkID = true;
             BasisNetworkGenericMessages.RegisterDirectHandler(NetworkID, OnDirectNetworkMessage);
-            // BasisNetworkLifeCycle nulls the whole delegate on teardown, so re-arm per join rather than
-            // once in Initialize — the same pattern BasisServerProvidedItems uses.
+            // Armed per join rather than once in Initialize so the leave handler only exists while there is a
+            // connection to leave — the same pattern BasisServerProvidedItems uses. The -= keeps that idempotent.
             BasisNetworkPlayer.OnLocalPlayerLeft -= HandleLocalPlayerLeft;
             BasisNetworkPlayer.OnLocalPlayerLeft += HandleLocalPlayerLeft;
             BasisDebug.Log($"Image pickup manager ready (network id {NetworkID}).", LogTag);
@@ -566,6 +578,9 @@ namespace Basis.ImagePickup
         /// </summary>
         private static void HandleLocalPlayerLeft(BasisNetworkPlayer networkPlayer, BasisLocalPlayer localPlayer)
         {
+            // Ahead of the early out below, because the identity has to go even when there is nothing to clear.
+            ReleaseNetworkIdentity();
+
             int trackedImageCount = _images.Count;
             if (trackedImageCount == 0 && _inbound.Count == 0 && _inboundAnimations.Count == 0)
                 return;
@@ -606,6 +621,56 @@ namespace Basis.ImagePickup
                 $"Image pickup manager cleared {trackedImageCount:N0} shared image(s) on leaving the instance.",
                 LogTag
             );
+        }
+
+        /// <summary>
+        /// Drops the network id and its handler registration, and opens a new connection generation.
+        ///
+        /// The id is per server, not per client: the server hands ids out from a counter that starts at zero on
+        /// an empty instance, so <see cref="FixedNetworkIdentifier"/> is a different ushort on every server a
+        /// client visits. Keeping the previous server's id past a disconnect left the manager armed on an index
+        /// the new server uses for something else, or for nothing, so every image message the new server
+        /// delivered found no handler and sat in the deferred queue forever - images already in the instance
+        /// never appeared, and ours never left.
+        /// </summary>
+        /// <summary>
+        /// Confirms the id we hold was issued by the connection we are actually on, and resolves a new one if
+        /// it was not.
+        ///
+        /// <see cref="HandleLocalPlayerLeft"/> is the ordinary place the id is released, but the teardown only
+        /// raises that event while it can still find the local player, so a connection that died hard leaves us
+        /// armed on the last server's index with nothing to say so. <c>BasisNetworkIdResolver.KnownIdMap</c> is
+        /// emptied on every teardown and refilled by the server on join, so an id it does not confirm is one
+        /// from a room we have already left.
+        /// </summary>
+        private static void EnsureNetworkIdentity()
+        {
+            if (!BasisNetworkConnection.LocalPlayerIsConnected)
+                return;
+
+            if (HasNetworkID)
+            {
+                if (BasisNetworkIdResolver.KnownIdMap.TryGetValue(FixedNetworkIdentifier, out ushort issued)
+                    && issued == NetworkID)
+                {
+                    return;
+                }
+                ReleaseNetworkIdentity();
+            }
+
+            HandleLocalPlayerJoined(null, null);
+        }
+
+        private static void ReleaseNetworkIdentity()
+        {
+            _connectionGeneration++;
+            _identityResolveGeneration = -1;
+            if (HasNetworkID)
+                BasisNetworkGenericMessages.UnregisterDirectHandler(NetworkID);
+            HasNetworkID = false;
+            NetworkID = 0;
+            // Whether the next server holds any of our images is its own answer to give.
+            _serverHeldImages.Clear();
         }
 
         /// <summary>
@@ -2099,7 +2164,15 @@ namespace Basis.ImagePickup
 
         private static void OnPlayerJoined(BasisNetworkPlayer player)
         {
-            if (player == null || _owned.Count == 0)
+            if (player == null)
+                return;
+
+            // HandleLocalPlayerJoined is the ordinary way in, but it runs off events a connection that dropped
+            // hard never raises. OnPlayerJoined is raised for the local player too, so checking here confirms the
+            // id we hold was issued by the server we are actually on and re-resolves it when it was not.
+            EnsureNetworkIdentity();
+
+            if (_owned.Count == 0)
                 return;
             // Let the next range pass batch every newly eligible player into one cohort rather than
             // queueing a separate one-player transfer per arrival.
