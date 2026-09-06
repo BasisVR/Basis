@@ -58,6 +58,7 @@ public static class BasisAssetBundlePipeline
         {
             EditorUserBuildSettings.SwitchActiveBuildTarget(BuildPipeline.GetBuildTargetGroup(Target), Target);
         }
+        await WaitForAssetDatabaseIdle();
         string uncombinedRoot = BasisBundleBuild.PathConversion(settings.AssetBundleUnCombined);
         string targetDirectory = Path.Combine(uncombinedRoot, Folder, Target.ToString());
 
@@ -191,6 +192,32 @@ public static class BasisAssetBundlePipeline
         {
             sceneBuildName?.Dispose();
         }
+    }
+
+    public static double AssetDatabaseIdleTimeoutSeconds = 300;
+
+    /// <summary>
+    /// A platform switch can add a package (Linux adds its cross-compile toolchain) that imports on a
+    /// later editor tick, during a later target. While it imports, AssetDatabase.CreateFolder returns
+    /// nothing and build hooks that create assets (NDMF) fail, so wait for it before running hooks.
+    /// </summary>
+    public static async Task WaitForAssetDatabaseIdle()
+    {
+        if (!EditorApplication.isUpdating)
+        {
+            return;
+        }
+        double started = EditorApplication.timeSinceStartup;
+        while (EditorApplication.isUpdating)
+        {
+            if (EditorApplication.timeSinceStartup - started > AssetDatabaseIdleTimeoutSeconds)
+            {
+                BasisDebug.LogWarning($"Asset database still importing after {AssetDatabaseIdleTimeoutSeconds} seconds, building anyway.", BasisDebug.LogTag.Editor);
+                return;
+            }
+            await Task.Yield();
+        }
+        BasisDebug.Log($"Waited {EditorApplication.timeSinceStartup - started:F1} seconds for the asset database before building for {EditorUserBuildSettings.activeBuildTarget}.", BasisDebug.LogTag.Editor);
     }
 
     public static void PostProcessAvatar(GameObject prefab)
