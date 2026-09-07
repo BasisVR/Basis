@@ -629,6 +629,16 @@ public static class BasisNetworkEvents
             BasisP2PManager.HandleServerMessage(Reader);
         });
 
+        BasisClientMessageRegistry.RegisterCore(BasisNetworkCommons.CustomServerDataChannel, (peer, Reader, channel, deliveryMethod) =>
+        {
+            if (ValidateSize(Reader, peer, channel) == false)
+            {
+                Reader.Recycle();
+                return;
+            }
+            BasisNetworkHandleCustomServerData.HandleMessage(Reader, deliveryMethod);
+        });
+
         BasisClientMessageRegistry.RegisterCore(BasisNetworkCommons.EventsChannel, (peer, Reader, channel, deliveryMethod) =>
         {
             if (ValidateSize(Reader, peer, channel) == false)
