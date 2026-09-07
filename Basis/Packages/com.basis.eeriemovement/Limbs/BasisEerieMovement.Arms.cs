@@ -133,7 +133,7 @@ namespace Basis.IK
             input.TrackerFinal = isLeft ? targetRotationLeftShoulder * offsetRotationLeftShoulder : targetRotationRightShoulder * offsetRotationRightShoulder;
             input.IsLeft = isLeft;
 
-            BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result, ref gizmos);
+            BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result);
             if (result.Apply)
             {
                 poseStream.SetRotation(shoulderHandle, result.ShoulderRotation);
@@ -266,6 +266,32 @@ namespace Basis.IK
             input.ElbowLateralOut = isLeft ? -bodyRight : bodyRight;
 
             input.TorsoUp = plan.hasTorso ? poseStream.GetPosition(plan.torsoTo) - poseStream.GetPosition(plan.torsoFrom) : Vector3.zero;
+            input.TorsoForward = Vector3.Cross(bodyRight.normalized, input.TorsoUp.normalized);
+
+            var shoulderBack = -input.TorsoForward;
+            var shoulderToTargetOffset = (input.TargetPosition - input.Shoulder);
+            var shoulderProjectedTargetOffset = Vector3.ProjectOnPlane(shoulderToTargetOffset, input.TorsoUp);
+            var angleFromRight = Vector3.Angle(shoulderProjectedTargetOffset.normalized, bodyRight.normalized);
+            var forwardness = Vector3.Dot(shoulderProjectedTargetOffset.normalized, input.TorsoForward);
+            if (forwardness<0f) angleFromRight = 360f - angleFromRight;
+            var angleFromLeft = angleFromRight - 180f;
+            var raisedness = Vector3.Angle(-input.TorsoUp.normalized, shoulderToTargetOffset.normalized)/90f-1f;
+            raisedness = Mathf.Clamp01(raisedness);
+            var armSpaceShoulderBack = Quaternion.AngleAxis(angleFromLeft, -input.TorsoUp) * shoulderBack;
+
+            var handRight = input.TargetRotation * Vector3.right;
+
+            //var behindness = Mathf.Clamp01(-forwardness);
+
+            var elbowOutBlend = raisedness;//Mathf.Max(raisedness, behindness);
+
+            gizmos.Segment(input.Shoulder, input.HintPosition, Color.cyan);
+            gizmos.Segment(input.TargetPosition, input.TargetPosition + handRight, Color.yellow);
+
+            var finalHintDir = armSpaceShoulderBack * (1f - elbowOutBlend) - bodyRight.normalized * elbowOutBlend;
+            finalHintDir += handRight * 0.7f;
+
+            if (isLeft) input.HintPosition = input.Shoulder + finalHintDir;
 
             bool anchorSlot = arm.poleAnchor;
             if (slotOk)
@@ -307,10 +333,8 @@ namespace Basis.IK
             //poseStream.SetRotation(mid, result.MidPostRoll * poseStream.GetRotation(mid));
             poseStream.SetRotation(root, result.RootRotation);
             poseStream.SetRotation(mid, result.MidRotation);
-            // Twist bones are held at their bind local by the ResetToRest above and not written
-            // again. A world-space write here would not pin them: the stream stores locals, so
-            // SetRotation converts once against the parent as it stands right now and the elbow
-            // protect, the weight blend and ApplySwingContinuity all turn that parent afterwards.
+            if (arm.hasUpperTwist) poseStream.SetRotation(rootTwist, poseStream.GetRotation(root));
+            if (arm.hasLowerTwist) poseStream.SetRotation(midTwist, poseStream.GetRotation(mid));
             poseStream.SetRotation(tip, result.TipRotation);
 
             int collisionState = 0;
@@ -333,15 +357,15 @@ namespace Basis.IK
                 epi.PlayerUp = playerUp;
                 epi.BodyRight = bodyRight;
 
-                BasisElbowProtectCore.Solve(epi, out BasisElbowProtectResult epr, ref gizmos);
-                if (epr.Engaged)
-                {
-                    poseStream.GetPositionAndRotation(tip, out Vector3 preservedHandPos, out Quaternion preservedHandRot);
-                    SwingElbowAroundAC(root, mid, tip, epr.DesiredElbow);
-                    poseStream.SetPosition(tip, preservedHandPos);
-                    poseStream.SetRotation(tip, preservedHandRot);
-                }
-                collisionState = epr.CollisionState;
+                //BasisElbowProtectCore.Solve(epi, out BasisElbowProtectResult epr);
+                //if (epr.Engaged)
+                //{
+                //    poseStream.GetPositionAndRotation(tip, out Vector3 preservedHandPos, out Quaternion preservedHandRot);
+                //    SwingElbowAroundAC(root, mid, tip, epr.DesiredElbow);
+                //    poseStream.SetPosition(tip, preservedHandPos);
+                //    poseStream.SetRotation(tip, preservedHandRot);
+                //}
+                //collisionState = epr.CollisionState;
             }
 
             if (slotOk)

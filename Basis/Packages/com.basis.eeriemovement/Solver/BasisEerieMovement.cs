@@ -135,10 +135,10 @@ namespace Basis.IK
             SolveSpinePass();
             BasisEerieMarkers.Spine.End();
             RecordSpineGizmos();
-            BasisEerieMarkers.Shoulders.Begin();
-            SolveShoulderPass();
-            BasisEerieMarkers.Shoulders.End();
-            RecordShoulderGizmos();
+            //BasisEerieMarkers.Shoulders.Begin();
+            //SolveShoulderPass();
+            //BasisEerieMarkers.Shoulders.End();
+            //RecordShoulderGizmos();
             BasisEerieMarkers.Legs.Begin();
             SolveLegPass();
             BasisEerieMarkers.Legs.End();

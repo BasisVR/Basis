@@ -82,7 +82,7 @@ namespace Basis.IK
         public Vector3 PrevPoleDir;
         public Quaternion PrevHintRotation;
         public int PrevGuardSide;
-        public Vector3 ElbowLateralOut, TorsoUp;
+        public Vector3 ElbowLateralOut, TorsoUp, TorsoForward;
         public float ForearmFollowWeight;
     }
     public struct BasisArmSolveResult

@@ -354,10 +354,10 @@ namespace Basis.IK
             rootDelta = rootRotation * Quaternion.Inverse(cachedRootRotation);
             var midDelta = midRotation * Quaternion.Inverse(cachedMidRotation);
 
-            gizmos.Segment(i.Shoulder, i.Shoulder + cachedRootRotation * Vector3.forward, Color.blue);
-            gizmos.Segment(i.Shoulder, i.Shoulder + cachedRootRotation * Vector3.up, Color.green);
-            gizmos.Segment(i.Shoulder, i.Shoulder + rootRotation * Vector3.forward, Color.blue);
-            gizmos.Segment(i.Shoulder, i.Shoulder + rootRotation * Vector3.up, Color.green);
+            //gizmos.Segment(i.Shoulder, i.Shoulder + cachedRootRotation * Vector3.forward, Color.blue);
+            //gizmos.Segment(i.Shoulder, i.Shoulder + cachedRootRotation * Vector3.up, Color.green);
+            //gizmos.Segment(i.Shoulder, i.Shoulder + rootRotation * Vector3.forward, Color.blue);
+            //gizmos.Segment(i.Shoulder, i.Shoulder + rootRotation * Vector3.up, Color.green);
 
             // Apply deltas to original bone rotations
             r.RootRotation = rootDelta * i.RootRotation;
