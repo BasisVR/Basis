@@ -193,8 +193,14 @@ public sealed class BasisMediaPlayerAudio : MonoBehaviour, IBasisMediaClockSourc
             for (int guard = 0; gap < leadFrames && guard < lengthFrames / ChunkFrames; guard++)
             {
                 Array.Clear(scratch, 0, scratch.Length);
-                splitter.ReadMixed(reader, scratch, ChunkFrames, channels, taps,
-                                   gainProvider != null ? gainProvider() : 1f);
+                // Never block behind the DSP thread's hold of the splitter gate —
+                // a contended frame retries next Pump and the overtake check above
+                // absorbs the worst case.
+                if (!splitter.TryReadMixed(reader, scratch, ChunkFrames, channels, taps,
+                                           gainProvider != null ? gainProvider() : 1f, out _))
+                {
+                    break;
+                }
                 Clip.SetData(scratch, writeCursor);
                 writeCursor = (writeCursor + ChunkFrames) % lengthFrames;
                 gap += ChunkFrames;

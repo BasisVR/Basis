@@ -74,6 +74,8 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
     private const int FullStateHeaderSize = FullStateUrlLenOffset + 2;
     private const int SettingsPayloadSize = 1 + SettingsBlockSize;
     private const int SeekPayloadSize = 1 + 8;
+    private const float ResyncAnswerTimeoutSeconds = 3f;
+    private const float PendingApplyStaleSeconds = 60f;
 
     // Cached single-byte command payloads; SendCustomNetworkEvent does not retain references.
     private static readonly byte[] PlayBytes = { (byte)MessageId.Play };
@@ -95,6 +97,22 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
     private bool syncedUrlFromSetUrl;
     private float heartbeatTimer;
 
+    // Ownership can arrive without anyone asking for it: the framework's join-time
+    // ownership query silently claims an ownerless object server-side and reports the
+    // joiner as its owner. Such an implicit owner holds nothing but the scene's default
+    // state, so it keeps acting like a passive receiver (accepts FullState, never
+    // broadcasts, no heartbeat) until a local control action makes its state deliberate.
+    // World scripts must drive playback through this component's async API for that
+    // promotion to happen; calling TakeOwnershipAsync directly stays implicit.
+    private bool deliberateControl;
+
+    private bool IsDrivingOwner => IsOwnedLocallyOnClient && deliberateControl;
+
+    // Answering a joiner or a state request with only the scene default would spread
+    // that default over the instance; an implicit owner answers once custodians have
+    // fed it the synced state, a deliberate owner always.
+    private bool CanAnswerStateQueries => IsOwnedLocallyOnClient && (deliberateControl || !string.IsNullOrEmpty(currentSyncedUrl));
+
     // Owner state stashed while a remote page URL resolves locally (async):
     // applied on the resolved source's OnReady, so a late joiner lands at the
     // owner's position instead of always starting at zero.
@@ -102,6 +120,12 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
     private SyncedPlaybackState pendingRemoteState;
     private long pendingRemotePositionTicks;
     private float pendingRemoteStashedAt;
+
+    // Resync this client started for itself: the stash above is then our own state, and
+    // the answer to our state request reloads a url we already hold instead of no-opping.
+    private bool selfResyncApply;
+    private bool forcedResyncPending;
+    private float resyncAnswerDeadline = -1f;
 
     // Main-thread scratch — Unity callbacks are serial so these don't need locking.
     private readonly ushort[] singleRecipient = new ushort[1];
@@ -168,6 +192,10 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
     private void OnDisable()
     {
         UnhookPlayerEvents();
+        // Nothing ticks the deadline while disabled, so an unanswered request would
+        // block every later resync on the guard at the top of ResyncLocal.
+        forcedResyncPending = false;
+        resyncAnswerDeadline = -1f;
     }
 
     // Owner position heartbeat: a small latest-wins ping (Sequenced, like the
@@ -176,8 +204,12 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
     // media — live sources have no timeline to correct against.
     private void Update()
     {
-        if (PositionHeartbeatSeconds <= 0f || mediaPlayer == null) return;
-        if (!HasNetworkID || !IsOwnedLocallyOnClient) return;
+        if (mediaPlayer == null) return;
+        TickPendingResync();
+        if (PositionHeartbeatSeconds <= 0f) return;
+        if (!HasNetworkID || !IsDrivingOwner) return;
+        // Mid-reload our playhead is about to be replaced; advertising it would drag the room to it.
+        if (pendingRemoteApply) return;
         if (!mediaPlayer.IsPlaying || mediaPlayer.IsPaused) return;
         if (mediaPlayer.Duration <= TimeSpan.Zero) return;
         heartbeatTimer += Time.deltaTime;
@@ -206,13 +238,41 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
             return;
         }
 
-        if (!IsOwnedLocallyOnClient)
+        var local = BasisNetworkPlayer.LocalPlayer;
+        if (local != null && player.playerId == local.playerId)
         {
             return;
         }
 
-        var local = BasisNetworkPlayer.LocalPlayer;
-        if (local != null && player.playerId == local.playerId)
+        if (IsOwnedLocallyOnClient)
+        {
+            if (!CanAnswerStateQueries)
+            {
+                return;
+            }
+
+            singleRecipient[0] = player.playerId;
+            SendFullStateTo(singleRecipient);
+            if (VerboseLogging)
+            {
+                BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} sent late-join state to player {player.playerId}.", BasisDebug.LogTag.Video);
+            }
+
+            return;
+        }
+
+        // Custodian answer: when the last controller disconnects the server wipes its
+        // ownership and keeps no media state, so no owner is left to tell a joiner what
+        // is playing and the joiner stays on the scene default forever. Every present
+        // client holding settled synced state answers the joiner directly (the
+        // BasisSyncedObject.OnPlayerJoined pattern); duplicates collapse on the joiner
+        // because they all carry the same url and load nonce.
+        if (string.IsNullOrEmpty(currentSyncedUrl) || pendingRemoteApply)
+        {
+            return;
+        }
+
+        if (HasPresentOwner())
         {
             return;
         }
@@ -221,29 +281,71 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
         SendFullStateTo(singleRecipient);
         if (VerboseLogging)
         {
-            BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} sent late-join state to player {player.playerId}.", BasisDebug.LogTag.Video);
+            BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} sent custodian late-join state to player {player.playerId}.", BasisDebug.LogTag.Video);
         }
     }
+
+    private bool HasPresentOwner()
+        => BasisNetworkPlayers.OwnershipPairing.TryGetValue(clientIdentifier, out ushort ownerId)
+           && BasisNetworkPlayers.GetPlayerById(ownerId, out _);
 
     public override void OnOwnershipTransfer(BasisNetworkPlayer newOwner)
     {
         if (IsOwnedLocallyOnClient)
         {
-            BroadcastFullState();
+            // Only deliberate ownership announces state. The implicit join-time grant
+            // lands here holding just the scene default; broadcasting that would reset
+            // the whole instance (content and settings) whenever anyone joined an
+            // ownerless player.
+            if (deliberateControl)
+            {
+                BroadcastFullState();
+                return;
+            }
+
+            // Owning ourselves through that grant also means nobody will ever tell us
+            // what is playing: the owner branch of RequestState is us, and the custodian
+            // answer in OnPlayerJoined already ran while this component was still
+            // unregistered. That is invisible for a player active at join time, but a
+            // world that keeps its screen disabled until someone switches it on
+            // registers long after every custodian has answered, so ask the room here.
+            if (HasNetworkID && string.IsNullOrEmpty(currentSyncedUrl))
+            {
+                SendCustomNetworkEvent(RequestStateBytes, DeliveryMethod.ReliableOrdered, null);
+                if (VerboseLogging)
+                {
+                    BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} owns an ownerless player implicitly and holds no state, asked the room.", BasisDebug.LogTag.Video);
+                }
+            }
+
             return;
         }
+
+        deliberateControl = false;
 
         if (!HasNetworkID)
         {
             return;
         }
 
-        ushort owner = CurrentOwnerId;
-        if (owner == 0)
+        // Holding nothing of our own, ask the room instead of only the owner. An owner
+        // that holds the object through the join-time grant cannot answer - it is not a
+        // driving owner and has no url - and an ownerless object has nobody to target at
+        // all, so a targeted request is silence in both cases. Custodians answer a
+        // broadcast only while they still read the object as ownerless, so a real
+        // controlling owner keeps answering on its own and this adds no duplicate.
+        if (string.IsNullOrEmpty(currentSyncedUrl))
         {
+            SendCustomNetworkEvent(RequestStateBytes, DeliveryMethod.ReliableOrdered, null);
+            if (VerboseLogging)
+            {
+                BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} holds no state, asked the room rather than owner {CurrentOwnerId}.", BasisDebug.LogTag.Video);
+            }
+
             return;
         }
 
+        ushort owner = CurrentOwnerId;
         var local = BasisNetworkPlayer.LocalPlayer;
         if (local != null && owner == local.playerId)
         {
@@ -283,7 +385,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
         // position heartbeat keeps everyone converged.
         BroadcastFullState(freshLoad: true);
 
-        mediaPlayer.LoadUrl(url);
+        mediaPlayer.LoadApprovedUrl(url);
         // OnReady fires BroadcastFullState once the source resolves, settling state/position.
     }
 
@@ -337,6 +439,140 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
         }
 
         mediaPlayer.Seek(position);
+    }
+
+    /// <summary>Re-align this client and nobody else: no permission, no ownership, nothing a peer can observe.</summary>
+    public void ResyncLocal()
+    {
+        if (mediaPlayer == null || forcedResyncPending)
+        {
+            return;
+        }
+
+        // Asking the room beats reloading blind: the answer carries the owner's url, state and
+        // position, so a stalled decode, a missed load and a drifted playhead all correct at once.
+        // Nobody can answer when we hold the object ourselves or nothing is playing, and an
+        // answer that never arrives (an owner holding the object through the join-time grant)
+        // falls back to a plain reload in TickPendingResync.
+        if (!HasNetworkID || IsDrivingOwner || string.IsNullOrEmpty(currentSyncedUrl))
+        {
+            ReloadInPlace();
+            return;
+        }
+
+        forcedResyncPending = true;
+        resyncAnswerDeadline = Time.realtimeSinceStartup + ResyncAnswerTimeoutSeconds;
+        SendCustomNetworkEvent(RequestStateBytes, DeliveryMethod.ReliableOrdered, null);
+        if (VerboseLogging)
+        {
+            BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} local resync: asked the room for the current state.", BasisDebug.LogTag.Video);
+        }
+    }
+
+    /// <summary>Force every client back onto this one's timeline. Same control gate as playback.</summary>
+    // The load nonce bump is what makes the announcement land: peers read a fresh load of the url
+    // they already hold, which reloads them onto our state and position instead of collapsing into
+    // a no-op. We reload with them so the initiator's own screen is fixed by the same press.
+    public async Task ResyncEveryone()
+    {
+        if (mediaPlayer == null)
+        {
+            return;
+        }
+
+        // Holding no content, "resync everyone" would announce an empty url and stop the room.
+        if (string.IsNullOrEmpty(GetActiveUrl()))
+        {
+            ResyncLocal();
+            return;
+        }
+
+        if (!await AcquireControlAsync())
+        {
+            return;
+        }
+
+        loadNonce++;
+        BroadcastFullState();
+        ReloadInPlace();
+    }
+
+    private void TickPendingResync()
+    {
+        // A load that never became ready (a dead url, a resolver that gave up) must not hold the
+        // stash — and with it the heartbeat — off forever.
+        if (pendingRemoteApply && Time.realtimeSinceStartup - pendingRemoteStashedAt > PendingApplyStaleSeconds)
+        {
+            pendingRemoteApply = false;
+            selfResyncApply = false;
+        }
+
+        if (resyncAnswerDeadline < 0f || Time.realtimeSinceStartup < resyncAnswerDeadline)
+        {
+            return;
+        }
+
+        resyncAnswerDeadline = -1f;
+        if (!forcedResyncPending)
+        {
+            return;
+        }
+
+        forcedResyncPending = false;
+        if (VerboseLogging)
+        {
+            BasisDebug.LogWarning($"{nameof(BasisMediaPlayerNetworking)} local resync: nobody answered, reloading what we hold.", BasisDebug.LogTag.Video);
+        }
+
+        ReloadInPlace();
+    }
+
+    // Reload what this client is already playing and land back on the playhead it was on. A page
+    // url goes back through the router so an expired resolved stream is resolved again; anything
+    // directly playable reloads its existing descriptor, which keeps a resolver's split
+    // audio/video pair and headers. State and position are restored on ready, aged by the reload.
+    private void ReloadInPlace()
+    {
+        if (mediaPlayer == null)
+        {
+            return;
+        }
+
+        var media = mediaPlayer.ActiveMediaSource;
+        bool pageUrl = !string.IsNullOrEmpty(currentSyncedUrl) && !BasisMediaUrlRouter.IsDirectlyPlayable(currentSyncedUrl);
+        if (media == null && !pageUrl)
+        {
+            return;
+        }
+
+        // A stash already in flight is the one to keep: mid-reload the playhead reads near zero,
+        // so re-capturing it here would throw away the place we are trying to hold.
+        if (!pendingRemoteApply)
+        {
+            pendingRemoteState = GetLocalState();
+            pendingRemotePositionTicks = mediaPlayer.Duration > TimeSpan.Zero ? mediaPlayer.Position.Ticks : 0L;
+            pendingRemoteStashedAt = Time.realtimeSinceStartup;
+            pendingRemoteApply = true;
+        }
+
+        selfResyncApply = true;
+        // currentSyncedUrl stays the url peers have to resolve for themselves, so the reload's
+        // OnReady must not adopt this client's resolved (per-client, expiring) stream url as it.
+        if (!string.IsNullOrEmpty(currentSyncedUrl))
+        {
+            syncedUrlFromSetUrl = true;
+        }
+
+        if (pageUrl)
+        {
+            mediaPlayer.LoadApprovedUrl(currentSyncedUrl);
+            return;
+        }
+
+        // The descriptor's own start position is re-applied after OnReady, so it would override
+        // the stash with wherever this source was first entered.
+        media.StartPosition = TimeSpan.Zero;
+        mediaPlayer.Reload();
     }
 
     public async Task SetAdminOnly(bool value)
@@ -413,6 +649,9 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
 
         if (IsOwnedLocallyOnClient)
         {
+            // A local control action promotes implicit ownership to deliberate: from
+            // here our state is the authoritative one to announce.
+            deliberateControl = true;
             return true;
         }
 
@@ -440,7 +679,11 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
         }
 
         var result = await TakeOwnershipAsync();
-        if (!result.Success && VerboseLogging)
+        if (result.Success)
+        {
+            deliberateControl = true;
+        }
+        else if (VerboseLogging)
         {
             BasisDebug.LogWarning($"{nameof(BasisMediaPlayerNetworking)} ownership request was denied by the server.", BasisDebug.LogTag.Video);
         }
@@ -460,16 +703,32 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
         switch (id)
         {
             case MessageId.RequestState:
-                if (IsOwnedLocallyOnClient)
+                if (CanAnswerStateQueries)
                 {
                     singleRecipient[0] = senderId;
                     SendFullStateTo(singleRecipient);
+                    return;
+                }
+
+                // The asker owns itself through the join-time grant, so the owner answer
+                // above is the asker and nobody replies. Custodians answer it exactly as
+                // they answer a joiner in OnPlayerJoined - the grant is unicast, so this
+                // side still reads the object as ownerless - and duplicates collapse on
+                // the asker because every copy carries the same url and load nonce.
+                if (!IsOwnedLocallyOnClient && !pendingRemoteApply && !string.IsNullOrEmpty(currentSyncedUrl) && !HasPresentOwner())
+                {
+                    singleRecipient[0] = senderId;
+                    SendFullStateTo(singleRecipient);
+                    if (VerboseLogging)
+                    {
+                        BasisDebug.Log($"{nameof(BasisMediaPlayerNetworking)} sent custodian state to player {senderId} on request.", BasisDebug.LogTag.Video);
+                    }
                 }
 
                 return;
 
             case MessageId.FullState:
-                if (IsOwnedLocallyOnClient)
+                if (IsDrivingOwner)
                 {
                     return;
                 }
@@ -483,7 +742,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                 return;
 
             case MessageId.Play:
-                if (IsOwnedLocallyOnClient)
+                if (IsDrivingOwner)
                 {
                     return;
                 }
@@ -492,7 +751,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                 return;
 
             case MessageId.Pause:
-                if (IsOwnedLocallyOnClient)
+                if (IsDrivingOwner)
                 {
                     return;
                 }
@@ -501,7 +760,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                 return;
 
             case MessageId.Stop:
-                if (IsOwnedLocallyOnClient)
+                if (IsDrivingOwner)
                 {
                     return;
                 }
@@ -510,7 +769,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                 return;
 
             case MessageId.Seek:
-                if (IsOwnedLocallyOnClient)
+                if (IsDrivingOwner)
                 {
                     return;
                 }
@@ -525,7 +784,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                 return;
 
             case MessageId.Settings:
-                if (IsOwnedLocallyOnClient)
+                if (IsDrivingOwner)
                 {
                     return;
                 }
@@ -539,7 +798,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                 return;
 
             case MessageId.Position:
-                if (IsOwnedLocallyOnClient)
+                if (IsDrivingOwner)
                 {
                     return;
                 }
@@ -645,17 +904,40 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
     {
         // Reload when the URL changes OR the owner issued a fresh load of the same URL
         // (loadNonce bumps per SetUrl). Without the nonce, re-loading the same URL on the
-        // owner would be a no-op here and the two clients would drift apart.
+        // owner would be a no-op here and the two clients would drift apart. A local resync
+        // asked for this answer and wants the reload either way.
+        bool forced = forcedResyncPending;
+        forcedResyncPending = false;
+        resyncAnswerDeadline = -1f;
         bool loadChanged = !string.IsNullOrEmpty(url) &&
-            (url != currentSyncedUrl || remoteLoadNonce != lastAppliedLoadNonce);
+            (forced || url != currentSyncedUrl || remoteLoadNonce != lastAppliedLoadNonce);
+
+        // The same load re-announced while this client is still resolving it (a second
+        // custodian answering the same join, or the owner's OnReady settle broadcast):
+        // refresh the stashed snapshot instead of discarding it, otherwise the on-ready
+        // position apply is lost and playback starts at zero.
+        if (!loadChanged && pendingRemoteApply)
+        {
+            pendingRemoteState = state;
+            pendingRemotePositionTicks = positionTicks;
+            pendingRemoteStashedAt = Time.realtimeSinceStartup;
+            selfResyncApply = false;
+            return;
+        }
+
         applyingRemoteCommand = true;
         pendingRemoteApply = false; /* superseded by whatever this state says */
+        selfResyncApply = false;
         try
         {
             if (loadChanged)
             {
                 currentSyncedUrl = url;
                 lastAppliedLoadNonce = remoteLoadNonce;
+                // Adopt the announced nonce as our own so a snapshot we later send (a
+                // custodian answer, or owner state after an implicit grant) re-announces
+                // this load under the same identity instead of forcing a reload.
+                loadNonce = remoteLoadNonce;
 
                 // A page URL (YouTube/Twitch/…) is resolved per-client: resolved CDN URLs
                 // are per-client and expiring, so they can't be shared. Route it through
@@ -670,7 +952,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
                     pendingRemotePositionTicks = positionTicks;
                     pendingRemoteStashedAt = Time.realtimeSinceStartup;
                     pendingRemoteApply = true;
-                    mediaPlayer.LoadUrl(url);
+                    mediaPlayer.LoadApprovedUrl(url);
                     return;
                 }
 
@@ -851,12 +1133,21 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
 
     private void HandleLocalReady()
     {
-        // A remote page URL finished resolving locally: apply the owner state
-        // that arrived with it. Runs on non-owner clients only — owners drive.
-        if (pendingRemoteApply && !IsOwnedLocallyOnClient)
+        // A remote page URL finished resolving locally: apply the owner state that
+        // arrived with it. Runs on every client that does not drive state, which
+        // includes an implicit owner being fed by custodians — and on a driving owner
+        // only for the resync it started itself, where the stash is its own state.
+        // The stash is dropped either way: the load it was waiting on has landed, and
+        // a client that took control while it was in flight owns the state now.
+        if (pendingRemoteApply)
         {
+            bool applyStash = selfResyncApply || !IsDrivingOwner;
             pendingRemoteApply = false;
-            ApplyPendingRemoteState();
+            selfResyncApply = false;
+            if (applyStash)
+            {
+                ApplyPendingRemoteState();
+            }
         }
 
         if (applyingRemoteCommand)
@@ -864,7 +1155,7 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
             return;
         }
 
-        if (!IsOwnedLocallyOnClient)
+        if (!IsDrivingOwner)
         {
             return;
         }
@@ -888,14 +1179,16 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
         BroadcastFullState();
     }
 
+    // A load still coming up replays start/pause/seek as it goes: that is the load's own noise,
+    // not a command, and HandleLocalReady announces the settled state once it lands.
     private void HandleLocalStarted()
     {
-        if (applyingRemoteCommand)
+        if (applyingRemoteCommand || pendingRemoteApply)
         {
             return;
         }
 
-        if (!IsOwnedLocallyOnClient)
+        if (!IsDrivingOwner)
         {
             return;
         }
@@ -905,12 +1198,12 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
 
     private void HandleLocalPaused()
     {
-        if (applyingRemoteCommand)
+        if (applyingRemoteCommand || pendingRemoteApply)
         {
             return;
         }
 
-        if (!IsOwnedLocallyOnClient)
+        if (!IsDrivingOwner)
         {
             return;
         }
@@ -920,12 +1213,12 @@ public sealed class BasisMediaPlayerNetworking : BasisNetworkBehaviour
 
     private void HandleLocalSeekCompleted(TimeSpan position)
     {
-        if (applyingRemoteCommand)
+        if (applyingRemoteCommand || pendingRemoteApply)
         {
             return;
         }
 
-        if (!IsOwnedLocallyOnClient)
+        if (!IsDrivingOwner)
         {
             return;
         }

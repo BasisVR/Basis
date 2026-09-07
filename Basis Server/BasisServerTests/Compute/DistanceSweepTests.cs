@@ -113,7 +113,13 @@ public sealed class DistanceSweepTests
                 PeerTrackingData cached = state.PeerTracking[otherId];
                 Assert.Equal(expectedByte, cached.CachedIntervalByte);
                 Assert.Equal(ExpectedQuality(distSq), cached.CachedQualityIndex);
-                Assert.Equal((int)(expectedMs * msToTick), cached.CachedIntervalTicks);
+                Assert.True(cached.HasDistanceCache, "the sweep must mark the pair as cached, or the send loop paces it off the base interval");
+                // The pair's tick count used to be a fourth field on the record. It was removed because
+                // it was exactly this lookup, so this is the assertion that keeps that true: if the byte
+                // ever stopped decoding to the interval the sweep measured, the send loop would pace
+                // every pair off the wrong number and nothing else would notice.
+                Assert.Equal((int)(expectedMs * msToTick),
+                    BasisServerReductionSystemEvents.EnsureIntervalTickTable()[cached.CachedIntervalByte]);
             }
         }
     }

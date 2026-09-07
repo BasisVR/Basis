@@ -54,7 +54,13 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         // ===== Native-backed pose: lives in Owner's store at Index, reached via raw pointer =====
 
-        private unsafe bool HasStore => Owner != null && Owner.simInputPtr != null && Owner.simStatePtr != null;
+        // Index is re-stamped by WireControlsAndInitStore on every (re)allocation, so it tracks the
+        // store while the control is in Owner.Controls. A control dropped from that list keeps both
+        // a live Owner and its old Index, and every accessor below indexes the store by raw pointer
+        // — no bounds check in any build. The capacity test is one compare next to two null tests
+        // already on this path.
+        internal unsafe bool HasStore => Owner != null && Owner.simInputPtr != null && Owner.simStatePtr != null
+            && (uint)Index < (uint)Owner.nativeCapacity;
 
         public unsafe BasisCalibratedCoords IncomingData
         {

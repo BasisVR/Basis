@@ -81,6 +81,8 @@ public struct BasisCameraDirectToScreenPassInfo
 public sealed class BasisCameraDirectToScreenPass : ScriptableRenderPass
 {
     private static readonly ProfilingSampler PassSampler = new ProfilingSampler("Basis Direct To Screen");
+    public static float GpuMs => PassSampler.gpuElapsedTime;
+    public static void SetProfilingEnabled(bool enabled) => PassSampler.enableRecording = enabled;
 
     /// <summary>The last recording, for the editor test window. Plain values, so it costs nothing per frame.</summary>
     public static BasisCameraDirectToScreenPassInfo LastRecorded = new BasisCameraDirectToScreenPassInfo { Frame = -1 };

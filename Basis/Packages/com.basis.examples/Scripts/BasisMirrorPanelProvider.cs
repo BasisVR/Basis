@@ -7,7 +7,8 @@ namespace Basis.BasisUI.Mirrors
 {
     public class BasisMirrorPanelProvider : BasisMenuActionProvider<BasisMainMenu>
     {
-        public const string StaticTitle = "Mirror Settings";
+        public const string StaticTitleKey = "menu.provider.mirror";
+        public static string StaticTitle => BasisLocalization.Get(StaticTitleKey);
 
         private static readonly int[] ResolutionPresets = { 256, 512, 1024, 2048, 4096, 8192 };
         private static readonly int[] MsaaSampleCounts = { 1, 2, 4, 8 };

@@ -32,8 +32,13 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
     private StringBuilder lineBuilder;
     private float nextSnapshotTime;
     private float lastSnapshotTime;
-    private int rowsSinceFlush;
     private readonly NativeEngineDebug engineDebug = new NativeEngineDebug();
+    // Rows are built on the main thread (they read live Unity state) but written and
+    // flushed on this thread, so the frame never pays for a FileStream syscall.
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> pendingRows = new System.Collections.Concurrent.ConcurrentQueue<string>();
+    private System.Threading.Thread writeThread;
+    private System.Threading.AutoResetEvent writeSignal;
+    private volatile bool writeRunning;
 
     private void Awake()
     {
@@ -85,9 +90,12 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
             writer.Flush();
             IsLogging = true;
             SnapshotsWritten = 0;
-            rowsSinceFlush = 0;
             nextSnapshotTime = Time.realtimeSinceStartup;
             lastSnapshotTime = -1f;
+            writeSignal = new System.Threading.AutoResetEvent(false);
+            writeRunning = true;
+            writeThread = new System.Threading.Thread(WriteLoop) { IsBackground = true, Name = "BasisMediaPlayerDiag" };
+            writeThread.Start();
             BasisDebug.Log($"BasisMediaPlayerDiagnostics: logging to {ResolvedLogPath}", BasisDebug.LogTag.Video);
         }
         catch (Exception ex)
@@ -100,20 +108,31 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
 
     public void StopLogging()
     {
-        if (!IsLogging) return;
+        if (!IsLogging && writeThread == null) return;
         IsLogging = false;
+        writeRunning = false;
+        writeSignal?.Set();
+        try { writeThread?.Join(1000); } catch { }
+        writeThread = null;
         try
         {
+            while (pendingRows.TryDequeue(out string row))
+            {
+                writer?.WriteLine(row);
+                SnapshotsWritten++;
+            }
             writer?.Flush();
             writer?.Dispose();
         }
         catch { }
         writer = null;
+        writeSignal?.Dispose();
+        writeSignal = null;
     }
 
     public void Flush()
     {
-        try { writer?.Flush(); rowsSinceFlush = 0; } catch { }
+        writeSignal?.Set();
     }
 
     private void Update()
@@ -125,11 +144,32 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
         nextSnapshotTime = now + interval;
 
         WriteSnapshotRow(now);
+    }
 
-        rowsSinceFlush++;
-        if (rowsSinceFlush >= FlushEveryNSnapshots)
+    // Drains queued rows and flushes each time it is signalled, so the file stays
+    // current without the main thread ever touching the stream.
+    private void WriteLoop()
+    {
+        while (writeRunning)
         {
-            try { writer.Flush(); rowsSinceFlush = 0; } catch { }
+            writeSignal.WaitOne();
+            try
+            {
+                bool wroteAny = false;
+                while (pendingRows.TryDequeue(out string row))
+                {
+                    writer.WriteLine(row);
+                    SnapshotsWritten++;
+                    wroteAny = true;
+                }
+                if (wroteAny) writer.Flush();
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"BasisMediaPlayerDiagnostics: write failed: {ex.Message}", BasisDebug.LogTag.Video);
+                IsLogging = false;
+                return;
+            }
         }
     }
 
@@ -158,11 +198,22 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
             // the rows about to be appended would otherwise be read under.
             string firstColumn = header.Substring(0, header.IndexOf(','));
             string lastHeader = null;
-            using (var reader = new StreamReader(new FileStream(ResolvedLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
+            using (var fs = new FileStream(ResolvedLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                    if (line.StartsWith(firstColumn, StringComparison.Ordinal)) lastHeader = line;
+                // Only the tail matters, and appended files grow without bound —
+                // reading the whole thing here stalls StartLogging for seconds on
+                // an old log. A header outside the window just costs the one
+                // redundant header line documented above.
+                const long TailBytes = 64 * 1024;
+                bool seeked = fs.Length > TailBytes;
+                if (seeked) fs.Seek(fs.Length - TailBytes, SeekOrigin.Begin);
+                using (var reader = new StreamReader(fs))
+                {
+                    string line;
+                    if (seeked) reader.ReadLine();
+                    while ((line = reader.ReadLine()) != null)
+                        if (line.StartsWith(firstColumn, StringComparison.Ordinal)) lastHeader = line;
+                }
             }
             return lastHeader == header;
         }
@@ -319,16 +370,8 @@ public sealed class BasisMediaPlayerDiagnostics : MonoBehaviour
         AppendB(snap.HasMedia);
         AppendL(snap.MediaUs, last: true);
 
-        try
-        {
-            writer.WriteLine(lineBuilder.ToString());
-            SnapshotsWritten++;
-        }
-        catch (Exception ex)
-        {
-            BasisDebug.LogError($"BasisMediaPlayerDiagnostics: write failed: {ex.Message}", BasisDebug.LogTag.Video);
-            IsLogging = false;
-        }
+        pendingRows.Enqueue(lineBuilder.ToString());
+        writeSignal?.Set();
     }
 
     private void AppendF(float v, bool last = false) { lineBuilder.Append(v.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)); if (!last) lineBuilder.Append(','); }

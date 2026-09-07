@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 
 namespace Basis.ImagePickup
 {
@@ -302,12 +304,345 @@ namespace Basis.ImagePickup
             }
             catch (Exception e)
             {
-                UnityEngine.Object.Destroy(decoded);
+                DestroyDecoded(decoded);
                 result.Error = "Pixel upload failed: " + e.Message;
                 return result;
             }
 
             return FinishTexture(decoded, null, true, true);
+        }
+
+        /// <summary>
+        /// As <see cref="ValidateFile"/> with the file read, downscale, alpha scan, and PNG
+        /// re-encode on worker threads. Only the guarded decode and the final texture build touch
+        /// the main thread. GIFs still take their own Burst pipeline.
+        /// </summary>
+        public static async Task<BasisImageValidationResult> ValidateFileAsync(string path)
+        {
+            var result = new BasisImageValidationResult();
+
+            if (!TryGetSourceFormatFromExtension(path, out SourceImageFormat sourceFormat))
+            {
+                result.Error = "Unsupported image type; use .png, .jpg, .jpeg, or .gif";
+                return result;
+            }
+
+            FileInfo info;
+            try
+            {
+                info = new FileInfo(path);
+            }
+            catch (Exception e)
+            {
+                result.Error = "Invalid path: " + e.Message;
+                return result;
+            }
+
+            if (!info.Exists)
+            {
+                result.Error = "File not found";
+                return result;
+            }
+            if (info.Length <= 0)
+            {
+                result.Error = "Empty file";
+                return result;
+            }
+            int sourceByteLimit =
+                sourceFormat == SourceImageFormat.Gif
+                    ? BasisImagePickupSettings.MaxAnimationSourceBytes
+                    : BasisImagePickupSettings.MaxSourceBytes;
+            if (info.Length > sourceByteLimit)
+            {
+                result.Error = DescribeByteLimit("Source file", info.Length, sourceByteLimit);
+                return result;
+            }
+
+            if (sourceFormat == SourceImageFormat.Gif)
+            {
+                if (!TryReadGifFileDimensions(path, out int gifWidth, out int gifHeight, out string gifHeaderError))
+                {
+                    result.Error = gifHeaderError;
+                    return result;
+                }
+                if (!AnimationDimensionsWithinCaps(gifWidth, gifHeight, out string gifCapError))
+                {
+                    result.Error = gifCapError;
+                    return result;
+                }
+                return BuildFromGifFile(path);
+            }
+
+            byte[] bytes;
+            try
+            {
+                bytes = await Task.Run(() => File.ReadAllBytes(path));
+            }
+            catch (Exception e)
+            {
+                result.Error = "Read failed: " + e.Message;
+                return result;
+            }
+
+            if (bytes.Length > sourceByteLimit)
+            {
+                result.Error = DescribeByteLimit("Source file", bytes.Length, sourceByteLimit);
+                return result;
+            }
+            if (!TryReadSourceDimensions(bytes, sourceFormat, out int width, out int height, out string headerError))
+            {
+                result.Error = headerError;
+                return result;
+            }
+            if (!SourceDimensionsWithinCaps(width, height, out string capError))
+            {
+                result.Error = capError;
+                return result;
+            }
+
+            return await BuildFromBytesAsync(bytes, sourceFormat, true, true);
+        }
+
+        /// <summary>Async twin of <see cref="ValidateBytes"/>; same caps and guarded decode.</summary>
+        public static async Task<BasisImageValidationResult> ValidateBytesAsync(byte[] bytes)
+        {
+            var result = new BasisImageValidationResult();
+            if (bytes == null || bytes.Length == 0)
+            {
+                result.Error = "No data";
+                return result;
+            }
+            if (bytes.Length > BasisImagePickupSettings.MaxImageBytes)
+            {
+                result.Error = DescribeByteLimit("Network image", bytes.Length, BasisImagePickupSettings.MaxImageBytes);
+                return result;
+            }
+            if (!TryReadPngDimensions(bytes, out int w, out int h, out string headerError))
+            {
+                result.Error = headerError;
+                return result;
+            }
+            if (!DimensionsWithinCaps(w, h, out string capError))
+            {
+                result.Error = capError;
+                return result;
+            }
+            return await BuildFromBytesAsync(bytes, SourceImageFormat.Png, true, false);
+        }
+
+        /// <summary>Async twin of <see cref="ValidateSourceBytes"/>; same signature sniff and caps.</summary>
+        public static async Task<BasisImageValidationResult> ValidateSourceBytesAsync(byte[] bytes)
+        {
+            var result = new BasisImageValidationResult();
+
+            if (bytes == null || bytes.Length == 0)
+            {
+                result.Error = "Empty image data";
+                return result;
+            }
+            if (!TryGetSourceFormatFromSignature(bytes, out SourceImageFormat sourceFormat))
+            {
+                result.Error = "Unsupported image data; only PNG, JPEG, and GIF data can be pasted";
+                return result;
+            }
+
+            int sourceByteLimit =
+                sourceFormat == SourceImageFormat.Gif
+                    ? BasisImagePickupSettings.MaxAnimationSourceBytes
+                    : BasisImagePickupSettings.MaxSourceBytes;
+            if (bytes.Length > sourceByteLimit)
+            {
+                result.Error = DescribeByteLimit("Pasted image", bytes.Length, sourceByteLimit);
+                return result;
+            }
+
+            if (!TryReadSourceDimensions(bytes, sourceFormat, out int width, out int height, out string headerError))
+            {
+                result.Error = headerError;
+                return result;
+            }
+
+            if (sourceFormat == SourceImageFormat.Gif)
+            {
+                if (!AnimationDimensionsWithinCaps(width, height, out string gifCapError))
+                {
+                    result.Error = gifCapError;
+                    return result;
+                }
+                return BuildFromGifData(bytes);
+            }
+
+            if (!SourceDimensionsWithinCaps(width, height, out string capError))
+            {
+                result.Error = capError;
+                return result;
+            }
+
+            return await BuildFromBytesAsync(bytes, sourceFormat, true, true);
+        }
+
+        private static void DestroyDecoded(Texture2D texture)
+        {
+            if (texture == null) return;
+            if (Application.isPlaying) UnityEngine.Object.Destroy(texture);
+            else UnityEngine.Object.DestroyImmediate(texture);
+        }
+
+        private static async Task<BasisImageValidationResult> BuildFromBytesAsync(
+            byte[] bytes,
+            SourceImageFormat sourceFormat,
+            bool reencode,
+            bool allowDownscale
+        )
+        {
+            var result = new BasisImageValidationResult();
+
+            if (!TryReadSourceDimensions(bytes, sourceFormat, out int headerW, out int headerH, out string headerError))
+            {
+                result.Error = headerError;
+                return result;
+            }
+
+            string capError;
+            bool headerCapOk = allowDownscale
+                ? SourceDimensionsWithinCaps(headerW, headerH, out capError)
+                : DimensionsWithinCaps(headerW, headerH, out capError);
+            if (!headerCapOk)
+            {
+                result.Error = capError;
+                return result;
+            }
+
+            Texture2D decoded = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            bool loaded;
+            try
+            {
+                loaded = decoded.LoadImage(bytes, false);
+            }
+            catch (Exception e)
+            {
+                DestroyDecoded(decoded);
+                result.Error = "Decode failed: " + e.Message;
+                return result;
+            }
+
+            if (!loaded)
+            {
+                DestroyDecoded(decoded);
+                result.Error = "Decode failed";
+                return result;
+            }
+            if (decoded.width != headerW || decoded.height != headerH)
+            {
+                DestroyDecoded(decoded);
+                result.Error = "Header/pixel size mismatch";
+                return result;
+            }
+
+            return await FinishTextureAsync(decoded, bytes, reencode, allowDownscale);
+        }
+
+        /// <summary>
+        /// Async twin of <see cref="FinishTexture"/>: the pixels are copied out once on the main
+        /// thread, then the downscale, cap checks, PNG re-encode, and alpha scan all run on a
+        /// worker; the main thread only builds the final texture from the processed pixels.
+        /// </summary>
+        private static async Task<BasisImageValidationResult> FinishTextureAsync(
+            Texture2D decoded,
+            byte[] bytes,
+            bool reencode,
+            bool allowDownscale
+        )
+        {
+            var result = new BasisImageValidationResult();
+
+            int sourceWidth = decoded.width;
+            int sourceHeight = decoded.height;
+            Color32[] sourcePixels;
+            try
+            {
+                sourcePixels = decoded.GetPixels32();
+            }
+            catch (Exception e)
+            {
+                DestroyDecoded(decoded);
+                result.Error = "Pixel read failed: " + e.Message;
+                return result;
+            }
+            DestroyDecoded(decoded);
+
+            bool downscale = allowDownscale && ExceedsDisplayCaps(sourceWidth, sourceHeight);
+
+            (Color32[] pixels, int width, int height, byte[] clean, bool hasAlpha, string error) = await Task.Run(() =>
+            {
+                Color32[] finalPixels = sourcePixels;
+                int finalWidth = sourceWidth;
+                int finalHeight = sourceHeight;
+                if (downscale)
+                {
+                    finalPixels = DownscalePixels(sourcePixels, sourceWidth, sourceHeight, BasisImagePickupSettings.MaxDimension, out finalWidth, out finalHeight);
+                    if (finalPixels == null)
+                    {
+                        return (null, 0, 0, null, false, "Resize failed");
+                    }
+                }
+
+                if (!DimensionsWithinCaps(finalWidth, finalHeight, out string finalCapError))
+                {
+                    return (null, 0, 0, null, false, finalCapError);
+                }
+
+                byte[] cleanPng = bytes;
+                if (reencode)
+                {
+                    try
+                    {
+                        cleanPng = ImageConversion.EncodeArrayToPNG(finalPixels, GraphicsFormat.R8G8B8A8_SRGB, (uint)finalWidth, (uint)finalHeight, 0);
+                    }
+                    catch (Exception e)
+                    {
+                        return (null, 0, 0, null, false, "Re-encode failed: " + e.Message);
+                    }
+                    if (cleanPng == null || cleanPng.Length == 0 || cleanPng.Length > BasisImagePickupSettings.MaxImageBytes)
+                    {
+                        return (null, 0, 0, null, false,
+                            cleanPng == null || cleanPng.Length == 0
+                                ? "PNG sanitization produced no image data."
+                                : DescribeByteLimit("Sanitized PNG", cleanPng.Length, BasisImagePickupSettings.MaxImageBytes));
+                    }
+                }
+
+                bool alpha = false;
+                for (int i = 0; i < finalPixels.Length; i++)
+                {
+                    if (finalPixels[i].a < 255)
+                    {
+                        alpha = true;
+                        break;
+                    }
+                }
+
+                return (finalPixels, finalWidth, finalHeight, cleanPng, alpha, (string)null);
+            });
+
+            if (error != null)
+            {
+                result.Error = error;
+                return result;
+            }
+
+            Texture2D finalTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            finalTexture.SetPixels32(pixels);
+            result.HasAlpha = hasAlpha;
+            finalTexture.wrapMode = TextureWrapMode.Clamp;
+            finalTexture.Apply(false, true);
+
+            result.Ok = true;
+            result.Texture = finalTexture;
+            result.CleanPng = clean;
+            result.Width = width;
+            result.Height = height;
+            return result;
         }
 
         /// <summary>True when the data begins with a GIF signature, so it may carry animation.</summary>
@@ -367,20 +702,20 @@ namespace Basis.ImagePickup
             }
             catch (Exception e)
             {
-                UnityEngine.Object.Destroy(decoded);
+                DestroyDecoded(decoded);
                 result.Error = "Decode failed: " + e.Message;
                 return result;
             }
 
             if (!loaded)
             {
-                UnityEngine.Object.Destroy(decoded);
+                DestroyDecoded(decoded);
                 result.Error = "Decode failed";
                 return result;
             }
             if (decoded.width != headerW || decoded.height != headerH)
             {
-                UnityEngine.Object.Destroy(decoded);
+                DestroyDecoded(decoded);
                 result.Error = "Header/pixel size mismatch";
                 return result;
             }
@@ -408,17 +743,17 @@ namespace Basis.ImagePickup
                 Texture2D scaled = DownscaleToFit(decoded, BasisImagePickupSettings.MaxDimension);
                 if (scaled == null || scaled == decoded)
                 {
-                    UnityEngine.Object.Destroy(decoded);
+                    DestroyDecoded(decoded);
                     result.Error = "Resize failed";
                     return result;
                 }
-                UnityEngine.Object.Destroy(decoded);
+                DestroyDecoded(decoded);
                 finalTexture = scaled;
             }
 
             if (!DimensionsWithinCaps(finalTexture.width, finalTexture.height, out string finalCapError))
             {
-                UnityEngine.Object.Destroy(finalTexture);
+                DestroyDecoded(finalTexture);
                 result.Error = finalCapError;
                 return result;
             }
@@ -432,13 +767,13 @@ namespace Basis.ImagePickup
                 }
                 catch (Exception e)
                 {
-                    UnityEngine.Object.Destroy(finalTexture);
+                    DestroyDecoded(finalTexture);
                     result.Error = "Re-encode failed: " + e.Message;
                     return result;
                 }
                 if (clean == null || clean.Length == 0 || clean.Length > BasisImagePickupSettings.MaxImageBytes)
                 {
-                    UnityEngine.Object.Destroy(finalTexture);
+                    DestroyDecoded(finalTexture);
                     result.Error =
                         clean == null || clean.Length == 0
                             ? "PNG sanitization produced no image data."
@@ -499,16 +834,29 @@ namespace Basis.ImagePickup
 
         private static Texture2D DownscaleToFit(Texture2D source, int maxDimension)
         {
-            int sw = source.width;
-            int sh = source.height;
-            float scale = Mathf.Min((float)maxDimension / sw, (float)maxDimension / sh);
-            if (scale >= 1f)
+            Color32[] dst = DownscalePixels(source.GetPixels32(), source.width, source.height, maxDimension, out int tw, out int th);
+            if (dst == null)
                 return source;
 
-            int tw = Mathf.Max(1, Mathf.RoundToInt(sw * scale));
-            int th = Mathf.Max(1, Mathf.RoundToInt(sh * scale));
+            Texture2D scaled = new Texture2D(tw, th, TextureFormat.RGBA32, false);
+            scaled.SetPixels32(dst);
+            scaled.Apply(false, false);
+            return scaled;
+        }
 
-            Color32[] src = source.GetPixels32();
+        private static Color32[] DownscalePixels(Color32[] src, int sw, int sh, int maxDimension, out int tw, out int th)
+        {
+            float scale = Mathf.Min((float)maxDimension / sw, (float)maxDimension / sh);
+            if (scale >= 1f)
+            {
+                tw = sw;
+                th = sh;
+                return null;
+            }
+
+            tw = Mathf.Max(1, Mathf.RoundToInt(sw * scale));
+            th = Mathf.Max(1, Mathf.RoundToInt(sh * scale));
+
             Color32[] dst = new Color32[tw * th];
 
             for (int y = 0; y < th; y++)
@@ -530,10 +878,7 @@ namespace Basis.ImagePickup
                 }
             }
 
-            Texture2D scaled = new Texture2D(tw, th, TextureFormat.RGBA32, false);
-            scaled.SetPixels32(dst);
-            scaled.Apply(false, false);
-            return scaled;
+            return dst;
         }
 
         private static Color32 MixBilinear(Color32 c00, Color32 c10, Color32 c01, Color32 c11, float fx, float fy)

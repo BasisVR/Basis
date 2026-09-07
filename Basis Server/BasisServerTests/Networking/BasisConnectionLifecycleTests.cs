@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using Basis.Network.Server.Auth;
+using Basis.Network.Server.Generic;
 using BasisNetworkCore;
 using BasisNetworkCore.Security;
 using BasisNetworkServer.Security;
@@ -345,6 +346,51 @@ public class BasisConnectionRequestGateTests
         Assert.Same(NetworkServer.AuthenticatedPeerTag, peer.Tag);
         // The peer must have received its ServerMetaData on the metadata channel.
         Assert.Contains(peer.Sent, s => s.Channel == BasisNetworkCommons.metaDataChannel);
+    }
+
+    [Fact]
+    public void MalformedReadyMessage_IsRejected_WithoutAccepting()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallOpenServer(scope);
+
+        int id = LifecycleSupport.NextPeerId();
+        FakeNetPeer peer = LifecycleSupport.Peer(id);
+        ReadyMessage ready = LifecycleSupport.MakeReady(LifecycleSupport.NewUuid(), "Broken");
+        ready.clientAvatarChangeMessage.byteArray = null;
+        byte[] data = LifecycleSupport.ConnectPayload(BasisNetworkVersion.ServerVersion, new byte[] { 1 }, ready);
+        RecordingConnectionRequest req = LifecycleSupport.Request(data, accepted: peer);
+
+        BasisServerHandleEvents.HandleConnectionRequest(req);
+
+        Assert.True(req.WasRejected);
+        Assert.False(req.WasAccepted);
+        Assert.Equal("Invalid ReadyMessage received.", LifecycleSupport.RejectReason(req.RejectPayload));
+        Assert.False(NetworkServer.AuthenticatedPeers.ContainsKey(id));
+        Assert.NotSame(NetworkServer.AuthenticatedPeerTag, peer.Tag);
+    }
+
+    [Fact]
+    public void AnonymousUuid_IsMintedPerConnection_OnThePlainPath()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallOpenServer(scope);
+
+        FakeNetPeer first = LifecycleSupport.Peer(LifecycleSupport.NextPeerId());
+        FakeNetPeer second = LifecycleSupport.Peer(LifecycleSupport.NextPeerId());
+        foreach (FakeNetPeer peer in new[] { first, second })
+        {
+            byte[] data = LifecycleSupport.ConnectPayload(BasisNetworkVersion.ServerVersion, new byte[] { 1 }, LifecycleSupport.MakeReady(string.Empty, "Anon"));
+            BasisServerHandleEvents.HandleConnectionRequest(LifecycleSupport.Request(data, accepted: peer));
+        }
+
+        Assert.True(NetworkServer.AuthenticatedPeers.ContainsKey(first.Id));
+        Assert.True(NetworkServer.AuthenticatedPeers.ContainsKey(second.Id));
+        Assert.True(BasisSavedState.GetLastPlayerMetaData(first, out ClientMetaDataMessage firstMeta));
+        Assert.True(BasisSavedState.GetLastPlayerMetaData(second, out ClientMetaDataMessage secondMeta));
+        Assert.NotEqual(ClientMetaDataMessage.Unset, firstMeta.playerUUID);
+        Assert.NotEqual(ClientMetaDataMessage.Unset, secondMeta.playerUUID);
+        Assert.NotEqual(firstMeta.playerUUID, secondMeta.playerUUID);
     }
 }
 
@@ -765,5 +811,112 @@ public class BasisReconnectStateTests
         Assert.DoesNotContain(id, identity.Released);
         Assert.True(identity.NetIDToUUID(live, out string uuid) && !string.IsNullOrEmpty(uuid),
             "the live peer lost its identity to a stale peer's disconnect");
+    }
+
+    [Fact]
+    public void PeerWhoseAuthStateIsAlreadyGone_IsNotAdmitted()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallServer();
+
+        int id = LifecycleSupport.NextPeerId();
+        FakeNetPeer dropped = LifecycleSupport.Peer(id);
+        string uuid = LifecycleSupport.NewUuid();
+
+        BasisServerHandleEvents.OnNetworkAccepted(dropped, LifecycleSupport.MakeReady(uuid, "Gone"), uuid);
+
+        Assert.False(NetworkServer.AuthenticatedPeers.ContainsKey(id));
+        Assert.DoesNotContain(NetworkServer.PeerSnapshot, p => ReferenceEquals(p, dropped));
+        Assert.Empty(dropped.Sent);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Concurrent admission: OnNetworkAccepted runs on parallel DID-auth continuations,
+// so two joiners can interleave. Each must still learn about the other exactly once,
+// through either its own arrival list or the join broadcast, never as a placeholder.
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Collection("BasisServer shared network statics")]
+public class BasisConcurrentJoinTests
+{
+    private static List<(ushort Id, string Name)> SpawnsReceivedBy(FakeNetPeer peer)
+    {
+        List<(ushort Id, string Name)> spawns = new();
+        foreach ((byte[] Data, byte Channel, DeliveryMethod _) send in peer.Sent)
+        {
+            if (send.Channel != BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel)
+            {
+                continue;
+            }
+            ServerReadyBatchMessage batch = new ServerReadyBatchMessage();
+            batch.Deserialize(new NetDataReader(send.Data));
+            NetDataReader payload = new NetDataReader(batch.Payload);
+            for (int i = 0; i < batch.Count; i++)
+            {
+                ServerReadyMessage record = new ServerReadyMessage();
+                record.Deserialize(payload);
+                spawns.Add((record.playerIdMessage.playerID, record.localReadyMessage.playerMetaDataMessage.playerDisplayName ?? string.Empty));
+            }
+        }
+        return spawns;
+    }
+
+    [Fact]
+    public void ConcurrentJoins_EveryPeerLearnsEveryOtherExactlyOnce_WithTheirRealNames()
+    {
+        using var scope = new ServerStaticsScope();
+        NetworkServer.Configuration = new Configuration
+        {
+            PeerLimit = 1000,
+            UseAuth = false,
+            UseAuthIdentity = false,
+            BasisUserRestrictionMode = BasisUserRestrictionMode.Normal,
+        };
+        NetworkServer.Server = new FakeNetManager();
+        NetworkServer.AuthIdentity = new MapAuthIdentity();
+        NetworkServer.AllowList = new BasisAllowList();
+        NetworkServer.BanList = new BasisBanList();
+        NetworkServer.HighQualityLength = ConvertToSize(BitQuality.High);
+        BasisServerHandleEvents.JoinBroadcast.Stop();
+
+        const int joiners = 32;
+        FakeNetPeer[] peers = new FakeNetPeer[joiners];
+        string[] names = new string[joiners];
+        for (int i = 0; i < joiners; i++)
+        {
+            peers[i] = LifecycleSupport.Peer(LifecycleSupport.NextPeerId());
+            names[i] = $"Joiner{i}";
+        }
+
+        Parallel.For(0, joiners, i =>
+        {
+            string uuid = LifecycleSupport.NewUuid();
+            BasisServerHandleEvents.OnNetworkAccepted(peers[i], LifecycleSupport.MakeReady(uuid, names[i]), uuid);
+        });
+        for (int i = 0; i < joiners; i++)
+        {
+            BasisServerHandleEvents.JoinBroadcast.Flush();
+        }
+
+        for (int i = 0; i < joiners; i++)
+        {
+            List<(ushort Id, string Name)> spawns = SpawnsReceivedBy(peers[i]);
+            Assert.DoesNotContain(spawns, s => s.Id == peers[i].Id);
+            for (int j = 0; j < joiners; j++)
+            {
+                if (j == i)
+                {
+                    continue;
+                }
+                (ushort Id, string Name) spawn = Assert.Single(spawns, s => s.Id == peers[j].Id);
+                Assert.Equal(names[j], spawn.Name);
+            }
+        }
+
+        for (int i = 0; i < joiners; i++)
+        {
+            BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(peers[i].Id);
+        }
     }
 }

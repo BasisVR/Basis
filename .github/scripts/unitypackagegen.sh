@@ -38,8 +38,10 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.framework:
               Packages/com.basis.framework.editor:
               Packages/com.basis.gizmos:
+              Packages/com.basis.globalillumination:
               Packages/com.basis.imagepickup:
               Packages/com.basis.integration.audiolink:
+              Packages/com.basis.integration.metabodytracking:
               Packages/com.basis.integration.slimevr:
               Packages/com.basis.integration.trackerobjects:
               Packages/com.basis.integration.ytdlp:
@@ -51,6 +53,7 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.pooltable:
               Packages/com.basis.profilerintergration:
               Packages/com.basis.provider.servers:
+              Packages/com.basis.rtao:
               Packages/com.basis.settings:
               Packages/com.basis.setup:
               Packages/com.basis.shim:
@@ -62,7 +65,6 @@ if [[ "$1" == "full" ]]; then
               Packages/com.cnlohr.cilbox:
               Packages/com.cqf.urpvolumetricfog:
               Packages/com.github.homuler.mediapipe:
-              Packages/com.jiaozi158.unityssgiurp:
               Packages/com.llealloo.audiolink:
               Packages/com.steam.steamaudio:
               Packages/com.steam.steamvr:
@@ -75,6 +77,7 @@ if [[ "$1" == "full" ]]; then
               Packages/jp.keijiro.klak.spout:
               Packages/jp.keijiro.klak.syphon:
               Packages/nuget.meamod.dns:
+              Packages/org.basisvr.zstdsharp:
               Assets/AddressableAssetsData:
               Assets/Basis:
               Assets/Plugins:

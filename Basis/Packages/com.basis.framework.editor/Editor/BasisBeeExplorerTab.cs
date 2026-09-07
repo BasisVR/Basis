@@ -179,6 +179,7 @@ public sealed class BasisBeeExplorerTab : BasisEditorTabPage
         EditorGUILayout.Space(6);
         BasisEditorUI.SectionTitle("Metadata");
         EditorGUI.indentLevel++;
+        DrawField("Content Kind", string.IsNullOrEmpty(connector.MetaData.ContentKind) ? "(unstamped, filed from the census)" : connector.MetaData.ContentKind);
         DrawField("Triangles", connector.MetaData.TrianglesCount.ToString("N0"));
         DrawField("Materials", connector.MetaData.MaterialCount.ToString("N0"));
         DrawField("Bones", connector.MetaData.BonesCount.ToString("N0"));

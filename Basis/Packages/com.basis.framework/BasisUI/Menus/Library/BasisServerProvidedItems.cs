@@ -59,6 +59,11 @@ namespace Basis.BasisUI
                 {
                     var src = serverItems[i];
                     if (string.IsNullOrEmpty(src.Url)) continue;
+                    if (!Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(src.Url, out string urlReason))
+                    {
+                        BasisDebug.LogError($"Dropping server library item with unusable url: {urlReason}");
+                        continue;
+                    }
 
                     _items.Add(new BasisDataStoreItemKeys.ItemKey
                     {

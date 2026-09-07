@@ -43,6 +43,9 @@
             },
             "position": {
               "output": "/actions/default/in/joystick"
+            },
+            "touch": {
+              "output": "/actions/default/in/joysticktouch"
             }
           },
           "mode": "joystick",
@@ -52,6 +55,9 @@
           "inputs": {
             "click": {
               "output": "/actions/default/in/b-button"
+            },
+            "touch": {
+              "output": "/actions/default/in/b_touch"
             }
           },
           "mode": "button",
@@ -61,6 +67,9 @@
           "inputs": {
             "pull": {
               "output": "/actions/default/in/trigger"
+            },
+            "touch": {
+              "output": "/actions/default/in/triggertouch"
             }
           },
           "mode": "trigger",
@@ -70,6 +79,9 @@
           "inputs": {
             "click": {
               "output": "/actions/default/in/a_button"
+            },
+            "touch": {
+              "output": "/actions/default/in/a_touch"
             }
           },
           "mode": "button",
@@ -109,6 +121,9 @@
           "inputs": {
             "click": {
               "output": "/actions/default/in/a_button"
+            },
+            "touch": {
+              "output": "/actions/default/in/a_touch"
             }
           },
           "mode": "button",
@@ -118,6 +133,9 @@
           "inputs": {
             "click": {
               "output": "/actions/default/in/b-button"
+            },
+            "touch": {
+              "output": "/actions/default/in/b_touch"
             }
           },
           "mode": "button",
@@ -148,6 +166,9 @@
             },
             "position": {
               "output": "/actions/default/in/joystick"
+            },
+            "touch": {
+              "output": "/actions/default/in/joysticktouch"
             }
           },
           "mode": "joystick",
@@ -169,6 +190,9 @@
           "inputs": {
             "pull": {
               "output": "/actions/default/in/trigger"
+            },
+            "touch": {
+              "output": "/actions/default/in/triggertouch"
             }
           },
           "mode": "trigger",

@@ -166,7 +166,8 @@ public static class BasisNetworkSpawnItem
         {
             BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle()
             {
-                RemoteBeeFileLocation = localLoadResource.CombinedURL
+                RemoteBeeFileLocation = localLoadResource.CombinedURL,
+                IsNetworkSourced = true
             },
             UnlockPassword = localLoadResource.UnlockPassword,
         };
@@ -278,7 +279,8 @@ public static class BasisNetworkSpawnItem
         {
             BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle()
             {
-                RemoteBeeFileLocation = localLoadResource.CombinedURL
+                RemoteBeeFileLocation = localLoadResource.CombinedURL,
+                IsNetworkSourced = true
             },
             UnlockPassword = localLoadResource.UnlockPassword,
 

@@ -226,6 +226,27 @@ namespace Basis.Cinematics
         };
     }
 
+    /// <summary>
+    /// Aims the camera down the dolly track it is riding, so the shot looks where the move is
+    /// going. The one aim on the stack that films nothing: it reads the path rather than a subject,
+    /// which is what a travelling shot down a corridor or along a wall wants.
+    /// </summary>
+    [Serializable]
+    public struct BasisCameraTrackAimSettings
+    {
+        [Tooltip("Extra rotation applied after aiming down the track, in degrees. Yaw 180 looks back the way it came.")]
+        public Vector3 rotationOffset;
+
+        [Tooltip("Seconds to catch up per rotation axis: X pitch, Y yaw, Z roll.")]
+        public Vector3 damping;
+
+        public static BasisCameraTrackAimSettings Default => new BasisCameraTrackAimSettings
+        {
+            rotationOffset = Vector3.zero,
+            damping = new Vector3(0.4f, 0.35f, 0.8f),
+        };
+    }
+
     [Serializable]
     public struct BasisCameraLookAheadSettings
     {

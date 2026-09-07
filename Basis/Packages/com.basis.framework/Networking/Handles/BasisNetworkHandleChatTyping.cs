@@ -89,6 +89,16 @@ public static void Shutdown()
             return;
         }
 
+        // Typing shares the chat bubble, so it obeys the same visibility controls as messages:
+        // global chat-off, blocks, and the per-player hide-chat setting. Coerce to false rather
+        // than dropping so an earlier visible "typing" always converges to cleared.
+        if (isTyping && (Basis.BasisUI.BasisSettingsDefaults.ChatDisabled.RawValue
+            || remotePlayer.IsEffectivelyBlocked
+            || (BasisPlayerSettingsManager.TryGetCached(remotePlayer.UUID, out var settings) && !settings.ChatVisible)))
+        {
+            isTyping = false;
+        }
+
         remotePlayer.IsChatTyping = isTyping;
         remotePlayer.OnChatTypingStateChanged?.Invoke(isTyping);
     }

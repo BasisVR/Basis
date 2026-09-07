@@ -71,15 +71,30 @@ namespace Basis.Scripts.BasisSdk.Helpers
         /// <param name="value">Value to fill</param>
         /// <param name="startIndex">Start index to fill</param>
         /// <param name="length">The number of entries to write, or -1 to fill until the end of the array</param>
+        /// <remarks>
+        /// The range is clamped to the array rather than trusted. The write goes through a raw
+        /// pointer, so <c>startIndex + length</c> past the end used to run off the block with no
+        /// bounds check in any build — <see cref="Assert"/> is compiled out of players and only
+        /// logs in the editor, so nothing stopped it. This is public SDK surface reachable from
+        /// world and avatar scripts, which makes an unclamped length a memory-safety hole, not
+        /// just a caller bug.
+        /// </remarks>
         public static void FillArray<T>(this ref NativeArray<T> array, in T value, int startIndex = 0, int length = -1) where T : unmanaged
         {
             Assert.IsTrue(startIndex >= 0);
 
+            if (!array.IsCreated) return;
+
+            int count = array.Length;
+            if (startIndex < 0) startIndex = 0;
+            if (startIndex >= count) return;
+
+            int endIndex = length == -1 ? count : startIndex + length;
+            if (endIndex > count) endIndex = count;
+
             unsafe
             {
                 T* ptr = (T*)array.GetUnsafePtr<T>();
-
-                int endIndex = length == -1 ? array.Length : startIndex + length;
 
                 for (int i = startIndex; i < endIndex; ++i)
                     ptr[i] = value;

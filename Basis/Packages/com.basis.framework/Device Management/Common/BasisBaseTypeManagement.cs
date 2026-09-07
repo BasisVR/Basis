@@ -67,11 +67,15 @@ public abstract class BasisBaseTypeManagement : MonoBehaviour
     }
 
     /// <summary>
-    /// Called earlier in LateUpdate than <see cref="Simulate"/>, before any main-thread reader of
-    /// this backend's input state runs. Override to start asynchronous per-frame work (e.g. a
-    /// worker-thread input update) that <see cref="Simulate"/> then joins.
+    /// Called from the driver's Update, before any main-thread reader of this backend's input
+    /// state runs. Override to start asynchronous per-frame work (e.g. a worker-thread input
+    /// update) that <see cref="SimulateJoin"/> then joins at the top of LateUpdate.
     /// </summary>
     public virtual void SimulateKick()
+    {
+
+    }
+    public virtual void SimulateJoin()
     {
 
     }

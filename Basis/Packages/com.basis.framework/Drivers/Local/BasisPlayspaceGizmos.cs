@@ -77,9 +77,6 @@ namespace Basis.Scripts.Drivers
         private static BasisPlayspaceGizmoLayers _drawn = BasisPlayspaceGizmoLayers.None;
         private static bool _hooked;
 
-        /// <summary>Which layers were drawn on the last tick.</summary>
-        public static BasisPlayspaceGizmoLayers ActiveLayers => _drawn;
-
         /// <summary>
         /// Reads the layer toggles and draws this frame's play space. Cheap to call unconditionally:
         /// with every toggle off it drops any handles it still holds and returns.

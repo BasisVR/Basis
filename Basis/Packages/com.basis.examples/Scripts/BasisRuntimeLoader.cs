@@ -44,7 +44,7 @@ public class BasisRuntimeLoader : MonoBehaviour
     [SerializeField] private Vector3 spawnScale = Vector3.one;
 
     // Runtime handle to whatever was loaded.
-    public LocalLoadResource LoadedResource;
+    [System.NonSerialized] public LocalLoadResource LoadedResource;
 
     private void OnEnable()
     {

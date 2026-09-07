@@ -10,7 +10,8 @@ namespace Basis.BasisUI.MediaPlayer
     public class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         public const string Perm_Control = "basis.mediaplayer.control";
-        public const string StaticTitle = "Media Players";
+        public const string StaticTitleKey = "menu.provider.mediaPlayers";
+        public static string StaticTitle => BasisLocalization.Get(StaticTitleKey);
 
         private static BasisMediaPlayerPanelProvider _instance;
 
@@ -40,6 +41,7 @@ namespace Basis.BasisUI.MediaPlayer
         private PanelElementDescriptor _debugGroup;
         private PanelToggle _debugToggle;
         private PanelTextField _urlField;
+        private RectTransform _resyncEveryoneRow;
         private PanelSlider _seekSlider;
         private float _seekPendingAt = -1f;   /* unscaled time of the last handle move; <0 = none */
         private float _seekPendingPct;
@@ -382,6 +384,7 @@ namespace Basis.BasisUI.MediaPlayer
             _debugGroup = null;
             _debugToggle = null;
             _urlField = null;
+            _resyncEveryoneRow = null;
             _seekSlider = null;
             _seekPendingAt = -1f;
             _seekAwaitUntil = -1f;
@@ -432,7 +435,7 @@ namespace Basis.BasisUI.MediaPlayer
                 string normalized = BasisMediaUrlRouter.NormalizeUrl(u);
                 if (normalized != u) _urlField.SetValueWithoutNotify(normalized);
                 if (_activeNetworking != null) _ = _activeNetworking.SetUrl(normalized);
-                else _activePlayer.LoadUrl(normalized);
+                else _activePlayer.LoadApprovedUrl(normalized);
             };
 
             PanelButton playBtn = PanelButton.CreateNew(actions);
@@ -461,6 +464,18 @@ namespace Basis.BasisUI.MediaPlayer
                 if (_activeNetworking != null) _ = _activeNetworking.Stop();
                 else _activePlayer.Stop();
             };
+
+            // Its own row: forcing the whole room to reload is not a transport control, and a
+            // fifth button in the row above leaves none of them wide enough to read.
+            _resyncEveryoneRow = PanelElementDescriptor.BuildActionRow(content, "MediaPlayerResyncActions");
+            PanelButton resyncAllBtn = PanelButton.CreateNew(_resyncEveryoneRow);
+            resyncAllBtn.Descriptor.SetTitle(BasisLocalization.Get("mediaPlayer.resyncEveryone"));
+            resyncAllBtn.OnClicked += () =>
+            {
+                if (_activeNetworking == null) return;
+                _ = _activeNetworking.ResyncEveryone();
+            };
+            _resyncEveryoneRow.gameObject.SetActive(false);
 
             // Timeline scrubber — visible only for media with a seekable
             // timeline (Duration > 0). The slider has no drag events, so the
@@ -562,11 +577,14 @@ namespace Basis.BasisUI.MediaPlayer
 
             RectTransform actions = PanelElementDescriptor.BuildActionRow(content, "MediaPlayerActions");
             PanelButton resyncBtn = PanelButton.CreateNew(actions);
-            resyncBtn.Descriptor.SetTitle(BasisLocalization.Get("mediaPlayer.resync"));
+            resyncBtn.Descriptor.SetTitle(BasisLocalization.Get("mediaPlayer.resyncLocal"));
             resyncBtn.OnClicked += () =>
             {
                 if (_activePlayer == null) return;
-                _activePlayer.Reload();
+                // Deliberately in My Settings, not Playback: it needs no permission and no
+                // ownership, so it stays available to clients that hold no control at all.
+                if (_activeNetworking != null) _activeNetworking.ResyncLocal();
+                else _activePlayer.Reload();
             };
 
             _advancedToggle = PanelToggle.CreateNewEntry(content);
@@ -689,6 +707,7 @@ namespace Basis.BasisUI.MediaPlayer
             bool canControl = CanControlActivePlayer();
             SetTabVisible(_playbackTabIndex, canControl);
             SetTabVisible(_debugTabIndex, _advancedToggle != null && _advancedToggle.Value);
+            SetResyncEveryoneVisible(_activeNetworking != null);
 
             bool showAdmin = IsAdmin() && _activeNetworking != null;
             SetTabVisible(_adminTabIndex, showAdmin);
@@ -914,6 +933,15 @@ namespace Basis.BasisUI.MediaPlayer
         private void ApplyAdvancedVisibility(bool visible)
         {
             SetTabVisible(_debugTabIndex, visible);
+        }
+
+        // Nothing to force on a player with no networking component — the local button in My
+        // Settings is the whole story there.
+        private void SetResyncEveryoneVisible(bool visible)
+        {
+            if (_resyncEveryoneRow == null || _resyncEveryoneRow.gameObject.activeSelf == visible) return;
+            _resyncEveryoneRow.gameObject.SetActive(visible);
+            RebuildPage(_controlGroup);
         }
 
         private void ApplyCaptionOptionsVisibility(bool visible)

@@ -40,9 +40,6 @@ public sealed class BasisGizmoSet
         Layer = layer;
     }
 
-    /// <summary>Number of handles the set currently holds, across all three kinds.</summary>
-    public int HandleCount => _spheres.Count + _lines.Count + _labels.Count;
-
     public void Begin()
     {
         _sphereCursor = 0;

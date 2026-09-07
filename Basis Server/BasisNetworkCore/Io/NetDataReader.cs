@@ -58,13 +58,39 @@ namespace Basis.Network.Core {
             get => _dataSize - _position;
         }
 
+        // Every read on every packet goes through this, so the inlined body stays a compare and a
+        // call: the message building lives in a NoInlining helper instead of being duplicated into
+        // the hundreds of call sites.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void Require(int count)
+        {
+            if (count > _dataSize - _position)
+                ThrowNotEnoughData(count);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void ThrowNotEnoughData(int count)
+        {
+            throw new InvalidOperationException($"Not enough data to read {count} bytes. Position={_position}, DataSize={_dataSize}");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void ThrowOutsideWindow(string what, int value)
+        {
+            throw new ArgumentException($"{what} {value} is outside the readable window (position {_position}, size {_dataSize}).");
+        }
+
         public void SkipBytes(int count)
         {
+            if (count < 0 || count > _dataSize - _position)
+                ThrowOutsideWindow("Skip of", count);
             _position += count;
         }
 
         public void SetPosition(int position)
         {
+            if (position < _offset || position > _dataSize)
+                ThrowOutsideWindow("Position", position);
             _position = position;
         }
 
@@ -222,12 +248,13 @@ namespace Basis.Network.Core {
         //     return NetUtils.MakeEndPoint(host, port);
         // }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte GetByte()
         {
             // _data is the pooled buffer and outlives this packet, so an unchecked read past
             // _dataSize returns a stale byte instead of faulting.
             if (_position >= _dataSize)
-                throw new InvalidOperationException($"Not enough data to read 1 byte. Position={_position}, DataSize={_dataSize}");
+                ThrowNotEnoughData(1);
             byte res = _data[_position];
             _position++;
             return res;
@@ -240,6 +267,7 @@ namespace Basis.Network.Core {
 
         public T[] GetArray<T>(ushort size)
         {
+            Require(2);
             ushort length = BinaryPrimitives.ReadUInt16LittleEndian(_data.AsSpan(_position));
             _position += 2;
             int byteCount = length * size;
@@ -358,6 +386,7 @@ namespace Basis.Network.Core {
 
         public ushort GetUShort()
         {
+            Require(2);
             ushort result = BinaryPrimitives.ReadUInt16LittleEndian(_data.AsSpan(_position));
             _position += 2;
             return result;
@@ -365,6 +394,7 @@ namespace Basis.Network.Core {
 
         public short GetShort()
         {
+            Require(2);
             short result = BinaryPrimitives.ReadInt16LittleEndian(_data.AsSpan(_position));
             _position += 2;
             return result;
@@ -372,6 +402,7 @@ namespace Basis.Network.Core {
 
         public long GetLong()
         {
+            Require(8);
             long result = BinaryPrimitives.ReadInt64LittleEndian(_data.AsSpan(_position));
             _position += 8;
             return result;
@@ -379,6 +410,7 @@ namespace Basis.Network.Core {
 
         public ulong GetULong()
         {
+            Require(8);
             ulong result = BinaryPrimitives.ReadUInt64LittleEndian(_data.AsSpan(_position));
             _position += 8;
             return result;
@@ -386,6 +418,7 @@ namespace Basis.Network.Core {
 
         public int GetInt()
         {
+            Require(4);
             int result = BinaryPrimitives.ReadInt32LittleEndian(_data.AsSpan(_position));
             _position += 4;
             return result;
@@ -393,6 +426,7 @@ namespace Basis.Network.Core {
 
         public uint GetUInt()
         {
+            Require(4);
             uint result = BinaryPrimitives.ReadUInt32LittleEndian(_data.AsSpan(_position));
             _position += 4;
             return result;
@@ -400,6 +434,7 @@ namespace Basis.Network.Core {
 
         public float GetFloat()
         {
+            Require(4);
             int bits = BinaryPrimitives.ReadInt32LittleEndian(_data.AsSpan(_position));
             _position += 4;
             return BitConverter.Int32BitsToSingle(bits);
@@ -407,6 +442,7 @@ namespace Basis.Network.Core {
 
         public double GetDouble()
         {
+            Require(8);
             long bits = BinaryPrimitives.ReadInt64LittleEndian(_data.AsSpan(_position));
             _position += 8;
             return BitConverter.Int64BitsToDouble(bits);
@@ -479,7 +515,7 @@ namespace Basis.Network.Core {
         public ArraySegment<byte> GetRemainingBytesSegment()
         {
             ArraySegment<byte> segment = new ArraySegment<byte>(_data, _position, AvailableBytes);
-            _position = _data.Length;
+            _position = _dataSize;
             return segment;
         }
 
@@ -512,7 +548,7 @@ namespace Basis.Network.Core {
         {
             byte[] outgoingData = new byte[AvailableBytes];
             Buffer.BlockCopy(_data, _position, outgoingData, 0, AvailableBytes);
-            _position = _data.Length;
+            _position = _dataSize;
             return outgoingData;
         }
 
@@ -547,16 +583,19 @@ namespace Basis.Network.Core {
 
         public byte PeekByte()
         {
+            Require(1);
             return _data[_position];
         }
 
         public sbyte PeekSByte()
         {
+            Require(1);
             return (sbyte)_data[_position];
         }
 
         public bool PeekBool()
         {
+            Require(1);
             return _data[_position] == 1;
         }
 
@@ -567,41 +606,49 @@ namespace Basis.Network.Core {
 
         public ushort PeekUShort()
         {
+            Require(2);
             return BinaryPrimitives.ReadUInt16LittleEndian(_data.AsSpan(_position));
         }
 
         public short PeekShort()
         {
+            Require(2);
             return BinaryPrimitives.ReadInt16LittleEndian(_data.AsSpan(_position));
         }
 
         public long PeekLong()
         {
+            Require(8);
             return BinaryPrimitives.ReadInt64LittleEndian(_data.AsSpan(_position));
         }
 
         public ulong PeekULong()
         {
+            Require(8);
             return BinaryPrimitives.ReadUInt64LittleEndian(_data.AsSpan(_position));
         }
 
         public int PeekInt()
         {
+            Require(4);
             return BinaryPrimitives.ReadInt32LittleEndian(_data.AsSpan(_position));
         }
 
         public uint PeekUInt()
         {
+            Require(4);
             return BinaryPrimitives.ReadUInt32LittleEndian(_data.AsSpan(_position));
         }
 
         public float PeekFloat()
         {
+            Require(4);
             return BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(_data.AsSpan(_position)));
         }
 
         public double PeekDouble()
         {
+            Require(8);
             return BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(_data.AsSpan(_position)));
         }
 
@@ -610,11 +657,14 @@ namespace Basis.Network.Core {
         /// </summary>
         public string PeekString(int maxLength)
         {
+            if (AvailableBytes < 2) return string.Empty;
             ushort size = PeekUShort();
             if (size == 0)
                 return string.Empty;
-            
+
             int actualSize = size - 1;
+            if (_position + 2 + actualSize > _dataSize)
+                return string.Empty;
             return (maxLength > 0 && NetDataWriter.uTF8Encoding.Value.GetCharCount(_data, _position + 2, actualSize) > maxLength) ?
                 string.Empty :
                 NetDataWriter.uTF8Encoding.Value.GetString(_data, _position + 2, actualSize);
@@ -633,7 +683,7 @@ namespace Basis.Network.Core {
                 return string.Empty;
 
             int actualSize = size - 1;
-            if (actualSize < 0 || _position + 2 + actualSize > _data.Length)
+            if (actualSize < 0 || _position + 2 + actualSize > _dataSize)
                 return string.Empty;
             return NetDataWriter.uTF8Encoding.Value.GetString(_data, _position + 2, actualSize);
         }

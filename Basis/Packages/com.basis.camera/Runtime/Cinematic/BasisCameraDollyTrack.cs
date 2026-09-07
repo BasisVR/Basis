@@ -51,8 +51,18 @@ namespace Basis.Cinematics
         private bool lineVisible;
         private bool lineColored;
 
-        public bool Looped;
-        public bool Visible = true;
+        /// <summary>
+        /// Where the track's own options start, and so where a reset returns them to. Named rather
+        /// than left in the field initializers alone, so the panel's defaults cannot drift off them.
+        /// </summary>
+        public const bool DefaultLooped = false;
+        public const bool DefaultVisible = true;
+        public const bool DefaultColorBySpeed = true;
+        public const bool DefaultGridSnap = false;
+        public const float DefaultGridSize = 0.25f;
+
+        public bool Looped = DefaultLooped;
+        public bool Visible = DefaultVisible;
 
         /// <summary>
         /// Paint the path by how fast the camera passes through each part of it rather than one
@@ -60,7 +70,7 @@ namespace Basis.Cinematics
         /// laid out with points far apart is covered faster there, and the ease settings decide
         /// where it is still getting up to speed and where it is already coming off it.
         /// </summary>
-        public bool ColorBySpeed = true;
+        public bool ColorBySpeed = DefaultColorBySpeed;
 
         /// <summary>
         /// The move the speed colouring is drawn from. Set every frame from the fitted stack, so
@@ -86,8 +96,8 @@ namespace Basis.Cinematics
         /// the author may reshape a locked track.
         /// </summary>
         public bool IsAuthor = true;
-        public bool GridSnap;
-        public float GridSize = 0.25f;
+        public bool GridSnap = DefaultGridSnap;
+        public float GridSize = DefaultGridSize;
 
         public IReadOnlyList<BasisCameraDollyWaypoint> Waypoints => waypoints;
 

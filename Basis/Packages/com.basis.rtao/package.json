@@ -1,0 +1,14 @@
+{
+  "name": "com.basis.rtao",
+  "displayName": "Basis Ray Traced Ambient Occlusion",
+  "version": "0.0.1",
+  "description": "Ray traced ambient occlusion for URP, built on Unity's Unified Ray Tracing backend. Traces cosine-distributed occlusion rays against a scene acceleration structure, denoises with reverse-reprojection temporal accumulation plus a separable bilateral filter, and publishes the result as _ScreenSpaceOcclusionTexture so every URP lit shader picks it up. Stereo aware end to end: one dispatch covers both eyes of a single-pass-instanced VR frame.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "17.5.0"
+  }
+}

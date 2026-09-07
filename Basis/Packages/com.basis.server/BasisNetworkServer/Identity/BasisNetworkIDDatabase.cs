@@ -39,24 +39,22 @@ namespace BasisNetworkCore
             PerPeerAssignedCount.TryRemove(peerId, out _);
             PerPeerCapWarned.TryRemove(peerId, out _);
         }
+        private static readonly object AssignLock = new object();
         public static void AddOrFindNetworkID(NetPeer NetPeer, string UniqueStringID)
         {
-            if (UshortNetworkDatabase.TryGetValue(UniqueStringID, out ushort Value)) // This should basically never happen!
+            if (UshortNetworkDatabase.TryGetValue(UniqueStringID, out ushort Value))
             {
-                // We already know about it, let's just give it back to that player
-                ServerNetIDMessage SNIM = new ServerNetIDMessage
-                {
-                    NetIDMessage = new NetIDMessage() { playerID = UniqueStringID },
-                    UshortUniqueIDMessage = new UshortUniqueIDMessage() { UniqueIDUshort = Value }
-                };
-                NetDataWriter Writer = NetworkServer.RentWriter();
-                SNIM.Serialize(Writer);
-                NetworkServer.TrySend(NetPeer, Writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
-                NetworkServer.ReturnWriter(Writer);
-                BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {NetPeer.Id}");
+                SendExistingNetworkID(NetPeer, UniqueStringID, Value);
+                return;
             }
-            else
+            lock (AssignLock)
             {
+                if (UshortNetworkDatabase.TryGetValue(UniqueStringID, out Value))
+                {
+                    SendExistingNetworkID(NetPeer, UniqueStringID, Value);
+                    return;
+                }
+
                 // Per-peer cap: stop one client consuming the shared id space and locking everyone
                 // else out. The count only grows during a session and is cleared on disconnect, so it
                 // cannot drift into a false reject.
@@ -110,6 +108,20 @@ namespace BasisNetworkCore
                 NetworkServer.ReturnWriter(Writer);
                 BNL.Log($"Broadcasted new ID ({newID}) for {UniqueStringID} to all connected peers.");
             }
+        }
+        private static void SendExistingNetworkID(NetPeer NetPeer, string UniqueStringID, ushort Value)
+        {
+            // We already know about it, let's just give it back to that player
+            ServerNetIDMessage SNIM = new ServerNetIDMessage
+            {
+                NetIDMessage = new NetIDMessage() { playerID = UniqueStringID },
+                UshortUniqueIDMessage = new UshortUniqueIDMessage() { UniqueIDUshort = Value }
+            };
+            NetDataWriter Writer = NetworkServer.RentWriter();
+            SNIM.Serialize(Writer);
+            NetworkServer.TrySend(NetPeer, Writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
+            NetworkServer.ReturnWriter(Writer);
+            BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {NetPeer.Id}");
         }
 
         public static bool GetAllNetworkID(out List<ServerNetIDMessage> ServerUniqueIDMessages)

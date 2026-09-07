@@ -59,6 +59,31 @@
       "type": "boolean"
     },
     {
+      "name": "/actions/default/in/A_Touch",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/default/in/B_Touch",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/default/in/JoystickTouch",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/default/in/TriggerTouch",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/default/in/ThumbrestTouch",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
       "name": "/actions/default/in/Grip",
       "type": "boolean"
     },

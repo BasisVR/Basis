@@ -592,19 +592,25 @@ public static class BasisActionDriver
     private static BasisBoneTrackedRole s_DispatchRole;
 
     /// <summary>
-    /// Stick input for the role being dispatched, with forward/back dropped while that hand's stick
-    /// is driving a settings slider (<see cref="Basis.BasisUI.BasisPanelJoystickBind"/>). Tuning a
-    /// value must not also walk the player. Left/right is left alone, so a bound hand can still
-    /// strafe or turn.
+    /// Stick input for the role being dispatched, dropped entirely while that hand's stick is
+    /// driving a settings slider (<see cref="Basis.BasisUI.BasisPanelJoystickBind"/>). Tuning a
+    /// value must not also move the player.
+    ///
+    /// <para>Forward/back alone was not enough. A thumbstick pushed forward is never pushed
+    /// exactly forward, and the sideways part that survived still reached
+    /// <see cref="BasisLocalCharacterDriver.MovementVector"/>.x to strafe and
+    /// <see cref="BasisLocalCharacterDriver.Rotation"/>.x to snap-turn — turning was never
+    /// suppressed at all, since it reads the axis this kept. It also left
+    /// <see cref="BasisLocalCharacterDriver.IsLocomoting"/> true for the whole sweep, which is
+    /// what unplants the feet.</para>
+    ///
+    /// <para>Only the bound hand goes quiet. The other stick keeps whatever it was doing, so a
+    /// bind costs locomotion on the hand that was given away and nothing else.</para>
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Vector2 LocomotionAxis(Vector2 axis)
     {
-        if (Basis.BasisUI.BasisPanelJoystickBind.CapturesStick(s_DispatchRole))
-        {
-            axis.y = 0f;
-        }
-        return axis;
+        return Basis.BasisUI.BasisPanelJoystickBind.CapturesStick(s_DispatchRole) ? Vector2.zero : axis;
     }
 
     /// <summary>

@@ -43,16 +43,18 @@ namespace Basis.Tests.Sync
         /// Builds a rig. <paramref name="fingerScale"/> multiplies every finger segment;
         /// <paramref name="handScale"/> multiplies the wrist→knuckle span; <paramref name="uniformScale"/>
         /// scales the whole root transform, which must cancel out of anything proportional.
+        /// <paramref name="fingers"/> false builds the rig with hands but no finger bones, which is
+        /// the shape of the far LOD skeleton (twenty core bones, arms ending at the wrist).
         /// </summary>
         public static BasisHumanoidRigFixture Build(
-            string name, float fingerScale = 1f, float handScale = 1f, float uniformScale = 1f)
+            string name, float fingerScale = 1f, float handScale = 1f, float uniformScale = 1f, bool fingers = true)
         {
             var fixture = new BasisHumanoidRigFixture();
-            fixture.Construct(name, fingerScale, handScale, uniformScale);
+            fixture.Construct(name, fingerScale, handScale, uniformScale, fingers);
             return fixture;
         }
 
-        void Construct(string name, float fingerScale, float handScale, float uniformScale)
+        void Construct(string name, float fingerScale, float handScale, float uniformScale, bool fingers)
         {
             Root = new GameObject(name);
             Root.SetActive(false);
@@ -67,8 +69,8 @@ namespace Basis.Tests.Sync
 
             BuildLeg(hips, true);
             BuildLeg(hips, false);
-            BuildArm(chest, true, fingerScale, handScale);
-            BuildArm(chest, false, fingerScale, handScale);
+            BuildArm(chest, true, fingerScale, handScale, fingers);
+            BuildArm(chest, false, fingerScale, handScale, fingers);
 
             var skeleton = new SkeletonBone[_all.Count];
             for (int i = 0; i < _all.Count; i++)
@@ -118,7 +120,7 @@ namespace Basis.Tests.Sync
             MakeBone(foot, l, new Vector3(0f, -0.44f, 0f));
         }
 
-        void BuildArm(Transform chest, bool left, float fingerScale, float handScale)
+        void BuildArm(Transform chest, bool left, float fingerScale, float handScale, bool fingers)
         {
             float side = left ? 1f : -1f;
             var upper = left ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm;
@@ -130,6 +132,7 @@ namespace Basis.Tests.Sync
             Transform h = MakeBone(hand, l, new Vector3(0.26f * side, 0f, 0f));
 
             if (left) LeftHand = h; else RightHand = h;
+            if (!fingers) return;
 
             float palm = 0.09f * handScale;
             int handBase = left ? 0 : 5;

@@ -7,8 +7,6 @@ namespace Basis.Network.Server
     public static class BasisStatistics
     {
         public static NetManager Manager;
-        private static Thread workerThread;
-        private static volatile bool keepPolling = true; // Used to control the thread lifecycle
 
         public static void StartWorkerThread(NetManager manager)
         {

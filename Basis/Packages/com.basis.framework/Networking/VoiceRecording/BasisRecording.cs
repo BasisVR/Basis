@@ -35,7 +35,6 @@ namespace Basis.Scripts.Networking.VoiceRecording
         public ushort RecordeePlayerId { get; internal set; }
         public int SampleRate { get; }
         public bool IsFinalized { get; private set; }
-        public string WavPath => _wav?.Path;
         public int SampleCount => _sampleCount;
         public float DurationSeconds => SampleRate > 0 ? (float)_sampleCount / SampleRate : 0f;
 

@@ -347,6 +347,21 @@ public class SanitizerAndWordFilterTests
         Assert.Equal(text, BasisWordFilter.Filter(text, new[] { word }));
     }
 
+    // Regression for GitHub issue #1021: "car" is a real word AND a valid English trigram,
+    // but every one of its letters also appears in the banned word "crap", so the self-match
+    // exclusion in IsValidTrigram (meant only to let "crap" detect itself) suppressed the
+    // trigram protection for "car" too. That let unrelated digits later in the same message
+    // (homoglyphs '4'->a, '9'->p) complete a false "crap" match across a large gap.
+    [Theory]
+    [InlineData("car-479129", "crap")]
+    [InlineData("https://example.com/sound-effects/city-ambience-car-479129/", "crap")]
+    public void WordFilter_UnrelatedWordAndDigitsFarApart_NotFlagged(string text, string word)
+    {
+        Assert.False(BasisWordFilter.ContainsBannedWord(text, new[] { word }, out string matched));
+        Assert.Equal(string.Empty, matched);
+        Assert.Equal(text, BasisWordFilter.Filter(text, new[] { word }));
+    }
+
     // Substring semantics as implemented: occurrences embedded in longer legitimate words
     // are ignored via trigram context ("ssi" in assignment, "las" in class, "ppy" in crappy,
     // "nat" in damnation) or the match-boundary check ("ssa" in assassinate).

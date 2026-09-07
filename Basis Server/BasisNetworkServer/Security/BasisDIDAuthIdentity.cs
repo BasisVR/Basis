@@ -161,7 +161,6 @@ namespace BasisDidLink
                     if (AuthIdentity.TryAdd(newPeer.Id, OnAuth))
                     {
                         RetainDid(playerDid);
-                        readyMessage.playerMetaDataMessage.playerUUID = playerDid.V;
                         NetDataWriter Writer = NetworkServer.RentWriter();
                         BytesMessage NetworkMessage = new BytesMessage();
                         NetworkMessage.Serialize(Writer, OnAuth.Challenge.Nonce.V);

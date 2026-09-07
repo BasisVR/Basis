@@ -51,10 +51,21 @@ namespace Basis.BasisUI
         /// </summary>
         public virtual bool HasResetDefault => false;
 
+        public virtual bool HasPanelOptions => HasResetDefault;
+
         public virtual string BoundSettingKey => null;
 
         /// <summary>Asks to reset this control to its default. No-op unless the control supports it.</summary>
         public virtual void RequestReset()
+        {
+        }
+
+        /// <summary>
+        /// Writes this control's default straight in, with no window and no question. The gesture on
+        /// a single control asks first; a section reset has already asked once for the whole section,
+        /// so its rows are written rather than each opening a confirmation of its own.
+        /// </summary>
+        public virtual void ApplyResetToDefault()
         {
         }
 
@@ -133,7 +144,7 @@ namespace Basis.BasisUI
                 string hint = BasisPanelJoystickBind.HintFor(this);
                 if (string.IsNullOrEmpty(hint))
                 {
-                    if (!HasResetDefault) return text;
+                    if (!HasPanelOptions) return text;
                     hint = BasisPanelResetGesture.HintText;
                 }
                 if (string.IsNullOrEmpty(hint)) return text;

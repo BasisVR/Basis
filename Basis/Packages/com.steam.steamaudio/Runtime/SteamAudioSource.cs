@@ -171,16 +171,18 @@ namespace SteamAudio
         public bool IsUnityEngineUsed;
         public bool AllowsUpdateParameters = false;
         private DistanceAttenuationModel mDefaultAttenuationModel;
-        private SimulationFlags mCachedSimFlags;
-        private DirectSimulationFlags mCachedDirectFlags;
-
-        private bool mCachedUseCurveDrivenAttenuationModel;
-        private bool mCachedReflectionsEnabledAny;
-        private bool mCachedPathingEnabledAndValid;
-        private IntPtr mCachedPathingProbes;
+        private SimulationInputsCore mCachedCore;
 
         private bool mCacheDirty = true;
         private bool mInitialized = false;
+
+        // Index into SteamAudioManager's per-source NativeArray caches
+        // (mSourceCoreCache/mSourceHandleCache). -1 when not registered. The manager
+        // keeps this correct across AddSource/RemoveSource's swap-remove and the rare
+        // RepairTransformArrayDesync compaction, both of which can move a live source
+        // to a different slot — see SteamAudioManager for the corresponding updates.
+        public int ManagerSlot { get; private set; } = -1;
+        public void SetManagerSlot(int slot) { ManagerSlot = slot; }
 
         // ── Deferred initialization ──────────────────────────────────
         // iplSourceCreate is ~1ms per source. With 1k sources spawning,
@@ -458,7 +460,11 @@ namespace SteamAudio
             }
         }
 
-        // Rebuilds cached flags/models so SetInputs can be a tight hot path.
+        // Rebuilds the cached, blittable core so the hot path (TryBuildInputsInto,
+        // and the manager's direct-pipeline unpack loop) can be a tight struct-copy
+        // instead of a ~15-field walk. Pushes the result into this source's manager
+        // slot (if registered) so the direct pipeline's per-frame job/loop sees it
+        // without ever touching this managed object.
         private void RebuildCache(SteamAudioListener listener)
         {
             // Refresh settings ref (can change in editor / domain reloads)
@@ -473,10 +479,9 @@ namespace SteamAudio
             bool reflectionsRealtime = reflectionsType == ReflectionsType.Realtime;
             bool reflectionsBakedSrcActive = reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null;
             bool reflectionsBakedLstActive = reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null;
+            bool reflectionsEnabledAny = reflections && (reflectionsRealtime || reflectionsBakedSrcActive || reflectionsBakedLstActive);
 
-            mCachedReflectionsEnabledAny = reflections && (reflectionsRealtime || reflectionsBakedSrcActive || reflectionsBakedLstActive);
-
-            mCachedUseCurveDrivenAttenuationModel =
+            bool useCurveDrivenAttenuationModel =
                 (mSettings.audioEngine == AudioEngineType.Unity) &&
                 distanceAttenuation &&
                 (distanceAttenuationInput == DistanceAttenuationInput.CurveDriven) &&
@@ -484,20 +489,31 @@ namespace SteamAudio
                 useDistanceCurveForReflections;
 
             // Validate pathing once (no hot-path side effects)
-            mCachedPathingEnabledAndValid = pathing && (pathingProbeBatch != null);
+            bool pathingEnabledAndValid = pathing && (pathingProbeBatch != null);
             if (pathing && pathingProbeBatch == null)
             {
                 pathing = false; // preserve existing behavior, but do it once here
                 Debug.LogWarning($"Pathing probe batch not set, disabling pathing for source {gameObject.name}.");
             }
 
-            mCachedPathingProbes = (mCachedPathingEnabledAndValid) ? pathingProbeBatch.GetProbeBatch() : IntPtr.Zero;
+            SimulationInputsCore core = default;
+            core.useCurveAttenuation = useCurveDrivenAttenuationModel ? Bool.True : Bool.False;
+            core.occlusionType = occlusionType;
+            core.occlusionRadius = occlusionRadius;
+            core.numOcclusionSamples = occlusionSamples;
+            core.numTransmissionRays = maxTransmissionSurfaces;
+            core.dipoleWeight = dipoleWeight;
+            core.dipolePower = dipolePower;
+            core.baked = (reflectionsType != ReflectionsType.Realtime) ? Bool.True : Bool.False;
+            core.pathingProbes = pathingEnabledAndValid ? pathingProbeBatch.GetProbeBatch() : IntPtr.Zero;
+            core.enableValidation = pathValidation ? Bool.True : Bool.False;
+            core.findAlternatePaths = findAlternatePaths ? Bool.True : Bool.False;
 
             // Precompute flags once
             var simFlags = SimulationFlags.Direct;
-            if (mCachedReflectionsEnabledAny) simFlags |= SimulationFlags.Reflections;
-            if (mCachedPathingEnabledAndValid) simFlags |= SimulationFlags.Pathing;
-            mCachedSimFlags = simFlags;
+            if (reflectionsEnabledAny) simFlags |= SimulationFlags.Reflections;
+            if (pathingEnabledAndValid) simFlags |= SimulationFlags.Pathing;
+            core.flags = simFlags;
 
             DirectSimulationFlags direct = default;
             if (distanceAttenuation) direct |= DirectSimulationFlags.DistanceAttenuation;
@@ -505,9 +521,94 @@ namespace SteamAudio
             if (directivity) direct |= DirectSimulationFlags.Directivity;
             if (occlusion) direct |= DirectSimulationFlags.Occlusion;
             if (transmission) direct |= DirectSimulationFlags.Transmission;
-            mCachedDirectFlags = direct;
+            core.directFlags = direct;
 
+            mCachedCore = core;
             mCacheDirty = false;
+
+            if (ManagerSlot >= 0)
+            {
+                SteamAudioManager.Singleton.WriteSourceCore(ManagerSlot, in mCachedCore);
+            }
+        }
+
+        // Cheap per-frame entry point for the manager's direct-pipeline snapshot
+        // build: rebuilds (and re-pushes) only if actually dirty. No-op field check
+        // for the overwhelming majority of sources on the overwhelming majority of
+        // frames.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void EnsureManagerCacheFresh(SteamAudioListener listener)
+        {
+            if (mCacheDirty) RebuildCache(listener);
+        }
+
+        // Forces the current cache into this source's manager slot, rebuilding
+        // first only if dirty. Unlike EnsureManagerCacheFresh, this pushes even
+        // when already clean — needed once at registration time: a source that was
+        // disabled and is being re-enabled can have a perfectly clean mCachedCore
+        // whose *previous* push went to a slot index that has since been reassigned
+        // to a different source, so relying on the dirty check alone would leave
+        // the new slot stale/zeroed until something happens to dirty this source.
+        public void PushCurrentCoreToManager(SteamAudioListener listener)
+        {
+            if (mCacheDirty)
+            {
+                RebuildCache(listener);
+            }
+            else if (ManagerSlot >= 0)
+            {
+                SteamAudioManager.Singleton.WriteSourceCore(ManagerSlot, in mCachedCore);
+            }
+        }
+
+        // Copies the blittable fields of a cached core into a SimulationInputs.
+        // Shared by TryBuildInputsInto (reflections staging + the legacy
+        // non-threaded direct path) and SteamAudioManager's direct-pipeline unpack
+        // loop, so there is exactly one place that knows the field mapping.
+        internal static void CopyCoreFields(in SimulationInputsCore core, ref SimulationInputs inputs)
+        {
+            inputs.flags = core.flags;
+            inputs.directFlags = core.directFlags;
+
+            inputs.airAbsorptionModel.type = AirAbsorptionModelType.Default;
+            inputs.directivity.dipoleWeight = core.dipoleWeight;
+            inputs.directivity.dipolePower = core.dipolePower;
+
+            inputs.occlusionType = core.occlusionType;
+            inputs.occlusionRadius = core.occlusionRadius;
+            inputs.numOcclusionSamples = core.numOcclusionSamples;
+            inputs.numTransmissionRays = core.numTransmissionRays;
+
+            inputs.reverbScaleLow = 1f;
+            inputs.reverbScaleMid = 1f;
+            inputs.reverbScaleHigh = 1f;
+
+            inputs.baked = core.baked;
+            inputs.pathingProbes = core.pathingProbes;
+
+            inputs.enableValidation = core.enableValidation;
+            inputs.findAlternatePaths = core.findAlternatePaths;
+        }
+
+        // Resolves the fields that can never be cached in SimulationInputsCore: the
+        // attenuation model (sometimes a live managed delegate) and the baked data
+        // identifier (depends on whichever listener is currently active). Both are
+        // resolved fresh on every call, exactly as TryBuildInputsInto always did, so
+        // moving config into the cached core above changes nothing about how fresh
+        // these two stay.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ResolveLiveFields(SteamAudioListener listener, ref SimulationInputs inputs)
+        {
+            inputs.distanceAttenuationModel = (mCachedCore.useCurveAttenuation == Bool.True) ? mCurveAttenuationModel : mDefaultAttenuationModel;
+
+            if (reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null)
+            {
+                inputs.bakedDataIdentifier = currentBakedSource.GetBakedDataIdentifier();
+            }
+            else if (reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null)
+            {
+                inputs.bakedDataIdentifier = listener.currentBakedListener.GetBakedDataIdentifier();
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -537,52 +638,19 @@ namespace SteamAudio
             inputs.source.up = up;
             inputs.source.right = right;
 
-            // Distance attenuation model
-            inputs.distanceAttenuationModel = mCachedUseCurveDrivenAttenuationModel ? mCurveAttenuationModel : mDefaultAttenuationModel;
+            CopyCoreFields(in mCachedCore, ref inputs);
 
-            // Air absorption + directivity
-            inputs.airAbsorptionModel.type = AirAbsorptionModelType.Default;
-            inputs.directivity.dipoleWeight = dipoleWeight;
-            inputs.directivity.dipolePower = dipolePower;
-
-            // Occlusion / transmission
-            inputs.occlusionType = occlusionType;
-            inputs.occlusionRadius = occlusionRadius;
-            inputs.numOcclusionSamples = occlusionSamples;
-            inputs.numTransmissionRays = maxTransmissionSurfaces;
-
-            // Reverb/scales/transition
-            inputs.reverbScaleLow = 1f;
-            inputs.reverbScaleMid = 1f;
-            inputs.reverbScaleHigh = 1f;
+            // Settings-derived fields not cached in the core (same value for every
+            // source every frame; the manager's direct-pipeline loop reads these
+            // straight off the shared settings singleton instead of per-source).
             inputs.hybridReverbTransitionTime = mSettings.hybridReverbTransitionTime;
             inputs.hybridReverbOverlapPercent = mSettings.hybridReverbOverlapPercent * 0.01f;
-
-            // Baking / pathing config
-            inputs.baked = (reflectionsType != ReflectionsType.Realtime) ? Bool.True : Bool.False;
-            inputs.pathingProbes = mCachedPathingProbes;
-
             inputs.visRadius = mSettings.bakingVisibilityRadius;
             inputs.visThreshold = mSettings.bakingVisibilityThreshold;
             inputs.visRange = mSettings.bakingVisibilityRange;
             inputs.pathingOrder = mSettings.bakingAmbisonicOrder;
 
-            inputs.enableValidation = pathValidation ? Bool.True : Bool.False;
-            inputs.findAlternatePaths = findAlternatePaths ? Bool.True : Bool.False;
-
-            // Baked identifiers (only when actually usable)
-            if (reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null)
-            {
-                inputs.bakedDataIdentifier = currentBakedSource.GetBakedDataIdentifier();
-            }
-            else if (reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null)
-            {
-                inputs.bakedDataIdentifier = listener.currentBakedListener.GetBakedDataIdentifier();
-            }
-
-            // Cached flags
-            inputs.flags = mCachedSimFlags;
-            inputs.directFlags = mCachedDirectFlags;
+            ResolveLiveFields(listener, ref inputs);
 
             return true;
         }
@@ -691,6 +759,24 @@ namespace SteamAudio
 
             if (mAudioEngineSource != null)
                 mAudioEngineSource.UpdateParameters(this);
+        }
+
+        // Reap path for the threaded reflections/pathing pipeline: the worker
+        // (SteamAudioManager.RunSimulationInternal) has already fetched outputs into
+        // mReflOutBuf, so this only mirrors UpdateOutputs' pathing branch against the
+        // buffered struct instead of calling iplSourceGetOutputs itself. The manager
+        // calls it only for sources that were part of the run that produced the buffer.
+        public void ApplyReflectionsOutputs(in SimulationOutputs outputs)
+        {
+            if (!mInitialized) return;
+
+            if (pathing)
+            {
+                var pathingOutputs = outputs.pathing;
+                pathingOutputs.eqCoeffsLow = Mathf.Max(0.1f, pathingOutputs.eqCoeffsLow);
+                pathingOutputs.eqCoeffsMid = Mathf.Max(0.1f, pathingOutputs.eqCoeffsMid);
+                pathingOutputs.eqCoeffsHigh = Mathf.Max(0.1f, pathingOutputs.eqCoeffsHigh);
+            }
         }
 
         void InitializeDeformedSphereMesh(int nPhi, int nTheta)

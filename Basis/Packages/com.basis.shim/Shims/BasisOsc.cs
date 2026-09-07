@@ -61,6 +61,8 @@ namespace Basis.Shims
 
         private readonly Dictionary<string, OscSubscription> exactSubscriptions = new Dictionary<string, OscSubscription>(StringComparer.Ordinal);
         private readonly Dictionary<string, OscSubscription> prefixSubscriptions = new Dictionary<string, OscSubscription>(StringComparer.Ordinal);
+        private KeyValuePair<string, OscSubscription>[] prefixSubscriptionsSnapshot = Array.Empty<KeyValuePair<string, OscSubscription>>();
+        private bool prefixSubscriptionsSnapshotDirty;
         private int inspectorStateVersion;
         private bool hasCachedScope;
         private bool cachedScopeFound;
@@ -410,8 +412,8 @@ namespace Basis.Shims
             }
 
             #region CollectPrefixCallbacks
-            var prefixSubscriptionsSnapshot = new List<KeyValuePair<string, OscSubscription>>(prefixSubscriptions);
-            foreach (KeyValuePair<string, OscSubscription> entry in prefixSubscriptionsSnapshot)
+            KeyValuePair<string, OscSubscription>[] prefixSnapshot = GetPrefixSubscriptionsSnapshot();
+            foreach (KeyValuePair<string, OscSubscription> entry in prefixSnapshot)
             {
                 if (IsPathWithinPrefix(path, entry.Key))
                 {
@@ -502,10 +504,33 @@ namespace Basis.Shims
 
         private void MarkInspectorStateDirty()
         {
+            prefixSubscriptionsSnapshotDirty = true;
             unchecked
             {
                 inspectorStateVersion++;
             }
+        }
+
+        private KeyValuePair<string, OscSubscription>[] GetPrefixSubscriptionsSnapshot()
+        {
+            if (prefixSubscriptionsSnapshotDirty || prefixSubscriptionsSnapshot.Length != prefixSubscriptions.Count)
+            {
+                if (prefixSubscriptions.Count == 0)
+                {
+                    prefixSubscriptionsSnapshot = Array.Empty<KeyValuePair<string, OscSubscription>>();
+                }
+                else
+                {
+                    prefixSubscriptionsSnapshot = new KeyValuePair<string, OscSubscription>[prefixSubscriptions.Count];
+                    int Index = 0;
+                    foreach (KeyValuePair<string, OscSubscription> entry in prefixSubscriptions)
+                    {
+                        prefixSubscriptionsSnapshot[Index++] = entry;
+                    }
+                }
+                prefixSubscriptionsSnapshotDirty = false;
+            }
+            return prefixSubscriptionsSnapshot;
         }
 
         private static bool AddMessageCallback(

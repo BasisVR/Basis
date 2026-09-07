@@ -67,6 +67,8 @@ namespace Basis.Cinematics
         Compose = 2,
         /// <summary>Copy the subject's own facing, for over-the-shoulder shots.</summary>
         MatchSubject = 3,
+        /// <summary>Point down the dolly track, so the shot looks the way the move is travelling.</summary>
+        AimAlongTrack = 4,
     }
 
     /// <summary>
@@ -178,6 +180,7 @@ namespace Basis.Cinematics
             BasisCameraRotationModifier.LookAtSubject,
             BasisCameraRotationModifier.Compose,
             BasisCameraRotationModifier.MatchSubject,
+            BasisCameraRotationModifier.AimAlongTrack,
         };
 
         public static readonly BasisCameraEffectDescriptor[] Effects =
@@ -259,6 +262,7 @@ namespace Basis.Cinematics
                 case BasisCameraRotationModifier.LookAtSubject: return "camera.modifier.lookAtSubject";
                 case BasisCameraRotationModifier.Compose: return "camera.modifier.compose";
                 case BasisCameraRotationModifier.MatchSubject: return "camera.modifier.matchSubject";
+                case BasisCameraRotationModifier.AimAlongTrack: return "camera.modifier.aimAlongTrack";
                 default: return "camera.modifier.hold";
             }
         }

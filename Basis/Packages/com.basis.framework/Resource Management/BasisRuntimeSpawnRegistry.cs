@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -561,6 +562,7 @@ namespace Basis
             public DateTime StartedUtc;
             public float Progress;
             public string Stage;
+            [NonSerialized] public CancellationTokenSource Cts; // set for cancellable (local/embedded) loads; null for network — those are cancelled via a server unload request instead
         }
 
         public static event Action OnPendingLoadsChanged;
@@ -572,7 +574,7 @@ namespace Basis
 
         public static IReadOnlyCollection<PendingLoad> GetPendingLoads() => _pendingLoads.Values;
 
-        public static PendingLoad BeginPendingLoad(string url, SpawnMode mode, SpawnMethod method, string creatorUUID, bool admin, bool persistent, string loadedNetId = null)
+        public static PendingLoad BeginPendingLoad(string url, SpawnMode mode, SpawnMethod method, string creatorUUID, bool admin, bool persistent, string loadedNetId = null, CancellationTokenSource cts = null)
         {
             PendingLoad pending = new PendingLoad
             {
@@ -586,7 +588,8 @@ namespace Basis
                 Persistent = persistent,
                 StartedUtc = DateTime.UtcNow,
                 Progress = 0f,
-                Stage = string.Empty
+                Stage = string.Empty,
+                Cts = cts
             };
             _pendingLoads[pending.PendingId] = pending;
             OnPendingLoadsChanged?.Invoke();
@@ -600,6 +603,22 @@ namespace Basis
             {
                 OnPendingLoadsChanged?.Invoke();
             }
+        }
+
+        /// <summary>
+        /// Requests cancellation of an in-flight local/embedded load (the row's own load site observes
+        /// its Cts and unwinds via OperationCanceledException, which EndPendingLoad's finally clears —
+        /// the row disappears from that, not from this call). No-op for a network pending load: those
+        /// have no Cts, since only the server can authoritatively cancel a networked spawn.
+        /// </summary>
+        public static bool RequestCancelPendingLoad(string pendingId)
+        {
+            if (!_pendingLoads.TryGetValue(pendingId, out PendingLoad pending) || pending == null || pending.Cts == null)
+            {
+                return false;
+            }
+            pending.Cts.Cancel();
+            return true;
         }
 
         public static void ReportPendingLoadProgress(string pendingId, float progress, string stage)

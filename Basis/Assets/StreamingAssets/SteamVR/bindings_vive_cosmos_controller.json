@@ -34,6 +34,9 @@
             },
             "click": {
               "output": "/actions/default/in/joystickclick"
+            },
+            "touch": {
+              "output": "/actions/default/in/joysticktouch"
             }
           }
         },
@@ -47,6 +50,9 @@
             },
             "click": {
               "output": "/actions/default/in/joystickclick"
+            },
+            "touch": {
+              "output": "/actions/default/in/joysticktouch"
             }
           }
         },

@@ -33,6 +33,10 @@ public static class SettingsProviderContentTags
 
     private static RectTransform _customListContainer;
     private static RectTransform _layoutRoot;
+    // customGroup nests inside tagsGroup.ContentParent, so a row added/removed/toggled inside it
+    // needs that chain rebuilt bottom-up too - rebuilding only the tab root measures the nested
+    // group before it has resized (same fix as the Graphics tab's Overrides/GI/RTAO sections).
+    private static RectTransform _tagsGroupContent;
 
     public static void BuildContentTagsContent(RectTransform container)
     {
@@ -40,10 +44,14 @@ public static class SettingsProviderContentTags
         _customRows.Clear();
         _presetRows.Clear();
 
+        // Dedicated content-parent (not the flat/sibling-sweep style) so this outer toggle only ever
+        // shows/hides ONE container — the flat style would force-sync every direct child's active
+        // state on every outer toggle, which stomps the nested Custom Tags toggle's own expand state.
         PanelSectionToggle contentTagsToggle = PanelSectionToggle.CreateNewEntry(container);
-        contentTagsToggle.SetTitle(BasisLocalization.Get("settings.perf.contentTags.title"));
-        int contentTagsStart = container.childCount;
-        RectTransform tagsContent = container;
+        PanelElementDescriptor tagsGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
+            contentTagsToggle, container, BasisLocalization.Get("settings.perf.contentTags.title"), showGroupTitle: false);
+        RectTransform tagsContent = tagsGroup.ContentParent;
+        _tagsGroupContent = tagsContent;
 
         PanelElementDescriptor group =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, tagsContent);
@@ -64,11 +72,13 @@ public static class SettingsProviderContentTags
         }
 
         // Custom tags: dynamic list that grows when the user types a new tag and
-        // shrinks when they toggle one off. Built into a sub-container so the add
-        // row stays visually anchored beneath the dynamic list.
+        // shrinks when they toggle one off. Its own collapsible sub-section (nested
+        // under the Content Tags header) so a long custom list can be tucked away
+        // without collapsing the presets above it too.
+        PanelSectionToggle customToggle = PanelSectionToggle.CreateNewEntry(tagsContent);
+        customToggle.SetTitle(BasisLocalization.Get("settings.perf.contentTags.custom.title"));
         PanelElementDescriptor customGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, tagsContent);
-        customGroup.SetTitle(BasisLocalization.Get("settings.perf.contentTags.custom.title"));
 
         _customListContainer = customGroup.ContentParent;
 
@@ -94,8 +104,10 @@ public static class SettingsProviderContentTags
         addButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.perf.contentTags.custom.addButton.tooltip"));
         addButton.OnClicked = () => CommitCustomEntry(input, input.Value);
 
-        PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(contentTagsToggle, container, contentTagsStart, false,
-            _ => ForceLayout());
+        customToggle.RegisterContentContainer(customGroup);
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(customToggle, customGroup, true, _ => ForceLayout());
+
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(contentTagsToggle, tagsGroup, false, _ => ForceLayout());
 
         ForceLayout();
     }
@@ -194,10 +206,8 @@ public static class SettingsProviderContentTags
 
     private static void ForceLayout()
     {
-        if (_layoutRoot != null)
-        {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_layoutRoot);
-        }
+        if (_layoutRoot == null) return;
+        PanelElementDescriptor.RebuildLayoutChain(_tagsGroupContent, _layoutRoot);
     }
 
     private static bool IsPreset(string tag)

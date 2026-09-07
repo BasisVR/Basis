@@ -1,0 +1,230 @@
+#pragma kernel BasisRTAOScreenSpaceTrace
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.basis.rtao/Shaders/BasisRTAOCommon.hlsl"
+
+Texture2DArray<float4> _BasisRtaoPositionTex;
+Texture2DArray<float4> _BasisRtaoNormalTex;
+RWTexture2DArray<float2> _BasisRtaoResultTex;
+
+float4 _BasisRtaoViewPlane[2];
+// World-space direction of one texel step across the trace target, per eye: +x a column right, +y a row
+// UP - these buffers are laid out in unflipped projection order, the same convention the temporal pass
+// reprojects with. The horizon walk happens in texels but the arc it integrates is geometry, and these two
+// vectors are the bridge - they are what let the slice plane be built without shipping a view matrix, and
+// what a test binds as plain unit axes to make its hand-authored position buffer self-consistent.
+float4 _BasisRtaoScreenAxisX[2];
+float4 _BasisRtaoScreenAxisY[2];
+float4 _BasisRtaoReference;
+float4 _BasisRtaoSize;
+float4 _BasisRtaoTrace;
+float4 _BasisRtaoBias;
+float4 _BasisRtaoScreenParams;
+int _BasisRtaoRayCount;
+int _BasisRtaoViewCount;
+int _BasisRtaoFrameIndex;
+int _BasisRtaoStereoCoherent;
+
+#define SCREEN_PROJECTION_SCALE _BasisRtaoScreenParams.x
+#define SCREEN_MAX_RADIUS _BasisRtaoScreenParams.y
+#define SCREEN_MIN_RADIUS _BasisRtaoScreenParams.z
+// Pixels per metre for an orthographic camera, whose projected radius does not depend on depth.
+// SCREEN_PROJECTION_SCALE is zero exactly when the camera is orthographic - see BasisRTAOTracing.ProjectionScale.
+#define SCREEN_ORTHO_SCALE _BasisRtaoScreenParams.w
+
+static const float kBeta = 0.002;
+static const float kEpsilon = 1e-4;
+static const float kHalfPi = 1.5707963267948966;
+static const float kPi = 3.1415926535897931;
+
+float BasisRtaoPlaneDepth(float4 plane, float3 positionWS)
+{
+    return dot(plane.xyz, positionWS) + plane.w;
+}
+
+/// <summary>
+/// Ground-truth ambient occlusion (Jimenez et al. 2016), replacing the point-sampled disc estimator this
+/// kernel used to be. The old form summed dot(offset,N)/d^2 over a handful of scattered taps - an
+/// obscurance heuristic in units of its own, shaped by a pow() into something plausible. This one walks a
+/// few screen directions, finds the horizon each way, and integrates the cosine-weighted arc of hemisphere
+/// the horizons leave open. Three things fall out of that:
+///
+/// - The answer is in the SAME units as the ray traced path: the cosine-weighted fraction of the hemisphere
+///   that is visible. A flat plane reads 1, the base of an infinite wall reads 0.5, and switching Occlusion
+///   Source no longer changes what the number means - only what geometry it can see.
+/// - Distance Falloff finally does something here. The old kernel never read it; now a sample near the edge
+///   of the radius lifts the horizon by less, exactly as the ray traced path discounts a far hit.
+/// - The taps lie along lines, so a bigger radius costs cache misses, not correctness - the tap count is
+///   fixed by the quality tier and spreads over whatever the radius projects to.
+///
+/// The per-pixel sample budget arrives in _BasisRtaoRayCount (the ray tier times four - see
+/// RecordScreenSpace) and splits into slices times steps: more budget first buys more directions, then
+/// finer walks. The slice set rotates per frame along the same stereo-coherent R2 sequence the traced
+/// path advances its rays with, so the temporal filter integrates the missing directions instead of
+/// averaging a random walk.
+/// </summary>
+[numthreads(8, 8, 1)]
+void BasisRTAOScreenSpaceTrace(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_BasisRtaoSize.x || id.y >= (uint)_BasisRtaoSize.y || id.z >= (uint)_BasisRtaoViewCount)
+        return;
+
+    float4 packed = _BasisRtaoPositionTex.Load(int4(id.xy, id.z, 0));
+    if (packed.w < 0.5)
+    {
+        _BasisRtaoResultTex[id] = float2(1.0, 1.0);
+        return;
+    }
+
+    float3 positionWS = packed.xyz + _BasisRtaoReference.xyz;
+    float3 normalWS = BasisRtaoDecodeNormal(_BasisRtaoNormalTex.Load(int4(id.xy, id.z, 0)).xy);
+
+    float viewDistance = length(packed.xyz);
+    // Horizon angles are measured against the direction to the camera. Under perspective that is the
+    // pixel's own view ray; orthographic rays are all parallel, so the plane normal stands in.
+    bool orthographic = SCREEN_PROJECTION_SCALE <= 0.0;
+    float3 toCamera = orthographic
+        ? -_BasisRtaoViewPlane[id.z].xyz
+        : -packed.xyz / max(viewDistance, kEpsilon);
+
+    float2 sequence = BasisRtaoSampleJitter(positionWS, viewDistance, _BasisRtaoBias.z, id, (uint)_BasisRtaoFrameIndex, _BasisRtaoStereoCoherent != 0);
+
+    float radius = _BasisRtaoTrace.y;
+    float viewDepth = max(1e-3, BasisRtaoPlaneDepth(_BasisRtaoViewPlane[id.z], positionWS));
+    float radiusPixels = orthographic
+        ? clamp(SCREEN_ORTHO_SCALE * radius, SCREEN_MIN_RADIUS, SCREEN_MAX_RADIUS)
+        : clamp(SCREEN_PROJECTION_SCALE * radius / viewDepth, SCREEN_MIN_RADIUS, SCREEN_MAX_RADIUS);
+
+    // Budget split: directions first, then steps along each. The floors keep a degenerate budget usable -
+    // one slice of three steps a side is still a real horizon estimate, where three scattered taps were not.
+    uint budget = (uint)max(4, _BasisRtaoRayCount);
+    uint sliceCount = clamp(budget / 8u, 1u, 4u);
+    uint stepsPerSide = clamp(budget / (sliceCount * 2u), 3u, 12u);
+
+    // Distance Falloff: a horizon sample fades out over the tail of the radius rather than counting in
+    // full until it vanishes. Zero keeps the hard edge; larger values start the fade earlier, which is the
+    // same shape the ray traced path gives the setting (pow of normalized hit distance).
+    float falloff = max(0.0, _BasisRtaoTrace.z);
+    float fadeStart = radius / (1.0 + falloff);
+    float fadeInvRange = 1.0 / max(radius - fadeStart, radius * 0.01);
+
+    // The old estimator's self-occlusion guard, kept in its own units: metres along the view direction,
+    // growing with depth to clear the half-float position error.
+    float bias = _BasisRtaoBias.x + kBeta * viewDepth;
+
+    float3 axisX = _BasisRtaoScreenAxisX[id.z].xyz;
+    float3 axisY = _BasisRtaoScreenAxisY[id.z].xyz;
+
+    float visibility = 0.0;
+    float occlusionSum = 0.0;
+    float occludedDistanceSum = 0.0;
+
+    UNITY_LOOP
+    for (uint slice = 0; slice < sliceCount; slice++)
+    {
+        float phi = kPi * (float(slice) + sequence.x) / float(sliceCount);
+        float cosPhi = cos(phi), sinPhi = sin(phi);
+        float2 texelDirection = float2(cosPhi, sinPhi);
+        float3 sliceWorld = axisX * cosPhi + axisY * sinPhi;
+
+        // The slice plane holds the view direction and the walk direction. The tangent is the walk
+        // direction squared up against the view vector; the projected normal and its signed angle gamma
+        // are what the arc below is integrated around.
+        float3 tangent = sliceWorld - dot(sliceWorld, toCamera) * toCamera;
+        float tangentLengthSq = dot(tangent, tangent);
+        if (tangentLengthSq < 1e-8) { visibility += 1.0; continue; }
+        tangent *= rsqrt(tangentLengthSq);
+
+        float3 sliceNormal = cross(tangent, toCamera);
+        float3 projectedNormal = normalWS - sliceNormal * dot(normalWS, sliceNormal);
+        float projectedLength = length(projectedNormal);
+        if (projectedLength < 1e-6) { visibility += 1.0; continue; }
+
+        float cosGamma = clamp(dot(projectedNormal, toCamera) / projectedLength, -1.0, 1.0);
+        float gammaSign = dot(projectedNormal, tangent) >= 0.0 ? 1.0 : -1.0;
+        float gamma = gammaSign * FastACos(cosGamma);
+        float sinGamma = gammaSign * sqrt(saturate(1.0 - cosGamma * cosGamma));
+
+        // Furthest the horizon can open on each side is the surface's own plane; the clamp below enforces
+        // it, so the search only ever needs to look for occluders above it.
+        float2 horizonCos = float2(-1.0, -1.0);
+        float nearestOccluder = radius;
+        bool sawOccluder = false;
+
+        // Unrolled, not [loop]: horizonCos[side] is dynamic indexing of a local vector, which DXBC can
+        // only serve by unrolling - fxc rejects the combination outright (X3531), and the Direct3D11 this
+        // path exists for compiles through fxc. Two iterations around the walk is cheap to duplicate.
+        UNITY_UNROLL
+        for (uint side = 0; side < 2; side++)
+        {
+            float direction = side == 0 ? -1.0 : 1.0;
+            float best = -1.0;
+
+            UNITY_LOOP
+            for (uint step = 0; step < stepsPerSide; step++)
+            {
+                float pixels = max(1.0, (float(step) + sequence.y) / float(stepsPerSide) * radiusPixels);
+                int2 tapCoord = int2(id.xy) + int2(round(texelDirection * (direction * pixels)));
+                if (all(tapCoord == int2(id.xy))) { continue; }
+                if (any(tapCoord < 0) || any(tapCoord >= int2(_BasisRtaoSize.xy))) { break; }
+
+                float4 tapPacked = _BasisRtaoPositionTex.Load(int4(tapCoord, id.z, 0));
+                if (tapPacked.w < 0.5) { continue; }
+
+                float3 offset = tapPacked.xyz - packed.xyz;
+                float distanceSq = dot(offset, offset);
+                if (distanceSq < 1e-8) { continue; }
+
+                float tapDistance = sqrt(distanceSq);
+                float sampleCos = (dot(offset, toCamera) - bias) / tapDistance;
+
+                // A sample past the fade window may not lift the horizon at all; inside it, it lifts in
+                // proportion. lerp towards fully-open rather than skipping, so the fade is continuous.
+                float weight = saturate(1.0 - max(0.0, tapDistance - fadeStart) * fadeInvRange);
+                float candidate = lerp(-1.0, sampleCos, weight);
+                if (candidate > best)
+                {
+                    best = candidate;
+                    // The surface's own plane sits at gamma - halfPi on the negative side and
+                    // gamma + halfPi on the positive one, whose cosines are sinGamma and -sinGamma.
+                    // Only a sample above that edge has taken hemisphere away.
+                    if (sampleCos > -direction * sinGamma)
+                    {
+                        nearestOccluder = min(nearestOccluder, tapDistance);
+                        sawOccluder = true;
+                    }
+                }
+            }
+
+            horizonCos[side] = best;
+        }
+
+        // Signed horizon angles about the view direction, clamped into the hemisphere around the
+        // projected normal, then the closed-form cosine-weighted arc between them (Jimenez et al. 2016).
+        float h1 = -FastACos(horizonCos.x);
+        float h2 = FastACos(horizonCos.y);
+        h1 = gamma + max(h1 - gamma, -kHalfPi);
+        h2 = gamma + min(h2 - gamma, kHalfPi);
+
+        float arc = 0.25 * ((-cos(2.0 * h1 - gamma) + cosGamma + 2.0 * h1 * sinGamma)
+                          + (-cos(2.0 * h2 - gamma) + cosGamma + 2.0 * h2 * sinGamma));
+        float open = cosGamma + gamma * sinGamma;
+        float sliceVisibility = projectedLength * arc;
+        visibility += sliceVisibility;
+
+        // What the blur wants to know is how close the occlusion it is about to filter was found - rays
+        // that all struck within centimetres describe a shadow that varies over centimetres. Weight each
+        // slice's nearest occluder by how much hemisphere it actually took away, so open slices do not
+        // vote the shadow wide.
+        float occlusionAmount = max(0.0, projectedLength * open - sliceVisibility);
+        if (sawOccluder)
+        {
+            occlusionSum += occlusionAmount;
+            occludedDistanceSum += occlusionAmount * saturate(nearestOccluder / radius);
+        }
+    }
+
+    visibility = saturate(visibility / float(sliceCount));
+    float meanDistance = occlusionSum > kEpsilon ? occludedDistanceSum / occlusionSum : 1.0;
+    _BasisRtaoResultTex[id] = float2(visibility, saturate(meanDistance));
+}

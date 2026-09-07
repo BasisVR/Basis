@@ -1,0 +1,23 @@
+{
+  "name": "com.basis.globalillumination",
+  "displayName": "Basis Global Illumination",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Real-time global illumination for the Universal Render Pipeline, in two modes that share one denoise and composite chain. Screen Space marches rays through the depth buffer and gathers the camera colour at the hit, so no GBuffer, albedo or lightmap bake is required and any shader receives bounce light. Ray Traced traces a scene acceleration structure instead, shading each hit with the real lights, shadow rays and emissive materials, so light also arrives from behind the camera and from surfaces the frame never rasterised - skinned meshes included, re-baked on a per-frame budget so avatars bounce light in the pose they are standing in. Results are reconstructed by a denoiser that accumulates each pixel's own mean and variance over time and then filters spatially with an a-trous cascade gated on surface plane, luminance and how far the pixel is from having settled, and the whole effect is driven through the Volume system.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "keywords": [
+    "unity",
+    "rendering",
+    "graphics",
+    "global illumination",
+    "urp",
+    "ray tracing"
+  ],
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "17.0.0"
+  }
+}

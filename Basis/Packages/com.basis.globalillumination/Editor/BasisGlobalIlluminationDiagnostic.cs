@@ -1,0 +1,114 @@
+using System.Collections.Generic;
+using System.Text;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+
+/// <summary>
+/// Answers one question: when a setting appears to do nothing, where did it stop?
+///
+/// The chain from a settings slider to a pixel has several places it can break silently, and all of them
+/// look identical from the outside. The feature may not be in the renderer the camera runs. The camera's
+/// volume mask may not include the layer the settings module put its volume on. Another volume may sit at
+/// a higher priority and supply the same overrides. Every one of those renders a perfectly good effect
+/// that ignores the panel, so reading the code cannot tell them apart - only the live stack can.
+/// </summary>
+public static class BasisGlobalIlluminationDiagnostic
+{
+    [MenuItem("Basis/Rendering/Global Illumination Diagnostic")]
+    public static void Run()
+    {
+        Debug.Log(Describe());
+    }
+
+    public static string Describe()
+    {
+        StringBuilder report = new StringBuilder();
+        report.AppendLine("Basis Global Illumination diagnostic");
+        report.AppendLine($"  play mode        : {Application.isPlaying} (the settings module only exists while playing)");
+
+        RenderPipelineAsset pipeline = GraphicsSettings.currentRenderPipeline;
+        report.AppendLine($"  pipeline         : {(pipeline != null ? pipeline.name : "<none>")}");
+        DescribeFeature(pipeline, report);
+        DescribeStack(report);
+        DescribeCameras(report);
+        return report.ToString();
+    }
+
+    private static void DescribeFeature(RenderPipelineAsset pipeline, StringBuilder report)
+    {
+        if (!(pipeline is UniversalRenderPipelineAsset asset))
+        {
+            report.AppendLine("  feature          : the active pipeline is not URP, so the effect cannot run at all");
+            return;
+        }
+
+        bool found = false;
+        foreach (ScriptableRendererData data in asset.rendererDataList)
+        {
+            if (data == null) { continue; }
+            for (int index = 0; index < data.rendererFeatures.Count; index++)
+            {
+                if (!(data.rendererFeatures[index] is BasisGlobalIlluminationFeature feature)) { continue; }
+                found = true;
+                report.AppendLine($"  feature          : on '{data.name}', active={feature.isActive}, material={feature.Material != null}, rayTracing={feature.RayTracingAvailable}");
+                // A debug view left on makes the pass replace the camera image instead of compositing into
+                // it, and then every setting that only scales indirect colour reads as doing nothing while
+                // the master switch still visibly works. That is this report's most common cause, so the
+                // view a diagnostic was taken through is stated rather than assumed.
+                report.AppendLine(feature.DebugView == BasisGlobalIlluminationDebugView.None
+                    ? "  debug view       : Off (the effect is compositing into the camera image)"
+                    : $"  debug view       : {feature.DebugView} - THE PASS IS REPLACING THE CAMERA IMAGE. Intensity, saturation, tint, the fallbacks and the emitters will all read as doing nothing until this is set back to Off.");
+            }
+        }
+        if (!found)
+        {
+            report.AppendLine("  feature          : NOT PRESENT in any renderer this pipeline uses - the effect never runs, whatever the panel says");
+        }
+    }
+
+    private static void DescribeStack(StringBuilder report)
+    {
+        // Exactly what the feature and both passes will read this frame. There is no blend and no stack to
+        // reason about any more - the settings provider writes here and the effect renders what it finds.
+        BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
+        report.AppendLine("  settings         : " +
+            $"enable={settings.enable} mode={settings.mode} intensity={settings.intensity:F3} " +
+            $"saturation={settings.saturation:F3} emitterIntensity={settings.emitterIntensity:F3} " +
+            $"quality={settings.quality} resolution={settings.resolution} fallback={settings.fallback}");
+        if (!settings.IsActive())
+        {
+            report.AppendLine("  resolved         : INACTIVE - enable is off, or intensity is zero, so nothing renders");
+        }
+    }
+
+    private static void DescribeCameras(StringBuilder report)
+    {
+        Camera[] cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        for (int index = 0; index < cameras.Length; index++)
+        {
+            Camera camera = cameras[index];
+            if (camera == null || camera.cameraType != CameraType.Game) { continue; }
+            UniversalAdditionalCameraData data = camera.GetComponent<UniversalAdditionalCameraData>();
+            if (data == null) { continue; }
+            report.AppendLine($"  camera '{camera.name}' : postFx={data.renderPostProcessing} volumeMask={LayerMaskText(data.volumeLayerMask)} " +
+                $"trigger={(data.volumeTrigger != null ? data.volumeTrigger.name : "<self>")}");
+        }
+    }
+
+    private static string LayerMaskText(LayerMask mask)
+    {
+        if (mask.value == ~0) { return "Everything"; }
+        if (mask.value == 0) { return "Nothing"; }
+        StringBuilder text = new StringBuilder();
+        for (int layer = 0; layer < 32; layer++)
+        {
+            if ((mask.value & (1 << layer)) == 0) { continue; }
+            if (text.Length > 0) { text.Append('|'); }
+            string name = LayerMask.LayerToName(layer);
+            text.Append(string.IsNullOrEmpty(name) ? layer.ToString() : name);
+        }
+        return text.ToString();
+    }
+}

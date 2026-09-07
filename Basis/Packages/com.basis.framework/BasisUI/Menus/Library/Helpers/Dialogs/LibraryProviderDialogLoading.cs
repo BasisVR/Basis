@@ -39,9 +39,13 @@ namespace Basis.BasisUI
             }
 
             ContentLoader.LibraryLoadProgress.OnProgressReport += OnProgress;
+            BasisUILoadingBar.SetDisplaySuppressed(true);
             try
             {
-                await LoadSelectedItem(item, networkType, persistence, modifyScale);
+                Task loadTask = LoadSelectedItem(item, networkType, persistence, modifyScale);
+                await Task.WhenAny(loadTask, contentLoadingDialogBox.WaitAsync());
+                BasisUILoadingBar.SetDisplaySuppressed(false);
+                await loadTask;
             }
             catch (Exception ex)
             {
@@ -50,6 +54,7 @@ namespace Basis.BasisUI
             finally
             {
                 ContentLoader.LibraryLoadProgress.OnProgressReport -= OnProgress;
+                BasisUILoadingBar.SetDisplaySuppressed(false);
             }
 
             // Close the loading dialog

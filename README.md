@@ -145,3 +145,7 @@ This project includes third-party software under the following licenses:
 "Basis", "BasisVR", "Basis Framework", and the Basis logo are marks representing the
 Basis Project. Please see [TRADEMARK.md](./TRADEMARK.md) for our policies
 on their usage.
+
+## AI Disclosure
+
+Basis is developed with the assistance of AI coding tools, for code only and never for creative assets, and every change is directed, reviewed, and owned by humans. The product itself embeds no generative AI, and generative image or video AI will never be added. The only ML that ships is small on-device models (noise suppression, lip sync, optional webcam tracking) that upload nothing. See [AI.md](./AI.md) for the full disclosure and our policy on AI-assisted contributions.

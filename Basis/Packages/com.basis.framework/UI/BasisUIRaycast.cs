@@ -61,6 +61,7 @@ namespace Basis.Scripts.UI
 
         public BasisPointerEventData CurrentEventData;
         public bool HadRaycastUITarget = false;
+        public bool HadUISurface = false;
         public bool WasCorrectLayer = false;
         static readonly Vector3[] s_Corners = new Vector3[4];
         [SerializeField]
@@ -80,6 +81,9 @@ namespace Basis.Scripts.UI
         private const int CanvasCacheRevalidateFrames = 30;
         public bool IgnoreReversedGraphics = true;
         public Vector3 highlightQuadInitialSize;
+        public static float DesktopReticleScreenHeightFraction = 0.025f;
+        private Transform highlightQuadTransform;
+        private float highlightQuadUnitHeight = 1f;
         public bool HasOnPlayersHeightChanged = false;
         public BasisCursorType ActiveCursorType = BasisCursorType.Default;
         public Renderer ReticleRenderer;
@@ -151,6 +155,8 @@ namespace Basis.Scripts.UI
                 gameObject.transform.SetParent(BasisLocalPlayer.Instance.transform);
                 highlightQuadInitialSize = gameObject.transform.localScale;
                 highlightQuadInstance = gameObject;
+                highlightQuadTransform = gameObject.transform;
+                highlightQuadUnitHeight = highlightQuadTransform is RectTransform highlightRect && highlightRect.rect.height > 0f ? highlightRect.rect.height : 1f;
                 if (highlightQuadInstance.TryGetComponent(out Canvas Canvas))
                 {
                     Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
@@ -205,6 +211,7 @@ namespace Basis.Scripts.UI
             SortedRays.Clear();
             HadRaycastUITarget = false;
             HadToolkitPanelTarget = false;
+            HadUISurface = false;
             HitToolkitPanel = null;
 
             int hitCount = BasisPointRaycaster.PhysicHitCount;
@@ -234,7 +241,12 @@ namespace Basis.Scripts.UI
                 {
                     _hitLayers[i] = c.gameObject.layer;
                     _hitTransforms[i] = hits[i].transform;
-                    _hitSortingOrders[i] = GetHitSortingOrder(_hitTransforms[i], _hitLayers[i]);
+                    Canvas hitCanvas = GetHitCanvas(_hitTransforms[i], _hitLayers[i]);
+                    _hitSortingOrders[i] = hitCanvas != null ? hitCanvas.sortingOrder : 0;
+                    if (hitCanvas != null && hitCanvas.isActiveAndEnabled)
+                    {
+                        HadUISurface = true;
+                    }
                     _uiHitOrder.Add(i);
                 }
             }
@@ -286,6 +298,10 @@ namespace Basis.Scripts.UI
                 BasisUIToolkitPanel toolkitPanel = GetToolkitPanel(candidateTransform);
                 if (toolkitPanel != null)
                 {
+                    if (IsUILayer(_hitLayers[hitIndex]))
+                    {
+                        HadUISurface = true;
+                    }
                     PhysicHit = hits[hitIndex];
                     DidPhysicHit = true;
                     HitCollider = PhysicHit.collider;
@@ -409,15 +425,16 @@ namespace Basis.Scripts.UI
         }
 
         /// <summary>
-        /// Draw order of the canvas a hit collider belongs to. Every menu panel is its own root
-        /// canvas and takes its sorting order from the stack it sits in — page, overlay, hotbar —
-        /// so this is what separates a popup from the page it came up over.
+        /// The canvas a hit collider belongs to, UI layers only. Its sorting order is the draw order:
+        /// every menu panel is its own root canvas and takes its sorting order from the stack it
+        /// sits in (page, overlay, hotbar), so this is what separates a popup from the page it came
+        /// up over.
         /// </summary>
-        private static int GetHitSortingOrder(Transform hitTransform, int layer)
+        private static Canvas GetHitCanvas(Transform hitTransform, int layer)
         {
             if (hitTransform == null || ((1 << layer) & UILayers) == 0)
             {
-                return 0;
+                return null;
             }
 
             // A panel keeps its collider on the same object as its canvas, so the walk almost never
@@ -427,7 +444,7 @@ namespace Basis.Scripts.UI
                 canvas = hitTransform.GetComponentInParent<Canvas>(true);
             }
 
-            return canvas != null ? canvas.sortingOrder : 0;
+            return canvas;
         }
 
         private void HandleNoHit()
@@ -483,7 +500,7 @@ namespace Basis.Scripts.UI
                 if (show)
                 {
                     HighlightState = ActiveStateOfHightlight.On;
-                    highlightQuadInstance.transform.SetPositionAndRotation(point, Quaternion.LookRotation(normal));
+                    PlaceReticle(point, normal);
                 }
                 else
                 {
@@ -672,12 +689,50 @@ namespace Basis.Scripts.UI
             if (show)
             {
                 HighlightState = ActiveStateOfHightlight.On;
-                highlightQuadInstance.transform.SetPositionAndRotation(GetVisualSurfacePoint(), Quaternion.LookRotation(PhysicHit.normal));
+                PlaceReticle(GetVisualSurfacePoint(), PhysicHit.normal);
             }
             else
             {
                 HighlightState = ActiveStateOfHightlight.Off;
             }
+        }
+
+        private void PlaceReticle(Vector3 point, Vector3 normal)
+        {
+            highlightQuadTransform.SetPositionAndRotation(point, Quaternion.LookRotation(normal));
+            ApplyDesktopReticleScreenScale(point);
+        }
+
+        private void ApplyDesktopReticleScreenScale(Vector3 point)
+        {
+            if (highlightQuadUnitHeight <= 0f || !BasisLocalCameraDriver.HasInstance || !BasisDeviceManagement.IsUserInDesktop())
+            {
+                return;
+            }
+            Camera camera = BasisLocalCameraDriver.CameraInstance;
+            if (camera == null || camera.orthographic)
+            {
+                return;
+            }
+            Transform cameraTransform = camera.transform;
+            float depth = Vector3.Dot(point - cameraTransform.position, cameraTransform.forward);
+            if (depth < camera.nearClipPlane)
+            {
+                depth = camera.nearClipPlane;
+            }
+            float viewportWorldHeight = 2f * depth * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            Transform parent = highlightQuadTransform.parent;
+            float parentScale = parent != null ? Mathf.Abs(parent.lossyScale.y) : 1f;
+            if (parentScale < 1e-5f)
+            {
+                parentScale = 1f;
+            }
+            float scale = viewportWorldHeight * DesktopReticleScreenHeightFraction / (highlightQuadUnitHeight * parentScale);
+            if (scale <= 0f || float.IsNaN(scale) || float.IsInfinity(scale))
+            {
+                return;
+            }
+            highlightQuadTransform.localScale = new Vector3(scale, scale, scale);
         }
 
         private static readonly int ReticleColorID = Shader.PropertyToID("_Color");

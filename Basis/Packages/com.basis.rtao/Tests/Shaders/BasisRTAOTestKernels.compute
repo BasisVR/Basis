@@ -1,0 +1,81 @@
+#pragma kernel TestOctahedral
+#pragma kernel TestCosineHemisphere
+#pragma kernel TestHammersley
+#pragma kernel TestProjection
+#pragma kernel TestStereoSlices
+#pragma kernel TestNoiseSeed
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.basis.rtao/Shaders/BasisRTAOCommon.hlsl"
+
+StructuredBuffer<float4> _TestInput;
+RWStructuredBuffer<float4> _TestOutput;
+Texture2DArray<float4> _TestSliceTex;
+float4x4 _TestViewProj;
+float4 _TestNormal;
+float4 _TestParams;
+int _TestCount;
+
+[numthreads(64, 1, 1)]
+void TestOctahedral(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _TestCount)
+        return;
+    float3 normal = normalize(_TestInput[id.x].xyz);
+    float2 encoded = BasisRtaoEncodeNormal(normal);
+    float3 decoded = BasisRtaoDecodeNormal(encoded);
+    _TestOutput[id.x] = float4(decoded, dot(decoded, normal));
+}
+
+[numthreads(64, 1, 1)]
+void TestCosineHemisphere(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _TestCount)
+        return;
+    float3 normal = normalize(_TestNormal.xyz);
+    float2 u = BasisRtaoHammersley(id.x, (uint)_TestCount, _TestParams.xy);
+    float3 direction = BasisRtaoCosineHemisphere(u, normal);
+    _TestOutput[id.x] = float4(direction, dot(direction, normal));
+}
+
+[numthreads(64, 1, 1)]
+void TestHammersley(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _TestCount)
+        return;
+    float2 u = BasisRtaoHammersley(id.x, (uint)_TestCount, _TestParams.xy);
+    uint hashed = BasisRtaoHashCell(int3(id.x, 7, -3), (uint)_TestParams.z);
+    _TestOutput[id.x] = float4(u, BasisRtaoUnitFloat(hashed), asfloat(hashed));
+}
+
+[numthreads(64, 1, 1)]
+void TestProjection(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _TestCount)
+        return;
+    float3 positionWS = _TestInput[id.x].xyz;
+    float clipW;
+    float2 uv = BasisRtaoProjectToScreenUV(_TestViewProj, positionWS, clipW);
+    _TestOutput[id.x] = float4(uv, clipW, 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void TestStereoSlices(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_TestParams.x || id.y >= (uint)_TestParams.y || id.z >= (uint)_TestParams.z)
+        return;
+    uint index = id.x + id.y * (uint)_TestParams.x + id.z * (uint)(_TestParams.x * _TestParams.y);
+    _TestOutput[index] = _TestSliceTex.Load(int4(id.xy, id.z, 0));
+}
+
+[numthreads(64, 1, 1)]
+void TestNoiseSeed(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _TestCount)
+        return;
+    float3 positionWS = _TestInput[id.x].xyz;
+    // A view distance of one makes the distance scaled cell exactly _TestParams.x across.
+    float2 jitter = BasisRtaoSampleJitter(positionWS, 1.0, max(1e-4, _TestParams.x), id, (uint)_TestParams.y, true);
+    float3 direction = BasisRtaoCosineHemisphere(BasisRtaoHammersley(0, 4, jitter), float3(0, 1, 0));
+    _TestOutput[id.x] = float4(jitter, direction.x, direction.z);
+}

@@ -91,9 +91,41 @@ public sealed class BasisMultiChannelPcmSplitter
         if (frames > maxFrames) frames = maxFrames;
         if (frames <= 0) return 0;
 
+        lock (gate)
+        {
+            return ReadMixedLocked(reader, dst, frames, outChannels, taps, gain, sourceStep);
+        }
+    }
+
+    // Non-blocking variant for main-thread callers. The blocking form can park the
+    // main thread behind the audio thread's hold of the gate — a priority inversion
+    // whose length the DSP callback dictates. Returns false, producing nothing, when
+    // the gate is contended; the caller just tries again next frame.
+    public bool TryReadMixed(Reader reader, float[] dst, int frames, int outChannels, Tap[] taps, float gain, out int produced, double sourceStep = 1.0)
+    {
+        produced = 0;
+        if (reader == null || dst == null || taps == null || outChannels < 1) return true;
+        int maxFrames = dst.Length / outChannels;
+        if (frames > maxFrames) frames = maxFrames;
+        if (frames <= 0) return true;
+
+        if (!System.Threading.Monitor.TryEnter(gate)) return false;
+        try
+        {
+            produced = ReadMixedLocked(reader, dst, frames, outChannels, taps, gain, sourceStep);
+        }
+        finally
+        {
+            System.Threading.Monitor.Exit(gate);
+        }
+        return true;
+    }
+
+    // Caller holds gate.
+    private int ReadMixedLocked(Reader reader, float[] dst, int frames, int outChannels, Tap[] taps, float gain, double sourceStep)
+    {
         int tapCount = taps.Length;
         int produced = 0;
-        lock (gate)
         {
             // A reader that fell outside the retained window (its AudioSource was
             // paused) snaps to the live edge so it resumes in sync with the rest.

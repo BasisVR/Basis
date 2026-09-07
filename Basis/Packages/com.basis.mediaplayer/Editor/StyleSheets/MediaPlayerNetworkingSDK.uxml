@@ -37,6 +37,8 @@
             <engine:Button text="Pause" name="ActPauseButton" class="bvp-secondary-button"/>
             <engine:Button text="Resume" name="ActResumeButton" class="bvp-secondary-button"/>
             <engine:Button text="Stop" name="ActStopButton" class="bvp-secondary-button"/>
+            <engine:Button text="Local Resync" name="ActResyncLocalButton" class="bvp-secondary-button" tooltip="Reloads this client only and lands it back on the synced playhead. No ownership or permission needed."/>
+            <engine:Button text="Resync Everyone" name="ActResyncEveryoneButton" class="bvp-secondary-button" tooltip="Takes control and forces every client to reload onto this one's state and position."/>
         </engine:VisualElement>
     </engine:VisualElement>
 </engine:UXML>

@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "इंटरैक्शन इवेंट फ़ील्ड के रूप में उपलब्ध हैं; कंपोनेंट के मेथड नहीं।" },
     { "key": "sdk.cilbox.api.seat.title", "value": "सीट" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "स्थानीय खिलाड़ी को बिठाना और उठाना, और बैठे-बैठे घुमाना।" },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "अनुमति परिवर्तन" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "आपकी स्क्रिप्ट को बताता है जब लोकल खिलाड़ी को एडमिन या मॉडरेटर अधिकार मिलते या जाते हैं, ताकि स्टाफ़-ओनली कंटेंट को बार-बार पोल न करना पड़े। कॉलबैक आपकी अपनी स्क्रिप्ट पर नाम से खोजा जाता है।" },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle इंटरैक्शन" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "किसी वस्तु को पकड़े या छुए जाने पर प्रतिक्रिया देने देता है। कॉलबैक आपकी अपनी स्क्रिप्ट में नाम से खोजे जाते हैं।" },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas UI और टेक्स्ट" },

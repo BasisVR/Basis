@@ -373,8 +373,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
 #if UNITY_INCLUDE_TESTS
         public static string[] AnchorSpaceKeysForTest => AnchorSpaceKeys;
-        public static string[] AnchorOptionKeysForTest =>
-            new[] { AnchorTargetNoneKey, AnchorTargetLocalKey };
+
 #endif
     }
 }

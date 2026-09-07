@@ -54,8 +54,10 @@ public class GraphicsManager : MonoBehaviour
 
     private float introAnimationTime = 0.0f;
 
+#if HT_QUEST
     private uint ANDROID_UNIFORM_CLOCK = 0x00u;
     private uint ANDROID_CLOCK_DIVIDER = 0x8u;
+#endif
 
     private BasisNetworkPlayer[] savedPlayers = new BasisNetworkPlayer[4];
 

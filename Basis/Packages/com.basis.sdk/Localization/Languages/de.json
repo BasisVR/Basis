@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "Die Interaktions-Events sind als Felder erreichbar, die Methoden der Komponente nicht." },
     { "key": "sdk.cilbox.api.seat.title", "value": "Sitze" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "Den lokalen Spieler setzen und auswerfen sowie im Sitzen drehen." },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "Berechtigungsänderungen" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "Informiert Ihr Skript, wenn der lokale Spieler Admin- oder Moderatorrechte erhält oder verliert, damit Inhalte nur für Personal nicht abgefragt werden müssen. Der Callback wird namentlich in Ihrem eigenen Skript gesucht." },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle-Interaktionen" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "Lässt ein Objekt darauf reagieren, gegriffen oder berührt zu werden. Die Callbacks werden über den Namen in deinem eigenen Skript gefunden." },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas-UI und Text" },

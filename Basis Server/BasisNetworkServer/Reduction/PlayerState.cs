@@ -17,9 +17,24 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Base message shell (we swap avatarSerialization before send)
         public ServerSideSyncPlayerMessage SyncMessage;
 
-        // Combined per-peer tracking: last sent tick + last seen generation in one struct
-        // for cache-friendly O(1) access in the send loop. Indexed by player id.
+        // Per-peer tracking, indexed by sender player id. See PeerTrackingData for why it is as narrow
+        // as it is; both arrays are grown together and must always be the same length.
         public PeerTrackingData[] PeerTracking;
+
+        /// <summary>
+        /// The sender data generation this receiver last got, split out of PeerTrackingData because it
+        /// is the send loop's FIRST test and rejects most pairs before anything else is read.
+        ///
+        /// The loop walks every sender for every receiver, so that one comparison sets the cache traffic
+        /// of the whole pass. Inside the record a 64 byte line carried 2 pairs at the old width and 5 at
+        /// the new one; as its own array it carries 16, so the gate touches a quarter to an eighth of the
+        /// memory it used to. Nothing else in the pass is read densely enough to be worth splitting out
+        /// after this one - the rest is only reached by pairs that survive the gate.
+        ///
+        /// uint, not long: it counts avatar updates, and at 90 Hz the low 32 bits take a year and a half
+        /// to wrap. Compared with `senderGen &lt;= seen`, both truncated the same way.
+        /// </summary>
+        public uint[] PeerLastSeenGeneration;
 
         // Generation counter: incremented each time this player receives new avatar data.
         // Receivers compare against their LastSeenGeneration to know if there is new data.

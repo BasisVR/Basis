@@ -8,7 +8,7 @@ using UnityEngine;
 /// <summary>
 /// Floating overall network readout — the "additional information" gizmo. One billboarded
 /// label ahead of the viewer totalling the received traffic per channel: the avatar channel
-/// (every remote player's pose stream), the voice channel (spatial + shout audio), and the
+/// (every remote player's pose stream), the voice channel (spatial + announce audio), and the
 /// scene channel (every spawned/synced object). Driven each frame from
 /// <see cref="SMModuleDebugOptions"/>; the label text only re-tessellates when a
 /// quantized total moves (see BasisNetworkGizmoLabelCore.OverviewKey).

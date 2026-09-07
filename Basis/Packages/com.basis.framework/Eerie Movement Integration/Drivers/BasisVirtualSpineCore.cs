@@ -45,6 +45,8 @@ namespace Basis.IK
             public float3 EyePos, HipsAnchorOffsetLocal, HeadRestFromEyeLocal, YawPivotFromEyeLocal;
             public byte PostureModel;
             public float HipsCompressionStrength, HipsMaxDropMeters, HipsRestDropY;
+            public float3 RestChordDir, ChestRestPerp, SpineRestPerp;
+            public float ChestRestAlong, SpineRestAlong;
         }
         public struct SpineSolveState
         {
@@ -198,8 +200,8 @@ namespace Basis.IK
                     chest.OutgoingRotation = chestSmoothed;
                     spine.OutgoingRotation = spineSmoothed;
 
-                    ApplyPositionGivenBaseTorsoLock(ref chest, in chestPos, in P.ChestScaledOffset, P.ChestTposeY + P.TrackingLiftY, in P.ParentMatrix, in P.ParentRotation);
-                    ApplyPositionGivenBaseTorsoLock(ref spine, in spinePos, in P.SpineScaledOffset, P.SpineTposeY + P.TrackingLiftY, in P.ParentMatrix, in P.ParentRotation);
+                    PlaceOnTorsoChord(ref chest, in neckPos, in hipsPosReadback, in chestPos, in P.ChestScaledOffset, P.ChestRestAlong, in P.ChestRestPerp, in P.RestChordDir, in P.ParentMatrix, in P.ParentRotation);
+                    PlaceOnTorsoChord(ref spine, in neckPos, in hipsPosReadback, in spinePos, in P.SpineScaledOffset, P.SpineRestAlong, in P.SpineRestPerp, in P.RestChordDir, in P.ParentMatrix, in P.ParentRotation);
                 }
 
                 if (SkipHead == 0) States[IdxHead] = head;
@@ -231,17 +233,50 @@ namespace Basis.IK
             st.OutgoingPosition = desired;
             ApplyWorldAndLastBurst(ref st, in parentMatrix, in parentRotation);
         }
+        // Untracked chest/spine ride the neck->hips chord: the bone sits at its authored fraction of the chord plus its
+        // authored offset from that chord, swung from the rest chord direction to the current one, so the avatar's own
+        // curve is reproduced at rest and follows the head vertically (crouch, jump, a player taller than the avatar's
+        // rest head). Pinning the height to the T-pose instead put the chest below the lumbar joint whenever the head
+        // rode more than one vertebra above rest, and the chest IK target then folded the spine toward it.
         [BurstCompile]
-        private static void ApplyPositionGivenBaseTorsoLock(ref BasisBoneSimState st, in float3 baseWorld, in float3 scaledOffset, float tposeY, in float4x4 parentMatrix, in quaternion parentRotation)
+        private static void PlaceOnTorsoChord(ref BasisBoneSimState st, in float3 neckPos, in float3 hipsPos, in float3 chordPos, in float3 scaledOffset, float restAlong, in float3 restPerp, in float3 restChordDir, in float4x4 parentMatrix, in quaternion parentRotation)
         {
             quaternion rot = st.OutgoingRotation;
             ExtractYawBurst(in rot, out quaternion yawOnly);
-            float3 localOffset = scaledOffset;
-            localOffset.y = 0f;
-            ComposePosition(in baseWorld, in yawOnly, in localOffset, out float3 desired);
-            desired.y = tposeY;
+            float3 chord = neckPos - hipsPos, desired;
+            if (restAlong > 0f && math.lengthsq(chord) > 1e-10f && math.lengthsq(restChordDir) > 1e-10f)
+            {
+                float3 restDirWorld = math.mul(yawOnly, math.normalize(restChordDir)), chordDir = math.normalize(chord);
+                FromToRotationBurst(in restDirWorld, in chordDir, out quaternion swing);
+                desired = hipsPos + chord * restAlong + math.mul(swing, math.mul(yawOnly, restPerp));
+            }
+            else
+            {
+                float3 localOffset = scaledOffset;
+                localOffset.y = 0f;
+                ComposePosition(in chordPos, in yawOnly, in localOffset, out desired);
+            }
             st.OutgoingPosition = desired;
             ApplyWorldAndLastBurst(ref st, in parentMatrix, in parentRotation);
+        }
+        [BurstCompile]
+        public static void FromToRotationBurst(in float3 from, in float3 to, out quaternion result)
+        {
+            float3 a = math.normalizesafe(from), b = math.normalizesafe(to);
+            float d = math.dot(a, b);
+            if (d >= 1f - 1e-6f)
+            {
+                result = quaternion.identity;
+                return;
+            }
+            float3 axis = math.cross(a, b);
+            if (d <= -1f + 1e-6f || math.lengthsq(axis) < 1e-12f)
+            {
+                float3 ortho = math.abs(a.y) < 0.9f ? math.cross(a, new float3(0f, 1f, 0f)) : math.cross(a, new float3(1f, 0f, 0f));
+                result = quaternion.AxisAngle(math.normalize(ortho), math.PI);
+                return;
+            }
+            result = math.normalize(new quaternion(new float4(axis, 1f + d)));
         }
         private static quaternion ComputeTorsoYawTargetBurst(ref SpineSolveState s, in quaternion headYawOnly, float deadzoneDeg, float blendSpeed, bool moving, float dt)
         {
@@ -412,6 +447,8 @@ namespace Basis.IK
                     hipsBase.y = standingHipsY - math.lerp(drop, softDrop, math.saturate(compressionStrength));
                 }
             }
+
+            hipsBase.y = math.min(hipsBase.y, headPos.y - 0.15f * lenTotal);
 
             result = new float3(desiredHipsXZ.x, hipsBase.y, desiredHipsXZ.z) + forwardBias;
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using OpenLipSync.Inference;
 using OpenLipSync.Inference.OVRCompat;
 using UnityEngine;
@@ -28,7 +29,8 @@ public static class BasisOpenLipSyncDriver
     private static readonly Dictionary<EntityId, uint> _playerToContext = new Dictionary<EntityId, uint>();
     private static readonly Dictionary<EntityId, Action> _slotRevokedCallbacks = new Dictionary<EntityId, Action>();
     private static readonly Stack<uint> _contextPool = new Stack<uint>();
-    private static bool _initialized;
+    private static volatile bool _initialized;
+    private static int _inferenceInFlight;
 
     public static bool IsInitialized => _initialized;
 
@@ -115,9 +117,15 @@ public static class BasisOpenLipSyncDriver
         configAsset = default;
     }
 
+    private static void WaitForInferenceIdle()
+    {
+        for (int i = 0; i < 250 && Interlocked.CompareExchange(ref _inferenceInFlight, 0, 0) != 0; i++) Thread.Sleep(1);
+    }
+
     public static void Shutdown()
     {
         _initialized = false;
+        WaitForInferenceIdle();
 
         if (_backend != null)
         {
@@ -200,12 +208,30 @@ public static class BasisOpenLipSyncDriver
             return over(contextHandle, audioData, sampleCount, frame);
         }
 
-        return !_initialized || _backend == null ? Result.Unknown : _backend.ProcessFrameFloat(contextHandle, new ReadOnlySpan<float>(audioData, 0, sampleCount), stereo: false, ref frame);
+        Interlocked.Increment(ref _inferenceInFlight);
+        try
+        {
+            var backend = _backend;
+            return !_initialized || backend == null ? Result.Unknown : backend.ProcessFrameFloat(contextHandle, new ReadOnlySpan<float>(audioData, 0, sampleCount), stereo: false, ref frame);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _inferenceInFlight);
+        }
     }
 
     public static Result SendSignal(uint contextHandle, Signals signal, int arg1)
     {
-        return !_initialized || _backend == null ? Result.Unknown : _backend.SendSignal(contextHandle, signal, arg1);
+        Interlocked.Increment(ref _inferenceInFlight);
+        try
+        {
+            var backend = _backend;
+            return !_initialized || backend == null ? Result.Unknown : backend.SendSignal(contextHandle, signal, arg1);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _inferenceInFlight);
+        }
     }
 
     /// <summary>
@@ -255,9 +281,13 @@ public static class BasisOpenLipSyncDriver
         }
         // Trim pooled contexts so total (active + pooled) doesn't exceed MaxSlots
         int maxPooled = Math.Max(0, MaxSlots - _playerToContext.Count);
-        while (_contextPool.Count > maxPooled)
+        if (_contextPool.Count > maxPooled)
         {
-            _backend.DestroyContext(_contextPool.Pop());
+            WaitForInferenceIdle();
+            while (_contextPool.Count > maxPooled)
+            {
+                _backend.DestroyContext(_contextPool.Pop());
+            }
         }
     }
     public static int ActiveSlotCount => _playerToContext.Count;

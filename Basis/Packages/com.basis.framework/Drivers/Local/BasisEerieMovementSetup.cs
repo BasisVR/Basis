@@ -7,6 +7,7 @@ namespace Basis.Scripts.Drivers
 {
     public static class BasisEerieMovementSetup
     {
+        public const float ChestHeadBudgetMeters = 0.005f;
         public static void SetDefaultValues(ref BasisEerieMovement job)
         {
             job.ikLockMode = BasisIKLockMode.LockHead;
@@ -63,6 +64,7 @@ namespace Basis.Scripts.Drivers
             job.chestIkHeadRestoreSweeps = Mathf.Max(1, Mathf.RoundToInt(Basis.BasisUI.BasisSettingsDefaults.FBIKChestIkHeadRestoreSweeps.RawValue));
             job.chestPosPullMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKChestPosPullMaxDeg.RawValue;
             job.chestPullMaxDist = Basis.BasisUI.BasisSettingsDefaults.FBIKChestPullMaxDist.RawValue;
+            job.chestHeadBudget = ChestHeadBudgetMeters;
             job.chestFollowChestShare = Basis.BasisUI.BasisSettingsDefaults.FBIKChestFollowChestShare.RawValue;
             job.trackedKneeSwivelMinCutoffHz = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelMinCutoffHz.RawValue;
             job.trackedKneeSwivelBeta = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelBeta.RawValue;

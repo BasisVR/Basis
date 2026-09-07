@@ -261,9 +261,9 @@ namespace HVR.Basis.Comms.Tests
             // Then
             Assert.AreEqual(0f, driver.VoiceLevel01, 1e-5f);
 
-            // ...unless they are shouting, which routes their voice off the spatial source entirely
-            driver.ShoutActive = true;
-            Assert.AreEqual(SpeakingLevel, driver.VoiceLevel01, 1e-4f, "a shouter read as silent for as long as they shouted");
+            // ...unless they are announcing, which routes their voice off the spatial source entirely
+            driver.AnnounceActive = true;
+            Assert.AreEqual(SpeakingLevel, driver.VoiceLevel01, 1e-4f, "an announcer read as silent for as long as they announced");
         }
 
         [Test]

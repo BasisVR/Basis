@@ -141,6 +141,140 @@ namespace Basis.Tests.Camera
             }
         }
 
+        [Test]
+        public void TheMarkerSize_StaysInsideWhatBothWaysOfSettingItOffer()
+        {
+            // The panel slider and the two-hand pinch are handed the same range — the pickup gets it
+            // as percentages of the natural size — so a value from either that landed outside it
+            // would be a size the other could not undo.
+            _rig.Camera.SetDetachedMarkerScale(50f);
+            Assert.That(_rig.Camera.DetachedMarkerScale,
+                Is.EqualTo(BasisHandHeldCamera.MaxDetachedMarkerScale).Within(1e-4f));
+
+            _rig.Camera.SetDetachedMarkerScale(0.001f);
+            Assert.That(_rig.Camera.DetachedMarkerScale,
+                Is.EqualTo(BasisHandHeldCamera.MinDetachedMarkerScale).Within(1e-4f));
+
+            _rig.Camera.SetDetachedMarkerScale(float.NaN);
+            Assert.That(_rig.Camera.DetachedMarkerScale, Is.EqualTo(1f).Within(1e-4f),
+                "A size that is not a number is a file saying nothing, which is the natural size — " +
+                "clamping it would silently leave the marker at a quarter instead.");
+        }
+
+        [Test]
+        public void AnEnlargedMarkerIsParkedFurtherOut_AndAShrunkOneKeepsItsDistance()
+        {
+            // The puck is parked out along the lens axis to keep it off the prop's own panel, where
+            // its grab box would take the pointer the buttons under it wanted.
+            float natural = BasisHandHeldCamera.FollowPuckParkDistance(1f);
+
+            Assert.That(BasisHandHeldCamera.FollowPuckParkDistance(BasisHandHeldCamera.MaxDetachedMarkerScale),
+                Is.EqualTo(natural * BasisHandHeldCamera.MaxDetachedMarkerScale).Within(1e-4f),
+                "A marker four times the size reaches four times as far back toward the operator, so " +
+                "the parking distance has to grow with it or it lands back on the panel.");
+
+            Assert.That(BasisHandHeldCamera.FollowPuckParkDistance(BasisHandHeldCamera.MinDetachedMarkerScale),
+                Is.EqualTo(natural).Within(1e-4f),
+                "Shrinking the marker must not pull it back onto the panel: what it is parked clear " +
+                "of is the panel and its buttons, and those are the same size whatever the marker does.");
+        }
+
+        [Test]
+        public void TheNetworkedPose_IsTheMarkerTheOwnerSees_NotTheLens()
+        {
+            // The puck a remote draws and the marker its owner is holding are the same prefab, so
+            // the pose the send carries has to be the marker's. It used to be the raw lens pose,
+            // which left every remote copy a parking distance short — and that distance grows with
+            // the resize, so an enlarged marker was out by a metre.
+            Quaternion facing = Quaternion.Euler(0f, 90f, 0f);
+            Vector3 lens = new Vector3(1f, 2f, 3f);
+            _rig.CaptureCamera.transform.SetPositionAndRotation(lens, facing);
+
+            _rig.Camera.PinSpace = BasisHandHeldCamera.CameraPinSpace.HandHeld;
+            _rig.Camera.GetNetworkedMarkerPoseForTest(out Vector3 inHand, out _);
+            Assert.That(Vector3.Distance(inHand, lens), Is.LessThan(1e-4f),
+                "A camera in the hand has no marker out, so the lens is what a remote copy marks.");
+
+            _rig.Camera.PinSpace = BasisHandHeldCamera.CameraPinSpace.WorldSpace;
+            _rig.Camera.SetDetachedMarkerScale(BasisHandHeldCamera.MaxDetachedMarkerScale);
+            _rig.Camera.GetNetworkedMarkerPoseForTest(out Vector3 parked, out _);
+
+            float park = BasisHandHeldCamera.FollowPuckParkDistance(BasisHandHeldCamera.MaxDetachedMarkerScale)
+                * _rig.Camera.BaseDetachedMarkerScale;
+            Assert.That(Vector3.Distance(parked, lens + facing * new Vector3(0f, 0f, park)), Is.LessThan(1e-4f),
+                "The send has to carry the parking offset the owner's puck is drawn at, or the two " +
+                "copies of one marker sit a parking distance apart.");
+
+            _rig.Camera.SetDetachedMarker(BasisCameraDetachedMarker.Gizmo);
+            _rig.Camera.GetNetworkedMarkerPoseForTest(out Vector3 wireframe, out _);
+            Assert.That(Vector3.Distance(wireframe, lens), Is.LessThan(1e-4f),
+                "The wireframe is drawn at the camera and parks nothing but its grab knob out " +
+                "there, so it is not a marker the send should be following.");
+        }
+
+        // ---------- Pointing at the world vs the modifier slots ----------
+
+        [Test]
+        public void PointingAtAPlace_TakesTheSubjectSlotAndTheAimButNotTheMove()
+        {
+            // The shot somebody is standing in when they point at something is a dolly aimed along
+            // its own track: the camera is out on the rails where they cannot reach it, and the aim
+            // that is fitted ignores subjects entirely. Pointing has to take that aim or the pick
+            // does nothing visible — and has to leave the move alone, because the track is the part
+            // they already built.
+            _rig.Camera.SetPositionModifier(BasisCameraPositionModifier.DollyTrack);
+            _rig.Camera.SetRotationModifier(BasisCameraRotationModifier.AimAlongTrack);
+
+            Vector3 place = new Vector3(4f, 1.5f, 7f);
+            _rig.Camera.SetFixedPointTo(place);
+
+            Assert.That(Vector3.Distance(_rig.Camera.subjectSettings.fixedPoint, place), Is.LessThan(1e-4f));
+            Assert.That(_rig.Camera.Modifiers.subject.modifier,
+                Is.EqualTo(BasisCameraSubjectModifier.FixedPoint),
+                "A picked place is an answer to what the shot is about, so nothing else can be " +
+                "left in the subject slot reading it.");
+            Assert.That(_rig.Camera.Modifiers.rotationModifier,
+                Is.EqualTo(BasisCameraRotationModifier.LookAtSubject),
+                "Aim Along Track does not read the subject, so a pick under it would place a point " +
+                "nothing looks at.");
+            Assert.That(_rig.Camera.Modifiers.positionModifier,
+                Is.EqualTo(BasisCameraPositionModifier.DollyTrack),
+                "The move is not the pick's to change.");
+        }
+
+        [Test]
+        public void PointingAtAPlace_LeavesAnAimThatAlreadyReadsTheSubject()
+        {
+            // Compose is a decision about how the subject is held in frame, not a missing aim.
+            // Overwriting it would silently undo the composition every time somebody re-pointed.
+            _rig.Camera.SetRotationModifier(BasisCameraRotationModifier.Compose);
+
+            _rig.Camera.SetFixedPointTo(new Vector3(-2f, 0.5f, 3f));
+
+            Assert.That(_rig.Camera.Modifiers.rotationModifier,
+                Is.EqualTo(BasisCameraRotationModifier.Compose));
+            Assert.That(_rig.Camera.Modifiers.subject.modifier,
+                Is.EqualTo(BasisCameraSubjectModifier.FixedPoint));
+        }
+
+        [Test]
+        public void TheLookAtPointer_IsAModeYouCanLeaveWithoutPicking()
+        {
+            // Arming aims the next trigger pull at the world rather than at whatever it would
+            // normally do, so there has to be a way back out that does not place a point.
+            Assert.That(_rig.Camera.LookAtPointerArmed, Is.False);
+
+            _rig.Camera.ToggleLookAtPointer();
+            Assert.That(_rig.Camera.LookAtPointerArmed, Is.True);
+
+            _rig.Camera.ToggleLookAtPointer();
+            Assert.That(_rig.Camera.LookAtPointerArmed, Is.False);
+
+            _rig.Camera.SetLookAtPointerArmed(false);
+            Assert.That(_rig.Camera.LookAtPointerArmed, Is.False,
+                "Disarming something already disarmed is what a panel built from a stale label does.");
+        }
+
         // ---------- Depth of field: style vs on/off vs focus mode ----------
 
         [Test]

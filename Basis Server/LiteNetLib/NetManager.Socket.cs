@@ -873,8 +873,6 @@ namespace LiteNetLib
             return true;
         }
 
-        private static bool _socketBufferClampWarned;
-
         /// <summary>
         /// Says so when the OS did not hand over the buffer it was asked for.
         ///
@@ -882,13 +880,13 @@ namespace LiteNetLib
         /// of hundred KB by default, against the 32 MB asked for here — and setsockopt succeeds
         /// anyway. Nothing in the process can tell without reading the value back, so what a clamp
         /// looks like from in here is the kernel discarding datagrams under load for no visible
-        /// reason. Read once, on the first socket bound; every socket gets the same treatment from
-        /// the same sysctl.
+        /// reason. Checked on every bind, not just the first: a long-running server keeps binding
+        /// new sockets as MultiSocketCount grows under load, and an operator watching logs during an
+        /// incident needs this line to reappear then — not only once, at a first bind that scrolled
+        /// out of the log days or weeks before anyone was looking.
         /// </summary>
-        private static void WarnIfSocketBuffersWereClamped(Socket socket)
+        internal static void WarnIfSocketBuffersWereClamped(Socket socket)
         {
-            if (_socketBufferClampWarned) return;
-
             try
             {
                 int receive = socket.ReceiveBufferSize;
@@ -896,7 +894,6 @@ namespace LiteNetLib
                 if (receive <= 0 || send <= 0) return;
                 if (receive >= NetConstants.SocketBufferSize && send >= NetConstants.SocketBufferSize) return;
 
-                _socketBufferClampWarned = true;
                 NetDebug.WriteError(
                     $"[NM] The OS clamped the socket buffers: asked for {NetConstants.SocketBufferSize / (1024 * 1024)} MB, " +
                     $"got {receive / 1024} KB receive / {send / 1024} KB send. On Linux raise net.core.rmem_max and " +

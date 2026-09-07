@@ -59,6 +59,14 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             RunDistanceSlice(roster, roster.Length, 0, roster.Length);
         }
 
+        /// <summary>
+        /// Drains the removal queue exactly as the tick does, so the stale-slot clearing it performs can
+        /// be asserted rather than assumed. That clearing is invisible from every other angle: getting it
+        /// wrong does not throw, does not log, and does not fail a round trip - it silently mutes the
+        /// next player to be given a recycled id.
+        /// </summary>
+        internal static void TestOnly_ProcessPendingRemovals() => ProcessPendingRemovals();
+
 #if NET10_0_OR_GREATER
         internal static void TestOnly_EncodeAvatarIntervals(int[] rawIntervals, int baseIntervalMs, int[] encoded, int[] actualMs)
         {

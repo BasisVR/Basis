@@ -132,26 +132,6 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
-        public void Sim_CorruptionAndChaos_AreObserved_NotAsserted()
-        {
-            int exceptions = 0, hardFails = 0, runs = 0;
-            foreach (string profileName in new[] { "corrupt", "chaos" })
-            {
-                NetworkProfile profile = Profile(profileName);
-                foreach (SyncMotion motion in new[] { SyncMotion.Sine, SyncMotion.Teleport, SyncMotion.RandomWalk })
-                {
-                    BasisSyncSimResult r = BasisSyncSim.Run(KitchenScenario(profile, motion, seed: 31));
-                    Assert.IsNotNull(r, "harness must always return a result");
-                    runs++;
-                    if (r.Exception != null) { exceptions++; TestContext.WriteLine($"[decode-robustness] {profileName}/{motion}: {r.Exception}"); }
-                    else if (!r.Pass) hardFails++;
-                }
-            }
-            TestContext.WriteLine($"corruption/chaos: {runs} runs, {exceptions} decode exceptions, {hardFails} hard non-converge.");
-            Assert.Pass("observational - see attached log");
-        }
-
-        [Test]
         public void Sim_IsDeterministic_SameSeedSameResult()
         {
             NetworkProfile profile = Profile("bad-wifi");

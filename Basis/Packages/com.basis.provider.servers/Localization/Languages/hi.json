@@ -148,6 +148,82 @@
       "value": "वह नाम चुनें जो अन्य खिलाड़ी देखेंगे, फिर «कनेक्ट करें» दबाएँ।"
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "सर्वर नाम या पते के अनुसार फ़िल्टर करें।"
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "इसके अनुसार क्रमित करें"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "★ डिफ़ॉल्ट सर्वर हमेशा सबसे पहले दिखाई देता है।"
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "डिफ़ॉल्ट"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "सेव किया गया क्रम बनाए रखता है, आपके होस्ट सर्वर को अंत में रखते हुए।"
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "नाम"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "सूची को सर्वर नाम के अनुसार वर्णानुक्रम में क्रमित करता है।"
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "पिंग"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "सूची को प्रतिक्रिया समय के अनुसार क्रमित करता है, सबसे तेज़ सबसे पहले।"
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "खिलाड़ी"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "सूची को इसके अनुसार क्रमित करता है कि कितने खिलाड़ी ऑनलाइन हैं, सबसे भरा हुआ सबसे पहले।"
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "सर्वर ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "सर्वर ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "नीचे किसी सर्वर से जुड़ें, या अपना खुद का जोड़ें।"
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "आपकी खोज से कोई सर्वर मेल नहीं खाता।"
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "जुड़ा हुआ"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "सर्वर"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "इसे साझा करने के लिए किसी सर्वर से जुड़ें।"
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "इस सर्वर को हटाया नहीं जा सकता।"
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

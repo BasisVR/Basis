@@ -1,4 +1,5 @@
 using Basis.Network.Core;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
@@ -51,6 +52,16 @@ namespace Basis.Scripts.Networking
         {
             ClientAvatarChangeMessage avatarID = ServerReadyMessage.localReadyMessage.clientAvatarChangeMessage;
             ushort playerId = ServerReadyMessage.playerIdMessage.playerID;
+            if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort localPlayerId) && localPlayerId == playerId)
+            {
+                BasisDebug.LogError($"Ignoring a remote spawn record that carries the local player's own id {playerId}.", BasisDebug.LogTag.Networking);
+                if (prepared != null)
+                {
+                    ReleaseSpawnPose(prepared);
+                }
+                BasisNetworkPlayers.JoiningPlayers.TryRemove(playerId, out _);
+                return null;
+            }
             BasisNetworkPlayers.JoiningPlayers.TryAdd(playerId, 0);
 
             try
@@ -83,6 +94,7 @@ namespace Basis.Scripts.Networking
                     else
                     {
                         BasisDebug.LogError("Critical issue this should never occur this is after the fallback system");
+                        Discard(BasisNetworkReceiver, remote);
                         return null;
                     }
                 }
@@ -135,6 +147,14 @@ namespace Basis.Scripts.Networking
             {
                 BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(BasisNetworkReceiver, spawnSync);
             }
+        }
+
+        private static void Discard(BasisNetworkReceiver receiver, BasisRemotePlayer remote)
+        {
+            receiver.DeInitialize();
+            BasisAvatarFactory.CancelPlayerLoad(remote);
+            remote.OnDestroy();
+            BasisAvatarFactory.DeleteLastAvatar(remote);
         }
 
         /// <summary>

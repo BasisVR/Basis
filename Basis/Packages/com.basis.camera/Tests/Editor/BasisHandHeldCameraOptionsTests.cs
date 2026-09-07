@@ -98,6 +98,75 @@ namespace Basis.Tests.Camera
         }
 
         [Test]
+        public void CameraSettings_UsesLiveGlobalIlluminationByDefault()
+        {
+            var defaults = new BasisHandHeldCameraUI.CameraSettings();
+
+            Assert.That(defaults.overrideGlobalIllumination, Is.False);
+            // The value fields still carry the live BasisSettingsDefaults GI defaults even while the
+            // override itself is off, so turning it on for the first time does not jar against what
+            // the live preview already looks like.
+            Assert.That(defaults.giQuality, Is.EqualTo(1), "Medium");
+            Assert.That(defaults.giFallback, Is.EqualTo(2), "Reflection Probe");
+            Assert.That(defaults.giIntensity, Is.EqualTo(1f).Within(1e-4f));
+            Assert.That(defaults.giWideBlur, Is.True);
+            Assert.That(defaults.giRayReuse, Is.True);
+            Assert.That(defaults.giEmitters, Is.True);
+            Assert.That(defaults.giMirrors, Is.True);
+            Assert.That(defaults.giReflectionProbes, Is.False);
+            Assert.That(defaults.giSpecular, Is.False);
+        }
+
+        [Test]
+        public void CameraSettings_UsesLiveRTAOByDefault()
+        {
+            var defaults = new BasisHandHeldCameraUI.CameraSettings();
+
+            Assert.That(defaults.overrideRTAO, Is.False);
+            Assert.That(defaults.rtaoMode, Is.EqualTo(0), "Screen Space");
+            Assert.That(defaults.rtaoIntensity, Is.EqualTo(1f).Within(1e-4f));
+            Assert.That(defaults.rtaoDenoisePasses, Is.EqualTo(2), "High");
+            Assert.That(defaults.rtaoSkinnedMeshes, Is.EqualTo(1), "Proxy");
+        }
+
+        [Test]
+        public void AFileFromBeforeRTAOOverridesExisted_LoadsTheLiveDefaultsNotZeroFill()
+        {
+            var loaded = JsonUtility.FromJson<BasisHandHeldCameraUI.CameraSettings>(
+                "{\"settingsVersion\":12,\"fov\":50}");
+            var defaults = new BasisHandHeldCameraUI.CameraSettings();
+
+            Assert.That(loaded.overrideRTAO, Is.False);
+            Assert.That(loaded.rtaoIntensity, Is.EqualTo(defaults.rtaoIntensity).Within(1e-4f));
+            Assert.That(loaded.rtaoDenoisePasses, Is.EqualTo(defaults.rtaoDenoisePasses));
+            Assert.That(loaded.rtaoSkinnedMeshes, Is.EqualTo(defaults.rtaoSkinnedMeshes));
+        }
+
+        [Test]
+        public void AFileFromBeforeGlobalIlluminationOverridesExisted_LoadsTheLiveDefaultsNotZeroFill()
+        {
+            // JsonUtility does not zero-fill a field absent from the JSON when the class has a
+            // constructor — it constructs the object first and only writes over what the file
+            // actually states (see MissingFieldsLoadTheirConstructorDefault). So a pre-existing save
+            // that has never heard of these 24 fields has to come back holding the constructor's
+            // live-matching defaults, not 0/false/"None" — a zero-filled Fallback would silently
+            // read as "None" instead of "Reflection Probe", and zero-filled WideBlur/RayReuse/
+            // Emitters/Intensity would silently read as off/off/off/black.
+            var loaded = JsonUtility.FromJson<BasisHandHeldCameraUI.CameraSettings>(
+                "{\"settingsVersion\":12,\"fov\":50}");
+            var defaults = new BasisHandHeldCameraUI.CameraSettings();
+
+            Assert.That(loaded.overrideGlobalIllumination, Is.False);
+            Assert.That(loaded.giQuality, Is.EqualTo(defaults.giQuality));
+            Assert.That(loaded.giFallback, Is.EqualTo(defaults.giFallback));
+            Assert.That(loaded.giIntensity, Is.EqualTo(defaults.giIntensity).Within(1e-4f));
+            Assert.That(loaded.giWideBlur, Is.EqualTo(defaults.giWideBlur));
+            Assert.That(loaded.giRayReuse, Is.EqualTo(defaults.giRayReuse));
+            Assert.That(loaded.giEmitters, Is.EqualTo(defaults.giEmitters));
+            Assert.That(loaded.giMirrors, Is.EqualTo(defaults.giMirrors));
+        }
+
+        [Test]
         public void CameraSettings_SurviveAJsonRoundTrip()
         {
             // Settings are persisted with JsonUtility, which zero-fills anything it cannot map —
@@ -119,6 +188,16 @@ namespace Basis.Tests.Camera
                 useManualFocus = false,
                 overrideVolumetricFog = true,
                 VolumetricFogVolumedensity = 0.4f,
+                overrideGlobalIllumination = true,
+                giMode = 1,
+                giFallback = 0,
+                giIntensity = 2.4f,
+                giWideBlur = false,
+                giMirrors = false,
+                overrideRTAO = true,
+                rtaoMode = 1,
+                rtaoIntensity = 0.72f,
+                rtaoDenoisePasses = 3,
                 hueShift = 45f,
                 vignette = 0.3f,
                 chromaticAberration = 0.2f,
@@ -153,6 +232,16 @@ namespace Basis.Tests.Camera
             Assert.That(restored.useManualFocus, Is.False);
             Assert.That(restored.overrideVolumetricFog, Is.True);
             Assert.That(restored.VolumetricFogVolumedensity, Is.EqualTo(original.VolumetricFogVolumedensity).Within(1e-4f));
+            Assert.That(restored.overrideGlobalIllumination, Is.True);
+            Assert.That(restored.giMode, Is.EqualTo(original.giMode));
+            Assert.That(restored.giFallback, Is.EqualTo(original.giFallback));
+            Assert.That(restored.giIntensity, Is.EqualTo(original.giIntensity).Within(1e-4f));
+            Assert.That(restored.giWideBlur, Is.False);
+            Assert.That(restored.giMirrors, Is.False);
+            Assert.That(restored.overrideRTAO, Is.True);
+            Assert.That(restored.rtaoMode, Is.EqualTo(original.rtaoMode));
+            Assert.That(restored.rtaoIntensity, Is.EqualTo(original.rtaoIntensity).Within(1e-4f));
+            Assert.That(restored.rtaoDenoisePasses, Is.EqualTo(original.rtaoDenoisePasses));
             Assert.That(restored.hueShift, Is.EqualTo(original.hueShift).Within(1e-4f));
             Assert.That(restored.vignette, Is.EqualTo(original.vignette).Within(1e-4f));
             Assert.That(restored.chromaticAberration, Is.EqualTo(original.chromaticAberration).Within(1e-4f));

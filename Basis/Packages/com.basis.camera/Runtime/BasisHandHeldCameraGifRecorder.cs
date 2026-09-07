@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Basis;
+using Basis.ImagePickup;
 using Basis.Scripts.Audio;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
@@ -90,6 +91,8 @@ public partial class BasisHandHeldCamera
         var session = new BasisGifRecorderSession(width, height, GifLoop, GifDither, gifFrameRate, finalPath);
         if (!session.Start()) return false;
 
+        gifRecorder.Saved = SpawnGifInWorldIfEnabled;
+
         // Rows top-down: that is what the GIF format wants, unlike the JPEG path.
         gifRecorder.Start(session, width, height, gifFrameRate,
             Mathf.Clamp(gifDurationSeconds, MinGifDurationSeconds, MaxGifDurationSeconds), flip: true);
@@ -98,6 +101,12 @@ public partial class BasisHandHeldCamera
 
         BasisDebug.Log($"GIF recording started: {width}x{height} @ {gifFrameRate}fps for up to {gifDurationSeconds:0.#}s.", BasisDebug.LogTag.Camera);
         return true;
+    }
+
+    private void SpawnGifInWorldIfEnabled(string path)
+    {
+        if (!printPhotoEnabled) return;
+        BasisImagePickupManager.SpawnFromFile(path);
     }
 
     /// <summary>Ends the capture phase and lets the frames already taken drain into the file.</summary>

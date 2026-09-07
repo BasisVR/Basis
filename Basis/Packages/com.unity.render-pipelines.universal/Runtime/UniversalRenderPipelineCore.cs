@@ -1917,7 +1917,7 @@ namespace UnityEngine.Rendering.Universal
     // URP Profile Id
     // - Scopes using this enum are automatically picked up by the performance testing framework.
     // - You can use [HideInDebugUI] attribute to hide a given id from the Detailed Stats section of Rendering Debugger.
-    internal enum URPProfileId
+    public enum URPProfileId
     {
         // CPU
         UniversalRenderTotal,

@@ -96,7 +96,7 @@ public static class BasisAvatarRecorderDriver
                 CountdownRemaining -= Time.unscaledDeltaTime;
                 if (CountdownRemaining <= 0f)
                     BeginRecording();
-                OnChanged?.Invoke();
+                NotifyChangedThrottled();
                 break;
 
             case RecorderState.Recording:
@@ -106,9 +106,22 @@ public static class BasisAvatarRecorderDriver
                     RequestStop();
                     break;
                 }
-                OnChanged?.Invoke();
+                NotifyChangedThrottled();
                 break;
         }
+    }
+
+    // The per-frame invoke drove UI refresh at capture rate; 10 Hz is plenty for a
+    // timer readout and keeps subscriber work off the capture path.
+    private const float ChangedNotifyInterval = 0.1f;
+    private static float _nextChangedNotify;
+
+    private static void NotifyChangedThrottled()
+    {
+        float now = Time.unscaledTime;
+        if (now < _nextChangedNotify) return;
+        _nextChangedNotify = now + ChangedNotifyInterval;
+        OnChanged?.Invoke();
     }
 
     private static void CaptureFrame()

@@ -35,6 +35,10 @@ namespace Cilbox
 			// Roster access plus the pose reads IBasisPlayer withholds. Returns players as
 			// IBasisPlayer, and poses as copied Vector3/Quaternion — never a Transform.
 			"Basis.Shims.BasisPlayersShim",
+			// "is this player staff" — the local player's own nodes read straight out of memory,
+			// anyone else's answered by the server one yes/no at a time. Every member returns a
+			// bool or a copied string[]; no UUID and no handle crosses the boundary.
+			"Basis.Shims.BasisPermissionsShim",
 			// Late-latch callback. Auto-added by GetComponent<T> since it derives from CilboxShim.
 			"Basis.Shims.BasisBeforeRenderShim",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",

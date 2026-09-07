@@ -485,6 +485,46 @@ namespace Basis.Tests.Camera
         }
 
         [Test]
+        public void TheMarkerSize_ComesBackAfterAReload()
+        {
+            // The resize is done out in the world with both hands on the puck, nowhere near this
+            // panel, so a size that did not persist would be undone by every respawn.
+            _rig.Camera.SetDetachedMarkerScale(2.5f);
+
+            BasisHandHeldCameraUI.CameraSettings captured = _rig.UI.CreateCurrentCameraSettingsForTest();
+            _rig.UI.ApplySettingsForTest(new BasisHandHeldCameraUI.CameraSettings());
+            Assert.That(_rig.Camera.DetachedMarkerScale, Is.EqualTo(1f).Within(1e-3f),
+                "A fresh file is the natural size, so the reset has to be visible before the reload proves anything.");
+
+            _rig.UI.ApplySettingsForTest(captured);
+
+            Assert.That(captured.detachedMarkerScale, Is.EqualTo(2.5f).Within(1e-3f));
+            Assert.That(_rig.Camera.DetachedMarkerScale, Is.EqualTo(2.5f).Within(1e-3f));
+        }
+
+        [Test]
+        public void AFileFromBeforeTheMarkerCouldBeResized_LoadsAtTheNaturalSize()
+        {
+            // The field zero-fills to 0 — a marker with no size is no marker — so the size is
+            // defaulted in the constructor rather than migrated, and an older file has to pick it up
+            // from there. That it does is what this pins.
+            var legacy = JsonUtility.FromJson<BasisHandHeldCameraUI.CameraSettings>(
+                "{\"settingsVersion\":11,\"detachedMarker\":1}");
+
+            BasisHandHeldCameraUI.MigrateSettingsForTest(legacy);
+
+            Assert.That(legacy.detachedMarkerScale, Is.EqualTo(1f).Within(1e-4f));
+
+            // And a file that does state a nonsense size is read as the natural one rather than
+            // clamped to the smallest marker the panel can ask for.
+            _rig.UI.ApplySettingsForTest(
+                JsonUtility.FromJson<BasisHandHeldCameraUI.CameraSettings>(
+                    "{\"settingsVersion\":11,\"detachedMarkerScale\":0}"));
+
+            Assert.That(_rig.Camera.DetachedMarkerScale, Is.EqualTo(1f).Within(1e-4f));
+        }
+
+        [Test]
         public void UpgradingAPreV8File_KeepsTheMarkerOn()
         {
             // The marker zero-fills to Off, leaving nothing on screen to show where a detached
@@ -564,6 +604,34 @@ namespace Basis.Tests.Camera
             Assert.That(loaded.flySpeed, Is.EqualTo(3f).Within(1e-4f),
                 "the file this is standing in for has to actually have been read");
             Assert.That(loaded.flyMomentum, Is.True);
+        }
+
+        [Test]
+        public void TheRollSwitch_ReachesTheCameraBothWays()
+        {
+            BasisHandHeldCameraUI.CameraSettings settings = BasisCameraSettingsRig.DistinctiveSettings();
+
+            settings.cameraRoll = true;
+            _rig.UI.ApplySettingsForTest(settings);
+            Assert.That(_rig.Camera.cameraRollEnabled, Is.True,
+                "Camera Roll has to reach the camera, or the grip's roll is never let through to the shot.");
+
+            settings.cameraRoll = false;
+            _rig.UI.ApplySettingsForTest(settings);
+            Assert.That(_rig.Camera.cameraRollEnabled, Is.False);
+        }
+
+        [Test]
+        public void AFileWrittenBeforeRollExisted_LoadsWithTheCameraLevel()
+        {
+            // Off is the zero fill, so a file that has never heard of the switch needs no migration
+            // to load as the level camera it was saved as.
+            var loaded = JsonUtility.FromJson<BasisHandHeldCameraUI.CameraSettings>(
+                "{\"settingsVersion\":12,\"flySpeed\":3.0}");
+
+            Assert.That(loaded.flySpeed, Is.EqualTo(3f).Within(1e-4f),
+                "the file this is standing in for has to actually have been read");
+            Assert.That(loaded.cameraRoll, Is.False, "Off is the zero fill, so the shot loads level.");
         }
 
         // ---------- helpers ----------

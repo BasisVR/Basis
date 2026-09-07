@@ -90,18 +90,18 @@ public static class BasisNetworkHandleVoice
         }
     }
 
-    private static readonly SemaphoreSlim shoutSemaphore = new SemaphoreSlim(1, 1);
-    public static ConcurrentQueue<ServerAudioSegmentMessage> ShoutMessage = new ConcurrentQueue<ServerAudioSegmentMessage>();
+    private static readonly SemaphoreSlim announceSemaphore = new SemaphoreSlim(1, 1);
+    public static ConcurrentQueue<ServerAudioSegmentMessage> AnnounceMessage = new ConcurrentQueue<ServerAudioSegmentMessage>();
 
     /// <summary>
-    /// Handles shout voice audio arriving on ShoutVoiceChannel (channel 0).
-    /// Routes to the non-spatialized shout audio receiver on the remote player.
+    /// Handles announce voice audio arriving on AnnounceVoiceChannel (channel 4).
+    /// Routes to the non-spatialized announce audio receiver on the remote player.
     /// </summary>
-    public static async Task HandleShoutAudioUpdate(NetPacketReader Reader)
+    public static async Task HandleAnnounceAudioUpdate(NetPacketReader Reader)
     {
         try
         {
-            if (!await shoutSemaphore.WaitAsync(TimeoutMilliseconds))
+            if (!await announceSemaphore.WaitAsync(TimeoutMilliseconds))
             {
                 // Timed out before acquiring the lock — drop this packet rather than
                 // process it unsynchronized, and don't release a lock we never took.
@@ -113,37 +113,37 @@ public static class BasisNetworkHandleVoice
             }
             try
             {
-                if (ShoutMessage.TryDequeue(out ServerAudioSegmentMessage audioUpdate) == false)
+                if (AnnounceMessage.TryDequeue(out ServerAudioSegmentMessage audioUpdate) == false)
                 {
                     audioUpdate = new ServerAudioSegmentMessage();
                 }
                 int wireBytes = Reader.AvailableBytes;
                 audioUpdate.Deserialize(Reader);
-                if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(audioUpdate.playerIdMessage.playerID, out BasisNetworkReceiver shoutReceiver))
+                if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(audioUpdate.playerIdMessage.playerID, out BasisNetworkReceiver announceReceiver))
                 {
-                    shoutReceiver.AccountReceivedVoiceBytes(wireBytes);
+                    announceReceiver.AccountReceivedVoiceBytes(wireBytes);
                 }
                 if (audioUpdate.audioSegmentData.LengthUsed == 0)
                 {
-                    BasisDebug.LogError("Shout Audio Segment Data Length was zero", BasisDebug.LogTag.Voice);
+                    BasisDebug.LogError("Announce Audio Segment Data Length was zero", BasisDebug.LogTag.Voice);
                 }
                 else
                 {
-                    BasisShoutAudioDriver.ReceiveShoutAudio(audioUpdate.playerIdMessage.playerID, audioUpdate.audioSegmentData);
+                    BasisAnnounceAudioDriver.ReceiveAnnounceAudio(audioUpdate.playerIdMessage.playerID, audioUpdate.audioSegmentData);
                 }
-                ShoutMessage.Enqueue(audioUpdate);
-                while (ShoutMessage.Count > MaxStoredServerAudioSegmentMessage)
+                AnnounceMessage.Enqueue(audioUpdate);
+                while (AnnounceMessage.Count > MaxStoredServerAudioSegmentMessage)
                 {
-                    ShoutMessage.TryDequeue(out ServerAudioSegmentMessage seg);
+                    AnnounceMessage.TryDequeue(out ServerAudioSegmentMessage seg);
                 }
             }
             catch (Exception ex)
             {
-                BasisDebug.LogError($"Error in HandleShoutAudioUpdate:{ex.Message}{ex.StackTrace}");
+                BasisDebug.LogError($"Error in HandleAnnounceAudioUpdate:{ex.Message}{ex.StackTrace}");
             }
             finally
             {
-                shoutSemaphore.Release();
+                announceSemaphore.Release();
                 if (Reader.IsNull == false)
                 {
                     Reader.Recycle();
@@ -152,7 +152,7 @@ public static class BasisNetworkHandleVoice
         }
         catch (OperationCanceledException)
         {
-            BasisDebug.LogError("HandleShoutAudioUpdate task canceled.");
+            BasisDebug.LogError("HandleAnnounceAudioUpdate task canceled.");
         }
     }
 }

@@ -131,6 +131,24 @@ namespace Basis.BasisUI
             AlternateButton.OnClicked += ResolveAlternate;
         }
 
+        public PanelButton AddOption(string label, Action onChosen, bool closes = true)
+        {
+            if (string.IsNullOrEmpty(label) || onChosen == null) return null;
+            if (AcceptButton == null || DeclineButton == null) return null;
+
+            PanelButton button = PanelButton.CreateNew(AcceptButton.rectTransform.parent);
+            button.Descriptor.SetTitle(label);
+            button.ButtonStyling.SetStyle("Button Standard");
+            button.rectTransform.SetSiblingIndex(DeclineButton.rectTransform.GetSiblingIndex());
+            MatchButtonMetrics(AcceptButton, button);
+            button.OnClicked += () =>
+            {
+                onChosen();
+                if (closes) Resolve(true);
+            };
+            return button;
+        }
+
         /// <summary>One row of the list <see cref="ShowDetails"/> puts under the description.</summary>
         public readonly struct DetailRow
         {

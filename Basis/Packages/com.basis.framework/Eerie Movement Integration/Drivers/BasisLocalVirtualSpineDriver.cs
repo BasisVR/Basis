@@ -16,6 +16,8 @@ namespace Basis.IK
         private float lenNeckToChest, lenChestToSpine, lenSpineToHips, lenSpineTotal, chestTransform, spineTransform, restHipsLocalY;
         private float restHeadLocalY, hipsRestDropY;
         private float3 hipsFromEyeTposeXZ, headFromEyeTposeXZ, yawPivotFromEyeTposeXZ, eyeFromHeadTpose;
+        private float3 restChordDir, chestRestPerp, spineRestPerp;
+        private float chestRestAlong, spineRestAlong;
         private float tposeNeckMinusEyeY;
         private readonly BasisNodPivotSampler nodPivotSampler = new BasisNodPivotSampler(30);
         private float3 gazeSwingLever;
@@ -184,7 +186,7 @@ namespace Basis.IK
                 TorsoYawBlendSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawBlendSpeed.RawValue,
 
                 HipsFreeze = (byte)(HipsFreezeToTpose ? 1 : 0),
-                IsLocomoting = (byte)(BasisLocalPlayer.Instance.LocalCharacterDriver.MovementVector.sqrMagnitude > 0.001f ? 1 : 0),
+                IsLocomoting = (byte)(BasisLocalPlayer.Instance.LocalCharacterDriver.IsLocomoting ? 1 : 0),
 
                 LenTotal = lenSpineTotal,
                 TChest = chestTransform,
@@ -204,6 +206,11 @@ namespace Basis.IK
                 HipsCompressionStrength = Basis.BasisUI.BasisSettingsDefaults.VSpineHipsCompressionStrength.RawValue,
                 HipsMaxDropMeters = Basis.BasisUI.BasisSettingsDefaults.VSpineHipsMaxDropMeters.RawValue * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale,
                 HipsRestDropY = hipsRestDropY,
+                RestChordDir = restChordDir,
+                ChestRestAlong = chestRestAlong,
+                ChestRestPerp = chestRestPerp,
+                SpineRestAlong = spineRestAlong,
+                SpineRestPerp = spineRestPerp,
             };
 
             new BasisVirtualSpineCore.BasisVirtualSpineSolveJob
@@ -241,6 +248,12 @@ namespace Basis.IK
         {
             return c.TargetIndex >= 0 ? c.Owner.Controls[c.TargetIndex] : c;
         }
+        public static void RestOffsetFromChord(float3 bone, float3 hips, float3 chord, float chordLenSq, out float along, out float3 perp)
+        {
+            float3 d = bone - hips;
+            along = chordLenSq > 1e-10f ? math.dot(d, chord) / chordLenSq : 0f;
+            perp = d - chord * along;
+        }
         private void RecomputeSegmentLengths(BasisLocalBoneControl eye, BasisLocalBoneControl head, BasisLocalBoneControl neck, BasisLocalBoneControl chest, BasisLocalBoneControl spine, BasisLocalBoneControl hips)
         {
             float3 pHead = head.TposeLocalScaled.position;
@@ -257,6 +270,12 @@ namespace Basis.IK
             spineTransform = math.saturate((lenNeckToChest + lenChestToSpine) / lenSpineTotal);
 
             restHipsLocalY = pNeck.y - lenSpineTotal;
+
+            float3 restChord = pNeck - pHips;
+            float restChordLenSq = math.lengthsq(restChord);
+            restChordDir = restChordLenSq > 1e-10f ? restChord * math.rsqrt(restChordLenSq) : new float3(0f, 1f, 0f);
+            RestOffsetFromChord(pChest, pHips, restChord, restChordLenSq, out chestRestAlong, out chestRestPerp);
+            RestOffsetFromChord(pSpine, pHips, restChord, restChordLenSq, out spineRestAlong, out spineRestPerp);
 
             restHeadLocalY = math.max(pHead.y, 1e-3f);
 

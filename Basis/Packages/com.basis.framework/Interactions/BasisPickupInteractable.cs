@@ -199,7 +199,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         private readonly BasisLocks.LockContext HeadLock = BasisLocks.GetContext(BasisLocks.LookRotation);
 
-        private static string headPauseRequestName;
+        private string headPauseRequestName;
 
         private bool pauseHead = false;
         private Vector3 targetOffset = Vector3.zero;

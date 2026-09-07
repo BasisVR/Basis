@@ -34,11 +34,12 @@ public static class BasisCrashReportStore
     private const int MaxStackChars = 12000;
 
     // Brief acknowledgement that the carried-over crash reports are being flushed on reconnect.
-    // These are fire-and-forget sends queued in a tight loop, so the loading bar's idle timeout
-    // clears this rather than a tracked per-packet curve.
+    // These are fire-and-forget sends queued in a tight loop, so the indicator clears itself after
+    // ReplayIndicatorSeconds rather than tracking a per-packet curve.
     private const string ReplayIndicatorKey = "CrashReportReplay";
     private const string ReplayIndicatorLabel = "Uploading crash reports";
     private const float ReplayIndicatorPercent = 80f;
+    private const float ReplayIndicatorSeconds = 1.5f;
 
     private static readonly object FileLock = new object();
     private static readonly List<Entry> _previous = new List<Entry>();
@@ -170,7 +171,7 @@ public static class BasisCrashReportStore
         }
         _replayed = true;
 
-        BasisUILoadingBar.ProgressReport(ReplayIndicatorKey, ReplayIndicatorPercent, ReplayIndicatorLabel);
+        BasisUILoadingBar.ProgressReportTransient(ReplayIndicatorKey, ReplayIndicatorPercent, ReplayIndicatorLabel, ReplayIndicatorSeconds);
         foreach (Entry e in toSend)
         {
             BasisErrorReportSender.SendPrevious(e.System, e.Message, e.Stack);

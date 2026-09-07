@@ -148,6 +148,82 @@
       "value": "اختر الاسم الذي سيراه اللاعبون الآخرون، ثم اضغط «اتصال»."
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "تصفية حسب اسم الخادم أو عنوانه."
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "فرز حسب"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "يظهر الخادم الافتراضي ★ دائمًا أولًا."
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "افتراضي"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "يحافظ على الترتيب المحفوظ، مع وضع خادمك المضيف أخيرًا."
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "الاسم"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "يرتب القائمة أبجديًا حسب اسم الخادم."
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Ping"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "يرتب القائمة حسب زمن الاستجابة، الأسرع أولًا."
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "اللاعبون"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "يرتب القائمة حسب عدد اللاعبين المتصلين، الأكثر امتلاءً أولًا."
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "الخوادم ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "الخوادم ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "اتصل بخادم أدناه، أو أضف خادمك الخاص."
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "لا يوجد خادم يطابق بحثك."
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "متصل"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "الخادم"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "اتصل بخادم لمشاركته."
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "لا يمكن إزالة هذا الخادم."
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

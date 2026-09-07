@@ -20,7 +20,7 @@
     },
     {
       "key": "menu.servers.host",
-      "value": "Host"
+      "value": "Local Self Host"
     },
     {
       "key": "menu.servers.ipAddress",
@@ -96,11 +96,11 @@
     },
     {
       "key": "menu.servers.autoConnect",
-      "value": "Auto Connect"
+      "value": "Auto Rejoin"
     },
     {
       "key": "menu.servers.autoConnect.description",
-      "value": "Automatically connect to the last server on startup."
+      "value": "Automatically rejoin your last server when Basis starts."
     },
     {
       "key": "menu.servers.list.empty",
@@ -201,6 +201,82 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "Choose the name other players will see, then hit Connect."
+    },
+    {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "Filter by server name or address."
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "Sort By"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "The ★ default server always appears first."
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "Default"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "Keep the saved order, with your host server last."
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "Name"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "Order the list alphabetically by server name."
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Ping"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "Order the list by response time, fastest first."
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "Players"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "Order the list by how many players are online, fullest first."
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "Servers ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "Servers ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "Connect to a server below, or add your own."
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "No servers match your search."
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "Connected"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "Server"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "Connect to a server to share it."
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "This server can't be removed."
     }
   ]
 }

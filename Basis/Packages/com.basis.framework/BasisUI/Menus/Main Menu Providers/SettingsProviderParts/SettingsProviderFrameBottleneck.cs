@@ -21,8 +21,8 @@ namespace Basis.BasisUI
             BasisFrameBottleneckKind.NoGpuTimer
         };
 
+        private static PanelSectionToggle _toggle;
         private static PanelElementDescriptor _group;
-        private static PanelElementDescriptor _frameField;
         private static PanelElementDescriptor _cpuField;
         private static PanelElementDescriptor _gpuField;
         private static BasisPanelTint.Handle _tint;
@@ -38,18 +38,19 @@ namespace Basis.BasisUI
         public static BasisFrameBottleneckKind Verdict =>
             _shownKind == UnsetKind ? BasisFrameBottleneckKind.Measuring : _shownKind;
 
-        public static void BuildFrameBottleneckGroup(RectTransform container)
+        public static void BuildFrameBottleneckGroup(RectTransform container, PanelElementDescriptor descriptor)
         {
+            // Collapsible so the page can stay short; the toggle's own header carries the live
+            // GPU/CPU-limited verdict, so the headline is visible even while collapsed.
+            PanelSectionToggle toggle = PanelSectionToggle.CreateNewEntry(container);
+            toggle.SetTitle(BasisLocalization.Get("settings.graphics.bottleneck.title"));
+
             PanelElementDescriptor group = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, container);
-            group.SetTitle(BasisLocalization.Get("settings.graphics.bottleneck.title"));
+            group.SetTitle(string.Empty);
             group.SetDescription(BasisLocalization.Get("settings.graphics.bottleneck.measuring"));
             group.SetTooltip(BasisLocalization.Get("settings.graphics.bottleneck.tooltip"));
-
-            PanelElementDescriptor frameField = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
-            frameField.SetTitle(BasisLocalization.Get("settings.graphics.bottleneck.frame"));
-            frameField.SetDescription("...");
+            toggle.RegisterContentContainer(group);
 
             PanelElementDescriptor cpuField = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
@@ -61,24 +62,37 @@ namespace Basis.BasisUI
             gpuField.SetTitle(BasisLocalization.Get("settings.graphics.bottleneck.gpu"));
             gpuField.SetDescription("...");
 
+            // Per-pass GPU/CPU timing rides Unity's Sampler/Recorder/ProfilerMarker APIs, which are
+            // stripped/disabled outside the Editor and Development Builds — a release build would
+            // export an all-zero snapshot. Debug.isDebugBuild covers exactly the builds this works in.
+            if (Debug.isDebugBuild)
+            {
+                PanelButton captureButton = PanelButton.CreateNew(group.ContentParent);
+                captureButton.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.bottleneck.renderPassCapture"));
+                captureButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.bottleneck.renderPassCapture.tooltip"));
+                captureButton.OnClicked += () => BasisRenderProfileHistory.CaptureToDisk("settings-panel");
+            }
+
             group.IsolateAsCanvas();
 
-            Attach(group, frameField, cpuField, gpuField);
+            Attach(toggle, group, cpuField, gpuField);
             group.OnInstanceReleased += () => Detach(group);
+
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(toggle, group, false,
+                _ => descriptor.ForceRebuild());
         }
 
         private static void Attach(
+            PanelSectionToggle toggle,
             PanelElementDescriptor group,
-            PanelElementDescriptor frameField,
             PanelElementDescriptor cpuField,
             PanelElementDescriptor gpuField)
         {
+            _toggle = toggle;
             _group = group;
-            _frameField = frameField;
             _cpuField = cpuField;
             _gpuField = gpuField;
 
-            _frameField.DisableRichText();
             _cpuField.DisableRichText();
             _gpuField.DisableRichText();
 
@@ -111,8 +125,8 @@ namespace Basis.BasisUI
 
             Unsubscribe();
 
+            _toggle = null;
             _group = null;
-            _frameField = null;
             _cpuField = null;
             _gpuField = null;
             _tint = null;
@@ -165,7 +179,7 @@ namespace Basis.BasisUI
             if (ShouldCommitVerdict(reading.Kind))
             {
                 _shownKind = reading.Kind;
-                _group.SetTitle(TitleFor(reading.Kind));
+                _toggle.SetTitle(TitleFor(reading.Kind));
                 _group.SetDescription(AdviceFor(reading.Kind));
                 ApplyTint(reading.Kind);
                 SettingsProviderBottleneckHints.Show(reading.Kind);
@@ -174,18 +188,10 @@ namespace Basis.BasisUI
             if (_shownKind == BasisFrameBottleneckKind.Measuring)
             {
                 string pending = BasisLocalization.Get("settings.graphics.bottleneck.pending");
-                _frameField.SetDescription(pending);
                 _cpuField.SetDescription(pending);
                 _gpuField.SetDescription(pending);
                 return;
             }
-
-            double fps = reading.FrameMs > 0.0 ? 1000.0 / reading.FrameMs : 0.0;
-            _frameField.SetDescription(reading.TargetMs > 0.0
-                ? BasisLocalization.Get("settings.graphics.bottleneck.frame.capped",
-                    reading.FrameMs, fps, 1000.0 / reading.TargetMs)
-                : BasisLocalization.Get("settings.graphics.bottleneck.frame.value",
-                    reading.FrameMs, fps));
 
             _cpuField.SetDescription(BasisLocalization.Get("settings.graphics.bottleneck.cpu.value",
                 reading.CpuBusyMs, reading.MainThreadMs, reading.RenderThreadMs, reading.PresentWaitMs));
@@ -205,7 +211,6 @@ namespace Basis.BasisUI
             }
 
             _layoutFrozen = true;
-            _frameField.FreezeLayoutSize(110f);
             _cpuField.FreezeLayoutSize(150f);
             _gpuField.FreezeLayoutSize(110f);
             FreezeGroupLayout();
@@ -244,30 +249,29 @@ namespace Basis.BasisUI
             return true;
         }
 
+        // Title now lives on the always-visible toggle header, not this content group, so only the
+        // description (the multi-line advice text) needs a tallest-candidate freeze to stop the
+        // group resizing/jumping as the verdict changes.
         private static void FreezeGroupLayout()
         {
-            string title = _group.Title;
             string description = _group.Description;
 
-            _group.SetTitle(TallestOf(_group.HasTitle ? _group.TitleLabel : null, true));
-            _group.SetDescription(TallestOf(_group.HasDescription ? _group.DescriptionLabel : null, false));
+            _group.SetDescription(TallestAdvice(_group.HasDescription ? _group.DescriptionLabel : null));
 
             _group.FreezeLayoutSize();
 
-            _group.SetTitle(title);
             _group.SetDescription(description);
         }
 
-        private static string TallestOf(TextMeshProUGUI label, bool titles)
+        private static string TallestAdvice(TextMeshProUGUI label)
         {
-            string tallest = titles ? TitleFor(AllKinds[0]) : AdviceFor(AllKinds[0]);
+            string tallest = AdviceFor(AllKinds[0]);
             float width = label != null ? label.rectTransform.rect.width : 0f;
             float best = width > 0f ? label.GetPreferredValues(tallest, width, 0f).y : tallest.Length;
 
             for (int index = 1; index < AllKinds.Length; index++)
             {
-                BasisFrameBottleneckKind kind = AllKinds[index];
-                string candidate = titles ? TitleFor(kind) : AdviceFor(kind);
+                string candidate = AdviceFor(AllKinds[index]);
                 float height = width > 0f ? label.GetPreferredValues(candidate, width, 0f).y : candidate.Length;
                 if (height > best)
                 {

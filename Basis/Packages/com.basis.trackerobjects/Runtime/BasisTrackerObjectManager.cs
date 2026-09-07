@@ -379,9 +379,9 @@ namespace Basis.TrackerObjects
                     }
                     // BasisPickupSyncNetworking.ControlState flips isKinematic = false on
                     // locally-owned props and re-fires on ownership events long after bind.
-                    // Re-asserting kinematic each frame is cheap and keeps physics from
-                    // advancing the prop between our writes.
-                    if (binding.HasKinematicCaptured && binding.RigidRef != null)
+                    // Re-assert kinematic whenever something flips it so physics can't
+                    // advance the prop between our writes.
+                    if (binding.HasKinematicCaptured && binding.RigidRef != null && !binding.RigidRef.isKinematic)
                     {
                         binding.RigidRef.isKinematic = true;
                     }

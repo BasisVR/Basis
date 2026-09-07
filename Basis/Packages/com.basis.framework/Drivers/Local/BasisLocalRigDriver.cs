@@ -735,6 +735,7 @@ namespace Basis.Scripts.Drivers
             data.chestIkHeadRestoreSweeps = Mathf.Max(1, Mathf.RoundToInt(Basis.BasisUI.BasisSettingsDefaults.FBIKChestIkHeadRestoreSweeps.RawValue));
             data.chestPosPullMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKChestPosPullMaxDeg.RawValue;
             data.chestPullMaxDist = Basis.BasisUI.BasisSettingsDefaults.FBIKChestPullMaxDist.RawValue;
+            data.chestHeadBudget = BasisEerieMovementSetup.ChestHeadBudgetMeters;
             data.chestFollowChestShare = Basis.BasisUI.BasisSettingsDefaults.FBIKChestFollowChestShare.RawValue;
             data.trackedKneeSwivelMinCutoffHz = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelMinCutoffHz.RawValue;
             data.trackedKneeSwivelBeta = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelBeta.RawValue;
@@ -953,7 +954,7 @@ namespace Basis.Scripts.Drivers
             facts.footSimReady = footDriver.IsInitialized;
             facts.footIKSetting = Basis.BasisUI.BasisSettingsDefaults.FootIKEnabled.RawValue;
             facts.trackerBendNormal = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackerBendNormal.RawValue;
-            facts.moving = localPlayer.LocalCharacterDriver.MovementVector.sqrMagnitude > 0.001f;
+            facts.moving = localPlayer.LocalCharacterDriver.IsLocomoting;
             facts.prone = localPlayer.LocalCharacterDriver.IsProne;
             facts.seated = localPlayer.LocalSeatDriver.IsSeated;
             facts.upright = BasisLocalPlayspaceMover.FlipUpSign > 0f;

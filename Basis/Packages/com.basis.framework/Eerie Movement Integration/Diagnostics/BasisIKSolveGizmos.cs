@@ -22,9 +22,6 @@ namespace Basis.Scripts.Debugging
         static int labelsShown;
         static bool registered;
         static bool overflowWarned;
-        public static int LineCount => linesShown;
-        public static int SphereCount => spheresShown;
-        public static int LabelCount => labelsShown;
         public static void Prepare(ref BasisEerieMovement job)
         {
             EnsureMasterToggleHook();

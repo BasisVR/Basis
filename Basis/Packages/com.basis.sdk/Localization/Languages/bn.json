@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "মিথস্ক্রিয়ার ইভেন্ট ফিল্ড হিসেবে নাগালে; কম্পোনেন্টের মেথড নয়।" },
     { "key": "sdk.cilbox.api.seat.title", "value": "আসন" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "স্থানীয় খেলোয়াড়কে বসানো ও তোলা, এবং বসা অবস্থায় ঘোরানো।" },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "অনুমতি পরিবর্তন" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "লোকাল খেলোয়াড় অ্যাডমিন বা মডারেটর অধিকার পেলে বা হারালে আপনার স্ক্রিপ্টকে জানায়, যাতে শুধুমাত্র স্টাফদের কনটেন্ট বারবার পোল করতে না হয়। কলব্যাক আপনার নিজের স্ক্রিপ্টে নাম দিয়ে খুঁজে পাওয়া যায়।" },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle মিথস্ক্রিয়া" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "কোনো বস্তুকে ধরা বা ছোঁয়ার জবাব দিতে দেয়। কলব্যাক আপনার নিজের স্ক্রিপ্টে নাম ধরে খোঁজা হয়।" },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas UI ও লেখা" },

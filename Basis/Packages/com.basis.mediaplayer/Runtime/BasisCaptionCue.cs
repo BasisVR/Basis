@@ -18,5 +18,4 @@ public readonly struct BasisCaptionCue
         EndUs = endUs;
     }
 
-    public bool HasText => !string.IsNullOrEmpty(Text);
 }

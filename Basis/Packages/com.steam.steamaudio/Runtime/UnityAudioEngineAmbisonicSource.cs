@@ -22,6 +22,7 @@ namespace SteamAudio
     public sealed class UnityAudioEngineAmbisonicSource : AudioEngineAmbisonicSource
     {
         AudioSource mAudioSource = null;
+        float mPushedApplyHRTF = -1.0f;
 
         public override void Initialize(GameObject gameObject)
         {
@@ -33,8 +34,12 @@ namespace SteamAudio
             if (!mAudioSource)
                 return;
 
-            var index = 0;
-            mAudioSource.SetAmbisonicDecoderFloat(index++, (ambisonicSource.applyHRTF) ? 1.0f : 0.0f);
+            var applyHRTF = (ambisonicSource.applyHRTF) ? 1.0f : 0.0f;
+            if (applyHRTF == mPushedApplyHRTF)
+                return;
+
+            mAudioSource.SetAmbisonicDecoderFloat(0, applyHRTF);
+            mPushedApplyHRTF = applyHRTF;
         }
     }
 }

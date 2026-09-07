@@ -106,6 +106,23 @@ public static class BasisContentVersion
     }
 
     /// <summary>
+    /// After a conditional request prompted by a version-claim mismatch: whether the host confirmed
+    /// the CACHED copy is still exactly what it serves, making the claim the stale side. True on an
+    /// explicit 304, or on a reported validator that matches the cached tag. False when the host
+    /// reports a different validator (genuinely new content) or publishes none at all — a host with
+    /// no validators is one where the tag scheme is a creator-stamped nonce, and a mismatched nonce
+    /// means "changed" by construction.
+    /// </summary>
+    public static bool HostConfirmsCache(string cachedTag, BasisIOManagement.BasisRemoteValidator validator)
+    {
+        if (validator.NotModified)
+        {
+            return true;
+        }
+        return validator.HasValue && TagsMatch(cachedTag, validator.Tag);
+    }
+
+    /// <summary>
     /// Whether the cached entry is acceptable for the requested version, ignoring throttling.
     /// </summary>
     public static bool CacheSatisfies(BasisBEEExtensionMeta meta, string requestedTag)
@@ -150,7 +167,7 @@ public static class BasisContentVersion
             return true;
         }
 
-        BasisDebug.Log($"Cached copy of {remoteUrl} is out of date (cached '{Normalize(meta?.CachedVersionTag)}', requested '{Normalize(requestedTag)}'); refreshing.", BasisDebug.LogTag.Event);
+        BasisDebug.Log($"Version claim for {remoteUrl} does not match the cache (cached '{Normalize(meta?.CachedVersionTag)}', requested '{Normalize(requestedTag)}').", BasisDebug.LogTag.Event);
         return false;
     }
 
@@ -215,9 +232,10 @@ public static class BasisContentVersion
     /// The version tag currently cached for a url, or empty when nothing is cached / the entry
     /// predates versioning. Used by the update check to build a conditional request.
     /// </summary>
-    public static string GetCachedTag(string remoteUrl)
+    public static async System.Threading.Tasks.Task<string> GetCachedTagAsync(string remoteUrl)
     {
-        if (!BasisLoadHandler.IsMetaDataOnDisc(remoteUrl, out BasisBEEExtensionMeta meta) || string.IsNullOrWhiteSpace(meta?.CachedVersionTag))
+        (bool found, BasisBEEExtensionMeta meta) = await BasisLoadHandler.IsMetaDataOnDiscAsync(remoteUrl);
+        if (!found || string.IsNullOrWhiteSpace(meta?.CachedVersionTag))
         {
             return string.Empty;
         }
@@ -230,9 +248,10 @@ public static class BasisContentVersion
     /// Stamps the observed validator so a cache entry written before versioning stops reporting
     /// "unknown" after the first successful check.
     /// </summary>
-    public static bool MarkValidated(string remoteUrl, string observedTag)
+    public static async System.Threading.Tasks.Task<bool> MarkValidatedAsync(string remoteUrl, string observedTag)
     {
-        if (!BasisLoadHandler.IsMetaDataOnDisc(remoteUrl, out BasisBEEExtensionMeta meta) || meta == null)
+        (bool found, BasisBEEExtensionMeta meta) = await BasisLoadHandler.IsMetaDataOnDiscAsync(remoteUrl);
+        if (!found || meta == null)
         {
             return false;
         }
@@ -314,7 +333,7 @@ public static class BasisContentVersion
             return new UpdateCheckResult(false, false, true, null, "Local content is read from disk and is never cached, so it is always current.");
         }
 
-        string cachedTag = GetCachedTag(remoteUrl);
+        string cachedTag = await GetCachedTagAsync(remoteUrl);
 
         BeeResult<BasisIOManagement.BasisRemoteValidator> result = await BasisIOManagement.FetchRemoteValidatorAsync(remoteUrl, cachedTag, cancellationToken);
         if (!result.IsSuccess)
@@ -327,7 +346,7 @@ public static class BasisContentVersion
         // The host itself confirmed our copy is current — the strongest and cheapest answer.
         if (validator.NotModified)
         {
-            MarkValidated(remoteUrl, cachedTag);
+            await MarkValidatedAsync(remoteUrl, cachedTag);
             return new UpdateCheckResult(true, false, false, cachedTag, null);
         }
 
@@ -350,13 +369,13 @@ public static class BasisContentVersion
         // check, and BaselineEstablished tells the UI to offer a refresh anyway.
         if (cachedTag.Length == 0)
         {
-            MarkValidated(remoteUrl, observed);
+            await MarkValidatedAsync(remoteUrl, observed);
             return new UpdateCheckResult(true, false, false, observed, null, baselineEstablished: true);
         }
 
         if (TagsMatch(cachedTag, observed))
         {
-            MarkValidated(remoteUrl, observed);
+            await MarkValidatedAsync(remoteUrl, observed);
             return new UpdateCheckResult(true, false, false, observed, null);
         }
 

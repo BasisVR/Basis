@@ -3,11 +3,12 @@
     "rootNamespace": "",
     "references": [
         "Basis Framework",
+        "Unity.InputSystem",
         "BasisSDK",
         "BasisCommon",
         "BasisGizmos",
         "BasisSettings",
-        "SSGIURP",
+        "BasisGlobalIllumination",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.TextMeshPro",
@@ -31,9 +32,9 @@
     ],
     "versionDefines": [
         {
-            "name": "com.jiaozi158.unityssgiurp",
+            "name": "com.basis.globalillumination",
             "expression": "",
-            "define": "BASIS_HAS_SSGI"
+            "define": "BASIS_HAS_GI"
         }
     ],
     "noEngineReferences": false

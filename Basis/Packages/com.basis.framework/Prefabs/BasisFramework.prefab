@@ -440,7 +440,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b715dd35521240f7a6d26f06380766ca, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Basis Framework::SMModuleScreenSpaceGlobalIlluminationURP
+  m_EditorClassIdentifier: Basis Framework::SMModuleGlobalIlluminationURP
 --- !u!1 &6119941615115968628
 GameObject:
   m_ObjectHideFlags: 0

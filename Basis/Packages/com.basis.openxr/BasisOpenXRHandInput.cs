@@ -25,6 +25,12 @@ public class BasisOpenXRHandInput : BasisInputController
     public InputActionProperty Secondary2DAxis;
     public InputActionProperty Primary2DAxisClick;
     public InputActionProperty Secondary2DAxisClick;
+    public InputActionProperty PrimaryTouch;
+    public InputActionProperty SecondaryTouch;
+    public InputActionProperty Primary2DAxisTouch;
+    public InputActionProperty Secondary2DAxisTouch;
+    public InputActionProperty TriggerTouch;
+    public InputActionProperty ThumbrestTouch;
     public InputActionProperty PalmPoseActionPosition;
     public InputActionProperty PalmPoseActionRotation;
     public InputActionProperty pointerPosition;
@@ -44,6 +50,12 @@ public class BasisOpenXRHandInput : BasisInputController
     private InputAction _secondary2DAxisAction;
     private InputAction _primary2DAxisClickAction;
     private InputAction _secondary2DAxisClickAction;
+    private InputAction _primaryTouchAction;
+    private InputAction _secondaryTouchAction;
+    private InputAction _primary2DAxisTouchAction;
+    private InputAction _secondary2DAxisTouchAction;
+    private InputAction _triggerTouchAction;
+    private InputAction _thumbrestTouchAction;
     private InputAction _devicePositionAction;
     private InputAction _deviceRotationAction;
     private InputAction _palmPoseActionPosition;
@@ -89,6 +101,12 @@ public class BasisOpenXRHandInput : BasisInputController
         Secondary2DAxis = new InputActionProperty(new InputAction(devicePath + "/secondary2DAxis", InputActionType.Value, devicePath + "/secondary2DAxis", expectedControlType: "Vector2"));
         Primary2DAxisClick = new InputActionProperty(new InputAction(devicePath + "/primary2DAxisClick", InputActionType.Button, devicePath + "/primary2DAxisClick", expectedControlType: "Button"));
         Secondary2DAxisClick = new InputActionProperty(new InputAction(devicePath + "/secondary2DAxisClick", InputActionType.Button, devicePath + "/secondary2DAxisClick", expectedControlType: "Button"));
+        PrimaryTouch = new InputActionProperty(new InputAction(devicePath + "/primaryTouched", InputActionType.Button, devicePath + "/primaryTouched", expectedControlType: "Button"));
+        SecondaryTouch = new InputActionProperty(new InputAction(devicePath + "/secondaryTouched", InputActionType.Button, devicePath + "/secondaryTouched", expectedControlType: "Button"));
+        Primary2DAxisTouch = new InputActionProperty(new InputAction(devicePath + "/thumbstickTouched", InputActionType.Button, devicePath + "/thumbstickTouched", expectedControlType: "Button"));
+        Secondary2DAxisTouch = new InputActionProperty(new InputAction(devicePath + "/{Secondary2DAxisTouch}", InputActionType.Button, devicePath + "/{Secondary2DAxisTouch}", expectedControlType: "Button"));
+        TriggerTouch = new InputActionProperty(new InputAction(devicePath + "/triggerTouched", InputActionType.Button, devicePath + "/triggerTouched", expectedControlType: "Button"));
+        ThumbrestTouch = new InputActionProperty(new InputAction(devicePath + "/thumbrestTouched", InputActionType.Button, devicePath + "/thumbrestTouched", expectedControlType: "Button"));
 
         // Interaction-profile layouts don't all alias these generic control names — the stick/pad
         // click controls carry no matching name or alias on the WMR, Index, and Touch layouts, and
@@ -103,6 +121,13 @@ public class BasisOpenXRHandInput : BasisInputController
         Secondary2DAxis.action.AddBinding(devicePath + "/{Secondary2DAxis}");
         Primary2DAxisClick.action.AddBinding(devicePath + "/{Primary2DAxisClick}");
         Secondary2DAxisClick.action.AddBinding(devicePath + "/{Secondary2DAxisClick}");
+        PrimaryTouch.action.AddBinding(devicePath + "/{PrimaryTouch}");
+        PrimaryTouch.action.AddBinding(devicePath + "/{PrimaryButtonTouch}");
+        SecondaryTouch.action.AddBinding(devicePath + "/{SecondaryTouch}");
+        SecondaryTouch.action.AddBinding(devicePath + "/{SecondaryButtonTouch}");
+        Primary2DAxisTouch.action.AddBinding(devicePath + "/{Primary2DAxisTouch}");
+        TriggerTouch.action.AddBinding(devicePath + "/{TriggerTouch}");
+        ThumbrestTouch.action.AddBinding(devicePath + "/{ThumbrestTouch}");
 
         DeviceActionPosition = new InputActionProperty(new InputAction($"{devicePath}/devicePosition", InputActionType.Value, $"{devicePath}/devicePosition", expectedControlType: "Vector3"));
         DeviceActionRotation = new InputActionProperty(new InputAction($"{devicePath}/deviceRotation", InputActionType.Value, $"{devicePath}/deviceRotation", expectedControlType: "Quaternion"));
@@ -136,6 +161,12 @@ public class BasisOpenXRHandInput : BasisInputController
         _secondary2DAxisAction = Secondary2DAxis.action;
         _primary2DAxisClickAction = Primary2DAxisClick.action;
         _secondary2DAxisClickAction = Secondary2DAxisClick.action;
+        _primaryTouchAction = PrimaryTouch.action;
+        _secondaryTouchAction = SecondaryTouch.action;
+        _primary2DAxisTouchAction = Primary2DAxisTouch.action;
+        _secondary2DAxisTouchAction = Secondary2DAxisTouch.action;
+        _triggerTouchAction = TriggerTouch.action;
+        _thumbrestTouchAction = ThumbrestTouch.action;
         _devicePositionAction = DeviceActionPosition.action;
         _deviceRotationAction = DeviceActionRotation.action;
         _palmPoseActionPosition = PalmPoseActionPosition.action;
@@ -168,6 +199,12 @@ public class BasisOpenXRHandInput : BasisInputController
         yield return Secondary2DAxis;
         yield return Primary2DAxisClick;
         yield return Secondary2DAxisClick;
+        yield return PrimaryTouch;
+        yield return SecondaryTouch;
+        yield return Primary2DAxisTouch;
+        yield return Secondary2DAxisTouch;
+        yield return TriggerTouch;
+        yield return ThumbrestTouch;
     }
     public new void OnDestroy()
     {
@@ -212,6 +249,12 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.PrimaryButtonGetState = primaryButton;
         CurrentInputState.SecondaryButtonGetState = secondaryButton;
         CurrentInputState.Trigger = _triggerAction?.ReadValue<float>() ?? 0f;
+        CurrentInputState.PrimaryButtonTouch = _primaryTouchAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.SecondaryButtonTouch = _secondaryTouchAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Primary2DAxisTouch = _primary2DAxisTouchAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Secondary2DAxisTouch = _secondary2DAxisTouchAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.TriggerTouch = _triggerTouchAction?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.ThumbrestTouch = _thumbrestTouchAction?.ReadValue<float>() > TriggerDownAmount;
     }
     public override void LateDoPollData()
     {

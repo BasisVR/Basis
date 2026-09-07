@@ -1232,7 +1232,6 @@ public class BasisSDKMirror : MonoBehaviour
         newCamera.depth = 2;
         newCamera.allowHDR = false;
         newCamera.allowMSAA = true;
-        newCamera.stereoTargetEye = StereoTargetEyeMask.None;
         updateCameraClearFlags(newCamera, sourceCamera);
 
         cameraData = newCamera.GetUniversalAdditionalCameraData();

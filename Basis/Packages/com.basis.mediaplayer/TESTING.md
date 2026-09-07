@@ -297,6 +297,26 @@ join latency and must play through to its own end of the content — the owner f
 must not cut it off. Clients therefore finish at slightly different wall-clock times; a peer
 stopping short of the end is the failure, synchronised finishes are not expected.
 
+**Resync** — two buttons, two blast radii, and the checks are mostly about the one that must
+*not* travel. **Local Resync** (My Settings tab) is available to every client, including one
+with no control permission and one that cannot see the Playback tab at all: press it on a peer
+and that peer alone reloads and lands back on the owner's playhead — the owner's playback must
+not stutter, pause or jump, and no other peer moves. Drift a peer deliberately first (pause it
+locally, or let a stalled decode fall behind) so there is something to correct, and check it
+returns to the room's position rather than to zero. On a page URL (YouTube/Twitch) the peer
+re-resolves, so expect the resolve delay before it lands — the position is aged by that delay,
+so it lands where the room is *now*, not where it was when the button was pressed. Press it on
+the owner too: the owner reloads in place and keeps its own playhead, and peers may re-align to
+it but must not reload. Press it with nobody else in the instance, and on a player with no
+`BasisMediaPlayerNetworking` at all — both must still reload rather than doing nothing.
+**Resync Everyone** (Playback tab, so it needs control) is the opposite: every client reloads,
+including the one that pressed it, and all land on the presser's state and position — paused
+stays paused, stopped stays stopped. Run it while a peer is mid-resolve of a page URL, and
+with a peer that has `AutoPlayOnSourceAssigned` unticked (it must still end up playing if the
+presser is playing). The failure to watch for on both is a URL swap: after any resync every
+client must still hold the *page* URL, not the presser's resolved CDN stream — check the URL
+field on a peer, and that a client joining afterwards still resolves the page URL for itself.
+
 **Networked audio-only** — the same two-client setup with an audio-only URL (`.wav`, `.mp3`,
 `.m4a`, `.opus`). These carry no video track, so anything that waits on a video frame or an
 output texture never fires for them, and a readiness regression here is invisible on the

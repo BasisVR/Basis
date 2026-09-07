@@ -24,6 +24,18 @@ public partial class BasisHandHeldCamera
     public BasisCameraMode CameraMode { get; private set; } = BasisCameraMode.Photo;
 
     /// <summary>
+    /// The mode the camera's values are read against — the last one it was actually put into,
+    /// which is what a Custom camera has drifted <em>from</em>.
+    ///
+    /// <para>It has to outlive <see cref="CameraMode"/> going Custom, because that is the only
+    /// moment it is worth anything: the settings readout answers "what have I changed" by
+    /// comparing against this, and a camera still sitting exactly on a preset has changed nothing
+    /// to show. Only ever a real mode — Custom is where the camera ends up, never what it is
+    /// measured against.</para>
+    /// </summary>
+    public BasisCameraMode ComparedMode { get; private set; } = BasisCameraMode.Photo;
+
+    /// <summary>
     /// The picture a camera kind makes: grain, cast, contrast and the rest of the post-processing
     /// that turns a clean render into a photograph off a particular machine.
     ///
@@ -716,6 +728,7 @@ public partial class BasisHandHeldCamera
         SyncPropUiAfterModeChange();
 
         CameraMode = mode;
+        ComparedMode = mode;
     }
 
     /// <summary>
@@ -899,87 +912,101 @@ public partial class BasisHandHeldCamera
         SetCaptureTonemapping(shipped.captureTonemapping);
     }
 
-    /// <summary>True while every value the look wrote still holds on the live camera.</summary>
-    private bool MatchesLook(BasisCameraLook look)
+    /// <summary>Adds every value the look wrote that the live camera is no longer holding.</summary>
+    private void CompareLook(BasisCameraLook look, ref ulong fields)
     {
-        if (!look.Active) return true;
+        if (!look.Active) return;
 
         // Read the way each effect is written: the ones that own an active flag are off at zero, so
         // a switched-off effect has to read as zero rather than as whatever value it kept.
         var grain = MetaData?.filmGrain;
         if (grain != null)
         {
-            if (!NearLook(Strength(grain.active, grain.intensity.value), look.FilmGrain)) return false;
+            if (!NearLook(Strength(grain.active, grain.intensity.value), look.FilmGrain))
+                fields |= Bit(BasisCameraPresetField.FilmGrain);
 
             // Shape only where the grain is actually running, the same rule the vignette follows:
             // with the effect off the panel hides its texture and falloff entirely.
             if (look.FilmGrain > 0f)
             {
-                if ((int)grain.type.value != look.GrainType) return false;
-                if (!NearLook(grain.response.value, look.GrainResponse)) return false;
+                if ((int)grain.type.value != look.GrainType) fields |= Bit(BasisCameraPresetField.GrainType);
+                if (!NearLook(grain.response.value, look.GrainResponse)) fields |= Bit(BasisCameraPresetField.GrainResponse);
             }
         }
 
         var vignette = MetaData?.vignette;
         if (vignette != null)
         {
-            if (!NearLook(Strength(vignette.active, vignette.intensity.value), look.Vignette)) return false;
+            if (!NearLook(Strength(vignette.active, vignette.intensity.value), look.Vignette))
+                fields |= Bit(BasisCameraPresetField.Vignette);
 
             // Shape is only compared where the effect it shapes is running. With the vignette off
             // the panel has nothing on screen that would explain a smoothness mismatch.
             if (look.Vignette > 0f)
             {
-                if (!NearLook(vignette.smoothness.value, look.VignetteSmoothness)) return false;
-                if (!NearColour(vignette.color.value, look.VignetteColour)) return false;
-                if (vignette.rounded.value != look.VignetteRounded) return false;
+                if (!NearLook(vignette.smoothness.value, look.VignetteSmoothness))
+                    fields |= Bit(BasisCameraPresetField.VignetteSmoothness);
+                if (!NearColour(vignette.color.value, look.VignetteColour))
+                    fields |= Bit(BasisCameraPresetField.VignetteColour);
+                if (vignette.rounded.value != look.VignetteRounded)
+                    fields |= Bit(BasisCameraPresetField.VignetteRounded);
             }
         }
 
         var chromatic = MetaData?.chromaticAberration;
         if (chromatic != null &&
-            !NearLook(Strength(chromatic.active, chromatic.intensity.value), look.ChromaticAberration)) return false;
+            !NearLook(Strength(chromatic.active, chromatic.intensity.value), look.ChromaticAberration))
+        {
+            fields |= Bit(BasisCameraPresetField.ChromaticAberration);
+        }
 
         var whiteBalance = MetaData?.whiteBalance;
         if (whiteBalance != null)
         {
-            if (!NearLook(Strength(whiteBalance.active, whiteBalance.temperature.value), look.WhiteBalanceTemperature)) return false;
-            if (!NearLook(Strength(whiteBalance.active, whiteBalance.tint.value), look.WhiteBalanceTint)) return false;
+            if (!NearLook(Strength(whiteBalance.active, whiteBalance.temperature.value), look.WhiteBalanceTemperature))
+                fields |= Bit(BasisCameraPresetField.WhiteBalanceTemperature);
+            if (!NearLook(Strength(whiteBalance.active, whiteBalance.tint.value), look.WhiteBalanceTint))
+                fields |= Bit(BasisCameraPresetField.WhiteBalanceTint);
         }
 
         var colour = MetaData?.colorAdjustments;
         if (colour != null)
         {
-            if (!NearLook(colour.contrast.value, look.Contrast)) return false;
-            if (!NearLook(colour.saturation.value, look.Saturation)) return false;
+            if (!NearLook(colour.contrast.value, look.Contrast)) fields |= Bit(BasisCameraPresetField.Contrast);
+            if (!NearLook(colour.saturation.value, look.Saturation)) fields |= Bit(BasisCameraPresetField.Saturation);
         }
 
         var bloom = MetaData?.bloom;
         if (bloom != null)
         {
-            if (!NearLook(bloom.intensity.value, look.BloomIntensity)) return false;
-            if (!NearLook(bloom.threshold.value, look.BloomThreshold)) return false;
-            if (look.BloomIntensity > 0f && !NearColour(bloom.tint.value, look.BloomTint)) return false;
+            if (!NearLook(bloom.intensity.value, look.BloomIntensity)) fields |= Bit(BasisCameraPresetField.BloomIntensity);
+            if (!NearLook(bloom.threshold.value, look.BloomThreshold)) fields |= Bit(BasisCameraPresetField.BloomThreshold);
+            if (look.BloomIntensity > 0f && !NearColour(bloom.tint.value, look.BloomTint))
+                fields |= Bit(BasisCameraPresetField.BloomTint);
         }
 
         var splitToning = MetaData?.splitToning;
         if (splitToning != null)
         {
-            if (!NearColour(splitToning.shadows.value, look.SplitShadows)) return false;
-            if (!NearColour(splitToning.highlights.value, look.SplitHighlights)) return false;
-            if (!NearLook(splitToning.balance.value, look.SplitBalance)) return false;
+            if (!NearColour(splitToning.shadows.value, look.SplitShadows)) fields |= Bit(BasisCameraPresetField.SplitShadows);
+            if (!NearColour(splitToning.highlights.value, look.SplitHighlights))
+                fields |= Bit(BasisCameraPresetField.SplitHighlights);
+            if (!NearLook(splitToning.balance.value, look.SplitBalance)) fields |= Bit(BasisCameraPresetField.SplitBalance);
         }
 
         var lift = MetaData?.liftGammaGain;
-        if (lift != null && !NearLook(lift.lift.value.w, look.Lift)) return false;
+        if (lift != null && !NearLook(lift.lift.value.w, look.Lift)) fields |= Bit(BasisCameraPresetField.FilmLift);
 
         var distortion = MetaData?.lensDistortion;
         if (distortion != null)
         {
-            if (!NearLook(Strength(distortion.active, distortion.intensity.value), look.LensDistortion)) return false;
-            if (look.LensDistortion != 0f && !NearLook(distortion.scale.value, look.LensDistortionScale)) return false;
+            if (!NearLook(Strength(distortion.active, distortion.intensity.value), look.LensDistortion))
+                fields |= Bit(BasisCameraPresetField.LensDistortion);
+            if (look.LensDistortion != 0f && !NearLook(distortion.scale.value, look.LensDistortionScale))
+                fields |= Bit(BasisCameraPresetField.LensDistortionScale);
         }
 
-        return (int)CaptureTonemapping == look.Tonemapping;
+        if ((int)CaptureTonemapping != look.Tonemapping) fields |= Bit(BasisCameraPresetField.Tonemapping);
     }
 
     /// <summary>An effect's strength as the panel means it: zero whenever the pass is not running.</summary>
@@ -1020,51 +1047,68 @@ public partial class BasisHandHeldCamera
     }
 
     /// <summary>True while every value the mode writes still holds on the live camera.</summary>
-    public bool MatchesCameraMode(BasisCameraMode mode)
-    {
-        if (!TryGetPreset(mode, out BasisCameraModePreset preset)) return false;
+    public bool MatchesCameraMode(BasisCameraMode mode) => CompareToMode(mode).Matches;
 
-        // The body is compared first and without a tolerance, because it is the one thing here that
-        // is not a number: you either are holding a disposable or you are not, and no amount of
-        // matching its grain on a digital camera makes it one.
-        if (Body != preset.Body) return false;
+    /// <summary>
+    /// Every value of <paramref name="mode"/> the live camera is no longer holding.
+    ///
+    /// <para>The only comparison in the file. <see cref="MatchesCameraMode"/> is this one reading
+    /// empty, and the settings readout colours the rows it names — so what drops the label to
+    /// Custom and what the readout calls changed cannot come to mean two different things.</para>
+    /// </summary>
+    public BasisCameraPresetDiff CompareToMode(BasisCameraMode mode)
+    {
+        if (!TryGetPreset(mode, out BasisCameraModePreset preset)) return default;
+
+        ulong fields = 0;
+
+        // The body is compared without a tolerance, because it is the one thing here that is not a
+        // number: you either are holding a disposable or you are not, and no amount of matching its
+        // grain on a digital camera makes it one.
+        if (Body != preset.Body) fields |= Bit(BasisCameraPresetField.Body);
 
         // PinSpace is deliberately not compared. It is where the camera happens to be, not how it
         // is configured — grabbing a flying puck back out of the air, or letting go of a photo
         // camera, must not read as "you have left the mode".
-        if (Modifiers.positionModifier != preset.Position) return false;
-        if (Modifiers.rotationModifier != preset.Rotation) return false;
-        if (!preset.EffectsMatch(Modifiers)) return false;
-        if (useAutoLeveling != preset.AutoLevel) return false;
-        if (useVRHandheldSmoothing != preset.VrStabilisation) return false;
-        if (capture360Enabled != preset.Capture360) return false;
+        if (Modifiers.positionModifier != preset.Position) fields |= Bit(BasisCameraPresetField.PositionModifier);
+        if (Modifiers.rotationModifier != preset.Rotation) fields |= Bit(BasisCameraPresetField.RotationModifier);
+        if (!preset.EffectsMatch(Modifiers)) fields |= Bit(BasisCameraPresetField.Effects);
+        if (useAutoLeveling != preset.AutoLevel) fields |= Bit(BasisCameraPresetField.AutoLevel);
+        if (useVRHandheldSmoothing != preset.VrStabilisation) fields |= Bit(BasisCameraPresetField.VrStabilisation);
+        if (capture360Enabled != preset.Capture360) fields |= Bit(BasisCameraPresetField.Capture360);
 
         // Compared only where they are written. A mode that leaves the follow settings alone must
         // not be knocked out of itself by them, or editing a section it greys out would drop the
         // camera to Custom for a change that had no effect on the shot.
         if (preset.DrivesSubject)
         {
-            if (autoFocusFollowSubject != preset.AutoFocusSubject) return false;
-            if (subjectSettings.anchorToBody != preset.AnchorToBody) return false;
-            if (Vector3.Distance(Modifiers.follow.positionOffset, preset.FollowOffset) > OffsetTolerance) return false;
+            if (autoFocusFollowSubject != preset.AutoFocusSubject) fields |= Bit(BasisCameraPresetField.AutoFocusSubject);
+            if (subjectSettings.anchorToBody != preset.AnchorToBody) fields |= Bit(BasisCameraPresetField.AnchorToBody);
+            if (Vector3.Distance(Modifiers.follow.positionOffset, preset.FollowOffset) > OffsetTolerance)
+                fields |= Bit(BasisCameraPresetField.FollowOffset);
         }
 
         if (captureCamera != null &&
-            Mathf.Abs(captureCamera.fieldOfView - preset.Fov) > FovTolerance) return false;
+            Mathf.Abs(captureCamera.fieldOfView - preset.Fov) > FovTolerance)
+        {
+            fields |= Bit(BasisCameraPresetField.FieldOfView);
+        }
 
         var depthOfField = MetaData?.depthOfField;
         if (depthOfField != null)
         {
-            if (depthOfField.active != preset.DoFEnabled) return false;
+            if (depthOfField.active != preset.DoFEnabled) fields |= Bit(BasisCameraPresetField.DepthOfField);
 
             // With the effect off the panel hides the style, aperture and focal length entirely, so
             // their values are whatever was left behind. Comparing them would strand the camera on
             // Custom with nothing on screen to explain why.
             if (preset.DoFEnabled)
             {
-                if ((int)depthOfField.mode.value != preset.DoFStyle) return false;
-                if (Mathf.Abs(depthOfField.aperture.value - preset.Aperture) > ApertureTolerance) return false;
-                if (Mathf.Abs(depthOfField.focalLength.value - preset.FocalLength) > FocalLengthTolerance) return false;
+                if ((int)depthOfField.mode.value != preset.DoFStyle) fields |= Bit(BasisCameraPresetField.DepthStyle);
+                if (Mathf.Abs(depthOfField.aperture.value - preset.Aperture) > ApertureTolerance)
+                    fields |= Bit(BasisCameraPresetField.DepthAperture);
+                if (Mathf.Abs(depthOfField.focalLength.value - preset.FocalLength) > FocalLengthTolerance)
+                    fields |= Bit(BasisCameraPresetField.FocalLength);
             }
         }
 
@@ -1072,11 +1116,15 @@ public partial class BasisHandHeldCamera
         if (motionBlur != null)
         {
             float liveMotionBlur = motionBlur.active ? motionBlur.intensity.value : 0f;
-            if (Mathf.Abs(liveMotionBlur - preset.MotionBlur) > MotionBlurTolerance) return false;
+            if (Mathf.Abs(liveMotionBlur - preset.MotionBlur) > MotionBlurTolerance)
+                fields |= Bit(BasisCameraPresetField.MotionBlur);
         }
 
-        return MatchesLook(preset.Look);
+        CompareLook(preset.Look, ref fields);
+        return new BasisCameraPresetDiff(mode, fields);
     }
+
+    private static ulong Bit(BasisCameraPresetField field) => BasisCameraPresetDiff.Bit(field);
 
     /// <summary>
     /// Re-derives <see cref="CameraMode"/> from the live camera and reports whether it moved.
@@ -1089,6 +1137,11 @@ public partial class BasisHandHeldCamera
     public bool RefreshCameraMode()
     {
         BasisCameraMode resolved = ResolveCameraMode();
+
+        // A camera that has arrived back on a preset is measured against that one from here on,
+        // however it got there. Only the drop to Custom leaves the comparison where it was.
+        if (resolved != BasisCameraMode.Custom) ComparedMode = resolved;
+
         if (resolved == CameraMode) return false;
 
         CameraMode = resolved;
@@ -1135,6 +1188,7 @@ public partial class BasisHandHeldCamera
         if (TryGetPreset(mode, out BasisCameraModePreset preset))
         {
             PinSpace = preset.Pin;
+            ComparedMode = mode;
         }
 
         CameraMode = mode;

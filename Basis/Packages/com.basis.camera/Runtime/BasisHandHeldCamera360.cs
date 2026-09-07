@@ -64,6 +64,7 @@ public partial class BasisHandHeldCamera
 
         yield return new WaitForEndOfFrame();
 
+        bool headWasNormal = BasisLocalAvatarDriver.IsNormalHead;
         BasisLocalAvatarDriver.ScaleHeadToNormal();
 
         float headingDegrees = captureCamera.transform.eulerAngles.y;
@@ -108,29 +109,40 @@ public partial class BasisHandHeldCamera
         RenderTexture cubeLeft = NewCubeRT(faceSize);
         RenderTexture cubeRight = stereo ? NewCubeRT(faceSize) : null;
 
-#if BASIS_HAS_SSGI && !UNITY_ANDROID
-        SMModuleScreenSpaceGlobalIlluminationURP.SuspendCamera(captureCamera, true);
+        // Suspension is a global flag on a camera that outlives this method, so the resume has to be
+        // unconditional. Left as a plain pair, one throw out of RenderToCubemap or ConvertToEquirect and
+        // that camera renders no global illumination for the rest of the session - and nothing about the
+        // symptom would point back at a 360 capture that failed once, minutes earlier.
+#if BASIS_HAS_GI && !UNITY_ANDROID
+        SMModuleGlobalIlluminationURP.SuspendCamera(captureCamera, true);
 #endif
         bool rendered;
-        if (stereo)
+        try
         {
-            rendered = captureCamera.RenderToCubemap(cubeLeft, 63, Camera.MonoOrStereoscopicEye.Left)
-                && captureCamera.RenderToCubemap(cubeRight, 63, Camera.MonoOrStereoscopicEye.Right);
-            if (rendered)
+            if (stereo)
             {
-                cubeLeft.ConvertToEquirect(equirect, Camera.MonoOrStereoscopicEye.Left);
-                cubeRight.ConvertToEquirect(equirect, Camera.MonoOrStereoscopicEye.Right);
+                rendered = captureCamera.RenderToCubemap(cubeLeft, 63, Camera.MonoOrStereoscopicEye.Left)
+                    && captureCamera.RenderToCubemap(cubeRight, 63, Camera.MonoOrStereoscopicEye.Right);
+                if (rendered)
+                {
+                    cubeLeft.ConvertToEquirect(equirect, Camera.MonoOrStereoscopicEye.Left);
+                    cubeRight.ConvertToEquirect(equirect, Camera.MonoOrStereoscopicEye.Right);
+                }
+            }
+            else
+            {
+                rendered = captureCamera.RenderToCubemap(cubeLeft, 63, Camera.MonoOrStereoscopicEye.Mono);
+                if (rendered)
+                    cubeLeft.ConvertToEquirect(equirect, Camera.MonoOrStereoscopicEye.Mono);
             }
         }
-        else
+        finally
         {
-            rendered = captureCamera.RenderToCubemap(cubeLeft, 63, Camera.MonoOrStereoscopicEye.Mono);
-            if (rendered)
-                cubeLeft.ConvertToEquirect(equirect, Camera.MonoOrStereoscopicEye.Mono);
-        }
-#if BASIS_HAS_SSGI && !UNITY_ANDROID
-        SMModuleScreenSpaceGlobalIlluminationURP.SuspendCamera(captureCamera, false);
+#if BASIS_HAS_GI && !UNITY_ANDROID
+            SMModuleGlobalIlluminationURP.SuspendCamera(captureCamera, false);
 #endif
+            if (!headWasNormal) BasisLocalAvatarDriver.ScaleHeadToZero();
+        }
 
         captureCamera.usePhysicalProperties = savedPhysical;
         captureCamera.targetTexture = savedTarget;
@@ -150,7 +162,6 @@ public partial class BasisHandHeldCamera
         {
             BasisDebug.LogError("[HandHeldCamera] RenderToCubemap failed; 360 capture aborted.");
             ReleaseRT(equirect);
-            BasisLocalAvatarDriver.ScaleHeadToZero();
             yield break;
         }
 
@@ -165,13 +176,11 @@ public partial class BasisHandHeldCamera
             {
                 BasisDebug.LogError("360 GPU Readback failed.");
                 ReleaseRT(readbackRT);
-                BasisLocalAvatarDriver.ScaleHeadToZero();
                 return;
             }
 
             byte[] raw = request.GetData<byte>().ToArray();
             ReleaseRT(readbackRT);
-            BasisLocalAvatarDriver.ScaleHeadToZero();
 
             bool anyNonZero = false;
             for (int i = 0; i < raw.Length; i += 3988)
@@ -189,26 +198,6 @@ public partial class BasisHandHeldCamera
 
     private async void Process360AndSave(byte[] raw, int width, int height, bool exr, BasisHandHeldCameraPhotoMetadata.PhotoMetadata photoMetadata, int perEyeWidth, int fullHeight, bool stereo, float headingDegrees, float exposure, float contrast, float saturation)
     {
-        byte[] imageData;
-
-        if (exr)
-        {
-            var tex = new Texture2D(width, height, TextureFormat.RGBAFloat, false);
-            tex.LoadRawTextureData(raw);
-            tex.Apply(false);
-            imageData = tex.EncodeToEXR(Texture2D.EXRFlags.CompressZIP);
-            Destroy(tex);
-        }
-        else
-        {
-            byte[] rgba = await Task.Run(() => TonemapEquirectToRgba32(raw, width, height, exposure, contrast, saturation));
-            var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
-            tex.LoadRawTextureData(rgba);
-            tex.Apply(false);
-            imageData = tex.EncodeToPNG();
-            Destroy(tex);
-        }
-
         if (photoMetadata != null)
         {
             photoMetadata.HasPano = true;
@@ -217,8 +206,49 @@ public partial class BasisHandHeldCamera
             photoMetadata.PanoFullHeight = fullHeight;
             photoMetadata.PanoPerEyeHeight = perEyeWidth / 2;
             photoMetadata.PanoHeadingDegrees = headingDegrees;
+        }
 
-            imageData = BasisHandHeldCameraPhotoMetadata.Embed(imageData, exr ? "EXR" : "PNG", photoMetadata, width, height);
+        byte[] imageData;
+        BasisCameraPrintResize.PrintCopy printCopy = default;
+        bool printable = printPhotoEnabled && !exr;
+
+        if (exr)
+        {
+            imageData = await Task.Run(() =>
+            {
+                byte[] encoded = ImageConversion.EncodeArrayToEXR(raw, UnityEngine.Experimental.Rendering.GraphicsFormat.R32G32B32A32_SFloat, (uint)width, (uint)height, 0, Texture2D.EXRFlags.CompressZIP);
+                if (photoMetadata != null)
+                    encoded = BasisHandHeldCameraPhotoMetadata.Embed(encoded, "EXR", photoMetadata, width, height);
+                return encoded;
+            });
+        }
+        else
+        {
+            (imageData, printCopy) = await Task.Run(() =>
+            {
+                byte[] rgba = TonemapEquirectToRgba32(raw, width, height, exposure, contrast, saturation);
+                byte[] encoded = ImageConversion.EncodeArrayToPNG(rgba, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SRGB, (uint)width, (uint)height, 0);
+                if (photoMetadata != null)
+                    encoded = BasisHandHeldCameraPhotoMetadata.Embed(encoded, "PNG", photoMetadata, width, height);
+
+                // An equirect is wider than anything the pickup service imports, so the print copy
+                // comes off the tonemapped pixels while they are still in hand.
+                BasisCameraPrintResize.PrintCopy builtPrint = default;
+                if (printable)
+                {
+                    try
+                    {
+                        builtPrint = BasisCameraPrintResize.Build(rgba, width, height, encoded.LongLength);
+                    }
+                    catch (Exception e)
+                    {
+                        BasisDebug.LogWarning(
+                            $"Print Photo could not resize the shot to fit the image pickup limits: {e.GetType().Name}: {e.Message}",
+                            BasisDebug.LogTag.Camera);
+                    }
+                }
+                return (encoded, builtPrint);
+            });
         }
 
         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -240,7 +270,7 @@ public partial class BasisHandHeldCamera
         }
 
         RecordPhotoSaved(path);
-        PrintPhotoIfEnabled(path);
+        PrintPhotoIfEnabled(path, printCopy);
     }
 
     private static byte[] TonemapEquirectToRgba32(byte[] linearFloatRgba, int width, int height, float exposure, float contrast, float saturation)

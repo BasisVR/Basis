@@ -18,7 +18,7 @@ namespace Basis.ImagePickup
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.Pickups;
         private const float TransferLabelDropMeters = 0.06f;
 
-        public Guid ImageId;
+        [NonSerialized] public Guid ImageId;
         public ushort OwnerId;
         public string OwnerName;
         public bool IsOwner;

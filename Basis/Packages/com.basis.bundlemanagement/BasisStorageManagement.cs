@@ -208,12 +208,35 @@ public static class BasisStorageManagement
         BasisDebug.Log("All BEE cache cleared.", BasisDebug.LogTag.Event);
     }
 
+    private static int _enforceRunning;
+
     /// <summary>
     /// Enforces the cache size limit by evicting the oldest (LRU) files
     /// that are not currently loaded in memory, until total size is under MaxCacheSizeBytes.
     /// Call this after downloading a new file.
     /// </summary>
     public static void EnforceCacheSizeLimit()
+    {
+        if (System.Threading.Interlocked.CompareExchange(ref _enforceRunning, 1, 0) != 0)
+            return;
+        Task.Run(() =>
+        {
+            try
+            {
+                EnforceCacheSizeLimitBlocking();
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"Cache size enforcement failed: {ex}");
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _enforceRunning, 0);
+            }
+        });
+    }
+
+    public static void EnforceCacheSizeLimitBlocking()
     {
         long currentSize = GetTotalCacheSizeBytes();
         if (currentSize <= MaxCacheSizeBytes)

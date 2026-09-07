@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using static SerializableBasis;
 
 namespace BasisNetworkServer
@@ -19,7 +20,11 @@ namespace BasisNetworkServer
         public float RotationY;
         public float RotationZ;
         public float RotationW;
-        public bool HasNewData;
+        // Stopwatch timestamp of the newest position data, 0 while none. Recipients whose
+        // LastSentTimes entry is >= this already hold the latest position, so a camera that
+        // stopped moving stops costing sends; a late joiner has no entry (reads as 0) and
+        // still receives the parked position.
+        public long DataTicks;
         // ConcurrentDictionary, not Dictionary: this is written from the reduction-system tick
         // thread (UpdatePIPPositions) while HandlePIPStateChange clears it from the network receive
         // thread and RemovePlayer removes from it on disconnect. A plain Dictionary under a
@@ -55,7 +60,7 @@ namespace BasisNetworkServer
                 state.RotationY = clientMsg.RotationY;
                 state.RotationZ = clientMsg.RotationZ;
                 state.RotationW = clientMsg.RotationW;
-                state.HasNewData = true;
+                state.DataTicks = Stopwatch.GetTimestamp();
 
                 BNL.Log($"PIP camera created for player {peerId}");
             }
@@ -64,7 +69,7 @@ namespace BasisNetworkServer
                 if (PIPStates.TryGetValue(peer.Id, out var state))
                 {
                     state.IsActive = false;
-                    state.HasNewData = false;
+                    state.DataTicks = 0;
                     state.LastSentTimes.Clear();
                 }
 
@@ -112,7 +117,7 @@ namespace BasisNetworkServer
             state.RotationY = clientMsg.RotationY;
             state.RotationZ = clientMsg.RotationZ;
             state.RotationW = clientMsg.RotationW;
-            state.HasNewData = true;
+            state.DataTicks = Stopwatch.GetTimestamp();
         }
 
         /// <summary>
@@ -122,73 +127,89 @@ namespace BasisNetworkServer
         public static void UpdatePIPPositions(long nowTicks)
         {
             NetPeer[] peers = NetworkServer.PeerSnapshot;
-            if (peers == null) return;
+            if (peers == null || PIPStates.IsEmpty) return;
 
-            foreach (var pipKvp in PIPStates)
+            // Cameras are independent (each owns its LastSentTimes), so the sweep fans out
+            // across the reduction system's tuned worker budget instead of running
+            // O(cameras x peers) serially on the tick thread. A single camera stays inline —
+            // parallel dispatch would cost more than the sweep.
+            if (PIPStates.Count == 1)
             {
-                int ownerId = pipKvp.Key;
-                CameraPIPState pipState = pipKvp.Value;
-
-                if (!pipState.IsActive || !pipState.HasNewData)
-                    continue;
-
-                // Get the PIP owner's player position for distance calc
-                if (!BasisServerReductionSystemEvents.playerStates.TryGetValue(ownerId, out PlayerState ownerPlayerState))
-                    continue;
-
-                if (!ownerPlayerState.IsActive)
-                    continue;
-
-                // Build the outbound message once
-                CameraPIPPositionMessage posMsg = new CameraPIPPositionMessage
-                {
-                    PlayerID = (ushort)ownerId,
-                    PositionX = pipState.PositionX,
-                    PositionY = pipState.PositionY,
-                    PositionZ = pipState.PositionZ,
-                    RotationX = pipState.RotationX,
-                    RotationY = pipState.RotationY,
-                    RotationZ = pipState.RotationZ,
-                    RotationW = pipState.RotationW,
-                };
-
-                NetDataWriter writer = NetworkServer.RentWriter();
-                posMsg.Serialize(writer);
-
-                for (int i = 0; i < peers.Length; i++)
-                {
-                    NetPeer recipientPeer = peers[i];
-                    int recipientId = recipientPeer.Id;
-
-                    if (recipientId == ownerId)
-                        continue;
-
-                    if (!BasisServerReductionSystemEvents.playerStates.TryGetValue(recipientId, out PlayerState recipientState))
-                        continue;
-
-                    if (!recipientState.IsActive)
-                        continue;
-
-                    // Distance between recipient and PIP owner
-                    float distSq = DistanceSquared(recipientState.Position, ownerPlayerState.Position);
-                    CalculateIntervalFromDistanceSq(distSq, out int actualInterval);
-
-                    if (!pipState.LastSentTimes.TryGetValue(recipientId, out long lastSent))
-                        lastSent = 0;
-
-                    long elapsed = Math.Max(0, nowTicks - lastSent);
-                    long required = (long)(actualInterval * MsToTick);
-
-                    if (elapsed >= required)
-                    {
-                        recipientPeer.Send(writer, BasisNetworkCommons.CameraPIPPositionChannel, DeliveryMethod.Sequenced);
-                        BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.CameraPIPPositionChannel, writer.Length);
-                        pipState.LastSentTimes[recipientId] = nowTicks;
-                    }
-                }
-
-                NetworkServer.ReturnWriter(writer);
+                foreach (var pipKvp in PIPStates)
+                    SweepCamera(pipKvp.Key, pipKvp.Value, peers, nowTicks);
+                return;
             }
+
+            Parallel.ForEach(PIPStates, BasisServerReductionSystemEvents.SharedParallelOptions,
+                pipKvp => SweepCamera(pipKvp.Key, pipKvp.Value, peers, nowTicks));
+        }
+
+        private static void SweepCamera(int ownerId, CameraPIPState pipState, NetPeer[] peers, long nowTicks)
+        {
+            long dataTicks = pipState.DataTicks;
+            if (!pipState.IsActive || dataTicks == 0)
+                return;
+
+            // Get the PIP owner's player position for distance calc
+            if (!BasisServerReductionSystemEvents.playerStates.TryGetValue(ownerId, out PlayerState ownerPlayerState))
+                return;
+
+            if (!ownerPlayerState.IsActive)
+                return;
+
+            // Build the outbound message once
+            CameraPIPPositionMessage posMsg = new CameraPIPPositionMessage
+            {
+                PlayerID = (ushort)ownerId,
+                PositionX = pipState.PositionX,
+                PositionY = pipState.PositionY,
+                PositionZ = pipState.PositionZ,
+                RotationX = pipState.RotationX,
+                RotationY = pipState.RotationY,
+                RotationZ = pipState.RotationZ,
+                RotationW = pipState.RotationW,
+            };
+
+            NetDataWriter writer = NetworkServer.RentWriter();
+            posMsg.Serialize(writer);
+
+            for (int i = 0; i < peers.Length; i++)
+            {
+                NetPeer recipientPeer = peers[i];
+                int recipientId = recipientPeer.Id;
+
+                if (recipientId == ownerId)
+                    continue;
+
+                if (!pipState.LastSentTimes.TryGetValue(recipientId, out long lastSent))
+                    lastSent = 0;
+
+                // Already holds the latest position — nothing to send until new data lands.
+                if (lastSent >= dataTicks)
+                    continue;
+
+                if (!BasisServerReductionSystemEvents.playerStates.TryGetValue(recipientId, out PlayerState recipientState))
+                    continue;
+
+                if (!recipientState.IsActive)
+                    continue;
+
+                // Distance between recipient and PIP owner
+                float distSq = DistanceSquared(recipientState.Position, ownerPlayerState.Position);
+                CalculateIntervalFromDistanceSq(distSq, out int actualInterval);
+
+                long elapsed = Math.Max(0, nowTicks - lastSent);
+                long required = (long)(actualInterval * MsToTick);
+
+                if (elapsed >= required)
+                {
+                    recipientPeer.Send(writer, BasisNetworkCommons.CameraPIPPositionChannel, DeliveryMethod.Sequenced);
+                    BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.CameraPIPPositionChannel, writer.Length);
+                    pipState.LastSentTimes[recipientId] = nowTicks;
+                }
+            }
+
+            NetworkServer.ReturnWriter(writer);
         }
 
         /// <summary>

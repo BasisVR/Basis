@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Basis;
 using Basis.BasisUI;
+using Basis.Scripts.Rendering;
 using TMPro;
 using Basis.Cinematics;
 using UnityEngine;
@@ -498,6 +499,11 @@ public partial class BasisHandHeldCameraUI
         if (DoFAutoSprite != null) DoFAutoSprite.SetActive(dofIsActive && useAuto);
         if (DoFManualSprite != null) DoFManualSprite.SetActive(dofIsActive && !useAuto);
 
+        // Every path that turns depth of field on or off ends here, so this is where the camera's
+        // own toggle is brought back in line with the effect — including the ones that never touch
+        // it, like the panel's blur-style dropdown and the mode presets.
+        if (HHC != null) HHC.BasisDOFInteractionHandler?.SyncToggleFromState();
+
         BasisDebug.Log($"[DepthMode] Switched to {(useAuto ? "Auto" : "Manual")}");
     }
 
@@ -736,6 +742,50 @@ public partial class BasisHandHeldCameraUI
             VolumetricFogVolumedensity = baseline.VolumetricFogVolumedensity,
             VolumetricFogenableAPVContribution = baseline.VolumetricFogenableAPVContribution,
             VolumetricFogenableMainLightContribution = baseline.VolumetricFogenableMainLightContribution,
+            // Global Illumination is platform-gated the same way volumetric fog is — where it is
+            // compiled out there is no bridge to read, so the last applied values carry forward.
+            overrideGlobalIllumination = baseline.overrideGlobalIllumination,
+            giMode = baseline.giMode,
+            giSkinnedMeshes = baseline.giSkinnedMeshes,
+            giLayers = baseline.giLayers,
+            giQuality = baseline.giQuality,
+            giFallback = baseline.giFallback,
+            giIgnoreBakedEmission = baseline.giIgnoreBakedEmission,
+            giIntensity = baseline.giIntensity,
+            giSaturation = baseline.giSaturation,
+            giObscurance = baseline.giObscurance,
+            giRayLength = baseline.giRayLength,
+            giSmoothing = baseline.giSmoothing,
+            giWideBlur = baseline.giWideBlur,
+            giRayReuse = baseline.giRayReuse,
+            giEmitters = baseline.giEmitters,
+            giEmitterIntensity = baseline.giEmitterIntensity,
+            giSpecular = baseline.giSpecular,
+            giObscuranceRadius = baseline.giObscuranceRadius,
+            giFadeDistance = baseline.giFadeDistance,
+            giNormalBias = baseline.giNormalBias,
+            giDistanceBias = baseline.giDistanceBias,
+            giBounceThreshold = baseline.giBounceThreshold,
+            giFireflyClamp = baseline.giFireflyClamp,
+            giReflectionProbes = baseline.giReflectionProbes,
+            giMirrors = baseline.giMirrors,
+            // Ray Traced Ambient Occlusion is platform-gated the same way, for the same reason.
+            overrideRTAO = baseline.overrideRTAO,
+            rtaoMode = baseline.rtaoMode,
+            rtaoIntensity = baseline.rtaoIntensity,
+            rtaoRadius = baseline.rtaoRadius,
+            rtaoApplyMode = baseline.rtaoApplyMode,
+            rtaoDenoisePasses = baseline.rtaoDenoisePasses,
+            rtaoDirectStrength = baseline.rtaoDirectStrength,
+            rtaoLayers = baseline.rtaoLayers,
+            rtaoSkinnedMeshes = baseline.rtaoSkinnedMeshes,
+            rtaoNormalBias = baseline.rtaoNormalBias,
+            rtaoDistanceBias = baseline.rtaoDistanceBias,
+            rtaoFalloff = baseline.rtaoFalloff,
+            rtaoPower = baseline.rtaoPower,
+            rtaoFadeStart = baseline.rtaoFadeStart,
+            rtaoFadeEnd = baseline.rtaoFadeEnd,
+            rtaoSpecularRelief = baseline.rtaoSpecularRelief,
             hueShift = HHC != null && HHC.MetaData.colorAdjustments != null ? HHC.MetaData.colorAdjustments.hueShift.value : 0f,
             vignette = HHC != null && HHC.MetaData.vignette != null ? HHC.MetaData.vignette.intensity.value : 0f,
             chromaticAberration = HHC != null && HHC.MetaData.chromaticAberration != null ? HHC.MetaData.chromaticAberration.intensity.value : 0f,
@@ -768,9 +818,20 @@ public partial class BasisHandHeldCameraUI
             modifiers = HHC != null ? HHC.Modifiers.Clone() : new BasisCameraModifierStack(),
             anchorFollowsBody = HHC != null && HHC.anchorFollowsBody,
             detachedMarker = HHC != null ? (int)HHC.detachedMarker : (int)BasisCameraDetachedMarker.Puck,
+            detachedMarkerScale = HHC != null ? HHC.DetachedMarkerScale : baseline.detachedMarkerScale,
+            puckLookAtPreview = HHC != null && HHC.puckLookAtPreview,
             capture360 = HHC != null && HHC.capture360Enabled,
             useAutoLeveling = HHC != null && HHC.useAutoLeveling,
+            cameraRoll = HHC != null && HHC.cameraRollEnabled,
             useVRHandheldSmoothing = HHC != null && HHC.useVRHandheldSmoothing,
+            vrStabilizationPositionDamping = HHC != null ? HHC.vrHandheldPositionDamping : baseline.vrStabilizationPositionDamping,
+            vrStabilizationYawDamping = HHC != null ? HHC.vrHandheldYawDamping : baseline.vrStabilizationYawDamping,
+            vrStabilizationPitchDamping = HHC != null ? HHC.vrHandheldPitchDamping : baseline.vrStabilizationPitchDamping,
+            vrStabilizationRollDamping = HHC != null ? HHC.vrHandheldRollDamping : baseline.vrStabilizationRollDamping,
+            zoomStabilization = HHC == null || HHC.zoomStabilization,
+            zoomStabilizationResponse = HHC != null ? HHC.zoomStabilizationResponse : baseline.zoomStabilizationResponse,
+            zoomStabilizationMinScale = HHC != null ? HHC.zoomStabilizationMinScale : baseline.zoomStabilizationMinScale,
+            zoomStabilizationMaxScale = HHC != null ? HHC.zoomStabilizationMaxScale : baseline.zoomStabilizationMaxScale,
             useSmoothDrag = HHC != null && HHC.useSmoothDrag,
             smoothDragPositionDamping = HHC != null ? HHC.smoothDragPositionDamping : baseline.smoothDragPositionDamping,
             smoothDragRotationDamping = HHC != null ? HHC.smoothDragRotationDamping : baseline.smoothDragRotationDamping,
@@ -781,7 +842,16 @@ public partial class BasisHandHeldCameraUI
             flyTurnSpeed = HHC != null ? HHC.vrFlyTurnSpeed : baseline.flyTurnSpeed,
             flyMouseSensitivity = HHC != null ? HHC.mouseSensitivity : baseline.flyMouseSensitivity,
             flyMomentum = HHC == null || HHC.useMomentum,
+            flyMovementFollowsPitch = HHC == null || HHC.vrFlyMovementFollowsPitch,
             showFlyOnMainMenu = HHC != null && HHC.showFlyOnMainMenu,
+            vrLeftHandFlyEnabled = HHC != null && HHC.vrLeftHandFlyEnabled,
+            vrRightHandFlyRotateEnabled = HHC != null && HHC.vrRightHandFlyRotateEnabled,
+            vrHandFlyMoveDeadzone = HHC != null ? HHC.vrHandFlyMoveDeadzone : baseline.vrHandFlyMoveDeadzone,
+            vrHandFlyMoveReach = HHC != null ? HHC.vrHandFlyMoveReach : baseline.vrHandFlyMoveReach,
+            vrHandFlyMoveSensitivity = HHC != null ? HHC.vrHandFlyMoveSensitivity : baseline.vrHandFlyMoveSensitivity,
+            vrHandFlyTurnDeadzone = HHC != null ? HHC.vrHandFlyTurnDeadzone : baseline.vrHandFlyTurnDeadzone,
+            vrHandFlyTurnReach = HHC != null ? HHC.vrHandFlyTurnReach : baseline.vrHandFlyTurnReach,
+            vrHandFlyTurnSensitivity = HHC != null ? HHC.vrHandFlyTurnSensitivity : baseline.vrHandFlyTurnSensitivity,
             resizeWithGesture = HHC != null ? HHC.ResizeWithGesture : baseline.resizeWithGesture,
             printPhoto = HHC != null && HHC.printPhotoEnabled,
             gifDurationSeconds = HHC != null ? HHC.GifDurationSeconds : baseline.gifDurationSeconds,
@@ -795,6 +865,9 @@ public partial class BasisHandHeldCameraUI
             videoQuality = HHC != null ? HHC.VideoRecordingQuality : baseline.videoQuality,
             videoTimeLimit = HHC == null || HHC.VideoRecordingTimeLimit,
             videoContinuousClips = HHC != null && HHC.VideoContinuousClips,
+            photogrammetryDistanceMeters = HHC != null ? HHC.PhotogrammetryDistanceMeters : baseline.photogrammetryDistanceMeters,
+            photogrammetryAngleDegrees = HHC != null ? HHC.PhotogrammetryAngleDegrees : baseline.photogrammetryAngleDegrees,
+            photogrammetryWidth = HHC != null ? HHC.PhotogrammetryWidth : baseline.photogrammetryWidth,
             streamTransport = HHC != null ? (int)HHC.VideoTransport : baseline.streamTransport,
             streamWidth = HHC != null ? HHC.VideoOutputSettings.Width : baseline.streamWidth,
             streamHeight = HHC != null ? HHC.VideoOutputSettings.Height : baseline.streamHeight,
@@ -815,6 +888,61 @@ public partial class BasisHandHeldCameraUI
             settings.VolumetricFogVolumedensity = HHC.MetaData.VolumetricFogVolume.density.value;
             settings.VolumetricFogenableAPVContribution = HHC.MetaData.VolumetricFogVolume.enableAPVContribution.value;
             settings.VolumetricFogenableMainLightContribution = HHC.MetaData.VolumetricFogVolume.enableMainLightContribution.value;
+        }
+#endif
+
+#if BASIS_HAS_GI && !UNITY_ANDROID
+        if (HHC != null)
+        {
+            settings.overrideGlobalIllumination = HHC.OverrideGlobalIllumination;
+            BasisGlobalIlluminationCaptureOverride gi = HHC.GlobalIlluminationOverride;
+            settings.giMode = System.Array.IndexOf(SMModuleGlobalIlluminationURP.ModeOptions, gi.Mode);
+            settings.giSkinnedMeshes = System.Array.IndexOf(SMModuleGlobalIlluminationURP.SkinnedMeshesOptions, gi.SkinnedMeshes);
+            settings.giLayers = System.Array.IndexOf(SMModuleGlobalIlluminationURP.LayersOptions, gi.Layers);
+            settings.giQuality = System.Array.IndexOf(SMModuleGlobalIlluminationURP.QualityOptions, gi.Quality);
+            settings.giFallback = System.Array.IndexOf(SMModuleGlobalIlluminationURP.FallbackOptions, gi.Fallback);
+            settings.giIgnoreBakedEmission = gi.IgnoreBakedEmission;
+            settings.giIntensity = gi.Intensity;
+            settings.giSaturation = gi.Saturation;
+            settings.giObscurance = gi.Obscurance;
+            settings.giRayLength = gi.RayLength;
+            settings.giSmoothing = gi.Smoothing;
+            settings.giWideBlur = gi.WideBlur;
+            settings.giRayReuse = gi.RayReuse;
+            settings.giEmitters = gi.Emitters;
+            settings.giEmitterIntensity = gi.EmitterIntensity;
+            settings.giSpecular = gi.Specular;
+            settings.giObscuranceRadius = gi.ObscuranceRadius;
+            settings.giFadeDistance = gi.FadeDistance;
+            settings.giNormalBias = gi.NormalBias;
+            settings.giDistanceBias = gi.DistanceBias;
+            settings.giBounceThreshold = gi.BounceThreshold;
+            settings.giFireflyClamp = gi.FireflyClamp;
+            settings.giReflectionProbes = gi.ReflectionProbes;
+            settings.giMirrors = gi.Mirrors;
+        }
+#endif
+
+#if BASIS_HAS_RTAO && !UNITY_ANDROID
+        if (HHC != null)
+        {
+            settings.overrideRTAO = HHC.OverrideRTAO;
+            BasisRTAOCaptureOverride rtao = HHC.RTAOOverride;
+            settings.rtaoMode = rtao.Mode == BasisRTAOIntegration.ModeRayTraced ? 1 : 0;
+            settings.rtaoIntensity = rtao.Intensity;
+            settings.rtaoRadius = rtao.Radius;
+            settings.rtaoApplyMode = rtao.ApplyMode == BasisRTAOIntegration.ApplyFinalImage ? 1 : 0;
+            settings.rtaoDenoisePasses = rtao.DenoisePasses;
+            settings.rtaoDirectStrength = rtao.DirectStrength;
+            settings.rtaoLayers = rtao.Layers switch { "World" => 1, "World And Avatars" => 2, _ => 0 };
+            settings.rtaoSkinnedMeshes = rtao.SkinnedMeshes == "Proxy" ? 1 : 0;
+            settings.rtaoNormalBias = rtao.NormalBias;
+            settings.rtaoDistanceBias = rtao.DistanceBias;
+            settings.rtaoFalloff = rtao.Falloff;
+            settings.rtaoPower = rtao.Power;
+            settings.rtaoFadeStart = rtao.FadeStart;
+            settings.rtaoFadeEnd = rtao.FadeEnd;
+            settings.rtaoSpecularRelief = rtao.SpecularRelief;
         }
 #endif
 
@@ -970,6 +1098,14 @@ public partial class BasisHandHeldCameraUI
             settings.modifiers.subject.framingRadius = settings.modifiers.subject.framingRadius > 0f
                 ? settings.modifiers.subject.framingRadius
                 : new CameraSettings().modifiers.subject.framingRadius;
+        }
+
+        if (settings.settingsVersion < 12)
+        {
+            // Aim Along Track's block did not exist, and a damping of zero is not a neutral
+            // absence — it is a hard lock that snaps the shot round on every bend of the path.
+            settings.modifiers ??= new BasisCameraModifierStack();
+            settings.modifiers.trackAim = BasisCameraTrackAimSettings.Default;
         }
 
         settings.modifiers ??= new BasisCameraModifierStack();
@@ -1214,9 +1350,20 @@ public partial class BasisHandHeldCameraUI
         HHC.anchorFollowsBody = settings.anchorFollowsBody;
         HHC.SetDetachedMarker((BasisCameraDetachedMarker)Mathf.Clamp(
             settings.detachedMarker, 0, (int)BasisCameraDetachedMarker.Gizmo));
+        HHC.SetDetachedMarkerScale(settings.detachedMarkerScale);
+        HHC.SetPuckLookAtPreview(settings.puckLookAtPreview);
         HHC.capture360Enabled = settings.capture360;
         HHC.useAutoLeveling = settings.useAutoLeveling;
+        HHC.SetCameraRollEnabled(settings.cameraRoll);
         HHC.useVRHandheldSmoothing = settings.useVRHandheldSmoothing;
+        HHC.SetVRStabilizationPositionDamping(settings.vrStabilizationPositionDamping);
+        HHC.SetVRStabilizationYawDamping(settings.vrStabilizationYawDamping);
+        HHC.SetVRStabilizationPitchDamping(settings.vrStabilizationPitchDamping);
+        HHC.SetVRStabilizationRollDamping(settings.vrStabilizationRollDamping);
+        HHC.zoomStabilization = settings.zoomStabilization;
+        HHC.SetZoomStabilizationResponse(settings.zoomStabilizationResponse);
+        HHC.SetZoomStabilizationMinScale(settings.zoomStabilizationMinScale);
+        HHC.SetZoomStabilizationMaxScale(settings.zoomStabilizationMaxScale);
         HHC.useSmoothDrag = settings.useSmoothDrag;
         HHC.SetSmoothDragPositionDamping(settings.smoothDragPositionDamping);
         HHC.SetSmoothDragRotationDamping(settings.smoothDragRotationDamping);
@@ -1227,7 +1374,16 @@ public partial class BasisHandHeldCameraUI
         HHC.SetFlyTurnSpeed(settings.flyTurnSpeed);
         HHC.SetFlyMouseSensitivity(settings.flyMouseSensitivity);
         HHC.useMomentum = settings.flyMomentum;
+        HHC.SetVRFlyMovementFollowsPitch(settings.flyMovementFollowsPitch);
         HHC.SetShowFlyOnMainMenu(settings.showFlyOnMainMenu);
+        HHC.SetVRLeftHandFlyEnabled(settings.vrLeftHandFlyEnabled);
+        HHC.SetVRRightHandFlyRotateEnabled(settings.vrRightHandFlyRotateEnabled);
+        HHC.SetHandFlyMoveDeadzone(settings.vrHandFlyMoveDeadzone);
+        HHC.SetHandFlyMoveReach(settings.vrHandFlyMoveReach);
+        HHC.SetHandFlyMoveSensitivity(settings.vrHandFlyMoveSensitivity);
+        HHC.SetHandFlyTurnDeadzone(settings.vrHandFlyTurnDeadzone);
+        HHC.SetHandFlyTurnReach(settings.vrHandFlyTurnReach);
+        HHC.SetHandFlyTurnSensitivity(settings.vrHandFlyTurnSensitivity);
         HHC.SetResizeWithGesture(settings.resizeWithGesture);
         HHC.printPhotoEnabled = settings.printPhoto;
 
@@ -1244,6 +1400,9 @@ public partial class BasisHandHeldCameraUI
         HHC.SetVideoRecordingQuality(settings.videoQuality);
         HHC.VideoRecordingTimeLimit = settings.videoTimeLimit;
         HHC.VideoContinuousClips = settings.videoContinuousClips;
+        HHC.SetPhotogrammetryDistance(settings.photogrammetryDistanceMeters);
+        HHC.SetPhotogrammetryAngle(settings.photogrammetryAngleDegrees);
+        HHC.SetPhotogrammetryWidth(settings.photogrammetryWidth);
         HHC.ApplyStreamSettings((BasisVideoTransport)settings.streamTransport, settings.streamWidth, settings.streamHeight, settings.streamFrameRate, settings.streamQuality, settings.streamPort, settings.streamSenderName);
 
         // After the body, which this defers to: a file that names a film body and asks for the
@@ -1258,6 +1417,56 @@ public partial class BasisHandHeldCameraUI
             HHC.MetaData.VolumetricFogVolume.enableMainLightContribution.value = settings.VolumetricFogenableMainLightContribution;
             HHC.SetOverrideVolumetricFog(settings.overrideVolumetricFog);
         }
+#endif
+
+#if BASIS_HAS_GI && !UNITY_ANDROID
+        HHC.SetGlobalIlluminationOverrideMode(settings.giMode);
+        HHC.SetGlobalIlluminationOverrideSkinnedMeshes(settings.giSkinnedMeshes);
+        HHC.SetGlobalIlluminationOverrideLayers(settings.giLayers);
+        HHC.SetGlobalIlluminationOverrideQuality(settings.giQuality);
+        HHC.SetGlobalIlluminationOverrideFallback(settings.giFallback);
+        HHC.SetGlobalIlluminationOverrideIgnoreBakedEmission(settings.giIgnoreBakedEmission);
+        HHC.SetGlobalIlluminationOverrideIntensity(settings.giIntensity);
+        HHC.SetGlobalIlluminationOverrideSaturation(settings.giSaturation);
+        HHC.SetGlobalIlluminationOverrideObscurance(settings.giObscurance);
+        HHC.SetGlobalIlluminationOverrideRayLength(settings.giRayLength);
+        HHC.SetGlobalIlluminationOverrideSmoothing(settings.giSmoothing);
+        HHC.SetGlobalIlluminationOverrideWideBlur(settings.giWideBlur);
+        HHC.SetGlobalIlluminationOverrideRayReuse(settings.giRayReuse);
+        HHC.SetGlobalIlluminationOverrideEmitters(settings.giEmitters);
+        HHC.SetGlobalIlluminationOverrideEmitterIntensity(settings.giEmitterIntensity);
+        HHC.SetGlobalIlluminationOverrideSpecular(settings.giSpecular);
+        HHC.SetGlobalIlluminationOverrideObscuranceRadius(settings.giObscuranceRadius);
+        HHC.SetGlobalIlluminationOverrideFadeDistance(settings.giFadeDistance);
+        HHC.SetGlobalIlluminationOverrideNormalBias(settings.giNormalBias);
+        HHC.SetGlobalIlluminationOverrideDistanceBias(settings.giDistanceBias);
+        HHC.SetGlobalIlluminationOverrideBounceThreshold(settings.giBounceThreshold);
+        HHC.SetGlobalIlluminationOverrideFireflyClamp(settings.giFireflyClamp);
+        HHC.SetGlobalIlluminationOverrideReflectionProbes(settings.giReflectionProbes);
+        HHC.SetGlobalIlluminationOverrideMirrors(settings.giMirrors);
+        // Through the setter, not the field, last: it has no side effect of its own here (the
+        // override is only ever read at capture time), but matches fog's own ordering, where the
+        // master switch is written after everything it would substitute.
+        HHC.SetOverrideGlobalIllumination(settings.overrideGlobalIllumination);
+#endif
+
+#if BASIS_HAS_RTAO && !UNITY_ANDROID
+        HHC.SetRTAOOverrideMode(settings.rtaoMode);
+        HHC.SetRTAOOverrideIntensity(settings.rtaoIntensity);
+        HHC.SetRTAOOverrideRadius(settings.rtaoRadius);
+        HHC.SetRTAOOverrideApplyMode(settings.rtaoApplyMode);
+        HHC.SetRTAOOverrideDenoisePasses(settings.rtaoDenoisePasses);
+        HHC.SetRTAOOverrideDirectStrength(settings.rtaoDirectStrength);
+        HHC.SetRTAOOverrideLayers(settings.rtaoLayers);
+        HHC.SetRTAOOverrideSkinnedMeshes(settings.rtaoSkinnedMeshes);
+        HHC.SetRTAOOverrideNormalBias(settings.rtaoNormalBias);
+        HHC.SetRTAOOverrideDistanceBias(settings.rtaoDistanceBias);
+        HHC.SetRTAOOverrideFalloff(settings.rtaoFalloff);
+        HHC.SetRTAOOverridePower(settings.rtaoPower);
+        HHC.SetRTAOOverrideFadeStart(settings.rtaoFadeStart);
+        HHC.SetRTAOOverrideFadeEnd(settings.rtaoFadeEnd);
+        HHC.SetRTAOOverrideSpecularRelief(settings.rtaoSpecularRelief);
+        HHC.SetOverrideRTAO(settings.overrideRTAO);
 #endif
     }
 
@@ -1284,6 +1493,8 @@ public partial class BasisHandHeldCameraUI
             if (DepthFocusDistanceSlider != null)
                 DepthFocusDistanceSlider.SetValueWithoutNotify(HHC.MetaData.depthOfField.focusDistance.value);
         }
+
+        HHC.BasisDOFInteractionHandler?.SyncToggleFromState();
 
         RefreshAllReadouts();
         RefreshAllToggleIndicators();

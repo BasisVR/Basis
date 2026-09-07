@@ -22,6 +22,12 @@ public struct BasisFootSimulateJob : IJob
     public NativeArray<BasisFootSimOutput> output;
     public unsafe void Execute()
     {
+        // ArrayElementAsRef takes the raw buffer pointer, so an uncreated array hands back a ref to
+        // address 0 and every field write below faults; a short feet array walks past the end. The
+        // driver always allocates 1/1/1/2, but this is a public job struct and Length is 0 on an
+        // uncreated NativeArray, so one prologue test covers both shapes for the whole solve.
+        if (input.Length < 1 || simState.Length < 1 || output.Length < 1 || feet.Length < 2) return;
+
         ref BasisFootSimInput inp = ref UnsafeUtility.ArrayElementAsRef<BasisFootSimInput>(input.GetUnsafePtr(), 0);
         ref BasisFootSimState sim = ref UnsafeUtility.ArrayElementAsRef<BasisFootSimState>(simState.GetUnsafePtr(), 0);
         ref BasisFootNativeState left = ref UnsafeUtility.ArrayElementAsRef<BasisFootNativeState>(feet.GetUnsafePtr(), 0);

@@ -13,15 +13,15 @@ using UnityEngine;
 /// </summary>
 public static class BasisGltfAvatarLoader
 {
-    public static async Task<bool> LoadTemplate(BasisTrackedBundleWrapper wrapper, BasisBundleGenerated generated, byte[] encryptedSection, BasisProgressReport report)
+    public static async Task<bool> LoadTemplate(BasisTrackedBundleWrapper wrapper, BasisBundleGenerated generated, BasisBundleSection encryptedSection, BasisProgressReport report)
     {
-        if (wrapper?.LoadableBundle == null || generated == null || encryptedSection == null || encryptedSection.Length == 0)
+        if (wrapper?.LoadableBundle == null || generated == null || !encryptedSection.HasPayload)
         {
             BasisDebug.LogError("Generic (glTF) load: missing wrapper, section entry, or section bytes.");
             return false;
         }
 
-        BasisGenericAvatarData avatarData = BasisGenericAvatarData.FromJson(generated.GenericAvatarDataJson);
+        BasisGenericAvatarData avatarData = await Task.Run(() => BasisGenericAvatarData.FromJson(generated.GenericAvatarDataJson));
         if (avatarData == null)
         {
             BasisDebug.LogError("Generic (glTF) load: section carries no BasisGenericAvatarData; cannot rebuild a humanoid avatar.");
@@ -30,7 +30,7 @@ public static class BasisGltfAvatarLoader
 
         var basisPassword = new BasisEncryptionWrapper.BasisPassword { VP = wrapper.LoadableBundle.UnlockPassword };
         string uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
-        var decrypted = await BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueID, basisPassword, encryptedSection, report);
+        var decrypted = await BasisEncryptionToData.DecryptSection(uniqueID, basisPassword, encryptedSection, report);
         if (!decrypted.Success || decrypted.Data == null || decrypted.Data.Length == 0)
         {
             BasisDebug.LogError($"Generic (glTF) load: decrypt failed. {decrypted.Error} | {decrypted.Message}");
@@ -45,9 +45,13 @@ public static class BasisGltfAvatarLoader
         int glbLength = BasisGenericBlendshapeSidecar.GetGlbLength(sectionBytes);
         if (glbLength > 0 && glbLength < sectionBytes.Length)
         {
-            blendshapeSidecar = BasisGenericBlendshapeSidecar.TryParse(sectionBytes, glbLength);
-            glbBytes = new byte[glbLength];
-            Buffer.BlockCopy(sectionBytes, 0, glbBytes, 0, glbLength);
+            (blendshapeSidecar, glbBytes) = await Task.Run(() =>
+            {
+                BasisGenericBlendshapeSidecar sidecar = BasisGenericBlendshapeSidecar.TryParse(sectionBytes, glbLength);
+                byte[] glb = new byte[glbLength];
+                Buffer.BlockCopy(sectionBytes, 0, glb, 0, glbLength);
+                return (sidecar, glb);
+            });
         }
 
         GltfImport gltf = new GltfImport();

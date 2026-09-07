@@ -70,7 +70,7 @@ namespace SteamAudio
             }
 
             // Only update the dynamic object if it has actually move this frame
-            if (transform.hasChanged)
+            if (mInstancedMesh != null && transform.hasChanged)
             {
                 mInstancedMesh.UpdateTransform(SteamAudioManager.CurrentScene, transform);
                 SteamAudioManager.ScheduleCommitScene();

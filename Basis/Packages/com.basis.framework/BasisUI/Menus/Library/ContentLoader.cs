@@ -119,17 +119,20 @@ namespace Basis.BasisUI
 
             BasisProgressReport report = new BasisProgressReport();
             report.OnProgressReport += ForwardProgress;
+            report.OnProgressReport += BasisUILoadingBar.ProgressReport;
+            using CancellationTokenSource cts = new CancellationTokenSource();
             BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
                 item.Url,
                 BasisRuntimeSpawnRegistry.SpawnMode.GameObject,
                 BasisRuntimeSpawnRegistry.SpawnMethod.Local,
                 BasisLocalPlayer.Instance.UUID,
                 false,
-                item.EmbeddedSettings.IsEmbedded);
+                item.EmbeddedSettings.IsEmbedded,
+                cts: cts);
             void ForwardPendingProgress(string uniqueId, float progress, string info) =>
                 BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
             report.OnProgressReport += ForwardPendingProgress;
-            CancellationToken cancel = default;
+            CancellationToken cancel = cts.Token;
 
             var selector = item.Mode switch
             {
@@ -183,6 +186,7 @@ namespace Basis.BasisUI
             {
                 report.OnProgressReport -= ForwardPendingProgress;
                 report.OnProgressReport -= ForwardProgress;
+                report.OnProgressReport -= BasisUILoadingBar.ProgressReport;
                 BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
             }
         }
@@ -583,17 +587,20 @@ namespace Basis.BasisUI
 
                             BasisProgressReport report = new BasisProgressReport();
                             report.OnProgressReport += ForwardProgress;
+                            report.OnProgressReport += BasisUILoadingBar.ProgressReport;
+                            using CancellationTokenSource cts = new CancellationTokenSource();
                             BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
                                 item.Url,
                                 BasisRuntimeSpawnRegistry.SpawnMode.Scene,
                                 BasisRuntimeSpawnRegistry.SpawnMethod.Local,
                                 BasisLocalPlayer.Instance.UUID,
                                 admin,
-                                persistent);
+                                persistent,
+                                cts: cts);
                             void ForwardPendingProgress(string uniqueId, float progress, string info) =>
                                 BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
                             report.OnProgressReport += ForwardPendingProgress;
-                            CancellationToken cancel = default;
+                            CancellationToken cancel = cts.Token;
 
                             try
                             {
@@ -642,6 +649,7 @@ namespace Basis.BasisUI
                             {
                                 report.OnProgressReport -= ForwardPendingProgress;
                                 report.OnProgressReport -= ForwardProgress;
+                                report.OnProgressReport -= BasisUILoadingBar.ProgressReport;
                                 BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
                             }
                         }

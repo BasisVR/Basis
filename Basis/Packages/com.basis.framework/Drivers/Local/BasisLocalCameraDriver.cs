@@ -403,7 +403,7 @@ namespace Basis.Scripts.Drivers
                 BasisLocalMicrophoneDriver.OnPausedAction += microphoneIconDriver.OnPausedEvent;
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio += microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence += microphoneIconDriver.MicrophoneNotTransmitting;
-                BasisNetworkModeration.OnShoutModeChanged += OnShoutModeChangedForIcon;
+                BasisNetworkModeration.OnAnnounceModeChanged += OnAnnounceModeChangedForIcon;
                 Basis.Scripts.Networking.BasisTalkModeManager.OnLocalTalkModeChanged += microphoneIconDriver.OnTalkModeChanged;
                 BasisLocalMicrophoneDriver.OnInitializedAction += OnMicrophoneDriverInitialized;
 #endif
@@ -471,7 +471,7 @@ namespace Basis.Scripts.Drivers
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
             BasisLocalMicrophoneDriver.OnInitializedAction -= OnMicrophoneDriverInitialized;
-            BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
+            BasisNetworkModeration.OnAnnounceModeChanged -= OnAnnounceModeChangedForIcon;
             Basis.Scripts.Networking.BasisTalkModeManager.OnLocalTalkModeChanged -= microphoneIconDriver.OnTalkModeChanged;
             microphoneIconDriver.Dispose();
 #endif
@@ -496,7 +496,7 @@ namespace Basis.Scripts.Drivers
 #if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio -= microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence -= microphoneIconDriver.MicrophoneNotTransmitting;
-                BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
+                BasisNetworkModeration.OnAnnounceModeChanged -= OnAnnounceModeChangedForIcon;
                 Basis.Scripts.Networking.BasisTalkModeManager.OnLocalTalkModeChanged -= microphoneIconDriver.OnTalkModeChanged;
 #endif
                 HasEvents = false;
@@ -537,12 +537,12 @@ namespace Basis.Scripts.Drivers
             microphoneIconDriver.HardEnableVisuals(initialized);
         }
 
-        private void OnShoutModeChangedForIcon(ushort playerId, bool enabled)
+        private void OnAnnounceModeChangedForIcon(ushort playerId, bool enabled)
         {
-            // The icon color is derived purely from local state (BasisAudioTransmission.IsInShoutMode,
-            // which is only ever set for the local player, plus the local talk mode), so any shout-mode
+            // The icon color is derived purely from local state (BasisAudioTransmission.IsInAnnounceMode,
+            // which is only ever set for the local player, plus the local talk mode), so any announce-mode
             // signal just re-derives the local color. No need to look up the network player to filter.
-            microphoneIconDriver.OnShoutModeChanged();
+            microphoneIconDriver.OnAnnounceModeChanged();
         }
 #endif
 

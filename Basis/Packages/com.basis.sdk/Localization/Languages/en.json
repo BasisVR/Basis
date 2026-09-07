@@ -791,6 +791,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "The interaction events are reachable as fields; the component's methods are not." },
     { "key": "sdk.cilbox.api.seat.title", "value": "Seats" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "Seat and eject the local player, and turn them once seated." },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "Permission changes" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "Tells your script when the local player gains or loses admin or moderator, so staff-only content does not have to poll. The callback is found by name on your own script." },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle interactions" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "Lets an object answer being grabbed or touched. The callbacks are found by name on your own script." },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas UI and text" },

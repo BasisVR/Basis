@@ -711,7 +711,10 @@ MonoBehaviour:
   MaterialIndex: 0
   TexturePropertyName: _BaseMap
   UseSharedMaterial: 0
-  AdditionalTargets: []
+  AdditionalTargets:
+  - Renderer: {fileID: 2175069498620534285}
+    MaterialIndex: 0
+    TexturePropertyName: _EmissionMap
   PlaceholderTexture: {fileID: 2800000, guid: 93f0d4f9be07b5e4094ac46f24473eb1, type: 3}
   RestorePlaceholderOnEnded: 1
   FlipVertically: 0

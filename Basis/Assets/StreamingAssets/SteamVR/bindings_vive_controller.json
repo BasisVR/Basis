@@ -115,6 +115,9 @@
             },
             "position": {
               "output": "/actions/default/in/joystick"
+            },
+            "touch": {
+              "output": "/actions/default/in/joysticktouch"
             }
           },
           "mode": "trackpad",
@@ -131,6 +134,9 @@
             },
             "position": {
               "output": "/actions/default/in/joystick"
+            },
+            "touch": {
+              "output": "/actions/default/in/joysticktouch"
             }
           },
           "mode": "trackpad",

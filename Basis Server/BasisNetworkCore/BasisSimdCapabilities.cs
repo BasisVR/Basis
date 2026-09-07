@@ -27,11 +27,17 @@ namespace Basis.Network.Core
     /// loop until then is not free. If R2R is ever adopted here, publish with an explicit
     /// <c>&lt;PublishReadyToRunUseCrossgen2&gt;</c> instruction-set baseline and re-measure — do not
     /// assume it is a pure win.</description></item>
-    /// <item><description><b>AVX-512 is opt-in at runtime, not at build time.</b> .NET defaults its
-    /// preferred vector width to 256 bits even on hardware with AVX-512, because 512-bit loops
-    /// down-clock some parts. <c>DOTNET_PreferredVectorBitWidth=512</c> raises it. It is an
-    /// environment variable rather than a code change precisely so it can be A/B'd on a real host;
-    /// this line is how you confirm it took effect.</description></item>
+    /// <item><description><b>512-bit <see cref="Vector{T}"/> is opt-in, and only from the environment.</b>
+    /// The runtime caps <see cref="Vector{T}"/> at 256 bits on every x64 host and widens it only when
+    /// <c>DOTNET_MaxVectorTBitWidth=512</c> is set before the process starts; it reads that knob from
+    /// the environment alone, so nothing in runtimeconfig or in Main can flip it. That is a separate
+    /// decision from whether 512-bit is accelerated at all: <c>Vector512.IsHardwareAccelerated</c> is
+    /// already true on AVX-512 hosts except the ones the runtime knows down-clock (Skylake-SP, Cascade
+    /// Lake, Cooper Lake, Cannon Lake), where <c>DOTNET_PreferredVectorBitWidth=512</c> is the override
+    /// and the automatic 256 preference also clamps <see cref="Vector{T}"/> back down. Measured on a
+    /// 7950X3D (Zen 4 double-pumps 512-bit ops), 64-byte <see cref="Vector{T}"/> is a wash on both vector
+    /// loops here and the codec and sweep tests pass at that width, so the knob is left to the launch
+    /// environment for an A/B on a host with a native 512-bit datapath rather than set by default.</description></item>
     /// </list>
     /// </summary>
     public static class BasisSimdCapabilities
@@ -47,9 +53,9 @@ namespace Basis.Network.Core
         /// </summary>
         public static string Describe()
         {
-            var sb = new StringBuilder(160);
+            var sb = new StringBuilder(200);
             sb.Append(Vector.IsHardwareAccelerated
-                ? $"{Vector<byte>.Count * 8}-bit vectors ({Vector<byte>.Count} B/op)"
+                ? $"{Vector<byte>.Count * 8}-bit Vector<T> ({Vector<byte>.Count} B/op)"
                 : "NO hardware vectors - every vector path is running scalar");
 
 #if NET8_0_OR_GREATER
@@ -72,11 +78,15 @@ namespace Basis.Network.Core
             if (!any) sb.Append("baseline only");
             sb.Append(']');
 
-            // Worth surfacing rather than leaving to be discovered: the machine can do 512 and the
-            // runtime has chosen not to, which is a one-environment-variable difference.
+            // Worth surfacing rather than leaving to be discovered: the runtime runs 512-bit here and
+            // Vector<T> is still capped at 256, which is a one-environment-variable difference.
             if (Vector512.IsHardwareAccelerated && Vector<byte>.Count < 64)
             {
-                sb.Append(" - host supports 512-bit; set DOTNET_PreferredVectorBitWidth=512 to use it");
+                sb.Append(" - Vector512 accelerated too; Vector<T> is capped at 256 unless DOTNET_MaxVectorTBitWidth=512 is set in the launch environment");
+            }
+            else if (Avx512F.IsSupported && !Vector512.IsHardwareAccelerated)
+            {
+                sb.Append(" - AVX-512 present but the runtime keeps 512-bit off on this CPU (down-clocks); DOTNET_PreferredVectorBitWidth=512 overrides");
             }
 #endif
             return sb.ToString();

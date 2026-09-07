@@ -371,12 +371,13 @@ internal class JiggleCommitPerformanceSimulation {
         report.AppendLine("Flat is the design: a commit should cost what changed, not what is resident.");
         Report(report);
 
-        // JIGGLE_VALIDATE turns FinishTreeCommit into a walk of every tree, every point and every
-        // transform (3.5ms at 2048 rigs against 0.10ms without it, measured 2026-08-02), so a
-        // regression here is far more likely to be that define coming back than the commit itself.
+        // The historical cause of a regression here is diagnostics creeping back into
+        // FinishTreeCommit: a walk of every tree, every point and every transform, which measured
+        // 3.5ms at 2048 rigs against 0.10ms without it. It came back twice via the JIGGLE_VALIDATE
+        // scripting define before that code was deleted outright.
         Assert.Less(costs[2], costs[0] * 8.0,
             "CommitTrees is scaling with the resident set rather than with what changed. " +
-            "First suspect: JIGGLE_VALIDATE in Scripting Define Symbols.");
+            "First suspect: a per-frame walk of everything resident inside FinishTreeCommit.");
     }
 
     [Test]
@@ -397,9 +398,11 @@ internal class JiggleCommitPerformanceSimulation {
     // ------------------------------------------------------------------------------ the dummy pool
 
     /// <summary>
-    /// GetDummyTransform fills its pool densely: asking for index N creates every GameObject up to
-    /// N. A rig removed at a high slot therefore pays for thousands of GameObjects it will never
-    /// use, inside the commit. This prices that.
+    /// PreRemoveTree parks a pooled dummy in every slot a departing rig vacated, so a removal pays
+    /// for whatever the pool has to create. The pool is keyed by slot index and is sparse: it creates
+    /// one GameObject per slot actually asked for. It used to be a dense list, where asking for slot
+    /// N created every GameObject below N as well — a spike proportional to the arena rather than to
+    /// the rig, inside the commit. This prices both, so the difference is on the record.
     /// </summary>
     [Test]
     public void DummyTransformPool_GrowthCost() {
@@ -408,18 +411,37 @@ internal class JiggleCommitPerformanceSimulation {
 
         JiggleRuntimeStatics.Boot();
         var stopwatch = new Stopwatch();
-        var previousHigh = 0;
-        foreach (var target in new[] { 1024, 4096, 16384 }) {
+        const int BonesPerRig = 8;
+        var slot = 1 << 20;
+        foreach (var arena in new[] { 1024, 4096, 16384 }) {
+            // What a rig removal actually asks for: one dummy per vacated slot, at a slot index that
+            // says nothing about how big the arena is. Fresh indices every pass so nothing is warm.
             stopwatch.Restart();
-            JiggleMemoryBus.GetDummyTransform(target);
+            for (int i = 0; i < BonesPerRig; i++) {
+                JiggleMemoryBus.GetDummyTransform(slot + i);
+            }
             stopwatch.Stop();
-            var created = target - previousHigh;
-            previousHigh = target;
+            slot += BonesPerRig;
+            var sparse = stopwatch.Elapsed.TotalMilliseconds;
+
+            // What the dense pool would have cost for that same removal: every GameObject below the
+            // slot too. Built standalone rather than through the bus, which no longer does this.
+            stopwatch.Restart();
+            var dense = new List<Transform>(arena);
+            for (int i = 0; i < arena; i++) {
+                dense.Add(new GameObject($"denseDummy{i}") { hideFlags = HideFlags.HideAndDontSave }.transform);
+            }
+            stopwatch.Stop();
+            var denseCost = stopwatch.Elapsed.TotalMilliseconds;
+            for (int i = 0; i < dense.Count; i++) {
+                Object.DestroyImmediate(dense[i].gameObject);
+            }
+
             report.AppendLine(
-                $"grow pool to {target,6}: {stopwatch.Elapsed.TotalMilliseconds,9:F3} ms for {created,6} GameObjects " +
-                $"({stopwatch.Elapsed.TotalMilliseconds * 1000.0 / Math.Max(created, 1),6:F2} us each)");
+                $"rig of {BonesPerRig} bones removed at a slot inside a {arena,6}-slot arena: " +
+                $"{sparse,7:F3} ms sparse vs {denseCost,8:F3} ms dense");
         }
-        report.AppendLine("(a warm pool costs a list index; the numbers above are the one-off spike per new high slot)");
+        report.AppendLine("(sparse is per vacated slot and flat; dense tracked the arena, once per new high slot)");
         Report(report);
     }
 

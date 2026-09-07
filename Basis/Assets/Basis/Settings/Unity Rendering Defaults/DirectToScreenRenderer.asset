@@ -1,5 +1,79 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8171408655374796905
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86b1c04415934baea3137b1b95303b4b, type: 3}
+  m_Name: BasisGlobalIlluminationFeature
+  m_EditorClassIdentifier: BasisGlobalIllumination::BasisGlobalIlluminationFeature
+  m_Active: 1
+  m_Shader: {fileID: 4800000, guid: 03edcf40bafe4c3d8424f23fcf1d3ff1, type: 3}
+  m_RayStagesShader: {fileID: 4800000, guid: d844523f25c598748831a41b5572ff82, type: 3}
+  m_RayTraceShader: {fileID: 4807578003741378534, guid: 4d1b09960d174e54eb42461cb8005e17, type: 3}
+  m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}
+  m_RayTracingComputeFallback: 0
+  m_ReflectionProbes: 0
+  m_Mirrors: 1
+  m_RenderingDebugger: 0
+  m_NormalsPrepass: 0
+--- !u!114 &-7797154978089096958
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfcf90f6612a6c64f9c689c5557c4a0c, type: 3}
+  m_Name: BasisRTAOFeature
+  m_EditorClassIdentifier: Basis.RTAO::Basis.Rendering.RTAO.BasisRTAOFeature
+  m_Active: 1
+  resources: {fileID: 11400000, guid: d8c73d1f224d1aa4731366a9d7678bfc, type: 2}
+  quality: 1
+  overrideQualityPreset: 0
+  settings:
+    raysPerPixel: 2
+    resolutionDivider: 2
+    radius: 0.1
+    distanceFalloff: 1
+    intensity: 1
+    power: 1
+    directLightingStrength: 0.5
+    specularOcclusionRelief: 0
+    fadeStart: 40
+    fadeEnd: 60
+    normalBias: 0.005
+    distanceBias: 0.0005
+    stereoCoherentNoise: 1
+    noiseCellSize: 0.004
+    temporalFrames: 24
+    temporalMinAlpha: 0.05
+    temporalDepthTolerance: 0.03
+    temporalNormalTolerance: 0.9
+    temporalVarianceGamma: 1.25
+    denoisePasses: 2
+    blurMaxRadius: 4
+    blurMinRadius: 1
+    blurDepthSigma: 0.05
+    blurNormalPower: 16
+  sceneSettings:
+    layerMask:
+      serializedVersion: 2
+      m_Bits: 192
+    requireShadowCasting: 1
+    rescanInterval: 2
+    skinnedMode: 3
+  tracingMode: 0
+  applyMode: 0
+  debugStage: 0
+  debugView: 0
 --- !u!114 &-7061326814219087741
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -28,6 +102,58 @@ MonoBehaviour:
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Highlight.BasisHighlightFeature
   m_Active: 1
   settings: {fileID: 11400000, guid: c301ac59f1dce524f8e770032f059e8f, type: 2}
+--- !u!114 &-5241983207764330913
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfcf90f6612a6c64f9c689c5557c4a0c, type: 3}
+  m_Name: BasisRTAOFeature
+  m_EditorClassIdentifier: Basis.RTAO::Basis.Rendering.RTAO.BasisRTAOFeature
+  m_Active: 0
+  resources: {fileID: 11400000, guid: d8c73d1f224d1aa4731366a9d7678bfc, type: 2}
+  quality: 3
+  overrideQualityPreset: 0
+  settings:
+    raysPerPixel: 2
+    resolutionDivider: 2
+    radius: 0.1
+    distanceFalloff: 1
+    intensity: 1
+    power: 1
+    directLightingStrength: 0.5
+    specularOcclusionRelief: 0
+    fadeStart: 40
+    fadeEnd: 60
+    normalBias: 0.005
+    distanceBias: 0.0005
+    stereoCoherentNoise: 1
+    noiseCellSize: 0.004
+    temporalFrames: 24
+    temporalMinAlpha: 0.05
+    temporalDepthTolerance: 0.03
+    temporalNormalTolerance: 0.9
+    temporalVarianceGamma: 1.25
+    denoisePasses: 2
+    blurMaxRadius: 4
+    blurMinRadius: 1
+    blurDepthSigma: 0.05
+    blurNormalPower: 16
+  sceneSettings:
+    layerMask:
+      serializedVersion: 2
+      m_Bits: 192
+    requireShadowCasting: 1
+    rescanInterval: 2
+    skinnedMode: 2
+  tracingMode: 0
+  applyMode: 0
+  debugStage: 0
+  debugView: 0
 --- !u!114 &-4357968347084770853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -98,7 +224,9 @@ MonoBehaviour:
   - {fileID: -1772261579603543917}
   - {fileID: -7061326814219087741}
   - {fileID: 85290076443942754}
-  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e629f4e65df022f01
+  - {fileID: -8171408655374796905}
+  - {fileID: -7797154978089096958}
+  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e629f4e65df022f019737d5351f53998e02a954c8dbf0ca93
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3

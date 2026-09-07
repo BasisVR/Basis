@@ -91,7 +91,7 @@ public class BilliardsModule : MonoBehaviour
     // globals
     [NonSerialized] public AudioSource aud_main;
     // [NonSerialized] public UdonBehaviour callbacks;
-    public Vector3[][] initialPositions = new Vector3[5][];
+    [NonSerialized] public Vector3[][] initialPositions = new Vector3[5][];
     public uint[] initialBallsPocketed = new uint[5];
 
     // constants

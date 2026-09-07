@@ -699,6 +699,15 @@ namespace Basis.Cinematics
                 return;
             }
 
+            // Ahead of the subject check: a track is authored in the world, so aiming down one is
+            // the single rotation modifier that films nobody and has to work with the subject slot
+            // empty — the same terms the Dolly Track position modifier already rides on.
+            if (stack.rotationModifier == BasisCameraRotationModifier.AimAlongTrack)
+            {
+                SolveTrackAim(stack, state, context, deltaTime);
+                return;
+            }
+
             if (!subject.Valid)
             {
                 return;
@@ -740,6 +749,45 @@ namespace Basis.Cinematics
                     return;
                 }
             }
+        }
+
+        /// <summary>
+        /// Points the camera down the track it is riding, in the direction of travel.
+        ///
+        /// <para>Where on the track is read from the playhead when the Dolly Track modifier is
+        /// fitted — it was solved this frame, so the aim is taken at exactly the point the camera
+        /// was placed at, offsets and all. With anything else in the position slot there is no
+        /// playhead to read, so the nearest point on the path stands in: that is what lets a
+        /// hand-flown camera be locked to a laid-out line's heading without riding it.</para>
+        ///
+        /// <para>A track of fewer than two points has no direction, and the aim holds rather than
+        /// snapping to world forward, which is what the tangent's own fallback would hand back.</para>
+        /// </summary>
+        private static void SolveTrackAim(BasisCameraModifierStack stack, BasisCameraModifierState state,
+            in BasisCameraSolveContext context, float deltaTime)
+        {
+            IReadOnlyList<Vector3> points = context.DollyPoints;
+            if (points == null || points.Count < 2)
+            {
+                return;
+            }
+
+            float position = stack.positionModifier == BasisCameraPositionModifier.DollyTrack
+                ? state.DollyPosition
+                : BasisCameraSpline.FindClosestPosition(points, state.Position, context.DollyLooped);
+
+            Vector3 tangent = BasisCameraSpline.EvaluateTangent(points, position, context.DollyLooped);
+
+            // A track climbing straight up leaves LookRotation with a forward and an up on the same
+            // line, which it answers by cutting to identity. Deriving the reference from the axis
+            // the camera is already banked on instead carries it through vertical the way a tilt
+            // does, rather than snapping the shot round at the steepest part of the move.
+            Vector3 up = Mathf.Abs(tangent.y) > 0.999f
+                ? Vector3.Cross(tangent, state.Rotation * Vector3.right)
+                : Vector3.up;
+
+            Quaternion target = Quaternion.LookRotation(tangent, up) * EulerOrIdentity(stack.trackAim.rotationOffset);
+            state.Rotation = BasisCameraDamping.ApproachRotation(state.Rotation, target, stack.trackAim.damping, deltaTime);
         }
 
         private static Quaternion EulerOrIdentity(Vector3 euler)

@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "أحداث التفاعل متاحة كحقول، أما دوال المكوّن فلا." },
     { "key": "sdk.cilbox.api.seat.title", "value": "المقاعد" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "إجلاس اللاعب المحلي وإنهاضه، وتدويره وهو جالس." },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "تغييرات الصلاحيات" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "يُخبر سكربتك عند حصول اللاعب المحلي على صلاحية المشرف أو المدير أو فقدانها، حتى لا يضطر المحتوى المخصص للطاقم للاستعلام المتكرر. يُعثر على رد النداء بالاسم في سكربتك الخاص." },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "تفاعلات الاهتزاز" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "تتيح للكائن أن يستجيب حين يُمسَك أو يُلمَس. تُلتمس الاستدعاءات بالاسم داخل برنامجك نفسه." },
     { "key": "sdk.cilbox.api.ui.title", "value": "واجهة Canvas والنصوص" },

@@ -43,6 +43,31 @@ Shader "Hidden/DownsampleDepth"
 
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "DownsampleDepthFromExternal"
+
+            ZTest Always
+            ZWrite Off
+            Cull Off
+            Blend Off
+            ColorMask R
+
+            HLSLPROGRAM
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "./DownsampleDepthFromExternal.hlsl"
+
+            #pragma editor_sync_compilation
+
+            #pragma vertex Vert
+            #pragma fragment Frag
+
+            ENDHLSL
+        }
     }
 
     SubShader
@@ -91,6 +116,31 @@ Shader "Hidden/DownsampleDepth"
 
                 return (uint(input.positionCS.x + input.positionCS.y) & 1) > 0 ? minDepth : maxDepth;
             }
+
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DownsampleDepthFromExternal"
+
+            ZTest Always
+            ZWrite Off
+            Cull Off
+            Blend Off
+            ColorMask R
+
+            HLSLPROGRAM
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "./DownsampleDepthFromExternal.hlsl"
+
+            #pragma editor_sync_compilation
+
+            #pragma vertex Vert
+            #pragma fragment Frag
 
             ENDHLSL
         }

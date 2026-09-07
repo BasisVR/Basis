@@ -550,102 +550,63 @@ namespace Basis.Scripts.Avatar
                 info.AnimatorsTrimmed = TrimAnimators(components, LimitAnimators, protectedAnimator);
             }
 
-            if (UseLimitLights)
-            {
-                info.LightsTrimmed = TrimComponents<Light>(components, LimitLights);
-            }
-
-            if (UseLimitParticleSystems)
-            {
-                info.ParticleSystemsTrimmed = TrimComponents<ParticleSystem>(components, LimitParticleSystems);
-            }
-
-            if (UseLimitTrailRenderers)
-            {
-                info.TrailRenderersTrimmed = TrimComponents<TrailRenderer>(components, LimitTrailRenderers);
-            }
-
-            if (UseLimitLineRenderers)
-            {
-                info.LineRenderersTrimmed = TrimComponents<LineRenderer>(components, LimitLineRenderers);
-            }
-
-            if (UseLimitCloth)
-            {
-                info.ClothTrimmed = TrimComponents<Cloth>(components, LimitCloth);
-            }
-
+            // One pass over the component list with a type dispatch per element,
+            // instead of one full `is T` scan per enabled category. Categories are
+            // disjoint types, and per-category keep order matches the old
+            // sequential scans because list order is preserved.
             // Unity physics colliders only — JiggleColliderExample is a plain
             // MonoBehaviour and is not a Collider subclass, so it's not picked up here.
-            if (UseLimitColliders)
-            {
-                info.CollidersTrimmed = TrimComponents<Collider>(components, LimitColliders);
-            }
-
-            // Jiggle rigs. Previously enforced at driver ingestion time, but moved
+            // Jiggle rigs were previously enforced at driver ingestion time, but moved
             // here so a single code path covers both initial load (called from
             // BasisAvatarFactory.InitializePlayerAvatar) and in-place reconcile
             // (called from SMModuleAvatarPerformanceLimits after a limit tightened).
             // DestroyImmediate on a live rig triggers JiggleRig.OnDisable → OnRemove
             // which cleanly un-registers the segment from the JigglePhysics tree.
-            if (UseLimitJiggleBones)
-            {
-                info.JiggleRigsTrimmed = TrimComponents<JiggleRig>(components, LimitJiggleBones);
-            }
-
             // CilboxProxy is in the com.cnlohr.cilbox package which this assembly does
-            // not reference, so trim by short type name instead of generic component type.
-            if (UseLimitCilboxBehaviours)
+            // not reference, so it is trimmed by short type name instead.
+            int lightsKept = 0, particlesKept = 0, trailsKept = 0, linesKept = 0, clothKept = 0, collidersKept = 0, jiggleKept = 0, cilboxKept = 0;
+            for (int i = 0; i < components.Count; i++)
             {
-                info.CilboxBehavioursTrimmed = TrimComponentsByName(components, CompCilboxProxy, LimitCilboxBehaviours);
+                Component component = components[i];
+                if (component == null) continue;
+                switch (component)
+                {
+                    case Light light when UseLimitLights:
+                        if (lightsKept < LimitLights) { lightsKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(light); info.LightsTrimmed++; }
+                        break;
+                    case ParticleSystem particles when UseLimitParticleSystems:
+                        if (particlesKept < LimitParticleSystems) { particlesKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(particles); info.ParticleSystemsTrimmed++; }
+                        break;
+                    case TrailRenderer trail when UseLimitTrailRenderers:
+                        if (trailsKept < LimitTrailRenderers) { trailsKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(trail); info.TrailRenderersTrimmed++; }
+                        break;
+                    case LineRenderer line when UseLimitLineRenderers:
+                        if (linesKept < LimitLineRenderers) { linesKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(line); info.LineRenderersTrimmed++; }
+                        break;
+                    case Cloth cloth when UseLimitCloth:
+                        if (clothKept < LimitCloth) { clothKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(cloth); info.ClothTrimmed++; }
+                        break;
+                    case Collider collider when UseLimitColliders:
+                        if (collidersKept < LimitColliders) { collidersKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(collider); info.CollidersTrimmed++; }
+                        break;
+                    case JiggleRig jiggleRig when UseLimitJiggleBones:
+                        if (jiggleKept < LimitJiggleBones) { jiggleKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(jiggleRig); info.JiggleRigsTrimmed++; }
+                        break;
+                    case MonoBehaviour mb when UseLimitCilboxBehaviours && mb.GetType().Name == CompCilboxProxy:
+                        if (cilboxKept < LimitCilboxBehaviours) { cilboxKept++; }
+                        else { UnityEngine.Object.DestroyImmediate(mb); info.CilboxBehavioursTrimmed++; }
+                        break;
+                }
             }
 
             return info;
-        }
-
-        /// <summary>
-        /// Walk every MonoBehaviour on the avatar tree and destroy instances whose
-        /// <see cref="Type.Name"/> matches <paramref name="typeName"/> beyond the
-        /// keep limit. Used for components living in packages this assembly cannot
-        /// reference at compile time (e.g. <c>CilboxProxy</c>).
-        /// </summary>
-        private static int TrimComponentsByName(IReadOnlyList<Component> components, string typeName, int limit)
-        {
-            int kept = 0;
-            int destroyed = 0;
-            for (int i = 0; i < components.Count; i++)
-            {
-                if (!(components[i] is MonoBehaviour mb)) continue;
-                if (mb == null) continue;
-                if (mb.GetType().Name != typeName) continue;
-                if (kept < limit)
-                {
-                    kept++;
-                    continue;
-                }
-                UnityEngine.Object.DestroyImmediate(mb);
-                destroyed++;
-            }
-            return destroyed;
-        }
-
-        private static int TrimComponents<T>(IReadOnlyList<Component> components, int limit) where T : Component
-        {
-            int kept = 0;
-            int destroyed = 0;
-            for (int i = 0; i < components.Count; i++)
-            {
-                if (!(components[i] is T typed)) continue;
-                if (typed == null) continue;
-                if (kept < limit)
-                {
-                    kept++;
-                    continue;
-                }
-                UnityEngine.Object.DestroyImmediate(typed);
-                destroyed++;
-            }
-            return destroyed;
         }
 
         /// <summary>

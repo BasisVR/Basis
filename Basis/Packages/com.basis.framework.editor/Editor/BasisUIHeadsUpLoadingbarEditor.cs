@@ -23,6 +23,11 @@ public class BasisUIHeadsUpLoadingbarEditor : EditorWindow
             CallFunction();
             IsRunning = true;
         }
+        if (IsRunning && GUILayout.Button("Stop Testing"))
+        {
+            IsRunning = false;
+            BasisUILoadingBar.ProgressReport(UniqueId, 100, "Test Message");
+        }
         if (IsRunning)
         {
             float randomValue = UnityEngine.Random.Range(0f, 99f);

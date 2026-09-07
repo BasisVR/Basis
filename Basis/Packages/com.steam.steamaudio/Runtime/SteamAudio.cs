@@ -583,6 +583,35 @@ namespace SteamAudio
         public int numTransmissionRays;
     }
 
+    // Blittable subset of SimulationInputs: everything except distanceAttenuationModel,
+    // which sometimes carries a live managed delegate (Callback mode) and so can never
+    // be unmanaged/NativeArray-eligible. Cached per source (SteamAudioSource.RebuildCache),
+    // refreshed only when dirty, and mirrored into SteamAudioManager's per-slot
+    // NativeArray cache so the direct-pipeline snapshot build can read it — and run a
+    // Burst job over it — without touching the SteamAudioSource object at all for a
+    // source whose config hasn't changed. Pose is deliberately NOT here: it's stamped
+    // in fresh every frame from the pose gather, never cached. bakedDataIdentifier is
+    // also deliberately NOT here: it depends on whichever listener is currently active
+    // and is resolved live each call (see SteamAudioSource.ResolveLiveFields) rather
+    // than risk it going stale between this source's own dirty events.
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SimulationInputsCore
+    {
+        public SimulationFlags flags;
+        public DirectSimulationFlags directFlags;
+        public Bool useCurveAttenuation;
+        public OcclusionType occlusionType;
+        public float occlusionRadius;
+        public int numOcclusionSamples;
+        public int numTransmissionRays;
+        public float dipoleWeight;
+        public float dipolePower;
+        public Bool baked;
+        public IntPtr pathingProbes;
+        public Bool enableValidation;
+        public Bool findAlternatePaths;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct SimulationSharedInputs
     {

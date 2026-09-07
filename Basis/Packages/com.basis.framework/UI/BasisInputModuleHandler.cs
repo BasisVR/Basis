@@ -338,12 +338,17 @@ namespace Basis.Scripts.UI
             var localPlayer = BasisLocalPlayer.Instance; // currently unused but kept for context
             basisUIRaycastProcess.Simulate();
 
+            // Selection moving to a non-field selectable — a dropdown option after typing in its
+            // search box, any button — must release the typing locks exactly like a null selection,
+            // or crouch and movement stay locked until something clears UI selection entirely.
+            bool selectionIsInputField = false;
             if (EventSystem.currentSelectedGameObject != null)
             {
                 var data = GetBaseEventData();
 
                 if (EventSystem.currentSelectedGameObject.TryGetComponent(out CurrentSelectedTMP_InputField))
                 {
+                    selectionIsInputField = true;
                     CurrentSelectedInputField = null;
                     if (BasisMenuVirtualKeyboardPanel.HasInstance)
                     {
@@ -367,6 +372,7 @@ namespace Basis.Scripts.UI
                 {
                     if (EventSystem.currentSelectedGameObject.TryGetComponent(out CurrentSelectedInputField))
                     {
+                        selectionIsInputField = true;
                         CurrentSelectedTMP_InputField = null;
                         if (BasisMenuVirtualKeyboardPanel.HasInstance)
                         {
@@ -389,19 +395,15 @@ namespace Basis.Scripts.UI
                     }
                 }
             }
-            else
+
+            if (selectionIsInputField == false && HasHoverONInput)
             {
-                if (HasHoverONInput)
-                {
-                    HasHoverONInput = false;
-                    UnsubscribePhysicalKeyboard();
-                    CurrentSelectedTMP_InputField = null;
-                    CurrentSelectedInputField = null;
-                    MovementLock.Remove(nameof(BasisInputModuleHandler));
-                    CrouchingLock.Remove(nameof(BasisInputModuleHandler));
-                    var data = GetBaseEventData();
-                    ExecuteEvents.Execute(EventSystem.currentSelectedGameObject, data, ExecuteEvents.submitHandler);
-                }
+                HasHoverONInput = false;
+                UnsubscribePhysicalKeyboard();
+                CurrentSelectedTMP_InputField = null;
+                CurrentSelectedInputField = null;
+                MovementLock.Remove(nameof(BasisInputModuleHandler));
+                CrouchingLock.Remove(nameof(BasisInputModuleHandler));
             }
 
             if (HasHoverONInput)

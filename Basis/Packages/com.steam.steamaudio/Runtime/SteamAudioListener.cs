@@ -51,6 +51,8 @@ namespace SteamAudio
 #if STEAMAUDIO_ENABLED
         Simulator mSimulator = null;
         Source mSource = null;
+        AudioEngineState mPushedState = null;
+        Source mPushedSource = null;
 
         public int GetTotalDataSize()
         {
@@ -127,7 +129,13 @@ namespace SteamAudio
 
         private void Update()
         {
-            SteamAudioManager.GetAudioEngineState().SetReverbSource(mSource);
+            var state = SteamAudioManager.GetAudioEngineState();
+            if (state == mPushedState && mSource == mPushedSource)
+                return;
+
+            state.SetReverbSource(mSource);
+            mPushedState = state;
+            mPushedSource = mSource;
         }
 
         public BakedDataIdentifier GetBakedDataIdentifier()

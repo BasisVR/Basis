@@ -298,12 +298,23 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 if (!playerStates.TryGetValue(pair.receiverId, out PlayerState receiver)) continue;
                 var tracking = receiver.PeerTracking;
                 if (tracking == null || pair.senderId < 0 || pair.senderId >= tracking.Length) continue;
+                var lastSeen = receiver.PeerLastSeenGeneration;
+                if (lastSeen == null || lastSeen.Length < tracking.Length)
+                {
+                    tracking = GrowPeerTracking(receiver, tracking.Length - 1);
+                    lastSeen = receiver.PeerLastSeenGeneration;
+                }
                 ref PeerTrackingData t = ref tracking[pair.senderId];
-                t.BaselineKeyframeGen = -1;
+                t.BaselineKeyframeGen = PeerTrackingData.NoBaseline;
                 // Reopen the new-data and interval gates: a fully idle sender publishes no new
                 // generation, so without this the requested keyframe would wait for motion.
-                t.LastSeenGeneration = 0;
-                t.LastSentTime = 0;
+                lastSeen[pair.senderId] = 0;
+                // Backdated rather than zeroed. LastSentTime is now the low 32 bits of the tick counter
+                // and the gate is a wrapping subtraction, so a literal zero would read as "sent when the
+                // counter last wrapped" - which, depending on where in the wrap the server happens to
+                // be, can look recent. Backdating past the longest interval any pair can be given makes
+                // the gate open immediately whatever the counter reads.
+                t.LastSentTime = unchecked((uint)Stopwatch.GetTimestamp() - ForceSendBackdateTicks);
             }
         }
 

@@ -28,5 +28,4 @@ public static class BasisVideoFrameBufferPool
         bag.Add(buf);
     }
 
-    public static int PooledCount => pooledCount;
 }

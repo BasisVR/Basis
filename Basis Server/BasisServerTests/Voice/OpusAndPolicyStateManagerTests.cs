@@ -748,3 +748,187 @@ public class BasisAvatarScaleLimitManagerTests
         }
     }
 }
+
+/// <summary>
+/// Instance-wide locomotion policy: the values every player in the instance moves with, and the
+/// one piece of locomotion state that also reaches players who join later. Everything here ends up
+/// driving a CharacterController on a client, so the sanitizer is the thing under test — a NaN or a
+/// positive gravity that got through would corrupt every player's root transform at once.
+/// </summary>
+public class BasisLocomotionPolicyManagerTests
+{
+    private const byte Jump = 1, Walk = 2, Run = 4, Gravity = 8, ModeBit = 16;
+
+    private static void Reset() => BasisLocomotionPolicyManager.SetPolicy(0, 1f, 2.5f, 4f, -9.81f, 0);
+
+    [Fact]
+    public void SetPolicy_KeepsWellFormedValues()
+    {
+        try
+        {
+            BasisLocomotionPolicyManager.SetPolicy(Jump | Walk | Run | Gravity | ModeBit, 2.5f, 1f, 12f, -4f, 1);
+
+            Assert.Equal(Jump | Walk | Run | Gravity | ModeBit, BasisLocomotionPolicyManager.Fields);
+            Assert.Equal(2.5f, BasisLocomotionPolicyManager.JumpHeight);
+            Assert.Equal(1f, BasisLocomotionPolicyManager.WalkSpeed);
+            Assert.Equal(12f, BasisLocomotionPolicyManager.RunSpeed);
+            Assert.Equal(-4f, BasisLocomotionPolicyManager.Gravity);
+            Assert.Equal(1, BasisLocomotionPolicyManager.Mode);
+        }
+        finally
+        {
+            Reset();
+        }
+    }
+
+    [Fact]
+    public void SetPolicy_DropsUnknownMaskBitsAndModes()
+    {
+        try
+        {
+            BasisLocomotionPolicyManager.SetPolicy(0xFF, 1f, 2.5f, 4f, -9.81f, 200);
+            Assert.Equal(BasisLocomotionPolicyManager.AllFields, BasisLocomotionPolicyManager.Fields);
+            Assert.Equal(0, BasisLocomotionPolicyManager.Mode);
+
+            BasisLocomotionPolicyManager.SetPolicy(ModeBit, 1f, 2.5f, 4f, -9.81f, BasisLocomotionPolicyManager.MaxMode);
+            Assert.Equal(BasisLocomotionPolicyManager.MaxMode, BasisLocomotionPolicyManager.Mode);
+        }
+        finally
+        {
+            Reset();
+        }
+    }
+
+    [Theory]
+    // A positive gravity would make the client's sqrt(jumpHeight * -2 * gravity) imaginary.
+    [InlineData(9.81f, 0f)]
+    [InlineData(0f, 0f)]
+    [InlineData(-9.81f, -9.81f)]
+    [InlineData(float.NaN, -9.81f)]
+    [InlineData(float.PositiveInfinity, -9.81f)]
+    [InlineData(float.NegativeInfinity, -9.81f)]
+    [InlineData(-99999f, -1000f)]
+    public void SetPolicy_GravityStaysNonPositiveAndFinite(float gravity, float expected)
+    {
+        try
+        {
+            BasisLocomotionPolicyManager.SetPolicy(Gravity, 1f, 2.5f, 4f, gravity, 0);
+            Assert.Equal(expected, BasisLocomotionPolicyManager.Gravity);
+        }
+        finally
+        {
+            Reset();
+        }
+    }
+
+    [Theory]
+    // Non-finite falls back to that field's own default (jump 1, walk 2.5), negative floors at 0,
+    // and anything past the ceiling is clamped rather than forwarded.
+    [InlineData(float.NaN, 1f, 1f, 1f)]
+    [InlineData(float.PositiveInfinity, float.NegativeInfinity, 1f, 2.5f)]
+    [InlineData(-5f, -5f, 0f, 0f)]
+    [InlineData(99999f, 99999f, 1000f, 1000f)]
+    public void SetPolicy_DistancesStayFiniteAndInRange(float jump, float walk, float expectedJump, float expectedWalk)
+    {
+        try
+        {
+            BasisLocomotionPolicyManager.SetPolicy(Jump | Walk, jump, walk, 4f, -9.81f, 0);
+            Assert.Equal(expectedJump, BasisLocomotionPolicyManager.JumpHeight);
+            Assert.Equal(expectedWalk, BasisLocomotionPolicyManager.WalkSpeed);
+        }
+        finally
+        {
+            Reset();
+        }
+    }
+
+    [Fact]
+    public void SetPolicy_ReportsOnlyRealChanges()
+    {
+        try
+        {
+            BasisLocomotionPolicyManager.SetPolicy(Walk, 1f, 3f, 4f, -9.81f, 0);
+            Assert.False(BasisLocomotionPolicyManager.SetPolicy(Walk, 1f, 3f, 4f, -9.81f, 0));
+            Assert.True(BasisLocomotionPolicyManager.SetPolicy(Walk, 1f, 3.5f, 4f, -9.81f, 0));
+            Assert.True(BasisLocomotionPolicyManager.SetPolicy(Walk | Run, 1f, 3.5f, 4f, -9.81f, 0));
+            // Sanitizing onto what is already stored is not a change either: a non-finite gravity
+            // falls back to the -9.81 already held.
+            Assert.False(BasisLocomotionPolicyManager.SetPolicy(Walk | Run, 1f, 3.5f, 4f, float.NaN, 0));
+            // An upward gravity clamps to zero rather than to the default, so it IS a change — the
+            // admin asking for no downward pull gets floating, not the stock -9.81 back.
+            Assert.True(BasisLocomotionPolicyManager.SetPolicy(Walk | Run, 1f, 3.5f, 4f, 5f, 0));
+            Assert.Equal(0f, BasisLocomotionPolicyManager.Gravity);
+        }
+        finally
+        {
+            Reset();
+        }
+    }
+
+    [Fact]
+    public void InitializeFromConfig_UsesTheConfiguredPolicyAndWritesItBack()
+    {
+        try
+        {
+            BasisLocomotionPolicyManager.InitializeFromConfig(new Configuration
+            {
+                LocomotionPolicyFields = Walk | Run,
+                LocomotionPolicyJumpHeight = 2f,
+                LocomotionPolicyWalkSpeed = 1.25f,
+                LocomotionPolicyRunSpeed = 9f,
+                LocomotionPolicyGravity = -3f,
+                LocomotionPolicyMode = 2,
+            });
+            Assert.Equal(Walk | Run, BasisLocomotionPolicyManager.Fields);
+            Assert.Equal(1.25f, BasisLocomotionPolicyManager.WalkSpeed);
+            Assert.Equal(9f, BasisLocomotionPolicyManager.RunSpeed);
+            Assert.Equal(-3f, BasisLocomotionPolicyManager.Gravity);
+
+            var config = new Configuration();
+            BasisLocomotionPolicyManager.WriteToConfig(config);
+            Assert.Equal(Walk | Run, config.LocomotionPolicyFields);
+            Assert.Equal(1.25f, config.LocomotionPolicyWalkSpeed);
+            Assert.Equal(9f, config.LocomotionPolicyRunSpeed);
+            Assert.Equal(-3f, config.LocomotionPolicyGravity);
+            Assert.Equal(2, config.LocomotionPolicyMode);
+
+            // A default configuration dictates nothing at all.
+            BasisLocomotionPolicyManager.InitializeFromConfig(new Configuration());
+            Assert.Equal(0, BasisLocomotionPolicyManager.Fields);
+        }
+        finally
+        {
+            Reset();
+        }
+    }
+
+    [Fact]
+    public void SendStateToPeer_WritesModeByteThenTheWholePolicy()
+    {
+        try
+        {
+            BasisLocomotionPolicyManager.SetPolicy(Jump | Run, 3f, 2.5f, 7f, -12f, 1);
+            var peer = new PolicyTestPeer(21);
+            BasisLocomotionPolicyManager.SendStateToPeer(peer);
+
+            var reader = new NetDataReader(Assert.Single(peer.Sent));
+            Assert.Equal((byte)AdminRequestMode.GlobalGetLocomotionPolicy, reader.GetByte());
+            Assert.Equal(Jump | Run, reader.GetByte());
+            Assert.Equal(3f, reader.GetFloat());
+            // Unclaimed fields still travel, so the admin panel shows the stored policy rather than
+            // inventing numbers for the boxes it leaves switched off.
+            Assert.Equal(2.5f, reader.GetFloat());
+            Assert.Equal(7f, reader.GetFloat());
+            Assert.Equal(-12f, reader.GetFloat());
+            Assert.Equal(1, reader.GetByte());
+            Assert.Equal(0, reader.AvailableBytes);
+            Assert.Equal(BasisNetworkCommons.AdminChannel, peer.LastChannel);
+
+            BasisLocomotionPolicyManager.BroadcastState(); // zero connected peers: must be a safe no-op
+        }
+        finally
+        {
+            Reset();
+        }
+    }
+}

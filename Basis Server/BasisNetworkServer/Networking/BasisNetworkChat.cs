@@ -21,6 +21,18 @@ namespace BasisNetworkServer.BasisNetworking
         private static readonly string WordFilterFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "chat_word_filter.txt");
 
         /// <summary>
+        /// Every accepted message is an N-1 reliable fan-out, so cap the send rate well above
+        /// human typing (burst absorbs pastes and quick corrections) and drop the rest silently.
+        /// </summary>
+        private static readonly BasisPeerRateLimiter MessageLimiter = new BasisPeerRateLimiter(tokensPerSecond: 2f, tokenBurst: 6f);
+
+        /// <summary>
+        /// Typing state is edge-triggered by well-behaved clients; anything sustained beyond a
+        /// couple of transitions per second is a broadcast storm, not a person typing.
+        /// </summary>
+        public static readonly BasisPeerRateLimiter TypingLimiter = new BasisPeerRateLimiter(tokensPerSecond: 2f, tokenBurst: 8f);
+
+        /// <summary>
         /// Loads the word filter list from disk. Each line in the file is a blocked word/phrase.
         /// Creates an empty file if none exists.
         /// </summary>
@@ -141,12 +153,14 @@ namespace BasisNetworkServer.BasisNetworking
         }
 
         /// <summary>
-        /// True when the global text-chat lock is on and this peer lacks basis.chat.lockbypass.
-        /// Shared by the chat and typing-state paths so a locked peer can't leak "is typing"
-        /// activity while their messages are being dropped.
+        /// True when this peer may not send text chat: the global text-chat lock is on and they
+        /// lack basis.chat.lockbypass, or a moderator text-muted them. Shared by the chat and
+        /// typing-state paths so a blocked peer can't leak "is typing" activity while their
+        /// messages are being dropped.
         /// </summary>
         public static bool IsChatBlockedFor(NetPeer peer)
         {
+            if (BasisPlayerMuteManager.IsTextMutedFor(peer)) return true;
             return BasisGlobalLockManager.TextChatLocked &&
                 !PermissionIntegration.HasValidRequirement(peer, PermNodes.ChatLockBypass);
         }
@@ -158,6 +172,7 @@ namespace BasisNetworkServer.BasisNetworking
         /// </summary>
         public static bool IsChatBlockedForUuid(string uuid)
         {
+            if (BasisPlayerMuteManager.IsTextMuted(uuid)) return true;
             return BasisGlobalLockManager.TextChatLocked &&
                 !PermissionIntegration.HasValidRequirement(uuid, PermNodes.ChatLockBypass);
         }
@@ -168,6 +183,12 @@ namespace BasisNetworkServer.BasisNetworking
         /// </summary>
         public static void HandleChatMessage(NetPacketReader reader, NetPeer sender)
         {
+            if (!MessageLimiter.TryConsume(sender))
+            {
+                reader.Recycle();
+                return;
+            }
+
             if (IsChatBlockedFor(sender))
             {
                 // Dropped silently: clients already grey out their composer from the broadcast lock

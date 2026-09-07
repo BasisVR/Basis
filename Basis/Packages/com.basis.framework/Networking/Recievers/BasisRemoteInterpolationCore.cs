@@ -54,8 +54,8 @@ public static class BasisRemoteInterpolationCore
             + (2f * a - 5f * b + 4f * c - d) * t2
             + (-a + 3f * b - 3f * c + d) * t3);
 
-        float len = math.length(r);
-        return len > 1e-12f ? new quaternion(r / len) : p1;
+        float lsq = math.lengthsq(r);
+        return lsq > 1e-24f ? new quaternion(r * math.rsqrt(lsq)) : p1;
     }
 
     /// <summary>Shortest-path nlerp — the two-point fallback and the reference path.</summary>
@@ -63,7 +63,7 @@ public static class BasisRemoteInterpolationCore
     public static quaternion NlerpShortest(quaternion a, quaternion b, float t)
     {
         if (math.dot(a.value, b.value) < 0f) b.value = -b.value;
-        return math.normalize(math.nlerp(a, b, t));
+        return math.normalize(new quaternion(math.lerp(a.value, b.value, t)));
     }
 
     /// <summary>
@@ -86,7 +86,7 @@ public static class BasisRemoteInterpolationCore
     {
         float4 s = raw.value;
         if (math.dot(prevFiltered.value, s) < 0f) s = -s;
-        return math.normalize(math.nlerp(prevFiltered, new quaternion(s), alpha));
+        return math.normalize(new quaternion(math.lerp(prevFiltered.value, s, alpha)));
     }
 
     /// <summary>

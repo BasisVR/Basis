@@ -4,16 +4,30 @@ using System.Threading.Tasks;
 using UnityEngine;
 public static class BasisEncryptionToData
 {
-    public static async Task<AssetBundleCreateRequest> GenerateBundleFromFile(string Password, byte[] Bytes, uint CRC, BasisProgressReport progressCallback)
+    public static Task<BasisEncryptionWrapper.BasisDecryptResult> DecryptSection(string uniqueID, BasisEncryptionWrapper.BasisPassword password, BasisBundleSection section, BasisProgressReport progressCallback, System.Threading.CancellationToken ct = default)
+    {
+        if (section.Bytes != null)
+        {
+            return BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueID, password, section.Bytes, progressCallback, ct);
+        }
+
+        return BasisEncryptionWrapper.DecryptFromFileAsync(uniqueID, password, section.FilePath, section.Offset, section.Length, progressCallback, ct);
+    }
+
+    public static async Task<AssetBundleCreateRequest> GenerateBundleFromFile(string Password, BasisBundleSection Section, uint CRC, BasisProgressReport progressCallback)
     {
         // Define the password object for decryption
         var BasisPassword = new BasisEncryptionWrapper.BasisPassword
         {
             VP = Password
         };
+        if (progressCallback == null)
+        {
+            progressCallback = new BasisProgressReport();
+        }
         string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
         // Decrypt the file asynchronously
-        var decrypted = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, Bytes, progressCallback);
+        var decrypted = await DecryptSection(UniqueID, BasisPassword, Section, progressCallback.Stage(UniqueID, 0, 20));
 
         if (!decrypted.Success || decrypted.Data == null || decrypted.Data.Length == 0)
         {
@@ -33,29 +47,13 @@ public static class BasisEncryptionToData
             BasisDebug.LogError($"LoadFromMemoryAsync threw: {ex}");
             return null;
         }
-        // Track the last reported progress
-        int lastReportedProgress = -1;
-
-        // Periodically check the progress of AssetBundleCreateRequest and report progress
         while (!assetBundleCreateRequest.isDone)
         {
-            // Convert the progress to a percentage (0-100)
-            int progress = Mathf.RoundToInt(assetBundleCreateRequest.progress * 100);
-
-            // Report progress only if it has changed
-            if (progress > lastReportedProgress)
-            {
-                lastReportedProgress = progress;
-
-                // Call the progress callback with the current progress
-                progressCallback.ReportProgress(UniqueID.ToString(), progress, "loading bundle");
-            }
-
-            // Wait a short period before checking again to avoid busy waiting
-            await Task.Delay(50); // Adjust delay as needed (e.g., 50ms)
+            progressCallback.ReportProgress(UniqueID, 20 + Mathf.Min(assetBundleCreateRequest.progress, 0.99f) * 80, "Loading bundle");
+            await Task.Delay(50);
         }
 
-        progressCallback?.ReportProgress(UniqueID, 100, "loading bundle");
+        progressCallback.ReportProgress(UniqueID, 100, "Loading bundle");
         await assetBundleCreateRequest;
 
         // req.assetBundle can still be null if CRC fails or bytes aren’t a bundle.

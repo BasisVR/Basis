@@ -119,6 +119,14 @@
         "com.unity.ugui": "2.0.0"
       }
     },
+    "com.basis.globalillumination": {
+      "version": "file:com.basis.globalillumination",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.render-pipelines.universal": "17.0.0"
+      }
+    },
     "com.basis.imagepickup": {
       "version": "file:com.basis.imagepickup",
       "depth": 0,
@@ -239,6 +247,14 @@
         "com.unity.ugui": "2.0.0"
       }
     },
+    "com.basis.rtao": {
+      "version": "file:com.basis.rtao",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.render-pipelines.universal": "17.5.0"
+      }
+    },
     "com.basis.sdk": {
       "version": "file:com.basis.sdk",
       "depth": 0,
@@ -344,14 +360,6 @@
       "dependencies": {
         "com.unity.ugui": "1.0.0",
         "com.unity.test-framework": "1.0.0"
-      }
-    },
-    "com.jiaozi158.unityssgiurp": {
-      "version": "file:com.jiaozi158.unityssgiurp",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.render-pipelines.universal": "14.0.11"
       }
     },
     "com.llealloo.audiolink": {
@@ -645,7 +653,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.timeline": {
-      "version": "1.8.12",
+      "version": "1.8.13",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -727,7 +735,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.management": {
-      "version": "4.5.4",
+      "version": "4.6.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Basis.Scripts.Vehicles.Main
@@ -61,6 +62,8 @@ namespace Basis.Scripts.Vehicles.Main
         private List<Parts.BasisVehicleHoverThruster> _hoverThrusters = new List<Parts.BasisVehicleHoverThruster>();
         private List<Parts.BasisVehicleWheel> _wheels = new List<Parts.BasisVehicleWheel>();
         private List<Parts.BasisVehiclePart> _otherParts = new List<Parts.BasisVehiclePart>();
+        private NativeArray<RaycastCommand> _hoverCommands;
+        private NativeArray<RaycastHit> _hoverHits;
         public Rigidbody rb;
         /// <summary>
         /// Server-authoritative "locked" state, set by <see cref="Basis.Network.Vehicles.BasisNetworkedVehicle"/>
@@ -204,9 +207,65 @@ namespace Basis.Scripts.Vehicles.Main
             {
                 _hoverThrusters[i].SetFromVehicleInput(actualAngular, actualLinear);
             }
+            SimulateHoverThrusters();
             for (int i = 0; i < _otherParts.Count; i++)
             {
                 _otherParts[i].SetFromVehicleInput(actualAngular, actualLinear);
+            }
+        }
+
+        /// <summary>
+        /// Runs every hover thruster's ground ray as one batched RaycastCommand job
+        /// instead of one synchronous Physics.Raycast per thruster.
+        /// </summary>
+        private void SimulateHoverThrusters()
+        {
+            int count = _hoverThrusters.Count;
+            if (count == 0)
+            {
+                return;
+            }
+            if (count == 1)
+            {
+                Parts.BasisVehicleHoverThruster thruster = _hoverThrusters[0];
+                if (thruster.PrepareHoverRay(out Vector3 soloOrigin, out Vector3 soloDir) && Physics.Raycast(soloOrigin, soloDir, out RaycastHit soloHit, 1000.0f))
+                {
+                    thruster.ApplyHoverForce(soloHit.distance);
+                }
+                return;
+            }
+            if (!_hoverCommands.IsCreated || _hoverCommands.Length < count)
+            {
+                if (_hoverCommands.IsCreated)
+                {
+                    _hoverCommands.Dispose();
+                    _hoverHits.Dispose();
+                }
+                _hoverCommands = new NativeArray<RaycastCommand>(count, Allocator.Persistent);
+                _hoverHits = new NativeArray<RaycastHit>(count, Allocator.Persistent);
+            }
+            QueryParameters query = new QueryParameters(Physics.DefaultRaycastLayers, false, QueryTriggerInteraction.UseGlobal, false);
+            for (int i = 0; i < count; i++)
+            {
+                bool wantsRay = _hoverThrusters[i].PrepareHoverRay(out Vector3 origin, out Vector3 dir);
+                _hoverCommands[i] = new RaycastCommand(origin, dir, query, wantsRay ? 1000.0f : 0.0f);
+            }
+            RaycastCommand.ScheduleBatch(_hoverCommands, _hoverHits, 1).Complete();
+            for (int i = 0; i < count; i++)
+            {
+                if (_hoverHits[i].colliderEntityId != 0)
+                {
+                    _hoverThrusters[i].ApplyHoverForce(_hoverHits[i].distance);
+                }
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_hoverCommands.IsCreated)
+            {
+                _hoverCommands.Dispose();
+                _hoverHits.Dispose();
             }
         }
 

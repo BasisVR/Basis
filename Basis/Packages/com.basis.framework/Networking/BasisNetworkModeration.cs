@@ -320,6 +320,7 @@ public static class BasisNetworkModeration
     /// </summary>
     public static void RequestAllLogs()
     {
+        BasisLogBundleReceiver.ArmForLocalRequest();
         SendAdminRequest(AdminRequestMode.RequestAllLogs);
     }
 
@@ -417,9 +418,18 @@ public static class BasisNetworkModeration
                 HandlePermissionsResponse(reader);
                 break;
 
+            case AdminRequestMode.QueryPermissionResult:
+                HandlePermissionQueryResult(reader);
+                break;
+
             case AdminRequestMode.EnableShoutMode:
             case AdminRequestMode.DisableShoutMode:
                 HandleShoutModeChanged(reader, mode == AdminRequestMode.EnableShoutMode);
+                break;
+
+            case AdminRequestMode.EnableAnnounceMode:
+            case AdminRequestMode.DisableAnnounceMode:
+                HandleAnnounceModeChanged(reader, mode == AdminRequestMode.EnableAnnounceMode);
                 break;
 
             case AdminRequestMode.GlobalGetLockState:
@@ -482,8 +492,16 @@ public static class BasisNetworkModeration
                 HandlePeerLimit(reader);
                 break;
 
+            case AdminRequestMode.GlobalGetLocomotionPolicy:
+                HandleLocomotionPolicy(reader);
+                break;
+
             case AdminRequestMode.GlobalGetReductionSettings:
                 HandleReductionSettings(reader);
+                break;
+
+            case AdminRequestMode.MuteStateApply:
+                HandleMuteStateApply(reader);
                 break;
 
             case AdminRequestMode.LogBundleBegin:
@@ -504,17 +522,80 @@ public static class BasisNetworkModeration
         }
     }
 
+    #region Announce Mode
+
+    /// <summary>
+    /// Fired when a player's announce mode state changes.
+    /// </summary>
+    public static event Action<ushort, bool> OnAnnounceModeChanged;
+
+    /// <summary>
+    /// True if the local player is currently in announce mode.
+    /// </summary>
+    public static bool LocalPlayerInAnnounceMode => Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInAnnounceMode;
+
+    private static void HandleAnnounceModeChanged(NetDataReader reader, bool enabled)
+    {
+        ushort targetPlayerId = reader.GetUShort();
+        ushort initiatorPlayerId = reader.AvailableBytes >= 2 ? reader.GetUShort() : targetPlayerId;
+        string state = enabled ? "enabled" : "disabled";
+        BasisDebug.Log($"Announce mode {state} for player {targetPlayerId}", BasisDebug.LogTag.Networking);
+
+        // Check if this is the local player
+        bool isLocalPlayer = BasisNetworkPlayer.LocalPlayer != null && targetPlayerId == BasisNetworkPlayer.LocalPlayer.playerId;
+        if (isLocalPlayer)
+        {
+            // Set the local transmission channel
+            Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInAnnounceMode = enabled;
+            BasisDebug.Log($"Local player announce mode {state}", BasisDebug.LogTag.Networking);
+
+            bool forcedByOther = initiatorPlayerId != targetPlayerId;
+            if (forcedByOther && !BasisTalkModeManager.LocalCanAnnounce())
+            {
+                string initiatorName = ResolveDisplayName(initiatorPlayerId);
+                DisplayMessage(enabled
+                    ? $"{initiatorName} enabled announce mode for you - your voice is now broadcast to everyone."
+                    : $"{initiatorName} disabled announce mode for you - your voice is back to normal.");
+            }
+        }
+        else
+        {
+            // For remote players, manage the global announce audio source
+            if (enabled)
+            {
+                BasisAnnounceAudioDriver.EnableAnnounceMode(targetPlayerId);
+            }
+            else
+            {
+                BasisAnnounceAudioDriver.DisableAnnounceMode(targetPlayerId);
+            }
+        }
+
+        OnAnnounceModeChanged?.Invoke(targetPlayerId, enabled);
+    }
+
+    #endregion
+
     #region Shout Mode
 
     /// <summary>
-    /// Fired when a player's shout mode state changes.
+    /// Fired when an admin grants or revokes shout mode for a player.
     /// </summary>
     public static event Action<ushort, bool> OnShoutModeChanged;
 
+    private static readonly HashSet<ushort> adminShoutPlayers = new HashSet<ushort>();
+
     /// <summary>
-    /// True if the local player is currently in shout mode.
+    /// True if an admin currently has this player in shout mode. This is the GRANT, not the
+    /// mode: a player who picked shout from their own menu bar is not in here. Every client
+    /// applies it to the remote player directly (<see cref="BasisRemotePlayer.SetAdminShoutHeld"/>),
+    /// so the widening does not wait on the target's own talk-mode broadcast.
     /// </summary>
-    public static bool LocalPlayerInShoutMode => Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInShoutMode;
+    public static bool IsInShoutMode(ushort playerId) => adminShoutPlayers.Contains(playerId);
+
+    /// <summary>True if an admin currently has the local player in shout mode.</summary>
+    public static bool LocalPlayerInShoutMode =>
+        BasisNetworkPlayer.LocalPlayer != null && adminShoutPlayers.Contains(BasisNetworkPlayer.LocalPlayer.playerId);
 
     private static void HandleShoutModeChanged(NetDataReader reader, bool enabled)
     {
@@ -523,38 +604,77 @@ public static class BasisNetworkModeration
         string state = enabled ? "enabled" : "disabled";
         BasisDebug.Log($"Shout mode {state} for player {targetPlayerId}", BasisDebug.LogTag.Networking);
 
-        // Check if this is the local player
+        if (enabled) adminShoutPlayers.Add(targetPlayerId);
+        else adminShoutPlayers.Remove(targetPlayerId);
+
+        BasisNetworkPlayer.OnRemotePlayerLeft -= ForgetShoutGrant;
+        BasisNetworkPlayer.OnRemotePlayerLeft += ForgetShoutGrant;
+        BasisNetworkPlayer.OnLocalPlayerLeft -= ForgetAllShoutGrants;
+        BasisNetworkPlayer.OnLocalPlayerLeft += ForgetAllShoutGrants;
+        BasisNetworkPlayer.OnRemotePlayerJoined -= SeedShoutGrant;
+        BasisNetworkPlayer.OnRemotePlayerJoined += SeedShoutGrant;
+
+        // The target enters the mode and broadcasts it; every other client also applies the
+        // grant to the remote player directly, the way the announce driver does, so the
+        // widening and the nameplate do not wait on that broadcast.
         bool isLocalPlayer = BasisNetworkPlayer.LocalPlayer != null && targetPlayerId == BasisNetworkPlayer.LocalPlayer.playerId;
         if (isLocalPlayer)
         {
-            // Set the local transmission channel
-            Basis.Scripts.Networking.Transmitters.BasisAudioTransmission.IsInShoutMode = enabled;
-            BasisDebug.Log($"Local player shout mode {state}", BasisDebug.LogTag.Networking);
+            BasisTalkModeManager.OnAdminShoutChanged(enabled);
 
             bool forcedByOther = initiatorPlayerId != targetPlayerId;
             if (forcedByOther && !BasisTalkModeManager.LocalCanShout())
             {
                 string initiatorName = ResolveDisplayName(initiatorPlayerId);
                 DisplayMessage(enabled
-                    ? $"{initiatorName} enabled shout mode for you - your voice is now broadcast to everyone."
-                    : $"{initiatorName} disabled shout mode for you - your voice is back to normal.");
+                    ? $"{initiatorName} put you in shout mode - your voice now carries twice as far."
+                    : $"{initiatorName} took you out of shout mode - your voice is back to normal.");
             }
         }
-        else
+        else if (BasisNetworkPlayers.RemotePlayers.TryGetValue(targetPlayerId, out BasisRemotePlayer remote) && remote != null)
         {
-            // For remote players, manage the global shout audio source
-            if (enabled)
-            {
-                BasisShoutAudioDriver.EnableShoutMode(targetPlayerId);
-            }
-            else
-            {
-                BasisShoutAudioDriver.DisableShoutMode(targetPlayerId);
-            }
+            remote.SetAdminShoutHeld(enabled);
         }
 
         OnShoutModeChanged?.Invoke(targetPlayerId, enabled);
     }
+
+    private static void SeedShoutGrant(BasisNetworkPlayer networkPlayer, BasisRemotePlayer remotePlayer)
+    {
+        if (networkPlayer != null && remotePlayer != null && adminShoutPlayers.Contains(networkPlayer.playerId)) remotePlayer.SetAdminShoutHeld(true);
+    }
+
+    private static void ForgetShoutGrant(BasisNetworkPlayer networkPlayer, BasisRemotePlayer remotePlayer)
+    {
+        if (networkPlayer != null) adminShoutPlayers.Remove(networkPlayer.playerId);
+    }
+
+    private static void ForgetAllShoutGrants(BasisNetworkPlayer networkPlayer, BasisLocalPlayer localPlayer)
+    {
+        adminShoutPlayers.Clear();
+    }
+
+    /// <summary>
+    /// Admin: put a player into shout mode (double range, louder, still spatialized).
+    /// </summary>
+    public static void EnableShoutMode(ushort playerId)
+    {
+        SendAdminRequest(AdminRequestMode.EnableShoutMode,
+            w => w.Put(playerId));
+    }
+
+    /// <summary>
+    /// Admin: take a player back out of shout mode.
+    /// </summary>
+    public static void DisableShoutMode(ushort playerId)
+    {
+        SendAdminRequest(AdminRequestMode.DisableShoutMode,
+            w => w.Put(playerId));
+    }
+
+    #endregion
+
+    #region Announce Mode (continued)
 
     private static string ResolveDisplayName(ushort playerId)
     {
@@ -567,20 +687,20 @@ public static class BasisNetworkModeration
     }
 
     /// <summary>
-    /// Admin: Enable shout mode for a player (non-spatialized broadcast voice).
+    /// Admin: Enable announce mode for a player (non-spatialized broadcast voice).
     /// </summary>
-    public static void EnableShoutMode(ushort playerId)
+    public static void EnableAnnounceMode(ushort playerId)
     {
-        SendAdminRequest(AdminRequestMode.EnableShoutMode,
+        SendAdminRequest(AdminRequestMode.EnableAnnounceMode,
             w => w.Put(playerId));
     }
 
     /// <summary>
-    /// Admin: Disable shout mode for a player.
+    /// Admin: Disable announce mode for a player.
     /// </summary>
-    public static void DisableShoutMode(ushort playerId)
+    public static void DisableAnnounceMode(ushort playerId)
     {
-        SendAdminRequest(AdminRequestMode.DisableShoutMode,
+        SendAdminRequest(AdminRequestMode.DisableAnnounceMode,
             w => w.Put(playerId));
     }
 
@@ -593,6 +713,75 @@ public static class BasisNetworkModeration
         SendAdminRequest(AdminRequestMode.SetFullQualityBroadcast,
             w => w.Put(playerId),
             w => w.Put(enable));
+    }
+
+    #endregion
+
+    #region Moderation Mute
+
+    /// <summary>
+    /// Server-pushed moderation mute on the LOCAL player's voice. The server drops the audio
+    /// regardless — this flag folds into <see cref="VoiceBlockedLocally"/> so the mic stops
+    /// uploading a stream the server discards.
+    /// </summary>
+    public static bool LocalPlayerVoiceMutedByModerator { get; private set; }
+
+    /// <summary>
+    /// Server-pushed moderation mute on the LOCAL player's text chat. Folds into
+    /// <see cref="BasisNetworkHandleChat.LockedByServer"/> so the composer greys out instead of
+    /// silently swallowing messages the server drops.
+    /// </summary>
+    public static bool LocalPlayerTextMutedByModerator { get; private set; }
+
+    /// <summary>Fired when the local player's moderation voice mute changes.</summary>
+    public static event Action<bool> OnLocalVoiceMutedByModeratorChanged;
+
+    /// <summary>Fired when the local player's moderation text mute changes.</summary>
+    public static event Action<bool> OnLocalTextMutedByModeratorChanged;
+
+    /// <summary>Moderator: mute or unmute a player's voice for the whole server. UUID-keyed and persisted server-side, so it survives a rejoin.</summary>
+    public static void SetVoiceMute(string uuid, bool muted)
+    {
+        if (!ValidateString(uuid, nameof(uuid))) return;
+        SendAdminRequest(AdminRequestMode.SetVoiceMute,
+            w => w.Put(uuid),
+            w => w.Put(muted));
+    }
+
+    /// <summary>Moderator: mute or unmute a player's text chat (messages and typing) for the whole server. UUID-keyed and persisted server-side, so it survives a rejoin.</summary>
+    public static void SetTextMute(string uuid, bool muted)
+    {
+        if (!ValidateString(uuid, nameof(uuid))) return;
+        SendAdminRequest(AdminRequestMode.SetTextMute,
+            w => w.Put(uuid),
+            w => w.Put(muted));
+    }
+
+    private static void HandleMuteStateApply(NetDataReader reader)
+    {
+        bool voiceMuted = reader.GetBool();
+        bool textMuted = reader.GetBool();
+
+        bool voiceChanged = voiceMuted != LocalPlayerVoiceMutedByModerator;
+        bool textChanged = textMuted != LocalPlayerTextMutedByModerator;
+        LocalPlayerVoiceMutedByModerator = voiceMuted;
+        LocalPlayerTextMutedByModerator = textMuted;
+
+        if (voiceChanged) OnLocalVoiceMutedByModeratorChanged?.Invoke(voiceMuted);
+        if (textChanged) OnLocalTextMutedByModeratorChanged?.Invoke(textMuted);
+
+        if (voiceChanged)
+        {
+            DisplayMessage(voiceMuted
+                ? "A moderator muted your voice - other players cannot hear you until you are unmuted."
+                : "A moderator unmuted your voice - other players can hear you again.");
+        }
+        if (textChanged)
+        {
+            DisplayMessage(textMuted
+                ? "A moderator muted your text chat - your messages will not be delivered until you are unmuted."
+                : "A moderator unmuted your text chat - your messages are delivered again.");
+        }
     }
 
     #endregion
@@ -680,6 +869,86 @@ public static class BasisNetworkModeration
     public static void RequestPermissions()
     {
         SendAdminRequest(AdminRequestMode.GetPermissions);
+    }
+
+    /// <summary>
+    /// One server answer to <see cref="QueryPermissionNode"/> or <see cref="QueryPermissionGroup"/>.
+    /// The request is echoed back in full, so a caller matches a reply by comparing what it asked
+    /// rather than by tracking a request id — which also means one reply satisfies every caller
+    /// that happened to ask the same question.
+    /// </summary>
+    public struct PermissionQueryResult
+    {
+        /// <summary>Player the question was about.</summary>
+        public ushort PlayerId;
+
+        /// <summary>Whether <see cref="Value"/> named a permission node or a group.</summary>
+        public AdminPermissionQueryKind Kind;
+
+        /// <summary>The node or group name that was asked about.</summary>
+        public string Value;
+
+        /// <summary>The answer. Always false when <see cref="PlayerFound"/> is false.</summary>
+        public bool Held;
+
+        /// <summary>False when that player was not connected by the time the server looked.</summary>
+        public bool PlayerFound;
+    }
+
+    /// <summary>
+    /// Fired for every permission query answered by the server.
+    /// </summary>
+    public static event Action<PermissionQueryResult> OnPermissionQueryResult;
+
+    /// <summary>
+    /// Ask the server whether one player currently in this instance holds a permission node.
+    /// Any user may ask — unlike <see cref="RequestPermissions"/>, this returns one yes/no about
+    /// one player rather than the whole table. The answer arrives on
+    /// <see cref="OnPermissionQueryResult"/>; the server rate limits per peer and silently drops
+    /// what is over budget, so a query is not guaranteed an answer. For the local player read
+    /// <see cref="BasisNetworkManagement.LocalPermissions"/> directly instead — it is already here.
+    /// </summary>
+    public static void QueryPermissionNode(ushort playerId, string node)
+    {
+        if (ValidateString(node, nameof(node)))
+        {
+            SendPermissionQuery(playerId, AdminPermissionQueryKind.Node, node);
+        }
+    }
+
+    /// <summary>
+    /// Ask the server whether one player currently in this instance belongs to a permission group
+    /// ("role"), counting groups inherited through a parent chain. Same delivery and limits as
+    /// <see cref="QueryPermissionNode"/>.
+    /// </summary>
+    public static void QueryPermissionGroup(ushort playerId, string group)
+    {
+        if (ValidateString(group, nameof(group)))
+        {
+            SendPermissionQuery(playerId, AdminPermissionQueryKind.Group, group);
+        }
+    }
+
+    private static void SendPermissionQuery(ushort playerId, AdminPermissionQueryKind kind, string value)
+    {
+        SendAdminRequest(AdminRequestMode.QueryPermission,
+            w => w.Put(playerId),
+            w => w.Put((byte)kind),
+            w => w.Put(value));
+    }
+
+    private static void HandlePermissionQueryResult(NetDataReader reader)
+    {
+        PermissionQueryResult result = new PermissionQueryResult
+        {
+            PlayerId = reader.GetUShort(),
+            Kind = (AdminPermissionQueryKind)reader.GetByte(),
+            Value = reader.GetString(),
+            Held = reader.GetBool(),
+            PlayerFound = reader.GetBool(),
+        };
+
+        OnPermissionQueryResult?.Invoke(result);
     }
 
     /// <summary>
@@ -1018,10 +1287,11 @@ public static class BasisNetworkModeration
 
     /// <summary>
     /// True when the local player must stop transmitting voice. The server drops it regardless —
-    /// this exists so a locked client doesn't keep encoding and uploading a discarded stream.
+    /// this exists so a locked or moderation-muted client doesn't keep encoding and uploading a
+    /// discarded stream.
     /// </summary>
     public static bool VoiceBlockedLocally =>
-        GlobalVoiceChatLocked && !LocalPlayerHasVoiceLockBypass();
+        (GlobalVoiceChatLocked && !LocalPlayerHasVoiceLockBypass()) || LocalPlayerVoiceMutedByModerator;
 
     /// <summary>
     /// True when the local player may not load media player URLs (outbound or inbound).
@@ -1260,6 +1530,22 @@ public static class BasisNetworkModeration
             OnGlobalRestrictionModeChanged?.Invoke(GlobalUserRestrictionMode);
         }
 
+        // Moderation mutes are per-server state exactly like the locks above.
+        if (LocalPlayerVoiceMutedByModerator) { LocalPlayerVoiceMutedByModerator = false; OnLocalVoiceMutedByModeratorChanged?.Invoke(false); }
+        if (LocalPlayerTextMutedByModerator) { LocalPlayerTextMutedByModerator = false; OnLocalTextMutedByModeratorChanged?.Invoke(false); }
+
+        // The override stack itself is emptied by the disconnect path; this is the cached copy the
+        // admin panel reads, which would otherwise show the last server's policy on the next one.
+        BasisLocomotionValues policy = ServerLocomotionPolicy;
+        BasisLocomotionValues policyDefault = DefaultLocomotionPolicy;
+        if (policy.Fields != policyDefault.Fields || policy.JumpHeight != policyDefault.JumpHeight ||
+            policy.WalkSpeed != policyDefault.WalkSpeed || policy.RunSpeed != policyDefault.RunSpeed ||
+            policy.Gravity != policyDefault.Gravity || policy.Mode != policyDefault.Mode)
+        {
+            ServerLocomotionPolicy = policyDefault;
+            OnLocomotionPolicyChanged?.Invoke(policyDefault);
+        }
+
         if (contentLocksChanged)
         {
             OnGlobalLockStateChanged?.Invoke(false, false, false, false);
@@ -1365,7 +1651,7 @@ public static class BasisNetworkModeration
     }
 
     /// <summary>
-    /// Admin: toggle the global voice lock. While set the server drops normal and shout voice from
+    /// Admin: toggle the global voice lock. While set the server drops normal and announce voice from
     /// peers without basis.voice.lockbypass, and those clients stop transmitting.
     /// </summary>
     public static void GlobalToggleVoiceChat()
@@ -1833,6 +2119,99 @@ public static class BasisNetworkModeration
         OnLocomotionOverrideChanged?.Invoke(values);
     }
 
+    /// <summary>
+    /// The instance-wide locomotion policy this server dictates. Unlike a moderator's one-shot
+    /// override this arrives on join too, so it is the state of the room rather than an event, and
+    /// the admin panel edits the live policy instead of a stale copy. No fields set means the
+    /// server dictates nothing.
+    /// </summary>
+    /// <summary>
+    /// What the policy reads as before any server has spoken. The numbers match the driver's own
+    /// authored values, so the admin panel opens on sensible sliders rather than on a row of zeros
+    /// that would freeze the instance if someone ticked a field and hit Apply.
+    /// </summary>
+    public static readonly BasisLocomotionValues DefaultLocomotionPolicy = new BasisLocomotionValues
+    {
+        Fields = BasisLocomotionField.None,
+        JumpHeight = 1f,
+        WalkSpeed = 2.5f,
+        RunSpeed = 4f,
+        Gravity = -9.81f,
+        Mode = BasisLocalCharacterDriver.Mode.Walk,
+    };
+
+    public static BasisLocomotionValues ServerLocomotionPolicy { get; private set; } = DefaultLocomotionPolicy;
+
+    /// <summary>Fired when the server pushes a new instance-wide locomotion policy.</summary>
+    public static event Action<BasisLocomotionValues> OnLocomotionPolicyChanged;
+
+    private static void HandleLocomotionPolicy(NetDataReader reader)
+    {
+        byte fields = reader.GetByte();
+        float jumpHeight = reader.GetFloat();
+        float walkSpeed = reader.GetFloat();
+        float runSpeed = reader.GetFloat();
+        float gravity = reader.GetFloat();
+        byte movementMode = reader.GetByte();
+
+        if (movementMode > (byte)BasisLocalCharacterDriver.Mode.NoClip)
+        {
+            movementMode = (byte)BasisLocalCharacterDriver.Mode.Walk;
+        }
+
+        // Every value travels even when its bit is clear, so the admin panel can show the stored
+        // policy with its toggles off instead of falling back to invented numbers.
+        BasisLocomotionValues values = new BasisLocomotionValues
+        {
+            Fields = (BasisLocomotionField)fields & BasisLocomotionField.All,
+            JumpHeight = jumpHeight,
+            WalkSpeed = walkSpeed,
+            RunSpeed = runSpeed,
+            Gravity = gravity,
+            Mode = (BasisLocalCharacterDriver.Mode)movementMode,
+        };
+        ServerLocomotionPolicy = values;
+
+        // Remove before Set: a Set under a live key merges fields, so without this a policy that
+        // drops a field would leave the old value of it still claimed.
+        BasisLocomotionOverrides.Remove(BasisLocomotionOverrides.ServerPolicyKey);
+        if (values.Fields == BasisLocomotionField.None)
+        {
+            BasisDebug.Log("Server locomotion policy cleared", BasisDebug.LogTag.Networking);
+        }
+        else
+        {
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.ServerPolicyKey, BasisLocomotionOverrides.ServerPolicyPriority, values);
+            BasisDebug.Log($"Server locomotion policy applied ({values.Fields})", BasisDebug.LogTag.Networking);
+        }
+
+        OnLocomotionPolicyChanged?.Invoke(values);
+    }
+
+    /// <summary>
+    /// Admin: set the instance-wide locomotion policy — jump height, walk/run speed, gravity and
+    /// movement mode for everyone in this instance. Persisted to config.xml and pushed to every
+    /// client on join, so unlike <see cref="SetLocomotionOverrideAll(BasisLocomotionValues)"/> it
+    /// governs players who arrive later as well. No fields set clears it.
+    /// </summary>
+    public static void SetGlobalLocomotionPolicy(BasisLocomotionValues values)
+    {
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalLocomotionPolicy,
+            w => w.Put((byte)values.Fields),
+            w => w.Put(values.JumpHeight),
+            w => w.Put(values.WalkSpeed),
+            w => w.Put(values.RunSpeed),
+            w => w.Put(values.Gravity),
+            w => w.Put((byte)values.Mode));
+    }
+
+    /// <summary>Drop the instance-wide locomotion policy, returning everyone to their own values.</summary>
+    public static void ClearGlobalLocomotionPolicy()
+    {
+        SetGlobalLocomotionPolicy(default);
+    }
+
     private static void HandleUserOpusBitrateOverride(NetDataReader reader)
     {
         int bps = reader.GetInt();
@@ -1954,18 +2333,29 @@ public static class BasisNetworkModeration
             return;
         }
 
+        BasisDataStoreItemKeys.EmbeddedSettings embedded = embeddedSource switch
+        {
+            1 => BasisDataStoreItemKeys.EmbeddedSettings.BEEUrl,
+            2 => BasisDataStoreItemKeys.EmbeddedSettings.Addressable,
+            _ => BasisDataStoreItemKeys.EmbeddedSettings.Default,
+        };
+
+        // An addressable names content already inside this build, so there is no url to vet.
+        // Everything else is fetched from the url as written, and that must be http(s).
+        bool isAddressable = embedded.IsEmbedded && embedded.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable;
+        if (!isAddressable && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(url, out string urlReason))
+        {
+            BasisDebug.LogError($"Refusing forced avatar url: {urlReason}", BasisDebug.LogTag.Networking);
+            return;
+        }
+
         BasisDataStoreItemKeys.ItemKey item = new BasisDataStoreItemKeys.ItemKey
         {
             Mode = BundledContentHolder.Mode.Avatar,
             PlacementType = BundledContentHolder.PlacementType.SpawnAtRaycast,
             Url = url,
             Pass = password ?? string.Empty,
-            EmbeddedSettings = embeddedSource switch
-            {
-                1 => BasisDataStoreItemKeys.EmbeddedSettings.BEEUrl,
-                2 => BasisDataStoreItemKeys.EmbeddedSettings.Addressable,
-                _ => BasisDataStoreItemKeys.EmbeddedSettings.Default,
-            },
+            EmbeddedSettings = embedded,
             PinnedSettings = BasisDataStoreItemKeys.PinnedSettings.Default,
         };
 

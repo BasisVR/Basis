@@ -330,18 +330,12 @@ namespace BasisNetworkServer.BasisNetworking
         {
             if (trigram.Length != 3) return false;
 
-            // Skip if all trigram chars are also in the banned word.
-            // This prevents the trigram check from blocking detection of the banned word itself.
-            bool allInBannedWord = true;
-            foreach (char c in trigram)
-            {
-                if (bannedWord.IndexOf(c) < 0)
-                {
-                    allInBannedWord = false;
-                    break;
-                }
-            }
-            if (allInBannedWord) return false;
+            // Skip only if the trigram is literally a piece of the banned word itself (e.g.
+            // "cra" inside "crap"). This prevents the trigram check from blocking detection of
+            // the banned word itself, without exempting unrelated real words that just happen to
+            // reuse the same letters in a different order (e.g. "car" relative to "crap", which
+            // let unrelated digits later in the message complete a false match — GitHub #1021).
+            if (bannedWord.ToLowerInvariant().Contains(trigram)) return false;
 
             return Trigrams.Contains(trigram);
         }

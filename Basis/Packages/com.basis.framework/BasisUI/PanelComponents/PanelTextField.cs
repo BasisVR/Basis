@@ -89,6 +89,24 @@ namespace Basis.BasisUI
             return value.Length <= 60 ? value : value.Substring(0, 57) + "…";
         }
 
+        private bool HasPreviewText
+        {
+            get
+            {
+                if (_inputField == null || string.IsNullOrEmpty(_inputField.text)) return false;
+                TMP_InputField.ContentType contentType = _inputField.contentType;
+                return contentType != TMP_InputField.ContentType.Password && contentType != TMP_InputField.ContentType.Pin;
+            }
+        }
+
+        public override bool HasPanelOptions => HasPreviewText || HasResetDefault;
+
+        public override void RequestReset()
+        {
+            if (HasPreviewText) BasisTextFieldPreview.Open(this, _inputField);
+            else base.RequestReset();
+        }
+
 #if UNITY_EDITOR
         protected override void OnValidate()
         {

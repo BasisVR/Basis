@@ -165,6 +165,11 @@ namespace Basis.BasisUI
 
         private static void SetLanguage(string languageCode, bool notify)
         {
+            if (!_initialized)
+            {
+                Initialize();
+            }
+
             if (string.IsNullOrEmpty(languageCode))
             {
                 languageCode = DefaultLanguage;
@@ -332,28 +337,46 @@ namespace Basis.BasisUI
                 return;
             }
 
-            for (int i = 0; i < assets.Count; i++)
+            // TextAsset.text re-decodes the whole byte blob on every access — read exactly once per file.
+            int assetCount = assets.Count;
+            var names = new string[assetCount];
+            var texts = new string[assetCount];
+            for (int i = 0; i < assetCount; i++)
             {
                 TextAsset asset = assets[i];
-                if (asset == null || string.IsNullOrEmpty(asset.text))
+                if (asset == null)
                 {
                     continue;
+                }
+                names[i] = asset.name;
+                texts[i] = asset.text;
+            }
+            Addressables.Release(handle);
+
+            var parsedTables = new BasisLanguageTable[assetCount];
+            var builtTables = new Dictionary<string, string>[assetCount];
+            System.Threading.Tasks.Parallel.For(0, assetCount, i =>
+            {
+                string text = texts[i];
+                if (string.IsNullOrEmpty(text))
+                {
+                    return;
                 }
 
                 BasisLanguageTable parsed;
                 try
                 {
-                    parsed = JsonUtility.FromJson<BasisLanguageTable>(asset.text);
+                    parsed = JsonUtility.FromJson<BasisLanguageTable>(text);
                 }
                 catch (Exception e)
                 {
-                    BasisDebug.LogError($"[BasisLocalization] Failed to parse language asset \"{asset.name}\": {e}");
-                    continue;
+                    BasisDebug.LogError($"[BasisLocalization] Failed to parse language asset \"{names[i]}\": {e}");
+                    return;
                 }
 
                 if (parsed == null || string.IsNullOrEmpty(parsed.code))
                 {
-                    continue;
+                    return;
                 }
 
                 Dictionary<string, string> table = new(parsed.entries?.Count ?? 0);
@@ -369,6 +392,19 @@ namespace Basis.BasisUI
 
                         table[entry.key] = entry.value ?? string.Empty;
                     }
+                }
+
+                parsedTables[i] = parsed;
+                builtTables[i] = table;
+            });
+
+            for (int i = 0; i < assetCount; i++)
+            {
+                BasisLanguageTable parsed = parsedTables[i];
+                Dictionary<string, string> table = builtTables[i];
+                if (parsed == null || table == null)
+                {
+                    continue;
                 }
 
                 if (!_allTables.TryGetValue(parsed.code, out Dictionary<string, string> merged))
@@ -405,8 +441,6 @@ namespace Basis.BasisUI
                     _available.Add(new LanguageOption(parsed.code, nativeName));
                 }
             }
-
-            Addressables.Release(handle);
         }
     }
 }

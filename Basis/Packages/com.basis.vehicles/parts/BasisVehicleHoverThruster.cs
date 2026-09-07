@@ -42,14 +42,35 @@ namespace Basis.Scripts.Vehicles.Parts
         protected override void FixedUpdate()
         {
             base.FixedUpdate();
-            if (_parentBody == null || !Active)
+            if (_parentBody == null)
             {
                 _currentHoverEnergy = 0.0f;
                 if (_particles != null)
                 {
                     _particleEmission.rateOverTime = 0.0f;
                 }
-                return;
+            }
+        }
+
+        /// <summary>
+        /// Advances hover energy and emits this thruster's ground ray. Called by the parent
+        /// body each physics tick so all thrusters' rays run as one RaycastCommand batch.
+        /// Returns false when inactive (no ray wanted this tick).
+        /// </summary>
+        public bool PrepareHoverRay(out Vector3 rayOrigin, out Vector3 rayDir)
+        {
+            rayOrigin = transform.position;
+            // Unity uses +Z for forward, which maps to glTF +Z object front. The thruster
+            // thrusts in the +Z direction, which means the "nozzle" points in -Z.
+            rayDir = -transform.forward;
+            if (!Active)
+            {
+                _currentHoverEnergy = 0.0f;
+                if (_particles != null)
+                {
+                    _particleEmission.rateOverTime = 0.0f;
+                }
+                return false;
             }
             // Move the current hover energy towards the target value.
             float targetHoverEnergy = Mathf.Clamp01(TargetHoverRatio) * MaxHoverEnergy;
@@ -66,18 +87,20 @@ namespace Basis.Scripts.Vehicles.Parts
             {
                 _particleEmission.rateOverTime = 100.0f * Mathf.Abs(_currentHoverEnergy) / MaxHoverEnergy;
             }
-            // Perform a raycast to determine how far away the ground is. Hover thrusters should naturally
-            // provide more thrust the closer they are to the ground, and less thrust the farther they are.
-            Vector3 rayOrigin = transform.position;
-            // Unity uses +Z for forward, which maps to glTF +Z object front. The thruster
-            // thrusts in the +Z direction, which means the "nozzle" points in -Z.
-            Vector3 rayDir = -transform.forward;
-            RaycastHit hit;
-            if (!Physics.Raycast(rayOrigin, rayDir, out hit, 1000.0f))
+            return true;
+        }
+
+        /// <summary>
+        /// Applies the hover force for a ground hit at the given distance. Hover thrusters
+        /// naturally provide more thrust the closer they are to the ground.
+        /// </summary>
+        public void ApplyHoverForce(float hitDistance)
+        {
+            if (_parentBody == null)
             {
                 return;
             }
-            float hitDistance = Mathf.Max(hit.distance, 0.01f); // Avoid division by zero or near-zero.
+            hitDistance = Mathf.Max(hitDistance, 0.01f); // Avoid division by zero or near-zero.
             float hoverForce = _currentHoverEnergy / hitDistance; // N = Nm / m
             // Note: Unity's AddForceAtPosition uses global world coordinates for both parameters.
             _parentBody.AddForceAtPosition(transform.forward * hoverForce, transform.position);

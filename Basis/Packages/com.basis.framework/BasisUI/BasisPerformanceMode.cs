@@ -85,6 +85,15 @@ namespace Basis.BasisUI
         private static bool _baselineDirty;
         private static int _autoFrameGate;
 
+        // Per-app-run only (like BasisHighPlayerCapPerformanceMode's own tier-asked flags) — whether
+        // the current non-Off level was armed by the crowd system (the prompt, via
+        // SetLevelFromPopulation) rather than picked by hand from the Graphics tab. Only that case is
+        // safe to relax automatically: it's just handing the player their own settings back, not
+        // overriding a manual choice. _pendingPopulationArm is the one-shot handoff into ApplyLevel,
+        // since a binding change only carries the new value, not who asked for it.
+        private static bool _populationArmed;
+        private static bool _pendingPopulationArm;
+
         public static BasisPerformanceLevel ActiveLevel { get; private set; }
 
         public static bool IsActive => ActiveLevel != BasisPerformanceLevel.Off;
@@ -190,6 +199,17 @@ namespace Basis.BasisUI
         }
 
         /// <summary>
+        /// Same as <see cref="SetLevel"/>, but marks the resulting level as crowd-armed so
+        /// <see cref="Simulate"/> will relax it back down on its own once the population that
+        /// justified it has thinned out again — used by the accept button on the crowd prompt.
+        /// </summary>
+        internal static void SetLevelFromPopulation(BasisPerformanceLevel level)
+        {
+            _pendingPopulationArm = true;
+            SetLevel(level);
+        }
+
+        /// <summary>
         /// Accent used by the Graphics page to show at a glance how hard the mode is currently
         /// cutting. White when off, so the section keeps its normal styling.
         /// </summary>
@@ -206,7 +226,11 @@ namespace Basis.BasisUI
 
         /// <summary>
         /// Pumped from the central tick. Drives the automatic level when
-        /// <see cref="BasisSettingsDefaults.PerformanceModeAuto"/> is on.
+        /// <see cref="BasisSettingsDefaults.PerformanceModeAuto"/> is on; otherwise, if the active
+        /// level was armed by the crowd prompt rather than picked by hand, still relaxes it back
+        /// down (never up — that still needs a fresh prompt) as the population that justified it
+        /// thins out, so leaving a busy instance or watching it empty out both settle back to
+        /// normal on their own.
         /// </summary>
         public static void Simulate()
         {
@@ -224,7 +248,9 @@ namespace Basis.BasisUI
             // on disk. It has to run whether or not the level is following the population.
             FlushBaseline();
 
-            if (!BasisSettingsDefaults.PerformanceModeAuto.RawValue)
+            bool auto = BasisSettingsDefaults.PerformanceModeAuto.RawValue;
+            bool relaxOnly = !auto && _populationArmed && ActiveLevel != BasisPerformanceLevel.Off;
+            if (!auto && !relaxOnly)
             {
                 return;
             }
@@ -235,8 +261,14 @@ namespace Basis.BasisUI
             }
 
             BasisPerformanceLevel next = EvaluateAuto(SafePlayerCount(), ActiveLevel);
-            if (next != ActiveLevel)
+            if (relaxOnly ? next < ActiveLevel : next != ActiveLevel)
             {
+                // Re-affirm crowd provenance on the way into ApplyLevel: a multi-step relax (e.g.
+                // Aggressive -> Balanced -> Light -> Off as the instance keeps emptying) needs
+                // _populationArmed to survive each intermediate SetLevel, or it would stall after
+                // one step. Landing on Off clears it regardless, so marking it unconditionally here
+                // is safe.
+                _pendingPopulationArm = true;
                 SetLevel(next);
             }
         }
@@ -318,6 +350,13 @@ namespace Basis.BasisUI
         /// </summary>
         private static void ApplyLevel(BasisPerformanceLevel level)
         {
+            // Consumed here rather than read directly by the caller: a manual pick from the
+            // Graphics tab dropdown writes the bound setting directly and reaches this method
+            // through OnLevelSettingChanged, never through SetLevel, so it always finds this false
+            // and correctly reads as hand-picked.
+            bool populationArmed = _pendingPopulationArm;
+            _pendingPopulationArm = false;
+
             using (BasisSettingsSystem.Batch())
             {
                 if (level == BasisPerformanceLevel.Off)
@@ -327,6 +366,7 @@ namespace Basis.BasisUI
                         RestoreBaseline();
                     }
                     ActiveLevel = BasisPerformanceLevel.Off;
+                    _populationArmed = false;
                     ClearBaseline();
                     OnLevelChanged?.Invoke(ActiveLevel);
                     return;
@@ -338,6 +378,7 @@ namespace Basis.BasisUI
                 }
 
                 ActiveLevel = level;
+                _populationArmed = populationArmed;
                 WritePreset(level);
                 FlushBaseline();
                 OnLevelChanged?.Invoke(ActiveLevel);

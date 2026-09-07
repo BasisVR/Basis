@@ -42,6 +42,73 @@ namespace LiteNetLib
         private readonly object _socketGrowLock = new object();
 
         /// <summary>
+        /// The sockets a send may actually leave through: the primary, plus every extra
+        /// SO_REUSEPORT socket that bound. Rebuilt copy-on-write under <see cref="_socketGrowLock"/>
+        /// so a sender reads one stable array without taking a lock.
+        ///
+        /// Every socket in the group is bound to the same address and port, so which one a datagram
+        /// leaves through is invisible to the peer - the source 4-tuple is identical either way.
+        /// What differs is the kernel-side path: one socket is one send queue every worker
+        /// serialises on, which is why the host derives its send worker ceiling from how many are
+        /// bound. Sending only through the primary would make that ceiling a promise of capacity
+        /// that was never wired up.
+        /// </summary>
+        private volatile Socket[] _sendSocketsV4 = Array.Empty<Socket>();
+        private volatile Socket[] _sendSocketsV6 = Array.Empty<Socket>();
+
+        /// <summary>
+        /// Which send socket this thread uses, assigned on first send and kept for the thread's
+        /// life. Stable rather than round-robin per datagram: a batch belongs to one socket, so a
+        /// thread that moved between them mid-partition would flush a short batch on every switch
+        /// and give back the syscall the batcher exists to save. Stored as slot+1 so the
+        /// unassigned default (0) is distinguishable.
+        /// </summary>
+        [ThreadStatic] private static int _sendSlotPlusOne;
+        private static int _sendSlotCounter = -1;
+
+        private static int SendSlot
+        {
+            get
+            {
+                int slot = _sendSlotPlusOne;
+                if (slot == 0)
+                {
+                    slot = (Interlocked.Increment(ref _sendSlotCounter) & int.MaxValue) + 1;
+                    _sendSlotPlusOne = slot;
+                }
+                return slot - 1;
+            }
+        }
+
+        /// <summary>Rebuilds the send snapshot. Called whenever the bound socket set changes.</summary>
+        private void RebuildSendSockets()
+        {
+            _sendSocketsV4 = BuildSendSocketList(_udpSocketv4, _extraSocketsV4);
+            _sendSocketsV6 = BuildSendSocketList(_udpSocketv6, _extraSocketsV6);
+        }
+
+        private static Socket[] BuildSendSocketList(Socket primary, List<Socket> extras)
+        {
+            if (primary == null) return Array.Empty<Socket>();
+            var list = new Socket[1 + extras.Count];
+            list[0] = primary;
+            for (int i = 0; i < extras.Count; i++) list[i + 1] = extras[i];
+            return list;
+        }
+
+        /// <summary>
+        /// The socket this thread sends through for the given family, or null when none is bound.
+        /// </summary>
+        private Socket PickSendSocket(bool useIPv6)
+        {
+            Socket[] pool = useIPv6 ? _sendSocketsV6 : _sendSocketsV4;
+            int count = pool.Length;
+            if (count == 0) return useIPv6 ? _udpSocketv6 : _udpSocketv4;
+            if (count == 1) return pool[0];
+            return pool[SendSlot % count];
+        }
+
+        /// <summary>
         /// Whether more send paths can be added at runtime. Only true on Linux with SO_REUSEPORT
         /// working — everywhere else the port cannot be shared and the answer is fixed at startup.
         /// </summary>
@@ -117,6 +184,7 @@ namespace LiteNetLib
                 extraThread.Start();
 
                 BoundSendSocketCount = 1 + _extraSocketsV4.Count;
+                RebuildSendSockets();
                 return true;
             }
         }
@@ -403,6 +471,14 @@ namespace LiteNetLib
             var selectReadList = new List<Socket>(2);
             var packet = PoolGetPacket(NetConstants.MaxPacketSize);
 
+            // One recvmmsg per drain instead of one recvfrom per datagram. This thread is one
+            // core's worth of syscalls and nothing behind it can go faster than that, so when the
+            // inbound rate spikes — everyone talking at once, a join storm — the syscall count is
+            // the wall, and the kernel discards what does not fit behind it. Costs a memcpy out of
+            // the arena per datagram, the same trade the send batcher makes. Null where the kernel
+            // cannot take a vector, and then the per-datagram path below runs unchanged.
+            var batch = NativeSocket.SupportsBatchRecv ? new RecvBatcher(NetConstants.MaxPacketSize) : null;
+
             while (_isRunning)
             {
                 try
@@ -461,6 +537,9 @@ namespace LiteNetLib
 
             bool NativeReceiveFrom(IntPtr s, byte[] address)
             {
+                if (batch != null)
+                    return NativeReceiveBatch(s, address);
+
                 int addrSize = address.Length;
                 packet.Size = NativeSocket.RecvFrom(s, packet.RawData, NetConstants.MaxPacketSize, address, ref addrSize);
                 if (packet.Size == 0)
@@ -473,7 +552,41 @@ namespace LiteNetLib
                 }
 
                 ////NetDebug.WriteForce($"[R]Received data from {endPoint}, result: {packet.Size}");
-                //refresh temp Addr/Port
+                Dispatch(address);
+                return true;
+            }
+
+            bool NativeReceiveBatch(IntPtr s, byte[] address)
+            {
+                int count = batch.Receive(s);
+                if (count == 0)
+                    return true; //nothing was waiting
+
+                if (count < 0)
+                {
+                    //Linux timeout EAGAIN, same as the single-datagram path
+                    return ProcessError(new SocketException((int)NativeSocket.GetSocketError())) == false;
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    // The arena is reused by the next call, so each datagram is copied out before
+                    // it is dispatched — OnMessageReceived hands the packet on to threads that
+                    // outlive this loop.
+                    int size = batch.CopyTo(i, packet.RawData, address);
+                    if (size <= 0)
+                        continue;
+
+                    packet.Size = size;
+                    Dispatch(address);
+                }
+                return true;
+            }
+
+            // Decodes the sockaddr the kernel wrote into 'address' onto the reusable temp
+            // endpoint, hands the packet on, and leaves 'packet' pointing at a fresh one.
+            void Dispatch(byte[] address)
+            {
                 short family = (short)((address[1] << 8) | address[0]);
                 tempEndPoint.Port = (ushort)((address[2] << 8) | address[3]);
                 if ((NativeSocket.UnixMode && family == NativeSocket.AF_INET6) || (!NativeSocket.UnixMode && (AddressFamily)family == AddressFamily.InterNetworkV6))
@@ -511,7 +624,6 @@ namespace LiteNetLib
                     tempEndPoint = new IPEndPoint(IPAddress.Any, 0);
                 }
                 packet = PoolGetPacket(NetConstants.MaxPacketSize);
-                return true;
             }
         }
 
@@ -628,14 +740,29 @@ namespace LiteNetLib
             // SO_REUSEPORT multi-socket ingress: Linux-only. Decide here so the primary socket
             // also opts in (SO_REUSEPORT must be set on every socket sharing the port).
             int extraSocketCount = 0;
-            if (MultiSocketCount > 1)
+            if (MultiSocketCount > 1 || AllowSendSocketGrowth)
             {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                 {
-                    _useReusePort = true;
-                    extraSocketCount = MultiSocketCount - 1;
+                    // SO_REUSEPORT stops the port refusing a second bind, so a second instance of
+                    // this server pointed at the same port would quietly take a share of the
+                    // inbound flows instead of failing on startup. Ask the exclusive question
+                    // first, while it can still be asked; if something is already there, leave
+                    // REUSEPORT off and let the real bind below report AddressAlreadyInUse exactly
+                    // as it always has.
+                    if (port == 0 || PortLooksFree(addressIPv4, port))
+                    {
+                        _useReusePort = true;
+                        extraSocketCount = MultiSocketCount > 1 ? MultiSocketCount - 1 : 0;
+                    }
+                    else
+                    {
+                        NetDebug.WriteError(
+                            $"[NM] Port {port} is already in use; binding a single socket without " +
+                            "SO_REUSEPORT so the conflict is reported rather than shared.");
+                    }
                 }
-                else
+                else if (MultiSocketCount > 1)
                 {
                     // Windows has no SO_REUSEPORT load balancing: sockets sharing a UDP port there
                     // do not receive a share each. The alternatives both cost more than they are
@@ -686,6 +813,8 @@ namespace LiteNetLib
                     _udpSocketv6 = null;
                 }
             }
+
+            RebuildSendSockets();
 
             if (!manualMode)
             {
@@ -744,6 +873,84 @@ namespace LiteNetLib
             return true;
         }
 
+        private static bool _socketBufferClampWarned;
+
+        /// <summary>
+        /// Says so when the OS did not hand over the buffer it was asked for.
+        ///
+        /// Linux clamps SO_RCVBUF and SO_SNDBUF to net.core.rmem_max / net.core.wmem_max — a couple
+        /// of hundred KB by default, against the 32 MB asked for here — and setsockopt succeeds
+        /// anyway. Nothing in the process can tell without reading the value back, so what a clamp
+        /// looks like from in here is the kernel discarding datagrams under load for no visible
+        /// reason. Read once, on the first socket bound; every socket gets the same treatment from
+        /// the same sysctl.
+        /// </summary>
+        private static void WarnIfSocketBuffersWereClamped(Socket socket)
+        {
+            if (_socketBufferClampWarned) return;
+
+            try
+            {
+                int receive = socket.ReceiveBufferSize;
+                int send = socket.SendBufferSize;
+                if (receive <= 0 || send <= 0) return;
+                if (receive >= NetConstants.SocketBufferSize && send >= NetConstants.SocketBufferSize) return;
+
+                _socketBufferClampWarned = true;
+                NetDebug.WriteError(
+                    $"[NM] The OS clamped the socket buffers: asked for {NetConstants.SocketBufferSize / (1024 * 1024)} MB, " +
+                    $"got {receive / 1024} KB receive / {send / 1024} KB send. On Linux raise net.core.rmem_max and " +
+                    "net.core.wmem_max in /etc/sysctl.d and restart; setsockopt reports success either way, so this " +
+                    "line is the only place it shows up. Left alone, the kernel drops inbound datagrams under load.");
+            }
+            catch
+            {
+                // Reading the value back is a diagnostic. It is never a reason to fail a bind.
+            }
+        }
+
+        /// <summary>
+        /// Whether nothing is listening on this address and port yet.
+        ///
+        /// Binds and immediately closes a throwaway socket with no reuse options set. A fresh
+        /// socket carries neither SO_REUSEADDR nor SO_REUSEPORT, and Linux refuses that bind if any
+        /// socket holds the port — including one in a REUSEPORT group, since every member of a
+        /// group has to set the option and this one does not. So a failure here means a listener is
+        /// already there.
+        ///
+        /// Inherently a race: something could take the port in the gap before the real socket
+        /// binds. The case worth catching is an instance that is already running, and that one it
+        /// catches.
+        ///
+        /// v4 only. What this is for is a duplicate instance, and a duplicate binds both families;
+        /// a v6 collision on its own is already handled by degrading to v4.
+        /// </summary>
+        private static bool PortLooksFree(IPAddress address, int port)
+        {
+            Socket probe = null;
+            try
+            {
+                probe = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                probe.Bind(new IPEndPoint(address, port));
+                return true;
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
+            catch (Exception)
+            {
+                // Anything else — a sandbox that refuses the bind for its own reasons — is not
+                // evidence the port is taken, and treating it as such would silently remove the
+                // capability. Say free; the real bind is still the authority.
+                return true;
+            }
+            finally
+            {
+                probe?.Dispose();
+            }
+        }
+
         private bool BindSocket(Socket socket, IPEndPoint ep)
         {
             //Setup socket
@@ -751,6 +958,7 @@ namespace LiteNetLib
             socket.SendTimeout = 500;
             socket.ReceiveBufferSize = NetConstants.SocketBufferSize;
             socket.SendBufferSize = NetConstants.SocketBufferSize;
+            WarnIfSocketBuffersWereClamped(socket);
 
             // Manual mode drains the socket from the caller's loop rather than a dedicated receive
             // thread, so it needs a way to learn "nothing left" that does not block. A blocking
@@ -961,9 +1169,7 @@ namespace LiteNetLib
                 UseNativeSockets &&
                 peer.NativeAddress != null)
             {
-                var socket = peer.AddressFamily == AddressFamily.InterNetworkV6 && IPv6Support
-                    ? _udpSocketv6
-                    : _udpSocketv4;
+                var socket = PickSendSocket(peer.AddressFamily == AddressFamily.InterNetworkV6 && IPv6Support);
 
                 if (socket != null && batcher.TryAdd(socket.Handle, message, start, length, peer.NativeAddress))
                 {
@@ -989,13 +1195,9 @@ namespace LiteNetLib
                 message = expandedPacket.RawData;
             }
 
-            var socket = _udpSocketv4;
-            if (remoteEndPoint.AddressFamily == AddressFamily.InterNetworkV6 && IPv6Support)
-            {
-                socket = _udpSocketv6;
-                if (socket == null)
-                    return 0;
-            }
+            var socket = PickSendSocket(remoteEndPoint.AddressFamily == AddressFamily.InterNetworkV6 && IPv6Support);
+            if (socket == null)
+                return 0;
 
             int result;
             try
@@ -1184,7 +1386,101 @@ namespace LiteNetLib
             _udpSocketv6?.Close();
             _udpSocketv4 = null;
             _udpSocketv6 = null;
+            RebuildSendSockets();
         }
+    }
+
+    /// <summary>
+    /// Takes inbound datagrams from the kernel a vector at a time for one receive thread.
+    ///
+    /// The mirror of <see cref="SendBatcher"/>, and it exists for the mirrored reason: a receive
+    /// thread spends its life in a syscall, and one datagram per call is a hard pps ceiling that
+    /// never appears as CPU — the thread is pinned either way and the kernel simply discards what
+    /// backs up behind it. <c>recvmmsg</c> takes whatever is already queued in one call, so a burst
+    /// costs one transition instead of one per datagram.
+    ///
+    /// One instance per receive thread, so no synchronisation. Memory is unmanaged for the same
+    /// reason the send side's is: the kernel writes into these buffers, so they must not move.
+    /// </summary>
+    internal sealed unsafe class RecvBatcher : IDisposable
+    {
+        /// <summary>
+        /// Datagrams per call. Deep enough that a burst is one syscall rather than dozens, shallow
+        /// enough that the arena is under 100 KB per receive thread.
+        /// </summary>
+        public const int MaxEntries = 64;
+
+        private const int MaxAddressSize = NativeSocket.IPv6AddrSize;
+
+        private readonly int _slotSize;
+        private readonly byte* _arena;
+        private readonly byte* _addresses;
+        private readonly NativeSocket.MmsgHdr* _headers;
+        private readonly NativeSocket.IoVec* _iovecs;
+        private bool _disposed;
+
+        public RecvBatcher(int slotSize)
+        {
+            _slotSize = slotSize;
+            _arena = (byte*)Marshal.AllocHGlobal(_slotSize * MaxEntries);
+            _addresses = (byte*)Marshal.AllocHGlobal(MaxAddressSize * MaxEntries);
+            _headers = (NativeSocket.MmsgHdr*)Marshal.AllocHGlobal(sizeof(NativeSocket.MmsgHdr) * MaxEntries);
+            _iovecs = (NativeSocket.IoVec*)Marshal.AllocHGlobal(sizeof(NativeSocket.IoVec) * MaxEntries);
+        }
+
+        /// <summary>
+        /// Blocks for the first datagram, then takes whatever else is already queued. Returns how
+        /// many arrived, or -1 with errno set — including the socket's receive timeout, which is
+        /// what lets a receive thread notice the manager has stopped.
+        /// </summary>
+        public int Receive(IntPtr socketHandle)
+        {
+            // Rebuilt every call: the kernel writes back into NameLen and Len, and a header left
+            // holding the last call's lengths would report a datagram that did not arrive.
+            for (int i = 0; i < MaxEntries; i++)
+            {
+                _iovecs[i].Base = _arena + (long)i * _slotSize;
+                _iovecs[i].Length = (IntPtr)_slotSize;
+
+                _headers[i] = default;
+                _headers[i].Hdr.Name = _addresses + (long)i * MaxAddressSize;
+                _headers[i].Hdr.NameLen = MaxAddressSize;
+                _headers[i].Hdr.Iov = &_iovecs[i];
+                _headers[i].Hdr.IovLen = (IntPtr)1;
+            }
+
+            return NativeSocket.RecvBatch(socketHandle, _headers, MaxEntries);
+        }
+
+        /// <summary>
+        /// Copies one received datagram and its source address out of the arena, returning the
+        /// datagram's length or 0 if there is nothing usable at that index. Copied rather than
+        /// handed out by reference because the next call overwrites the arena while the packet is
+        /// still travelling through the pipeline.
+        /// </summary>
+        public int CopyTo(int index, byte[] destination, byte[] address)
+        {
+            int length = (int)_headers[index].Len;
+            if (length <= 0 || length > _slotSize || length > destination.Length)
+                return 0;
+
+            Marshal.Copy((IntPtr)(_arena + (long)index * _slotSize), destination, 0, length);
+            Marshal.Copy((IntPtr)(_addresses + (long)index * MaxAddressSize), address, 0, address.Length);
+            return length;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            Marshal.FreeHGlobal((IntPtr)_arena);
+            Marshal.FreeHGlobal((IntPtr)_addresses);
+            Marshal.FreeHGlobal((IntPtr)_headers);
+            Marshal.FreeHGlobal((IntPtr)_iovecs);
+            GC.SuppressFinalize(this);
+        }
+
+        ~RecvBatcher() => Dispose();
     }
 
     /// <summary>

@@ -38,6 +38,13 @@ public class BasisBundleConnector
         // this field existed deserialize with null — display layer treats null/empty
         // as "Unknown".
         public string GraphicsPipeline;
+        // What this bundle IS, stamped from the BasisContentBase the SDK was asked to build:
+        // AvatarContentKind, PropContentKind or SceneContentKind. The component census below can
+        // only ever say what a bundle CONTAINS, so it mis-files anything holding a component of
+        // another kind — a prop that ended up with a BasisAvatar welded onto it read back as an
+        // avatar. Older bundles built before this field existed deserialize with null, which sends
+        // the reader back to the census.
+        public string ContentKind;
         // Placement the prop's BasisProp component asks for, harvested at build time so a client
         // can honor it before the AssetBundle is downloaded. Older bundles built before this field
         // existed deserialize with Placement = Unspecified, which clients treat as "no request"
@@ -91,6 +98,35 @@ public class BasisBundleConnector
     /// <see cref="BasisBundleGenerated.GenericAvatarDataJson"/>.
     /// </summary>
     public const string GltfAssetMode = "GLTF";
+    /// <summary>
+    /// AssetMode of a section built from a Unity scene. Only the scene branch of the SDK build
+    /// pipeline writes it, and it writes it for every world ever built, so it names a world
+    /// outright — unlike the component census, which also counts the props and avatars standing
+    /// inside the world alongside its BasisScene.
+    /// </summary>
+    public const string SceneAssetMode = "Scene";
+    /// <summary>
+    /// AssetMode of a section built from a prefab: an avatar or a prop, told apart by
+    /// <see cref="BasisMetaData.ContentKind"/> (or, on bundles built before it, the census).
+    /// </summary>
+    public const string GameObjectAssetMode = "GameObject";
+
+    /// <summary><see cref="BasisMetaData.ContentKind"/> of a bundle built from a BasisAvatar.</summary>
+    public const string AvatarContentKind = "Avatar";
+    /// <summary><see cref="BasisMetaData.ContentKind"/> of a bundle built from a BasisProp.</summary>
+    public const string PropContentKind = "Prop";
+    /// <summary><see cref="BasisMetaData.ContentKind"/> of a bundle built from a BasisScene.</summary>
+    public const string SceneContentKind = "Scene";
+
+    /// <summary>
+    /// True when the bundle carries a build-time <see cref="BasisMetaData.ContentKind"/> stamp
+    /// equal to <paramref name="contentKind"/>. False for every bundle built before the stamp
+    /// existed, which leaves the caller on its old detection path.
+    /// </summary>
+    public static bool IsContentKind(BasisBundleConnector connector, string contentKind)
+    {
+        return connector != null && string.Equals(connector.MetaData.ContentKind, contentKind, StringComparison.OrdinalIgnoreCase);
+    }
 
     public bool GetPlatform(out BasisBundleGenerated platformBundle)
     {
@@ -114,6 +150,26 @@ public class BasisBundleConnector
     public static bool IsGltfMode(BasisBundleGenerated bundle)
     {
         return bundle != null && string.Equals(bundle.AssetMode, GltfAssetMode, StringComparison.OrdinalIgnoreCase);
+    }
+    public static bool IsSceneMode(BasisBundleGenerated bundle)
+    {
+        return bundle != null && string.Equals(bundle.AssetMode, SceneAssetMode, StringComparison.OrdinalIgnoreCase);
+    }
+    /// <summary>
+    /// True when any section of this bundle was built from a scene, which makes the whole bundle a
+    /// world. Reads every section rather than the one matching this platform, so a world built for
+    /// another platform is still recognised as a world here.
+    /// </summary>
+    public static bool IsSceneBundle(BasisBundleConnector connector)
+    {
+        BasisBundleGenerated[] sections = connector?.BasisBundleGenerated;
+        if (sections == null) return false;
+
+        for (int Index = 0; Index < sections.Length; Index++)
+        {
+            if (IsSceneMode(sections[Index])) return true;
+        }
+        return false;
     }
     private static readonly Dictionary<string, HashSet<RuntimePlatform>> platformMappings = new Dictionary<string, HashSet<RuntimePlatform>>()
     {

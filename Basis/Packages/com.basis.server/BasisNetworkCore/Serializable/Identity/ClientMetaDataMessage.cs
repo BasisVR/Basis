@@ -280,6 +280,7 @@ public static partial class SerializableBasis
 
     public struct ClientMetaDataMessage
     {
+        public const string Unset = "Failure";
         public string playerUUID;
         public string playerDisplayName;
         public string playerPlatform;
@@ -292,16 +293,16 @@ public static partial class SerializableBasis
         }
         public void Serialize(NetDataWriter Writer)
         {
-            BasisCompactId.Write(Writer, string.IsNullOrEmpty(playerUUID) == false ? playerUUID : "Failure");
+            BasisCompactId.Write(Writer, string.IsNullOrEmpty(playerUUID) == false ? playerUUID : Unset);
             if (string.IsNullOrEmpty(playerDisplayName) == false)
             {
                 Writer.Put(playerDisplayName);
             }
             else
             {
-                Writer.Put("Failure");
+                Writer.Put(Unset);
             }
-            BasisPlatformCodec.Write(Writer, string.IsNullOrEmpty(playerPlatform) == false ? playerPlatform : "Failure");
+            BasisPlatformCodec.Write(Writer, string.IsNullOrEmpty(playerPlatform) == false ? playerPlatform : Unset);
         }
     }
 }

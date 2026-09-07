@@ -430,16 +430,21 @@ namespace Basis.Scripts.Networking.Sync
 
             public void WriteBits(uint value, int bits)
             {
-                for (int i = 0; i < bits; i++)
+                if (bits <= 0) return;
+                if (bits < 32) value &= (1u << bits) - 1u;
+                ulong acc = (ulong)value << _bit;
+                int total = _bit + bits;
+                int bytesTouched = (total + 7) >> 3;
+                int inBounds = _buf.Length - _byte;
+                if (bytesTouched > inBounds) bytesTouched = inBounds;
+                for (int i = 0; i < bytesTouched; i++)
                 {
-                    if (((value >> i) & 1u) != 0 && _byte < _buf.Length) _buf[_byte] |= (byte)(1 << _bit);
-                    if (++_bit == 8)
-                    {
-                        _bit = 0;
-                        _byte++;
-                        if (_byte < _buf.Length) _buf[_byte] = 0;
-                    }
+                    if (i == 0) _buf[_byte] |= (byte)acc;
+                    else _buf[_byte + i] = (byte)(acc >> (i << 3));
                 }
+                _byte += total >> 3;
+                _bit = total & 7;
+                if (_bit == 0 && _byte < _buf.Length) _buf[_byte] = 0;
             }
 
             public void WriteBits(ulong value, int bits)
@@ -472,17 +477,19 @@ namespace Basis.Scripts.Networking.Sync
             {
                 value = 0;
                 if (bits > 32 || !CanReadBits(bits)) return false;
+                if (bits == 0) return true;
 
-                for (int i = 0; i < bits; i++)
+                ulong acc = 0;
+                int bytesTouched = (_bit + bits + 7) >> 3;
+                for (int i = 0; i < bytesTouched; i++)
                 {
-                    if (((_buf[_byte] >> _bit) & 1) != 0) value |= 1u << i;
-                    //Advance Bit
-                    if (++_bit == 8)
-                    {
-                        _bit = 0;
-                        _byte++;
-                    }
+                    acc |= (ulong)_buf[_byte + i] << (i << 3);
                 }
+                acc >>= _bit;
+                value = bits < 32 ? (uint)acc & ((1u << bits) - 1u) : (uint)acc;
+                int total = _bit + bits;
+                _byte += total >> 3;
+                _bit = total & 7;
                 return true;
             }
 

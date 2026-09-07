@@ -24,9 +24,6 @@ namespace Basis.Scripts.Drivers
         /// <summary>Play-area corners in tracking space, floor level. Empty when the runtime has none.</summary>
         public static IReadOnlyList<Vector3> Points => _points;
 
-        /// <summary>True once a poll returned an outline with enough corners to be a shape.</summary>
-        public static bool HasBoundary => _points.Count >= 3;
-
         /// <summary>Tracking origin the poses (and the outline) are relative to, Unknown when unqueried.</summary>
         public static TrackingOriginModeFlags OriginMode { get; private set; } = TrackingOriginModeFlags.Unknown;
 

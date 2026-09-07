@@ -5,6 +5,8 @@ using Basis.Network.Core;
 using HVR.Basis.Comms.HVRUtility;
 using UnityEngine;
 
+#pragma warning disable CS0162
+
 namespace HVR.Basis.Comms
 {
     public class HVRVariableNetworking : MonoBehaviour, IFeatureReceiver

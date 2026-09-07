@@ -146,42 +146,4 @@ public class IdleSuppressionTests
         Assert.Equal(n, sends); // no suppression under real motion — never drops a moving frame
     }
 
-    [Fact]
-    public void PrintPacketAndByteTable()
-    {
-        int payload = S.PayloadSize(BitQuality.High); // 232 B High
-        const int wireOverhead = 1;                   // app sequence byte (LiteNetLib header excluded)
-        int perPacket = payload + wireOverhead;
-        _out.WriteLine($"High payload = {payload} B, per-packet wire ≈ {perPacket} B (excl. UDP/LiteNetLib header)");
-        _out.WriteLine("");
-        _out.WriteLine("scenario (10 s @20 Hz, 200 frames) | packets before→after | uplink B/s before→after | reduction");
-
-        void Row(string name, List<byte[]> frames)
-        {
-            int n = frames.Count;
-            int sends = SimulateSends(frames, Dt, HB);
-            double before = n * perPacket / 10.0;
-            double after = sends * perPacket / 10.0;
-            _out.WriteLine($"  {name,-24} | {n,4} → {sends,3}          | {before,7:F0} → {after,6:F0}        | {1.0 - (double)sends / n,6:P1}");
-        }
-
-        var rng = new Random(2025);
-        var idle = new List<byte[]>();
-        var idlePose = S.MakeRealisticPayload(BitQuality.High, rng);
-        for (int i = 0; i < 200; i++) idle.Add(idlePose);
-
-        var mixed = new List<byte[]>();
-        var rest = S.MakeRealisticPayload(BitQuality.High, rng);
-        for (int i = 0; i < 120; i++) mixed.Add(rest);
-        byte[] lm = rest;
-        for (int i = 0; i < 20; i++) { lm = S.MakeRealisticPayload(BitQuality.High, rng); mixed.Add(lm); }
-        for (int i = 0; i < 60; i++) mixed.Add(lm);
-
-        var moving = new List<byte[]>();
-        for (int i = 0; i < 200; i++) moving.Add(S.MakeRealisticPayload(BitQuality.High, rng));
-
-        Row("fully idle", idle);
-        Row("mostly idle (10% move)", mixed);
-        Row("continuous motion", moving);
-    }
 }

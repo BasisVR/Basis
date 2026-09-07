@@ -147,9 +147,6 @@ public partial class BasisHandHeldCamera
     /// <summary>Address to open, or empty when not serving.</summary>
     public string WebStreamUrl => webSink != null ? webSink.Url : string.Empty;
 
-    /// <summary>Whether anything is currently reading the stream.</summary>
-    public bool WebStreamHasViewers => webSink != null && webSink.HasClients;
-
     /// <summary>True when any live output is consuming the render texture.</summary>
     public bool IsAnyVideoOutputActive => IsVideoOutputActive || IsWebStreamActive;
 
@@ -1020,7 +1017,7 @@ namespace Basis
 
             if (encodeOnMainThread)
             {
-                byte[] jpeg = EncodeJpeg(request.GetData<byte>().ToArray(), frameWidth, frameHeight, frameQuality);
+                byte[] jpeg = EncodeJpeg(request.GetData<byte>(), frameWidth, frameHeight, frameQuality);
                 if (jpeg != null)
                 {
                     lock (frameLock) pendingFrame = jpeg;
@@ -1117,6 +1114,26 @@ namespace Basis
                     FailureMessage = $"JPEG encode failed ({e.GetType().Name}: {e.Message})";
                 }
                 return null;
+            }
+        }
+
+        private byte[] EncodeJpeg(NativeArray<byte> raw, int width, int height, int quality)
+        {
+            NativeArray<byte> encoded = default;
+            try
+            {
+                encoded = ImageConversion.EncodeNativeArrayToJPG(
+                    raw, GraphicsFormat.R8G8B8A8_SRGB, (uint)width, (uint)height, 0, quality);
+                return encoded.ToArray();
+            }
+            catch (Exception e)
+            {
+                FailureMessage = $"JPEG encode failed ({e.GetType().Name}: {e.Message})";
+                return null;
+            }
+            finally
+            {
+                if (encoded.IsCreated) encoded.Dispose();
             }
         }
 

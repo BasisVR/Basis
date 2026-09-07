@@ -280,6 +280,12 @@ public static class BasisFarLodGenerator
             int soupTriangles = soup.Indices.Count / 3;
             BasisFarLodMeshSimplifier.Simplify(soup.Positions, soup.BoneA, soup.BoneB, soup.WeightA, hiddenFlags, soup.Indices, TargetTriangleCount);
             StageDetail($"{soupTriangles} → {soup.Indices.Count / 3} tris ({soup.Positions.Count} verts)");
+            if (soup.Positions.Count == 0 || soup.Indices.Count < 3)
+            {
+                LastFailureReason = $"simplification left no geometry ({soup.Positions.Count} verts, {soup.Indices.Count / 3} tris)";
+                Debug.LogWarning($"Far avatar generation skipped: {LastFailureReason}.");
+                return null;
+            }
 
             Stage("Unwrap", 0.5f);
             Mesh unwrapped = BuildUnwrappedMesh(soup, hiddenFlags, out byte[] boneA, out byte[] boneB, out byte[] weightA, out byte[] texelHidden);

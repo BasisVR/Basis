@@ -23,24 +23,31 @@ public static class BasisNetworkHandleAvatar
         byte quality = BasisNetworkCommons.GetQualityFromChannel(channel);
         bool hasAdditionalData = BasisNetworkCommons.ChannelHasAdditionalData(channel);
         bool largeId = BasisNetworkCommons.IsLargePlayerIdChannel(channel);
-        ssm.Deserialize(reader, quality, hasAdditionalData, largeId);
-
-        ushort playerId = ssm.playerIdMessage.playerID;
-
-        if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(playerId, out BasisNetworkReceiver player))
+        try
         {
-            player.AccountReceivedBytes(wireBytes);
-            // Capture this full keyframe as the delta baseline (used to reconstruct later deltas on
-            // DeltaAvatarChannel). Cheap copy; P2P full frames land here too, which is exactly what
-            // v42 P2P delta senders rebaseline against.
-            byte[] arr = ssm.avatarSerialization.array;
-            if (arr != null)
+            ssm.Deserialize(reader, quality, hasAdditionalData, largeId);
+
+            ushort playerId = ssm.playerIdMessage.playerID;
+
+            if (BasisNetworkPlayers.RemotePlayerReceivers.TryGetValue(playerId, out BasisNetworkReceiver player))
             {
-                int payloadSize = BasisAvatarBitPacking.ConvertToSize((BasisAvatarBitPacking.BitQuality)quality);
-                if (arr.Length >= payloadSize)
-                    player.CaptureKeyframeBaseline(quality, ssm.sequence, arr, payloadSize);
+                player.AccountReceivedBytes(wireBytes);
+                // Capture this full keyframe as the delta baseline (used to reconstruct later deltas on
+                // DeltaAvatarChannel). Cheap copy; P2P full frames land here too, which is exactly what
+                // v42 P2P delta senders rebaseline against.
+                byte[] arr = ssm.avatarSerialization.array;
+                if (arr != null)
+                {
+                    int payloadSize = BasisAvatarBitPacking.ConvertToSize((BasisAvatarBitPacking.BitQuality)quality);
+                    if (arr.Length >= payloadSize)
+                        player.CaptureKeyframeBaseline(quality, ssm.sequence, arr, payloadSize);
+                }
+                BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(player, ssm);
             }
-            BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(player, ssm);
+        }
+        catch (System.Exception ex)
+        {
+            BasisDebug.LogError($"Malformed avatar packet on channel {channel}: {ex.Message}", BasisDebug.LogTag.Networking);
         }
 
         Message.Enqueue(ssm);

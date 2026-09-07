@@ -62,10 +62,24 @@ public static class BasisNetworkContentShare
                     !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassServer);
                 contentName = "Server share";
                 break;
+            case ContentShareType.DollyTrack:
+                // ContentURL carries the track itself as JSON. There is no bundle to gate and no
+                // global lock of its own: a track is a shape somebody drew, so the create
+                // permission, the per-player sphere cap and the payload ceiling below are the
+                // whole of what limits it.
+                contentName = "Dolly track";
+                break;
             default:
                 BNL.LogError($"Unknown content share type {(byte)msg.ContentType} from peer {peer.Id}");
                 return;
         }
+        if (ContentSharePayload.IsPayloadType(msg.ContentType)
+            && (msg.ContentURL == null || msg.ContentURL.Length > ContentSharePayload.MaxLength))
+        {
+            BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLength}.");
+            return;
+        }
+
         if (blocked)
         {
             BNL.Log($"{contentName} content sharing is globally disabled. Rejected from peer {peer.Id}");
@@ -131,48 +145,64 @@ public static class BasisNetworkContentShare
         msg.Deserialize(reader);
         reader.Recycle();
 
+        ushort requesterId = (ushort)peer.Id;
         if (!ActiveSpheres.TryGetValue(msg.SphereNetID, out ServerContentShareMessage existing))
         {
             BNL.LogError($"Trying to remove content sphere that does not exist: {msg.SphereNetID}");
+            SendCleanup(peer, msg.SphereNetID, requesterId);
             return;
         }
         if (!PermissionIntegration.HasValidRequirement(peer, PermNodes.ContentShareDelete))
         {
+            BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "You do not have permission to remove shared content.");
             return;
         }
         // ContentShareDelete is default-granted, so the sharer check is what stops one player
         // deleting everyone else's orbs.
-        if (existing.playerIdMessage.playerID != (ushort)peer.Id
+        if (existing.playerIdMessage.playerID != requesterId
             && !PermissionIntegration.HasValidRequirement(peer, PermNodes.protection))
         {
             BNL.LogError($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} they did not share.");
+            BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "Only the player who shared this content can remove it.");
             return;
         }
         if (ActiveSpheres.TryRemove(msg.SphereNetID, out _))
         {
             BNL.Log($"Content sphere removed: {msg.SphereNetID}");
-
-            ServerContentShareCleanupMessage serverMsg = new ServerContentShareCleanupMessage
-            {
-                playerIdMessage = new PlayerIdMessage
-                {
-                    playerID = (ushort)peer.Id
-                },
-                contentShareCleanupMessage = msg
-            };
-
-            NetDataWriter writer = NetworkServer.RentWriter();
-            writer.Put(BasisNetworkCommons.ContentShareSub_Cleanup);
-            serverMsg.Serialize(writer);
-
-            NetworkServer.BroadcastMessageToClients(
-                writer,
-                BasisNetworkCommons.ContentShareChannel,
-                NetworkServer.PeerSnapshot,
-                DeliveryMethod.ReliableOrdered
-            );
-            NetworkServer.ReturnWriter(writer);
+            BroadcastCleanup(msg.SphereNetID, requesterId);
         }
+    }
+
+    private static void WriteCleanup(NetDataWriter writer, string sphereId, ushort playerId)
+    {
+        ServerContentShareCleanupMessage serverMsg = new ServerContentShareCleanupMessage
+        {
+            playerIdMessage = new PlayerIdMessage { playerID = playerId },
+            contentShareCleanupMessage = new ContentShareCleanupMessage { SphereNetID = sphereId }
+        };
+        writer.Put(BasisNetworkCommons.ContentShareSub_Cleanup);
+        serverMsg.Serialize(writer);
+    }
+
+    private static void BroadcastCleanup(string sphereId, ushort playerId)
+    {
+        NetDataWriter writer = NetworkServer.RentWriter();
+        WriteCleanup(writer, sphereId, playerId);
+        NetworkServer.BroadcastMessageToClients(
+            writer,
+            BasisNetworkCommons.ContentShareChannel,
+            NetworkServer.PeerSnapshot,
+            DeliveryMethod.ReliableOrdered
+        );
+        NetworkServer.ReturnWriter(writer);
+    }
+
+    private static void SendCleanup(NetPeer peer, string sphereId, ushort playerId)
+    {
+        NetDataWriter writer = NetworkServer.RentWriter();
+        WriteCleanup(writer, sphereId, playerId);
+        NetworkServer.TrySend(peer, writer, BasisNetworkCommons.ContentShareChannel, DeliveryMethod.ReliableOrdered);
+        NetworkServer.ReturnWriter(writer);
     }
 
     /// <summary>
@@ -213,28 +243,7 @@ public static class BasisNetworkContentShare
         {
             if (ActiveSpheres.TryRemove(sphereId, out _))
             {
-                ContentShareCleanupMessage cleanup = new ContentShareCleanupMessage
-                {
-                    SphereNetID = sphereId
-                };
-
-                ServerContentShareCleanupMessage serverMsg = new ServerContentShareCleanupMessage
-                {
-                    playerIdMessage = new PlayerIdMessage { playerID = playerId },
-                    contentShareCleanupMessage = cleanup
-                };
-
-                NetDataWriter writer = NetworkServer.RentWriter();
-                writer.Put(BasisNetworkCommons.ContentShareSub_Cleanup);
-                serverMsg.Serialize(writer);
-
-                NetworkServer.BroadcastMessageToClients(
-                    writer,
-                    BasisNetworkCommons.ContentShareChannel,
-                    NetworkServer.PeerSnapshot,
-                    DeliveryMethod.ReliableOrdered
-                );
-                NetworkServer.ReturnWriter(writer);
+                BroadcastCleanup(sphereId, playerId);
             }
         }
     }

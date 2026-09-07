@@ -148,6 +148,82 @@
       "value": "Выберите имя, которое увидят другие игроки, затем нажмите «Подключиться»."
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "Фильтр по имени или адресу сервера."
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "Сортировать по"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "Сервер по умолчанию ★ всегда отображается первым."
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "По умолчанию"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "Сохраняет сохранённый порядок, с вашим хост-сервером в конце."
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "Имя"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "Сортирует список по алфавиту по имени сервера."
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Пинг"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "Сортирует список по времени отклика, самые быстрые первыми."
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "Игроки"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "Сортирует список по числу игроков онлайн, самые полные первыми."
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "Серверы ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "Серверы ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "Подключитесь к серверу ниже или добавьте свой."
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "Ни один сервер не соответствует вашему запросу."
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "Подключено"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "Сервер"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "Подключитесь к серверу, чтобы поделиться им."
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "Этот сервер нельзя удалить."
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

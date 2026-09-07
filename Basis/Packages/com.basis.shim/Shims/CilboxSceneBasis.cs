@@ -195,7 +195,7 @@ namespace Cilbox
 			// TUBE world-script additions (Cilbox conversion)
 			"Basis.Scripts.Drivers.BasisLocalCameraDriver.CameraInstance",
 
-			// SteamAudioSource tuning fields for spatialized shout (issue #911). Curated
+			// SteamAudioSource tuning fields for spatialized announce (issue #911). Curated
 			// safe set: excludes native handles (reflectionsIR IntPtr), baked-data refs,
 			// SH/EQ arrays, and internal wiring (mAudioSource / Transform).
 			"SteamAudio.SteamAudioSource.directBinaural",
@@ -308,6 +308,12 @@ namespace Cilbox
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigCount),
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigName),
 				nameof(Basis.Shims.BasisJiggleEventShim.FindJiggleRig),
+				} },
+			// Local permission changes. Same shape as the jiggle events above: fetching the
+			// component is the opt-in, Rebind is only for proxies that appear late, and the
+			// callback is resolved by name off the script.
+			{ typeof(Basis.Shims.BasisPermissionEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisPermissionEventShim.Rebind),
 				} },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisSeat), new HashSet<string>{
 				$"get_{nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.OccupantRotationRangeDegrees)}",

@@ -18,6 +18,7 @@ MonoBehaviour:
   - https://dl.dropbox.com/*
   - https://dl.dropboxusercontent.com/*
   - https://*.github.io/*
+  - https://raw.githubusercontent.com/*
   - https://images4.imagebam.com/*
   - https://i.ibb.co/*
   - https://images2.imgbox.com/*
@@ -28,3 +29,9 @@ MonoBehaviour:
   - https://pbs.twimg.com/*
   - https://*.vrcdn.cloud/*
   - https://*.vrcdn.live/*
+  - rtsp://*.vrcdn.cloud/*
+  - rtsp://*.vrcdn.live/*
+  - rtspt://*.vrcdn.cloud/*
+  - rtspt://*.vrcdn.live/*
+  - rtmp://*.vrcdn.cloud/*
+  - rtmp://*.vrcdn.live/*

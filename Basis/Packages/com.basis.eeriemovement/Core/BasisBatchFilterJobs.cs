@@ -1,6 +1,5 @@
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -18,31 +17,36 @@ namespace Basis.Scripts.Drivers
         [WriteOnly] public NativeArray<float3> outputs;
         public float dt;
         public float4x4 playspaceToWorld;
-        public unsafe void Execute(int i)
+        // Indexers, not UnsafeUtility: six arrays are indexed by the same i and nothing here checks
+        // they are the same length, so a caller scheduling on one array's count while another is
+        // short read/wrote off the end of a heap block with no diagnostic in any build. Burst strips
+        // the container bounds check when ENABLE_UNITY_COLLECTIONS_CHECKS is off, so a player build
+        // emits the same loads and stores it did before and the editor now catches the mismatch.
+        public void Execute(int i)
         {
-            byte m = UnsafeUtility.ReadArrayElement<byte>(mode.GetUnsafeReadOnlyPtr(), i);
-            float3 x = UnsafeUtility.ReadArrayElement<float3>(rawInputs.GetUnsafeReadOnlyPtr(), i);
-            void* outPtr = outputs.GetUnsafePtr();
+            byte m = mode[i];
+            float3 x = rawInputs[i];
 
             if (m == (byte)BasisFilterMode.Passthrough)
             {
-                UnsafeUtility.WriteArrayElement(outPtr, i, math.transform(playspaceToWorld, x));
+                outputs[i] = math.transform(playspaceToWorld, x);
                 return;
             }
 
-            float4 t = UnsafeUtility.ReadArrayElement<float4>(tuning.GetUnsafeReadOnlyPtr(), i);
+            float4 t = tuning[i];
 
             if (m == (byte)BasisFilterMode.Fallback)
             {
-                ref float3 fs = ref UnsafeUtility.ArrayElementAsRef<float3>(fallbackStates.GetUnsafePtr(), i);
-                fs = math.lerp(fs, x, t.w);
-                UnsafeUtility.WriteArrayElement(outPtr, i, math.transform(playspaceToWorld, fs));
+                float3 fs = math.lerp(fallbackStates[i], x, t.w);
+                fallbackStates[i] = fs;
+                outputs[i] = math.transform(playspaceToWorld, fs);
                 return;
             }
 
-            ref BasisEuroVec3State st = ref UnsafeUtility.ArrayElementAsRef<BasisEuroVec3State>(euroStates.GetUnsafePtr(), i);
+            BasisEuroVec3State st = euroStates[i];
             float3 result = BasisFilterMath.EuroVec3(ref st, x, math.max(dt, 1e-6f), t.x, t.y, t.z);
-            UnsafeUtility.WriteArrayElement(outPtr, i, math.transform(playspaceToWorld, result));
+            euroStates[i] = st;
+            outputs[i] = math.transform(playspaceToWorld, result);
         }
     }
     [BurstCompile]
@@ -56,31 +60,32 @@ namespace Basis.Scripts.Drivers
         [WriteOnly] public NativeArray<quaternion> outputs;
         public float dt;
         public quaternion playspaceRotation;
-        public unsafe void Execute(int i)
+        // See BasisBatchPositionFilterJob.Execute for why these are indexers and not UnsafeUtility.
+        public void Execute(int i)
         {
-            byte m = UnsafeUtility.ReadArrayElement<byte>(mode.GetUnsafeReadOnlyPtr(), i);
-            quaternion q = UnsafeUtility.ReadArrayElement<quaternion>(rawInputs.GetUnsafeReadOnlyPtr(), i);
-            void* outPtr = outputs.GetUnsafePtr();
+            byte m = mode[i];
+            quaternion q = rawInputs[i];
 
             if (m == (byte)BasisFilterMode.Passthrough)
             {
-                UnsafeUtility.WriteArrayElement(outPtr, i, math.mul(playspaceRotation, q));
+                outputs[i] = math.mul(playspaceRotation, q);
                 return;
             }
 
-            float4 t = UnsafeUtility.ReadArrayElement<float4>(tuning.GetUnsafeReadOnlyPtr(), i);
+            float4 t = tuning[i];
 
             if (m == (byte)BasisFilterMode.Fallback)
             {
-                ref quaternion fs = ref UnsafeUtility.ArrayElementAsRef<quaternion>(fallbackStates.GetUnsafePtr(), i);
-                fs = BasisFilterMath.SlerpShortest(fs, q, t.w);
-                UnsafeUtility.WriteArrayElement(outPtr, i, math.mul(playspaceRotation, fs));
+                quaternion fs = BasisFilterMath.SlerpShortest(fallbackStates[i], q, t.w);
+                fallbackStates[i] = fs;
+                outputs[i] = math.mul(playspaceRotation, fs);
                 return;
             }
 
-            ref BasisEuroQuatState st = ref UnsafeUtility.ArrayElementAsRef<BasisEuroQuatState>(euroStates.GetUnsafePtr(), i);
+            BasisEuroQuatState st = euroStates[i];
             quaternion result = BasisFilterMath.EuroQuat(ref st, q, math.max(dt, 1e-6f), t.x, t.y, t.z);
-            UnsafeUtility.WriteArrayElement(outPtr, i, math.mul(playspaceRotation, result));
+            euroStates[i] = st;
+            outputs[i] = math.mul(playspaceRotation, result);
         }
     }
     [BurstCompile]

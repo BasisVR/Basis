@@ -268,9 +268,7 @@ namespace Basis
 								BasisTrustedUrls.Add( uri.Scheme + "://" + uri.Host + "/*" );
 								break;
 							case BasisMenuURLPromptPanel.RememberChoiceScope.Domain:
-								string[] parts = uri.Host.Split( '.' );
-								string domain = parts.Length >= 2 ? parts[parts.Length - 2] + "." + parts[parts.Length - 1] : uri.Host;
-								BasisTrustedUrls.Add( uri.Scheme + "://*." + domain + "/*" );
+								BasisTrustedUrls.AddDomain( uri );
 								break;
 						}
 					}
@@ -342,35 +340,5 @@ namespace Basis
 		}
 	}
 
-
-
-
-#if false
-// If we ever allow raw.
-	public class BasisImageDownloader
-	{
-		public void DownloadImage( BasisUrl stringUrl, Action callback, TextureInfo rgbInfo)
-		{
-			UnityWebRequest www = UnityWebRequest.Get( stringUrl.Get() );
-			UnityWebRequestAsyncOperation req = www.SendWebRequest();
-
-			bool bCompleted = false;
-
-			req.completed += (AsyncOperation obj) => {
-				if( !bCompleted )
-				{
-					bCompleted = true;
-					DownloadHandler dh = www.downloadHandler;
-					callback( www.result == UnityWebRequest.Result.Success, dh.error, dh.GetData() );
-				}
-			};
-
-			if( !bCompleted && req.isDone )
-			{
-				req.completed( null );
-			}
-		}
-	};
-#endif
 
 }

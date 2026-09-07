@@ -30,7 +30,7 @@ namespace Basis.Scripts.Profiler
         public const string AvatarChangeMessageText = "Avatar Change Message";
         public const string ServerAvatarDataMessageText = "Server Avatar Data Message";
         public const string DisconnectionMessageText = "Disconnection Message";
-        public const string ShoutVoiceMessageText = "Shout Voice Message";
+        public const string AnnounceVoiceMessageText = "Announce Voice Message";
         public const string GetOwnershipMessageText = "Get Ownership Message";
         public const string ChangeOwnershipMessageText = "Change Ownership Message";
         public const string RemoveOwnershipMessageText = "Remove Ownership Message";
@@ -74,7 +74,7 @@ namespace Basis.Scripts.Profiler
         private static readonly ProfilerCounter<long> AvatarChangeMessageCounter = new(Category, AvatarChangeMessageText, ProfilerMarkerDataUnit.Bytes);
         private static readonly ProfilerCounter<long> ServerAvatarDataMessageCounter = new(Category, ServerAvatarDataMessageText, ProfilerMarkerDataUnit.Bytes);
         private static readonly ProfilerCounter<long> DisconnectionMessageCounter = new(Category, DisconnectionMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<long> ShoutVoiceMessageCounter = new(Category, ShoutVoiceMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> AnnounceVoiceMessageCounter = new(Category, AnnounceVoiceMessageText, ProfilerMarkerDataUnit.Bytes);
         private static readonly ProfilerCounter<long> GetOwnershipMessageCounter = new(Category, GetOwnershipMessageText, ProfilerMarkerDataUnit.Bytes);
         private static readonly ProfilerCounter<long> ChangeOwnershipMessageCounter = new(Category, ChangeOwnershipMessageText, ProfilerMarkerDataUnit.Bytes);
         private static readonly ProfilerCounter<long> RemoveOwnershipMessageCounter = new(Category, RemoveOwnershipMessageText, ProfilerMarkerDataUnit.Bytes);
@@ -128,7 +128,7 @@ namespace Basis.Scripts.Profiler
             SampleAndReset(AvatarChangeMessageCounter, BasisNetworkProfilerCounter.AvatarChange);
             SampleAndReset(ServerAvatarDataMessageCounter, BasisNetworkProfilerCounter.ServerAvatarData);
             SampleAndReset(DisconnectionMessageCounter, BasisNetworkProfilerCounter.Disconnection);
-            SampleAndReset(ShoutVoiceMessageCounter, BasisNetworkProfilerCounter.ShoutVoice);
+            SampleAndReset(AnnounceVoiceMessageCounter, BasisNetworkProfilerCounter.AnnounceVoice);
             SampleAndReset(GetOwnershipMessageCounter, BasisNetworkProfilerCounter.GetOwnership);
             SampleAndReset(ChangeOwnershipMessageCounter, BasisNetworkProfilerCounter.ChangeOwnership);
             SampleAndReset(RemoveOwnershipMessageCounter, BasisNetworkProfilerCounter.RemoveOwnership);

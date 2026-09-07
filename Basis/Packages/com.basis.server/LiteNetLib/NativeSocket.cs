@@ -106,6 +106,20 @@ namespace LiteNetLib
                 MmsgHdr* msgvec,
                 uint vlen,
                 int flags);
+
+            /// <summary>
+            /// The receive counterpart: fills up to <c>vlen</c> message headers in one call. A
+            /// receive thread is one core's worth of syscalls, so this is the axis inbound
+            /// throughput scales on for a thread that is already busy.
+            /// Returns the number of messages received, or -1.
+            /// </summary>
+            [DllImport(LibName, SetLastError = true)]
+            internal static extern int recvmmsg(
+                IntPtr socketHandle,
+                MmsgHdr* msgvec,
+                uint vlen,
+                int flags,
+                void* timeout);
         }
 
         /// <summary>Linux <c>struct iovec</c>.</summary>
@@ -154,6 +168,22 @@ namespace LiteNetLib
         /// old kernels and blocked by some seccomp sandboxes.
         /// </summary>
         public static readonly bool SupportsBatchSend = false;
+
+        /// <summary>
+        /// True when <see cref="RecvBatch"/> can take a vector of datagrams from the kernel in one
+        /// call (Linux <c>recvmmsg</c>). Probed for the same reasons as
+        /// <see cref="SupportsBatchSend"/>: it is absent on old kernels and blocked by some
+        /// seccomp sandboxes, and finding that out under load is worse than finding it out at
+        /// startup.
+        /// </summary>
+        public static readonly bool SupportsBatchRecv = false;
+
+        /// <summary>
+        /// Linux <c>MSG_WAITFORONE</c>: block for the first datagram, then take whatever else is
+        /// already queued and return. Without it recvmmsg waits for the whole vector to fill, which
+        /// on a quiet socket means holding the first datagram until 63 more arrive.
+        /// </summary>
+        private const int MSG_WAITFORONE = 0x10000;
 
         public const int IPv4AddrSize = 16;
         public const int IPv6AddrSize = 28;
@@ -263,6 +293,7 @@ namespace LiteNetLib
                 UnixMode = true;
                 NativeErrorToSocketError = LinuxErrorToSocketError;
                 SupportsBatchSend = ProbeSendmmsg();
+                SupportsBatchRecv = ProbeRecvmmsg();
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
@@ -337,6 +368,44 @@ namespace LiteNetLib
             {
                 probe?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Calls recvmmsg with a zero-length vector on a throwaway UDP socket, for the same reason
+        /// and with the same outcomes as <see cref="ProbeSendmmsg"/>.
+        /// </summary>
+        private static unsafe bool ProbeRecvmmsg()
+        {
+            Socket probe = null;
+            try
+            {
+                probe = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                int result = UnixSock.recvmmsg(probe.Handle, null, 0, 0, null);
+                if (result >= 0) return true;
+
+                int err = Marshal.GetLastWin32Error();
+                NetDebug.WriteError($"[NS] recvmmsg unavailable (errno {err}); receive falls back to one recvfrom per datagram.");
+                return false;
+            }
+            catch (Exception e)
+            {
+                NetDebug.WriteError($"[NS] recvmmsg probe failed ({e.GetType().Name}); receive falls back to one recvfrom per datagram.");
+                return false;
+            }
+            finally
+            {
+                probe?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Takes up to <paramref name="count"/> datagrams in one syscall, blocking for the first
+        /// and then draining whatever else is already queued. The headers must already point at the
+        /// caller's buffers. Returns how many arrived, or -1.
+        /// </summary>
+        public static unsafe int RecvBatch(IntPtr socketHandle, MmsgHdr* headers, uint count)
+        {
+            return UnixSock.recvmmsg(socketHandle, headers, count, MSG_WAITFORONE, null);
         }
 
         /// <summary>

@@ -1865,37 +1865,43 @@ public class LocalAvatarSyncMessageWireTests
     }
 
     [Fact]
-    public void LocalAvatarSyncMessage_NullArray_WritesStub_DeserializeNoThrow()
+    public void LocalAvatarSyncMessage_NullArray_WritesAZeroPose_ThatKeepsTheStreamAligned()
     {
         var msg = new LocalAvatarSyncMessage { array = null };
         var w = new NetDataWriter();
         msg.Serialize(w, BitQuality.High);
-        Assert.Equal(2, w.Length);
+        w.Put((ushort)0xBEEF);
+        int expected = BasisAvatarBitPacking.ConvertToSize(BitQuality.High);
+        Assert.Equal(1 + expected + 1 + sizeof(ushort), w.Length);
         Assert.Equal((byte)BitQuality.High, w.Data[0]);
-        Assert.Equal((byte)0, w.Data[1]);
 
         var result = default(LocalAvatarSyncMessage);
         var reader = Wire.Reader(w);
-        var ex = Record.Exception(() => result.Deserialize(reader));
-        Assert.Null(ex);
+        result.Deserialize(reader);
         Assert.Equal((byte)BitQuality.High, result.DataQualityLevel);
-        Assert.Null(result.array);
+        Assert.NotNull(result.array);
+        Assert.Equal(expected, result.array.Length);
+        Assert.All(result.array, b => Assert.Equal((byte)0, b));
+        Assert.Equal(0, result.AdditionalAvatarDataSize);
+        Assert.Equal(0xBEEF, reader.GetUShort());
     }
 
     [Fact]
-    public void LocalAvatarSyncMessage_InvalidQuality_WritesStub_DeserializeNoThrow()
+    public void LocalAvatarSyncMessage_InvalidQuality_FallsBackToAHighQualityZeroPose()
     {
         var msg = new LocalAvatarSyncMessage { array = new byte[4] };
         var w = new NetDataWriter();
         msg.Serialize(w, (BitQuality)9);
-        Assert.Equal(2, w.Length);
-        Assert.Equal((byte)9, w.Data[0]);
+        w.Put((ushort)0xBEEF);
+        Assert.Equal((byte)BitQuality.High, w.Data[0]);
 
         var result = default(LocalAvatarSyncMessage);
-        var ex = Record.Exception(() => result.Deserialize(Wire.Reader(w)));
-        Assert.Null(ex);
-        Assert.Equal((byte)9, result.DataQualityLevel);
-        Assert.Null(result.array);
+        var reader = Wire.Reader(w);
+        result.Deserialize(reader);
+        Assert.Equal((byte)BitQuality.High, result.DataQualityLevel);
+        Assert.NotNull(result.array);
+        Assert.Equal(BasisAvatarBitPacking.ConvertToSize(BitQuality.High), result.array.Length);
+        Assert.Equal(0xBEEF, reader.GetUShort());
     }
 
     [Fact]

@@ -94,8 +94,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 yield break;
             }
 
+            // Everything the OpenVR-owned buffers hold is block-copied to managed memory here, so
+            // the native model can be freed immediately and the per-vertex conversion can run on a
+            // worker instead of one Marshal.PtrToStructure per vertex on the main thread.
             RenderModel_t renderModel = Marshal.PtrToStructure<RenderModel_t>(pRenderModel);
-            Mesh mesh = BuildMesh(renderModel);
+            int vertexCount = (int)renderModel.unVertexCount;
+            int vertexStride = Marshal.SizeOf<RenderModel_Vertex_t>();
+            byte[] vertexBytes = new byte[vertexCount * vertexStride];
+            Marshal.Copy(renderModel.rVertexData, vertexBytes, 0, vertexBytes.Length);
+            int indexCount = (int)renderModel.unTriangleCount * 3;
+            short[] rawIndices = new short[indexCount];
+            Marshal.Copy(renderModel.rIndexData, rawIndices, 0, indexCount);
 
             IntPtr pTexture = IntPtr.Zero;
             EVRRenderModelError textureError;
@@ -109,10 +118,23 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 yield return null;
             }
 
-            Texture2D texture = null;
+            byte[] textureData = null;
+            int textureWidth = 0;
+            int textureHeight = 0;
             if (textureError == EVRRenderModelError.None && pTexture != IntPtr.Zero)
             {
-                texture = BuildTexture(pTexture);
+                RenderModel_TextureMap_t textureMap = Marshal.PtrToStructure<RenderModel_TextureMap_t>(pTexture);
+                if (textureMap.format == EVRRenderModelTextureFormat.RGBA8_SRGB)
+                {
+                    textureWidth = textureMap.unWidth;
+                    textureHeight = textureMap.unHeight;
+                    textureData = new byte[textureWidth * textureHeight * 4];
+                    Marshal.Copy(textureMap.rubTextureMapData, textureData, 0, textureData.Length);
+                }
+                else
+                {
+                    BasisDebug.LogError($"OpenVR render model texture format {textureMap.format} unsupported; rendering untextured.");
+                }
                 renderModels.FreeTexture(pTexture);
             }
             else
@@ -122,31 +144,51 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             renderModels.FreeRenderModel(pRenderModel);
 
+            var convert = System.Threading.Tasks.Task.Run(() => ConvertModel(vertexBytes, vertexStride, vertexCount, rawIndices));
+            while (!convert.IsCompleted)
+            {
+                yield return null;
+            }
+            if (convert.IsFaulted)
+            {
+                BasisDebug.LogError($"OpenVR render model '{renderModelName}' conversion failed: {convert.Exception?.GetBaseException()}");
+                Fallback();
+                yield break;
+            }
+
+            Mesh mesh = BuildMesh(convert.Result, vertexCount);
+
+            // The texture upload (with mip generation) gets its own frame rather than sharing the
+            // mesh build's, so several devices connecting at once fan out instead of stacking.
+            yield return null;
+            Texture2D texture = textureData != null ? BuildTexture(textureData, textureWidth, textureHeight) : null;
+
             loadRoutine = null;
             ApplyToGameObject(mesh, texture);
         }
 
-        private Mesh BuildMesh(RenderModel_t renderModel)
+        private struct ConvertedModel
         {
-            int vertexCount = (int)renderModel.unVertexCount;
+            public Vector3[] Vertices;
+            public Vector3[] Normals;
+            public Vector2[] Uv;
+            public int[] Triangles;
+        }
+
+        private static ConvertedModel ConvertModel(byte[] vertexBytes, int vertexStride, int vertexCount, short[] rawIndices)
+        {
             Vector3[] vertices = new Vector3[vertexCount];
             Vector3[] normals = new Vector3[vertexCount];
             Vector2[] uv = new Vector2[vertexCount];
-
-            int vertexStride = Marshal.SizeOf<RenderModel_Vertex_t>();
-            long vertexBase = renderModel.rVertexData.ToInt64();
             for (int i = 0; i < vertexCount; i++)
             {
-                IntPtr ptr = new IntPtr(vertexBase + i * vertexStride);
-                RenderModel_Vertex_t vert = Marshal.PtrToStructure<RenderModel_Vertex_t>(ptr);
-                vertices[i] = new Vector3(vert.vPosition.v0, vert.vPosition.v1, -vert.vPosition.v2);
-                normals[i] = new Vector3(vert.vNormal.v0, vert.vNormal.v1, -vert.vNormal.v2);
-                uv[i] = new Vector2(vert.rfTextureCoord0, vert.rfTextureCoord1);
+                int o = i * vertexStride;
+                vertices[i] = new Vector3(BitConverter.ToSingle(vertexBytes, o), BitConverter.ToSingle(vertexBytes, o + 4), -BitConverter.ToSingle(vertexBytes, o + 8));
+                normals[i] = new Vector3(BitConverter.ToSingle(vertexBytes, o + 12), BitConverter.ToSingle(vertexBytes, o + 16), -BitConverter.ToSingle(vertexBytes, o + 20));
+                uv[i] = new Vector2(BitConverter.ToSingle(vertexBytes, o + 24), BitConverter.ToSingle(vertexBytes, o + 28));
             }
 
-            int indexCount = (int)renderModel.unTriangleCount * 3;
-            short[] rawIndices = new short[indexCount];
-            Marshal.Copy(renderModel.rIndexData, rawIndices, 0, indexCount);
+            int indexCount = rawIndices.Length;
             int[] triangles = new int[indexCount];
             for (int i = 0; i < indexCount; i += 3)
             {
@@ -155,36 +197,34 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 triangles[i + 2] = (ushort)rawIndices[i];
             }
 
+            return new ConvertedModel
+            {
+                Vertices = vertices,
+                Normals = normals,
+                Uv = uv,
+                Triangles = triangles,
+            };
+        }
+
+        private Mesh BuildMesh(ConvertedModel model, int vertexCount)
+        {
             generatedMesh = new Mesh
             {
                 name = "OpenVRRenderModel",
                 indexFormat = vertexCount > 65535
                     ? UnityEngine.Rendering.IndexFormat.UInt32
                     : UnityEngine.Rendering.IndexFormat.UInt16,
-                vertices = vertices,
-                normals = normals,
-                uv = uv,
+                vertices = model.Vertices,
+                normals = model.Normals,
+                uv = model.Uv,
             };
-            generatedMesh.triangles = triangles;
+            generatedMesh.triangles = model.Triangles;
             generatedMesh.RecalculateBounds();
             return generatedMesh;
         }
 
-        private Texture2D BuildTexture(IntPtr pTexture)
+        private Texture2D BuildTexture(byte[] data, int width, int height)
         {
-            RenderModel_TextureMap_t textureMap = Marshal.PtrToStructure<RenderModel_TextureMap_t>(pTexture);
-            if (textureMap.format != EVRRenderModelTextureFormat.RGBA8_SRGB)
-            {
-                BasisDebug.LogError($"OpenVR render model texture format {textureMap.format} unsupported; rendering untextured.");
-                return null;
-            }
-
-            int width = textureMap.unWidth;
-            int height = textureMap.unHeight;
-            int byteCount = width * height * 4;
-            byte[] data = new byte[byteCount];
-            Marshal.Copy(textureMap.rubTextureMapData, data, 0, byteCount);
-
             generatedTexture = new Texture2D(width, height, TextureFormat.RGBA32, true, false)
             {
                 name = "OpenVRRenderModelTexture",

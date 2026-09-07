@@ -19,6 +19,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
         public BasisLocalAvatarDriver AvatarDriver;
         public static BasisHeadlessInput Instance;
         public bool HasEyeEvents = false;
+        private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
 
         // --- Tunables (exposed) ------------------------------------------------
 
@@ -291,7 +292,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
                 float baseHeightLocked = GetBaseUnscaledHeight();
                 Vector3 posLocked = new Vector3(0, baseHeightLocked, 0);
 
-                if (!BasisLocks.GetContext(BasisLocks.Crouching))
+                if (!CrouchingLock)
                 {
                     float heightAdjust = charDriverLocked.GetStanceHeightPercent();
                     float headHeightUnscaled = GetUnscaledHeadHeightForCrouch();
@@ -391,7 +392,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             float baseHeight = GetBaseUnscaledHeight();
             Vector3 pos = new Vector3(0, baseHeight, 0);
 
-            if (!BasisLocks.GetContext(BasisLocks.Crouching))
+            if (!CrouchingLock)
             {
                 float heightAdjust = charDriver.GetStanceHeightPercent();
                 float headHeightUnscaled = GetUnscaledHeadHeightForCrouch();

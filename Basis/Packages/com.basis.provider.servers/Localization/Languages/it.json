@@ -148,6 +148,82 @@
       "value": "Scegli il nome che vedranno gli altri giocatori, poi premi «Connetti»."
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "Filtra per nome o indirizzo del server."
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "Ordina per"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "Il server predefinito ★ appare sempre per primo."
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "Predefinito"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "Mantiene l'ordine salvato, con il tuo server host per ultimo."
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "Nome"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "Ordina l'elenco alfabeticamente per nome del server."
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Ping"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "Ordina l'elenco per tempo di risposta, il più veloce per primo."
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "Giocatori"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "Ordina l'elenco per numero di giocatori online, il più pieno per primo."
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "Server ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "Server ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "Connettiti a un server qui sotto, oppure aggiungi il tuo."
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "Nessun server corrisponde alla tua ricerca."
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "Connesso"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "Server"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "Connettiti a un server per condividerlo."
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "Questo server non può essere rimosso."
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

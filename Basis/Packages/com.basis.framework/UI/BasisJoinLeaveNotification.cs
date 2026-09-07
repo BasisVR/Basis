@@ -213,7 +213,7 @@ namespace Basis.Scripts.UI
 
             slot.TextObj = new GameObject("Text");
             slot.TextObj.transform.SetParent(slot.Root.transform, false);
-            slot.TextObj.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            slot.TextObj.transform.SetLocalPositionAndRotation(new Vector3(0f, 0f, -0.5f), Quaternion.identity);
             slot.TextObj.transform.localScale = Vector3.one;
 
             slot.Text = slot.TextObj.AddComponent<TextMeshPro>();

@@ -24,8 +24,9 @@ public static class BasisNetworkHandleChat
 
     /// <summary>
     /// How long a chat message stays visible (in seconds) before auto-clearing.
+    /// User-configurable via Settings > Chat > Chat Message Duration.
     /// </summary>
-    public const float MessageDisplayDuration = 10f;
+    public static float MessageDisplayDuration => Basis.BasisUI.BasisSettingsDefaults.ChatMessageDuration.RawValue;
 
 
     /// <summary>
@@ -36,13 +37,43 @@ public static class BasisNetworkHandleChat
 
     private static readonly ThreadLocal<NetDataWriter> threadLocalWriter = new ThreadLocal<NetDataWriter>(() => new NetDataWriter());
 
+    [RuntimeInitializeOnLoadMethod]
+    private static void Init()
+    {
+        Basis.BasisUI.BasisSettingsDefaults.ChatDisabled.OnChanged -= HandleChatDisabledChanged;
+        Basis.BasisUI.BasisSettingsDefaults.ChatDisabled.OnChanged += HandleChatDisabledChanged;
+    }
+
     /// <summary>
-    /// True when the server's global text-chat lock is on and the local player lacks the bypass.
-    /// The server drops these messages regardless — this exists so the composer can grey out and
-    /// say why instead of swallowing the message silently.
+    /// Flipping chat off clears every bubble and typing indicator already on screen —
+    /// the receive-side gates only stop new ones from appearing.
+    /// </summary>
+    private static void HandleChatDisabledChanged(bool disabled)
+    {
+        if (!disabled)
+        {
+            return;
+        }
+        foreach (var pair in BasisNetworkPlayers.Players)
+        {
+            if (pair.Value?.Player is BasisRemotePlayer remotePlayer)
+            {
+                remotePlayer.IsChatTyping = false;
+                remotePlayer.OnChatTypingStateChanged?.Invoke(false);
+                remotePlayer.OnChatMessageReceived?.Invoke(string.Empty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when the local player may not send text chat: the server's global text-chat lock is
+    /// on and they lack the bypass, or a moderator text-muted them. The server drops these
+    /// messages regardless — this exists so the composer can grey out and say why instead of
+    /// swallowing the message silently.
     /// </summary>
     public static bool LockedByServer =>
-        BasisNetworkModeration.GlobalTextChatLocked && !BasisNetworkModeration.LocalPlayerHasChatLockBypass();
+        (BasisNetworkModeration.GlobalTextChatLocked && !BasisNetworkModeration.LocalPlayerHasChatLockBypass())
+        || BasisNetworkModeration.LocalPlayerTextMutedByModerator;
 
     /// <summary>
     /// Sends a chat message to all connected players via the dedicated ChatChannel.
@@ -195,7 +226,7 @@ public static class BasisNetworkHandleChat
         if (TryGetRemotePlayer(senderPlayerId, out BasisRemotePlayer remotePlayer))
         {
             var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
-            if (!settings.ChatVisible)
+            if (!settings.ChatVisible || remotePlayer.IsEffectivelyBlocked)
             {
                 return;
             }

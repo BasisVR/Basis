@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "インタラクションのイベントはフィールドとして到達できますが、コンポーネントのメソッドはできません。" },
     { "key": "sdk.cilbox.api.seat.title", "value": "座席" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "ローカルプレイヤーを座らせる・降ろす、座ったまま向きを変える。" },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "権限の変更" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "ローカルプレイヤーが管理者またはモデレーター権限を取得または失った時にスクリプトに通知するため、スタッフ限定コンテンツがポーリングする必要がなくなります。コールバックは自分のスクリプト内で名前によって検出されます。" },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle のインタラクション" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "つかまれたり触れられたりしたときにオブジェクトが反応できるようにします。コールバックは自分のスクリプト内で名前から探されます。" },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas UI とテキスト" },

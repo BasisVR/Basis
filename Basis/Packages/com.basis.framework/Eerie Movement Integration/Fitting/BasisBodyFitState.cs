@@ -303,7 +303,6 @@ public static class BasisPerAvatarScale
         BasisHeightDriver.ApplyScaleAndHeight();
     }
     public static void ClearForCurrentAvatar() => SetForCurrentAvatar(None);
-    public static bool IsOverridden => !Mathf.Approximately(Current, None);
     static float Sanitize(float scale)
     {
         if (float.IsNaN(scale) || float.IsInfinity(scale))

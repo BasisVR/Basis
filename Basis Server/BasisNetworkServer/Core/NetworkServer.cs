@@ -97,6 +97,7 @@ public static class NetworkServer
         BasisNetworkServer.Security.BasisCrashReportStateManager.InitializeFromConfig(configuration);
         BasisNetworkServer.Security.BasisAudioRangeLimitManager.InitializeFromConfig(configuration);
         BasisNetworkServer.Security.BasisAvatarScaleLimitManager.InitializeFromConfig(configuration);
+        BasisNetworkServer.Security.BasisLocomotionPolicyManager.InitializeFromConfig(configuration);
         BasisNetworkServer.Security.BasisResourceLimitManager.InitializeFromConfig(configuration);
         SetupServer(configuration);
         SubscribeEvents(Configuration);
@@ -213,6 +214,7 @@ public static class NetworkServer
         BasisNetworkServer.Security.BasisCrashReportStateManager.InitializeFromConfig(Configuration);
         BasisNetworkServer.Security.BasisAudioRangeLimitManager.InitializeFromConfig(Configuration);
         BasisNetworkServer.Security.BasisAvatarScaleLimitManager.InitializeFromConfig(Configuration);
+        BasisNetworkServer.Security.BasisLocomotionPolicyManager.InitializeFromConfig(Configuration);
         BasisNetworkServer.Security.BasisResourceLimitManager.InitializeFromConfig(Configuration);
 
         if (Server == null) return;
@@ -222,6 +224,7 @@ public static class NetworkServer
         BasisNetworkServer.Security.BasisCrashReportStateManager.BroadcastState();
         BasisNetworkServer.Security.BasisAudioRangeLimitManager.BroadcastState();
         BasisNetworkServer.Security.BasisAvatarScaleLimitManager.BroadcastState();
+        BasisNetworkServer.Security.BasisLocomotionPolicyManager.BroadcastState();
         BasisNetworkServer.Security.BasisResourceLimitManager.BroadcastState();
     }
 
@@ -229,6 +232,7 @@ public static class NetworkServer
     {
         var HasFileSupport = Configuration.HasFileSupport;
         BasisPlayerModeration.UseFileOnDisc = HasFileSupport;
+        BasisPlayerMuteManager.UseFileOnDisc = HasFileSupport;
         IAuthIdentity.HasFileSupport = HasFileSupport;
 
         Auth = new PasswordAuth(Configuration.Password ?? string.Empty);
@@ -258,8 +262,11 @@ public static class NetworkServer
     private static void SubscribeEvents(Configuration Configuration)
     {
         BasisServerHandleEvents.SubscribeServerEvents();
-        BasisPlayerModeration.LoadBannedPlayers();
-        BasisNetworkChat.LoadWordFilter(Configuration);
+        // Three independent disk loads with disjoint state; overlap them at boot.
+        System.Threading.Tasks.Parallel.Invoke(
+            BasisPlayerModeration.LoadBannedPlayers,
+            BasisPlayerMuteManager.LoadMutedPlayers,
+            () => BasisNetworkChat.LoadWordFilter(Configuration));
         BasisNetworkStackRegistry.RegisterIntroducerFactory(
             BasisNetworkStackRegistry.LiteNetLibId,
             _ => new BasisNetworkServer.LNLPeerIntroducer());

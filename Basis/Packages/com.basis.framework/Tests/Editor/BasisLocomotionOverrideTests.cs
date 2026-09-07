@@ -285,5 +285,71 @@ namespace Basis.Framework.Tests
             Assert.That(BasisLocomotionOverrides.IsReservedKey(BasisLocomotionOverrides.AdminKey), Is.True);
             Assert.That(BasisLocomotionOverrides.IsReservedKey(WorldKey), Is.False);
         }
+
+        [Test]
+        public void TheServerPolicyKeyIsReservedToo()
+        {
+            Assert.That(BasisLocomotionOverrides.IsReservedKey(BasisLocomotionOverrides.ServerPolicyKey), Is.True);
+        }
+
+        [Test]
+        public void TheServerPolicyOutranksWorldContentRegisteredAfterIt()
+        {
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.ServerPolicyKey, BasisLocomotionOverrides.ServerPolicyPriority, Walk(1.5f));
+            BasisLocomotionOverrides.Set(WorldKey, Walk(8.0f));
+
+            Assert.That(BasisLocomotionOverrides.Resolve().WalkSpeed, Is.EqualTo(1.5f));
+        }
+
+        [Test]
+        public void AModeratorOverrideWinsOverTheServerPolicy()
+        {
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.ServerPolicyKey, BasisLocomotionOverrides.ServerPolicyPriority, Walk(1.5f));
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.AdminKey, BasisLocomotionOverrides.AdminPriority, Walk(0.0f));
+
+            Assert.That(BasisLocomotionOverrides.Resolve().WalkSpeed, Is.EqualTo(0.0f));
+
+            // Order of registration must not decide it — priority does.
+            BasisLocomotionOverrides.RemoveAll(true);
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.AdminKey, BasisLocomotionOverrides.AdminPriority, Walk(0.0f));
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.ServerPolicyKey, BasisLocomotionOverrides.ServerPolicyPriority, Walk(1.5f));
+
+            Assert.That(BasisLocomotionOverrides.Resolve().WalkSpeed, Is.EqualTo(0.0f));
+        }
+
+        [Test]
+        public void TheServerPolicyStillCoversFieldsTheModeratorDidNotClaim()
+        {
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.ServerPolicyKey, BasisLocomotionOverrides.ServerPolicyPriority, Walk(1.5f));
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.AdminKey, BasisLocomotionOverrides.AdminPriority, Jump(3.0f));
+
+            BasisLocomotionValues resolved = BasisLocomotionOverrides.Resolve();
+            Assert.That(resolved.WalkSpeed, Is.EqualTo(1.5f));
+            Assert.That(resolved.JumpHeight, Is.EqualTo(3.0f));
+        }
+
+        [Test]
+        public void ClearingContentOverridesLeavesTheServerPolicyStanding()
+        {
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.ServerPolicyKey, BasisLocomotionOverrides.ServerPolicyPriority, Walk(1.5f));
+            BasisLocomotionOverrides.Set(WorldKey, Jump(3.0f));
+
+            BasisLocomotionOverrides.RemoveAll(false);
+
+            Assert.That(BasisLocomotionOverrides.Contains(BasisLocomotionOverrides.ServerPolicyKey), Is.True);
+            Assert.That(BasisLocomotionOverrides.Contains(WorldKey), Is.False);
+            Assert.That(BasisLocomotionOverrides.Resolve().WalkSpeed, Is.EqualTo(1.5f));
+        }
+
+        [Test]
+        public void DisconnectingDropsTheServerPolicyWithEverythingElse()
+        {
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.ServerPolicyKey, BasisLocomotionOverrides.ServerPolicyPriority, Walk(1.5f));
+            BasisLocomotionOverrides.Set(BasisLocomotionOverrides.AdminKey, BasisLocomotionOverrides.AdminPriority, Jump(3.0f));
+
+            BasisLocomotionOverrides.RemoveAll(true);
+
+            Assert.That(BasisLocomotionOverrides.Count, Is.EqualTo(0));
+        }
     }
 }

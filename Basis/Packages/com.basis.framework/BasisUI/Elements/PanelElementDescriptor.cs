@@ -299,10 +299,11 @@ namespace Basis.BasisUI
         public void SetRichDescription(string value)
         {
             if (!HasDescription) return;
+            DescriptionLabel.richText = true;
+            if (_descriptionSet && string.Equals(_description, value)) return;
             _description = value;
             _descriptionSet = true;
             DescriptionLabel.gameObject.SetActive(!string.IsNullOrEmpty(value));
-            DescriptionLabel.richText = true;
             DescriptionLabel.SetText(value);
         }
 

@@ -2,6 +2,7 @@ using Basis.BasisUI;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Command_Line_Args;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Networking;
@@ -237,6 +238,7 @@ namespace Basis.Scripts.Device_Management
 
             // Detect Wine/Proton once up front so any subsystem can branch on it.
             BasisProtonDetection.Initialize();
+            BasisGpuDetection.Initialize();
 
             StaticCurrentMode = BasisConstants.None;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
@@ -249,7 +251,13 @@ namespace Basis.Scripts.Device_Management
                 // defeat the HasSaveData("language") check.
                 Basis.BasisUI.BasisLocalization.Initialize();
                 Basis.BasisUI.BasisTMPFontFallbacks.RefreshJapanesePriority();
-                BasisSettingsDefaults.LoadAll();
+                using (BasisSettingsSystem.Batch())
+                {
+                    BasisSettingsDefaults.LoadAll();
+                }
+                // First thing after the settings land: a renderer swap can only happen by
+                // relaunching, so it has to be decided before anything is built to throw away.
+                Basis.Scripts.Rendering.BasisGraphicsApiSelection.ApplyStartupSetting();
                 BasisPersistentDataMigrationPrompt.ShowIfPending();
                 Basis.BasisUI.SettingsProvider.ApplyJiggleStartupSettings();
                 // Applied here and nowhere else: the GPU Resident Drawer rebuild this triggers is only
@@ -292,8 +300,8 @@ namespace Basis.Scripts.Device_Management
         }
         /// <summary>
         /// Starts asynchronous per-frame device work (e.g. the SteamVR input update on a worker
-        /// thread). Called by the driver earlier in LateUpdate than <see cref="Simulate"/>, which
-        /// joins that work before the local player consumes it.
+        /// thread). Called by the driver in Update; <see cref="SimulateJoin"/> joins that work at
+        /// the top of LateUpdate before any main-thread reader consumes it.
         /// </summary>
         public void SimulateKick()
         {
@@ -301,6 +309,14 @@ namespace Basis.Scripts.Device_Management
             for (int Index = 0; Index < Count; Index++)
             {
                 BaseTypes[Index]?.SimulateKick();
+            }
+        }
+        public void SimulateJoin()
+        {
+            int Count = BaseTypes.Length;
+            for (int Index = 0; Index < Count; Index++)
+            {
+                BaseTypes[Index]?.SimulateJoin();
             }
         }
         public void Simulate()

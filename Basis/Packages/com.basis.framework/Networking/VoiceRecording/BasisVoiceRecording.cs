@@ -44,6 +44,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
         private static float _lastPromptTime = -999f;
 
         private static readonly float[] _tickScratch = new float[RemoteOpusSettings.MaxFrameSize * 4];
+        private static Capture[] _tickSnapshot = Array.Empty<Capture>();
 
         /// <summary>A recordee granted us consent (recorder side).</summary>
         public static event Action<ushort> OnConsentGranted;
@@ -252,11 +253,16 @@ namespace Basis.Scripts.Networking.VoiceRecording
             {
                 return;
             }
-            Capture[] snapshot = new Capture[_captures.Count];
-            _captures.Values.CopyTo(snapshot, 0);
-            for (int i = 0; i < snapshot.Length; i++)
+            int captureCount = _captures.Count;
+            if (_tickSnapshot.Length < captureCount)
             {
-                Capture cap = snapshot[i];
+                _tickSnapshot = new Capture[Math.Max(4, captureCount * 2)];
+            }
+            _captures.Values.CopyTo(_tickSnapshot, 0);
+            for (int i = 0; i < captureCount; i++)
+            {
+                Capture cap = _tickSnapshot[i];
+                _tickSnapshot[i] = null;
                 if (cap.Recording != null && cap.DecodedSink != null)
                 {
                     int n;
@@ -278,8 +284,8 @@ namespace Basis.Scripts.Networking.VoiceRecording
             }
         }
 
-        /// <summary>Called when a shout source is (re)created so an active tap follows the shout receiver.</summary>
-        internal static void OnShoutReceiverCreated(ushort playerId, BasisAudioReceiver shoutReceiver)
+        /// <summary>Called when an announce source is (re)created so an active tap follows the announce receiver.</summary>
+        internal static void OnAnnounceReceiverCreated(ushort playerId, BasisAudioReceiver announceReceiver)
         {
             if (_captures.TryGetValue(playerId, out Capture cap))
             {
@@ -618,7 +624,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
                 }
             }
 
-            /// <summary>Installs the current tap delegates on the normal and shout receivers.</summary>
+            /// <summary>Installs the current tap delegates on the normal and announce receivers.</summary>
             public void RefreshTaps()
             {
                 Action<float[], int> decoded = (Recording != null && DecodedSink != null) ? WriteDecoded : null;
@@ -630,10 +636,10 @@ namespace Basis.Scripts.Networking.VoiceRecording
                     recv.AudioReceiverModule.OnDecodedFrame = decoded;
                     recv.AudioReceiverModule.OnEncodedFrame = encoded;
                 }
-                if (BasisShoutAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver shoutReceiver) && shoutReceiver != null)
+                if (BasisAnnounceAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver announceReceiver) && announceReceiver != null)
                 {
-                    shoutReceiver.OnDecodedFrame = decoded;
-                    shoutReceiver.OnEncodedFrame = encoded;
+                    announceReceiver.OnDecodedFrame = decoded;
+                    announceReceiver.OnEncodedFrame = encoded;
                 }
             }
 
@@ -645,10 +651,10 @@ namespace Basis.Scripts.Networking.VoiceRecording
                     recv.AudioReceiverModule.OnDecodedFrame = null;
                     recv.AudioReceiverModule.OnEncodedFrame = null;
                 }
-                if (BasisShoutAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver shoutReceiver) && shoutReceiver != null)
+                if (BasisAnnounceAudioDriver.TryGetReceiver(PlayerId, out BasisAudioReceiver announceReceiver) && announceReceiver != null)
                 {
-                    shoutReceiver.OnDecodedFrame = null;
-                    shoutReceiver.OnEncodedFrame = null;
+                    announceReceiver.OnDecodedFrame = null;
+                    announceReceiver.OnEncodedFrame = null;
                 }
             }
 

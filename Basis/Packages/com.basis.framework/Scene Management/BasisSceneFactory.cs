@@ -39,6 +39,10 @@ public static class BasisSceneFactory
         BasisScene[] scenes = Object.FindObjectsByType<BasisScene>(FindObjectsInactive.Exclude);
         if (scenes.Length == 0)
         {
+            // Everything that world owned is orphaned now, and a stall is invisible against the
+            // loading screen that is about to come up. Players, avatars and their assets are
+            // DontDestroyOnLoad, so they stay referenced through the pass.
+            BasisMemoryReclaim.Request("world unload");
             LoadLoadingScene();
         }
     }

@@ -283,6 +283,45 @@ namespace Basis.BasisUI.HandHeldCamera
             strength?.SetValueWithoutNotify(Mathf.Clamp01(toneSaturation / SplitToningSaturation) * 100f);
         }
 
+        // ---------- Reset defaults ----------
+
+        /// <summary>
+        /// Where the options gesture returns each film control. Decomposed out of the camera
+        /// defaults by the same maths that seeds them, rather than written out as zeroes: every
+        /// colour here has a neutral that is white, black or grey instead of nothing, and a hand
+        /// written default that drifted from the settings object is a reset that quietly grades the
+        /// shot. Without these the whole Film Look section — and the grading controls the bloom,
+        /// vignette and grain sections borrow from it — had no default to go back to, so the
+        /// gesture was never offered on them at all.
+        /// </summary>
+        private void AssignFilmResetDefaults(BasisHandHeldCameraUI.CameraSettings defaults)
+        {
+            _grainTypeDropdown?.SetResetDefault(GrainTypeKeys[NearestGrainStep(defaults.filmGrainType)]);
+            _grainResponseSlider?.SetResetDefault(defaults.filmGrainResponse * 100f);
+
+            Color.RGBToHSV(defaults.bloomTint, out float bloomHue, out float bloomSaturation, out _);
+            _bloomTintHueSlider?.SetResetDefault(Mathf.Round(bloomHue * 360f));
+            _bloomTintStrengthSlider?.SetResetDefault(Mathf.Clamp01(bloomSaturation / BloomTintSaturation) * 100f);
+
+            Color.RGBToHSV(defaults.vignetteColour, out float vignetteHue, out _, out float vignetteValue);
+            _vignetteColourHueSlider?.SetResetDefault(Mathf.Round(vignetteHue * 360f));
+            _vignetteColourStrengthSlider?.SetResetDefault(Mathf.Clamp01(vignetteValue / VignetteColourValue) * 100f);
+            _vignetteRoundedToggle?.SetResetDefault(defaults.vignetteRounded);
+
+            SetSplitToneResetDefault(defaults.splitToningShadows, _splitShadowHueSlider, _splitShadowStrengthSlider);
+            SetSplitToneResetDefault(defaults.splitToningHighlights, _splitHighlightHueSlider, _splitHighlightStrengthSlider);
+            _splitBalanceSlider?.SetResetDefault(defaults.splitToningBalance);
+
+            _filmLiftSlider?.SetResetDefault(defaults.filmLift * 100f);
+        }
+
+        private static void SetSplitToneResetDefault(Color tone, PanelSlider hue, PanelSlider strength)
+        {
+            Color.RGBToHSV(tone, out float toneHue, out float toneSaturation, out _);
+            hue?.SetResetDefault(Mathf.Round(toneHue * 360f));
+            strength?.SetResetDefault(Mathf.Clamp01(toneSaturation / SplitToningSaturation) * 100f);
+        }
+
         /// <summary>
         /// The rung of the four-step ladder nearest a raw URP grain texture. A file naming one of the
         /// six textures the ladder skips still shows the closest thing to it rather than snapping the

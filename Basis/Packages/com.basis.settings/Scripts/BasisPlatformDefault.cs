@@ -1,3 +1,4 @@
+using Basis.Scripts.Common;
 using UnityEngine;
 
 namespace Basis.Scripts.Settings
@@ -15,13 +16,22 @@ public class BasisPlatformDefault<T>
     {
         switch (Application.platform)
         {
-            case RuntimePlatform.WindowsPlayer:
-            case RuntimePlatform.WindowsEditor:
-                return windows;
             case RuntimePlatform.Android:
                 return android;
             case RuntimePlatform.IPhonePlayer:
                 return ios;
+        }
+
+        if (BasisGpuDetection.IsMobileGpu)
+        {
+            return android;
+        }
+
+        switch (Application.platform)
+        {
+            case RuntimePlatform.WindowsPlayer:
+            case RuntimePlatform.WindowsEditor:
+                return windows;
             case RuntimePlatform.LinuxPlayer:
             case RuntimePlatform.LinuxEditor:
                 return linux;

@@ -5,7 +5,6 @@ using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -17,6 +16,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public string Key;
         public float Percentage;
         public string Display;
+        public float ExpiresAt;
 
         public LoadingOperationData(string key, float percentage, string display)
         {
@@ -45,12 +45,14 @@ namespace Basis.Scripts.UI.UI_Panels
 
         private static readonly List<LoadingOperationData> loadingOperations = new List<LoadingOperationData>();
         private static bool hudSuppressed;
+        private static bool displaySuppressed;
 
         private static bool IsRoutedElsewhere => hudSuppressed && OnDisplayChanged != null;
 
-        private static Coroutine autoDestroyCoroutine;
-        private static MonoBehaviour autoDestroyHost;
-        private const float AutoDestroyTimeout = 1.5f;
+        public const float StaleOperationTimeout = 30f;
+        private static Coroutine expirySweepCoroutine;
+        private static MonoBehaviour expirySweepHost;
+        private static readonly WaitForSeconds expirySweepInterval = new WaitForSeconds(1f);
 
         public static void Initialize()
         {
@@ -65,12 +67,18 @@ namespace Basis.Scripts.UI.UI_Panels
         }
 
         // Cached delegate + queue avoids per-call closure allocation (~80 bytes GC per call)
-        static readonly ConcurrentQueue<(string UniqueID, float Progress, string Info)> _pendingReports = new();
+        static readonly ConcurrentQueue<(string UniqueID, float Progress, string Info, float Lifetime)> _pendingReports = new();
         static readonly Action _processPendingReports = ProcessPendingReports;
+        static readonly Action _closeLoadingBarNow = CloseLoadingBarNow;
 
         public static void ProgressReport(string UniqueID, float progress, string info)
         {
-            _pendingReports.Enqueue((UniqueID, progress, info));
+            ProgressReportTransient(UniqueID, progress, info, StaleOperationTimeout);
+        }
+
+        public static void ProgressReportTransient(string UniqueID, float progress, string info, float lifetimeSeconds)
+        {
+            _pendingReports.Enqueue((UniqueID, progress, info, lifetimeSeconds));
             BasisDeviceManagement.EnqueueOnMainThread(_processPendingReports);
         }
 
@@ -78,13 +86,13 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             while (_pendingReports.TryDequeue(out var report))
             {
-                if (report.Progress == 100)
+                if (report.Progress >= BasisProgressReport.MaxValue)
                 {
-                    RemoveDisplay(report.UniqueID);
+                    RemoveDisplayNow(report.UniqueID);
                 }
                 else
                 {
-                    AddOrUpdateDisplay(report.UniqueID, report.Progress, report.Info);
+                    AddOrUpdateDisplay(report.UniqueID, report.Progress, report.Info, report.Lifetime);
                 }
             }
         }
@@ -107,60 +115,112 @@ namespace Basis.Scripts.UI.UI_Panels
             }
         }
 
-        public static void CloseLoadingBar()
+        public static void SetDisplaySuppressed(bool suppressed)
         {
-            BasisDeviceManagement.EnqueueOnMainThread(() =>
+            if (displaySuppressed == suppressed)
             {
-                StopAutoDestroyCoroutine();
-                loadingOperations.Clear();
+                return;
+            }
+            displaySuppressed = suppressed;
+
+            if (suppressed)
+            {
                 DestroyHud();
                 SetDisplayState(string.Empty, 0f, false);
-            });
+            }
+            else
+            {
+                ProcessPendingReports();
+                if (!HasDisplay)
+                {
+                    ProcessQueue();
+                }
+            }
+        }
+
+        public static void CloseLoadingBar()
+        {
+            BasisDeviceManagement.EnqueueOnMainThread(_closeLoadingBarNow);
+        }
+
+        private static void CloseLoadingBarNow()
+        {
+            StopExpirySweep();
+            loadingOperations.Clear();
+            DestroyHud();
+            SetDisplayState(string.Empty, 0f, false);
         }
 
         public static void AddOrUpdateDisplay(string key, float percentage, string display)
         {
-            LoadingOperationData operation = loadingOperations.Find(op => op.Key == key);
-            if (operation != null)
+            AddOrUpdateDisplay(key, percentage, display, StaleOperationTimeout);
+        }
+
+        public static void AddOrUpdateDisplay(string key, float percentage, string display, float lifetimeSeconds)
+        {
+            LoadingOperationData operation = FindOperation(key);
+            bool changed;
+            if (operation == null)
             {
-                operation.Percentage = percentage;
-                operation.Display = display;
+                operation = new LoadingOperationData(key, percentage, display);
+                loadingOperations.Add(operation);
+                changed = true;
             }
             else
             {
-                loadingOperations.Add(new LoadingOperationData(key, percentage, display));
+                changed = operation.Percentage != percentage || operation.Display != display;
+                operation.Percentage = percentage;
+                operation.Display = display;
             }
-            ProcessQueue();
-
-            // Reset the auto-destroy coroutine
-            ResetAutoDestroyCoroutine();
+            operation.ExpiresAt = Time.time + lifetimeSeconds;
+            StartExpirySweep();
+            if (changed || (Instance == null && !IsRoutedElsewhere))
+            {
+                ProcessQueue();
+            }
         }
 
         public static void RemoveDisplay(string key)
         {
-            BasisDeviceManagement.EnqueueOnMainThread(() =>
-            {
-                LoadingOperationData operation = loadingOperations.Find(op => op.Key == key);
-                if (operation != null)
-                {
-                    loadingOperations.Remove(operation);
-                }
+            BasisDeviceManagement.EnqueueOnMainThread(() => RemoveDisplayNow(key));
+        }
 
-                if (loadingOperations.Count > 0)
+        private static void RemoveDisplayNow(string key)
+        {
+            LoadingOperationData operation = FindOperation(key);
+            if (operation == null)
+            {
+                return;
+            }
+            loadingOperations.Remove(operation);
+
+            if (loadingOperations.Count > 0)
+            {
+                ProcessQueue();
+            }
+            else
+            {
+                CloseLoadingBarNow();
+            }
+        }
+
+        private static LoadingOperationData FindOperation(string key)
+        {
+            int count = loadingOperations.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                if (loadingOperations[Index].Key == key)
                 {
-                    ProcessQueue();
+                    return loadingOperations[Index];
                 }
-                else
-                {
-                    CloseLoadingBar();
-                }
-            });
+            }
+            return null;
         }
 
         private static void ProcessQueue()
         {
-            LoadingOperationData operation = GetFirstLoadingOperation();
-            if (operation == null)
+            LoadingOperationData operation = GetDisplayedOperation();
+            if (operation == null || displaySuppressed)
             {
                 return;
             }
@@ -173,9 +233,10 @@ namespace Basis.Scripts.UI.UI_Panels
             SetDisplayState(operation.Display, operation.Percentage, true);
         }
 
-        private static LoadingOperationData GetFirstLoadingOperation()
+        private static LoadingOperationData GetDisplayedOperation()
         {
-            return loadingOperations.FirstOrDefault(op => op.Percentage > 0);
+            int count = loadingOperations.Count;
+            return count > 0 ? loadingOperations[count - 1] : null;
         }
 
         private static void SetDisplayState(string display, float percentage, bool active)
@@ -252,36 +313,65 @@ namespace Basis.Scripts.UI.UI_Panels
             }
         }
 
-        private static void ResetAutoDestroyCoroutine()
+        private static void StartExpirySweep()
         {
-            StopAutoDestroyCoroutine();
-
-            MonoBehaviour host = BasisDeviceManagement.Instance != null ? BasisDeviceManagement.Instance : (MonoBehaviour)Instance;
-            if (host == null || !host.isActiveAndEnabled)
+            if (expirySweepCoroutine != null && expirySweepHost != null && expirySweepHost.isActiveAndEnabled)
             {
                 return;
             }
 
-            autoDestroyHost = host;
-            autoDestroyCoroutine = host.StartCoroutine(AutoDestroyAfterTimeout());
-        }
-
-        private static void StopAutoDestroyCoroutine()
-        {
-            if (autoDestroyCoroutine != null && autoDestroyHost != null)
+            MonoBehaviour host = BasisDeviceManagement.Instance != null ? BasisDeviceManagement.Instance : (MonoBehaviour)Instance;
+            if (host == null || !host.isActiveAndEnabled)
             {
-                autoDestroyHost.StopCoroutine(autoDestroyCoroutine);
+                expirySweepCoroutine = null;
+                expirySweepHost = null;
+                return;
             }
-            autoDestroyCoroutine = null;
-            autoDestroyHost = null;
+
+            expirySweepHost = host;
+            expirySweepCoroutine = host.StartCoroutine(ExpirySweep());
         }
 
-        private static System.Collections.IEnumerator AutoDestroyAfterTimeout()
+        private static void StopExpirySweep()
         {
-            yield return new WaitForSeconds(AutoDestroyTimeout);
-            autoDestroyCoroutine = null;
-            autoDestroyHost = null;
-            CloseLoadingBar();
+            if (expirySweepCoroutine != null && expirySweepHost != null)
+            {
+                expirySweepHost.StopCoroutine(expirySweepCoroutine);
+            }
+            expirySweepCoroutine = null;
+            expirySweepHost = null;
+        }
+
+        private static System.Collections.IEnumerator ExpirySweep()
+        {
+            while (loadingOperations.Count > 0)
+            {
+                yield return expirySweepInterval;
+                bool removed = false;
+                for (int Index = loadingOperations.Count - 1; Index >= 0; Index--)
+                {
+                    if (Time.time >= loadingOperations[Index].ExpiresAt)
+                    {
+                        loadingOperations.RemoveAt(Index);
+                        removed = true;
+                    }
+                }
+                if (!removed)
+                {
+                    continue;
+                }
+                if (loadingOperations.Count > 0)
+                {
+                    ProcessQueue();
+                }
+                else
+                {
+                    CloseLoadingBarNow();
+                    yield break;
+                }
+            }
+            expirySweepCoroutine = null;
+            expirySweepHost = null;
         }
     }
 }

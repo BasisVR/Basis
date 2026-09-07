@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "Os eventos de interação são alcançáveis como campos; os métodos do componente não." },
     { "key": "sdk.cilbox.api.seat.title", "value": "Assentos" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "Sentar e ejetar o jogador local, e girá-lo depois de sentado." },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "Mudanças de Permissão" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "Avisa seu script quando o jogador local ganha ou perde admin ou moderador, para que conteúdo exclusivo da equipe não precise ficar consultando. O callback é encontrado pelo nome no seu próprio script." },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Interações de jiggle" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "Deixa um objeto responder a ser agarrado ou tocado. Os callbacks são encontrados pelo nome no seu próprio script." },
     { "key": "sdk.cilbox.api.ui.title", "value": "UI de canvas e texto" },

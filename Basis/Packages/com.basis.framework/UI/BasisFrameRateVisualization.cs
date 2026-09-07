@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Basis.BasisUI;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Drivers;
 using System;
@@ -142,6 +143,13 @@ public class BasisFrameRateVisualization : MonoBehaviour
 
         idx = Append(buffer, " FPS:", idx);
         idx = AppendFloat(fps, 2, idx);
+
+        if (BasisSettingsDefaults.ShowFrameTimeMs.RawValue)
+        {
+            float ms = fps > 0f ? 1000f / fps : 0f;
+            idx = Append(buffer, " MS:", idx);
+            idx = AppendFloat(ms, 2, idx);
+        }
 
         // We don't convert to string → no GC
         fpsText.SetCharArray(buffer, 0, idx);

@@ -6515,8 +6515,14 @@ MonoBehaviour:
   autoLevelStrength: 2
   cinematicDamping: 0.8
   useVRHandheldSmoothing: 0
-  vrHandheldPositionSmoothing: 20
-  vrHandheldRotationSmoothing: 5
+  vrHandheldPositionDamping: 0.2
+  vrHandheldYawDamping: 0.9
+  vrHandheldPitchDamping: 0.9
+  vrHandheldRollDamping: 0.9
+  zoomStabilization: 1
+  zoomStabilizationResponse: 1
+  zoomStabilizationMinScale: 0.35
+  zoomStabilizationMaxScale: 4
   cameraPinConstraint:
     rid: -2
   flyCamera:

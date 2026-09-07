@@ -804,8 +804,8 @@ public class BasisGlobalLockManagerTests
     }
 
     /// <summary>
-    /// Voice is the other server-enforced lock, and it gates BOTH the normal and shout paths —
-    /// a shout-mode user must not keep broadcasting through a voice lock they can't bypass.
+    /// Voice is the other server-enforced lock, and it gates BOTH the normal and announce paths —
+    /// an announce-mode user must not keep broadcasting through a voice lock they can't bypass.
     /// </summary>
     [Fact]
     public void IsVoiceBlockedForUuid_BlocksOnlyLockedUsersWithoutTheBypassNode()

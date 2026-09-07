@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "互動事件可當成欄位存取，元件的方法則不行。" },
     { "key": "sdk.cilbox.api.seat.title", "value": "座位" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "讓本機玩家入座與離座，並在入座後轉向。" },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "權限變更" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "當本機玩家取得或失去管理員或版主權限時通知你的腳本，使僅限工作人員的內容無需輪詢。回呼會在你自己的腳本中依名稱尋找。" },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle 互動" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "讓物件能對被抓住或觸碰做出反應。回呼會依名稱在你自己的腳本中尋找。" },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas UI 與文字" },

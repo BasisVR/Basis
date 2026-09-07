@@ -1,3 +1,4 @@
+using Basis.Scripts.Common;
 using UnityEngine;
 
 namespace Basis.ImagePickup
@@ -37,7 +38,7 @@ namespace Basis.ImagePickup
 
         private const long MiB = 1024L * 1024L;
         private static readonly AnimationMemoryLimits RuntimeAnimationMemoryLimits =
-            CalculateAnimationMemoryLimits(SystemInfo.systemMemorySize, Application.isMobilePlatform);
+            CalculateAnimationMemoryLimits(SystemInfo.systemMemorySize, BasisGpuDetection.IsMobileGpu);
 
         public const string ReceiveEnabledKey = "Basis.ImagePickup.ReceiveEnabled";
 
@@ -254,7 +255,7 @@ namespace Basis.ImagePickup
         private static bool _receiveEnabled = true;
 
         public static bool UseDepthBufferAnimationVisibility =>
-            ShouldUseDepthBufferAnimationVisibility(Application.isMobilePlatform);
+            ShouldUseDepthBufferAnimationVisibility(BasisGpuDetection.IsMobileGpu);
 
         internal static bool ShouldUseDepthBufferAnimationVisibility(bool mobileOrPortablePlatform)
         {

@@ -59,6 +59,7 @@ namespace Basis.MediaPipe.Homuler
         private int _pendingH;
         private long _pendingTs;
         private RenderTexture _readbackRT;
+        private NativeArray<byte> _readbackNative;
 
         // Stage timings, in ms, for the diagnostics readout. Written by the worker, read by the main thread --
         // deliberately unsynchronised, because they steer a human reading a menu, never any control flow.
@@ -196,7 +197,7 @@ namespace Basis.MediaPipe.Homuler
                 _pendingH = h;
                 _pendingTs = ts;
                 _readbackPending = true;
-                AsyncGPUReadback.Request(_readbackRT, 0, TextureFormat.RGBA32, OnReadback);
+                AsyncGPUReadback.RequestIntoNativeArray(ref _readbackNative, _readbackRT, 0, TextureFormat.RGBA32, OnReadback);
             }
             else
             {
@@ -222,6 +223,8 @@ namespace Basis.MediaPipe.Homuler
             {
                 if (_readbackRT != null) _readbackRT.Release();
                 _readbackRT = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32);
+                if (_readbackNative.IsCreated) _readbackNative.Dispose();
+                _readbackNative = new NativeArray<byte>(len * 4, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             }
         }
 
@@ -237,9 +240,7 @@ namespace Basis.MediaPipe.Homuler
                 return;
             }
 
-            NativeArray<byte> data = req.GetData<byte>();
-            if (_srcRgba == null || data.Length != _srcRgba.Length) return;
-            data.CopyTo(_srcRgba);
+            if (_srcRgba == null || !_readbackNative.IsCreated || _readbackNative.Length != _srcRgba.Length) return;
 
             _w = _pendingW;
             _h = _pendingH;
@@ -280,6 +281,7 @@ namespace Basis.MediaPipe.Homuler
             // and mirror columns for a selfie-style camera.
             if (_useAsyncReadback)
             {
+                _readbackNative.CopyTo(_srcRgba);
                 for (int y = 0; y < h; y++)
                 {
                     int srcRow = (h - 1 - y) * w;
@@ -649,6 +651,11 @@ namespace Basis.MediaPipe.Homuler
             _hand = null;
             _pose = null;
             if (_native.IsCreated) _native.Dispose();
+            if (_readbackNative.IsCreated)
+            {
+                if (_readbackPending) AsyncGPUReadback.WaitAllRequests();
+                _readbackNative.Dispose();
+            }
             if (_readbackRT != null)
             {
                 _readbackRT.Release();

@@ -41,6 +41,5 @@ namespace Basis.BasisUI
         /// </summary>
         public Action OnDismiss;
 
-        public bool CanReopen => Status == BasisNotificationStatus.Pending && Reopen != null;
     }
 }

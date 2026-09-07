@@ -208,6 +208,8 @@ namespace Basis.Tests.Camera
                 s => s.compose.composer.verticalDamping += 1f,
                 s => s.matchSubject.rotationOffset += Vector3.one,
                 s => s.matchSubject.damping += Vector3.one,
+                s => s.trackAim.rotationOffset += Vector3.one,
+                s => s.trackAim.damping += Vector3.one,
                 s => s.lookAhead.time += 1f,
                 s => s.lookAhead.limit += 1f,
                 s => s.occlusion.padding += 1f,
@@ -310,6 +312,8 @@ namespace Basis.Tests.Camera
                 "A track is authored in the world, so it rides whether or not anybody is being filmed.");
 
             Assert.That(BasisCameraModifiers.NeedsSubject(BasisCameraRotationModifier.Hold), Is.False);
+            Assert.That(BasisCameraModifiers.NeedsSubject(BasisCameraRotationModifier.AimAlongTrack), Is.False,
+                "It reads the path, not a person, so it has to survive an empty subject slot.");
         }
 
         [Test]
@@ -411,6 +415,24 @@ namespace Basis.Tests.Camera
             Assert.That(stack.rotationModifier, Is.EqualTo(BasisCameraRotationModifier.Hold));
             Assert.That(stack.positionModifier, Is.EqualTo(BasisCameraPositionModifier.Orbit),
                 "A place can still be orbited; it just cannot be faced.");
+        }
+
+        [Test]
+        public void AimingDownTheTrackSurvivesAnEmptySubjectSlot()
+        {
+            // The pair a travelling shot is built from: a track to ride and the track's own heading
+            // to aim by. Neither films anybody, so emptying the subject slot must leave both fitted.
+            BasisCameraModifierStack stack = new BasisCameraModifierStack
+            {
+                positionModifier = BasisCameraPositionModifier.DollyTrack,
+                rotationModifier = BasisCameraRotationModifier.AimAlongTrack,
+            };
+            stack.subject.modifier = BasisCameraSubjectModifier.None;
+
+            stack.Sanitize();
+
+            Assert.That(stack.positionModifier, Is.EqualTo(BasisCameraPositionModifier.DollyTrack));
+            Assert.That(stack.rotationModifier, Is.EqualTo(BasisCameraRotationModifier.AimAlongTrack));
         }
     }
 }

@@ -116,6 +116,42 @@ namespace Basis.BasisUI
             return meta.CachedSprite;
         }
 
+        /// <summary>
+        /// As <see cref="CreateSpriteFromMetaData"/> but the PNG decode/downscale runs off the main
+        /// thread. <paramref name="urlKey"/> guards against the cache entry being cleared or
+        /// replaced while the decode is in flight — a stale decode is discarded, never cached.
+        /// </summary>
+        public static async Task<Sprite> CreateSpriteFromMetaDataAsync(CachedContent meta, string urlKey)
+        {
+            if (meta == null) return null;
+
+            if (meta.CachedSprite != null)
+                return meta.CachedSprite;
+
+            if (string.IsNullOrEmpty(meta.BasisBundleConnector.ImageBase64))
+                return null;
+
+            var tex = await BasisTextureCompression.FromPngBytesAsync(meta.BasisBundleConnector.ImageBase64);
+            if (tex == null)
+                return null;
+
+            bool stillLive = _metaCache.TryGetValue(urlKey ?? string.Empty, out CachedContent live) && ReferenceEquals(live, meta);
+            if (!stillLive || meta.CachedSprite != null)
+            {
+                UnityEngine.Object.Destroy(tex);
+                return meta.CachedSprite;
+            }
+
+            meta.CachedSprite = Sprite.Create(
+                tex,
+                new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f)
+            );
+            meta.OwnsSprite = true;
+
+            return meta.CachedSprite;
+        }
+
         public readonly struct MetaOnlyLoadOutcome
         {
             public readonly BasisLoadableBundleWrapper Wrapper;
@@ -218,6 +254,13 @@ namespace Basis.BasisUI
 
             var urlKey = item.Url ?? string.Empty;
             if (ContainsMetaData(urlKey)) return;
+
+            if (!item.EmbeddedSettings.IsEmbedded && string.IsNullOrEmpty(item.Pass))
+            {
+                BasisDebug.LogError($"Item '{urlKey}' has no unlock password so it can never load. Removing from library.");
+                await BasisDataStoreItemKeys.RemoveKey(item);
+                return;
+            }
 
             try
             {

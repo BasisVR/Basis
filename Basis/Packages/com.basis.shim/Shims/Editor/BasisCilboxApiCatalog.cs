@@ -674,6 +674,25 @@ seat.EjectLocalPlayer();",
             new CilboxApiEntry
             {
                 GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.permissionevents.title",
+                SummaryKey = "sdk.cilbox.api.permissionevents.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPermissionEventShim", "Rebind") },
+                Example =
+@"using Basis.Shims;
+
+// Adding the component is the opt-in. The callback is found by name on your own
+// script, and fires once on opt-in as well as on every later change, so there is
+// nothing to subscribe to and nothing to poll.
+void Start() { GetComponent<BasisPermissionEventShim>(); }
+
+void OnLocalPermissionsChanged(bool isAdmin, bool isModerator)
+{
+    staffDoor.SetActive(isAdmin || isModerator);
+}",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupInteraction,
                 TitleKey = "sdk.cilbox.api.jiggle.title",
                 SummaryKey = "sdk.cilbox.api.jiggle.summary",
                 Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisJiggleEventShim", "FindJiggleRig") },

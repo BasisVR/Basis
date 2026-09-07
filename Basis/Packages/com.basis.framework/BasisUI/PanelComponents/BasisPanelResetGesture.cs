@@ -123,7 +123,7 @@ namespace Basis.BasisUI
             bool wasDown = _wasDown;
             _wasDown = down;
 
-            bool eligible = _hovered.HasResetDefault && _hovered.IsInteractable;
+            bool eligible = _hovered.HasPanelOptions && _hovered.IsInteractable;
 
             if (down && !wasDown)
             {

@@ -25,20 +25,25 @@ namespace Basis.Scripts.Drivers
             AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(sceneToLoad, mode, activateOnLoad: true, priority: 100, SceneReleaseMode.ReleaseSceneWhenSceneUnloaded);
 
             progressCallback.ReportProgress(UUID, 0f, $"Preparing scene {sceneToLoad}");
-
-            while (!handle.IsDone)
+            try
             {
-                DownloadStatus dl = handle.GetDownloadStatus();
-                float percent = handle.PercentComplete * 100f;
-                string stage = (dl.TotalBytes > 0 && dl.DownloadedBytes < dl.TotalBytes)
-                    ? $"Downloading {sceneToLoad}: {FormatBytes(dl.DownloadedBytes)} / {FormatBytes(dl.TotalBytes)}"
-                    : $"Activating scene {sceneToLoad}";
-                progressCallback.ReportProgress(UUID, percent, stage);
-                await Task.Yield();
-            }
+                while (!handle.IsDone)
+                {
+                    DownloadStatus dl = handle.GetDownloadStatus();
+                    float percent = System.Math.Min(handle.PercentComplete * 100f, 99f);
+                    string stage = (dl.TotalBytes > 0 && dl.DownloadedBytes < dl.TotalBytes)
+                        ? $"Downloading {sceneToLoad}: {FormatBytes(dl.DownloadedBytes)} / {FormatBytes(dl.TotalBytes)}"
+                        : $"Activating scene {sceneToLoad}";
+                    progressCallback.ReportProgress(UUID, percent, stage);
+                    await Task.Yield();
+                }
 
-            await handle.Task;
-            progressCallback.ReportProgress(UUID, 100f, $"Loaded scene {sceneToLoad}");
+                await handle.Task;
+            }
+            finally
+            {
+                progressCallback.ReportProgress(UUID, 100f, $"Loaded scene {sceneToLoad}");
+            }
             BasisDebug.Log($"Loaded Scene {sceneToLoad}", BasisDebug.LogTag.Event);
         }
 

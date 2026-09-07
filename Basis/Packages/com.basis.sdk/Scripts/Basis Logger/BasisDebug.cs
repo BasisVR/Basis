@@ -109,6 +109,20 @@ public static class BasisDebug
         NamedOnceKeys.Clear();
     }
 
+    /// <summary>
+    /// Info-level logs fire constantly and rarely get read for their stack trace; skip capturing one.
+    /// Warnings/errors/exceptions keep theirs. Application.SetStackTraceLogType doesn't persist on its
+    /// own, so this re-applies on every domain reload and at runtime/build startup.
+    /// </summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+#if UNITY_EDITOR
+    [UnityEditor.InitializeOnLoadMethod]
+#endif
+    private static void ApplyDefaultStackTraceSettings()
+    {
+        Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
+    }
+
     private static bool FirstTimeAtSite(string file, int line)
     {
         return SiteOnceKeys.TryAdd((file, line), 0);

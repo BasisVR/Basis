@@ -55,19 +55,28 @@ public static class BasisBeeManagement
     /// <para>Returns true (keep using the cache) whenever no version was declared, which is the
     /// branch taken by every bundle and client that predates versioning — so this is a no-op for
     /// existing content.</para>
+    ///
+    /// <para>A mismatched requested tag alone is NOT proof the cache is stale — the claim can be
+    /// the stale side (see <see cref="HostConfirmsCachedCopyCurrentAsync"/>), so a mismatch asks
+    /// the host before anything is evicted.</para>
     /// </summary>
     /// <param name="evictStaleCache">
     /// Whether a stale entry should be deleted outright rather than merely bypassed. True for the
     /// full load, where eviction reclaims the previous UniqueVersion's files instead of leaving
     /// them for the LRU sweep. False for the connector-only load: its caller treats "no meta on
-    /// disc" as a corrupt item and REMOVES the library key, so deleting the entry there would turn
+    /// disc" as a corrupt item and REMOVES the user's library key, so deleting the entry there would turn
     /// a failed re-download into silent loss of the user's saved item. Bypassing still refreshes —
     /// the re-download rewrites the entry — it just leaves the old payload for the LRU sweep.
     /// </param>
-    private static bool CacheIsCurrentForRequestedVersion(BasisTrackedBundleWrapper wrapper, BasisBEEExtensionMeta metaInfo, string beeLocation, bool evictStaleCache)
+    private static async Task<bool> CacheIsCurrentForRequestedVersionAsync(BasisTrackedBundleWrapper wrapper, BasisBEEExtensionMeta metaInfo, string beeLocation, bool evictStaleCache, CancellationToken cancellationToken)
     {
         string requestedVersionTag = wrapper?.LoadableBundle?.BasisRemoteBundleEncrypted?.RemoteVersionTag;
         if (BasisContentVersion.ShouldUseCache(metaInfo, requestedVersionTag, beeLocation))
+        {
+            return true;
+        }
+
+        if (await HostConfirmsCachedCopyCurrentAsync(metaInfo, beeLocation, cancellationToken))
         {
             return true;
         }
@@ -83,6 +92,60 @@ public static class BasisBeeManagement
     }
 
     /// <summary>
+    /// A requested tag that fails to match the cache is a CLAIM, not a fact — usually a peer
+    /// echoing whatever validator their own download observed, however long ago. The claim itself
+    /// goes stale whenever the host's validator changes without the bytes changing (nginx ETags
+    /// embed file mtime, so re-uploading or syncing identical bytes mints a new tag), and the
+    /// wearer never notices because their warm loads never touch the network. Believing the claim
+    /// outright would evict a perfectly current cache and re-download the full bee on every load,
+    /// forever.
+    ///
+    /// <para>So before evicting, ask the HOST: one conditional request against the tag the cached
+    /// bytes were actually validated with. 304 (or a matching validator) proves the cache is
+    /// current and the claim merely outdated; only a host reporting different content costs a
+    /// re-download. An unreachable host also serves the cache — the download a mismatch would
+    /// trigger cannot succeed either, and a bare claim is not evidence enough to strand the user
+    /// content-less. Throttled upstream by TryBeginVersionRefresh, so a claim-flipping peer costs
+    /// one small request per url per window instead of a full download.</para>
+    /// </summary>
+    private static async Task<bool> HostConfirmsCachedCopyCurrentAsync(BasisBEEExtensionMeta metaInfo, string beeLocation, CancellationToken cancellationToken)
+    {
+        string cachedTag = metaInfo?.CachedVersionTag;
+        if (string.IsNullOrWhiteSpace(cachedTag))
+        {
+            // No baseline to verify against: the entry predates versioning, and an actively
+            // claimed version IS evidence of change there. One download settles it.
+            return false;
+        }
+
+        BeeResult<BasisIOManagement.BasisRemoteValidator> result;
+        try
+        {
+            result = await BasisIOManagement.FetchRemoteValidatorAsync(beeLocation, cachedTag.Trim(), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogWarning($"Version-claim check for {beeLocation} threw ({ex.Message}); serving the cached copy.", BasisDebug.LogTag.Event);
+            return true;
+        }
+
+        if (!result.IsSuccess)
+        {
+            BasisDebug.LogWarning($"Could not verify version claim for {beeLocation} ({result.Error}); serving the cached copy.", BasisDebug.LogTag.Event);
+            return true;
+        }
+
+        if (BasisContentVersion.HostConfirmsCache(cachedTag, result.Value))
+        {
+            BasisDebug.Log($"Host confirms the cached copy of {beeLocation} is current; the requested tag is an outdated claim. Serving cache.", BasisDebug.LogTag.Event);
+            await BasisContentVersion.MarkValidatedAsync(beeLocation, result.Value.NotModified ? cachedTag : result.Value.Tag);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// this allows obtaining the entire bee file
     /// </summary>
     /// <param name="wrapper"></param>
@@ -91,10 +154,31 @@ public static class BasisBeeManagement
     /// <returns></returns>
     public static async Task HandleBundleAndMetaLoading(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken, long MaxDownloadSizeInBytes = 4L * 1024 * 1024 * 1024)
     {
-        string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
-        if (BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
+        if (report == null)
         {
-            await HandleLocalBeeBundle(wrapper, localBeePath, report, cancellationToken);
+            report = new BasisProgressReport();
+        }
+        string key = BasisGenerateUniqueID.GenerateUniqueID();
+        try
+        {
+            await LoadBundleAndMeta(wrapper, report, key, cancellationToken, MaxDownloadSizeInBytes);
+        }
+        finally
+        {
+            report.ReportProgress(key, 100, "Bundle ready");
+        }
+    }
+    private static async Task LoadBundleAndMeta(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, string key, CancellationToken cancellationToken, long MaxDownloadSizeInBytes)
+    {
+        string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+        bool networkSourced = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced;
+        if (networkSourced && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
+        {
+            throw new Exception($"Refusing networked content location: {locationError}");
+        }
+        if (!networkSourced && BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
+        {
+            await HandleLocalBeeBundle(wrapper, localBeePath, report, key, cancellationToken);
             return;
         }
 
@@ -108,15 +192,17 @@ public static class BasisBeeManagement
             shouldUseOnDiskMeta = false;
         }
 
-        if (shouldUseOnDiskMeta && !CacheIsCurrentForRequestedVersion(wrapper, MetaInfo, beeLocation, evictStaleCache: true))
+        if (shouldUseOnDiskMeta && !await CacheIsCurrentForRequestedVersionAsync(wrapper, MetaInfo, beeLocation, evictStaleCache: true, cancellationToken))
         {
             shouldUseOnDiskMeta = false;
         }
 
-        (BasisBundleGenerated, byte[], string) output;
+        (BasisBundleGenerated, BasisBundleSection, string) output;
+        BasisProgressReport DownloadStage() => report.Stage(key, 0, 50);
+        BasisProgressReport BuildStage() => report.Stage(key, shouldUseOnDiskMeta && !didForceRedownload ? 5 : 50, 100);
         if (shouldUseOnDiskMeta)
         {
-            output = await BasisBundleManagement.LocalLoadBundleConnector(wrapper, MetaInfo.StoredLocal, report, cancellationToken);
+            output = await BasisBundleManagement.LocalLoadBundleConnector(wrapper, MetaInfo.StoredLocal, report.Stage(key, 0, 5), cancellationToken);
         }
         else
         {
@@ -141,13 +227,13 @@ public static class BasisBeeManagement
                     BasisDebug.Log($"Connector prefetch failed ({prefetchException.Message}) — continuing with the full download.", BasisDebug.LogTag.Event);
                 }
             }
-            output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
+            output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, DownloadStage(), cancellationToken, MaxDownloadSizeInBytes);
         }
-        if(output.Item2 == null || output.Item2.Length == 0)
+        if(!output.Item2.HasPayload)
         {
             //lets force download it again. this guards against partial file, corrupt file or reattempt at downloading if it fails.
             BasisDebug.Log("Local load returned null section data, forcing re-download", BasisDebug.LogTag.Event);
-            output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
+            output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, DownloadStage(), cancellationToken, MaxDownloadSizeInBytes);
             didForceRedownload = true;
         }
 
@@ -164,19 +250,19 @@ public static class BasisBeeManagement
             {
                 return;
             }
-            bool gltfLoaded = await BasisGltfAvatarLoader.LoadTemplate(wrapper, output.Item1, output.Item2, report);
+            bool gltfLoaded = await BasisGltfAvatarLoader.LoadTemplate(wrapper, output.Item1, output.Item2, BuildStage());
             if (!gltfLoaded && shouldUseOnDiskMeta && !didForceRedownload)
             {
                 BasisDebug.Log("Cached generic (glTF) bytes failed to load; forcing re-download.", BasisDebug.LogTag.Event);
-                output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
+                output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, DownloadStage(), cancellationToken, MaxDownloadSizeInBytes);
                 didForceRedownload = true;
 
-                if (output.Item1 == null || output.Item2 == null || output.Item2.Length == 0 || !string.IsNullOrEmpty(output.Item3))
+                if (output.Item1 == null || !output.Item2.HasPayload || !string.IsNullOrEmpty(output.Item3))
                 {
                     throw new Exception($"Unable to reload generic (glTF) section after cache mismatch. {output.Item3}");
                 }
 
-                gltfLoaded = await BasisGltfAvatarLoader.LoadTemplate(wrapper, output.Item1, output.Item2, report);
+                gltfLoaded = await BasisGltfAvatarLoader.LoadTemplate(wrapper, output.Item1, output.Item2, BuildStage());
             }
 
             if (!gltfLoaded)
@@ -212,21 +298,21 @@ public static class BasisBeeManagement
         BasisDebug.Log("Calling Load Request", BasisDebug.LogTag.System);
         try
         {
-            AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report);
+            AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, BuildStage());
             if (bundleRequest == null || bundleRequest.assetBundle == null)
             {
                 if (shouldUseOnDiskMeta && !didForceRedownload)
                 {
                     BasisDebug.Log("Cached bundle bytes failed to load; forcing re-download.", BasisDebug.LogTag.Event);
-                    output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
+                    output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, DownloadStage(), cancellationToken, MaxDownloadSizeInBytes);
                     didForceRedownload = true;
 
-                    if (output.Item1 == null || output.Item2 == null || output.Item2.Length == 0 || !string.IsNullOrEmpty(output.Item3))
+                    if (output.Item1 == null || !output.Item2.HasPayload || !string.IsNullOrEmpty(output.Item3))
                     {
                         throw new Exception($"Unable to reload bundle after cache mismatch. {output.Item3}");
                     }
 
-                    bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report);
+                    bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, BuildStage());
                 }
 
                 if (bundleRequest == null || bundleRequest.assetBundle == null)
@@ -252,16 +338,16 @@ public static class BasisBeeManagement
     /// Loads a BEE that lives on the local filesystem (no download, no on-disc cache copy).
     /// Reads connector + platform section directly and generates the asset bundle.
     /// </summary>
-    private static async Task HandleLocalBeeBundle(BasisTrackedBundleWrapper wrapper, string localBeePath, BasisProgressReport report, CancellationToken cancellationToken)
+    private static async Task HandleLocalBeeBundle(BasisTrackedBundleWrapper wrapper, string localBeePath, BasisProgressReport report, string key, CancellationToken cancellationToken)
     {
-        var output = await BasisBundleManagement.LocalDirectLoadBundleConnector(wrapper, localBeePath, report, cancellationToken);
+        var output = await BasisBundleManagement.LocalDirectLoadBundleConnector(wrapper, localBeePath, report.Stage(key, 0, 5), cancellationToken);
 
         if (output.Item1 == null || !string.IsNullOrEmpty(output.Item3))
         {
             throw new Exception($"Local bundle load failed for {localBeePath}: {output.Item3}");
         }
 
-        if (output.Item2 == null || output.Item2.Length == 0)
+        if (!output.Item2.HasPayload)
         {
             throw new Exception($"Local bundle load returned no section data for {localBeePath}.");
         }
@@ -269,7 +355,7 @@ public static class BasisBeeManagement
         // Generic (glTF) fallback section from a local bee — same template path as remote.
         if (BasisBundleConnector.IsGltfMode(output.Item1))
         {
-            bool gltfLoaded = await BasisGltfAvatarLoader.LoadTemplate(wrapper, output.Item1, output.Item2, report);
+            bool gltfLoaded = await BasisGltfAvatarLoader.LoadTemplate(wrapper, output.Item1, output.Item2, report.Stage(key, 5, 100));
             if (!gltfLoaded)
             {
                 throw new Exception($"Generic (glTF) avatar template creation failed for local bee file {localBeePath}.");
@@ -296,7 +382,7 @@ public static class BasisBeeManagement
             }
         }
 
-        AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report);
+        AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report.Stage(key, 5, 100));
         if (bundleRequest == null || bundleRequest.assetBundle == null)
         {
             throw new Exception($"AssetBundle creation failed for local bee file {localBeePath}.");
@@ -364,7 +450,12 @@ public static class BasisBeeManagement
     public static async Task<BasisMetaLoadResult> HandleMetaOnlyLoad(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
     {
         string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
-        if (BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
+        bool networkSourced = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced;
+        if (networkSourced && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
+        {
+            return BasisMetaLoadResult.Corrupt($"Refusing networked content location: {locationError}");
+        }
+        if (!networkSourced && BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
         {
             var (localConnector, localErr) = await BasisBundleManagement.LocalDirectConnectorFile(wrapper, localBeePath, report, cancellationToken);
             if (localConnector == null || !string.IsNullOrEmpty(localErr))
@@ -378,7 +469,7 @@ public static class BasisBeeManagement
         // Same static-url freshness gate as the full load. Library cards read the connector through
         // here, so without it a card would keep showing the previous name/thumbnail/date after the
         // bee behind its url was replaced.
-        bool useCachedConnector = IsMetaOnDisc && CacheIsCurrentForRequestedVersion(wrapper, MetaInfo, beeLocation, evictStaleCache: false);
+        bool useCachedConnector = IsMetaOnDisc && await CacheIsCurrentForRequestedVersionAsync(wrapper, MetaInfo, beeLocation, evictStaleCache: false, cancellationToken);
         (BasisBundleConnector Connector, string ErrorMessage) output;
         if (useCachedConnector)
         {

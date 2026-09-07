@@ -132,6 +132,14 @@ public class ServerConfigurationDefaultsTests
         Assert.Equal(25f, cfg.MaxHearingRangeMeters);
         Assert.Equal(0.1f, cfg.MinAvatarEyeHeightMeters);
         Assert.Equal(100f, cfg.MaxAvatarEyeHeightMeters);
+        // 0 fields = the server dictates no movement values; a fresh instance must never ship a
+        // locomotion policy that silently overrides what players and worlds ask for.
+        Assert.Equal(0, cfg.LocomotionPolicyFields);
+        Assert.Equal(1f, cfg.LocomotionPolicyJumpHeight);
+        Assert.Equal(2.5f, cfg.LocomotionPolicyWalkSpeed);
+        Assert.Equal(4f, cfg.LocomotionPolicyRunSpeed);
+        Assert.Equal(-9.81f, cfg.LocomotionPolicyGravity);
+        Assert.Equal(0, cfg.LocomotionPolicyMode);
         Assert.False(cfg.DisallowHeadless);
     }
 
@@ -886,7 +894,7 @@ public class ServerMessageRegistryBindingTableTests
     {
         BasisNetworkCommons.AuthIdentityChannel,
         BasisNetworkCommons.VoiceChannel,
-        BasisNetworkCommons.ShoutVoiceChannel,
+        BasisNetworkCommons.AnnounceVoiceChannel,
         BasisNetworkCommons.AudioRecipientsChannel,
         BasisNetworkCommons.PlayerAvatarHighChannel,
         BasisNetworkCommons.PlayerAvatarHighAdditionalChannel,

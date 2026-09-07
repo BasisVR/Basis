@@ -12,6 +12,7 @@ namespace Basis.Cinematics
         private static void Initialize()
         {
             BasisCameraDollyManager.Initialize();
+            BasisCameraDollyShare.Register();
         }
     }
 }

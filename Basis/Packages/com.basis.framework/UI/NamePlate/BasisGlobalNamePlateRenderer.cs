@@ -294,6 +294,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static void FinishFrame()
         {
             if (!vertexJobsPending && !publishPending) return;
+            using var _scope = BasisNamePlateMarkers.Finish.Auto();
             if (vertexJobsPending)
             {
                 vertexJobsPending = false;
@@ -333,6 +334,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static void Rebuild(BasisRemoteNamePlate[] plates, int count)
         {
             if (!initialized || panelMaterial == null) return;
+            using var _scope = BasisNamePlateMarkers.Rebuild.Auto();
 
             // Normally a no-op (FinishFrame ran at before-render); catches a frame where
             // before-render never fired before the gather below rewrites the matrices.
@@ -369,6 +371,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         private static void RebuildTopology(BasisRemoteNamePlate[] plates, int count)
         {
+            using var _scope = BasisNamePlateMarkers.Topology.Auto();
             snapshot.Clear();
             for (int i = 0; i < count; i++)
             {

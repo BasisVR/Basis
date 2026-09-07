@@ -64,7 +64,7 @@ namespace Basis.IK
         public float restChordHeadHips, restChordHeadLumbar, restChordHeadUpper, restReachHeadLumbar;
         public Quaternion chestTrackedRot, chestRestFromHead;
         public bool chestIkTarget;
-        public float chestIkWeight, chestPosPullMaxDeg, chestPullMaxDist;
+        public float chestIkWeight, chestPosPullMaxDeg, chestPullMaxDist, chestHeadBudget;
         public int chestIkIterations, chestIkHeadRestoreSweeps;
         public float chestArmSwingFactor, chestArmSwingMaxDeg, chestFollowChestShare;
         public bool anatDifferentialStiffness, anatShoulderSlide, anatCervicalLordosis, anatPelvicTwistRouting;

@@ -371,7 +371,7 @@ namespace Basis.Scripts.UI.NamePlate
             GameObject chatTextObj = new GameObject("ChatText");
             chatTextObj.transform.SetParent(Self, false);
             // Position above the nameplate (nameplate is at y=0, half height ~4.5 units)
-            chatTextObj.transform.SetLocalPositionAndRotation(new Vector3(0, 12f, 0.04f), Quaternion.Euler(0, 180, 0));
+            chatTextObj.transform.SetLocalPositionAndRotation(new Vector3(0, 12f, 1f), Quaternion.Euler(0, 180, 0));
             chatTextObj.transform.localScale = Vector3.one;
             chatTextObj.layer = gameObject.layer;
 
@@ -922,6 +922,11 @@ namespace Basis.Scripts.UI.NamePlate
                 }
             });
         }
+        public override bool PointerClaimedByUI(BasisInput input)
+        {
+            BasisUIRaycast raycast = input.BasisUIRaycast;
+            return raycast != null && (raycast.HadRaycastUITarget || raycast.HadUISurface);
+        }
         public override bool CanHover(BasisInput input)
         {
             if (BasisRemoteNamePlateDriver.NamePlateHoverMenuOnly && BasisMainMenu.Instance == null)
@@ -930,6 +935,7 @@ namespace Basis.Scripts.UI.NamePlate
             }
 
             return InteractableEnabled &&
+                !PointerClaimedByUI(input) &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
@@ -939,6 +945,7 @@ namespace Basis.Scripts.UI.NamePlate
         public override bool CanInteract(BasisInput input)
         {
             return InteractableEnabled &&
+                !PointerClaimedByUI(input) &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&

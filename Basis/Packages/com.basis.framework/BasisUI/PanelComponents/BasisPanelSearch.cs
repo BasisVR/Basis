@@ -125,8 +125,6 @@ namespace Basis.BasisUI
         /// <summary>The trimmed query currently applied, or empty when the page is unfiltered.</summary>
         public string Query => _query;
 
-        public bool IsSearching => _query.Length > 0 || _pendingQuery.Length > 0;
-
         /// <summary>How many rows the last applied query matched. Zero while not searching.</summary>
         public int MatchCount => _matchCount;
 

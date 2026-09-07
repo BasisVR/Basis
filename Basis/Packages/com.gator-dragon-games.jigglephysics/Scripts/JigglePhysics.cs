@@ -557,13 +557,18 @@ public static class JigglePhysics {
         // before handing it over.
         EnsureChildCapacity(tempPoints.Count);
 
-        Profiler.EndSample();
+        // Handing the scratch lists over is where the tree's arrays are sized and, on a shape change,
+        // reallocated — so it belongs inside this sample. Ending it first parked that cost as
+        // unmarked time and unattributed garbage in the caller's JiggleRoot.GetJiggleTrees.
+        JiggleTree result;
         if (tree != null) {
             tree.Set(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders, tempRestLocalPositions, tempRestLocalRotations, tempChildren);
-            return tree;
+            result = tree;
         } else {
-            return new JiggleTree(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders, tempRestLocalPositions, tempRestLocalRotations, tempChildren);
+            result = new JiggleTree(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders, tempRestLocalPositions, tempRestLocalRotations, tempChildren);
         }
+        Profiler.EndSample();
+        return result;
     }
 
     public static void VisitForLength(Transform t, JiggleRigData rig, Vector3 lastPosition, float currentLength, out float totalLength) {

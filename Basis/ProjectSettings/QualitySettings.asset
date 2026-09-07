@@ -39,7 +39,7 @@ QualitySettings:
     enableLODCrossFade: 1
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 4096
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512
@@ -95,7 +95,7 @@ QualitySettings:
     enableLODCrossFade: 0
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 1024
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512
@@ -151,7 +151,7 @@ QualitySettings:
     enableLODCrossFade: 0
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 1024
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512
@@ -207,7 +207,7 @@ QualitySettings:
     enableLODCrossFade: 0
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 128
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512

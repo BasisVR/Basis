@@ -14,7 +14,9 @@
         "Unity.XR.Hands",
         "Unity.XR.Management",
         "BasisGizmos",
-        "glTFast"
+        "glTFast",
+        "BasisSettings",
+        "Valve.OpenXR.Utils"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

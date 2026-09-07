@@ -87,24 +87,43 @@ public static class BasisBuildBlendshapeStripper
 
         var remaps = new List<MeshRemapInfo>(64);
 
-        foreach (var smr in buildRoot.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        // One batched import instead of a ForceSynchronousImport round trip per skinned mesh:
+        // asset creation runs under StartAssetEditing, the single Refresh below imports the
+        // whole set, and the loads/rebinds run as a second pass over the imported assets.
+        var pendingLoads = new List<(SkinnedMeshRenderer smr, Mesh srcMesh, string path, HashSet<string> keepNames)>(64);
+
+        AssetDatabase.StartAssetEditing();
+        try
         {
-            if (smr == null) continue;
-            if (smr.sharedMesh == null) continue;
+            foreach (var smr in buildRoot.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (smr == null) continue;
+                if (smr.sharedMesh == null) continue;
 
-            var srcMesh = smr.sharedMesh;
-            if (srcMesh.blendShapeCount == 0) continue;
+                var srcMesh = smr.sharedMesh;
+                if (srcMesh.blendShapeCount == 0) continue;
 
-            keepAsBlendshape.TryGetValue(smr, out var keepNames);
-            keepNames ??= new HashSet<string>();
+                keepAsBlendshape.TryGetValue(smr, out var keepNames);
+                keepNames ??= new HashSet<string>();
 
-            var stripped = CreateMesh_BakeAllExceptKeep(smr, keepNames);
-            if (stripped == null) continue;
+                var stripped = CreateMesh_BakeAllExceptKeep(smr, keepNames);
+                if (stripped == null) continue;
 
-            string path = AssetDatabase.GenerateUniqueAssetPath($"{settings.TemporaryStorage}/{stripped.name}.asset");
-            AssetDatabase.CreateAsset(stripped, path);
-            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                string path = AssetDatabase.GenerateUniqueAssetPath($"{settings.TemporaryStorage}/{stripped.name}.asset");
+                AssetDatabase.CreateAsset(stripped, path);
+                pendingLoads.Add((smr, srcMesh, path, keepNames));
+            }
+        }
+        finally
+        {
+            AssetDatabase.StopAssetEditing();
+        }
 
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh( ImportAssetOptions.ForceSynchronousImport);
+
+        foreach (var (smr, srcMesh, path, keepNames) in pendingLoads)
+        {
             var loaded = AssetDatabase.LoadAssetAtPath<Mesh>(path);
             smr.sharedMesh = loaded;
 
@@ -133,9 +152,6 @@ public static class BasisBuildBlendshapeStripper
                 BasisDebug.LogError($"{ex.Message} {ex.StackTrace}");
             }
         }
-
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh( ImportAssetOptions.ForceSynchronousImport);
 
         // Remap default avatar indices (by name)
         UpdateAvatarBlendshapeIndicesAfterStrip(

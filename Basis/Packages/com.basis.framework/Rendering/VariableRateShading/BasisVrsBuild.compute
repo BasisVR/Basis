@@ -2,19 +2,32 @@
 
 RWTexture2D<uint> _BasisSri;
 
-float4 _BasisVrsCenterLR;
-float4 _BasisVrsParams;
-float4 _BasisVrsTile;
-float4 _BasisVrsRates;
+float4 _BasisVrsTile;       // x,y = tile counts, z = yFlip
+float4 _BasisVrsGazeL;      // xyz = view-space gaze dir (eye 0), w = aspect
+float4 _BasisVrsGazeR;      // xyz = view-space gaze dir (eye 1)
+float4 _BasisVrsUnprojL;    // (m02, m12, 1/m00, 1/m11)
+float4 _BasisVrsUnprojR;
+float4 _BasisVrsCosL;       // cos(inner), cos(outer), cos(far start)
+float4 _BasisVrsCosR;
+float4 _BasisVrsCenterLR;   // per-eye gaze uv: xy = eye 0, zw = eye 1 (aniso axis pick)
+float4 _BasisVrsRates;      // x = near 1x1, y = mid 2x2, z = far 4x4
+float4 _BasisVrsRatesAniso; // x = wide 4x2 (coarser in x), y = tall 2x4 (coarser in y)
 
-uint RateForCenter(float2 uv, float2 center, float inner, float outer, float aspect, uint rateNear, uint rateMid, uint rateFar)
+uint RateForEye(float2 uv, float4 unproj, float3 gazeDir, float3 cosBands, float2 center, float aspect)
 {
-    float2 d = uv - center;
-    d.x *= aspect;
-    float dist = length(d);
-    if (dist < inner) return rateNear;
-    if (dist < outer) return rateMid;
-    return rateFar;
+    float2 ndc = uv * 2.0 - 1.0;
+    float3 dir = normalize(float3((ndc.x + unproj.x) * unproj.z, (ndc.y + unproj.y) * unproj.w, -1.0));
+    float c = dot(dir, gazeDir);
+    if (c >= cosBands.x) return (uint)_BasisVrsRates.x;
+    if (c >= cosBands.y) return (uint)_BasisVrsRates.y;
+    if (c >= cosBands.z)
+    {
+        // Coarsen along the dominant screen-space offset axis so the 2x2 -> 4x4 step is bridged.
+        float2 d = uv - center;
+        d.x *= aspect;
+        return abs(d.x) >= abs(d.y) ? (uint)_BasisVrsRatesAniso.x : (uint)_BasisVrsRatesAniso.y;
+    }
+    return (uint)_BasisVrsRates.z;
 }
 
 [numthreads(8, 8, 1)]
@@ -25,17 +38,13 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         return;
 
     float2 uv = (float2(id.xy) + 0.5) / _BasisVrsTile.xy;
+    if (_BasisVrsTile.z > 0.5)
+        uv.y = 1.0 - uv.y;
 
-    float inner = _BasisVrsParams.x;
-    float outer = _BasisVrsParams.y;
-    float aspect = _BasisVrsParams.z;
+    float aspect = _BasisVrsGazeL.w;
+    uint rateL = RateForEye(uv, _BasisVrsUnprojL, _BasisVrsGazeL.xyz, _BasisVrsCosL.xyz, _BasisVrsCenterLR.xy, aspect);
+    uint rateR = RateForEye(uv, _BasisVrsUnprojR, _BasisVrsGazeR.xyz, _BasisVrsCosR.xyz, _BasisVrsCenterLR.zw, aspect);
 
-    uint rateNear = (uint)_BasisVrsRates.x;
-    uint rateMid = (uint)_BasisVrsRates.y;
-    uint rateFar = (uint)_BasisVrsRates.z;
-
-    uint rateL = RateForCenter(uv, _BasisVrsCenterLR.xy, inner, outer, aspect, rateNear, rateMid, rateFar);
-    uint rateR = RateForCenter(uv, _BasisVrsCenterLR.zw, inner, outer, aspect, rateNear, rateMid, rateFar);
-
+    // 2D SRI is shared by both eyes: keep the finest (lowest-coded) rate = union of sharp regions.
     _BasisSri[id.xy] = min(rateL, rateR);
 }

@@ -181,5 +181,32 @@ namespace Basis.Cinematics
 
         public static bool NamesMatch(string left, string right) =>
             string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Whether two presets describe the same path. Compares the shape and the anchor it was
+        /// captured against, not the name or the move riding it: this answers "do I already have
+        /// this track", which is what accepting the same share twice needs to know.
+        /// </summary>
+        public bool SameShapeAs(BasisCameraDollyPreset other)
+        {
+            if (other == null || other.Count != Count || other.looped != looped) return false;
+            if (!Mathf.Approximately(other.anchorScale, anchorScale)) return false;
+            if (!Mathf.Approximately(other.anchorYaw, anchorYaw)) return false;
+            if ((other.anchorPosition - anchorPosition).sqrMagnitude > ShapeEpsilon * ShapeEpsilon) return false;
+
+            for (int Index = 0; Index < Count; Index++)
+            {
+                BasisCameraDollyPresetPoint mine = points[Index], theirs = other.points[Index];
+                if ((mine.position - theirs.position).sqrMagnitude > ShapeEpsilon * ShapeEpsilon) return false;
+                if (Quaternion.Angle(mine.rotation, theirs.rotation) > ShapeAngleEpsilon) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Metres two points may differ by and still count as the same point.</summary>
+        private const float ShapeEpsilon = 0.001f;
+
+        /// <summary>Degrees two point rotations may differ by and still count as the same.</summary>
+        private const float ShapeAngleEpsilon = 0.1f;
     }
 }

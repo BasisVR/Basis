@@ -15,7 +15,6 @@ MonoBehaviour:
   AudioMixer: {fileID: 6216228358845890117, guid: 1ff7d045b2e32054aad6c5815495d8b8, type: 2}
   selectedTypes:
   - BasisMediaPlayer
-  - BasisMediaPlayerNetworked
   - BasisSDKMirror
   - Basis.Scripts.BasisSdk.BasisAvatar
   - Basis.Scripts.BasisSdk.BasisScene
@@ -144,7 +143,6 @@ MonoBehaviour:
   - Basis.Scripts.Vehicles.Parts.BasisVehicleWheel
   - Basis.Scripts.Vehicles.Main.BasisVehicleBody
   - Basis.Scripts.Vehicles.Main.BasisVehiclePilotSeat
-  - BasisNetworkedVehicles
   - Basis.Scripts.Vehicles.Parts.BasisVehicleSteeringWheel
   - UnityEngine.WheelCollider
   - UnityEngine.WheelJoint2D

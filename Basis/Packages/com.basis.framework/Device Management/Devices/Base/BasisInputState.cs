@@ -41,6 +41,13 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <summary>Raised when <see cref="Secondary2DAxisDeadZoned"/> changes (after deadzone).</summary>
         public event Action OnSecondary2DAxisChanged;
 
+        public event Action OnPrimaryButtonTouchChanged;
+        public event Action OnSecondaryButtonTouchChanged;
+        public event Action OnPrimary2DAxisTouchChanged;
+        public event Action OnSecondary2DAxisTouchChanged;
+        public event Action OnTriggerTouchChanged;
+        public event Action OnThumbrestTouchChanged;
+
         [SerializeField] private bool gripButton;
         [SerializeField] private bool menuButton;
         [SerializeField] private bool primaryButtonGetState;
@@ -51,6 +58,7 @@ namespace Basis.Scripts.Device_Management.Devices
         [SerializeField] private float secondaryTrigger;
         [SerializeField] private Vector2 primary2DAxisRaw;
         [SerializeField] private Vector2 secondary2DAxisRaw;
+        [SerializeField] private bool primaryButtonTouch, secondaryButtonTouch, primary2DAxisTouch, secondary2DAxisTouch, triggerTouch, thumbrestTouch;
         /// <summary>
         /// Grip (often controller side-button). True while held.
         /// </summary>
@@ -143,6 +151,84 @@ namespace Basis.Scripts.Device_Management.Devices
                 {
                     primary2DAxisClick = value;
                     OnPrimary2DAxisClickChanged?.Invoke();
+                }
+            }
+        }
+
+        public bool PrimaryButtonTouch
+        {
+            get => primaryButtonTouch;
+            set
+            {
+                if (primaryButtonTouch != value)
+                {
+                    primaryButtonTouch = value;
+                    OnPrimaryButtonTouchChanged?.Invoke();
+                }
+            }
+        }
+
+        public bool SecondaryButtonTouch
+        {
+            get => secondaryButtonTouch;
+            set
+            {
+                if (secondaryButtonTouch != value)
+                {
+                    secondaryButtonTouch = value;
+                    OnSecondaryButtonTouchChanged?.Invoke();
+                }
+            }
+        }
+
+        public bool Primary2DAxisTouch
+        {
+            get => primary2DAxisTouch;
+            set
+            {
+                if (primary2DAxisTouch != value)
+                {
+                    primary2DAxisTouch = value;
+                    OnPrimary2DAxisTouchChanged?.Invoke();
+                }
+            }
+        }
+
+        public bool Secondary2DAxisTouch
+        {
+            get => secondary2DAxisTouch;
+            set
+            {
+                if (secondary2DAxisTouch != value)
+                {
+                    secondary2DAxisTouch = value;
+                    OnSecondary2DAxisTouchChanged?.Invoke();
+                }
+            }
+        }
+
+        public bool TriggerTouch
+        {
+            get => triggerTouch;
+            set
+            {
+                if (triggerTouch != value)
+                {
+                    triggerTouch = value;
+                    OnTriggerTouchChanged?.Invoke();
+                }
+            }
+        }
+
+        public bool ThumbrestTouch
+        {
+            get => thumbrestTouch;
+            set
+            {
+                if (thumbrestTouch != value)
+                {
+                    thumbrestTouch = value;
+                    OnThumbrestTouchChanged?.Invoke();
                 }
             }
         }
@@ -302,6 +388,12 @@ namespace Basis.Scripts.Device_Management.Devices
             target.SecondaryButtonGetState = this.SecondaryButtonGetState;
             target.Secondary2DAxisClick = this.Secondary2DAxisClick;
             target.Primary2DAxisClick = this.Primary2DAxisClick;
+            target.PrimaryButtonTouch = this.PrimaryButtonTouch;
+            target.SecondaryButtonTouch = this.SecondaryButtonTouch;
+            target.Primary2DAxisTouch = this.Primary2DAxisTouch;
+            target.Secondary2DAxisTouch = this.Secondary2DAxisTouch;
+            target.TriggerTouch = this.TriggerTouch;
+            target.ThumbrestTouch = this.ThumbrestTouch;
             target.Trigger = this.Trigger;
             target.SecondaryTrigger = this.SecondaryTrigger;
             target.primary2DAxisRaw = this.primary2DAxisRaw;
@@ -324,6 +416,12 @@ namespace Basis.Scripts.Device_Management.Devices
             SecondaryButtonGetState |= other.secondaryButtonGetState;
             Secondary2DAxisClick |= other.secondary2DAxisClick;
             Primary2DAxisClick |= other.primary2DAxisClick;
+            PrimaryButtonTouch |= other.primaryButtonTouch;
+            SecondaryButtonTouch |= other.secondaryButtonTouch;
+            Primary2DAxisTouch |= other.primary2DAxisTouch;
+            Secondary2DAxisTouch |= other.secondary2DAxisTouch;
+            TriggerTouch |= other.triggerTouch;
+            ThumbrestTouch |= other.thumbrestTouch;
             Trigger = Mathf.Max(trigger, other.trigger);
             SecondaryTrigger = Mathf.Max(secondaryTrigger, other.secondaryTrigger);
             if (other.primary2DAxisRaw.sqrMagnitude > primary2DAxisRaw.sqrMagnitude)

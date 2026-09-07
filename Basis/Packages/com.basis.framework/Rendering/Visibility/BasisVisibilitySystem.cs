@@ -38,9 +38,6 @@ namespace Basis.Scripts.Rendering
         private static JobHandle _handle;
         private static bool _scheduled;
 
-        public static int LastCameraCount => _cameraCount;
-        public static int LastChangeCount => _changed.IsCreated ? _changed.Length : 0;
-
         public static void EnsureCreated()
         {
             BasisVisibilityDatabase.EnsureCreated();

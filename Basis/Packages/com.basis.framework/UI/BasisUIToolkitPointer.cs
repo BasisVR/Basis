@@ -26,8 +26,6 @@ namespace Basis.Scripts.UI
         public bool WantsCapture => IsDown && ActivePanel != null;
         public BasisUIToolkitPanel CapturedPanel => ActivePanel;
         public bool IsPressed => IsDown;
-        public bool RisingEdgeThisFrame => RisingEdge;
-
         public enum PointerAction
         {
             Move,

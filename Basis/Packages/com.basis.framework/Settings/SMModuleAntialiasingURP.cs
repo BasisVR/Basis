@@ -16,13 +16,11 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
             return;
         }
         UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
-#if UNITY_SERVER
         if (Asset == null)
         {
-            BasisDebug.LogWarning("SMModuleAntialiasingURP: No URP pipeline asset assigned. Skipping antialiasing changes.");
+            BasisDebug.LogError("Missing Asset Pipeline!");
             return;
         }
-#endif
         if (Camera == null)
         {
             if (BasisLocalCameraDriver.Instance != null)

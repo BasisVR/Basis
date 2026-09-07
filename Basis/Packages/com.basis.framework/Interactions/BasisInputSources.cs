@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 namespace Basis.Scripts.BasisSdk.Interactions
@@ -31,9 +30,16 @@ namespace Basis.Scripts.BasisSdk.Interactions
             bool influencing = IsInfluencing(desktopCenterEye.GetState()) ||
                             IsInfluencing(leftHand.GetState()) ||
                             IsInfluencing(rightHand.GetState());
-            if (!skipExtras)
+            if (!skipExtras && !influencing)
             {
-                influencing |= extras.Any(x => IsInfluencing(x.GetState()));
+                for (int i = 0; i < extras.Length; i++)
+                {
+                    if (IsInfluencing(extras[i].GetState()))
+                    {
+                        influencing = true;
+                        break;
+                    }
+                }
             }
             return influencing;
         }
@@ -43,9 +49,16 @@ namespace Basis.Scripts.BasisSdk.Interactions
             bool interacting = desktopCenterEye.GetState() == BasisInteractInputState.Interacting ||
                             leftHand.GetState() == BasisInteractInputState.Interacting ||
                             rightHand.GetState() == BasisInteractInputState.Interacting;
-            if (!skipExtras)
+            if (!skipExtras && !interacting)
             {
-                interacting |= extras.Any(x => x.GetState() == BasisInteractInputState.Interacting);
+                for (int i = 0; i < extras.Length; i++)
+                {
+                    if (extras[i].GetState() == BasisInteractInputState.Interacting)
+                    {
+                        interacting = true;
+                        break;
+                    }
+                }
             }
             return interacting;
         }
@@ -154,7 +167,14 @@ namespace Basis.Scripts.BasisSdk.Interactions
             primary[2] = rightHand;
 
             if (extras.Length != 0)
-                return primary.Concat(extras).ToArray();
+            {
+                BasisInputWrapper[] all = new BasisInputWrapper[3 + extras.Length];
+                all[0] = desktopCenterEye;
+                all[1] = leftHand;
+                all[2] = rightHand;
+                Array.Copy(extras, 0, all, 3, extras.Length);
+                return all;
+            }
             return primary;
         }
 

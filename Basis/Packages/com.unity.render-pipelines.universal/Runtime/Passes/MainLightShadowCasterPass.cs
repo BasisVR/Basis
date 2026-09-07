@@ -67,9 +67,13 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// </summary>
         /// <param name="evt">The <c>RenderPassEvent</c> to use.</param>
         /// <seealso cref="RenderPassEvent"/>
+        private static readonly ProfilingSampler s_ProfilingSampler = new ProfilingSampler("Draw Main Light Shadowmap");
+        public static float GpuMs => s_ProfilingSampler.gpuElapsedTime;
+        public static void SetProfilingEnabled(bool enabled) => s_ProfilingSampler.enableRecording = enabled;
+
         public MainLightShadowCasterPass(RenderPassEvent evt)
         {
-            profilingSampler = new ProfilingSampler("Draw Main Light Shadowmap");
+            profilingSampler = s_ProfilingSampler;
             renderPassEvent = evt;
 
             m_MainLightShadowMatrices = new Matrix4x4[k_MaxCascades + 1];

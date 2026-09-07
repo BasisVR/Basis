@@ -10,6 +10,7 @@ If you only read one other thing before contributing, read [PHILOSOPHY.md](./PHI
 - [README.md](./README.md) — project overview, install steps, command-line flags.
 - [PHILOSOPHY.md](./PHILOSOPHY.md) — what Basis is for and who it's aimed at.
 - [STYLE.md](./STYLE.md) — formatting, the PR checklist explained, and what reviewers push back on. Read this before you open a PR.
+- [AI.md](./AI.md): how AI is used in Basis development, and what we expect from AI-assisted contributions.
 - [CI.md](./CI.md) — what you need to set up if you're forking and want CI to build.
 - [Pull request template](./.github/PULL_REQUEST_TEMPLATE.md) — the merge checklist.
 - [Issue templates](./.github/ISSUE_TEMPLATE/) — bug report and feature request forms.
@@ -95,6 +96,10 @@ The [pull request template](./.github/PULL_REQUEST_TEMPLATE.md) has a checklist 
 When you fill out the template, tick the boxes in place — don't rewrite the explanation text after each checkbox. The wording is the maintainer's description of what each rule means; some of it is also keyed on by automated checks. Put per-PR context (where the compliance lives in code, why something's N/A, anything you'd say in a review reply) under **Notes** instead.
 
 If a box is genuinely N/A, tick it and explain why under **Notes**.
+
+### AI-assisted contributions
+
+Using AI tools on code is fine; Basis itself is developed with them, and never blindly: a human reviews, modifies, and takes responsibility for everything the AI generates before it lands. The expectations are in [AI.md](./AI.md); the short version is that you must understand what you're submitting, you own its correctness and licensing, you shouldn't open a PR whose contents you haven't reviewed yourself, and AI-generated creative assets (art, images, video, audio, 3D models) aren't accepted.
 
 ### Tone in PRs and review
 

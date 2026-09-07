@@ -203,6 +203,57 @@ namespace Basis.Tests.Camera
             Assert.That(_camera.CameraMode, Is.EqualTo(BasisCameraMode.Photo));
         }
 
+        // ---- What drifted, rather than that something did -------------------------------------
+
+        [Test]
+        public void TheComparison_NamesTheValueThatMovedAndNothingElse()
+        {
+            _camera.ApplyCameraMode(BasisCameraMode.FollowMe);
+            _camera.subjectSettings.anchorToBody = !_camera.subjectSettings.anchorToBody;
+
+            BasisCameraPresetDiff diff = _camera.CompareToMode(BasisCameraMode.FollowMe);
+
+            Assert.That(diff.Compared, Is.True);
+            Assert.That(diff.Differs(BasisCameraPresetField.AnchorToBody), Is.True);
+            Assert.That(diff.Differs(BasisCameraPresetField.PositionModifier), Is.False,
+                "Nothing else was touched, so nothing else may be reported as changed.");
+            Assert.That(diff.Matches, Is.False);
+        }
+
+        [Test]
+        public void ComparedMode_OutlivesTheDropToCustom()
+        {
+            // The whole point of holding it: once the label says Custom it can no longer say what
+            // the camera has left, and that is exactly when the question gets asked.
+            _camera.ApplyCameraMode(BasisCameraMode.FollowMe);
+            _camera.subjectSettings.anchorToBody = !_camera.subjectSettings.anchorToBody;
+            _camera.RefreshCameraMode();
+
+            Assert.That(_camera.CameraMode, Is.EqualTo(BasisCameraMode.Custom));
+            Assert.That(_camera.ComparedMode, Is.EqualTo(BasisCameraMode.FollowMe));
+        }
+
+        [Test]
+        public void ComparedMode_FollowsACameraBackOntoAPreset()
+        {
+            _camera.ApplyCameraMode(BasisCameraMode.FollowMe);
+            _camera.ApplyCameraMode(BasisCameraMode.Photo);
+            _camera.RefreshCameraMode();
+
+            Assert.That(_camera.ComparedMode, Is.EqualTo(BasisCameraMode.Photo));
+        }
+
+        [Test]
+        public void ComparingAgainstCustom_ReportsNeitherAMatchNorAChange()
+        {
+            BasisCameraPresetDiff diff = _camera.CompareToMode(BasisCameraMode.Custom);
+
+            Assert.That(diff.Compared, Is.False);
+            Assert.That(diff.Matches, Is.False, "There was no preset to match.");
+            Assert.That(diff.HasChanges, Is.False, "And so nothing that could have changed.");
+            Assert.That(diff.Differs(BasisCameraPresetField.Body), Is.False);
+        }
+
         // ---- Mode swapping ------------------------------------------------------------------
 
         [Test]

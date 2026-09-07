@@ -19,6 +19,12 @@ namespace Basis.BasisUI
     /// itself, so the text can never drift from the effect. Nothing here is asked when the player
     /// has already turned the mode on to at least that level, or has it following the population
     /// automatically.
+    ///
+    /// Accepting arms the level through <see cref="BasisPerformanceMode.SetLevelFromPopulation"/>,
+    /// which tags it as crowd-driven so <see cref="BasisPerformanceMode.Simulate"/> relaxes it back
+    /// down on its own — no second prompt — once the population that justified it thins out again,
+    /// whether that's this instance emptying or the player leaving to a smaller one. A level picked
+    /// by hand from the Graphics tab is never touched this way.
     /// </summary>
     public static class BasisHighPlayerCapPerformanceMode
     {
@@ -212,7 +218,7 @@ namespace Basis.BasisUI
                 answered = true;
                 if (enable)
                 {
-                    BasisPerformanceMode.SetLevel(level);
+                    BasisPerformanceMode.SetLevelFromPopulation(level);
                 }
                 panel.ReleaseInstance();
                 continueConnect?.Invoke();

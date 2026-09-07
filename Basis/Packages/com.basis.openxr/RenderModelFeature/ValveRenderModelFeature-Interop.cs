@@ -36,7 +36,15 @@ public partial class ValveRenderModelFeature : OpenXRFeature
             }
         }
         
-        return Marshal.GetDelegateForFunctionPointer<T>(resultProcAddr);
+        try
+        {
+            return Marshal.GetDelegateForFunctionPointer<T>(resultProcAddr);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"Failed to marshal OpenXR instance function '{procName}': {ex.GetType().Name} {ex.Message}");
+            return default;
+        }
     }
 
     private bool XrSucceeded(int xrResult)

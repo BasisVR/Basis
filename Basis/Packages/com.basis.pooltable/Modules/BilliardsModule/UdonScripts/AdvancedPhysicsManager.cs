@@ -1616,7 +1616,7 @@ if (Test_Mode)
                     balls_P[id].y = (-(balls_P[id].y - floor) * K_BOUNCE_FACTOR) + floor;
                     if (V.y > 0.2 && !hitWall)
                     {
-                        balls[id].GetComponent<AudioSource>().PlayOneShot(bounceSounds[UnityEngine.Random.Range(0, bounceSounds.Length - 1)], Mathf.Clamp01(V.y));
+                        balls[id].GetComponent<AudioSource>().PlayOneShot(bounceSounds[UnityEngine.Random.Range(0, bounceSounds.Length)], Mathf.Clamp01(V.y));
                     }
                 }
                 if (balls_transitioningBounds[id])
@@ -2251,9 +2251,11 @@ if (Test_Mode)
     Vector3 k_pQ = new Vector3(); // corner pocket + cushion inside
     Vector3 k_pR = new Vector3(); // corner pocket + cushion
     Vector3 k_pT = new Vector3();
+#if HT8B_DRAW_REGIONS
     Vector3 k_pS = new Vector3();
     Vector3 k_pU = new Vector3();
     Vector3 k_pV = new Vector3();
+#endif
 
     Vector3 k_vA_vD = new Vector3();
     Vector3 k_vA_vD_normal = new Vector3();

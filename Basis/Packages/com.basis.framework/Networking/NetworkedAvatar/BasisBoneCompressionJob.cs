@@ -244,8 +244,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         private unsafe void WriteBits(int bitPos, ulong value, int bitCount)
         {
-            byte* dst = (byte*)OutputBuffer.GetUnsafePtr();
             int bytePos = bitPos >> 3;
+            // OutputBuffer is [NativeDisableContainerSafetyRestriction] and written through a raw
+            // pointer, so nothing below this line would catch an overrun — not the container's own
+            // bounds check, not the job safety system. The bit budget is supposed to match
+            // BasisBoneRotationCompression.RotationBytes exactly, but that agreement is spread over
+            // the per-slot DOF table, the quality bit widths and FingerPercentages.Length; any one
+            // of them drifting turns a wire-format mismatch into a silent heap write past the
+            // packet. Drop the field instead: a short packet is a visible desync, not corruption.
+            if (bitPos < 0 || ((bitPos + bitCount + 7) >> 3) > OutputBuffer.Length) return;
+
+            byte* dst = (byte*)OutputBuffer.GetUnsafePtr();
             int bitInByte = bitPos & 7;
             int bitsLeft = bitCount;
 

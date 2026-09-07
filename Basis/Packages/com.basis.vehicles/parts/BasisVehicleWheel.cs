@@ -68,6 +68,7 @@ namespace Basis.Scripts.Vehicles.Parts
         private float _currentForce = 0.0f;
 
         private WheelCollider _wheelCollider = null;
+        public WheelCollider WheelColliderRef => _wheelCollider;
         private Dictionary<Transform, BasisCalibratedCoords> _childTransforms = new();
         private bool _negateSteering = false;
 

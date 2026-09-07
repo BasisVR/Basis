@@ -121,6 +121,46 @@ namespace Valve.VR
             }
         }
         
+        public virtual SteamVR_Action_Boolean A_Touch
+        {
+            get
+            {
+                return SteamVR_Actions.default_A_Touch;
+            }
+        }
+        
+        public virtual SteamVR_Action_Boolean B_Touch
+        {
+            get
+            {
+                return SteamVR_Actions.default_B_Touch;
+            }
+        }
+        
+        public virtual SteamVR_Action_Boolean JoystickTouch
+        {
+            get
+            {
+                return SteamVR_Actions.default_JoystickTouch;
+            }
+        }
+        
+        public virtual SteamVR_Action_Boolean TriggerTouch
+        {
+            get
+            {
+                return SteamVR_Actions.default_TriggerTouch;
+            }
+        }
+        
+        public virtual SteamVR_Action_Boolean ThumbrestTouch
+        {
+            get
+            {
+                return SteamVR_Actions.default_ThumbrestTouch;
+            }
+        }
+        
         public virtual SteamVR_Action_Boolean Grip
         {
             get

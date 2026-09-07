@@ -170,6 +170,7 @@ namespace Basis.EventDriver
         {
             try
             {
+                BasisOpenLipSyncContext.StopWorker();
                 BasisOpenLipSyncDriver.Shutdown();
                 Basis.Scripts.Networking.Sync.BasisSyncDriver.OnDestroy();
                 Application.onBeforeRender -= OnBeforeRender;
@@ -295,6 +296,13 @@ namespace Basis.EventDriver
                 using (Prof.InputSystemUpdate.Auto())
                 {
                     BasisInputSystemPump.Pump(realtimeSinceStartupAsDouble);
+                }
+            }
+            if (BasisDeviceManagement.HasEvents)
+            {
+                using (Prof.DeviceManagementKick.Auto())
+                {
+                    BasisDeviceManagement.Instance.SimulateKick();
                 }
             }
 
@@ -489,21 +497,15 @@ namespace Basis.EventDriver
                 Basis.Scripts.Networking.Sync.BasisSyncDriver.ScheduleRemote(DeltaTime);
             }
 
+            // The SteamVR input worker kicked in Update is joined here, ahead of the eye block
+            // (the first main-thread reader of action state this frame).
+            if (BasisDeviceManagement.HasEvents)
+            {
+                BasisDeviceManagement.Instance.SimulateJoin();
+            }
             using (Prof.EyeTrackingSimulate.Auto())
             {
                 Basis.Scripts.Device_Management.EyeTracking.BasisEyeTrackingManager.Simulate();
-            }
-
-            // Kick the SteamVR input update onto its worker thread. Placed after the eye block
-            // (the last main-thread reader of action state) so it overlaps the comms/network-apply
-            // work below; the DeviceManagement.Simulate block joins it before the local player
-            // polls input.
-            if (BasisDeviceManagement.HasEvents)
-            {
-                using (Prof.DeviceManagementKick.Auto())
-                {
-                    BasisDeviceManagement.Instance.SimulateKick();
-                }
             }
 
             using (Prof.CommsActuators.Auto())

@@ -1,19 +1,7 @@
-﻿using Basis.Network.Core;
-using Basis.Network.Core.Compression;
-using BasisNetworkServer.BasisNetworking;
-using K4os.Compression.LZ4;
+using Basis.Network.Core;
 using System;
-using System.Buffers;
-using System.Buffers.Binary;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
-using static SerializableBasis;
-using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 
 namespace BasisNetworkServer.BasisNetworkingReductionSystem
 {
@@ -156,7 +144,13 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         {
             SampleDropRate();
 
-            if (MaxSendSockets <= 1 || !lnl.CanAddSendSockets) return;
+            if (MaxSendSockets <= 1) return;
+
+            if (!lnl.CanAddSendSockets)
+            {
+                WarnSocketGrowthUnavailable(utilization);
+                return;
+            }
 
             // A probe is outstanding: the last socket is on trial, and nothing else gets added
             // until it has answered for itself.
@@ -198,23 +192,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             if (lnl.BoundSendSocketCount >= MaxSendSockets) return;
 
-            // Receive-side saturation is the other reason to add a socket, and it is the one that
-            // matters most on hosts with many weak cores: a single receive thread is one core's
-            // worth of syscall throughput, and past that the kernel simply discards datagrams. That
-            // never appears as high CPU — the thread is pinned either way — so it has to be read
-            // from the drop counter. Each extra SO_REUSEPORT socket is another receive thread with
-            // the kernel hashing flows across them.
-            bool receiveDropping = _dropRateEma > 0;
-
-            bool sendPoolPinned = parallelOptions.MaxDegreeOfParallelism >= BasisCpuBudget.ReductionSendCap;
-            bool tickBehind = _tickOverrunRatio > OverrunEscalateRatio || _sliceCount > 1;
-            bool machineHasRoom = utilization > 0 && utilization < 0.80;
-
-            // Drops bypass the machine-has-room test on purpose. Losing inbound packets is worse
-            // than being busy, and the fix is a thread that spends its life blocked in recvfrom.
-            bool sendPathLimited = sendPoolPinned && tickBehind && machineHasRoom;
-
-            if (!(sendPathLimited || receiveDropping))
+            if (!NetworkPathUnderPressure(utilization, out bool receiveDropping))
             {
                 _sendPressureStreak = 0;
                 return;
@@ -246,6 +224,61 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     _probePending = true;
                 }
             }
+        }
+
+        /// <summary>
+        /// Whether the evidence for another socket is present. Shared by the grow path and the
+        /// cannot-grow warning so the two can never disagree about what pressure looks like — a
+        /// warning that fired on a different test than the one that grows sockets would send
+        /// operators after the wrong setting.
+        /// </summary>
+        private static bool NetworkPathUnderPressure(double utilization, out bool receiveDropping)
+        {
+            // Receive-side saturation is the other reason to add a socket, and it is the one that
+            // matters most on hosts with many weak cores: a single receive thread is one core's
+            // worth of syscall throughput, and past that the kernel simply discards datagrams. That
+            // never appears as high CPU — the thread is pinned either way — so it has to be read
+            // from the drop counter. Each extra SO_REUSEPORT socket is another receive thread with
+            // the kernel hashing flows across them.
+            receiveDropping = _dropRateEma > 0;
+
+            bool sendPoolPinned = parallelOptions.MaxDegreeOfParallelism >= BasisCpuBudget.ReductionSendCap;
+            bool tickBehind = _tickOverrunRatio > OverrunEscalateRatio || _sliceCount > 1;
+            bool machineHasRoom = utilization > 0 && utilization < 0.80;
+
+            // Drops bypass the machine-has-room test on purpose. Losing inbound packets is worse
+            // than being busy, and the fix is a thread that spends its life blocked in recvfrom.
+            bool sendPathLimited = sendPoolPinned && tickBehind && machineHasRoom;
+
+            return sendPathLimited || receiveDropping;
+        }
+
+        private static bool _growthUnavailableWarned;
+
+        /// <summary>
+        /// Says so, once, when the network path is the limit and nothing here can do anything
+        /// about it.
+        ///
+        /// Whether sockets can be added is fixed at bind: SO_REUSEPORT has to be set before the
+        /// primary socket binds, so it is only enabled when MultiSocketCount > 1 at Start(). The
+        /// default is 1, which means that on a default config every rebalance runs this whole path
+        /// and no-ops — silently, while the symptom it exists to fix is live. Nothing in the log
+        /// distinguishes that from the pressure never having been there; the only tell is a send
+        /// cap that never moves.
+        /// </summary>
+        private static void WarnSocketGrowthUnavailable(double utilization)
+        {
+            if (_growthUnavailableWarned) return;
+            if (!NetworkPathUnderPressure(utilization, out _)) return;
+
+            _growthUnavailableWarned = true;
+            BNL.LogWarning(
+                "[CPU] The network path is what limits this server, but no socket can be added: " +
+                "SO_REUSEPORT is only enabled when MultiSocketCount > 1 at startup and it is 1, so " +
+                "MaxSendSockets has nothing to grow. Set MultiSocketCount in litenetlib.xml (2-4 " +
+                "around 1k players, 4-8 around 2k) and restart — it is read once, at bind. Raise " +
+                "net.core.rmem_max / net.core.wmem_max too, which Linux clamps the socket buffers " +
+                "to. On Windows and macOS there is no SO_REUSEPORT and this cannot be fixed.");
         }
 
         private static readonly long SocketGrowSettleTicks = (long)(SocketGrowSettleMs * (Stopwatch.Frequency / 1000.0));

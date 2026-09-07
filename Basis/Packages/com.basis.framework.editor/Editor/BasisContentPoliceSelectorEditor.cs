@@ -7,7 +7,7 @@ using UnityEngine;
 [CustomEditor(typeof(ContentPoliceSelector))]
 public class BasisContentPoliceSelectorEditor : Editor
 {
-    public List<Type> monoBehaviourTypes;
+    [NonSerialized] public List<Type> monoBehaviourTypes;
     public string[] typeNames;
     public bool[] selectedFlags;
     public ContentPoliceSelector selector;

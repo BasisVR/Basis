@@ -329,6 +329,20 @@ public class Configuration
     public float MaxHearingRangeMeters = 25f;
     public float MinAvatarEyeHeightMeters = 0.1f;
     public float MaxAvatarEyeHeightMeters = 100f;
+    /// <summary>
+    /// Instance-wide locomotion policy: which of jump height, walk speed, run speed, gravity and
+    /// movement mode this server dictates for every player in it. Bitmask, 1 jumpHeight,
+    /// 2 walkSpeed, 4 runSpeed, 8 gravity, 16 mode; 0 (the default) means the server dictates
+    /// nothing and every player keeps their own values. Seeds BasisLocomotionPolicyManager at boot
+    /// and is pushed to each client as it joins, so late joiners land on the same policy.
+    /// </summary>
+    public byte LocomotionPolicyFields = 0;
+    public float LocomotionPolicyJumpHeight = 1f;
+    public float LocomotionPolicyWalkSpeed = 2.5f;
+    public float LocomotionPolicyRunSpeed = 4f;
+    public float LocomotionPolicyGravity = -9.81f;
+    /// <summary>Movement mode the policy pins players to when its bit is set: 0 Walk, 1 Fly, 2 NoClip.</summary>
+    public byte LocomotionPolicyMode = 0;
     public int MaxContentSpheresPerPlayer = 32;
     /// <summary>
     /// Most distinct network ids one player may register in a session. Every synced object (prop,
@@ -388,7 +402,7 @@ public class Configuration
     /// </summary>
     public bool TextChatLocked = false;
     /// <summary>
-    /// When true, the server refuses to relay voice (normal and shout) from peers lacking
+    /// When true, the server refuses to relay voice (normal and announce) from peers lacking
     /// basis.voice.lockbypass. Enforced server-side — voice has its own channels, so a modified
     /// client cannot talk past the lock. Seeds BasisGlobalLockManager at boot, can be toggled live
     /// from the admin panel, and is broadcast to clients in GlobalGetLockState so they also stop

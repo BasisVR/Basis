@@ -143,6 +143,7 @@ public static class BasisVideoOutputMath
     }
 }
 
+[System.Serializable]
 public struct BasisVideoPicture
 {
     [Range(0f, 2f)] public float Brightness;

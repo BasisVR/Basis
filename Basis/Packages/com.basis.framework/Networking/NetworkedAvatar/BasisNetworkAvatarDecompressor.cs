@@ -219,6 +219,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             if (message.AdditionalAvatarDataSize > 0 && message.AdditionalAvatarDatas != null)
             {
+                int additionalCount = math.min(message.AdditionalAvatarDataSize, message.AdditionalAvatarDatas.Length);
                 System.Threading.Interlocked.Increment(ref BasisAdditionalDataDiagnostics.ReceiverFramesWithAdditional);
                 BasisAdditionalDataDebugCapture.RecordReceiverFrame(baseReceiver.playerId);
 
@@ -239,7 +240,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // thread-safe queue, but this dispatch is a direct call into gameplay code.
                 if (BasisNetworkManagement.IsMainThread())
                 {
-                    DispatchAdditionalData(baseReceiver, message.AdditionalAvatarDatas, message.AdditionalAvatarDataSize);
+                    DispatchAdditionalData(baseReceiver, message.AdditionalAvatarDatas, additionalCount);
                 }
                 else
                 {
@@ -247,7 +248,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                     // are pool-reused and overwritten by the next deserialize on this thread, so
                     // the snapshot has to own its payload bytes to stay stable across the hand-off.
                     System.Threading.Interlocked.Increment(ref BasisAdditionalDataDiagnostics.ReceiverMarshaledToMainThread);
-                    int size = message.AdditionalAvatarDataSize;
+                    int size = additionalCount;
                     var snapshot = new AdditionalAvatarData[size];
                     for (int Index = 0; Index < size; Index++)
                     {

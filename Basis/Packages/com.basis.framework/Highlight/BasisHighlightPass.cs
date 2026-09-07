@@ -41,6 +41,10 @@ namespace Basis.Scripts.BasisSdk.Highlight
 
         internal static readonly List<BasisHighlightPass> Live = new();
 
+        private static readonly ProfilingSampler samplerHighlight = new ProfilingSampler("BasisHighlight");
+        public static float GpuMs => samplerHighlight.gpuElapsedTime;
+        public static void SetProfilingEnabled(bool enabled) => samplerHighlight.enableRecording = enabled;
+
         private readonly BasisHighlightSettings _settings;
         private Color _outlineColor;
 
@@ -48,7 +52,7 @@ namespace Basis.Scripts.BasisSdk.Highlight
         {
             _settings = settings;
             _outlineColor = settings.outlineColor;
-            profilingSampler = new ProfilingSampler("BasisHighlight");
+            profilingSampler = samplerHighlight;
 
             // The composite hardware-blends a full-screen pass over the camera
             // color. On untethered VR (Quest/Adreno) URP renders the camera

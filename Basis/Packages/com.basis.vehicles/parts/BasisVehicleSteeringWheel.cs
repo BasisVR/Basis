@@ -96,7 +96,7 @@ namespace Basis.Scripts.Vehicles.Parts
 
                 if (UseActualWheelAngle)
                 {
-                    var wc = wheel.GetComponent<WheelCollider>();
+                    var wc = wheel.WheelColliderRef;
                     if (wc == null)
                         continue;
 

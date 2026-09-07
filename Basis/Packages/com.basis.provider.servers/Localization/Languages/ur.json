@@ -148,6 +148,82 @@
       "value": "وہ نام منتخب کریں جو دوسرے کھلاڑی دیکھیں گے، پھر «کنیکٹ کریں» دبائیں۔"
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "سرور کے نام یا پتے کے مطابق فلٹر کریں۔"
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "ترتیب دیں"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "★ ڈیفالٹ سرور ہمیشہ سب سے پہلے ظاہر ہوتا ہے۔"
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "ڈیفالٹ"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "محفوظ شدہ ترتیب برقرار رکھتا ہے، آپ کے ہوسٹ سرور کو آخر میں رکھتے ہوئے۔"
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "نام"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "فہرست کو سرور کے نام کے مطابق حروف تہجی کی ترتیب سے ترتیب دیتا ہے۔"
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "پنگ"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "فہرست کو ردعمل کے وقت کے مطابق ترتیب دیتا ہے، سب سے تیز پہلے۔"
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "کھلاڑی"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "فہرست کو اس مطابق ترتیب دیتا ہے کہ کتنے کھلاڑی آن لائن ہیں، سب سے زیادہ بھرا ہوا پہلے۔"
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "سرورز ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "سرورز ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "نیچے کسی سرور سے جڑیں، یا اپنا خود کا شامل کریں۔"
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "آپ کی تلاش سے کوئی سرور مماثل نہیں ہے۔"
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "منسلک"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "سرور"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "اسے شیئر کرنے کے لیے کسی سرور سے جڑیں۔"
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "یہ سرور ہٹایا نہیں جا سکتا۔"
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

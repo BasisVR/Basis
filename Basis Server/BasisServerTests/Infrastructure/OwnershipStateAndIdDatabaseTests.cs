@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Net;
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
@@ -9,6 +10,7 @@ using ClientAvatarChangeMessage = global::SerializableBasis.ClientAvatarChangeMe
 using ClientBodyFitMessage = global::SerializableBasis.ClientBodyFitMessage;
 using ClientMetaDataMessage = global::SerializableBasis.ClientMetaDataMessage;
 using OwnershipTransferMessage = DarkRift.Basis_Common.Serializable.SerializableBasis.OwnershipTransferMessage;
+using ServerNetIDMessage = BasisNetworkCore.Serializable.SerializableBasis.ServerNetIDMessage;
 using PlayerIdMessage = global::SerializableBasis.PlayerIdMessage;
 using ReadyMessage = global::SerializableBasis.ReadyMessage;
 using VoiceReceiversMessage = global::SerializableBasis.VoiceReceiversMessage;
@@ -44,6 +46,35 @@ internal sealed class OwnershipFakeNetPeer : NetPeer
     public void Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod) => Interlocked.Increment(ref _sendCount);
     public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0) { }
     public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod) => 0;
+}
+
+internal sealed class RecordingNetPeer : NetPeer
+{
+    public RecordingNetPeer(int id) => Id = id;
+
+    public int Id { get; }
+    public ConcurrentQueue<(byte Channel, DeliveryMethod Method, byte[] Data)> Sent { get; } = new();
+    public IPAddress Address => IPAddress.Loopback;
+    public int RemoteId => Id;
+    public int RoundTripTime => 0;
+    public float TimeSinceLastPacket => 0f;
+    public long RemoteTimeDelta => 0;
+    public int Mtu => 1200;
+    public object? Tag { get; set; }
+
+    public void Disconnect() { }
+    public void Disconnect(byte[] b) { }
+    public void DisconnectForce() { }
+    public void Send(byte[] data, byte channelNumber, DeliveryMethod deliveryMethod) => Record(data, data.Length, channelNumber, deliveryMethod);
+    public void Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod) => Record(data.Data, data.Length, channelNumber, deliveryMethod);
+    public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0) { }
+    public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod) => 0;
+
+    private void Record(byte[] data, int length, byte channel, DeliveryMethod method)
+    {
+        Sent.Enqueue((channel, method, data.AsSpan(0, length).ToArray()));
+        Thread.Yield();
+    }
 }
 
 internal static class BnlSilencer
@@ -165,8 +196,8 @@ public class BasisNetworkOwnershipTests
 
         BasisNetworkOwnership.RemovePlayerOwnership(victim);
 
-        Assert.False(BasisNetworkOwnership.DoesObjectExistInDatabase("own:rpo:a"));
-        Assert.False(BasisNetworkOwnership.DoesObjectExistInDatabase("own:rpo:b"));
+        Assert.False(BasisNetworkOwnership.GetOwnershipInformation("own:rpo:a", out ushort a) && a == victim);
+        Assert.False(BasisNetworkOwnership.GetOwnershipInformation("own:rpo:b", out ushort b) && b == victim);
         Assert.True(BasisNetworkOwnership.GetOwnershipInformation("own:rpo:c", out ushort owner));
         Assert.Equal(bystander, owner);
     }
@@ -176,6 +207,102 @@ public class BasisNetworkOwnershipTests
     {
         BasisNetworkOwnership.RemovePlayerOwnership(64000);
         Assert.False(BasisNetworkOwnership.DoesObjectExistInDatabase("own:rpo:none"));
+    }
+
+    private static OwnershipTransferMessage DecodeOwnership(byte[] payload)
+    {
+        var message = new OwnershipTransferMessage();
+        message.Deserialize(NetPacketReader.Create(payload, 0, payload.Length, static () => { }));
+        return message;
+    }
+
+    [Fact]
+    public void RemovePlayerOwnership_WithRemainingPeers_MigratesToLongestConnectedPeerAndBroadcastsTheChange()
+    {
+        var victim = new FakeNetPeer(41010, "127.0.0.1");
+        var oldest = new FakeNetPeer(41011, "127.0.0.1");
+        var newer = new FakeNetPeer(41012, "127.0.0.1");
+        NetworkServer.AuthenticatedPeers[victim.Id] = victim;
+        NetworkServer.AuthenticatedPeers[oldest.Id] = oldest;
+        NetworkServer.AuthenticatedPeers[newer.Id] = newer;
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(victim.Id, -3);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(oldest.Id, -2);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(newer.Id, -1);
+        try
+        {
+            Assert.True(BasisNetworkOwnership.AddOwnership("own:migrate:a", (ushort)victim.Id));
+            Assert.True(BasisNetworkOwnership.AddOwnership("own:migrate:b", (ushort)victim.Id));
+            Assert.True(BasisNetworkOwnership.AddOwnership("own:migrate:c", (ushort)newer.Id));
+
+            BasisNetworkOwnership.RemovePlayerOwnership(victim.Id);
+
+            Assert.True(BasisNetworkOwnership.GetOwnershipInformation("own:migrate:a", out ushort a));
+            Assert.Equal((ushort)oldest.Id, a);
+            Assert.True(BasisNetworkOwnership.GetOwnershipInformation("own:migrate:b", out ushort b));
+            Assert.Equal((ushort)oldest.Id, b);
+            Assert.True(BasisNetworkOwnership.GetOwnershipInformation("own:migrate:c", out ushort c));
+            Assert.Equal((ushort)newer.Id, c);
+
+            Assert.Empty(victim.Sent);
+            foreach (var remaining in new[] { oldest, newer })
+            {
+                var changes = remaining.Sent.Where(s => s.Channel == BasisNetworkCommons.ChangeCurrentOwnerRequestChannel).ToList();
+                Assert.Equal(2, changes.Count);
+                Assert.DoesNotContain(remaining.Sent, s => s.Channel == BasisNetworkCommons.RemoveCurrentOwnerRequestChannel);
+                var decoded = changes.Select(s => DecodeOwnership(s.Data)).ToList();
+                Assert.All(decoded, m => Assert.Equal((ushort)oldest.Id, m.playerIdMessage.playerID));
+                Assert.Equal(new[] { "own:migrate:a", "own:migrate:b" }, decoded.Select(m => m.ownershipID).OrderBy(k => k).ToArray());
+            }
+        }
+        finally
+        {
+            foreach (var peer in new[] { victim, oldest, newer })
+            {
+                NetworkServer.AuthenticatedPeers.TryRemove(new KeyValuePair<int, NetPeer>(peer.Id, peer));
+                BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(peer.Id);
+            }
+            BasisNetworkOwnership.RemoveObject("own:migrate:a");
+            BasisNetworkOwnership.RemoveObject("own:migrate:b");
+            BasisNetworkOwnership.RemoveObject("own:migrate:c");
+        }
+    }
+
+    [Fact]
+    public void TrySelectSuccessor_SkipsTheDepartingPeer_PrefersEarliestJoin_ThenLowestId()
+    {
+        var departing = new OwnershipFakeNetPeer(41020);
+        var earliest = new OwnershipFakeNetPeer(41023);
+        var tiedHigh = new OwnershipFakeNetPeer(41022);
+        var tiedLow = new OwnershipFakeNetPeer(41021);
+        NetworkServer.AuthenticatedPeers[departing.Id] = departing;
+        NetworkServer.AuthenticatedPeers[earliest.Id] = earliest;
+        NetworkServer.AuthenticatedPeers[tiedHigh.Id] = tiedHigh;
+        NetworkServer.AuthenticatedPeers[tiedLow.Id] = tiedLow;
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(departing.Id, -10);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(earliest.Id, -9);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(tiedHigh.Id, -8);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(tiedLow.Id, -8);
+        try
+        {
+            Assert.True(BasisNetworkOwnership.TrySelectSuccessor(departing.Id, out ushort successor, out var recipients));
+            Assert.Equal((ushort)earliest.Id, successor);
+            Assert.DoesNotContain(departing, recipients);
+            Assert.Contains(earliest, recipients);
+            Assert.Contains(tiedHigh, recipients);
+            Assert.Contains(tiedLow, recipients);
+
+            NetworkServer.AuthenticatedPeers.TryRemove(earliest.Id, out _);
+            Assert.True(BasisNetworkOwnership.TrySelectSuccessor(departing.Id, out successor, out _));
+            Assert.Equal((ushort)tiedLow.Id, successor);
+        }
+        finally
+        {
+            foreach (var peer in new[] { departing, earliest, tiedHigh, tiedLow })
+            {
+                NetworkServer.AuthenticatedPeers.TryRemove(new KeyValuePair<int, NetPeer>(peer.Id, peer));
+                BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(peer.Id);
+            }
+        }
     }
 
     [Fact]
@@ -272,6 +399,146 @@ public class BasisNetworkOwnershipTests
         Assert.All(results, r => Assert.True(r));
         Assert.True(BasisNetworkOwnership.GetOwnershipInformation(key, out ushort finalOwner));
         Assert.InRange(finalOwner, (ushort)1, (ushort)Threads);
+    }
+
+    private static void RunStorm(int threads, Action<int> body)
+    {
+        using var gate = new ManualResetEventSlim(false);
+        var failures = new ConcurrentQueue<Exception>();
+        var workers = Enumerable.Range(0, threads).Select(index => new Thread(() =>
+        {
+            gate.Wait();
+            try { body(index); } catch (Exception e) { failures.Enqueue(e); }
+        })).ToArray();
+        foreach (var worker in workers) worker.Start();
+        gate.Set();
+        foreach (var worker in workers) worker.Join();
+        Assert.Empty(failures);
+    }
+
+    private static RecordingNetPeer[] ConnectRecipients(int firstId, int count)
+    {
+        var peers = Enumerable.Range(0, count).Select(i => new RecordingNetPeer(firstId + i)).ToArray();
+        foreach (var peer in peers) NetworkServer.AuthenticatedPeers[peer.Id] = peer;
+        NetworkServer.RebuildPeerSnapshot();
+        return peers;
+    }
+
+    private static void DisconnectRecipients(RecordingNetPeer[] peers)
+    {
+        foreach (var peer in peers) NetworkServer.AuthenticatedPeers.TryRemove(new KeyValuePair<int, NetPeer>(peer.Id, peer));
+        NetworkServer.RebuildPeerSnapshot();
+    }
+
+    private static IEnumerable<(byte Channel, DeliveryMethod Method, byte[] Data)> OwnershipSent(RecordingNetPeer peer) => peer.Sent.Where(s => s.Channel == BasisNetworkCommons.ChangeCurrentOwnerRequestChannel);
+
+    private static ushort[] OwnersSeenBy(RecordingNetPeer peer) => OwnershipSent(peer).Select(s => DecodeOwnership(s.Data).playerIdMessage.playerID).ToArray();
+
+    [Fact]
+    public void ConcurrentTransferStorm_EveryPeerReceivesTheSameOwnerSequence_EndingAtTheServerOwner()
+    {
+        const string key = "own:storm:fanout-order";
+        const int Recipients = 12, Requesters = 8, Rounds = 150;
+        var recipients = ConnectRecipients(42100, Recipients);
+        try
+        {
+            Assert.True(BasisNetworkOwnership.AddOwnership(key, 42000));
+            RunStorm(Requesters, r =>
+            {
+                var requester = new OwnershipFakeNetPeer(42001 + r);
+                for (int i = 0; i < Rounds; i++)
+                {
+                    BasisNetworkOwnership.OwnershipTransfer(BuildReader(0, key), requester);
+                }
+            });
+
+            Assert.True(BasisNetworkOwnership.GetOwnershipInformation(key, out ushort serverOwner));
+            Assert.All(recipients, p =>
+            {
+                Assert.DoesNotContain(p.Sent, s => s.Channel == BasisNetworkCommons.GetCurrentOwnerRequestChannel);
+                Assert.All(OwnershipSent(p), s =>
+                {
+                    Assert.Equal(DeliveryMethod.ReliableOrdered, s.Method);
+                    Assert.Equal(key, DecodeOwnership(s.Data).ownershipID);
+                });
+            });
+            var sequences = recipients.Select(OwnersSeenBy).ToArray();
+            Assert.All(sequences, s => Assert.Equal(Requesters * Rounds, s.Length));
+            Assert.All(sequences, s => Assert.Equal(serverOwner, s[^1]));
+            Assert.All(sequences, s => Assert.Equal(sequences[0], s));
+        }
+        finally
+        {
+            DisconnectRecipients(recipients);
+            BasisNetworkOwnership.RemoveObject(key);
+        }
+    }
+
+    [Fact]
+    public void ConcurrentGetAndTransferStorm_EveryPeersLastSeenOwnerMatchesTheServer()
+    {
+        const string key = "own:storm:get-vs-transfer";
+        const int Peers = 12, Rounds = 100;
+        var peers = ConnectRecipients(42200, Peers);
+        try
+        {
+            RunStorm(Peers, index =>
+            {
+                var peer = peers[index];
+                for (int i = 0; i < Rounds; i++)
+                {
+                    if ((index & 1) == 0)
+                    {
+                        BasisNetworkOwnership.OwnershipTransfer(BuildReader(0, key), peer);
+                    }
+                    else
+                    {
+                        BasisNetworkOwnership.OwnershipResponse(BuildReader(0, key), peer);
+                    }
+                }
+            });
+
+            Assert.True(BasisNetworkOwnership.GetOwnershipInformation(key, out ushort serverOwner));
+            Assert.All(peers, p =>
+            {
+                Assert.DoesNotContain(p.Sent, s => s.Channel == BasisNetworkCommons.GetCurrentOwnerRequestChannel);
+                Assert.Equal(serverOwner, OwnersSeenBy(p)[^1]);
+            });
+        }
+        finally
+        {
+            DisconnectRecipients(peers);
+            BasisNetworkOwnership.RemoveObject(key);
+        }
+    }
+
+    [Fact]
+    public void OwnershipResponse_AndJoinSnapshot_RideTheChangeChannel()
+    {
+        const string keyA = "own:channel:a", keyB = "own:channel:b";
+        var peer = new RecordingNetPeer(42300);
+        try
+        {
+            Assert.True(BasisNetworkOwnership.AddOwnership(keyA, 1));
+            Assert.True(BasisNetworkOwnership.AddOwnership(keyB, 2));
+
+            BasisNetworkOwnership.OwnershipResponse(BuildReader(0, keyA), peer);
+            var reply = peer.Sent.Single();
+            Assert.Equal(BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, reply.Channel);
+            Assert.Equal(DeliveryMethod.ReliableOrdered, reply.Method);
+            Assert.Equal((ushort)1, DecodeOwnership(reply.Data).playerIdMessage.playerID);
+
+            BasisNetworkOwnership.SendOutOwnershipInformation(peer);
+            Assert.All(peer.Sent, s => Assert.Equal(BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, s.Channel));
+            var snapshot = peer.Sent.Select(s => DecodeOwnership(s.Data)).ToList();
+            Assert.Contains(snapshot, m => m.ownershipID == keyA && m.playerIdMessage.playerID == 1);
+            Assert.Contains(snapshot, m => m.ownershipID == keyB && m.playerIdMessage.playerID == 2);
+        }
+        finally
+        {
+            BasisNetworkOwnership.RemoveObject(keyA);
+            BasisNetworkOwnership.RemoveObject(keyB);
+        }
     }
 }
 
@@ -484,8 +751,8 @@ public class BasisSavedStateTests
         Assert.False(BasisSavedState.GetLastAvatarChangeState(stranger, out _));
         Assert.False(BasisSavedState.GetLastPlayerMetaData(stranger, out _));
         Assert.False(BasisSavedState.GetResolvedVoicePeers(stranger, out _));
-        Assert.False(BasisSavedState.IsInShoutMode(stranger.Id));
-        Assert.DoesNotContain(stranger.Id, BasisSavedState.GetAllShoutModePlayers());
+        Assert.False(BasisSavedState.IsInAnnounceMode(stranger.Id));
+        Assert.DoesNotContain(stranger.Id, BasisSavedState.GetAllAnnounceModePlayers());
     }
 
     [Fact]
@@ -499,14 +766,14 @@ public class BasisSavedStateTests
         };
         BasisSavedState.AddLastData(peer, ready);
         BasisSavedState.GetOrCreateResolvedList(peer.Id);
-        BasisSavedState.SetShoutMode(peer.Id, true);
+        BasisSavedState.SetAnnounceMode(peer.Id, true);
 
         BasisSavedState.RemovePlayer(peer.Id);
 
         Assert.False(BasisSavedState.GetLastAvatarChangeState(peer, out _));
         Assert.False(BasisSavedState.GetLastPlayerMetaData(peer, out _));
         Assert.False(BasisSavedState.GetResolvedVoicePeers(peer, out _));
-        Assert.False(BasisSavedState.IsInShoutMode(peer.Id));
+        Assert.False(BasisSavedState.IsInAnnounceMode(peer.Id));
     }
 
     [Fact]
@@ -594,27 +861,27 @@ public class BasisSavedStateTests
     }
 
     [Fact]
-    public void ShoutMode_SetQueryAndEnumerate()
+    public void AnnounceMode_SetQueryAndEnumerate()
     {
         const int id = 51008;
         try
         {
-            Assert.False(BasisSavedState.IsInShoutMode(id));
+            Assert.False(BasisSavedState.IsInAnnounceMode(id));
 
-            BasisSavedState.SetShoutMode(id, true);
-            Assert.True(BasisSavedState.IsInShoutMode(id));
-            Assert.Contains(id, BasisSavedState.GetAllShoutModePlayers());
+            BasisSavedState.SetAnnounceMode(id, true);
+            Assert.True(BasisSavedState.IsInAnnounceMode(id));
+            Assert.Contains(id, BasisSavedState.GetAllAnnounceModePlayers());
 
-            BasisSavedState.SetShoutMode(id, true);
-            Assert.True(BasisSavedState.IsInShoutMode(id));
+            BasisSavedState.SetAnnounceMode(id, true);
+            Assert.True(BasisSavedState.IsInAnnounceMode(id));
 
-            BasisSavedState.SetShoutMode(id, false);
-            Assert.False(BasisSavedState.IsInShoutMode(id));
-            Assert.DoesNotContain(id, BasisSavedState.GetAllShoutModePlayers());
+            BasisSavedState.SetAnnounceMode(id, false);
+            Assert.False(BasisSavedState.IsInAnnounceMode(id));
+            Assert.DoesNotContain(id, BasisSavedState.GetAllAnnounceModePlayers());
         }
         finally
         {
-            BasisSavedState.SetShoutMode(id, false);
+            BasisSavedState.SetAnnounceMode(id, false);
         }
     }
 
@@ -630,7 +897,7 @@ public class BasisSavedStateTests
                 int id = BaseId + i;
                 var peer = new OwnershipFakeNetPeer(id);
                 BasisSavedState.AddLastData(peer, new ClientAvatarChangeMessage { loadMode = 1, byteArray = new[] { (byte)i }, LocalAvatarIndex = (byte)i });
-                BasisSavedState.SetShoutMode(id, (i & 1) == 0);
+                BasisSavedState.SetAnnounceMode(id, (i & 1) == 0);
                 Assert.True(BasisSavedState.GetLastAvatarChangeState(peer, out var avatar));
                 Assert.Equal((byte)i, avatar.LocalAvatarIndex);
             });
@@ -640,7 +907,7 @@ public class BasisSavedStateTests
                 var peer = new OwnershipFakeNetPeer(BaseId + i);
                 Assert.True(BasisSavedState.GetLastAvatarChangeState(peer, out var avatar));
                 Assert.Equal((byte)i, avatar.byteArray[0]);
-                Assert.Equal((i & 1) == 0, BasisSavedState.IsInShoutMode(BaseId + i));
+                Assert.Equal((i & 1) == 0, BasisSavedState.IsInAnnounceMode(BaseId + i));
             }
         }
         finally
@@ -778,6 +1045,56 @@ public class BasisNetworkIDDatabaseTests
             Assert.Equal((ushort)i, ids[i]);
         }
         Assert.Equal(0, peer.SendCount);
+    }
+
+    [Fact]
+    public void ConcurrentRequestsForTheSameString_AssignExactlyOneId_AndEveryBroadcastAgrees()
+    {
+        BasisNetworkIDDatabase.Reset();
+        const int Requesters = 16, Rounds = 200;
+        var requesters = Enumerable.Range(0, Requesters).Select(i => new RecordingNetPeer(43000 + i)).ToArray();
+        foreach (var peer in requesters) NetworkServer.AuthenticatedPeers[peer.Id] = peer;
+        NetworkServer.RebuildPeerSnapshot();
+        try
+        {
+            using var barrier = new Barrier(Requesters);
+            var failures = new ConcurrentQueue<Exception>();
+            var workers = requesters.Select(peer => new Thread(() =>
+            {
+                try
+                {
+                    for (int round = 0; round < Rounds; round++)
+                    {
+                        barrier.SignalAndWait();
+                        BasisNetworkIDDatabase.AddOrFindNetworkID(peer, "net:same:" + round);
+                    }
+                }
+                catch (Exception e)
+                {
+                    failures.Enqueue(e);
+                    barrier.RemoveParticipant();
+                }
+            })).ToArray();
+            foreach (var worker in workers) worker.Start();
+            foreach (var worker in workers) worker.Join();
+            Assert.Empty(failures);
+
+            Assert.Equal(Rounds, BasisNetworkIDDatabase.UshortNetworkDatabase.Count);
+            Assert.Equal((ushort)(Rounds - 1), BasisNetworkIDDatabase.UshortNetworkDatabase.Values.Max());
+            Assert.All(requesters, peer => Assert.All(peer.Sent.Where(s => s.Channel == BasisNetworkCommons.netIDAssignChannel), sent =>
+            {
+                var message = new ServerNetIDMessage();
+                message.Deserialize(NetPacketReader.Create(sent.Data, 0, sent.Data.Length, static () => { }));
+                Assert.True(BasisNetworkIDDatabase.UshortNetworkDatabase.TryGetValue(message.NetIDMessage.playerID, out ushort stored));
+                Assert.Equal(stored, message.UshortUniqueIDMessage.UniqueIDUshort);
+            }));
+        }
+        finally
+        {
+            foreach (var peer in requesters) NetworkServer.AuthenticatedPeers.TryRemove(new KeyValuePair<int, NetPeer>(peer.Id, peer));
+            NetworkServer.RebuildPeerSnapshot();
+            BasisNetworkIDDatabase.Reset();
+        }
     }
 
     [Fact]

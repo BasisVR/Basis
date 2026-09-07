@@ -9,8 +9,10 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -50,19 +52,32 @@ namespace Basis.BasisUI
         private const string HostEntryId = "__host__";
 
         private List<ServerDirectoryEntry> _entries = new List<ServerDirectoryEntry>();
-        private readonly Dictionary<string, ServerRow> _rows = new();
+        private readonly Dictionary<string, ServerCard> _cards = new();
+        private readonly Dictionary<string, int> _sourceOrder = new();
         private readonly Dictionary<string, ServerProbeResult> _probeResults = new();
+        private readonly List<ServerCard> _orderBuffer = new();
+        private ServerDirectoryEntry _hostEntry;
         private string _editingId;
         private readonly List<IServerDirectorySource> _subscribedSources = new List<IServerDirectorySource>();
         private bool _pendingDefaultHighlight;
+        private string _lastQuery = string.Empty;
+        private SortMode _sortMode = SortMode.Default;
+        private int _visibleCount;
+        private Comparison<ServerCard> _comparison;
 
         private static bool IsDefault(ServerDirectoryEntry entry) =>
             entry != null && SavedServersDirectorySource.IsDefaultEntryId(entry.Id);
 
+        private static bool IsHostEntry(ServerDirectoryEntry entry) =>
+            entry != null && string.Equals(entry.Id, HostEntryId, StringComparison.Ordinal);
+
         // ── Static UI references rebuilt every RunAction() ────────────────────
         private BasisMenuPanel _panel;
-        private RectTransform _listContainer;
-        private PanelElementDescriptor _editorSection;
+        private RectTransform _pageRoot;
+        private RectTransform _cardsContainer;
+        private readonly List<RectTransform> _cardRows = new();
+        private PanelTextField _searchField;
+        private PanelElementDescriptor _headerGroup;
         private PanelElementDescriptor _emptyState;
         private PanelTextField _editAddress;
         private PanelTextField _editPort;
@@ -70,17 +85,17 @@ namespace Basis.BasisUI
         private PanelDropdown _editNetworkStack;
         private List<string> _stackIds;
         private List<string> _stackDisplayNames;
-        private PanelButton _editSaveButton;
-        private PanelButton _editCancelButton;
-        private PanelButton _editShareButton;
-        private PanelButton _editRemoveButton;
         private PanelTextField _usernameField;
         private ServerDirectoryEntry _pendingUsernameEntry;
         private bool _pendingUsernameHostMode;
         private PanelButton _addServerButton;
         private PanelButton _refreshAllButton;
-        private PanelSectionToggle _advancedToggle;
-        private PanelButton _hostButton;
+        private PanelButton _autoConnectButton;
+        private PanelButton _sortButton;
+        private PanelButton _searchButton;
+        private DialogBox<bool> _hostEditorDialog;
+        private DialogBox<bool> _serverEditorDialog;
+        private DialogBox<bool> _searchDialog;
         private PanelDropdown _hostStackDropdown;
         private PanelTextField _hostServerNameField;
         private PanelTextField _hostMotdField;
@@ -93,7 +108,6 @@ namespace Basis.BasisUI
         private PanelToggle _hostPropsLockedToggle;
         private PanelToggle _hostWorldsLockedToggle;
         private PanelToggle _hostThirdPersonDisabledToggle;
-        private PanelToggle _autoConnectToggle;
 
         private CancellationTokenSource _queryCts;
 
@@ -113,22 +127,26 @@ namespace Basis.BasisUI
 
             panel.OnInstanceReleased += OnPanelClosed;
 
-            RectTransform container = panel.Descriptor.ContentParent;
-            PanelElementDescriptor scroll = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.ScrollViewVertical, container);
-            container = scroll.ContentParent;
+            PanelTabPage tab = PanelTabPage.CreateVertical(panel.Descriptor.ContentParent);
+            tab.Descriptor.SetTitle(Title);
+            tab.Descriptor.SetIcon(AddressableAssets.Sprites.Servers);
+            RectTransform container = tab.Descriptor.ContentParent;
+            ClampScrollViewport(container);
+            _pageRoot = container;
 
             BuildHeader(container);
-            BuildEditorSection(container);
 
-            _listContainer = container;
+            _headerGroup = PanelElementDescriptor.CreateNew(
+                PanelElementDescriptor.ElementStyles.Group, container);
+
+            _cardsContainer = BuildCardList(container);
+
             _emptyState = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             _emptyState.SetTitle(BasisLocalization.Get("menu.servers.list.empty"));
             _emptyState.SetDescription(string.Empty);
+            _emptyState.SetActive(false);
 
-            BuildAdvancedSection(container);
-
-            HideEditor();
+            RefreshHostEntry();
             SubscribeSourceEvents();
             _ = ReloadEntriesAsync(probeAfter: true, autoConnectAfter: true);
 
@@ -136,17 +154,31 @@ namespace Basis.BasisUI
             {
                 _ = RunFirstRunWelcomeAsync(panel);
             }
+
+            panel.Descriptor.ForceRebuild();
         }
 
         private void OnPanelClosed()
         {
             _queryCts?.Cancel();
             _queryCts = null;
-            _rows.Clear();
+            _cards.Clear();
+            _sourceOrder.Clear();
             _entries.Clear();
             _probeResults.Clear();
             _pendingUsernameEntry = null;
             _pendingDefaultHighlight = false;
+            _lastQuery = string.Empty;
+            _visibleCount = 0;
+            _cardsContainer = null;
+            _cardRows.Clear();
+            _hostEditorDialog = null;
+            _serverEditorDialog = null;
+            _editingId = null;
+            _pageRoot = null;
+            _headerGroup = null;
+            _searchField = null;
+            _searchDialog = null;
             UnsubscribeSourceEvents();
             _panel = null;
         }
@@ -206,7 +238,7 @@ namespace Basis.BasisUI
 
             if (_panel == null) return;
 
-            RebuildRows();
+            RebuildCards();
 
             if (probeAfter) _ = RefreshAllAsync();
 
@@ -233,14 +265,66 @@ namespace Basis.BasisUI
             _usernameField._inputField.onSubmit.AddListener(_ => OnUsernameSubmitted());
 
             RectTransform headerActions = PanelElementDescriptor.BuildActionRow(container, "ServerRowActions");
+            if (headerActions.TryGetComponent(out HorizontalLayoutGroup actionsLayout))
+            {
+                actionsLayout.childForceExpandWidth = false;
+                actionsLayout.childAlignment = TextAnchor.MiddleLeft;
+            }
 
-            _addServerButton = PanelButton.CreateNew(headerActions);
-            _addServerButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.addServer"));
+            _addServerButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, headerActions);
+            _addServerButton.SetIcon(AddressableAssets.Sprites.Add);
+            _addServerButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.server"));
+            _addServerButton.Descriptor.SetTooltip(BasisLocalization.Get("menu.servers.list.addServer"));
+            _addServerButton.SetSize(new Vector2(150, 150));
+            _addServerButton.Layout.flexibleWidth = 0f;
+            _addServerButton.EnableIconHoverAnimation();
             _addServerButton.OnClicked += () => ShowEditor(null);
 
-            _refreshAllButton = PanelButton.CreateNew(headerActions);
-            _refreshAllButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.refreshAll"));
+            _refreshAllButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, headerActions);
+            _refreshAllButton.SetIcon(AddressableAssets.Sprites.Reset);
+            _refreshAllButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.refresh"));
+            _refreshAllButton.Descriptor.SetTooltip(BasisLocalization.Get("menu.servers.list.refreshAll"));
+            _refreshAllButton.SetSize(new Vector2(150, 150));
+            _refreshAllButton.Layout.flexibleWidth = 0f;
+            _refreshAllButton.EnableIconHoverAnimation();
             _refreshAllButton.OnClicked += () => _ = RefreshAllAsync();
+
+            _autoConnectButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, headerActions);
+            _autoConnectButton.SetIcon(AddressableAssets.Sprites.Network);
+            _autoConnectButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.autoConnect"));
+            _autoConnectButton.SetSize(new Vector2(150, 150));
+            _autoConnectButton.Layout.flexibleWidth = 0f;
+            _autoConnectButton.EnableIconHoverAnimation();
+            _autoConnectButton.TooltipProvider = () => string.Format("{0}  •  {1}",
+                BasisLocalization.Get("menu.servers.autoConnect.description"),
+                BasisLocalization.Get(BasisSettingsDefaults.AutoConnect.RawValue ? "ui.option.on" : "ui.option.off"));
+            _autoConnectButton.OnClicked += () =>
+            {
+                BasisSettingsDefaults.AutoConnect.SetValue(!BasisSettingsDefaults.AutoConnect.RawValue);
+                UpdateAutoConnectVisual();
+            };
+            UpdateAutoConnectVisual();
+
+            _sortButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, headerActions);
+            _sortButton.SetIcon(AddressableAssets.Sprites.List);
+            _sortButton.SetSize(new Vector2(150, 150));
+            _sortButton.Layout.flexibleWidth = 0f;
+            _sortButton.EnableIconHoverAnimation();
+            _sortButton.TooltipProvider = () => string.Format("{0}  •  {1}",
+                BasisLocalization.Get("menu.servers.sortMode"),
+                BasisLocalization.Get(SortModeLabelKey(_sortMode) + ".tooltip"));
+            _sortButton.OnClicked += CycleSortMode;
+            UpdateSortButtonVisual();
+
+            _searchButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, headerActions);
+            _searchButton.SetIcon(AddressableAssets.Sprites.Search);
+            _searchButton.Descriptor.SetTitle(BasisLocalization.Get("ui.search.label"));
+            _searchButton.Descriptor.SetTooltip(BasisLocalization.Get("menu.servers.search.byNameOrAddress"));
+            _searchButton.SetSize(new Vector2(150, 150));
+            _searchButton.Layout.flexibleWidth = 0f;
+            _searchButton.EnableIconHoverAnimation();
+            _searchButton.OnClicked += () => _ = ShowSearchDialogAsync();
+            UpdateSearchButtonVisual();
         }
 
         /// <summary>
@@ -257,12 +341,8 @@ namespace Basis.BasisUI
             int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsed)
             && parsed > 0;
 
-        private void BuildAdvancedSection(RectTransform container)
+        private void BuildHostSettings(RectTransform container)
         {
-            _advancedToggle = PanelSectionToggle.CreateNewEntry(container);
-            _advancedToggle.SetTitle(BasisLocalization.Get("ui.advanced"));
-            int advancedStart = container.childCount;
-
             _hostStackDropdown = PanelDropdown.CreateNewEntry(container);
             _hostStackDropdown.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostStack"));
             PopulateHostStackDropdown();
@@ -272,7 +352,11 @@ namespace Basis.BasisUI
             _hostServerNameField.SetValueWithoutNotify(BasisDataStore.LoadString(HostServerNameFile, DefaultHostServerName));
             _hostServerNameField.SetRequired(BasisLocalization.Get("ui.validation.requiredNamed",
                 BasisLocalization.Get("menu.servers.hostServerName")));
-            _hostServerNameField.OnValueChanged = value => BasisDataStore.SaveString(value ?? string.Empty, HostServerNameFile);
+            _hostServerNameField.OnValueChanged = value =>
+            {
+                BasisDataStore.SaveString(value ?? string.Empty, HostServerNameFile);
+                RefreshHostEntry();
+            };
 
             _hostMotdField = PanelTextField.CreateNewEntry(container);
             _hostMotdField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostMotd"));
@@ -291,13 +375,18 @@ namespace Basis.BasisUI
                 if (int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsed) && parsed > 0 && parsed <= ushort.MaxValue)
                 {
                     BasisDataStore.SaveInt(parsed, HostPortFile);
+                    RefreshHostEntry();
                 }
             };
 
             _hostPasswordField = PanelPasswordField.CreateNewEntry(container);
             _hostPasswordField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostPassword"));
             _hostPasswordField.SetPassword(BasisDataStore.LoadString(HostPasswordFile, SavedServersDirectorySource.DefaultServerPassword));
-            _hostPasswordField.OnSubmit = pw => BasisDataStore.SaveString(pw ?? string.Empty, HostPasswordFile);
+            _hostPasswordField.OnSubmit = pw =>
+            {
+                BasisDataStore.SaveString(pw ?? string.Empty, HostPasswordFile);
+                RefreshHostEntry();
+            };
 
             _hostPeerLimitField = PanelTextField.CreateNewEntry(container);
             _hostPeerLimitField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostPeerLimit"));
@@ -343,19 +432,56 @@ namespace Basis.BasisUI
             _hostThirdPersonDisabledToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostThirdPersonDisabled"));
             _hostThirdPersonDisabledToggle.SetValueWithoutNotify(BasisDataStore.LoadInt(HostThirdPersonDisabledFile, 0) != 0);
             _hostThirdPersonDisabledToggle.OnValueChanged = value => BasisDataStore.SaveInt(value ? 1 : 0, HostThirdPersonDisabledFile);
+        }
 
-            _hostButton = PanelButton.CreateNew(container);
-            _hostButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.host"));
-            _hostButton.Descriptor.SetDescription(BasisLocalization.Get("menu.servers.hostMode.description"));
-            _hostButton.Descriptor.SetHeight(70);
-            _hostButton.OnClicked += () => _ = ConnectToAsync(CreateHostEntry(ReadHostStackId()), isHostMode: true);
+        private async Task ShowHostEditorAsync()
+        {
+            if (_panel == null || _hostEditorDialog != null) return;
 
-            _autoConnectToggle = PanelToggle.CreateNewEntry(container);
-            _autoConnectToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.autoConnect"));
-            _autoConnectToggle.Descriptor.SetDescription(BasisLocalization.Get("menu.servers.autoConnect.description"));
-            _autoConnectToggle.AssignBinding(BasisSettingsDefaults.AutoConnect);
+            DialogBox<bool> dialog = DialogBox<bool>.Create(_panel, new Vector2(1200, 760),
+                BasisLocalization.Get("menu.servers.host"),
+                BasisLocalization.Get("menu.servers.hostMode.description"),
+                AddressableAssets.Sprites.Computer);
+            if (dialog.Descriptor == null) return;
+            _hostEditorDialog = dialog;
 
-            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(_advancedToggle, container, advancedStart, false, null);
+            PanelButton exitButton = PanelButton.CreateNew(PanelButton.ButtonStyles.ExitButton, dialog.Descriptor.Header);
+            exitButton.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 125);
+            exitButton.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
+            exitButton.OnClicked += () => dialog.Cancel(false);
+
+            PanelTabPage page = PanelTabPage.CreateVertical(dialog.Descriptor.ContentParent);
+            page.Descriptor.SetHeight(620f);
+            ClampScrollViewport(page.Descriptor.ContentParent);
+            BuildHostSettings(page.Descriptor.ContentParent);
+
+            dialog.Descriptor.ForceRebuild();
+
+            await dialog.WaitAsync();
+            _hostEditorDialog = null;
+        }
+
+        /// <summary>
+        /// The shared scroll-view prefab ships a bare, zero-anchored viewport with no mask, so
+        /// content taller than the page draws straight past its bounds. Bound the viewport to the
+        /// scroll rect and mask it — the same fix the camera and media panels apply.
+        /// </summary>
+        private static void ClampScrollViewport(RectTransform content)
+        {
+            if (content == null) return;
+
+            ScrollRect scroll = content.GetComponentInParent<ScrollRect>();
+            if (scroll == null || scroll.viewport == null) return;
+
+            RectTransform viewport = scroll.viewport;
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = Vector2.zero;
+            viewport.offsetMax = new Vector2(-25f, 0f);
+            if (!viewport.TryGetComponent(out RectMask2D _))
+            {
+                viewport.gameObject.AddComponent<RectMask2D>();
+            }
         }
 
         private void PopulateHostStackDropdown()
@@ -383,6 +509,7 @@ namespace Basis.BasisUI
                 int idx = names.IndexOf(selected);
                 if (idx < 0) return;
                 BasisDataStore.SaveString(ids[idx], HostStackIdFile);
+                RefreshHostEntry();
             };
         }
 
@@ -408,7 +535,7 @@ namespace Basis.BasisUI
             {
                 Id = HostEntryId,
                 SourceId = SavedServersDirectorySource.Id,
-                DisplayName = string.Empty,
+                DisplayName = BasisDataStore.LoadString(HostServerNameFile, DefaultHostServerName),
                 Target = target,
                 Password = password,
                 HasPassword = true,
@@ -417,53 +544,103 @@ namespace Basis.BasisUI
             };
         }
 
-        // ── Add/Edit form ────────────────────────────────────────────────────
+        // ── Add/Edit dialog ──────────────────────────────────────────────────
 
-        private void BuildEditorSection(RectTransform container)
+        private void ShowEditor(ServerDirectoryEntry existing) => _ = ShowServerEditorAsync(existing);
+
+        private async Task ShowServerEditorAsync(ServerDirectoryEntry existing)
         {
-            _editorSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            RectTransform editorContent = _editorSection.ContentParent;
+            if (_panel == null || _serverEditorDialog != null) return;
+            _editingId = existing?.Id ?? string.Empty;
 
-            _editAddress = PanelTextField.CreateNewEntry(editorContent);
+            DialogBox<bool> dialog = DialogBox<bool>.Create(_panel, new Vector2(1170, 700),
+                BasisLocalization.Get(existing == null ? "menu.servers.list.newServer" : "menu.servers.list.editing"),
+                null,
+                AddressableAssets.Sprites.Servers);
+            if (dialog.Descriptor == null) return;
+            _serverEditorDialog = dialog;
+
+            PanelButton exitButton = PanelButton.CreateNew(PanelButton.ButtonStyles.ExitButton, dialog.Descriptor.Header);
+            exitButton.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 125);
+            exitButton.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
+            exitButton.OnClicked += () => dialog.Cancel(false);
+
+            RectTransform content = dialog.Descriptor.ContentParent;
+
+            _editAddress = PanelTextField.CreateNewEntry(content);
             _editAddress.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.ipAddress"));
+            _editAddress.SetValueWithoutNotify(existing?.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty);
 
-            _editPort = PanelTextField.CreateNewEntry(editorContent);
+            _editPort = PanelTextField.CreateNewEntry(content);
             _editPort.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.port"));
+            _editPort.SetValueWithoutNotify(existing?.Target?.Get(ConnectionTarget.Keys.Port) ?? "4296");
 
-            _editPassword = PanelPasswordField.CreateNewEntry(editorContent);
+            _editPassword = PanelPasswordField.CreateNewEntry(content);
             _editPassword.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.password"));
+            _editPassword.SetPassword(existing?.Password ?? "default_password");
 
-            _editNetworkStack = PanelDropdown.CreateNewEntry(editorContent);
+            _editNetworkStack = PanelDropdown.CreateNewEntry(content);
             _editNetworkStack.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.networkStack"));
             RebuildStackOptions();
+            SetStackDropdownToId(existing?.Target?.StackId);
 
-            RectTransform editorActions = PanelElementDescriptor.BuildActionRow(editorContent, "ServerRowActions");
+            PanelTabGroup actionRow = PanelTabGroup.CreateNew(content, LayoutDirection.HorizontalNoBackground);
+            actionRow.Descriptor.SetHeight(60);
 
-            _editSaveButton = PanelButton.CreateNew(editorActions);
-            _editSaveButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.save"));
-            _editSaveButton.OnClicked += SaveEditor;
-
-            // Share lives inside the editor (only visible when editing an existing
-            // entry while connected) instead of on the row, so it doesn't crowd the
-            // top-level Connect/Edit/Remove action row.
-            _editShareButton = PanelButton.CreateNew(editorActions);
-            _editShareButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.share"));
-            _editShareButton.OnClicked += () =>
+            PanelButton saveButton = PanelButton.CreateNew(PanelButton.ButtonStyles.AcceptButton, actionRow.TabButtonParent);
+            saveButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.save"));
+            saveButton.Descriptor.SetWidth(200);
+            saveButton.Descriptor.SetHeight(60);
+            saveButton.OnClicked += () =>
             {
-                if (string.IsNullOrEmpty(_editingId)) return;
-                ServerDirectoryEntry target = FindEntry(_editingId);
-                if (target != null) ShareEntry(target);
+                if (dialog.IsBusy) return;
+                if (!SaveEditor()) return;
+                dialog.IsBusy = true;
+                dialog.CloseWithResult(true);
             };
 
-            _editCancelButton = PanelButton.CreateNew(editorActions);
-            _editCancelButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.cancel"));
-            _editCancelButton.OnClicked += HideEditor;
+            if (existing != null)
+            {
+                PanelButton shareButton = PanelButton.CreateNew(PanelButton.ButtonStyles.StandardButton, actionRow.TabButtonParent);
+                shareButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.share"));
+                shareButton.Descriptor.SetWidth(200);
+                shareButton.Descriptor.SetHeight(60);
+                if (!BasisNetworkConnection.LocalPlayerIsConnected)
+                    shareButton.SetInteractable(false, BasisLocalization.Get("menu.servers.list.share.needsConnection"));
+                shareButton.OnClicked += () =>
+                {
+                    ServerDirectoryEntry target = FindEntry(_editingId);
+                    if (target != null) ShareEntry(target);
+                };
+            }
 
-            // Remove also lives inside the editor — destructive actions stay
-            // gated behind the Edit step so the row's surface stays small.
-            _editRemoveButton = PanelButton.CreateNew(editorActions);
-            _editRemoveButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.remove"));
-            _editRemoveButton.OnClicked += () => _ = OnEditRemoveClickedAsync();
+            if (existing != null)
+            {
+                PanelButton removeButton = PanelButton.CreateNew(PanelButton.ButtonStyles.StandardButton, actionRow.TabButtonParent);
+                removeButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.remove"));
+                removeButton.Descriptor.SetWidth(200);
+                removeButton.Descriptor.SetHeight(60);
+                if (!existing.CanRemove)
+                    removeButton.SetInteractable(false, BasisLocalization.Get("menu.servers.list.remove.protected"));
+                removeButton.OnClicked += () => _ = OnEditRemoveClickedAsync();
+            }
+
+            PanelButton cancelButton = PanelButton.CreateNew(PanelButton.ButtonStyles.CancelButton, actionRow.TabButtonParent);
+            cancelButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.cancel"));
+            cancelButton.Descriptor.SetWidth(200);
+            cancelButton.Descriptor.SetHeight(60);
+            cancelButton.OnClicked += () =>
+            {
+                if (dialog.IsBusy) return;
+                dialog.IsBusy = true;
+                dialog.CloseWithResult(false);
+            };
+
+            dialog.Descriptor.ForceRebuild();
+
+            await dialog.WaitAsync();
+            _serverEditorDialog = null;
+            _editingId = null;
         }
 
         private async Task OnEditRemoveClickedAsync()
@@ -477,48 +654,20 @@ namespace Basis.BasisUI
 
             if (FindEntry(idAtClick) == null)
             {
-                HideEditor();
+                _serverEditorDialog?.CloseWithResult(true);
             }
-        }
-
-        private void ShowEditor(ServerDirectoryEntry existing)
-        {
-            _editingId = existing?.Id ?? string.Empty;
-            _editorSection.SetTitle(BasisLocalization.Get(existing == null
-                ? "menu.servers.list.newServer"
-                : "menu.servers.list.editing"));
-            string address = existing?.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
-            string portString = existing?.Target?.Get(ConnectionTarget.Keys.Port) ?? "4296";
-            _editAddress.SetValueWithoutNotify(address);
-            _editPort.SetValueWithoutNotify(portString);
-            _editPassword.SetPassword(existing?.Password ?? "default_password");
-            SetStackDropdownToId(existing?.Target?.StackId);
-            if (_editShareButton != null)
-            {
-                bool canShare = existing != null && BasisNetworkConnection.LocalPlayerIsConnected;
-                _editShareButton.gameObject.SetActive(canShare);
-            }
-            if (_editRemoveButton != null)
-            {
-                _editRemoveButton.gameObject.SetActive(existing != null && existing.CanRemove);
-            }
-            _editorSection.SetActive(true);
         }
 
         private ServerDirectoryEntry FindEntry(string id)
         {
-            if (string.IsNullOrEmpty(id) || _entries == null) return null;
+            if (string.IsNullOrEmpty(id)) return null;
+            if (_hostEntry != null && string.Equals(id, HostEntryId, StringComparison.OrdinalIgnoreCase)) return _hostEntry;
+            if (_entries == null) return null;
             foreach (ServerDirectoryEntry e in _entries)
             {
                 if (e != null && string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase)) return e;
             }
             return null;
-        }
-
-        private void HideEditor()
-        {
-            _editingId = null;
-            _editorSection.SetActive(false);
         }
 
         private void RebuildStackOptions()
@@ -566,7 +715,7 @@ namespace Basis.BasisUI
             return BasisNetworkStackRegistry.DefaultId;
         }
 
-        private void SaveEditor()
+        private bool SaveEditor()
         {
             string addressInput = _editAddress.Value?.Trim();
             string address = addressInput;
@@ -593,12 +742,12 @@ namespace Basis.BasisUI
             else if (!ushort.TryParse(_editPort.Value, out port) || port == 0)
             {
                 BasisConnectionService.ReportConnectionError("Port must be 1-65535");
-                return;
+                return false;
             }
             if (string.IsNullOrEmpty(address))
             {
                 BasisConnectionService.ReportConnectionError(BasisLocalization.Get("menu.servers.ipAddress"));
-                return;
+                return false;
             }
 
             List<SavedServerEntry> saved = SavedServerStore.Load();
@@ -629,84 +778,180 @@ namespace Basis.BasisUI
             SavedServerStore.Save(saved);
 
             string savedId = entry.Id;
-            HideEditor();
             SavedServersDirectorySource.Instance?.NotifyChanged();
             _ = RefreshOneAsync(savedId);
+            return true;
         }
 
-        // ── Server list rows ─────────────────────────────────────────────────
+        // ── Server card grid ─────────────────────────────────────────────────
 
-        private class ServerRow
+        private enum SortMode { Default, Name, Ping, Players }
+
+        private const int CardsPerRow = 2;
+        private const float ChipReservedWidth = 180f;
+        private const int PingBarCount = 4;
+
+        private static readonly Color OnlineTint = new Color(0.45f, 0.85f, 0.5f, 1f);
+        private static readonly Color OfflineTint = new Color(0.95f, 0.4f, 0.4f, 1f);
+        private static readonly Color UnknownTint = new Color(1f, 1f, 1f, 0.55f);
+        private const string OfflineColor = "#ef4444";
+
+        private sealed class ServerCard
         {
+            public ServerDirectoryEntry Entry;
             public PanelElementDescriptor Group;
             public PanelButton ConnectButton;
-            public PanelButton EditButton;
+            public GameObject ChipRoot;
+            public TextMeshProUGUI ChipLabel;
+            public GameObject PingBarsRoot;
+            public Image[] PingBars;
+            public bool Querying;
+            public bool Probed;
+            public bool Visible;
         }
 
-        private void RebuildRows()
+        private static RectTransform BuildCardList(RectTransform parent)
         {
-            foreach (KeyValuePair<string, ServerRow> kv in _rows)
+            GameObject listGO = new GameObject("ServerList", typeof(RectTransform));
+            RectTransform listRect = (RectTransform)listGO.transform;
+            listRect.SetParent(parent, false);
+            listRect.anchorMin = new Vector2(0f, 1f);
+            listRect.anchorMax = new Vector2(1f, 1f);
+            listRect.pivot = new Vector2(0.5f, 1f);
+
+            VerticalLayoutGroup group = listGO.AddComponent<VerticalLayoutGroup>();
+            group.spacing = 15f;
+            group.padding = new RectOffset(10, 10, 10, 10);
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = true;
+            group.childForceExpandHeight = false;
+            group.childAlignment = TextAnchor.UpperLeft;
+
+            ContentSizeFitter fitter = listGO.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            LayoutElement layout = listGO.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+
+            return listRect;
+        }
+
+        private RectTransform CreateCardRow()
+        {
+            GameObject rowGO = new GameObject("ServerRow", typeof(RectTransform));
+            RectTransform rowRect = (RectTransform)rowGO.transform;
+            rowRect.SetParent(_cardsContainer, false);
+
+            HorizontalLayoutGroup layout = rowGO.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 10f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+            layout.childAlignment = TextAnchor.UpperLeft;
+
+            return rowRect;
+        }
+
+        private void RebuildCards()
+        {
+            foreach (KeyValuePair<string, ServerCard> kv in _cards)
             {
-                if (kv.Value.Group != null && kv.Value.Group.gameObject != null)
-                    UnityEngine.Object.Destroy(kv.Value.Group.gameObject);
+                DestroyCard(kv.Value);
             }
-            _rows.Clear();
+            _cards.Clear();
+            _sourceOrder.Clear();
 
-            _emptyState.SetActive(false);
-
+            int order = 0;
             foreach (ServerDirectoryEntry entry in _entries)
             {
-                BuildRow(entry);
+                if (entry == null || string.IsNullOrEmpty(entry.Id)) continue;
+                if (!_sourceOrder.ContainsKey(entry.Id)) _sourceOrder[entry.Id] = order++;
+                BuildCard(entry);
             }
+            if (_hostEntry != null)
+            {
+                _sourceOrder[_hostEntry.Id] = int.MaxValue;
+                BuildCard(_hostEntry);
+            }
+
+            ApplyFilter();
+            ApplyLayoutPass();
+            UpdateHeader();
+            RebuildListLayout();
         }
 
-        private void BuildRow(ServerDirectoryEntry entry)
+        private static void DestroyCard(ServerCard card)
         {
-            bool isDefault = IsDefault(entry);
-
-            string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
-            string portString = entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty;
-
-            ServerRow row = new ServerRow();
-            row.Group = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, _listContainer);
-            row.Group.transform.SetSiblingIndex(_advancedToggle.transform.GetSiblingIndex());
-
-            string baseTitle = string.IsNullOrEmpty(entry.DisplayName) ? address : entry.DisplayName;
-            row.Group.SetTitle(isDefault
-                ? string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), baseTitle)
-                : baseTitle);
-            ushort portForDisplay;
-            ushort.TryParse(portString, out portForDisplay);
-            row.Group.SetDescription(string.Format(BasisLocalization.Get("menu.servers.list.address"), address, portForDisplay));
-
-            RectTransform actions = PanelElementDescriptor.BuildActionRow(row.Group.ContentParent, "ServerRowActions");
-
-            row.ConnectButton = PanelButton.CreateNew(actions);
-            bool isCurrentServer =
-                BasisNetworkConnection.LocalPlayerIsConnected
-                && BasisNetworkManagement.IsInitialized
-                && string.Equals(BasisNetworkManagement.Ip, address, StringComparison.OrdinalIgnoreCase)
-                && BasisNetworkManagement.Port == portForDisplay;
-            row.ConnectButton.Descriptor.SetTitle(BasisLocalization.Get(
-                isCurrentServer ? "menu.servers.reconnect" : "menu.servers.connect"));
-            row.ConnectButton.OnClicked += () => _ = ConnectToAsync(entry);
-
-            if (entry.CanEdit)
+            if (card.Group == null) return;
+            if (card.ConnectButton != null)
             {
-                row.EditButton = PanelButton.CreateNew(actions);
-                row.EditButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.edit"));
-                row.EditButton.OnClicked += () => ShowEditor(entry);
+                card.ConnectButton.OnClicked = null;
+                card.ConnectButton.TooltipProvider = null;
+                card.ConnectButton = null;
+            }
+            if (card.Group.gameObject != null) UnityEngine.Object.Destroy(card.Group.gameObject);
+            card.Group = null;
+        }
 
-                ApplyRowButtonWeight(row.ConnectButton, 7f);
-                ApplyRowButtonWeight(row.EditButton, 1f);
+        private void BuildCard(ServerDirectoryEntry entry)
+        {
+            if (_cardsContainer == null || _cards.ContainsKey(entry.Id)) return;
+
+            bool isHost = IsHostEntry(entry);
+            PanelElementDescriptor group = PanelElementDescriptor.CreateNew(
+                PanelElementDescriptor.ElementStyles.Group, _cardsContainer);
+            if (group == null) return;
+
+            if (group.TryGetComponent(out ContentSizeFitter fitter)) fitter.enabled = false;
+
+            Transform elementSlot = group.Header != null ? group.Header.Find("Title/Element") : null;
+            if (elementSlot != null) elementSlot.gameObject.SetActive(false);
+
+            group.SetIcon(AddressableAssets.GetSprite(isHost
+                ? AddressableAssets.Sprites.Computer
+                : AddressableAssets.Sprites.Servers));
+            if (group.IconBackground != null && group.IconBackground.TryGetComponent(out Image iconBox) && iconBox != group.IconImage)
+            {
+                iconBox.enabled = false;
             }
 
-            _rows[entry.Id] = row;
+            if (group.TitleLabel != null)
+            {
+                group.TitleLabel.margin = new Vector4(0f, 0f, ChipReservedWidth, 0f);
+                group.TitleLabel.overflowMode = TextOverflowModes.Ellipsis;
+            }
 
-            if (_pendingDefaultHighlight && isDefault)
+            ServerCard card = new ServerCard { Entry = entry, Group = group, Visible = true };
+            card.ChipLabel = AddInfoChip(group);
+            card.ChipRoot = card.ChipLabel.transform.parent.gameObject;
+            card.PingBarsRoot = AddPingBars(group, out card.PingBars);
+
+            RectTransform actions = PanelElementDescriptor.BuildActionRow(group.ContentParent, "ServerCardActions");
+
+            card.ConnectButton = PanelButton.CreateNew(actions);
+            card.ConnectButton.OnClicked += () => OnConnectClicked(card.Entry);
+            card.ConnectButton.TooltipProvider = () => BuildCardTooltip(card);
+
+            if (entry.CanEdit || isHost)
+            {
+                PanelButton editButton = PanelButton.CreateNew(actions);
+                editButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.edit"));
+                if (isHost) editButton.OnClicked += () => _ = ShowHostEditorAsync();
+                else editButton.OnClicked += () => ShowEditor(card.Entry);
+
+                ApplyRowButtonWeight(card.ConnectButton, 7f);
+                ApplyRowButtonWeight(editButton, 1f);
+            }
+
+            _cards[entry.Id] = card;
+            UpdateCardStatus(card);
+
+            if (_pendingDefaultHighlight && IsDefault(entry))
             {
                 _pendingDefaultHighlight = false;
-                ApplyDefaultHighlight(row);
+                ApplyDefaultHighlight(card);
             }
         }
 
@@ -718,15 +963,508 @@ namespace Basis.BasisUI
             button.Layout.flexibleWidth = flex;
         }
 
+        private static TextMeshProUGUI AddInfoChip(PanelElementDescriptor desc)
+        {
+            GameObject chipGo = new GameObject("Info Chip", typeof(RectTransform));
+            chipGo.layer = desc.gameObject.layer;
+            RectTransform rt = (RectTransform)chipGo.transform;
+            rt.SetParent(desc.rectTransform, false);
+            rt.anchorMin = new Vector2(1, 1);
+            rt.anchorMax = new Vector2(1, 1);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(-70, -48);
+            rt.sizeDelta = new Vector2(100, 34);
+
+            Image background = chipGo.AddComponent<Image>();
+            background.color = new Color(0f, 0f, 0f, 0.6f);
+            background.raycastTarget = false;
+
+            LayoutElement layoutElement = chipGo.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+
+            GameObject textGo = new GameObject("Value", typeof(RectTransform));
+            textGo.layer = chipGo.layer;
+            RectTransform textRt = (RectTransform)textGo.transform;
+            textRt.SetParent(rt, false);
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+
+            TextMeshProUGUI label = textGo.AddComponent<TextMeshProUGUI>();
+            if (desc.TitleLabel != null)
+            {
+                label.font = desc.TitleLabel.font;
+                label.fontSharedMaterial = desc.TitleLabel.fontSharedMaterial;
+                label.color = desc.TitleLabel.color;
+            }
+            label.fontSize = 22;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+            label.richText = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            return label;
+        }
+
+        private static GameObject AddPingBars(PanelElementDescriptor desc, out Image[] bars)
+        {
+            GameObject root = new GameObject("Ping Bars", typeof(RectTransform));
+            root.layer = desc.gameObject.layer;
+            RectTransform rt = (RectTransform)root.transform;
+            rt.SetParent(desc.rectTransform, false);
+            rt.anchorMin = new Vector2(1, 1);
+            rt.anchorMax = new Vector2(1, 1);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(-146, -48);
+            rt.sizeDelta = new Vector2(44, 30);
+
+            LayoutElement layoutElement = root.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+
+            bars = new Image[PingBarCount];
+            for (int i = 0; i < PingBarCount; i++)
+            {
+                GameObject barGo = new GameObject("Bar", typeof(RectTransform));
+                barGo.layer = root.layer;
+                RectTransform barRt = (RectTransform)barGo.transform;
+                barRt.SetParent(rt, false);
+                barRt.anchorMin = Vector2.zero;
+                barRt.anchorMax = Vector2.zero;
+                barRt.pivot = Vector2.zero;
+                barRt.anchoredPosition = new Vector2(i * 11f, 0f);
+                barRt.sizeDelta = new Vector2(8f, 9f + i * 7f);
+                bars[i] = barGo.AddComponent<Image>();
+                bars[i].raycastTarget = false;
+            }
+            return root;
+        }
+
+        private static int PingLevel(int roundTripMs) =>
+            roundTripMs < 60 ? 4 : roundTripMs < 120 ? 3 : roundTripMs < 200 ? 2 : 1;
+
+        private static Color PingTint(int level) => level switch
+        {
+            4 => OnlineTint,
+            3 => new Color(0.85f, 0.8f, 0.35f, 1f),
+            2 => new Color(0.9f, 0.6f, 0.3f, 1f),
+            _ => OfflineTint,
+        };
+
+        private void RefreshHostEntry()
+        {
+            _hostEntry = CreateHostEntry(ReadHostStackId());
+            if (_cards.TryGetValue(HostEntryId, out ServerCard card) && card.Group != null)
+            {
+                card.Entry = _hostEntry;
+                _probeResults.Remove(HostEntryId);
+                card.Probed = false;
+                card.Querying = false;
+                UpdateCardStatus(card);
+            }
+        }
+
+        private void OnConnectClicked(ServerDirectoryEntry entry)
+        {
+            if (entry == null) return;
+            if (IsHostEntry(entry))
+            {
+                _ = ConnectToAsync(CreateHostEntry(ReadHostStackId()), isHostMode: true);
+                return;
+            }
+            _ = ConnectToAsync(entry);
+        }
+
+        private void UpdateCardStatus(ServerCard card)
+        {
+            if (card == null || card.Group == null || card.Entry == null) return;
+
+            ServerDirectoryEntry entry = card.Entry;
+            bool isHost = IsHostEntry(entry);
+            string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
+            ushort.TryParse(entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty, out ushort port);
+
+            _probeResults.TryGetValue(entry.Id, out ServerProbeResult probe);
+            bool online = probe != null && probe.Reachable;
+
+            string name = online && !string.IsNullOrEmpty(probe.Name) ? probe.Name : entry.DisplayName;
+            if (string.IsNullOrEmpty(name)) name = address;
+            card.Group.SetTitle(IsDefault(entry)
+                ? string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), name)
+                : name);
+
+            if (card.Group.IconImage != null)
+            {
+                card.Group.IconImage.color = isHost || online ? OnlineTint : card.Probed ? OfflineTint : UnknownTint;
+            }
+
+            string addressText = DisplayAddress(address, port);
+            string description;
+            if (online)
+            {
+                description = string.Format("{0}  •  {1}",
+                    addressText,
+                    string.Format(BasisLocalization.Get("menu.servers.list.ping"), probe.RoundTripMs));
+                if (!string.IsNullOrEmpty(probe.Motd))
+                {
+                    description += $"\n<size=85%>{probe.Motd}</size>";
+                }
+            }
+            else if (isHost)
+            {
+                description = string.Format("{0}  •  {1}",
+                    addressText,
+                    BasisLocalization.Get("menu.servers.hostMode.description"));
+            }
+            else if (card.Querying)
+            {
+                description = string.Format("{0}  •  {1}",
+                    addressText,
+                    BasisLocalization.Get("menu.servers.list.querying"));
+            }
+            else if (card.Probed)
+            {
+                description = string.Format("{0}  •  <color={1}>{2}</color>",
+                    addressText,
+                    OfflineColor,
+                    BasisLocalization.Get("menu.servers.list.offline"));
+            }
+            else
+            {
+                description = addressText;
+            }
+            card.Group.SetDescription(description);
+
+            if (card.ConnectButton != null)
+            {
+                card.ConnectButton.Descriptor.SetTitle(BasisLocalization.Get(
+                    isHost ? "menu.servers.host"
+                    : IsCurrentServer(entry) ? "menu.servers.reconnect"
+                    : "menu.servers.connect"));
+            }
+
+            bool showBars = online;
+            if (card.PingBarsRoot != null && card.PingBarsRoot.activeSelf != showBars) card.PingBarsRoot.SetActive(showBars);
+            if (showBars && card.PingBars != null)
+            {
+                int level = PingLevel(probe.RoundTripMs);
+                Color barTint = PingTint(level);
+                Color idleTint = new Color(1f, 1f, 1f, 0.3f);
+                for (int i = 0; i < card.PingBars.Length; i++)
+                {
+                    if (card.PingBars[i] != null) card.PingBars[i].color = i < level ? barTint : idleTint;
+                }
+            }
+
+            bool showChip = online || card.Querying;
+            if (card.ChipRoot != null && card.ChipRoot.activeSelf != showChip) card.ChipRoot.SetActive(showChip);
+            if (!showChip || card.ChipLabel == null) return;
+
+            Color baseColor = card.Group.TitleLabel != null ? card.Group.TitleLabel.color : Color.white;
+            if (online)
+            {
+                card.ChipLabel.SetText(string.Format(BasisLocalization.Get("menu.servers.list.players"), probe.Online, probe.Max));
+                card.ChipLabel.color = baseColor;
+            }
+            else
+            {
+                card.ChipLabel.SetText("…");
+                card.ChipLabel.color = baseColor * new Color(1f, 1f, 1f, 0.55f);
+            }
+        }
+
+        private static readonly StringBuilder _tooltipBuilder = new StringBuilder(96);
+
+        private static void AppendPart(string value) => _tooltipBuilder.Append("  •  ").Append(value);
+
+        private string BuildCardTooltip(ServerCard card)
+        {
+            ServerDirectoryEntry entry = card.Entry;
+            if (entry == null) return string.Empty;
+
+            string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
+            ushort.TryParse(entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty, out ushort port);
+
+            _tooltipBuilder.Clear();
+            _tooltipBuilder.Append(DisplayAddress(address, port));
+
+            _probeResults.TryGetValue(entry.Id, out ServerProbeResult probe);
+            if (probe != null && probe.Reachable)
+            {
+                AppendPart(string.Format(BasisLocalization.Get("menu.servers.list.players"), probe.Online, probe.Max));
+                AppendPart(string.Format(BasisLocalization.Get("menu.servers.list.ping"), probe.RoundTripMs));
+                if (!string.IsNullOrEmpty(probe.Motd)) AppendPart(probe.Motd);
+            }
+            else if (card.Querying)
+            {
+                AppendPart(BasisLocalization.Get("menu.servers.list.querying"));
+            }
+            else if (card.Probed)
+            {
+                AppendPart(BasisLocalization.Get("menu.servers.list.offline"));
+            }
+
+            if (IsHostEntry(entry)) AppendPart(BasisLocalization.Get("menu.servers.hostMode.description"));
+            if (IsCurrentServer(entry)) AppendPart(BasisLocalization.Get("menu.servers.list.connected"));
+
+            return _tooltipBuilder.ToString();
+        }
+
+        private static bool IsCurrentServer(ServerDirectoryEntry entry)
+        {
+            if (!BasisNetworkConnection.LocalPlayerIsConnected || !BasisNetworkManagement.IsInitialized) return false;
+            string address = entry?.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
+            ushort.TryParse(entry?.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty, out ushort port);
+            return string.Equals(BasisNetworkManagement.Ip, address, StringComparison.OrdinalIgnoreCase)
+                && BasisNetworkManagement.Port == port;
+        }
+
+        // ── Sort / filter / header ───────────────────────────────────────────
+
+        private void CycleSortMode()
+        {
+            _sortMode = _sortMode switch
+            {
+                SortMode.Default => SortMode.Name,
+                SortMode.Name => SortMode.Ping,
+                SortMode.Ping => SortMode.Players,
+                _ => SortMode.Default,
+            };
+            UpdateSortButtonVisual();
+            ApplyLayoutPass();
+            RebuildListLayout();
+        }
+
+        private static string SortModeLabelKey(SortMode mode) => mode switch
+        {
+            SortMode.Name => "menu.servers.sortMode.name",
+            SortMode.Ping => "menu.servers.sortMode.ping",
+            SortMode.Players => "menu.servers.sortMode.players",
+            _ => "menu.servers.sortMode.default",
+        };
+
+        private void UpdateSortButtonVisual()
+        {
+            if (_sortButton == null) return;
+            _sortButton.Descriptor.SetTitle(BasisLocalization.Get(SortModeLabelKey(_sortMode)));
+        }
+
+        private void UpdateAutoConnectVisual()
+        {
+            if (_autoConnectButton == null || _autoConnectButton.Descriptor.IconImage == null) return;
+            _autoConnectButton.Descriptor.IconImage.color =
+                BasisSettingsDefaults.AutoConnect.RawValue ? OnlineTint : OfflineTint;
+        }
+
+        private void UpdateSearchButtonVisual()
+        {
+            if (_searchButton == null || _searchButton.Descriptor.IconImage == null) return;
+            _searchButton.Descriptor.IconImage.color =
+                string.IsNullOrEmpty(_lastQuery.Trim()) ? Color.white : OnlineTint;
+        }
+
+        private async Task ShowSearchDialogAsync()
+        {
+            if (_panel == null || _searchDialog != null) return;
+
+            DialogBox<bool> dialog = DialogBox<bool>.Create(_panel, new Vector2(830, 300),
+                BasisLocalization.Get("ui.search.label"),
+                BasisLocalization.Get("menu.servers.search.byNameOrAddress"),
+                AddressableAssets.Sprites.Search);
+            if (dialog.Descriptor == null) return;
+            _searchDialog = dialog;
+
+            PanelButton exitButton = PanelButton.CreateNew(PanelButton.ButtonStyles.ExitButton, dialog.Descriptor.Header);
+            exitButton.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 125);
+            exitButton.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
+            exitButton.OnClicked += () => dialog.Cancel(false);
+
+            _searchField = PanelTextField.CreateNewEntry(dialog.Descriptor.ContentParent);
+            _searchField.Descriptor.SetTitle(BasisLocalization.Get("ui.search.label"));
+            _searchField.SetValueWithoutNotify(_lastQuery);
+            _searchField.OnValueChanged += OnSearchChanged;
+            _searchField._inputField.Select();
+            _searchField._inputField.ActivateInputField();
+
+            dialog.Descriptor.ForceRebuild();
+
+            await dialog.WaitAsync();
+            _searchDialog = null;
+            _searchField = null;
+        }
+
+        private void OnSearchChanged(string query)
+        {
+            _lastQuery = query ?? string.Empty;
+            if (ApplyFilter())
+            {
+                ApplyLayoutPass();
+                RebuildListLayout();
+            }
+            UpdateHeader();
+            UpdateSearchButtonVisual();
+        }
+
+        private int SourceOrderOf(ServerDirectoryEntry entry) =>
+            entry != null && _sourceOrder.TryGetValue(entry.Id, out int order) ? order : int.MaxValue;
+
+        private static string TitleFor(ServerCard card) =>
+            card.Group != null ? card.Group.Title : string.Empty;
+
+        private int CompareCards(ServerCard a, ServerCard b)
+        {
+            bool aDefault = IsDefault(a.Entry);
+            bool bDefault = IsDefault(b.Entry);
+            if (aDefault != bDefault) return aDefault ? -1 : 1;
+
+            _probeResults.TryGetValue(a.Entry.Id, out ServerProbeResult pa);
+            _probeResults.TryGetValue(b.Entry.Id, out ServerProbeResult pb);
+            bool aOnline = pa != null && pa.Reachable;
+            bool bOnline = pb != null && pb.Reachable;
+
+            switch (_sortMode)
+            {
+                case SortMode.Name:
+                {
+                    int cmp = string.Compare(TitleFor(a), TitleFor(b), StringComparison.OrdinalIgnoreCase);
+                    if (cmp != 0) return cmp;
+                    break;
+                }
+                case SortMode.Ping:
+                {
+                    if (aOnline != bOnline) return aOnline ? -1 : 1;
+                    if (aOnline)
+                    {
+                        int cmp = pa.RoundTripMs.CompareTo(pb.RoundTripMs);
+                        if (cmp != 0) return cmp;
+                    }
+                    break;
+                }
+                case SortMode.Players:
+                {
+                    if (aOnline != bOnline) return aOnline ? -1 : 1;
+                    if (aOnline)
+                    {
+                        int cmp = pb.Online.CompareTo(pa.Online);
+                        if (cmp != 0) return cmp;
+                    }
+                    break;
+                }
+            }
+
+            return SourceOrderOf(a.Entry).CompareTo(SourceOrderOf(b.Entry));
+        }
+
+        private void ApplyLayoutPass()
+        {
+            if (_cardsContainer == null) return;
+
+            _orderBuffer.Clear();
+            foreach (KeyValuePair<string, ServerCard> kv in _cards)
+            {
+                if (kv.Value.Group != null && kv.Value.Visible) _orderBuffer.Add(kv.Value);
+            }
+            _comparison ??= CompareCards;
+            _orderBuffer.Sort(_comparison);
+
+            int rowsNeeded = (_orderBuffer.Count + CardsPerRow - 1) / CardsPerRow;
+            while (_cardRows.Count < rowsNeeded) _cardRows.Add(CreateCardRow());
+
+            for (int i = 0; i < _orderBuffer.Count; i++)
+            {
+                RectTransform row = _cardRows[i / CardsPerRow];
+                Transform card = _orderBuffer[i].Group.transform;
+                if (card.parent != row) card.SetParent(row, false);
+                card.SetSiblingIndex(i % CardsPerRow);
+            }
+
+            for (int i = 0; i < _cardRows.Count; i++)
+            {
+                bool used = i < rowsNeeded;
+                if (_cardRows[i].gameObject.activeSelf != used) _cardRows[i].gameObject.SetActive(used);
+            }
+        }
+
+        private bool ApplyFilter()
+        {
+            string query = _lastQuery.Trim();
+            bool hasQuery = query.Length > 0;
+
+            bool changed = false;
+            int visible = 0;
+            foreach (KeyValuePair<string, ServerCard> kv in _cards)
+            {
+                ServerCard card = kv.Value;
+                if (card.Group == null) continue;
+
+                bool show = !hasQuery || CardMatches(card, query);
+                if (card.Visible != show)
+                {
+                    card.Visible = show;
+                    card.Group.gameObject.SetActive(show);
+                    changed = true;
+                }
+                if (show) visible++;
+            }
+            _visibleCount = visible;
+
+            if (_emptyState != null)
+            {
+                bool showEmpty = visible == 0;
+                if (showEmpty)
+                {
+                    _emptyState.SetTitle(BasisLocalization.Get(hasQuery
+                        ? "menu.servers.list.noMatches"
+                        : "menu.servers.list.empty"));
+                }
+                if (_emptyState.gameObject.activeSelf != showEmpty)
+                {
+                    _emptyState.SetActive(showEmpty);
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
+        private bool CardMatches(ServerCard card, string query)
+        {
+            string address = card.Entry?.Target?.Get(ConnectionTarget.Keys.Address);
+            return ContainsIgnoreCase(TitleFor(card), query)
+                || ContainsIgnoreCase(card.Entry?.DisplayName, query)
+                || ContainsIgnoreCase(address, query);
+        }
+
+        private static bool ContainsIgnoreCase(string haystack, string needle) =>
+            !string.IsNullOrEmpty(haystack) &&
+            haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        private void UpdateHeader()
+        {
+            if (_headerGroup == null) return;
+            int total = _cards.Count;
+            bool hasFilter = !string.IsNullOrEmpty(_lastQuery);
+            _headerGroup.SetTitle(hasFilter && _visibleCount < total
+                ? BasisLocalization.Get("menu.servers.header.filtered", _visibleCount, total)
+                : BasisLocalization.Get("menu.servers.header", total));
+            _headerGroup.SetDescription(BasisLocalization.Get("menu.servers.header.description"));
+        }
+
+        private void RebuildListLayout()
+        {
+            if (_cardsContainer == null) return;
+            PanelElementDescriptor.RebuildLayoutChain(_cardsContainer, _pageRoot);
+        }
+
         private async Task RunFirstRunWelcomeAsync(BasisMenuPanel panel)
         {
             bool acknowledged = await ServersFirstRunWelcome.ShowAsync(panel);
             if (!acknowledged) return;
             if (_panel == null) return;
 
-            if (_rows.TryGetValue(SavedServersDirectorySource.DefaultServerId, out ServerRow row))
+            if (_cards.TryGetValue(SavedServersDirectorySource.DefaultServerId, out ServerCard card))
             {
-                ApplyDefaultHighlight(row);
+                ApplyDefaultHighlight(card);
             }
             else
             {
@@ -734,20 +1472,20 @@ namespace Basis.BasisUI
             }
         }
 
-        private static void ApplyDefaultHighlight(ServerRow row)
+        private static void ApplyDefaultHighlight(ServerCard card)
         {
-            if (row == null) return;
-            if (row.Group != null && row.Group.TryGetComponent(out Image groupBackground))
+            if (card == null || card.Group == null) return;
+            if (card.Group.TryGetComponent(out Image groupBackground))
             {
                 ServersWelcomeFlash.Attach(groupBackground, pulse: false);
             }
-            if (row.ConnectButton != null)
+            if (card.ConnectButton != null)
             {
-                if (row.ConnectButton.ButtonComponent != null)
+                if (card.ConnectButton.ButtonComponent != null)
                 {
-                    ServersWelcomeFlash.Attach(row.ConnectButton.ButtonComponent.image, pulse: true);
+                    ServersWelcomeFlash.Attach(card.ConnectButton.ButtonComponent.image, pulse: true);
                 }
-                UIAnimations.PunchScale(row.ConnectButton.transform);
+                UIAnimations.PunchScale(card.ConnectButton.transform);
             }
         }
 
@@ -793,18 +1531,15 @@ namespace Basis.BasisUI
 
         private async Task RefreshAllAsync()
         {
-            if (_entries == null || _entries.Count == 0) return;
+            if (_cards.Count == 0) return;
 
             _queryCts?.Cancel();
             _queryCts = new CancellationTokenSource();
             CancellationToken token = _queryCts.Token;
 
-            foreach (ServerRow r in _rows.Values)
-                r.Group.SetDescription(BasisLocalization.Get("menu.servers.list.querying"));
-
-            List<Task> tasks = new List<Task>(_entries.Count);
-            foreach (ServerDirectoryEntry e in _entries)
-                tasks.Add(QueryAndUpdateAsync(e, token));
+            List<Task> tasks = new List<Task>(_cards.Count);
+            foreach (KeyValuePair<string, ServerCard> kv in _cards)
+                tasks.Add(QueryAndUpdateAsync(kv.Value.Entry, token));
 
             try
             {
@@ -825,6 +1560,14 @@ namespace Basis.BasisUI
 
         private async Task QueryAndUpdateAsync(ServerDirectoryEntry entry, CancellationToken ct)
         {
+            if (entry == null || entry.Target == null) return;
+
+            if (_cards.TryGetValue(entry.Id, out ServerCard marking) && marking.Group != null)
+            {
+                marking.Querying = true;
+                UpdateCardStatus(marking);
+            }
+
             ServerProbeResult result;
             try
             {
@@ -837,48 +1580,17 @@ namespace Basis.BasisUI
             if (result != null && result.Reachable) _probeResults[entry.Id] = result;
             else _probeResults.Remove(entry.Id);
 
-            if (!_rows.TryGetValue(entry.Id, out ServerRow row)) return;
-            if (row.Group == null || row.Group.gameObject == null) return;
-
-            string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
-            string portString = entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty;
-            ushort port;
-            ushort.TryParse(portString, out port);
-
-            if (result != null && result.Reachable)
+            if (!_cards.TryGetValue(entry.Id, out ServerCard card) || card.Group == null) return;
+            card.Querying = false;
+            card.Probed = true;
+            UpdateCardStatus(card);
+            if (!string.IsNullOrEmpty(_lastQuery))
             {
-                string name = result.Name;
-                if (string.IsNullOrEmpty(name)) name = entry.DisplayName;
-                if (string.IsNullOrEmpty(name)) name = address;
-                if (IsDefault(entry))
-                    name = string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), name);
-                string playerCount = string.Format(BasisLocalization.Get("menu.servers.list.players"), result.Online, result.Max);
-                row.Group.SetTitle(string.Format("{0} - <color={1}>{2}</color>",
-                    name,
-                    OnlineColor,
-                    playerCount));
-
-                string description = string.Format("{0}  •  {1}",
-                    DisplayAddress(address, port),
-                    string.Format(BasisLocalization.Get("menu.servers.list.ping"), result.RoundTripMs));
-                if (!string.IsNullOrEmpty(result.Motd))
-                {
-                    description += $"\n<size=85%>{result.Motd}</size>";
-                }
-                row.Group.SetDescription(description);
+                ApplyFilter();
+                UpdateHeader();
             }
-            else
-            {
-                string name = entry.DisplayName;
-                if (string.IsNullOrEmpty(name)) name = address;
-                if (IsDefault(entry))
-                    name = string.Format(BasisLocalization.Get("menu.servers.list.defaultBadge"), name);
-                row.Group.SetTitle(name);
-                row.Group.SetDescription(string.Format("{0}  •  <color={1}>{2}</color>",
-                    DisplayAddress(address, port),
-                    OfflineColor,
-                    BasisLocalization.Get("menu.servers.list.offline")));
-            }
+            ApplyLayoutPass();
+            RebuildListLayout();
         }
 
         // Format address:port for display, using bracket notation for IPv6 literals.
@@ -888,10 +1600,6 @@ namespace Basis.BasisUI
                 return $"[{address}]:{port}";
             return string.Format(BasisLocalization.Get("menu.servers.list.address"), address, port);
         }
-
-        // TMP rich-text colors for the live online/offline indicators in each row.
-        private const string OnlineColor = "#22c55e";
-        private const string OfflineColor = "#ef4444";
 
         // ── Connection ───────────────────────────────────────────────────────
 
@@ -927,6 +1635,8 @@ namespace Basis.BasisUI
 
         private async Task ConnectToAsync(ServerDirectoryEntry entry, bool isHostMode = false)
         {
+            if (IsHostEntry(entry)) isHostMode = true;
+
             // Validate sync inputs first so the user can correct without losing the
             // panel — only commit to the loading-bar takeover once we have something
             // worth attempting.

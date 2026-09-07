@@ -253,16 +253,7 @@ namespace Basis.Shims
                                     BasisTrustedUrls.Add(uri.Scheme + "://" + uri.Host + "/*");
                                     break;
                                 case BasisMenuURLPromptPanel.RememberChoiceScope.Domain:
-                                    string[] parts = uri.Host.Split('.');
-                                    string domain;
-                                    if(parts.Length >= 2)
-                                    {
-                                        domain = parts[parts.Length - 2] + "." + parts[parts.Length - 1];
-                                    } else
-                                    {
-                                        domain = uri.Host;
-                                    }
-                                    BasisTrustedUrls.Add(uri.Scheme + "://*." + domain + "/*");
+                                    BasisTrustedUrls.AddDomain(uri);
                                     break;
                             }
                         }

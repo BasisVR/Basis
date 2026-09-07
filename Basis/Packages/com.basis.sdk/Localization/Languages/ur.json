@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "تعامل کے ایونٹس فیلڈ کے طور پر دستیاب ہیں؛ کمپونینٹ کے طریقے نہیں۔" },
     { "key": "sdk.cilbox.api.seat.title", "value": "نشستیں" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "مقامی کھلاڑی کو بٹھانا اور اٹھانا، اور بیٹھے ہوئے گھمانا۔" },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "اجازت کی تبدیلیاں" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "آپ کے اسکرپٹ کو بتاتا ہے جب مقامی کھلاڑی ایڈمن یا موڈریٹر کا اختیار حاصل کرتا ہے یا کھو دیتا ہے، تاکہ صرف عملے کے لیے مواد کو بار بار پول نہ کرنا پڑے۔ کال بیک آپ کے اپنے اسکرپٹ پر نام سے تلاش کیا جاتا ہے۔" },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle تعاملات" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "کسی شے کو پکڑے یا چھوئے جانے پر جواب دینے دیتا ہے۔ کال بیکس آپ کی اپنی اسکرپٹ میں نام سے ڈھونڈے جاتے ہیں۔" },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas UI اور متن" },

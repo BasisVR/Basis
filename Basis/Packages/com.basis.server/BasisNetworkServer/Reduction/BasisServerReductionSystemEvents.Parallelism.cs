@@ -1,19 +1,8 @@
-﻿using Basis.Network.Core;
-using Basis.Network.Core.Compression;
-using BasisNetworkServer.BasisNetworking;
-using K4os.Compression.LZ4;
+using Basis.Network.Core;
 using System;
-using System.Buffers;
-using System.Buffers.Binary;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using static SerializableBasis;
-using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 
 namespace BasisNetworkServer.BasisNetworkingReductionSystem
 {
@@ -76,6 +65,46 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Last time the worker count was allowed to move. See TuneParallelism.
         private static long _lastDegreeStepTick;
 
+        // Pairs the whole pool gets through per busy millisecond, smoothed the same way as the
+        // per-worker rate. This is the number a widening is supposed to move: the per-worker rate
+        // falls by construction when a worker is added, so it cannot say whether the addition paid.
+        private static double _aggregateRateEma;
+
+        // A widening on trial: the width it came from, the aggregate rate measured at that width,
+        // and how many passes have been timed since. 0 = nothing pending.
+        //
+        // Needed because the estimator below is only stable while the pass scales. `needed` works
+        // out to (busyMs x workers) / budgetMs, so a widening that does not make the pass faster
+        // raises the very number that asked for it, and the next step asks for more again. Left
+        // alone it climbs to the ceiling, which is the exact shape of adding a core and watching
+        // throughput fall. Nothing below the ceiling stops it: on a big host the utilisation guard
+        // does not either, because a server using 15% of 64 cores always has room by that test.
+        private static int _widenTrialFrom;
+        private static double _aggregateRateAtWiden;
+        private static int _passesSinceWiden;
+
+        // Width past which widening was measured not to pay on this host, and the conditions that
+        // verdict was reached under. 0 = none learned.
+        private static int _learnedWidthCeiling;
+        private static int _learnedCeilingPlayers;
+        private static int _learnedCeilingSendCap;
+        private static long _learnedCeilingTick;
+
+        // Passes to wait before judging a widening. The rate EMAs move at 0.1 per pass, so this is
+        // roughly where they have caught up with the new width. Counted in passes rather than
+        // milliseconds because the pass rate is the tick rate, and the tick rate on a server in
+        // trouble is a quarter of what it is on a healthy one.
+        private const int WidenTrialPasses = 24;
+
+        // How much better the pool has to get for a widening to be kept. A widening that leaves
+        // throughput where it was has spent a core on nothing, so "no worse" is not the bar.
+        private const double WidenMustImproveBy = 1.05;
+
+        // A learned ceiling is a verdict about one load level, not a property of the host, so it
+        // expires. Also cleared when the population moves materially or another send socket shows
+        // up, both of which change the answer.
+        private const int LearnedCeilingRetryMs = 30000;
+
         private static int MaxAutoWorkers => BasisCpuBudget.ReductionSendCap;
 
         private static int _configuredDegree;
@@ -97,6 +126,10 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             }
 
             int ceiling = Math.Min(MaxAutoWorkers, cores);
+            if (_learnedWidthCeiling > 0 && _learnedWidthCeiling < ceiling)
+            {
+                ceiling = _learnedWidthCeiling;
+            }
             if (ceiling < 1)
             {
                 ceiling = 1;
@@ -177,6 +210,11 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             MaxDegreeOfParallelism = 4
         };
 
+        // The tick-thread's tuned worker budget, shared with per-tick fanouts that live outside
+        // this partial (the PIP camera sweep) so they ride the same width instead of the
+        // scheduler default.
+        internal static ParallelOptions SharedParallelOptions => parallelOptions;
+
         // Retunes the worker count for what the next pass is expected to cost. Called once per tick
         // from the send phase, and moves on the core allocator's cadence rather than the tick's:
         // the grant it is clamped to only changes that often, and resizing a pool at ~275 Hz costs
@@ -191,12 +229,102 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             _lastDegreeStepTick = now;
 
             int current = parallelOptions.MaxDegreeOfParallelism;
-            int desired = DegreeFor(playerCount, current);
-            if (current != desired)
+
+            // A widening on trial holds the width still until it has answered for itself. Judging
+            // it while the pool is already moving again would compare two rates measured at two
+            // different widths and blame the wrong step.
+            if (_widenTrialFrom > 0)
             {
-                parallelOptions.MaxDegreeOfParallelism = desired;
+                if (_passesSinceWiden < WidenTrialPasses)
+                {
+                    return;
+                }
+                current = ResolveWidenTrial(current, playerCount, now);
+            }
+
+            ExpireLearnedCeiling(now, playerCount);
+
+            int desired = DegreeFor(playerCount, current);
+            if (desired == current)
+            {
+                return;
+            }
+
+            if (desired > current)
+            {
+                _widenTrialFrom = current;
+                _aggregateRateAtWiden = _aggregateRateEma;
+                _passesSinceWiden = 0;
+            }
+
+            parallelOptions.MaxDegreeOfParallelism = desired;
+        }
+
+        /// <summary>
+        /// Decides whether the widening on trial earned its workers, and gives them back if it did
+        /// not. Returns the width in force afterwards.
+        /// </summary>
+        private static int ResolveWidenTrial(int current, int playerCount, long now)
+        {
+            int from = _widenTrialFrom;
+            double before = _aggregateRateAtWiden;
+            double after = _aggregateRateEma;
+
+            _widenTrialFrom = 0;
+            _aggregateRateAtWiden = 0;
+
+            // No usable comparison — the pool had not been timed at the old width, or the pass has
+            // been too short to time since. Let the widening stand; the next one gets judged.
+            if (before <= 0 || after <= 0 || current <= from)
+            {
+                return current;
+            }
+
+            if (after >= before * WidenMustImproveBy)
+            {
+                return current;
+            }
+
+            _learnedWidthCeiling = from;
+            _learnedCeilingPlayers = playerCount;
+            _learnedCeilingSendCap = MaxAutoWorkers;
+            _learnedCeilingTick = now;
+            parallelOptions.MaxDegreeOfParallelism = from;
+
+            BNL.LogWarning(
+                $"[BSR] Send pool {from} -> {current} workers did not pay " +
+                $"({before:F0} -> {after:F0} pairs/ms); holding at {from}. Past the number of send " +
+                $"sockets bound, workers queue on the same one, so what adds capacity is sockets " +
+                $"(MultiSocketCount / MaxSendSockets), not cores.");
+
+            return from;
+        }
+
+        /// <summary>
+        /// Drops a learned ceiling once the verdict behind it no longer applies: the population has
+        /// moved materially, another send socket has appeared, or enough time has passed that it is
+        /// worth asking again.
+        /// </summary>
+        private static void ExpireLearnedCeiling(long now, int playerCount)
+        {
+            if (_learnedWidthCeiling <= 0)
+            {
+                return;
+            }
+
+            bool populationMoved = playerCount * 4 > _learnedCeilingPlayers * 5
+                                || playerCount * 4 < _learnedCeilingPlayers * 3;
+            bool moreSendPaths = MaxAutoWorkers > _learnedCeilingSendCap;
+            bool stale = now - _learnedCeilingTick > LearnedCeilingRetryTicks;
+
+            if (populationMoved || moreSendPaths || stale)
+            {
+                _learnedWidthCeiling = 0;
             }
         }
+
+        private static readonly long LearnedCeilingRetryTicks =
+            (long)(LearnedCeilingRetryMs * (Stopwatch.Frequency / 1000.0));
 
         // Records what a send pass cost, in the unit the worker count is sized from: pairs per
         // millisecond the pass was busy, per worker that ran it. Per busy millisecond rather than
@@ -219,6 +347,15 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
             {
                 return;
+            }
+
+            // Whole-pool throughput, which is what a widening has to move. Same smoothing as the
+            // per-worker rate below, so a trial compares like with like.
+            double aggregate = pairs / busyMs;
+            _aggregateRateEma = _aggregateRateEma <= 0 ? aggregate : _aggregateRateEma * 0.9 + aggregate * 0.1;
+            if (_widenTrialFrom > 0 && _passesSinceWiden < WidenTrialPasses)
+            {
+                _passesSinceWiden++;
             }
 
             // Smoothed hard: one pass that straddled a GC pause is not a slower machine, and the

@@ -2,9 +2,11 @@ using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management.EyeTracking;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Rendering;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Basis.Scripts.Device_Management.EyeTracking.Editor
 {
@@ -51,6 +53,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
             DrawArbitration();
             DrawOutput();
             DrawConsumers(blockers);
+            DrawFoveation(blockers);
             DrawBlockers(blockers);
 
             EditorGUILayout.EndScrollView();
@@ -200,6 +203,62 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
                     blockers.Add("Gaze is available and the eye driver is enabled, but Override is OFF — nothing is applying it to the eye bones. Is the HAI EyeTrackingBoneActuation component present on the local avatar?");
                 }
             }
+        }
+
+        private void DrawFoveation(List<string> blockers)
+        {
+            Header("Foveated Rendering (VRS)");
+
+            bool api = BasisVariableRateShadingFeature.IsSupported;
+            Dot("Graphics API supports image VRS (Direct3D 12)", api);
+            if (!api)
+            {
+                BasisEditorUI.Note("On every other graphics API the VRS feature is fully inactive.");
+                return;
+            }
+
+            bool perTile = ShadingRateInfo.supportsPerImageTile;
+            Dot("GPU/driver reports per-tile shading rate", perTile);
+            Field("Hardware rates", RateListLabel());
+
+            bool vrsOn = BasisSettingsDefaults.DevVariableRateShading.RawValue || BasisSettingsDefaults.DevVariableRateShadingDesktop.RawValue;
+            Dot("Enabled (VR or Desktop toggle)", vrsOn);
+
+            bool live = BasisVariableRateShadingFeature.LastDispatchFrame > 0
+                && Time.frameCount - BasisVariableRateShadingFeature.LastDispatchFrame <= 2;
+            Dot("Build pass dispatching", live);
+            if (live)
+            {
+                Vector2Int tiles = BasisVariableRateShadingFeature.LastTiles;
+                Field("Tiles", $"{tiles.x} x {tiles.y}");
+                Field("Gaze weight", $"{BasisVariableRateShadingFeature.LastGazeWeight:F2}  (1 = tracked, 0 = optical-axis fallback)");
+                Field("Build GPU cost", $"{BasisVariableRateShadingFeature.GpuMilliseconds:F3} ms");
+            }
+
+            if (vrsOn && !perTile)
+            {
+                blockers.Add("VRS is enabled but this GPU/driver does not expose per-tile shading rate — foveation cannot run.");
+            }
+            else if (vrsOn && !live)
+            {
+                blockers.Add("VRS is enabled but the build pass has not dispatched recently — is the local player camera rendering, and does the renderer feature have its build shader assigned?");
+            }
+        }
+
+        private static string RateListLabel()
+        {
+            ShadingRateFragmentSize[] sizes = ShadingRateInfo.availableFragmentSizes;
+            if (sizes == null || sizes.Length == 0)
+            {
+                return "none reported";
+            }
+            string label = "";
+            for (int i = 0; i < sizes.Length; i++)
+            {
+                if (i > 0) label += ", ";
+                label += sizes[i].ToString().Replace("FragmentSize", "");
+            }
+            return label;
         }
 
         private void DrawBlockers(List<string> blockers)

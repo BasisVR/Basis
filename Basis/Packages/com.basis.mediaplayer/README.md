@@ -462,6 +462,16 @@ restarts every client together.
 > joiner starts the shared source and is pulled into alignment on the next position broadcast;
 > an owner seek propagates to the room.
 
+Two resync entry points sit on either side of that. **`ResyncLocal()`** re-aligns the calling
+client and nothing else: it asks the room for the current state and reloads onto the answer,
+falling back to reloading what it already holds when nobody answers. It takes no ownership and
+needs no permission, so the menu offers it under **My Settings** to every client — including
+one that can't see the playback controls at all. **`ResyncEveryone()`** goes the other way:
+it takes control like any other playback command, then re-announces the load so every client
+reloads onto the caller's state and position, the caller included. It is on the **Playback**
+tab, behind the same control gate as play/pause/seek. A page URL is re-resolved by each client
+rather than reloaded from its expired stream, and the shared URL stays the page URL throughout.
+
 ## Building the native plugin
 
 Source is under `Native~/`. By default it links **only OS frameworks** (no

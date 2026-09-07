@@ -39,6 +39,7 @@ namespace Basis.Cinematics
         public BasisCameraLookAtSettings lookAt;
         public BasisCameraComposeSettings compose;
         public BasisCameraMatchSubjectSettings matchSubject;
+        public BasisCameraTrackAimSettings trackAim;
 
         public BasisCameraLookAheadSettings lookAhead;
         public BasisCameraOcclusionSettings occlusion;
@@ -70,6 +71,7 @@ namespace Basis.Cinematics
             lookAt = BasisCameraLookAtSettings.Default;
             compose = BasisCameraComposeSettings.Default;
             matchSubject = BasisCameraMatchSubjectSettings.Default;
+            trackAim = BasisCameraTrackAimSettings.Default;
 
             lookAhead = BasisCameraLookAheadSettings.Default;
             occlusion = BasisCameraOcclusionSettings.Default;
@@ -264,6 +266,7 @@ namespace Basis.Cinematics
 
             lookAt.damping = ClampDamping(lookAt.damping);
             matchSubject.damping = ClampDamping(matchSubject.damping);
+            trackAim.damping = ClampDamping(trackAim.damping);
 
             lookAhead.time = Mathf.Max(0f, lookAhead.time);
             lookAhead.limit = Mathf.Max(0f, lookAhead.limit);
@@ -330,6 +333,7 @@ namespace Basis.Cinematics
             lookAt = source.lookAt;
             compose = source.compose;
             matchSubject = source.matchSubject;
+            trackAim = source.trackAim;
 
             lookAhead = source.lookAhead;
             occlusion = source.occlusion;
@@ -388,6 +392,7 @@ namespace Basis.Cinematics
                 && MatchesLookAt(a.lookAt, b.lookAt)
                 && MatchesCompose(a.compose, b.compose)
                 && MatchesMatchSubject(a.matchSubject, b.matchSubject)
+                && MatchesTrackAim(a.trackAim, b.trackAim)
                 && MatchesLookAhead(a.lookAhead, b.lookAhead)
                 && MatchesOcclusion(a.occlusion, b.occlusion)
                 && MatchesShake(a.shake, b.shake)
@@ -450,6 +455,9 @@ namespace Basis.Cinematics
                Near(a.composer.verticalDamping, b.composer.verticalDamping);
 
         private static bool MatchesMatchSubject(in BasisCameraMatchSubjectSettings a, in BasisCameraMatchSubjectSettings b)
+            => Near(a.rotationOffset, b.rotationOffset) && Near(a.damping, b.damping);
+
+        private static bool MatchesTrackAim(in BasisCameraTrackAimSettings a, in BasisCameraTrackAimSettings b)
             => Near(a.rotationOffset, b.rotationOffset) && Near(a.damping, b.damping);
 
         private static bool MatchesLookAhead(in BasisCameraLookAheadSettings a, in BasisCameraLookAheadSettings b)

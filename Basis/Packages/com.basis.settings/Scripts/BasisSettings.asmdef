@@ -2,6 +2,7 @@
     "name": "BasisSettings",
     "rootNamespace": "",
     "references": [
+        "BasisCommon",
         "BasisDebug",
         "Unity.TextMeshPro"
     ],

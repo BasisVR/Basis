@@ -34,6 +34,14 @@ public class BasisTrackedBundleWrapper
     [SerializeField]
     public bool IsBundleBackingStoreReleased = false;
     #endif
+    /// <summary>
+    /// Sentinel parked in <see cref="_requestedTimes"/> by <see cref="TryClaimUnload"/>. Reaching
+    /// zero is not enough to unload: the old code re-read the count and then called Unload(true),
+    /// so an Increment landing in that gap got a reservation on a bundle whose assets were about to
+    /// be destroyed. Claiming the count instead makes "nobody holds this" and "nobody may take it"
+    /// one atomic step, and Increment refuses once the claim is in.
+    /// </summary>
+    private const int UnloadClaimed = int.MinValue;
     private int _requestedTimes = 0;
     public bool IsInUse => Volatile.Read(ref _requestedTimes) > 0;
     public bool DidErrorOccur = false;
@@ -124,7 +132,7 @@ public class BasisTrackedBundleWrapper
         if (Volatile.Read(ref _requestedTimes) <= 0)
         {
             await Task.Delay(TimeSpan);
-            if (Volatile.Read(ref _requestedTimes) <= 0)
+            if (TryClaimUnload())
             {
                 if (isGltfContent)
                 {
@@ -143,6 +151,7 @@ public class BasisTrackedBundleWrapper
 
                     BasisDebug.LogError("Asset Bundle was null this should never occur");
                     #endif
+                    ReleaseUnloadClaim();
                     return false;
                 }
                 BasisDebug.Log("Unloading Bundle " + AssetBundle.name);
@@ -153,6 +162,7 @@ public class BasisTrackedBundleWrapper
                 // whose Animator.avatar is null).
                 if (!BasisLoadHandler.TryUnloadBundleAssets(this))
                 {
+                    ReleaseUnloadClaim();
                     return false;
                 }
                 #if UNITY_BUNDLEUNLOAD
@@ -172,9 +182,23 @@ public class BasisTrackedBundleWrapper
             return false;
         }
     }
+    /// <summary>
+    /// Takes a reservation. Returns false when an unload has already been claimed on this wrapper,
+    /// in which case the caller must treat the lookup as a MISS and load fresh: the assets are gone
+    /// or about to be.
+    /// </summary>
     public bool Increment()
     {
-        Interlocked.Increment(ref _requestedTimes);
+        int current;
+        do
+        {
+            current = Volatile.Read(ref _requestedTimes);
+            if (current == UnloadClaimed)
+            {
+                return false;
+            }
+        } while (Interlocked.CompareExchange(ref _requestedTimes, current + 1, current) != current);
+
      //   BasisDebug.Log($"Incremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}");
         return true;
     }
@@ -193,6 +217,19 @@ public class BasisTrackedBundleWrapper
 
        // BasisDebug.Log($"DeIncremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}");
         return true;
+    }
+    /// <summary>
+    /// Atomically moves an unreserved wrapper into the unloading state. Succeeds only from exactly
+    /// zero reservations, so it cannot race an Increment; pair a failed unload with
+    /// <see cref="ReleaseUnloadClaim"/> so the wrapper stays loadable.
+    /// </summary>
+    public bool TryClaimUnload()
+    {
+        return Interlocked.CompareExchange(ref _requestedTimes, UnloadClaimed, 0) == 0;
+    }
+    public void ReleaseUnloadClaim()
+    {
+        Interlocked.CompareExchange(ref _requestedTimes, 0, UnloadClaimed);
     }
 #if UNITY_BUNDLEUNLOAD
     public void ReleaseBundleBackingStore()

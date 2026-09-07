@@ -3,7 +3,9 @@
 // Automatically limits textures to max 512px on any side.
 
 using System;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public static class BasisTextureCompression
 {
@@ -66,6 +68,78 @@ public static class BasisTextureCompression
         Texture2D clamped = EnforceMaxSize(tex);
         DestroySafe(tex);
         return clamped;
+    }
+
+    /// <summary>
+    /// As <see cref="FromPngBytes"/>, but the base64 decode and square compose run off the main
+    /// thread and the GPU downscale is read back asynchronously instead of through the two
+    /// pipeline-flushing ReadPixels calls. Falls back to the synchronous path if the readback fails.
+    /// </summary>
+    public static async Task<Texture2D> FromPngBytesAsync(string pngBytes)
+    {
+        if (pngBytes == null) throw new ArgumentNullException(nameof(pngBytes));
+
+        byte[] decoded = await Task.Run(() => Convert.FromBase64String(pngBytes));
+        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        tex.LoadImage(decoded);
+
+        Texture2D clamped = await EnforceMaxSizeAsync(tex);
+        DestroySafe(tex);
+        return clamped;
+    }
+
+    private static async Task<Texture2D> EnforceMaxSizeAsync(Texture2D tex)
+    {
+        int w = tex.width;
+        int h = tex.height;
+
+        float scale = (float)MaxSize / Math.Max(w, h);
+        int newW = Math.Max(1, Mathf.RoundToInt(w * scale));
+        int newH = Math.Max(1, Mathf.RoundToInt(h * scale));
+
+        var rtScaled = RenderTexture.GetTemporary(newW, newH, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(tex, rtScaled);
+
+        var tcs = new TaskCompletionSource<byte[]>();
+        AsyncGPUReadback.Request(rtScaled, 0, TextureFormat.RGBA32, request =>
+        {
+            if (request.hasError)
+            {
+                tcs.TrySetResult(null);
+                return;
+            }
+            byte[] pixels = new byte[newW * newH * 4];
+            request.GetData<byte>().CopyTo(pixels);
+            tcs.TrySetResult(pixels);
+        });
+        byte[] scaled = await tcs.Task;
+        RenderTexture.ReleaseTemporary(rtScaled);
+        if (scaled == null)
+        {
+            return EnforceMaxSize(tex);
+        }
+
+        int offsetX = (MaxSize - newW) / 2;
+        int offsetY = (MaxSize - newH) / 2;
+        byte[] composed = await Task.Run(() => ComposeSquare(scaled, newW, newH, offsetX, offsetY));
+
+        var result = new Texture2D(MaxSize, MaxSize, TextureFormat.RGBA32, false);
+        result.LoadRawTextureData(composed);
+        result.Apply(false, false);
+        return result;
+    }
+
+    // Readback rows arrive bottom-up regardless of API (same as the photo/clip capture paths),
+    // which is already the row order LoadRawTextureData expects — no graphicsUVStartsAtTop flip.
+    private static byte[] ComposeSquare(byte[] scaled, int newW, int newH, int offsetX, int offsetY)
+    {
+        byte[] composed = new byte[MaxSize * MaxSize * 4];
+        int srcStride = newW * 4;
+        for (int row = 0; row < newH; row++)
+        {
+            Buffer.BlockCopy(scaled, row * srcStride, composed, ((offsetY + row) * MaxSize + offsetX) * 4, srcStride);
+        }
+        return composed;
     }
 
     private static void DestroySafe(UnityEngine.Object o)

@@ -448,7 +448,10 @@ public static class BasisHeightDriver
         }
         BasisLocalHeightCalculator.CalculatePlayerHipHeight();
 
-        AdoptObservedBodyEvidence();
+        if (ObservingBodyEvidence)
+        {
+            AdoptObservedBodyEvidence();
+        }
 
         if (Basis.BasisUI.BasisSettingsDefaults.FBIKArmHeightRatioEnabled.RawValue)
         {
@@ -557,21 +560,36 @@ public static class BasisHeightDriver
     private static bool s_hasRefitTarget;
     private static float s_refitFromEye, s_refitFromSpan;
     private static bool s_refitHeldLogged;
+    public const float MeasureWindowSeconds = 60f;
+    private static float s_measureWindowRemaining;
+    public static bool MeasureWindowOpen => s_measureWindowRemaining > 0f;
+    public static bool ObservingBodyEvidence => BasisSettingsDefaults.ContinuousBodyMeasurement.RawValue || MeasureWindowOpen;
+
+    public static void BeginMeasureWindow()
+    {
+        s_measureWindowRemaining = MeasureWindowSeconds;
+    }
 
     public static void TickObservedEvidence(float deltaTime)
     {
-        if (BasisLocalPlayer.Instance == null
-            || BasisDeviceManagement.IsUserInDesktop()
-            || BasisSettingsDefaults.ContinuousBodyMeasurement.RawValue == false)
+        if (BasisLocalPlayer.Instance == null || BasisDeviceManagement.IsUserInDesktop())
         {
             return;
         }
 
-        s_evidenceReapplyTimer += deltaTime;
-        if (s_evidenceReapplyTimer >= EvidenceReapplyIntervalSeconds)
+        if (s_measureWindowRemaining > 0f)
         {
-            s_evidenceReapplyTimer = 0f;
-            StageObservedBodySize();
+            s_measureWindowRemaining -= deltaTime;
+        }
+
+        if (ObservingBodyEvidence)
+        {
+            s_evidenceReapplyTimer += deltaTime;
+            if (s_evidenceReapplyTimer >= EvidenceReapplyIntervalSeconds)
+            {
+                s_evidenceReapplyTimer = 0f;
+                StageObservedBodySize();
+            }
         }
 
         if (!s_hasRefitTarget)

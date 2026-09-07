@@ -34,10 +34,6 @@ public sealed class BasisMediaPlayerAudioTap : MonoBehaviour
     private volatile bool active;
     private volatile int observedChannels;        // DSP width seen on the audio thread; read on the main thread
 
-    // The DSP output width Unity hands this (spatialised) source. Recorded on the
-    // audio thread, safe to read from the main thread for diagnostics.
-    public int ObservedChannels => observedChannels;
-
     // Called on the main thread by BasisMediaPlayerAudio during (re)build. `metrics`
     // is non-null only for the primary output. `spreadMono` true when this output
     // plays a single decoded channel that should present as a mono point source

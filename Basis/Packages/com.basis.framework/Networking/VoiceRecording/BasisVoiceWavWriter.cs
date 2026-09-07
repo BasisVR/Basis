@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
 
 namespace Basis.Scripts.Networking.VoiceRecording
 {
@@ -15,6 +17,18 @@ namespace Basis.Scripts.Networking.VoiceRecording
         private readonly int _sampleRate;
         private int _samplesWritten;
         private bool _closed;
+        private readonly ConcurrentQueue<PendingWrite> _pendingWrites = new ConcurrentQueue<PendingWrite>();
+        private readonly ConcurrentQueue<byte[]> _bufferPool = new ConcurrentQueue<byte[]>();
+        private readonly AutoResetEvent _writeSignal = new AutoResetEvent(false);
+        private Thread _writeThread;
+        private volatile bool _stopRequested;
+        private volatile Exception _writeException;
+
+        private struct PendingWrite
+        {
+            public byte[] Buffer;
+            public int Bytes;
+        }
 
         public string Path { get; }
 
@@ -33,6 +47,13 @@ namespace Basis.Scripts.Networking.VoiceRecording
             {
                 _writer.Write((byte)0);
             }
+            _writer.Flush();
+            _writeThread = new Thread(WriteThreadLoop)
+            {
+                IsBackground = true,
+                Name = "Basis Voice Wav Writer",
+            };
+            _writeThread.Start();
         }
 
         public void Write(float[] samples, int count)
@@ -41,14 +62,53 @@ namespace Basis.Scripts.Networking.VoiceRecording
             {
                 return;
             }
+            if (!_bufferPool.TryDequeue(out byte[] buffer) || buffer.Length < count * 2)
+            {
+                buffer = new byte[Math.Max(count * 2, 8192)];
+            }
+            int bytes = 0;
             for (int i = 0; i < count; i++)
             {
                 float f = samples[i];
                 if (f > 1f) f = 1f;
                 else if (f < -1f) f = -1f;
-                _writer.Write((short)(f * 32767f));
+                short s = (short)(f * 32767f);
+                buffer[bytes++] = (byte)s;
+                buffer[bytes++] = (byte)(s >> 8);
             }
             _samplesWritten += count;
+            _pendingWrites.Enqueue(new PendingWrite { Buffer = buffer, Bytes = bytes });
+            _writeSignal.Set();
+        }
+
+        private void WriteThreadLoop()
+        {
+            while (true)
+            {
+                _writeSignal.WaitOne();
+                while (_pendingWrites.TryDequeue(out PendingWrite item))
+                {
+                    try
+                    {
+                        _stream.Write(item.Buffer, 0, item.Bytes);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (_writeException == null)
+                        {
+                            _writeException = ex;
+                        }
+                    }
+                    if (_bufferPool.Count < 8)
+                    {
+                        _bufferPool.Enqueue(item.Buffer);
+                    }
+                }
+                if (_stopRequested && _pendingWrites.IsEmpty)
+                {
+                    return;
+                }
+            }
         }
 
         public void Dispose()
@@ -58,6 +118,21 @@ namespace Basis.Scripts.Networking.VoiceRecording
                 return;
             }
             _closed = true;
+            _stopRequested = true;
+            _writeSignal.Set();
+            try
+            {
+                _writeThread?.Join();
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"[BasisVoiceWavWriter] Writer thread join failed for {Path}: {ex}");
+            }
+            _writeThread = null;
+            if (_writeException != null)
+            {
+                BasisDebug.LogError($"[BasisVoiceWavWriter] Background write failed for {Path}: {_writeException}");
+            }
             try
             {
                 int dataBytes = _samplesWritten * 2;
@@ -86,6 +161,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
                 _writer?.Dispose();
                 _writer = null;
                 _stream = null;
+                _writeSignal.Dispose();
             }
         }
 

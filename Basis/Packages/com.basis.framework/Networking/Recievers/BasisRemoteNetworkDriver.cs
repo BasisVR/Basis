@@ -12,15 +12,59 @@ using Unity.Mathematics;
 /// Remote network driver that:
 /// 1) Interpolates prev->target pose (pos/scale/rot) per remote player
 /// 2) 1€-filters pose position + rotation per player
-/// 3) Interpolates bone rotation deltas (nlerp) and 1€-filters them per bone
+/// 3) Interpolates bone rotation deltas (Catmull-Rom) with an adaptive low-pass per bone
 /// 4) Computes scaled body position for the avatar root
 ///
 /// Replaces muscle-based interpolation with per-bone quaternion delta interpolation.
 /// </summary>
 public static class BasisRemoteNetworkDriver
 {
+    /// <summary>
+    /// Hard ceiling on a slot index, not an allocation size. Slots are keyed by playerId, which the
+    /// server picks and which is a ushort, so this is the widest key that can ever arrive.
+    /// </summary>
     public const int FixedCapacity = ushort.MaxValue;
+    /// <summary>
+    /// Slots allocated up front. The arrays used to be built at FixedCapacity on every client at
+    /// boot: 65535 * BoneCount quaternions is 51 MiB per bone array, five of those plus the
+    /// per-player and effector arrays is roughly 300 MB of Allocator.Persistent reserved before a
+    /// single remote joined, on desktop and Android alike. Worse, the region is keyed by a
+    /// SERVER-CHOSEN id, so a server handing out a high playerId walked EnsureInitialized across
+    /// millions of slots on one frame and committed all of it. Capacity now tracks the ids actually
+    /// in the room and doubles from here.
+    /// </summary>
+    public const int InitialCapacity = 256;
+    /// <summary>
+    /// Slots kept live past the observed high-water. BeginWrite is the only place that may
+    /// reallocate (the parallel receiver pass writes through pointers cached by
+    /// PublishWritePointers, so moving the arrays anywhere else is a use-after-free), and the
+    /// calibration seed paths run between frames. The headroom means a joining id lands in already
+    /// allocated space instead of needing a grow those paths are not allowed to perform.
+    /// </summary>
+    public const int CapacityHeadroom = 64;
+    /// <summary>
+    /// Ceiling on how far growth will follow a playerId, taken from the cap the server itself
+    /// advertises (Configuration.PeerLimit, pushed on connect and on every admin change).
+    /// <para>Capacity is proportional to the largest id handed out, and nothing stops a server from
+    /// giving its first joiner 65534 purely to make the client allocate: that is the same 300 MB by
+    /// another route. A fixed ceiling cannot separate that from a real 65535-cap room, and PeerLimit
+    /// defaults to ushort.MaxValue, so any number small enough to be a defence silently costs a
+    /// legitimately large server every player above it. Bounding by the server's own declared limit
+    /// keeps honest rooms exact at any size and still refuses ids a server has said cannot exist.
+    /// The default is permissive, which is the right way to fail: a room only pays for ids that
+    /// actually arrive.</para>
+    /// </summary>
+    static int CapacityCeiling()
+    {
+        int declared = BasisNetworkModeration.ServerPeerLimit;
+        if (declared <= 0) return FixedCapacity;
+        return math.clamp(declared, InitialCapacity, FixedCapacity);
+    }
     public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 54
+    /// <summary>Currently allocated slot count. Every index guard in this file bounds against this,
+    /// not FixedCapacity. Only BeginWrite may change it.</summary>
+    static int _capacity;
+    public static int Capacity => _capacity;
 
     // ─── INPUTS (4 control points p0..p3 for Catmull-Rom; p1=prev=Current, p2=target=Next) ───
     static NativeArray<float3> _p0Positions;
@@ -139,7 +183,7 @@ public static class BasisRemoteNetworkDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void SetSkipMuscles(int index, bool skip)
     {
-        if (_initialized && (uint)index < FixedCapacity)
+        if (_initialized && (uint)index < _capacity)
             ((byte*)(void*)_ptrSkipBones)[index] = skip ? (byte)1 : (byte)0;
     }
 
@@ -178,6 +222,9 @@ public static class BasisRemoteNetworkDriver
 
     static void EnsureInitialized(int count)
     {
+        // Never seed past what is allocated: EnsureSlotInitialized is handed a raw playerId and
+        // only BeginWrite is allowed to widen the arrays.
+        count = math.min(count, _capacity);
         if (count <= _initializedCount) return;
         for (int i = _initializedCount; i < count; i++)
         {
@@ -237,7 +284,7 @@ public static class BasisRemoteNetworkDriver
     {
         if (_initialized) return;
         _allocator = allocator;
-        AllocateAll(FixedCapacity);
+        AllocateAll(InitialCapacity);
         _initializedCount = 0;
         _initialized = true;
     }
@@ -250,10 +297,43 @@ public static class BasisRemoteNetworkDriver
         _initialized = false;
     }
 
-    public static unsafe void BeginWrite()
+    public static void BeginWrite()
     {
         if (!_initialized) return;
-        EnsureInitialized(math.clamp(BasisNetworkPlayers.LargestNetworkReceiverID + 1, 0, FixedCapacity));
+        int required = math.clamp(BasisNetworkPlayers.LargestNetworkReceiverID + 1, 0, FixedCapacity);
+        // The only growth point the parallel receiver pass depends on. LargestNetworkReceiverID is
+        // computed in phase 1 over the same snapshot phase 2 iterates, so covering it here is what
+        // lets every hot-path setter bounds-check against _capacity and drop rather than grow.
+        EnsureCapacity(required);
+        EnsureInitialized(required);
+        PublishWritePointers();
+    }
+
+    /// <summary>
+    /// Caches a raw pointer to each input buffer.
+    ///
+    /// Also called from AllocateAll — before Initialize() flips _initialized — and paired with
+    /// ClearPointers() in DisposeAll, so the invariant every pointer accessor below relies on
+    /// holds: <c>_initialized</c> implies the pointers are live. These used to be published only
+    /// here, on a per-frame call. Anything that reached SetFrameInputs / SetFrameTiming /
+    /// SetSkipMuscles / ResetPoseFilter / WriteEffectorInputs / ClearEffectorMask or an output
+    /// getter between Initialize() and that frame's BeginWrite — a calibration callback landing on
+    /// a join frame, or any frame where BeginNetworkCompute returned early while
+    /// SimulateNetworkApply still ran — dereferenced IntPtr.Zero. All of those guard on
+    /// _initialized and the index only, so nothing caught it: the store is a raw pointer write the
+    /// job safety system never sees.
+    ///
+    /// Published at every allocation, which is the first one plus each BeginWrite growth. Those are
+    /// the only points the arrays move: BeginWrite runs after the parallel receiver pass has been
+    /// joined, so no worker is mid-write through the previous set. Shutdown() frees them and clears
+    /// these.
+    ///
+    /// Split from <see cref="PublishReadPointers"/> deliberately: the output buffers are written by
+    /// oneEuroJob, so taking a read handle on them here — before Apply() fences it — is what the
+    /// safety system exists to reject.
+    /// </summary>
+    static unsafe void PublishWritePointers()
+    {
         _ptrInterpolationTimes = (IntPtr)_interpolationTimes.GetUnsafePtr();
         _ptrDeltaTimes = (IntPtr)_deltaTimes.GetUnsafePtr();
         _ptrHumanScales = (IntPtr)_humanScales.GetUnsafePtr();
@@ -282,6 +362,42 @@ public static class BasisRemoteNetworkDriver
     }
 
     /// <summary>
+    /// Caches a raw pointer to each interpolation output. Callers must have fenced oneEuroJob
+    /// first (BeginRead does, via Apply); see <see cref="PublishWritePointers"/> for why the two
+    /// sets are separate and for the lifetime invariant they share.
+    /// </summary>
+    static unsafe void PublishReadPointers()
+    {
+        _ptrScaleChange = (IntPtr)_HasScaleChange.GetUnsafeReadOnlyPtr();
+        _ptrFilteredRotations = (IntPtr)_filteredRotations.GetUnsafeReadOnlyPtr();
+        _ptrFilteredPositions = (IntPtr)_filteredPositions.GetUnsafeReadOnlyPtr();
+        _ptrScaledBodyPositions = (IntPtr)_scaledBodyPositions.GetUnsafeReadOnlyPtr();
+        _ptrFilteredBoneRotations = (IntPtr)_outBoneRotations.GetUnsafeReadOnlyPtr();
+        _ptrOutScales = (IntPtr)_outScales.GetUnsafeReadOnlyPtr();
+        _ptrSkipBones = (IntPtr)_skipBones.GetUnsafePtr();
+    }
+
+    /// <summary>
+    /// Drops every cached pointer so a post-Shutdown call can't reach freed memory. Pairs with
+    /// the publish pair; the accessors still gate on _initialized, this is the second belt.
+    /// </summary>
+    static void ClearPointers()
+    {
+        _ptrInterpolationTimes = _ptrDeltaTimes = _ptrHumanScales = IntPtr.Zero;
+        _ptrP0Positions = _ptrPrevPositions = _ptrTargetPositions = _ptrP3Positions = IntPtr.Zero;
+        _ptrPrevScales = _ptrTargetScales = IntPtr.Zero;
+        _ptrP0Rotations = _ptrPrevRotations = _ptrTargetRotations = _ptrP3Rotations = IntPtr.Zero;
+        _ptrP0BoneRotations = _ptrPrevBoneRotations = IntPtr.Zero;
+        _ptrTargetBoneRotations = _ptrP3BoneRotations = IntPtr.Zero;
+        _ptrPrevHipsDelta = _ptrTargetHipsDelta = IntPtr.Zero;
+        _ptrPrevHipsRotDelta = _ptrTargetHipsRotDelta = IntPtr.Zero;
+        _ptrPoseFilterSeeded = _ptrSkipBones = IntPtr.Zero;
+        _ptrEffMask = _ptrEffOffset = _ptrEffTipRot = IntPtr.Zero;
+        _ptrScaleChange = _ptrFilteredRotations = _ptrFilteredPositions = IntPtr.Zero;
+        _ptrScaledBodyPositions = _ptrFilteredBoneRotations = _ptrOutScales = IntPtr.Zero;
+    }
+
+    /// <summary>
     /// Grows the lazily-initialized region to include <paramref name="playerId"/> on the
     /// main thread. BeginWrite only covers [0, LargestNetworkReceiverID+1), and that
     /// high-water is recomputed at the tail of LateUpdate — AFTER RemoteBoneJobSystem.Schedule()
@@ -291,11 +407,14 @@ public static class BasisRemoteNetworkDriver
     /// Call this at calibration, before the player is registered with RemoteBoneJobSystem.
     /// Completes any in-flight oneEuroJob first (same reason as SeedScaleState): EnsureInitialized
     /// writes arrays the job touches.
+    /// <para>Bounded by the allocated capacity, not FixedCapacity: only BeginWrite may widen the
+    /// arrays, and it leaves CapacityHeadroom slots past the high-water so a joining id is already
+    /// covered. An id past that is dropped here and picked up by the next BeginWrite instead.</para>
     /// </summary>
     public static void EnsureSlotInitialized(int playerId)
     {
         if (!_initialized) return;
-        if ((uint)playerId >= FixedCapacity) return;
+        if ((uint)playerId >= _capacity) return;
         oneEuroJob.Complete();
         EnsureInitialized(playerId + 1);
         ResetBoneShimmerFilter(playerId);
@@ -309,7 +428,7 @@ public static class BasisRemoteNetworkDriver
     /// </summary>
     public static unsafe void ResetBoneShimmerFilter(int index)
     {
-        if (!_initialized || (uint)index >= FixedCapacity) return;
+        if (!_initialized || (uint)index >= _capacity) return;
         int baseOffset = index * BoneCount;
         quaternion* p = (quaternion*)_outBoneRotations.GetUnsafePtr() + baseOffset;
         for (int b = 0; b < BoneCount; b++) p[b] = new quaternion(0f, 0f, 0f, 0f);
@@ -319,7 +438,7 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void ResetPoseFilter(int index)
     {
         if (!_initialized) return;
-        if ((uint)index >= FixedCapacity) return;
+        if ((uint)index >= _capacity) return;
         ((byte*)(void*)_ptrPoseFilterSeeded)[index] = 0;
     }
 
@@ -345,7 +464,7 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void SeedScaleState(int index, float3 seed)
     {
         if (!_initialized) return;
-        if ((uint)index >= FixedCapacity) return;
+        if ((uint)index >= _capacity) return;
         oneEuroJob.Complete();
         ((float3*)_prevScales.GetUnsafePtr())[index] = seed;
         ((float3*)_targetScales.GetUnsafePtr())[index] = seed;
@@ -377,7 +496,7 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void SeedPoseState(int index, float3 hipsWorldPosition, quaternion hipsWorldRotation)
     {
         if (!_initialized) return;
-        if ((uint)index >= FixedCapacity) return;
+        if ((uint)index >= _capacity) return;
         oneEuroJob.Complete();
         ((float3*)_p0Positions.GetUnsafePtr())[index] = hipsWorldPosition;
         ((float3*)_prevPositions.GetUnsafePtr())[index] = hipsWorldPosition;
@@ -406,7 +525,7 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void ResetScaleTracking(int index)
     {
         if (!_initialized) return;
-        if ((uint)index >= FixedCapacity) return;
+        if ((uint)index >= _capacity) return;
         oneEuroJob.Complete();
         ((float3*)_lastAppliedScales.GetUnsafePtr())[index] = new float3(float.NegativeInfinity);
         ((byte*)_HasScaleChange.GetUnsafePtr())[index] = 0;
@@ -416,7 +535,7 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void SetFrameTiming(int index, double interpolationTime, double deltaTimeSeconds)
     {
         if (!_initialized) return;
-        if ((uint)index >= FixedCapacity) return;
+        if ((uint)index >= _capacity) return;
         ((double*)(void*)_ptrInterpolationTimes)[index] = interpolationTime;
         ((double*)(void*)_ptrDeltaTimes)[index] = deltaTimeSeconds;
     }
@@ -438,7 +557,7 @@ public static class BasisRemoteNetworkDriver
         NativeArray<quaternion> targetBoneRots, NativeArray<quaternion> p3BoneRots)
     {
         if (!_initialized) return;
-        if ((uint)index >= FixedCapacity) return;
+        if ((uint)index >= _capacity) return;
         ((float*)(void*)_ptrHumanScales)[index] = humanScale;
         ((float3*)(void*)_ptrP0Positions)[index] = p0Pos;
         ((float3*)(void*)_ptrPrevPositions)[index] = prevPos;
@@ -454,6 +573,12 @@ public static class BasisRemoteNetworkDriver
         ((float3*)(void*)_ptrTargetHipsDelta)[index] = targetHipsDelta;
         ((quaternion*)(void*)_ptrPrevHipsRotDelta)[index] = prevHipsRotDelta;
         ((quaternion*)(void*)_ptrTargetHipsRotDelta)[index] = targetHipsRotDelta;
+
+        // The four copies below read BoneCount quaternions straight off each source's buffer
+        // pointer, so a caller handing over a default (uncreated) or short array would memcpy from
+        // null / past the end. Length is 0 on an uncreated NativeArray, so this covers both.
+        if (p0BoneRots.Length < BoneCount || prevBoneRots.Length < BoneCount
+            || targetBoneRots.Length < BoneCount || p3BoneRots.Length < BoneCount) return;
 
         int bytes = BoneCount * UnsafeUtility.SizeOf<quaternion>();
         int baseOffset = index * BoneCount;
@@ -479,7 +604,7 @@ public static class BasisRemoteNetworkDriver
         oneEuroJob.Complete();
 
         int num = BasisNetworkPlayers.LargestNetworkReceiverID + 1;
-        num = math.clamp(num, 0, FixedCapacity);
+        num = math.clamp(num, 0, _capacity);
 
         // Same adaptive batch as BasisRemoteBoneDriver: a fixed 128 packs any lobby under
         // 128 players into a single chunk, so one worker ran the lot.
@@ -557,8 +682,7 @@ public static class BasisRemoteNetworkDriver
             OutputBones = _outBoneRotations,
             FilterMinCutoffHz = BoneFilterMinCutoffHz,
             HeadFilterMinCutoffHz = HeadBoneFilterMinCutoffHz,
-            FilterBeta = BoneFilterBeta,
-            BoneCountPerAvatar = BoneCount
+            FilterBeta = BoneFilterBeta
         }.Schedule(num * BoneCount, 128);
 
         oneEuroJob = JobHandle.CombineDependencies(boneInterpJob, scaledBodyJob);
@@ -572,16 +696,16 @@ public static class BasisRemoteNetworkDriver
         oneEuroJob.Complete();
     }
 
-    public static unsafe void BeginRead()
+    /// <summary>
+    /// Refreshes the output pointers for the frame's read phase. <see cref="PublishReadPointers"/>
+    /// also runs at every allocation, so a getter reached before this is still pointed at live
+    /// memory; this is the read-phase marker and the republish after a BeginWrite growth.
+    /// Callers fence oneEuroJob first (Apply).
+    /// </summary>
+    public static void BeginRead()
     {
         if (!_initialized) return;
-        _ptrScaleChange = (IntPtr)_HasScaleChange.GetUnsafeReadOnlyPtr();
-        _ptrFilteredRotations = (IntPtr)_filteredRotations.GetUnsafeReadOnlyPtr();
-        _ptrFilteredPositions = (IntPtr)_filteredPositions.GetUnsafeReadOnlyPtr();
-        _ptrScaledBodyPositions = (IntPtr)_scaledBodyPositions.GetUnsafeReadOnlyPtr();
-        _ptrFilteredBoneRotations = (IntPtr)_outBoneRotations.GetUnsafeReadOnlyPtr();
-        _ptrOutScales = (IntPtr)_outScales.GetUnsafeReadOnlyPtr();
-        _ptrSkipBones = (IntPtr)_skipBones.GetUnsafePtr();
+        PublishReadPointers();
     }
 
     /// <summary>Base pointer to the per-player skip flags (valid after BeginRead); null if uninitialized.</summary>
@@ -605,7 +729,7 @@ public static class BasisRemoteNetworkDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SetFilteredHipsOverride(int index, float3 position, quaternion rotation)
     {
-        if (!_initialized || (uint)index >= FixedCapacity) return;
+        if (!_initialized || (uint)index >= _capacity) return;
         _filteredPositions[index] = position;
         _filteredRotations[index] = rotation;
     }
@@ -667,20 +791,42 @@ public static class BasisRemoteNetworkDriver
         {
             int key = PlayerKeys[i];
 
-            // 1+2: hips world + scale fan-out
-            float3 hipsWorldPos = SrcHipsWorldPos[key];
-            quaternion hipsWorldRot = SrcHipsWorldRot[key];
-            float3 scale = SrcScale[key];
+            // A live key can sit past the allocated slots two ways: the key array gains a row the
+            // moment a player registers while capacity only ever widens in BeginWrite, and the
+            // ceiling follows a peer limit the server may lower below ids that are already
+            // connected. Every setter on this class drops such a key rather than growing, and the
+            // sibling jobs guard the same way — reading it unguarded aborts the process, because a
+            // Burst job cannot throw.
+            bool keyValid = (uint)key < (uint)CapacityFixed;
+
+            // Neutral values are the ones EnsureInitialized stamps on a slot, so a key with no
+            // storage behaves exactly like a player whose first pose has not landed yet.
+            float3 hipsWorldPos = float3.zero;
+            quaternion hipsWorldRot = quaternion.identity;
+            float3 scale = new float3(1f, 1f, 1f);
+            float3 hipsLocalPosDelta = float3.zero;
+            quaternion hipsLocalRotDelta = quaternion.identity;
+            byte scaleChanged = 0;
+            if (keyValid)
+            {
+                // 1+2: hips world + scale fan-out
+                hipsWorldPos = SrcHipsWorldPos[key];
+                hipsWorldRot = SrcHipsWorldRot[key];
+                scale = SrcScale[key];
+                hipsLocalPosDelta = SrcHipsLocalPosDelta[key];
+                hipsLocalRotDelta = SrcHipsLocalRotDelta[key];
+                scaleChanged = SrcChange[key] ? (byte)1 : (byte)0;
+            }
             DstHipsWorldPos[i] = hipsWorldPos;
             DstHipsWorldRot[i] = hipsWorldRot;
             DstScaleOut[i] = scale;
-            DstScaleChanged[i] = SrcChange[key] ? (byte)1 : (byte)0;
+            DstScaleChanged[i] = scaleChanged;
 
             // 3+4+5: derive root from hips world + local deltas + TPose
-            float3 hipsLocalPos = TposeHipsLocalPos[i] + SrcHipsLocalPosDelta[key];
+            float3 hipsLocalPos = TposeHipsLocalPos[i] + hipsLocalPosDelta;
             // The hips rotation arrives rig-neutral like the bone block; map it onto this
             // avatar's rig before using it to back out the root.
-            quaternion hipsLocalRot = math.mul(math.mul(HipsDecodePre[i], SrcHipsLocalRotDelta[key]), HipsDecodePost[i]);
+            quaternion hipsLocalRot = math.mul(math.mul(HipsDecodePre[i], hipsLocalRotDelta), HipsDecodePost[i]);
 
             // conjugate, not inverse — every quaternion here is unit-length
             quaternion rootRot = math.mul(hipsWorldRot, math.conjugate(hipsLocalRot));
@@ -692,7 +838,6 @@ public static class BasisRemoteNetworkDriver
             // found in the real hierarchy are links, so a rig's twist/Armature nodes are already
             // folded in and a missing UpperChest simply isn't there.
             HeadChainHeader header = HeadChainHeaders[i];
-            bool keyValid = (uint)key < (uint)CapacityFixed;
             float3 headPos = hipsWorldPos;
             quaternion headRot = hipsWorldRot;
             float3 chainScale = scale * header.HipsScalePerRootLocal;
@@ -847,7 +992,7 @@ public static class BasisRemoteNetworkDriver
             DstHeadWorldRot = dstHeadWorldRot,
             HeadChainStride = headChainStride,
             BoneCount = boneCount,
-            CapacityFixed = FixedCapacity,
+            CapacityFixed = _capacity,
             DstHipsWorldPos = dstHipsWorldPos,
             DstHipsWorldRot = dstHipsWorldRot,
             DstScaleOut = dstScale,
@@ -882,7 +1027,7 @@ public static class BasisRemoteNetworkDriver
             LastWritten = lastWritten,
             WriteMask = writeMask,
             BoneCount = boneCount,
-            CapacityFixed = FixedCapacity,
+            CapacityFixed = _capacity,
         }.Schedule(totalBones, batch, deps);
     }
 
@@ -902,7 +1047,7 @@ public static class BasisRemoteNetworkDriver
     /// </summary>
     public static unsafe void WriteEffectorInputs(int playerId, byte mask, float3* offsets, quaternion* tipRots)
     {
-        if (!_initialized || (uint)playerId >= FixedCapacity) return;
+        if (!_initialized || (uint)playerId >= _capacity) return;
         if (mask != 0) AnyEffectorAnchored = true;
         ((byte*)(void*)_ptrEffMask)[playerId] = mask;
         int b = playerId * 4;
@@ -916,7 +1061,7 @@ public static class BasisRemoteNetworkDriver
     /// <summary>Clears a player's end-effector IK mask so no limb anchors this frame.</summary>
     public static unsafe void ClearEffectorMask(int playerId)
     {
-        if (!_initialized || (uint)playerId >= FixedCapacity) return;
+        if (!_initialized || (uint)playerId >= _capacity) return;
         ((byte*)(void*)_ptrEffMask)[playerId] = 0;
     }
 
@@ -1063,7 +1208,7 @@ public static class BasisRemoteNetworkDriver
             OverrideRot = overrideRot,
             OverrideMask = overrideMask,
             BoneCount = boneCount,
-            CapacityFixed = FixedCapacity,
+            CapacityFixed = _capacity,
             FadeBentReach = LegAnchorFadeBentReach,
             FadeStraightReach = LegAnchorFadeStraightReach,
         }.Schedule(count, batch, deps);
@@ -1079,7 +1224,7 @@ public static class BasisRemoteNetworkDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe quaternion* GetFilteredBoneRotationsPtr(int index)
     {
-        if (!_initialized || (uint)index >= FixedCapacity)
+        if (!_initialized || (uint)index >= _capacity)
             return null;
         return (quaternion*)(void*)_ptrFilteredBoneRotations + index * BoneCount;
     }
@@ -1087,7 +1232,7 @@ public static class BasisRemoteNetworkDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void GetScaleOutput(int index, out float3 outScale)
     {
-        if (!_initialized || (uint)index >= FixedCapacity) { outScale = new float3(1, 1, 1); return; }
+        if (!_initialized || (uint)index >= _capacity) { outScale = new float3(1, 1, 1); return; }
         outScale = ((float3*)(void*)_ptrOutScales)[index];
     }
 
@@ -1103,7 +1248,7 @@ public static class BasisRemoteNetworkDriver
         out quaternion outBodyRot,
         out float3 bodyPosition)
     {
-        if (!_initialized || (uint)index >= FixedCapacity)
+        if (!_initialized || (uint)index >= _capacity)
         {
             outScale = false;
             outBodyRot = quaternion.identity;
@@ -1118,54 +1263,102 @@ public static class BasisRemoteNetworkDriver
 
     // ─── MEMORY ───
 
+    /// <summary>
+    /// Grows one slot array to <paramref name="length"/>, carrying the existing contents over. Used
+    /// for both the first allocation (nothing to copy) and every later growth, so there is exactly
+    /// one list of arrays to keep in sync.
+    /// </summary>
+    static void Resize<T>(ref NativeArray<T> array, int length, NativeArrayOptions options) where T : struct
+    {
+        NativeArray<T> grown = new NativeArray<T>(length, _allocator, options);
+        if (array.IsCreated)
+        {
+            NativeArray<T>.Copy(array, grown, math.min(array.Length, length));
+            array.Dispose();
+        }
+        array = grown;
+    }
+
+    /// <summary>
+    /// Widens the slot arrays to cover <paramref name="required"/> keys plus headroom, doubling so
+    /// a room that fills gradually reallocates a handful of times rather than per join.
+    /// <para>Call ONLY from BeginWrite. Every other writer reaches these arrays through the raw
+    /// pointers PublishWritePointers caches, and the parallel receiver pass is reading them on a
+    /// worker thread for most of the frame; reallocating anywhere else frees memory that pass is
+    /// mid-write into. BeginWrite runs after JoinComputeWorker, which is the one point per frame
+    /// where no such pass is in flight.</para>
+    /// </summary>
+    static void EnsureCapacity(int required)
+    {
+        if (required <= _capacity) return;
+
+        // An id that has actually arrived gets a slot even when it sits above the declared cap.
+        // Lowering PeerLimit below the live population is supported server-side and disconnects
+        // nobody, so an honest room legitimately carries ids past its own limit; clamping to the
+        // cap left those players with no storage, which the hips/skeleton jobs then indexed. The
+        // cap still bounds the speculative headroom, which is what the allocation guard is for.
+        int ceiling = math.max(CapacityCeiling(), required);
+        int target = math.min(required + CapacityHeadroom, ceiling);
+        int newCapacity = math.min(math.max(InitialCapacity, math.ceilpow2(target)), ceiling);
+        if (newCapacity <= _capacity) return;
+
+        oneEuroJob.Complete();
+        AllocateAll(newCapacity);
+    }
+
     static void AllocateAll(int capacity)
     {
-        _p0Positions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _prevPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _targetPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _p3Positions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _prevScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _targetScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _p0Rotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _prevRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _targetRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _p3Rotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _prevHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _targetHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _outHipsDelta = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _prevHipsRotDelta = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _targetHipsRotDelta = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _outHipsRotDelta = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _interpolationTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.ClearMemory);
-        _deltaTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _outPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _outScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _outRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _filteredPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _filteredRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _poseFilterSeeded = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
-        _posPrevRaw = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _posPrevFiltered = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _posPrevDerivFiltered = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _rotPrevRaw = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _rotPrevFiltered = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _rotDerivFilter = new NativeArray<float2>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _humanScales = new NativeArray<float>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _scaledBodyPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _HasScaleChange = new NativeArray<bool>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _lastAppliedScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _skipBones = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
+        _capacity = capacity;
+        Resize(ref _p0Positions, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _prevPositions, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _targetPositions, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _p3Positions, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _prevScales, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _targetScales, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _p0Rotations, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _prevRotations, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _targetRotations, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _p3Rotations, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _prevHipsDelta, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _targetHipsDelta, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _outHipsDelta, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _prevHipsRotDelta, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _targetHipsRotDelta, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _outHipsRotDelta, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _interpolationTimes, capacity, NativeArrayOptions.ClearMemory);
+        Resize(ref _deltaTimes, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _outPositions, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _outScales, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _outRotations, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _filteredPositions, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _filteredRotations, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _poseFilterSeeded, capacity, NativeArrayOptions.ClearMemory);
+        Resize(ref _posPrevRaw, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _posPrevFiltered, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _posPrevDerivFiltered, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _rotPrevRaw, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _rotPrevFiltered, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _rotDerivFilter, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _humanScales, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _scaledBodyPositions, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _HasScaleChange, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _lastAppliedScales, capacity, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _skipBones, capacity, NativeArrayOptions.ClearMemory);
 
         int flat = capacity * BoneCount;
-        _p0BoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _prevBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _targetBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _p3BoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _outBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _p0BoneRotations, flat, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _prevBoneRotations, flat, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _targetBoneRotations, flat, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _p3BoneRotations, flat, NativeArrayOptions.UninitializedMemory);
+        Resize(ref _outBoneRotations, flat, NativeArrayOptions.UninitializedMemory);
 
-        _effMask = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
-        _effOffset = new NativeArray<float3>(capacity * 4, _allocator, NativeArrayOptions.ClearMemory);
-        _effTipRot = new NativeArray<quaternion>(capacity * 4, _allocator, NativeArrayOptions.ClearMemory);
+        Resize(ref _effMask, capacity, NativeArrayOptions.ClearMemory);
+        Resize(ref _effOffset, capacity * 4, NativeArrayOptions.ClearMemory);
+        Resize(ref _effTipRot, capacity * 4, NativeArrayOptions.ClearMemory);
+
+        // Nothing is scheduled yet at allocation, so both sets are legal to take here.
+        PublishWritePointers();
+        PublishReadPointers();
     }
 
     static void DisposeAll()
@@ -1187,6 +1380,10 @@ public static class BasisRemoteNetworkDriver
         D(ref _p0BoneRotations); D(ref _prevBoneRotations);
         D(ref _targetBoneRotations); D(ref _p3BoneRotations); D(ref _outBoneRotations);
         D(ref _effMask); D(ref _effOffset); D(ref _effTipRot);
+
+        _capacity = 0;
+        _initializedCount = 0;
+        ClearPointers();
     }
 
     // ─── JOBS ───
@@ -1239,7 +1436,7 @@ public static class BasisRemoteNetworkDriver
             quaternion targetHipsRot = TargetHipsRotDelta[index];
             if (math.dot(prevHipsRot.value, targetHipsRot.value) < 0f)
                 targetHipsRot.value = -targetHipsRot.value;
-            OutputHipsRotDelta[index] = math.normalize(math.nlerp(prevHipsRot, targetHipsRot, t));
+            OutputHipsRotDelta[index] = math.normalize(new quaternion(math.lerp(prevHipsRot.value, targetHipsRot.value, t)));
 
             const float scaleEpsSq = 1e-10f;
             bool changed = math.lengthsq(outScale - LastAppliedScales[index]) > scaleEpsSq;
@@ -1252,8 +1449,11 @@ public static class BasisRemoteNetworkDriver
     }
 
     /// <summary>
-    /// Per-bone quaternion interpolation via nlerp. Replaces the old muscle lerp job.
+    /// Per-bone Catmull-Rom interpolation + motion-adaptive low-pass.
     /// Handles all players×bones in a single flat array for maximum parallelism.
+    /// A bone whose four control points are bit-identical (untracked fingers, held
+    /// joints) collapses to a point spline; once the filter state has settled onto
+    /// that point the whole item is a few compares and a return.
     /// </summary>
     [BurstCompile]
     public struct InterpolateBoneRotationsJob : IJobParallelFor
@@ -1271,15 +1471,13 @@ public static class BasisRemoteNetworkDriver
         public float FilterMinCutoffHz;
         public float HeadFilterMinCutoffHz;
         public float FilterBeta;
-        public int BoneCountPerAvatar;
 
         // BONE_WRITE_ORDER slot 4 = Head — gets the heavier still-cutoff (end-of-chain shimmer, no anchor).
         const int HeadSlot = 4;
 
         public void Execute(int index)
         {
-            int playerIndex = index / BoneCountPerAvatar;
-            int boneSlot = index - playerIndex * BoneCountPerAvatar;
+            int playerIndex = index / BoneCount;
             quaternion prevFilt = OutputBones[index];
             bool unseeded = math.lengthsq(prevFilt.value) < 0.5f;   // zero sentinel = first tick
 
@@ -1289,15 +1487,29 @@ public static class BasisRemoteNetworkDriver
                 return;                                                    // else hold last filtered value
             }
 
-            float t = math.clamp((float)InterpolationTimes[playerIndex], 0f, 1f);
-            quaternion raw = BasisRemoteInterpolationCore.Rotation(
-                P0Bones[index], PreviousBones[index], TargetBones[index], P3Bones[index], t);
+            quaternion p1 = PreviousBones[index], p2 = TargetBones[index];
+            bool4 eq = (p1.value == p2.value) & (P0Bones[index].value == p1.value) & (P3Bones[index].value == p2.value);
+            bool still = math.all(eq);
+            // Settled still bone (untracked fingers most frames): output already holds this exact value.
+            if (still & math.all(prevFilt.value == p1.value)) return;
+
+            quaternion raw;
+            if (still)
+            {
+                raw = p1;   // all four control points identical — the spline is that point for every t
+            }
+            else
+            {
+                float t = math.clamp((float)InterpolationTimes[playerIndex], 0f, 1f);
+                raw = BasisRemoteInterpolationCore.Rotation(P0Bones[index], p1, p2, P3Bones[index], t);
+            }
 
             // Motion-adaptive one-pole toward the cubic output — heavy when the joint is still
             // (hides quant shimmer), opens on real motion (no lag). Seeds on the first tick.
+            int boneSlot = index - playerIndex * BoneCount;
             float minCutoff = (boneSlot == HeadSlot) ? HeadFilterMinCutoffHz : FilterMinCutoffHz;
             if (unseeded || minCutoff <= 0f) { OutputBones[index] = raw; return; }
-            float cutoff = BasisRemoteInterpolationCore.AdaptiveCutoff(PreviousBones[index], TargetBones[index], minCutoff, FilterBeta);
+            float cutoff = BasisRemoteInterpolationCore.AdaptiveCutoff(p1, p2, minCutoff, FilterBeta);
             float alpha = BasisRemoteInterpolationCore.OnePoleAlpha(cutoff, (float)math.max(DeltaTimeSeconds[playerIndex], 1e-4));
             OutputBones[index] = BasisRemoteInterpolationCore.LowPassStep(prevFilt, raw, alpha);
         }

@@ -351,6 +351,10 @@
       "value": "All Settings"
     },
     {
+      "key": "camera.readout.changedFrom",
+      "value": "Values in blue differ from {0}"
+    },
+    {
       "key": "camera.userMode.error.empty",
       "value": "Give the preset a name before saving it."
     },
@@ -767,6 +771,82 @@
       "value": "Stop Recording"
     },
     {
+      "key": "camera.photogrammetry",
+      "value": "Photogrammetry"
+    },
+    {
+      "key": "camera.photogrammetry.record",
+      "value": "Start Session"
+    },
+    {
+      "key": "camera.photogrammetry.stopUnlimited",
+      "value": "Stop Session"
+    },
+    {
+      "key": "camera.photogrammetry.saving",
+      "value": "Saving..."
+    },
+    {
+      "key": "camera.photogrammetry.status",
+      "value": "Status"
+    },
+    {
+      "key": "camera.photogrammetry.status.idle",
+      "value": "Not recording. Tip: turn off Depth of Field and Motion Blur first for cleaner reconstructions."
+    },
+    {
+      "key": "camera.photogrammetry.status.recording",
+      "value": "Session active: {0} photos captured so far."
+    },
+    {
+      "key": "camera.photogrammetry.status.saving",
+      "value": "Saving... {0} of {1} photos written."
+    },
+    {
+      "key": "camera.photogrammetry.status.saved",
+      "value": "Last photo saved: {0}"
+    },
+    {
+      "key": "camera.photogrammetry.status.failed",
+      "value": "Last session failed: {0}"
+    },
+    {
+      "key": "camera.photogrammetry.status.blocked",
+      "value": "Camera capture is locked by an admin."
+    },
+    {
+      "key": "camera.photogrammetry.distance",
+      "value": "Distance Trigger"
+    },
+    {
+      "key": "camera.photogrammetry.distance.description",
+      "value": "Takes a photo whenever the camera has moved at least this far since the last one."
+    },
+    {
+      "key": "camera.photogrammetry.angle",
+      "value": "Angle Trigger"
+    },
+    {
+      "key": "camera.photogrammetry.angle.description",
+      "value": "Takes a photo whenever the camera has turned at least this far since the last one."
+    },
+    {
+      "key": "camera.photogrammetry.resolution",
+      "value": "Resolution"
+    },
+    {
+      "key": "camera.photogrammetry.resolution.description",
+      "value": "Size of each captured photo. Lower keeps the session fast and the dataset small."
+    },
+    {
+      "key": "camera.photogrammetry.captureNow",
+      "value": "Capture Now"
+    },
+    {
+      "key": "camera.photogrammetry.captureNow.description",
+      "value": "Takes one photo immediately, ignoring the movement thresholds."
+    },
+    {
       "key": "camera.lens",
       "value": "Lens"
     },
@@ -785,6 +865,14 @@
     {
       "key": "camera.depthOfField",
       "value": "Depth Of Field"
+    },
+    {
+      "key": "camera.depthOfField.enable",
+      "value": "Enable Depth Of Field"
+    },
+    {
+      "key": "camera.depthOfField.enable.description",
+      "value": "Blur everything that is not at the focus distance. This is the same switch as the one on the camera itself."
     },
     {
       "key": "camera.mode",
@@ -1125,6 +1213,46 @@
     {
       "key": "camera.section.fog",
       "value": "Fog"
+    },
+    {
+      "key": "camera.section.globalIllumination",
+      "value": "Global Illumination"
+    },
+    {
+      "key": "camera.gi.override",
+      "value": "Override Global Illumination"
+    },
+    {
+      "key": "camera.gi.override.tooltip",
+      "value": "Substitute the settings below for your live Global Illumination while this camera takes a photo. Off, a capture uses whatever Global Illumination you have live, same as before this existed."
+    },
+    {
+      "key": "camera.gi.override.disabled",
+      "value": "Turn on Global Illumination in Graphics Settings first."
+    },
+    {
+      "key": "camera.gi.mirrors",
+      "value": "Mirrors"
+    },
+    {
+      "key": "camera.gi.mirrors.tooltip",
+      "value": "Whether mirrors in frame show the bounce during this camera's captures."
+    },
+    {
+      "key": "camera.section.rtao",
+      "value": "Ray Traced Ambient Occlusion"
+    },
+    {
+      "key": "camera.rtao.override",
+      "value": "Override Ambient Occlusion"
+    },
+    {
+      "key": "camera.rtao.override.tooltip",
+      "value": "Substitute the settings below for your live ambient occlusion while this camera takes a photo. Off, a capture uses whatever ambient occlusion you have live, same as before this existed."
+    },
+    {
+      "key": "camera.rtao.override.disabled",
+      "value": "Turn on Ray Traced Ambient Occlusion in Graphics Settings first."
     },
     {
       "key": "camera.bloomIntensity",
@@ -1515,6 +1643,78 @@
       "value": "On, the flying camera coasts to a stop after you let go of WASD or the move stick. Off, it stops the instant you release. The same switch covers desktop and VR."
     },
     {
+      "key": "camera.flyMovementFollowsPitch",
+      "value": "Movement Follows Pitch"
+    },
+    {
+      "key": "camera.flyMovementFollowsPitch.description",
+      "value": "On (the fixed behaviour), the VR fly stick's forward and strafe follow wherever the lens is aimed, so pointing the camera down and pushing forward dives it - matching how desktop's WASD has always worked. Off goes back to the older behaviour: forward always slides level no matter how the lens is tipped, and only the separate elevation axis climbs."
+    },
+    {
+      "key": "camera.leftHandFly",
+      "value": "Left Hand Fly"
+    },
+    {
+      "key": "camera.leftHandFly.description",
+      "value": "While flying in VR, move and turn your left hand to fly the camera directly instead of using the left stick. Hold your hand away from where it started and the camera flies that way; bring it back to fly again, like releasing and re-gripping a stick."
+    },
+    {
+      "key": "camera.rightHandFlyRotate",
+      "value": "Right Hand Rotate"
+    },
+    {
+      "key": "camera.rightHandFlyRotate.description",
+      "value": "While flying in VR, turn your right hand to turn the camera instead of using the right stick's yaw and pitch. Works alongside Left Hand Fly, so both hands can steer the look at once."
+    },
+    {
+      "key": "camera.handFlyMoveDeadzone",
+      "value": "Hand Fly Move Deadzone"
+    },
+    {
+      "key": "camera.handFlyMoveDeadzone.description",
+      "value": "How far your hand has to move from where it started before Left Hand Fly responds at all. Filters out natural hand tremor near the centre."
+    },
+    {
+      "key": "camera.handFlyMoveReach",
+      "value": "Hand Fly Move Reach"
+    },
+    {
+      "key": "camera.handFlyMoveReach.description",
+      "value": "How far your hand has to move from where it started for Left Hand Fly to reach full speed. The response eases smoothly between the deadzone and this distance rather than snapping straight to full."
+    },
+    {
+      "key": "camera.handFlyMoveSensitivity",
+      "value": "Hand Fly Move Sensitivity"
+    },
+    {
+      "key": "camera.handFlyMoveSensitivity.description",
+      "value": "Overall strength of Left Hand Fly's movement, on top of the deadzone and reach above. Above 1 lets a smaller hand movement reach full speed; below 1 softens it."
+    },
+    {
+      "key": "camera.handFlyTurnDeadzone",
+      "value": "Hand Fly Turn Deadzone"
+    },
+    {
+      "key": "camera.handFlyTurnDeadzone.description",
+      "value": "How far your hand has to turn from where it started before hand-tracked rotation responds at all. Filters out natural wrist tremor near the centre. Shared by Left Hand Fly and Right Hand Rotate."
+    },
+    {
+      "key": "camera.handFlyTurnReach",
+      "value": "Hand Fly Turn Reach"
+    },
+    {
+      "key": "camera.handFlyTurnReach.description",
+      "value": "How far your hand has to turn from where it started for hand-tracked rotation to reach full rate. The response eases smoothly between the deadzone and this angle rather than snapping straight to full. Shared by Left Hand Fly and Right Hand Rotate."
+    },
+    {
+      "key": "camera.handFlyTurnSensitivity",
+      "value": "Hand Fly Turn Sensitivity"
+    },
+    {
+      "key": "camera.handFlyTurnSensitivity.description",
+      "value": "Overall strength of hand-tracked rotation, on top of the deadzone and reach above. Above 1 lets a smaller hand turn reach full rate; below 1 softens it. Shared by Left Hand Fly and Right Hand Rotate."
+    },
+    {
       "key": "camera.flyOnMenu",
       "value": "Show Fly Switch On Main Menu"
     },
@@ -1544,7 +1744,23 @@
     },
     {
       "key": "camera.detachedMarker.description",
-      "value": "What marks the camera when it leaves your hand — a grabbable puck, a lightweight wireframe, or nothing."
+      "value": "What marks the camera when it leaves your hand — a solid puck, a lightweight wireframe, or nothing. Either one can be taken hold of to fly the camera."
+    },
+    {
+      "key": "camera.detachedMarker.size",
+      "value": "Marker Size"
+    },
+    {
+      "key": "camera.detachedMarker.size.description",
+      "value": "How large the detached marker is drawn, as a share of its natural size. In VR you can also resize it by holding the marker and pulling both hands apart."
+    },
+    {
+      "key": "camera.puckPreview",
+      "value": "Puck Look-At Preview"
+    },
+    {
+      "key": "camera.puckPreview.description",
+      "value": "Show a screen of what the camera sees whenever it is out of your hand and turned back toward you. It goes again when the camera is turned away, and never appears in your photos or streams."
     },
     {
       "key": "camera.followTarget",
@@ -1636,7 +1852,15 @@
     },
     {
       "key": "camera.printPhoto.description",
-      "value": "Spawn each photo you take in front of you as a shared image card — the same one a file dragged onto the window makes. Everyone in the instance sees it, and anyone can grab, move, or delete it. PNG photos only."
+      "value": "Spawn each photo you take, and each GIF you record, in front of you as a shared image card — the same one a file dragged onto the window makes. Everyone in the instance sees it, and anyone can grab, move, or delete it. PNG photos and GIF clips only."
+    },
+    {
+      "key": "camera.printPhoto.resized.title",
+      "value": "Photo resized to share"
+    },
+    {
+      "key": "camera.printPhoto.resized.description",
+      "value": "Your photo was shot at <b>{0} × {1}</b>, which is larger than a shared image card can carry, so the card in front of you is a <b>{2} × {3}</b> copy of it.\n\nThe photo saved to your Photos folder was not touched — it is still the full-size original.\n\nThis notice appears once per resolution."
     },
     {
       "key": "camera.selfie",
@@ -1655,12 +1879,84 @@
       "value": "Keep the horizon level while flying the camera."
     },
     {
+      "key": "camera.rollControl",
+      "value": "Camera Roll"
+    },
+    {
+      "key": "camera.rollControl.description",
+      "value": "On, the camera rolls with the puck while you hold it, so you can tilt the shot or turn the camera on its side for a portrait frame. Off, the picture stays level however you twist the puck."
+    },
+    {
       "key": "camera.vrStabilization",
       "value": "VR Stabilization"
     },
     {
       "key": "camera.vrStabilization.description",
       "value": "Smooth out hand shake when holding the camera in VR."
+    },
+    {
+      "key": "camera.vrStabilization.position",
+      "value": "Stabilizer Lag"
+    },
+    {
+      "key": "camera.vrStabilization.position.description",
+      "value": "Seconds the stabilized lens takes to catch up with the camera body."
+    },
+    {
+      "key": "camera.vrStabilization.yaw",
+      "value": "Stabilizer Turn Lag"
+    },
+    {
+      "key": "camera.vrStabilization.yaw.description",
+      "value": "Seconds the stabilized lens takes to follow the camera turning left or right."
+    },
+    {
+      "key": "camera.vrStabilization.pitch",
+      "value": "Stabilizer Tilt Lag"
+    },
+    {
+      "key": "camera.vrStabilization.pitch.description",
+      "value": "Seconds it takes to follow the camera tilting up or down."
+    },
+    {
+      "key": "camera.vrStabilization.roll",
+      "value": "Stabilizer Roll Lag"
+    },
+    {
+      "key": "camera.vrStabilization.roll.description",
+      "value": "Seconds it takes to follow the camera rolling. Raise it above the others to hold the horizon through a turn."
+    },
+    {
+      "key": "camera.zoomStabilization",
+      "value": "Stabilize With Zoom"
+    },
+    {
+      "key": "camera.zoomStabilization.description",
+      "value": "Zooming in stabilizes harder and zooming out hands the camera back to you, the way a long lens magnifies a shake."
+    },
+    {
+      "key": "camera.zoomStabilization.response",
+      "value": "Zoom Response"
+    },
+    {
+      "key": "camera.zoomStabilization.response.description",
+      "value": "How strongly the zoom drives the stabilizer. 1 matches the lens, higher exaggerates it."
+    },
+    {
+      "key": "camera.zoomStabilization.min",
+      "value": "Widest Stabilization"
+    },
+    {
+      "key": "camera.zoomStabilization.min.description",
+      "value": "Least the stabilizer may be scaled to, at the wide end of the zoom."
+    },
+    {
+      "key": "camera.zoomStabilization.max",
+      "value": "Longest Stabilization"
+    },
+    {
+      "key": "camera.zoomStabilization.max.description",
+      "value": "Most the stabilizer may be scaled to, at the long end of the zoom."
     },
     {
       "key": "camera.smoothDrag",
@@ -2027,6 +2323,10 @@
       "value": "How large chat text appears above players."
     },
     {
+      "key": "settings.chat.duration.tooltip",
+      "value": "How long a chat message stays visible above a player's head, in seconds, before it disappears."
+    },
+    {
       "key": "settings.chat.camera.photoMetadata.tooltip",
       "value": "Choose who gets tagged in photos you take."
     },
@@ -2069,6 +2369,10 @@
     {
       "key": "settings.developer.jiggleVisuals.tooltip",
       "value": "Show debug visuals for jiggle physics on avatars."
+    },
+    {
+      "key": "settings.developer.avatarProxy.tooltip",
+      "value": "Draw the capsules that stand in for avatar bodies in the ray traced lighting."
     },
     {
       "key": "settings.developer.trackerGizmos.tooltip",
@@ -3099,6 +3403,14 @@
       "value": "Beyond this distance all of a remote avatar's jiggle colliders are removed."
     },
     {
+      "key": "settings.perf.jiggleSimulationLod.toggle.tooltip",
+      "value": "Stop simulating remote avatars' jiggle bones entirely beyond a distance, instead of just trimming their colliders, to save performance in crowded instances."
+    },
+    {
+      "key": "settings.perf.jiggleSimulationLod.slider.tooltip",
+      "value": "Maximum distance from a camera at which a remote avatar's jiggle bones keep simulating."
+    },
+    {
       "key": "settings.perf.cloth.toggle.tooltip",
       "value": "Limit how many cloth simulations another player's avatar may have."
     },
@@ -3319,12 +3631,12 @@
       "value": "Open the folder where all crash reports are stored on your computer."
     },
     {
-      "key": "settings.admin.title.showShoutOnMenuBar.tooltip",
-      "value": "Show the Shout option on your menu bar's microphone mode button."
+      "key": "settings.admin.title.showAnnounceOnMenuBar.tooltip",
+      "value": "Show the Announce option on your menu bar's microphone mode button."
     },
     {
-      "key": "settings.admin.title.showShoutOnMenuBar.description",
-      "value": "Adds the Shout option to the mic-mode button on your main menu bar. Off by default, so the button stays hidden until you enable it here."
+      "key": "settings.admin.title.showAnnounceOnMenuBar.description",
+      "value": "Adds the Announce option to the mic-mode button on your main menu bar. Off by default, so the button stays hidden until you enable it here."
     },
     {
       "key": "settings.admin.title.lockAvatars.tooltip",
@@ -3623,11 +3935,11 @@
       "value": "Broadcast the reason text as a message to every player."
     },
     {
-      "key": "menu.individualPlayer.shout.enable.tooltip",
+      "key": "menu.individualPlayer.announce.enable.tooltip",
       "value": "Let this player's voice broadcast to everyone without distance falloff."
     },
     {
-      "key": "menu.individualPlayer.shout.disable.tooltip",
+      "key": "menu.individualPlayer.announce.disable.tooltip",
       "value": "Return this player's voice to normal distance-based spatial audio."
     },
     {
@@ -3839,6 +4151,18 @@
       "value": "Library"
     },
     {
+      "key": "menu.provider.mirror",
+      "value": "Mirror Settings"
+    },
+    {
+      "key": "menu.provider.cameraSettings",
+      "value": "Camera Settings"
+    },
+    {
+      "key": "menu.provider.mediaPlayers",
+      "value": "Media Players"
+    },
+    {
       "key": "menu.provider.shoutModeOff",
       "value": "Shout Mode Off"
     },
@@ -3861,6 +4185,10 @@
     {
       "key": "menu.provider.micmode.shout",
       "value": "Shout"
+    },
+    {
+      "key": "menu.provider.micmode.announce",
+      "value": "Announce"
     },
     {
       "key": "menu.provider.micmode.noone",
@@ -5211,8 +5539,8 @@
       "value": "Teleport this player to your location."
     },
     {
-      "key": "menu.individualPlayer.shout.enable",
-      "value": "Enable Shout Mode"
+      "key": "menu.individualPlayer.announce.enable",
+      "value": "Enable Announce Mode"
     },
     {
       "key": "menu.individualPlayer.fullquality.enable",
@@ -5223,12 +5551,48 @@
       "value": "Disable Full-Quality Broadcast"
     },
     {
+      "key": "menu.individualPlayer.announce.disable",
+      "value": "Disable Announce Mode"
+    },
+    {
+      "key": "menu.individualPlayer.announce.description",
+      "value": "Toggle non-spatialized broadcast voice for this player."
+    },
+    {
+      "key": "menu.individualPlayer.shout.description",
+      "value": "Toggle shout mode for this player - double range and louder, still spatial."
+    },
+    {
+      "key": "menu.individualPlayer.shout.enable",
+      "value": "Enable Shout Mode"
+    },
+    {
+      "key": "menu.individualPlayer.shout.enable.tooltip",
+      "value": "Let this player's voice carry twice as far and louder, while staying spatial."
+    },
+    {
       "key": "menu.individualPlayer.shout.disable",
       "value": "Disable Shout Mode"
     },
     {
-      "key": "menu.individualPlayer.shout.description",
-      "value": "Toggle non-spatialized broadcast voice for this player."
+      "key": "menu.individualPlayer.shout.disable.tooltip",
+      "value": "Return this player's voice to its normal range and level."
+    },
+    {
+      "key": "menu.individualPlayer.muteVoice",
+      "value": "Server Voice Mute"
+    },
+    {
+      "key": "menu.individualPlayer.muteVoice.tooltip",
+      "value": "Mute this player's voice for everyone. Enforced by the server and kept across rejoins until a moderator unmutes them."
+    },
+    {
+      "key": "menu.individualPlayer.muteText",
+      "value": "Server Text Mute"
+    },
+    {
+      "key": "menu.individualPlayer.muteText.tooltip",
+      "value": "Mute this player's text chat and typing for everyone. Enforced by the server and kept across rejoins until a moderator unmutes them."
     },
     {
       "key": "menu.individualPlayer.message",
@@ -5951,6 +6315,10 @@
       "value": "Remove this item. Networked items are removed for everyone; items set to load on startup stop loading."
     },
     {
+      "key": "library.instantiated.pending.cancel.tooltip",
+      "value": "Cancel this load. Networked items are removed for everyone; local items stop downloading."
+    },
+    {
       "key": "library.shareable.avatar",
       "value": "Shared Avatar"
     },
@@ -5969,6 +6337,10 @@
     {
       "key": "library.shareable.image",
       "value": "Shared Image"
+    },
+    {
+      "key": "library.shareable.dollyTrack",
+      "value": "Shared Dolly Track"
     },
     {
       "key": "library.shareable.other",
@@ -6241,6 +6613,14 @@
     {
       "key": "settings.developer.title",
       "value": "Developer & Debug"
+    },
+    {
+      "key": "settings.developer.showFrameTimeMs",
+      "value": "Show Frame Time (ms)"
+    },
+    {
+      "key": "settings.developer.showFrameTimeMs.tooltip",
+      "value": "Append the current frame time in milliseconds next to FPS in the Time/FPS line shown at the top of every menu panel."
     },
     {
       "key": "settings.tab.general",
@@ -6871,6 +7251,14 @@
       "value": "Adds a \"No One\" step to the mic mode button next to mute. Your microphone stays on so your avatar’s mouth keeps moving, but nobody hears you."
     },
     {
+      "key": "settings.admin.title.showShoutOnMenuBar",
+      "value": "Show Shout On Menu Bar"
+    },
+    {
+      "key": "settings.admin.title.showShoutOnMenuBar.tooltip",
+      "value": "Adds Shout to the mic-mode button. Shout carries your voice twice as far and louder, and stays fully spatial, so people still hear where you are."
+    },
+    {
       "key": "settings.microphone.muteBehavior.title",
       "value": "Mute Behavior"
     },
@@ -6999,6 +7387,38 @@
       "value": "Vertical Sync"
     },
     {
+      "key": "settings.graphics.refreshRate",
+      "value": "Headset Refresh Rate"
+    },
+    {
+      "key": "settings.graphics.refreshRate.tooltip",
+      "value": "How many times a second the headset shows a new image. Higher is smoother and costs more GPU time and battery; the headset falls back to the closest rate it supports."
+    },
+    {
+      "key": "settings.graphics.refreshRate.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.graphics.refreshRate.auto.tooltip",
+      "value": "Keep whatever rate the headset runtime chose."
+    },
+    {
+      "key": "settings.graphics.refreshRate.72",
+      "value": "72 Hz"
+    },
+    {
+      "key": "settings.graphics.refreshRate.90",
+      "value": "90 Hz"
+    },
+    {
+      "key": "settings.graphics.refreshRate.120",
+      "value": "120 Hz"
+    },
+    {
+      "key": "settings.graphics.refreshRate.144",
+      "value": "144 Hz"
+    },
+    {
       "key": "settings.graphics.verticalSync.description",
       "value": "VR uses headset refreshrate"
     },
@@ -7109,6 +7529,106 @@
     {
       "key": "settings.graphics.bottleneck.gpu.unavailable",
       "value": "Not reported by this graphics driver."
+    },
+    {
+      "key": "settings.graphics.bottleneck.renderPassCapture",
+      "value": "Export Render Pass Snapshot"
+    },
+    {
+      "key": "settings.graphics.bottleneck.renderPassCapture.tooltip",
+      "value": "Records the next 300 frames and writes a per-pass GPU/CPU timing breakdown to this device's ProfilerCaptures folder."
+    },
+    {
+      "key": "settings.graphics.performanceBar.title",
+      "value": "Performance Breakdown"
+    },
+    {
+      "key": "settings.graphics.performanceBar.enable",
+      "value": "Show Performance Bar"
+    },
+    {
+      "key": "settings.graphics.performanceBar.enable.tooltip",
+      "value": "Breaks GPU and CPU frame cost down by section, so you can see what a setting like Global Illumination or RTAO is actually costing you. Only samples while this is on."
+    },
+    {
+      "key": "settings.graphics.performanceBar.detailed",
+      "value": "Detailed CPU Breakdown"
+    },
+    {
+      "key": "settings.graphics.performanceBar.detailed.tooltip",
+      "value": "Lists every individual system feeding the CPU bar's segments, sorted by cost, instead of just the section totals. GPU stays at section detail either way."
+    },
+    {
+      "key": "settings.graphics.performanceBar.gpu",
+      "value": "GPU"
+    },
+    {
+      "key": "settings.graphics.performanceBar.cpu",
+      "value": "CPU"
+    },
+    {
+      "key": "settings.graphics.performanceBar.measuring",
+      "value": "Measuring..."
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.shadows",
+      "value": "Shadows"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.opaque",
+      "value": "Opaque"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.gi",
+      "value": "Global Illumination"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.reflections",
+      "value": "Reflections"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.rtao",
+      "value": "Ambient Occlusion"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.transparent",
+      "value": "Transparent"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.other",
+      "value": "Other"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.eventDriver",
+      "value": "Event Driver"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.ik",
+      "value": "IK"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.movement",
+      "value": "Movement"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.avatarLoad",
+      "value": "Avatar Load"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.networking",
+      "value": "Networking"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.jiggle",
+      "value": "Jiggle Physics"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.voice",
+      "value": "Voice"
+    },
+    {
+      "key": "settings.graphics.performanceBar.segment.renderDispatch",
+      "value": "Render Dispatch"
     },
     {
       "key": "settings.graphics.rendering.title",
@@ -7243,123 +7763,579 @@
       "value": "Camera And Objects"
     },
     {
-      "key": "settings.graphics.ssgi.title",
-      "value": "Screen Space Global Illumination"
+      "key": "settings.graphics.gi.title",
+      "value": "Global Illumination"
     },
     {
-      "key": "settings.graphics.ssgi.enable",
-      "value": "Enable Screen Space GI"
+      "key": "settings.graphics.rtao.title",
+      "value": "Ambient Occlusion"
     },
     {
-      "key": "settings.graphics.ssgi.enable.tooltip",
+      "key": "settings.graphics.rtao.enable",
+      "value": "Enable Ambient Occlusion"
+    },
+    {
+      "key": "settings.graphics.rtao.enable.tooltip",
+      "value": "Darken the creases and contact points on avatars, so a hand resting on an arm reads as touching it rather than floating over it. This only looks at avatars, local and remote - the world around them is not traced, which is what keeps it affordable. Costs real frame time, so it is off by default."
+    },
+    {
+      "key": "settings.graphics.rtao.mode",
+      "value": "Occlusion Source"
+    },
+    {
+      "key": "settings.graphics.rtao.mode.tooltip",
+      "value": "Auto traces the real scene on a graphics card that supports ray tracing and drops to the screen space estimator on one that does not. Ray Traced turns the effect off rather than falling back. Screen Space only sees what is already drawn on screen, but it runs anywhere."
+    },
+    {
+      "key": "settings.graphics.rtao.mode.rayTraced",
+      "value": "Ray Traced"
+    },
+    {
+      "key": "settings.graphics.rtao.mode.screenSpace",
+      "value": "Screen Space"
+    },
+    {
+      "key": "settings.graphics.rtao.quality",
+      "value": "Occlusion Quality"
+    },
+    {
+      "key": "settings.graphics.rtao.quality.tooltip",
+      "value": "How many rays each pixel casts and how hard the result is filtered afterwards. Higher settles faster and holds more detail; lower leans on the temporal filter and costs less."
+    },
+    {
+      "key": "settings.graphics.rtao.intensity",
+      "value": "Occlusion Strength"
+    },
+    {
+      "key": "settings.graphics.rtao.intensity.tooltip",
+      "value": "How dark the occluded areas on an avatar get. This is a look choice and costs nothing."
+    },
+    {
+      "key": "settings.graphics.rtao.radius",
+      "value": "Occlusion Radius"
+    },
+    {
+      "key": "settings.graphics.rtao.radius.tooltip",
+      "value": "How far a surface looks for things that shade it, in metres. At this scale it is contact shadows: the darkening where a hand meets an arm or a strap meets a shoulder. Larger values reach further along a limb and cost more. Only avatars are traced, so nothing in the world casts occlusion."
+    },
+    {
+      "key": "settings.graphics.rtao.apply",
+      "value": "Occlusion Applies To"
+    },
+    {
+      "key": "settings.graphics.rtao.apply.tooltip",
+      "value": "Lighting feeds the occlusion into how surfaces are lit. It is the truthful option, but it only reaches materials that know how to read it, an avatar's own baked shading can override it, and light coming straight from the sun is barely touched. Final Image darkens the finished picture instead, the way Unity's own ambient occlusion does: it lands on everything, at the cost of dimming light that already has shadows of its own."
+    },
+    {
+      "key": "settings.graphics.rtao.apply.lighting",
+      "value": "Lighting"
+    },
+    {
+      "key": "settings.graphics.rtao.apply.finalImage",
+      "value": "Final Image"
+    },
+    {
+      "key": "settings.graphics.rtao.denoise",
+      "value": "Noise Reduction"
+    },
+    {
+      "key": "settings.graphics.rtao.denoise.tooltip",
+      "value": "How hard the occlusion is smoothed after it is traced. Each step widens the filter without blurring across edges, trading a little contact shadow detail for a cleaner, less grainy result. Turn it up if the shading looks speckled, down if corners look washed out."
+    },
+    {
+      "key": "settings.graphics.rtao.denoise.standard",
+      "value": "Standard"
+    },
+    {
+      "key": "settings.graphics.rtao.denoise.high",
+      "value": "High"
+    },
+    {
+      "key": "settings.graphics.rtao.denoise.maximum",
+      "value": "Maximum"
+    },
+    {
+      "key": "settings.graphics.rtao.directStrength",
+      "value": "Occlusion On Direct Light"
+    },
+    {
+      "key": "settings.graphics.rtao.directStrength.tooltip",
+      "value": "Occlusion always dims bounced and ambient light in full. This is how much of it also dims light coming straight from a lamp or the sun. At zero, a brightly lit surface barely changes even where the occlusion buffer looks dark; turning it up brings the shaded image closer to what the buffer shows, at the cost of some realism."
+    },
+    {
+      "key": "settings.developer.rtaoDebug",
+      "value": "Show Occlusion Buffer"
+    },
+    {
+      "key": "settings.developer.rtaoDebug.tooltip",
+      "value": "Draw the ambient occlusion on its own instead of through the lighting, so it is obvious what the effect is producing. The shaded image will always show less than this, because occlusion only dims part of the light reaching a surface."
+    },
+    {
+      "key": "settings.developer.rtaoStage",
+      "value": "Occlusion Buffer Stage"
+    },
+    {
+      "key": "settings.developer.rtaoStage.tooltip",
+      "value": "Which buffer Show Occlusion Buffer draws. The occlusion passes through several stages before it reaches the picture, and a fault looks the same in the finished image whichever stage caused it. Step through these and find the first one that shows the problem: that is where it comes from. Final is the composited result, Raw is straight out of the tracer, Temporal is after blending with the previous frame, Denoised is after the blur, and Position and Normal are the surface data everything else is built on."
+    },
+    {
+      "key": "settings.developer.rtaoStage.final",
+      "value": "Final"
+    },
+    {
+      "key": "settings.developer.rtaoStage.raw",
+      "value": "Raw Trace"
+    },
+    {
+      "key": "settings.developer.rtaoStage.temporal",
+      "value": "After Temporal"
+    },
+    {
+      "key": "settings.developer.rtaoStage.denoised",
+      "value": "After Denoise"
+    },
+    {
+      "key": "settings.developer.rtaoStage.position",
+      "value": "Position"
+    },
+    {
+      "key": "settings.developer.rtaoStage.normal",
+      "value": "Normal"
+    },
+    {
+      "key": "settings.graphics.rtao.otherCameras",
+      "value": "Occlusion In Mirrors And Camera"
+    },
+    {
+      "key": "settings.graphics.rtao.otherCameras.tooltip",
+      "value": "Whether mirrors and the handheld camera get their own ambient occlusion. On, a mirror shows the room the same way you see it and photos match the view. Off, only your own view is traced, which is the first thing to turn off when the frame gets tight since every extra camera costs its own pass."
+    },
+    {
+      "key": "settings.graphics.rtao.advanced",
+      "value": "Advanced"
+    },
+    {
+      "key": "settings.graphics.rtao.normalBias",
+      "value": "Ray Start Offset"
+    },
+    {
+      "key": "settings.graphics.rtao.normalBias.tooltip",
+      "value": "How far off its own surface a ray starts, in metres. Avatars are traced as capsules on their bones rather than as their real mesh, so a ray leaving the visible surface of a body can begin inside that body's capsule and come back reporting it is fully enclosed - a hard edged dark patch shaped like the capsule. Raise this until it clears. Too large and contact darkening lifts out of the corners it belongs in. Ray traced only."
+    },
+    {
+      "key": "settings.graphics.rtao.distanceBias",
+      "value": "Ray Start Offset Per Metre"
+    },
+    {
+      "key": "settings.graphics.rtao.distanceBias.tooltip",
+      "value": "Added to the offset above for every metre the surface is from the camera. The point a ray starts from is rebuilt from the depth buffer, whose error grows with distance, so raise this if self shadowing appears only far away. Ray traced only."
+    },
+    {
+      "key": "settings.graphics.rtao.falloff",
+      "value": "Occlusion Falloff"
+    },
+    {
+      "key": "settings.graphics.rtao.falloff.tooltip",
+      "value": "How quickly something stops darkening a surface as it gets further from it. Higher values keep the darkening tight to the contact point; lower values let a distant object shade a whole wall."
+    },
+    {
+      "key": "settings.graphics.rtao.power",
+      "value": "Occlusion Contrast"
+    },
+    {
+      "key": "settings.graphics.rtao.power.tooltip",
+      "value": "The curve on the result. Above one deepens the dark end and leaves the light end alone; below one flattens the whole thing out."
+    },
+    {
+      "key": "settings.graphics.rtao.fadeStart",
+      "value": "Fade Start"
+    },
+    {
+      "key": "settings.graphics.rtao.fadeStart.tooltip",
+      "value": "How far from the camera the occlusion begins fading out, in metres."
+    },
+    {
+      "key": "settings.graphics.rtao.fadeEnd",
+      "value": "Fade End"
+    },
+    {
+      "key": "settings.graphics.rtao.fadeEnd.tooltip",
+      "value": "Where it has gone entirely. Kept above Fade Start; the two are clamped apart so the fade always has a range to happen over."
+    },
+    {
+      "key": "settings.graphics.rtao.specularRelief",
+      "value": "Gloss Relief"
+    },
+    {
+      "key": "settings.graphics.rtao.specularRelief.tooltip",
+      "value": "How much of the occlusion is held back off glossy surfaces. Ambient occlusion is a statement about incoming light, and applying it to a mirror-like reflection reads as dirt on the surface rather than shadow near it."
+    },
+    {
+      "key": "settings.graphics.rtao.layers",
+      "value": "Occlusion From"
+    },
+    {
+      "key": "settings.graphics.rtao.layers.tooltip",
+      "value": "What goes into the traced scene. Avatars is the cheapest and what this effect was built for: people darkening the surfaces they stand near. World adds the room, which is what puts occlusion under furniture and into corners, and costs a rebuild whenever that geometry moves. World And Avatars is both, and the most expensive. Ray traced only - the screen space estimator uses whatever the camera already drew."
+    },
+    {
+      "key": "settings.graphics.rtao.layers.avatars",
+      "value": "Avatars"
+    },
+    {
+      "key": "settings.graphics.rtao.layers.world",
+      "value": "World"
+    },
+    {
+      "key": "settings.graphics.rtao.layers.worldAndAvatars",
+      "value": "World + Avatars"
+    },
+    {
+      "key": "settings.graphics.rtao.skinned",
+      "value": "Avatars Cast Occlusion"
+    },
+    {
+      "key": "settings.graphics.rtao.skinned.tooltip",
+      "value": "Whether the people in the room darken the surfaces they stand near. Avatars are traced as capsules on their bones rather than as their full mesh, so everyone updates every frame for very little processor time. Fingers and loose clothing are not in the shape, which at this resolution costs nothing you can see."
+    },
+    {
+      "key": "settings.graphics.rtao.skinned.off",
+      "value": "Off"
+    },
+    {
+      "key": "settings.graphics.rtao.skinned.proxy",
+      "value": "On"
+    },
+    {
+      "key": "settings.graphics.gi.enable",
+      "value": "Enable Global Illumination"
+    },
+    {
+      "key": "settings.graphics.gi.enable.tooltip",
       "value": "Bounce light from everything on screen, avatars included, onto everything else. Expensive, especially in VR, so it is off by default. When off, worlds cannot switch it on for you."
     },
     {
-      "key": "settings.graphics.ssgi.quality",
+      "key": "settings.graphics.gi.preset",
+      "value": "GI Preset"
+    },
+    {
+      "key": "settings.graphics.gi.preset.tooltip",
+      "value": "Sets Intensity, Saturation and Emitter Intensity together. Natural is each at its own default; Unnatural pushes all three to the extreme end of their range for a stylised look."
+    },
+    {
+      "key": "settings.graphics.gi.preset.natural",
+      "value": "Natural"
+    },
+    {
+      "key": "settings.graphics.gi.preset.unnatural",
+      "value": "Unnatural"
+    },
+    {
+      "key": "settings.graphics.gi.mode",
+      "value": "GI Mode"
+    },
+    {
+      "key": "settings.graphics.gi.mode.tooltip",
+      "value": "Screen Space bounces light using what the camera already drew, so anything off screen or behind you contributes nothing. Ray Traced traces the world itself and shades what it hits with the real lights and glowing materials, which costs more and needs a graphics card with ray tracing - without one it falls back to Screen Space."
+    },
+    {
+      "key": "settings.graphics.gi.mode.screenSpace",
+      "value": "Screen Space"
+    },
+    {
+      "key": "settings.graphics.gi.mode.rayTraced",
+      "value": "Ray Traced"
+    },
+    {
+      "key": "settings.graphics.gi.advanced",
+      "value": "Advanced"
+    },
+    {
+      "key": "settings.graphics.gi.obscuranceRadius",
+      "value": "Contact Darkening Radius"
+    },
+    {
+      "key": "settings.graphics.gi.obscuranceRadius.tooltip",
+      "value": "How far a surface can be from the thing above it and still be darkened by it. Short values darken only tight corners; long values reach across a room and cost nothing extra, because the distance is measured on rays that were traced anyway. If darkening stops at a hard edge a fixed distance out from every object, this is the distance."
+    },
+    {
+      "key": "settings.graphics.gi.fadeDistance",
+      "value": "Bounce Fade Distance"
+    },
+    {
+      "key": "settings.graphics.gi.fadeDistance.tooltip",
+      "value": "How far from the camera the bounce is still traced. Surfaces past this keep their direct light and nothing else, faded in smoothly so the boundary does not read as a line. Lowering it is a real saving in a large world."
+    },
+    {
+      "key": "settings.graphics.gi.normalBias",
+      "value": "Ray Start Offset"
+    },
+    {
+      "key": "settings.graphics.gi.normalBias.tooltip",
+      "value": "How far off its own surface a ray starts, in metres. Too small and a surface shadows itself in a mottled or banded pattern; too large and contact darkening lifts out of the corner it belongs in. Ray traced only."
+    },
+    {
+      "key": "settings.graphics.gi.distanceBias",
+      "value": "Ray Start Offset Per Metre"
+    },
+    {
+      "key": "settings.graphics.gi.distanceBias.tooltip",
+      "value": "Added to the offset above for every metre the surface is from the camera. The point a ray starts from is rebuilt from a half precision depth buffer whose error grows with distance, so without this a far surface starts its rays inside itself. Raise it if self shadowing appears only in the distance. Ray traced only."
+    },
+    {
+      "key": "settings.graphics.gi.bounceThreshold",
+      "value": "Bounce Cutoff"
+    },
+    {
+      "key": "settings.graphics.gi.bounceThreshold.tooltip",
+      "value": "How dim a light path may get before it stops being worth another bounce. Higher values end paths sooner, which is cheaper and slightly darker. Ray traced only."
+    },
+    {
+      "key": "settings.graphics.gi.fireflyClamp",
+      "value": "Sample Ceiling"
+    },
+    {
+      "key": "settings.graphics.gi.fireflyClamp.tooltip",
+      "value": "The most one sample may contribute. One ray landing on something very bright is what produces a lone sparkling pixel the filter then smears across its neighbours; this is the ceiling that stops it. Lower is more stable and slightly dimmer."
+    },
+    {
+      "key": "settings.graphics.gi.layers",
+      "value": "Bounce Light From"
+    },
+    {
+      "key": "settings.graphics.gi.layers.tooltip",
+      "value": "What the ray traced path is allowed to hit. World And Avatars is everything and is how the bounce has always worked. World leaves people out of the trace, so the room still lights itself but nobody tints the wall beside them. Avatars is the cheapest by far, because the traced scene is then a handful of capsules rather than the whole world. Ray traced only - Screen Space bounces whatever the camera already drew and has no scene to filter."
+    },
+    {
+      "key": "settings.graphics.gi.layers.avatars",
+      "value": "Avatars"
+    },
+    {
+      "key": "settings.graphics.gi.layers.world",
+      "value": "World"
+    },
+    {
+      "key": "settings.graphics.gi.layers.worldAndAvatars",
+      "value": "World + Avatars"
+    },
+    {
+      "key": "settings.graphics.gi.skinned",
+      "value": "GI Avatars"
+    },
+    {
+      "key": "settings.graphics.gi.skinned.tooltip",
+      "value": "Whether avatars bounce and block light in the ray traced mode. They are traced as capsules on their bones rather than as their full mesh, so everyone follows their own movement every frame instead of a few people at a time lagging behind theirs. Off leaves people out of the bounce entirely."
+    },
+    {
+      "key": "settings.graphics.gi.skinned.off",
+      "value": "Off"
+    },
+    {
+      "key": "settings.graphics.gi.skinned.proxy",
+      "value": "On"
+    },
+    {
+      "key": "settings.graphics.gi.quality",
       "value": "GI Quality"
     },
     {
-      "key": "settings.graphics.ssgi.quality.tooltip",
-      "value": "Rays traced per pixel and how far each one marches. Higher is cleaner and costs more."
+      "key": "settings.graphics.gi.quality.tooltip",
+      "value": "How many rays each pixel casts and how far each one is followed. Higher is cleaner and slower; the temporal filter makes up much of the difference while you stand still."
     },
     {
-      "key": "settings.graphics.ssgi.fullResolution",
-      "value": "Full Resolution GI"
+      "key": "settings.graphics.gi.resolution",
+      "value": "GI Resolution"
     },
     {
-      "key": "settings.graphics.ssgi.fullResolution.tooltip",
-      "value": "Trace at the full render resolution instead of half. Sharper, at roughly four times the cost."
+      "key": "settings.graphics.gi.resolution.tooltip",
+      "value": "Resolution the bounce is traced at. Bounce light is soft, so Half looks near identical to Full for a quarter of the cost. Photos are always taken at Full."
     },
     {
-      "key": "settings.graphics.ssgi.intensity",
-      "value": "Bounce Light Strength"
+      "key": "settings.graphics.gi.resolution.full",
+      "value": "Full"
     },
     {
-      "key": "settings.graphics.ssgi.intensity.tooltip",
-      "value": "Multiplier on the bounced light. 1 is neutral."
+      "key": "settings.graphics.gi.resolution.half",
+      "value": "Half"
     },
     {
-      "key": "settings.graphics.ssgi.denoise",
-      "value": "Bounce Light Smoothing"
+      "key": "settings.graphics.gi.resolution.quarter",
+      "value": "Quarter"
     },
     {
-      "key": "settings.graphics.ssgi.denoise.tooltip",
-      "value": "How much of the previous frame's bounce light is reused to steady the image. Lower it if the light smears or trails behind you when you move; raise it if the bounce looks grainy while standing still."
+      "key": "settings.graphics.gi.intensity",
+      "value": "GI Intensity"
     },
     {
-      "key": "settings.graphics.ssgi.realtimeBlend",
-      "value": "Realtime Bounce Blend"
+      "key": "settings.graphics.gi.intensity.tooltip",
+      "value": "How much bounced light is added. 1 is the physically motivated amount; higher exaggerates the effect."
     },
     {
-      "key": "settings.graphics.ssgi.realtimeBlend.tooltip",
-      "value": "How much of the world's own baked lighting the realtime bounce replaces. At 1 the bounce takes over completely, which can look dark where it finds less light than the baked lighting it replaced. Lower it to keep more of what the world was built to look like."
+      "key": "settings.graphics.gi.saturation",
+      "value": "GI Saturation"
     },
     {
-      "key": "settings.graphics.ssgi.emissive",
-      "value": "Glowing Surface Strength"
+      "key": "settings.graphics.gi.saturation.tooltip",
+      "value": "How much colour the bounce carries from the surface it came off. Lower it if coloured walls tint the room more than you want."
     },
     {
-      "key": "settings.graphics.ssgi.emissive.tooltip",
-      "value": "How much light glowing surfaces throw onto everything around them. At 1 they light the room only as much as they already showed up in the picture; raise it to make neon signs, screens and glowing avatar parts actually cast light."
+      "key": "settings.graphics.gi.obscurance",
+      "value": "Near-Field Obscurance"
     },
     {
-      "key": "settings.graphics.ssgi.gbufferFallback",
-      "value": "Light Unsupported Shaders"
+      "key": "settings.graphics.gi.obscurance.tooltip",
+      "value": "Ambient occlusion gathered from the same rays as the bounce, so it costs nothing extra. Darkens creases and contact points."
     },
     {
-      "key": "settings.graphics.ssgi.gbufferFallback.tooltip",
-      "value": "Let avatars, props and worlds whose shaders were not built for bounce light receive it anyway, using their shape and colour to stand in for the missing data. Everything already published works this way, so turning this off leaves most content unlit by the bounce."
+      "key": "settings.graphics.gi.rayLength",
+      "value": "Ray Length"
     },
     {
-      "key": "settings.graphics.ssgi.fallbackAlbedo",
-      "value": "Unsupported Shader Brightness"
+      "key": "settings.graphics.gi.rayLength.tooltip",
+      "value": "How far, in metres, a ray looks for something to bounce off. Longer picks up light from across a room and costs more per ray."
     },
     {
-      "key": "settings.graphics.ssgi.fallbackAlbedo.tooltip",
-      "value": "How much light those surfaces are assumed to reflect where their colour cannot say. Lower is darker and more cautious, higher picks up more bounce."
+      "key": "settings.graphics.gi.smoothing",
+      "value": "Smoothing"
     },
     {
-      "key": "settings.graphics.ssgi.fallbackMaxGain",
-      "value": "Unsupported Shader Light Limit"
+      "key": "settings.graphics.gi.smoothing.tooltip",
+      "value": "Width of the edge-aware blur applied to the bounce. Higher hides more of the sampling pattern and softens detail."
     },
     {
-      "key": "settings.graphics.ssgi.fallbackMaxGain.tooltip",
-      "value": "How much bounce light a shader that was not built for it is allowed to gain. Raise it so bright and glowing surfaces light such content properly; lower it if dark leaves, hair or grass wash out."
+      "key": "settings.graphics.gi.wideBlur",
+      "value": "Wide Blur"
     },
     {
-      "key": "settings.graphics.ssgi.reflectionProbes",
-      "value": "Bounce In Reflections"
+      "key": "settings.graphics.gi.wideBlur.tooltip",
+      "value": "A second, wider blur pass. Removes the low frequency blotching a small blur leaves behind, for one more pass over the traced buffer."
     },
     {
-      "key": "settings.graphics.ssgi.reflectionProbes.tooltip",
-      "value": "Also compute bounce light inside reflection probes, so mirrors and shiny surfaces agree with the rest of the scene. Costs more."
+      "key": "settings.graphics.gi.temporalFilter",
+      "value": "Temporal Filter"
     },
     {
-      "key": "settings.graphics.ssgi.highQualityUpscaling",
-      "value": "High Quality Upscaling"
+      "key": "settings.graphics.gi.temporalFilter.tooltip",
+      "value": "Accumulate the bounce across frames. Much cleaner while you stand still; turn it off if you would rather have noise than any trailing."
     },
     {
-      "key": "settings.graphics.ssgi.highQualityUpscaling.tooltip",
-      "value": "Use depth and normals when scaling the bounce light up to the full image. Cleaner edges, slightly more expensive. Has no effect at full resolution."
+      "key": "settings.graphics.gi.temporalResponse",
+      "value": "Temporal Response"
     },
     {
-      "key": "settings.graphics.ssgi.overrideAmbient",
-      "value": "Replace Ambient Light"
+      "key": "settings.graphics.gi.temporalResponse.tooltip",
+      "value": "How much of each new frame replaces the accumulated bounce. Low is the stillest image and trails furthest behind movement; high reacts immediately and is noisier."
     },
     {
-      "key": "settings.graphics.ssgi.overrideAmbient.tooltip",
-      "value": "Remove the flat ambient light a surface already receives and put the traced bounce in its place. This is what makes the lighting accurate; turning it off adds the bounce on top and brightens everything."
+      "key": "settings.graphics.gi.fallback",
+      "value": "Ray Miss Fallback"
     },
     {
-      "key": "settings.graphics.ssgi.backfaceLighting",
-      "value": "Light From Behind Surfaces"
+      "key": "settings.graphics.gi.fallback.tooltip",
+      "value": "Where a ray that hits nothing takes its light from. The reflection probe matches the room; the sky is cheaper and flatter."
     },
     {
-      "key": "settings.graphics.ssgi.backfaceLighting.tooltip",
-      "value": "Trace light arriving from the hidden side of objects. More accurate in cluttered rooms and noticeably more expensive."
+      "key": "settings.graphics.gi.fallback.none",
+      "value": "None"
     },
     {
-      "key": "settings.graphics.ssgi.unsupported",
+      "key": "settings.graphics.gi.fallback.sky",
+      "value": "Sky"
+    },
+    {
+      "key": "settings.graphics.gi.fallback.probe",
+      "value": "Reflection Probe"
+    },
+    {
+      "key": "settings.graphics.gi.ignoreBakedEmission",
+      "value": "Double Baked Emission"
+    },
+    {
+      "key": "settings.graphics.gi.ignoreBakedEmission.tooltip",
+      "value": "Ray traced only. A baked-emissive surface's light normally sits out of the bounce because it is already in the lightmap - counting it again would light the room twice from one lamp. Turn this on to count it anyway for a stronger bounce, at the cost of that correctness. Off by default."
+    },
+    {
+      "key": "settings.graphics.gi.lightmappedReceive",
+      "value": "Baked Surface Receive"
+    },
+    {
+      "key": "settings.graphics.gi.lightmappedReceive.tooltip",
+      "value": "How much of the effect a lightmapped surface still receives. Its own bounce and its own ambient occlusion are already baked into the lightmap, so re-applying them makes a baked world read blown out and crushed at once. Avatars, props and anything dynamic always receive in full; 1 restores the old behaviour, and worlds without lightmaps are never affected."
+    },
+    {
+      "key": "settings.graphics.gi.rayReuse",
+      "value": "Reuse Off-Screen Rays"
+    },
+    {
+      "key": "settings.graphics.gi.rayReuse.tooltip",
+      "value": "Let a ray that leaves the screen keep the light it found at the edge instead of falling back outright. Steadies the bounce near screen borders as you turn."
+    },
+    {
+      "key": "settings.graphics.gi.emitters",
+      "value": "Emitters"
+    },
+    {
+      "key": "settings.graphics.gi.emitters.tooltip",
+      "value": "Carry light from registered emitters analytically. A sign or a strip light is smaller than one traced pixel, and anything behind you is off screen, so neither reaches the bounce any other way."
+    },
+    {
+      "key": "settings.graphics.gi.emitterIntensity",
+      "value": "Emitter Intensity"
+    },
+    {
+      "key": "settings.graphics.gi.emitterIntensity.tooltip",
+      "value": "How much light registered emitters contribute."
+    },
+    {
+      "key": "settings.graphics.gi.reflectionProbes",
+      "value": "GI In Reflection Probes"
+    },
+    {
+      "key": "settings.graphics.gi.reflectionProbes.tooltip",
+      "value": "Compute the bounce inside reflection probe captures too. A realtime probe pays for the whole effect once per face, so this is off by default."
+    },
+    {
+      "key": "settings.graphics.gi.specular",
+      "value": "Reflections"
+    },
+    {
+      "key": "settings.graphics.gi.specular.tooltip",
+      "value": "Reflect the room in smooth surfaces with a traced mirror ray, in place of the static reflection probe. Ray Traced mode reflects things that are off screen; Screen Space mode walks the depth buffer and runs on any GPU."
+    },
+    {
+      "key": "settings.graphics.gi.specularIntensity",
+      "value": "Reflection Intensity"
+    },
+    {
+      "key": "settings.graphics.gi.specularIntensity.tooltip",
+      "value": "How bright the traced reflection is. 1 matches the room; above it reflections read stronger than the surfaces they mirror."
+    },
+    {
+      "key": "settings.graphics.gi.specularMaxRoughness",
+      "value": "Reflection Max Roughness"
+    },
+    {
+      "key": "settings.graphics.gi.specularMaxRoughness.tooltip",
+      "value": "How rough a surface can be and still take the traced reflection. Rougher surfaces keep the reflection probe; raising this puts the trace on more surfaces."
+    },
+    {
+      "key": "settings.graphics.gi.specularRayLength",
+      "value": "Reflection Distance"
+    },
+    {
+      "key": "settings.graphics.gi.specularRayLength.tooltip",
+      "value": "How far the mirror ray reaches. A reflection carries much further than a bounce - the far wall of a room is a bounce nobody can see and a reflection everybody can."
+    },
+    {
+      "key": "settings.graphics.gi.specularFadeDistance",
+      "value": "Reflection Fade Distance"
+    },
+    {
+      "key": "settings.graphics.gi.specularFadeDistance.tooltip",
+      "value": "How far from the camera surfaces still trace reflections. Beyond it they keep the reflection probe, which is where the cost stops paying for itself."
+    },
+    {
+      "key": "settings.graphics.gi.unsupported",
       "value": "Not available on this platform."
     },
     {
@@ -7485,6 +8461,10 @@
     {
       "key": "settings.chat.textSize",
       "value": "Chat Text Size"
+    },
+    {
+      "key": "settings.chat.duration",
+      "value": "Chat Message Duration"
     },
     {
       "key": "settings.chat.raycast.title",
@@ -8480,7 +9460,7 @@
     },
     {
       "key": "settings.bodyTracking.anat.chestIkTarget.description",
-      "value": "Places the chest at its own target instead of leaving it wherever the head solve happens to put it, so the torso follows your real chest (or a chest tracker) more faithfully. The head stays exactly on the headset."
+      "value": "With a chest tracker, pulls the chest bone onto the tracker's position instead of leaving it wherever the head solve happens to put it. The head keeps priority and stays on the headset. Does nothing without a chest tracker."
     },
     {
       "key": "settings.bodyTracking.anat.legSwivelSmoothing.title",
@@ -9811,60 +10791,32 @@
       "value": "…and {0} more"
     },
     {
-      "key": "settings.developer.ssgiDebug",
-      "value": "SSGI Debug View"
+      "key": "settings.developer.giDebug",
+      "value": "GI Debug View"
     },
     {
-      "key": "settings.developer.ssgiDebug.tooltip",
-      "value": "Show one of the screen space global illumination buffers instead of the final image. The GBuffer views are black on surfaces whose shader cannot receive GI."
+      "key": "settings.developer.giDebug.tooltip",
+      "value": "Replace the image with one stage of the global illumination pipeline. Off renders normally."
     },
     {
-      "key": "settings.developer.ssgiDebug.indirect",
-      "value": "Indirect Light"
+      "key": "settings.developer.giDebug.indirect",
+      "value": "Indirect"
     },
     {
-      "key": "settings.developer.ssgiDebug.contribution",
-      "value": "GI Contribution"
+      "key": "settings.developer.giDebug.obscurance",
+      "value": "Obscurance"
     },
     {
-      "key": "settings.developer.ssgiDebug.albedo",
-      "value": "GBuffer Albedo"
+      "key": "settings.developer.giDebug.normals",
+      "value": "Normals"
     },
     {
-      "key": "settings.developer.ssgiDebug.normals",
-      "value": "GBuffer Normals"
+      "key": "settings.developer.giDebug.rayHits",
+      "value": "Ray Hits"
     },
     {
-      "key": "settings.developer.ssgiDebug.emission",
-      "value": "Emission"
-    },
-    {
-      "key": "settings.developer.ssgiDebug.preparedAlbedo",
-      "value": "Prepared Albedo"
-    },
-    {
-      "key": "settings.developer.ssgiDebug.preparedNormals",
-      "value": "Prepared Normals"
-    },
-    {
-      "key": "settings.developer.ssgiDebug.ambient",
-      "value": "Ambient Lighting"
-    },
-    {
-      "key": "settings.developer.ssgiDebug.removal",
-      "value": "Ambient Removal"
-    },
-    {
-      "key": "settings.developer.ssgiDebug.noise",
-      "value": "Noise"
-    },
-    {
-      "key": "settings.developer.ssgiDebug.surfaceSource",
-      "value": "Surface Source"
-    },
-    {
-      "key": "settings.developer.ssgiDebug.bakedRadiance",
-      "value": "Baked Radiance"
+      "key": "settings.developer.giDebug.indirectOnly",
+      "value": "Indirect Only"
     },
     {
       "key": "settings.developer.vrs.title",
@@ -9912,7 +10864,7 @@
     },
     {
       "key": "settings.graphics.vrs.outer.tooltip",
-      "value": "Where the lowest shading rate (4x4) begins. Between the sharp center and this point renders at half rate (2x2); beyond it renders at quarter rate."
+      "value": "Where the periphery begins. Between the sharp center and this point renders at half rate (2x2); beyond it the rate steps down through a transition band to the lowest rate (4x4)."
     },
     {
       "key": "settings.developer.featureSections.title",
@@ -9989,6 +10941,10 @@
     {
       "key": "settings.developer.jiggleVisuals",
       "value": "Jiggle Visuals"
+    },
+    {
+      "key": "settings.developer.avatarProxy",
+      "value": "Avatar Proxy Capsules"
     },
     {
       "key": "settings.developer.jiggleVisuals.description",
@@ -10280,7 +11236,7 @@
     },
     {
       "key": "settings.developer.graphicsStatePrewarm.description",
-      "value": "Trace and persist full GPU pipeline states (PSOs), then pre-create them on later loads. Off by default; only helps on DX12, Vulkan, and Metal, and the gain is on re-loads of content seen in a previous session."
+      "value": "Trace and persist full GPU pipeline states (PSOs), then pre-create them ahead of first draw. Only does anything on DX12, Vulkan, and Metal, where the driver cannot build pipeline state lazily. A seed shipped with the app covers the base game on first launch; your own traced cache covers content you have loaded before."
     },
     {
       "key": "settings.developer.gridSnap.title",
@@ -10471,8 +11427,12 @@
       "value": "Background Opacity"
     },
     {
-      "key": "mediaPlayer.resync",
-      "value": "Resync"
+      "key": "mediaPlayer.resyncLocal",
+      "value": "Local Resync"
+    },
+    {
+      "key": "mediaPlayer.resyncEveryone",
+      "value": "Resync Everyone"
     },
     {
       "key": "mediaPlayer.advanced",
@@ -11567,6 +12527,10 @@
       "value": "Cancel"
     },
     {
+      "key": "ui.clear",
+      "value": "Clear"
+    },
+    {
       "key": "ui.validation.required",
       "value": "Required - this cannot be left empty."
     },
@@ -11693,6 +12657,54 @@
     {
       "key": "ui.resetValue.hint.vr",
       "value": "Click this hand's thumbstick for its options."
+    },
+    {
+      "key": "ui.textPreview.title",
+      "value": "Preview"
+    },
+    {
+      "key": "ui.textPreview.body",
+      "value": "How this text displays with its formatting tags applied:"
+    },
+    {
+      "key": "ui.textPreview.details",
+      "value": "Details"
+    },
+    {
+      "key": "ui.textPreview.characters",
+      "value": "Characters"
+    },
+    {
+      "key": "ui.textPreview.formatting",
+      "value": "Formatting tags"
+    },
+    {
+      "key": "ui.textPreview.tag.bold",
+      "value": "bold"
+    },
+    {
+      "key": "ui.textPreview.tag.italic",
+      "value": "italic"
+    },
+    {
+      "key": "ui.textPreview.tag.color",
+      "value": "color"
+    },
+    {
+      "key": "ui.textPreview.tag.size",
+      "value": "size"
+    },
+    {
+      "key": "ui.textPreview.tag.strikethrough",
+      "value": "strikethrough"
+    },
+    {
+      "key": "ui.textPreview.tag.underline",
+      "value": "underline"
+    },
+    {
+      "key": "ui.resetSection.nochanges",
+      "value": "Everything in this section is already at its default."
     },
     {
       "key": "ui.openFolder",
@@ -11971,6 +12983,14 @@
       "value": "Remove Colliders Distance"
     },
     {
+      "key": "settings.perf.jiggleSimulationLod.toggle",
+      "value": "Pause Distant Jiggle Simulation"
+    },
+    {
+      "key": "settings.perf.jiggleSimulationLod.slider",
+      "value": "Max Jiggle Simulation Distance"
+    },
+    {
       "key": "settings.perf.cloth.toggle",
       "value": "Limit Unity Cloth"
     },
@@ -12115,6 +13135,34 @@
       "value": "Moderator"
     },
     {
+      "key": "settings.moderator.refresh",
+      "value": "Refresh"
+    },
+    {
+      "key": "settings.moderator.autoRefresh",
+      "value": "Auto Refresh"
+    },
+    {
+      "key": "settings.moderator.byUuid",
+      "value": "By UUID"
+    },
+    {
+      "key": "settings.moderator.byUuid.tooltip",
+      "value": "Open moderation actions for a typed UUID, even for a player who is offline."
+    },
+    {
+      "key": "settings.moderator.everyone",
+      "value": "Everyone"
+    },
+    {
+      "key": "settings.moderator.everyone.tooltip",
+      "value": "Actions that affect every player in the instance."
+    },
+    {
+      "key": "settings.moderator.header.description",
+      "value": "Click a player to open moderation actions."
+    },
+    {
       "key": "ui.option.on",
       "value": "On"
     },
@@ -12173,6 +13221,10 @@
     {
       "key": "settings.graphics.aa.fsr",
       "value": "FSR"
+    },
+    {
+      "key": "settings.graphics.aa.fsr3",
+      "value": "FSR 3 (temporal)"
     },
     {
       "key": "settings.graphics.hdr.32bit",
@@ -12740,7 +13792,7 @@
     },
     {
       "key": "settings.bodyTracking.headSwing.backward.tooltip",
-      "value": "How much of that carry also applies when you move backwards."
+      "value": "How much of that carry applies when looking up. Lower it toward 0 to keep the camera still on a look-up instead of sliding it backwards."
     },
     {
       "key": "library.instantiated.assignTracker.tooltip",
@@ -13317,12 +14369,16 @@
       "value": "Copies all fields to clipboard."
     },
     {
-      "key": "settings.admin.title.shout",
-      "value": "Shout"
+      "key": "settings.admin.title.announce",
+      "value": "Announce"
     },
     {
-      "key": "settings.admin.title.showShoutOnMenuBar",
-      "value": "Show Shout On Menu Bar"
+      "key": "settings.admin.title.audioModes",
+      "value": "Audio Modes"
+    },
+    {
+      "key": "settings.admin.title.showAnnounceOnMenuBar",
+      "value": "Show Announce On Menu Bar"
     },
     {
       "key": "settings.admin.title.globalContentLocks",
@@ -13479,6 +14535,30 @@
     {
       "key": "settings.admin.title.removeFromServerDefaults",
       "value": "Remove from Server Defaults"
+    },
+    {
+      "key": "settings.admin.confirm.addDefaultLibrary.title",
+      "value": "Add to server defaults?"
+    },
+    {
+      "key": "settings.admin.confirm.addDefaultLibrary.body",
+      "value": "Save this {0} to the server's default library? It will appear in every connected player's library and persist across server restarts."
+    },
+    {
+      "key": "settings.admin.confirm.addDefaultLibrary.confirm",
+      "value": "Add"
+    },
+    {
+      "key": "settings.admin.confirm.removeDefaultLibrary.title",
+      "value": "Remove from server defaults?"
+    },
+    {
+      "key": "settings.admin.confirm.removeDefaultLibrary.body",
+      "value": "Drop every default-library entry matching '{0}'? The change is immediate and propagates to every connected player."
+    },
+    {
+      "key": "settings.admin.confirm.removeDefaultLibrary.confirm",
+      "value": "Remove"
     },
     {
       "key": "settings.admin.title.remoteEndEffectorIK",
@@ -13641,6 +14721,26 @@
       "value": "Follow Player Count"
     },
     {
+      "key": "settings.performanceMode.assist",
+      "value": "Performance Mode Assistance"
+    },
+    {
+      "key": "settings.performanceMode.assist.tooltip",
+      "value": "How Performance Mode responds to how full the instance gets."
+    },
+    {
+      "key": "settings.performanceMode.assist.off.tooltip",
+      "value": "Fully manual — Performance Mode only changes when you pick a level yourself."
+    },
+    {
+      "key": "settings.performanceMode.assist.both",
+      "value": "Follow Player Count + Suggest"
+    },
+    {
+      "key": "settings.performanceMode.assist.both.tooltip",
+      "value": "Switch levels automatically as the instance fills up, and still offer the busy-instance suggestion."
+    },
+    {
       "key": "settings.performanceMode.auto.tooltip",
       "value": "Switch levels automatically as the instance fills up."
     },
@@ -13682,7 +14782,7 @@
     },
     {
       "key": "menu.individualPlayer.voiceRecording.policy.description",
-      "value": "What happens when this player asks to record your voice."
+      "value": "What happens when this player asks to record your voice, or a Cilbox script running for them asks to route your voice through a world object (e.g. a radio prop)."
     },
     {
       "key": "menu.individualPlayer.voiceRecording.policy.ask",
@@ -14309,6 +15409,14 @@
       "value": "Copies the subject's own facing, for over-the-shoulder shots."
     },
     {
+      "key": "camera.modifier.aimAlongTrack",
+      "value": "Aim Along Track"
+    },
+    {
+      "key": "camera.modifier.aimAlongTrack.description",
+      "value": "Points the camera down the dolly track, so the shot looks the way the move is travelling. Films nobody, so it needs no subject. Set Pan Offset to 180 to look back the way it came."
+    },
+    {
       "key": "camera.modifier.hold",
       "value": "Hold Current Aim"
     },
@@ -14665,6 +15773,18 @@
       "value": "Parks the filmed point on you, for filming the spot you are standing in."
     },
     {
+      "key": "camera.lookAtPick",
+      "value": "Look At Point"
+    },
+    {
+      "key": "camera.lookAtPick.description",
+      "value": "Point at something in the world and the shot holds it. Aim with a controller and pull the trigger, or on desktop look at it and click. A marker shows where the aim lands. Useful once the camera is out on a dolly, where there is no way to aim it by hand."
+    },
+    {
+      "key": "camera.lookAtPick.cancel",
+      "value": "Stop Pointing"
+    },
+    {
       "key": "camera.composerBiasX",
       "value": "Extra Room Sideways"
     },
@@ -14734,7 +15854,7 @@
     },
     {
       "key": "camera.detachedMarker.wireframe.tooltip",
-      "value": "An outline of the camera drawn where it is, without anything to grab."
+      "value": "An outline of the camera drawn where it is, with a knob out front you can take hold of to fly it by hand."
     },
     {
       "key": "camera.bindingMode.subjectYaw",
@@ -14922,7 +16042,7 @@
     },
     {
       "key": "camera.placeWaypointAtMe.description",
-      "value": "Drops a point in front of you and adds it to the end of the track."
+      "value": "Drops a point at eye height just in front of you, facing the way you are looking, and adds it to the end of the track."
     },
     {
       "key": "camera.waypoint",
@@ -15063,6 +16183,14 @@
     {
       "key": "settings.admin.title.avatarLimits",
       "value": "Avatar Limits"
+    },
+    {
+      "key": "settings.admin.title.locomotionPolicy",
+      "value": "Instance Locomotion"
+    },
+    {
+      "key": "settings.admin.title.locomotionPolicy.description",
+      "value": "Movement values every player in this instance runs with. Saved to the server and sent to each player as they join, so anyone arriving later gets them too. Leave a field switched off to let players keep their own value. A moderator override on one player still wins over this."
     },
     {
       "key": "settings.admin.opusFrameDuration",
@@ -15223,6 +16351,14 @@
     {
       "key": "settings.admin.locomotion.runSpeed",
       "value": "Run Speed (m/s)"
+    },
+    {
+      "key": "settings.admin.locomotion.gravity.override",
+      "value": "Override Gravity"
+    },
+    {
+      "key": "settings.admin.locomotion.gravity",
+      "value": "Gravity Strength (m/s²)"
     },
     {
       "key": "settings.admin.locomotion.mode",
@@ -15461,28 +16597,52 @@
       "value": "Send message?"
     },
     {
-      "key": "settings.admin.confirm.shoutDisable.body",
+      "key": "settings.admin.confirm.announceDisable.body",
       "value": "Disable non-spatialized broadcast voice for this player?"
     },
     {
-      "key": "settings.admin.confirm.shoutDisable.confirm",
+      "key": "settings.admin.confirm.announceDisable.confirm",
       "value": "Disable"
     },
     {
-      "key": "settings.admin.confirm.shoutDisable.title",
-      "value": "Disable shout mode?"
+      "key": "settings.admin.confirm.announceDisable.title",
+      "value": "Disable announce mode?"
+    },
+    {
+      "key": "settings.admin.confirm.announceEnable.body",
+      "value": "Enable non-spatialized broadcast voice for this player?"
+    },
+    {
+      "key": "settings.admin.confirm.announceEnable.confirm",
+      "value": "Enable"
+    },
+    {
+      "key": "settings.admin.confirm.announceEnable.title",
+      "value": "Enable announce mode?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutEnable.title",
+      "value": "Enable shout mode?"
     },
     {
       "key": "settings.admin.confirm.shoutEnable.body",
-      "value": "Enable non-spatialized broadcast voice for this player?"
+      "value": "Give this player double voice range and more level, with the audio still spatial?"
     },
     {
       "key": "settings.admin.confirm.shoutEnable.confirm",
       "value": "Enable"
     },
     {
-      "key": "settings.admin.confirm.shoutEnable.title",
-      "value": "Enable shout mode?"
+      "key": "settings.admin.confirm.shoutDisable.title",
+      "value": "Disable shout mode?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutDisable.body",
+      "value": "Return this player's voice to its normal range and level?"
+    },
+    {
+      "key": "settings.admin.confirm.shoutDisable.confirm",
+      "value": "Disable"
     },
     {
       "key": "settings.admin.confirm.teleportAll.body",
@@ -16461,6 +17621,14 @@
       "value": "Switch between VR and desktop on its own as the headset comes and goes."
     },
     {
+      "key": "settings.controls.dominantHand.right",
+      "value": "Right"
+    },
+    {
+      "key": "settings.controls.dominantHand.left",
+      "value": "Left"
+    },
+    {
       "key": "settings.controls.dominantHand.right.tooltip",
       "value": "Treat your right hand as the main interaction hand."
     },
@@ -16475,6 +17643,18 @@
     {
       "key": "settings.admin.opusFrameDuration.40.tooltip",
       "value": "Send voice in 40 ms packets. Less bandwidth and overhead, a little more delay."
+    },
+    {
+      "key": "settings.admin.title.type.avatar",
+      "value": "Avatar"
+    },
+    {
+      "key": "settings.admin.title.type.world",
+      "value": "World"
+    },
+    {
+      "key": "settings.admin.title.type.prop",
+      "value": "Prop"
     },
     {
       "key": "settings.admin.title.type.avatar.tooltip",
@@ -16518,15 +17698,15 @@
     },
     {
       "key": "menu.individualPlayer.voiceRecording.policy.ask.tooltip",
-      "value": "Prompt you each time this player asks to record you."
+      "value": "Prompt you each time this player, or a Cilbox script running for them, asks to record or route your voice."
     },
     {
       "key": "menu.individualPlayer.voiceRecording.policy.allow.tooltip",
-      "value": "Let this player record your voice without asking again."
+      "value": "Automatically approve this player's recording and Cilbox voice-routing requests without asking again."
     },
     {
       "key": "menu.individualPlayer.voiceRecording.policy.deny.tooltip",
-      "value": "Refuse this player's recording requests without asking again."
+      "value": "Automatically refuse this player's recording and Cilbox voice-routing requests without asking again."
     },
     {
       "key": "menu.individualPlayer.directConnection.policy.ask.tooltip",
@@ -16539,6 +17719,66 @@
     {
       "key": "menu.individualPlayer.directConnection.policy.decline.tooltip",
       "value": "Decline direct connection requests from this player automatically."
+    },
+    {
+      "key": "library.sort.name",
+      "value": "Name"
+    },
+    {
+      "key": "library.sort.dateOldestToNewest",
+      "value": "Oldest First"
+    },
+    {
+      "key": "library.sort.dateNewestToOldest",
+      "value": "Newest First"
+    },
+    {
+      "key": "library.filter.all",
+      "value": "All"
+    },
+    {
+      "key": "library.filter.embedded",
+      "value": "Embedded"
+    },
+    {
+      "key": "library.filter.local",
+      "value": "Local"
+    },
+    {
+      "key": "library.filter.networked",
+      "value": "Networked"
+    },
+    {
+      "key": "library.filter.gameObject",
+      "value": "Props"
+    },
+    {
+      "key": "library.filter.scene",
+      "value": "Worlds"
+    },
+    {
+      "key": "library.filter.avatar",
+      "value": "Avatars"
+    },
+    {
+      "key": "library.filter.adminOnly",
+      "value": "Admin Only"
+    },
+    {
+      "key": "library.filter.persistentOnly",
+      "value": "Persistent"
+    },
+    {
+      "key": "library.filter.notPersistent",
+      "value": "Temporary"
+    },
+    {
+      "key": "library.filter.placedByMe",
+      "value": "Placed By Me"
+    },
+    {
+      "key": "library.filter.notPlacedByMe",
+      "value": "Placed By Others"
     },
     {
       "key": "library.sort.name.tooltip",
@@ -16957,6 +18197,26 @@
       "value": "The presets folder could not be read. See the log."
     },
     {
+      "key": "camera.dollyPreset.share",
+      "value": "Share"
+    },
+    {
+      "key": "camera.dollyPreset.share.tooltip",
+      "value": "Put this track in the room as an orb. Anyone who takes it keeps their own copy of the track; it does not touch the one you have laid out."
+    },
+    {
+      "key": "camera.dollyPreset.shared",
+      "value": "Placed \"{0}\" for the room to take."
+    },
+    {
+      "key": "camera.dollyPreset.error.shareTooLarge",
+      "value": "This track is too large to share."
+    },
+    {
+      "key": "camera.dollyPreset.error.shareOffline",
+      "value": "Join a server to share a track."
+    },
+    {
       "key": "settings.microphone.test.title",
       "value": "Test Microphone"
     },
@@ -17267,6 +18527,66 @@
     {
       "key": "settings.bodyTracking.ikGizmos.selfTest.tooltip",
       "value": "Draws a magenta line in front of you using the gizmo renderer directly, skipping the IK gizmo path entirely. If this line is missing too, the problem is the renderer, the camera or the layer rather than anything in the IK solve."
+    },
+    {
+      "key": "settings.graphics.renderer.title",
+      "value": "Graphics API"
+    },
+    {
+      "key": "settings.graphics.psoCacheSize",
+      "value": "PSO Cache Size"
+    },
+    {
+      "key": "settings.graphics.psoCacheSize.tooltip",
+      "value": "How much disk space to spend remembering pipeline state for shaders you've already drawn on DX12, so an avatar you've loaded before doesn't hitch again. Raising this trades disk space for fewer repeat hitches; the cache is trimmed automatically if it ever goes over."
+    },
+    {
+      "key": "settings.graphics.renderer.description",
+      "value": "This session is rendering with {0}. Only the graphics APIs this build ships are listed."
+    },
+    {
+      "key": "settings.graphics.renderer.api",
+      "value": "Graphics API"
+    },
+    {
+      "key": "settings.graphics.renderer.api.restart",
+      "value": "Graphics API (restart required)"
+    },
+    {
+      "key": "settings.graphics.renderer.api.running",
+      "value": "{0} (running)"
+    },
+    {
+      "key": "settings.graphics.renderer.api.editorLocked",
+      "value": "The editor holds the graphics API it started on. Switch renderers in a standalone build."
+    },
+    {
+      "key": "settings.graphics.renderer.api.tooltip",
+      "value": "Which graphics API Basis renders with. DirectX 12 spreads rendering work over more CPU threads, and hardware ray tracing and variable rate shading need it; DirectX 11 is the default and has no first-draw pipeline stalls. Avatars and worlds work on either without rebuilding, since both use the same compiled shaders. The API is chosen as Basis launches, so a change applies on restart, and Basis stays on the one that works if the chosen API is unavailable on this machine."
+    },
+    {
+      "key": "settings.graphics.renderer.restart.title",
+      "value": "Restart Required"
+    },
+    {
+      "key": "settings.graphics.renderer.restart.prompt",
+      "value": "The graphics API is chosen as Basis starts. Restart and reconnect now to render with {0}?"
+    },
+    {
+      "key": "settings.graphics.renderer.restart.now",
+      "value": "Restart Now"
+    },
+    {
+      "key": "settings.graphics.renderer.restart.later",
+      "value": "Later"
+    },
+    {
+      "key": "settings.controls.questControllerFix",
+      "value": "Quest Controller Fix"
+    },
+    {
+      "key": "settings.controls.questControllerFix.tooltip",
+      "value": "On, the avatar hand on Quest Touch controllers over SteamVR is anchored to a fixed wrist, so resting a thumb on the stick or face buttons no longer tilts the hand and laser. Finger poses still follow the touch sensors. Only affects Quest controllers in SteamVR mode."
     }
   ]
 }

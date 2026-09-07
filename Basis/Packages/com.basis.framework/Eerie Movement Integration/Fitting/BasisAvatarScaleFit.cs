@@ -25,7 +25,7 @@ public static class BasisAutoScaleEstimator
     }
     public static void Tick(float deltaTime)
     {
-        if (Basis.BasisUI.BasisSettingsDefaults.ContinuousBodyMeasurement.RawValue) return;
+        if (BasisHeightDriver.ObservingBodyEvidence) return;
         if (BasisHeightDriver.HasUserCalibratedHeight) return;
         if (!Basis.BasisUI.BasisSettingsDefaults.AutoScaleEstimateEnabled.RawValue) return;
         if (!BasisDeviceManagement.IsCurrentModeVR() || SMModuleSitStand.IsSteatedMode) return;

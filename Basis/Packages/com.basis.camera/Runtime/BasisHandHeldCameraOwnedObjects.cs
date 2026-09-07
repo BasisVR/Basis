@@ -6,13 +6,14 @@ public partial class BasisHandHeldCamera
     private readonly List<Transform> spawnedRoots = new List<Transform>(4);
 
     /// <summary>
-    /// Registers something the camera has put into the world in its own right — the follow puck —
-    /// so everything the camera aims at can tell the camera's own furniture apart from the scene.
+    /// Registers something the camera has put into the world in its own right — the follow puck,
+    /// or the wireframe marker's grab handle — so everything the camera aims at can tell the
+    /// camera's own furniture apart from the scene.
     /// <para>
     /// These are scene roots, not children, because they have to stay put while the camera moves.
-    /// That makes them ordinary world geometry to a raycast, and both carry a collider so they can
-    /// be grabbed: the follow puck sits about ten centimetres off the lens, so click-to-focus was
-    /// hitting it before anything else and racking the focus plane to its minimum on every click.
+    /// That makes them ordinary world geometry to a raycast, and each carries a collider so it can
+    /// be grabbed: both park a hand's width off the lens, so click-to-focus was hitting them before
+    /// anything else and racking the focus plane to its minimum on every click.
     /// </para>
     /// </summary>
     public void RegisterSpawnedObject(GameObject spawned)

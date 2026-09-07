@@ -19,8 +19,6 @@ internal sealed class BasisSidecarSubtitleEngine
     private int generation;
     private UnityWebRequest activeRequest;
 
-    public bool HasCues => cues != null && cues.Length > 0;
-
     // Fetches and parses a track, replacing the held cue list on success.
     // Returns false on any failure (security block, network/HTTP error,
     // oversized or unparseable payload) or when superseded by a newer
@@ -62,7 +60,7 @@ internal sealed class BasisSidecarSubtitleEngine
             }
         }
 
-        BasisCaptionCue[] parsed = ParseTrack(track.Format, payload);
+        BasisCaptionCue[] parsed = await Task.Run(() => ParseTrack(track.Format, payload));
         if (loadGeneration != generation) return false;
         if (parsed == null || parsed.Length == 0) return false;
         cues = parsed;

@@ -1,6 +1,7 @@
 ﻿using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Avatar;
+using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -121,6 +122,14 @@ namespace Basis.Scripts.Networking
             {
                 try
                 {
+                    if (isHostMode)
+                    {
+                        // The embedded server's own startup (socket bind, auth/config init) runs on
+                        // its own background task; without waiting for it here, this client's dial-in
+                        // to "localhost" can race ahead of the server actually listening and get
+                        // dropped before the connect handshake has anything to answer it.
+                        BasisNetworkServerRunner.serverTask.GetAwaiter().GetResult();
+                    }
                     var serverConfig = new Configuration
                     {
                         IPv4Address = ipString,
@@ -262,6 +271,14 @@ namespace Basis.Scripts.Networking
                 // Server-pushed global locks are process-wide statics: drop them with the
                 // connection or they stay in force offline and into whatever loads next.
                 BasisNetworkModeration.ResetGlobalLockState();
+                // The desktop fly toggle writes BaselineMode directly instead of going through
+                // the override stack, so RemoveAll above never touches it, and the driver
+                // survives the reconnect — without this a player stays flying into the next server.
+                if (BasisLocalPlayer.Instance != null)
+                {
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.BaselineMode = BasisLocalCharacterDriver.Mode.Walk;
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.SetMode(BasisLocalCharacterDriver.Mode.Walk);
+                }
                 await BasisNetworkLifeCycle.RebootManagement(true, peer, disconnectInfo);
                 BasisNetworkConnectionWatchdog.NotifyRebootComplete();
 #if UNITY_SERVER

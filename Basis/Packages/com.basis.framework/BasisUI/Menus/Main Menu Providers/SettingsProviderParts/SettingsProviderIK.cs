@@ -122,6 +122,10 @@ public static class SettingsProviderIK
                 perAvatarSizeSlider.Descriptor.SetTooltip(BasisLocalization.Get("calibration.avatarNudge.tooltip"));
                 perAvatarSizeSlider.SetValueWithoutNotify(BasisPerAvatarScale.Current);
                 perAvatarSizeSlider.OnValueChanged += value => BasisPerAvatarScale.SetForCurrentAvatar(value);
+                // Not settings-binding-backed (per-avatar hashed key), so the reset gesture needs an
+                // explicit default — BasisPerAvatarScale.None is the same "no nudge" baseline
+                // RefreshForCurrentAvatar/ClearForCurrentAvatar already treat as this control's zero state.
+                perAvatarSizeSlider.SetResetDefault(BasisPerAvatarScale.None);
             }
         });
 

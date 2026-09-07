@@ -148,6 +148,82 @@
       "value": "অন্য প্লেয়াররা যে নাম দেখবে সেটি বেছে নিন, তারপর «সংযোগ করুন» চাপুন।"
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "সার্ভারের নাম বা ঠিকানা দিয়ে ফিল্টার করুন।"
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "যেভাবে সাজাবেন"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "★ ডিফল্ট সার্ভার সবসময় প্রথমে দেখা যায়।"
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "ডিফল্ট"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "সংরক্ষিত ক্রম বজায় রাখে, আপনার হোস্ট সার্ভারকে সবশেষে রেখে।"
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "নাম"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "সার্ভারের নাম অনুযায়ী তালিকাটি বর্ণানুক্রমে সাজায়।"
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "পিং"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "প্রতিক্রিয়ার সময় অনুযায়ী তালিকাটি সাজায়, সবচেয়ে দ্রুতটি প্রথমে।"
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "খেলোয়াড়"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "কতজন খেলোয়াড় অনলাইনে আছে তা অনুযায়ী তালিকাটি সাজায়, সবচেয়ে পূর্ণটি প্রথমে।"
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "সার্ভার ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "সার্ভার ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "নিচে একটা সার্ভারে সংযোগ করুন, অথবা নিজেরটা যোগ করুন।"
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "আপনার খোঁজের সাথে কোনো সার্ভার মেলে না।"
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "সংযুক্ত"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "সার্ভার"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "এটি শেয়ার করতে একটা সার্ভারে সংযোগ করুন।"
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "এই সার্ভারটি সরানো যাবে না।"
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

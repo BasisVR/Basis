@@ -131,6 +131,7 @@ namespace Basis.Scripts.BasisCharacterController
         public bool IsCrouching => CrouchBlend <= LocalAnimatorDriver.CrouchThreshold;
         public bool IsProne = false;
         public bool IsRunning => CurrentSpeed > DefaultMovementSpeed;
+        public bool IsLocomoting => !MovementLock && MovementVector.sqrMagnitude > 0.001f;
         public bool UseMaxSpeed => BasisLocalInputActions.IsRunHeld;
         public bool CanPushRigidbodys = false;
         public bool IsEnabled
@@ -493,9 +494,10 @@ namespace Basis.Scripts.BasisCharacterController
 
         public void CrouchToggle()
         {
+            if (CrouchingLock) return;
             IsProne = false;
             // check what the animator driver considers to be crouching, and standup if crouch threshold is matched, otherwise, full crouch
-            CrouchBlend = CrouchingLock || CrouchBlend <= LocalAnimatorDriver.CrouchThreshold ? 1f : 0f;
+            CrouchBlend = CrouchBlend <= LocalAnimatorDriver.CrouchThreshold ? 1f : 0f;
             UpdateMovementSpeed(UseMaxSpeed);
         }
 

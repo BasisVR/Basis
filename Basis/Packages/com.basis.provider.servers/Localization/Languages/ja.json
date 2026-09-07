@@ -148,6 +148,82 @@
       "value": "他のプレイヤーに表示される名前を決めて、「接続」を押してください。"
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "サーバー名またはアドレスでフィルター。"
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "並べ替え"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "★の付いた既定のサーバーは常に最初に表示されます。"
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "既定"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "保存された順序を維持し、ホストサーバーを最後にします。"
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "名前"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "サーバー名のアルファベット順にリストを並べ替えます。"
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Ping"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "応答時間順にリストを並べ替え、最速を先頭にします。"
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "プレイヤー"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "オンラインのプレイヤー数順にリストを並べ替え、最も多いものを先頭にします。"
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "サーバー（{0}）"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "サーバー（{0}/{1}）"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "以下からサーバーに接続するか、独自のサーバーを追加してください。"
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "検索に一致するサーバーがありません。"
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "接続済み"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "サーバー"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "共有するにはサーバーに接続してください。"
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "このサーバーは削除できません。"
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

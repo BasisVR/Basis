@@ -167,16 +167,17 @@ namespace Basis.BasisUI.HandHeldCamera
             _readoutCard.SetTitle(string.Empty);
             if (_readoutCard.IconBackground != null) _readoutCard.IconBackground.SetActive(false);
             ReleaseControlSlot(_readoutCard);
-
-            // Every character of this is a number or a label the panel wrote itself, and it is
-            // rewritten four times a second — so TMP is told not to scan any of it for tags.
-            _readoutCard.DisableRichText();
         }
 
         /// <summary>
-        /// Writes the harvested file out into the readout. <see cref="PanelElementDescriptor"/>
-        /// drops a description identical to the one already showing, so a camera nobody is
-        /// touching costs one string compare rather than a text layout.
+        /// Writes the harvested file out into the readout, with the rows that have left the mode
+        /// coloured. <see cref="PanelElementDescriptor"/> drops a description identical to the one
+        /// already showing, so a camera nobody is touching costs one string compare rather than a
+        /// text layout.
+        ///
+        /// <para>The comparison is against <see cref="BasisHandHeldCamera.ComparedMode"/> rather
+        /// than the camera's current mode, because the two only differ once something has been
+        /// changed — which is the only time there is anything to colour.</para>
         /// </summary>
         private void RefreshReadout(CameraSettings live)
         {
@@ -185,9 +186,10 @@ namespace Basis.BasisUI.HandHeldCamera
             string text = BasisCameraSettingsReadout.Build(
                 live,
                 (int)_activeCamera.PinSpace,
-                _activeCamera.MetaData);
+                _activeCamera.MetaData,
+                _activeCamera.CompareToMode(_activeCamera.ComparedMode));
 
-            _readoutCard.SetDescription(text);
+            _readoutCard.SetRichDescription(text);
 
             // A changed number leaves the card exactly as tall as it was, and reflowing the page
             // four times a second for that would be most of what this tab costs. Only a change in

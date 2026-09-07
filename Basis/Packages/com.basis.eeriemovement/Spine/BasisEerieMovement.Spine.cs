@@ -264,6 +264,8 @@ namespace Basis.IK
             float spineT = (lastJoint - firstJoint) / jointSpan;
             float chestTwistKeep = Mathf.Lerp(spineNeckTwistKeep, spineTwistKeep, spineT);
             float spineSwingScale = 1f - thoracicBendStiffen * (1f - Mathf.Abs(2f * spineT - 1f));
+            Quaternion lumbarBefore = poseStream.GetRotation(chainHeadToSpine[lastJoint]);
+            float headErrBefore = (headTargetPos - poseStream.GetPosition(chainHeadToSpine[0])).magnitude;
 
             for (int citer = 0; citer < chestIkIterations; citer++)
             {
@@ -286,12 +288,40 @@ namespace Basis.IK
                     GuardSpineJoint(lastJoint);
                 }
 
-                for (int sweep = 0; sweep < chestIkHeadRestoreSweeps; sweep++)
+                RestoreHeadAboveChest(headTargetPos, firstJoint, lastJoint, chestBoneIdx, jointSpan, ccdUp);
+            }
+
+            // The chest only gets the authority the head can afford: past the budget the lumbar is bisected back toward
+            // the head-only solve, which at full reach is what keeps a taut chain from paying the chest pull with the head.
+            float allowed = headErrBefore + Mathf.Max(0f, chestHeadBudget);
+            if ((headTargetPos - poseStream.GetPosition(chainHeadToSpine[0])).magnitude <= allowed)
+                return;
+
+            Quaternion lumbarAfter = poseStream.GetRotation(chainHeadToSpine[lastJoint]);
+            float lo = 0f, hi = 1f;
+            for (int probe = 0; probe < ChestBarrierProbes; probe++)
+            {
+                float mid = 0.5f * (lo + hi);
+                BlendLumbarAndRestoreHead(lumbarBefore, lumbarAfter, mid, headTargetPos, firstJoint, lastJoint, chestBoneIdx, jointSpan, ccdUp);
+                if ((headTargetPos - poseStream.GetPosition(chainHeadToSpine[0])).magnitude <= allowed) lo = mid;
+                else hi = mid;
+            }
+            BlendLumbarAndRestoreHead(lumbarBefore, lumbarAfter, lo, headTargetPos, firstJoint, lastJoint, chestBoneIdx, jointSpan, ccdUp);
+        }
+        const int ChestBarrierProbes = 5;
+        void BlendLumbarAndRestoreHead(Quaternion lumbarBefore, Quaternion lumbarAfter, float w, Vector3 headTargetPos, int firstJoint, int lastJoint, int chestBoneIdx, float jointSpan, Vector3 ccdUp)
+        {
+            poseStream.SetRotation(chainHeadToSpine[lastJoint], Quaternion.Slerp(lumbarBefore, lumbarAfter, w));
+            GuardSpineJoint(lastJoint);
+            RestoreHeadAboveChest(headTargetPos, firstJoint, lastJoint, chestBoneIdx, jointSpan, ccdUp);
+        }
+        void RestoreHeadAboveChest(Vector3 headTargetPos, int firstJoint, int lastJoint, int chestBoneIdx, float jointSpan, Vector3 ccdUp)
+        {
+            for (int sweep = 0; sweep < chestIkHeadRestoreSweeps; sweep++)
+            {
+                for (int i = lastJoint - 1; i >= firstJoint; i--)
                 {
-                    for (int i = lastJoint - 1; i >= firstJoint; i--)
-                    {
-                        ReachHeadJoint(i, headTargetPos, firstJoint, chestBoneIdx, jointSpan, ccdUp);
-                    }
+                    ReachHeadJoint(i, headTargetPos, firstJoint, chestBoneIdx, jointSpan, ccdUp);
                 }
             }
         }

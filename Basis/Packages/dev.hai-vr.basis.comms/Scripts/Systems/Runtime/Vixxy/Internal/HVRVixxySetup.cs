@@ -2,7 +2,6 @@
 using UnityEngine;
 #if HVR_VIXXY_IS_IN_BASIS
 using Basis.Scripts.BasisSdk;
-using HVR.Basis.Comms;
 using HVR.Basis.Comms.HVRUtility;
 #endif
 
@@ -31,7 +30,7 @@ namespace HVR.Vixxy
 
         private static HVRVixxyOrchestrator EnsureSceneHasNonAvatarOrchestrator()
         {
-            var existingOrchestrators = Object.FindObjectsByType<HVRVixxyOrchestrator>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var existingOrchestrators = Object.FindObjectsByType<HVRVixxyOrchestrator>(FindObjectsInactive.Include);
             foreach (var existingOrchestrator in existingOrchestrators)
             {
 #if HVR_VIXXY_IS_IN_BASIS

@@ -1,3 +1,4 @@
+using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
 using NUnit.Framework;
 using System;
@@ -100,6 +101,85 @@ namespace Basis.Tests.Voice
                 float g = BasisVoiceAcoustics.DistanceGain(2f, MinDistance, range);
                 Assert.AreEqual(0.25f, g, 0.02f, $"2 m gain drifted at {range} m range");
             }
+        }
+
+        // ──────────────────────────── shout ────────────────────────────
+
+        // The shipped RAMinDistance default, so these pin what players actually hear
+        // rather than only the general shape.
+        private const float ShipMin = 1.5f;
+
+        private static float NormalLevel(float d) =>
+            BasisVoiceAcoustics.DistanceGain(d, ShipMin, MaxDistance);
+
+        private static float Boost(float d) =>
+            BasisVoiceAcoustics.ShoutBoost(d * d, ShipMin, BasisShout.Gain, NormalLevel(d));
+
+        private static float ShoutLevel(float d) => NormalLevel(d) * Boost(d);
+
+        [Test]
+        public void ShoutBoost_IsNothingPointBlank()
+        {
+            // The complaint shout answers is "I cannot hear them from over there", not
+            // "they are not loud enough standing on top of me". Someone inside the
+            // minimum distance is already at full level and must not be pushed past it.
+            Assert.AreEqual(1f, Boost(0f), 1e-5f);
+            Assert.AreEqual(1f, Boost(ShipMin), 1e-5f);
+            Assert.AreEqual(1f, Boost(ShipMin * 0.5f), 1e-5f);
+        }
+
+        [Test]
+        public void ShoutBoost_NeverExceedsAPointBlankTalker()
+        {
+            // The whole safety property: the boost only ever gives back level the
+            // rolloff took away, so a shouter at any distance lands at or under what a
+            // normal talker standing at the minimum distance already delivers. Nothing
+            // shout does can be louder than something the mix already produces.
+            float pointBlank = NormalLevel(ShipMin);
+            for (float d = 0f; d <= MaxDistance; d += 0.05f)
+            {
+                Assert.LessOrEqual(ShoutLevel(d), pointBlank + 1e-5f,
+                    $"a shouter at {d:F2} m arrived louder than a normal talker at {ShipMin} m");
+            }
+        }
+
+        [Test]
+        public void ShoutBoost_IsWorthRealLevelAtTheDistancesPeopleComplainedAbout()
+        {
+            // 1.75x applied before the limiter measured under a dB on loud syllables.
+            // These are the numbers that have to survive: a clear step at conversational
+            // range, the full boost by the time you are across a room.
+            Assert.Greater(Db(ShoutLevel(4f)) - Db(NormalLevel(4f)), 6f);
+            Assert.Greater(Db(ShoutLevel(8f)) - Db(NormalLevel(8f)), 9f);
+            Assert.Greater(Db(ShoutLevel(16f)) - Db(NormalLevel(16f)), 9f);
+        }
+
+        [Test]
+        public void ShoutBoost_StopsAtTheCap()
+        {
+            Assert.AreEqual(BasisShout.Gain, Boost(MaxDistance), 1e-4f);
+            Assert.LessOrEqual(Boost(MaxDistance * 4f), BasisShout.Gain + 1e-5f);
+        }
+
+        [Test]
+        public void ShoutBoost_LeavesTheDistanceCueIntact()
+        {
+            // Restoring all of the loss would hold a shouter at one level everywhere
+            // inside the cap, which reads as a voice with no position. The level must
+            // still fall as they back away, and the boost must never fall.
+            float previousLevel = ShoutLevel(ShipMin);
+            float previousBoost = Boost(0f);
+            for (float d = ShipMin; d <= MaxDistance * 0.9f; d += 0.05f)
+            {
+                float level = ShoutLevel(d);
+                float boost = Boost(d);
+                Assert.LessOrEqual(level, previousLevel + 1e-5f, $"a shouter got louder backing away at {d:F2} m");
+                Assert.GreaterOrEqual(boost, previousBoost - 1e-5f, $"boost fell at {d:F2} m");
+                previousLevel = level;
+                previousBoost = boost;
+            }
+            Assert.Less(Db(ShoutLevel(16f)) - Db(ShoutLevel(4f)), -3f,
+                "a shouter should still audibly recede");
         }
 
         [Test]

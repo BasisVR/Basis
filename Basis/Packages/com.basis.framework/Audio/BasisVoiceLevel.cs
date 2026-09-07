@@ -46,11 +46,6 @@ namespace Basis.Scripts.Audio
         }
 
         /// <summary>
-        /// The local player's own voice on the shared 0..1 scale.
-        /// </summary>
-        public static float LocalVoiceLevel01 => RmsToUnit(_localVoiceRms);
-
-        /// <summary>
         /// Maps a linear RMS amplitude onto 0..1 through the shared dBFS window.
         /// </summary>
         public static float RmsToUnit(float rms)

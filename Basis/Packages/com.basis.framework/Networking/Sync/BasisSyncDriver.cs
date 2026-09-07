@@ -67,6 +67,22 @@ namespace Basis.Scripts.Networking.Sync
         private static ushort[] _reductionPlayerIds = new ushort[0];
         private static ushort[] _reductionRecipientScratch = new ushort[0];
 
+        // Receive decode fan-out. Each receiver touches only its own state and packets are only
+        // produced by the main-thread action drain, which cannot run while this pass blocks.
+        private static float _advanceDelta;
+        private static readonly System.Action<int> _advanceBody = AdvanceRemoteBody;
+        private static readonly System.Threading.Tasks.ParallelOptions _advanceOptions = new System.Threading.Tasks.ParallelOptions
+        {
+            MaxDegreeOfParallelism = System.Math.Max(1, System.Environment.ProcessorCount - 2)
+        };
+
+        private static void AdvanceRemoteBody(int i)
+        {
+            BasisSyncedObject o = _remote[i];
+            if (o is null) return;
+            o.AdvanceReceiver(_advanceDelta);
+        }
+
         // Transform bindings.
         private static readonly List<Transform> _bindTransforms = new List<Transform>();
         private static readonly List<BasisSyncApplyBinding> _bindings = new List<BasisSyncApplyBinding>();
@@ -166,12 +182,20 @@ namespace Basis.Scripts.Networking.Sync
             if (_dirtyLayout) { RebuildLayout(); _forceFullCopy = true; }
 
             int n = _remote.Count;
+            _advanceDelta = deltaTime;
+            if (n > 8)
+            {
+                System.Threading.Tasks.Parallel.For(0, n, _advanceOptions, _advanceBody);
+            }
+            else
+            {
+                for (int i = 0; i < n; i++) AdvanceRemoteBody(i);
+            }
             for (int i = 0; i < n; i++)
             {
                 BasisSyncedObject o = _remote[i];
                 if (o == null) { _active[i] = 0; continue; }
 
-                o.AdvanceReceiver(deltaTime);
                 BasisSyncReceiver recv = o.Receiver;
                 if (recv == null || !recv.HasData) { _active[i] = 0; continue; }
 

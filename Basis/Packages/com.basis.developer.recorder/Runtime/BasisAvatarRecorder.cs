@@ -1,12 +1,19 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
 using UnityEngine;
 
 public static class BasisAvatarRecorder
 {
     private static bool _isRecording;
     private static FileStream filestream;
-    private static BinaryWriter writer;
+    private static Thread writeThread;
+    private static AutoResetEvent writeSignal;
+    private static volatile bool writeRunning;
+    private static readonly ConcurrentQueue<byte[]> pendingFrames = new ConcurrentQueue<byte[]>();
+    private static readonly ConcurrentQueue<byte[]> framePool = new ConcurrentQueue<byte[]>();
+    private static readonly float[] staging = new float[FloatsPerFrame];
 
     // Public so tools (like your editor window) can reason about the file format
     public const int MuscleCount = 95;
@@ -35,7 +42,10 @@ public static class BasisAvatarRecorder
         string filePath = Path.Combine(directory, $"AvatarRecord_{timestamp}.dat");
 
         filestream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read);
-        writer = new BinaryWriter(filestream);
+        writeSignal = new AutoResetEvent(false);
+        writeRunning = true;
+        writeThread = new Thread(WriteLoop) { IsBackground = true, Name = "BasisAvatarRecorder" };
+        writeThread.Start();
         _isRecording = true;
 
         BasisDebug.Log($"Avatar recording started: {filePath}", BasisDebug.LogTag.Device);
@@ -48,13 +58,29 @@ public static class BasisAvatarRecorder
             return;
         }
 
-        writer?.Flush();
-        writer?.Dispose();
-        filestream?.Dispose();
-
-        writer = null;
-        filestream = null;
         _isRecording = false;
+        writeRunning = false;
+        writeSignal?.Set();
+        try { writeThread?.Join(); } catch { }
+        writeThread = null;
+
+        try
+        {
+            while (pendingFrames.TryDequeue(out byte[] frame))
+            {
+                filestream?.Write(frame, 0, BytesPerFrame);
+            }
+            filestream?.Flush();
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"BasisAvatarRecorder: final flush failed: {ex.Message}", BasisDebug.LogTag.Device);
+        }
+        filestream?.Dispose();
+        filestream = null;
+        writeSignal?.Dispose();
+        writeSignal = null;
+        while (framePool.TryDequeue(out _)) { }
 
         BasisDebug.Log("Avatar recording stopped.", BasisDebug.LogTag.Device);
     }
@@ -67,8 +93,13 @@ public static class BasisAvatarRecorder
     ///   Vector3 position (x, y, z)
     ///   float muscles[95]
     ///   float scale
-    /// 
+    ///
     /// Total: 104 floats = 416 bytes.
+    ///
+    /// The frame is packed on the caller's thread into a pooled buffer and written by
+    /// a dedicated writer thread, so the per-frame capture path never touches the
+    /// FileStream. Byte layout is identical to the old BinaryWriter output
+    /// (little-endian floats).
     /// </summary>
     /// <param name="intervalSeconds">Time since previous frame, in seconds.</param>
     /// <param name="rotation">Root rotation.</param>
@@ -82,7 +113,7 @@ public static class BasisAvatarRecorder
         float[] muscles,
         float scale)
     {
-        if (!_isRecording || writer == null)
+        if (!_isRecording || !writeRunning || filestream == null)
         {
             BasisDebug.LogError("BasisAvatarRecorder.StoreData called while not recording (Missing Writer)!");
             return;
@@ -96,27 +127,48 @@ public static class BasisAvatarRecorder
             return;
         }
 
-        // Interval between this frame and the previous one
-        writer.Write(intervalSeconds);
+        staging[0] = intervalSeconds;
+        staging[1] = rotation.x;
+        staging[2] = rotation.y;
+        staging[3] = rotation.z;
+        staging[4] = rotation.w;
+        staging[5] = position.x;
+        staging[6] = position.y;
+        staging[7] = position.z;
+        Array.Copy(muscles, 0, staging, 8, MuscleCount);
+        staging[8 + MuscleCount] = scale;
 
-        // Rotation (4 floats)
-        writer.Write(rotation.x);
-        writer.Write(rotation.y);
-        writer.Write(rotation.z);
-        writer.Write(rotation.w);
-
-        // Position (3 floats)
-        writer.Write(position.x);
-        writer.Write(position.y);
-        writer.Write(position.z);
-
-        // Muscles (95 floats)
-        for (int i = 0; i < MuscleCount; i++)
+        if (!framePool.TryDequeue(out byte[] frame))
         {
-            writer.Write(muscles[i]);
+            frame = new byte[BytesPerFrame];
         }
+        Buffer.BlockCopy(staging, 0, frame, 0, BytesPerFrame);
+        pendingFrames.Enqueue(frame);
+        writeSignal?.Set();
+    }
 
-        // Scale (1 float)
-        writer.Write(scale);
+    private static void WriteLoop()
+    {
+        while (writeRunning)
+        {
+            writeSignal.WaitOne();
+            try
+            {
+                while (pendingFrames.TryDequeue(out byte[] frame))
+                {
+                    filestream.Write(frame, 0, BytesPerFrame);
+                    if (framePool.Count < 64)
+                    {
+                        framePool.Enqueue(frame);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"BasisAvatarRecorder: write failed: {ex.Message}", BasisDebug.LogTag.Device);
+                writeRunning = false;
+                return;
+            }
+        }
     }
 }

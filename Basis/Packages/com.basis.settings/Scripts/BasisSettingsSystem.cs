@@ -174,7 +174,7 @@ public static class BasisSettingsSystem
     {
         BasisSettingsSystem.LoadAllSettings();
         SceneManager.sceneLoaded += OnSceneLoaded;
-
+        Application.quitting += FlushPendingSaves;
     }
 
     private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -339,8 +339,11 @@ public static class BasisSettingsSystem
         {
             // First run: no file yet. Just create an empty file at current version.
             BasisDebug.LogError("Settings file not found, creating new settings file.");
-            //create the file and then just load it once done
+            _settingsLoaded = true;
             SaveAllSettings();
+            OnSettingsFinishedChanges?.Invoke();
+            ForceQualityRefresh();
+            return;
         }
 
         string json = null;
@@ -398,6 +401,10 @@ public static class BasisSettingsSystem
         ForceQualityRefresh();
     }
 
+    private static readonly object _saveLock = new object();
+    private static string _pendingSaveJson;
+    private static bool _saveInFlight;
+
     public static void SaveAllSettings()
     {
         try
@@ -428,12 +435,80 @@ public static class BasisSettingsSystem
                 Directory.CreateDirectory(dir);
             }
 
-            File.WriteAllText(FilePath, json);
+            QueueSave(json);
         }
         catch (Exception e)
         {
             BasisDebug.LogError($"Failed to save settings to {FilePath}: {e}");
         }
+    }
+
+    // Latest-wins snapshot handed to a single-flight background writer: a burst of saves costs
+    // one serialize each but at most one disk write is ever queued behind the one in progress.
+    private static void QueueSave(string json)
+    {
+        lock (_saveLock)
+        {
+            _pendingSaveJson = json;
+            if (_saveInFlight)
+            {
+                return;
+            }
+            _saveInFlight = true;
+        }
+        System.Threading.Tasks.Task.Run(SaveWorker);
+    }
+
+    private static void SaveWorker()
+    {
+        while (true)
+        {
+            string json;
+            lock (_saveLock)
+            {
+                json = _pendingSaveJson;
+                _pendingSaveJson = null;
+                if (json == null)
+                {
+                    _saveInFlight = false;
+                    return;
+                }
+            }
+            try
+            {
+                string tmp = FilePath + ".tmp";
+                File.WriteAllText(tmp, json);
+                if (File.Exists(FilePath))
+                {
+                    File.Replace(tmp, FilePath, null);
+                }
+                else
+                {
+                    File.Move(tmp, FilePath);
+                }
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Failed to save settings to {FilePath}: {e}");
+            }
+        }
+    }
+
+    /// <summary>Blocks until any queued settings write has landed. Wired to Application.quitting.</summary>
+    public static void FlushPendingSaves()
+    {
+        for (int i = 0; i < 200; i++)
+        {
+            lock (_saveLock)
+            {
+                if (!_saveInFlight && _pendingSaveJson == null)
+                {
+                    return;
+                }
+            }
+            System.Threading.Thread.Sleep(5);
+        }
+        BasisDebug.LogError("Timed out waiting for the settings file write to finish on quit.");
     }
 
     public static int LoadInt(string key, int defaultValue)

@@ -9,7 +9,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
     /// <summary>
     /// A standalone spatialized (3D) audio source that re-emits a consented remote
     /// player's voice from a caller-supplied anchor transform — e.g. a radio object
-    /// (issue #911). It mirrors <see cref="BasisShoutAudioDriver"/>'s per-shouter source
+    /// (issue #911). It mirrors <see cref="BasisAnnounceAudioDriver"/>'s per-announcer source
     /// but is 3D and parented to the anchor, and is fed encoded frames tapped from the
     /// player's receiver instead of read from the network directly. It never exposes PCM
     /// to its creator; callers only position it via the anchor.

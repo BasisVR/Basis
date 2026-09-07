@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -940,31 +941,58 @@ public static class BasisFarLodAtlasBaker
             hemisphere[i] = new Vector3(Mathf.Cos(phi) * sinTheta, Mathf.Sin(phi) * sinTheta, Mathf.Sqrt(1f - u));
         }
 
+        // One RaycastCommand batch instead of vertexCount x AoRayCount synchronous
+        // Physics.Raycast calls — the queries fan across the worker pool and the
+        // evaluation below reads the same hit distances the serial form did.
         float[] ao = new float[positions.Length];
-        for (int v = 0; v < positions.Length; v++)
+        int vertexCount = positions.Length;
+        var commands = new NativeArray<RaycastCommand>(vertexCount * AoRayCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        var hits = new NativeArray<RaycastHit>(vertexCount * AoRayCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        try
         {
-            Vector3 normalWorld = (rootRotation * normals[v]).normalized;
-            Vector3 origin = rootToWorld.MultiplyPoint3x4(positions[v]) + normalWorld * bias;
-            Vector3 tangent = Vector3.Cross(normalWorld, Mathf.Abs(normalWorld.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
-            Vector3 bitangent = Vector3.Cross(normalWorld, tangent);
-
-            int occluded = 0;
-            int nearHits = 0;
-            for (int r = 0; r < AoRayCount; r++)
+            QueryParameters query = new QueryParameters(layerMask, false, QueryTriggerInteraction.UseGlobal, false);
+            for (int v = 0; v < vertexCount; v++)
             {
-                Vector3 direction = tangent * hemisphere[r].x + bitangent * hemisphere[r].y + normalWorld * hemisphere[r].z;
-                if (Physics.Raycast(origin, direction, out RaycastHit hit, rayLength, layerMask))
+                Vector3 normalWorld = (rootRotation * normals[v]).normalized;
+                Vector3 origin = rootToWorld.MultiplyPoint3x4(positions[v]) + normalWorld * bias;
+                Vector3 tangent = Vector3.Cross(normalWorld, Mathf.Abs(normalWorld.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
+                Vector3 bitangent = Vector3.Cross(normalWorld, tangent);
+                int baseIndex = v * AoRayCount;
+                for (int r = 0; r < AoRayCount; r++)
                 {
-                    occluded++;
-                    if (hit.distance < buriedDistance)
-                    {
-                        nearHits++;
-                    }
+                    Vector3 direction = tangent * hemisphere[r].x + bitangent * hemisphere[r].y + normalWorld * hemisphere[r].z;
+                    commands[baseIndex + r] = new RaycastCommand(origin, direction, query, rayLength);
                 }
             }
-            // Buried inside another shell — its texels are hidden anyway; stay neutral so
-            // smoothing doesn't drag the darkness onto the visible surface above it.
-            ao[v] = nearHits >= (AoRayCount * 3) / 4 ? 1f : 1f - (occluded / (float)AoRayCount) * 0.9f;
+
+            RaycastCommand.ScheduleBatch(commands, hits, 64).Complete();
+
+            for (int v = 0; v < vertexCount; v++)
+            {
+                int occluded = 0;
+                int nearHits = 0;
+                int baseIndex = v * AoRayCount;
+                for (int r = 0; r < AoRayCount; r++)
+                {
+                    RaycastHit hit = hits[baseIndex + r];
+                    if (hit.colliderEntityId != EntityId.None)
+                    {
+                        occluded++;
+                        if (hit.distance < buriedDistance)
+                        {
+                            nearHits++;
+                        }
+                    }
+                }
+                // Buried inside another shell — its texels are hidden anyway; stay neutral so
+                // smoothing doesn't drag the darkness onto the visible surface above it.
+                ao[v] = nearHits >= (AoRayCount * 3) / 4 ? 1f : 1f - (occluded / (float)AoRayCount) * 0.9f;
+            }
+        }
+        finally
+        {
+            commands.Dispose();
+            hits.Dispose();
         }
 
         // Two rounds of neighbor smoothing over the triangle graph.
@@ -1013,6 +1041,16 @@ public static class BasisFarLodAtlasBaker
         int layerMask = 1 << OcclusionLayer;
         int viewCount = views.Count;
         CaptureView[] viewArray = views.ToArray();
+
+        // The projection is pure array math EXCEPT the collider raycast fallback taken when a
+        // view carries no depth mask — Physics queries are main-thread only, so that path runs
+        // serial. With depth on every view the atlas splits into disjoint row bands that run in
+        // parallel: a texel belongs to exactly one band and every band replays the triangles in
+        // the same order, so per-texel arbitration (texelQuality) resolves identically to the
+        // serial walk. candidateOrder/candidateScore are per-band — they were the shared
+        // scratch that made the old single-threaded form mandatory.
+        void ProjectRows(int bandStartY, int bandEndY)
+        {
         int[] candidateOrder = new int[viewCount];
         float[] candidateScore = new float[viewCount];
 
@@ -1034,10 +1072,14 @@ public static class BasisFarLodAtlasBaker
             float maxX = Mathf.Max(uv0.x, Mathf.Max(uv1.x, uv2.x)) + 1f;
             float minY = Mathf.Min(uv0.y, Mathf.Min(uv1.y, uv2.y)) - 1f;
             float maxY = Mathf.Max(uv0.y, Mathf.Max(uv1.y, uv2.y)) + 1f;
+            if (Mathf.CeilToInt(maxY) < bandStartY || Mathf.FloorToInt(minY) > bandEndY)
+            {
+                continue;
+            }
             int startX = Mathf.Clamp(Mathf.FloorToInt(minX), 0, atlasSize - 1);
             int endX = Mathf.Clamp(Mathf.CeilToInt(maxX), 0, atlasSize - 1);
-            int startY = Mathf.Clamp(Mathf.FloorToInt(minY), 0, atlasSize - 1);
-            int endY = Mathf.Clamp(Mathf.CeilToInt(maxY), 0, atlasSize - 1);
+            int startY = Mathf.Clamp(Mathf.FloorToInt(minY), bandStartY, bandEndY);
+            int endY = Mathf.Clamp(Mathf.CeilToInt(maxY), bandStartY, bandEndY);
 
             Vector2 edge0 = uv1 - uv0;
             Vector2 edge1 = uv2 - uv0;
@@ -1208,6 +1250,32 @@ public static class BasisFarLodAtlasBaker
                     }
                 }
             }
+        }
+        }
+
+        bool anyViewLacksDepth = false;
+        for (int v = 0; v < viewCount; v++)
+        {
+            if (viewArray[v].Depth16 == null)
+            {
+                anyViewLacksDepth = true;
+                break;
+            }
+        }
+
+        if (anyViewLacksDepth)
+        {
+            ProjectRows(0, atlasSize - 1);
+        }
+        else
+        {
+            int bandHeight = Mathf.Max(16, atlasSize / (Mathf.Clamp(SystemInfo.processorCount, 1, 16) * 4));
+            int bandCount = (atlasSize + bandHeight - 1) / bandHeight;
+            System.Threading.Tasks.Parallel.For(0, bandCount, band =>
+            {
+                int bandStart = band * bandHeight;
+                ProjectRows(bandStart, Mathf.Min(atlasSize - 1, bandStart + bandHeight - 1));
+            });
         }
 
         // If projection wrote (almost) nothing the flood fill below would paint the whole

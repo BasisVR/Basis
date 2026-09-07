@@ -148,6 +148,82 @@
       "value": "Choisissez le nom que les autres joueurs verront, puis appuyez sur « Se connecter »."
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "Filtrer par nom ou adresse de serveur."
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "Trier par"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "Le serveur ★ par défaut apparaît toujours en premier."
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "Par défaut"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "Conserve l'ordre enregistré, avec votre serveur hôte en dernier."
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "Nom"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "Trie la liste alphabétiquement par nom de serveur."
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Ping"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "Trie la liste par temps de réponse, le plus rapide en premier."
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "Joueurs"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "Trie la liste par nombre de joueurs en ligne, le plus rempli en premier."
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "Serveurs ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "Serveurs ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "Connectez-vous à un serveur ci-dessous, ou ajoutez le vôtre."
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "Aucun serveur ne correspond à votre recherche."
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "Connecté"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "Serveur"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "Connectez-vous à un serveur pour le partager."
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "Ce serveur ne peut pas être supprimé."
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

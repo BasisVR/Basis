@@ -53,12 +53,8 @@ namespace Basis.Scripts.Drivers
         private static Vector3 _horizontal;
         private static float _scale;
 
-        public static BasisScriptedInputBlend LocomotionBlend => _locomotionBlend;
-
-        public static bool LocomotionActive => IsFresh(_locomotionFrame);
         public static bool VerticalActive => IsFresh(_verticalFrame);
         public static bool HorizontalActive => IsFresh(_horizontalFrame);
-        public static bool ScaleActive => IsFresh(_scaleFrame);
         public static bool MoverActive => IsFresh(_leftFrame) || IsFresh(_rightFrame) || VerticalActive || HorizontalActive;
 
         private static bool IsFresh(int frame)

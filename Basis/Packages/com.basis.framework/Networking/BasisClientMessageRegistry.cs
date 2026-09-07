@@ -23,7 +23,7 @@ public static class BasisClientMessageRegistry
 
     public static void RegisterCore(byte channel, BasisClientMessageHandler handler) => CoreHandlers[channel] = handler;
 
-    public static BasisClientMessageHandler ResolveCore(byte channel) => CoreHandlers[channel];
+    public static BasisClientMessageHandler ResolveCore(byte channel) => channel < CoreHandlers.Length ? CoreHandlers[channel] : null;
 
     /// <summary>Bind a multiplexed plugin message id (carried on channels 61-63) to a handler.</summary>
     public static void RegisterPlugin(ushort id, BasisClientMessageHandler handler) => PluginHandlers[id] = handler;
@@ -62,6 +62,10 @@ public static class BasisClientMessageRegistry
         List<ushort> handled = new List<ushort>(LastSupply.Length);
         foreach (SerializableBasis.BasisMessageDescriptor descriptor in LastSupply)
         {
+            if (string.IsNullOrEmpty(descriptor.Name))
+            {
+                continue;
+            }
             if (BasisNetworkCommons.IsPluginChannel(descriptor.Channel))
             {
                 PluginDescriptorsByName[descriptor.Name] = descriptor;

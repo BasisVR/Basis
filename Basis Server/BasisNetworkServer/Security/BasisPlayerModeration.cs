@@ -11,7 +11,6 @@ using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
 using BasisNetworking.InitialData;
-using BasisNetworking.InitialData;
 using BasisServerHandle;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static BasisPermissions.PermissionManager;
@@ -25,6 +24,20 @@ namespace BasisNetworkServer.Security
         private static readonly string BanFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "banned_players.xml");
 
         public static bool UseFileOnDisc = true;
+
+        /// <summary>
+        /// QueryPermission is the one admin-channel request any player may send, so it is the one
+        /// that needs its own budget. A UI badge asks about each player once as they join and again
+        /// when permissions change; the burst covers arriving into a full instance, the refill
+        /// covers churn, and anything past that is someone walking the permission store one node
+        /// at a time. Silent drop on exhaustion, same as the chat limiter — replying "slow down"
+        /// hands a flooder an amplification vector.
+        /// </summary>
+        private static readonly BasisPeerRateLimiter PermissionQueryLimiter =
+            new BasisPeerRateLimiter(tokensPerSecond: 10f, tokenBurst: 60f);
+
+        /// <summary>Longest node or group name a query may name. Real ones are well under this.</summary>
+        private const int MaxPermissionQueryLength = 128;
 
         public class BannedPlayer
         {
@@ -243,6 +256,18 @@ namespace BasisNetworkServer.Security
                 return;
             }
 
+            // ===== QUERY ONE PERMISSION / GROUP =====
+            // Not gated, unlike the snapshot above. This answers a single yes/no about a single
+            // player already in the room, which is what a client needs to badge staff on a
+            // nameplate or gate a moderator-only door — a check every player has to be able to
+            // make, not just the ones who could already read the whole table.
+            if (mode == AdminRequestMode.QueryPermission)
+            {
+                HandleQueryPermission(peer, reader);
+                reader.Recycle();
+                return;
+            }
+
             switch (mode)
             {
                 case AdminRequestMode.Ban:
@@ -316,15 +341,31 @@ namespace BasisNetworkServer.Security
                     });
                     break;
 
+                case AdminRequestMode.EnableAnnounceMode:
+                case AdminRequestMode.DisableAnnounceMode:
+                    Require(peer, PermNodes.ModerationAnnounce, () =>
+                        HandleAnnounceMode(peer, reader, mode == AdminRequestMode.EnableAnnounceMode));
+                    break;
+
                 case AdminRequestMode.EnableShoutMode:
                 case AdminRequestMode.DisableShoutMode:
-                    Require(peer, PermNodes.ModerationShout, () =>
+                    Require(peer, PermNodes.ModerationAnnounce, () =>
                         HandleShoutMode(peer, reader, mode == AdminRequestMode.EnableShoutMode));
                     break;
 
                 case AdminRequestMode.SetFullQualityBroadcast:
                     Require(peer, PermNodes.ModerationFullQualityBroadcast, () =>
                         HandleFullQualityBroadcast(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetVoiceMute:
+                    Require(peer, PermNodes.ModerationMute, () =>
+                        SendBackMessage(peer, BasisPlayerMuteManager.Apply(reader.GetString(), voice: true, reader.GetBool())));
+                    break;
+
+                case AdminRequestMode.SetTextMute:
+                    Require(peer, PermNodes.ModerationMute, () =>
+                        SendBackMessage(peer, BasisPlayerMuteManager.Apply(reader.GetString(), voice: false, reader.GetBool())));
                     break;
 
                 case AdminRequestMode.ForceAvatar:
@@ -464,6 +505,14 @@ namespace BasisNetworkServer.Security
                 case AdminRequestMode.SetGlobalAvatarScaleLimits:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleAvatarScaleLimitsSet(peer, reader));
+                    break;
+
+                // The persisted instance-wide policy, not the one-shot fan-out above: it rewrites
+                // config.xml and governs every future joiner, so it takes the same node every other
+                // persisted SetGlobal* takes rather than the moderator-level locomotion node.
+                case AdminRequestMode.SetGlobalLocomotionPolicy:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleLocomotionPolicySet(peer, reader));
                     break;
 
                 case AdminRequestMode.SetGlobalResourceLimits:
@@ -811,6 +860,56 @@ namespace BasisNetworkServer.Security
             SendBackMessage(peer, result);
         }
 
+        private static void HandleQueryPermission(NetPeer peer, NetPacketReader reader)
+        {
+            ushort targetId = reader.GetUShort();
+            byte kind = reader.GetByte();
+            string value = reader.GetString();
+
+            if (!PermissionQueryLimiter.TryConsume(peer))
+            {
+                return;
+            }
+
+            // Answered with an empty echo rather than the value: only a modified client gets here
+            // (the sending side caps the same length), and there is no reason to spend the reply
+            // carrying an oversized string back out again.
+            if (string.IsNullOrWhiteSpace(value) || value.Length > MaxPermissionQueryLength)
+            {
+                SendQueryPermissionResult(peer, targetId, kind, string.Empty, held: false, targetFound: false);
+                return;
+            }
+
+            // Only players connected right now can be asked about. Answering by UUID instead would
+            // turn this into a lookup over the whole store, which is what GetPermissions gates.
+            if (!NetworkServer.AuthenticatedPeers.TryGetValue(targetId, out NetPeer targetPeer) ||
+                !NetworkServer.AuthIdentity.NetIDToUUID(targetPeer, out string targetUUID))
+            {
+                SendQueryPermissionResult(peer, targetId, kind, value, held: false, targetFound: false);
+                return;
+            }
+
+            bool held = (AdminPermissionQueryKind)kind == AdminPermissionQueryKind.Group
+                ? PermissionIntegration.Manager.IsInGroup(targetUUID, value)
+                : PermissionIntegration.Manager.Has(targetUUID, value);
+
+            SendQueryPermissionResult(peer, targetId, kind, value, held, targetFound: true);
+        }
+
+        private static void SendQueryPermissionResult(NetPeer peer, ushort targetId, byte kind, string value, bool held, bool targetFound)
+        {
+            var writer = NetworkServer.RentWriter();
+            new AdminRequest().Serialize(writer, AdminRequestMode.QueryPermissionResult);
+            writer.Put(targetId);
+            writer.Put(kind);
+            writer.Put(value ?? string.Empty);
+            writer.Put(held);
+            writer.Put(targetFound);
+
+            NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            NetworkServer.ReturnWriter(writer);
+        }
+
         private static void HandleGetPermissions(NetPeer peer)
         {
             var snap = PermissionIntegration.Manager.Snapshot();
@@ -854,6 +953,13 @@ namespace BasisNetworkServer.Security
 
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
+        }
+
+        private static void HandleAnnounceMode(NetPeer peer, NetPacketReader reader, bool enable)
+        {
+            ushort id = reader.GetUShort();
+            Basis.Network.Server.Generic.BasisSavedState.SetAnnounceMode(id, enable);
+            BasisServerHandle.BasisServerHandleEvents.BroadcastAnnounceModeState(id, enable, (ushort)peer.Id);
         }
 
         private static void HandleShoutMode(NetPeer peer, NetPacketReader reader, bool enable)
@@ -1100,6 +1206,25 @@ namespace BasisNetworkServer.Security
             SaveConfig();
             BasisAvatarScaleLimitManager.BroadcastState();
             SendBackMessage(peer, $"Avatar scale limits set: {NetworkServer.Configuration.MinAvatarEyeHeightMeters} m .. {NetworkServer.Configuration.MaxAvatarEyeHeightMeters} m.");
+        }
+
+        private static void HandleLocomotionPolicySet(NetPeer peer, NetPacketReader reader)
+        {
+            byte fields = reader.GetByte();
+            float jumpHeight = reader.GetFloat();
+            float walkSpeed = reader.GetFloat();
+            float runSpeed = reader.GetFloat();
+            float gravity = reader.GetFloat();
+            byte mode = reader.GetByte();
+
+            BasisLocomotionPolicyManager.SetPolicy(fields, jumpHeight, walkSpeed, runSpeed, gravity, mode);
+            BasisLocomotionPolicyManager.WriteToConfig(NetworkServer.Configuration);
+            SaveConfig();
+            BasisLocomotionPolicyManager.BroadcastState();
+
+            SendBackMessage(peer, BasisLocomotionPolicyManager.Fields == 0
+                ? "Locomotion policy cleared; players keep their own movement values."
+                : $"Locomotion policy set for the instance (fields {BasisLocomotionPolicyManager.Fields}); it applies to everyone here and to every player who joins.");
         }
 
         private static void HandleResourceLimitsSet(NetPeer peer, NetPacketReader reader)

@@ -24,6 +24,16 @@ public static partial class SerializableBasis
         /// and well under the 64 KB ushort-length ceiling used elsewhere in this protocol.</summary>
         public const int MaxPayloadBytes = 32 * 1024;
 
+        /// <summary>
+        /// Hard ceiling the RECEIVER enforces on an inflated payload, deliberately larger than
+        /// <see cref="MaxPayloadBytes"/>. Producers append a whole record and flush once the buffer
+        /// has REACHED the cap, and JoinBroadcast.Flush always takes at least one record however
+        /// large, so a real batch runs one record past it. The headroom covers the biggest record
+        /// the protocol can express — a 64 KB avatar blob plus a 64 KB additional-data section and
+        /// their framing — while still refusing a bomb long before it costs anything.
+        /// </summary>
+        public const int MaxInflatedBytes = 256 * 1024;
+
         /// <summary>Below this a Deflate block header costs more than it saves.</summary>
         public const int MinCompressBytes = 256;
 
@@ -33,21 +43,34 @@ public static partial class SerializableBasis
 
         public void Serialize(NetDataWriter writer)
         {
-            byte[] body = Payload ?? Array.Empty<byte>();
-            byte[] framed = body;
-            bool compressed = false;
+            byte[] framed = Compress(Payload ?? Array.Empty<byte>(), out bool compressed);
+            SerializePreCompressed(writer, framed, compressed);
+        }
 
+        /// <summary>
+        /// The Deflate half of <see cref="Serialize"/> on its own, so a join fill with many
+        /// batches can compress them in parallel and then write the frames out in order.
+        /// Returns the bytes to frame; <paramref name="compressed"/> says whether they won.
+        /// </summary>
+        public static byte[] Compress(byte[] body, out bool compressed)
+        {
+            compressed = false;
             if (body.Length >= MinCompressBytes)
             {
                 byte[] deflated = Deflate(body);
                 // Only pay for compression when it actually wins; a high-entropy batch can grow.
                 if (deflated.Length < body.Length)
                 {
-                    framed = deflated;
                     compressed = true;
+                    return deflated;
                 }
             }
+            return body;
+        }
 
+        /// <summary>Writes the wire frame for a body <see cref="Compress"/> already produced.</summary>
+        public void SerializePreCompressed(NetDataWriter writer, byte[] framed, bool compressed)
+        {
             WasCompressed = compressed;
             writer.Put(Count);
             writer.Put(compressed);
@@ -64,6 +87,10 @@ public static partial class SerializableBasis
             if (length < 0 || length > reader.AvailableBytes)
             {
                 throw new ArgumentException($"Ready batch length {length} exceeds available data ({reader.AvailableBytes} bytes).");
+            }
+            if (!WasCompressed && length > MaxInflatedBytes)
+            {
+                throw new ArgumentException($"Ready batch payload {length} exceeds the {MaxInflatedBytes} byte cap.");
             }
 
             byte[] framed = new byte[length];
@@ -85,9 +112,7 @@ public static partial class SerializableBasis
         {
             using var input = new MemoryStream(compressed);
             using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-            using var output = new MemoryStream();
-            deflate.CopyTo(output, 8192);
-            return output.ToArray();
+            return BasisBoundedStream.ReadAllBounded(deflate, MaxInflatedBytes, "Ready batch");
         }
     }
 

@@ -104,6 +104,12 @@ namespace Basis.BasisUI
             if (menu.Dialogue != null) AddPanelOptions(menu.Dialogue);
         }
 
+        public override void ApplyResetToDefault()
+        {
+            if (!HasResetDefault) return;
+            ApplyReset(ResetDefaultValue);
+        }
+
         /// <summary>
         /// Adds whatever this control offers beyond a reset to its open options window. The third
         /// dialogue button is the only slot going spare, so a control gets one thing;
@@ -139,13 +145,17 @@ namespace Basis.BasisUI
             label = null;
             currentText = null;
             defaultText = null;
-            if (SettingsBinding == null) return false;
+            if (SettingsBinding == null && !_hasExplicitResetDefault) return false;
 
-            T current = SettingsBinding.RawValue;
-            T standard = SettingsBinding.DefaultValue.GetDefault();
+            // A bound control's stored value is the truth even while the page showing it is stale;
+            // a callback-driven one — every control on the camera panel — only ever has what it shows.
+            T current = SettingsBinding != null ? SettingsBinding.RawValue : Value;
+            T standard = ResetDefaultValue;
             if (EqualityComparer<T>.Default.Equals(current, standard)) return false;
 
-            label = Descriptor && !string.IsNullOrEmpty(Descriptor.Title) ? Descriptor.Title : SettingsBinding.BindingKey;
+            label = Descriptor && !string.IsNullOrEmpty(Descriptor.Title) ? Descriptor.Title : BoundSettingKey;
+            if (string.IsNullOrEmpty(label)) return false;
+
             currentText = FormatSettingValue(current);
             defaultText = FormatSettingValue(standard);
             return true;

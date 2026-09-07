@@ -281,6 +281,21 @@ namespace LiteNetLib
         public int MultiSocketCount = 1;
 
         /// <summary>
+        /// Whether this manager may bind further sockets on its port after Start().
+        ///
+        /// Growth needs SO_REUSEPORT, and SO_REUSEPORT has to be set before the primary socket
+        /// binds — so whether a server can ever grow is settled at Start(), long before the load
+        /// that would justify it exists. With this off the only way to get it is MultiSocketCount
+        /// &gt; 1, a boot-time number the operator has to have guessed right in advance; guess low
+        /// and the entire runtime grow path no-ops, silently, for the life of the process.
+        ///
+        /// Servers set this. Clients have no use for it, and it is not free: a port carrying
+        /// SO_REUSEPORT no longer refuses a second bind, so Start() checks for an existing listener
+        /// first to keep a duplicate instance failing loudly.
+        /// </summary>
+        public bool AllowSendSocketGrowth = false;
+
+        /// <summary>
         /// Maximum number of fragments allowed per message.
         /// Default: ushort.MaxValue (65535)
         /// </summary>

@@ -640,6 +640,12 @@ namespace Basis.Scripts.Avatar
                     SetupRemoteAvatar(remotePlayer);
                     break;
             }
+
+            // No-op call preserved for a future safe redesign; BasisAvatarPsoReveal used to hide
+            // renderers and reveal them a few per frame to spread DX12/Vulkan/Metal's first-draw
+            // PSO-creation cost, but that let a real body sit fully visible before its clothing
+            // renderers caught up. See the safety note on BasisAvatarPsoReveal.
+            Basis.Scripts.Rendering.BasisAvatarPsoReveal.BeginStagedReveal(Player.BasisAvatar.Renders);
         }
 
         /// <summary>

@@ -171,9 +171,17 @@ public class JiggleTree {
             this.restPositions = restPositions.ToArray();
             this.restRotations = restRotations.ToArray();
         }
-        // Always reallocated: the child list is only rebuilt wholesale, and a same-length rebuild can
-        // still rewire which point points at which.
-        this.childrenIndices = childrenIndices.ToArray();
+        // Rewritten wholesale every rebuild — a same-length rebuild can still rewire which point
+        // points at which — but rewriting is a copy, not a reallocation. At MAX_CHILDREN=32 ints per
+        // point this is the largest array on the tree by a wide margin (128 bytes per point against
+        // 8 for a bone reference), so reallocating it on every regeneration was the bulk of the
+        // garbage under GetJiggleTrees. Nothing outside this class aliases it: JiggleTreeJobData
+        // memcpys it into its own unmanaged buffer below and jobs only ever read that.
+        if (childrenIndices.Count == this.childrenIndices.Length) {
+            childrenIndices.CopyTo(this.childrenIndices);
+        } else {
+            this.childrenIndices = childrenIndices.ToArray();
+        }
 
         var personalColliderTransformsCount = personalColliderTransforms.Count;
         var personalCollidersCount = personalColliders.Count;

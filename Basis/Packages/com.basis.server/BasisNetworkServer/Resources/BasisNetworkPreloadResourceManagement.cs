@@ -79,18 +79,18 @@ public static class BasisNetworkPreloadResourceManagement
 
         BNL.Log($"PreloadResourceManagement: Starting synchronized load for {netId}, {peerCount} peers");
 
+        // Store in the main resource database too
+        if (BasisNetworkResourceManagement.UshortNetworkDatabase.TryAdd(netId, resource))
+        {
+            BasisNetworkResourceManagement.NoteResourceAdded(resource.UUIDOfCreator);
+        }
+
         // Broadcast the load resource to all clients (they will see LoadStrategy = 2
         // and handle it as a synchronized preload)
         NetDataWriter writer = NetworkServer.RentWriter();
         resource.Serialize(writer);
         NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.LoadResourceChannel, peerSnapshot, DeliveryMethod.ReliableOrdered);
         NetworkServer.ReturnWriter(writer);
-
-        // Store in the main resource database too
-        if (BasisNetworkResourceManagement.UshortNetworkDatabase.TryAdd(netId, resource))
-        {
-            BasisNetworkResourceManagement.NoteResourceAdded(resource.UUIDOfCreator);
-        }
 
         // No peers: complete immediately rather than waiting for the 5-minute timeout
         if (peerCount == 0)

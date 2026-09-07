@@ -47,6 +47,10 @@ public class BasisMediaPlayerNetworkingInspector : Editor
         if (resumeBtn != null) resumeBtn.clicked += () => { if (PlayModeOnly()) _ = _target.Resume(); };
         var stopBtn = _root.Q<Button>("ActStopButton");
         if (stopBtn != null) stopBtn.clicked += () => { if (PlayModeOnly()) _ = _target.Stop(); };
+        var resyncLocalBtn = _root.Q<Button>("ActResyncLocalButton");
+        if (resyncLocalBtn != null) resyncLocalBtn.clicked += () => { if (PlayModeOnly()) _target.ResyncLocal(); };
+        var resyncAllBtn = _root.Q<Button>("ActResyncEveryoneButton");
+        if (resyncAllBtn != null) resyncAllBtn.clicked += () => { if (PlayModeOnly()) _ = _target.ResyncEveryone(); };
 
         var urlField = _root.Q<TextField>("UrlField");
         var loadBtn = _root.Q<Button>("ActLoadUrlButton");

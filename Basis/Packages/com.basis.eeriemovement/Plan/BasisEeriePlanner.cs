@@ -88,7 +88,7 @@ namespace Basis.IK
             p.gaitPelvis = !facts.hipsTracked && facts.footSimReady && Mathf.Min(facts.leftFootSim, facts.rightFootSim) > 0.001f;
             p.lordosis = job.anatCervicalLordosis && p.hasNeck;
             p.spineRom = job.spineAnatomicalRom && p.hasSpineRestFrames;
-            p.chestTarget = job.chestIkTarget && p.hasChestJoint;
+            p.chestTarget = job.chestIkTarget && p.hasChestJoint && facts.chestTracked;
             p.shoulderSlide = job.anatShoulderSlide && p.hasHips && p.hasChest;
             p.leftShoulderTracked = facts.leftShoulderTracked;
             p.rightShoulderTracked = facts.rightShoulderTracked;

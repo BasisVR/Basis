@@ -105,6 +105,12 @@ public static class BasisBodyEvidenceSampler
         };
         handle = job.Schedule();
         scheduled = true;
+        // Self-sufficient kick, same reasoning as BasisAvatarDriver.ScheduleReadBlendShapes and
+        // BasisContentSphereBillboardDriver.ScheduleSimulate (project_basis_schedule_kick_audit Round
+        // 6): something later in this same frame's LateUpdate always calls
+        // JobHandle.ScheduleBatchedJobs() before CompleteIfPending() ever joins this handle, so today
+        // this is covered incidentally rather than guaranteed by this function on its own.
+        JobHandle.ScheduleBatchedJobs();
     }
     static bool TryGather(out BasisBodyEvidenceSample sample, out FixedList128Bytes<float> trackerHeights)
     {

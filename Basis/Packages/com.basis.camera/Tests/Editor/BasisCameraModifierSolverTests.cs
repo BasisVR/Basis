@@ -693,6 +693,185 @@ namespace Basis.Tests.Camera
         }
     }
 
+    /// <summary>
+    /// The aim that films nobody. Every other rotation modifier resolves a subject; this one reads
+    /// the path, so the cases worth pinning are the ones where there is no subject to fall back on
+    /// and the ones where the path itself cannot answer.
+    /// </summary>
+    public class BasisCameraTrackAimTests
+    {
+        /// <summary>Straight out along +X, so the whole path has one heading to check against.</summary>
+        private static IReadOnlyList<Vector3> StraightTrack() => new List<Vector3>
+        {
+            new Vector3(0f, 0f, 0f),
+            new Vector3(5f, 0f, 0f),
+            new Vector3(10f, 0f, 0f),
+        };
+
+        /// <summary>Out along +X then away down +Z, so the aim has to turn with the corner.</summary>
+        private static IReadOnlyList<Vector3> CorneringTrack() => new List<Vector3>
+        {
+            new Vector3(0f, 0f, 0f),
+            new Vector3(10f, 0f, 0f),
+            new Vector3(10f, 0f, 10f),
+        };
+
+        private static BasisCameraModifierStack TrackAimStack(
+            BasisCameraPositionModifier position = BasisCameraPositionModifier.DollyTrack)
+        {
+            BasisCameraModifierStack stack = StackFixture.PositionOnly(position);
+            stack.rotationModifier = BasisCameraRotationModifier.AimAlongTrack;
+            stack.trackAim.damping = Vector3.zero;
+            return stack;
+        }
+
+        private static BasisCameraSolveContext TrackContext(IReadOnlyList<Vector3> points,
+            BasisCameraSubject subject = default, bool looped = false)
+        {
+            BasisCameraSolveContext context = StackFixture.Context(subject);
+            context.DollyPoints = points;
+            context.DollyLooped = looped;
+            return context;
+        }
+
+        private static float Yaw(Quaternion rotation)
+            => BasisCameraDamping.NormalizeAngle(rotation.eulerAngles.y);
+
+        [Test]
+        public void TheShotLooksTheWayTheMoveIsTravelling()
+        {
+            BasisCameraModifierStack stack = TrackAimStack();
+            stack.dolly.mode = BasisCameraDollyMode.Manual;
+            stack.dolly.position = 1f;
+
+            BasisCameraPose pose = StackFixture.Settle(stack, StackFixture.State(), TrackContext(StraightTrack()));
+
+            Assert.That(Yaw(pose.Rotation), Is.EqualTo(90f).Within(0.5f),
+                "A track running out along +X has to put the shot on a heading of 90 degrees.");
+        }
+
+        [Test]
+        public void ItAimsWithNobodyBeingFilmedAtAll()
+        {
+            // The whole point of the modifier: a track is authored in the world, so a shot down one
+            // is the case that has no subject to resolve. Every other aim returns early here.
+            BasisCameraModifierStack stack = TrackAimStack();
+            stack.subject.modifier = BasisCameraSubjectModifier.None;
+            stack.dolly.mode = BasisCameraDollyMode.Manual;
+            stack.dolly.position = 1f;
+
+            BasisCameraModifierState state = StackFixture.State();
+            state.Seed(Vector3.zero, Quaternion.identity, 40f);
+
+            BasisCameraPose pose = StackFixture.Settle(stack, state,
+                TrackContext(StraightTrack(), new BasisCameraSubject { Valid = false }));
+
+            Assert.That(Yaw(pose.Rotation), Is.EqualTo(90f).Within(0.5f));
+        }
+
+        [Test]
+        public void TheAimTurnsWithTheCornerItIsRiding()
+        {
+            BasisCameraModifierStack stack = TrackAimStack();
+            stack.dolly.mode = BasisCameraDollyMode.Manual;
+
+            stack.dolly.position = 0.5f;
+            float early = Yaw(StackFixture.Settle(stack, StackFixture.State(),
+                TrackContext(CorneringTrack())).Rotation);
+
+            stack.dolly.position = 1.5f;
+            float late = Yaw(StackFixture.Settle(stack, StackFixture.State(),
+                TrackContext(CorneringTrack())).Rotation);
+
+            Assert.That(early, Is.EqualTo(90f).Within(15f), "The first leg runs along +X.");
+            Assert.That(late, Is.EqualTo(0f).Within(15f), "The second runs along +Z.");
+        }
+
+        [Test]
+        public void TheOffsetCanTurnTheShotBackUpTheTrack()
+        {
+            // The pull-back shot, and the reason there is no separate reverse toggle: a yaw offset
+            // of 180 is the whole of it.
+            BasisCameraModifierStack stack = TrackAimStack();
+            stack.dolly.mode = BasisCameraDollyMode.Manual;
+            stack.dolly.position = 1f;
+            stack.trackAim.rotationOffset = new Vector3(0f, 180f, 0f);
+
+            BasisCameraPose pose = StackFixture.Settle(stack, StackFixture.State(), TrackContext(StraightTrack()));
+
+            Assert.That(Yaw(pose.Rotation), Is.EqualTo(-90f).Within(0.5f));
+        }
+
+        [Test]
+        public void AHandFlownCameraTakesTheHeadingOfTheNearestPartOfTheTrack()
+        {
+            // Nothing is riding the track, so there is no playhead to read. The nearest point on
+            // the path stands in, which is what lets a flown camera be locked to a laid-out line.
+            BasisCameraModifierStack stack = TrackAimStack(BasisCameraPositionModifier.FreeFly);
+
+            BasisCameraModifierState state = StackFixture.State();
+            state.Seed(new Vector3(10f, 0f, 4f), Quaternion.identity, 40f);
+
+            BasisCameraPose pose = StackFixture.Settle(stack, state, TrackContext(CorneringTrack()));
+
+            Assert.That(Yaw(pose.Rotation), Is.EqualTo(0f).Within(15f),
+                "Standing beside the second leg, the heading to take is that leg's.");
+        }
+
+        [Test]
+        public void ATrackTooShortToHaveADirectionHoldsTheAimInstead()
+        {
+            // One point is a place, not a path. The tangent's own fallback is world forward, and
+            // snapping the shot there would be worse than leaving it where the operator put it.
+            BasisCameraModifierStack stack = TrackAimStack(BasisCameraPositionModifier.LockedOff);
+
+            BasisCameraModifierState state = StackFixture.State();
+            state.Seed(Vector3.zero, BasisCameraDamping.Yaw(45f), 40f);
+
+            BasisCameraPose pose = StackFixture.Settle(stack, state,
+                TrackContext(new List<Vector3> { new Vector3(3f, 0f, 3f) }));
+
+            Assert.That(Yaw(pose.Rotation), Is.EqualTo(45f).Within(0.5f));
+        }
+
+        [Test]
+        public void NoTrackAtAllIsHandledLikeAShortOne()
+        {
+            BasisCameraModifierStack stack = TrackAimStack(BasisCameraPositionModifier.LockedOff);
+
+            BasisCameraModifierState state = StackFixture.State();
+            state.Seed(Vector3.zero, BasisCameraDamping.Yaw(45f), 40f);
+
+            Assert.That(() => StackFixture.Settle(stack, state, StackFixture.Context()), Throws.Nothing);
+            Assert.That(Yaw(state.Rotation), Is.EqualTo(45f).Within(0.5f));
+        }
+
+        [Test]
+        public void AVerticalClimbDoesNotCollapseTheAim()
+        {
+            // LookRotation answers a forward and an up on the same line with identity, which would
+            // cut the shot round to world forward at the steepest part of a crane move.
+            BasisCameraModifierStack stack = TrackAimStack();
+            stack.dolly.mode = BasisCameraDollyMode.Manual;
+            stack.dolly.position = 1f;
+
+            var climb = new List<Vector3>
+            {
+                new Vector3(0f, 0f, 0f),
+                new Vector3(0f, 5f, 0f),
+                new Vector3(0f, 10f, 0f),
+            };
+
+            BasisCameraModifierState state = StackFixture.State();
+            state.Seed(Vector3.zero, Quaternion.identity, 40f);
+
+            StackFixture.Settle(stack, state, TrackContext(climb));
+
+            Assert.That((state.Rotation * Vector3.forward).y, Is.GreaterThan(0.99f),
+                "The shot has to keep looking up the climb rather than snapping level.");
+        }
+    }
+
     public class BasisCameraOcclusionEffectTests
     {
         private static BasisCameraSolveContext WithProbe(BasisCameraSolveContext context, float freeDistance)

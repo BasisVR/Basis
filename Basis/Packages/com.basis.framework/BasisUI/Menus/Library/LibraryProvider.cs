@@ -196,7 +196,7 @@ namespace Basis.BasisUI
             string[] dateSortNames = Enum.GetNames(typeof(LibraryDateSortMode));
 
             dateSorting.Descriptor.SetSize(new Vector2(60, 80));
-            dateSorting.AssignEntries(dateSortNames.ToList(), null, EnumOptionTooltips(dateSortNames, "library.sort."));
+            dateSorting.AssignLocalizedEntries(dateSortNames.ToList(), EnumOptionKeys(dateSortNames, "library.sort."));
             dateSorting.SetValueWithoutNotify(_currentSort.ToString());
 
             // when sorting changes, update and refresh
@@ -216,7 +216,7 @@ namespace Basis.BasisUI
             string[] itemTypeNames = Enum.GetNames(typeof(LibraryItemTypeFilter));
 
             itemTypeSorting.Descriptor.SetSize(new Vector2(60, 80));
-            itemTypeSorting.AssignEntries(itemTypeNames.ToList(), null, EnumOptionTooltips(itemTypeNames, "library.filter."));
+            itemTypeSorting.AssignLocalizedEntries(itemTypeNames.ToList(), EnumOptionKeys(itemTypeNames, "library.filter."));
             itemTypeSorting.SetValueWithoutNotify(_currentItemTypeFilter.ToString());
 
             // when sorting changes, update and refresh
@@ -271,15 +271,21 @@ namespace Basis.BasisUI
         /// is the prefix plus the camelCased member, so LibraryItemTypeFilter.PlacedByMe reads from
         /// "library.filter.placedByMe.tooltip".
         /// </summary>
-        private static List<string> EnumOptionTooltips(string[] memberNames, string keyPrefix)
+        /// <summary>
+        /// Derives each enum member's display-label localization key (e.g. "GameObject" under
+        /// prefix "library.filter." becomes "library.filter.gameObject"). Passed straight to
+        /// <see cref="PanelDropdown.AssignLocalizedEntries(List{string}, List{string})"/>, which
+        /// resolves the label via this key and its tooltip via the same key + ".tooltip".
+        /// </summary>
+        private static List<string> EnumOptionKeys(string[] memberNames, string keyPrefix)
         {
-            List<string> tooltips = new List<string>(memberNames.Length);
+            List<string> keys = new List<string>(memberNames.Length);
             foreach (string member in memberNames)
             {
                 string camel = char.ToLowerInvariant(member[0]) + member.Substring(1);
-                tooltips.Add(BasisLocalization.Get(keyPrefix + camel + ".tooltip"));
+                keys.Add(keyPrefix + camel);
             }
-            return tooltips;
+            return keys;
         }
 
         #endregion
@@ -378,11 +384,12 @@ namespace Basis.BasisUI
         }
 
         /// <summary>
-        /// Resolve the bundle's content type by fetching its meta-only payload and
-        /// inspecting <c>ComponentNames</c>. Returns <see cref="BundledContentHolder.Mode.Legacy"/>
-        /// when the URL is unreachable, the meta load fails, or the bundle predates
-        /// component-name metadata. Used by the in-game add dialog and the admin
-        /// "default library" add UI so they share one detection path.
+        /// Resolve the bundle's content type by fetching its meta-only payload and handing the
+        /// connector to <see cref="ResolveModeFromConnector"/>. Returns
+        /// <see cref="BundledContentHolder.Mode.Legacy"/> when the URL is unreachable, the meta
+        /// load fails, or the bundle declares nothing the connector can be read for. Used by the
+        /// in-game add dialog, the BEE drop and the admin "default library" add UI so they share
+        /// one detection path.
         /// </summary>
         public static async Task<BundledContentHolder.Mode> TryDetectModeFromUrl(string url, string password)
         {
@@ -413,27 +420,59 @@ namespace Basis.BasisUI
             if (!isValid) return BundledContentHolder.Mode.Legacy;
 
             BasisLoadableBundleWrapper loaded = await LoadWrapperFromDisc(tempItem, tempWrapper);
-            BundledContentHolder.Mode itemType = BundledContentHolder.Mode.Legacy;
-            // MetaData is a struct (value type) so it can't appear in a ?. chain — gate
-            // up to BasisBundleConnector with ?., then read MetaData.ComponentNames directly.
-            var connector = loaded?.BasisLoadableBundle?.BasisBundleConnector;
-            if (connector != null)
+            return ResolveModeFromConnector(loaded?.BasisLoadableBundle?.BasisBundleConnector);
+        }
+
+        /// <summary>
+        /// Content type of a bundle read off its connector alone.
+        ///
+        /// The build-time ContentKind stamp is asked first and settles everything it answers: the
+        /// SDK writes it from the BasisAvatar/BasisProp/BasisScene the build was started from, so
+        /// it says what the bundle <i>is</i> rather than what ended up inside it. Build hooks mutate
+        /// the clone the census is walked off — NDMF's, running over a prop, added a BasisAvatar to
+        /// its root — and nothing downstream of the census could tell that apart from an avatar.
+        ///
+        /// The sections are asked next, and they settle worlds outright: a scene AssetMode is
+        /// written by the one build path a world can come from, and by every version of it, so it
+        /// also names worlds too old to carry a stamp or a component census.
+        ///
+        /// The census is the last fallback, for bundles built before the stamp existed, and it can
+        /// only ever say what a bundle <i>contains</i>. A world's census is summed over every root
+        /// in the scene, so a world holding one prop counts a BasisProp next to its BasisScene —
+        /// which is why the names are ranked most-specific-first here instead of scanned
+        /// last-one-wins, where a world was handed back as a Prop purely because its prop happened
+        /// to be walked after its BasisScene.
+        /// </summary>
+        public static BundledContentHolder.Mode ResolveModeFromConnector(BasisBundleConnector connector)
+        {
+            if (connector == null) return BundledContentHolder.Mode.Legacy;
+
+            if (BasisBundleConnector.IsContentKind(connector, BasisBundleConnector.SceneContentKind)) return BundledContentHolder.Mode.World;
+            if (BasisBundleConnector.IsContentKind(connector, BasisBundleConnector.AvatarContentKind)) return BundledContentHolder.Mode.Avatar;
+            if (BasisBundleConnector.IsContentKind(connector, BasisBundleConnector.PropContentKind)) return BundledContentHolder.Mode.Prop;
+
+            if (BasisBundleConnector.IsSceneBundle(connector)) return BundledContentHolder.Mode.World;
+
+            // MetaData is a struct (value type) so it can't appear in a ?. chain — the null gate
+            // above covers the connector, then MetaData.ComponentNames is read directly.
+            BasisBundleConnector.BasisComponentName[] components = connector.MetaData.ComponentNames;
+            if (components == null) return BundledContentHolder.Mode.Legacy;
+
+            bool hasScene = false, hasAvatar = false, hasProp = false;
+            for (int Index = 0; Index < components.Length; Index++)
             {
-                var components = connector.MetaData.ComponentNames;
-                if (components != null)
+                switch (components[Index].Name?.ToLowerInvariant())
                 {
-                    foreach (BasisBundleConnector.BasisComponentName comp in components)
-                    {
-                        switch (comp.Name?.ToLower())
-                        {
-                            case "basisprop": itemType = BundledContentHolder.Mode.Prop; break;
-                            case "basisavatar": itemType = BundledContentHolder.Mode.Avatar; break;
-                            case "basisscene": itemType = BundledContentHolder.Mode.World; break;
-                        }
-                    }
+                    case "basisscene": hasScene = true; break;
+                    case "basisavatar": hasAvatar = true; break;
+                    case "basisprop": hasProp = true; break;
                 }
             }
-            return itemType;
+
+            if (hasScene) return BundledContentHolder.Mode.World;
+            if (hasAvatar) return BundledContentHolder.Mode.Avatar;
+            if (hasProp) return BundledContentHolder.Mode.Prop;
+            return BundledContentHolder.Mode.Legacy;
         }
 
         #endregion
@@ -1372,7 +1411,7 @@ namespace Basis.BasisUI
             PanelButton detailsPanelButton = PanelButton.CreateNew(ButtonStyles.StandardButton, scrollablePage.Descriptor.ContentParent);
             detailsPanelButton.Descriptor.SetTitle(string.Format(BasisLocalization.Get("library.details"), item.Mode));
             detailsPanelButton.Descriptor.SetTooltip(BasisLocalization.Get("library.details.tooltip"));
-            detailsPanelButton.Descriptor.SetHeight(130);
+            detailsPanelButton.Descriptor.SetHeight(60);
             detailsPanelButton.Descriptor.SetWidth(400);
             detailsPanelButton.OnClicked += async () =>
             {
@@ -1822,16 +1861,18 @@ namespace Basis.BasisUI
             };
         }
 
-        private static void ApplyMetaDataToButton(PanelButton buttonPanel, CachedMetaData.CachedContent cachedMeta, string urlKey)
+        private static async void ApplyMetaDataToButton(PanelButton buttonPanel, CachedMetaData.CachedContent cachedMeta, string urlKey)
         {
-            Sprite iconSprite = CachedMetaData.CreateSpriteFromMetaData(cachedMeta);
-
-            buttonPanel.SetIcon(iconSprite, false);
-
             var desc = buttonPanel.Descriptor;
             desc.SetTitle(LibraryProviderStrUtil.TitleToCase(!string.IsNullOrEmpty(cachedMeta.Name) ? cachedMeta.Name : urlKey));
             desc.SetDescription(urlKey);
             desc.ForceRebuild();
+
+            Sprite iconSprite = cachedMeta.CachedSprite != null
+                ? cachedMeta.CachedSprite
+                : await CachedMetaData.CreateSpriteFromMetaDataAsync(cachedMeta, urlKey);
+            if (buttonPanel == null) return;
+            buttonPanel.SetIcon(iconSprite, false);
         }
 
         #endregion
@@ -2547,6 +2588,51 @@ namespace Basis.BasisUI
             itemTextInfo.Descriptor.SetWidth(400);
 
             _pendingLoadRowInfo[pending.PendingId] = itemTextInfo.Descriptor;
+
+            // Same rule the spawned/failed rows use: a protected networked item is an admin's to remove.
+            bool canRemove = pending.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !pending.isProtected || IsProtected;
+
+            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
+            {
+                Style = ButtonStyles.CancelButton,
+                Icon = AddressableAssets.Sprites.Trash,
+                Tooltip = BasisLocalization.Get("library.instantiated.pending.cancel.tooltip"),
+                Disabled = !canRemove,
+                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                OnClick = async () =>
+                {
+                    BasisDebug.Log($"CreatePendingListEntry() -> requested cancel of pending load = {pending.Url} of PendingId = {pending.PendingId} of SpawnMethod = {pending.SpawnMethod} and SpawnMode = {pending.SpawnMode}");
+
+                    bool result = await LibraryProviderDialogRemove.PromptUserForRemoval(panel, title, pending.SpawnMode.ToString());
+                    if (!result) return;
+
+                    switch (pending.SpawnMethod)
+                    {
+                        case BasisRuntimeSpawnRegistry.SpawnMethod.Network:
+                            // Same as a failed/spawned networked row: ask the server and leave this row
+                            // alone locally — it clears when the unload broadcast echoes back, here and
+                            // on every other client still waiting on the same doomed/in-flight spawn.
+                            switch (pending.SpawnMode)
+                            {
+                                case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
+                                    BasisNetworkSpawnItem.RequestSceneUnLoad(pending.LoadedNetID);
+                                    break;
+                                default:
+                                    BasisNetworkSpawnItem.RequestGameObjectUnLoad(pending.LoadedNetID);
+                                    break;
+                            }
+                            break;
+                        default:
+                            // Actually aborts the in-flight load via the PendingLoad's Cts. Also drops it
+                            // from the preload store so it doesn't come back if it was set to load on boot.
+                            _ = BasisPreloadContentStore.Remove(pending.Url);
+                            BasisRuntimeSpawnRegistry.RequestCancelPendingLoad(pending.PendingId);
+                            break;
+                    }
+
+                    await RefreshCurrentTab();
+                },
+            });
         }
 
         private static void OnFailedLoadsChanged() => UpdateInstantiatedTab();
@@ -2852,6 +2938,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Avatar: return AddressableAssets.Sprites.Avatars;
                 case BasisShareableKind.World: return AddressableAssets.Sprites.World;
                 case BasisShareableKind.Server: return AddressableAssets.Sprites.Network;
+                case BasisShareableKind.DollyTrack: return AddressableAssets.Sprites.Camera;
                 default: return AddressableAssets.Sprites.Items;
             }
         }
@@ -2865,6 +2952,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.World: return BasisLocalization.Get("library.shareable.world");
                 case BasisShareableKind.Server: return BasisLocalization.Get("library.shareable.server");
                 case BasisShareableKind.Image: return BasisLocalization.Get("library.shareable.image");
+                case BasisShareableKind.DollyTrack: return BasisLocalization.Get("library.shareable.dollyTrack");
                 default: return BasisLocalization.Get("library.shareable.other");
             }
         }
@@ -3012,87 +3100,92 @@ namespace Basis.BasisUI
             itemTextInfo.Descriptor.SetHeight(50);
             itemTextInfo.Descriptor.SetWidth(400);
 
-            if (itemKey.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Embedded)
-            {
-                return;
-            }
+            // Embedded items are single-instance (LoadProp's embedded branch toggles the same one
+            // instance off on a second press — see "for the moment embedded items are one instance"
+            // there), so Select/Teleport/the external row-hook are skipped for them same as always.
+            // Remove is NOT skipped below: its switch already has a correct Embedded case, keyed by
+            // LoadedNetID, which is safe here only because that single-instance guarantee holds.
+            bool isEmbedded = itemKey.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Embedded;
 
-            bool isScene = itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene;
-
-            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
+            if (!isEmbedded)
             {
-                Style = ButtonStyles.AcceptButton,
-                Icon = AddressableAssets.Sprites.Select,
-                Tooltip = BasisLocalization.Get("library.instantiated.select.tooltip"),
-                Hidden = isScene,
-                OnClick = async () =>
+                bool isScene = itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene;
+
+                BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
                 {
-                    if (hasSelected)
+                    Style = ButtonStyles.AcceptButton,
+                    Icon = AddressableAssets.Sprites.Select,
+                    Tooltip = BasisLocalization.Get("library.instantiated.select.tooltip"),
+                    Hidden = isScene,
+                    OnClick = async () =>
                     {
-                        PlacementManager.RemoveSelectionSpawnInstanceID(itemKey);
-                        await RefreshCurrentTab();
-                    }
-                    else
-                    {
-                        // send the selection
-                        PlacementManager.SetActiveSelection(itemKey);
-                        // close the menu
-                        BasisMainMenu.Close();
-                    }
-                },
-            });
+                        if (hasSelected)
+                        {
+                            PlacementManager.RemoveSelectionSpawnInstanceID(itemKey);
+                            await RefreshCurrentTab();
+                        }
+                        else
+                        {
+                            // send the selection
+                            PlacementManager.SetActiveSelection(itemKey);
+                            // close the menu
+                            BasisMainMenu.Close();
+                        }
+                    },
+                });
 
-            if (OnInstanceRowCreated != null)
-            {
-                // Subscribers are external integrations; one throwing must not leave the
-                // row half-built or abort the rest of the tab rebuild.
-                foreach (Action<RectTransform, BasisRuntimeSpawnRegistry.SpawnInstance> subscriber in OnInstanceRowCreated.GetInvocationList())
+                if (OnInstanceRowCreated != null)
                 {
-                    try
+                    // Subscribers are external integrations; one throwing must not leave the
+                    // row half-built or abort the rest of the tab rebuild.
+                    foreach (Action<RectTransform, BasisRuntimeSpawnRegistry.SpawnInstance> subscriber in OnInstanceRowCreated.GetInvocationList())
                     {
-                        subscriber(itemListPanel.TabButtonParent, itemKey);
-                    }
-                    catch (Exception e)
-                    {
-                        BasisDebug.LogError($"OnInstanceRowCreated subscriber {subscriber.Method.DeclaringType?.FullName}.{subscriber.Method.Name} threw: {e}");
+                        try
+                        {
+                            subscriber(itemListPanel.TabButtonParent, itemKey);
+                        }
+                        catch (Exception e)
+                        {
+                            BasisDebug.LogError($"OnInstanceRowCreated subscriber {subscriber.Method.DeclaringType?.FullName}.{subscriber.Method.Name} threw: {e}");
+                        }
                     }
                 }
-            }
 
-            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
-            {
-                Style = ButtonStyles.StandardButton,
-                Icon = AddressableAssets.Sprites.TeleportTo,
-                Tooltip = BasisLocalization.Get("library.instantiated.teleport.tooltip"),
-                Hidden = isScene,
-                OnClick = () =>
+                BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
                 {
-                    switch (itemKey.SpawnMode)
+                    Style = ButtonStyles.StandardButton,
+                    Icon = AddressableAssets.Sprites.TeleportTo,
+                    Tooltip = BasisLocalization.Get("library.instantiated.teleport.tooltip"),
+                    Hidden = isScene,
+                    OnClick = () =>
                     {
-                        case BasisRuntimeSpawnRegistry.SpawnMode.Avatar:
-                        case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
+                        switch (itemKey.SpawnMode)
+                        {
+                            case BasisRuntimeSpawnRegistry.SpawnMode.Avatar:
+                            case BasisRuntimeSpawnRegistry.SpawnMode.GameObject:
 
-                            // find the object in the BasisRuntimeSpawnRegistry
-                            if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(itemKey.LoadedNetID, out GameObject go) && go != null)
-                            {
-                                Vector3 offsetTarget = go.transform.position;
-
-                                if (itemKey.bundleConnector != null)
+                                // find the object in the BasisRuntimeSpawnRegistry
+                                if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(itemKey.LoadedNetID, out GameObject go) && go != null)
                                 {
-                                    offsetTarget.y = offsetTarget.y + itemKey.bundleConnector.Bounds.max.y;
+                                    Vector3 offsetTarget = go.transform.position;
+
+                                    if (itemKey.bundleConnector != null)
+                                    {
+                                        offsetTarget.y = offsetTarget.y + itemKey.bundleConnector.Bounds.max.y;
+                                    }
+
+                                    BasisLocalPlayer.Instance.Teleport( offsetTarget, Quaternion.identity, mode: BasisTeleportMode.WorldFeet );
                                 }
 
-                                BasisLocalPlayer.Instance.Teleport( offsetTarget, Quaternion.identity, mode: BasisTeleportMode.WorldFeet );
-                            }
-
-                        break;
-                        case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
-                            BasisDebug.LogWarning( "LibraryProvider.cs -> Teleport To Item button for scene is not implemented!" );
-                        break;
-                    }
-                    return Task.CompletedTask;
-                },
-            });
+                            break;
+                            case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
+                                BasisDebug.LogWarning( "LibraryProvider.cs -> Teleport To Item button for scene is not implemented!" );
+                            break;
+                        }
+                        return Task.CompletedTask;
+                    },
+                });
+            }
 
             // Static / lock toggle — networked game objects only; applies for everyone (server-authoritative).
             // Cycles None -> Static (creator or moderator) -> Admin-locked (moderator only) -> None.

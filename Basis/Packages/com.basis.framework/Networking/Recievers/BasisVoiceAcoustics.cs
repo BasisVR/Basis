@@ -62,6 +62,39 @@ namespace Basis.Scripts.Networking.Receivers
         }
 
         /// <summary>
+        /// Fraction of the distance loss a shout gives back. 1 would hold a shouter at the same
+        /// level everywhere inside the cap, which reads as a voice with no position at all; 0.75
+        /// leaves the level still falling with distance, just far more slowly.
+        /// </summary>
+        public const float ShoutRestore = 0.75f;
+
+        /// <summary>
+        /// Level multiplier for a talker in <see cref="BasisTalkMode.Shout"/>, between 1 and
+        /// <paramref name="maxBoost"/>. It gives back most of what <see cref="DistanceGain"/> took
+        /// away rather than adding a flat broadband boost, so the boost is nothing at all inside
+        /// <paramref name="minDistance"/> and largest out where the listener could barely hear
+        /// them. Multiplied by <see cref="DistanceGain"/> it never exceeds the level of a normal
+        /// talker at <paramref name="minDistance"/>: shouting is louder, never louder than
+        /// someone already standing next to you.
+        /// </summary>
+        /// <param name="distanceSq">Squared listener-to-mouth distance, as the transmit tick has it.</param>
+        /// <param name="minDistance">Radius inside which level stops rising, same one <see cref="DistanceGain"/> uses.</param>
+        /// <param name="maxBoost">Cap, <see cref="BasisShout.Gain"/>.</param>
+        /// <param name="rolloff">Attenuation the AudioSource will apply at this distance, 0..1. The
+        /// boost is clamped to its reciprocal, which is what makes the guarantee hold for the
+        /// gentler rolloff presets (flat, gradual, a hand-drawn user curve) too: those cost the
+        /// talker little or no level with distance, so there is little or nothing to give back.</param>
+        public static float ShoutBoost(float distanceSq, float minDistance, float maxBoost, float rolloff)
+        {
+            if (maxBoost <= 1f) return 1f;
+            minDistance = Mathf.Max(0.01f, minDistance);
+            float minSq = minDistance * minDistance;
+            if (!(distanceSq > minSq)) return 1f;
+            float restore = Mathf.Min(Mathf.Pow(distanceSq / minSq, ShoutRestore * 0.5f), maxBoost);
+            return rolloff > 0f ? Mathf.Max(1f, Mathf.Min(restore, 1f / rolloff)) : restore;
+        }
+
+        /// <summary>
         /// Keys spent on the power-law stretch between minDistance and the taper start.
         /// 22 was enough while the curve flattened at the critical distance and only the
         /// near field had to be fitted; with the inverse distance law running the whole

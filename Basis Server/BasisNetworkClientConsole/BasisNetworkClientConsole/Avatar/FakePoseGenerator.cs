@@ -5,12 +5,22 @@ using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 namespace BasisNetworkClientConsole
 {
     /// <summary>
-    /// Generates realistic human-like avatar pose data for fake clients.
-    /// Produces a natural standing pose (arms at sides, relaxed fingers, natural spine)
-    /// with subtle idle animation (breathing, swaying, head micro-movements).
+    /// Generates human-like avatar pose data for fake clients: a relaxed standing pose that varies
+    /// per client, with idle motion layered on top (breathing, weight shift, gaze drift, gesture).
     ///
-    /// Replaces the old zeroed-byte-array approach which produced T-pose avatars.
-    /// Uses the same smallest-three quaternion compression as the real client.
+    /// Everything on the wire is in the rig-neutral GENERIC space (see BasisGenericBoneRotation):
+    /// a bone's rotation from its own rest pose, expressed in the avatar's anatomical frame —
+    /// <b>X = character right, Y = up, Z = forward</b> — which is the same frame on every rig.
+    /// Identity therefore means "this bone is exactly at T-pose", and a pose built entirely from
+    /// small angles renders as a T-pose no matter how correctly it is encoded.
+    ///
+    /// Two consequences the pose table below is built around:
+    ///  * The frame is shared by both sides, not mirrored per limb, so a left/right pair needs
+    ///    OPPOSITE signs on its Y and Z components and the SAME sign on X. Only the left slot is
+    ///    described here; <see cref="MirrorSign"/> derives the right one. Writing both by hand is
+    ///    what previously left the crowd with one arm raised and one arm at its side.
+    ///  * Angles have to be large enough to read as a pose. Every joint under about ten degrees is
+    ///    a T-pose to anyone looking at it.
     /// </summary>
     public static class FakePoseGenerator
     {
@@ -28,10 +38,22 @@ namespace BasisNetworkClientConsole
         private const int WireBoneCount = BasisBoneRotationCompression.WireBoneSlotCount; // 21
         private const int FingerCount = BasisBoneRotationCompression.FingerChannelCount;  // 10
 
-        // Base natural standing pose: one quaternion per wire bone slot, flat float array.
-        // Layout: [slot * 4 + 0] = x, [slot * 4 + 1] = y, [slot * 4 + 2] = z, [slot * 4 + 3] = w
-        // These are T-pose-relative delta quaternions — identity means T-pose, non-identity means deviation.
-        private static readonly float[] BasePose;
+        private const int AxisX = 0, AxisY = 1, AxisZ = 2;
+
+        /// <summary>First slot of the mirrored left/right pairs; 0..4 are the central chain.</summary>
+        private const int FirstPairedSlot = 5;
+
+        // Pose table, flat per (slot, axis). Only the LEFT slot of a pair is populated; a right slot
+        // reads its partner's entry through SourceSlot and flips sign through MirrorSign.
+        //   Base   — the resting angle in degrees.
+        //   Spread — half-width of the per-client offset around Base, so a crowd is a crowd.
+        //   Anim   — idle amplitude in degrees, at AnimHz.
+        // Sized so the per-send angular step clears the joint's quantization step at the ~11 Hz
+        // send cadence: 12-BPC body/limb slots need ~0.04 deg/frame, the 7-bit toes need ~1 deg.
+        private static readonly float[] Base = new float[WireBoneCount * 3];
+        private static readonly float[] Spread = new float[WireBoneCount * 3];
+        private static readonly float[] Anim = new float[WireBoneCount * 3];
+        private static readonly float[] AnimHz = new float[WireBoneCount * 3];
 
         // Rotation-field bit offsets per quality, built once — a load-test sender runs this per
         // client per send, so it must not allocate.
@@ -39,8 +61,7 @@ namespace BasisNetworkClientConsole
 
         static FakePoseGenerator()
         {
-            BasePose = new float[WireBoneCount * 4];
-            BuildNaturalStandingPose();
+            BuildPoseTable();
         }
 
         private static int[][] BuildFieldOffsets()
@@ -57,7 +78,7 @@ namespace BasisNetworkClientConsole
         private static int[] FieldOffsets(BitQuality quality) => FieldOffsetsByQuality[(int)quality];
 
         // ────────────────────────────────────────────────────────────
-        //  Natural standing pose definition
+        //  Standing pose definition
         //
         //  BONE_WRITE_ORDER slot assignments:
         //   0:Spine  1:Chest  2:UpperChest  3:Neck  4:Head
@@ -65,67 +86,97 @@ namespace BasisNetworkClientConsole
         //   9:LLowerArm  10:RLowerArm  11:LLowerLeg  12:RLowerLeg
         //  13:LShoulder  14:RShoulder  15:LHand  16:RHand  17:LFoot  18:RFoot
         //  19:LToes  20:RToes
+        //  Left slots are odd from 5 up, right slots even — so a right slot's source is slot - 1.
         //  Fingers are not slots here — ten curl/splay channels follow the bone block instead,
         //  ordered L thumb→little then R thumb→little.
+        //
+        //  Restricted slots (BONE_DOF < 3) only carry their anatomical axes, so their entries stay
+        //  on BONE_AXIS_A / BONE_AXIS_B; content on a dropped axis would encode to silence.
         // ────────────────────────────────────────────────────────────
 
-        private static void BuildNaturalStandingPose()
+        private static void BuildPoseTable()
         {
-            // Initialize every wire bone slot to identity (T-pose)
-            for (int i = 0; i < WireBoneCount; i++)
-                SetQuat(i, 0f, 0f, 0f, 1f);
+            // Spine chain: an S-curve that leans, twists and sways rather than standing to attention.
+            Set(0, AxisX, 5f, 7f, 2.0f, 0.25f);    // Spine: forward lean + breathing
+            Set(0, AxisY, 0f, 9f, 2.0f, 0.13f);    // torso twist
+            Set(0, AxisZ, 0f, 5f, 1.5f, 0.11f);    // side lean
+            Set(1, AxisX, -4f, 5f, 1.5f, 0.25f);   // Chest: counter-extension + breathing
+            Set(1, AxisY, 0f, 7f, 2.0f, 0.15f);
+            Set(1, AxisZ, 0f, 4f, 1.5f, 0.12f);
+            Set(2, AxisX, 3f, 4f, 1.5f, 0.24f);    // UpperChest
+            Set(2, AxisY, 0f, 6f, 2.0f, 0.17f);
+            Set(2, AxisZ, 0f, 3f, 1.5f, 0.14f);
+            Set(3, AxisX, 7f, 9f, 2.5f, 0.14f);    // Neck
+            Set(3, AxisY, 0f, 14f, 4.0f, 0.10f);
+            Set(3, AxisZ, 0f, 6f, 2.0f, 0.12f);
+            Set(4, AxisX, -4f, 11f, 3.0f, 0.16f);  // Head: nod
+            Set(4, AxisY, 0f, 20f, 7.0f, 0.09f);   // looking around
+            Set(4, AxisZ, 0f, 7f, 2.5f, 0.13f);    // head tilt
 
-            // ── Spine chain: natural S-curve ──
-            SetAxisAngle(0, 1, 0, 0, 5f);     // Spine: slight forward lean
-            SetAxisAngle(1, 1, 0, 0, -3f);    // Chest: slight extension (compensate)
-            SetAxisAngle(2, 1, 0, 0, 2f);     // UpperChest: slight forward
-            SetAxisAngle(3, 1, 0, 0, 8f);     // Neck: forward tilt
-            SetAxisAngle(4, 1, 0, 0, -3f);    // Head: slight back (eyes level)
+            // Left upper arm: down at the side. The left arm rests along -X, and +Z carries -X
+            // toward -Y, so a POSITIVE angle is the one that lowers it; the right slot's -Z comes
+            // from the mirror, which is the whole point of deriving it rather than writing it.
+            Set(5, AxisZ, 68f, 14f, 5.0f, 0.10f);  // arm down, spread = how far out it hangs
+            Set(5, AxisX, 0f, 14f, 4.0f, 0.09f);   // fore/aft swing
+            Set(5, AxisY, 0f, 12f, 4.0f, 0.11f);   // humeral rotation
 
-            // ── Upper arms: down from T-pose ──
-            // In the bone's local T-pose frame, -Z rotation swings the arm downward.
-            // Both arms use the same local delta since they mirror structurally.
-            SetAxisAngle(5, 0, 0, 1, -72f);   // Left upper arm: down ~72 degrees
-            SetAxisAngle(6, 0, 0, 1, -72f);   // Right upper arm: down ~72 degrees
+            // Left upper leg: standing, weight shifting between the two.
+            Set(7, AxisX, 3f, 9f, 2.5f, 0.10f);
+            Set(7, AxisY, 0f, 6f, 2.0f, 0.10f);
+            Set(7, AxisZ, -2f, 5f, 2.0f, 0.10f);   // stance width
 
-            // ── Upper legs: standing straight with tiny forward tilt ──
-            SetAxisAngle(7, 1, 0, 0, 2f);
-            SetAxisAngle(8, 1, 0, 0, 2f);
+            // Left lower arm (2-DOF: Y elbow flexion, X forearm pronation).
+            Set(9, AxisY, 28f, 22f, 9.0f, 0.15f);
+            Set(9, AxisX, 0f, 26f, 11.0f, 0.12f);
 
-            // ── Lower arms: slight elbow bend ──
-            SetAxisAngle(9, 0, 1, 0, 20f);    // Left elbow
-            SetAxisAngle(10, 0, 1, 0, -20f);  // Right elbow (mirrored)
+            // Left lower leg (2-DOF: X knee flexion, Y tibial twist).
+            Set(11, AxisX, 7f, 9f, 3.0f, 0.11f);
+            Set(11, AxisY, 0f, 7f, 2.5f, 0.10f);
 
-            // ── Lower legs: very slight knee bend ──
-            SetAxisAngle(11, 1, 0, 0, 5f);
-            SetAxisAngle(12, 1, 0, 0, 5f);
+            // Left shoulder (2-DOF: Z clavicle up/down, Y front/back).
+            Set(13, AxisZ, 4f, 6f, 2.5f, 0.12f);
+            Set(13, AxisY, 0f, 6f, 2.5f, 0.11f);
 
-            // ── Shoulders: slight depression ──
-            SetAxisAngle(13, 0, 0, 1, -3f);
-            SetAxisAngle(14, 0, 0, 1, 3f);
+            // Left hand (2-DOF: Z wrist flexion, Y radial/ulnar deviation).
+            Set(15, AxisZ, 6f, 20f, 9.0f, 0.18f);
+            Set(15, AxisY, 0f, 13f, 6.0f, 0.15f);
 
-            // ── Hands: slight natural wrist angle ──
-            SetAxisAngle(15, 0, 0, 1, 5f);
-            SetAxisAngle(16, 0, 0, 1, -5f);
+            // Left foot (2-DOF: X dorsi/plantar flexion, Y in/out).
+            Set(17, AxisX, -7f, 9f, 3.0f, 0.12f);
+            Set(17, AxisY, 0f, 7f, 2.5f, 0.11f);
 
-            // ── Feet: slight dorsiflexion for standing ──
-            SetAxisAngle(17, 1, 0, 0, -8f);
-            SetAxisAngle(18, 1, 0, 0, -8f);
-
-            // ── Toes: flat on ground (identity) ──
-            // Slots 19-20 already identity
-
-            // ── Fingers: see WriteFingerChannels — a relaxed hand is a curl/splay pair per
-            //    finger now, not thirty joint rotations.
+            // Left toes (1-DOF, X curl). Seven bits over +/-60 degrees is a ~0.94 degree step, so
+            // this one needs real amplitude and rate or it quantizes into a frozen slot.
+            Set(19, AxisX, 0f, 12f, 9.0f, 0.50f);
         }
+
+        private static void Set(int slot, int axis, float baseDeg, float spreadDeg, float animDeg, float animHz)
+        {
+            int i = slot * 3 + axis;
+            Base[i] = baseDeg;
+            Spread[i] = spreadDeg;
+            Anim[i] = animDeg;
+            AnimHz[i] = animHz;
+        }
+
+        /// <summary>Right slots read the left partner's entry; central slots read their own.</summary>
+        private static int SourceSlot(int slot)
+            => slot >= FirstPairedSlot && (slot & 1) == 0 ? slot - 1 : slot;
+
+        /// <summary>
+        /// Reflecting a rotation across the body's sagittal plane keeps its X component and negates
+        /// Y and Z, so a right slot mirrors its partner on those two axes and copies it on X.
+        /// </summary>
+        private static float MirrorSign(int slot, int axis)
+            => slot >= FirstPairedSlot && (slot & 1) == 0 && axis != AxisX ? -1f : 1f;
 
         // ────────────────────────────────────────────────────────────
         //  Bone rotation encoding (writes into the packet byte buffer)
         // ────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Writes the whole rotation region — the explicit bone rotations (base pose + idle
-        /// animation, smallest-three) followed by the ten finger curl/splay channels. Clears the
+        /// Writes the whole rotation region — the explicit bone rotations (standing pose + per-client
+        /// spread + idle animation) followed by the ten finger curl/splay channels. Clears the
         /// region before writing, since WriteBits ORs into bytes.
         /// </summary>
         /// <param name="dst">Packet byte array.</param>
@@ -133,7 +184,8 @@ namespace BasisNetworkClientConsole
         /// <param name="quality">Compression quality level.</param>
         /// <param name="timeSec">Elapsed time in seconds (for animation).</param>
         /// <param name="phase">Per-player phase offset (prevents synchronized animation).</param>
-        public static void WriteBoneRotations(byte[] dst, int byteOffset, BitQuality quality, double timeSec, float phase)
+        /// <param name="poseSeed">Per-player pose seed (spreads the resting pose across the crowd).</param>
+        public static void WriteBoneRotations(byte[] dst, int byteOffset, BitQuality quality, double timeSec, float phase, int poseSeed)
         {
             byte[] bpc = BasisBoneRotationCompression.GetBpcTable(quality);
             float[] ranges = BasisBoneRotationCompression.MAX_COMPONENT;
@@ -151,24 +203,83 @@ namespace BasisNetworkClientConsole
             {
                 // Every slot animates every frame — a load-test sender must produce fresh
                 // rotation bits per send like a real tracked human, not a frozen statue.
-                int idx = slot * 4;
-                float bx = BasePose[idx], by = BasePose[idx + 1], bz = BasePose[idx + 2], bw = BasePose[idx + 3];
-
-                GetIdleDelta(slot, timeSec, phase, out float dx, out float dy, out float dz, out float dw);
-
-                QuatMul(bx, by, bz, bw, dx, dy, dz, dw, out float rx, out float ry, out float rz, out float rw);
-                Normalize(ref rx, ref ry, ref rz, ref rw);
-
+                int dof = BasisBoneRotationCompression.BONE_DOF[slot];
                 int totalBits = BasisBoneRotationCompression.BoneFieldWidth(quality, slot);
-                ulong packed = BasisBoneRotationCompression.BONE_DOF[slot] == 3
-                    ? BasisBoneRotationCompression.EncodeSmallestThree(rx, ry, rz, rw, bpc[slot], ranges[slot])
-                    : BasisBoneRotationCompression.EncodeRestricted(rx, ry, rz, rw, slot, quality);
+                ulong packed;
+
+                if (dof == 3)
+                {
+                    float ax = SlotAngle(slot, AxisX, timeSec, phase, poseSeed);
+                    float ay = SlotAngle(slot, AxisY, timeSec, phase, poseSeed);
+                    float az = SlotAngle(slot, AxisZ, timeSec, phase, poseSeed);
+
+                    AxisAngleToQuat(1, 0, 0, ax, out float qx, out float qy, out float qz, out float qw);
+                    AxisAngleToQuat(0, 1, 0, ay, out float rx, out float ry, out float rz, out float rw);
+                    QuatMul(qx, qy, qz, qw, rx, ry, rz, rw, out qx, out qy, out qz, out qw);
+                    AxisAngleToQuat(0, 0, 1, az, out rx, out ry, out rz, out rw);
+                    QuatMul(qx, qy, qz, qw, rx, ry, rz, rw, out qx, out qy, out qz, out qw);
+                    Normalize(ref qx, ref qy, ref qz, ref qw);
+
+                    packed = BasisBoneRotationCompression.EncodeSmallestThree(qx, qy, qz, qw, bpc[slot], ranges[slot]);
+                }
+                else
+                {
+                    // Composed as R_axisA(a) * R_axisB(b) — exactly the form ExtractHingeTwist
+                    // factorizes — so the angles survive the round trip instead of having their
+                    // off-axis content projected away.
+                    int axisA = BasisBoneRotationCompression.BONE_AXIS_A[slot];
+                    float angleA = ClampRad(SlotAngle(slot, axisA, timeSec, phase, poseSeed) * Deg2Rad,
+                        BasisBoneRotationCompression.BONE_RANGE_A[slot]);
+                    float angleB = 0f;
+                    if (dof == 2)
+                    {
+                        int axisB = BasisBoneRotationCompression.BONE_AXIS_B[slot];
+                        angleB = ClampRad(SlotAngle(slot, axisB, timeSec, phase, poseSeed) * Deg2Rad,
+                            BasisBoneRotationCompression.BONE_RANGE_B[slot]);
+                    }
+
+                    BasisBoneRotationCompression.ComposeHingeTwist(
+                        axisA, angleA, BasisBoneRotationCompression.BONE_AXIS_B[slot], angleB,
+                        out float qx, out float qy, out float qz, out float qw);
+
+                    packed = BasisBoneRotationCompression.EncodeRestricted(qx, qy, qz, qw, slot, quality);
+                }
 
                 BasisBoneRotationCompression.WriteBits(dst, baseBit + offsets[slot], packed, totalBits);
             }
 
-            WriteFingerChannels(dst, baseBit, offsets, quality, timeSec, phase);
+            WriteFingerChannels(dst, baseBit, offsets, quality, timeSec, phase, poseSeed);
         }
+
+        /// <summary>
+        /// One joint angle in degrees: the resting pose, this client's offset from it, and the idle
+        /// term — all taken from the LEFT slot of the pair and sign-flipped onto the right one.
+        /// The offset and the animation phase are drawn per side, so the two halves of a body are
+        /// decorrelated without either leaving its anatomical range.
+        /// </summary>
+        private static float SlotAngle(int slot, int axis, double timeSec, float phase, int poseSeed)
+        {
+            int src = SourceSlot(slot) * 3 + axis;
+            float hz = AnimHz[src];
+            if (hz <= 0f && Base[src] == 0f && Spread[src] == 0f) return 0f;
+
+            float offset = Spread[src] * Rand(slot, axis, poseSeed);
+            float wobble = Anim[src] * MathF.Sin((float)(timeSec * hz * TwoPi) + phase + slot * 0.61f + axis * 2.09f);
+            return MirrorSign(slot, axis) * (Base[src] + offset + wobble);
+        }
+
+        /// <summary>Deterministic per-client, per-joint value in [-1, 1]. No allocation, no RNG state.</summary>
+        private static float Rand(int slot, int axis, int poseSeed)
+        {
+            uint h = (uint)(poseSeed * 374761393 + slot * 668265263 + axis * 2246822519);
+            h ^= h >> 13;
+            h *= 1274126177u;
+            h ^= h >> 16;
+            return h * (2f / uint.MaxValue) - 1f;
+        }
+
+        private static float ClampRad(float value, float halfRange)
+            => value < -halfRange ? -halfRange : (value > halfRange ? halfRange : value);
 
         /// <summary>
         /// Writes the ten finger channels: one curl and one splay scalar per finger in [-1, 1],
@@ -179,7 +290,7 @@ namespace BasisNetworkClientConsole
         /// at the ~11 Hz load-test cadence (High curl is 8 bits ⇒ 0.0078/step, splay 6 ⇒ 0.032),
         /// so a fake hand keeps producing fresh bits instead of deadbanding into silence.
         /// </summary>
-        private static void WriteFingerChannels(byte[] dst, int baseBit, int[] offsets, BitQuality quality, double timeSec, float phase)
+        private static void WriteFingerChannels(byte[] dst, int baseBit, int[] offsets, BitQuality quality, double timeSec, float phase, int poseSeed)
         {
             int curlBits = BasisBoneRotationCompression.CurlBits(quality);
             int splayBits = BasisBoneRotationCompression.SplayBits(quality);
@@ -189,9 +300,11 @@ namespace BasisNetworkClientConsole
                 // Per-finger phase spread so a hand ripples rather than clenching as one block.
                 float fp = phase * 1.1f + finger * 0.73f;
 
-                // Relaxed hand sits partly curled; grip slowly tightens and releases.
-                float curl = 0.30f + 0.35f * MathF.Sin((float)(timeSec * 0.50 * TwoPi + fp));
-                float splay = 0.25f * MathF.Sin((float)(timeSec * 0.37 * TwoPi + fp * 1.4f));
+                // Resting grip varies per client; it then tightens and releases around that.
+                float rest = 0.30f + 0.25f * Rand(WireBoneCount + finger, 0, poseSeed);
+                float curl = rest + 0.35f * MathF.Sin((float)(timeSec * 0.50 * TwoPi + fp));
+                float splay = 0.25f * MathF.Sin((float)(timeSec * 0.37 * TwoPi + fp * 1.4f))
+                            + 0.20f * Rand(WireBoneCount + finger, 1, poseSeed);
 
                 ulong qCurl = BasisBoneRotationCompression.EncodeSignedUnit(curl, curlBits);
                 ulong qSplay = BasisBoneRotationCompression.EncodeSignedUnit(splay, splayBits);
@@ -214,13 +327,14 @@ namespace BasisNetworkClientConsole
         // ────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Writes an animated hips rotation into the 7-byte tail of the packet.
+        /// Writes an animated hips rotation into the 7-byte tail of the packet. Each client faces a
+        /// different way — a crowd that all faces the same direction is not a crowd.
         /// </summary>
-        public static void WriteCompressedHipsRotation(byte[] dst, int offset, double timeSec, float phase)
+        public static void WriteCompressedHipsRotation(byte[] dst, int offset, double timeSec, float phase, int poseSeed)
         {
-            // Subtle body yaw sway + slight lateral tilt
-            float yaw = 3f * MathF.Sin((float)(timeSec * 0.06 * TwoPi + phase * 1.7));
-            float tilt = 1f * MathF.Sin((float)(timeSec * 0.04 * TwoPi + phase * 2.3));
+            float yaw = 180f * Rand(WireBoneCount + FingerCount, 0, poseSeed)
+                      + 4f * MathF.Sin((float)(timeSec * 0.06 * TwoPi + phase * 1.7));
+            float tilt = 1.5f * MathF.Sin((float)(timeSec * 0.04 * TwoPi + phase * 2.3));
 
             AxisAngleToQuat(0, 1, 0, yaw, out float yx, out float yy, out float yz, out float yw);
             AxisAngleToQuat(0, 0, 1, tilt, out float tx, out float ty, out float tz, out float tw);
@@ -268,125 +382,8 @@ namespace BasisNetworkClientConsole
         }
 
         // ────────────────────────────────────────────────────────────
-        //  Idle animation
-        //
-        //  Each animated bone gets a small time-varying delta quaternion
-        //  layered on top of the base pose. Frequencies are sub-1 Hz
-        //  to produce slow, natural-looking motion at the 11 Hz send rate.
-        //
-        //  Breathing: ~0.25 Hz (15 breaths/min) on spine/chest
-        //  Head look: ~0.08-0.15 Hz slow gaze drift
-        //  Arm sway:  ~0.1 Hz subtle pendulum, L/R out of phase
-        //  Weight shift: ~0.05 Hz leg loading alternation
-        //  Grip:      ~0.07 Hz subtle finger tightening/relaxing
-        // ────────────────────────────────────────────────────────────
-
-        private static void GetIdleDelta(int slot, double t, float phase, out float dx, out float dy, out float dz, out float dw)
-        {
-            // Default: identity (no animation for this bone)
-            dx = 0f; dy = 0f; dz = 0f; dw = 1f;
-
-            float p = phase;
-
-            switch (slot)
-            {
-                case 0: // Spine — breathing
-                    AxisAngleToQuat(1, 0, 0, 1.5f * MathF.Sin((float)(t * 0.25 * TwoPi + p)),
-                        out dx, out dy, out dz, out dw);
-                    break;
-
-                case 1: // Chest — breathing
-                    AxisAngleToQuat(1, 0, 0, 1.0f * MathF.Sin((float)(t * 0.25 * TwoPi + p)),
-                        out dx, out dy, out dz, out dw);
-                    break;
-
-                case 3: // Neck — slow gaze drift (yaw + pitch combined)
-                {
-                    float yaw = 3f * MathF.Sin((float)(t * 0.08 * TwoPi + p * 1.3));
-                    float pitch = 1.5f * MathF.Sin((float)(t * 0.12 * TwoPi + p * 0.7));
-                    AxisAngleToQuat(0, 1, 0, yaw, out float yx, out float yy, out float yz, out float yw);
-                    AxisAngleToQuat(1, 0, 0, pitch, out float px, out float py, out float pz, out float pw);
-                    QuatMul(yx, yy, yz, yw, px, py, pz, pw, out dx, out dy, out dz, out dw);
-                    break;
-                }
-
-                case 4: // Head — micro-nod
-                    AxisAngleToQuat(1, 0, 0, 1f * MathF.Sin((float)(t * 0.15 * TwoPi + p * 2.1)),
-                        out dx, out dy, out dz, out dw);
-                    break;
-
-                case 5: // Left upper arm — sway
-                    AxisAngleToQuat(1, 0, 0, 2f * MathF.Sin((float)(t * 0.1 * TwoPi + p)),
-                        out dx, out dy, out dz, out dw);
-                    break;
-
-                case 6: // Right upper arm — sway (out of phase with left)
-                    AxisAngleToQuat(1, 0, 0, 2f * MathF.Sin((float)(t * 0.1 * TwoPi + p + MathF.PI)),
-                        out dx, out dy, out dz, out dw);
-                    break;
-
-                case 7: // Left upper leg — weight shift
-                    AxisAngleToQuat(0, 0, 1, 1f * MathF.Sin((float)(t * 0.05 * TwoPi + p)),
-                        out dx, out dy, out dz, out dw);
-                    break;
-
-                case 8: // Right upper leg — weight shift (opposite)
-                    AxisAngleToQuat(0, 0, 1, -1f * MathF.Sin((float)(t * 0.05 * TwoPi + p)),
-                        out dx, out dy, out dz, out dw);
-                    break;
-
-                default:
-                {
-                    // Every remaining slot oscillates continuously, with amplitude × frequency
-                    // sized so the per-send angular step crosses that bone group's quantization
-                    // step at the ~11 Hz send rate (coarser BPC ⇒ bigger, faster motion):
-                    //   12-BPC body/limb bones need only ~0.04°/frame; the 5-BPC toes need
-                    //   degrees per frame before their bits change at all. (Fingers are no longer
-                    //   slots — see WriteFingerChannels.)
-                    float amplitude;
-                    float frequency;
-                    if (slot >= 19) { amplitude = 16f; frequency = 0.50f; } // toes (5 BPC, tight range)
-                    else            { amplitude = 2f;  frequency = 0.30f + 0.05f * (slot % 5); } // 12-BPC body/limbs
-
-                    // Slot-seeded frequency jitter + phase spread so bones (and players) desync.
-                    frequency *= 1f + 0.07f * (slot % 3);
-                    float angle = amplitude * MathF.Sin((float)(t * frequency * TwoPi + p * 1.1f + slot * 0.61f));
-
-                    // Restricted slots (v52) only carry their anatomical axes on the wire, so
-                    // animate the hinge axis — motion on a dropped axis would encode to silence.
-                    // Full 3-DOF slots keep the per-slot axis cycle so motion isn't single-axis.
-                    int axisCode = BasisBoneRotationCompression.BONE_DOF[slot] == 3
-                        ? slot % 3
-                        : BasisBoneRotationCompression.BONE_AXIS_A[slot];
-                    switch (axisCode)
-                    {
-                        case 0: AxisAngleToQuat(1, 0, 0, angle, out dx, out dy, out dz, out dw); break;
-                        case 1: AxisAngleToQuat(0, 1, 0, angle, out dx, out dy, out dz, out dw); break;
-                        default: AxisAngleToQuat(0, 0, 1, angle, out dx, out dy, out dz, out dw); break;
-                    }
-                    break;
-                }
-            }
-        }
-
-        // ────────────────────────────────────────────────────────────
         //  Quaternion math helpers (pure float, no Unity dependencies)
         // ────────────────────────────────────────────────────────────
-
-        private static void SetQuat(int slot, float x, float y, float z, float w)
-        {
-            int idx = slot * 4;
-            BasePose[idx] = x;
-            BasePose[idx + 1] = y;
-            BasePose[idx + 2] = z;
-            BasePose[idx + 3] = w;
-        }
-
-        private static void SetAxisAngle(int slot, float ax, float ay, float az, float degrees)
-        {
-            AxisAngleToQuat(ax, ay, az, degrees, out float qx, out float qy, out float qz, out float qw);
-            SetQuat(slot, qx, qy, qz, qw);
-        }
 
         private static void AxisAngleToQuat(float ax, float ay, float az, float degrees, out float qx, out float qy, out float qz, out float qw)
         {

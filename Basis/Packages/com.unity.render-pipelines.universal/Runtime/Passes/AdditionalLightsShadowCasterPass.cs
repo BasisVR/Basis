@@ -87,9 +87,13 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// </summary>
         /// <param name="evt">The <c>RenderPassEvent</c> to use.</param>
         /// <seealso cref="RenderPassEvent"/>
+        private static readonly ProfilingSampler s_ProfilingSampler = new ProfilingSampler("Draw Additional Lights Shadowmap");
+        public static float GpuMs => s_ProfilingSampler.gpuElapsedTime;
+        public static void SetProfilingEnabled(bool enabled) => s_ProfilingSampler.enableRecording = enabled;
+
         public AdditionalLightsShadowCasterPass(RenderPassEvent evt)
         {
-            profilingSampler = new ProfilingSampler("Draw Additional Lights Shadowmap");
+            profilingSampler = s_ProfilingSampler;
             renderPassEvent = evt;
 
             m_UseStructuredBuffer = RenderingUtils.useStructuredBuffer;

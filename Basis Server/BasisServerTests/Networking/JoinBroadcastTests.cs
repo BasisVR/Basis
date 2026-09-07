@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using BasisNetworkCore;
+using BasisNetworkCore.Security;
 using BasisServerHandle;
 using System.Collections.Generic;
 using System.Linq;
@@ -202,5 +203,127 @@ public class JoinBroadcastTests
         Assert.Empty(peer.Sent);
 
         BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(peer.Id);
+    }
+
+    [Fact]
+    public void Flush_SendsADepartureBeforeTheJoinThatReusesItsId()
+    {
+        using var scope = new ServerStaticsScope();
+        BasisServerHandleEvents.JoinBroadcast.Stop();
+
+        FakeNetPeer watcher = new FakeNetPeer(9900, "127.0.0.1");
+        BasisServerHandleEvents.JoinBroadcast.RegisterPeer(watcher.Id, BasisServerHandleEvents.JoinBroadcast.NextSeq());
+        NetworkServer.AuthenticatedPeers[(ushort)watcher.Id] = watcher;
+        NetworkServer.RebuildPeerSnapshot();
+
+        const ushort reused = 9901;
+        const ushort unrelated = 9902;
+        BasisServerHandleEvents.JoinBroadcast.EnqueueLeave(reused);
+        BasisServerHandleEvents.JoinBroadcast.EnqueueLeave(unrelated);
+        BasisServerHandleEvents.JoinBroadcast.Enqueue(BasisServerHandleEvents.JoinBroadcast.NextSeq(), reused, RecordFor(reused));
+
+        BasisServerHandleEvents.JoinBroadcast.Flush();
+
+        Assert.Equal(3, watcher.Sent.Count);
+        Assert.Equal(BasisNetworkCommons.DisconnectionChannel, watcher.Sent[0].Channel);
+        Assert.Equal(reused, new NetDataReader(watcher.Sent[0].Data).GetUShort());
+        Assert.Equal(BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, watcher.Sent[1].Channel);
+        Assert.Equal(new List<ushort> { reused }, PayloadIdsIn(watcher.Sent[1].Data));
+        Assert.Equal(BasisNetworkCommons.DisconnectionChannel, watcher.Sent[2].Channel);
+        Assert.Equal(unrelated, new NetDataReader(watcher.Sent[2].Data).GetUShort());
+
+        BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(watcher.Id);
+    }
+
+    private static void InstallServer()
+    {
+        NetworkServer.Configuration = new Configuration { PeerLimit = 100, BasisUserRestrictionMode = BasisUserRestrictionMode.Normal };
+        NetworkServer.AuthIdentity = new MapAuthIdentity();
+    }
+
+    private static DisconnectInfo Info() => new() { Reason = DisconnectReason.RemoteConnectionClose };
+
+    private static (FakeNetPeer Watcher, FakeNetPeer Stale, FakeNetPeer Live, long LiveSeq) ReconnectedSlot(int watcherId, int reusedId)
+    {
+        FakeNetPeer watcher = new FakeNetPeer(watcherId, "127.0.0.1");
+        BasisServerHandleEvents.JoinBroadcast.RegisterPeer(watcher.Id, BasisServerHandleEvents.JoinBroadcast.NextSeq());
+        NetworkServer.AuthenticatedPeers[(ushort)watcher.Id] = watcher;
+
+        FakeNetPeer stale = new FakeNetPeer(reusedId, "127.0.0.1");
+        FakeNetPeer live = new FakeNetPeer(reusedId, "127.0.0.1");
+        long liveSeq = BasisServerHandleEvents.JoinBroadcast.NextSeq();
+        BasisServerHandleEvents.JoinBroadcast.RegisterPeer(live.Id, liveSeq);
+        NetworkServer.AuthenticatedPeers[(ushort)live.Id] = live;
+        NetworkServer.RebuildPeerSnapshot();
+        return (watcher, stale, live, liveSeq);
+    }
+
+    [Fact]
+    public void StaleDisconnectAfterReconnect_KeepsTheLivePeersPendingJoin()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallServer();
+        BasisServerHandleEvents.JoinBroadcast.Stop();
+
+        const ushort reusedId = 9801;
+        (FakeNetPeer watcher, FakeNetPeer stale, FakeNetPeer live, long liveSeq) = ReconnectedSlot(9800, reusedId);
+        BasisServerHandleEvents.JoinBroadcast.Enqueue(liveSeq, live.Id, RecordFor(reusedId));
+
+        BasisServerHandleEvents.HandlePeerDisconnected(stale, Info());
+        BasisServerHandleEvents.JoinBroadcast.Flush();
+
+        Assert.Equal(new List<ushort> { reusedId }, PayloadIdsIn(SentBatch(watcher)));
+        Assert.DoesNotContain(watcher.Sent, s => s.Channel == BasisNetworkCommons.DisconnectionChannel);
+        Assert.True(NetworkServer.AuthenticatedPeers.TryGetValue(live.Id, out NetPeer? holder));
+        Assert.Same(live, holder);
+
+        BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(watcher.Id);
+        BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(live.Id);
+    }
+
+    [Fact]
+    public void StaleDisconnectAfterReconnect_DoesNotAnnounceTheLivePeersDeparture()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallServer();
+        BasisServerHandleEvents.JoinBroadcast.Stop();
+
+        (FakeNetPeer watcher, FakeNetPeer stale, FakeNetPeer live, _) = ReconnectedSlot(9810, 9811);
+
+        BasisServerHandleEvents.HandlePeerDisconnected(stale, Info());
+        BasisServerHandleEvents.JoinBroadcast.Flush();
+
+        Assert.Empty(watcher.Sent);
+        Assert.True(NetworkServer.AuthenticatedPeers.TryGetValue(live.Id, out NetPeer? holder));
+        Assert.Same(live, holder);
+
+        BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(watcher.Id);
+        BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(live.Id);
+    }
+
+    [Fact]
+    public void KickedPeer_DepartureIsStillAnnounced_WhenItsDisconnectArrives()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallServer();
+        BasisServerHandleEvents.JoinBroadcast.Stop();
+
+        FakeNetPeer watcher = new FakeNetPeer(9820, "127.0.0.1");
+        BasisServerHandleEvents.JoinBroadcast.RegisterPeer(watcher.Id, BasisServerHandleEvents.JoinBroadcast.NextSeq());
+        NetworkServer.AuthenticatedPeers[(ushort)watcher.Id] = watcher;
+        FakeNetPeer kicked = new FakeNetPeer(9821, "127.0.0.1");
+        BasisServerHandleEvents.JoinBroadcast.RegisterPeer(kicked.Id, BasisServerHandleEvents.JoinBroadcast.NextSeq());
+        NetworkServer.AuthenticatedPeers[(ushort)kicked.Id] = kicked;
+        NetworkServer.RebuildPeerSnapshot();
+
+        BasisServerHandleEvents.RejectWithReason(kicked, "kicked");
+        Assert.False(NetworkServer.AuthenticatedPeers.ContainsKey(kicked.Id));
+
+        BasisServerHandleEvents.HandlePeerDisconnected(kicked, Info());
+        BasisServerHandleEvents.JoinBroadcast.Flush();
+
+        Assert.Equal(new List<ushort> { (ushort)kicked.Id }, DepartureIdsIn(watcher));
+
+        BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(watcher.Id);
     }
 }

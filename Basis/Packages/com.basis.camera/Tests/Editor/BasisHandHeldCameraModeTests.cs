@@ -306,7 +306,10 @@ namespace Basis.Tests.Camera
         private static readonly string[] PersistedFlySettings =
         {
             "flySpeed", "flyClimbSpeed", "flyFastMultiplier", "flyTurnSpeed", "flyMouseSensitivity",
-            "flyMomentum", "showFlyOnMainMenu",
+            "flyMomentum", "flyMovementFollowsPitch", "showFlyOnMainMenu",
+            "vrLeftHandFlyEnabled", "vrRightHandFlyRotateEnabled",
+            "vrHandFlyMoveDeadzone", "vrHandFlyMoveReach", "vrHandFlyMoveSensitivity",
+            "vrHandFlyTurnDeadzone", "vrHandFlyTurnReach", "vrHandFlyTurnSensitivity",
         };
 
         [Test]

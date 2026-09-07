@@ -11,6 +11,7 @@ namespace Basis.BasisUI
     public static class BasisTrustedUrls
     {
         private const string DefaultsAddress = "BasisDefaultTrustedUrls";
+        private static readonly string[] BuiltInSchemes = { "https://", "rtsp://", "rtspt://", "rtmp://" };
 
         private const string FileName = "trustedUrls.json";
         private const string LegacyFileName = "trustedVideoUrls.json";
@@ -80,7 +81,7 @@ namespace Basis.BasisUI
             foreach (string url in defaults.Urls)
             {
                 if (string.IsNullOrEmpty(url)) continue;
-                if (!url.StartsWith("https://")) continue;
+                if (!Array.Exists(BuiltInSchemes, s => url.StartsWith(s, StringComparison.Ordinal))) continue;
                 _builtInUrls.Add(url);
             }
         }
@@ -159,6 +160,22 @@ namespace Basis.BasisUI
             if (_builtInUrls.Contains(url)) return;
             if (_userUrls.Add(url))
                 Save();
+        }
+
+        public static void AddDomain(Uri uri)
+        {
+            if (uri == null || string.IsNullOrEmpty(uri.Host)) return;
+            string host = uri.Host;
+            if (uri.HostNameType != UriHostNameType.Dns)
+            {
+                Add(uri.Scheme + "://" + host + "/*");
+                return;
+            }
+            string[] parts = host.Split('.');
+            int keep = parts.Length >= 3 && parts[parts.Length - 1].Length == 2 && parts[parts.Length - 2].Length <= 3 ? 3 : Math.Min(2, parts.Length);
+            string domain = string.Join(".", parts, parts.Length - keep, keep);
+            Add(uri.Scheme + "://" + domain + "/*");
+            Add(uri.Scheme + "://*." + domain + "/*");
         }
 
         public static void Remove(string url)

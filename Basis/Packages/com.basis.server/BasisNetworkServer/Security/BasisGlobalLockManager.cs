@@ -1,4 +1,4 @@
-using Basis.Network.Core;
+﻿using Basis.Network.Core;
 using System.Threading;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 
@@ -78,6 +78,38 @@ namespace BasisNetworkServer.Security
         }
 
         /// <summary>
+        /// Copies the live lock state back onto the configuration object so a caller can persist it
+        /// to config.xml. The mirror image of <see cref="InitializeFromConfig"/> — every field that
+        /// seeds a flag at boot is written here, or an admin's toggle silently reverts on restart.
+        /// </summary>
+        public static void WriteToConfig(Configuration config)
+        {
+            if (config == null)
+            {
+                return;
+            }
+
+            config.AvatarsLocked = AvatarsLocked;
+            config.PropsLocked = PropsLocked;
+            config.WorldsLocked = WorldsLocked;
+            config.ServersLocked = ServersLocked;
+            config.ThirdPersonDisabled = ThirdPersonDisabled;
+            config.AdditionalAvatarDataLock = AdditionalAvatarDataLock;
+            config.CameraMetadataDisallowMask = CameraMetadataDisallowMask;
+            config.PlayspaceMoverLocked = PlayspaceMoverLocked;
+            config.DirectConnectLocked = DirectConnectLocked;
+            config.CilboxLocked = CilboxLocked;
+            config.ImagesLocked = ImagesLocked;
+            config.TextChatLocked = TextChatLocked;
+            config.VoiceChatLocked = VoiceChatLocked;
+            config.MediaPlayerLocked = MediaPlayerLocked;
+            config.CameraCaptureLocked = CameraCaptureLocked;
+            config.PropGrabbingLocked = PropGrabbingLocked;
+            config.SafeDisplayNamesForced = SafeDisplayNamesForced;
+            config.EndEffectorIKDisabled = EndEffectorIKDisabled;
+        }
+
+        /// <summary>
         /// Toggle avatar loading. Returns the new state (true = locked).
         /// </summary>
         public static bool ToggleAvatars() => Toggle(ref _avatarsLocked);
@@ -138,7 +170,7 @@ namespace BasisNetworkServer.Security
         public static bool ToggleTextChat() => Toggle(ref _textChatLocked);
 
         /// <summary>
-        /// Toggle the global voice lock. Returns the new state (true = normal and shout voice from
+        /// Toggle the global voice lock. Returns the new state (true = normal and announce voice from
         /// peers without <c>basis.voice.lockbypass</c> are dropped at the server).
         /// </summary>
         public static bool ToggleVoiceChat() => Toggle(ref _voiceChatLocked);

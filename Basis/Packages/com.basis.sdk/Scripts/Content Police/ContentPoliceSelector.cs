@@ -12,7 +12,22 @@ public class ContentPoliceSelector : ScriptableObject
     // Runtime caches (not serialized)
     [NonSerialized] private HashSet<Type> _approvedTypes;
     [NonSerialized] private HashSet<string> _approvedTypeNames;
+    [NonSerialized] private Dictionary<Type, bool> _approvalByType;
     [NonSerialized] private bool _cacheBuilt;
+
+    /// <summary>
+    /// Approval memoized per runtime Type so the content walk pays the FullName string
+    /// hash once per type instead of once per component. Same answer as
+    /// <see cref="ApprovedTypeNames"/>.Contains(type.FullName), always.
+    /// </summary>
+    public bool IsTypeApproved(Type type)
+    {
+        if (!_cacheBuilt) BuildCache();
+        if (_approvalByType.TryGetValue(type, out bool approved)) return approved;
+        approved = _approvedTypeNames.Contains(type.FullName);
+        _approvalByType[type] = approved;
+        return approved;
+    }
 
     public HashSet<Type> ApprovedTypes
     {
@@ -42,6 +57,7 @@ public class ContentPoliceSelector : ScriptableObject
     {
         _approvedTypes = new HashSet<Type>();
         _approvedTypeNames = new HashSet<string>(selectedTypes.Count, StringComparer.Ordinal);
+        _approvalByType = new Dictionary<Type, bool>();
         for (int i = 0; i < selectedTypes.Count; i++)
         {
             var typeName = selectedTypes[i];

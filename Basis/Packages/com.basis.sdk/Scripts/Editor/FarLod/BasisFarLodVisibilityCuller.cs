@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -75,40 +76,129 @@ public static class BasisFarLodVisibilityCuller
             bool[] triangleVisible = new bool[triangleCount];
             bool[] vertexNearVisible = new bool[positions.Count];
 
+            // The pre-decimation soup runs to hundreds of thousands of triangles, and one
+            // synchronous Physics.Raycast per (triangle x fan direction) serialised millions of
+            // queries on the main thread. RaycastCommand batches fan them across the worker
+            // pool instead, chunked to bound the command/hit buffers. Two phases keep most of
+            // the serial early-break: the straight-out ray settles the bulk of the visible
+            // surface for one ray each, and only the survivors pay for the remaining fan.
+            // Escape semantics flip from !Physics.Raycast to colliderEntityId == EntityId.None.
+            // A miss writes the zero id, but the implicit int conversion means comparing against
+            // the literal 0 is NEVER true, which reads every ray as a hit and culls the whole mesh.
+            Vector3[] triOrigin = new Vector3[triangleCount];
+            Vector3[] triTangent = new Vector3[triangleCount];
+            Vector3[] triBitangent = new Vector3[triangleCount];
+            Vector3[] triNormal = new Vector3[triangleCount];
+            bool[] triDegenerate = new bool[triangleCount];
             for (int t = 0; t < triangleCount; t++)
             {
-                int i0 = indices[t * 3];
-                int i1 = indices[t * 3 + 1];
-                int i2 = indices[t * 3 + 2];
-                Vector3 p0 = positions[i0];
-                Vector3 p1 = positions[i1];
-                Vector3 p2 = positions[i2];
+                Vector3 p0 = positions[indices[t * 3]];
+                Vector3 p1 = positions[indices[t * 3 + 1]];
+                Vector3 p2 = positions[indices[t * 3 + 2]];
                 Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
                 float length = normal.magnitude;
                 if (length < 1e-12f)
                 {
-                    continue; // degenerate — the simplifier drops it anyway
+                    triDegenerate[t] = true; // degenerate — the simplifier drops it anyway
+                    continue;
                 }
                 normal /= length;
 
                 Vector3 centroidWorld = rootToWorld.MultiplyPoint3x4((p0 + p1 + p2) * (1f / 3f));
                 Vector3 normalWorld = (rootRotation * normal).normalized;
                 Vector3 tangent = Vector3.Cross(normalWorld, Mathf.Abs(normalWorld.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
-                Vector3 bitangent = Vector3.Cross(normalWorld, tangent);
-                Vector3 origin = centroidWorld + normalWorld * bias;
+                triOrigin[t] = centroidWorld + normalWorld * bias;
+                triTangent[t] = tangent;
+                triBitangent[t] = Vector3.Cross(normalWorld, tangent);
+                triNormal[t] = normalWorld;
+            }
 
-                for (int r = 0; r < fan.Length; r++)
+            void MarkVisible(int t)
+            {
+                triangleVisible[t] = true;
+                vertexNearVisible[indices[t * 3]] = true;
+                vertexNearVisible[indices[t * 3 + 1]] = true;
+                vertexNearVisible[indices[t * 3 + 2]] = true;
+            }
+
+            QueryParameters query = new QueryParameters(layerMask, false, QueryTriggerInteraction.UseGlobal, false);
+
+            // Phase 1: the straight-out ray (fan[0] is the +normal direction) for every triangle.
+            const int ChunkSize = 65536;
+            var commands = new NativeArray<RaycastCommand>(ChunkSize, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var hits = new NativeArray<RaycastHit>(ChunkSize, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            try
+            {
+                for (int chunkStart = 0; chunkStart < triangleCount; chunkStart += ChunkSize)
                 {
-                    Vector3 direction = tangent * fan[r].x + bitangent * fan[r].y + normalWorld * fan[r].z;
-                    if (!Physics.Raycast(origin, direction, rayLength, layerMask))
+                    int count = Mathf.Min(ChunkSize, triangleCount - chunkStart);
+                    for (int c = 0; c < count; c++)
                     {
-                        triangleVisible[t] = true;
-                        vertexNearVisible[i0] = true;
-                        vertexNearVisible[i1] = true;
-                        vertexNearVisible[i2] = true;
-                        break;
+                        int t = chunkStart + c;
+                        commands[c] = triDegenerate[t]
+                            ? new RaycastCommand(Vector3.zero, Vector3.up, query, 0f)
+                            : new RaycastCommand(triOrigin[t], triNormal[t], query, rayLength);
+                    }
+                    RaycastCommand.ScheduleBatch(commands.GetSubArray(0, count), hits.GetSubArray(0, count), 128).Complete();
+                    for (int c = 0; c < count; c++)
+                    {
+                        int t = chunkStart + c;
+                        if (!triDegenerate[t] && hits[c].colliderEntityId == EntityId.None)
+                        {
+                            MarkVisible(t);
+                        }
                     }
                 }
+
+                // Phase 2: the remaining fan directions, only for triangles still unresolved.
+                List<int> pending = new List<int>();
+                for (int t = 0; t < triangleCount; t++)
+                {
+                    if (!triDegenerate[t] && !triangleVisible[t])
+                    {
+                        pending.Add(t);
+                    }
+                }
+
+                int raysPerTriangle = fan.Length - 1;
+                if (raysPerTriangle > 0 && pending.Count > 0)
+                {
+                    int trianglesPerChunk = Mathf.Max(1, ChunkSize / raysPerTriangle);
+                    for (int chunkStart = 0; chunkStart < pending.Count; chunkStart += trianglesPerChunk)
+                    {
+                        int chunkTriangles = Mathf.Min(trianglesPerChunk, pending.Count - chunkStart);
+                        int rayCount = chunkTriangles * raysPerTriangle;
+                        for (int c = 0; c < chunkTriangles; c++)
+                        {
+                            int t = pending[chunkStart + c];
+                            Vector3 origin = triOrigin[t], tangent = triTangent[t], bitangent = triBitangent[t], normalWorld = triNormal[t];
+                            int baseIndex = c * raysPerTriangle;
+                            for (int r = 1; r < fan.Length; r++)
+                            {
+                                Vector3 direction = tangent * fan[r].x + bitangent * fan[r].y + normalWorld * fan[r].z;
+                                commands[baseIndex + r - 1] = new RaycastCommand(origin, direction, query, rayLength);
+                            }
+                        }
+                        RaycastCommand.ScheduleBatch(commands.GetSubArray(0, rayCount), hits.GetSubArray(0, rayCount), 128).Complete();
+                        for (int c = 0; c < chunkTriangles; c++)
+                        {
+                            int baseIndex = c * raysPerTriangle;
+                            for (int r = 0; r < raysPerTriangle; r++)
+                            {
+                                if (hits[baseIndex + r].colliderEntityId == EntityId.None)
+                                {
+                                    MarkVisible(pending[chunkStart + c]);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                commands.Dispose();
+                hits.Dispose();
             }
 
             // Keep pass: visible triangles plus anything sharing a vertex with one — seals the
@@ -130,6 +220,15 @@ public static class BasisFarLodVisibilityCuller
                 {
                     removed++;
                 }
+            }
+
+            // Nothing survived: the exterior of a mesh is visible by construction, so this is a
+            // broken occlusion probe, not a fully hidden avatar. Fail open on the whole mesh
+            // rather than hand the rest of the pipeline an empty soup.
+            if (kept.Count == 0)
+            {
+                Debug.LogWarning($"[FarAvatar] Visibility cull found no exterior surface across {triangleCount} triangles and was discarded. Check that the bake collider is reachable on layer {OcclusionLayer}.");
+                return 0;
             }
 
             if (removed > 0)

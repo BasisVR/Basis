@@ -204,6 +204,8 @@ namespace Basis.BasisUI
             {
                 _contentMarkers.Add(marker);
             }
+
+            _resetProbeFrame = -1;
         }
 
         /// <summary>
@@ -227,6 +229,152 @@ namespace Basis.BasisUI
                     results.Add(marker.transform);
                 }
             }
+        }
+
+        // ---- Section reset -------------------------------------------------------------------
+        // The header answers the same options gesture its rows do, and answers it for the lot: one
+        // press on "Film Look" puts every control under that header back to its default instead of
+        // eleven presses on the controls themselves.
+
+        /// <summary>Localization key for a section that is already sitting at every one of its defaults.</summary>
+        public const string SectionNoChangesKey = "ui.resetSection.nochanges";
+
+        private readonly List<Transform> _resetContainers = new();
+        private readonly List<PanelComponent> _resetProbe = new();
+        private int _resetProbeFrame = -1;
+        private bool _resetProbeResult;
+
+        /// <summary>
+        /// True while anything under this header knows a default to go back to. The gesture poll
+        /// asks this every frame the header is hovered and answering means walking the section, so
+        /// it is worked out once per frame and again whenever the section's content changes hands.
+        /// A closed lazy section has destroyed its rows and correctly answers no — there is nothing
+        /// built there to reset.
+        /// </summary>
+        public override bool HasResetDefault
+        {
+            get
+            {
+                if (_resetProbeFrame == Time.frameCount) return _resetProbeResult;
+                _resetProbeFrame = Time.frameCount;
+
+                CollectResetTargets(_resetProbe);
+                _resetProbeResult = _resetProbe.Count > 0;
+                _resetProbe.Clear();
+                return _resetProbeResult;
+            }
+        }
+
+        /// <summary>
+        /// The header's own answer to the gesture: put everything under it back, behind a single
+        /// confirmation rather than one per row. The window lists what would actually move, so a
+        /// section already at its defaults says so instead of offering a reset that does nothing.
+        /// </summary>
+        public override void RequestReset()
+        {
+            List<PanelComponent> targets = new();
+            CollectResetTargets(targets);
+            if (targets.Count == 0) return;
+
+            string label = Descriptor && !string.IsNullOrEmpty(Descriptor.Title) ? Descriptor.Title : _title;
+
+            BasisMenuBase<BasisMainMenu> menu = BasisMenuBase<BasisMainMenu>.Instance;
+            if (menu == null)
+            {
+                // No menu to host a window — reset without asking rather than doing nothing.
+                ApplyResetTo(targets);
+                return;
+            }
+
+            // OpenDialogue refuses while another modal is already up, and would leave that one in
+            // Dialogue. Without this the details below would be grafted onto that unrelated window.
+            if (menu.Dialogue != null) return;
+
+            List<BasisMenuDialoguePanel.DetailRow> changes = DescribeChanges(targets);
+            string body = BasisLocalization.Get("ui.resetPage.confirm", label) + "\n\n" + (changes.Count > 0
+                ? BasisLocalization.Get(BasisPanelMoveHandle.ResetChangedKey, changes.Count)
+                : BasisLocalization.Get(SectionNoChangesKey));
+
+            menu.OpenDialogue(
+                BasisLocalization.Get("ui.resetPage.title", label),
+                body,
+                BasisLocalization.Get("ui.reset"),
+                BasisLocalization.Get("ui.cancel"),
+                confirmed =>
+                {
+                    if (confirmed) ApplyResetTo(targets);
+                });
+
+            if (changes.Count > 0 && menu.Dialogue != null) menu.Dialogue.ShowDetails(changes);
+        }
+
+        /// <summary>
+        /// Resets the section's rows for a caller that has already asked. The header's own
+        /// open/closed state is not one of the values a reset is about, so it is left exactly where
+        /// the user had it.
+        /// </summary>
+        public override void ApplyResetToDefault()
+        {
+            List<PanelComponent> targets = new();
+            CollectResetTargets(targets);
+            ApplyResetTo(targets);
+        }
+
+        /// <summary>
+        /// Every control filed under this header that knows a default, the rows of nested sections
+        /// included — those live inside this section's own containers. The nested headers themselves
+        /// are skipped: each one stands for rows this sweep has already reached, and one whose rows
+        /// are not built has nothing to offer either way.
+        /// </summary>
+        private void CollectResetTargets(List<PanelComponent> results)
+        {
+            results.Clear();
+            GetContentContainers(_resetContainers);
+
+            for (int i = 0; i < _resetContainers.Count; i++)
+            {
+                PanelComponent[] components = _resetContainers[i].GetComponentsInChildren<PanelComponent>(true);
+                for (int j = 0; j < components.Length; j++)
+                {
+                    PanelComponent component = components[j];
+                    if (component is PanelSectionToggle || !component.HasResetDefault) continue;
+
+                    results.Add(component);
+                }
+            }
+
+            _resetContainers.Clear();
+        }
+
+        private static void ApplyResetTo(List<PanelComponent> targets)
+        {
+            for (int i = 0; i < targets.Count; i++)
+            {
+                // A page can be rebuilt while the window is open — switching camera mode does it —
+                // so what the list was holding is re-checked rather than trusted.
+                PanelComponent target = targets[i];
+                if (target != null) target.ApplyResetToDefault();
+            }
+        }
+
+        private static List<BasisMenuDialoguePanel.DetailRow> DescribeChanges(List<PanelComponent> targets)
+        {
+            List<BasisMenuDialoguePanel.DetailRow> rows = new();
+            string entryFormat = BasisLocalization.Get("menu.panel.reset.changed.entry");
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                PanelComponent target = targets[i];
+                if (target == null ||
+                    !target.TryDescribeSettingChange(out string label, out string current, out string standard))
+                {
+                    continue;
+                }
+
+                rows.Add(new BasisMenuDialoguePanel.DetailRow(label, string.Format(entryFormat, current, standard)));
+            }
+
+            return rows;
         }
 
         /// <summary>
@@ -412,6 +560,7 @@ namespace Basis.BasisUI
             }
 
             _contentMarkers.Clear();
+            _resetProbeFrame = -1;
         }
 
         internal Image GetDividerSourceImage()

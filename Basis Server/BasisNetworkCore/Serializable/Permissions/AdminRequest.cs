@@ -53,8 +53,8 @@ namespace BasisNetworkCore.Serializable
             DeleteGroup,        // admin: delete a permission group
             SetGroupParent,     // admin: add/remove a parent group from a group
 
-            EnableShoutMode,    // admin: enable shout mode for a player (non-spatialized broadcast voice)
-            DisableShoutMode,   // admin: disable shout mode for a player
+            EnableAnnounceMode,    // admin: enable announce mode for a player (non-spatialized broadcast voice)
+            DisableAnnounceMode,   // admin: disable announce mode for a player
 
             GlobalToggleAvatars, // admin: toggle global avatar loading lock
             GlobalToggleProps,   // admin: toggle global prop loading lock
@@ -169,7 +169,7 @@ namespace BasisNetworkCore.Serializable
             // past it. State is appended as the trailing bool in GlobalGetLockState.
             GlobalToggleTextChat,
 
-            // admin: toggle the global voice lock. While set the server drops normal and shout voice
+            // admin: toggle the global voice lock. While set the server drops normal and announce voice
             // from peers without basis.voice.lockbypass, so a modified client can't talk past it.
             // State is appended as a trailing bool in GlobalGetLockState.
             GlobalToggleVoiceChat,
@@ -247,6 +247,78 @@ namespace BasisNetworkCore.Serializable
             // Payload: [int peerLimit], clamped server-side to 1..ushort.MaxValue.
             SetGlobalPeerLimit,
             GlobalGetPeerLimit, // server→client: current maximum player count. Payload: [int peerLimit]
+
+            // moderator: set one player's voice-mute state. While muted the server drops their
+            // normal and announce voice at the source. Keyed by UUID and persisted
+            // (muted_players.xml), so a rejoin stays muted until a moderator unmutes.
+            // Payload: [string uuid][bool muted]
+            SetVoiceMute,
+
+            // moderator: set one player's text-chat mute state. While muted the server drops
+            // their chat messages and typing state. Same persistence as SetVoiceMute; the two
+            // mutes are independent flags on one record.
+            // Payload: [string uuid][bool muted]
+            SetTextMute,
+
+            // server→target client: your current moderation mute state, sent on change and on
+            // join while muted. Enforcement is server-side; this exists so the composer can grey
+            // out and the mic can stop uploading a stream the server discards.
+            // Payload: [bool voiceMuted][bool textMuted]
+            MuteStateApply,
+
+            // Ask whether ONE player currently in this instance holds one permission node, or
+            // belongs to one permission group. Deliberately not gated: GetPermissions hands over
+            // the whole table and needs basis.permissions.view, while this answers a single
+            // yes/no about someone already visible in the room, which is what a staff nameplate
+            // or a moderator-only door needs. Bounded to connected players so it cannot be used
+            // to walk the store, and rate limited per peer so it cannot be used to enumerate one
+            // at speed. Requests that name an absent player answer false with TargetFound clear.
+            // Payload: [ushort targetPlayerId][byte AdminPermissionQueryKind][string value]
+            QueryPermission,
+
+            // server→client: the answer to a QueryPermission. Echoes the request so a caller can
+            // match a reply to what it asked without the protocol carrying a request id.
+            // Payload: [ushort targetPlayerId][byte AdminPermissionQueryKind][string value]
+            //          [bool held][bool targetFound]
+            QueryPermissionResult,
+
+            // admin: put a player into shout mode - twice their microphone range and a level
+            // boost, still fully spatialized. Unlike announce this carries no separate voice
+            // channel: the target client enters the mode and its ordinary talk-mode broadcast
+            // is what widens every listener. Appended at the end of the enum so no existing
+            // value renumbers.
+            // Payload: [ushort targetPlayerId]
+            EnableShoutMode,
+            DisableShoutMode,   // admin: take a player back out of shout mode
+
+            // admin: set the instance-wide locomotion policy — the jump height, walk/run speed,
+            // gravity and movement mode every player in this instance runs with. Unlike
+            // SetLocomotionOverrideAll, which is a one-shot fan-out to whoever happens to be
+            // connected, this is persisted to config.xml, seeded at boot and pushed to every
+            // client as it joins, so late joiners land on it too. Clients apply it under a
+            // reserved key that world content can neither clear nor outrank, ranked just below
+            // a moderator's own override so one player can still be adjusted past the policy.
+            // Payload: [byte fields][float jumpHeight][float walkSpeed][float runSpeed]
+            //          [float gravity][byte mode]
+            // fields is a bitmask: 1 jumpHeight, 2 walkSpeed, 4 runSpeed, 8 gravity, 16 mode.
+            // fields == 0 means no policy — every player keeps their own values.
+            // mode: 0 = Walk, 1 = Fly, 2 = NoClip.
+            SetGlobalLocomotionPolicy,
+            // server→client: the current instance-wide locomotion policy, same field order as
+            // SetGlobalLocomotionPolicy. Sent on join and on every admin change.
+            GlobalGetLocomotionPolicy,
+        }
+
+        /// <summary>
+        /// What a <see cref="AdminRequestMode.QueryPermission"/> is asking about.
+        /// </summary>
+        public enum AdminPermissionQueryKind : byte
+        {
+            /// <summary>A permission node, e.g. basis.moderation.kick. Wildcards resolve normally.</summary>
+            Node,
+
+            /// <summary>A permission group ("role"), matched through parent-group inheritance.</summary>
+            Group,
         }
     }
 }

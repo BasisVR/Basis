@@ -501,7 +501,7 @@ public partial class BasisAvatarSDKInspector : Editor
         }
 
         var modelPathsNeedingReimport = new HashSet<string>();
-        var meshAssetsNeedingSave = new HashSet<Mesh>(); // for .asset meshes (and others without ModelImporter)
+        var meshAssetsNeedingSave = new HashSet<Mesh>();
 
         foreach (var smr in smrs)
         {
@@ -536,18 +536,11 @@ public partial class BasisAvatarSDKInspector : Editor
             }
             else
             {
-                // .asset Mesh (or otherwise not model-imported):
-                // Generate Mesh LODs directly on the mesh asset.
-                // meshLodLimit here = "max number of LOD levels to generate" (see docs).
-                // 0 => generate none beyond original; negative => auto-stop at ~64 indices.  :contentReference[oaicite:3]{index=3}
-                int meshLodLimit = lodLimit; // reuse your parameter; adjust semantics if you want
-                MeshLodUtility.GenerateMeshLods(mesh, meshLodLimit);
+                MeshLodUtility.GenerateMeshLods(mesh, lodLimit);
 
                 EditorUtility.SetDirty(mesh);
                 meshAssetsNeedingSave.Add(mesh);
             }
-
-            // Renderer-level knobs (work once mesh actually has Mesh LODs) :contentReference[oaicite:4]{index=4}
             smr.meshLodSelectionBias = 0f;
             smr.forceMeshLod = -1;
         }

@@ -466,6 +466,7 @@ namespace Basis.BasisUI
                 {
                     if (kvp.Value != null) _orderBuffer.Add(kvp.Value);
                 }
+                PrepareSortKeys();
                 _orderBuffer.Sort(_comparison);
 
                 bool changed = false;
@@ -518,6 +519,7 @@ namespace Basis.BasisUI
                 {
                     if (kvp.Value.NetPlayer != null) _orderBuffer.Add(kvp.Value.NetPlayer);
                 }
+                PrepareSortKeys();
                 _orderBuffer.Sort(_comparison);
             }
 
@@ -806,6 +808,36 @@ namespace Basis.BasisUI
                 return player.Player != null && PinnedPlayers.IsPinned(player.Player.UUID);
             }
 
+            private readonly Dictionary<int, float> _sortDistanceKeys = new Dictionary<int, float>();
+            private readonly Dictionary<int, string> _sortPlatformKeys = new Dictionary<int, string>();
+
+            /// <summary>
+            /// Computes each player's sort key once before a sort. The comparator used to
+            /// recompute Transform-read distances and platform labels per comparison, which
+            /// is O(N log N) interop and allocation inside List.Sort.
+            /// </summary>
+            private void PrepareSortKeys()
+            {
+                if (_sortMode == SortMode.Distance)
+                {
+                    _sortDistanceKeys.Clear();
+                    for (int i = 0; i < _orderBuffer.Count; i++)
+                    {
+                        BasisNetworkPlayer player = _orderBuffer[i];
+                        _sortDistanceKeys[player.playerId] = DistanceTo(player.Player);
+                    }
+                }
+                else if (_sortMode == SortMode.Platform)
+                {
+                    _sortPlatformKeys.Clear();
+                    for (int i = 0; i < _orderBuffer.Count; i++)
+                    {
+                        BasisNetworkPlayer player = _orderBuffer[i];
+                        _sortPlatformKeys[player.playerId] = player.Player != null ? GetPlatformLabel(player.Player.PlayerPlatform) : "";
+                    }
+                }
+            }
+
             private int CompareForCurrentSort(BasisNetworkPlayer a, BasisNetworkPlayer b)
             {
                 // Pinned players group above unpinned ones in every sort mode —
@@ -819,8 +851,8 @@ namespace Basis.BasisUI
                 {
                     case SortMode.Distance:
                     {
-                        float da = DistanceTo(a.Player);
-                        float db = DistanceTo(b.Player);
+                        if (!_sortDistanceKeys.TryGetValue(a.playerId, out float da)) da = DistanceTo(a.Player);
+                        if (!_sortDistanceKeys.TryGetValue(b.playerId, out float db)) db = DistanceTo(b.Player);
                         return da.CompareTo(db);
                     }
                     case SortMode.Name:
@@ -832,8 +864,8 @@ namespace Basis.BasisUI
                     }
                     case SortMode.Platform:
                     {
-                        string pa = a.Player != null ? GetPlatformLabel(a.Player.PlayerPlatform) : "";
-                        string pb = b.Player != null ? GetPlatformLabel(b.Player.PlayerPlatform) : "";
+                        if (!_sortPlatformKeys.TryGetValue(a.playerId, out string pa)) pa = a.Player != null ? GetPlatformLabel(a.Player.PlayerPlatform) : "";
+                        if (!_sortPlatformKeys.TryGetValue(b.playerId, out string pb)) pb = b.Player != null ? GetPlatformLabel(b.Player.PlayerPlatform) : "";
                         int cmp = string.Compare(pa, pb, StringComparison.OrdinalIgnoreCase);
                         if (cmp != 0) return cmp;
                         return string.Compare(

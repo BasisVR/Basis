@@ -88,8 +88,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <summary>True while anything is listening — the whole system is dormant otherwise.</summary>
         public static bool HasListeners => listeners.Count > 0;
 
-        public static int ListenerCount => listeners.Count;
-
         /// <summary>
         /// Starts reporting grabs and touches on the jiggle rigs under <paramref name="root"/>.
         /// Registering the same root and handler twice is a no-op rather than a double dispatch.

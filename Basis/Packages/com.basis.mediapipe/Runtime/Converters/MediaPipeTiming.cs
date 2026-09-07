@@ -39,6 +39,5 @@ namespace Basis.MediaPipe
 
         private const float CarryPeriods = 0.7f;
 
-        public float TrackingHz => 1f / SampleDelta;
     }
 }

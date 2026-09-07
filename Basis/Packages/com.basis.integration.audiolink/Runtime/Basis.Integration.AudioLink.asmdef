@@ -3,7 +3,8 @@
     "rootNamespace": "Basis.Integration.AudioLink",
     "references": [
         "Basis Framework",
-        "AudioLink"
+        "AudioLink",
+        "BasisGlobalIllumination"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -25,6 +26,11 @@
             "name": "com.llealloo.audiolink",
             "expression": "3.1.2",
             "define": "AUDIOLINK_EXISTS"
+        },
+        {
+            "name": "com.basis.globalillumination",
+            "expression": "",
+            "define": "BASIS_GLOBALILLUMINATION_EXISTS"
         }
     ],
     "noEngineReferences": false

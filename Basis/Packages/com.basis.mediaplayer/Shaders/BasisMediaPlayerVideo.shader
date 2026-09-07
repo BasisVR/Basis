@@ -5,6 +5,8 @@ Shader "Basis/Media Player Video"
         [MainTexture] _BaseMap("Texture", 2D) = "white" {}
         [MainColor] _BaseColor("Color", Color) = (1, 1, 1, 1)
         _Cutoff("AlphaCutout", Range(0.0, 1.0)) = 0.5
+        [HDR] _EmissionColor("Emission Color", Color) = (1, 1, 1, 1)
+        _EmissionMap("Emission Map", 2D) = "white" {}
 
         // BlendMode
         _Surface("__surface", Float) = 0.0

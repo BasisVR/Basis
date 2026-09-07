@@ -116,10 +116,21 @@ namespace BasisNetworkServer
 
             Collect(_peakSincePass, players);
 
-            _peakSincePass = players;
+            _peakSincePass = NextPeakAfterPass(_peakSincePass, players);
             _eligibleSinceUtc = DateTime.MinValue;
             _lastPassUtc = now;
         }
+
+        /// <summary>
+        /// The peak carried into the next eligibility check. Only a pass that actually emptied the
+        /// server may lower it — a pass that merely thinned the crowd must not rebase the bar down
+        /// to the reduced population, or a population that recedes in stages rather than hitting
+        /// zero in one shot can permanently duck under 1/4 of a peak that no longer reflects
+        /// reality. That is what let one production spike (2379 -> 24 players, 14.2 GB working set)
+        /// sit unreclaimed for the rest of that run.
+        /// </summary>
+        internal static int NextPeakAfterPass(int peakSincePass, int playersAfterPass) =>
+            playersAfterPass == 0 ? 0 : peakSincePass;
 
         private static void Collect(int peak, int players)
         {

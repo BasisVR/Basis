@@ -485,10 +485,22 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public static void OnOpenChatCancelled(InputAction.CallbackContext ctx) { }
 
+        private static bool IsShortcutModifierHeld()
+        {
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+                return false;
+
+            return keyboard.ctrlKey.isPressed || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
+        }
+
         public static void OnToggleMicMutePerformed(InputAction.CallbackContext ctx)
         {
 #if !BASIS_DISABLE_MICROPHONE
             if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+
+            if (IsShortcutModifierHeld())
                 return;
 
             switch (SMDMicrophone.Current.TalkMode)

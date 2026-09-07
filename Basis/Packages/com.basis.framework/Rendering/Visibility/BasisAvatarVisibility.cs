@@ -12,8 +12,6 @@ namespace Basis.Scripts.Rendering
 
         private static readonly List<BasisRemotePlayer> Registered = new List<BasisRemotePlayer>(32);
 
-        public static int RegisteredCount => Registered.Count;
-
         public static void Register(BasisRemotePlayer remote)
         {
             if (remote == null || remote.BasisAvatar == null)

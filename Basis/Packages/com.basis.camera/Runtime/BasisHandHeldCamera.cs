@@ -9,10 +9,12 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using Basis.Scripts.Rendering;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -156,13 +158,6 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     /// <summary>Folder where screenshots are written (platform-dependent).</summary>
     private string picturesFolder;
 
-    /// <summary>
-    /// Whether the UI (nameplate) layer is in the capture. Derived from the capture camera's own
-    /// culling mask so it is the single source of truth — the Render Layers "Nameplates" toggle
-    /// and this can never disagree.
-    /// </summary>
-    public bool ShowUIInCapture => captureCamera != null && uiLayerMask != 0 && (WorldCullingMask & uiLayerMask) != 0;
-
     /// <summary>Last visibility state reported by the mesh renderer check.</summary>
     public bool LastVisibilityState = false;
 
@@ -303,7 +298,7 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         // Notify network that PIP camera was created
         if (BasisNetworkConnection.LocalPlayerPeer != null)
         {
-            captureCamera.transform.GetPositionAndRotation(out Vector3 pipPos, out Quaternion pipRot);
+            GetNetworkedMarkerPose(out Vector3 pipPos, out Quaternion pipRot);
             BasisNetworkPIPCameraDriver.SendPIPState(true, pipPos, pipRot);
         }
     }
@@ -368,8 +363,8 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     /// </summary>
     public new async void OnDestroy()
     {
-#if BASIS_HAS_SSGI && !UNITY_ANDROID
-        SMModuleScreenSpaceGlobalIlluminationURP.UnregisterCamera(captureCamera);
+#if BASIS_HAS_GI && !UNITY_ANDROID
+        SMModuleGlobalIlluminationURP.UnregisterCamera(captureCamera);
 #endif
         // Notify network that PIP camera was destroyed
         if (BasisNetworkConnection.LocalPlayerPeer != null)
@@ -394,9 +389,12 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         StopVideoOutput();
         ShutdownGifRecorder();
         ShutdownVideoRecorder();
+        ShutdownPhotogrammetry();
         SetAudioListener(false);
         DespawnFollowPip();
         DestroyDetachedGizmo();
+        DespawnPuckPreview();
+        ShutdownLookAtPointer();
 
         DebugGizmos.Shutdown();
 
@@ -481,6 +479,18 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         if (captureCamera == null) return;
         if (CameraData == null) CameraData = captureCamera.GetUniversalAdditionalCameraData();
 
+        // Both of these are about the CAMERA, not about the volume, and they used to sit past the early
+        // return below - so a camera that found no post processing volume silently rendered no global
+        // illumination. Nothing connects the two: the allow-list only needs to know this camera is one of
+        // ours, and the bounce is not part of the post stack at all (it composites before transparents, off
+        // the depth buffer). The one thing that DID connect them was the renderer's own gate, which refuses
+        // any camera with post processing off - so leaving both behind a volume lookup meant one missing
+        // component turned the effect off twice over.
+        CameraData.renderPostProcessing = true;
+#if BASIS_HAS_GI && !UNITY_ANDROID
+        SMModuleGlobalIlluminationURP.RegisterCamera(captureCamera);
+#endif
+
         Volume volume = FindPostProcessingVolume();
         if (volume == null) return;
 
@@ -489,10 +499,6 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
         CameraData.volumeLayerMask = 1 << volume.gameObject.layer;
         CameraData.volumeTrigger = volume.transform;
-        CameraData.renderPostProcessing = true;
-#if BASIS_HAS_SSGI && !UNITY_ANDROID
-        SMModuleScreenSpaceGlobalIlluminationURP.RegisterCamera(captureCamera);
-#endif
     }
 
     private Volume FindPostProcessingVolume()
@@ -1220,11 +1226,15 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         SetResolution(captureWidth, captureHeight, AntialiasingQuality.High, Format);
         yield return new WaitForEndOfFrame();
 
+        bool headWasNormal = BasisLocalAvatarDriver.IsNormalHead;
         BasisLocalAvatarDriver.ScaleHeadToNormal();
         ToggleToneMapping(CaptureTonemapping);
 
-#if BASIS_HAS_SSGI && !UNITY_ANDROID
-        SMModuleScreenSpaceGlobalIlluminationURP.BeginCapture(captureCamera);
+#if BASIS_HAS_GI && !UNITY_ANDROID
+        SMModuleGlobalIlluminationURP.BeginCapture(captureCamera, OverrideGlobalIllumination ? GlobalIlluminationOverride : (BasisGlobalIlluminationCaptureOverride?)null);
+#endif
+#if BASIS_HAS_RTAO && !UNITY_ANDROID
+        BasisRTAOIntegration.BeginCapture(captureCamera, OverrideRTAO ? RTAOOverride : (BasisRTAOCaptureOverride?)null);
 #endif
         try
         {
@@ -1232,9 +1242,13 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         }
         finally
         {
-#if BASIS_HAS_SSGI && !UNITY_ANDROID
-            SMModuleScreenSpaceGlobalIlluminationURP.EndCapture();
+#if BASIS_HAS_GI && !UNITY_ANDROID
+            SMModuleGlobalIlluminationURP.EndCapture();
 #endif
+#if BASIS_HAS_RTAO && !UNITY_ANDROID
+            BasisRTAOIntegration.EndCapture();
+#endif
+            if (!headWasNormal) BasisLocalAvatarDriver.ScaleHeadToZero();
         }
 
         BasisHandHeldCameraPhotoMetadata.PhotoMetadata photoMetadata = BasisHandHeldCameraPhotoMetadata.CollectMetadata(captureCamera, transform);
@@ -1558,16 +1572,24 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         TickVideoOutput();
         TickGifRecorder();
         TickVideoRecorder();
+        TickPhotogrammetry();
         UpdateOnPropUIVisibility();
         TickFocusRack();
         UpdateAutoFocus();
         UpdateFollowPip();
+        // After the marker, so the puck and the screen parked past it are placed from one pose.
+        UpdatePuckPreview();
+
+        // After everything that moves the camera, so the reticle is drawn against the pose the
+        // frame actually ended on rather than the one it started from.
+        TickLookAtPointer();
+
         DebugGizmos.Tick(this);
 
         // Send PIP camera position to network
         if (BasisNetworkConnection.LocalPlayerPeer != null)
         {
-            captureCamera.transform.GetPositionAndRotation(out Vector3 pos, out Quaternion rot);
+            GetNetworkedMarkerPose(out Vector3 pos, out Quaternion rot);
             BasisNetworkPIPCameraDriver.SendPIPPosition(pos, rot);
         }
     }
@@ -1588,18 +1610,54 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         int savedHeight = screenshot != null ? screenshot.height : captureHeight;
         string filename = $"Screenshot_{timestamp}_{savedWidth}x{savedHeight}.{extension}";
         string path = GetSavePath(filename);
+        BasisCameraPrintResize.PrintCopy printCopy = default;
 
         // async void: anything thrown out of here surfaces as an unhandled exception rather than
         // as something the shooter can act on, so encode-and-write is captured and reported on
         // the panel instead — a full disk or a locked file is a normal thing to hit.
         try
         {
-            byte[] imageData = captureFormat == "EXR"
-                ? screenshot.EncodeToEXR(Texture2D.EXRFlags.CompressZIP)
-                : screenshot.EncodeToPNG();
+            // Copied out before any await: the readback texture is pooled and the next shutter
+            // press overwrites it, so nothing past this line may touch the Texture2D.
+            int width = screenshot.width;
+            int height = screenshot.height;
+            var pixelFormat = screenshot.graphicsFormat;
+            bool exr = captureFormat == "EXR";
+            bool printable = printPhotoEnabled && !exr && screenshot.format == TextureFormat.RGBA32;
+            string format = captureFormat;
+            Unity.Collections.NativeArray<byte> raw = screenshot.GetRawTextureData<byte>();
+            byte[] pixels = new byte[raw.Length];
+            Unity.Collections.NativeArray<byte>.Copy(raw, pixels, raw.Length);
 
-            if (photoMetadata != null)
-                imageData = BasisHandHeldCameraPhotoMetadata.Embed(imageData, captureFormat, photoMetadata, screenshot.width, screenshot.height);
+            (byte[] imageData, BasisCameraPrintResize.PrintCopy print) = await Task.Run(() =>
+            {
+                byte[] encoded = exr
+                    ? ImageConversion.EncodeArrayToEXR(pixels, pixelFormat, (uint)width, (uint)height, 0, Texture2D.EXRFlags.CompressZIP)
+                    : ImageConversion.EncodeArrayToPNG(pixels, pixelFormat, (uint)width, (uint)height, 0);
+
+                if (photoMetadata != null)
+                    encoded = BasisHandHeldCameraPhotoMetadata.Embed(encoded, format, photoMetadata, width, height);
+
+                // Caught on its own rather than under the save's handler: a resize that fails costs
+                // a card, and must never be the reason a photograph that encoded perfectly well is
+                // reported to the shooter as unsaved.
+                BasisCameraPrintResize.PrintCopy builtPrint = default;
+                if (printable)
+                {
+                    try
+                    {
+                        builtPrint = BasisCameraPrintResize.Build(pixels, width, height, encoded.LongLength);
+                    }
+                    catch (Exception e)
+                    {
+                        BasisDebug.LogWarning(
+                            $"Print Photo could not resize the shot to fit the image pickup limits: {e.GetType().Name}: {e.Message}",
+                            BasisDebug.LogTag.Camera);
+                    }
+                }
+                return (encoded, builtPrint);
+            });
+            printCopy = print;
 
             await File.WriteAllBytesAsync(path, imageData);
         }
@@ -1610,7 +1668,7 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         }
 
         RecordPhotoSaved(path);
-        PrintPhotoIfEnabled(path);
+        PrintPhotoIfEnabled(path, printCopy);
     }
 
     /// <summary>
@@ -1618,8 +1676,12 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     /// of the player as the same shareable, replicated card a drag-and-dropped image file makes.
     /// PNG only: EXR is a float format the pickup pipeline cannot decode, so those saves stay on
     /// disk rather than raising a rejection popup for every shot.
+    ///
+    /// <para>A shot past what the service imports is shared as the resized copy
+    /// <see cref="BasisCameraPrintResize.Build(byte[], int, int, long)"/> made of it, and the shooter is told once that it happened.
+    /// The file on disk is untouched either way — it is still the full-size photograph.</para>
     /// </summary>
-    private void PrintPhotoIfEnabled(string path)
+    private void PrintPhotoIfEnabled(string path, BasisCameraPrintResize.PrintCopy printCopy)
     {
         if (!printPhotoEnabled) return;
         if (!path.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
@@ -1627,7 +1689,57 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             BasisDebug.Log("Print Photo skipped: only PNG photos can become image pickups.", BasisDebug.LogTag.Camera);
             return;
         }
-        BasisImagePickupManager.SpawnFromFile(path);
+
+        if (!printCopy.Exists)
+        {
+            BasisImagePickupManager.SpawnFromFile(path);
+            return;
+        }
+
+        // False means the service refused the spawn for a reason of its own — an admin lock, or
+        // the per-player image limit — and has already told the shooter why. A second popup
+        // about a resize that no longer matters would only bury that one.
+        if (!BasisImagePickupManager.SpawnFromImageData(printCopy.Png, Path.GetFileName(path))) return;
+
+        BasisDebug.Log(
+            $"Print Photo resized {printCopy.SourceWidth}x{printCopy.SourceHeight} to "
+                + $"{printCopy.Width}x{printCopy.Height} to fit the image pickup limits.",
+            BasisDebug.LogTag.Camera);
+        ShowPrintResizedNotice(printCopy);
+    }
+
+    /// <summary>
+    /// The capture size the resize notice was last shown for. A shooter working at 8K takes a
+    /// roll of them, and a modal dialogue between every shutter press would be worse than the
+    /// rejection this replaced; the notice is worth showing once per size, not once per photo.
+    /// </summary>
+    private Vector2Int lastResizeNoticeFor;
+
+    /// <summary>
+    /// Tells the shooter that the card in front of them is a smaller copy, and that the photo
+    /// they shot is on disk at full size. Diverted into the notification centre when the user has
+    /// asked for popups to go there, like every other non-blocking notice.
+    /// </summary>
+    private void ShowPrintResizedNotice(BasisCameraPrintResize.PrintCopy printCopy)
+    {
+        var shotAt = new Vector2Int(printCopy.SourceWidth, printCopy.SourceHeight);
+        if (lastResizeNoticeFor == shotAt) return;
+        lastResizeNoticeFor = shotAt;
+
+        string title = BasisLocalization.Get("camera.printPhoto.resized.title");
+        string body = BasisLocalization.Get("camera.printPhoto.resized.description",
+            printCopy.SourceWidth, printCopy.SourceHeight, printCopy.Width, printCopy.Height);
+        string accept = BasisLocalization.Get("ui.ok");
+
+        // Unsolicited, so under do-not-disturb this belongs in the notification bell rather than
+        // in front of someone mid-roll — CreateNew makes that call itself. Only the branch that
+        // actually draws a panel needs a menu, and a null Instance just means it is closed.
+        if (!BasisNotificationCenter.RouteToNotifications && !BasisMainMenu.Instance)
+        {
+            BasisMainMenu.Open();
+        }
+
+        BasisMenuDialoguePanel.CreateNew(title, body, accept, (Action<bool>)null, true, BasisPanelSeverity.Calm, BasisNotificationCategory.Content);
     }
 
     /// <summary>Builds a platform-appropriate save path for a screenshot filename.</summary>
@@ -1652,13 +1764,12 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     }
 
     /// <summary>
-    /// Restores tonemapping, hides local head mesh, and returns preview RT settings after capture.
+    /// Restores tonemapping and returns preview RT settings after capture.
     /// </summary>
     public void SetNormalAfterCapture()
     {
         captureInFlight = false;
         ToggleToneMapping(PreviewTonemapping);
-        BasisLocalAvatarDriver.ScaleHeadToZero();
         ApplyPreviewResolution();
     }
 
@@ -1689,6 +1800,126 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             ? (TonemappingMode)mode
             : TonemappingMode.ACES;
     }
+
+#if BASIS_HAS_GI && !UNITY_ANDROID
+    /// <summary>
+    /// The per-photo Global Illumination substitute this camera applies when
+    /// <see cref="OverrideGlobalIllumination"/> is on. Inert otherwise — like
+    /// <see cref="CaptureTonemapping"/>, there is nothing here to keep continuously previewed, so
+    /// it only ever reaches the renderer inside <see cref="TakeScreenshot"/>. Defaulted to match
+    /// the player's own live Global Illumination settings, so turning the override on for the
+    /// first time does not jar against what the live preview already looks like.
+    /// </summary>
+    private BasisGlobalIlluminationCaptureOverride giOverride = new BasisGlobalIlluminationCaptureOverride
+    {
+        Mode = SMModuleGlobalIlluminationURP.ModeOptions[0],
+        SkinnedMeshes = SMModuleGlobalIlluminationURP.SkinnedMeshesOptions[1],
+        Layers = SMModuleGlobalIlluminationURP.LayersOptions[2],
+        Quality = SMModuleGlobalIlluminationURP.QualityOptions[1],
+        Fallback = SMModuleGlobalIlluminationURP.FallbackOptions[2],
+        IgnoreBakedEmission = false,
+        Intensity = 1f,
+        Saturation = 1f,
+        Obscurance = 0.5f,
+        RayLength = 16f,
+        Smoothing = 1f,
+        WideBlur = true,
+        RayReuse = true,
+        Emitters = true,
+        EmitterIntensity = 3f,
+        Specular = false,
+        ObscuranceRadius = 0.5f,
+        FadeDistance = 120f,
+        NormalBias = 0.02f,
+        DistanceBias = 0.0015f,
+        BounceThreshold = 0.02f,
+        FireflyClamp = 6f,
+        ReflectionProbes = false,
+        Mirrors = true,
+    };
+
+    /// <summary>Whether <see cref="GlobalIlluminationOverride"/> substitutes into this camera's own captures. Off by default, so a fresh camera's photos match the player's live settings exactly.</summary>
+    public bool OverrideGlobalIllumination { get; private set; }
+
+    public BasisGlobalIlluminationCaptureOverride GlobalIlluminationOverride => giOverride;
+
+    public void SetOverrideGlobalIllumination(bool enabled) => OverrideGlobalIllumination = enabled;
+    public void SetGlobalIlluminationOverrideMode(int index) => giOverride.Mode = ClampedGiOption(SMModuleGlobalIlluminationURP.ModeOptions, index);
+    public void SetGlobalIlluminationOverrideSkinnedMeshes(int index) => giOverride.SkinnedMeshes = ClampedGiOption(SMModuleGlobalIlluminationURP.SkinnedMeshesOptions, index);
+    public void SetGlobalIlluminationOverrideLayers(int index) => giOverride.Layers = ClampedGiOption(SMModuleGlobalIlluminationURP.LayersOptions, index);
+    public void SetGlobalIlluminationOverrideQuality(int index) => giOverride.Quality = ClampedGiOption(SMModuleGlobalIlluminationURP.QualityOptions, index);
+    public void SetGlobalIlluminationOverrideFallback(int index) => giOverride.Fallback = ClampedGiOption(SMModuleGlobalIlluminationURP.FallbackOptions, index);
+    public void SetGlobalIlluminationOverrideIgnoreBakedEmission(bool value) => giOverride.IgnoreBakedEmission = value;
+    public void SetGlobalIlluminationOverrideIntensity(float value) => giOverride.Intensity = value;
+    public void SetGlobalIlluminationOverrideSaturation(float value) => giOverride.Saturation = value;
+    public void SetGlobalIlluminationOverrideObscurance(float value) => giOverride.Obscurance = value;
+    public void SetGlobalIlluminationOverrideRayLength(float value) => giOverride.RayLength = value;
+    public void SetGlobalIlluminationOverrideSmoothing(float value) => giOverride.Smoothing = value;
+    public void SetGlobalIlluminationOverrideWideBlur(bool value) => giOverride.WideBlur = value;
+    public void SetGlobalIlluminationOverrideRayReuse(bool value) => giOverride.RayReuse = value;
+    public void SetGlobalIlluminationOverrideEmitters(bool value) => giOverride.Emitters = value;
+    public void SetGlobalIlluminationOverrideEmitterIntensity(float value) => giOverride.EmitterIntensity = value;
+    public void SetGlobalIlluminationOverrideSpecular(bool value) => giOverride.Specular = value;
+    public void SetGlobalIlluminationOverrideObscuranceRadius(float value) => giOverride.ObscuranceRadius = value;
+    public void SetGlobalIlluminationOverrideFadeDistance(float value) => giOverride.FadeDistance = value;
+    public void SetGlobalIlluminationOverrideNormalBias(float value) => giOverride.NormalBias = value;
+    public void SetGlobalIlluminationOverrideDistanceBias(float value) => giOverride.DistanceBias = value;
+    public void SetGlobalIlluminationOverrideBounceThreshold(float value) => giOverride.BounceThreshold = value;
+    public void SetGlobalIlluminationOverrideFireflyClamp(float value) => giOverride.FireflyClamp = value;
+    public void SetGlobalIlluminationOverrideReflectionProbes(bool value) => giOverride.ReflectionProbes = value;
+    public void SetGlobalIlluminationOverrideMirrors(bool value) => giOverride.Mirrors = value;
+
+    private static string ClampedGiOption(string[] options, int index) => options[Mathf.Clamp(index, 0, options.Length - 1)];
+#endif
+
+#if BASIS_HAS_RTAO && !UNITY_ANDROID
+    /// <summary>
+    /// The per-photo ambient occlusion substitute this camera applies when
+    /// <see cref="OverrideRTAO"/> is on. Inert otherwise, and only ever reaches the renderer inside
+    /// <see cref="TakeScreenshot"/> - see <see cref="giOverride"/>, which this mirrors. Defaulted to
+    /// match the player's own live settings.
+    /// </summary>
+    private BasisRTAOCaptureOverride rtaoOverride = new BasisRTAOCaptureOverride
+    {
+        Mode = BasisRTAOIntegration.ModeScreenSpace,
+        Intensity = 1f,
+        Radius = 0.02f,
+        ApplyMode = BasisRTAOIntegration.ApplyLighting,
+        DenoisePasses = 2,
+        DirectStrength = 0.5f,
+        Layers = "Avatars",
+        SkinnedMeshes = "Proxy",
+        NormalBias = 0.005f,
+        DistanceBias = 0.0005f,
+        Falloff = 1f,
+        Power = 1f,
+        FadeStart = 40f,
+        FadeEnd = 60f,
+        SpecularRelief = 0f,
+    };
+
+    /// <summary>Whether <see cref="RTAOOverride"/> substitutes into this camera's own captures. Off by default, so a fresh camera's photos match the player's live settings exactly.</summary>
+    public bool OverrideRTAO { get; private set; }
+
+    public BasisRTAOCaptureOverride RTAOOverride => rtaoOverride;
+
+    public void SetOverrideRTAO(bool enabled) => OverrideRTAO = enabled;
+    public void SetRTAOOverrideMode(int index) => rtaoOverride.Mode = index == 1 ? BasisRTAOIntegration.ModeRayTraced : BasisRTAOIntegration.ModeScreenSpace;
+    public void SetRTAOOverrideIntensity(float value) => rtaoOverride.Intensity = value;
+    public void SetRTAOOverrideRadius(float value) => rtaoOverride.Radius = value;
+    public void SetRTAOOverrideApplyMode(int index) => rtaoOverride.ApplyMode = index == 1 ? BasisRTAOIntegration.ApplyFinalImage : BasisRTAOIntegration.ApplyLighting;
+    public void SetRTAOOverrideDenoisePasses(int passes) => rtaoOverride.DenoisePasses = Mathf.Clamp(passes, 0, 3);
+    public void SetRTAOOverrideDirectStrength(float value) => rtaoOverride.DirectStrength = value;
+    public void SetRTAOOverrideLayers(int index) => rtaoOverride.Layers = index switch { 1 => "World", 2 => "World And Avatars", _ => "Avatars" };
+    public void SetRTAOOverrideSkinnedMeshes(int index) => rtaoOverride.SkinnedMeshes = index == 1 ? "Proxy" : "Off";
+    public void SetRTAOOverrideNormalBias(float value) => rtaoOverride.NormalBias = value;
+    public void SetRTAOOverrideDistanceBias(float value) => rtaoOverride.DistanceBias = value;
+    public void SetRTAOOverrideFalloff(float value) => rtaoOverride.Falloff = value;
+    public void SetRTAOOverridePower(float value) => rtaoOverride.Power = value;
+    public void SetRTAOOverrideFadeStart(float value) => rtaoOverride.FadeStart = value;
+    public void SetRTAOOverrideFadeEnd(float value) => rtaoOverride.FadeEnd = value;
+    public void SetRTAOOverrideSpecularRelief(float value) => rtaoOverride.SpecularRelief = value;
+#endif
 
     /// <summary>Boot-mode swap handler.</summary>
     private new void OnBootModeChanged(string obj)
@@ -1737,13 +1968,15 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
     /// <summary>
     /// True while something other than the prop's own viewfinder is showing this camera's feed:
-    /// the settings panel's preview, the desktop output, or a live video stream. Each draws the
-    /// render texture somewhere the prop's own visibility says
+    /// the settings panel's preview, the look-at preview a detached camera turned on you puts up,
+    /// the desktop output, or a live video stream. Each draws the render texture somewhere the
+    /// prop's own visibility says
     /// nothing about, so each has to keep the camera rendering on its own account — otherwise it
     /// freezes on whatever frame the prop was last on screen for.
     /// </summary>
     private bool HasOffPropFeedConsumer =>
-        IsAnyVideoOutputActive || IsGifRecording || IsVideoRecording || panelPreviewActive || IsDirectToScreenPresenting;
+        IsAnyVideoOutputActive || IsGifRecording || IsVideoRecording || IsPhotogrammetryActive || panelPreviewActive
+        || IsPuckPreviewVisible || IsDirectToScreenPresenting;
 
     /// <summary>
     /// Told by the settings panel while it is open on this camera. Its preview is a second window

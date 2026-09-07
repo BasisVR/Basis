@@ -54,7 +54,7 @@ MonoBehaviour:
     - path: LICENSE.md
       spdx: MIT
       overrideProductName: 
-  - packageName: com.jiaozi158.unityssgiurp
+  - packageName: com.basis.globalillumination
     licenses:
     - path: LICENSE.md
       spdx: MIT

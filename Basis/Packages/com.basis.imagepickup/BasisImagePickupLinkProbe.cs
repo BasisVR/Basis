@@ -50,8 +50,6 @@ namespace Basis.ImagePickup
 
         internal static float BaseRoundTripMs => _baseRoundTripMs;
         internal static float QueuingDelayMs => _queuingDelayMs;
-        internal static int QueuedPackets => _queuedPackets;
-
         internal static void Reset()
         {
             _baseRoundTripMs = 0f;

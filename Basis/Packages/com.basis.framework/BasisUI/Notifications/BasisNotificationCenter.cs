@@ -73,58 +73,6 @@ namespace Basis.BasisUI
             }
         }
 
-        // ── Panel section visibility (persisted view prefs) ──────────────────
-        private const string ShowPendingStoreKey = "NotificationsShowPending.BAS";
-        private const string ShowHistoryStoreKey = "NotificationsShowHistory.BAS";
-        private static bool _showPendingLoaded;
-        private static bool _showPending = true;
-        private static bool _showHistoryLoaded;
-        private static bool _showHistory; // history hidden by default
-
-        /// <summary>Whether the panel shows the Pending section.</summary>
-        public static bool ShowPending
-        {
-            get
-            {
-                if (!_showPendingLoaded)
-                {
-                    _showPending = BasisDataStore.LoadInt(ShowPendingStoreKey, 1) != 0;
-                    _showPendingLoaded = true;
-                }
-                return _showPending;
-            }
-            set
-            {
-                _showPendingLoaded = true;
-                if (_showPending == value) return;
-                _showPending = value;
-                BasisDataStore.SaveInt(value ? 1 : 0, ShowPendingStoreKey);
-                Changed?.Invoke();
-            }
-        }
-
-        /// <summary>Whether the panel shows the History section.</summary>
-        public static bool ShowHistory
-        {
-            get
-            {
-                if (!_showHistoryLoaded)
-                {
-                    _showHistory = BasisDataStore.LoadInt(ShowHistoryStoreKey, 0) != 0;
-                    _showHistoryLoaded = true;
-                }
-                return _showHistory;
-            }
-            set
-            {
-                _showHistoryLoaded = true;
-                if (_showHistory == value) return;
-                _showHistory = value;
-                BasisDataStore.SaveInt(value ? 1 : 0, ShowHistoryStoreKey);
-                Changed?.Invoke();
-            }
-        }
-
         // ── History filtering ────────────────────────────────────────────────
         // Applies to the History section only. Pending entries are always listed in
         // full so a filter can never hide something still waiting on the user.

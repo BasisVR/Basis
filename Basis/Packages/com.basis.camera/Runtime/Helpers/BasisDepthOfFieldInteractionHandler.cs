@@ -37,7 +37,14 @@ public class BasisDepthOfFieldInteractionHandler : MonoBehaviour
     /// camera renders. Defaults to Unity's DefaultRaycastLayers — everything but Ignore Raycast —
     /// which is what the untargeted overload used.
     /// </summary>
-    public LayerMask focusLayers = ~(1 << 2);
+    public LayerMask focusLayers = DefaultRaycastLayers;
+
+    /// <summary>
+    /// Unity's own DefaultRaycastLayers — everything but Ignore Raycast. Named rather than written
+    /// out again because the look-at pointer casts against the same set, and two copies of a mask
+    /// drift apart the first time one of them is corrected.
+    /// </summary>
+    public const int DefaultRaycastLayers = ~(1 << 2);
 
     /// <summary>
     /// The requested layers narrowed to the ones the capture camera actually renders. UI,
@@ -89,11 +96,19 @@ public class BasisDepthOfFieldInteractionHandler : MonoBehaviour
     }
 
     /// <summary>
+    /// Whether the effect is switched on. The live effect is the state; the toggle only shows it.
+    /// </summary>
+    public bool IsDoFEnabled => cameraController != null && cameraController.MetaData != null
+        && cameraController.MetaData.depthOfField != null && cameraController.MetaData.depthOfField.active;
+
+    /// <summary>
     /// Enables/disables DoF and syncs UI + handheld mode when the toggle changes.
     /// </summary>
     /// <param name="enabled">Whether DoF should be active.</param>
     public void SetDoFState(bool enabled)
     {
+        if (cameraController == null || cameraController.MetaData == null || cameraController.MetaData.depthOfField == null) return;
+
         // Turning DoF on while the stored blur style is Off would render nothing and read as
         // "the toggle does nothing", so promote it to a real mode on the way in.
         if (enabled && cameraController.MetaData.depthOfField.mode.value == DepthOfFieldMode.Off)
@@ -103,9 +118,21 @@ public class BasisDepthOfFieldInteractionHandler : MonoBehaviour
         }
 
         cameraController.MetaData.depthOfField.active = enabled;
-        depthOfFieldToggle.SetIsOnWithoutNotify(enabled);
+        SyncToggleFromState();
         SetCursorVisibility(enabled);
         cameraController.HandHeld?.SetDepthMode(cameraController.HandHeld.currentDepthMode);
+    }
+
+    /// <summary>
+    /// Pushes the live on/off state onto the prop's toggle without re-driving anything. The
+    /// settings panel, the blur-style dropdown, the mode presets and a settings load all write the
+    /// effect directly, so the toggle has to follow the camera rather than assume it is the only
+    /// writer — otherwise switching depth of field off from the panel leaves the toggle on the
+    /// camera itself still reading on.
+    /// </summary>
+    public void SyncToggleFromState()
+    {
+        if (depthOfFieldToggle != null) depthOfFieldToggle.SetIsOnWithoutNotify(IsDoFEnabled);
     }
 
     /// <summary>
@@ -114,7 +141,7 @@ public class BasisDepthOfFieldInteractionHandler : MonoBehaviour
     /// <param name="enabled">Whether the cursor should be visible.</param>
     private void SetCursorVisibility(bool enabled)
     {
-        focusCursor.gameObject.SetActive(enabled);
+        if (focusCursor != null) focusCursor.gameObject.SetActive(enabled);
         cameraController.MetaData.depthOfField.active = enabled;
     }
 

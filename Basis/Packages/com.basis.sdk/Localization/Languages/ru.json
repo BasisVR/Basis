@@ -785,6 +785,8 @@
     { "key": "sdk.cilbox.api.interactable.summary", "value": "События взаимодействия доступны как поля, методы компонента — нет." },
     { "key": "sdk.cilbox.api.seat.title", "value": "Сиденья" },
     { "key": "sdk.cilbox.api.seat.summary", "value": "Посадить и высадить локального игрока, а также повернуть его сидящим." },
+    { "key": "sdk.cilbox.api.permissionevents.title", "value": "Изменения прав" },
+    { "key": "sdk.cilbox.api.permissionevents.summary", "value": "Сообщает вашему скрипту, когда локальный игрок получает или теряет права администратора или модератора, чтобы контент только для персонала не приходилось опрашивать. Колбэк ищется по имени в вашем собственном скрипте." },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Взаимодействия jiggle" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "Позволяет объекту отвечать на захват или касание. Обратные вызовы находятся по имени в вашем же скрипте." },
     { "key": "sdk.cilbox.api.ui.title", "value": "Интерфейс на канвасе и текст" },

@@ -148,6 +148,82 @@
       "value": "選擇其他玩家會看到的名稱，然後按「連接」。"
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "依伺服器名稱或位址篩選。"
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "排序方式"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "★ 預設伺服器一律排在最前。"
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "預設"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "保留已儲存的順序，你的主機伺服器排在最後。"
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "名稱"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "依伺服器名稱的字母順序排列清單。"
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Ping"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "依回應時間排列清單，最快的排在最前。"
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "玩家"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "依線上玩家數量排列清單，人數最多的排在最前。"
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "伺服器（{0}）"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "伺服器（{0}/{1}）"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "在下方連線至伺服器，或新增你自己的伺服器。"
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "沒有伺服器符合你的搜尋。"
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "已連線"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "伺服器"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "連線至伺服器後才能分享它。"
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "此伺服器無法移除。"
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

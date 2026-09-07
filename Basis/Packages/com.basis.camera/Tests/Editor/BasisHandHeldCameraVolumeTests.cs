@@ -99,6 +99,33 @@ namespace Basis.Tests.Camera
             Assert.That(_camera.MetaData.Profile, Is.EqualTo(_profile));
         }
 
+#if BASIS_HAS_GI && !UNITY_ANDROID
+        [Test]
+        public void TheCaptureCameraIsRegisteredForGlobalIllumination()
+        {
+            _camera.InitializePostProcessingVolume();
+
+            Assert.That(SMModuleGlobalIlluminationURP.IsCameraRegistered(_camera.captureCamera), Is.True,
+                "The renderer feature answers an allow-list of registered cameras, so a capture camera that never registers renders no bounce at all.");
+        }
+
+        [Test]
+        public void ACameraWithNoVolumeIsStillRegisteredForGlobalIllumination()
+        {
+            // The registration used to sit past the volume lookup's early return, so one missing component
+            // turned the bounce off - and turned post processing off with it, which the renderer's own gate
+            // reads as a second reason to skip the camera. Neither has anything to do with a volume.
+            Object.DestroyImmediate(_volumeGo);
+
+            _camera.InitializePostProcessingVolume();
+
+            Assert.That(SMModuleGlobalIlluminationURP.IsCameraRegistered(_camera.captureCamera), Is.True,
+                "A camera with no post processing volume still has to be registered - global illumination is not part of the post stack.");
+            Assert.That(_camera.CameraData.renderPostProcessing, Is.True,
+                "The renderer feature refuses any camera with post processing off, so this is the second half of the same failure.");
+        }
+#endif
+
         [Test]
         public void ACameraWithNoVolumeLeavesItsCameraDataAlone()
         {

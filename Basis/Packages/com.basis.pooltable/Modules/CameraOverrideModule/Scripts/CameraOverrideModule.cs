@@ -67,6 +67,11 @@ namespace Metaphira.Modules.CameraOverride
             }
         }
 
+        private void OnDestroy()
+        {
+            BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
+        }
+
         public void OnPlayerJoined(BasisNetworkPlayer player)
         {
             if (!player.IsLocal) return;

@@ -117,7 +117,12 @@ namespace Basis.Scripts.Networking.Compression
         }
         public unsafe static void WriteQuaternionToBytes(quaternion q, ref byte[] bytes, ref int offset)
         {
-            EnsureSpace(bytes, offset, 16); fixed (byte* ptr = &bytes[offset])
+            // The return had been discarded. Inside the fixed block the CLR's array bounds check is
+            // gone, so an offset that is in range but leaves fewer than 16 bytes wrote up to 15
+            // bytes past the end of the managed array — the one caller shape here that corrupts the
+            // heap rather than throwing. Every other reader/writer in this file already bails.
+            if (!EnsureSpace(bytes, offset, 16)) return;
+            fixed (byte* ptr = &bytes[offset])
             {
                 float* f = (float*)ptr; f[0] = Sanitize(q.value.x, 0f);
                 f[1] = Sanitize(q.value.y, 0f);

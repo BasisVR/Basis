@@ -10,6 +10,10 @@ public class BasisRemoteEncyptedBundle
     // authoritative", which is exactly how loads behaved before this field existed. That is what
     // keeps already-cached bundles, older clients and the GUID-per-upload flow working untouched.
     public string RemoteVersionTag;
+    // Set wherever RemoteBeeFileLocation arrives over the network (spawn/load-resource records,
+    // relayed avatar changes, preloads). A network-sourced location is never resolved against the
+    // local filesystem — only the HTTP(S) path with its scheme and SSRF checks may serve it.
+    public bool IsNetworkSourced;
 
     /// <summary>
     /// An independent copy. Required wherever this record crosses an ownership boundary — the
@@ -23,6 +27,7 @@ public class BasisRemoteEncyptedBundle
         {
             RemoteBeeFileLocation = RemoteBeeFileLocation,
             RemoteVersionTag = RemoteVersionTag,
+            IsNetworkSourced = IsNetworkSourced,
         };
     }
 }

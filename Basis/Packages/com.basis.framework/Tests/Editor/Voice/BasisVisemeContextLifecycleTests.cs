@@ -135,16 +135,16 @@ public class BasisVisemeContextLifecycleTests
     }
 
     [Test]
-    public void ShoutingPlayerKeepsTheContextWhileTheSpatialSourceIsIdle()
+    public void AnnouncingPlayerKeepsTheContextWhileTheSpatialSourceIsIdle()
     {
         BasisAudioAndVisemeDriver driver = DriverHoldingAContext(out BasisOpenLipSyncContext planted);
         driver.TrackedAudioSource = MakeAudioSource();
         driver.AudioSourceInactive = true;
-        driver.ShoutActive = true;
+        driver.AnnounceActive = true;
 
         driver.Simulate(0.016f);
 
-        Assert.AreSame(planted, driver.openLipSyncContext, "a shouter's spatial source is idle for their whole sentence");
+        Assert.AreSame(planted, driver.openLipSyncContext, "an announcer's spatial source is idle for their whole sentence");
     }
 
     [Test]

@@ -971,4 +971,27 @@ public class AdditionalDataPipelineTests : IDisposable
             }
         }
     }
+
+    [Fact]
+    public void TruncatedAdditionalHeaderOnReusedMessageClearsSizeSoDispatchCannotOverrun()
+    {
+        var rng = new Random(4711);
+        byte[] payload = S.MakeRealisticPayload(BitQuality.High, rng);
+        var msg = new LocalAvatarSyncMessage();
+
+        NetDataWriter seed = WriteUplinkKeyframe(1, payload, MakeAdditional());
+        var seedReader = new NetDataReader(seed.CopyData());
+        Assert.True(seedReader.TryGetByte(out _));
+        msg.Deserialize(seedReader, (byte)BitQuality.High, true);
+        Assert.Single(msg.AdditionalAvatarDatas);
+
+        var truncated = new NetDataWriter();
+        truncated.Put(payload, 0, payload.Length);
+        truncated.Put((byte)200);
+        msg.Deserialize(new NetDataReader(truncated.CopyData()), (byte)BitQuality.High, true);
+
+        Assert.Equal(0, (int)msg.AdditionalAvatarDataSize);
+        Assert.True(msg.AdditionalAvatarDatas == null || msg.AdditionalAvatarDatas.Length >= msg.AdditionalAvatarDataSize,
+            "count outran the retained array; DispatchAdditionalData would index out of range");
+    }
 }

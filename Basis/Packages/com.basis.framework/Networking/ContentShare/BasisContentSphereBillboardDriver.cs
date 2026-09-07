@@ -65,6 +65,12 @@ public static class BasisContentSphereBillboardDriver
         BillboardJob job = new BillboardJob { CameraPosition = BasisLocalCameraDriver.Position };
         _handle = job.Schedule(_transforms);
         _scheduled = true;
+        // Self-sufficient kick: BasisEventDriver currently calls this right before
+        // BasisRemoteFaceManagement.Simulate, and flushes the whole batch right after that with its
+        // own JobHandle.ScheduleBatchedJobs() — so this job has always actually started by the time
+        // Complete() joins it later in LateUpdate. That overlap is incidental to caller ordering, not
+        // guaranteed by this function on its own; kicking here makes it self-sufficient instead.
+        JobHandle.ScheduleBatchedJobs();
     }
 
     public static void Complete()

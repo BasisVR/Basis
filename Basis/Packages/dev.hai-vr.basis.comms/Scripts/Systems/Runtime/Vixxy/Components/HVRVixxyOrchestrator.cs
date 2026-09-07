@@ -21,7 +21,7 @@ namespace HVR.Vixxy
         // - When all data arrived, and we're starting the update cycle, we wake up all aggregators of that data.
 
         [SerializeField] public Transform context; // Can be null. If it is null, the orchestrator *is* the context.
-        public HVRVariableStore VariableStore;
+        [System.NonSerialized] public HVRVariableStore VariableStore;
 
         private readonly HashSet<IHVRVixxyAggregator> _aggregatorsToUpdateThisTick = new();
         private readonly HashSet<IHVRVixxyActuator> _actuatorsWithFiltersToCheckThisTick = new();

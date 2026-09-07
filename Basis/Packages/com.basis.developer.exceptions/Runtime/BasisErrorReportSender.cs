@@ -17,12 +17,13 @@ public static class BasisErrorReportSender
     private const int MaxStackChars = 12000;
 
     // A live report is one fire-and-forget reliable packet, so there's no real progress to track —
-    // this briefly surfaces that a report left the device and clears itself via the loading bar's
-    // idle timeout. Keyed and shared, so a burst of distinct errors keeps one indicator up instead
+    // this briefly surfaces that a report left the device and clears itself after
+    // UploadIndicatorSeconds. Keyed and shared, so a burst of distinct errors keeps one indicator up instead
     // of stacking many.
     private const string UploadIndicatorKey = "ErrorReportUpload";
     private const string UploadIndicatorLabel = "Uploading error report";
     private const float UploadIndicatorPercent = 80f;
+    private const float UploadIndicatorSeconds = 1.5f;
 
     public static void Report(byte severity, string system, string message, string stackTrace)
     {
@@ -71,7 +72,7 @@ public static class BasisErrorReportSender
             // Briefly surface that a report left the device (see UploadIndicator* notes above).
             if (showUploadIndicator)
             {
-                BasisUILoadingBar.ProgressReport(UploadIndicatorKey, UploadIndicatorPercent, UploadIndicatorLabel);
+                BasisUILoadingBar.ProgressReportTransient(UploadIndicatorKey, UploadIndicatorPercent, UploadIndicatorLabel, UploadIndicatorSeconds);
             }
 
             // A successful live send means we're connected and reporting is enabled, so this

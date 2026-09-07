@@ -15,6 +15,10 @@ public static class BasisQualitySettingsGuard
 {
     private static readonly string[] ExpectedNames = { "DESKTOP", "QUEST", "IOS", "HEADLESS" };
 
+    public const int DesktopStreamingBudgetMb = 4096;
+    public const int MobileStreamingBudgetMb = 1024;
+    public const int HeadlessStreamingBudgetMb = 128;
+
     // URP pipeline asset paths (the folder name typo "Settiings" is intentional — that's the actual folder)
     private const string DesktopPipelinePath  = "Assets/Basis/Settings/Quality Settiings/Modified - Desktop.asset";
     private const string QuestPipelinePath    = "Assets/Basis/Settings/Quality Settiings/Modified - Android.asset";
@@ -118,19 +122,19 @@ public static class BasisQualitySettingsGuard
         L(sb, "  m_QualitySettings:");
 
         // Index 0 — DESKTOP  (Standalone + Linux)
-        AppendLevel(sb, "DESKTOP", antiAliasing: 2, lodCrossFade: 1, pipelineGuid: desktopGuid,
+        AppendLevel(sb, "DESKTOP", antiAliasing: 2, lodCrossFade: 1, streamingBudgetMb: DesktopStreamingBudgetMb, pipelineGuid: desktopGuid,
             excludeAndroid: true, excludeServer: true, excludeIPhone: true, excludeStandalone: false);
 
         // Index 1 — QUEST  (Android)
-        AppendLevel(sb, "QUEST", antiAliasing: 2, lodCrossFade: 0, pipelineGuid: questGuid,
+        AppendLevel(sb, "QUEST", antiAliasing: 2, lodCrossFade: 0, streamingBudgetMb: MobileStreamingBudgetMb, pipelineGuid: questGuid,
             excludeAndroid: false, excludeServer: true, excludeIPhone: true, excludeStandalone: true);
 
         // Index 2 — IOS  (iPhone)
-        AppendLevel(sb, "IOS", antiAliasing: 0, lodCrossFade: 0, pipelineGuid: iosGuid,
+        AppendLevel(sb, "IOS", antiAliasing: 0, lodCrossFade: 0, streamingBudgetMb: MobileStreamingBudgetMb, pipelineGuid: iosGuid,
             excludeAndroid: true, excludeServer: true, excludeIPhone: false, excludeStandalone: true);
 
         // Index 3 — HEADLESS  (Server)
-        AppendLevel(sb, "HEADLESS", antiAliasing: 0, lodCrossFade: 0, pipelineGuid: headlessGuid,
+        AppendLevel(sb, "HEADLESS", antiAliasing: 0, lodCrossFade: 0, streamingBudgetMb: HeadlessStreamingBudgetMb, pipelineGuid: headlessGuid,
             excludeAndroid: true, excludeServer: false, excludeIPhone: true, excludeStandalone: true);
 
         L(sb, "  m_TextureMipmapLimitGroupNames: []");
@@ -146,7 +150,7 @@ public static class BasisQualitySettingsGuard
 
     private static void AppendLevel(
         StringBuilder sb, string name,
-        int antiAliasing, int lodCrossFade, string pipelineGuid,
+        int antiAliasing, int lodCrossFade, int streamingBudgetMb, string pipelineGuid,
         bool excludeAndroid, bool excludeServer, bool excludeIPhone, bool excludeStandalone)
     {
         L(sb, "  - serializedVersion: 5");
@@ -182,7 +186,7 @@ public static class BasisQualitySettingsGuard
         L(sb, $"    enableLODCrossFade: {lodCrossFade}");
         L(sb, "    streamingMipmapsActive: 1");
         L(sb, "    streamingMipmapsAddAllCameras: 1");
-        L(sb, "    streamingMipmapsMemoryBudget: 24138");
+        L(sb, $"    streamingMipmapsMemoryBudget: {streamingBudgetMb}");
         L(sb, "    streamingMipmapsRenderersPerFrame: 512");
         L(sb, "    streamingMipmapsMaxLevelReduction: 4");
         L(sb, "    streamingMipmapsMaxFileIORequests: 512");

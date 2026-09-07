@@ -1,5 +1,7 @@
 using System;
 using NUnit.Framework;
+using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Basis.Network.Core.Compression;
 
@@ -24,8 +26,11 @@ namespace Basis.Tests.Sync
         static quaternion AxisAngle(float3 axis, float deg) => quaternion.AxisAngle(math.normalize(axis), math.radians(deg));
         static float AngleDeg(quaternion a, quaternion b)
         {
-            float d = math.abs(math.dot(math.normalize(a).value, math.normalize(b).value));
-            return math.degrees(2f * math.acos(math.min(1f, d)));
+            // Measured in double: float acos near dot=1 quantizes angles to ~0.04° steps, far too
+            // coarse for the C1 velocity probes (h=1e-3 puts the samples ~0.015° apart).
+            double4 av = new double4(a.value), bv = new double4(b.value);
+            double d = math.abs(math.dot(av, bv)) / (math.length(av) * math.length(bv));
+            return (float)math.degrees(2.0 * math.acos(math.min(1.0, d)));
         }
 
         static uint _rng;
@@ -223,10 +228,13 @@ namespace Basis.Tests.Sync
             const int bpc = 10; const float maxRange = InvSqrt2;
             float alpha = BasisRemoteInterpolationCore.OnePoleAlpha(15f, 1f / 90f);
 
-            // Slow ramp through the quantizer: measure step-to-step angular jump (the shimmer),
-            // raw vs low-passed, and the lag-aligned tracking error (must stay tiny = passband).
+            // Slow ramp through the quantizer. On a monotone ramp the MEAN |step| equals the drift
+            // rate for raw and filtered alike, so shimmer is the deviation from the uniform true
+            // step (the quantizer alternates holds and double-steps; the filter evens them out),
+            // while the lag-aligned tracking error must stay tiny (passband).
             quaternion prevRawQ = quaternion.identity, prevFiltQ = quaternion.identity, filt = quaternion.identity;
-            double rawJump = 0, filtJump = 0; double trackErr = 0; int n = 0;
+            const double trueStep = 6.0 / 90.0;
+            double rawDev = 0, filtDev = 0; double trackErr = 0; int n = 0;
             bool seeded = false;
             for (int k = 0; k < 900; k++)
             {
@@ -241,18 +249,81 @@ namespace Basis.Tests.Sync
 
                 if (k > 100)
                 {
-                    rawJump += AngleDeg(prevRawQ, rawQ);
-                    filtJump += AngleDeg(prevFiltQ, filt);
+                    rawDev += math.abs(AngleDeg(prevRawQ, rawQ) - trueStep);
+                    filtDev += math.abs(AngleDeg(prevFiltQ, filt) - trueStep);
                     trackErr += AngleDeg(filt, tru);   // low-pass tracks a ~5° lag on a 6°/s ramp -> sub-degree
                     n++;
                 }
                 prevRawQ = rawQ; prevFiltQ = filt;
             }
-            double rawMean = rawJump / n, filtMean = filtJump / n, trackMean = trackErr / n;
+            double rawMean = rawDev / n, filtMean = filtDev / n, trackMean = trackErr / n;
             Assert.That(filtMean, Is.LessThan(rawMean * 0.7),
-                $"filter should cut the step-to-step shimmer >30% (raw {rawMean:F4} -> filt {filtMean:F4} deg/frame)");
+                $"filter should cut step-size shimmer >30% (raw dev {rawMean:F4} -> filt dev {filtMean:F4} deg/frame)");
             Assert.That(trackMean, Is.LessThan(0.5),
                 $"but must still track the slow ramp (mean tracking error {trackMean:F3} deg)");
+        }
+
+        // ── Settled-still fast path (all four control points bit-identical skips spline + filter) ──
+
+        [Test]
+        public void Rotation_AllEqualIdentityWindow_IsExactIdentity()
+        {
+            quaternion id = quaternion.identity;
+            for (float t = 0f; t <= 1f; t += 0.0625f)
+                Assert.That(math.all(BasisRemoteInterpolationCore.Rotation(id, id, id, id, t).value == id.value), Is.True,
+                    $"identity window must reproduce identity bit-exact at t={t}");
+        }
+
+        [Test]
+        public void LowPassStep_SettledOnIdentity_IsBitExact()
+        {
+            quaternion id = quaternion.identity;
+            float alpha = BasisRemoteInterpolationCore.OnePoleAlpha(1.5f, 1f / 144f);
+            Assert.That(math.all(BasisRemoteInterpolationCore.LowPassStep(id, id, alpha).value == id.value), Is.True);
+        }
+
+        [Test]
+        public void BoneInterpJob_StillWindow_ConvergesAndIdentitySettlesBitExact()
+        {
+            const int bones = BasisRemoteNetworkDriver.BoneCount;
+            var p0 = new NativeArray<quaternion>(bones, Allocator.TempJob);
+            var p1 = new NativeArray<quaternion>(bones, Allocator.TempJob);
+            var p2 = new NativeArray<quaternion>(bones, Allocator.TempJob);
+            var p3 = new NativeArray<quaternion>(bones, Allocator.TempJob);
+            var outQ = new NativeArray<quaternion>(bones, Allocator.TempJob);
+            var times = new NativeArray<double>(1, Allocator.TempJob);
+            var dts = new NativeArray<double>(1, Allocator.TempJob);
+            var skip = new NativeArray<byte>(1, Allocator.TempJob);
+            _rng = 11u;
+            quaternion held = RndQ();
+            for (int i = 0; i < bones; i++)
+            {
+                quaternion q = (i & 1) == 0 ? quaternion.identity : held;      // even = fingers-at-identity case
+                p0[i] = q; p1[i] = q; p2[i] = q; p3[i] = q;
+                // Even slots start UNSEEDED (zero sentinel) — the untracked-finger lifecycle: the
+                // first tick copies the exact window value, the second engages the settled fast path.
+                // Odd slots start seeded off-target and must converge through the filter.
+                if ((i & 1) == 1) outQ[i] = AxisAngle(new float3(0, 1, 0), 5f);
+            }
+            times[0] = 0.5; dts[0] = 1.0 / 144.0;
+            var job = new BasisRemoteNetworkDriver.InterpolateBoneRotationsJob
+            {
+                P0Bones = p0, PreviousBones = p1, TargetBones = p2, P3Bones = p3,
+                InterpolationTimes = times, DeltaTimeSeconds = dts, SkipBones = skip, OutputBones = outQ,
+                FilterMinCutoffHz = 1.5f, HeadFilterMinCutoffHz = 0.8f, FilterBeta = 250f
+            };
+            for (int step = 0; step < 400; step++) job.Run(bones);
+            for (int i = 0; i < bones; i += 2)
+                Assert.That(math.all(outQ[i].value == quaternion.identity.value), Is.True,
+                    $"unseeded identity bone {i} must hold identity bit-exact (settled fast path)");
+            for (int i = 1; i < bones; i += 2)
+                Assert.That(AngleDeg(outQ[i], held), Is.LessThan(1e-3f), $"held bone {i} must converge onto its window");
+            for (int step = 0; step < 5; step++) job.Run(bones);               // settled state must hold, not drift
+            for (int i = 0; i < bones; i += 2)
+                Assert.That(math.all(outQ[i].value == quaternion.identity.value), Is.True, $"bone {i} drifted after settling");
+            for (int i = 1; i < bones; i += 2)
+                Assert.That(AngleDeg(outQ[i], held), Is.LessThan(1e-3f), $"bone {i} drifted after settling");
+            p0.Dispose(); p1.Dispose(); p2.Dispose(); p3.Dispose(); outQ.Dispose(); times.Dispose(); dts.Dispose(); skip.Dispose();
         }
 
         // ── RingBuffer peek used to supply p3 without consuming the staged frame ──

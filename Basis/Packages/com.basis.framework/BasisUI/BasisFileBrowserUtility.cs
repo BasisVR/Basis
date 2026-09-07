@@ -14,9 +14,11 @@ namespace Basis.BasisUI
     ///   • refuses any path containing a double-quote or control character — a legitimate reveal
     ///     target never has one, and a double-quote is the only thing that could break out of the
     ///     quoted argument we pass;
-    ///   • never routes through a shell, and invokes only absolute launchers: explorer.exe on
-    ///     Windows, /usr/bin/open on macOS, and on Linux the first opener that is actually
-    ///     installed in a system bin directory;
+    ///   • invokes only absolute launchers, never a bare name a PATH or CWD entry could shadow:
+    ///     explorer.exe on Windows, /usr/bin/open on macOS, and on Linux the first opener that is
+    ///     actually installed in a system bin directory. Windows may hand that pinned explorer.exe
+    ///     to ShellExecuteEx rather than CreateProcess, which is still not a shell interpreting a
+    ///     command line; macOS and Linux never leave CreateProcess;
     ///   • swallows and logs every failure, so a UI callback can never be broken by it.
     /// No-op for an empty / invalid / non-existent path, and on the platforms with no user-facing
     /// file browser to hand a path to (Android, iOS, WebGL), where it reports false instead.
@@ -38,33 +40,26 @@ namespace Basis.BasisUI
 
                 bool isFile = File.Exists(fullPath);
                 bool isDirectory = Directory.Exists(fullPath);
-                if (!isFile && !isDirectory) return false;
+                if (!isFile && !isDirectory)
+                {
+                    BasisDebug.LogWarning($"Could not reveal {fullPath} in the file browser: nothing is there.");
+                    return false;
+                }
 
                 // A legitimate reveal target carries no double-quote or control character; if one
                 // does (a crafted name), refuse rather than risk breaking out of the quoted argument.
-                if (HasUnsafeCharacters(fullPath)) return false;
+                if (HasUnsafeCharacters(fullPath))
+                {
+                    BasisDebug.LogWarning("Refused to reveal a path containing a double-quote or control character.");
+                    return false;
+                }
 
                 // Only a real file can be highlighted; otherwise reveal the directory itself.
                 if (selectFile && !isFile) selectFile = false;
                 string directory = isDirectory ? fullPath : (Path.GetDirectoryName(fullPath) ?? fullPath);
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-                // Pin to the absolute system explorer so a CWD-planted "explorer.exe" cannot run
-                // instead. explorer expects exactly "/select,<file>" to highlight one, and the bare
-                // path to open a folder; both targets are verified to exist and Windows paths cannot
-                // contain a double-quote, so neither can break out of the quoted argument.
-                string explorer = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = explorer,
-                    Arguments = selectFile
-                        ? $"/select,\"{fullPath.Replace('/', '\\')}\""
-                        : $"\"{directory.Replace('/', '\\')}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
-                return true;
+                return RevealWindows(fullPath, directory, selectFile);
 #elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
                 // Absolute path (no PATH lookup to hijack) and no shell (UseShellExecute = false); the
                 // quoted target has no quote/control chars, so it cannot inject extra `open` flags
@@ -89,6 +84,70 @@ namespace Basis.BasisUI
                 return false;
             }
         }
+
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+        // Pin to the absolute system explorer so a CWD-planted "explorer.exe" cannot run instead.
+        // explorer expects exactly "/select,<file>" to highlight one, and the bare path to open a
+        // folder; both targets are verified to exist and carry no double-quote, so neither can break
+        // out of the quoted argument.
+        //
+        // Which of the two ways to reach it works is machine-dependent, and picking just one has
+        // broken this twice: a raw CreateProcess is refused outright on some setups (Mono reports it
+        // as "Native error= Success"), and elsewhere it is accepted and then quietly opens nothing,
+        // while ShellExecuteEx needs an interactive shell to execute through and so is the one that
+        // is unavailable headless. Try both before reporting a dead button.
+        private static bool RevealWindows(string fullPath, string directory, bool selectFile)
+        {
+            string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+            string target = (selectFile ? fullPath : directory).Replace('/', '\\');
+            string arguments = selectFile ? "/select," + QuoteArgument(target) : QuoteArgument(target);
+
+            if (StartExplorer(explorer, arguments, true)) return true;
+            if (StartExplorer(explorer, arguments, false)) return true;
+
+            BasisDebug.LogWarning($"Could not open {target} in Explorer: neither launch route reached one.");
+            return false;
+        }
+
+        private static bool StartExplorer(string explorer, string arguments, bool useShellExecute)
+        {
+            try
+            {
+                System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = explorer,
+                    Arguments = arguments,
+                    UseShellExecute = useShellExecute,
+                    CreateNoWindow = !useShellExecute
+                };
+                // ShellExecuteEx hands the request to the running shell and reports no new process of
+                // its own, so only the CreateProcess route can be checked for one. Neither can prove
+                // a window actually appeared, so name the route that was taken: if this is ever dead
+                // again the log says which one to stop trusting instead of it being guessed at.
+                using (System.Diagnostics.Process process = System.Diagnostics.Process.Start(startInfo))
+                {
+                    if (!useShellExecute && process == null) return false;
+                    BasisDebug.Log($"Opened {arguments} in Explorer via {(useShellExecute ? "ShellExecuteEx" : "CreateProcess")}.");
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogWarning($"Explorer launch via {(useShellExecute ? "ShellExecuteEx" : "CreateProcess")} failed: {e.Message}");
+                return false;
+            }
+        }
+
+        // A trailing backslash immediately before the closing quote escapes it — "C:\dir\" parses
+        // back out as C:\dir" — so double the run of them, the literal form Windows argument parsing
+        // collapses to one. Reaches a drive root and any path handed in with a trailing separator.
+        private static string QuoteArgument(string path)
+        {
+            int trailing = 0;
+            while (trailing < path.Length && path[path.Length - 1 - trailing] == '\\') trailing++;
+            return "\"" + path + new string('\\', trailing) + "\"";
+        }
+#endif
 
 #if UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
         private static readonly string[] SystemBinaryDirectories = { "/usr/bin", "/bin", "/usr/local/bin" };

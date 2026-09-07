@@ -148,6 +148,82 @@
       "value": "Kies de naam die andere spelers zien en druk daarna op «Verbinden»."
     },
     {
+      "key": "menu.servers.search.byNameOrAddress",
+      "value": "Filteren op servernaam of adres."
+    },
+    {
+      "key": "menu.servers.sortMode",
+      "value": "Sorteren Op"
+    },
+    {
+      "key": "menu.servers.sortMode.description",
+      "value": "De ★ standaardserver verschijnt altijd als eerste."
+    },
+    {
+      "key": "menu.servers.sortMode.default",
+      "value": "Standaard"
+    },
+    {
+      "key": "menu.servers.sortMode.default.tooltip",
+      "value": "Behoudt de opgeslagen volgorde, met je hostserver als laatste."
+    },
+    {
+      "key": "menu.servers.sortMode.name",
+      "value": "Naam"
+    },
+    {
+      "key": "menu.servers.sortMode.name.tooltip",
+      "value": "Sorteert de lijst alfabetisch op servernaam."
+    },
+    {
+      "key": "menu.servers.sortMode.ping",
+      "value": "Ping"
+    },
+    {
+      "key": "menu.servers.sortMode.ping.tooltip",
+      "value": "Sorteert de lijst op reactietijd, snelste eerst."
+    },
+    {
+      "key": "menu.servers.sortMode.players",
+      "value": "Spelers"
+    },
+    {
+      "key": "menu.servers.sortMode.players.tooltip",
+      "value": "Sorteert de lijst op hoeveel spelers online zijn, drukste eerst."
+    },
+    {
+      "key": "menu.servers.header",
+      "value": "Servers ({0})"
+    },
+    {
+      "key": "menu.servers.header.filtered",
+      "value": "Servers ({0}/{1})"
+    },
+    {
+      "key": "menu.servers.header.description",
+      "value": "Verbind hieronder met een server, of voeg je eigen server toe."
+    },
+    {
+      "key": "menu.servers.list.noMatches",
+      "value": "Geen servers komen overeen met je zoekopdracht."
+    },
+    {
+      "key": "menu.servers.list.connected",
+      "value": "Verbonden"
+    },
+    {
+      "key": "menu.servers.list.server",
+      "value": "Server"
+    },
+    {
+      "key": "menu.servers.list.share.needsConnection",
+      "value": "Verbind met een server om hem te delen."
+    },
+    {
+      "key": "menu.servers.list.remove.protected",
+      "value": "Deze server kan niet worden verwijderd."
+    },
+    {
       "key": "menu.servers.hostMotd",
       "value": "MOTD"
     },

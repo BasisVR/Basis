@@ -116,7 +116,9 @@ namespace Basis.ImagePickup
 
             private readonly ComputeShader _computeShader;
             private readonly int _kernel;
-            private readonly ProfilingSampler _profilingSampler = new("Basis Image Depth Visibility");
+            private static readonly ProfilingSampler _profilingSampler = new("Basis Image Depth Visibility");
+            public static float GpuMs => _profilingSampler.gpuElapsedTime;
+            public static void SetProfilingEnabled(bool enabled) => _profilingSampler.enableRecording = enabled;
 
             private sealed class ComputePassData
             {

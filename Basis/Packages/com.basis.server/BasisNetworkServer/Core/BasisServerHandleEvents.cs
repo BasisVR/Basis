@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static BasisPermissions.PermissionManager;
@@ -26,6 +27,7 @@ namespace BasisServerHandle
     public static class BasisServerHandleEvents
     {
         [ThreadStatic] private static HashSet<int> _excludedSet;
+        private static readonly object _joinLock = new object();
 
         /// <summary>
         /// Coalesces "a player joined" notifications instead of fanning each one out inline.
@@ -68,6 +70,8 @@ namespace BasisServerHandle
             public static void RegisterPeer(int peerId, long seq) => _peerSeq[peerId] = seq;
 
             public static long RegisteredSeqFor(int peerId) => _peerSeq.TryGetValue(peerId, out long s) ? s : NextSeq();
+
+            public static bool TryGetSeq(int peerId, out long seq) => _peerSeq.TryGetValue(peerId, out seq);
 
             public static void UnregisterPeer(int peerId) => _peerSeq.TryRemove(peerId, out _);
 
@@ -187,11 +191,29 @@ namespace BasisServerHandle
                 NetPeer[] peers = NetworkServer.PeerSnapshot;
                 if (peers == null || peers.Length == 0) return;
 
+                ushort[] leavesBeforeJoins = Array.Empty<ushort>();
+                if (batch.Length > 0 && leaves.Length > 0)
+                {
+                    List<ushort> before = new List<ushort>();
+                    List<ushort> after = new List<ushort>();
+                    foreach (ushort leave in leaves)
+                    {
+                        (IdIsInBatch(batch, leave) ? before : after).Add(leave);
+                    }
+                    if (before.Count > 0)
+                    {
+                        leavesBeforeJoins = before.ToArray();
+                        leaves = after.ToArray();
+                    }
+                }
+                FlushLeaves(peers, leavesBeforeJoins);
+
                 // Peers that joined before this whole batch take the identical bytes, which is the
                 // common case; only the joiners inside the batch need a trimmed copy of their own.
-                Dictionary<int, byte[]> framedByStart = new Dictionary<int, byte[]>();
-                long sent = 0, bytes = 0;
-
+                // Each distinct start-offset costs a full serialize + Deflate, so with K joins in
+                // the window the K+1 frames build in parallel; the fanout itself stays serial.
+                List<(NetPeer peer, int start)> targets = new List<(NetPeer, int)>(peers.Length);
+                List<int> distinctStarts = new List<int>();
                 foreach (NetPeer peer in peers)
                 {
                     if (peer == null) continue;
@@ -201,12 +223,31 @@ namespace BasisServerHandle
                     while (start < batch.Length && batch[start].Seq <= peerSeq) start++;
                     if (start >= batch.Length) continue;
 
-                    if (!framedByStart.TryGetValue(start, out byte[] framed))
-                    {
-                        framed = Frame(batch, start);
-                        framedByStart[start] = framed;
-                    }
+                    targets.Add((peer, start));
+                    if (!distinctStarts.Contains(start)) distinctStarts.Add(start);
+                }
 
+                Dictionary<int, byte[]> framedByStart = new Dictionary<int, byte[]>();
+                if (distinctStarts.Count == 1)
+                {
+                    framedByStart[distinctStarts[0]] = Frame(batch, distinctStarts[0]);
+                }
+                else if (distinctStarts.Count > 1)
+                {
+                    byte[][] framedResults = new byte[distinctStarts.Count][];
+                    Parallel.For(0, distinctStarts.Count, BasisServerReductionSystemEvents.SharedParallelOptions,
+                        i => framedResults[i] = Frame(batch, distinctStarts[i]));
+                    for (int i = 0; i < distinctStarts.Count; i++)
+                    {
+                        framedByStart[distinctStarts[i]] = framedResults[i];
+                    }
+                }
+
+                long sent = 0, bytes = 0;
+                for (int t = 0; t < targets.Count; t++)
+                {
+                    (NetPeer peer, int start) = targets[t];
+                    byte[] framed = framedByStart[start];
                     try
                     {
                         peer.Send(framed, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
@@ -226,6 +267,15 @@ namespace BasisServerHandle
 
                 // Departures after arrivals, so a spawn always precedes any despawn in the same flush.
                 FlushLeaves(peers, leaves);
+            }
+
+            private static bool IdIsInBatch(Record[] batch, ushort id)
+            {
+                for (int i = 0; i < batch.Length; i++)
+                {
+                    if (batch[i].PeerId == id) return true;
+                }
+                return false;
             }
 
             private static void FlushLeaves(NetPeer[] peers, ushort[] leaves)
@@ -416,24 +466,36 @@ namespace BasisServerHandle
                 }
                 int id = peer.Id;
 
-                if (CleanupPeerSubsystems(peer, id))
+                lock (_joinLock)
                 {
-                    NetworkServer.RebuildPeerSnapshot();
-                    BNL.Log($"Peer removed: {id}");
-                }
-                else
-                {
-                    BNL.Log($"Peer {id} was not in AuthenticatedPeers (likely rejected before auth completed).");
-                }
+                    bool slotHeldByAnother = NetworkServer.AuthenticatedPeers.TryGetValue(id, out NetPeer holder) && !Equals(holder, peer);
 
-                if (NetworkServer.AuthenticatedPeers.IsEmpty)
-                {
-                    BasisNetworkIDDatabase.Reset();
-                    BasisNetworkResourceManagement.Reset();
-                    BasisNetworkContentShare.Reset();
-                }
+                    if (CleanupPeerSubsystems(peer, id))
+                    {
+                        NetworkServer.RebuildPeerSnapshot();
+                        BNL.Log($"Peer removed: {id}");
+                    }
+                    else if (slotHeldByAnother)
+                    {
+                        BNL.Log($"Peer id {id} is held by a reconnected peer; ignoring the stale disconnect.");
+                    }
+                    else
+                    {
+                        BNL.Log($"Peer {id} was not in AuthenticatedPeers (likely rejected before auth completed).");
+                    }
 
-                JoinBroadcast.EnqueueLeave(id);
+                    if (NetworkServer.AuthenticatedPeers.IsEmpty)
+                    {
+                        BasisNetworkIDDatabase.Reset();
+                        BasisNetworkResourceManagement.Reset();
+                        BasisNetworkContentShare.Reset();
+                    }
+
+                    if (!slotHeldByAnother)
+                    {
+                        JoinBroadcast.EnqueueLeave(id);
+                    }
+                }
             }
             catch (Exception e)
             {
@@ -515,6 +577,7 @@ namespace BasisServerHandle
         #region Connection Handling
         public static void HandleConnectionRequest(ConnectionRequest ConReq)
         {
+            NetPeer accepted = null;
             try
             {
                 if (BasisPlayerModeration.IsIpBanned(ConReq.RemoteEndPoint.Address.ToString()))
@@ -565,36 +628,49 @@ namespace BasisServerHandle
                 }
                 if (NetworkServer.Configuration.UseAuthIdentity)
                 {
-                    NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
-                    NetworkServer.AuthIdentity.ProcessConnection(NetworkServer.Configuration, ConReq, newPeer);
+                    accepted = ConReq.Accept();//can do both way Communication from here on
+                    NetworkServer.AuthIdentity.ProcessConnection(NetworkServer.Configuration, ConReq, accepted);
                 }
                 else
                 {
                     ReadyMessage readyMessage = new ReadyMessage();
                     readyMessage.Deserialize(ConReq.Data);
 
-                    if (readyMessage.WasDeserializedCorrectly())
+                    if (!readyMessage.WasDeserializedCorrectly())
                     {
-                        if (IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
-                        {
-                            RejectWithReason(ConReq, reason);
-                            return;
-                        }
+                        RejectWithReason(ConReq, "Invalid ReadyMessage received.");
+                        return;
+                    }
+                    if (IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
+                    {
+                        RejectWithReason(ConReq, reason);
+                        return;
                     }
 
-                    NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
-
-                    if (readyMessage.WasDeserializedCorrectly())
-                    {
-                        OnNetworkAccepted(newPeer, readyMessage, readyMessage.playerMetaDataMessage.playerUUID);
-                    }
+                    accepted = ConReq.Accept();//can do both way Communication from here on
+                    OnNetworkAccepted(accepted, readyMessage, ResolveUnauthenticatedUuid(readyMessage.playerMetaDataMessage.playerUUID));
                 }
             }
             catch (Exception e)
             {
-                RejectWithReason(ConReq, "Fatal Connection Issue stacktrace on server " + e.Message);
+                if (accepted != null)
+                {
+                    RejectWithReason(accepted, "Fatal Connection Issue stacktrace on server " + e.Message);
+                }
+                else
+                {
+                    RejectWithReason(ConReq, "Fatal Connection Issue stacktrace on server " + e.Message);
+                }
                 BNL.LogError(e.StackTrace);
             }
+        }
+        private static string ResolveUnauthenticatedUuid(string clientUuid)
+        {
+            if (string.IsNullOrEmpty(clientUuid) || clientUuid == ClientMetaDataMessage.Unset)
+            {
+                return Guid.NewGuid().ToString("N");
+            }
+            return clientUuid;
         }
         public static void OnNetworkAccepted(NetPeer newPeer, ReadyMessage ReadyMessage, string UUID)
         {
@@ -642,38 +718,55 @@ namespace BasisServerHandle
             }
             ReadyMessage.playerMetaDataMessage.playerDisplayName = sanitizedDisplayName;
 
-            bool added = NetworkServer.AuthenticatedPeers.TryAdd(PeerId, newPeer);
-            if (!added)
+            NetPeer[] joinSnapshot = null;
+            lock (_joinLock)
             {
-                // Reconnect collision: LiteNetLib recycled this peer-id slot before the
-                // previous disconnect's subsystem cleanup completed (or the original
-                // PeerDisconnectedEvent has not yet been dispatched). The old entry is
-                // stale because LNL will not hand us two live peers with the same Id —
-                // evict it synchronously and retry the insert.
-                if (NetworkServer.AuthenticatedPeers.TryGetValue(PeerId, out NetPeer stale) &&
-                    !Equals(stale, newPeer))
+                if (NetworkServer.Configuration.UseAuthIdentity && !NetworkServer.AuthIdentity.NetIDToUUID(newPeer, out _))
                 {
-                    BNL.Log($"Reconnect collision on peer id {PeerId}; evicting stale entry and accepting new connection.");
-                    CleanupPeerSubsystems(stale, PeerId);
-                    added = NetworkServer.AuthenticatedPeers.TryAdd(PeerId, newPeer);
+                    BNL.Log($"Peer {PeerId} (UUID {UUID}) dropped before admission completed; not registering.");
+                    return;
+                }
+
+                bool added = NetworkServer.AuthenticatedPeers.TryAdd(PeerId, newPeer);
+                if (!added)
+                {
+                    // Reconnect collision: LiteNetLib recycled this peer-id slot before the
+                    // previous disconnect's subsystem cleanup completed (or the original
+                    // PeerDisconnectedEvent has not yet been dispatched). The old entry is
+                    // stale because LNL will not hand us two live peers with the same Id —
+                    // evict it synchronously and retry the insert.
+                    if (NetworkServer.AuthenticatedPeers.TryGetValue(PeerId, out NetPeer stale) &&
+                        !Equals(stale, newPeer))
+                    {
+                        BNL.Log($"Reconnect collision on peer id {PeerId}; evicting stale entry and accepting new connection.");
+                        CleanupPeerSubsystems(stale, PeerId);
+                        added = NetworkServer.AuthenticatedPeers.TryAdd(PeerId, newPeer);
+                    }
+                }
+
+                if (added)
+                {
+                    newPeer.Tag = NetworkServer.AuthenticatedPeerTag;
+                    //never ever assume the UUID provided by the user is good always recalc on the server.
+                    //this means that as long as they pass auth but locally have a bad UUID that only they locally are effected.
+                    //there is no way to force a user locally to be a certain UUID, that's not how the internet works.
+                    //instead we can make sure all additional clients have them correct.
+                    //this only occurs if the server is doing Auth checks.
+                    ReadyMessage.playerMetaDataMessage.playerUUID = UUID;
+                    PermissionIntegration.StorePlayerMeta(UUID, ReadyMessage.playerMetaDataMessage);
+                    BasisServerReductionSystemEvents.AddMessage(newPeer, ReadyMessage.localAvatarSyncMessage, 0);
+                    BasisSavedState.AddLastData(newPeer, ReadyMessage);
+                    // Claim this peer's place in the join order before anything is announced, so the
+                    // "only records newer than my own join" rule below has a value to compare against.
+                    JoinBroadcast.RegisterPeer(newPeer.Id, JoinBroadcast.NextSeq());
+                    NetworkServer.RebuildPeerSnapshot();
+                    joinSnapshot = NetworkServer.PeerSnapshot;
                 }
             }
 
-            if (added)
+            if (joinSnapshot != null)
             {
-                newPeer.Tag = NetworkServer.AuthenticatedPeerTag;
-                NetworkServer.RebuildPeerSnapshot();
-                // Claim this peer's place in the join order before anything is announced, so the
-                // "only records newer than my own join" rule below has a value to compare against.
-                JoinBroadcast.RegisterPeer(newPeer.Id, JoinBroadcast.NextSeq());
                 BNL.Log($"Peer connected: {newPeer.Id}");
-                //never ever assume the UUID provided by the user is good always recalc on the server.
-                //this means that as long as they pass auth but locally have a bad UUID that only they locally are effected.
-                //there is no way to force a user locally to be a certain UUID, that's not how the internet works.
-                //instead we can make sure all additional clients have them correct.
-                //this only occurs if the server is doing Auth checks.
-                ReadyMessage.playerMetaDataMessage.playerUUID = UUID;
-                PermissionIntegration.StorePlayerMeta(UUID, ReadyMessage.playerMetaDataMessage);
 
                Configuration Config = NetworkServer.Configuration;
                 //lets dump to the local client there data after the server has had its way
@@ -711,7 +804,7 @@ namespace BasisServerHandle
 
                 NetworkServer.ReturnWriter(Writer);
 
-                SendRemoteSpawnMessage(newPeer, ReadyMessage);
+                SendRemoteSpawnMessage(newPeer, ReadyMessage, joinSnapshot);
 
                 BasisNetworkResourceManagement.SendOutAllResources(newPeer);
                 BasisNetworkServerLibrary.SendLibraryToPeer(newPeer);
@@ -729,10 +822,13 @@ namespace BasisServerHandle
                 BasisNetworkServer.Security.BasisCrashReportStateManager.SendStateToPeer(newPeer);
                 BasisNetworkServer.Security.BasisAudioRangeLimitManager.SendStateToPeer(newPeer);
                 BasisNetworkServer.Security.BasisAvatarScaleLimitManager.SendStateToPeer(newPeer);
+                BasisNetworkServer.Security.BasisLocomotionPolicyManager.SendStateToPeer(newPeer);
                 BasisNetworkServer.Security.BasisResourceLimitManager.SendStateToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendReductionSettingsToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendImageBandwidthToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendPeerLimitToPeer(newPeer);
+                BasisNetworkServer.Security.BasisPlayerMuteManager.SendStateToPeerIfMuted(newPeer);
+                SendAnnounceStateToPeer(newPeer);
                 SendShoutStateToPeer(newPeer);
             }
             else
@@ -768,7 +864,8 @@ namespace BasisServerHandle
             ClientAvatarChangeMessage.Deserialize(Reader);
             Reader.Recycle();
 
-            // Global avatar lock: reject network broadcast but still save state locally
+            // Global avatar lock: drop the change outright — neither broadcast nor saved, so a
+            // late joiner isn't handed an avatar the lock exists to keep out of the instance.
             if (BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked)
             {
                 bool hasBypass = false;
@@ -834,11 +931,13 @@ namespace BasisServerHandle
         }
 
         /// <summary>
-        /// True when the global voice lock is on and this peer lacks basis.voice.lockbypass.
-        /// Shared by the normal and shout voice paths.
+        /// True when this peer may not transmit voice: the global voice lock is on and they lack
+        /// basis.voice.lockbypass, or a moderator voice-muted them. Shared by the normal and
+        /// announce voice paths.
         /// </summary>
         public static bool IsVoiceBlockedFor(NetPeer peer)
         {
+            if (BasisNetworkServer.Security.BasisPlayerMuteManager.IsVoiceMutedFor(peer)) return true;
             return BasisNetworkServer.Security.BasisGlobalLockManager.VoiceChatLocked &&
                 !PermissionIntegration.HasValidRequirement(peer, PermNodes.VoiceLockBypass);
         }
@@ -849,6 +948,7 @@ namespace BasisServerHandle
         /// </summary>
         public static bool IsVoiceBlockedForUuid(string uuid)
         {
+            if (BasisNetworkServer.Security.BasisPlayerMuteManager.IsVoiceMuted(uuid)) return true;
             return BasisNetworkServer.Security.BasisGlobalLockManager.VoiceChatLocked &&
                 !PermissionIntegration.HasValidRequirement(uuid, PermNodes.VoiceLockBypass);
         }
@@ -880,15 +980,15 @@ namespace BasisServerHandle
         }
 
         /// <summary>
-        /// Handles shout voice sent by a client on ShoutVoiceChannel (channel 0).
-        /// Only processes if the sender is authorized for shout mode.
+        /// Handles announce voice sent by a client on AnnounceVoiceChannel (channel 4).
+        /// Only processes if the sender is authorized for announce mode.
         /// Broadcasts to ALL connected peers.
         /// </summary>
-        public static void HandleShoutVoiceMessage(NetPacketReader reader, NetPeer peer)
+        public static void HandleAnnounceVoiceMessage(NetPacketReader reader, NetPeer peer)
         {
-            if (!BasisSavedState.IsInShoutMode(peer.Id))
+            if (!BasisSavedState.IsInAnnounceMode(peer.Id))
             {
-                BNL.LogError($"Peer {peer.Id} sent shout voice but is not in shout mode. Ignoring.");
+                BNL.LogError($"Peer {peer.Id} sent announce voice but is not in announce mode. Ignoring.");
                 reader.Recycle();
                 return;
             }
@@ -917,7 +1017,7 @@ namespace BasisServerHandle
             serverAudio.Serialize(writer);
             int len = writer.Length;
             byte[] data = writer.Data;
-            byte channel = BasisNetworkCommons.ShoutVoiceChannel;
+            byte channel = BasisNetworkCommons.AnnounceVoiceChannel;
             int senderId = peer.Id;
 
             var clients = NetworkServer.PeerSnapshot;
@@ -936,7 +1036,49 @@ namespace BasisServerHandle
         }
 
         /// <summary>
-        /// Broadcasts a shout mode state change to all clients via the AdminChannel.
+        /// Broadcasts an announce mode state change to all clients via the AdminChannel.
+        /// </summary>
+        public static void BroadcastAnnounceModeState(ushort targetPlayerId, bool enabled, ushort initiatorPlayerId)
+        {
+            var writer = NetworkServer.RentWriter();
+            AdminRequestMode mode = enabled ? AdminRequestMode.EnableAnnounceMode : AdminRequestMode.DisableAnnounceMode;
+            new AdminRequest().Serialize(writer, mode);
+            writer.Put(targetPlayerId);
+            writer.Put(initiatorPlayerId);
+
+            NetPeer[] peers = NetworkServer.PeerSnapshot;
+            foreach (var client in peers)
+            {
+                BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.AdminChannel, writer.Length);
+                client.Send(writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+
+            NetworkServer.ReturnWriter(writer);
+        }
+
+        /// <summary>
+        /// Sends current announce mode states to a newly connected peer.
+        /// </summary>
+        public static void SendAnnounceStateToPeer(NetPeer newPeer)
+        {
+            int[] announcePlayers = BasisSavedState.GetAllAnnounceModePlayers();
+            if (announcePlayers.Length == 0) return;
+
+            var writer = NetworkServer.RentWriter();
+            foreach (int peerId in announcePlayers)
+            {
+                writer.Reset();
+                new AdminRequest().Serialize(writer, AdminRequestMode.EnableAnnounceMode);
+                writer.Put((ushort)peerId);
+                writer.Put((ushort)peerId);
+                BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.AdminChannel, writer.Length);
+                newPeer.Send(writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+            NetworkServer.ReturnWriter(writer);
+        }
+
+        /// <summary>
+        /// Broadcasts an admin-granted shout mode state change to all clients via the AdminChannel.
         /// </summary>
         public static void BroadcastShoutModeState(ushort targetPlayerId, bool enabled, ushort initiatorPlayerId)
         {
@@ -957,7 +1099,7 @@ namespace BasisServerHandle
         }
 
         /// <summary>
-        /// Sends current shout mode states to a newly connected peer.
+        /// Sends current admin-granted shout mode states to a newly connected peer.
         /// </summary>
         public static void SendShoutStateToPeer(NetPeer newPeer)
         {
@@ -1139,14 +1281,7 @@ namespace BasisServerHandle
         #endregion
 
         #region Spawn and Client List Handling
-        public static void SendRemoteSpawnMessage(NetPeer authClient, ReadyMessage readyMessage)
-        {
-            ServerReadyMessage serverReadyMessage = LoadInitialState(authClient, readyMessage);
-            NotifyExistingClients(serverReadyMessage, authClient);
-            SendClientListToNewClient(authClient, readyMessage.localAvatarSyncMessage);
-        }
-
-        public static ServerReadyMessage LoadInitialState(NetPeer authClient, ReadyMessage readyMessage)
+        public static void SendRemoteSpawnMessage(NetPeer authClient, ReadyMessage readyMessage, NetPeer[] peers)
         {
             ServerReadyMessage serverReadyMessage = new ServerReadyMessage
             {
@@ -1156,9 +1291,8 @@ namespace BasisServerHandle
                     playerID = (ushort)authClient.Id
                 }
             };
-            BasisServerReductionSystemEvents.AddMessage(authClient, readyMessage.localAvatarSyncMessage, 0);
-            BasisSavedState.AddLastData(authClient, readyMessage);
-            return serverReadyMessage;
+            NotifyExistingClients(serverReadyMessage, authClient);
+            SendClientListToNewClient(authClient, readyMessage.localAvatarSyncMessage, peers);
         }
         /// <summary>
         /// notify existing clients about a new player
@@ -1193,6 +1327,11 @@ namespace BasisServerHandle
         /// </summary>
         public static void SendClientListToNewClient(NetPeer authClient, LocalAvatarSyncMessage joinerPose)
         {
+            SendClientListToNewClient(authClient, joinerPose, NetworkServer.PeerSnapshot);
+        }
+
+        public static void SendClientListToNewClient(NetPeer authClient, LocalAvatarSyncMessage joinerPose, NetPeer[] peers)
+        {
             try
             {
                 // The joiner's own position, taken from the pose it just sent. Used to pick each
@@ -1209,10 +1348,10 @@ namespace BasisServerHandle
                     viewerPosition = Basis.Network.Core.Compression.BasisNetworkCompressionExtensions.ReadPosition(ref poseBytes);
                 }
 
-                NetPeer[] peers = NetworkServer.PeerSnapshot;
                 NetDataWriter batchBuffer = NetworkServer.RentWriter();
                 NetDataWriter sendWriter = NetworkServer.RentWriter();
                 ushort batched = 0;
+                List<(ushort count, byte[] payload)> readyBatches = new List<(ushort, byte[])>();
 
                 foreach (var peer in peers)
                 {
@@ -1230,11 +1369,35 @@ namespace BasisServerHandle
 
                     if (batchBuffer.Length >= ServerReadyBatchMessage.MaxPayloadBytes)
                     {
-                        FlushReadyBatch(authClient, batchBuffer, sendWriter, ref batched);
+                        CollectReadyBatch(readyBatches, batchBuffer, ref batched);
                     }
                 }
 
-                FlushReadyBatch(authClient, batchBuffer, sendWriter, ref batched);
+                CollectReadyBatch(readyBatches, batchBuffer, ref batched);
+
+                // At scale the Deflate(Optimal) passes dominate this path (~16 batches of 32 KB
+                // at 2000 players, all previously serial on the accept thread). The batches are
+                // independent, so compress them in parallel and keep only the ordered sends serial.
+                int batchTotal = readyBatches.Count;
+                if (batchTotal == 1)
+                {
+                    SendReadyBatch(authClient, sendWriter, readyBatches[0].count,
+                        ServerReadyBatchMessage.Compress(readyBatches[0].payload, out bool compressed), compressed);
+                }
+                else if (batchTotal > 1)
+                {
+                    byte[][] framed = new byte[batchTotal][];
+                    bool[] framedCompressed = new bool[batchTotal];
+                    Parallel.For(0, batchTotal, BasisServerReductionSystemEvents.SharedParallelOptions, i =>
+                    {
+                        framed[i] = ServerReadyBatchMessage.Compress(readyBatches[i].payload, out bool compressed);
+                        framedCompressed[i] = compressed;
+                    });
+                    for (int i = 0; i < batchTotal; i++)
+                    {
+                        SendReadyBatch(authClient, sendWriter, readyBatches[i].count, framed[i], framedCompressed[i]);
+                    }
+                }
 
                 NetworkServer.ReturnWriter(sendWriter);
                 NetworkServer.ReturnWriter(batchBuffer);
@@ -1245,25 +1408,23 @@ namespace BasisServerHandle
             }
         }
 
-        private static void FlushReadyBatch(NetPeer authClient, NetDataWriter batchBuffer, NetDataWriter sendWriter, ref ushort batched)
+        private static void CollectReadyBatch(List<(ushort count, byte[] payload)> readyBatches, NetDataWriter batchBuffer, ref ushort batched)
         {
             if (batched == 0)
             {
                 return;
             }
-
-            ServerReadyBatchMessage batch = new ServerReadyBatchMessage
-            {
-                Count = batched,
-                Payload = batchBuffer.CopyData(),
-            };
-
-            sendWriter.Reset();
-            batch.Serialize(sendWriter);
-            NetworkServer.TrySend(authClient, sendWriter, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
-
+            readyBatches.Add((batched, batchBuffer.CopyData()));
             batchBuffer.Reset();
             batched = 0;
+        }
+
+        private static void SendReadyBatch(NetPeer authClient, NetDataWriter sendWriter, ushort count, byte[] framed, bool compressed)
+        {
+            ServerReadyBatchMessage batch = new ServerReadyBatchMessage { Count = count };
+            sendWriter.Reset();
+            batch.SerializePreCompressed(sendWriter, framed, compressed);
+            NetworkServer.TrySend(authClient, sendWriter, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
         }
         /// <param name="viewerPosition">Where the joining player is. Selects the quality tier for
         /// <paramref name="peer"/>, exactly as the steady-state send loop would.</param>

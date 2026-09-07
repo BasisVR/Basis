@@ -141,14 +141,21 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     }
 
     /// <summary>
-    /// High-performance, lock-free, thread-safe pool for BasisAvatarBuffer.
+    /// Thread-safe pool for BasisAvatarBuffer.
     /// - Single reset per round-trip: buffers are reset on Get(), NOT on Release().
     /// - Editor/Dev-only invariants enforced with UnityEngine.Assertions.
+    /// - The list is guarded by a monitor rather than a CAS on the head. The lock-free form was a
+    ///   Treiber stack with no version tag: a pop that read head/head.NextInPool and was then
+    ///   preempted while another thread popped both and pushed the first back had its CAS succeed
+    ///   against the recycled head and installed a CHECKED-OUT buffer as the list head. That hands
+    ///   one buffer to two receivers, orphans the rest of the free list, and lets Deinitialize
+    ///   Dispose() the persistent NativeArrays of a buffer a Burst job still reads.
     /// </summary>
     public static class BasisAvatarBufferPool
     {
-        // Intrusive lock-free stack head.
+        // Intrusive stack head; only ever read or written under _gate.
         private static BasisAvatarBuffer _head;
+        private static readonly object _gate = new object();
 
         // Use Unity's assertion stripping (enabled in Editor/Development when UNITY_ASSERTIONS is defined).
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -169,52 +176,44 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         /// <summary>
         /// Get a buffer from the pool or create a new one.
-        /// Lock-free pop via CAS on the head pointer.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static BasisAvatarBuffer Get()
         {
-            while (true)
+            BasisAvatarBuffer head;
+            lock (_gate)
             {
-                var head = _head;
-
-                if (head == null)
+                head = _head;
+                if (head != null)
                 {
-                    var fresh = new BasisAvatarBuffer();
-                    // Fresh buffers are not in the pool; PooledFlag default is 0.
-                    fresh.ResetForReuse();
-                    return fresh;
-                }
-
-                var next = head.NextInPool;
-
-                // Try to pop: if _head == head, set it to next.
-                if (Interlocked.CompareExchange(ref _head, next, head) == head)
-                {
-                    // Successfully popped. Detach from list.
+                    _head = head.NextInPool;
                     head.NextInPool = null;
-
-                    // Mark as out-of-pool.
                     Interlocked.Exchange(ref head.PooledFlag, 0);
-
-                    // --- DEV/EDITOR invariants ---
-                    PoolAssert(!head.IsDisposed, "Pool returned a disposed BasisAvatarBuffer. Disposed buffers must never be pooled.");
-                    PoolAssert(head.NextInPool == null, "Popped BasisAvatarBuffer still has NextInPool set. Pool list corruption.");
-                    PoolAssert(head.PooledFlag == 0, "Popped BasisAvatarBuffer still marked as pooled (PooledFlag != 0).");
-
-                    // Single reset per round-trip happens here.
-                    head.ResetForReuse();
-                    return head;
                 }
-
-                // CAS failed due to contention – brief spin.
-                Thread.SpinWait(1);
             }
+
+            if (head == null)
+            {
+                var fresh = new BasisAvatarBuffer();
+                // Fresh buffers are not in the pool; PooledFlag default is 0.
+                fresh.ResetForReuse();
+                return fresh;
+            }
+
+            // --- DEV/EDITOR invariants ---
+            PoolAssert(!head.IsDisposed, "Pool returned a disposed BasisAvatarBuffer. Disposed buffers must never be pooled.");
+            PoolAssert(head.NextInPool == null, "Popped BasisAvatarBuffer still has NextInPool set. Pool list corruption.");
+            PoolAssert(head.PooledFlag == 0, "Popped BasisAvatarBuffer still marked as pooled (PooledFlag != 0).");
+
+            // Single reset per round-trip happens here. Outside the lock: the buffer is detached and
+            // exclusively owned by this caller, and ResetForReuse can allocate.
+            head.ResetForReuse();
+            return head;
         }
 
         /// <summary>
         /// Return a buffer to the pool.
-        /// Double-release detection via PooledFlag; lock-free push via CAS.
+        /// Double-release detection via PooledFlag.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Release(BasisAvatarBuffer item)
@@ -247,19 +246,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             // Do NOT call item.Reset/EnsureAllocated here.
             // Reset happens once when checked OUT (Get), keeping Release cheap and avoiding "allocate on release".
 
-            while (true)
+            lock (_gate)
             {
-                var head = _head;
-                item.NextInPool = head;
-
-                // Try to push: if _head == head, set it to item.
-                if (Interlocked.CompareExchange(ref _head, item, head) == head)
-                {
-                    return;
-                }
-
-                // CAS failed – another thread changed the head; retry.
-                Thread.SpinWait(1);
+                item.NextInPool = _head;
+                _head = item;
             }
         }
 
@@ -269,7 +259,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// </summary>
         public static void Deinitialize()
         {
-            var head = Interlocked.Exchange(ref _head, null);
+            BasisAvatarBuffer head;
+            lock (_gate)
+            {
+                head = _head;
+                _head = null;
+            }
 
             while (head != null)
             {

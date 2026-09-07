@@ -96,9 +96,12 @@ public static class BasisNetworkHandleTempBlock
         // Reload the avatar: CreateAvatar consults IsEffectivelyBlocked to pick visible/fallback.
         remotePlayer.ReloadAvatar();
 
-        // Refresh the nameplate visibility + clear any chat bubble that may be mid-display.
+        // Refresh the nameplate visibility + clear any chat bubble or typing indicator
+        // that may be mid-display.
         if (isBlocked)
         {
+            remotePlayer.IsChatTyping = false;
+            remotePlayer.OnChatTypingStateChanged?.Invoke(false);
             remotePlayer.OnChatMessageReceived?.Invoke(string.Empty);
         }
         remotePlayer.OnNamePlateActiveStateShouldRefresh?.Invoke();

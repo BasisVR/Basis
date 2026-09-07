@@ -23,6 +23,10 @@ public static partial class SerializableBasis
         public byte AdditionalAvatarDataSize;
         public byte LinkedAvatarIndex;
 
+        private static readonly byte[] ZeroPayload = new byte[Math.Max(
+            Math.Max(BasisAvatarBitPacking.ConvertToSize(BitQuality.VeryLow), BasisAvatarBitPacking.ConvertToSize(BitQuality.Low)),
+            Math.Max(BasisAvatarBitPacking.ConvertToSize(BitQuality.Medium), BasisAvatarBitPacking.ConvertToSize(BitQuality.High)))];
+
         public LocalAvatarSyncMessage(byte[] array) : this()
         {
             this.array = array;
@@ -147,6 +151,8 @@ public static partial class SerializableBasis
             if (!reader.TryGetByte(out LinkedAvatarIndex))
             {
                 BNL.LogError("Missing LinkedAvatarIndex!");
+                AdditionalAvatarDataSize = 0;
+                AdditionalAvatarDatas = null;
                 return;
             }
 
@@ -172,26 +178,27 @@ public static partial class SerializableBasis
             if (!TryGetExpectedPayloadLength(DataQualityLevel, out ushort expected))
             {
                 BNL.LogError($"Serialize invalid quality={Quality} (DataQualityLevel={DataQualityLevel})");
+                DataQualityLevel = (byte)BitQuality.High;
                 writer.Put(DataQualityLevel);
+                writer.Put(ZeroPayload, 0, BasisAvatarBitPacking.ConvertToSize(BitQuality.High));
                 writer.Put((byte)0);
                 return;
             }
 
             writer.Put(DataQualityLevel);
 
-            if (array == null)
+            if (array == null || array.Length != expected)
             {
-                BNL.LogError("array was null!!");
-                writer.Put((byte)0);
-                return;
+                if (array == null)
+                {
+                    BNL.LogError("array was null!!");
+                }
+                writer.Put(ZeroPayload, 0, expected);
             }
-
-            if (array.Length != expected)
+            else
             {
-                array = new byte[expected];
+                writer.Put(array, 0, expected);
             }
-
-            writer.Put(array, 0, expected);
 
             if (AdditionalAvatarDatas == null || AdditionalAvatarDatas.Length == 0 || AdditionalAvatarDatas.Length > 255)
             {
@@ -230,10 +237,12 @@ public static partial class SerializableBasis
 
             if (array.Length != expected)
             {
-                array = new byte[expected];
+                writer.Put(ZeroPayload, 0, expected);
             }
-
-            writer.Put(array, 0, expected);
+            else
+            {
+                writer.Put(array, 0, expected);
+            }
 
             // Additional data only written when present — the channel tells the receiver.
             if (AdditionalAvatarDatas != null && AdditionalAvatarDatas.Length > 0 && AdditionalAvatarDatas.Length <= 255)

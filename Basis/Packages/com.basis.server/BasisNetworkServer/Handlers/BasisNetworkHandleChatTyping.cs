@@ -24,6 +24,11 @@ namespace BasisNetworkServer
                 reader.Recycle();
             }
 
+            if (!BasisNetworkChat.TypingLimiter.TryConsume(peer))
+            {
+                return;
+            }
+
             if (BasisNetworkChat.IsChatBlockedFor(peer))
             {
                 return;

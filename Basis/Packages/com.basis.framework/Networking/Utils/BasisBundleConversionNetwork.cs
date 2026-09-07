@@ -10,6 +10,7 @@ public static class BasisBundleConversionNetwork
             {
                 RemoteBeeFileLocation = AvatarNetworkLoadInformation.URL,
                 RemoteVersionTag = AvatarNetworkLoadInformation.VersionTag,
+                IsNetworkSourced = true,
             },
              BasisBundleConnector = new BasisBundleConnector(),
             BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle(),
