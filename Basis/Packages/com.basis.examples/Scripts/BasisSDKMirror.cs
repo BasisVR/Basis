@@ -1,6 +1,5 @@
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
@@ -35,7 +34,8 @@ public class BasisSDKMirror : MonoBehaviour
     [SerializeField] private MirrorClearFlags clearFlags = MirrorClearFlags.FromReferenceCamera;
     [SerializeField] private Color clearColor = Color.black;
     // 0.001 z-fights/flickers at grazing angles on mobile depth precision; classic planar-mirror
-    // references use 0.05-0.07. Serialized 0.001 from older content is clamped up on Android.
+    // references use 0.05-0.07. Serialized 0.001 from older content is clamped up while
+    // MirrorDepthPrecisionGuard is on (mobile default).
     public float ClipPlaneOffset = 0.05f;
     public float nearClipLimit = 0.01f;
     public float FarClipPlane = 25f;
@@ -54,11 +54,11 @@ public class BasisSDKMirror : MonoBehaviour
     [Header("Update Rate")]
     [Tooltip("Render the reflection every Nth frame (1 = every frame). Cheap lever for heavy worlds.")]
     public int UpdateEveryNthFrame = 1;
-    [Tooltip("Standalone only: within this distance of the mirror surface it updates at full rate.")]
+    [Tooltip("Used while the Mirror distance rate tiers setting is on: within this distance of the mirror surface it updates at full rate.")]
     public float FullRateDistance = 4f;
-    [Tooltip("Standalone only: beyond FullRateDistance the mirror updates every 2nd frame; beyond this, every 4th.")]
+    [Tooltip("Used while the Mirror distance rate tiers setting is on: beyond FullRateDistance the mirror updates every 2nd frame; beyond this, every 4th.")]
     public float HalfRateDistance = 10f;
-    [Tooltip("Standalone only: beyond this distance the mirror stops updating and keeps its last image.")]
+    [Tooltip("Beyond this distance the mirror stops updating and keeps its last image.")]
     public float CullDistance = 25f;
 
     [Header("Secondary Viewers")]
@@ -730,17 +730,16 @@ public class BasisSDKMirror : MonoBehaviour
         {
             width = XSize;
             height = YSize;
-            if (BasisGpuDetection.IsMobileGpu)
+            // Standalone ceiling: research consensus is 512-768 per eye; the 2048 world default is
+            // a measured slideshow on mobile GPUs (two eyes, per mirror, per frame).
+            int cap = SettingOrAuto(BasisSettingsDefaults.MirrorResolutionCap.RawValue, 0);
+            if (cap > 0)
             {
-                // Standalone ceiling: research consensus is 512-768 per eye; the 2048 world default is
-                // a measured slideshow on mobile GPUs (two eyes, per mirror, per frame).
-                width = Mathf.Min(width, StandaloneResolutionCap);
-                height = Mathf.Min(height, StandaloneResolutionCap);
+                width = Mathf.Min(width, cap);
+                height = Mathf.Min(height, cap);
             }
         }
     }
-
-    private const int StandaloneResolutionCap = 768;
 
     private void Initialize()
     {
@@ -846,11 +845,12 @@ public class BasisSDKMirror : MonoBehaviour
             gazeTarget.FocusPoint = TransformPoint(planePosWS, planeRotWS, reflLocal);
         }
 
-        bool mobileGpu = BasisGpuDetection.IsMobileGpu;
+        float lodBiasScale = Mathf.Clamp(BasisSettingsDefaults.MirrorLodBias.RawValue, 0.25f, 1f);
+        bool scaleLodBias = !Mathf.Approximately(lodBiasScale, 1f);
         float lodBiasWas = QualitySettings.lodBias;
-        if (mobileGpu)
+        if (scaleLodBias)
         {
-            QualitySettings.lodBias = lodBiasWas * 0.75f;
+            QualitySettings.lodBias = lodBiasWas * lodBiasScale;
         }
         try
         {
@@ -865,7 +865,7 @@ public class BasisSDKMirror : MonoBehaviour
         }
         finally
         {
-            if (mobileGpu)
+            if (scaleLodBias)
             {
                 QualitySettings.lodBias = lodBiasWas;
             }
@@ -1085,7 +1085,20 @@ public class BasisSDKMirror : MonoBehaviour
     private float EffectiveClipPlaneOffset()
     {
         // Serialized 0.001 from older content z-fights at grazing angles on mobile depth precision.
-        return BasisGpuDetection.IsMobileGpu && ClipPlaneOffset < 0.02f ? 0.05f : ClipPlaneOffset;
+        return BasisSettingsDefaults.MirrorDepthPrecisionGuard.RawValue && ClipPlaneOffset < 0.02f ? 0.05f : ClipPlaneOffset;
+    }
+
+    /// <summary>
+    /// Reads a mirror dropdown that carries either <see cref="BasisSettingsDefaults.MirrorAuto"/> or an
+    /// integer, returning <paramref name="auto"/> for Auto so the mirror's own authored value wins.
+    /// </summary>
+    private static int SettingOrAuto(string option, int auto)
+    {
+        if (string.IsNullOrEmpty(option) || string.Equals(option, BasisSettingsDefaults.MirrorAuto, StringComparison.OrdinalIgnoreCase))
+        {
+            return auto;
+        }
+        return int.TryParse(option, out int parsed) ? parsed : auto;
     }
 
     /// <summary>
@@ -1184,10 +1197,10 @@ public class BasisSDKMirror : MonoBehaviour
         GetEffectiveResolution(out int effectiveWidth, out int effectiveHeight);
         // 16-bit depth is plenty for a 25 m far plane at half the tile bandwidth; 4x MSAA resolves
         // on-tile on Adreno (Meta-recommended) and keeps edges clean at the reduced resolution.
-        bool mobileGpu = BasisGpuDetection.IsMobileGpu;
-        int effectiveDepth = mobileGpu ? 16 : depth;
-        int effectiveMsaa = mobileGpu ? Mathf.Max(Antialiasing, 4) : Mathf.Max(1, Antialiasing);
-        effectiveMsaa = BasisCameraTargetMsaa.Clamp(effectiveMsaa);
+        int effectiveDepth = SettingOrAuto(BasisSettingsDefaults.MirrorDepthBits.RawValue, depth);
+        int effectiveMsaa = Mathf.Max(1, Antialiasing);
+        int msaaFloor = SettingOrAuto(BasisSettingsDefaults.MirrorMsaaFloor.RawValue, 0);
+        effectiveMsaa = BasisCameraTargetMsaa.Clamp(Mathf.Max(effectiveMsaa, msaaFloor));
 
         var desc = new RenderTextureDescriptor(effectiveWidth, effectiveHeight, RenderTextureFormat.Default, effectiveDepth)
         {

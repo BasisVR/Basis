@@ -1,5 +1,13 @@
 Shader "Hidden/VolumetricFog"
 {
+    Properties
+    {
+        [HideInInspector] _VFSrcBlend ("Src Blend", Float) = 1
+        [HideInInspector] _VFDstBlend ("Dst Blend", Float) = 0
+        [HideInInspector] _VFSrcBlendAlpha ("Src Blend Alpha", Float) = 1
+        [HideInInspector] _VFDstBlendAlpha ("Dst Blend Alpha", Float) = 0
+    }
+
     SubShader
     {
         Tags
@@ -14,7 +22,7 @@ Shader "Hidden/VolumetricFog"
             ZTest Always
             ZWrite Off
             Cull Off
-            Blend Off
+            Blend [_VFSrcBlend] [_VFDstBlend], [_VFSrcBlendAlpha] [_VFDstBlendAlpha]
 
             HLSLPROGRAM
 
@@ -144,6 +152,113 @@ Shader "Hidden/VolumetricFog"
 
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "VolumetricFogComposition"
+
+            ZTest Always
+            ZWrite Off
+            Cull Off
+            Blend One SrcAlpha, Zero One
+
+            HLSLPROGRAM
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+
+            #pragma vertex Vert
+            #pragma fragment Frag
+
+            float4 Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+                return LOAD_TEXTURE2D_X(_BlitTexture, uint2(input.positionCS.xy));
+            }
+
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "VolumetricFogTemporal"
+
+            ZTest Always
+            ZWrite Off
+            Cull Off
+            Blend Off
+
+            HLSLPROGRAM
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+            #include "./VolumetricFogTemporal.hlsl"
+
+            #pragma vertex Vert
+            #pragma fragment Frag
+
+            TemporalOutput Frag(Varyings input)
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+                return VolumetricFogTemporalResolve(input.texcoord, input.positionCS.xy);
+            }
+
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "VolumetricFogFroxelApply"
+
+            ZTest Always
+            ZWrite Off
+            Cull Off
+            Blend One SrcAlpha, Zero One
+
+            HLSLPROGRAM
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/GlobalSamplers.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "./VolumetricFogFroxel.hlsl"
+
+            #pragma vertex Vert
+            #pragma fragment Frag
+
+            TEXTURE3D(_VFFroxelVolume);
+            float4x4 _VFFroxelViewProj;
+            float _VFFroxelShared;
+
+            float4 Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+                float rawDepth = SampleSceneDepth(input.texcoord);
+                float viewDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
+                float2 fogUV = input.texcoord;
+                uint viewIndex = unity_StereoEyeIndex;
+
+                UNITY_BRANCH
+                if (_VFFroxelShared > 0.5)
+                {
+#if !UNITY_REVERSED_Z
+                    rawDepth = lerp(UNITY_NEAR_CLIP_VALUE, 1.0, rawDepth);
+#endif
+                    float3 posWS = ComputeWorldSpacePosition(input.texcoord, rawDepth, UNITY_MATRIX_I_VP);
+                    float4 fogClip = mul(_VFFroxelViewProj, float4(posWS, 1.0));
+                    fogUV = ComputeNormalizedDeviceCoordinates(posWS, _VFFroxelViewProj);
+                    viewDepth = fogClip.w;
+                    viewIndex = 0u;
+                }
+
+                return SAMPLE_TEXTURE3D_LOD(_VFFroxelVolume, sampler_LinearClamp, FroxelIntegratedUVW(fogUV, viewDepth, viewIndex), 0.0);
+            }
+
+            ENDHLSL
+        }
     }
 
     SubShader
@@ -186,6 +301,12 @@ Shader "Hidden/VolumetricFog"
 
             ENDHLSL
         }
+
+        UsePass "Hidden/VolumetricFog/VOLUMETRICFOGCOMPOSITION"
+
+        UsePass "Hidden/VolumetricFog/VOLUMETRICFOGTEMPORAL"
+
+        UsePass "Hidden/VolumetricFog/VOLUMETRICFOGFROXELAPPLY"
     }
 
     Fallback Off

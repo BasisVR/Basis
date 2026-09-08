@@ -8,15 +8,7 @@
 // VolumetricFog.hlsl, the bilateral upsample in DepthAwareUpsample.hlsl) reads the result identically either
 // way and needed no changes for this to exist.
 
-// Exact algebraic inverse of Core.hlsl's LinearEyeDepth(depth, zBufferParams): eyeDepth = 1 / (z*depth + w),
-// solved for depth. Round-tripping raw -> eye -> raw returns the original bits to float precision, for
-// either z convention, since _ZBufferParams already absorbs that difference the same way LinearEyeDepth
-// itself does - there is no separate UNITY_REVERSED_Z branch needed here for the same reason there isn't
-// one in LinearEyeDepth.
-float RawDepthFromLinearEyeDepth(float eyeDepth)
-{
-    return (rcp(max(eyeDepth, 1e-8)) - _ZBufferParams.w) / _ZBufferParams.z;
-}
+#include "./ProjectionUtils.hlsl"
 
 float Frag(Varyings input) : SV_Target
 {

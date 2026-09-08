@@ -36,6 +36,12 @@ public sealed class VolumetricFogRendererFeature : ScriptableRendererFeature
 	[Tooltip("Experimental: schedule the APV bake on the GPU's async compute queue (DX12/Vulkan/Metal only; auto-falls back to sync where unsupported). The fog draw that reads the result is not render-graph-tracked, so no sync fence is inserted; expect possible brief fog flicker while the volume is still settling on world load. Default off.")]
 	[SerializeField] private bool bakeUseAsyncCompute = false;
 
+	[Header("Froxel Volume")]
+	[Tooltip("Compute shader that lights and integrates the camera-aligned froxel volume used when VolumetricFogQuality.FroxelVolume is on. Auto-resolved in the editor if left empty.")]
+	[SerializeField] private ComputeShader froxelComputeShader;
+	[Tooltip("Compute shader that prepares the froxel columns: furthest opaque depth, column ray and sun constant. Auto-resolved in the editor if left empty.")]
+	[SerializeField] private ComputeShader froxelColumnComputeShader;
+
 	private Material downsampleDepthMaterial;
 	private Material volumetricFogMaterial;
 
@@ -63,6 +69,8 @@ public sealed class VolumetricFogRendererFeature : ScriptableRendererFeature
 
 		volumetricFogAPVBakePass = new VolumetricFogAPVBakePass();
 		ResolveBakeComputeShader();
+		ResolveFroxelComputeShader();
+		volumetricFogRenderPass.SetFroxelComputeShaders(froxelComputeShader, froxelColumnComputeShader);
 	}
 
 	/// <summary>
@@ -184,6 +192,30 @@ public sealed class VolumetricFogRendererFeature : ScriptableRendererFeature
 			: -1;
 	}
 
+	private void ResolveFroxelComputeShader()
+	{
+#if UNITY_EDITOR
+		if (froxelComputeShader == null)
+			froxelComputeShader = FindComputeShader("VolumetricFogFroxel");
+		if (froxelColumnComputeShader == null)
+			froxelColumnComputeShader = FindComputeShader("VolumetricFogFroxelColumns");
+#endif
+	}
+
+#if UNITY_EDITOR
+	private static ComputeShader FindComputeShader(string assetName)
+	{
+		string[] guids = UnityEditor.AssetDatabase.FindAssets(assetName + " t:ComputeShader");
+		for (int i = 0; i < guids.Length; ++i)
+		{
+			ComputeShader shader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[i]));
+			if (shader != null && shader.name == assetName)
+				return shader;
+		}
+		return null;
+	}
+#endif
+
 	/// <summary>
 	/// If a rebake has been requested (or the baked volume is missing while a fog volume wants baked APV)
 	/// and Unity's APV runtime holds data, ensures the target 3D texture exists, publishes it to the baker,
@@ -271,7 +303,7 @@ public sealed class VolumetricFogRendererFeature : ScriptableRendererFeature
 	private static bool WantsBakedAPVContribution(VolumetricFogVolumeComponent fogVolume)
 	{
 		return fogVolume != null && fogVolume.IsActive() && fogVolume.enableAPVContribution.value
-			&& fogVolume.APVContributionWeight.value > 0.0f && fogVolume.apvMode.value == VolumetricFogAPVMode.Baked;
+			&& fogVolume.APVContributionWeight.value > 0.0f && VolumetricFogQuality.APVMode == VolumetricFogAPVMode.Baked;
 	}
 
 	/// <summary>

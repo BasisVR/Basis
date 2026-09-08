@@ -649,9 +649,9 @@ namespace Basis.Scripts.Drivers
         /// Whether the local head's shadow-only clone is worth its cost at the current quality
         /// level. The clone is a second skinned mesh drawn into every shadow cascade every frame,
         /// for one player, purely so the local head casts a shadow while its real mesh stays
-        /// hidden from the owner's view. Very Low drops it; Low and above keep it.
+        /// hidden from the owner's view. Very Low and Low drop it; Medium and above keep it.
         /// </summary>
-        public static bool LocalShadowCloneAllowed => BasisQualityTier.Current > BasisQualityTier.VeryLow;
+        public static bool LocalShadowCloneAllowed => BasisQualityTier.Current > BasisQualityTier.Low;
 
         /// <summary>
         /// Adds or removes the local shadow-only clone to match the current quality level. Called

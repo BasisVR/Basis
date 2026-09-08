@@ -7755,6 +7755,54 @@
       "value": "Mirror Resolution"
     },
     {
+      "key": "settings.graphics.mirrorCap",
+      "value": "Mirror Resolution Cap"
+    },
+    {
+      "key": "settings.graphics.mirrorCap.tooltip",
+      "value": "Ceiling applied to whatever resolution a world's mirror asks for. Auto uses the world's own value. Mobile hardware defaults to 768 because a 2048 mirror renders per eye, per mirror, every frame."
+    },
+    {
+      "key": "settings.graphics.mirrorLodBias",
+      "value": "Mirror Detail Bias"
+    },
+    {
+      "key": "settings.graphics.mirrorLodBias.tooltip",
+      "value": "Scales model detail while the reflection is drawn. Below 1 swaps to lower-detail models sooner inside mirrors only, which your own view never sees. Mobile hardware defaults to 0.75."
+    },
+    {
+      "key": "settings.graphics.mirrorDepth",
+      "value": "Mirror Depth Buffer"
+    },
+    {
+      "key": "settings.graphics.mirrorDepth.tooltip",
+      "value": "Bits of depth precision for the reflection. Auto uses the world's own value. 16 halves the memory bandwidth a mirror costs and is the mobile default; raise it if a mirror shows z-fighting."
+    },
+    {
+      "key": "settings.graphics.mirrorMsaa",
+      "value": "Mirror Antialiasing Floor"
+    },
+    {
+      "key": "settings.graphics.mirrorMsaa.tooltip",
+      "value": "Minimum multisampling for the reflection. Auto uses the world's own value. Mobile hardware defaults to 4x, which resolves in tile memory and keeps mirror edges clean at the reduced resolution."
+    },
+    {
+      "key": "settings.graphics.mirrorRateTiers",
+      "value": "Mirror Distance Rate Tiers"
+    },
+    {
+      "key": "settings.graphics.mirrorRateTiers.tooltip",
+      "value": "Update distant mirrors every 2nd or 4th frame instead of every frame, using the distances the world author set. On by default on mobile hardware. Turn off to update every mirror every frame."
+    },
+    {
+      "key": "settings.graphics.mirrorDepthGuard",
+      "value": "Mirror Depth Precision Guard"
+    },
+    {
+      "key": "settings.graphics.mirrorDepthGuard.tooltip",
+      "value": "Raises a mirror's surface clip offset to 0.05 when a world authored it below 0.02, which flickers at grazing angles on low depth precision. On by default on mobile hardware."
+    },
+    {
       "key": "settings.graphics.bloom.title",
       "value": "Bloom"
     },
@@ -7793,6 +7841,106 @@
     {
       "key": "settings.graphics.fog.bakedapv.tooltip",
       "value": "Light the fog from a fast static bake of the scene's adaptive probe volumes instead of sampling them live every frame. Baked on demand and used immediately."
+    },
+    {
+      "key": "settings.graphics.fog.resolution",
+      "value": "Fog Resolution"
+    },
+    {
+      "key": "settings.graphics.fog.resolution.tooltip",
+      "value": "Screen resolution the fog is raymarched at. Full is the sharpest and the most expensive, Half is the usual balance and Quarter is the cheapest but softest."
+    },
+    {
+      "key": "settings.graphics.fog.resolution.full",
+      "value": "Full"
+    },
+    {
+      "key": "settings.graphics.fog.resolution.half",
+      "value": "Half"
+    },
+    {
+      "key": "settings.graphics.fog.resolution.quarter",
+      "value": "Quarter"
+    },
+    {
+      "key": "settings.graphics.fog.maxSteps",
+      "value": "Fog Steps"
+    },
+    {
+      "key": "settings.graphics.fog.maxSteps.tooltip",
+      "value": "Maximum raymarching steps per pixel. More steps give smoother fog and cleaner light shafts at a higher GPU cost."
+    },
+    {
+      "key": "settings.graphics.fog.blur",
+      "value": "Fog Blur"
+    },
+    {
+      "key": "settings.graphics.fog.blur.tooltip",
+      "value": "How many times the fog is blurred before compositing. Softens noise and light shafts; 0 skips the blur, which is fine when the sun does not light the fog."
+    },
+    {
+      "key": "settings.graphics.fog.temporal",
+      "value": "Temporal Reprojection"
+    },
+    {
+      "key": "settings.graphics.fog.temporal.tooltip",
+      "value": "Blends each frame's fog with the previous frame reprojected through the camera motion. Smooths noise so fewer steps look clean; can ghost briefly on fast turns."
+    },
+    {
+      "key": "settings.graphics.fog.froxels",
+      "value": "Froxel Volume"
+    },
+    {
+      "key": "settings.graphics.fog.froxels.tooltip",
+      "value": "Computes the fog once per cell of a coarse camera-aligned 3D grid instead of marching every pixel. Much cheaper at high resolutions; the resolution, steps and blur settings no longer apply while it is on."
+    },
+    {
+      "key": "settings.graphics.fog.analyticDepth",
+      "value": "Analytic Optical Depth"
+    },
+    {
+      "key": "settings.graphics.fog.analyticDepth.tooltip",
+      "value": "Integrates the height falloff exactly between samples and stops the march where the fog becomes opaque. Fewer steps for the same look; slightly changes the look of dense fog."
+    },
+    {
+      "key": "settings.graphics.fog.scaleSteps",
+      "value": "Scale Steps With Resolution"
+    },
+    {
+      "key": "settings.graphics.fog.scaleSteps.tooltip",
+      "value": "Halves the step budget at Full resolution and doubles it at Quarter so the cost stays roughly flat across the Fog Resolution setting."
+    },
+    {
+      "key": "settings.graphics.fog.sunTrims",
+      "value": "Sun Path Trims"
+    },
+    {
+      "key": "settings.graphics.fog.sunTrims.tooltip",
+      "value": "Reuses the shadow cascade between steps and samples the sun shadow every other step. Cheaper sun shafts with slightly softer shadows in the fog."
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid",
+      "value": "Froxel Grid"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.tooltip",
+      "value": "Resolution of the fog volume: how many screen pixels share one froxel column and how many depth slices it has. Auto picks Fine on desktop, Balanced in VR and Coarse on mobile GPUs."
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.fine",
+      "value": "Fine (1/8, 64 slices)"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.balanced",
+      "value": "Balanced (1/12, 48 slices)"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.coarse",
+      "value": "Coarse (1/16, 32 slices)"
     },
     {
       "key": "settings.graphics.motionBlur.title",

@@ -20,4 +20,9 @@ float LinearEyeDepthConsiderProjection(float rawDepth)
     return lerp(perspectiveDepth, orthographicDepth, unity_OrthoParams.w);
 }
 
+float RawDepthFromLinearEyeDepth(float eyeDepth)
+{
+    return (rcp(max(eyeDepth, 1e-8)) - _ZBufferParams.w) / _ZBufferParams.z;
+}
+
 #endif

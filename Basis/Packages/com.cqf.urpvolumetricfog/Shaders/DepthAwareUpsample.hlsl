@@ -57,7 +57,7 @@ float4 DepthAwareUpsample(float2 uv, TEXTURE2D_X(textureToUpsample))
 
     UNITY_BRANCH
     if (numValidDepths == 4)
-        return SAMPLE_TEXTURE2D_X(textureToUpsample, sampler_LinearClamp, uv);
+        return SAMPLE_TEXTURE2D_X_LOD(textureToUpsample, sampler_LinearClamp, uv, 0.0);
 
     // At depth discontinuities, blend the four low-res taps by bilinear weight times depth similarity
     // instead of point-picking the single nearest-depth tap, so silhouettes get a smooth fog edge
@@ -75,12 +75,12 @@ float4 DepthAwareUpsample(float2 uv, TEXTURE2D_X(textureToUpsample))
 
     UNITY_BRANCH
     if (totalWeight < 1e-4)
-        return SAMPLE_TEXTURE2D_X(textureToUpsample, sampler_PointClamp, nearestUv);
+        return SAMPLE_TEXTURE2D_X_LOD(textureToUpsample, sampler_PointClamp, nearestUv, 0.0);
 
-    float4 result = SAMPLE_TEXTURE2D_X(textureToUpsample, sampler_PointClamp, uvs[0]) * weights.x
-                  + SAMPLE_TEXTURE2D_X(textureToUpsample, sampler_PointClamp, uvs[1]) * weights.y
-                  + SAMPLE_TEXTURE2D_X(textureToUpsample, sampler_PointClamp, uvs[2]) * weights.z
-                  + SAMPLE_TEXTURE2D_X(textureToUpsample, sampler_PointClamp, uvs[3]) * weights.w;
+    float4 result = SAMPLE_TEXTURE2D_X_LOD(textureToUpsample, sampler_PointClamp, uvs[0], 0.0) * weights.x
+                  + SAMPLE_TEXTURE2D_X_LOD(textureToUpsample, sampler_PointClamp, uvs[1], 0.0) * weights.y
+                  + SAMPLE_TEXTURE2D_X_LOD(textureToUpsample, sampler_PointClamp, uvs[2], 0.0) * weights.z
+                  + SAMPLE_TEXTURE2D_X_LOD(textureToUpsample, sampler_PointClamp, uvs[3], 0.0) * weights.w;
 
     return result * rcp(totalWeight);
 }

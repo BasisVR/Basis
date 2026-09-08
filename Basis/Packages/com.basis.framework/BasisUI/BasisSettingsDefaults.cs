@@ -287,6 +287,47 @@ namespace Basis.BasisUI
         /// </summary>
         public static BasisSettingsBinding<bool> VolumetricFogBakedAPV = new("volumetricfogbakedapv", new BasisPlatformDefault<bool>(true));
 
+        public static BasisSettingsBinding<string> VolumetricFogResolution = new("volumetricfogresolution", new BasisPlatformDefault<string>
+        {
+            windows = "Half",
+            android = "Quarter",
+            ios = "Quarter",
+            linux = "Half",
+            other = "Half"
+        });
+
+        public static BasisSettingsBinding<float> VolumetricFogMaxSteps = new("volumetricfogmaxsteps", new BasisPlatformDefault<float>
+        {
+            windows = 128f,
+            android = 48f,
+            ios = 48f,
+            linux = 128f,
+            other = 128f
+        });
+
+        public static BasisSettingsBinding<float> VolumetricFogBlurIterations = new("volumetricfogbluriterations", new BasisPlatformDefault<float>
+        {
+            windows = 2f,
+            android = 1f,
+            ios = 1f,
+            linux = 2f,
+            other = 2f
+        });
+
+        public const float FOG_MAX_STEPS_MIN = 8f;
+        public const float FOG_MAX_STEPS_MAX = 256f;
+        public const float FOG_BLUR_ITERATIONS_MIN = 0f;
+        public const float FOG_BLUR_ITERATIONS_MAX = 4f;
+
+        public static BasisSettingsBinding<bool> VolumetricFogTemporal = new("volumetricfogtemporal", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogFroxels = new("volumetricfogfroxels", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogAnalyticDepth = new("volumetricfoganalyticdepth", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogScaleSteps = new("volumetricfogscalesteps", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogSunTrims = new("volumetricfogsuntrims", new BasisPlatformDefault<bool>(true));
+
+        public const string FogFroxelGridAuto = "Auto";
+        public static BasisSettingsBinding<string> VolumetricFogFroxelGrid = new("volumetricfogfroxelgrid", new BasisPlatformDefault<string>(FogFroxelGridAuto));
+
         /// <summary>
         /// When enabled, motion blur is driven from a high-priority global Volume owned by
         /// <c>SMModuleMotionBlurOverrideURP</c>, which outranks whatever the world authored.
@@ -2268,6 +2309,65 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> UseMirrorQualityOverride = new("usemirrorqualityoverride", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<string> MirrorQuality = new("mirrorquality", new BasisPlatformDefault<string>("2048"));
 
+        // Everything below was hardcoded behind #if UNITY_ANDROID. It is the mobile mirror budget:
+        // cheaper defaults on a tile GPU, every one of them user changeable, and "Auto" always means
+        // whatever the mirror itself was authored with.
+        public static BasisSettingsBinding<float> MirrorLodBias = new("mirrorlodbias", new BasisPlatformDefault<float>
+        {
+            windows = 1f,
+            android = 0.75f,
+            ios = 0.75f,
+            linux = 1f,
+            other = 1f
+        });
+
+        public const string MirrorAuto = "Auto";
+
+        public static BasisSettingsBinding<string> MirrorResolutionCap = new("mirrorresolutioncap", new BasisPlatformDefault<string>
+        {
+            windows = MirrorAuto,
+            android = "768",
+            ios = "768",
+            linux = MirrorAuto,
+            other = MirrorAuto
+        });
+
+        public static BasisSettingsBinding<string> MirrorDepthBits = new("mirrordepthbits", new BasisPlatformDefault<string>
+        {
+            windows = MirrorAuto,
+            android = "16",
+            ios = "16",
+            linux = MirrorAuto,
+            other = MirrorAuto
+        });
+
+        public static BasisSettingsBinding<string> MirrorMsaaFloor = new("mirrormsaafloor", new BasisPlatformDefault<string>
+        {
+            windows = MirrorAuto,
+            android = "4",
+            ios = "4",
+            linux = MirrorAuto,
+            other = MirrorAuto
+        });
+
+        public static BasisSettingsBinding<bool> MirrorDepthPrecisionGuard = new("mirrordepthprecisionguard", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
+
+        public static BasisSettingsBinding<bool> MirrorDistanceRateTiers = new("mirrordistanceratetiers", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
+
         // ---------------- CAMERA CLIP OVERRIDE ----------------
         public static BasisSettingsBinding<bool> UseCameraClipOverride = new("usecameraclipoverride", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> CameraClipNear = new("cameraclipnear", new BasisPlatformDefault<float>(0.01f));
@@ -2434,6 +2534,15 @@ namespace Basis.BasisUI
             UseVolumetricFogOverride.LoadBindingValue();
             VolumetricFogDensity.LoadBindingValue();
             VolumetricFogBakedAPV.LoadBindingValue();
+            VolumetricFogResolution.LoadBindingValue();
+            VolumetricFogMaxSteps.LoadBindingValue();
+            VolumetricFogBlurIterations.LoadBindingValue();
+            VolumetricFogTemporal.LoadBindingValue();
+            VolumetricFogFroxels.LoadBindingValue();
+            VolumetricFogAnalyticDepth.LoadBindingValue();
+            VolumetricFogScaleSteps.LoadBindingValue();
+            VolumetricFogSunTrims.LoadBindingValue();
+            VolumetricFogFroxelGrid.LoadBindingValue();
             UseMotionBlurOverride.LoadBindingValue();
             MotionBlurIntensity.LoadBindingValue();
             MotionBlurClamp.LoadBindingValue();
@@ -2603,6 +2712,12 @@ namespace Basis.BasisUI
             // Mirror
             UseMirrorQualityOverride.LoadBindingValue();
             MirrorQuality.LoadBindingValue();
+            MirrorLodBias.LoadBindingValue();
+            MirrorResolutionCap.LoadBindingValue();
+            MirrorDepthBits.LoadBindingValue();
+            MirrorMsaaFloor.LoadBindingValue();
+            MirrorDepthPrecisionGuard.LoadBindingValue();
+            MirrorDistanceRateTiers.LoadBindingValue();
 
             // Camera Clip Override
             UseCameraClipOverride.LoadBindingValue();

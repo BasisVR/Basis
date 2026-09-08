@@ -2582,6 +2582,43 @@ namespace Basis.BasisUI
                 dropdownMirrorQuality.Descriptor.SetActive(val);
                 RebuildOverridesLayout();
             };
+
+            PanelDropdown dropdownMirrorCap = PanelDropdown.CreateNewEntry(mirrorGroup.ContentParent);
+            dropdownMirrorCap.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.mirrorCap"));
+            dropdownMirrorCap.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.mirrorCap.tooltip"));
+            dropdownMirrorCap.AssignEntries(new List<string> { BasisSettingsDefaults.MirrorAuto, "512", "768", "1024", "2048" });
+            dropdownMirrorCap.AssignBinding(BasisSettingsDefaults.MirrorResolutionCap);
+
+            PanelSlider sliderMirrorLodBias = PanelSlider.CreateEntryAndBind(
+                mirrorGroup.ContentParent,
+                new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.mirrorLodBias"),
+                    "",
+                    0.25f, 1f, false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.MirrorLodBias);
+            sliderMirrorLodBias.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.mirrorLodBias.tooltip"));
+
+            PanelDropdown dropdownMirrorDepth = PanelDropdown.CreateNewEntry(mirrorGroup.ContentParent);
+            dropdownMirrorDepth.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.mirrorDepth"));
+            dropdownMirrorDepth.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.mirrorDepth.tooltip"));
+            dropdownMirrorDepth.AssignEntries(new List<string> { BasisSettingsDefaults.MirrorAuto, "16", "24", "32" });
+            dropdownMirrorDepth.AssignBinding(BasisSettingsDefaults.MirrorDepthBits);
+
+            PanelDropdown dropdownMirrorMsaa = PanelDropdown.CreateNewEntry(mirrorGroup.ContentParent);
+            dropdownMirrorMsaa.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.mirrorMsaa"));
+            dropdownMirrorMsaa.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.mirrorMsaa.tooltip"));
+            dropdownMirrorMsaa.AssignEntries(new List<string> { BasisSettingsDefaults.MirrorAuto, "2", "4", "8" });
+            dropdownMirrorMsaa.AssignBinding(BasisSettingsDefaults.MirrorMsaaFloor);
+
+            PanelToggle toggleMirrorRateTiers = PanelToggle.CreateNewEntry(mirrorGroup.ContentParent);
+            toggleMirrorRateTiers.AssignBinding(BasisSettingsDefaults.MirrorDistanceRateTiers);
+            toggleMirrorRateTiers.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.mirrorRateTiers"));
+            toggleMirrorRateTiers.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.mirrorRateTiers.tooltip"));
+
+            PanelToggle toggleMirrorDepthGuard = PanelToggle.CreateNewEntry(mirrorGroup.ContentParent);
+            toggleMirrorDepthGuard.AssignBinding(BasisSettingsDefaults.MirrorDepthPrecisionGuard);
+            toggleMirrorDepthGuard.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.mirrorDepthGuard"));
+            toggleMirrorDepthGuard.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.mirrorDepthGuard.tooltip"));
+
             mirrorToggle.RegisterContentContainer(mirrorGroup);
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(mirrorToggle, mirrorGroup, true,
                 _ => RebuildOverridesLayout());
@@ -2649,6 +2686,67 @@ namespace Basis.BasisUI
             toggleFogBakedAPV.AssignBinding(BasisSettingsDefaults.VolumetricFogBakedAPV);
             toggleFogBakedAPV.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.bakedapv"));
             toggleFogBakedAPV.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.bakedapv.tooltip"));
+
+            PanelDropdown dropdownFogResolution = PanelDropdown.CreateNewEntry(fogGroup.ContentParent);
+            dropdownFogResolution.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.resolution"));
+            dropdownFogResolution.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.resolution.tooltip"));
+            dropdownFogResolution.AssignLocalizedEntries(
+                new List<string> { "Full", "Half", "Quarter" },
+                new List<string> { "settings.graphics.fog.resolution.full", "settings.graphics.fog.resolution.half", "settings.graphics.fog.resolution.quarter" });
+            dropdownFogResolution.AssignBinding(BasisSettingsDefaults.VolumetricFogResolution);
+
+            PanelSlider sliderFogMaxSteps = PanelSlider.CreateEntryAndBind(
+                fogGroup.ContentParent,
+                new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.fog.maxSteps"),
+                    "",
+                    BasisSettingsDefaults.FOG_MAX_STEPS_MIN,
+                    BasisSettingsDefaults.FOG_MAX_STEPS_MAX,
+                    true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.VolumetricFogMaxSteps);
+            sliderFogMaxSteps.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.maxSteps.tooltip"));
+
+            PanelSlider sliderFogBlur = PanelSlider.CreateEntryAndBind(
+                fogGroup.ContentParent,
+                new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.fog.blur"),
+                    "",
+                    BasisSettingsDefaults.FOG_BLUR_ITERATIONS_MIN,
+                    BasisSettingsDefaults.FOG_BLUR_ITERATIONS_MAX,
+                    true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.VolumetricFogBlurIterations);
+            sliderFogBlur.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.blur.tooltip"));
+
+            PanelToggle toggleFogTemporal = PanelToggle.CreateNewEntry(fogGroup.ContentParent);
+            toggleFogTemporal.AssignBinding(BasisSettingsDefaults.VolumetricFogTemporal);
+            toggleFogTemporal.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.temporal"));
+            toggleFogTemporal.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.temporal.tooltip"));
+
+            PanelToggle toggleFogFroxels = PanelToggle.CreateNewEntry(fogGroup.ContentParent);
+            toggleFogFroxels.AssignBinding(BasisSettingsDefaults.VolumetricFogFroxels);
+            toggleFogFroxels.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.froxels"));
+            toggleFogFroxels.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.froxels.tooltip"));
+
+            PanelToggle toggleFogAnalyticDepth = PanelToggle.CreateNewEntry(fogGroup.ContentParent);
+            toggleFogAnalyticDepth.AssignBinding(BasisSettingsDefaults.VolumetricFogAnalyticDepth);
+            toggleFogAnalyticDepth.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.analyticDepth"));
+            toggleFogAnalyticDepth.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.analyticDepth.tooltip"));
+
+            PanelToggle toggleFogScaleSteps = PanelToggle.CreateNewEntry(fogGroup.ContentParent);
+            toggleFogScaleSteps.AssignBinding(BasisSettingsDefaults.VolumetricFogScaleSteps);
+            toggleFogScaleSteps.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.scaleSteps"));
+            toggleFogScaleSteps.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.scaleSteps.tooltip"));
+
+            PanelToggle toggleFogSunTrims = PanelToggle.CreateNewEntry(fogGroup.ContentParent);
+            toggleFogSunTrims.AssignBinding(BasisSettingsDefaults.VolumetricFogSunTrims);
+            toggleFogSunTrims.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.sunTrims"));
+            toggleFogSunTrims.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.sunTrims.tooltip"));
+
+            PanelDropdown dropdownFogFroxelGrid = PanelDropdown.CreateNewEntry(fogGroup.ContentParent);
+            dropdownFogFroxelGrid.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.fog.froxelGrid"));
+            dropdownFogFroxelGrid.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.fog.froxelGrid.tooltip"));
+            dropdownFogFroxelGrid.AssignLocalizedEntries(
+                new List<string> { BasisSettingsDefaults.FogFroxelGridAuto, "Fine", "Balanced", "Coarse" },
+                new List<string> { "settings.graphics.fog.froxelGrid.auto", "settings.graphics.fog.froxelGrid.fine", "settings.graphics.fog.froxelGrid.balanced", "settings.graphics.fog.froxelGrid.coarse" });
+            dropdownFogFroxelGrid.AssignBinding(BasisSettingsDefaults.VolumetricFogFroxelGrid);
 
             fogToggle.RegisterContentContainer(fogGroup);
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(fogToggle, fogGroup, true,
@@ -3344,6 +3442,12 @@ namespace Basis.BasisUI
 
             BasisSettingsDefaults.UseMirrorQualityOverride.ResetToDefault();
             BasisSettingsDefaults.MirrorQuality.ResetToDefault();
+            BasisSettingsDefaults.MirrorResolutionCap.ResetToDefault();
+            BasisSettingsDefaults.MirrorLodBias.ResetToDefault();
+            BasisSettingsDefaults.MirrorDepthBits.ResetToDefault();
+            BasisSettingsDefaults.MirrorMsaaFloor.ResetToDefault();
+            BasisSettingsDefaults.MirrorDepthPrecisionGuard.ResetToDefault();
+            BasisSettingsDefaults.MirrorDistanceRateTiers.ResetToDefault();
             BasisSettingsDefaults.UseCameraClipOverride.ResetToDefault();
             BasisSettingsDefaults.CameraClipNear.ResetToDefault();
             BasisSettingsDefaults.CameraClipFar.ResetToDefault();
@@ -3353,6 +3457,15 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.UseVolumetricFogOverride.ResetToDefault();
             BasisSettingsDefaults.VolumetricFogDensity.ResetToDefault();
             BasisSettingsDefaults.VolumetricFogBakedAPV.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogResolution.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogMaxSteps.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogBlurIterations.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogTemporal.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogFroxels.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogAnalyticDepth.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogScaleSteps.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogSunTrims.ResetToDefault();
+            BasisSettingsDefaults.VolumetricFogFroxelGrid.ResetToDefault();
             BasisSettingsDefaults.UseMotionBlurOverride.ResetToDefault();
             BasisSettingsDefaults.MotionBlurIntensity.ResetToDefault();
             BasisSettingsDefaults.MotionBlurClamp.ResetToDefault();
