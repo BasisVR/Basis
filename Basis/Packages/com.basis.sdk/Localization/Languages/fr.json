@@ -775,6 +775,8 @@
     { "key": "sdk.cilbox.api.light.summary", "value": "Couleur, intensité, portée et ombres. Les command buffers sont exclus car ils cachent du travail GPU au bac à sable." },
     { "key": "sdk.cilbox.api.camera.title", "value": "Caméras" },
     { "key": "sdk.cilbox.api.camera.summary", "value": "Conversions d'espace et accès aux propriétés. Les points d'entrée de rendu n'y sont pas." },
+    { "key": "sdk.cilbox.api.graphicssettings.title", "value": "Paramètres graphiques" },
+    { "key": "sdk.cilbox.api.graphicssettings.summary", "value": "Lit le niveau de qualité graphique du joueur et les paramètres graphiques associés, et informe votre script quand ils changent, pour qu'un monde puisse désactiver son contenu coûteux sur une machine faible. Lecture seule : rien ici ne modifie un paramètre." },
     { "key": "sdk.cilbox.api.particles.title", "value": "Particules" },
     { "key": "sdk.cilbox.api.particles.summary", "value": "Lecture, arrêt et propriétés des modules." },
     { "key": "sdk.cilbox.api.audioSource.title", "value": "Sources audio" },

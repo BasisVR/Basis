@@ -847,6 +847,90 @@
       "value": "Takes one photo immediately, ignoring the movement thresholds."
     },
     {
+      "key": "camera.photogrammetry.status.pathBusy",
+      "value": "A path render is in progress."
+    },
+    {
+      "key": "camera.photogrammetryPath",
+      "value": "Photogrammetry Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.record",
+      "value": "Record Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.stop",
+      "value": "Stop Recording"
+    },
+    {
+      "key": "camera.photogrammetryPath.status",
+      "value": "Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.status.empty",
+      "value": "No points recorded yet."
+    },
+    {
+      "key": "camera.photogrammetryPath.status.recording",
+      "value": "Recording... {0} points so far."
+    },
+    {
+      "key": "camera.photogrammetryPath.status.ready",
+      "value": "{0} points recorded (about {1} to render)."
+    },
+    {
+      "key": "camera.photogrammetryPath.clear",
+      "value": "Clear Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.settle",
+      "value": "Settle Time"
+    },
+    {
+      "key": "camera.photogrammetryPath.settle.description",
+      "value": "How many seconds to hold still at each point before it's captured. Higher gives lighting and effects more time to settle."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.record",
+      "value": "Render Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.stopUnlimited",
+      "value": "Cancel"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.saving",
+      "value": "Saving..."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status",
+      "value": "Render Status"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.idle",
+      "value": "Not running."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.recording",
+      "value": "Rendering... {0} points captured so far."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.saving",
+      "value": "Saving... {0} of {1} photos written."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.saved",
+      "value": "Last photo saved: {0}"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.failed",
+      "value": "Last render failed: {0}"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.blocked",
+      "value": "Camera capture is locked by an admin."
+    },
+    {
       "key": "camera.lens",
       "value": "Lens"
     },

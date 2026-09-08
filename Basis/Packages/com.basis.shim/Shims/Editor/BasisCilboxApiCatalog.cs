@@ -590,6 +590,32 @@ float fov = main.fieldOfView;
             new CilboxApiEntry
             {
                 GroupKey = GroupRendering,
+                TitleKey = "sdk.cilbox.api.graphicssettings.title",
+                SummaryKey = "sdk.cilbox.api.graphicssettings.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisGraphicsSettingsShim", "Get") },
+                Example =
+@"using Basis.Shims;
+
+// Tiers are ordinals over BasisGraphicsSettingsShim.Tiers, cheapest first, so a
+// world compares numbers instead of spelling ""Very Low"" correctly.
+bool cheap = BasisGraphicsSettingsShim.QualityTier <= BasisGraphicsSettingsShim.TierLow;
+backgroundDonut.SetActive(!cheap);
+RenderSettings.skybox = cheap ? flatSky : cloudSky;
+
+// Anything else on ReadableKeys, by key.
+float scale = BasisGraphicsSettingsShim.RenderResolution;
+bool gi = BasisGraphicsSettingsShim.GetFlag(""useglobalillumination"", false);
+
+// Adding the event component is the opt-in. The callback is found by name on
+// your own script, fires once on opt-in as well as on every later change, and
+// is coalesced to one call per frame so a Performance Mode batch is one event.
+void Start() { GetComponent<BasisGraphicsSettingsEventShim>(); }
+
+void OnGraphicsSettingsChanged(string qualityLevel, int qualityTier) { }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupRendering,
                 TitleKey = "sdk.cilbox.api.particles.title",
                 SummaryKey = "sdk.cilbox.api.particles.summary",
                 Requires = new[] { new CilboxApiRequirement("UnityEngine.ParticleSystem") },

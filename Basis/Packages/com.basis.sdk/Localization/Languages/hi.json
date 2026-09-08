@@ -775,6 +775,8 @@
     { "key": "sdk.cilbox.api.light.summary", "value": "रंग, तीव्रता, दायरा और छाया। कमांड बफ़र शामिल नहीं क्योंकि वे GPU का काम सैंडबॉक्स से छिपा देते हैं।" },
     { "key": "sdk.cilbox.api.camera.title", "value": "कैमरे" },
     { "key": "sdk.cilbox.api.camera.summary", "value": "स्पेस रूपांतरण और प्रॉपर्टी पहुँच। रेंडरिंग के रास्ते शामिल नहीं हैं।" },
+    { "key": "sdk.cilbox.api.graphicssettings.title", "value": "ग्राफ़िक्स सेटिंग्स" },
+    { "key": "sdk.cilbox.api.graphicssettings.summary", "value": "खिलाड़ी का ग्राफ़िक्स क्वालिटी टियर और उससे जुड़ी ग्राफ़िक्स सेटिंग्स पढ़ता है, और बदलने पर आपकी स्क्रिप्ट को बताता है, ताकि वर्ल्ड कमज़ोर मशीन पर अपना महँगा कंटेंट बंद कर सके। केवल पढ़ने के लिए: यहाँ कोई सेटिंग नहीं बदलती।" },
     { "key": "sdk.cilbox.api.particles.title", "value": "पार्टिकल" },
     { "key": "sdk.cilbox.api.particles.summary", "value": "चलाना, रोकना और मॉड्यूल प्रॉपर्टी।" },
     { "key": "sdk.cilbox.api.audioSource.title", "value": "ऑडियो स्रोत" },

@@ -170,6 +170,7 @@ public partial class BasisHandHeldCameraUI
             photogrammetryDistanceMeters = 0.3f;
             photogrammetryAngleDegrees = 15f;
             photogrammetryWidth = 1280;
+            photogrammetryPathSettleSeconds = 0.5f;
 
             streamTransport = (int)(BasisHandHeldCamera.IsVideoOutputSupported ? BasisVideoTransport.Platform : BasisVideoTransport.Web);
             streamWidth = BasisVideoOutputSettings.DefaultWidth;
@@ -562,6 +563,9 @@ public partial class BasisHandHeldCameraUI
         public float photogrammetryDistanceMeters;
         public float photogrammetryAngleDegrees;
         public int photogrammetryWidth;
+
+        /// <summary>How long a path replay holds at each recorded point before shooting it.</summary>
+        public float photogrammetryPathSettleSeconds;
 
         public int streamTransport;
         public int streamWidth;

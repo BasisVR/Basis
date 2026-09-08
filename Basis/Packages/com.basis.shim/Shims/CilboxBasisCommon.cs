@@ -41,6 +41,11 @@ namespace Cilbox
 			"Basis.Shims.BasisPermissionsShim",
 			// Late-latch callback. Auto-added by GetComponent<T> since it derives from CilboxShim.
 			"Basis.Shims.BasisBeforeRenderShim",
+			// "what are the player's graphics settings" - read-only tier lookups plus a fixed
+			// allowlist of keys, so a world can drop its own expensive content on a weak
+			// machine. Every member returns a string, a number, a bool or a copied string[];
+			// nothing here writes a setting.
+			"Basis.Shims.BasisGraphicsSettingsShim",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
 			"HVR.Basis.Comms.OSC*",

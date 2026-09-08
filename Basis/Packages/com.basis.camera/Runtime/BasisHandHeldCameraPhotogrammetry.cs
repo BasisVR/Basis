@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using Basis;
 using Basis.Scripts.Networking;
@@ -20,6 +22,8 @@ public partial class BasisHandHeldCamera
     public const float MaxPhotogrammetryDistanceMeters = 2f;
     public const float MinPhotogrammetryAngleDegrees = 2f;
     public const float MaxPhotogrammetryAngleDegrees = 60f;
+    public const float MinPhotogrammetryPathSettleSeconds = 0.1f;
+    public const float MaxPhotogrammetryPathSettleSeconds = 10f;
 
     /// <summary>Widths the panel offers, labelled 480p/720p. The height always follows the photo aspect.</summary>
     public static readonly int[] PhotogrammetryWidthPresets = { 854, 1280 };
@@ -31,6 +35,15 @@ public partial class BasisHandHeldCamera
     private readonly BasisPhotogrammetrySession photogrammetrySession = new BasisPhotogrammetrySession();
     private Vector3 lastPhotogrammetryPosition;
     private Quaternion lastPhotogrammetryRotation;
+
+    private float photogrammetryPathSettleSeconds = 0.5f;
+    private readonly List<BasisPhotogrammetryPathPoint> photogrammetryPath = new List<BasisPhotogrammetryPathPoint>();
+    private bool isRecordingPhotogrammetryPath;
+    private Vector3 lastPathPointPosition;
+    private Quaternion lastPathPointRotation;
+    private bool isReplayingPhotogrammetryPath;
+    private Coroutine photogrammetryPathReplayCoroutine;
+    private CameraPinSpace pinSpaceBeforePhotogrammetryPathReplay;
 
     public float PhotogrammetryDistanceMeters => photogrammetryDistanceMeters;
     public float PhotogrammetryAngleDegrees => photogrammetryAngleDegrees;
@@ -71,6 +84,7 @@ public partial class BasisHandHeldCamera
     public bool StartPhotogrammetrySession()
     {
         if (photogrammetrySession.State != BasisCameraRecordingState.Idle) return false;
+        if (isRecordingPhotogrammetryPath || isReplayingPhotogrammetryPath) return false;
         if (!TryBeginClipRecording("Photogrammetry", photogrammetryWidth, MinPhotogrammetryWidth, MaxPhotogrammetryWidth,
             out int width, out int height, out string timestamp)) return false;
 
@@ -78,6 +92,7 @@ public partial class BasisHandHeldCamera
         if (!photogrammetrySession.Start(width, height, sessionFolder)) return false;
 
         captureCamera.transform.GetPositionAndRotation(out lastPhotogrammetryPosition, out lastPhotogrammetryRotation);
+        SetAutoBrightnessMeteringHeld(true);
         UpdateRenderGate();
         AnnounceClipRecording();
 
@@ -90,7 +105,13 @@ public partial class BasisHandHeldCamera
     /// <summary>Ends capture and lets the frames already taken drain into their files and the manifest.</summary>
     public void StopPhotogrammetrySession()
     {
+        // A path replay drives this same session itself and tears it down through
+        // StopPhotogrammetryPathReplay, which also stops the coroutine — stopping the session out
+        // from under it here would leave that coroutine's capture retry loop spinning forever.
+        if (isReplayingPhotogrammetryPath) return;
+
         photogrammetrySession.Stop();
+        SetAutoBrightnessMeteringHeld(false);
         UpdateRenderGate();
     }
 
@@ -101,6 +122,7 @@ public partial class BasisHandHeldCamera
     /// </summary>
     public bool CapturePhotogrammetryFrameNow()
     {
+        if (isReplayingPhotogrammetryPath) return false;
         if (photogrammetrySession.State != BasisCameraRecordingState.Recording) return false;
 
         captureCamera.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
@@ -114,7 +136,10 @@ public partial class BasisHandHeldCamera
     /// <summary>Per-frame recorder upkeep, run from <see cref="SimulateLate"/>.</summary>
     private void TickPhotogrammetry()
     {
-        if (photogrammetrySession.State == BasisCameraRecordingState.Recording)
+        // A path replay drives this same session itself (see PhotogrammetryPathReplayRoutine) —
+        // the live trigger below must stand aside, or the camera visibly jumping between recorded
+        // points would spuriously trip it against the very session the replay is filling.
+        if (photogrammetrySession.State == BasisCameraRecordingState.Recording && !isReplayingPhotogrammetryPath)
         {
             if (BasisNetworkModeration.CameraCaptureBlockedLocally)
             {
@@ -134,8 +159,149 @@ public partial class BasisHandHeldCamera
             }
         }
 
+        if (isRecordingPhotogrammetryPath)
+        {
+            captureCamera.transform.GetPositionAndRotation(out Vector3 pathPosition, out Quaternion pathRotation);
+            if (BasisPhotogrammetryPose.ShouldCapture(lastPathPointPosition, lastPathPointRotation, pathPosition, pathRotation,
+                photogrammetryDistanceMeters, photogrammetryAngleDegrees))
+            {
+                photogrammetryPath.Add(new BasisPhotogrammetryPathPoint(pathPosition, pathRotation));
+                lastPathPointPosition = pathPosition;
+                lastPathPointRotation = pathRotation;
+            }
+        }
+
         photogrammetrySession.Tick();
     }
 
-    private void ShutdownPhotogrammetry() => photogrammetrySession.Shutdown();
+    private void ShutdownPhotogrammetry()
+    {
+        if (photogrammetryPathReplayCoroutine != null)
+        {
+            StopCoroutine(photogrammetryPathReplayCoroutine);
+            photogrammetryPathReplayCoroutine = null;
+            isReplayingPhotogrammetryPath = false;
+        }
+        photogrammetrySession.Shutdown();
+    }
+
+    // ---- Path: record a route, then replay it for a deliberate per-point capture -----------
+
+    public float PhotogrammetryPathSettleSeconds => photogrammetryPathSettleSeconds;
+
+    public void SetPhotogrammetryPathSettleSeconds(float seconds) =>
+        photogrammetryPathSettleSeconds = Mathf.Clamp(seconds, MinPhotogrammetryPathSettleSeconds, MaxPhotogrammetryPathSettleSeconds);
+
+    /// <summary>Points recorded so far along the current path.</summary>
+    public int PhotogrammetryPathCount => photogrammetryPath.Count;
+
+    public bool IsRecordingPhotogrammetryPath => isRecordingPhotogrammetryPath;
+
+    /// <summary>True while a route is being visited and shot; the camera is not held by the operator during this.</summary>
+    public bool IsReplayingPhotogrammetryPath => isReplayingPhotogrammetryPath;
+
+    /// <summary>
+    /// Starts recording a route: every time the camera moves or turns past the same thresholds
+    /// the live capture mode uses, its pose (not an image) is appended to the path. Refused while
+    /// a session or a replay already owns the camera.
+    /// </summary>
+    public bool StartRecordingPhotogrammetryPath()
+    {
+        if (isRecordingPhotogrammetryPath || isReplayingPhotogrammetryPath) return false;
+        if (photogrammetrySession.State != BasisCameraRecordingState.Idle) return false;
+        if (captureCamera == null) return false;
+
+        isRecordingPhotogrammetryPath = true;
+        captureCamera.transform.GetPositionAndRotation(out lastPathPointPosition, out lastPathPointRotation);
+        return true;
+    }
+
+    public void StopRecordingPhotogrammetryPath() => isRecordingPhotogrammetryPath = false;
+
+    /// <summary>Discards the recorded route. Safe at any time — a replay already under way is working from its own copy.</summary>
+    public void ClearPhotogrammetryPath() => photogrammetryPath.Clear();
+
+    /// <summary>
+    /// Visits every recorded point in turn: holds there for <see cref="PhotogrammetryPathSettleSeconds"/>
+    /// (deliberately slow, so any temporal rendering has time to settle before the shot), takes
+    /// one still, then moves on. Takes the camera out of the operator's hand for the duration and
+    /// hands it back — or wherever else it was pinned to — when done or cancelled. Refused with an
+    /// empty path, while already recording or replaying, or under the same conditions any other
+    /// session start is.
+    /// </summary>
+    public bool StartPhotogrammetryPathReplay()
+    {
+        if (photogrammetryPath.Count == 0) return false;
+        if (isRecordingPhotogrammetryPath || isReplayingPhotogrammetryPath) return false;
+        if (photogrammetrySession.State != BasisCameraRecordingState.Idle) return false;
+        if (!TryBeginClipRecording("Photogrammetry", photogrammetryWidth, MinPhotogrammetryWidth, MaxPhotogrammetryWidth,
+            out int width, out int height, out string timestamp)) return false;
+
+        string sessionFolder = Path.Combine(PhotosDirectory, "Photogrammetry", timestamp);
+        if (!photogrammetrySession.Start(width, height, sessionFolder)) return false;
+
+        isReplayingPhotogrammetryPath = true;
+        SetAutoBrightnessMeteringHeld(true);
+        UpdateRenderGate();
+        AnnounceClipRecording();
+        photogrammetryPathReplayCoroutine = StartCoroutine(
+            PhotogrammetryPathReplayRoutine(new List<BasisPhotogrammetryPathPoint>(photogrammetryPath)));
+
+        BasisDebug.Log(
+            $"Photogrammetry path replay started: {photogrammetryPath.Count} points, {photogrammetryPathSettleSeconds:0.##}s settle each.",
+            BasisDebug.LogTag.Camera);
+        return true;
+    }
+
+    /// <summary>Cancels a replay in progress. Frames already captured still land — only the points not yet visited are skipped.</summary>
+    public void StopPhotogrammetryPathReplay()
+    {
+        if (!isReplayingPhotogrammetryPath) return;
+
+        if (photogrammetryPathReplayCoroutine != null)
+        {
+            StopCoroutine(photogrammetryPathReplayCoroutine);
+            photogrammetryPathReplayCoroutine = null;
+        }
+        photogrammetrySession.Stop();
+        FinishPhotogrammetryPathReplay();
+    }
+
+    private IEnumerator PhotogrammetryPathReplayRoutine(List<BasisPhotogrammetryPathPoint> route)
+    {
+        pinSpaceBeforePhotogrammetryPathReplay = PinSpace;
+        if (PinSpace == CameraPinSpace.HandHeld) PinSpace = CameraPinSpace.WorldSpace;
+
+        foreach (BasisPhotogrammetryPathPoint point in route)
+        {
+            if (BasisNetworkModeration.CameraCaptureBlockedLocally) break;
+
+            float settled = 0f;
+            while (settled < photogrammetryPathSettleSeconds && !BasisNetworkModeration.CameraCaptureBlockedLocally)
+            {
+                captureCamera.transform.SetPositionAndRotation(point.Position, point.Rotation);
+                yield return null;
+                settled += Time.unscaledDeltaTime;
+            }
+            if (BasisNetworkModeration.CameraCaptureBlockedLocally) break;
+
+            captureCamera.transform.SetPositionAndRotation(point.Position, point.Rotation);
+            while (!photogrammetrySession.TryCapture(renderTexture, point.Position, point.Rotation, captureCamera.fieldOfView))
+            {
+                yield return null;
+            }
+        }
+
+        photogrammetrySession.Stop();
+        photogrammetryPathReplayCoroutine = null;
+        FinishPhotogrammetryPathReplay();
+    }
+
+    private void FinishPhotogrammetryPathReplay()
+    {
+        isReplayingPhotogrammetryPath = false;
+        SetAutoBrightnessMeteringHeld(false);
+        PinSpace = pinSpaceBeforePhotogrammetryPathReplay;
+        UpdateRenderGate();
+    }
 }

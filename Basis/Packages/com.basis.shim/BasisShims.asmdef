@@ -11,6 +11,7 @@
         "BasisEventDriver",
         "BasisSDK",
         "Basis Framework",
+        "BasisSettings",
         "BasisMediaPlayer",
         "BasisSDKEditor",
         "BasisEditor",

@@ -775,6 +775,8 @@
     { "key": "sdk.cilbox.api.light.summary", "value": "颜色、强度、范围和阴影。命令缓冲被排除，因为它会对沙箱隐藏 GPU 工作。" },
     { "key": "sdk.cilbox.api.camera.title", "value": "相机" },
     { "key": "sdk.cilbox.api.camera.summary", "value": "空间转换和属性访问。不包含渲染入口。" },
+    { "key": "sdk.cilbox.api.graphicssettings.title", "value": "图形设置" },
+    { "key": "sdk.cilbox.api.graphicssettings.summary", "value": "读取玩家的图形质量档位及相关图形设置，并在其变更时通知你的脚本，使世界可以在性能较弱的机器上关闭昂贵内容。只读：这里不会修改任何设置。" },
     { "key": "sdk.cilbox.api.particles.title", "value": "粒子" },
     { "key": "sdk.cilbox.api.particles.summary", "value": "播放、停止以及各模块属性。" },
     { "key": "sdk.cilbox.api.audioSource.title", "value": "音频源" },

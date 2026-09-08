@@ -1,3 +1,4 @@
+using Basis.Scripts.Common;
 using UnityEngine;
 
 public class BasisDisableOnAndroid : MonoBehaviour
@@ -5,9 +6,9 @@ public class BasisDisableOnAndroid : MonoBehaviour
     public GameObject DisableMe;
     public void OnEnable()
     {
-        if (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer)
+        if (DisableMe != null && BasisGpuDetection.IsMobileGpu)
         {
-            GameObject.Destroy(DisableMe.gameObject);
+            GameObject.Destroy(DisableMe);
         }
     }
 }

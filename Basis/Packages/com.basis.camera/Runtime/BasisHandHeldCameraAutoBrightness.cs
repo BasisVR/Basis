@@ -101,6 +101,18 @@ public partial class BasisHandHeldCamera
     /// </summary>
     private float meterStopsAtRequest;
 
+    /// <summary>
+    /// Freezes the metering loop without switching auto brightness off. <see
+    /// cref="AutoBrightnessOffset"/> keeps returning whatever it last converged to — no new
+    /// reading is taken and the approach stops moving — rather than a real "off", which would drop
+    /// the offset to zero and visibly change the shot (see that property). For a caller that needs
+    /// a stable exposure across many frames, a photogrammetry capture above all: inconsistent
+    /// brightness between shots of the same place reads as noise to whatever trains on them.
+    /// </summary>
+    private bool autoBrightnessMeteringHeld;
+
+    public void SetAutoBrightnessMeteringHeld(bool held) => autoBrightnessMeteringHeld = held;
+
     public void SetAutoBrightnessEnabled(bool enabled)
     {
         if (autoBrightnessEnabled == enabled) return;
@@ -222,7 +234,7 @@ public partial class BasisHandHeldCamera
     /// </summary>
     private void TickAutoBrightness()
     {
-        if (!autoBrightnessEnabled)
+        if (!autoBrightnessEnabled || autoBrightnessMeteringHeld)
         {
             return;
         }

@@ -775,6 +775,8 @@
     { "key": "sdk.cilbox.api.light.summary", "value": "色・強度・範囲・影。コマンドバッファはサンドボックスから GPU の処理を隠すため除外しています。" },
     { "key": "sdk.cilbox.api.camera.title", "value": "カメラ" },
     { "key": "sdk.cilbox.api.camera.summary", "value": "座標空間の変換とプロパティへのアクセス。描画の入り口は含みません。" },
+    { "key": "sdk.cilbox.api.graphicssettings.title", "value": "グラフィック設定" },
+    { "key": "sdk.cilbox.api.graphicssettings.summary", "value": "プレイヤーのグラフィック品質ティアと関連するグラフィック設定を読み取り、変更時にスクリプトへ通知するため、ワールドは非力なマシンで重いコンテンツを切ることができます。読み取り専用で、設定を変更することはありません。" },
     { "key": "sdk.cilbox.api.particles.title", "value": "パーティクル" },
     { "key": "sdk.cilbox.api.particles.summary", "value": "再生・停止とモジュールのプロパティ。" },
     { "key": "sdk.cilbox.api.audioSource.title", "value": "オーディオソース" },

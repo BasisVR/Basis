@@ -252,6 +252,7 @@ public static class BasisCameraSettingsReadout
         Row("camera.photogrammetry.distance", Number(settings.photogrammetryDistanceMeters) + " m");
         Row("camera.photogrammetry.angle", Number(settings.photogrammetryAngleDegrees) + " °");
         Row("camera.photogrammetry.resolution", settings.photogrammetryWidth + " px");
+        Row("camera.photogrammetryPath.settle", Number(settings.photogrammetryPathSettleSeconds) + " s");
 
         Basis.Cinematics.BasisCameraModifierStack stack =
             settings.modifiers ?? new Basis.Cinematics.BasisCameraModifierStack();

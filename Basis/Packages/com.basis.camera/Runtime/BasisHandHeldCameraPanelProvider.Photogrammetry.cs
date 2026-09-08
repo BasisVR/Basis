@@ -141,11 +141,33 @@ namespace Basis.BasisUI.HandHeldCamera
             SyncSlider(_photogrammetryAngleSlider, _activeCamera.PhotogrammetryAngleDegrees, ref _lastPhotogrammetryAngle);
             SyncPhotogrammetryResolutionDropdown(_activeCamera.PhotogrammetryWidth, ref _lastPhotogrammetryWidth);
 
-            bool canCaptureNow = _activeCamera.PhotogrammetryState == BasisCameraRecordingState.Recording;
+            bool canCaptureNow = _activeCamera.PhotogrammetryState == BasisCameraRecordingState.Recording
+                && !_activeCamera.IsReplayingPhotogrammetryPath;
             if (_lastPhotogrammetryCaptureNowInteractable != canCaptureNow)
             {
                 _lastPhotogrammetryCaptureNowInteractable = canCaptureNow;
                 _photogrammetryCaptureNowButton?.SetInteractable(canCaptureNow);
+            }
+
+            // A path replay (Photogrammetry Path section, below) drives this same session — show
+            // that instead of a live "Recording" status that would misdescribe what is happening.
+            if (_activeCamera.IsReplayingPhotogrammetryPath)
+            {
+                string busyLabel = BasisLocalization.Get("camera.photogrammetry.record");
+                if (busyLabel != _lastPhotogrammetryButtonLabel)
+                {
+                    _lastPhotogrammetryButtonLabel = busyLabel;
+                    _photogrammetryRecordButton.Descriptor.SetTitle(busyLabel);
+                    _photogrammetryRecordButton.SetInteractable(false);
+                }
+
+                string busyStatus = BasisLocalization.Get("camera.photogrammetry.status.pathBusy");
+                if (busyStatus != _lastPhotogrammetryStatusText)
+                {
+                    _lastPhotogrammetryStatusText = busyStatus;
+                    _photogrammetryStatus?.SetDescription(busyStatus);
+                }
+                return;
             }
 
             TickRecordingControls(

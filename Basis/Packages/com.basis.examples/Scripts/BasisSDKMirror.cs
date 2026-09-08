@@ -1,5 +1,6 @@
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
@@ -729,12 +730,13 @@ public class BasisSDKMirror : MonoBehaviour
         {
             width = XSize;
             height = YSize;
-#if UNITY_ANDROID && !UNITY_EDITOR
-            // Standalone ceiling: research consensus is 512-768 per eye; the 2048 world default is
-            // a measured slideshow on mobile GPUs (two eyes, per mirror, per frame).
-            width = Mathf.Min(width, StandaloneResolutionCap);
-            height = Mathf.Min(height, StandaloneResolutionCap);
-#endif
+            if (BasisGpuDetection.IsMobileGpu)
+            {
+                // Standalone ceiling: research consensus is 512-768 per eye; the 2048 world default is
+                // a measured slideshow on mobile GPUs (two eyes, per mirror, per frame).
+                width = Mathf.Min(width, StandaloneResolutionCap);
+                height = Mathf.Min(height, StandaloneResolutionCap);
+            }
         }
     }
 
@@ -844,10 +846,12 @@ public class BasisSDKMirror : MonoBehaviour
             gazeTarget.FocusPoint = TransformPoint(planePosWS, planeRotWS, reflLocal);
         }
 
-#if UNITY_ANDROID && !UNITY_EDITOR
+        bool mobileGpu = BasisGpuDetection.IsMobileGpu;
         float lodBiasWas = QualitySettings.lodBias;
-        QualitySettings.lodBias = lodBiasWas * 0.75f;
-#endif
+        if (mobileGpu)
+        {
+            QualitySettings.lodBias = lodBiasWas * 0.75f;
+        }
         try
         {
             RenderBothEyes(cam);
@@ -861,9 +865,10 @@ public class BasisSDKMirror : MonoBehaviour
         }
         finally
         {
-#if UNITY_ANDROID && !UNITY_EDITOR
-            QualitySettings.lodBias = lodBiasWas;
-#endif
+            if (mobileGpu)
+            {
+                QualitySettings.lodBias = lodBiasWas;
+            }
             InsideRendering = false;
 
             OnCamerasFinished?.Invoke();
@@ -1079,12 +1084,8 @@ public class BasisSDKMirror : MonoBehaviour
 
     private float EffectiveClipPlaneOffset()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
         // Serialized 0.001 from older content z-fights at grazing angles on mobile depth precision.
-        return ClipPlaneOffset < 0.02f ? 0.05f : ClipPlaneOffset;
-#else
-        return ClipPlaneOffset;
-#endif
+        return BasisGpuDetection.IsMobileGpu && ClipPlaneOffset < 0.02f ? 0.05f : ClipPlaneOffset;
     }
 
     /// <summary>
@@ -1181,15 +1182,11 @@ public class BasisSDKMirror : MonoBehaviour
     private RenderTexture CreatePortalTexture(StereoscopicEye eye)
     {
         GetEffectiveResolution(out int effectiveWidth, out int effectiveHeight);
-#if UNITY_ANDROID && !UNITY_EDITOR
         // 16-bit depth is plenty for a 25 m far plane at half the tile bandwidth; 4x MSAA resolves
         // on-tile on Adreno (Meta-recommended) and keeps edges clean at the reduced resolution.
-        int effectiveDepth = 16;
-        int effectiveMsaa = Mathf.Max(Antialiasing, 4);
-#else
-        int effectiveDepth = depth;
-        int effectiveMsaa = Mathf.Max(1, Antialiasing);
-#endif
+        bool mobileGpu = BasisGpuDetection.IsMobileGpu;
+        int effectiveDepth = mobileGpu ? 16 : depth;
+        int effectiveMsaa = mobileGpu ? Mathf.Max(Antialiasing, 4) : Mathf.Max(1, Antialiasing);
         effectiveMsaa = BasisCameraTargetMsaa.Clamp(effectiveMsaa);
 
         var desc = new RenderTextureDescriptor(effectiveWidth, effectiveHeight, RenderTextureFormat.Default, effectiveDepth)

@@ -287,6 +287,7 @@ namespace Basis.Tests.Camera
                 photogrammetryDistanceMeters = 0.55f,
                 photogrammetryAngleDegrees = 22f,
                 photogrammetryWidth = 854,
+                photogrammetryPathSettleSeconds = 2.5f,
                 streamTransport = (int)BasisVideoTransport.Web,
                 streamWidth = 2560,
                 streamHeight = 1440,

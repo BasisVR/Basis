@@ -44,6 +44,11 @@ namespace Basis.Tests.Camera
             Assert.That(_camera.PhotogrammetryWidth, Is.EqualTo(BasisHandHeldCamera.MinPhotogrammetryWidth));
             _camera.SetPhotogrammetryWidth(99999);
             Assert.That(_camera.PhotogrammetryWidth, Is.EqualTo(BasisHandHeldCamera.MaxPhotogrammetryWidth));
+
+            _camera.SetPhotogrammetryPathSettleSeconds(0f);
+            Assert.That(_camera.PhotogrammetryPathSettleSeconds, Is.EqualTo(BasisHandHeldCamera.MinPhotogrammetryPathSettleSeconds));
+            _camera.SetPhotogrammetryPathSettleSeconds(9999f);
+            Assert.That(_camera.PhotogrammetryPathSettleSeconds, Is.EqualTo(BasisHandHeldCamera.MaxPhotogrammetryPathSettleSeconds));
         }
 
         [Test]
@@ -54,11 +59,13 @@ namespace Basis.Tests.Camera
             Assert.That(_camera.PhotogrammetryDistanceMeters, Is.EqualTo(defaults.photogrammetryDistanceMeters));
             Assert.That(_camera.PhotogrammetryAngleDegrees, Is.EqualTo(defaults.photogrammetryAngleDegrees));
             Assert.That(_camera.PhotogrammetryWidth, Is.EqualTo(defaults.photogrammetryWidth));
+            Assert.That(_camera.PhotogrammetryPathSettleSeconds, Is.EqualTo(defaults.photogrammetryPathSettleSeconds));
 
             // A slider that opens at zero reads as broken; these also gate the trigger maths.
             Assert.That(defaults.photogrammetryDistanceMeters, Is.GreaterThan(0f));
             Assert.That(defaults.photogrammetryAngleDegrees, Is.GreaterThan(0f));
             Assert.That(defaults.photogrammetryWidth, Is.GreaterThan(0));
+            Assert.That(defaults.photogrammetryPathSettleSeconds, Is.GreaterThan(0f));
         }
 
         [Test]
@@ -85,6 +92,37 @@ namespace Basis.Tests.Camera
             Assert.That(_camera.CapturePhotogrammetryFrameNow(), Is.False);
             _camera.StopPhotogrammetrySession();
             Assert.That(_camera.PhotogrammetryState, Is.EqualTo(BasisCameraRecordingState.Idle));
+        }
+
+        // ---- the path: record then replay ---------------------------------------------------
+
+        [Test]
+        public void PathStartsEmptyAndRecordingRefusesWithoutAFeed()
+        {
+            Assert.That(_camera.PhotogrammetryPathCount, Is.EqualTo(0));
+            Assert.That(_camera.IsRecordingPhotogrammetryPath, Is.False);
+            Assert.That(_camera.IsReplayingPhotogrammetryPath, Is.False);
+
+            // Same reason as the live session: no capture camera exists in edit mode.
+            Assert.That(_camera.StartRecordingPhotogrammetryPath(), Is.False);
+            Assert.That(_camera.IsRecordingPhotogrammetryPath, Is.False);
+
+            // Stopping or clearing from idle/empty is a no-op, not an error.
+            _camera.StopRecordingPhotogrammetryPath();
+            _camera.ClearPhotogrammetryPath();
+            Assert.That(_camera.PhotogrammetryPathCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ReplayRefusesAnEmptyPathBeforeEverCheckingForAFeed()
+        {
+            Assert.That(_camera.PhotogrammetryPathCount, Is.EqualTo(0));
+            Assert.That(_camera.StartPhotogrammetryPathReplay(), Is.False);
+            Assert.That(_camera.IsReplayingPhotogrammetryPath, Is.False);
+            Assert.That(_camera.PhotogrammetryState, Is.EqualTo(BasisCameraRecordingState.Idle));
+
+            // Cancelling a replay that never started is a no-op, not an error.
+            _camera.StopPhotogrammetryPathReplay();
         }
 
         // ---- the manifest ------------------------------------------------------------------

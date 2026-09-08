@@ -775,6 +775,8 @@
     { "key": "sdk.cilbox.api.light.summary", "value": "রঙ, তীব্রতা, পরিসর ও ছায়া। কমান্ড বাফার বাদ, কারণ তা GPU-র কাজ স্যান্ডবক্স থেকে আড়াল করে।" },
     { "key": "sdk.cilbox.api.camera.title", "value": "ক্যামেরা" },
     { "key": "sdk.cilbox.api.camera.summary", "value": "স্থান রূপান্তর ও বৈশিষ্ট্যে প্রবেশ। রেন্ডারিংয়ের পথ এতে নেই।" },
+    { "key": "sdk.cilbox.api.graphicssettings.title", "value": "গ্রাফিক্স সেটিংস" },
+    { "key": "sdk.cilbox.api.graphicssettings.summary", "value": "খেলোয়াড়ের গ্রাফিক্স কোয়ালিটি টিয়ার এবং সংশ্লিষ্ট গ্রাফিক্স সেটিংস পড়ে, এবং সেগুলি বদলালে আপনার স্ক্রিপ্টকে জানায়, যাতে ওয়ার্ল্ড দুর্বল মেশিনে তার ব্যয়বহুল কনটেন্ট বন্ধ করতে পারে। শুধু পড়ার জন্য: এখানে কোনো সেটিং বদলায় না।" },
     { "key": "sdk.cilbox.api.particles.title", "value": "পার্টিকল" },
     { "key": "sdk.cilbox.api.particles.summary", "value": "চালানো, থামানো ও মডিউলের বৈশিষ্ট্য।" },
     { "key": "sdk.cilbox.api.audioSource.title", "value": "অডিও উৎস" },

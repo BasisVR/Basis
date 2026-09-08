@@ -775,6 +775,8 @@
     { "key": "sdk.cilbox.api.light.summary", "value": "Цвет, интенсивность, дальность и тени. Command buffer исключены, так как прячут работу GPU от песочницы." },
     { "key": "sdk.cilbox.api.camera.title", "value": "Камеры" },
     { "key": "sdk.cilbox.api.camera.summary", "value": "Преобразования пространств и доступ к свойствам. Точки входа рендеринга не включены." },
+    { "key": "sdk.cilbox.api.graphicssettings.title", "value": "Настройки графики" },
+    { "key": "sdk.cilbox.api.graphicssettings.summary", "value": "Читает уровень качества графики игрока и связанные с ним настройки графики и сообщает вашему скрипту об их изменении, чтобы мир мог отключить своё дорогое содержимое на слабой машине. Только чтение: ничто здесь не меняет настройку." },
     { "key": "sdk.cilbox.api.particles.title", "value": "Частицы" },
     { "key": "sdk.cilbox.api.particles.summary", "value": "Запуск, остановка и свойства модулей." },
     { "key": "sdk.cilbox.api.audioSource.title", "value": "Источники звука" },

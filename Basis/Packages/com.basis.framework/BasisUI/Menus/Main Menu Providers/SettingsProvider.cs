@@ -2975,9 +2975,10 @@ namespace Basis.BasisUI
                 // sliderDynamicMaximum.Descriptor.SetActive(dynamicEnabled);
                 // toggleDynamicTargetOverride.Descriptor.SetActive(dynamicEnabled);
                 // sliderDynamicTarget.Descriptor.SetActive(dynamicEnabled && toggleDynamicTargetOverride.Value);
-#if !UNITY_ANDROID
-                sliderFoveatedRendering.Descriptor.SetActive(false);
-#endif
+                if (!BasisDeviceManagement.IsCurrentModeVR())
+                {
+                    sliderFoveatedRendering.Descriptor.SetActive(false);
+                }
             }
 
             // toggleDynamicResolution.OnValueChanged += (val) =>

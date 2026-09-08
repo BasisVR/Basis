@@ -775,6 +775,8 @@
     { "key": "sdk.cilbox.api.light.summary", "value": "Kleur, intensiteit, bereik en schaduwen. Command buffers vallen erbuiten omdat ze GPU-werk voor de sandbox verbergen." },
     { "key": "sdk.cilbox.api.camera.title", "value": "Camera's" },
     { "key": "sdk.cilbox.api.camera.summary", "value": "Ruimteconversies en toegang tot eigenschappen. De render-ingangen horen er niet bij." },
+    { "key": "sdk.cilbox.api.graphicssettings.title", "value": "Grafische instellingen" },
+    { "key": "sdk.cilbox.api.graphicssettings.summary", "value": "Leest het grafische kwaliteitsniveau van de speler en de bijbehorende grafische instellingen, en vertelt je script wanneer die veranderen, zodat een wereld zijn dure inhoud kan uitschakelen op een zwakke machine. Alleen lezen: hier wordt geen instelling gewijzigd." },
     { "key": "sdk.cilbox.api.particles.title", "value": "Deeltjes" },
     { "key": "sdk.cilbox.api.particles.summary", "value": "Afspelen, stoppen en de module-eigenschappen." },
     { "key": "sdk.cilbox.api.audioSource.title", "value": "Audiobronnen" },

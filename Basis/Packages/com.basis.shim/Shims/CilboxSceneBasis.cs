@@ -315,6 +315,12 @@ namespace Cilbox
 			{ typeof(Basis.Shims.BasisPermissionEventShim), new HashSet<string>{
 				nameof(Basis.Shims.BasisPermissionEventShim.Rebind),
 				} },
+			// Graphics settings changes. Same shape as the permission events above: fetching the
+			// component is the opt-in, Rebind is only for proxies that appear late, and the
+			// callback is resolved by name off the script.
+			{ typeof(Basis.Shims.BasisGraphicsSettingsEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisGraphicsSettingsEventShim.Rebind),
+				} },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisSeat), new HashSet<string>{
 				$"get_{nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.OccupantRotationRangeDegrees)}",
 				$"set_{nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.OccupantRotationRangeDegrees)}",
