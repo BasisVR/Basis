@@ -181,6 +181,9 @@ namespace Cilbox
 			{ typeof(Basis.Shims.BasisGraphicsSettingsEventShim), new HashSet<string>{
 				nameof(Basis.Shims.BasisGraphicsSettingsEventShim.Rebind),
 				} },
+			{ typeof(Basis.Shims.BasisPlatformEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisPlatformEventShim.Rebind),
+				} },
 			{ typeof(UnityEngine.Rendering.AsyncGPUReadback), new HashSet<string>{ "Request" } },
 			{ typeof(BitConverter), new HashSet<string>{
 				"GetBytes", "ToBoolean", "ToChar", "ToDouble", "ToInt16", "ToInt32",

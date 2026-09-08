@@ -23,6 +23,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
         private string _lastVideoButtonLabel;
         private string _lastVideoStatusText;
+        private bool? _lastVideoInteractable;
         private bool? _lastVideoTimeLimit;
         private bool? _lastVideoAutoNewClip;
         private float _lastVideoDuration = float.NaN;
@@ -152,6 +153,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             _lastVideoButtonLabel = null;
             _lastVideoStatusText = null;
+            _lastVideoInteractable = null;
             TickVideoSection();
         }
 
@@ -199,7 +201,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 _activeCamera.VideoClipNumber,
                 _activeCamera.LastVideoFileName, _activeCamera.LastVideoFailure,
                 "camera.video", _videoRecordButton, _videoStatus,
-                ref _lastVideoButtonLabel, ref _lastVideoStatusText);
+                ref _lastVideoButtonLabel, ref _lastVideoStatusText, ref _lastVideoInteractable);
         }
 
         private void ClearVideoReferences()
@@ -218,6 +220,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _videoQualitySlider = null;
             _lastVideoButtonLabel = null;
             _lastVideoStatusText = null;
+            _lastVideoInteractable = null;
             _lastVideoDuration = float.NaN;
             _lastVideoFrameRate = float.NaN;
             _lastVideoWidth = -1;

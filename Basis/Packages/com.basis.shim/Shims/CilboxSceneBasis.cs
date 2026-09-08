@@ -321,6 +321,9 @@ namespace Cilbox
 			{ typeof(Basis.Shims.BasisGraphicsSettingsEventShim), new HashSet<string>{
 				nameof(Basis.Shims.BasisGraphicsSettingsEventShim.Rebind),
 				} },
+			{ typeof(Basis.Shims.BasisPlatformEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisPlatformEventShim.Rebind),
+				} },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisSeat), new HashSet<string>{
 				$"get_{nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.OccupantRotationRangeDegrees)}",
 				$"set_{nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.OccupantRotationRangeDegrees)}",

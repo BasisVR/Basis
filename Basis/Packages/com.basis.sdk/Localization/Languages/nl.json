@@ -789,6 +789,8 @@
     { "key": "sdk.cilbox.api.seat.summary", "value": "De lokale speler laten zitten en uitwerpen, en hem draaien zodra hij zit." },
     { "key": "sdk.cilbox.api.permissionevents.title", "value": "Rechtenwijzigingen" },
     { "key": "sdk.cilbox.api.permissionevents.summary", "value": "Vertelt je script wanneer de lokale speler admin- of moderatorrechten krijgt of verliest, zodat inhoud alleen voor staff niet hoeft te pollen. De callback wordt op naam gezocht in je eigen script." },
+    { "key": "sdk.cilbox.api.platform.title", "value": "Platform- en VR-detectie" },
+    { "key": "sdk.cilbox.api.platform.summary", "value": "Leest of de lokale speler in VR of op desktop zit, welk platform en welke XR-runtime draaien, of de GPU van de mobiele klasse is en of de headset wordt gedragen, en laat je script weten wanneer de speler wisselt tussen VR en desktop. Alleen-lezen: niets hier verandert een modus." },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle-interacties" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "Laat een object reageren op vastpakken of aanraken. De callbacks worden op naam in je eigen script gevonden." },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas-UI en tekst" },

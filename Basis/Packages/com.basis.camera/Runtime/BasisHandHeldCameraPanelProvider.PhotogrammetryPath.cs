@@ -27,6 +27,8 @@ namespace Basis.BasisUI.HandHeldCamera
         private bool? _lastPhotogrammetryPathClearInteractable;
         private string _lastPhotogrammetryPathReplayButtonLabel;
         private string _lastPhotogrammetryPathReplayStatusText;
+        private bool? _lastPhotogrammetryPathRecordInteractable;
+        private bool? _lastPhotogrammetryPathReplayInteractable;
 
         private void BuildPhotogrammetryPathGroup(RectTransform parent)
         {
@@ -126,6 +128,8 @@ namespace Basis.BasisUI.HandHeldCamera
             _photogrammetryPathSettleSlider?.SetValueWithoutNotify(_activeCamera.PhotogrammetryPathSettleSeconds);
             _lastPhotogrammetryPathSettle = _activeCamera.PhotogrammetryPathSettleSeconds;
             _lastPhotogrammetryPathClearInteractable = null;
+            _lastPhotogrammetryPathRecordInteractable = null;
+            _lastPhotogrammetryPathReplayInteractable = null;
 
             _lastPhotogrammetryPathButtonLabel = null;
             _lastPhotogrammetryPathStatusText = null;
@@ -141,12 +145,21 @@ namespace Basis.BasisUI.HandHeldCamera
 
             SyncSlider(_photogrammetryPathSettleSlider, _activeCamera.PhotogrammetryPathSettleSeconds, ref _lastPhotogrammetryPathSettle);
 
+            BasisCameraRecordingState state = _activeCamera.PhotogrammetryState;
             bool recording = _activeCamera.IsRecordingPhotogrammetryPath;
+            bool replaying = _activeCamera.IsReplayingPhotogrammetryPath;
             string recordLabel = BasisLocalization.Get(recording ? "camera.photogrammetryPath.stop" : "camera.photogrammetryPath.record");
             if (recordLabel != _lastPhotogrammetryPathButtonLabel)
             {
                 _lastPhotogrammetryPathButtonLabel = recordLabel;
                 _photogrammetryPathRecordButton.Descriptor.SetTitle(recordLabel);
+            }
+
+            bool canRecord = recording || state == BasisCameraRecordingState.Idle;
+            if (_lastPhotogrammetryPathRecordInteractable != canRecord)
+            {
+                _lastPhotogrammetryPathRecordInteractable = canRecord;
+                _photogrammetryPathRecordButton.SetInteractable(canRecord);
             }
 
             int count = _activeCamera.PhotogrammetryPathCount;
@@ -169,20 +182,37 @@ namespace Basis.BasisUI.HandHeldCamera
                 _photogrammetryPathClearButton?.SetInteractable(canClear);
             }
 
+            if (state == BasisCameraRecordingState.Recording && !replaying)
+            {
+                string busyLabel = BasisLocalization.Get("camera.photogrammetryPath.replay.record");
+                if (busyLabel != _lastPhotogrammetryPathReplayButtonLabel)
+                {
+                    _lastPhotogrammetryPathReplayButtonLabel = busyLabel;
+                    _photogrammetryPathReplayButton.Descriptor.SetTitle(busyLabel);
+                }
+                if (_lastPhotogrammetryPathReplayInteractable != false)
+                {
+                    _lastPhotogrammetryPathReplayInteractable = false;
+                    _photogrammetryPathReplayButton.SetInteractable(false);
+                }
+
+                string busyStatus = BasisLocalization.Get("camera.photogrammetryPath.replay.status.liveBusy");
+                if (busyStatus != _lastPhotogrammetryPathReplayStatusText)
+                {
+                    _lastPhotogrammetryPathReplayStatusText = busyStatus;
+                    _photogrammetryPathReplayStatus?.SetDescription(busyStatus);
+                }
+                return;
+            }
+
             TickRecordingControls(
-                _activeCamera.PhotogrammetryState, float.PositiveInfinity,
+                state, float.PositiveInfinity,
                 _activeCamera.PhotogrammetryFramesCaptured, _activeCamera.PhotogrammetryFramesEncoded,
                 clipNumber: 0,
                 _activeCamera.LastPhotogrammetryFileName, _activeCamera.LastPhotogrammetryFailure,
                 "camera.photogrammetryPath.replay", _photogrammetryPathReplayButton, _photogrammetryPathReplayStatus,
-                ref _lastPhotogrammetryPathReplayButtonLabel, ref _lastPhotogrammetryPathReplayStatusText);
-
-            // On top of whatever TickRecordingControls just decided: an empty path is never worth
-            // starting a render for, regardless of what state the shared session happens to be in.
-            if (count == 0 && _activeCamera.PhotogrammetryState == BasisCameraRecordingState.Idle)
-            {
-                _photogrammetryPathReplayButton?.SetInteractable(false);
-            }
+                ref _lastPhotogrammetryPathReplayButtonLabel, ref _lastPhotogrammetryPathReplayStatusText, ref _lastPhotogrammetryPathReplayInteractable,
+                canStart: count > 0 && !recording);
         }
 
         /// <summary>A render's rough lower bound is point count times settle time — encode time between points is normally absorbed, not added.</summary>
@@ -209,6 +239,8 @@ namespace Basis.BasisUI.HandHeldCamera
             _lastPhotogrammetryPathClearInteractable = null;
             _lastPhotogrammetryPathReplayButtonLabel = null;
             _lastPhotogrammetryPathReplayStatusText = null;
+            _lastPhotogrammetryPathRecordInteractable = null;
+            _lastPhotogrammetryPathReplayInteractable = null;
         }
     }
 }

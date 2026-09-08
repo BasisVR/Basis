@@ -789,6 +789,8 @@
     { "key": "sdk.cilbox.api.seat.summary", "value": "Fare sedere ed espellere il giocatore locale, e ruotarlo una volta seduto." },
     { "key": "sdk.cilbox.api.permissionevents.title", "value": "Cambi di permesso" },
     { "key": "sdk.cilbox.api.permissionevents.summary", "value": "Informa il tuo script quando il giocatore locale ottiene o perde i permessi di admin o moderatore, così i contenuti riservati allo staff non devono fare polling. Il callback viene cercato per nome nel tuo stesso script." },
+    { "key": "sdk.cilbox.api.platform.title", "value": "Rilevamento di piattaforma e VR" },
+    { "key": "sdk.cilbox.api.platform.summary", "value": "Legge se il giocatore locale è in VR o su desktop, quale piattaforma e runtime XR sono in esecuzione, se la GPU è di classe mobile e se il visore è indossato, e avvisa il tuo script quando il giocatore passa tra VR e desktop. Sola lettura: niente qui cambia una modalità." },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Interazioni jiggle" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "Permette a un oggetto di rispondere quando viene afferrato o toccato. I callback vengono trovati per nome nel tuo script." },
     { "key": "sdk.cilbox.api.ui.title", "value": "UI canvas e testo" },

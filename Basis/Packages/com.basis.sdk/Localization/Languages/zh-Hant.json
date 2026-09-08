@@ -789,6 +789,8 @@
     { "key": "sdk.cilbox.api.seat.summary", "value": "讓本機玩家入座與離座，並在入座後轉向。" },
     { "key": "sdk.cilbox.api.permissionevents.title", "value": "權限變更" },
     { "key": "sdk.cilbox.api.permissionevents.summary", "value": "當本機玩家取得或失去管理員或版主權限時通知你的腳本，使僅限工作人員的內容無需輪詢。回呼會在你自己的腳本中依名稱尋找。" },
+    { "key": "sdk.cilbox.api.platform.title", "value": "平台與 VR 偵測" },
+    { "key": "sdk.cilbox.api.platform.summary", "value": "讀取本機玩家處於 VR 還是桌面模式、正在執行的平台與 XR 執行環境、GPU 是否為行動等級以及是否配戴頭戴裝置，並在玩家於 VR 與桌面之間切換時通知你的腳本。唯讀：這裡不會變更任何模式。" },
     { "key": "sdk.cilbox.api.jiggle.title", "value": "Jiggle 互動" },
     { "key": "sdk.cilbox.api.jiggle.summary", "value": "讓物件能對被抓住或觸碰做出反應。回呼會依名稱在你自己的腳本中尋找。" },
     { "key": "sdk.cilbox.api.ui.title", "value": "Canvas UI 與文字" },

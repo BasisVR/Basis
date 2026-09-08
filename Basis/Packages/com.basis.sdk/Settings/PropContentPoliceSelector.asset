@@ -339,3 +339,5 @@ MonoBehaviour:
   - Basis.Scripts.BasisSdk.Highlight.BasisHighlightOverride
   - Basis.Shims.BasisActionTrigger
   - Basis.Shims.BasisPermissionEventShim
+  - BasisPlatformSwitch
+  - Basis.Shims.BasisPlatformEventShim

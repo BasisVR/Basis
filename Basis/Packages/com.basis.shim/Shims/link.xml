@@ -427,6 +427,8 @@
         <type fullname="Basis.Shims.BasisOsc*" preserve="all"/>
         <type fullname="Basis.Shims.BasisPermissionEventShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisGraphicsSettingsEventShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisPlatformEventShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisPlatformShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisTransformSyncShim" preserve="all"/>
         <type fullname="Basis.BasisNetworkShim*" preserve="all"/>
         <type fullname="Basis.Shims.BasisPlayersShim" preserve="all"/>

@@ -931,6 +931,10 @@
       "value": "Camera capture is locked by an admin."
     },
     {
+      "key": "camera.photogrammetryPath.replay.status.liveBusy",
+      "value": "A live photogrammetry session is in progress."
+    },
+    {
       "key": "camera.lens",
       "value": "Lens"
     },

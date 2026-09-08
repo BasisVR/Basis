@@ -46,6 +46,7 @@ namespace Cilbox
 			// machine. Every member returns a string, a number, a bool or a copied string[];
 			// nothing here writes a setting.
 			"Basis.Shims.BasisGraphicsSettingsShim",
+			"Basis.Shims.BasisPlatformShim",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
 			"HVR.Basis.Comms.OSC*",

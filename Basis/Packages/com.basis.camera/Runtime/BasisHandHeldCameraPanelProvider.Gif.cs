@@ -24,6 +24,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
         private string _lastGifButtonLabel;
         private string _lastGifStatusText;
+        private bool? _lastGifInteractable;
         private float _lastGifDuration = float.NaN;
         private float _lastGifFrameRate = float.NaN;
         private int _lastGifWidth = -1;
@@ -138,6 +139,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             _lastGifButtonLabel = null;
             _lastGifStatusText = null;
+            _lastGifInteractable = null;
             TickGifSection();
         }
 
@@ -162,7 +164,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 clipNumber: 0,
                 _activeCamera.LastGifFileName, _activeCamera.LastGifFailure,
                 "camera.gif", _gifRecordButton, _gifStatus,
-                ref _lastGifButtonLabel, ref _lastGifStatusText);
+                ref _lastGifButtonLabel, ref _lastGifStatusText, ref _lastGifInteractable);
         }
 
         private void ClearGifReferences()
@@ -178,6 +180,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _gifDitherToggle = null;
             _lastGifButtonLabel = null;
             _lastGifStatusText = null;
+            _lastGifInteractable = null;
             _lastGifDuration = float.NaN;
             _lastGifFrameRate = float.NaN;
             _lastGifWidth = -1;
@@ -249,7 +252,9 @@ namespace Basis.BasisUI.HandHeldCamera
             PanelButton recordButton,
             PanelElementDescriptor statusCard,
             ref string lastButtonLabel,
-            ref string lastStatusText)
+            ref string lastStatusText,
+            ref bool? lastInteractable,
+            bool canStart = true)
         {
             string buttonLabel;
             string statusText;
@@ -277,6 +282,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
                 default:
                     buttonLabel = BasisLocalization.Get(keyPrefix + ".record");
+                    interactable = canStart;
                     if (BasisNetworkModeration.CameraCaptureBlockedLocally)
                     {
                         statusText = BasisLocalization.Get(keyPrefix + ".status.blocked");
@@ -301,6 +307,11 @@ namespace Basis.BasisUI.HandHeldCamera
             {
                 lastButtonLabel = buttonLabel;
                 recordButton.Descriptor.SetTitle(buttonLabel);
+            }
+
+            if (interactable != lastInteractable)
+            {
+                lastInteractable = interactable;
                 recordButton.SetInteractable(interactable);
             }
 

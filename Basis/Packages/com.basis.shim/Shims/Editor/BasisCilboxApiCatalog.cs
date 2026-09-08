@@ -248,6 +248,31 @@ input.SetLocomotion(BasisPlayerInputBlend.Additive,
 input.SetVerticalDelta(BasisPlayerInputBlend.Additive, 0.25f);
 input.Clear();",
             },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupPlayers,
+                TitleKey = "sdk.cilbox.api.platform.title",
+                SummaryKey = "sdk.cilbox.api.platform.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPlatformShim", "IsDetected"), new CilboxApiRequirement("Basis.Shims.BasisPlatformEventShim", "Rebind") },
+                Example =
+@"using Basis.Shims;
+
+bool vr = BasisPlatformShim.IsVR;
+bool mobile = BasisPlatformShim.IsMobileGpu;
+bool quest = vr && BasisPlatformShim.IsDetected(""Android"");
+string mode = BasisPlatformShim.CurrentMode;
+
+// Adding the event component is the opt-in. The callback is found by name on
+// your own script, fires once on opt-in and again whenever the player swaps
+// between VR and desktop or takes the headset off.
+void Start() { GetComponent<BasisPlatformEventShim>(); }
+
+void OnPlatformChanged(string mode, bool vr, bool headsetWorn)
+{
+    vrOnlyControls.SetActive(vr);
+    desktopHud.SetActive(!vr);
+}",
+            },
 
             // ---------------------------------------------------------- avatar
             new CilboxApiEntry

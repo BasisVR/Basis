@@ -27,6 +27,7 @@ namespace Basis.BasisUI.HandHeldCamera
         private float _lastPhotogrammetryAngle = float.NaN;
         private int _lastPhotogrammetryWidth = -1;
         private bool? _lastPhotogrammetryCaptureNowInteractable;
+        private bool? _lastPhotogrammetryInteractable;
 
         private void BuildPhotogrammetryGroup(RectTransform parent)
         {
@@ -125,6 +126,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             _lastPhotogrammetryButtonLabel = null;
             _lastPhotogrammetryStatusText = null;
+            _lastPhotogrammetryInteractable = null;
             TickPhotogrammetrySection();
         }
 
@@ -158,6 +160,10 @@ namespace Basis.BasisUI.HandHeldCamera
                 {
                     _lastPhotogrammetryButtonLabel = busyLabel;
                     _photogrammetryRecordButton.Descriptor.SetTitle(busyLabel);
+                }
+                if (_lastPhotogrammetryInteractable != false)
+                {
+                    _lastPhotogrammetryInteractable = false;
                     _photogrammetryRecordButton.SetInteractable(false);
                 }
 
@@ -176,7 +182,8 @@ namespace Basis.BasisUI.HandHeldCamera
                 clipNumber: 0,
                 _activeCamera.LastPhotogrammetryFileName, _activeCamera.LastPhotogrammetryFailure,
                 "camera.photogrammetry", _photogrammetryRecordButton, _photogrammetryStatus,
-                ref _lastPhotogrammetryButtonLabel, ref _lastPhotogrammetryStatusText);
+                ref _lastPhotogrammetryButtonLabel, ref _lastPhotogrammetryStatusText, ref _lastPhotogrammetryInteractable,
+                canStart: !_activeCamera.IsRecordingPhotogrammetryPath);
         }
 
         private void ClearPhotogrammetryReferences()
@@ -195,6 +202,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _lastPhotogrammetryAngle = float.NaN;
             _lastPhotogrammetryWidth = -1;
             _lastPhotogrammetryCaptureNowInteractable = null;
+            _lastPhotogrammetryInteractable = null;
         }
 
         /// <summary>
