@@ -38,6 +38,9 @@ namespace Basis.MediaPipe
 
         public bool PoseSidesSwapped;
 
+        public float LightLevel;
+        public float LightBoost;
+
         public double TimestampMs;
     }
 }

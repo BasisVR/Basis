@@ -1890,7 +1890,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> FBIKShoulderSlideMaxDeg = new("fbikshoulderslidemaxdeg", new BasisPlatformDefault<float>(15f));
         public static BasisSettingsBinding<float> FBIKShoulderSlideFraction = new("fbikshoulderslidefraction", new BasisPlatformDefault<float>(0.4f));
         public static BasisSettingsBinding<bool> FBIKArmJointLimits = new("fbikarmjointlimits", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> FBIKArmReachSoftness = new("fbikarmreachsoftness", new BasisPlatformDefault<float>(0.06f));
+        public static BasisSettingsBinding<float> FBIKArmReachSoftness = new("fbikarmreachsoftness", new BasisPlatformDefault<float>(0.04f));
         public static BasisSettingsBinding<float> FBIKArmSwivelSmoothTime = new("fbikarmswivelsmoothtime", new BasisPlatformDefault<float>(0.08f));
         public static BasisSettingsBinding<float> FBIKArmSwivelMaxRate = new("fbikarmswivelmaxrate", new BasisPlatformDefault<float>(720f));
         public static BasisSettingsBinding<float> FBIKArmSwivelSwitchDwell = new("fbikarmswivelswitchdwell", new BasisPlatformDefault<float>(0.2f));

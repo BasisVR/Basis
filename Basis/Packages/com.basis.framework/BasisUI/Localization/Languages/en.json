@@ -12111,6 +12111,22 @@
       "value": "Off keeps the wrist aligned to the forearm (position only) to avoid noisy webcam wrist rotation."
     },
     {
+      "key": "settings.mediapipe.lowLightBoost",
+      "value": "Low Light Boost"
+    },
+    {
+      "key": "settings.mediapipe.lowLightBoost.description",
+      "value": "Brightens dark webcam frames before tracking runs, metered on your face when it is visible. Improves detection and steadiness in a dim room."
+    },
+    {
+      "key": "settings.mediapipe.rejectGlitches",
+      "value": "Reject Tracking Glitches"
+    },
+    {
+      "key": "settings.mediapipe.rejectGlitches.description",
+      "value": "Ignores a sudden jump that lasts only one camera frame. Real fast movements arrive one frame later; single-frame spikes never reach the avatar."
+    },
+    {
       "key": "settings.mediapipe.invertBlink",
       "value": "Invert Blink"
     },

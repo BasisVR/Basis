@@ -136,8 +136,10 @@ namespace Basis.MediaPipe
             AddFeatureToggle("Arm Tracking (experimental)", "Move your avatar's arms to match your real arms, retargeted from the pose skeleton (turns on the pose model; extra CPU).", BasisMediaPipeSettings.EnableHandTracking);
             AddTuningToggle(BasisLocalization.Get("settings.mediapipe.armElbowPoleExperimental"), BasisLocalization.Get("settings.mediapipe.armElbowPoleExperimental.description"), BasisMediaPipeSettings.EnableArmElbowPole);
             AddTuningToggle(BasisLocalization.Get("settings.mediapipe.handRotation"), BasisLocalization.Get("settings.mediapipe.handRotation.description"), BasisMediaPipeSettings.HandRotation);
+            AddTuningToggle(BasisLocalization.Get("settings.mediapipe.rejectGlitches"), BasisLocalization.Get("settings.mediapipe.rejectGlitches.description"), BasisMediaPipeSettings.RejectGlitches);
             AddFeatureToggle("Body Lean/Twist", "Your avatar's chest leans, twists and sways with your torso. Uses the pose model (extra CPU). Set the amount with Chest Motion below.", BasisMediaPipeSettings.EnableBody);
             AddFeatureToggle("Mirror Camera", "Flip the camera horizontally (selfie view).", BasisMediaPipeSettings.Mirror);
+            AddFeatureToggle(BasisLocalization.Get("settings.mediapipe.lowLightBoost"), BasisLocalization.Get("settings.mediapipe.lowLightBoost.description"), BasisMediaPipeSettings.LowLightBoost);
 
             AddFeatureToggle("Swap Hands", "Fix left/right hands if they are reversed.", BasisMediaPipeSettings.SwapHands);
             AddTuningToggle(BasisLocalization.Get("settings.mediapipe.invertBlink"), BasisLocalization.Get("settings.mediapipe.invertBlink.description"), BasisMediaPipeSettings.InvertBlink);

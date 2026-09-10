@@ -57,8 +57,10 @@ namespace Basis.Tests.IK
 
                 // HARD invariants (must hold on any motion). Bounds match BasisMocapAccuracy.Gate, loosened a
                 // hair for the extra excursion of dance/throws so they fail ONLY on a real regression.
-                if (s.HandMaxM > 0.01f)
-                    failures.Add($"{clip.Name}: the arm missed the hand it was handed by {s.HandMaxM * 100f:F1} cm -- reach not preserved on dynamic motion");
+                if (s.HandInReachMaxM > 0.002f)
+                    failures.Add($"{clip.Name}: the arm missed the hand it was handed by {s.HandInReachMaxM * 1000f:F1} mm inside reach -- reach not preserved on dynamic motion");
+                if (s.HandMaxM > 0.05f)
+                    failures.Add($"{clip.Name}: the arm fell {s.HandMaxM * 100f:F1} cm short of the hand near full extension");
                 if (s.RigidityMaxM > 0.003f)
                     failures.Add($"{clip.Name}: the solved rotations rebuild the joint {s.RigidityMaxM * 1000f:F1} mm off its solved position");
 

@@ -77,7 +77,7 @@ namespace Basis.IK
         public bool HasHead, HasHint, HasHintRotation, IsLeft, TorsoCapsule, JointLimits;
         public float TorsoRadius, Dt, ReachSoftness, SmoothTime, MaxRateDeg, SwitchDwell, PriorWeight, PreviousWeight;
         public BasisArmLimits Limits;
-        public static BasisArmSolveInput Defaults(bool isLeft) => new BasisArmSolveInput { TorsoUp = Vector3.up, TorsoForward = Vector3.forward, TorsoOut = isLeft ? Vector3.left : Vector3.right, IsLeft = isLeft, JointLimits = true, Dt = 1f / 90f, ReachSoftness = 0.06f, SmoothTime = 0.08f, MaxRateDeg = 720f, SwitchDwell = 0.2f, PriorWeight = 1f, PreviousWeight = 0.25f, Limits = BasisArmLimits.Default, TargetRotation = Quaternion.identity, RestHandRotation = Quaternion.identity, HintRotation = Quaternion.identity };
+        public static BasisArmSolveInput Defaults(bool isLeft) => new BasisArmSolveInput { TorsoUp = Vector3.up, TorsoForward = Vector3.forward, TorsoOut = isLeft ? Vector3.left : Vector3.right, IsLeft = isLeft, JointLimits = true, Dt = 1f / 90f, ReachSoftness = 0.04f, SmoothTime = 0.08f, MaxRateDeg = 720f, SwitchDwell = 0.2f, PriorWeight = 1f, PreviousWeight = 0.25f, Limits = BasisArmLimits.Default, TargetRotation = Quaternion.identity, RestHandRotation = Quaternion.identity, HintRotation = Quaternion.identity };
     }
     public struct BasisArmSolveResult
     {

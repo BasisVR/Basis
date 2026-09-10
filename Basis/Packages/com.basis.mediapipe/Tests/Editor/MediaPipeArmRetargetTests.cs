@@ -115,7 +115,7 @@ namespace Basis.MediaPipe.Tests
         {
             MediaPipeArmConverter converter = Converter(headAnchor);
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
-            Assert.IsTrue(converter.TryGetArm(pose, in rig, false, in Timing, out Vector3 wrist, out _, out _),
+            Assert.IsTrue(converter.TryGetArm(pose, null, in rig, false, in Timing, out Vector3 wrist, out _, out _),
                 "pose retarget should succeed on a well-formed body");
             return wrist;
         }
@@ -274,7 +274,7 @@ namespace Basis.MediaPipe.Tests
                 MediaPipeArmConverter converter = Converter();
                 MediaPipeArmConverter.AvatarArmRig rig = Rig();
 
-                Assert.IsFalse(converter.TryGetArm(pose, in rig, false, in Timing, out _, out _, out _),
+                Assert.IsFalse(converter.TryGetArm(pose, null, in rig, false, in Timing, out _, out _, out _),
                     $"a NaN at pose landmark {joint} must be refused outright");
             }
         }
@@ -292,9 +292,9 @@ namespace Basis.MediaPipe.Tests
 
             Vector3[] bad = HandAtFace();
             bad[MediaPipeSpace.RightWrist] = new Vector3(float.NaN, 0f, 0f);
-            converter.TryGetArm(bad, in rig, false, in Timing, out _, out _, out _);
+            converter.TryGetArm(bad, null, in rig, false, in Timing, out _, out _, out _);
 
-            Assert.IsTrue(converter.TryGetArm(HandAtFace(), in rig, false, in Timing, out Vector3 wrist, out Vector3 elbow, out _),
+            Assert.IsTrue(converter.TryGetArm(HandAtFace(), null, in rig, false, in Timing, out Vector3 wrist, out Vector3 elbow, out _),
                 "the converter must recover on the next good frame");
             Assert.IsTrue(float.IsFinite(wrist.x) && float.IsFinite(wrist.y) && float.IsFinite(wrist.z),
                 $"and hand back a finite wrist, got {wrist}");
@@ -334,7 +334,7 @@ namespace Basis.MediaPipe.Tests
         {
             MediaPipeArmConverter converter = Converter();
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
-            Assert.IsTrue(converter.TryGetArm(HandAtFace(), in rig, false, in Timing, out Vector3 wrist, out Vector3 elbow, out _));
+            Assert.IsTrue(converter.TryGetArm(HandAtFace(), null, in rig, false, in Timing, out Vector3 wrist, out Vector3 elbow, out _));
 
             Assert.That(Vector3.Distance(rig.RightAnchor, elbow), Is.EqualTo(AvatarUpperLen).Within(1e-3f),
                 "elbow must sit exactly one upper-arm from the shoulder");
@@ -354,7 +354,7 @@ namespace Basis.MediaPipe.Tests
         {
             MediaPipeArmConverter converter = Converter();
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
-            Assert.IsTrue(converter.TryGetArm(HandAtFace(), in rig, false, in Timing, out _, out Vector3 elbow, out _));
+            Assert.IsTrue(converter.TryGetArm(HandAtFace(), null, in rig, false, in Timing, out _, out Vector3 elbow, out _));
 
             Assert.Less(elbow.y, AvatarShoulderY,
                 $"a hand at the face bends the elbow DOWN and out; elbow at {elbow.y:F3} is above the shoulder ({AvatarShoulderY:F3})");
@@ -366,10 +366,10 @@ namespace Basis.MediaPipe.Tests
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
 
             MediaPipeArmConverter trusting = new MediaPipeArmConverter { Smoothing = 0f, ElbowRestBias = 0f };
-            Assert.IsTrue(trusting.TryGetArm(HandAtFace(), in rig, false, in Timing, out _, out Vector3 fromCamera, out _));
+            Assert.IsTrue(trusting.TryGetArm(HandAtFace(), null, in rig, false, in Timing, out _, out Vector3 fromCamera, out _));
 
             MediaPipeArmConverter resting = new MediaPipeArmConverter { Smoothing = 0f, ElbowRestBias = 1f };
-            Assert.IsTrue(resting.TryGetArm(HandAtFace(), in rig, false, in Timing, out _, out Vector3 fromRest, out _));
+            Assert.IsTrue(resting.TryGetArm(HandAtFace(), null, in rig, false, in Timing, out _, out Vector3 fromRest, out _));
 
             Assert.Less(fromRest.y, fromCamera.y,
                 "raising the rest bias must pull the elbow down — that is the entire purpose of the knob");
@@ -385,7 +385,7 @@ namespace Basis.MediaPipe.Tests
 
             MediaPipeArmConverter converter = Converter();
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
-            Assert.IsTrue(converter.TryGetArm(pose, in rig, false, in Timing, out Vector3 wrist, out Vector3 elbow, out _));
+            Assert.IsTrue(converter.TryGetArm(pose, null, in rig, false, in Timing, out Vector3 wrist, out Vector3 elbow, out _));
 
             Assert.That(Vector3.Distance(rig.RightAnchor, elbow), Is.EqualTo(AvatarUpperLen).Within(1e-3f));
             Assert.That(Vector3.Distance(elbow, wrist), Is.LessThanOrEqualTo(AvatarForeLen + 1e-3f),
@@ -434,14 +434,14 @@ namespace Basis.MediaPipe.Tests
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
 
             // Learn the arm from a clean side-on view, where its length really is visible.
-            for (int f = 0; f < 60; f++) converter.TryGetArm(ArmOutSideways(), in rig, false, in Timing, out _, out _, out _);
+            for (int f = 0; f < 60; f++) converter.TryGetArm(ArmOutSideways(), null, in rig, false, in Timing, out _, out _, out _);
 
             // Point it at the camera, and let the one-euro filters settle on the new pose first — otherwise we
             // would be measuring the smoother still catching up, not the arm-length estimate underneath it.
             Vector3[] fore = ArmForeshortened();
-            for (int f = 0; f < 60; f++) converter.TryGetArm(fore, in rig, false, in Timing, out _, out _, out _);
+            for (int f = 0; f < 60; f++) converter.TryGetArm(fore, null, in rig, false, in Timing, out _, out _, out _);
 
-            Assert.IsTrue(converter.TryGetArm(fore, in rig, false, in Timing, out Vector3 settled, out _, out _));
+            Assert.IsTrue(converter.TryGetArm(fore, null, in rig, false, in Timing, out Vector3 settled, out _, out _));
             float settledReach = Vector3.Distance(settled, rig.RightAnchor);
 
             // Now just hold it. Identical landmarks every frame from here on, so an identical retarget every
@@ -449,7 +449,7 @@ namespace Basis.MediaPipe.Tests
             float worst = settledReach;
             for (int f = 0; f < 600; f++)
             {
-                converter.TryGetArm(fore, in rig, false, in Timing, out Vector3 w, out _, out _);
+                converter.TryGetArm(fore, null, in rig, false, in Timing, out Vector3 w, out _, out _);
                 worst = Mathf.Max(worst, Vector3.Distance(w, rig.RightAnchor));
             }
 
@@ -471,15 +471,15 @@ namespace Basis.MediaPipe.Tests
             MediaPipeArmConverter converter = Converter();
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
 
-            for (int f = 0; f < 60; f++) converter.TryGetArm(ArmOutSideways(), in rig, false, in Timing, out _, out _, out _);
-            converter.TryGetArm(ArmOutSideways(), in rig, false, in Timing, out Vector3 shortArm, out _, out _);
+            for (int f = 0; f < 60; f++) converter.TryGetArm(ArmOutSideways(), null, in rig, false, in Timing, out _, out _, out _);
+            converter.TryGetArm(ArmOutSideways(), null, in rig, false, in Timing, out Vector3 shortArm, out _, out _);
 
             // Same pose, but a person with a 20% longer arm: elbow and wrist both further out.
             Vector3[] longer = ArmOutSideways();
             longer[MediaPipeSpace.RightElbow] = new Vector3(-0.49f, 0.40f, 0f);
             longer[MediaPipeSpace.RightWrist] = new Vector3(-0.82f, 0.40f, 0f);
-            for (int f = 0; f < 120; f++) converter.TryGetArm(longer, in rig, false, in Timing, out _, out _, out _);
-            converter.TryGetArm(longer, in rig, false, in Timing, out Vector3 longArm, out _, out _);
+            for (int f = 0; f < 120; f++) converter.TryGetArm(longer, null, in rig, false, in Timing, out _, out _, out _);
+            converter.TryGetArm(longer, null, in rig, false, in Timing, out Vector3 longArm, out _, out _);
 
             // A longer real arm at the same fraction of extension retargets to the SAME avatar reach — that is
             // the entire point of normalising by the user's own arm. If the estimate had not been re-learned,

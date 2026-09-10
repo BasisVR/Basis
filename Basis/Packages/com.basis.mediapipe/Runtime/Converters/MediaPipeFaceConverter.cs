@@ -21,8 +21,10 @@ namespace Basis.MediaPipe
         public float Smoothing = 0.5f;
         public float TongueGain = 1f;
 
+        private const float CutoffResponsive = 10f, CutoffSmooth = 1.5f, Beta = 1f;
+        private MediaPipeScalarFilter[] _shapes;
+        private MediaPipeScalarFilter _tongue;
         private float[] _smoothed;
-        private float _tongueSmoothed;
         private readonly Dictionary<int, float> _lastSubmitted = new Dictionary<int, float>();
         private const float SubmitEpsilon = 1f / 255f;
 
@@ -91,24 +93,25 @@ namespace Basis.MediaPipe
             _idTongueOut = HVRAddress.AddressToId("FT/v2/TongueOut");
         }
 
-        public void Apply(in BasisMediaPipeResult result, BasisAvatar avatar)
+        public void Apply(in BasisMediaPipeResult result, BasisAvatar avatar, in MediaPipeTiming timing)
         {
-            float[] bs = result.FaceBlendshapes;
-            if (avatar == null || bs == null || bs.Length < (int)MediaPipeArkitBlendshape.Count) return;
+            float[] raw = result.FaceBlendshapes;
+            if (avatar == null || raw == null || raw.Length < (int)MediaPipeArkitBlendshape.Count) return;
 
             AcquisitionService acquisition = AcquisitionService.SceneInstance;
             if (acquisition == null) return;
 
-            if (_smoothed == null || _smoothed.Length != bs.Length)
+            if (_shapes == null || _shapes.Length != raw.Length)
             {
-                _smoothed = (float[])bs.Clone();
+                _shapes = new MediaPipeScalarFilter[raw.Length];
+                _smoothed = new float[raw.Length];
             }
-            float st = 1f - Mathf.Clamp01(Smoothing);
-            for (int i = 0; i < bs.Length; i++)
+            float cutoff = timing.Scaled(Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing)));
+            for (int i = 0; i < raw.Length; i++)
             {
-                _smoothed[i] = Mathf.Lerp(_smoothed[i], bs[i], st);
+                _smoothed[i] = _shapes[i].Apply(raw[i], in timing, cutoff, Beta);
             }
-            bs = _smoothed;
+            float[] bs = _smoothed;
 
             ResolveRelay(avatar)?.NotifySourceSample(_idEyeLidLeft);
 
@@ -136,8 +139,7 @@ namespace Basis.MediaPipe
             SubmitIfChanged(acquisition,_idEyeLidRight, EyeLid(Get(bs, MediaPipeArkitBlendshape.EyeBlinkRight)));
 
             float tongue = Mathf.Clamp01(result.TongueOut * TongueGain);
-            _tongueSmoothed = Mathf.Lerp(_tongueSmoothed, tongue, st);
-            SubmitIfChanged(acquisition,_idTongueOut, _tongueSmoothed);
+            SubmitIfChanged(acquisition,_idTongueOut, _tongue.Apply(tongue, in timing, cutoff, Beta));
         }
 
         // Skip submitting near-unchanged values: avoids redundant local SetBlendShapeWeight

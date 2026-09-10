@@ -13,6 +13,7 @@ namespace Basis.MediaPipe
         public bool EnableArmElbowPole;
         public bool SwapHands;
         public bool MirrorHorizontally;
+        public bool LowLightBoost;
         public int TargetFps;
         public int CameraWidth;
         public int CameraHeight;
@@ -29,6 +30,7 @@ namespace Basis.MediaPipe
             EnableArmElbowPole = false,
             SwapHands = false,
             MirrorHorizontally = true,
+            LowLightBoost = true,
             TargetFps = 30,
             CameraWidth = 640,
             CameraHeight = 480,

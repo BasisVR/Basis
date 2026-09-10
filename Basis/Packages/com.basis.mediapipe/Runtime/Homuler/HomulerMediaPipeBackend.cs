@@ -29,7 +29,13 @@ namespace Basis.MediaPipe.Homuler
         public bool IsAvailable { get; private set; }
         public string BackendName => "homuler MediaPipe Unity Plugin";
         private bool _swapHands;
-        private bool _poseSidesSwapped;
+        private bool _lowLight;
+        private MediaPipeSideLatch _sides;
+        private readonly MediaPipeHandSideResolver _handSides = new MediaPipeHandSideResolver();
+        private readonly MediaPipeExposure _exposure = new MediaPipeExposure();
+        private bool _hadFace;
+        private Vector2 _faceCenter;
+        private float _faceSize;
 
         private FaceLandmarker _face;
         private HandLandmarker _hand;
@@ -96,6 +102,7 @@ namespace Basis.MediaPipe.Homuler
         {
             _mirror = config.MirrorHorizontally;
             _swapHands = config.SwapHands;
+            _lowLight = config.LowLightBoost;
             _useAsyncReadback = SystemInfo.supportsAsyncGPUReadback;
             TryCreateLandmarkers(config);
             IsAvailable = _face != null || _hand != null || _pose != null;
@@ -279,9 +286,12 @@ namespace Basis.MediaPipe.Homuler
 
             // WebCamTexture origin is bottom-left; MediaPipe expects top-left. Flip rows,
             // and mirror columns for a selfie-style camera.
+            if (_useAsyncReadback) _readbackNative.CopyTo(_srcRgba);
+            MeterLight(w, h);
+            _exposure.Update(_lowLight);
+            byte[] lut = _exposure.Lut;
             if (_useAsyncReadback)
             {
-                _readbackNative.CopyTo(_srcRgba);
                 for (int y = 0; y < h; y++)
                 {
                     int srcRow = (h - 1 - y) * w;
@@ -290,9 +300,9 @@ namespace Basis.MediaPipe.Homuler
                     {
                         int src = (srcRow + (_mirror ? (w - 1 - x) : x)) * 4;
                         int dst = (dstRow + x) * 4;
-                        _rgba[dst + 0] = _srcRgba[src + 0];
-                        _rgba[dst + 1] = _srcRgba[src + 1];
-                        _rgba[dst + 2] = _srcRgba[src + 2];
+                        _rgba[dst + 0] = lut[_srcRgba[src + 0]];
+                        _rgba[dst + 1] = lut[_srcRgba[src + 1]];
+                        _rgba[dst + 2] = lut[_srcRgba[src + 2]];
                         _rgba[dst + 3] = _srcRgba[src + 3];
                     }
                 }
@@ -308,9 +318,9 @@ namespace Basis.MediaPipe.Homuler
                         int src = srcRow + (_mirror ? (w - 1 - x) : x);
                         int dst = (dstRow + x) * 4;
                         Color32 c = _pixels[src];
-                        _rgba[dst + 0] = c.r;
-                        _rgba[dst + 1] = c.g;
-                        _rgba[dst + 2] = c.b;
+                        _rgba[dst + 0] = lut[c.r];
+                        _rgba[dst + 1] = lut[c.g];
+                        _rgba[dst + 2] = lut[c.b];
                         _rgba[dst + 3] = c.a;
                     }
                 }
@@ -329,6 +339,14 @@ namespace Basis.MediaPipe.Homuler
                 if (result.HasFace) result.TongueOut = ComputeTongueOut(faceResult, w, h);
             }
             _faceMs = _face != null ? MsSince(stage) : 0f;
+            _hadFace = result.HasFace && result.FaceImageSize > 0f;
+            if (_hadFace)
+            {
+                _faceCenter = result.HeadImagePosition;
+                _faceSize = result.FaceImageSize;
+            }
+            result.LightLevel = _exposure.Level;
+            result.LightBoost = _exposure.Boost;
 
             // Pose before hands: the hand landmarker's left/right label is a guess, and the pose (whose sides
             // are repaired from geometry) is what the hands get matched against to settle it.
@@ -436,7 +454,7 @@ namespace Basis.MediaPipe.Homuler
 
             if (found == 0) return;
 
-            bool firstIsLeft = ResolveHandSide(output.PoseLandmarks, firstImage, secondImage, firstLabelLeft, found);
+            bool firstIsLeft = _handSides.Resolve(output.PoseLandmarks, firstImage, secondImage, firstLabelLeft, found);
             Assign(ref output, firstImage, firstWorld, firstIsLeft);
             if (found == 2)
             {
@@ -458,41 +476,6 @@ namespace Basis.MediaPipe.Homuler
                 output.RightHandWorldLandmarks = world;
                 output.HasRightHand = true;
             }
-        }
-
-        // Which physical hand this is decides whether TryPalmFrame negates the palm normal, so getting it wrong
-        // rolls the avatar's wrist 180 degrees while the position still looks right. The handedness label is a
-        // guess that depends on the mirror and on the model, so settle it against the pose wrists instead —
-        // those sides are already repaired from geometry. Falls back to the label when there is no pose.
-        private bool ResolveHandSide(Vector3[] pose, Vector3[] first, Vector3[] second, bool labelLeft, int found)
-        {
-            if (pose == null || pose.Length < MediaPipeSpace.PoseCount) return labelLeft;
-
-            float firstToLeft = WristGap(first, pose, true);
-            float firstToRight = WristGap(first, pose, false);
-            if (firstToLeft < 0f || firstToRight < 0f) return labelLeft;
-
-            if (found == 2)
-            {
-                float secondToLeft = WristGap(second, pose, true);
-                float secondToRight = WristGap(second, pose, false);
-                if (secondToLeft >= 0f && secondToRight >= 0f)
-                {
-                    return firstToLeft + secondToRight <= firstToRight + secondToLeft;
-                }
-            }
-
-            if (Mathf.Abs(firstToLeft - firstToRight) < 0.02f) return labelLeft;
-            return firstToLeft < firstToRight;
-        }
-
-        private static float WristGap(Vector3[] hand, Vector3[] pose, bool left)
-        {
-            if (hand == null || hand.Length <= MediaPipeSpace.HandWrist) return -1f;
-
-            Vector3 wrist = hand[MediaPipeSpace.HandWrist];
-            Vector3 poseWrist = pose[left ? MediaPipeSpace.LeftWrist : MediaPipeSpace.RightWrist];
-            return new Vector2(wrist.x - poseWrist.x, wrist.y - poseWrist.y).magnitude;
         }
 
         private bool LabelSaysLeft(HandLandmarkerResult result, int index)
@@ -555,15 +538,15 @@ namespace Basis.MediaPipe.Homuler
         {
             float decision = MediaPipeSpace.SideSwapNeeded(output.PoseWorldLandmarks);
             if (decision == 0f) decision = MediaPipeSpace.SideSwapNeeded(output.PoseLandmarks);
-            if (decision != 0f) _poseSidesSwapped = decision > 0f;
+            bool swapped = _sides.Update(decision);
 
-            if (_poseSidesSwapped)
+            if (swapped)
             {
                 MediaPipeSpace.SwapPoseSidesInPlace(output.PoseWorldLandmarks);
                 MediaPipeSpace.SwapPoseSidesInPlace(output.PoseLandmarks);
                 MediaPipeSpace.SwapPoseSidesInPlace(output.PoseVisibility);
             }
-            output.PoseSidesSwapped = _poseSidesSwapped;
+            output.PoseSidesSwapped = swapped;
         }
 
         // Tongue isn't a landmark; estimate it from pink/red pixels filling the lower mouth
@@ -612,6 +595,46 @@ namespace Basis.MediaPipe.Homuler
             float fraction = total == 0 ? 0f : (float)tongue / total;
             // Subtract a baseline so lip/gum edges inside the ROI don't read as tongue.
             return Mathf.Clamp01((fraction - 0.25f) / 0.75f);
+        }
+
+        private void MeterLight(int w, int h)
+        {
+            int x0 = 0, y0 = 0, x1 = w, y1 = h;
+            if (_hadFace && _faceSize > 0.02f)
+            {
+                int half = Mathf.RoundToInt(_faceSize * h * 0.7f), cx = Mathf.RoundToInt(_faceCenter.x * w), cy = Mathf.RoundToInt(_faceCenter.y * h);
+                x0 = Mathf.Clamp(cx - half, 0, w - 1);
+                x1 = Mathf.Clamp(cx + half, x0 + 1, w);
+                y0 = Mathf.Clamp(cy - half, 0, h - 1);
+                y1 = Mathf.Clamp(cy + half, y0 + 1, h);
+            }
+            int step = Mathf.Max(1, Mathf.RoundToInt(Mathf.Sqrt((x1 - x0) * (y1 - y0) / 3000f)));
+            _exposure.Begin();
+            if (_useAsyncReadback)
+            {
+                for (int y = y0; y < y1; y += step)
+                {
+                    int row = y * w;
+                    for (int x = x0; x < x1; x += step)
+                    {
+                        int i = (row + x) * 4;
+                        _exposure.Add(_srcRgba[i], _srcRgba[i + 1], _srcRgba[i + 2]);
+                    }
+                }
+            }
+            else
+            {
+                for (int y = y0; y < y1; y += step)
+                {
+                    int row = y * w;
+                    for (int x = x0; x < x1; x += step)
+                    {
+                        Color32 c = _pixels[row + x];
+                        _exposure.Add(c.r, c.g, c.b);
+                    }
+                }
+            }
+            _exposure.End();
         }
 
         private Image NewImage(int w, int h) =>

@@ -43,6 +43,7 @@ namespace Basis.MediaPipe
         private float _sampleDelta = 1f / 15f;   // a PRIOR, not a measurement -- see _rateMeasured
         private bool _rateMeasured;
         private bool _armPosePathActive;
+        private Quaternion _torsoOffset = Quaternion.identity;
         private bool _armDiagLogged;
         public override bool IsDeviceBootable(string BootRequest) => BootRequest == SubSystem;
 
@@ -72,6 +73,7 @@ namespace Basis.MediaPipe
             Config.TargetFps = BasisMediaPipeSettings.CameraFps.RawValue;
             Config.EnableChest = BasisMediaPipeSettings.EnableBody.RawValue;
             Config.EnableArmElbowPole = BasisMediaPipeSettings.EnableArmElbowPole.RawValue;
+            Config.LowLightBoost = BasisMediaPipeSettings.LowLightBoost.RawValue;
             Config.EnablePose = Config.EnableChest || Config.EnableHandTracking;
             ApplyTuning();
         }
@@ -102,6 +104,11 @@ namespace Basis.MediaPipe
             _headConverter.PitchGain = BasisMediaPipeSettings.HeadRotationStrength.RawValue;
             _headConverter.RollGain = BasisMediaPipeSettings.HeadRotationStrength.RawValue;
             _headConverter.InvertRoll = BasisMediaPipeSettings.InvertHeadRoll.RawValue;
+            bool rejectGlitches = BasisMediaPipeSettings.RejectGlitches.RawValue;
+            _armConverter.RejectGlitches = rejectGlitches;
+            _handConverter.RejectGlitches = rejectGlitches;
+            _headConverter.RejectGlitches = rejectGlitches;
+            _bodyConverter.RejectGlitches = rejectGlitches;
         }
 
         public void SetEnabled(bool value)
@@ -184,6 +191,7 @@ namespace Basis.MediaPipe
             _armConverter.Reset();
             _handConverter.Reset();
             _bodyConverter.Reset();
+            _headConverter.Reset();
             CalibrateHead();
         }
 
@@ -325,16 +333,23 @@ namespace Basis.MediaPipe
             return Config.CameraHeight > 0 ? (float)Config.CameraWidth / Config.CameraHeight : 1f;
         }
 
-        private static bool TryTorsoAxes(out Vector3 right, out Vector3 up, out Vector3 forward)
+        private bool TryViewAxes(out Vector3 right, out Vector3 up, out Vector3 forward)
         {
             right = Vector3.right;
             up = Vector3.up;
             forward = Vector3.forward;
-            if (!TryBodyDelta(out Quaternion body)) return false;
+            BasisLocalBoneControl eye = BasisLocalBoneDriver.EyeControl;
+            if (eye == null) return false;
 
-            right = body * Vector3.right;
-            up = body * Vector3.up;
-            forward = body * Vector3.forward;
+            Quaternion view = eye.OutGoingData.rotation;
+            float yawSqr = view.y * view.y + view.w * view.w;
+            if (!IsUsable(view) || yawSqr < 1e-12f) return false;
+
+            float inv = 1f / Mathf.Sqrt(yawSqr);
+            Quaternion frame = new Quaternion(0f, view.y * inv, 0f, view.w * inv) * _torsoOffset;
+            right = frame * Vector3.right;
+            up = frame * Vector3.up;
+            forward = frame * Vector3.forward;
             return true;
         }
 
@@ -366,12 +381,14 @@ namespace Basis.MediaPipe
             Vector3 leftAnchor = root.InverseTransformPoint(_leftUpperArm.position);
             Vector3 rightAnchor = root.InverseTransformPoint(_rightUpperArm.position);
 
-            // Axes come from the torso bone control (a pre-IK target), NOT from the shoulder bones. The rig
-            // driver rotates the clavicles, which MOVES the upper-arm bones, so a frame derived from them turns
-            // whenever an arm moves — which then drags the OTHER arm's target and both wrist rotations with it.
-            // The anchor still rides the live shoulder, because the hand should hang off where the shoulder
+            // Axes come from the VIEW yaw (the desktop eye), not from the chest bone control: on desktop the
+            // virtual spine holds the torso inside a 45 degree yaw deadzone while the head turns, and a webcam
+            // user's real body always faces the monitor, so the arms have to come round with the view exactly
+            // as the head tracker does. NOT the shoulder bones either: the rig driver rotates the clavicles,
+            // which MOVES the upper-arm bones, so a frame derived from them turns whenever an arm moves. The
+            // anchor still rides the live shoulder, because the hand should hang off where the shoulder
             // actually is; only the axes have to be stable.
-            if (!TryTorsoAxes(out Vector3 right, out Vector3 up, out Vector3 forward)
+            if (!TryViewAxes(out Vector3 right, out Vector3 up, out Vector3 forward)
                 && !TryShoulderAxes(leftAnchor, rightAnchor, root, out right, out up, out forward))
             {
                 return false;
@@ -447,7 +464,7 @@ namespace Basis.MediaPipe
 
             if (_hasLatest)
             {
-                ApplyResult(in _latest, new MediaPipeTiming(Time.deltaTime, _sampleDelta, isNewSample));
+                ApplyResult(in _latest, new MediaPipeTiming(Time.deltaTime, _sampleDelta, isNewSample, MediaPipeExposure.Quality(_latest.LightBoost > 0f ? _latest.LightLevel : -1f)));
             }
         }
 
@@ -479,7 +496,7 @@ namespace Basis.MediaPipe
         {
             if (Config.EnableFace && result.HasFace)
             {
-                _faceConverter.Apply(in result, BasisLocalPlayer.Instance.BasisAvatar);
+                _faceConverter.Apply(in result, BasisLocalPlayer.Instance.BasisAvatar, in timing);
             }
             if (Config.EnableHands)
             {
@@ -488,7 +505,7 @@ namespace Basis.MediaPipe
 
             if (Config.EnableHeadPosition || Config.EnableHeadRotation)
             {
-                if (result.HasFace && BasisLocalBoneDriver.EyeControl != null && _headConverter.TryGetHeadOffset(in result, out Quaternion headOffset, out Vector3 headPositionOffset))
+                if (BasisLocalBoneDriver.EyeControl != null && _headConverter.TryGetHeadOffset(in result, in timing, out Quaternion headOffset, out Vector3 headPositionOffset))
                 {
                     BasisLocalBoneControl eye = BasisLocalBoneDriver.EyeControl;
                     BasisLocalBoneControl headControl = BasisLocalBoneDriver.HeadControl;
@@ -514,6 +531,25 @@ namespace Basis.MediaPipe
                 RemoveTracker(BasisBoneTrackedRole.Head);
             }
 
+            _torsoOffset = Quaternion.identity;
+            if (Config.EnableChest)
+            {
+                if (_bodyConverter.TryGetTorsoOffset(in result, in timing, out Quaternion torsoOffset)
+                    && TryComposeChest(torsoOffset, out Vector3 chestPosition, out Quaternion chestRotation))
+                {
+                    _torsoOffset = torsoOffset;
+                    WriteTracker(BasisBoneTrackedRole.Chest, chestPosition, chestRotation);
+                }
+                else
+                {
+                    RemoveTracker(BasisBoneTrackedRole.Chest);
+                }
+            }
+            else
+            {
+                RemoveTracker(BasisBoneTrackedRole.Chest);
+            }
+
             if (Config.EnableHandTracking)
             {
                 bool posePath = result.HasPose && _armRigValid;
@@ -537,41 +573,8 @@ namespace Basis.MediaPipe
                 RemoveTracker(BasisBoneTrackedRole.RightLowerArm);
             }
 
-            if (Config.EnableChest)
-            {
-                if (result.HasPose && _bodyConverter.TryGetTorsoOffset(in result, in timing, out Quaternion torsoOffset)
-                    && TryComposeChest(torsoOffset, out Vector3 chestPosition, out Quaternion chestRotation))
-                {
-                    WriteTracker(BasisBoneTrackedRole.Chest, chestPosition, chestRotation);
-                }
-                else
-                {
-                    RemoveTracker(BasisBoneTrackedRole.Chest);
-                }
-
-            }
-            else
-            {
-                RemoveTracker(BasisBoneTrackedRole.Chest);
-            }
         }
 
-
-        private static bool TryBodyDelta(out Quaternion body)
-        {
-            body = Quaternion.identity;
-            BasisLocalBoneControl torso = BasisLocalBoneDriver.ChestControl != null
-                ? BasisLocalBoneDriver.ChestControl
-                : BasisLocalBoneDriver.HipsControl;
-            if (torso == null) return false;
-
-            Quaternion rest = torso.TposeLocal.rotation;
-            Quaternion live = torso.OutGoingData.rotation;
-            if (!IsUsable(rest) || !IsUsable(live)) return false;
-
-            body = live * Quaternion.Inverse(rest);
-            return true;
-        }
 
         private static bool TryComposeChest(Quaternion torsoOffset, out Vector3 position, out Quaternion rotation)
         {
@@ -716,7 +719,7 @@ namespace Basis.MediaPipe
             }
 
             if (Config.EnablePose && result.HasPose && TryBuildArmRig(out MediaPipeArmConverter.AvatarArmRig rig)
-                && _armConverter.TryGetArm(result.PoseWorldLandmarks, in rig, left, in timing,
+                && _armConverter.TryGetArm(result.PoseWorldLandmarks, result.PoseVisibility, in rig, left, in timing,
                     out Vector3 wristLocal, out Vector3 elbowLocal, out Quaternion forearmRotation))
             {
                 Quaternion wristRotation = forearmRotation;
@@ -785,6 +788,10 @@ namespace Basis.MediaPipe
                 status += _rateMeasured
                     ? $"\nTracking: {1f / Mathf.Max(_sampleDelta, 1e-4f):F1} Hz (camera set to {Config.TargetFps})"
                     : $"\nTracking: not measured yet (camera set to {Config.TargetFps})";
+                status += _latest.LightBoost > 0f
+                    ? $"\nLight: {_latest.LightLevel:P0}" + (_latest.LightBoost > 1.05f ? $" (boosted {_latest.LightBoost:F1}x)" : string.Empty)
+                    : "\nLight: not measured";
+                status += $"\nGlitches rejected: {_armConverter.RejectedSamples + _handConverter.RejectedSamples + _headConverter.RejectedSamples + _bodyConverter.RejectedSamples}";
 
                 // Where the milliseconds actually go. The stages are serial, so the biggest one IS the bottleneck.
                 string breakdown = _backend.TimingBreakdown();

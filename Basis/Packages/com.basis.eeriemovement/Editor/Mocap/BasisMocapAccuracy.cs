@@ -265,7 +265,7 @@ namespace Basis.IK.Mocap
             solvedElbow = r.Valid ? r.Elbow : elbow;
             handErr = r.Valid ? Vector3.Distance(r.Hand, truthHand) : Vector3.Distance(hand, truthHand);
             reach = r.ReachRatio;
-            inReach = r.ReachRatio < 0.9f;
+            inReach = r.ReachRatio > 0.4f && r.ReachRatio < 0.9f;
             axis = 0;
             rigidity = 0f;
             if (r.Valid)

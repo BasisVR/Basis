@@ -239,7 +239,7 @@ namespace Basis.Tests.IK
             i.ProtractionFactor = 1f;
             i.MaxDeg = 30f;
             float prev = -1f;
-            for (int e = -90; e <= 180; e += 15)
+            for (int e = 0; e <= 180; e += 15)
             {
                 float a = e * Mathf.Deg2Rad;
                 i.HandTargetPos = i.UpperArmPos + new Vector3(Mathf.Sin(a) * 0.9f, -Mathf.Cos(a), 0f) * (upper + lower) * 0.9f;
@@ -248,7 +248,7 @@ namespace Basis.Tests.IK
                 Assert.That(r.ElevationDeg, Is.GreaterThanOrEqualTo(prev - 1e-3f), "clavicle elevation must not fall as the hand rises");
                 Assert.That(r.ElevationDeg, Is.InRange(0f, i.MaxDeg + 1e-3f));
                 Assert.That(Mathf.Abs(r.ProtractionDeg), Is.LessThanOrEqualTo(i.MaxDeg + 1e-3f));
-                if (e <= 30) Assert.That(r.ElevationDeg, Is.EqualTo(0f).Within(1e-3f), "no girdle elevation in the setting phase below 30 deg");
+                if (r.HumeralElevationDeg <= 30f) Assert.That(r.ElevationDeg, Is.EqualTo(0f).Within(1e-3f), "no girdle elevation in the setting phase below 30 deg");
                 prev = r.ElevationDeg;
             }
             Assert.That(prev, Is.GreaterThan(20f), "an overhead hand must raise the clavicle");

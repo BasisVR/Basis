@@ -1,17 +1,16 @@
-﻿using Basis.Scripts.Drivers;
 using UnityEngine;
 namespace Basis.MediaPipe
 {
     public sealed class MediaPipeBodyConverter
     {
         public float Strength = 0.6f, MaxAngle = 35f, Smoothing = 0.7f;
-        public bool InvertTwist = false, InvertLean = false, InvertRoll = false;
-        private const float CutoffResponsive = 6f, CutoffSmooth = 0.6f, Beta = 1.5f, DerivativeCutoff = 1f;
+        public bool InvertTwist = false, InvertLean = false, InvertRoll = false, RejectGlitches = true;
+        private const float CutoffResponsive = 6f, CutoffSmooth = 0.6f, Beta = 1.5f, HoldSeconds = 0.5f, FadeInHz = 6f, FadeOutHz = 3f;
         private Quaternion neutralInverse = Quaternion.identity;
         private bool calibrated;
-        private BasisEuroQuatState euro;
-        private Quaternion sampled = Quaternion.identity, carried = Quaternion.identity;
-        private bool hasSample;
+        private MediaPipeRotationFilter filter;
+        private MediaPipePresenceFade presence;
+        public int RejectedSamples => filter.Rejected;
         private float Cutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing));
         public void Calibrate(in BasisMediaPipeResult result)
         {
@@ -19,51 +18,39 @@ namespace Basis.MediaPipe
             {
                 neutralInverse = Quaternion.Inverse(rot);
                 calibrated = true;
+                filter.Reset();
             }
         }
         public void Reset()
         {
             calibrated = false;
-            euro = default;
-            hasSample = false;
-            sampled = Quaternion.identity;
-            carried = Quaternion.identity;
-
+            filter.Reset();
+            presence.Reset();
         }
         public bool TryGetTorsoOffset(in BasisMediaPipeResult result, in MediaPipeTiming timing, out Quaternion offset)
         {
             offset = Quaternion.identity;
-            if (!TryTorsoRotation(result, out Quaternion rot)) return false;
-
-            if (!calibrated)
+            bool present = TryTorsoRotation(result, out Quaternion rot);
+            float weight = presence.Step(present, timing.RenderDelta, HoldSeconds, FadeInHz, FadeOutHz);
+            if (weight <= 0f)
             {
-                neutralInverse = Quaternion.Inverse(rot);
-                calibrated = true;
+                filter.Reset();
+                return false;
             }
-
-            Vector3 euler = (neutralInverse * rot).eulerAngles;
-            float lean = Axis(euler.x, InvertLean), twist = Axis(euler.y, InvertTwist);
-            // Roll is the side-lean, and it used to be dropped on the floor. For someone sitting at a webcam it is
-            // the most visible thing their torso does — you sway sideways far more than you twist.
-            float roll = Axis(euler.z, InvertRoll);
-            Quaternion target = Quaternion.Euler(lean, twist, roll);
-
-            // Same two-clock split the arms use: one-euro on the camera's delta when a fresh sample lands, then a
-            // carry slerp every rendered frame. A filter run at render rate over a held sample snaps and holds.
-            if (timing.IsNewSample || !hasSample)
+            Quaternion relative;
+            if (present)
             {
-                sampled = BasisFilterMath.EuroQuat(ref euro, target, timing.SampleDelta, Cutoff, Beta, DerivativeCutoff);
-                if (!hasSample)
+                if (!calibrated)
                 {
-                    carried = sampled;
-                    hasSample = true;
-                    offset = carried;
-                    return true;
+                    neutralInverse = Quaternion.Inverse(rot);
+                    calibrated = true;
                 }
+                relative = filter.Apply(neutralInverse * rot, in timing, timing.Scaled(Cutoff), Beta, RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f);
             }
-
-            carried = Quaternion.Slerp(carried, sampled, BasisFilterMath.Alpha(timing.CarryCutoff, timing.RenderDelta));
-            offset = carried;
+            else relative = filter.Carry(in timing);
+            Vector3 euler = relative.eulerAngles;
+            Quaternion target = Quaternion.Euler(Axis(euler.x, InvertLean), Axis(euler.y, InvertTwist), Axis(euler.z, InvertRoll));
+            offset = Quaternion.Slerp(Quaternion.identity, target, weight);
             return true;
         }
         private float Axis(float raw, bool invert)

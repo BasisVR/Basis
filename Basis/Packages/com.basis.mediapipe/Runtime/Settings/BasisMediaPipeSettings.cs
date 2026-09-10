@@ -1,4 +1,4 @@
-﻿using Basis.Scripts.Settings;
+using Basis.Scripts.Settings;
 
 namespace Basis.MediaPipe
 {
@@ -84,6 +84,12 @@ namespace Basis.MediaPipe
         public static readonly BasisSettingsBinding<bool> HandRotation =
             new BasisSettingsBinding<bool>("mediapipe_handrotation", new BasisPlatformDefault<bool>(true));
 
+        public static readonly BasisSettingsBinding<bool> LowLightBoost =
+            new BasisSettingsBinding<bool>("mediapipe_lowlight", new BasisPlatformDefault<bool>(true));
+
+        public static readonly BasisSettingsBinding<bool> RejectGlitches =
+            new BasisSettingsBinding<bool>("mediapipe_rejectglitches", new BasisPlatformDefault<bool>(true));
+
         public static readonly BasisSettingsBinding<float> HeadPositionStrength =
             new BasisSettingsBinding<float>("mediapipe_headpositionstrength_v2", new BasisPlatformDefault<float>(0.6f));
 
@@ -138,6 +144,8 @@ namespace Basis.MediaPipe
             HandSmoothing.LoadBindingValue();
             FingerSmoothing.LoadBindingValue();
             HandRotation.LoadBindingValue();
+            LowLightBoost.LoadBindingValue();
+            RejectGlitches.LoadBindingValue();
             HeadPositionStrength.LoadBindingValue();
             HeadRotationStrength.LoadBindingValue();
             HeadHeight.LoadBindingValue();

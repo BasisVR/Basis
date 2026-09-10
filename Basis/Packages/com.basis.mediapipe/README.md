@@ -71,6 +71,7 @@ Open **Settings → Webcam Tracking**:
 - **Enable Webcam Tracking** — turn it on/off.
 - **Camera** — pick which webcam to use (live device list).
 - **Face & Eyes**, **Hands & Fingers**, **Mirror Camera** — per-feature toggles.
+- **Low Light Boost**, **Reject Tracking Glitches**: brighten a dark camera feed before inference, and drop single-frame landmark jumps (both on by default).
 
 Tuning knobs if something looks reversed (no avatar rebuild needed):
 - Blink inverted → flip `MediaPipeFaceConverter.EyeLidIsOpenness`.

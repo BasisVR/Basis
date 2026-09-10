@@ -1,0 +1,179 @@
+using Basis.IK;
+using NUnit.Framework;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using UnityEngine;
+namespace Basis.Tests.IK
+{
+    public class BasisArmJobBurstTests
+    {
+        GameObject root;
+        BasisPoseSkeleton skeleton;
+        NativeArray<BasisBoneHandle> chain;
+        NativeArray<BasisArmState> armState;
+        NativeArray<BasisSpineRestFrame> restFrames;
+        NativeArray<BasisChestSpringState> chestSpring;
+        NativeArray<BasisLegSlotState> legState;
+        NativeArray<BasisLegDiagnostics> legDiagnostics;
+        BasisIKGizmoRecorder gizmos;
+        Transform hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftUpperLeg, leftLowerLeg, leftFoot, rightUpperLeg, rightLowerLeg, rightFoot;
+        bool burstWasEnabled, burstWasSynchronous;
+        [SetUp]
+        public void SetUp()
+        {
+            burstWasEnabled = BurstCompiler.Options.EnableBurstCompilation;
+            burstWasSynchronous = BurstCompiler.Options.EnableBurstCompileSynchronously;
+            BurstCompiler.Options.EnableBurstCompilation = true;
+            BurstCompiler.Options.EnableBurstCompileSynchronously = true;
+        }
+        [TearDown]
+        public void TearDown()
+        {
+            BurstCompiler.Options.EnableBurstCompilation = burstWasEnabled;
+            BurstCompiler.Options.EnableBurstCompileSynchronously = burstWasSynchronous;
+            if (chain.IsCreated) chain.Dispose();
+            if (armState.IsCreated) armState.Dispose();
+            if (restFrames.IsCreated) restFrames.Dispose();
+            if (chestSpring.IsCreated) chestSpring.Dispose();
+            if (legState.IsCreated) legState.Dispose();
+            if (legDiagnostics.IsCreated) legDiagnostics.Dispose();
+            gizmos.Dispose();
+            skeleton?.Dispose();
+            skeleton = null;
+            if (root != null) Object.DestroyImmediate(root);
+            root = null;
+        }
+        static Transform Bone(string name, Transform parent, Vector3 worldPosition)
+        {
+            var go = new GameObject(name);
+            go.transform.SetPositionAndRotation(worldPosition, Quaternion.identity);
+            go.transform.SetParent(parent, true);
+            return go.transform;
+        }
+        void BuildRig()
+        {
+            root = new GameObject("ArmJobRig");
+            hips = Bone("Hips", root.transform, new Vector3(0f, 0.95f, 0f));
+            spine = Bone("Spine", hips, new Vector3(0f, 1.10f, 0f));
+            chest = Bone("Chest", spine, new Vector3(0f, 1.25f, 0f));
+            neck = Bone("Neck", chest, new Vector3(0f, 1.45f, 0f));
+            head = Bone("Head", neck, new Vector3(0f, 1.57f, 0f));
+            leftShoulder = Bone("LeftShoulder", chest, new Vector3(-0.05f, 1.40f, 0f));
+            leftUpperArm = Bone("LeftUpperArm", leftShoulder, new Vector3(-0.18f, 1.40f, 0f));
+            leftLowerArm = Bone("LeftLowerArm", leftUpperArm, new Vector3(-0.46f, 1.40f, 0f));
+            leftHand = Bone("LeftHand", leftLowerArm, new Vector3(-0.72f, 1.40f, 0f));
+            rightShoulder = Bone("RightShoulder", chest, new Vector3(0.05f, 1.40f, 0f));
+            rightUpperArm = Bone("RightUpperArm", rightShoulder, new Vector3(0.18f, 1.40f, 0f));
+            rightLowerArm = Bone("RightLowerArm", rightUpperArm, new Vector3(0.46f, 1.40f, 0f));
+            rightHand = Bone("RightHand", rightLowerArm, new Vector3(0.72f, 1.40f, 0f));
+            leftUpperLeg = Bone("LeftUpperLeg", hips, new Vector3(-0.09f, 0.90f, 0f));
+            leftLowerLeg = Bone("LeftLowerLeg", leftUpperLeg, new Vector3(-0.09f, 0.48f, 0f));
+            leftFoot = Bone("LeftFoot", leftLowerLeg, new Vector3(-0.09f, 0.08f, 0f));
+            rightUpperLeg = Bone("RightUpperLeg", hips, new Vector3(0.09f, 0.90f, 0f));
+            rightLowerLeg = Bone("RightLowerLeg", rightUpperLeg, new Vector3(0.09f, 0.48f, 0f));
+            rightFoot = Bone("RightFoot", rightLowerLeg, new Vector3(0.09f, 0.08f, 0f));
+            Transform[] bones = { hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftUpperLeg, leftLowerLeg, leftFoot, rightUpperLeg, rightLowerLeg, rightFoot };
+            skeleton = new BasisPoseSkeleton();
+            skeleton.Build(hips, bones);
+            skeleton.GatherNow();
+            Transform[] chainRootFirst = { hips, spine, chest, neck, head };
+            chain = new NativeArray<BasisBoneHandle>(chainRootFirst.Length, Allocator.Persistent);
+            for (int i = 0; i < chainRootFirst.Length; i++) chain[i] = skeleton.Bind(chainRootFirst[chainRootFirst.Length - 1 - i]);
+            armState = new NativeArray<BasisArmState>(BasisEerieMovement.armCount, Allocator.Persistent);
+            restFrames = new NativeArray<BasisSpineRestFrame>(chainRootFirst.Length, Allocator.Persistent);
+            chestSpring = new NativeArray<BasisChestSpringState>(1, Allocator.Persistent);
+            legState = new NativeArray<BasisLegSlotState>(2, Allocator.Persistent);
+            legDiagnostics = new NativeArray<BasisLegDiagnostics>(2, Allocator.Persistent);
+            gizmos = default;
+            gizmos.Create(64, 16);
+        }
+        BasisEerieMovement Job(Vector3 leftTarget, Vector3 rightTarget)
+        {
+            var job = new BasisEerieMovement
+            {
+                chainHeadToSpine = chain, chainChestIdx = 2, spineMaxIterations = 20, spineTolerance = 0.001f, spineCCDRelax = 1.0f, spineTwistKeep = 0.25f, spineNeckTwistKeep = 0.9f, neckMaxConeDeg = 45f, maxChestDeltaDeg = 30f,
+                thoracicBendStiffen = 0.3f, spineTautBandFrac = 0.015f, chestIkWeight = 0.5f, chestIkIterations = 8, chestIkHeadRestoreSweeps = 2, chestPullMaxDist = 0.5f, ikLockMode = BasisIKLockMode.LockHead, minHeadSpineHeight = 0.62f,
+                tposeLengthNeckToHips = new Vector3(0f, 0.5f, 0f), offsetRotationHead = Quaternion.identity, offsetRotationHips = Quaternion.identity, offsetRotationChest = Quaternion.identity, offsetRotationLeftHand = Quaternion.identity, offsetRotationRightHand = Quaternion.identity,
+                offsetRotationLeftFoot = Quaternion.identity, offsetRotationRightFoot = Quaternion.identity, offsetRotationLeftShoulder = Quaternion.identity, offsetRotationRightShoulder = Quaternion.identity, targetRotationHips = Quaternion.identity, targetRotationChest = Quaternion.identity,
+                targetPositionHips = hips.position, targetPositionHead = head.position, targetRotationHead = Quaternion.identity, playerUp = Vector3.up,
+                targetPositionLeftHand = leftTarget, targetRotationLeftHand = Quaternion.Euler(20f, -30f, 10f), targetPositionRightHand = rightTarget, targetRotationRightHand = Quaternion.Euler(20f, 30f, -10f),
+                tposeShoulderToHandLeft = 0.67f, tposeShoulderToHandRight = 0.67f, tposeClavicleLenLeft = 0.13f, tposeClavicleLenRight = 0.13f,
+                shoulderSolveEnabled = true, shoulderShrugEnabled = true, shoulderElevationFactor = 1f, shoulderProtractionFactor = 1f, shoulderMaxDeg = 30f,
+                armJointLimits = true, armReachSoftness = 0.06f, armSwivelSmoothTime = 0.08f, armSwivelMaxRateDeg = 720f, armSwivelSwitchDwell = 0.2f, armPriorWeight = 1f, armPreviousWeight = 0.25f,
+                forearmPronationMaxDeg = 95f, forearmSupinationMaxDeg = 90f, humeralInternalMaxDeg = 70f, humeralExternalMaxDeg = 90f, wristFlexionMaxDeg = 80f, wristExtensionMaxDeg = 70f, wristRadialMaxDeg = 20f, wristUlnarMaxDeg = 30f,
+                collisionsEnabled = true, protectElbow = true, chestRadius = 0.055f, collisionSkin = 0.025f, chestArmSwingFactor = 0.3f, chestArmSwingMaxDeg = 15f, chestFollowChestShare = 0.6f,
+                armState = armState, chainSpineRestFrames = restFrames, chestSpring = chestSpring, legState = legState, legDiagnostics = legDiagnostics, gizmos = gizmos,
+            };
+            job.handleHips = skeleton.Bind(hips);
+            job.handleSpine = skeleton.Bind(spine);
+            job.handleChest = skeleton.Bind(chest);
+            job.handleNeck = skeleton.Bind(neck);
+            job.handleHead = skeleton.Bind(head);
+            job.handleLeftShoulder = skeleton.Bind(leftShoulder);
+            job.handleLeftUpperArm = skeleton.Bind(leftUpperArm);
+            job.handleLeftLowerArm = skeleton.Bind(leftLowerArm);
+            job.handleLeftHand = skeleton.Bind(leftHand);
+            job.handleRightShoulder = skeleton.Bind(rightShoulder);
+            job.handleRightUpperArm = skeleton.Bind(rightUpperArm);
+            job.handleRightLowerArm = skeleton.Bind(rightLowerArm);
+            job.handleRightHand = skeleton.Bind(rightHand);
+            job.handleLeftUpperLeg = skeleton.Bind(leftUpperLeg);
+            job.handleLeftLowerLeg = skeleton.Bind(leftLowerLeg);
+            job.handleLeftFoot = skeleton.Bind(leftFoot);
+            job.handleRightUpperLeg = skeleton.Bind(rightUpperLeg);
+            job.handleRightLowerLeg = skeleton.Bind(rightLowerLeg);
+            job.handleRightFoot = skeleton.Bind(rightFoot);
+            job.slotPositions.Length = BasisEerieMovement.Count;
+            job.slotRotations.Length = BasisEerieMovement.Count;
+            job.slotOffsets.Length = BasisEerieMovement.Count;
+            job.slotWeights.Length = BasisEerieMovement.Count;
+            for (int i = 0; i < BasisEerieMovement.Count; i++) { job.slotRotations[i] = Quaternion.identity; job.slotOffsets[i] = Quaternion.identity; }
+            BasisEeriePlanner.Bind(ref job);
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { hipsTracked = true, leftHandWeight = 1f, rightHandWeight = 1f, deltaTime = 1f / 90f });
+            job.poseStream = skeleton.Stream;
+            job.poseStream.deltaTime = 1f / 90f;
+            return job;
+        }
+        [Test]
+        public void ArmPass_RunsUnderBurst_AndLandsBothHands()
+        {
+            BuildRig();
+            Vector3 left = new Vector3(-0.25f, 1.15f, 0.35f), right = new Vector3(0.30f, 1.60f, 0.20f);
+            var job = Job(left, right);
+            Assert.That(job.plan.leftArm.solve && job.plan.rightArm.solve, Is.True);
+            Assert.That(job.plan.hasArmState, Is.True);
+            for (int frame = 0; frame < 3; frame++)
+            {
+                job.Schedule().Complete();
+            }
+            Assert.That(Vector3.Distance(job.poseStream.GetPosition(job.handleLeftHand), left), Is.LessThan(0.01f), "left hand did not land on its target through the Burst job");
+            Assert.That(Vector3.Distance(job.poseStream.GetPosition(job.handleRightHand), right), Is.LessThan(0.01f), "right hand did not land on its target through the Burst job");
+            BasisArmState l = armState[BasisEerieMovement.armLeft], r = armState[BasisEerieMovement.armRight];
+            Assert.That(l.Seeded && r.Seeded, Is.True, "the job must carry per-arm swivel state across frames");
+            Assert.That(float.IsFinite(l.SwivelDeg) && float.IsFinite(r.SwivelDeg), Is.True);
+            Vector3 leftElbow = job.poseStream.GetPosition(job.handleLeftLowerArm), rightElbow = job.poseStream.GetPosition(job.handleRightLowerArm);
+            Assert.That(leftElbow.y, Is.LessThan((job.poseStream.GetPosition(job.handleLeftUpperArm).y + left.y) * 0.5f), "a hand in front of the chest must hang the elbow below the arm line");
+            Assert.That(Vector3.Distance(leftElbow, job.poseStream.GetPosition(job.handleLeftUpperArm)), Is.EqualTo(0.28f).Within(0.01f), "upper arm length changed inside the job");
+            Assert.That(Vector3.Distance(rightElbow, job.poseStream.GetPosition(job.handleRightUpperArm)), Is.EqualTo(0.28f).Within(0.01f));
+        }
+        [Test]
+        public void ArmPass_ManagedAndBurst_Agree()
+        {
+            BuildRig();
+            Vector3 left = new Vector3(-0.20f, 1.25f, 0.30f), right = new Vector3(0.35f, 1.10f, 0.25f);
+            var job = Job(left, right);
+            job.Schedule().Complete();
+            Vector3 burstLeft = job.poseStream.GetPosition(job.handleLeftLowerArm), burstRight = job.poseStream.GetPosition(job.handleRightLowerArm);
+            armState[0] = default;
+            armState[1] = default;
+            skeleton.GatherNow();
+            job.poseStream = skeleton.Stream;
+            job.poseStream.deltaTime = 1f / 90f;
+            job.ProcessAnimation();
+            Vector3 managedLeft = job.poseStream.GetPosition(job.handleLeftLowerArm), managedRight = job.poseStream.GetPosition(job.handleRightLowerArm);
+            Assert.That(Vector3.Distance(burstLeft, managedLeft), Is.LessThan(1e-3f), "Burst and managed arm solves disagree on the left elbow");
+            Assert.That(Vector3.Distance(burstRight, managedRight), Is.LessThan(1e-3f), "Burst and managed arm solves disagree on the right elbow");
+        }
+    }
+}

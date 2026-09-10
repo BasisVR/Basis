@@ -23,11 +23,18 @@ namespace Basis.MediaPipe
         /// <summary>True only on the frame a fresh camera result landed.</summary>
         public readonly bool IsNewSample;
 
-        public MediaPipeTiming(float renderDelta, float sampleDelta, bool isNewSample)
+        public readonly float Quality;
+
+        public MediaPipeTiming(float renderDelta, float sampleDelta, bool isNewSample) : this(renderDelta, sampleDelta, isNewSample, 1f)
+        {
+        }
+
+        public MediaPipeTiming(float renderDelta, float sampleDelta, bool isNewSample, float quality)
         {
             RenderDelta = Mathf.Max(renderDelta, 1e-4f);
             SampleDelta = Mathf.Clamp(sampleDelta, 1e-3f, 0.5f);
             IsNewSample = isNewSample;
+            Quality = float.IsFinite(quality) ? Mathf.Clamp01(quality) : 1f;
         }
 
         /// <summary>
@@ -37,7 +44,10 @@ namespace Basis.MediaPipe
         /// </summary>
         public float CarryCutoff => 1f / (2f * Mathf.PI * SampleDelta * CarryPeriods);
 
+        public float Scaled(float cutoff) => cutoff * Mathf.Lerp(DarkCutoffScale, 1f, Quality);
+
         private const float CarryPeriods = 0.7f;
+        private const float DarkCutoffScale = 0.6f;
 
     }
 }
