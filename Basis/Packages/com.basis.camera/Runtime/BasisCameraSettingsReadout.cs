@@ -232,6 +232,8 @@ public static class BasisCameraSettingsReadout
         // panel wrote itself, and the card parses tags now — so a sender name with a bracket in it
         // would eat the rest of the readout as markup.
         Row("camera.senderName", "<noparse>" + settings.streamSenderName + "</noparse>");
+        Row("camera.directToScreen", OnOff(settings.directToScreen));
+        Row("camera.directToScreen.fit", BasisLocalization.Get(BasisHandHeldCamera.DirectToScreenFitKeys[(int)BasisHandHeldCamera.SanitizeDirectToScreenFit(settings.directToScreenFit)]));
 
         Section("camera.gif");
         Row("camera.gif.length", Number(settings.gifDurationSeconds) + " s");

@@ -39,9 +39,10 @@ public struct BasisFootSimulateJob : IJob
         float3 up = inp.playerUp;
         if (math.lengthsq(up) < 0.001f) up = new float3(0, 1, 0);
 
-        float3 velSample = inp.hipsPos, rawVel = (velSample - sim.prevHeadPos) / dt;
+        float3 velSample = inp.hipsPos, hipsCarry = sim.hasPrevHeadPos ? velSample - sim.prevHeadPos : float3.zero, rawVel = (velSample - sim.prevHeadPos) / dt;
         rawVel -= up * math.dot(rawVel, up);
         sim.prevHeadPos = velSample;
+        sim.hasPrevHeadPos = true;
 
         bool decelerating = math.lengthsq(rawVel) < math.lengthsq(sim.smoothedVelocity);
         float vAlpha = 1f - math.exp(-(decelerating ? p.velocitySmoothDecel : p.velocitySmoothAccel) * dt);
@@ -219,6 +220,8 @@ public struct BasisFootSimulateJob : IJob
         float rightKneeUp = GetUpComponent(rightKneeTarget, up);
         EnforceSide(ref rightKneeTarget, ProjectOntoUpPlane(hp, up) + up * rightKneeUp, rawRight, +1, kneeMinSide);
 
+        left.kneeHint += hipsCarry;
+        right.kneeHint += hipsCarry;
         float kneeCarryDeg = bodyYawRate * dt;
         if (math.abs(kneeCarryDeg) > 1e-4f)
         {

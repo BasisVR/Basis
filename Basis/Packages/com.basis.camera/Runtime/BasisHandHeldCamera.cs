@@ -1168,7 +1168,8 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     {
         if (captureInFlight) return;
 
-        SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low, PreviewRenderTextureFormat);
+        GetPreviewFeedSize(out int width, out int height);
+        SetResolution(width, height, AntialiasingQuality.Low, PreviewRenderTextureFormat);
     }
 
     /// <summary>

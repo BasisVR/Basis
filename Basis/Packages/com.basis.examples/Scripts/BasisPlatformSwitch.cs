@@ -17,26 +17,17 @@ public class BasisPlatformSwitchRule
 public class BasisPlatformSwitch : MonoBehaviour
 {
     public List<BasisPlatformSwitchRule> Rules = new List<BasisPlatformSwitchRule>();
-    [HideInInspector] public GameObject DisableMe;
 
-    public void OnEnable()
+    private void OnEnable()
     {
-        Migrate();
         BasisPlatformDetection.OnChanged -= Apply;
         BasisPlatformDetection.OnChanged += Apply;
         Apply();
     }
 
-    public void OnDisable()
+    private void OnDisable()
     {
         BasisPlatformDetection.OnChanged -= Apply;
-    }
-
-    private void Migrate()
-    {
-        if (DisableMe == null) return;
-        Rules.Add(new BasisPlatformSwitchRule { When = BasisPlatformCondition.MobileGpu, Disable = new[] { DisableMe }, Destroy = true });
-        DisableMe = null;
     }
 
     public void Apply()

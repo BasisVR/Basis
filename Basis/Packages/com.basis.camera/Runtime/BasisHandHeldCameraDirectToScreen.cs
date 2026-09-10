@@ -24,6 +24,25 @@ public enum BasisCameraDirectToScreenState
     Unsupported = 4,
 }
 
+/// <summary>How the feed is placed on the monitor while it is being presented.</summary>
+public enum BasisCameraDirectToScreenFit
+{
+    /// <summary>The whole shot at its own aspect, with bars where the window is another shape.</summary>
+    Fit = 0,
+
+    /// <summary>The window filled, with the shot's long side cropped to the window's aspect.</summary>
+    Fill = 1,
+
+    /// <summary>The window filled by stretching the shot to its aspect.</summary>
+    Stretch = 2,
+
+    /// <summary>
+    /// The feed itself shot at the window's aspect, so nothing is cropped, barred or stretched.
+    /// The capture camera fits its gate vertically, so a wider window sees more at the sides.
+    /// </summary>
+    MatchWindow = 3,
+}
+
 /// <summary>
 /// Direct To Screen: the feed drawn over the game window in place of the headset mirror, so the
 /// monitor — and anything capturing it — shows the shot while the operator is in VR.
@@ -44,6 +63,101 @@ public partial class BasisHandHeldCamera
     /// whether it is actually happening right now is <see cref="IsDirectToScreenPresenting"/>.
     /// </summary>
     public bool DirectToScreen { get; private set; }
+
+    /// <summary>How the feed is placed on the monitor. Persists with the mode; read every frame by the pass.</summary>
+    public BasisCameraDirectToScreenFit DirectToScreenFit { get; private set; }
+
+    /// <summary>
+    /// Where the picture sits when the fit leaves room, 0 to 1 on each axis: across the bars of
+    /// <see cref="BasisCameraDirectToScreenFit.Fit"/>, or which part of the shot survives the crop
+    /// of <see cref="BasisCameraDirectToScreenFit.Fill"/>. Zero is left and bottom; half is centred.
+    /// </summary>
+    public Vector2 DirectToScreenAlignment { get; private set; } = DefaultDirectToScreenAlignment;
+
+    public static readonly Vector2 DefaultDirectToScreenAlignment = new Vector2(0.5f, 0.5f);
+
+    /// <summary>Localisation keys for the fits, in <see cref="BasisCameraDirectToScreenFit"/> order.</summary>
+    public static readonly string[] DirectToScreenFitKeys =
+    {
+        "camera.directToScreen.fit.fit",
+        "camera.directToScreen.fit.fill",
+        "camera.directToScreen.fit.stretch",
+        "camera.directToScreen.fit.matchWindow",
+    };
+
+    /// <summary>The longest side a window-shaped feed is allowed: a 4K monitor's worth, so a huge window cannot ask for a huge texture.</summary>
+    public const int MaxMatchWindowFeedDimension = 4096;
+
+    public static BasisCameraDirectToScreenFit SanitizeDirectToScreenFit(int fit)
+        => fit >= 0 && fit < DirectToScreenFitKeys.Length ? (BasisCameraDirectToScreenFit)fit : BasisCameraDirectToScreenFit.Fit;
+
+    /// <summary>
+    /// Changes how the feed is placed. Match Window is the one fit that changes the feed rather
+    /// than how it is drawn, so entering or leaving it re-sizes the texture on the spot.
+    /// </summary>
+    public void SetDirectToScreenFit(BasisCameraDirectToScreenFit fit)
+    {
+        fit = SanitizeDirectToScreenFit((int)fit);
+        if (DirectToScreenFit == fit) return;
+        DirectToScreenFit = fit;
+        if (PreviewFeedSizeIsStale()) ApplyPreviewResolution();
+    }
+
+    public void SetDirectToScreenAlignment(float horizontal, float vertical)
+    {
+        DirectToScreenAlignment = new Vector2(Mathf.Clamp01(horizontal), Mathf.Clamp01(vertical));
+    }
+
+    /// <summary>True while the feed is shaped like the window rather than the authored preview.</summary>
+    public bool DirectToScreenFeedFollowsWindow => DirectToScreenFit == BasisCameraDirectToScreenFit.MatchWindow && IsDirectToScreenPresenting;
+
+    /// <summary>
+    /// The size the live feed should be right now: the window's shape while Match Window is
+    /// presenting it, the authored preview size otherwise. The single answer every path that
+    /// sizes the preview texture asks for.
+    /// </summary>
+    internal void GetPreviewFeedSize(out int width, out int height)
+    {
+        if (DirectToScreenFeedFollowsWindow)
+        {
+            MatchWindowFeedSize(PreviewCaptureWidth, PreviewCaptureHeight, Screen.width, Screen.height, out width, out height);
+            return;
+        }
+        width = PreviewCaptureWidth;
+        height = PreviewCaptureHeight;
+    }
+
+    /// <summary>
+    /// The preview's pixel budget at the window's aspect: the window changes the feed's shape, not
+    /// its cost. Even sides, since the same texture feeds the video encoders; aspect kept through
+    /// the clamp so a huge window cannot bring the bars back.
+    /// </summary>
+    public static void MatchWindowFeedSize(int previewWidth, int previewHeight, int windowWidth, int windowHeight, out int width, out int height)
+    {
+        width = previewWidth;
+        height = previewHeight;
+        if (previewWidth <= 0 || previewHeight <= 0 || windowWidth <= 0 || windowHeight <= 0) return;
+
+        float aspect = (float)windowWidth / windowHeight;
+        float w = Mathf.Sqrt((float)previewWidth * previewHeight * aspect);
+        float h = w / aspect;
+        float over = Mathf.Max(w, h) / MaxMatchWindowFeedDimension;
+        if (over > 1f)
+        {
+            w /= over;
+            h /= over;
+        }
+        width = Mathf.Max(16, Mathf.RoundToInt(w) & ~1);
+        height = Mathf.Max(16, Mathf.RoundToInt(h) & ~1);
+    }
+
+    /// <summary>Whether the feed is some size other than the one it should be, ignoring a still capture that owns it.</summary>
+    private bool PreviewFeedSizeIsStale()
+    {
+        if (captureInFlight || renderTexture == null) return false;
+        GetPreviewFeedSize(out int width, out int height);
+        return renderTexture.width != width || renderTexture.height != height;
+    }
 
     /// <summary>True while the feed is being drawn over the game window.</summary>
     public bool IsDirectToScreenPresenting => directToScreenOutput != null && directToScreenOutput.IsPresenting;
@@ -140,6 +254,9 @@ public partial class BasisHandHeldCamera
             directToScreenOutput.Stop();
         }
 
+        // Match Window shapes the feed to the window only while it is on the window: taking it
+        // over sizes the texture to the screen, handing it back restores the preview size.
+        if (PreviewFeedSizeIsStale()) ApplyPreviewResolution();
         UpdateRenderGate();
     }
 
@@ -152,6 +269,9 @@ public partial class BasisHandHeldCamera
     private void TickDirectToScreen()
     {
         if (WantsDirectToScreenNow() != IsDirectToScreenPresenting) RefreshDirectToScreen();
+        // The window can be resized at any time and announces it to nobody; a feed following its
+        // shape follows it here, a size compare a frame.
+        else if (PreviewFeedSizeIsStale()) ApplyPreviewResolution();
     }
 
     /// <summary>

@@ -518,38 +518,14 @@ namespace Basis.BasisUI
         }
 
         // Add near the other constants / fields:
-        private const float STABLE_RECENTER_TOLERANCE_MULT = 2.25f;   // how far beyond intended distance before we recenter
-        private const float STABLE_RECENTER_MIN_WORLD_DIST = 0.75f;   // absolute minimum threshold (meters), avoids tiny-scale jitter
         private const float STABLE_MAX_DOWNWARD_PITCH_DEG = 30f;      // cap captured downward pitch so spawning while looking down keeps the menu off the torso
-
-        /// <summary>
-        /// Expected menu distance from the head in world meters, accounting for avatar-to-default scaling.
-        /// In PlaySpaceStable, distance is controlled by GroupOffset local Z (default 0.5).
-        /// Root (transform) is scaled by BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale.
-        /// </summary>
-        private float GetExpectedStableMenuDistanceWorld()
-        {
-            // GroupOffset.localPosition.z is in root-local units
-            float localZ = Mathf.Abs(GroupOffset.localPosition.z);
-
-            // Root scale converts local units -> world units.
-            // In your setup, root scale is avatar-compensation (AvatarToDefaultRatioScaledWithAvatarScale).
-            // Use lossyScale.z to capture actual world scaling even if hierarchy changes.
-            float rootWorldScaleZ = Mathf.Abs(transform.lossyScale.z);
-
-            // Expected world distance along forward axis
-            float expected = localZ * rootWorldScaleZ;
-
-            // Safety clamp in case scale is weird / tiny.
-            return Mathf.Max(expected, 0.01f);
-        }
 
         private void CaptureStableAnchorIfNeeded()
         {
             // If already anchored, verify we didn't drift too far away.
             if (_stableHasAnchor)
             {
-                if (!BasisLocalCameraDriver.HasInstance || GroupOffset == null)
+                if (!BasisSettingsDefaults.MenuTeleport.RawValue || !BasisLocalCameraDriver.HasInstance || GroupOffset == null)
                 {
                     // Can't validate; keep anchor.
                     return;
@@ -560,11 +536,7 @@ namespace Basis.BasisUI
                 // Measure distance from head to the actual UI group (not the root).
                 float currentDist = Vector3.Distance(camPosWS, GroupOffset.position);
 
-                // Height-aware "intended" distance.
-                float expectedDist = GetExpectedStableMenuDistanceWorld();
-
-                // Allow some tolerance; also enforce a minimum meter threshold so small avatars don't cause constant recaptures.
-                float maxAllowed = Mathf.Max(expectedDist * STABLE_RECENTER_TOLERANCE_MULT, STABLE_RECENTER_MIN_WORLD_DIST);
+                float maxAllowed = Mathf.Max(BasisSettingsDefaults.MenuTeleportDistance.RawValue * Mathf.Abs(transform.lossyScale.z), 0.01f);
 
                 if (currentDist > maxAllowed)
                 {

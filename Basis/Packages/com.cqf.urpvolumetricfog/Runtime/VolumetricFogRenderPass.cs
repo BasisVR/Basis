@@ -782,9 +782,9 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
 
     private static void ApplyFogParameters(ComputeCommandBuffer cmd, ComputeShader computeShader, int kernelIndex, in FogParameters parameters)
     {
+        computeShader.SetTexture(kernelIndex, BakedAPVFogVolumeId, parameters.apvBaked && parameters.bakedVolume != null ? parameters.bakedVolume : CoreUtils.blackVolumeTexture);
         if (parameters.apvBaked)
         {
-            computeShader.SetTexture(kernelIndex, BakedAPVFogVolumeId, parameters.bakedVolume);
             cmd.SetComputeVectorParam(computeShader, BakedAPVVolumeBoundsMinId, parameters.bakedBoundsMin);
             cmd.SetComputeVectorParam(computeShader, BakedAPVVolumeInvSizeId, parameters.bakedInvSize);
         }
@@ -1031,6 +1031,8 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         cmd.SetComputeVectorArrayParam(computeShader, FroxelCameraPosId, data.cameraPositions);
         if (data.froxelColumnDepth.IsValid())
             cmd.SetComputeTextureParam(computeShader, kernelIndex, FroxelColumnDepthSourceId, data.froxelColumnDepth);
+        else
+            computeShader.SetTexture(kernelIndex, FroxelColumnDepthSourceId, Texture2D.blackTexture);
         cmd.SetComputeTextureParam(computeShader, kernelIndex, FroxelColumnId, data.froxelColumn);
         cmd.SetComputeTextureParam(computeShader, kernelIndex, FroxelColumnLightId, data.froxelColumnLight);
 
@@ -1055,6 +1057,8 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         cmd.SetComputeTextureParam(computeShader, kernelIndex, FroxelLightingId, data.froxelLighting);
         if (data.temporal)
             cmd.SetComputeTextureParam(computeShader, kernelIndex, FroxelLightingHistoryId, data.froxelLightingHistory);
+        else
+            computeShader.SetTexture(kernelIndex, FroxelLightingHistoryId, CoreUtils.blackVolumeTexture);
 
         cmd.DispatchCompute(computeShader, kernelIndex, Mathf.CeilToInt(data.froxelTextureSize.x / 8.0f), Mathf.CeilToInt(data.froxelTextureSize.y / 8.0f), data.froxelTextureSize.z);
     }

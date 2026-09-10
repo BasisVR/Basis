@@ -308,6 +308,13 @@ namespace Basis.BasisUI.HandHeldCamera
         private PanelToggle _directToScreenToggle;
         private bool? _lastDirectToScreen;
         private string _lastDirectToScreenDescription;
+        private PanelDropdown _directToScreenFitDropdown;
+        private PanelSlider _directToScreenHorizontalSlider;
+        private PanelSlider _directToScreenVerticalSlider;
+        private string _lastDirectToScreenFitKey;
+        private bool? _lastDirectToScreenFitShown;
+        private bool? _lastDirectToScreenAlignmentShown;
+        private Vector2? _lastDirectToScreenAlignment;
         private bool? _lastWebStreamActive;
         private string _lastWebStreamDescription;
         private bool? _lastCameraHidden;
@@ -1237,6 +1244,10 @@ namespace Basis.BasisUI.HandHeldCamera
             _directToScreenToggle = null;
             _lastDirectToScreen = null;
             _lastDirectToScreenDescription = null;
+            _lastDirectToScreenFitKey = null;
+            _lastDirectToScreenFitShown = null;
+            _lastDirectToScreenAlignmentShown = null;
+            _lastDirectToScreenAlignment = null;
             _lastCameraHidden = null;
             _lastAudioListener = null;
             _lastSelfie = null;
@@ -1996,6 +2007,45 @@ namespace Basis.BasisUI.HandHeldCamera
                     // The line under the toggle depends on the device mode and the body, not just
                     // the click — and the click may have taken the window off another camera.
                     RefreshDirectToScreenState();
+                };
+
+                // How the shot lands on the monitor, and where. Shown only while the mode is on:
+                // they say nothing about a window the camera is not drawing to.
+                _directToScreenFitDropdown = PanelDropdown.CreateNewEntry(parent);
+                _directToScreenFitDropdown.Descriptor.SetTitle(BasisLocalization.Get("camera.directToScreen.fit"));
+                _directToScreenFitDropdown.Descriptor.SetTooltip(BasisLocalization.Get("camera.directToScreen.fit.description"));
+                _directToScreenFitDropdown.AssignLocalizedEntries(
+                    new List<string>(BasisHandHeldCamera.DirectToScreenFitKeys), new List<string>(BasisHandHeldCamera.DirectToScreenFitKeys));
+                _directToScreenFitDropdown.OnValueChanged = _ =>
+                {
+                    if (_activeCamera == null || _directToScreenFitDropdown == null) return;
+                    int index = _directToScreenFitDropdown.Index;
+                    if (index < 0) return;
+                    _activeCamera.SetDirectToScreenFit((BasisCameraDirectToScreenFit)index);
+                    _lastDirectToScreenFitKey = null;
+                    RefreshDirectToScreenState();
+                };
+
+                _directToScreenHorizontalSlider = PanelSlider.CreateNew(parent);
+                _directToScreenHorizontalSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
+                    BasisLocalization.Get("camera.directToScreen.horizontal"), 0f, 100f, true, 0, ValueDisplayMode.Percentage));
+                _directToScreenHorizontalSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.directToScreen.horizontal.description"));
+                _directToScreenHorizontalSlider.OnValueChanged = v =>
+                {
+                    if (_activeCamera == null) return;
+                    _activeCamera.SetDirectToScreenAlignment(v / 100f, _activeCamera.DirectToScreenAlignment.y);
+                    _lastDirectToScreenAlignment = _activeCamera.DirectToScreenAlignment;
+                };
+
+                _directToScreenVerticalSlider = PanelSlider.CreateNew(parent);
+                _directToScreenVerticalSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
+                    BasisLocalization.Get("camera.directToScreen.vertical"), 0f, 100f, true, 0, ValueDisplayMode.Percentage));
+                _directToScreenVerticalSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.directToScreen.vertical.description"));
+                _directToScreenVerticalSlider.OnValueChanged = v =>
+                {
+                    if (_activeCamera == null) return;
+                    _activeCamera.SetDirectToScreenAlignment(_activeCamera.DirectToScreenAlignment.x, v / 100f);
+                    _lastDirectToScreenAlignment = _activeCamera.DirectToScreenAlignment;
                 };
             }
 
@@ -3547,12 +3597,54 @@ namespace Basis.BasisUI.HandHeldCamera
             if (_directToScreenToggle == null || _activeCamera == null) return;
 
             SyncToggle(_directToScreenToggle, _activeCamera.DirectToScreen, ref _lastDirectToScreen);
+            RefreshDirectToScreenControls();
 
             string description = DescribeDirectToScreen(_activeCamera);
             if (_lastDirectToScreenDescription == description) return;
 
             _lastDirectToScreenDescription = description;
             _directToScreenToggle.Descriptor.SetDescription(description);
+        }
+
+        /// <summary>
+        /// The placement controls follow the toggle that gives them meaning: the fit while the mode
+        /// is on, and the alignment only for the two fits that leave a choice of where the picture
+        /// goes. Polled like the toggle, since a settings load moves them without a panel event;
+        /// every write below is change-gated, so a quiet frame costs a few compares.
+        /// </summary>
+        private void RefreshDirectToScreenControls()
+        {
+            if (_directToScreenFitDropdown == null || _activeCamera == null) return;
+
+            bool on = _activeCamera.DirectToScreen;
+            BasisCameraDirectToScreenFit fit = _activeCamera.DirectToScreenFit;
+            bool aligned = on && (fit == BasisCameraDirectToScreenFit.Fit || fit == BasisCameraDirectToScreenFit.Fill);
+            if (_lastDirectToScreenFitShown != on || _lastDirectToScreenAlignmentShown != aligned)
+            {
+                _lastDirectToScreenFitShown = on;
+                _lastDirectToScreenAlignmentShown = aligned;
+                _directToScreenFitDropdown.gameObject.SetActive(on);
+                _directToScreenHorizontalSlider?.gameObject.SetActive(aligned);
+                _directToScreenVerticalSlider?.gameObject.SetActive(aligned);
+                RefreshSearch();
+                ForceLayoutRebuild(null);
+            }
+
+            string key = BasisHandHeldCamera.DirectToScreenFitKeys[(int)fit];
+            bool expanded = _directToScreenFitDropdown.DropdownComponent != null && _directToScreenFitDropdown.DropdownComponent.IsExpanded;
+            if (_lastDirectToScreenFitKey != key && !expanded)
+            {
+                _lastDirectToScreenFitKey = key;
+                _directToScreenFitDropdown.SetValueWithoutNotify(key);
+            }
+
+            Vector2 alignment = _activeCamera.DirectToScreenAlignment;
+            if (_lastDirectToScreenAlignment != alignment)
+            {
+                _lastDirectToScreenAlignment = alignment;
+                _directToScreenHorizontalSlider?.SetValueWithoutNotify(alignment.x * 100f);
+                _directToScreenVerticalSlider?.SetValueWithoutNotify(alignment.y * 100f);
+            }
         }
 
         private static string DescribeDirectToScreen(BasisHandHeldCamera camera)
@@ -4167,6 +4259,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 all.AddRange(PhotoTaggingKeys);
                 all.AddRange(BasisHandHeldCamera.FocusPeakingColourKeys);
                 all.AddRange(BasisHandHeldCamera.GridPatternKeys);
+                all.AddRange(BasisHandHeldCamera.DirectToScreenFitKeys);
                 all.AddRange(MeteringKeys);
                 all.AddRange(GrainTypeKeys);
                 all.AddRange(BasisCameraStreamPresets.OptionKeys);

@@ -21,15 +21,14 @@ namespace Basis.IK
             Vector3 curAxis = curAxisV / axLen, rawBend = rawBendV / rbLen;
             bool seeded = state.HintSeeded;
             float curReach = axLen / armLen, armDt = Mathf.Min(dt, BasisElbowSwingCapCore.MaxSlewBudgetDt);
-            Vector3 cappedBend = seeded ? (Vector3)BasisElbowSwingCapCore.Apply(state.HintBend, state.HintAxis, curAxis, rawBend, BasisElbowSwingCapCore.MaxGain, curReach - state.HintReach, poleConditioning, BasisElbowSwingCapCore.SlewCapRad(dt)) : rawBend;
+            Quaternion bodyRot = frame.Valid ? Quaternion.LookRotation(frame.Forward, frame.Up) : bodyRotFallback, bodyDelta = seeded ? bodyRot * Quaternion.Inverse(state.HintBodyRot) : Quaternion.identity;
+            Vector3 cappedBend = seeded ? (Vector3)BasisElbowSwingCapCore.Apply(bodyDelta * state.HintBend, bodyDelta * state.HintAxis, curAxis, rawBend, BasisElbowSwingCapCore.MaxGain, curReach - state.HintReach, poleConditioning, BasisElbowSwingCapCore.SlewCapRad(dt)) : rawBend;
             state.HintBend = cappedBend;
             state.HintAxis = curAxis;
             state.HintReach = curReach;
-            Quaternion bodyRot = frame.Valid ? Quaternion.LookRotation(frame.Forward, frame.Up) : bodyRotFallback;
             Vector3 outBend = cappedBend;
             if (drag && seeded)
             {
-                Quaternion bodyDelta = bodyRot * Quaternion.Inverse(state.HintBodyRot);
                 outBend = (Vector3)BasisElbowDragCore.Apply(state.HintDrag, bodyDelta, curAxis, cappedBend, BasisElbowDragCore.Alpha(dragHz, armDt));
             }
             state.HintDrag = outBend;

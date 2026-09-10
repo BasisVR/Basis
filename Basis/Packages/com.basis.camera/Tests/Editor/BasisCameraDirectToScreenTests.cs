@@ -297,5 +297,173 @@ namespace Basis.Tests.Camera
             Assert.That(BasisCameraDirectToScreenPass.FitViewport(1920, 0, window), Is.EqualTo(Rect.zero));
             Assert.That(BasisCameraDirectToScreenPass.FitViewport(1920, 1080, Rect.zero), Is.EqualTo(Rect.zero));
         }
+
+        private static readonly Vector2 Centre = new Vector2(0.5f, 0.5f);
+        private static readonly Vector4 WholeFeed = new Vector4(1f, 1f, 0f, 0f);
+
+        [Test]
+        public void Fit_ByDefault_CentredWithNothingCropped()
+        {
+            // Every file from before the placement existed was showing the whole shot, centred.
+            Assert.That(_rig.Camera.DirectToScreenFit, Is.EqualTo(BasisCameraDirectToScreenFit.Fit));
+            Assert.That(_rig.Camera.DirectToScreenAlignment, Is.EqualTo(Centre));
+            Assert.That(BasisHandHeldCamera.SanitizeDirectToScreenFit(-1), Is.EqualTo(BasisCameraDirectToScreenFit.Fit));
+            Assert.That(BasisHandHeldCamera.SanitizeDirectToScreenFit(99), Is.EqualTo(BasisCameraDirectToScreenFit.Fit), "A file from a build with more fits falls back rather than indexing off the table.");
+            Assert.That(BasisHandHeldCamera.DirectToScreenFitKeys.Length, Is.EqualTo(System.Enum.GetValues(typeof(BasisCameraDirectToScreenFit)).Length),
+                "The dropdown hands its row number to the enum, so a key table out of step picks another fit.");
+        }
+
+        [Test]
+        public void FitViewport_AlignmentMovesThePictureAlongTheBars()
+        {
+            Rect window = new Rect(0f, 0f, 1920f, 1080f);
+            Rect left = BasisCameraDirectToScreenPass.FitViewport(1080, 1920, window, new Vector2(0f, 0.5f));
+            Rect right = BasisCameraDirectToScreenPass.FitViewport(1080, 1920, window, new Vector2(1f, 0.5f));
+            Assert.That(left.x, Is.EqualTo(0f));
+            Assert.That(right.xMax, Is.EqualTo(1920f).Within(1f));
+            Assert.That(left.size, Is.EqualTo(right.size), "Alignment moves the picture; it never resizes it.");
+            Assert.That(BasisCameraDirectToScreenPass.FitViewport(1080, 1920, window), Is.EqualTo(BasisCameraDirectToScreenPass.FitViewport(1080, 1920, window, Centre)),
+                "The plain overload is the centred one the pass always drew.");
+
+            Rect top = BasisCameraDirectToScreenPass.FitViewport(1920, 1080, new Rect(0f, 0f, 1600f, 1200f), new Vector2(0.5f, 1f));
+            Assert.That(top.yMax, Is.EqualTo(1200f), "1 is the top: a viewport counts up from the bottom edge.");
+
+            Rect clamped = BasisCameraDirectToScreenPass.FitViewport(1080, 1920, window, new Vector2(7f, -3f));
+            Assert.That(clamped, Is.EqualTo(right), "An alignment out of range stops at the edge rather than leaving the window.");
+        }
+
+        [Test]
+        public void Fill_TakesTheWholeWindow_AndCropsTheLongSide()
+        {
+            Rect window = new Rect(0f, 0f, 1000f, 1000f);
+            BasisCameraDirectToScreenPlacement wide = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Fill, 2000, 1000, window, Centre);
+            Assert.That(wide.Viewport, Is.EqualTo(window), "No bars: the picture covers the window.");
+            Assert.That(wide.ScaleBias.x, Is.EqualTo(0.5f).Within(1e-4f), "A 2:1 shot on a square window keeps half its width.");
+            Assert.That(wide.ScaleBias.y, Is.EqualTo(1f).Within(1e-4f));
+            Assert.That(wide.ScaleBias.z, Is.EqualTo(0.25f).Within(1e-4f), "Centred: a quarter cut from each side.");
+
+            BasisCameraDirectToScreenPlacement leftEdge = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Fill, 2000, 1000, window, new Vector2(0f, 0.5f));
+            Assert.That(leftEdge.ScaleBias.z, Is.EqualTo(0f).Within(1e-4f), "0 keeps the left of the shot.");
+            BasisCameraDirectToScreenPlacement rightEdge = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Fill, 2000, 1000, window, new Vector2(1f, 0.5f));
+            Assert.That(rightEdge.ScaleBias.z, Is.EqualTo(0.5f).Within(1e-4f), "1 keeps the right of the shot.");
+
+            BasisCameraDirectToScreenPlacement tall = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Fill, 1000, 2000, window, new Vector2(0.5f, 1f));
+            Assert.That(tall.ScaleBias.y, Is.EqualTo(0.5f).Within(1e-4f));
+            Assert.That(tall.ScaleBias.w, Is.EqualTo(0.5f).Within(1e-4f), "1 keeps the top of the shot.");
+
+            BasisCameraDirectToScreenPlacement same = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Fill, 1920, 1080, new Rect(0f, 0f, 1920f, 1080f), Centre);
+            Assert.That(same.ScaleBias, Is.EqualTo(WholeFeed), "Identity when the shapes agree.");
+        }
+
+        [Test]
+        public void Stretch_TakesTheWholeWindow_AndAllOfTheShot()
+        {
+            Rect window = new Rect(0f, 0f, 1000f, 500f);
+            BasisCameraDirectToScreenPlacement stretched = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Stretch, 1080, 1920, window, Centre);
+            Assert.That(stretched.Viewport, Is.EqualTo(window));
+            Assert.That(stretched.ScaleBias, Is.EqualTo(WholeFeed));
+        }
+
+        [Test]
+        public void Fit_PlacesLikeFitViewport_AndNothingIsDrawnForNothing()
+        {
+            Rect window = new Rect(0f, 0f, 1920f, 1080f);
+            BasisCameraDirectToScreenPlacement fitted = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Fit, 1080, 1920, window, Centre);
+            Assert.That(fitted.Viewport, Is.EqualTo(BasisCameraDirectToScreenPass.FitViewport(1080, 1920, window)));
+            Assert.That(fitted.ScaleBias, Is.EqualTo(WholeFeed));
+
+            // Match Window draws like Fit: once the feed has the window's shape, that fit fills it.
+            BasisCameraDirectToScreenPlacement matched = BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.MatchWindow, 1920, 1080, window, Centre);
+            Assert.That(matched.Viewport, Is.EqualTo(window));
+            Assert.That(matched.ScaleBias, Is.EqualTo(WholeFeed));
+
+            Assert.IsTrue(BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Fill, 1920, 1080, Rect.zero, Centre).IsEmpty);
+            Assert.IsTrue(BasisCameraDirectToScreenPass.Place(BasisCameraDirectToScreenFit.Stretch, 0, 1080, window, Centre).IsEmpty);
+        }
+
+        [Test]
+        public void FlippingACrop_ReadsTheSameBandTheOtherWayUp()
+        {
+            // The middle half of the feed, flipped: uv 0 lands at 0.75 and uv 1 at 0.25 — the
+            // band [0.25, 0.75] again, top first.
+            Vector4 crop = new Vector4(1f, 0.5f, 0f, 0.25f);
+            Vector4 flipped = BasisCameraDirectToScreenPass.FlipScaleBias(crop);
+            Assert.That(flipped.w, Is.EqualTo(0.75f).Within(1e-4f));
+            Assert.That(flipped.w + flipped.y, Is.EqualTo(0.25f).Within(1e-4f));
+            Assert.That(BasisCameraDirectToScreenPass.FlipScaleBias(WholeFeed), Is.EqualTo(new Vector4(1f, -1f, 0f, 1f)), "The plain flip the pass always used.");
+        }
+
+        [Test]
+        public void MatchWindowFeedSize_TakesTheWindowsShapeAtThePreviewsBudget()
+        {
+            BasisHandHeldCamera.MatchWindowFeedSize(1920, 1080, 2560, 1080, out int width, out int height);
+            Assert.That((float)width / height, Is.EqualTo(2560f / 1080f).Within(0.01f));
+            Assert.That(width * height, Is.EqualTo(1920 * 1080).Within(1920 * 1080 * 0.02f), "The window changes the feed's shape, not its cost.");
+            Assert.That(width % 2, Is.Zero, "Even sides: the same texture feeds the video encoders.");
+            Assert.That(height % 2, Is.Zero);
+
+            BasisHandHeldCamera.MatchWindowFeedSize(1920, 1080, 1920, 1080, out width, out height);
+            Assert.That(width, Is.EqualTo(1920));
+            Assert.That(height, Is.EqualTo(1080));
+
+            // A window far wider than tall: the long side stops at the cap, the aspect does not.
+            BasisHandHeldCamera.MatchWindowFeedSize(3840, 2160, 10000, 500, out width, out height);
+            Assert.That(width, Is.LessThanOrEqualTo(BasisHandHeldCamera.MaxMatchWindowFeedDimension));
+            Assert.That((float)width / height, Is.EqualTo(20f).Within(0.5f));
+
+            BasisHandHeldCamera.MatchWindowFeedSize(1920, 1080, 0, 0, out width, out height);
+            Assert.That(width, Is.EqualTo(1920), "No window, no shape to take: the preview size stands.");
+            Assert.That(height, Is.EqualTo(1080));
+        }
+
+        [Test]
+        public void AnOlderFile_LoadsCentred()
+        {
+            // Before version 13 the fields did not exist, so JsonUtility hands back zero — a corner,
+            // not the centre the feed had always been drawn at.
+            BasisHandHeldCameraUI.CameraSettings old = new BasisHandHeldCameraUI.CameraSettings
+            {
+                settingsVersion = 12,
+                directToScreenAlignX = 0f,
+                directToScreenAlignY = 0f,
+            };
+            BasisHandHeldCameraUI.MigrateSettingsForTest(old);
+
+            Assert.That(old.directToScreenAlignX, Is.EqualTo(0.5f));
+            Assert.That(old.directToScreenAlignY, Is.EqualTo(0.5f));
+            Assert.That(old.directToScreenFit, Is.EqualTo((int)BasisCameraDirectToScreenFit.Fit), "Zero is the fit every older file was showing.");
+
+            BasisHandHeldCameraUI.CameraSettings current = new BasisHandHeldCameraUI.CameraSettings
+            {
+                directToScreenAlignX = 0.1f,
+                directToScreenAlignY = 0.9f,
+            };
+            BasisHandHeldCameraUI.MigrateSettingsForTest(current);
+            Assert.That(current.directToScreenAlignX, Is.EqualTo(0.1f), "A file that chose a corner keeps it.");
+            Assert.That(current.directToScreenAlignY, Is.EqualTo(0.9f));
+        }
+
+        [Test]
+        public void ThePlacement_ReachesTheOutputWithTheFeed()
+        {
+            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+
+            _rig.Camera.SetDirectToScreenFit(BasisCameraDirectToScreenFit.Fill);
+            _rig.Camera.SetDirectToScreenAlignment(0.25f, 1.5f);
+            Assert.That(_rig.Camera.DirectToScreenAlignment, Is.EqualTo(new Vector2(0.25f, 1f)), "Clamped on the way in, so the pass never sees a value off the feed.");
+
+            _rig.Camera.SetDirectToScreen(true);
+            BasisCameraDirectToScreenOutput output = BasisCameraDirectToScreenOutput.Presenting;
+            Assert.IsNotNull(output);
+
+            // The feature reads the placement off the output each frame, with the feed.
+            output.TryGetFeed(out _, out _);
+            Assert.That(output.Fit, Is.EqualTo(BasisCameraDirectToScreenFit.Fill));
+            Assert.That(output.Alignment, Is.EqualTo(new Vector2(0.25f, 1f)));
+
+            _rig.Camera.SetDirectToScreenFit(BasisCameraDirectToScreenFit.Stretch);
+            output.TryGetFeed(out _, out _);
+            Assert.That(output.Fit, Is.EqualTo(BasisCameraDirectToScreenFit.Stretch), "A change while presenting is on the window next frame, not next toggle.");
+        }
     }
 }

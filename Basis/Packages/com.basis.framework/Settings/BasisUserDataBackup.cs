@@ -101,6 +101,12 @@ public static class BasisUserDataBackup
         public string FileName;
         public long SizeBytes;
         public DateTime WrittenLocal;
+
+        /// <summary>
+        /// Filled in by <see cref="ListArchivesAsync"/>; null when the file could not be read as an
+        /// archive of this format. <see cref="ListArchives"/> leaves it null.
+        /// </summary>
+        public Manifest Manifest;
     }
 
     [Serializable]
@@ -286,13 +292,63 @@ public static class BasisUserDataBackup
             + ArchiveExtension;
     }
 
-    /// <summary>Archives sitting in <see cref="BackupsFolder"/>, newest first.</summary>
-    public static List<ArchiveInfo> ListArchives()
+    /// <summary>Archives sitting in <see cref="BackupsFolder"/>, newest first. Manifests are not read.</summary>
+    public static List<ArchiveInfo> ListArchives() => ListArchives(ResolveBackupsFolder());
+
+    /// <summary>
+    /// <see cref="ListArchives"/> with every manifest read as well, all of it on a worker thread.
+    /// Opening a zip parses its whole central directory, and an archive that carries the content
+    /// cache lists tens of thousands of files, so the menu must never do this on the main thread.
+    /// Call from the main thread: the folder is resolved there before the scan starts, and the
+    /// manifests are parsed there once the reads come back.
+    /// </summary>
+    public static async Task<List<ArchiveInfo>> ListArchivesAsync()
     {
-        List<ArchiveInfo> archives = new();
+        string folder = ResolveBackupsFolder();
+        if (folder == null) return new List<ArchiveInfo>();
+
+        (List<ArchiveInfo> Archives, List<string> Manifests) scanned = await Task.Run(() =>
+        {
+            List<ArchiveInfo> archives = ListArchives(folder);
+            List<string> manifests = new(archives.Count);
+            foreach (ArchiveInfo archive in archives)
+            {
+                manifests.Add(ReadManifestJson(archive.Path));
+            }
+            return (archives, manifests);
+        });
+
+        for (int i = 0; i < scanned.Archives.Count; i++)
+        {
+            ArchiveInfo archive = scanned.Archives[i];
+            archive.Manifest = ParseManifest(scanned.Manifests[i]);
+            scanned.Archives[i] = archive;
+        }
+
+        return scanned.Archives;
+    }
+
+    /// <summary><see cref="BackupsFolder"/>, or null (with a warning logged) when the data root cannot be resolved.</summary>
+    private static string ResolveBackupsFolder()
+    {
         try
         {
-            string folder = BackupsFolder;
+            return BackupsFolder;
+        }
+        catch (Exception e)
+        {
+            BasisDebug.LogWarning("Could not list backups: " + e.Message);
+            return null;
+        }
+    }
+
+    private static List<ArchiveInfo> ListArchives(string folder)
+    {
+        List<ArchiveInfo> archives = new();
+        if (string.IsNullOrEmpty(folder)) return archives;
+
+        try
+        {
             if (!Directory.Exists(folder)) return archives;
 
             foreach (string file in Directory.GetFiles(folder, "*" + ArchiveExtension))
@@ -319,7 +375,13 @@ public static class BasisUserDataBackup
     /// Reads just the manifest so the UI can describe an archive before the user commits to
     /// restoring it. Null if the file is not a readable archive of this format.
     /// </summary>
-    public static Manifest ReadManifest(string archivePath)
+    public static Manifest ReadManifest(string archivePath) => ParseManifest(ReadManifestJson(archivePath));
+
+    /// <summary>
+    /// The manifest entry's text, or null if the file is not a readable archive of this format.
+    /// Plain file I/O, so it is safe on a worker thread; parsing is left to the caller.
+    /// </summary>
+    private static string ReadManifestJson(string archivePath)
     {
         try
         {
@@ -330,11 +392,26 @@ public static class BasisUserDataBackup
             if (entry == null) return null;
 
             using StreamReader reader = new StreamReader(entry.Open());
-            return JsonUtility.FromJson<Manifest>(reader.ReadToEnd());
+            return reader.ReadToEnd();
         }
         catch (Exception e)
         {
             BasisDebug.LogWarning($"Could not read backup manifest from \"{archivePath}\": {e.Message}");
+            return null;
+        }
+    }
+
+    private static Manifest ParseManifest(string json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+
+        try
+        {
+            return JsonUtility.FromJson<Manifest>(json);
+        }
+        catch (Exception e)
+        {
+            BasisDebug.LogWarning("Could not parse backup manifest: " + e.Message);
             return null;
         }
     }

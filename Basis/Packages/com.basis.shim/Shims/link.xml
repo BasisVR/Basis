@@ -466,6 +466,7 @@
         <type fullname="Basis.Scripts.BasisSdk.Players.BasisTeleportMode" preserve="all"/>
         <type fullname="Basis.Scripts.Device_Management.BasisDeviceManagement" preserve="all"/>
         <type fullname="Basis.Scripts.BasisSdk.Interactions.BasisSeat" preserve="all"/>
+        <type fullname="Basis.Scripts.Device_Management.BasisPlatformCondition" preserve="all"/>
     </assembly>
     <assembly fullname="BasisNetworkCore">
         <type fullname="Basis.Network.Core.DeliveryMethod" preserve="all"/>
@@ -476,6 +477,8 @@
         <type fullname="BasisSDKMirror+MirrorClearFlags" preserve="all"/>
         <type fullname="Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton" preserve="all"/>
         <type fullname="Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton+ClickEvent" preserve="all"/>
+        <type fullname="BasisPlatformSwitch" preserve="all"/>
+        <type fullname="BasisPlatformSwitchRule" preserve="all"/>
     </assembly>
     <assembly fullname="Unity.TextMeshPro">
         <type fullname="TMPro.TextMeshPro" preserve="all"/>

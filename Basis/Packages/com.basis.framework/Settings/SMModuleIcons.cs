@@ -13,6 +13,13 @@ public class SMModuleIcons : BasisSettingsBase
     // --- Canonical setting keys (from defaults) ---
     private static string K_AVATAR_PREVIEW   => BasisSettingsDefaults.AvatarPreview.BindingKey;
     private static string K_AVATAR_PREVIEW_MIRROR => BasisSettingsDefaults.AvatarPreviewMirror.BindingKey;
+    private static string K_AVATAR_PREVIEW_FRAMING => BasisSettingsDefaults.AvatarPreviewFraming.BindingKey;
+    private static string K_AVATAR_PREVIEW_POSITION => BasisSettingsDefaults.AvatarPreviewPosition.BindingKey;
+    private static string K_AVATAR_PREVIEW_ROTATION => BasisSettingsDefaults.AvatarPreviewRotation.BindingKey;
+    private static string K_AVATAR_PREVIEW_SIZE => BasisSettingsDefaults.AvatarPreviewSize.BindingKey;
+    private static string K_AVATAR_PREVIEW_ZOOM => BasisSettingsDefaults.AvatarPreviewZoom.BindingKey;
+    private static string K_AVATAR_PREVIEW_OFFSET_X => BasisSettingsDefaults.AvatarPreviewOffsetX.BindingKey;
+    private static string K_AVATAR_PREVIEW_OFFSET_Y => BasisSettingsDefaults.AvatarPreviewOffsetY.BindingKey;
     private static string K_DESKTOP_RETICLE  => BasisSettingsDefaults.DesktopReticle.BindingKey;
 #if !BASIS_DISABLE_MICROPHONE
     private static string K_MICROPHONE_ICON          => BasisSettingsDefaults.MicrophoneIcon.BindingKey;
@@ -37,6 +44,48 @@ public class SMModuleIcons : BasisSettingsBase
         {
             bool mirrored = optionValue == "true";
             BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetMirror(mirrored);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_FRAMING)
+        {
+            BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetFraming(optionValue);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_POSITION)
+        {
+            BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetPosition(optionValue);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_ROTATION)
+        {
+            BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetRotation(optionValue);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_SIZE)
+        {
+            if (TryParseFloat(optionValue, out float size)) BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetSize(size);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_ZOOM)
+        {
+            if (TryParseFloat(optionValue, out float zoom)) BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetZoom(zoom);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_OFFSET_X)
+        {
+            if (TryParseFloat(optionValue, out float offsetX)) BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetOffsetX(offsetX);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_OFFSET_Y)
+        {
+            if (TryParseFloat(optionValue, out float offsetY)) BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetOffsetY(offsetY);
             return;
         }
 
@@ -102,5 +151,10 @@ public class SMModuleIcons : BasisSettingsBase
 
     public override void ChangedSettings()
     {
+    }
+
+    private static bool TryParseFloat(string value, out float result)
+    {
+        return float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result);
     }
 }

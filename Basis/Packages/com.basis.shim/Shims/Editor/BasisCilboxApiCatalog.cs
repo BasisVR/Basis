@@ -253,19 +253,31 @@ input.Clear();",
                 GroupKey = GroupPlayers,
                 TitleKey = "sdk.cilbox.api.platform.title",
                 SummaryKey = "sdk.cilbox.api.platform.summary",
-                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPlatformShim", "IsDetected"), new CilboxApiRequirement("Basis.Shims.BasisPlatformEventShim", "Rebind") },
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPlatformShim", "IsDetected"), new CilboxApiRequirement("Basis.Shims.BasisPlatformEventShim", "Rebind"), new CilboxApiRequirement("BasisPlatformSwitch", "Apply") },
                 Example =
 @"using Basis.Shims;
+using Basis.Scripts.Device_Management;
 
 bool vr = BasisPlatformShim.IsVR;
 bool mobile = BasisPlatformShim.IsMobileGpu;
 bool quest = vr && BasisPlatformShim.IsDetected(""Android"");
 string mode = BasisPlatformShim.CurrentMode;
 
+// BasisPlatformSwitch (com.basis.examples) does the same without code: each rule
+// names a condition and the objects and components to enable or disable while it
+// holds. A script can read or rewrite the rules and re-apply them.
+public BasisPlatformSwitch platformSwitch;
+
 // Adding the event component is the opt-in. The callback is found by name on
 // your own script, fires once on opt-in and again whenever the player swaps
 // between VR and desktop or takes the headset off.
-void Start() { GetComponent<BasisPlatformEventShim>(); }
+void Start()
+{
+    BasisPlatformSwitchRule rule = platformSwitch.Rules[0];
+    rule.When = BasisPlatformCondition.VR;
+    platformSwitch.Apply();
+    GetComponent<BasisPlatformEventShim>();
+}
 
 void OnPlatformChanged(string mode, bool vr, bool headsetWorn)
 {

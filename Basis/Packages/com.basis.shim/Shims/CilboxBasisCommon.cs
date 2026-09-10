@@ -47,6 +47,9 @@ namespace Cilbox
 			// nothing here writes a setting.
 			"Basis.Shims.BasisGraphicsSettingsShim",
 			"Basis.Shims.BasisPlatformShim",
+			"BasisPlatformSwitch", // Restrictive, see method whitelist.
+			"BasisPlatformSwitchRule",
+			"Basis.Scripts.Device_Management.BasisPlatformCondition",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
 			"HVR.Basis.Comms.OSC*",
@@ -384,6 +387,8 @@ namespace Cilbox
 			"Basis.Shims.BasisTransformSyncShim.Enabled",
 			"Basis.Shims.BasisBlendShapeSyncShim.Epsilon",
 			"Basis.Shims.BasisBlendShapeSyncShim.Enabled",
+			"BasisPlatformSwitch.Rules",
+			"BasisPlatformSwitchRule.*",
 
 			// Unity Event Systems fields
 			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
@@ -401,6 +406,9 @@ namespace Cilbox
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Device_Management.Devices.BasisInput), new HashSet<string> { } },
+#if BASIS_HAS_EXAMPLES
+			{ typeof(global::BasisPlatformSwitch), new HashSet<string> { nameof(global::BasisPlatformSwitch.Apply) } },
+#endif
 			// IBasisPlayer is reachable through BasisNetworkPlayer.Player, and methods are
 			// default-allow once a type is whitelisted — which handed scripts set_DisplayName,
 			// set_UUID, get_AvatarTransform, get_PlayerSelf and get_GameObject on ANY player, i.e.

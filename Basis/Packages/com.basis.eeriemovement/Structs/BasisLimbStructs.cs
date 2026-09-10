@@ -28,7 +28,7 @@ public struct BasisFootSimState
     public float3 smoothedVelocity, smoothedBodyFwd, smoothedBodyRight, prevBodyFwd;
     public float smoothedYawRateDeg, smoothedAccelMag;
     public float3 prevRootFwd;
-    public bool wasAirborne;
+    public bool wasAirborne, hasPrevHeadPos;
 }
 public struct BasisFootSimInput
 {

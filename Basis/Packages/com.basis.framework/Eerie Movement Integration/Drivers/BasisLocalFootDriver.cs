@@ -371,6 +371,7 @@ public partial class BasisLocalFootDriver
         nativeSimState[0] = new BasisFootSimState
         {
             prevHeadPos = HipsWorldPosition(),
+            hasPrevHeadPos = true,
             prevHeadYaw = prevHeadYaw,
             smoothedVelocity = float3.zero,
             smoothedBodyFwd = bodyFwd,

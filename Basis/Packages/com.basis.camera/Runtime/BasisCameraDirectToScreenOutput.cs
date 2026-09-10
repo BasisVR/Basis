@@ -41,6 +41,10 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     private RTHandle feedHandle;
     private RenderTexture feedTexture;
 
+    /// <summary>How the feed is placed on the window, as the owner has it; re-read with the feed on every frame.</summary>
+    public BasisCameraDirectToScreenFit Fit { get; private set; }
+    public Vector2 Alignment { get; private set; } = BasisHandHeldCamera.DefaultDirectToScreenAlignment;
+
     private UniversalRenderPipelineAsset rendererSearchedOn;
     private bool rendererHasFeature;
     private bool fallbackHooked;
@@ -140,7 +144,11 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     /// </summary>
     public bool TryGetFeed(out RTHandle handle, out RenderTexture texture)
     {
-        if (owner != null) SetFeed(owner.PreviewTexture);
+        if (owner != null)
+        {
+            SetFeed(owner.PreviewTexture);
+            SetPlacement(owner.DirectToScreenFit, owner.DirectToScreenAlignment);
+        }
         handle = feedHandle;
         texture = feedTexture;
         return handle != null && texture != null && texture.IsCreated();
@@ -162,6 +170,13 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
 
         feedTexture = feed;
         feedHandle = RTHandles.Alloc(new RenderTargetIdentifier(feed), feed.name);
+    }
+
+    /// <summary>Points the output at a fit and alignment by hand, for an output with no owner to read them from.</summary>
+    public void SetPlacement(BasisCameraDirectToScreenFit fit, Vector2 alignment)
+    {
+        Fit = fit;
+        Alignment = alignment;
     }
 
     private void ReleaseFeedHandle()
@@ -249,7 +264,7 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
         ScriptableRenderer renderer = screenCameraData.scriptableRenderer;
         if (renderer == null) return;
 
-        fallbackPass.Setup(handle, texture);
+        fallbackPass.Setup(handle, texture, Fit, Alignment);
         renderer.EnqueuePass(fallbackPass);
     }
 

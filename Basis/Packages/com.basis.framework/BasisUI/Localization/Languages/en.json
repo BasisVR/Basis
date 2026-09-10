@@ -1563,6 +1563,62 @@
       "value": "There is no desktop window on this platform to show the feed on."
     },
     {
+      "key": "camera.directToScreen.fit",
+      "value": "Screen Fit"
+    },
+    {
+      "key": "camera.directToScreen.fit.description",
+      "value": "How the shot is placed on the monitor: kept whole with bars, cropped to fill the window, stretched to fill it, or shot at the window's own shape so nothing is cut, barred or stretched."
+    },
+    {
+      "key": "camera.directToScreen.fit.fit",
+      "value": "Fit"
+    },
+    {
+      "key": "camera.directToScreen.fit.fit.tooltip",
+      "value": "The whole shot at its own shape, with bars where the window is a different shape. What you see is exactly the frame being shot."
+    },
+    {
+      "key": "camera.directToScreen.fit.fill",
+      "value": "Fill"
+    },
+    {
+      "key": "camera.directToScreen.fit.fill.tooltip",
+      "value": "Fills the window by cropping the shot's long side. No bars, but the edges of the shot are off the monitor."
+    },
+    {
+      "key": "camera.directToScreen.fit.stretch",
+      "value": "Stretch"
+    },
+    {
+      "key": "camera.directToScreen.fit.stretch.tooltip",
+      "value": "Fills the window by stretching the shot to its shape. No bars and nothing cut, but the picture is distorted."
+    },
+    {
+      "key": "camera.directToScreen.fit.matchWindow",
+      "value": "Match Window"
+    },
+    {
+      "key": "camera.directToScreen.fit.matchWindow.tooltip",
+      "value": "Shoots the feed at the window's own shape while it is on the monitor, so nothing is cut, barred or stretched. A wider window sees more at the sides; the viewfinder shows the middle of it."
+    },
+    {
+      "key": "camera.directToScreen.horizontal",
+      "value": "Horizontal Position"
+    },
+    {
+      "key": "camera.directToScreen.horizontal.description",
+      "value": "Where the picture sits across the window when there are bars at the sides, or which part of the shot is kept when it is cropped to fill. 50% is centred."
+    },
+    {
+      "key": "camera.directToScreen.vertical",
+      "value": "Vertical Position"
+    },
+    {
+      "key": "camera.directToScreen.vertical.description",
+      "value": "Where the picture sits down the window when there are bars above and below, or which part of the shot is kept when it is cropped to fill. 50% is centred, 100% is the top."
+    },
+    {
       "key": "camera.streamResolution",
       "value": "Stream Resolution"
     },
@@ -6675,6 +6731,22 @@
       "value": "Restore each menu's scroll position, open sections, and last tab when you reopen it, and reopen the menu after loading a world."
     },
     {
+      "key": "settings.general.menuTeleport",
+      "value": "Menu Teleports to You"
+    },
+    {
+      "key": "settings.general.menuTeleport.tooltip",
+      "value": "In VR the menu stays where you opened it and jumps back in front of you once you move far enough away from it. Turn off to leave it in place until you reopen it."
+    },
+    {
+      "key": "settings.general.menuTeleportDistance",
+      "value": "Menu Teleport Distance"
+    },
+    {
+      "key": "settings.general.menuTeleportDistance.tooltip",
+      "value": "How far your head can be from the menu before it jumps back in front of you. Scales with your avatar; the menu itself sits about 0.6 m away."
+    },
+    {
       "key": "settings.general.developer.title",
       "value": "Developer"
     },
@@ -6885,6 +6957,114 @@
     {
       "key": "settings.general.avatarPreviewMirror.description",
       "value": "Flip the avatar preview horizontally so it reads like a mirror."
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming",
+      "value": "Avatar Preview Framing"
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.tooltip",
+      "value": "Choose how much of your avatar the preview shows."
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.fullBody",
+      "value": "Full Body"
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.upperBody",
+      "value": "Upper Body"
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.face",
+      "value": "Face"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition",
+      "value": "Avatar Preview Position"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.tooltip",
+      "value": "Where the avatar preview sits on screen."
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.bottomRight",
+      "value": "Bottom Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.bottomLeft",
+      "value": "Bottom Left"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.middleRight",
+      "value": "Middle Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.middleLeft",
+      "value": "Middle Left"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.topRight",
+      "value": "Top Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.topLeft",
+      "value": "Top Left"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation",
+      "value": "Avatar Preview Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.tooltip",
+      "value": "Which of your head movements the preview shows. Locked directions keep your face square to the preview camera."
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.lockFace",
+      "value": "Always Look At Face"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.allowYaw",
+      "value": "Allow Left/Right Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.allowPitch",
+      "value": "Allow Up/Down Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.allowAll",
+      "value": "Allow All Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewSize",
+      "value": "Avatar Preview Size"
+    },
+    {
+      "key": "settings.general.avatarPreviewSize.tooltip",
+      "value": "Scale the avatar preview panel up or down."
+    },
+    {
+      "key": "settings.general.avatarPreviewZoom",
+      "value": "Avatar Preview Zoom"
+    },
+    {
+      "key": "settings.general.avatarPreviewZoom.tooltip",
+      "value": "Zoom the preview camera in or out on your avatar."
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetX",
+      "value": "Avatar Preview Horizontal Offset"
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetX.tooltip",
+      "value": "Nudge the avatar preview left or right."
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetY",
+      "value": "Avatar Preview Vertical Offset"
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetY.tooltip",
+      "value": "Nudge the avatar preview up or down."
     },
     {
       "key": "settings.general.camera.title",
@@ -15161,6 +15341,10 @@
       "value": "No backups found."
     },
     {
+      "key": "settings.developer.backup.scanning",
+      "value": "Looking for backups…"
+    },
+    {
       "key": "settings.developer.backup.unreadable",
       "value": "This file could not be read as a Basis backup."
     },
@@ -18783,6 +18967,34 @@
     {
       "key": "settings.graphics.renderer.restart.later",
       "value": "Later"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.title",
+      "value": "DirectX 12 Is Unstable"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.body",
+      "value": "Basis is rendering with DirectX 12.\n\nUnity's DirectX 12 backend is very buggy. It can crash Basis while avatars are loading, stall the first time new shaders are drawn, and break rendering outright. These are bugs inside the Unity engine, not in Basis. Basis cannot fix or work around them; only Unity can.\n\nDirectX 11 does not have these problems, and every avatar and world works on it unchanged. Only hardware ray tracing and variable rate shading need DirectX 12.\n\nThe graphics API can be changed at any time under Settings → Graphics → Graphics API."
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.switch",
+      "value": "Switch to DirectX 11"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.keep",
+      "value": "Keep DirectX 12"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.dontShowAgain",
+      "value": "Don't Show Again"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning",
+      "value": "DirectX 12 Warning"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.tooltip",
+      "value": "Warn at startup whenever Basis is rendering with DirectX 12, since Unity's DirectX 12 backend is unstable. Don't Show Again on that warning turns this off."
     },
     {
       "key": "settings.controls.questControllerFix",

@@ -582,6 +582,7 @@ namespace Basis.BasisUI
             //   Hearing Range / Limit Audio Sources              → Audio
             //   Microphone Range                                 → Microphone
 
+            PanelSlider sliderMenuTeleportDistance = null;
             PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                 BasisLocalization.Get("settings.general.interactions.title"), () =>
             {
@@ -589,6 +590,24 @@ namespace Basis.BasisUI
                 toggleRememberMenuState.AssignBinding(BasisSettingsDefaults.RememberMenuState);
                 toggleRememberMenuState.Descriptor.SetTitle(BasisLocalization.Get("settings.general.rememberMenuState"));
                 toggleRememberMenuState.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.rememberMenuState.tooltip"));
+
+                PanelToggle toggleMenuTeleport = PanelToggle.CreateNewEntry(container);
+                toggleMenuTeleport.AssignBinding(BasisSettingsDefaults.MenuTeleport);
+                toggleMenuTeleport.Descriptor.SetTitle(BasisLocalization.Get("settings.general.menuTeleport"));
+                toggleMenuTeleport.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.menuTeleport.tooltip"));
+
+                sliderMenuTeleportDistance = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.menuTeleportDistance"), 0.75f, 5f, false, 2, ValueDisplayMode.Meters),
+                    BasisSettingsDefaults.MenuTeleportDistance);
+                sliderMenuTeleportDistance.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.menuTeleportDistance.tooltip"));
+
+                sliderMenuTeleportDistance.Descriptor.SetActive(BasisSettingsDefaults.MenuTeleport.RawValue);
+                toggleMenuTeleport.OnValueChanged += val =>
+                {
+                    sliderMenuTeleportDistance.Descriptor.SetActive(val);
+                    descriptor.ForceRebuild();
+                };
 
                 PanelToggle toggleDisableSeats = PanelToggle.CreateNewEntry(container);
                 toggleDisableSeats.AssignBinding(BasisSettingsDefaults.DisableSeats);
@@ -619,11 +638,40 @@ namespace Basis.BasisUI
                 toggleHideRemoteCameras.AssignBinding(BasisSettingsDefaults.HideRemoteCameraPucks);
                 toggleHideRemoteCameras.Descriptor.SetTitle(BasisLocalization.Get("settings.general.hideRemoteCameras"));
                 toggleHideRemoteCameras.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.hideRemoteCameras.tooltip"));
-            }, false, _ => descriptor.ForceRebuild());
+            }, false, visible =>
+            {
+                if (visible && sliderMenuTeleportDistance != null)
+                {
+                    sliderMenuTeleportDistance.Descriptor.SetActive(BasisSettingsDefaults.MenuTeleport.RawValue);
+                }
+                descriptor.ForceRebuild();
+            });
 
             // HUD overlays — heads-up display elements rendered over the scene.
             PanelToggle toggleAvatarPreview = null;
             PanelToggle toggleAvatarPreviewMirror = null;
+            PanelDropdown dropdownAvatarPreviewFraming = null;
+            PanelDropdown dropdownAvatarPreviewPosition = null;
+            PanelDropdown dropdownAvatarPreviewRotation = null;
+            PanelSlider sliderAvatarPreviewSize = null;
+            PanelSlider sliderAvatarPreviewZoom = null;
+            PanelSlider sliderAvatarPreviewOffsetX = null;
+            PanelSlider sliderAvatarPreviewOffsetY = null;
+            void RebuildAvatarPreviewRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(toggleAvatarPreview != null ? toggleAvatarPreview.transform.parent as RectTransform : null, container);
+            }
+            void ApplyAvatarPreviewSubOptions(bool on)
+            {
+                if (toggleAvatarPreviewMirror != null) toggleAvatarPreviewMirror.Descriptor.SetActive(on);
+                if (dropdownAvatarPreviewFraming != null) dropdownAvatarPreviewFraming.Descriptor.SetActive(on);
+                if (dropdownAvatarPreviewPosition != null) dropdownAvatarPreviewPosition.Descriptor.SetActive(on);
+                if (dropdownAvatarPreviewRotation != null) dropdownAvatarPreviewRotation.Descriptor.SetActive(on);
+                if (sliderAvatarPreviewSize != null) sliderAvatarPreviewSize.Descriptor.SetActive(on);
+                if (sliderAvatarPreviewZoom != null) sliderAvatarPreviewZoom.Descriptor.SetActive(on);
+                if (sliderAvatarPreviewOffsetX != null) sliderAvatarPreviewOffsetX.Descriptor.SetActive(on);
+                if (sliderAvatarPreviewOffsetY != null) sliderAvatarPreviewOffsetY.Descriptor.SetActive(on);
+            }
             PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                 BasisLocalization.Get("settings.general.hud.title"), () =>
             {
@@ -642,20 +690,68 @@ namespace Basis.BasisUI
                 toggleAvatarPreviewMirror.Descriptor.SetTitle(BasisLocalization.Get("settings.general.avatarPreviewMirror"));
                 toggleAvatarPreviewMirror.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewMirror.tooltip"));
 
-                // Mirror is a sub-option of avatar preview — only show it when preview is on.
-                toggleAvatarPreviewMirror.Descriptor.SetActive(BasisSettingsDefaults.AvatarPreview.RawValue);
+                dropdownAvatarPreviewFraming = PanelDropdown.CreateNewEntry(container);
+                dropdownAvatarPreviewFraming.Descriptor.SetTitle(BasisLocalization.Get("settings.general.avatarPreviewFraming"));
+                dropdownAvatarPreviewFraming.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewFraming.tooltip"));
+                dropdownAvatarPreviewFraming.AssignLocalizedEntries(
+                    new List<string> { "FullBody", "UpperBody", "Face" },
+                    new List<string> { "settings.general.avatarPreviewFraming.fullBody", "settings.general.avatarPreviewFraming.upperBody", "settings.general.avatarPreviewFraming.face" });
+                dropdownAvatarPreviewFraming.AssignBinding(BasisSettingsDefaults.AvatarPreviewFraming);
+
+                dropdownAvatarPreviewPosition = PanelDropdown.CreateNewEntry(container);
+                dropdownAvatarPreviewPosition.Descriptor.SetTitle(BasisLocalization.Get("settings.general.avatarPreviewPosition"));
+                dropdownAvatarPreviewPosition.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewPosition.tooltip"));
+                dropdownAvatarPreviewPosition.AssignLocalizedEntries(
+                    new List<string> { "BottomRight", "BottomLeft", "MiddleRight", "MiddleLeft", "TopRight", "TopLeft" },
+                    new List<string> { "settings.general.avatarPreviewPosition.bottomRight", "settings.general.avatarPreviewPosition.bottomLeft", "settings.general.avatarPreviewPosition.middleRight", "settings.general.avatarPreviewPosition.middleLeft", "settings.general.avatarPreviewPosition.topRight", "settings.general.avatarPreviewPosition.topLeft" });
+                dropdownAvatarPreviewPosition.AssignBinding(BasisSettingsDefaults.AvatarPreviewPosition);
+
+                dropdownAvatarPreviewRotation = PanelDropdown.CreateNewEntry(container);
+                dropdownAvatarPreviewRotation.Descriptor.SetTitle(BasisLocalization.Get("settings.general.avatarPreviewRotation"));
+                dropdownAvatarPreviewRotation.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewRotation.tooltip"));
+                dropdownAvatarPreviewRotation.AssignLocalizedEntries(
+                    new List<string> { "LockFace", "AllowYaw", "AllowPitch", "AllowAll" },
+                    new List<string> { "settings.general.avatarPreviewRotation.lockFace", "settings.general.avatarPreviewRotation.allowYaw", "settings.general.avatarPreviewRotation.allowPitch", "settings.general.avatarPreviewRotation.allowAll" });
+                dropdownAvatarPreviewRotation.AssignBinding(BasisSettingsDefaults.AvatarPreviewRotation);
+
+                sliderAvatarPreviewSize = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.avatarPreviewSize"), 0.5f, 2f, false, 2, ValueDisplayMode.percentageFromZero),
+                    BasisSettingsDefaults.AvatarPreviewSize);
+                sliderAvatarPreviewSize.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewSize.tooltip"));
+
+                sliderAvatarPreviewZoom = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.avatarPreviewZoom"), 0.5f, 2f, false, 2, ValueDisplayMode.percentageFromZero),
+                    BasisSettingsDefaults.AvatarPreviewZoom);
+                sliderAvatarPreviewZoom.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewZoom.tooltip"));
+
+                sliderAvatarPreviewOffsetX = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.avatarPreviewOffsetX"), -0.5f, 0.5f, false, 2, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.AvatarPreviewOffsetX);
+                sliderAvatarPreviewOffsetX.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewOffsetX.tooltip"));
+
+                sliderAvatarPreviewOffsetY = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.avatarPreviewOffsetY"), -0.5f, 0.5f, false, 2, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.AvatarPreviewOffsetY);
+                sliderAvatarPreviewOffsetY.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewOffsetY.tooltip"));
+
+                // Mirror and the layout options are sub-options of avatar preview — only show them when preview is on.
+                ApplyAvatarPreviewSubOptions(BasisSettingsDefaults.AvatarPreview.RawValue);
                 toggleAvatarPreview.OnValueChanged += val =>
                 {
-                    toggleAvatarPreviewMirror.Descriptor.SetActive(val);
-                    descriptor.ForceRebuild();
+                    ApplyAvatarPreviewSubOptions(val);
+                    RebuildAvatarPreviewRows();
                 };
             }, false, visible =>
             {
-                if (visible && toggleAvatarPreviewMirror != null)
+                if (visible)
                 {
-                    toggleAvatarPreviewMirror.Descriptor.SetActive(BasisSettingsDefaults.AvatarPreview.RawValue);
+                    ApplyAvatarPreviewSubOptions(BasisSettingsDefaults.AvatarPreview.RawValue);
                 }
-                descriptor.ForceRebuild();
+                RebuildAvatarPreviewRows();
             });
 
             // Passthrough / mixed reality — standalone VR only (Quest).
@@ -710,8 +806,9 @@ namespace Basis.BasisUI
             BuildIdentitySection(container, descriptor);
 
             // ---- Backup & Restore ----
-            // Lazy: the archive list is read off disk when the section opens, so a collapsed
-            // section costs nothing and reopening it picks up files written since.
+            // Lazy, with lazy Create/Restore halves inside: a collapsed section costs nothing,
+            // and the archive list is scanned (on a worker thread) only when Restore opens, so
+            // reopening it picks up files written since.
             PanelSectionToggleHelpers.CreateLazyBoxedSection(container,
                 BasisLocalization.Get("settings.developer.backup.title"),
                 () => SettingsProviderBackup.BuildSection(container, descriptor),
@@ -911,6 +1008,13 @@ namespace Basis.BasisUI
         {
             BasisSettingsDefaults.AvatarPreview.ResetToDefault();
             BasisSettingsDefaults.AvatarPreviewMirror.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewFraming.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewPosition.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewRotation.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewSize.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewZoom.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewOffsetX.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewOffsetY.ResetToDefault();
             BasisSettingsDefaults.DisableSeats.ResetToDefault();
             BasisSettingsDefaults.DisablePropPickup.ResetToDefault();
             BasisSettingsDefaults.DisableVRAutoHold.ResetToDefault();
@@ -925,6 +1029,8 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.P2PVoiceBitrateOverride.ResetToDefault();
             BasisSettingsDefaults.P2PVoiceBitrate.ResetToDefault();
             BasisSettingsDefaults.RememberMenuState.ResetToDefault();
+            BasisSettingsDefaults.MenuTeleport.ResetToDefault();
+            BasisSettingsDefaults.MenuTeleportDistance.ResetToDefault();
             BasisSettingsDefaults.ShowDeveloperTab.ResetToDefault();
             BasisSettingsDefaults.UsePresenceSensor.ResetToDefault();
         }
@@ -3360,6 +3466,11 @@ namespace Basis.BasisUI
                 };
             }
 
+            PanelToggle toggleDx12Warning = PanelToggle.CreateNewEntry(group.ContentParent);
+            toggleDx12Warning.AssignBinding(BasisSettingsDefaults.Dx12Warning);
+            toggleDx12Warning.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.renderer.dx12Warning"));
+            toggleDx12Warning.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.renderer.dx12Warning.tooltip"));
+
             // Nested inside the Renderer section, under the API dropdown: DX12-only, so it only
             // ever appears alongside the API that actually needs it, not as its own page-level row.
             BuildPsoCacheSection(group.ContentParent);
@@ -3393,6 +3504,7 @@ namespace Basis.BasisUI
         private static void ResetGraphicsDefaults()
         {
             BasisSettingsDefaults.PsoCacheSizeMb.ResetToDefault();
+            BasisSettingsDefaults.Dx12Warning.ResetToDefault();
             BasisPerformanceMode.SetLevel(BasisPerformanceLevel.Off);
             BasisSettingsDefaults.PerformanceModeAuto.ResetToDefault();
             BasisSettingsDefaults.PerformanceModeLevel.ResetToDefault();

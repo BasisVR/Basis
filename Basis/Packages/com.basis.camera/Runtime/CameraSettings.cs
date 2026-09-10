@@ -16,7 +16,7 @@ public partial class BasisHandHeldCameraUI
         /// the film grading — grain shape, halation tint, vignette colour, split toning and lift.
         /// v12 added the Aim Along Track block.
         /// </summary>
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
         public int settingsVersion = CurrentVersion;
 
         public CameraSettings()
@@ -582,6 +582,21 @@ public partial class BasisHandHeldCameraUI
         /// — and off is the zero fill, so an older file loads with the window left alone.
         /// </summary>
         public bool directToScreen;
+
+        /// <summary>
+        /// How the feed is placed on the monitor, a <see cref="BasisCameraDirectToScreenFit"/>.
+        /// Zero is Fit — the whole shot with bars — which is what every file before the field
+        /// existed was showing, so an older file loads looking the same.
+        /// </summary>
+        public int directToScreenFit;
+
+        /// <summary>
+        /// Where the picture sits in the bars, or which part of the shot survives a crop to fill,
+        /// 0 to 1 on each axis with 0.5 centred. Zero is a corner, not the absence of a choice, so
+        /// the migration writes the centre into files from before the fields existed.
+        /// </summary>
+        public float directToScreenAlignX = 0.5f;
+        public float directToScreenAlignY = 0.5f;
 
         /// <summary>
         /// Whether each saved photo is also printed into the world as a shared image pickup,
