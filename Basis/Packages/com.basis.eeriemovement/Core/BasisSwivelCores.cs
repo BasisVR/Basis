@@ -32,10 +32,6 @@ namespace Basis.IK
     public static class BasisSwivelHintCore
     {
         const float sqrEpsilon = 1e-10f, epsilon = 1e-5f;
-        static readonly float3 elbowTuckPole = new float3(-1f, -0.35f, 0f);
-        public const float ElbowTuckWeight = 0.12f;
-        static readonly float3 elbowDownPole = new float3(0f, -1f, 0f);
-        public const float ElbowDownWeight = 0.85f, ElbowDownReachStart = 0.90f, ElbowDownReachFull = 0.99f;
         public const float LegTrustLo = 0.30f, LegTrustHi = 0.70f, LegDomainReachLo = 0.45f, LegDomainReachHi = 0.60f;
         public static float LegDomainTrust(float reach)
         {
@@ -79,50 +75,6 @@ namespace Basis.IK
             Vector3 bOut = isLeft ? -frameNow.Right : frameNow.Right, r2t = tipPos - rootPos;
             float inv = 1f / Mathf.Max(limbLen, epsilon);
             tipLocal = new float3(Vector3.Dot(r2t, bOut) * inv, Vector3.Dot(r2t, frameNow.Up) * inv, Vector3.Dot(r2t, frameNow.Forward) * inv);
-        }
-        public static bool ArmHint(in BasisSwivelFrame frameNow, Vector3 shoulder, Vector3 handPos, float armLen, bool isLeft, out Vector3 hintPos, out float confidence, bool useNeural = false)
-        {
-            hintPos = default;
-            confidence = 0f;
-
-            if (!frameNow.Valid || !(armLen > epsilon))
-            {
-                return false;
-            }
-
-            Features(frameNow, shoulder, handPos, armLen, isLeft, out float3 tipLocal);
-
-            if (!IsFinite(tipLocal))
-            {
-                return false;
-            }
-
-            float3 elbowLocal = useNeural ? BasisArmElbowNeuralFieldModel.Elbow(tipLocal) : BasisElbowFieldModel.Elbow(tipLocal);
-            float3 bend = BasisElbowFieldModel.BendDirection(tipLocal, elbowLocal, out confidence);
-
-            if (!IsFinite(bend))
-            {
-                return false;
-            }
-
-            float3 tuckAxis = math.normalizesafe(tipLocal, new float3(0f, -1f, 0f));
-            float3 tuckPerp = elbowTuckPole - tuckAxis * math.dot(elbowTuckPole, tuckAxis);
-            bend = math.normalizesafe(bend + ElbowTuckWeight * tuckPerp, bend);
-
-            float reachRatio = math.length(tipLocal);
-            float downT = math.saturate((reachRatio - ElbowDownReachStart) / (ElbowDownReachFull - ElbowDownReachStart));
-            float downW = ElbowDownWeight * (downT * downT * (3f - 2f * downT));
-            if (downW > 0f)
-            {
-                float3 downPerp = elbowDownPole - tuckAxis * math.dot(elbowDownPole, tuckAxis);
-                bend = math.normalizesafe(bend + downW * downPerp, bend);
-            }
-
-            Vector3 bOut = isLeft ? -frameNow.Right : frameNow.Right;
-            Vector3 bendWorld = bend.x * bOut + bend.y * frameNow.Up + bend.z * frameNow.Forward;
-
-            hintPos = shoulder + 0.5f * armLen * bendWorld;
-            return true;
         }
         public static bool LegHint(in BasisSwivelFrame frameNow, Vector3 hip, Vector3 footPos, float legLen, bool isLeft, out Vector3 hintPos, out float confidence, bool useNeural = false)
         {

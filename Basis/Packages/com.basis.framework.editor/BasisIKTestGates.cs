@@ -11,7 +11,6 @@ namespace Basis.IK.Debugging
         public const float ArmMaxMeanAlignErrDeg = 12f;     // mean angle solved-elbow vs tracker pole (follow)
         public const float ArmMaxElbowMeanAlignErrDeg = 8f; // mean angle solved-elbow vs the LOOKUP (no-tracker) pole; drift off the natural down/back pole
         public const int ArmMaxElbowUpFlips = 0;            // forward, non-overhead, EXTENDED (reach>0.55) reaches whose elbow flips hard UP (|swivel|>120). Zero-tolerance: the fixed lookup is clean (0) at every density; folded near-body reaches are excluded (elbow-up is natural there). Pre-fix: 4-7.
-        public const float ArmTrackerMaxDevDeg = 15f;       // a real elbow tracker (HintIsTracker) must reproduce the natural pose across realistic mounts/sizes. BasisArmSolveCore re-conditions its short-but-physical pole (positions-only -> pronation-safe), so it follows. Measured worst 0 deg / mean 0 over 360 combos (2026-06-16); 15 is a regression guard (a broken floor drags the elbow ~40-50 deg off).
         // --- chicken-wing elbow flare (no elbow tracker): turning the controllers inward pushes the derived
         //     elbow OUT toward the half-T-pose mark and clamps it there. It must never cross the halfway line to
         //     straight-out-to-the-side, must be a no-op when not rolled in, and the push-out must engage. ---
@@ -88,126 +87,6 @@ namespace Basis.IK.Debugging
         public const float FootYawSlackDeg = 6f;           // headroom over the configured yaw clamp (sampled late in a step, where the clamp is live)
         public const float FootMaxKneeBehindM = 0.02f;     // knee hint may sit at most this far behind the hip->foot line before the knee would invert
         public const int FootMaxIdleSteps = 0;             // a gentle standing weight-shift must not trigger a step (the foot stays planted)
-
-        public static (bool pass, string reason) GateArm(in BasisArmIKSweepSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.Rows <= 0) return (false, "no rows");
-            if (s.ReachablePoints <= 0) return (false, "no reachable points");
-            if (s.TrackerMeanAlignErrDeg > ArmMaxMeanAlignErrDeg)
-                return (false, $"tracker meanAlignErr {s.TrackerMeanAlignErrDeg:F1} > {ArmMaxMeanAlignErrDeg} deg (tracker not followed)");
-            // Gate on the 99.9th-percentile tracker sens, not the raw max: even after excluding the
-            // pole-collapse singularity, the max chases the worst well-conditioned boundary pose, which
-            // sharpens (not spreads) with grid density and so climbs forever. The percentile catches
-            // WIDESPREAD tracker jitter and is density-stable (mirrors the protect sens gate).
-            if (s.TrackerSens99DegPerCm > ArmMaxTrackerSensDegPerCm)
-                return (false, $"tracker sens p99.9 {s.TrackerSens99DegPerCm:F0} > {ArmMaxTrackerSensDegPerCm} deg/cm (widespread jitter; max {s.TrackerMaxSensDegPerCm:F0} at boundary outliers)");
-            return (true, $"reach={s.ReachablePoints} alignErr={s.TrackerMeanAlignErrDeg:F1} sensP99.9={s.TrackerSens99DegPerCm:F0} (max {s.TrackerMaxSensDegPerCm:F0})");
-        }
-
-        // Elbow DIRECTION (not the torso-collision "elbow protect"): the no-tracker lookup pole must keep
-        // the elbow tucked behind/below the hand, and the solve must actually land it there. A flip = the
-        // elbow ends up in front of / on the wrong side from where the lookup asked -- the artifact where
-        // "the elbow is out in front instead of naturally behind the hand". Driven by the same arm sweep.
-        public static (bool pass, string reason) GateArmElbowDirection(in BasisArmIKSweepSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.ReachablePoints <= 0) return (false, "no reachable points");
-            if (s.LookupElbowUpCount > 0)
-                return (false, $"{s.LookupElbowUpCount} reachable poses point the elbow UP (chicken-wing)");
-            if (s.LookupElbowFlipCount > ArmMaxElbowUpFlips)
-                return (false, $"{s.LookupElbowFlipCount} extended forward reaches flip the elbow hard UP (|swivel|>120) instead of behind/below -- elbow in front / wrong side (align mean {s.LookupMeanAlignErrDeg:F1}, max {s.LookupMaxAlignErrDeg:F0})");
-            if (s.LookupMeanAlignErrDeg > ArmMaxElbowMeanAlignErrDeg)
-                return (false, $"mean elbow-direction error {s.LookupMeanAlignErrDeg:F1} > {ArmMaxElbowMeanAlignErrDeg} deg (elbow drifting off the natural pole)");
-            // Anatomical flexion: the solved elbow angle must never leave the human range (no over-flex / hyperextension).
-            float minFlex = Basis.IK.BasisArmSolveCore.MinElbowAngleDeg;
-            float maxFlex = Basis.IK.BasisArmSolveCore.MaxElbowAngleDeg;
-            if (s.LookupMinElbowAngleDeg < minFlex - 1f || s.LookupMaxElbowAngleDeg > maxFlex + 1f)
-                return (false, $"elbow flexion {s.LookupMinElbowAngleDeg:F0}..{s.LookupMaxElbowAngleDeg:F0} deg leaves the human range [{minFlex:F0},{maxFlex:F0}] (over-flex / hyperextension)");
-            return (true, $"extUpFlips={s.LookupElbowFlipCount} elbowUp={s.LookupElbowUpCount} alignMean={s.LookupMeanAlignErrDeg:F1} flex={s.LookupMinElbowAngleDeg:F0}..{s.LookupMaxElbowAngleDeg:F0}");
-        }
-
-        // Chicken-wing flare (no elbow tracker): turning the controllers inward pushes the derived elbow OUT
-        // toward the half-T-pose mark and HARD-CLAMPS it there -- it must never cross the halfway line to
-        // straight-out-to-the-side ("won't feel right"), must be a no-op when the controller isn't rolled in,
-        // and the push-out must actually engage (a dead / backwards roll coupling fails). Driven by RunChickenWing.
-        public static (bool pass, string reason) GateArmChickenWing(in BasisArmChickenWingSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.ReachablePoints <= 0) return (false, "no reachable chicken-wing poses");
-            if (s.WorstOverCapDeg > ChickenWingClampTolDeg)
-                return (false, $"chicken-wing elbow reaches {s.MaxFullFlareSwivelDeg:F1} deg, {s.WorstOverCapDeg:F1} past the {s.CapDeg:F0} deg half-T-pose cap > {ChickenWingClampTolDeg} (crosses the halfway mark)");
-            if (s.MaxRegressDeg > ChickenWingMaxRegressDeg)
-                return (false, $"flare moved a neutral (no-roll) elbow by {s.MaxRegressDeg:F2} deg > {ChickenWingMaxRegressDeg} (must be a no-op off the chicken-wing)");
-            if (s.PushSamples > 0 && s.MeanPushDeg < ChickenWingMinPushDeg)
-                return (false, $"full inward roll pushed the elbow out only {s.MeanPushDeg:F1} deg < {ChickenWingMinPushDeg} (push-out coupling dead/backwards; {s.PushedOutCount}/{s.PushSamples} poses moved out)");
-            return (true, $"cap={s.CapDeg:F0} worstFlare={s.MaxFullFlareSwivelDeg:F1} (over {s.WorstOverCapDeg:F1}) push={s.MeanPushDeg:F1} ({s.PushedOutCount}/{s.PushSamples}) regress={s.MaxRegressDeg:F2}");
-        }
-
-        // A REAL elbow tracker must give a NATURAL bend for any reasonable mount / body size: a tracker strapped
-        // to the no-tracker natural arm must reproduce that pose (it must never make the elbow LESS natural than
-        // no tracker). A large worst deviation is the "elbow tracker looks unnatural in some setups" -- the raw
-        // tracker pole is weakly conditioned for that placement and the elbow collapses toward world-down.
-        public static (bool pass, string reason) GateArmTrackerNaturalness(in BasisArmTrackerNaturalnessSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.Combos <= 0) return (false, "no placement/size combos");
-            if (s.WorstDevDeg > ArmTrackerMaxDevDeg)
-                return (false, $"a strapped elbow tracker drives the bend {s.WorstDevDeg:F0} deg off the natural pose at {s.WorstWhere} > {ArmTrackerMaxDevDeg} ({s.OverCount}/{s.Combos} combos over; mean {s.MeanDevDeg:F1}) -- unnatural for that mount/body size");
-            return (true, $"worst {s.WorstDevDeg:F0} deg off natural at {s.WorstWhere} (mean {s.MeanDevDeg:F1}, {s.Combos} combos)");
-        }
-
-        public static (bool pass, string reason) GateElbow(in BasisElbowProtectSweepSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.Rows <= 0) return (false, "no rows");
-            if (s.EngagedPoints <= 0) return (false, "protect never engaged (sweep not exercising it)");
-            float clearedFrac = (float)s.ClearedPoints / s.EngagedPoints;
-            if (clearedFrac < ElbowMinClearedFraction)
-                return (false, $"cleared {clearedFrac:P0} of engaged < {ElbowMinClearedFraction:P0} (protect not clearing torso)");
-            if (s.MeanResidualPenMm > ElbowMaxMeanResidualPenMm)
-                return (false, $"mean residual {s.MeanResidualPenMm:F0}mm > {ElbowMaxMeanResidualPenMm}mm (elbow left buried)");
-            // Gate on the 99.9th-percentile sens, not the raw max: the max chases a handful of protect
-            // engage/disengage boundary discontinuities that sharpen (not spread) with grid density, so it
-            // climbs forever as you densify. The percentile catches WIDESPREAD oscillation and is stable.
-            if (s.Sens99DegPerCm > ElbowMaxSensDegPerCm)
-                return (false, $"sens p99.9 {s.Sens99DegPerCm:F0} > {ElbowMaxSensDegPerCm} deg/cm (widespread oscillation; max {s.MaxSensDegPerCm:F0} at boundary outliers)");
-            return (true, $"cleared={clearedFrac:P0} resid={s.MeanResidualPenMm:F0}mm sensP99.9={s.Sens99DegPerCm:F0} (max {s.MaxSensDegPerCm:F0})");
-        }
-
-        // Scapulohumeral shoulder pre-solve: the girdle must engage, stay under the clamp, sit still at
-        // the bind pose (no idle shift), never twist about the arm (the reverted clavicle-roll artifact),
-        // stay rigid in the chest frame, mirror left/right, rise monotonically as the arm raises, move
-        // smoothly under smooth/ noisy arm input, and -- the headline -- the elbow tracker must change a
-        // bent-arm result the hand fallback can't see.
-        public static (bool pass, string reason) GateShoulder(in BasisShoulderSweepSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.Rows <= 0) return (false, "no rows");
-            if (s.Engaged <= 0) return (false, "shoulder never engaged");
-            if (s.MaxShoulderAngleDeg > ShoulderMaxAngleDeg)
-                return (false, $"max shoulder {s.MaxShoulderAngleDeg:F0} > {ShoulderMaxAngleDeg} deg");
-            if (s.ClampOvershootDeg > ShoulderMaxClampOvershootDeg)
-                return (false, $"girdle exceeds its clamp by {s.ClampOvershootDeg:F1} deg > {ShoulderMaxClampOvershootDeg} (clamp not holding)");
-            if (s.RestPoseMaxDeg > ShoulderMaxRestPoseDeg)
-                return (false, $"girdle moves {s.RestPoseMaxDeg:F1} deg at the bind arm pose > {ShoulderMaxRestPoseDeg} (idle shoulder would shift)");
-            if (s.MaxTwistLeakDeg > ShoulderMaxTwistLeakDeg)
-                return (false, $"girdle twists {s.MaxTwistLeakDeg:F1} deg about the arm axis > {ShoulderMaxTwistLeakDeg} (clavicle following humeral roll -- the reverted artifact)");
-            if (s.MaxFrameInvarErrDeg > ShoulderMaxFrameInvarErrDeg)
-                return (false, $"chest-frame rigidity off by {s.MaxFrameInvarErrDeg:F1} deg > {ShoulderMaxFrameInvarErrDeg} (solve leaks world orientation)");
-            if (s.SymmetryMaxErrDeg > ShoulderMaxSymmetryErrDeg)
-                return (false, $"left/right asymmetry {s.SymmetryMaxErrDeg:F1} deg > {ShoulderMaxSymmetryErrDeg}");
-            if (s.MonotonicViolations > 0)
-                return (false, $"{s.MonotonicViolations} reversals: raising the arm reduced girdle elevation below the clamp");
-            if (s.MaxAdjacentJumpDeg > ShoulderMaxAdjacentJumpDeg)
-                return (false, $"girdle jumps {s.MaxAdjacentJumpDeg:F0} deg on smooth arm motion > {ShoulderMaxAdjacentJumpDeg}");
-            if (s.NoisyMaxJitterDeg > ShoulderMaxNoisyJitterDeg)
-                return (false, $"girdle jitters {s.NoisyMaxJitterDeg:F0} deg under elbow-tracker noise > {ShoulderMaxNoisyJitterDeg}");
-            float bentGain = s.BentArmElbowElevationDeg - s.BentArmHandElevationDeg;
-            if (bentGain < ShoulderMinBentArmGainDeg)
-                return (false, $"elbow tracker barely changes a bent-arm shoulder (elbow {s.BentArmElbowElevationDeg:F1} vs hand {s.BentArmHandElevationDeg:F1} deg; gain {bentGain:F1} < {ShoulderMinBentArmGainDeg})");
-            return (true, $"engaged={s.Engaged} maxAngle={s.MaxShoulderAngleDeg:F0} rest={s.RestPoseMaxDeg:F1} twist={s.MaxTwistLeakDeg:F1} frame={s.MaxFrameInvarErrDeg:F1} sym={s.SymmetryMaxErrDeg:F1} jump={s.MaxAdjacentJumpDeg:F0} jitter={s.NoisyMaxJitterDeg:F0} bentGain={bentGain:F1}");
-        }
 
         public static (bool pass, string reason) GateLeg(in BasisLegIKSweepSummary s)
         {
@@ -613,31 +492,6 @@ namespace Basis.IK.Debugging
         public const float CapsuleMaxResidualPenMm = 2f;   // leftover penetration after the push must clear in one step
         public const float CapsuleMaxPushOutMm = 1f;       // PushOutFromCapsule must land on the radius surface
 
-        // Capsule collision primitives (BasisFullIKConstraintJob.ClosestPointOnSegment /
-        // SegmentSegmentClosestPoints / CapsuleCapsuleResolve / PushOutFromCapsule): the geometry that
-        // keeps the hand/elbow out of the torso. These are exact, so the gate is on exact certificates --
-        // closest points on their segments and perpendicular (KKT), symmetric under swap, the push depth
-        // equals the overlap and resolves it, and never NaN at degenerate (point/parallel/coincident) inputs.
-        public static (bool pass, string reason) GateCapsuleCollision(in BasisCapsuleCollisionSweepSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.Cases <= 0) return (false, "no cases");
-            if (s.OverlapCases <= 0) return (false, "no penetrating pairs (sweep not exercising the resolve)");
-            if (s.NaNCount > 0)
-                return (false, $"{s.NaNCount} cases produced non-finite closest points / push (degenerate input not handled)");
-            if (s.MaxClosestParamErr > CapsuleMaxGeomErr || s.MaxFixedPointErr > CapsuleMaxGeomErr || s.MaxSymmetryErr > CapsuleMaxGeomErr)
-                return (false, $"closest-point off: param={s.MaxClosestParamErr:F5} fixedPoint={s.MaxFixedPointErr:F5} sym={s.MaxSymmetryErr:F5} m > {CapsuleMaxGeomErr}");
-            if (s.MaxKktResidual > CapsuleMaxKktResidual)
-                return (false, $"interior closest point not perpendicular to its segment (kkt {s.MaxKktResidual:F4} > {CapsuleMaxKktResidual}) -- not the true minimum");
-            if (s.MaxPenetrationDepthErr > CapsuleMaxDepthErrM)
-                return (false, $"push depth off by {s.MaxPenetrationDepthErr:F5} m > {CapsuleMaxDepthErrM} (over/under-resolves penetration)");
-            if (s.MaxResidualPenMm > CapsuleMaxResidualPenMm)
-                return (false, $"{s.MaxResidualPenMm:F1}mm penetration left after the push on a shallow overlap > {CapsuleMaxResidualPenMm}mm (MTD push not separating its design regime)");
-            if (s.MaxPushOutSurfaceErrMm > CapsuleMaxPushOutMm)
-                return (false, $"push-out lands {s.MaxPushOutSurfaceErrMm:F1}mm off the radius surface > {CapsuleMaxPushOutMm}mm");
-            return (true, $"param={s.MaxClosestParamErr:F5} kkt={s.MaxKktResidual:F4} sym={s.MaxSymmetryErr:F5} depth={s.MaxPenetrationDepthErr:F5}m resid={s.MaxResidualPenMm:F1}mm pushout={s.MaxPushOutSurfaceErrMm:F1}mm overlap={s.OverlapCases}/{s.Cases} (deep/crossing {s.DeepOverlapCases}, worst {s.MaxDeepResidualPenMm:F0}mm, reported)");
-        }
-
         // --- FBIK spine safety clamps ---
         public const float SpineClampMaxPosErrM = 1e-4f;     // distance/idempotence (m, exact clamps)
         public const float SpineClampMaxAngleErrDeg = 0.1f;  // bend/rotation limit overshoot + idempotence
@@ -766,23 +620,6 @@ namespace Basis.IK.Debugging
             return (true, $"deepLeanKnee={s.KneeAtDeepLeanOnDeg:F0}/{s.KneeAtDeepLeanOffDeg:F0}deg(on/rigid) kneeGain>={s.MinKneeStraighterDeg:F1}deg sink={s.MaxPelvisSinkM:F3}m({sinkFrac:P0} of rigid) cases={s.Cases}");
         }
 
-        // Scapulohumeral coupling: with no shoulder tracker the girdle swing the elbow rides must stay bounded and
-        // be meaningfully smaller than the pre-fix coupling, so the elbow tracks the hand instead of trailing.
-        public static (bool pass, string reason) GateShoulderCouple(in BasisShoulderCoupleSweepSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.Cases <= 0) return (false, "no cases");
-            if (s.EngagedCases <= 0) return (false, "girdle never engaged (sweep not raising the arm)");
-            if (s.NanCount > 0) return (false, $"{s.NanCount} non-finite results");
-            if (s.MaxAppliedShippedDeg > ShoulderCoupleMaxAppliedDeg)
-                return (false, $"girdle swings {s.MaxAppliedShippedDeg:F0} deg > {ShoulderCoupleMaxAppliedDeg} (elbow can trail far)");
-            if (s.MinReductionFrac < ShoulderCoupleMinReductionFrac)
-                return (false, $"shipped girdle only {s.MinReductionFrac:P0} less than legacy < {ShoulderCoupleMinReductionFrac:P0} (coupling not reduced enough)");
-            if (s.MonotonicViolations > 0)
-                return (false, $"{s.MonotonicViolations} non-monotonic steps as the arm raises (girdle pop)");
-            return (true, $"appliedMax={s.MaxAppliedShippedDeg:F0}deg(legacy {s.MaxAppliedLegacyDeg:F0}) reduction>={s.MinReductionFrac:P0} engaged={s.EngagedCases}");
-        }
-
         // --- spine bend distribution (per-axis spine/upperChest) ---
         public const float SpineBendTwistMaxJumpDeg = 30f; // raw twist step across center; a branch snap is ~180-360
         public const float SpineBendLookDownBendDriftDeg = 0.5f; // forward bend must not move as the gaze pitches (the fade is twist-only)
@@ -887,27 +724,6 @@ namespace Basis.IK.Debugging
             if (s.NoiseRejectRatio >= SwivelMaxNoiseRejectRatio)
                 return (false, $"output not smoother than the noisy input (reject ratio {s.NoiseRejectRatio:F2} >= {SwivelMaxNoiseRejectRatio})");
             return (true, $"overshoot={s.MaxStepOvershootDeg:F2}° final={s.StepFinalErrDeg:F2}° noiseReject={s.NoiseRejectRatio:F2} rampLag={s.MaxRampLagDeg:F1}° glide={s.MaxGlideJitterDeg:F3}°");
-        }
-
-        // --- swing continuity (collision-gated elbow swing rate limiter) ---
-        // ApplySwingContinuity must (1) never swing faster than rate*dt while easing a collision pop,
-        // (2) converge to the target, (3) follow instantly in free air (no collision change), and
-        // (4) re-seed on a target teleport. A rate violation or a stuck/laggy free-air swing is the live
-        // "elbow pop / lag" regression this guards.
-        public static (bool pass, string reason) GateSwingContinuity(in BasisSwingContinuitySweepSummary s)
-        {
-            if (!s.Ok) return (false, string.IsNullOrEmpty(s.Error) ? "did not run" : s.Error);
-            if (s.Steps <= 0) return (false, "no steps");
-            if (s.NaNCount > 0) return (false, $"{s.NaNCount} non-finite samples");
-            if (s.RateLimitViolations > 0)
-                return (false, $"{s.RateLimitViolations} frames swung faster than the rate limit (easing step up to {s.MaxEasingStepDeg:F1} deg)");
-            if (!s.Converged)
-                return (false, "easing never converged to the target (permanent lag after a collision pop)");
-            if (s.FreeAirMaxLagDeg > 0.5f)
-                return (false, $"free-air swing lags the target by {s.FreeAirMaxLagDeg:F2} deg > 0.5 (limiting non-collision motion)");
-            if (!s.TeleportAccepted)
-                return (false, "a target teleport did not re-seed instantly (limiter fights a re-pose)");
-            return (true, $"rateOk easingStep={s.MaxEasingStepDeg:F2}° converged={s.ConvergeFrames}f freeAirLag={s.FreeAirMaxLagDeg:F2}° teleportOk");
         }
 
         // --- general-purpose One-Euro filter (Vector3 + Quaternion tracker/target smoothing) ---

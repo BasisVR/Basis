@@ -692,7 +692,6 @@ namespace Basis.Scripts.Drivers
             data.neckFlexionDamp = Basis.BasisUI.BasisSettingsDefaults.FBIKNeckFlexionDamp.RawValue;
             data.moveBodyBackWhenCrouching = Basis.BasisUI.BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.RawValue;
             data.trunkCounterbalance = Basis.BasisUI.BasisSettingsDefaults.FBIKTrunkCounterbalance.RawValue;
-            data.swingSmoothRateDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKElbowSwingEnabled.RawValue ? Basis.BasisUI.BasisSettingsDefaults.FBIKSwingSmoothRate.RawValue : 0f;
             data.spineCCDRelax = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineCCDRelax.RawValue;
             data.spineTwistKeep = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineTwistKeep.RawValue;
             data.spineNeckTwistKeep = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineNeckTwistKeep.RawValue;
@@ -702,7 +701,6 @@ namespace Basis.Scripts.Drivers
             data.lowerArmTwistFraction = Basis.BasisUI.BasisSettingsDefaults.FBIKLowerArmTwistFraction.RawValue;
             data.upperArmTwistFraction = Basis.BasisUI.BasisSettingsDefaults.FBIKUpperArmTwistFraction.RawValue;
             data.anatDifferentialStiffness = Basis.BasisUI.BasisSettingsDefaults.FBIKAnatDifferentialStiffness.RawValue;
-            data.anatShoulderSlide = Basis.BasisUI.BasisSettingsDefaults.FBIKAnatShoulderSlide.RawValue;
             data.anatCervicalLordosis = Basis.BasisUI.BasisSettingsDefaults.FBIKAnatCervicalLordosis.RawValue;
             data.anatPelvicTwistRouting = Basis.BasisUI.BasisSettingsDefaults.FBIKAnatPelvicTwistRouting.RawValue;
             data.spineAnatomicalRom = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineAnatomicalRom.RawValue;
@@ -735,18 +733,27 @@ namespace Basis.Scripts.Drivers
 
             data.collideTrackedElbow = Basis.BasisUI.BasisSettingsDefaults.FBIKCollideTrackedElbow.RawValue;
 
-            data.elbowDragEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKElbowDrag.RawValue;
-            data.elbowDragHz = Basis.BasisUI.BasisSettingsDefaults.FBIKElbowDragHz.RawValue;
             data.shoulderSolveEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderSolveEnabled.RawValue;
             data.shoulderShrugEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderShrug.RawValue;
 
             data.shoulderElevationFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderElevation.RawValue;
             data.shoulderProtractionFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderProtraction.RawValue;
-            data.shoulderCoupleRatio = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderCoupleRatio.RawValue;
             data.shoulderMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderMaxDeg.RawValue;
-            data.shoulderSlideStartDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderSlideStartDeg.RawValue;
-            data.shoulderSlideMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderSlideMaxDeg.RawValue;
-            data.shoulderSlideFraction = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderSlideFraction.RawValue;
+            data.armJointLimits = Basis.BasisUI.BasisSettingsDefaults.FBIKArmJointLimits.RawValue;
+            data.armReachSoftness = Basis.BasisUI.BasisSettingsDefaults.FBIKArmReachSoftness.RawValue;
+            data.armSwivelSmoothTime = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSmoothTime.RawValue;
+            data.armSwivelMaxRateDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelMaxRate.RawValue;
+            data.armSwivelSwitchDwell = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSwitchDwell.RawValue;
+            data.armPriorWeight = Basis.BasisUI.BasisSettingsDefaults.FBIKArmPriorWeight.RawValue;
+            data.armPreviousWeight = Basis.BasisUI.BasisSettingsDefaults.FBIKArmPreviousWeight.RawValue;
+            data.forearmPronationMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKForearmPronationMax.RawValue;
+            data.forearmSupinationMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKForearmSupinationMax.RawValue;
+            data.humeralInternalMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKHumeralInternalMax.RawValue;
+            data.humeralExternalMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKHumeralExternalMax.RawValue;
+            data.wristFlexionMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKWristFlexionMax.RawValue;
+            data.wristExtensionMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKWristExtensionMax.RawValue;
+            data.wristRadialMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKWristRadialMax.RawValue;
+            data.wristUlnarMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKWristUlnarMax.RawValue;
             data.thoracicBendStiffen = Basis.BasisUI.BasisSettingsDefaults.FBIKThoracicBendStiffen.RawValue;
             data.spineTautBandFrac = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineTautBandFrac.RawValue;
             data.bendTwistCoupling = Basis.BasisUI.BasisSettingsDefaults.FBIKBendTwistCoupling.RawValue;

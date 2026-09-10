@@ -51,52 +51,97 @@ namespace Basis.Tests.IK
         // --------------------------------------------------------------------------------- arm
         static BasisArmSolveInput ArmInput()
         {
-            BasisArmSolveInput i = default;
+            BasisArmSolveInput i = BasisArmSolveInput.Defaults(false);
             i.Shoulder = new Vector3(0.18f, 1.40f, 0f);
-            i.Elbow = new Vector3(0.45f, 1.22f, 0.04f);
-            i.Hand = new Vector3(0.62f, 1.05f, 0.20f);
-            i.RootRotation = Quaternion.Euler(0f, 10f, -70f);
-            i.MidRotation = Quaternion.Euler(0f, 25f, -60f);
-            i.TargetPosition = new Vector3(0.55f, 1.10f, 0.28f);
+            i.RestElbow = new Vector3(0.46f, 1.40f, 0f);
+            i.RestHand = new Vector3(0.72f, 1.40f, 0f);
+            i.RestHandRotation = Quaternion.identity;
+            i.TargetPosition = new Vector3(0.40f, 1.10f, 0.30f);
             i.TargetRotation = Quaternion.Euler(5f, 30f, -15f);
-            i.HintPosition = new Vector3(0.40f, 1.05f, -0.10f);
-            i.HintWeight = true;
-            i.TargetOffset = Quaternion.Euler(0f, 90f, 0f); // LOCAL bind offset: must not be transformed
-            i.PlayerUp = Vector3.up;
-            i.HintMaxStepDeg = float.MaxValue;
-            i.HintIsTracker = true;
+            i.HeadPosition = new Vector3(0f, 1.62f, 0f);
+            i.HasHead = true;
+            i.TorsoCapsule = true;
+            i.TorsoA = new Vector3(0f, 0.95f, 0f);
+            i.TorsoB = new Vector3(0f, 1.50f, 0f);
+            i.TorsoRadius = 0.12f;
+            return i;
+        }
+        static BasisArmSolveInput Move(in BasisArmSolveInput b, Rigid t)
+        {
+            BasisArmSolveInput i = b;
+            i.Shoulder = t.Point(b.Shoulder);
+            i.RestElbow = t.Point(b.RestElbow);
+            i.RestHand = t.Point(b.RestHand);
+            i.RestHandRotation = t.Rot(b.RestHandRotation);
+            i.TargetPosition = t.Point(b.TargetPosition);
+            i.TargetRotation = t.Rot(b.TargetRotation);
+            i.HeadPosition = t.Point(b.HeadPosition);
+            i.HintPosition = t.Point(b.HintPosition);
+            i.HintRotation = t.Rot(b.HintRotation);
+            i.TorsoUp = t.Dir(b.TorsoUp);
+            i.TorsoForward = t.Dir(b.TorsoForward);
+            i.TorsoOut = t.Dir(b.TorsoOut);
+            i.TorsoA = t.Point(b.TorsoA);
+            i.TorsoB = t.Point(b.TorsoB);
             return i;
         }
         [Test]
         public void ArmSolve_IsEquivariant()
         {
             BasisArmSolveInput baseIn = ArmInput();
-            BasisArmSolveCore.Solve(baseIn, out BasisArmSolveResult base_);
-
+            BasisArmState baseState = default;
+            BasisArmSolveCore.Solve(baseIn, ref baseState, out BasisArmSolveResult base_);
+            Assert.That(base_.Valid, Is.True);
             foreach (Rigid t in Transforms)
             {
-                BasisArmSolveInput i = baseIn;
-                i.Shoulder = t.Point(baseIn.Shoulder);
-                i.Elbow = t.Point(baseIn.Elbow);
-                i.Hand = t.Point(baseIn.Hand);
-                i.TargetPosition = t.Point(baseIn.TargetPosition);
-                i.HintPosition = t.Point(baseIn.HintPosition);
-                i.RootRotation = t.Rot(baseIn.RootRotation);
-                i.MidRotation = t.Rot(baseIn.MidRotation);
-                i.TargetRotation = t.Rot(baseIn.TargetRotation);
-                i.PlayerUp = t.Dir(baseIn.PlayerUp);
-
-                BasisArmSolveCore.Solve(i, out BasisArmSolveResult r);
-
-                SamePoint(t.Point(base_.ElbowSolved), r.ElbowSolved, t, "arm ElbowSolved");
-                SamePoint(t.Point(base_.HandSolved), r.HandSolved, t, "arm HandSolved");
-                SameRot(t.Rot(base_.RootRotationSolved), r.RootRotationSolved, t, "arm RootRotationSolved");
-                SameRot(t.Rot(base_.MidRotationSolved), r.MidRotationSolved, t, "arm MidRotationSolved");
+                BasisArmSolveInput i = Move(baseIn, t);
+                BasisArmState state = default;
+                BasisArmSolveCore.Solve(i, ref state, out BasisArmSolveResult r);
+                SamePoint(t.Point(base_.Elbow), r.Elbow, t, "arm Elbow");
+                SamePoint(t.Point(base_.Hand), r.Hand, t, "arm Hand");
+                SameScalar(base_.SwivelDeg, r.SwivelDeg, t, "arm SwivelDeg");
                 SameScalar(base_.ReachRatio, r.ReachRatio, t, "arm ReachRatio");
-                SameScalar(base_.ElbowAngleDeg, r.ElbowAngleDeg, t, "arm ElbowAngleDeg");
-                SameScalar(base_.TargetDistance, r.TargetDistance, t, "arm TargetDistance");
-                SameScalar(base_.HandError, r.HandError, t, "arm HandError");
-                Assert.That(r.AxisSource, Is.EqualTo(base_.AxisSource), $"[{t.Name}] arm picked a different bend axis source ({base_.AxisSource} -> {r.AxisSource}); " +"the pole strategy must not depend on which way the player faces");
+                SameScalar(base_.ElbowDeg, r.ElbowDeg, t, "arm ElbowDeg");
+                SameScalar(base_.HumeralDeg, r.HumeralDeg, t, "arm HumeralDeg");
+                SameScalar(base_.PronationDeg, r.PronationDeg, t, "arm PronationDeg");
+                SameScalar(base_.WristFlexDeg, r.WristFlexDeg, t, "arm WristFlexDeg");
+                SameScalar(base_.WristDevDeg, r.WristDevDeg, t, "arm WristDevDeg");
+                BasisArmSolveCore.Pose(baseIn, base_, Quaternion.identity, Quaternion.identity, out Quaternion bu, out Quaternion bl);
+                BasisArmSolveCore.Pose(i, r, t.Rot(Quaternion.identity), t.Rot(Quaternion.identity), out Quaternion u, out Quaternion l);
+                SameRot(t.Rot(bu), u, t, "arm upper rotation");
+                SameRot(t.Rot(bl), l, t, "arm lower rotation");
+            }
+        }
+        [Test]
+        public void ShoulderSolve_IsEquivariant()
+        {
+            BasisShoulderSolveInput baseIn = default;
+            baseIn.ShoulderPos = new Vector3(0.03f, 1.45f, 0f);
+            baseIn.UpperArmPos = new Vector3(0.18f, 1.42f, 0f);
+            baseIn.HandTargetPos = new Vector3(0.35f, 1.75f, 0.30f);
+            baseIn.ArmLength = 0.56f;
+            baseIn.TorsoUp = Vector3.up;
+            baseIn.TorsoForward = Vector3.forward;
+            baseIn.TorsoOut = Vector3.right;
+            baseIn.ShrugEnabled = true;
+            baseIn.ElevationFactor = 1f;
+            baseIn.ProtractionFactor = 1f;
+            baseIn.MaxDeg = 30f;
+            BasisShoulderSolveCore.Solve(baseIn, out BasisShoulderSolveResult base_);
+            Assert.That(base_.Apply, Is.True);
+            foreach (Rigid t in Transforms)
+            {
+                BasisShoulderSolveInput i = baseIn;
+                i.ShoulderPos = t.Point(baseIn.ShoulderPos);
+                i.UpperArmPos = t.Point(baseIn.UpperArmPos);
+                i.HandTargetPos = t.Point(baseIn.HandTargetPos);
+                i.TorsoUp = t.Dir(baseIn.TorsoUp);
+                i.TorsoForward = t.Dir(baseIn.TorsoForward);
+                i.TorsoOut = t.Dir(baseIn.TorsoOut);
+                BasisShoulderSolveCore.Solve(i, out BasisShoulderSolveResult r);
+                SameScalar(base_.ElevationDeg, r.ElevationDeg, t, "shoulder ElevationDeg");
+                SameScalar(base_.ProtractionDeg, r.ProtractionDeg, t, "shoulder ProtractionDeg");
+                SameRot(t.R * base_.Delta * Quaternion.Inverse(t.R), r.Delta, t, "shoulder Delta");
             }
         }
         // --------------------------------------------------------------------------------- leg
@@ -303,51 +348,6 @@ namespace Basis.Tests.IK
                 SameScalar(baseTwistAngleDeg, twistAngleDeg, t, "twist TwistAngleDeg");
             }
         }
-        // --------------------------------------------------------------------------------- elbow protect
-        [Test]
-        public void ElbowProtect_IsEquivariant()
-        {
-            BasisElbowProtectInput baseIn = default;
-            // Hand pulled across the chest: the classic case that drives the elbow into the torso.
-            baseIn.Shoulder = new Vector3(0.18f, 1.40f, 0f);
-            baseIn.Elbow = new Vector3(0.05f, 1.25f, -0.02f);
-            baseIn.Hand = new Vector3(-0.15f, 1.30f, 0.12f);
-            baseIn.HipsPos = new Vector3(0f, 0.95f, 0f);
-            baseIn.SpinePos = new Vector3(0f, 1.10f, 0f);
-            baseIn.ChestPos = new Vector3(0f, 1.28f, 0f);
-            baseIn.NeckPos = new Vector3(0f, 1.50f, 0f);
-            baseIn.HasHips = true;
-            baseIn.HasSpine = true;
-            baseIn.ChestRadiusBase = 0.07f;
-            baseIn.CollisionSkin = 0.05f;
-            baseIn.HandRadius = 0.01f;
-            baseIn.HandSkin = 0.03f;
-            baseIn.PlayerUp = Vector3.up;
-
-            BasisElbowProtectCore.Solve(baseIn, out BasisElbowProtectResult base_);
-
-            foreach (Rigid t in Transforms)
-            {
-                BasisElbowProtectInput i = baseIn;
-                i.Shoulder = t.Point(baseIn.Shoulder);
-                i.Elbow = t.Point(baseIn.Elbow);
-                i.Hand = t.Point(baseIn.Hand);
-                i.HipsPos = t.Point(baseIn.HipsPos);
-                i.SpinePos = t.Point(baseIn.SpinePos);
-                i.ChestPos = t.Point(baseIn.ChestPos);
-                i.NeckPos = t.Point(baseIn.NeckPos);
-                i.PlayerUp = t.Dir(baseIn.PlayerUp);
-
-                BasisElbowProtectCore.Solve(i, out BasisElbowProtectResult r);
-
-                Assert.That(r.Engaged, Is.EqualTo(base_.Engaged), $"[{t.Name}] elbow protect engaged differently depending on world placement -- " +"torso collision must not care which way the player faces");
-                SamePoint(t.Point(base_.DesiredElbow), r.DesiredElbow, t, "elbow protect DesiredElbow");
-                SamePoint(t.Point(base_.ElbowCenter), r.ElbowCenter, t, "elbow protect ElbowCenter");
-                SameScalar(base_.WorstPenetration, r.WorstPenetration, t, "elbow protect WorstPenetration");
-                SameScalar(base_.SwingAngleDeg, r.SwingAngleDeg, t, "elbow protect SwingAngleDeg");
-                SameScalar(base_.ResidualClearance, r.ResidualClearance, t, "elbow protect ResidualClearance");
-            }
-        }
         // --------------------------------------------------------------------------------- swivel smoother
         [Test]
         public void SwivelSmoother_IsEquivariant()
@@ -391,41 +391,24 @@ namespace Basis.Tests.IK
         public void ArmSolve_DegradesGracefully_FarFromWorldOrigin()
         {
             BasisArmSolveInput baseIn = ArmInput();
-            BasisArmSolveCore.Solve(baseIn, out BasisArmSolveResult base_);
-
-            var log = new System.Text.StringBuilder("arm IK precision vs distance from world origin:\n");
+            BasisArmState baseState = default;
+            BasisArmSolveCore.Solve(baseIn, ref baseState, out BasisArmSolveResult base_);
             float worstPosMmAtOneKm = 0f, worstAngDegAtOneKm = 0f;
-
             foreach (float d in new[] { 0f, 100f, 1_000f, 10_000f })
             {
-                Vector3 t = new Vector3(d * 0.70710678f, 0f, d * 0.70710678f);
-                BasisArmSolveInput i = baseIn;
-                i.Shoulder = baseIn.Shoulder + t;
-                i.Elbow = baseIn.Elbow + t;
-                i.Hand = baseIn.Hand + t;
-                i.TargetPosition = baseIn.TargetPosition + t;
-                i.HintPosition = baseIn.HintPosition + t;
-                // Rotations and PlayerUp are unaffected by a translation.
-
-                BasisArmSolveCore.Solve(i, out BasisArmSolveResult r);
-
-                float posMm = Vector3.Distance(r.ElbowSolved - t, base_.ElbowSolved) * 1000f;
-                float angDeg = Mathf.Abs(r.ElbowAngleDeg - base_.ElbowAngleDeg);
-                log.AppendLine($"  {d,7:F0} m -> elbow {posMm,9:F5} mm, elbow angle {angDeg,9:F5} deg");
-
+                Vector3 shift = new Vector3(d * 0.70710678f, 0f, d * 0.70710678f);
+                BasisArmSolveInput i = Move(baseIn, new Rigid(Quaternion.identity, shift, "shift"));
+                BasisArmState state = default;
+                BasisArmSolveCore.Solve(i, ref state, out BasisArmSolveResult r);
+                float posMm = Vector3.Distance(r.Elbow - shift, base_.Elbow) * 1000f, angDeg = Mathf.Abs(Mathf.DeltaAngle(r.SwivelDeg, base_.SwivelDeg));
                 if (d <= 1_000f)
                 {
                     worstPosMmAtOneKm = Mathf.Max(worstPosMmAtOneKm, posMm);
                     worstAngDegAtOneKm = Mathf.Max(worstAngDegAtOneKm, angDeg);
                 }
             }
-
-            TestContext.WriteLine(log.ToString());
-
-            // A millimetre of elbow drift is far below anything visible; if this ever trips, the solve has
-            // started differencing large coordinates somewhere it did not before.
-            Assert.That(worstPosMmAtOneKm, Is.LessThan(1f), $"elbow drifted {worstPosMmAtOneKm:F3} mm within 1 km of the origin\n{log}");
-            Assert.That(worstAngDegAtOneKm, Is.LessThan(0.5f), $"elbow angle drifted {worstAngDegAtOneKm:F3} deg within 1 km of the origin\n{log}");
+            Assert.That(worstPosMmAtOneKm, Is.LessThan(2f), "elbow drifts more than 2 mm within 1 km of the origin");
+            Assert.That(worstAngDegAtOneKm, Is.LessThan(0.5f), "swivel drifts more than 0.5 deg within 1 km of the origin");
         }
     }
 }

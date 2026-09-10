@@ -11,7 +11,7 @@ namespace Basis.IK
     }
     public struct BasisEerieArmPlan
     {
-        public bool has, hasUpperTwist, hasLowerTwist, solve, trackerHint, hintRoll, upperTwist, lowerTwist, elbowProtect, elbowDrag, poleAnchor;
+        public bool has, hasUpperTwist, hasLowerTwist, solve, trackerHint, hintRoll, upperTwist, lowerTwist, elbowProtect;
         public float weight;
     }
     public struct BasisEerieLegPlan
@@ -24,11 +24,11 @@ namespace Basis.IK
     {
         public bool hasHips, hasSpine, hasChest, hasUpperChest, hasNeck, hasHead, hasSpineChain, hasChestJoint, hasSpineRestFrames, hasSpineBend;
         public bool hasBodyRight, hasTorso, hasLegFrame, hasChestRef, hasLeftShoulder, hasRightShoulder, hasLeftToe, hasRightToe;
-        public bool hasChestSpring, hasSwingState, hasArmState, hasLegState, hasLegDiagnostics;
+        public bool hasChestSpring, hasArmState, hasLegState, hasLegDiagnostics;
         public int chestIdx;
         public uint boundSlots;
         public BasisBoneHandle torsoFrom, torsoTo, legFrameTo, chestRef;
-        public bool prone, hipsTracked, chestTracked, chestChain, headChain, crouchOffset, gaitPelvis, lordosis, spineRom, chestTarget, shoulderSlide;
+        public bool prone, hipsTracked, chestTracked, chestChain, headChain, crouchOffset, gaitPelvis, lordosis, spineRom, chestTarget;
         public bool armSwingChestFollow, leftShoulderTracked, rightShoulderTracked, leftToeTracked, rightToeTracked, leftToeDriven, rightToeDriven;
         public bool leftToeSurface, rightToeSurface;
         public BasisEerieShoulderMode leftShoulder, rightShoulder;

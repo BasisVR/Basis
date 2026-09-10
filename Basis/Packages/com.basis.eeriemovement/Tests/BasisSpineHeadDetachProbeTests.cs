@@ -148,7 +148,7 @@ namespace Basis.Tests.IK
                 moveBodyBackWhenCrouching = 1f, trunkCounterbalance = 0.38f, trunkCounterbalanceMaxSpineFrac = 0.45f,
                 spineCCDRelax = 1f, spineTwistKeep = 0.25f, spineNeckTwistKeep = 0.9f, neckMaxConeDeg = 45f,
                 thoracicBendStiffen = 0.3f, spineTautBandFrac = 0.015f, bendTwistCoupling = 0.15f,
-                anatDifferentialStiffness = true, anatShoulderSlide = true, anatCervicalLordosis = true, anatPelvicTwistRouting = true,
+                anatDifferentialStiffness = true, anatCervicalLordosis = true, anatPelvicTwistRouting = true,
                 spineAnatomicalRom = true, chestIkTarget = true,
                 chestIkWeight = 0.5f, chestIkIterations = 8, chestIkHeadRestoreSweeps = 2, chestPosPullMaxDeg = 20f, chestPullMaxDist = 0.5f, chestFollowChestShare = 0.6f, chestHeadBudget = BasisEerieMovementSetup.ChestHeadBudgetMeters,
                 chestArmSwingFactor = 0.3f, chestArmSwingMaxDeg = 15f,

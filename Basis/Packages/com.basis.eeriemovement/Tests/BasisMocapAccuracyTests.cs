@@ -74,7 +74,7 @@ namespace Basis.Tests.IK
             {
                 foreach (BasisMocapHintSource hint in new[]
                 {
-                    BasisMocapHintSource.None, BasisMocapHintSource.Lookup, BasisMocapHintSource.TruthJoint,
+                    BasisMocapHintSource.None, BasisMocapHintSource.Model, BasisMocapHintSource.TruthJoint,
                 })
                 {
                     string csv = Path.Combine(Application.persistentDataPath, "MocapAccuracy", $"{clip.Name}_{hint}.csv");
@@ -83,13 +83,13 @@ namespace Basis.Tests.IK
 
                     log.AppendLine($"  {clip.Name,-12}  {hint,-10}  {s.ElbowMeanM * 100f,8:F1}  {s.ElbowP95M * 100f,6:F1}  {s.ElbowMaxM * 100f,6:F1}   " + $"{s.ElbowMeanFracArm * 100f,7:F1}%   {s.KneeMeanM * 100f,8:F1}     {s.ElbowPops}/{s.KneePops}");
 
-                    if (hint == BasisMocapHintSource.Lookup) lookupElbow.Add(s.ElbowMeanM);
+                    if (hint == BasisMocapHintSource.Model) lookupElbow.Add(s.ElbowMeanM);
                     if (hint == BasisMocapHintSource.TruthJoint) truthElbow.Add(s.ElbowMeanM);
 
                     // The hand is commanded and the arm solve is reach-preserving, so it must be hit. The FOOT is
                     // a different matter: the leg hint is not reach-preserving, so foot slip is a measured solver
                     // property, reported in the table above rather than treated as a harness fault.
-                    if (s.HandMaxM > 0.01f) effectorMisses.Add($"{clip.Name} [{hint}]: hand missed by {s.HandMaxM * 100f:F1} cm");
+                    if (s.HandInReachMaxM > 0.002f) effectorMisses.Add($"{clip.Name} [{hint}]: hand missed by {s.HandInReachMaxM * 1000f:F1} mm inside reach");
                     footSlip = Mathf.Max(footSlip, s.FootMaxM);
                 }
             }

@@ -105,6 +105,8 @@ namespace Basis.IK.Debugging
                 Transform tChest = ta.GetBoneTransform(HumanBodyBones.UpperChest) ?? ta.GetBoneTransform(HumanBodyBones.Chest);
                 Transform[] sShoulders = { sa.GetBoneTransform(HumanBodyBones.LeftShoulder), sa.GetBoneTransform(HumanBodyBones.RightShoulder) };
                 Transform sChest = sa.GetBoneTransform(HumanBodyBones.UpperChest) ?? sa.GetBoneTransform(HumanBodyBones.Chest);
+                Transform sHead = sa.GetBoneTransform(HumanBodyBones.Head);
+                var armStates = new BasisArmState[2];
 
                 int fps = Mathf.Max(1, cfg.Fps);
 
@@ -152,8 +154,8 @@ namespace Basis.IK.Debugging
                                 SolveShoulderOn(sShoulders[1], sChest, arms[1], false);
                             }
 
-                            SolveArmOn(arms[0], cfg.HintMode);
-                            SolveArmOn(arms[1], cfg.HintMode);
+                            SolveArmOn(arms[0], cfg.HintMode, sChest, sHead, true, ref armStates[0]);
+                            SolveArmOn(arms[1], cfg.HintMode, sChest, sHead, false, ref armStates[1]);
                             Vector3 hipsRight = sHips != null ? sHips.right : Vector3.right;
                             for (int l = 0; l < legs.Length; l++)
                             {
@@ -225,28 +227,31 @@ namespace Basis.IK.Debugging
             };
         }
 
-        static void SolveArmOn(Limb limb, BasisIKHintMode hintMode)
+        static void SolveArmOn(Limb limb, BasisIKHintMode hintMode, Transform chest, Transform head, bool isLeft, ref BasisArmState state)
         {
             if (limb.Root == null || limb.Mid == null || limb.Tip == null || limb.TTip == null) return;
-            bool hasHint = hintMode == BasisIKHintMode.Truth && limb.TMid != null;
-
-            BasisArmSolveInput input = default;
+            Quaternion chestRot = chest != null ? chest.rotation : Quaternion.identity;
+            BasisArmSolveInput input = BasisArmSolveInput.Defaults(isLeft);
             input.Shoulder = limb.Root.position;
-            input.Elbow = limb.Mid.position;
-            input.Hand = limb.Tip.position;
-            input.RootRotation = limb.Root.rotation;
-            input.MidRotation = limb.Mid.rotation;
+            input.RestElbow = limb.Mid.position;
+            input.RestHand = limb.Tip.position;
+            input.RestHandRotation = limb.Tip.rotation;
             input.TargetPosition = limb.TTip.position;
             input.TargetRotation = limb.TTip.rotation;
-            input.HintPosition = hasHint ? limb.TMid.position : Vector3.zero;
-            input.HintWeight = hasHint;
-            input.HintIsTracker = false;
-            input.TargetOffset = Quaternion.identity;
-            input.PlayerUp = Vector3.up;
-            input.HintMaxStepDeg = float.MaxValue;
-
-            BasisArmSolveCore.Solve(input, out BasisArmSolveResult r);
-            ApplyDeltas(limb, r.MidDelta, r.RootDelta, r.HintDelta, r.TipRotation);
+            input.TorsoUp = chestRot * Vector3.up;
+            input.TorsoForward = chestRot * Vector3.forward;
+            input.TorsoOut = chestRot * (isLeft ? Vector3.left : Vector3.right);
+            input.HasHead = head != null;
+            input.HeadPosition = head != null ? head.position : Vector3.zero;
+            input.HasHint = hintMode == BasisIKHintMode.Truth && limb.TMid != null;
+            input.HintPosition = input.HasHint ? limb.TMid.position : Vector3.zero;
+            input.Dt = 1f / 30f;
+            BasisArmSolveCore.Solve(input, ref state, out BasisArmSolveResult r);
+            if (!r.Valid) return;
+            BasisArmSolveCore.Pose(input, r, limb.Root.rotation, limb.Mid.rotation, out Quaternion upperRot, out Quaternion lowerRot);
+            limb.Root.rotation = upperRot;
+            limb.Mid.rotation = lowerRot;
+            limb.Tip.rotation = limb.TTip.rotation;
         }
 
         static void SolveLegOn(Limb limb, BasisIKHintMode hintMode, Vector3 bendNormal)
@@ -273,27 +278,22 @@ namespace Basis.IK.Debugging
 
         static void SolveShoulderOn(Transform shoulder, Transform chest, Limb arm, bool isLeft)
         {
-            if (shoulder == null || arm.TTip == null) return;
+            if (shoulder == null || arm.Root == null || arm.TTip == null) return;
             Quaternion chestRot = chest != null ? chest.rotation : Quaternion.identity;
             BasisShoulderSolveInput input = default;
             input.ShoulderPos = shoulder.position;
+            input.UpperArmPos = arm.Root.position;
             input.HandTargetPos = arm.TTip.position;
-            input.ElbowPos = arm.Mid != null ? arm.Mid.position : shoulder.position;
-            input.HasElbow = arm.Mid != null;
-            input.HasShoulderTracker = false;
-            input.ChestRot = chestRot;
-            input.TposeChestRot = chestRot;
-            input.TposeShoulderRot = shoulder.rotation;
-            input.TposeArmDirWorld = chestRot * (isLeft ? Vector3.left : Vector3.right);
-            input.TposeArmLength = ArmLength(arm);
-            input.ElevationFactor = 0.4f;
-            input.ProtractionFactor = 0.3f;
-            input.CoupleRatio = 0.8f;
-            input.MaxShoulderDeg = 40f;
-            input.TrackerFinal = shoulder.rotation;
-            input.IsLeft = isLeft;
+            input.ArmLength = ArmLength(arm);
+            input.TorsoUp = chestRot * Vector3.up;
+            input.TorsoForward = chestRot * Vector3.forward;
+            input.TorsoOut = chestRot * (isLeft ? Vector3.left : Vector3.right);
+            input.ShrugEnabled = true;
+            input.ElevationFactor = 1f;
+            input.ProtractionFactor = 1f;
+            input.MaxDeg = 30f;
             BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult r);
-            if (r.Apply) shoulder.rotation = r.ShoulderRotation;
+            if (r.Apply) shoulder.rotation = r.Delta * shoulder.rotation;
         }
 
         static float ArmLength(Limb arm)

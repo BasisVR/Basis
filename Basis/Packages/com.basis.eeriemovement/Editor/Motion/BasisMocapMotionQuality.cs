@@ -88,27 +88,6 @@ namespace Basis.IK.Motion
             s.FlareEngageJitter = float.NaN;
             s.FlareDownProjP05 = float.NaN;
             s.FlareDownProjMin = float.NaN;
-            if ((hint == BasisMocapHintSource.Lookup || hint == BasisMocapHintSource.LookupNoFlare) && tracks.HintRaw != null)
-            {
-                BasisMotionQualitySummary raw = BasisMotionQuality.Analyze(tracks.HintRaw, tracks.ArmLen, dt, "hint.raw");
-                BasisMotionQualitySummary fla = BasisMotionQuality.Analyze(tracks.HintFlared, tracks.ArmLen, dt, "hint.flared");
-                if (raw.Ok) s.HintRawJitter = raw.JitterFracLimb;
-                if (fla.Ok) s.HintFlaredJitter = fla.JitterFracLimb;
-
-                // The engagement scalar is already dimensionless 0..1, so its residual above 8 Hz IS its jitter.
-                float[] eng = tracks.FlareEngage;
-                float[] lo = BasisMotionSignal.LowPass(eng, dt, BasisMotionSignal.MotionBandHz);
-                var res = new float[eng.Length];
-                for (int i = 0; i < eng.Length; i++) res[i] = eng[i] - lo[i];
-                s.FlareEngageJitter = BasisMotionSignal.Rms(res);
-
-                double sum = 0; foreach (float e in eng) sum += e;
-                s.FlareEngageMean = (float)(sum / System.Math.Max(1, eng.Length));
-
-                s.FlareDownProjP05 = BasisMotionSignal.Quantile(tracks.FlareDownProj, 0.05f);
-                s.FlareDownProjMin = BasisMotionSignal.Quantile(tracks.FlareDownProj, 0f);
-            }
-
             s.Ok = true;
             return s;
         }

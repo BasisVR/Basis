@@ -65,78 +65,37 @@ public struct BasisFootSimOutput
 }
 namespace Basis.IK
 {
+    public struct BasisArmLimits
+    {
+        public float PronationMaxDeg, SupinationMaxDeg, HumeralInternalMaxDeg, HumeralExternalMaxDeg, WristFlexionMaxDeg, WristExtensionMaxDeg, WristRadialMaxDeg, WristUlnarMaxDeg;
+        public static BasisArmLimits Default => new BasisArmLimits { PronationMaxDeg = 95f, SupinationMaxDeg = 90f, HumeralInternalMaxDeg = 70f, HumeralExternalMaxDeg = 90f, WristFlexionMaxDeg = 80f, WristExtensionMaxDeg = 70f, WristRadialMaxDeg = 20f, WristUlnarMaxDeg = 30f };
+    }
     public struct BasisArmSolveInput
     {
-        public Vector3 Shoulder, Elbow, Hand;
-        public Quaternion RootRotation, MidRotation;
-        public Vector3 TargetPosition;
-        public Quaternion TargetRotation;
-        public Vector3 HintPosition;
-        public bool HintWeight;
-        public Quaternion TargetOffset;
-        public Vector3 PlayerUp;
-        public float HintMaxStepDeg;
-        public bool HintIsTracker, HasHintRotation;
-        public Quaternion TipRotation, HintRotation;
-        public bool HasPrevPole;
-        public Vector3 PrevPoleDir;
-        public Quaternion PrevHintRotation;
-        public int PrevGuardSide;
-        public Vector3 ElbowLateralOut, TorsoUp;
-        public float ForearmFollowWeight;
+        public Vector3 Shoulder, RestElbow, RestHand, TargetPosition, HeadPosition, HintPosition, TorsoUp, TorsoForward, TorsoOut, TorsoA, TorsoB;
+        public Quaternion TargetRotation, RestHandRotation, HintRotation;
+        public bool HasHead, HasHint, HasHintRotation, IsLeft, TorsoCapsule, JointLimits;
+        public float TorsoRadius, Dt, ReachSoftness, SmoothTime, MaxRateDeg, SwitchDwell, PriorWeight, PreviousWeight;
+        public BasisArmLimits Limits;
+        public static BasisArmSolveInput Defaults(bool isLeft) => new BasisArmSolveInput { TorsoUp = Vector3.up, TorsoForward = Vector3.forward, TorsoOut = isLeft ? Vector3.left : Vector3.right, IsLeft = isLeft, JointLimits = true, Dt = 1f / 90f, ReachSoftness = 0.06f, SmoothTime = 0.08f, MaxRateDeg = 720f, SwitchDwell = 0.2f, PriorWeight = 1f, PreviousWeight = 0.25f, Limits = BasisArmLimits.Default, TargetRotation = Quaternion.identity, RestHandRotation = Quaternion.identity, HintRotation = Quaternion.identity };
     }
     public struct BasisArmSolveResult
     {
-        public Quaternion MidDelta, RootDelta, HintDelta, MidPostRoll, TipRotation;
-        public bool HintApplied;
-        public Vector3 ElbowSolved, HandSolved;
-        public Quaternion RootRotationSolved, MidRotationSolved;
-        public float UpperLength, LowerLength, TargetDistance, ReachRatio, ElbowAngleDeg, HintFade, HintProjMag;
-        public float ArmProjMag;
-        public byte AxisSource;
-        public float HandError, WristTwistDeg, WristReliefDeg, ForearmRollDeg, WristResidualDeg;
-        public bool PoleAnchorValid;
-        public Vector3 PoleDirUsed;
-        public Quaternion PoleRotUsed;
-        public float PoleConditioning;
-        public int GuardSideUsed;
+        public bool Valid, Switched;
+        public Vector3 Elbow, Hand, Axis, Hinge, ElbowDir;
+        public float SwivelDeg, PriorDeg, RawDeg, ReachRatio, ElbowDeg, HumeralDeg, PronationDeg, WristFlexDeg, WristDevDeg, TargetDistance, EffectiveDistance, UpperLength, LowerLength, Cost;
     }
     public struct BasisShoulderSolveInput
     {
-        public Vector3 ShoulderPos, HandTargetPos, ElbowPos;
-        public bool HasElbow, HasShoulderTracker;
-        public Quaternion ChestRot, TposeChestRot, TposeShoulderRot;
-        public Vector3 TposeArmDirWorld;
-        public float TposeArmLength, TposeClavicleLength, TposeElbowLength;
+        public Vector3 ShoulderPos, UpperArmPos, HandTargetPos, TorsoUp, TorsoForward, TorsoOut;
+        public float ArmLength, ElevationFactor, ProtractionFactor, MaxDeg;
         public bool ShrugEnabled;
-        public float ElevationFactor, ProtractionFactor, CoupleRatio, MaxShoulderDeg;
-        public Quaternion TrackerFinal;
-        public bool IsLeft;
     }
     public struct BasisShoulderSolveResult
     {
         public bool Apply;
-        public Quaternion ShoulderRotation;
-        public float ReachRatio, Elevation, Protraction, CrossBodyContrib, ComputedWeight, SwingAngleDeg;
-        public float AppliedAngleDeg, TwistLeakDeg;
-        public bool DriverIsElbow;
-        public float ShrugDeg;
-    }
-    public struct BasisElbowProtectInput
-    {
-        public Vector3 Shoulder, Elbow, Hand, HipsPos, SpinePos, ChestPos, NeckPos;
-        public bool HasHips, HasSpine;
-        public float ChestRadiusBase, CollisionSkin, HandRadius, HandSkin;
-        public Vector3 PlayerUp, BodyRight;
-    }
-    public struct BasisElbowProtectResult
-    {
-        public bool Engaged;
-        public int CollisionState;
-        public Vector3 DesiredElbow;
-        public float WorstPenetration, SideDot, BlendUsed, SwingAngleDeg, ElbowRadius;
-        public Vector3 ElbowCenter;
-        public float ResidualClearance;
+        public Quaternion Delta;
+        public float ElevationDeg, ProtractionDeg, HumeralElevationDeg, ReachRatio;
     }
     public struct BasisLegSolveInput
     {

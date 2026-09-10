@@ -46,59 +46,6 @@ namespace Basis.Tests.IK
             }
         }
         [Test]
-        public void TheModel_RefusesToExtrapolate_WhenTheControllerIsBeyondTheAvatarsReach()
-        {
-            BasisSwivelFrame frame = ArmFrame();
-            var rng = new System.Random(31337);
-
-            for (int t = 0; t < 400; t++)
-            {
-                bool isLeft = (t & 1) == 0;
-                Vector3 shoulder = isLeft ? leftUpperArm : rightUpperArm;
-
-                // 1.0x to 3.0x the avatar's arm length: a tall user on a short avatar, a lunge, a mis-scaled
-                // calibration. All of these happen, and they happen constantly.
-                float over = Mathf.Lerp(1.0f, 3.0f, (float)rng.NextDouble());
-                Vector3 dir = RandomInBall(rng, 1f).normalized, hand = shoulder + dir * (over * k_ArmLen);
-
-                Assert.IsTrue(BasisSwivelHintCore.ArmHint(frame, shoulder, hand, k_ArmLen, isLeft, out Vector3 hint, out float conf), $"an out-of-reach target must still produce a hint (x{over:F2} reach)");
-                Assert.IsTrue(float.IsFinite(conf) && conf > 0f, "confidence must stay finite and positive");
-
-                // The hint must stay EXACTLY on the elbow's circle -- half an arm off the shoulder,
-                // perpendicular to the limb axis. Not "roughly": the whole design rests on it.
-                Assert.AreEqual(0.5f * k_ArmLen, Vector3.Distance(hint, shoulder), 1e-3f, $"the hint must stay half an arm-length off the shoulder even at x{over:F2} reach");
-
-                Vector3 axis = (hand - shoulder).normalized;
-                Assert.AreEqual(0f, Vector3.Dot(axis, (hint - shoulder).normalized), 1e-3f, $"the hint must stay on the elbow's circle even at x{over:F2} reach");
-
-                // ...and the clamp must actually BIND. Past the domain the answer must STOP CHANGING with
-                // distance, because the model is no longer being asked a question it is able to answer.
-                Vector3 farther = shoulder + dir * (4f * k_ArmLen);
-                Assert.IsTrue(BasisSwivelHintCore.ArmHint(frame, shoulder, farther, k_ArmLen, isLeft, out Vector3 hint2, out _));
-                Assert.AreEqual(0f, Vector3.Distance(hint, hint2), 1e-3f, "beyond the fit domain the model must SATURATE, not keep extrapolating -- two targets in " +"the same direction, both out of reach, must give the same elbow");
-            }
-        }
-        [Test]
-        public void TheElbow_HangsBelowTheShoulder_InReachAndBeyondIt()
-        {
-            BasisSwivelFrame frame = ArmFrame();
-
-            foreach (float reach in new[] { 0.3f, 0.6f, 0.9f, 1.0f, 1.5f, 2.5f })
-            {
-                foreach (bool isLeft in new[] { false, true })
-                {
-                    Vector3 shoulder = isLeft ? leftUpperArm : rightUpperArm;
-                    float side = isLeft ? -1f : 1f;
-                    Vector3 dir = new Vector3(side * 0.92f, 0f, 0.39f).normalized;   // out to the side, a little forward
-                    Vector3 hand = shoulder + dir * (reach * k_ArmLen);
-
-                    Assert.IsTrue(BasisSwivelHintCore.ArmHint(frame, shoulder, hand, k_ArmLen, isLeft, out Vector3 hint, out _));
-
-                    Assert.Less(hint.y, shoulder.y, $"the derived elbow must hang BELOW the shoulder on a lateral reach -- " + $"{(isLeft ? "LEFT" : "RIGHT")} arm at x{reach:F1} reach put it at y={hint.y:F3} " + $"against a shoulder at y={shoulder.y:F3}.");
-                }
-            }
-        }
-        [Test]
         public void LegHint_StaysOnTheCircle_AtEveryExtension_AndBeyond()
         {
             BasisSwivelFrame frame = LegFrame();
@@ -138,23 +85,6 @@ namespace Basis.Tests.IK
             }
         }
         [Test]
-        public void TheElbows_Mirror_LeftToRight()
-        {
-            BasisSwivelFrame frame = ArmFrame();
-            var rng = new System.Random(777);
-
-            for (int t = 0; t < 150; t++)
-            {
-                Vector3 offset = RandomInBall(rng, 0.9f * k_ArmLen);
-
-                Assert.IsTrue(BasisSwivelHintCore.ArmHint(frame, rightUpperArm, rightUpperArm + offset, k_ArmLen, false, out Vector3 hintR, out _));
-                Assert.IsTrue(BasisSwivelHintCore.ArmHint(frame, leftUpperArm, leftUpperArm + MirrorX(offset), k_ArmLen, true, out Vector3 hintL, out _));
-
-                Vector3 expect = MirrorX(hintR - rightUpperArm), got = hintL - leftUpperArm;
-                Assert.AreEqual(0f, Vector3.Distance(expect, got), 1e-3f, $"the left elbow must be the mirror of the right (iter {t}): expected {expect}, got {got}");
-            }
-        }
-        [Test]
         public void ADegenerateRig_ProducesNoFrameAndNoHint()
         {
             BasisSwivelFrame collapsed = BasisSwivelHintCore.BuildFrame(Vector3.zero, Vector3.zero, k_Chest, k_Neck);
@@ -163,8 +93,6 @@ namespace Basis.Tests.IK
             BasisSwivelFrame noUp = BasisSwivelHintCore.BuildFrame(leftUpperArm, rightUpperArm, k_Chest, k_Chest);
             Assert.IsFalse(noUp.Valid, "a zero-length spine cannot define a body frame");
 
-            Assert.IsFalse(BasisSwivelHintCore.ArmHint(collapsed, rightUpperArm, Vector3.zero, k_ArmLen, false, out _, out _), "no live frame => no hint");
-            Assert.IsFalse(BasisSwivelHintCore.ArmHint(ArmFrame(), rightUpperArm, Vector3.zero, 0f, false, out _, out _), "a zero-length limb => no hint");
         }
         [Test]
         public void ANaNTarget_IsRefused_RatherThanSolvedOn()
@@ -172,7 +100,6 @@ namespace Basis.Tests.IK
             BasisSwivelFrame frame = ArmFrame();
             var nan = new Vector3(float.NaN, 0f, 0f);
 
-            Assert.IsFalse(BasisSwivelHintCore.ArmHint(frame, rightUpperArm, nan, k_ArmLen, false, out _, out _),"a NaN hand target must produce no hint");
 
             BasisSwivelFrame leg = LegFrame();
             Assert.IsFalse(BasisSwivelHintCore.LegHint(leg, rightUpperLeg, nan, legLen, false, out _, out _),"a NaN foot target must produce no hint");

@@ -17,12 +17,6 @@ namespace Basis.IK
         public Vector3 KneeHint;
         public float HintWeight, OpenAngleDeg, Supine01, FootTilt01, PullIn01;
     }
-    public struct BasisSwingContinuityState
-    {
-        public Vector3 LastDir, LastAxis, LastTarget;
-        public int SmoothState;
-        public bool Seeded;
-    }
     public struct BasisCervicalInput
     {
         public float BaseDeg, NeckShare, MaxHeadPitchDeg, ExtremeStartDeg, ExtremeFullDeg, ExtremeRollForwardMaxDeg;

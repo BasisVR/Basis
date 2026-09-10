@@ -57,7 +57,7 @@ namespace Basis.Tests.IK
 
             foreach (BasisMotionClip clip in clips)
             {
-                BasisMocapMotionSummary s = BasisMocapMotionQuality.Run(clip, BasisMocapHintSource.Lookup);
+                BasisMocapMotionSummary s = BasisMocapMotionQuality.Run(clip, BasisMocapHintSource.Model);
                 if (!s.Ok)
                 {
                     report.AppendLine($"{clip.Name,-12} {clip.FrameCount,6} | ERROR: {s.Error}");
@@ -87,7 +87,7 @@ namespace Basis.Tests.IK
             var failures = new List<string>();
             foreach (BasisMotionClip clip in idle)
             {
-                BasisMocapMotionSummary s = BasisMocapMotionQuality.Run(clip, BasisMocapHintSource.Lookup);
+                BasisMocapMotionSummary s = BasisMocapMotionQuality.Run(clip, BasisMocapHintSource.Model);
                 if (!s.Ok) { failures.Add($"{clip.Name}: {s.Error}"); continue; }
 
                 Debug.Log($"[idle] {clip.Name}: elbow jitter+{s.ElbowJitterExcess * 100f:F3}%L @ " + $"{s.SolvedElbow.JitterHz:F0}Hz, knee jitter+{s.KneeJitterExcess * 100f:F3}%L @ " + $"{s.SolvedKnee.JitterHz:F0}Hz");

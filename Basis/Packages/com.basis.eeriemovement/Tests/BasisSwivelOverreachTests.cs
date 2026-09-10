@@ -50,8 +50,6 @@ namespace Basis.Tests.IK
         {
             var models = new (string name, bool neural, Func<float3, float> fn)[]
             {
-                ("arm  poly  (BasisArmSwivelModel)",       false, t => BasisArmSwivelModel.SwivelRad(t)),
-                ("arm  neural(BasisArmSwivelNeuralModel)", true,  t => BasisArmSwivelNeuralModel.SwivelRad(t)),
                 ("knee poly  (BasisLegSwivelModel)",       false, t => BasisLegSwivelModel.SwivelRad(t)),
                 ("knee neural(BasisLegSwivelNeuralModel)", true,  t => BasisLegSwivelNeuralModel.SwivelRad(t)),
             };
@@ -85,8 +83,6 @@ namespace Basis.Tests.IK
 
             // (3) NO REGRESSION vs the polynomial it replaces: the neural pole must be at least as smooth at the
             //     reach boundary and in-reach. Measured ~10x smoother; the +1 deg margin is slack, not headroom.
-            Assert.LessOrEqual(w["arm  neural(BasisArmSwivelNeuralModel)"].inR, w["arm  poly  (BasisArmSwivelModel)"].inR + 1f, "arm neural rougher in-reach than the poly");
-            Assert.LessOrEqual(w["arm  neural(BasisArmSwivelNeuralModel)"].bnd, w["arm  poly  (BasisArmSwivelModel)"].bnd + 1f, "arm neural rougher at the boundary than the poly");
             Assert.LessOrEqual(w["knee neural(BasisLegSwivelNeuralModel)"].inR, w["knee poly  (BasisLegSwivelModel)"].inR + 1f, "knee neural rougher in-reach than the poly");
             Assert.LessOrEqual(w["knee neural(BasisLegSwivelNeuralModel)"].bnd, w["knee poly  (BasisLegSwivelModel)"].bnd + 1f, "knee neural rougher at the boundary than the poly");
         }

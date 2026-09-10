@@ -25,6 +25,22 @@ namespace Basis.IK
             poseStream.ResetToRest(mid);
             poseStream.ResetToRest(tip);
         }
+        void SwingElbowAroundAC(BasisBoneHandle root, BasisBoneHandle mid, BasisBoneHandle tip, Vector3 desiredMid)
+        {
+            Vector3 a = poseStream.GetPosition(root), b = poseStream.GetPosition(mid), ac = poseStream.GetPosition(tip) - a;
+            if (ac.sqrMagnitude < sqrEpsilon)
+            {
+                return;
+            }
+            Vector3 axis = ac.normalized, cur = b - a, want = desiredMid - a;
+            cur -= axis * Vector3.Dot(cur, axis);
+            want -= axis * Vector3.Dot(want, axis);
+            if (cur.sqrMagnitude < sqrEpsilon || want.sqrMagnitude < sqrEpsilon)
+            {
+                return;
+            }
+            poseStream.SetRotation(root, Quaternion.AngleAxis(Vector3.SignedAngle(cur, want, axis), axis) * poseStream.GetRotation(root));
+        }
         public static Quaternion ClampRotation(Quaternion current, Quaternion reference, float maxAngleDeg)
         {
             float angle = Quaternion.Angle(reference, current);

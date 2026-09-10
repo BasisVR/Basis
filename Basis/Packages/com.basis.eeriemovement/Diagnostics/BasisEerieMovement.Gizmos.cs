@@ -254,8 +254,8 @@ namespace Basis.IK
                 return;
             }
 
-            RecordArm(stage, handleLeftUpperArm, handleLeftLowerArm, handleLeftHand, plan.leftArm, targetPositionLeftHand, hintPositionLeftHand, tposeShoulderToHandLeft, swingLeftElbow, true);
-            RecordArm(stage, handleRightUpperArm, handleRightLowerArm, handleRightHand, plan.rightArm, targetPositionRightHand, hintPositionRightHand, tposeShoulderToHandRight, swingRightElbow, false);
+            RecordArm(stage, handleLeftUpperArm, handleLeftLowerArm, handleLeftHand, plan.leftArm, targetPositionLeftHand, hintPositionLeftHand, tposeShoulderToHandLeft, armLeft, true);
+            RecordArm(stage, handleRightUpperArm, handleRightLowerArm, handleRightHand, plan.rightArm, targetPositionRightHand, hintPositionRightHand, tposeShoulderToHandRight, armRight, false);
         }
         void RecordArm(BasisIKGizmoStage stage, BasisBoneHandle root, BasisBoneHandle mid, BasisBoneHandle tip, in BasisEerieArmPlan arm, Vector3 target, Vector3 hint, float reach, int swingSlot, bool isLeft)
         {
@@ -289,20 +289,15 @@ namespace Basis.IK
 
             if (plan.hasArmState)
             {
-                BasisArmSlotState armSlot = armState[swingSlot];
-                if (armSlot.PoleDir.sqrMagnitude > sqrEpsilon)
+                BasisArmState armSlot = armState[swingSlot];
+                if (armSlot.Seeded)
                 {
-                    gizmos.Direction(stage, shoulderPos, armSlot.PoleDir.normalized, hintLength, BasisIKGizmoPalette.Yellow);
-                }
-                if (armSlot.HintBend.sqrMagnitude > sqrEpsilon)
-                {
-                    Vector3 hintPoint = shoulderPos + armSlot.HintBend.normalized * hintLength;
-                    gizmos.Direction(stage, shoulderPos, armSlot.HintBend.normalized, hintLength, BasisIKGizmoPalette.Magenta);
-                    gizmos.Point(stage, hintPoint, BasisIKGizmoPalette.Magenta);
-                }
-                if (armSlot.Collided != 0)
-                {
-                    gizmos.Circle(stage, elbowPos, handPos - shoulderPos, gizmos.PointSize * 3f, BasisIKGizmoPalette.Red);
+                    if (armSlot.PriorDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, shoulderPos, armSlot.PriorDir.normalized, hintLength, BasisIKGizmoPalette.Magenta);
+                    if (armSlot.ElbowDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, shoulderPos, armSlot.ElbowDir.normalized, hintLength, BasisIKGizmoPalette.Yellow);
+                    if (armSlot.Switched) gizmos.Circle(stage, elbowPos, handPos - shoulderPos, gizmos.PointSize * 3f, BasisIKGizmoPalette.Red);
+                    FixedString64Bytes text = "swivel ";
+                    text.Append(armSlot.SwivelDeg);
+                    gizmos.Label(stage, elbowPos + playerUp * gizmos.PointSize * 4f, text, BasisIKGizmoPalette.Yellow);
                 }
             }
 
