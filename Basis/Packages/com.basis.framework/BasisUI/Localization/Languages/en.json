@@ -7067,6 +7067,22 @@
       "value": "Nudge the avatar preview up or down."
     },
     {
+      "key": "settings.general.avatarPreviewMaxYaw",
+      "value": "Avatar Preview Max Left/Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewMaxYaw.tooltip",
+      "value": "How far the preview camera may swing left or right of your body when it follows your head."
+    },
+    {
+      "key": "settings.general.avatarPreviewMaxPitch",
+      "value": "Avatar Preview Max Up/Down"
+    },
+    {
+      "key": "settings.general.avatarPreviewMaxPitch.tooltip",
+      "value": "How far the preview camera may tilt above or below level when it follows your head."
+    },
+    {
       "key": "settings.general.camera.title",
       "value": "Camera"
     },

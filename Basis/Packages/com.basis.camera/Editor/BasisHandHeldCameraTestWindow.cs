@@ -374,6 +374,16 @@ namespace Basis.HandHeldCamera.Editor
                     "URP draws the headset mirror at the end of the player camera's stack; the screen camera has to draw after it to cover it.");
             }
 
+            // The final blit lands on the camera's pixel rect: a rect smaller than the window leaves
+            // the headset mirror showing round the feed, which is what a camera still aimed at both
+            // eyes does while XR runs.
+            Rect rect = screen.pixelRect;
+            bool covers = Mathf.Approximately(rect.width, Screen.width) && Mathf.Approximately(rect.height, Screen.height) && rect.x <= 0f && rect.y <= 0f;
+            Status($"Covers the window: camera rect {rect.width:0} x {rect.height:0} at ({rect.x:0}, {rect.y:0}), window {Screen.width} x {Screen.height}, target eye {screen.stereoTargetEye}", covers,
+                covers
+                    ? "The screen camera's pixel rect is the whole window, so the feed can reach every edge."
+                    : "The screen camera's pixel rect is not the whole window; whatever lies outside it keeps the headset mirror. Target eye must be None for the engine to size the camera to the window.");
+
             Status(output.IsUsingFallbackPass ? "Pass: enqueued by hand (fallback)" : "Pass: renderer feature", !output.IsUsingFallbackPass,
                 output.IsUsingFallbackPass
                     ? "No renderer on the pipeline carries the feature, so the pass is enqueued directly on the default renderer. It works, but see Setup."

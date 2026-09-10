@@ -848,6 +848,10 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<string> AvatarPreviewRotation = new("avatarpreviewrotation", new BasisPlatformDefault<string>("allowall"));
 
+        public static BasisSettingsBinding<float> AvatarPreviewMaxYaw = new("avatarpreviewmaxyaw", new BasisPlatformDefault<float>(90f));
+
+        public static BasisSettingsBinding<float> AvatarPreviewMaxPitch = new("avatarpreviewmaxpitch", new BasisPlatformDefault<float>(60f));
+
         public static BasisSettingsBinding<float> AvatarPreviewSize = new("avatarpreviewsize", new BasisPlatformDefault<float>(1f));
 
         public static BasisSettingsBinding<float> AvatarPreviewZoom = new("avatarpreviewzoom", new BasisPlatformDefault<float>(1f));
@@ -2838,6 +2842,8 @@ namespace Basis.BasisUI
             AvatarPreviewFraming.LoadBindingValue();
             AvatarPreviewPosition.LoadBindingValue();
             AvatarPreviewRotation.LoadBindingValue();
+            AvatarPreviewMaxYaw.LoadBindingValue();
+            AvatarPreviewMaxPitch.LoadBindingValue();
             AvatarPreviewSize.LoadBindingValue();
             AvatarPreviewZoom.LoadBindingValue();
             AvatarPreviewOffsetX.LoadBindingValue();

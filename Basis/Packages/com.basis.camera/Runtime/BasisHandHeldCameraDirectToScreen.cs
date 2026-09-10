@@ -120,7 +120,10 @@ public partial class BasisHandHeldCamera
     {
         if (DirectToScreenFeedFollowsWindow)
         {
-            MatchWindowFeedSize(PreviewCaptureWidth, PreviewCaptureHeight, Screen.width, Screen.height, out width, out height);
+            // The screen camera's own surface rather than Screen: it is what the feed is blitted
+            // over, so the two cannot disagree on the window's shape.
+            directToScreenOutput.TryGetWindowSize(out int windowWidth, out int windowHeight);
+            MatchWindowFeedSize(PreviewCaptureWidth, PreviewCaptureHeight, windowWidth, windowHeight, out width, out height);
             return;
         }
         width = PreviewCaptureWidth;

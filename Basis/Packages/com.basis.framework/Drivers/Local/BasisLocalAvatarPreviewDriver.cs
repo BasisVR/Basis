@@ -52,7 +52,7 @@ namespace Basis.Scripts.Drivers
         private const float FaceNeckPadFrac = 0.05f;
         private const float FullBodyFallbackBottomFrac = -0.03f;
         private const float FaceFallbackBottomFrac = 0.78f;
-        private const float MaxOrbitPitchDegrees = 80f;
+        private const float MaxOrbitPitchDegrees = 89f;
 
         [System.NonSerialized] public Camera PreviewCamera;
         [System.NonSerialized] public RenderTexture PreviewRT;
@@ -79,6 +79,8 @@ namespace Basis.Scripts.Drivers
         private PreviewAnchor anchor = PreviewAnchor.BottomRight;
         private PreviewRotation rotationMode = PreviewRotation.AllowAll;
         private Vector3 lastOrbitYaw = Vector3.forward;
+        private float maxYawDegrees = 90f;
+        private float maxPitchDegrees = 60f;
         private Object crownAvatar;
         private float crownAboveHeadRatio;
         private float sizeScale = 1f;
@@ -144,6 +146,16 @@ namespace Basis.Scripts.Drivers
         public void SetRotation(string value)
         {
             rotationMode = ParseRotation(value);
+        }
+
+        public void SetMaxYaw(float degrees)
+        {
+            maxYawDegrees = Mathf.Clamp(degrees, 0f, 180f);
+        }
+
+        public void SetMaxPitch(float degrees)
+        {
+            maxPitchDegrees = Mathf.Clamp(degrees, 0f, MaxOrbitPitchDegrees);
         }
 
         public void SetSize(float value)
@@ -268,6 +280,8 @@ namespace Basis.Scripts.Drivers
             framing = ParseFraming(BasisSettingsDefaults.AvatarPreviewFraming.RawValue);
             anchor = ParseAnchor(BasisSettingsDefaults.AvatarPreviewPosition.RawValue);
             rotationMode = ParseRotation(BasisSettingsDefaults.AvatarPreviewRotation.RawValue);
+            maxYawDegrees = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewMaxYaw.RawValue, 0f, 180f);
+            maxPitchDegrees = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewMaxPitch.RawValue, 0f, MaxOrbitPitchDegrees);
             sizeScale = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewSize.RawValue, 0.25f, 4f);
             zoom = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewZoom.RawValue, 0.25f, 4f);
             offsetX = BasisSettingsDefaults.AvatarPreviewOffsetX.RawValue;
@@ -365,34 +379,37 @@ namespace Basis.Scripts.Drivers
             bool followYaw = rotationMode == PreviewRotation.LockFace || rotationMode == PreviewRotation.AllowPitch;
             bool followPitch = rotationMode == PreviewRotation.LockFace || rotationMode == PreviewRotation.AllowYaw;
             Vector3 headForward = HeadForward();
-            Vector3 yawForward = Vector3.zero;
-            if (!followYaw)
+            Vector3 headYaw = headForward;
+            headYaw.y = 0f;
+            Vector3 bodyYaw = Vector3.zero;
+            var hips = BasisLocalBoneDriver.HipsControl;
+            if (hips != null && hips.HasStore)
             {
-                var hips = BasisLocalBoneDriver.HipsControl;
-                if (hips != null && hips.HasStore)
-                {
-                    yawForward = hips.OutgoingWorldData.rotation * Vector3.forward;
-                    yawForward.y = 0f;
-                }
+                bodyYaw = hips.OutgoingWorldData.rotation * Vector3.forward;
+                bodyYaw.y = 0f;
             }
-            if (yawForward.sqrMagnitude < 1e-6f)
+            if (bodyYaw.sqrMagnitude < 1e-6f)
             {
-                yawForward = headForward;
-                yawForward.y = 0f;
+                bodyYaw = headYaw;
             }
-            if (yawForward.sqrMagnitude < 1e-6f)
+            if (bodyYaw.sqrMagnitude < 1e-6f)
             {
-                yawForward = lastOrbitYaw;
+                bodyYaw = lastOrbitYaw;
             }
-            yawForward.Normalize();
+            bodyYaw.Normalize();
+            Vector3 yawForward = bodyYaw;
+            if (followYaw && headYaw.sqrMagnitude >= 1e-6f)
+            {
+                float yawDelta = Mathf.Clamp(Vector3.SignedAngle(bodyYaw, headYaw.normalized, Vector3.up), -maxYawDegrees, maxYawDegrees);
+                yawForward = Quaternion.AngleAxis(yawDelta, Vector3.up) * bodyYaw;
+            }
             lastOrbitYaw = yawForward;
             if (!followPitch)
             {
                 return yawForward;
             }
-            float pitch = Mathf.Asin(Mathf.Clamp(headForward.y, -1f, 1f));
-            float maxPitch = MaxOrbitPitchDegrees * Mathf.Deg2Rad;
-            pitch = Mathf.Clamp(pitch, -maxPitch, maxPitch);
+            float maxPitch = maxPitchDegrees * Mathf.Deg2Rad;
+            float pitch = Mathf.Clamp(Mathf.Asin(Mathf.Clamp(headForward.y, -1f, 1f)), -maxPitch, maxPitch);
             return yawForward * Mathf.Cos(pitch) + Vector3.up * Mathf.Sin(pitch);
         }
 

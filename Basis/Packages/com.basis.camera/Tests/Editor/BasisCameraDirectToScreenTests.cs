@@ -82,6 +82,8 @@ namespace Basis.Tests.Camera
             Assert.That(screen.depth, Is.GreaterThan(_rig.CaptureCamera.depth), "It has to render after the feed it shows.");
             Assert.That(screen.cullingMask, Is.Zero, "It draws nothing of its own.");
             Assert.IsNull(screen.targetTexture, "It has to land on the window.");
+            Assert.That(screen.stereoTargetEye, Is.EqualTo(StereoTargetEyeMask.None),
+                "Aimed at both eyes, the engine sizes the camera to the eye texture while XR runs, and the final blit covers only that much of a wide monitor; None is the main-display target.");
             Assert.IsTrue(screen.allowHDR, "A float feed keeps its range, and an HDR display gets URP's own encoding.");
             Assert.IsFalse(screen.allowMSAA, "The target only ever receives a full-screen blit; samples would be waste.");
 

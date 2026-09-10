@@ -20,6 +20,8 @@ public class SMModuleIcons : BasisSettingsBase
     private static string K_AVATAR_PREVIEW_ZOOM => BasisSettingsDefaults.AvatarPreviewZoom.BindingKey;
     private static string K_AVATAR_PREVIEW_OFFSET_X => BasisSettingsDefaults.AvatarPreviewOffsetX.BindingKey;
     private static string K_AVATAR_PREVIEW_OFFSET_Y => BasisSettingsDefaults.AvatarPreviewOffsetY.BindingKey;
+    private static string K_AVATAR_PREVIEW_MAX_YAW => BasisSettingsDefaults.AvatarPreviewMaxYaw.BindingKey;
+    private static string K_AVATAR_PREVIEW_MAX_PITCH => BasisSettingsDefaults.AvatarPreviewMaxPitch.BindingKey;
     private static string K_DESKTOP_RETICLE  => BasisSettingsDefaults.DesktopReticle.BindingKey;
 #if !BASIS_DISABLE_MICROPHONE
     private static string K_MICROPHONE_ICON          => BasisSettingsDefaults.MicrophoneIcon.BindingKey;
@@ -86,6 +88,18 @@ public class SMModuleIcons : BasisSettingsBase
         if (matchedSettingName == K_AVATAR_PREVIEW_OFFSET_Y)
         {
             if (TryParseFloat(optionValue, out float offsetY)) BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetOffsetY(offsetY);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_MAX_YAW)
+        {
+            if (TryParseFloat(optionValue, out float maxYaw)) BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetMaxYaw(maxYaw);
+            return;
+        }
+
+        if (matchedSettingName == K_AVATAR_PREVIEW_MAX_PITCH)
+        {
+            if (TryParseFloat(optionValue, out float maxPitch)) BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetMaxPitch(maxPitch);
             return;
         }
 

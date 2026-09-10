@@ -657,6 +657,8 @@ namespace Basis.BasisUI
             PanelSlider sliderAvatarPreviewZoom = null;
             PanelSlider sliderAvatarPreviewOffsetX = null;
             PanelSlider sliderAvatarPreviewOffsetY = null;
+            PanelSlider sliderAvatarPreviewMaxYaw = null;
+            PanelSlider sliderAvatarPreviewMaxPitch = null;
             void RebuildAvatarPreviewRows()
             {
                 PanelElementDescriptor.RebuildLayoutChain(toggleAvatarPreview != null ? toggleAvatarPreview.transform.parent as RectTransform : null, container);
@@ -671,6 +673,8 @@ namespace Basis.BasisUI
                 if (sliderAvatarPreviewZoom != null) sliderAvatarPreviewZoom.Descriptor.SetActive(on);
                 if (sliderAvatarPreviewOffsetX != null) sliderAvatarPreviewOffsetX.Descriptor.SetActive(on);
                 if (sliderAvatarPreviewOffsetY != null) sliderAvatarPreviewOffsetY.Descriptor.SetActive(on);
+                if (sliderAvatarPreviewMaxYaw != null) sliderAvatarPreviewMaxYaw.Descriptor.SetActive(on);
+                if (sliderAvatarPreviewMaxPitch != null) sliderAvatarPreviewMaxPitch.Descriptor.SetActive(on);
             }
             PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                 BasisLocalization.Get("settings.general.hud.title"), () =>
@@ -737,6 +741,18 @@ namespace Basis.BasisUI
                     PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.avatarPreviewOffsetY"), -0.5f, 0.5f, false, 2, ValueDisplayMode.Raw),
                     BasisSettingsDefaults.AvatarPreviewOffsetY);
                 sliderAvatarPreviewOffsetY.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewOffsetY.tooltip"));
+
+                sliderAvatarPreviewMaxYaw = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.avatarPreviewMaxYaw"), 0f, 180f, true, 0, ValueDisplayMode.Degrees),
+                    BasisSettingsDefaults.AvatarPreviewMaxYaw);
+                sliderAvatarPreviewMaxYaw.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewMaxYaw.tooltip"));
+
+                sliderAvatarPreviewMaxPitch = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.avatarPreviewMaxPitch"), 0f, 89f, true, 0, ValueDisplayMode.Degrees),
+                    BasisSettingsDefaults.AvatarPreviewMaxPitch);
+                sliderAvatarPreviewMaxPitch.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.avatarPreviewMaxPitch.tooltip"));
 
                 // Mirror and the layout options are sub-options of avatar preview — only show them when preview is on.
                 ApplyAvatarPreviewSubOptions(BasisSettingsDefaults.AvatarPreview.RawValue);
@@ -1011,6 +1027,8 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.AvatarPreviewFraming.ResetToDefault();
             BasisSettingsDefaults.AvatarPreviewPosition.ResetToDefault();
             BasisSettingsDefaults.AvatarPreviewRotation.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewMaxYaw.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreviewMaxPitch.ResetToDefault();
             BasisSettingsDefaults.AvatarPreviewSize.ResetToDefault();
             BasisSettingsDefaults.AvatarPreviewZoom.ResetToDefault();
             BasisSettingsDefaults.AvatarPreviewOffsetX.ResetToDefault();
