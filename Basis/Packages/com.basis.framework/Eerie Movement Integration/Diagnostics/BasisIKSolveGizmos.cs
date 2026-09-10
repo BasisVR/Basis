@@ -68,6 +68,10 @@ namespace Basis.Scripts.Debugging
             {
                 TraceChain(ref job);
             }
+            else if (selfTestLine > 0)
+            {
+                ReleaseSelfTestLine();
+            }
 
             if (!job.gizmos.IsCreated || job.gizmos.StageMask == 0)
             {
@@ -235,6 +239,7 @@ namespace Basis.Scripts.Debugging
             {
                 BasisGizmoManager.DestroyGizmo(labelIds[i]);
             }
+            ReleaseSelfTestLine();
             ResetState();
         }
         /// <summary>
@@ -294,10 +299,7 @@ namespace Basis.Scripts.Debugging
         {
             if (!TraceSelfTest)
             {
-                if (selfTestLine > 0)
-                {
-                    BasisGizmoManager.SetGizmoActive(selfTestLine, false);
-                }
+                ReleaseSelfTestLine();
                 return;
             }
             Vector3 eye = BasisLocalCameraDriver.Position;
@@ -306,12 +308,22 @@ namespace Basis.Scripts.Debugging
                 : Vector3.forward;
             Vector3 from = eye + forward * 1f;
             Vector3 to = from + Vector3.up * 0.5f;
-            if (selfTestLine <= 0)
+            if (selfTestLine > 0 && BasisGizmoManager.Exists(selfTestLine))
+            {
+                BasisGizmoManager.UpdateLineGizmo(selfTestLine, from, to, LineWidthBase, (Color32)Color.magenta);
+            }
+            else
             {
                 BasisGizmoManager.CreateLineGizmo("IKSolve_SelfTest", out selfTestLine, from, to, LineWidthBase, Color.magenta);
             }
-            BasisGizmoManager.SetGizmoActive(selfTestLine, true);
-            BasisGizmoManager.UpdateLineGizmo(selfTestLine, from, to, LineWidthBase, (Color32)Color.magenta);
+        }
+        static void ReleaseSelfTestLine()
+        {
+            if (selfTestLine > 0 && BasisGizmoManager.Exists(selfTestLine))
+            {
+                BasisGizmoManager.DestroyGizmo(selfTestLine);
+            }
+            selfTestLine = -1;
         }
 
         static void EnsureMasterToggleHook()
@@ -341,6 +353,7 @@ namespace Basis.Scripts.Debugging
             spheresShown = 0;
             labelsShown = 0;
             overflowWarned = false;
+            selfTestLine = -1;
         }
     }
 }
