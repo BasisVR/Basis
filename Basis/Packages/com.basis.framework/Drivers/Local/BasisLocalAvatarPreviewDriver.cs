@@ -79,6 +79,8 @@ namespace Basis.Scripts.Drivers
         private PreviewAnchor anchor = PreviewAnchor.BottomRight;
         private PreviewRotation rotationMode = PreviewRotation.AllowAll;
         private Vector3 lastOrbitYaw = Vector3.forward;
+        private Object crownAvatar;
+        private float crownAboveHeadRatio;
         private float sizeScale = 1f;
         private float zoom = 1f;
         private float offsetX;
@@ -362,7 +364,7 @@ namespace Basis.Scripts.Drivers
         {
             bool followYaw = rotationMode == PreviewRotation.LockFace || rotationMode == PreviewRotation.AllowPitch;
             bool followPitch = rotationMode == PreviewRotation.LockFace || rotationMode == PreviewRotation.AllowYaw;
-            Vector3 headForward = BasisLocalCameraDriver.HeadForward();
+            Vector3 headForward = HeadForward();
             Vector3 yawForward = Vector3.zero;
             if (!followYaw)
             {
@@ -392,6 +394,16 @@ namespace Basis.Scripts.Drivers
             float maxPitch = MaxOrbitPitchDegrees * Mathf.Deg2Rad;
             pitch = Mathf.Clamp(pitch, -maxPitch, maxPitch);
             return yawForward * Mathf.Cos(pitch) + Vector3.up * Mathf.Sin(pitch);
+        }
+
+        private static Vector3 HeadForward()
+        {
+            var head = BasisLocalBoneDriver.HeadControl;
+            if (head != null && head.HasStore)
+            {
+                return head.OutgoingWorldData.rotation * Vector3.forward;
+            }
+            return BasisLocalCameraDriver.HeadForward();
         }
 
         private void UpdateDisplayLayout(float aspect)
@@ -463,38 +475,6 @@ namespace Basis.Scripts.Drivers
                 return false;
             }
 
-            var renderers = avatar.SkinnedMeshRenderers;
-            if (renderers == null || renderers.Length == 0)
-            {
-                return false;
-            }
-
-            float boundsTop = float.NegativeInfinity;
-            float boundsBottom = float.PositiveInfinity;
-            bool foundBounds = false;
-            for (int i = 0; i < renderers.Length; i++)
-            {
-                var renderer = renderers[i];
-                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
-                {
-                    continue;
-                }
-                Bounds rendererBounds = renderer.bounds;
-                if (rendererBounds.max.y > boundsTop)
-                {
-                    boundsTop = rendererBounds.max.y;
-                }
-                if (rendererBounds.min.y < boundsBottom)
-                {
-                    boundsBottom = rendererBounds.min.y;
-                }
-                foundBounds = true;
-            }
-            if (!foundBounds)
-            {
-                return false;
-            }
-
             var mapping = BasisLocalAvatarDriver.Mapping;
             bool hasHips = mapping != null && mapping.HasHips && mapping.Hips != null;
             bool hasHead = mapping != null && mapping.Hashead && mapping.head != null;
@@ -508,26 +488,41 @@ namespace Basis.Scripts.Drivers
                 frameCenter.z = hipsPosition.z;
             }
             Vector3 headPosition = hasHead ? mapping.head.position : Vector3.zero;
-
-            // Renderer bounds give a tight fit to the real crown (hair/ears/hat), but a raised arm
-            // also lands inside them — so clamp the top to one head-height above the head bone.
-            float crownY = boundsTop;
-            if (hasHead && hasHips)
+            float headReference = hasHead && hasHips ? headPosition.y - hipY : 0f;
+            if (headReference < 1e-3f)
             {
-                float headY = headPosition.y;
-                float headReference = headY - hipY;
-                if (headReference < 1e-3f)
+                headReference = playerHeight * 0.5f;
+            }
+
+            float crownY;
+            if (hasHead && crownAvatar == avatar)
+            {
+                crownY = headPosition.y + crownAboveHeadRatio * playerHeight;
+            }
+            else
+            {
+                if (!TryGetRenderersTop(avatar.SkinnedMeshRenderers, out crownY))
                 {
-                    headReference = playerHeight * 0.5f;
+                    return false;
                 }
-                float ceiling = headY + headReference * CrownCapRatio;
-                if (crownY > ceiling)
+                // Renderer bounds give a tight fit to the real crown (hair/ears/hat), but a raised arm
+                // also lands inside them — so clamp the top to one head-height above the head bone.
+                if (hasHead)
                 {
-                    crownY = ceiling;
-                }
-                if (crownY < headY)
-                {
-                    crownY = headY;
+                    float ceiling = headPosition.y + headReference * CrownCapRatio;
+                    if (crownY > ceiling)
+                    {
+                        crownY = ceiling;
+                    }
+                    if (crownY < headPosition.y)
+                    {
+                        crownY = headPosition.y;
+                    }
+                    if (playerHeight > 1e-3f)
+                    {
+                        crownAvatar = avatar;
+                        crownAboveHeadRatio = (crownY - headPosition.y) / playerHeight;
+                    }
                 }
             }
 
@@ -541,13 +536,12 @@ namespace Basis.Scripts.Drivers
             {
                 case PreviewFraming.FullBody:
                 {
-                    float floorY = Mathf.Min(feetPos.y, boundsBottom);
-                    float fullSpan = crownY - floorY;
+                    float fullSpan = crownY - feetPos.y;
                     if (fullSpan <= 1e-3f)
                     {
                         return false;
                     }
-                    bottomY = floorY - fullSpan * FullBodyFloorPadFrac;
+                    bottomY = feetPos.y - fullSpan * FullBodyFloorPadFrac;
                     topY = crownY + fullSpan * CrownHeadroomFrac;
                     return true;
                 }
@@ -574,6 +568,31 @@ namespace Basis.Scripts.Drivers
                     topY = crownY + span * CrownHeadroomFrac;
                     return true;
             }
+        }
+
+        private static bool TryGetRenderersTop(SkinnedMeshRenderer[] renderers, out float boundsTop)
+        {
+            boundsTop = float.NegativeInfinity;
+            if (renderers == null)
+            {
+                return false;
+            }
+            bool found = false;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                float rendererTop = renderer.bounds.max.y;
+                if (rendererTop > boundsTop)
+                {
+                    boundsTop = rendererTop;
+                }
+                found = true;
+            }
+            return found;
         }
 
         /// <summary>
