@@ -1,0 +1,187 @@
+// Per-column work for the froxel volume fog: the furthest opaque depth under each column (so froxels
+// behind geometry are never lit or integrated), the world-space ray of each column, the per-column main
+// light constant, and the front-to-back integration of the lit volume. Kept in its own file so these
+// kernels do not inherit the lighting keyword matrix of VolumetricFogFroxel.compute.
+
+#pragma kernel CSFroxelColumnDepth
+#pragma kernel CSFroxelColumnDepthArray VF_DEPTH_ARRAY=1
+#pragma kernel CSFroxelColumn
+#pragma kernel CSFroxelIntegrate
+
+#include "./VolumetricFogCommon.hlsl"
+#include "./VolumetricFogFroxel.hlsl"
+
+#if defined(VF_DEPTH_ARRAY)
+Texture2DArray<float> _VFFroxelSceneDepthArray;
+#else
+Texture2D<float> _VFFroxelSceneDepth;
+#endif
+RWTexture2D<float> _VFFroxelColumnDepth;
+Texture2D<float> _VFFroxelColumnDepthSource;
+RWTexture2D<float4> _VFFroxelColumn;
+RWTexture2D<float4> _VFFroxelColumnLight;
+RWTexture3D<float4> _VFFroxelIntegrated;
+Texture3D<float4> _VFFroxelLightingSource;
+Texture2D<float4> _VFFroxelColumnSource;
+float4x4 _VFFroxelInvViewProj[2];
+float4x4 _VFFroxelEyeViewProj[2];
+float4 _VFFroxelCameraPos[2];
+float4 _VFFroxelDepthParams;   // x = pixels per column, y = screen width, z = screen height, w = depth grid view count
+float4 _VFFroxelColumnParams;  // x = shared stereo volume, y = sun enabled, z = depth grid width per view, w = depth culling enabled
+
+float LoadSceneDepthRaw(uint2 pixel, uint viewIndex)
+{
+#if defined(VF_DEPTH_ARRAY)
+    return _VFFroxelSceneDepthArray[uint3(pixel, viewIndex)];
+#else
+    return _VFFroxelSceneDepth[pixel];
+#endif
+}
+
+void ColumnDepth(uint3 id)
+{
+    uint width = (uint)_VFFroxelGridSize.x;
+    uint height = (uint)_VFFroxelGridSize.y;
+    uint depthViews = (uint)_VFFroxelDepthParams.w;
+    if (id.x >= width * depthViews || id.y >= height)
+        return;
+
+    uint viewIndex = id.x / width;
+    uint2 cell = uint2(id.x - viewIndex * width, id.y);
+    uint divisor = max(1u, (uint)_VFFroxelDepthParams.x);
+    uint2 screen = uint2(_VFFroxelDepthParams.yz);
+    uint2 start = cell * divisor;
+    uint2 end = min(start + divisor, screen);
+
+    float maxDepth = 0.0;
+    UNITY_LOOP
+    for (uint y = start.y; y < end.y; ++y)
+    {
+        UNITY_LOOP
+        for (uint x = start.x; x < end.x; ++x)
+            maxDepth = max(maxDepth, LinearEyeDepth(LoadSceneDepthRaw(uint2(x, y), viewIndex), _ZBufferParams));
+    }
+
+    _VFFroxelColumnDepth[id.xy] = maxDepth;
+}
+
+[numthreads(8, 8, 1)]
+void CSFroxelColumnDepth(uint3 id : SV_DispatchThreadID)
+{
+    ColumnDepth(id);
+}
+
+[numthreads(8, 8, 1)]
+void CSFroxelColumnDepthArray(uint3 id : SV_DispatchThreadID)
+{
+    ColumnDepth(id);
+}
+
+[numthreads(8, 8, 1)]
+void CSFroxelColumn(uint3 id : SV_DispatchThreadID)
+{
+    uint width = (uint)_VFFroxelGridSize.x;
+    uint height = (uint)_VFFroxelGridSize.y;
+    uint viewCount = (uint)_VFFroxelParams.w;
+    if (id.x >= width * viewCount || id.y >= height)
+        return;
+
+    uint viewIndex = id.x / width;
+    uint2 cell = uint2(id.x - viewIndex * width, id.y);
+    float2 uv = (float2(cell) + 0.5) / float2(width, height);
+    float near = _VFFroxelParams.x;
+
+    // World-space offset per unit of view depth down this column: posWS(d) = cameraPos + dir * d.
+    float3 nearWS = ComputeWorldSpacePosition(uv, RawDepthFromLinearEyeDepth(near), _VFFroxelInvViewProj[viewIndex]);
+    float3 nextWS = ComputeWorldSpacePosition(uv, RawDepthFromLinearEyeDepth(near + 1.0), _VFFroxelInvViewProj[viewIndex]);
+    float3 dir = nextWS - nearWS;
+    float3 cameraPos = _VFFroxelCameraPos[viewIndex].xyz;
+
+    // Furthest opaque depth any pixel of this column (and its neighbours, for the apply taps) can see.
+    float maxDepth = 1.0e9;
+    UNITY_BRANCH
+    if (_VFFroxelColumnParams.w > 0.5)
+    {
+        maxDepth = 0.0;
+        uint depthViews = (uint)_VFFroxelDepthParams.w;
+        uint depthWidth = (uint)_VFFroxelColumnParams.z;
+        bool sharedVolume = _VFFroxelColumnParams.x > 0.5;
+        uint eyeStart = sharedVolume ? 0u : viewIndex;
+        uint eyeEnd = sharedVolume ? depthViews : viewIndex + 1u;
+        int2 hi = int2((int)depthWidth - 1, (int)height - 1);
+
+        UNITY_LOOP
+        for (uint eye = eyeStart; eye < eyeEnd; ++eye)
+        {
+            int2 center = int2(cell);
+            UNITY_BRANCH
+            if (sharedVolume)
+            {
+                float3 farWS = cameraPos + dir * FroxelSliceToViewDepth(1.0);
+                float2 eyeUV = saturate(ComputeNormalizedDeviceCoordinates(farWS, _VFFroxelEyeViewProj[eye]));
+                center = int2(eyeUV * float2(depthWidth, height));
+            }
+
+            UNITY_LOOP
+            for (int dy = -2; dy <= 2; ++dy)
+            {
+                UNITY_LOOP
+                for (int dx = -2; dx <= 2; ++dx)
+                {
+                    int2 tap = clamp(center + int2(dx, dy), int2(0, 0), hi);
+                    maxDepth = max(maxDepth, _VFFroxelColumnDepthSource[uint2((uint)tap.x + eye * depthWidth, (uint)tap.y)]);
+                }
+            }
+        }
+    }
+
+    float3 sunConst = float3(0.0, 0.0, 0.0);
+    UNITY_BRANCH
+    if (_VFFroxelColumnParams.y > 0.5)
+    {
+        Light mainLight = GetMainLight();
+        real phase = CornetteShanksPhaseFunction(_MainLightAnisotropy, dot(normalize(dir), mainLight.direction));
+        sunConst = (mainLight.color * _Tint) * (phase * _MainLightScattering);
+    }
+
+    _VFFroxelColumn[id.xy] = float4(dir, maxDepth);
+    _VFFroxelColumnLight[id.xy] = float4(sunConst, 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void CSFroxelIntegrate(uint3 id : SV_DispatchThreadID)
+{
+    uint width = (uint)_VFFroxelGridSize.x;
+    uint height = (uint)_VFFroxelGridSize.y;
+    uint slices = (uint)_VFFroxelGridSize.z;
+    uint viewCount = (uint)_VFFroxelParams.w;
+    if (id.x >= width * viewCount || id.y >= height)
+        return;
+
+    float4 column = _VFFroxelColumnSource[id.xy];
+    float lengthPerDepth = length(column.xyz);
+    float cullSlice = FroxelCullSlice(column.w);
+    float invSlices = _VFFroxelGridSize.w;
+
+    float3 scatter = float3(0.0, 0.0, 0.0);
+    float transmittance = 1.0;
+    float depthStart = _VFFroxelParams.x;
+
+    UNITY_LOOP
+    for (uint z = 0; z < slices; ++z)
+    {
+        float depthEnd = FroxelSliceToViewDepth(((float)z + 1.0) * invSlices);
+
+        UNITY_BRANCH
+        if ((float)z <= cullSlice)
+        {
+            float4 lighting = _VFFroxelLightingSource[uint3(id.xy, z)];
+            float ds = (depthEnd - depthStart) * lengthPerDepth;
+            scatter += lighting.rgb * (transmittance * ds);
+            transmittance *= exp(-max(lighting.a, 0.0) * ds);
+        }
+
+        _VFFroxelIntegrated[uint3(id.xy, z)] = float4(scatter, transmittance);
+        depthStart = depthEnd;
+    }
+}

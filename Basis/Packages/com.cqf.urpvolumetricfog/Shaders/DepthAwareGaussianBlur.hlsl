@@ -17,7 +17,7 @@ static const float BlurTapWeights[2] = { 0.30300, 0.09570 };
 // The alpha channel is not blurred so the original value is returned. Requires a bilinear sampler so the paired taps blend correctly.
 float4 DepthAwareGaussianBlur(float2 uv, float2 dir, TEXTURE2D_X(textureToBlur), SAMPLER(sampler_TextureToBlur), float2 textureToBlurTexelSizeXy)
 {
-    float4 centerSample = SAMPLE_TEXTURE2D_X(textureToBlur, sampler_TextureToBlur, uv);
+    float4 centerSample = SAMPLE_TEXTURE2D_X_LOD(textureToBlur, sampler_TextureToBlur, uv, 0.0);
     float centerLinearEyeDepth = LinearEyeDepthConsiderProjection(SampleDownsampledSceneDepth(uv));
 
     float3 rgbResult = centerSample.rgb * BLUR_CENTER_WEIGHT;
@@ -41,7 +41,7 @@ float4 DepthAwareGaussianBlur(float2 uv, float2 dir, TEXTURE2D_X(textureToBlur),
             float g = exp(-r2 * r2);
             float weight = g * BlurTapWeights[i];
 
-            rgbResult += SAMPLE_TEXTURE2D_X(textureToBlur, sampler_TextureToBlur, uvSample).rgb * weight;
+            rgbResult += SAMPLE_TEXTURE2D_X_LOD(textureToBlur, sampler_TextureToBlur, uvSample, 0.0).rgb * weight;
             weights += weight;
         }
     }

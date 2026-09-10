@@ -16,7 +16,7 @@ public partial class BasisHandHeldCameraUI
         /// the film grading — grain shape, halation tint, vignette colour, split toning and lift.
         /// v12 added the Aim Along Track block.
         /// </summary>
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
         public int settingsVersion = CurrentVersion;
 
         public CameraSettings()
@@ -34,7 +34,7 @@ public partial class BasisHandHeldCameraUI
             flashEnabled = true;
 
             backgroundMode = 0;
-            backgroundCustomColor = BasisHandHeldCamera.ChromaGreen;
+            backgroundCustomColor = BasisCameraBackgrounds.ChromaGreen;
             backgroundKeepsWorld = false;
 
             modifiers = new BasisCameraModifierStack();
@@ -94,7 +94,7 @@ public partial class BasisHandHeldCameraUI
             // Off, but with a usable sensitivity already set, so the file a camera loads on the day
             // the feature arrives is not one that switches it on at the least sensitive end.
             focusPeaking = false;
-            focusPeakingSensitivity = BasisHandHeldCamera.DefaultFocusPeakingSensitivity;
+            focusPeakingSensitivity = BasisCameraFocusPeaking.DefaultSensitivity;
             focusPeakingColour = 0;
             focusPeakingGreyPicture = false;
 
@@ -103,14 +103,14 @@ public partial class BasisHandHeldCameraUI
             // faintest setting there is.
             viewfinderGrid = false;
             viewfinderGridPattern = (int)BasisCameraGridPattern.Thirds;
-            viewfinderGridOpacity = BasisHandHeldCamera.DefaultGridOpacity;
+            viewfinderGridOpacity = BasisCameraGrid.DefaultOpacity;
 
             // Same again for the meter: off, but already set up to behave the moment it is on.
             autoBrightness = false;
-            autoBrightnessTarget = BasisHandHeldCamera.DefaultBrightnessTarget;
-            autoBrightnessSpeed = BasisHandHeldCamera.DefaultBrightnessSpeed;
+            autoBrightnessTarget = BasisCameraMetering.DefaultTarget;
+            autoBrightnessSpeed = BasisCameraMetering.DefaultSpeed;
             autoBrightnessMetering = (int)BasisCameraMeteringMode.CentreWeighted;
-            autoBrightnessRange = BasisHandHeldCamera.DefaultBrightnessRange;
+            autoBrightnessRange = BasisCameraMetering.DefaultRange;
 
             // Off by default (a still photo of a moving world is not usually what is wanted), but
             // with the shape of the effect already sane for the moment it is switched on.
@@ -170,8 +170,9 @@ public partial class BasisHandHeldCameraUI
             photogrammetryDistanceMeters = 0.3f;
             photogrammetryAngleDegrees = 15f;
             photogrammetryWidth = 1280;
+            photogrammetryPathSettleSeconds = 0.5f;
 
-            streamTransport = (int)(BasisHandHeldCamera.IsVideoOutputSupported ? BasisVideoTransport.Platform : BasisVideoTransport.Web);
+            streamTransport = (int)(BasisCameraVideoPlatform.Supported ? BasisVideoTransport.Platform : BasisVideoTransport.Web);
             streamWidth = BasisVideoOutputSettings.DefaultWidth;
             streamHeight = BasisVideoOutputSettings.DefaultHeight;
             streamFrameRate = BasisVideoOutputSettings.DefaultFrameRate;
@@ -297,7 +298,7 @@ public partial class BasisHandHeldCameraUI
         /// </summary>
         public bool focusPeaking;
         public float focusPeakingSensitivity;
-        /// <summary>Index into <see cref="BasisHandHeldCamera.FocusPeakingColours"/>; 0 is red.</summary>
+        /// <summary>Index into <see cref="BasisCameraFocusPeaking.Colours"/>; 0 is red.</summary>
         public int focusPeakingColour;
         public bool focusPeakingGreyPicture;
 
@@ -563,6 +564,9 @@ public partial class BasisHandHeldCameraUI
         public float photogrammetryAngleDegrees;
         public int photogrammetryWidth;
 
+        /// <summary>How long a path replay holds at each recorded point before shooting it.</summary>
+        public float photogrammetryPathSettleSeconds;
+
         public int streamTransport;
         public int streamWidth;
         public int streamHeight;
@@ -578,6 +582,21 @@ public partial class BasisHandHeldCameraUI
         /// — and off is the zero fill, so an older file loads with the window left alone.
         /// </summary>
         public bool directToScreen;
+
+        /// <summary>
+        /// How the feed is placed on the monitor, a <see cref="BasisCameraDirectToScreenFit"/>.
+        /// Zero is Fit — the whole shot with bars — which is what every file before the field
+        /// existed was showing, so an older file loads looking the same.
+        /// </summary>
+        public int directToScreenFit;
+
+        /// <summary>
+        /// Where the picture sits in the bars, or which part of the shot survives a crop to fill,
+        /// 0 to 1 on each axis with 0.5 centred. Zero is a corner, not the absence of a choice, so
+        /// the migration writes the centre into files from before the fields existed.
+        /// </summary>
+        public float directToScreenAlignX = 0.5f;
+        public float directToScreenAlignY = 0.5f;
 
         /// <summary>
         /// Whether each saved photo is also printed into the world as a shared image pickup,

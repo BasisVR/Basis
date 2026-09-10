@@ -21,7 +21,6 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 #if UNITY_2023_1_OR_NEWER
 	private SerializedDataParameter enableAPVContribution;
 	private SerializedDataParameter APVContributionWeight;
-	private SerializedDataParameter apvMode;
 #endif
 
 	private SerializedDataParameter enableMainLightContribution;
@@ -32,9 +31,10 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 	private SerializedDataParameter enableLTCGIContribution;
 	private SerializedDataParameter LTCGIScattering;
 
-	private SerializedDataParameter resolution;
-	private SerializedDataParameter maxSteps;
-	private SerializedDataParameter blurIterations;
+	private SerializedDataParameter enableAdditionalLightsContribution;
+	private SerializedDataParameter additionalLightsAnisotropy;
+	private SerializedDataParameter additionalLightsScattering;
+
 	private SerializedDataParameter enabled;
 	
 	private SerializedDataParameter renderPassEvent;
@@ -62,7 +62,6 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 #if UNITY_2023_1_OR_NEWER
 		enableAPVContribution = Unpack(pf.Find(x => x.enableAPVContribution));
 		APVContributionWeight = Unpack(pf.Find(x => x.APVContributionWeight));
-		apvMode = Unpack(pf.Find(x => x.apvMode));
 #endif
 
 		enableMainLightContribution = Unpack(pf.Find(x => x.enableMainLightContribution));
@@ -73,9 +72,10 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 		enableLTCGIContribution = Unpack(pf.Find(x => x.enableLTCGIContribution));
 		LTCGIScattering = Unpack(pf.Find(x => x.LTCGIScattering));
 
-		resolution = Unpack(pf.Find(x => x.resolution));
-		maxSteps = Unpack(pf.Find(x => x.maxSteps));
-		blurIterations = Unpack(pf.Find(x => x.blurIterations));
+		enableAdditionalLightsContribution = Unpack(pf.Find(x => x.enableAdditionalLightsContribution));
+		additionalLightsAnisotropy = Unpack(pf.Find(x => x.additionalLightsAnisotropy));
+		additionalLightsScattering = Unpack(pf.Find(x => x.additionalLightsScattering));
+
 		enabled = Unpack(pf.Find(x => x.enabled));
 		
 		renderPassEvent = Unpack(pf.Find(x => x.renderPassEvent));
@@ -111,10 +111,7 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 		bool enabledAPVContribution = enableAPVContribution.overrideState.boolValue && enableAPVContribution.value.boolValue;
 		PropertyField(enableAPVContribution);
 		if (enabledAPVContribution)
-		{
-			PropertyField(apvMode);
 			PropertyField(APVContributionWeight);
-		}
 #endif
 
 		PropertyField(enableMainLightContribution);
@@ -130,9 +127,14 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 		if (enabledLTCGIContribution)
 			PropertyField(LTCGIScattering);
 
-		PropertyField(resolution);
-		PropertyField(maxSteps);
-		PropertyField(blurIterations);
+		bool enabledAdditionalLightsContribution = enableAdditionalLightsContribution.overrideState.boolValue && enableAdditionalLightsContribution.value.boolValue;
+		PropertyField(enableAdditionalLightsContribution);
+		if (enabledAdditionalLightsContribution)
+		{
+			PropertyField(additionalLightsAnisotropy);
+			PropertyField(additionalLightsScattering);
+		}
+
 		PropertyField(enabled);
 		
 		PropertyField(renderPassEvent);

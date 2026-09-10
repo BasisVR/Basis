@@ -426,9 +426,6 @@ MonoBehaviour:
   APVContributionWeight:
     m_OverrideState: 1
     m_Value: 1
-  apvMode:
-    m_OverrideState: 1
-    m_Value: 0
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 0
@@ -447,15 +444,15 @@ MonoBehaviour:
   LTCGIScattering:
     m_OverrideState: 1
     m_Value: 1
-  resolution:
+  enableAdditionalLightsContribution:
     m_OverrideState: 1
-    m_Value: 2
-  maxSteps:
+    m_Value: 1
+  additionalLightsAnisotropy:
     m_OverrideState: 1
-    m_Value: 128
-  blurIterations:
+    m_Value: 0.4
+  additionalLightsScattering:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 0.15
   enabled:
     m_OverrideState: 1
     m_Value: 0
@@ -529,7 +526,6 @@ MonoBehaviour:
   - {fileID: -5447088460976690848}
   - {fileID: 7891408730865177171}
   - {fileID: -2179135812152864130}
-  - {fileID: -3257537680714892309}
 --- !u!114 &764296954430757058
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -675,9 +671,6 @@ MonoBehaviour:
   APVContributionWeight:
     m_OverrideState: 0
     m_Value: 1
-  apvMode:
-    m_OverrideState: 1
-    m_Value: 0
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 0
@@ -696,15 +689,15 @@ MonoBehaviour:
   LTCGIScattering:
     m_OverrideState: 0
     m_Value: 1
-  resolution:
+  enableAdditionalLightsContribution:
     m_OverrideState: 1
-    m_Value: 2
-  maxSteps:
-    m_OverrideState: 1
-    m_Value: 64
-  blurIterations:
-    m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1
+  additionalLightsAnisotropy:
+    m_OverrideState: 0
+    m_Value: 0.4
+  additionalLightsScattering:
+    m_OverrideState: 0
+    m_Value: 0.15
   enabled:
     m_OverrideState: 1
     m_Value: 0
@@ -1072,9 +1065,6 @@ MonoBehaviour:
   APVContributionWeight:
     m_OverrideState: 1
     m_Value: 1
-  apvMode:
-    m_OverrideState: 1
-    m_Value: 0
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 0
@@ -1093,15 +1083,15 @@ MonoBehaviour:
   LTCGIScattering:
     m_OverrideState: 0
     m_Value: 1
-  resolution:
+  enableAdditionalLightsContribution:
     m_OverrideState: 1
-    m_Value: 2
-  maxSteps:
-    m_OverrideState: 1
-    m_Value: 128
-  blurIterations:
-    m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1
+  additionalLightsAnisotropy:
+    m_OverrideState: 0
+    m_Value: 0.4
+  additionalLightsScattering:
+    m_OverrideState: 0
+    m_Value: 0.15
   enabled:
     m_OverrideState: 1
     m_Value: 1

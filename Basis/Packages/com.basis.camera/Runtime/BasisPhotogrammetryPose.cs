@@ -1,5 +1,18 @@
 using UnityEngine;
 
+/// <summary>One recorded pose along a photogrammetry path — just enough to return to it later and shoot from it.</summary>
+public readonly struct BasisPhotogrammetryPathPoint
+{
+    public readonly Vector3 Position;
+    public readonly Quaternion Rotation;
+
+    public BasisPhotogrammetryPathPoint(Vector3 position, Quaternion rotation)
+    {
+        Position = position;
+        Rotation = rotation;
+    }
+}
+
 /// <summary>
 /// Pure geometry for photogrammetry capture: no camera, no scene, no Unity objects touched — the
 /// same "testable without pixels" shape as <see cref="BasisCameraPrintResize"/>.

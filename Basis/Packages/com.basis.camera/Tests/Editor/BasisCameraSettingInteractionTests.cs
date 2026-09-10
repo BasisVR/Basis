@@ -66,7 +66,7 @@ namespace Basis.Tests.Camera
             // would let the user leak the prop's own interface into the shot.
             for (int layer = 0; layer < 32; layer++)
             {
-                if (BasisHandHeldCamera.IsCaptureLayerUserTogglable(layer)) continue;
+                if (BasisCameraCaptureLayers.IsUserTogglable(layer)) continue;
 
                 int before = _rig.CaptureCamera.cullingMask;
                 _rig.Camera.SetCaptureLayerEnabled(layer, !_rig.Camera.IsCaptureLayerEnabled(layer));
@@ -83,7 +83,7 @@ namespace Basis.Tests.Camera
             // layer switched off before the green screen must not reappear on it.
             int subjectLayer = LayerMask.NameToLayer("Interactable");
             if (subjectLayer < 0) Assert.Ignore("This project has no Interactable layer.");
-            if (!BasisHandHeldCamera.IsCaptureLayerUserTogglable(subjectLayer))
+            if (!BasisCameraCaptureLayers.IsUserTogglable(subjectLayer))
                 Assert.Ignore("Interactable is camera-managed in this project.");
 
             _rig.Camera.SetCaptureLayerEnabled(subjectLayer, false);
@@ -121,10 +121,10 @@ namespace Basis.Tests.Camera
             // photo is that the capture culls their layer. The wireframe used to rely on being
             // parked behind the near plane instead, which the batched gizmo draw (a frame behind
             // its producer) and any 360 capture both defeat.
-            int marker = BasisHandHeldCamera.MarkerLayer;
+            int marker = BasisCameraCaptureLayers.Marker;
             Assert.That(marker, Is.GreaterThanOrEqualTo(0), "This project no longer defines the OverlayUI layer.");
 
-            Assert.That(BasisHandHeldCamera.IsCaptureLayerUserTogglable(marker), Is.False,
+            Assert.That(BasisCameraCaptureLayers.IsUserTogglable(marker), Is.False,
                 "A marker layer the Render Layers list exposes is one the operator can switch back into the shot.");
 
             // The rig's camera is a bare Camera, so stand in for the prefab's mask: the shipped
@@ -149,11 +149,11 @@ namespace Basis.Tests.Camera
             // would be a size the other could not undo.
             _rig.Camera.SetDetachedMarkerScale(50f);
             Assert.That(_rig.Camera.DetachedMarkerScale,
-                Is.EqualTo(BasisHandHeldCamera.MaxDetachedMarkerScale).Within(1e-4f));
+                Is.EqualTo(BasisCameraDetachedMarkers.MaxScale).Within(1e-4f));
 
             _rig.Camera.SetDetachedMarkerScale(0.001f);
             Assert.That(_rig.Camera.DetachedMarkerScale,
-                Is.EqualTo(BasisHandHeldCamera.MinDetachedMarkerScale).Within(1e-4f));
+                Is.EqualTo(BasisCameraDetachedMarkers.MinScale).Within(1e-4f));
 
             _rig.Camera.SetDetachedMarkerScale(float.NaN);
             Assert.That(_rig.Camera.DetachedMarkerScale, Is.EqualTo(1f).Within(1e-4f),
@@ -166,14 +166,14 @@ namespace Basis.Tests.Camera
         {
             // The puck is parked out along the lens axis to keep it off the prop's own panel, where
             // its grab box would take the pointer the buttons under it wanted.
-            float natural = BasisHandHeldCamera.FollowPuckParkDistance(1f);
+            float natural = BasisCameraDetachedMarkers.ParkDistance(1f);
 
-            Assert.That(BasisHandHeldCamera.FollowPuckParkDistance(BasisHandHeldCamera.MaxDetachedMarkerScale),
-                Is.EqualTo(natural * BasisHandHeldCamera.MaxDetachedMarkerScale).Within(1e-4f),
+            Assert.That(BasisCameraDetachedMarkers.ParkDistance(BasisCameraDetachedMarkers.MaxScale),
+                Is.EqualTo(natural * BasisCameraDetachedMarkers.MaxScale).Within(1e-4f),
                 "A marker four times the size reaches four times as far back toward the operator, so " +
                 "the parking distance has to grow with it or it lands back on the panel.");
 
-            Assert.That(BasisHandHeldCamera.FollowPuckParkDistance(BasisHandHeldCamera.MinDetachedMarkerScale),
+            Assert.That(BasisCameraDetachedMarkers.ParkDistance(BasisCameraDetachedMarkers.MinScale),
                 Is.EqualTo(natural).Within(1e-4f),
                 "Shrinking the marker must not pull it back onto the panel: what it is parked clear " +
                 "of is the panel and its buttons, and those are the same size whatever the marker does.");
@@ -196,10 +196,10 @@ namespace Basis.Tests.Camera
                 "A camera in the hand has no marker out, so the lens is what a remote copy marks.");
 
             _rig.Camera.PinSpace = BasisHandHeldCamera.CameraPinSpace.WorldSpace;
-            _rig.Camera.SetDetachedMarkerScale(BasisHandHeldCamera.MaxDetachedMarkerScale);
+            _rig.Camera.SetDetachedMarkerScale(BasisCameraDetachedMarkers.MaxScale);
             _rig.Camera.GetNetworkedMarkerPoseForTest(out Vector3 parked, out _);
 
-            float park = BasisHandHeldCamera.FollowPuckParkDistance(BasisHandHeldCamera.MaxDetachedMarkerScale)
+            float park = BasisCameraDetachedMarkers.ParkDistance(BasisCameraDetachedMarkers.MaxScale)
                 * _rig.Camera.BaseDetachedMarkerScale;
             Assert.That(Vector3.Distance(parked, lens + facing * new Vector3(0f, 0f, park)), Is.LessThan(1e-4f),
                 "The send has to carry the parking offset the owner's puck is drawn at, or the two " +
@@ -519,7 +519,7 @@ namespace Basis.Tests.Camera
         {
             for (int layer = 0; layer < 32; layer++)
             {
-                if (BasisHandHeldCamera.IsCaptureLayerUserTogglable(layer)) return layer;
+                if (BasisCameraCaptureLayers.IsUserTogglable(layer)) return layer;
             }
             return -1;
         }

@@ -53,6 +53,12 @@ namespace Basis.MediaPipe
         public static bool IsFinite(Vector3 v) =>
             float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
 
+        public static bool IsUsable(Matrix4x4 m)
+        {
+            Vector3 forward = m.GetColumn(2), up = m.GetColumn(1), translation = m.GetColumn(3);
+            return IsFinite(forward) && IsFinite(up) && IsFinite(translation) && forward.sqrMagnitude > 0.5f && up.sqrMagnitude > 0.5f;
+        }
+
         /// <summary>Metric world landmark (metres) into Unity space, undoing the selfie mirror.</summary>
         public static Vector3 World(Vector3 v, bool mirrored) =>
             new Vector3(mirrored ? -v.x : v.x, -v.y, v.z);

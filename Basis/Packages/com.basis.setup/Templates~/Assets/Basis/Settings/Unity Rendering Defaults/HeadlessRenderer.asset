@@ -91,3 +91,5 @@ MonoBehaviour:
   m_Active: 1
   downsampleDepthShader: {fileID: 4800000, guid: cffeaeec0396a2c4dad475266cc8dfeb, type: 3}
   volumetricFogShader: {fileID: 4800000, guid: 08f816187f9af0244a95556ee0cab83f, type: 3}
+  froxelComputeShader: {fileID: 7200000, guid: e00244de118fd544e9d0c7dff913e49b, type: 3}
+  froxelColumnComputeShader: {fileID: 7200000, guid: 1688d4f4b3ab4787b0581e351d96b57b, type: 3}

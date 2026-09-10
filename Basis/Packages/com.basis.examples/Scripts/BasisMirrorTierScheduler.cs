@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using Unity.Burst;
 using Unity.Collections;
@@ -9,8 +10,8 @@ using UnityEngine;
 /// <summary>
 /// Batches every active mirror's distance-tier evaluation into one Burst job per frame instead of
 /// per-mirror managed math inside onBeforeRender. Rates: 0 = frozen (beyond CullDistance, keeps the
-/// last image), 1 = every frame, 2/4 = every 2nd/4th frame. The half/quarter tiers only engage on
-/// Android standalone; on PC only the cull distance applies.
+/// last image), 1 = every frame, 2/4 = every 2nd/4th frame. The half/quarter tiers engage only while
+/// <c>MirrorDistanceRateTiers</c> is on (mobile default); otherwise only the cull distance applies.
 /// </summary>
 public static class BasisMirrorTierScheduler
 {
@@ -67,6 +68,7 @@ public static class BasisMirrorTierScheduler
         var results = new NativeArray<int>(count, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
         float3 eyePosition = BasisLocalCameraDriver.Position;
+        bool rateTiers = BasisSettingsDefaults.MirrorDistanceRateTiers.RawValue;
         for (int i = 0; i < count; i++)
         {
             BasisSDKMirror mirror = Mirrors[i];
@@ -90,13 +92,8 @@ public static class BasisMirrorTierScheduler
             {
                 BoundsMin = bounds.min,
                 BoundsMax = bounds.max,
-#if UNITY_ANDROID && !UNITY_EDITOR
-                FullRateSqr = mirror.FullRateDistance * mirror.FullRateDistance,
-                HalfRateSqr = mirror.HalfRateDistance * mirror.HalfRateDistance,
-#else
-                FullRateSqr = float.MaxValue,
-                HalfRateSqr = float.MaxValue,
-#endif
+                FullRateSqr = rateTiers ? mirror.FullRateDistance * mirror.FullRateDistance : float.MaxValue,
+                HalfRateSqr = rateTiers ? mirror.HalfRateDistance * mirror.HalfRateDistance : float.MaxValue,
                 CullSqr = mirror.CullDistance * mirror.CullDistance,
             };
         }

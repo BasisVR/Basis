@@ -8,25 +8,11 @@ using UnityEngine.Rendering.Universal;
 /// </summary>
 public enum VolumetricFogResolution
 {
+	Full = 1,
 	Half = 2,
 	Quarter = 4
 }
 
-/// <summary>
-/// A volume parameter that holds a VolumetricFogResolution value.
-/// </summary>
-[Serializable]
-public sealed class VolumetricFogResolutionParameter : VolumeParameter<VolumetricFogResolution>
-{
-	/// <summary>
-	/// Creates a new VolumetricFogResolutionParameter instance.
-	/// </summary>
-	/// <param name="value"></param>
-	/// <param name="overrideState"></param>
-	public VolumetricFogResolutionParameter(VolumetricFogResolution value, bool overrideState = false) : base(value, overrideState)
-	{
-	}
-}
 
 /// <summary>
 /// How the adaptive probe volume (APV) lighting is sampled by the fog.
@@ -39,21 +25,6 @@ public enum VolumetricFogAPVMode
 	Baked = 1
 }
 
-/// <summary>
-/// A volume parameter that holds a VolumetricFogAPVMode value.
-/// </summary>
-[Serializable]
-public sealed class VolumetricFogAPVModeParameter : VolumeParameter<VolumetricFogAPVMode>
-{
-	/// <summary>
-	/// Creates a new VolumetricFogAPVModeParameter instance.
-	/// </summary>
-	/// <param name="value"></param>
-	/// <param name="overrideState"></param>
-	public VolumetricFogAPVModeParameter(VolumetricFogAPVMode value, bool overrideState = false) : base(value, overrideState)
-	{
-	}
-}
 
 /// <summary>
 /// Volume component for the volumetric fog.
@@ -95,8 +66,6 @@ public sealed class VolumetricFogVolumeComponent : VolumeComponent, IPostProcess
 	public BoolParameter enableAPVContribution = new BoolParameter(false, BoolParameter.DisplayType.Checkbox, true);
 	[Tooltip("A weight factor for the light coming from adaptive probe volumes (APV) when the probe volume contribution is enabled.")]
 	public ClampedFloatParameter APVContributionWeight = new ClampedFloatParameter(1.0f, 0.0f, 1.0f);
-	[Tooltip("How APV lighting is sampled. Live evaluates Unity's APV every raymarch step (dynamic). Baked samples a pre-computed world-space 3D texture of APV in-scatter (static, much faster - needs a bake, and only engages once a bake exists).")]
-	public VolumetricFogAPVModeParameter apvMode = new VolumetricFogAPVModeParameter(VolumetricFogAPVMode.Live, true);
 #endif
 
 	[Header("Main Light")]
@@ -115,13 +84,14 @@ public sealed class VolumetricFogVolumeComponent : VolumeComponent, IPostProcess
 	[Tooltip("Higher values will make fog affected by LTCGI screens appear brighter.")]
 	public ClampedFloatParameter LTCGIScattering = new ClampedFloatParameter(1.0f, 0.0f, 16.0f);
 
-	[Header("Performance & Quality")]
-	[Tooltip("The resolution at which the fog is rendered, relative to the camera. Quarter is much cheaper than Half but softer and leans harder on the upsample.")]
-	public VolumetricFogResolutionParameter resolution = new VolumetricFogResolutionParameter(VolumetricFogResolution.Half, true);
-	[Tooltip("Raymarching steps. Greater values will increase the fog quality at the expense of performance.")]
-	public ClampedIntParameter maxSteps = new ClampedIntParameter(128, 8, 256);
-	[Tooltip("The number of times that the fog texture will be blurred. Higher values lead to softer volumetric god rays at the cost of some performance. 0 disables the blur entirely, which is usually fine when the main light contribution is off.")]
-	public ClampedIntParameter blurIterations = new ClampedIntParameter(1, 0, 4);
+	[Header("Additional Lights")]
+	[Tooltip("When enabled, realtime point, spot and additional directional lights light the fog. Only the froxel volume path evaluates them.")]
+	public BoolParameter enableAdditionalLightsContribution = new BoolParameter(true, BoolParameter.DisplayType.Checkbox, true);
+	[Tooltip("Higher positive values make fog lit by additional lights brighter when looking towards them, negative values when looking away from them.")]
+	public ClampedFloatParameter additionalLightsAnisotropy = new ClampedFloatParameter(0.4f, -1.0f, 1.0f);
+	[Tooltip("Higher values will make fog affected by additional lights appear brighter.")]
+	public ClampedFloatParameter additionalLightsScattering = new ClampedFloatParameter(0.15f, 0.0f, 1.0f);
+
 	[Tooltip("Disabling this will completely remove any feature from the volumetric fog from being rendered at all.")]
 	public BoolParameter enabled = new BoolParameter(false, BoolParameter.DisplayType.Checkbox, true);
 

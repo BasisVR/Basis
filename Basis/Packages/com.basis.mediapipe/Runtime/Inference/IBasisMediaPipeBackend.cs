@@ -6,9 +6,11 @@ namespace Basis.MediaPipe
     public interface IBasisMediaPipeBackend
     {
         bool IsAvailable { get; }
+        bool IsReady { get; }
         string BackendName { get; }
 
         void Initialize(BasisMediaPipeConfig config);
+        void Reconfigure(BasisMediaPipeConfig config);
         void SubmitFrame(WebCamTexture frame, double timestampMs);
         bool TryGetLatestResult(out BasisMediaPipeResult result);
         void Shutdown();

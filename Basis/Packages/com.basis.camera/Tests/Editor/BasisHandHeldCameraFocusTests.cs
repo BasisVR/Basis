@@ -188,8 +188,8 @@ namespace Basis.Tests.Camera
         [Test]
         public void SampleFocusRack_StartsAndEndsOnItsOwnEndpoints()
         {
-            Assert.That(BasisHandHeldCamera.SampleFocusRack(1f, 50f, 0f), Is.EqualTo(1f).Within(1e-3f));
-            Assert.That(BasisHandHeldCamera.SampleFocusRack(1f, 50f, 1f), Is.EqualTo(50f).Within(1e-3f));
+            Assert.That(BasisCameraFocusMath.SampleRack(1f, 50f, 0f), Is.EqualTo(1f).Within(1e-3f));
+            Assert.That(BasisCameraFocusMath.SampleRack(1f, 50f, 1f), Is.EqualTo(50f).Within(1e-3f));
         }
 
         [Test]
@@ -197,7 +197,7 @@ namespace Basis.Tests.Camera
         {
             // Blur is a function of 1/distance, so a pull interpolated in metres has already stopped
             // changing the picture by its own halfway point and the second half reads as a stall.
-            float halfway = BasisHandHeldCamera.SampleFocusRack(1f, 50f, 0.5f);
+            float halfway = BasisCameraFocusMath.SampleRack(1f, 50f, 0.5f);
 
             Assert.That(halfway, Is.LessThan(5f), "Metric halfway would be 25.5m.");
             Assert.That(halfway, Is.GreaterThan(1f));
@@ -206,10 +206,10 @@ namespace Basis.Tests.Camera
         [Test]
         public void SampleFocusRack_MovesOneWayThroughThePull()
         {
-            float previous = BasisHandHeldCamera.SampleFocusRack(1f, 50f, 0f);
+            float previous = BasisCameraFocusMath.SampleRack(1f, 50f, 0f);
             for (int step = 1; step <= 20; step++)
             {
-                float sample = BasisHandHeldCamera.SampleFocusRack(1f, 50f, step / 20f);
+                float sample = BasisCameraFocusMath.SampleRack(1f, 50f, step / 20f);
                 Assert.That(sample, Is.GreaterThan(previous), "A focus pull must never back up on itself.");
                 previous = sample;
             }

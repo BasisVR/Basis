@@ -847,6 +847,94 @@
       "value": "Takes one photo immediately, ignoring the movement thresholds."
     },
     {
+      "key": "camera.photogrammetry.status.pathBusy",
+      "value": "A path render is in progress."
+    },
+    {
+      "key": "camera.photogrammetryPath",
+      "value": "Photogrammetry Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.record",
+      "value": "Record Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.stop",
+      "value": "Stop Recording"
+    },
+    {
+      "key": "camera.photogrammetryPath.status",
+      "value": "Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.status.empty",
+      "value": "No points recorded yet."
+    },
+    {
+      "key": "camera.photogrammetryPath.status.recording",
+      "value": "Recording... {0} points so far."
+    },
+    {
+      "key": "camera.photogrammetryPath.status.ready",
+      "value": "{0} points recorded (about {1} to render)."
+    },
+    {
+      "key": "camera.photogrammetryPath.clear",
+      "value": "Clear Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.settle",
+      "value": "Settle Time"
+    },
+    {
+      "key": "camera.photogrammetryPath.settle.description",
+      "value": "How many seconds to hold still at each point before it's captured. Higher gives lighting and effects more time to settle."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.record",
+      "value": "Render Path"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.stopUnlimited",
+      "value": "Cancel"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.saving",
+      "value": "Saving..."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status",
+      "value": "Render Status"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.idle",
+      "value": "Not running."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.recording",
+      "value": "Rendering... {0} points captured so far."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.saving",
+      "value": "Saving... {0} of {1} photos written."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.saved",
+      "value": "Last photo saved: {0}"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.failed",
+      "value": "Last render failed: {0}"
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.blocked",
+      "value": "Camera capture is locked by an admin."
+    },
+    {
+      "key": "camera.photogrammetryPath.replay.status.liveBusy",
+      "value": "A live photogrammetry session is in progress."
+    },
+    {
       "key": "camera.lens",
       "value": "Lens"
     },
@@ -1473,6 +1561,62 @@
     {
       "key": "camera.directToScreen.unsupported",
       "value": "There is no desktop window on this platform to show the feed on."
+    },
+    {
+      "key": "camera.directToScreen.fit",
+      "value": "Screen Fit"
+    },
+    {
+      "key": "camera.directToScreen.fit.description",
+      "value": "How the shot is placed on the monitor: kept whole with bars, cropped to fill the window, stretched to fill it, or shot at the window's own shape so nothing is cut, barred or stretched."
+    },
+    {
+      "key": "camera.directToScreen.fit.fit",
+      "value": "Fit"
+    },
+    {
+      "key": "camera.directToScreen.fit.fit.tooltip",
+      "value": "The whole shot at its own shape, with bars where the window is a different shape. What you see is exactly the frame being shot."
+    },
+    {
+      "key": "camera.directToScreen.fit.fill",
+      "value": "Fill"
+    },
+    {
+      "key": "camera.directToScreen.fit.fill.tooltip",
+      "value": "Fills the window by cropping the shot's long side. No bars, but the edges of the shot are off the monitor."
+    },
+    {
+      "key": "camera.directToScreen.fit.stretch",
+      "value": "Stretch"
+    },
+    {
+      "key": "camera.directToScreen.fit.stretch.tooltip",
+      "value": "Fills the window by stretching the shot to its shape. No bars and nothing cut, but the picture is distorted."
+    },
+    {
+      "key": "camera.directToScreen.fit.matchWindow",
+      "value": "Match Window"
+    },
+    {
+      "key": "camera.directToScreen.fit.matchWindow.tooltip",
+      "value": "Shoots the feed at the window's own shape while it is on the monitor, so nothing is cut, barred or stretched. A wider window sees more at the sides; the viewfinder shows the middle of it."
+    },
+    {
+      "key": "camera.directToScreen.horizontal",
+      "value": "Horizontal Position"
+    },
+    {
+      "key": "camera.directToScreen.horizontal.description",
+      "value": "Where the picture sits across the window when there are bars at the sides, or which part of the shot is kept when it is cropped to fill. 50% is centred."
+    },
+    {
+      "key": "camera.directToScreen.vertical",
+      "value": "Vertical Position"
+    },
+    {
+      "key": "camera.directToScreen.vertical.description",
+      "value": "Where the picture sits down the window when there are bars above and below, or which part of the shot is kept when it is cropped to fill. 50% is centred, 100% is the top."
     },
     {
       "key": "camera.streamResolution",
@@ -6587,6 +6731,22 @@
       "value": "Restore each menu's scroll position, open sections, and last tab when you reopen it, and reopen the menu after loading a world."
     },
     {
+      "key": "settings.general.menuTeleport",
+      "value": "Menu Teleports to You"
+    },
+    {
+      "key": "settings.general.menuTeleport.tooltip",
+      "value": "In VR the menu stays where you opened it and jumps back in front of you once you move far enough away from it. Turn off to leave it in place until you reopen it."
+    },
+    {
+      "key": "settings.general.menuTeleportDistance",
+      "value": "Menu Teleport Distance"
+    },
+    {
+      "key": "settings.general.menuTeleportDistance.tooltip",
+      "value": "How far your head can be from the menu before it jumps back in front of you. Scales with your avatar; the menu itself sits about 0.6 m away."
+    },
+    {
       "key": "settings.general.developer.title",
       "value": "Developer"
     },
@@ -6797,6 +6957,130 @@
     {
       "key": "settings.general.avatarPreviewMirror.description",
       "value": "Flip the avatar preview horizontally so it reads like a mirror."
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming",
+      "value": "Avatar Preview Framing"
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.tooltip",
+      "value": "Choose how much of your avatar the preview shows."
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.fullBody",
+      "value": "Full Body"
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.upperBody",
+      "value": "Upper Body"
+    },
+    {
+      "key": "settings.general.avatarPreviewFraming.face",
+      "value": "Face"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition",
+      "value": "Avatar Preview Position"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.tooltip",
+      "value": "Where the avatar preview sits on screen."
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.bottomRight",
+      "value": "Bottom Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.bottomLeft",
+      "value": "Bottom Left"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.middleRight",
+      "value": "Middle Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.middleLeft",
+      "value": "Middle Left"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.topRight",
+      "value": "Top Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewPosition.topLeft",
+      "value": "Top Left"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation",
+      "value": "Avatar Preview Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.tooltip",
+      "value": "Which of your head movements the preview shows. Locked directions keep your face square to the preview camera."
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.lockFace",
+      "value": "Always Look At Face"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.allowYaw",
+      "value": "Allow Left/Right Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.allowPitch",
+      "value": "Allow Up/Down Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewRotation.allowAll",
+      "value": "Allow All Rotation"
+    },
+    {
+      "key": "settings.general.avatarPreviewSize",
+      "value": "Avatar Preview Size"
+    },
+    {
+      "key": "settings.general.avatarPreviewSize.tooltip",
+      "value": "Scale the avatar preview panel up or down."
+    },
+    {
+      "key": "settings.general.avatarPreviewZoom",
+      "value": "Avatar Preview Zoom"
+    },
+    {
+      "key": "settings.general.avatarPreviewZoom.tooltip",
+      "value": "Zoom the preview camera in or out on your avatar."
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetX",
+      "value": "Avatar Preview Horizontal Offset"
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetX.tooltip",
+      "value": "Nudge the avatar preview left or right."
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetY",
+      "value": "Avatar Preview Vertical Offset"
+    },
+    {
+      "key": "settings.general.avatarPreviewOffsetY.tooltip",
+      "value": "Nudge the avatar preview up or down."
+    },
+    {
+      "key": "settings.general.avatarPreviewMaxYaw",
+      "value": "Avatar Preview Max Left/Right"
+    },
+    {
+      "key": "settings.general.avatarPreviewMaxYaw.tooltip",
+      "value": "How far the preview camera may swing left or right of your body when it follows your head."
+    },
+    {
+      "key": "settings.general.avatarPreviewMaxPitch",
+      "value": "Avatar Preview Max Up/Down"
+    },
+    {
+      "key": "settings.general.avatarPreviewMaxPitch.tooltip",
+      "value": "How far the preview camera may tilt above or below level when it follows your head."
     },
     {
       "key": "settings.general.camera.title",
@@ -7671,6 +7955,54 @@
       "value": "Mirror Resolution"
     },
     {
+      "key": "settings.graphics.mirrorCap",
+      "value": "Mirror Resolution Cap"
+    },
+    {
+      "key": "settings.graphics.mirrorCap.tooltip",
+      "value": "Ceiling applied to whatever resolution a world's mirror asks for. Auto uses the world's own value. Mobile hardware defaults to 768 because a 2048 mirror renders per eye, per mirror, every frame."
+    },
+    {
+      "key": "settings.graphics.mirrorLodBias",
+      "value": "Mirror Detail Bias"
+    },
+    {
+      "key": "settings.graphics.mirrorLodBias.tooltip",
+      "value": "Scales model detail while the reflection is drawn. Below 1 swaps to lower-detail models sooner inside mirrors only, which your own view never sees. Mobile hardware defaults to 0.75."
+    },
+    {
+      "key": "settings.graphics.mirrorDepth",
+      "value": "Mirror Depth Buffer"
+    },
+    {
+      "key": "settings.graphics.mirrorDepth.tooltip",
+      "value": "Bits of depth precision for the reflection. Auto uses the world's own value. 16 halves the memory bandwidth a mirror costs and is the mobile default; raise it if a mirror shows z-fighting."
+    },
+    {
+      "key": "settings.graphics.mirrorMsaa",
+      "value": "Mirror Antialiasing Floor"
+    },
+    {
+      "key": "settings.graphics.mirrorMsaa.tooltip",
+      "value": "Minimum multisampling for the reflection. Auto uses the world's own value. Mobile hardware defaults to 4x, which resolves in tile memory and keeps mirror edges clean at the reduced resolution."
+    },
+    {
+      "key": "settings.graphics.mirrorRateTiers",
+      "value": "Mirror Distance Rate Tiers"
+    },
+    {
+      "key": "settings.graphics.mirrorRateTiers.tooltip",
+      "value": "Update distant mirrors every 2nd or 4th frame instead of every frame, using the distances the world author set. On by default on mobile hardware. Turn off to update every mirror every frame."
+    },
+    {
+      "key": "settings.graphics.mirrorDepthGuard",
+      "value": "Mirror Depth Precision Guard"
+    },
+    {
+      "key": "settings.graphics.mirrorDepthGuard.tooltip",
+      "value": "Raises a mirror's surface clip offset to 0.05 when a world authored it below 0.02, which flickers at grazing angles on low depth precision. On by default on mobile hardware."
+    },
+    {
       "key": "settings.graphics.bloom.title",
       "value": "Bloom"
     },
@@ -7709,6 +8041,106 @@
     {
       "key": "settings.graphics.fog.bakedapv.tooltip",
       "value": "Light the fog from a fast static bake of the scene's adaptive probe volumes instead of sampling them live every frame. Baked on demand and used immediately."
+    },
+    {
+      "key": "settings.graphics.fog.resolution",
+      "value": "Fog Resolution"
+    },
+    {
+      "key": "settings.graphics.fog.resolution.tooltip",
+      "value": "Screen resolution the fog is raymarched at. Full is the sharpest and the most expensive, Half is the usual balance and Quarter is the cheapest but softest."
+    },
+    {
+      "key": "settings.graphics.fog.resolution.full",
+      "value": "Full"
+    },
+    {
+      "key": "settings.graphics.fog.resolution.half",
+      "value": "Half"
+    },
+    {
+      "key": "settings.graphics.fog.resolution.quarter",
+      "value": "Quarter"
+    },
+    {
+      "key": "settings.graphics.fog.maxSteps",
+      "value": "Fog Steps"
+    },
+    {
+      "key": "settings.graphics.fog.maxSteps.tooltip",
+      "value": "Maximum raymarching steps per pixel. More steps give smoother fog and cleaner light shafts at a higher GPU cost."
+    },
+    {
+      "key": "settings.graphics.fog.blur",
+      "value": "Fog Blur"
+    },
+    {
+      "key": "settings.graphics.fog.blur.tooltip",
+      "value": "How many times the fog is blurred before compositing. Softens noise and light shafts; 0 skips the blur, which is fine when the sun does not light the fog."
+    },
+    {
+      "key": "settings.graphics.fog.temporal",
+      "value": "Temporal Reprojection"
+    },
+    {
+      "key": "settings.graphics.fog.temporal.tooltip",
+      "value": "Blends each frame's fog with the previous frame reprojected through the camera motion. Smooths noise so fewer steps look clean; can ghost briefly on fast turns."
+    },
+    {
+      "key": "settings.graphics.fog.froxels",
+      "value": "Froxel Volume"
+    },
+    {
+      "key": "settings.graphics.fog.froxels.tooltip",
+      "value": "Computes the fog once per cell of a coarse camera-aligned 3D grid instead of marching every pixel. Much cheaper at high resolutions; the resolution, steps and blur settings no longer apply while it is on."
+    },
+    {
+      "key": "settings.graphics.fog.analyticDepth",
+      "value": "Analytic Optical Depth"
+    },
+    {
+      "key": "settings.graphics.fog.analyticDepth.tooltip",
+      "value": "Integrates the height falloff exactly between samples and stops the march where the fog becomes opaque. Fewer steps for the same look; slightly changes the look of dense fog."
+    },
+    {
+      "key": "settings.graphics.fog.scaleSteps",
+      "value": "Scale Steps With Resolution"
+    },
+    {
+      "key": "settings.graphics.fog.scaleSteps.tooltip",
+      "value": "Halves the step budget at Full resolution and doubles it at Quarter so the cost stays roughly flat across the Fog Resolution setting."
+    },
+    {
+      "key": "settings.graphics.fog.sunTrims",
+      "value": "Sun Path Trims"
+    },
+    {
+      "key": "settings.graphics.fog.sunTrims.tooltip",
+      "value": "Reuses the shadow cascade between steps and samples the sun shadow every other step. Cheaper sun shafts with slightly softer shadows in the fog."
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid",
+      "value": "Froxel Grid"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.tooltip",
+      "value": "Resolution of the fog volume: how many screen pixels share one froxel column and how many depth slices it has. Auto picks Fine on desktop, Balanced in VR and Coarse on mobile GPUs."
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.fine",
+      "value": "Fine (1/8, 64 slices)"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.balanced",
+      "value": "Balanced (1/12, 48 slices)"
+    },
+    {
+      "key": "settings.graphics.fog.froxelGrid.coarse",
+      "value": "Coarse (1/16, 32 slices)"
     },
     {
       "key": "settings.graphics.motionBlur.title",
@@ -11551,6 +11983,94 @@
       "value": "Off keeps the wrist aligned to the forearm (position only) to avoid noisy webcam wrist rotation."
     },
     {
+      "key": "settings.mediapipe.lowLightBoost",
+      "value": "Low Light Boost"
+    },
+    {
+      "key": "settings.mediapipe.lowLightBoost.description",
+      "value": "Brightens dark webcam frames before tracking runs, metered on your face when it is visible. Improves detection and steadiness in a dim room."
+    },
+    {
+      "key": "settings.mediapipe.rejectGlitches",
+      "value": "Reject Tracking Glitches"
+    },
+    {
+      "key": "settings.mediapipe.rejectGlitches.description",
+      "value": "Ignores a sudden jump that lasts only one camera frame. Real fast movements arrive one frame later; single-frame spikes never reach the avatar."
+    },
+    {
+      "key": "settings.mediapipe.preview",
+      "value": "Camera Preview"
+    },
+    {
+      "key": "settings.mediapipe.preview.description",
+      "value": "Shows the webcam feed with the tracked landmarks drawn over it. Only rendered while this page is open."
+    },
+    {
+      "key": "settings.mediapipe.poseModel",
+      "value": "Body Model"
+    },
+    {
+      "key": "settings.mediapipe.poseModel.description",
+      "value": "Which pose model tracks your arms and torso. Heavier models are more accurate and cost more CPU."
+    },
+    {
+      "key": "settings.mediapipe.poseModel.lite",
+      "value": "Lite (fastest)"
+    },
+    {
+      "key": "settings.mediapipe.poseModel.full",
+      "value": "Full (balanced)"
+    },
+    {
+      "key": "settings.mediapipe.poseModel.heavy",
+      "value": "Heavy (most accurate)"
+    },
+    {
+      "key": "settings.mediapipe.cameraFpsAuto",
+      "value": "Slow Camera In Low Light"
+    },
+    {
+      "key": "settings.mediapipe.cameraFpsAuto.description",
+      "value": "Drops the camera to 15 frames per second while the room is dark, so the sensor gets a longer exposure. Restores your frame rate when the light comes back."
+    },
+    {
+      "key": "settings.mediapipe.gazeStrength",
+      "value": "Eye Gaze Strength"
+    },
+    {
+      "key": "settings.mediapipe.gazeStrength.description",
+      "value": "How far the avatar's eyes move for a given movement of your irises."
+    },
+    {
+      "key": "settings.mediapipe.status.off",
+      "value": "Webcam tracking is off."
+    },
+    {
+      "key": "settings.mediapipe.status.starting",
+      "value": "Starting the camera..."
+    },
+    {
+      "key": "settings.mediapipe.status.loading",
+      "value": "Loading tracking models..."
+    },
+    {
+      "key": "settings.mediapipe.status.noCamera",
+      "value": "No webcam found. Plug one in and it will be picked up automatically."
+    },
+    {
+      "key": "settings.mediapipe.status.stalled",
+      "value": "The camera stopped sending frames. Restarting it."
+    },
+    {
+      "key": "settings.mediapipe.status.black",
+      "value": "The camera is sending black frames. Check that nothing covers it and that Windows camera privacy settings allow this app."
+    },
+    {
+      "key": "settings.mediapipe.status.running",
+      "value": "Tracking."
+    },
+    {
       "key": "settings.mediapipe.invertBlink",
       "value": "Invert Blink"
     },
@@ -14923,6 +15443,10 @@
     {
       "key": "settings.developer.backup.none",
       "value": "No backups found."
+    },
+    {
+      "key": "settings.developer.backup.scanning",
+      "value": "Looking for backups…"
     },
     {
       "key": "settings.developer.backup.unreadable",
@@ -18579,6 +19103,34 @@
     {
       "key": "settings.graphics.renderer.restart.later",
       "value": "Later"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.title",
+      "value": "DirectX 12 Is Unstable"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.body",
+      "value": "Basis is rendering with DirectX 12.\n\nUnity's DirectX 12 backend is very buggy. It can crash Basis while avatars are loading, stall the first time new shaders are drawn, and break rendering outright. These are bugs inside the Unity engine, not in Basis. Basis cannot fix or work around them; only Unity can.\n\nDirectX 11 does not have these problems, and every avatar and world works on it unchanged. Only hardware ray tracing and variable rate shading need DirectX 12.\n\nThe graphics API can be changed at any time under Settings → Graphics → Graphics API."
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.switch",
+      "value": "Switch to DirectX 11"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.keep",
+      "value": "Keep DirectX 12"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.dontShowAgain",
+      "value": "Don't Show Again"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning",
+      "value": "DirectX 12 Warning"
+    },
+    {
+      "key": "settings.graphics.renderer.dx12Warning.tooltip",
+      "value": "Warn at startup whenever Basis is rendering with DirectX 12, since Unity's DirectX 12 backend is unstable. Don't Show Again on that warning turns this off."
     },
     {
       "key": "settings.controls.questControllerFix",

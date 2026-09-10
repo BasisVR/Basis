@@ -160,7 +160,6 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
     {
         foveatedRenderingLevel = value;
 
-#if UNITY_ANDROID
         BasisDebug.Log($"changing Foveated To {value}", BasisDebug.LogTag.Video);
 
         SubsystemManager.GetSubsystems<XRDisplaySubsystem>(xrDisplays);
@@ -193,11 +192,15 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             return;
         }
 
+        if (Mathf.Approximately(xrDisplaySubsystem.foveatedRenderingLevel, value))
+        {
+            return;
+        }
+
         xrDisplaySubsystem.foveatedRenderingFlags = XRDisplaySubsystem.FoveatedRenderingFlags.GazeAllowed;
         xrDisplaySubsystem.foveatedRenderingLevel = value;
 
         BasisDebug.Log($"foveatedRenderingLevel was set to {value}");
-#endif
     }
 }
 

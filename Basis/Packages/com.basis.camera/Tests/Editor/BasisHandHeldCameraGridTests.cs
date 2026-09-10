@@ -42,14 +42,14 @@ namespace Basis.Tests.Camera
             // The dropdown resolves a selection by its position in the key table and hands that
             // index to the shader tables, so a table that has drifted draws a different grid or
             // reads off the end of the array.
-            Assert.That(BasisHandHeldCamera.GridPatternKeys.Length,
+            Assert.That(BasisCameraGrid.PatternKeys.Length,
                 Is.EqualTo(System.Enum.GetValues(typeof(BasisCameraGridPattern)).Length));
         }
 
         [Test]
         public void ThirdsIsTheFirstPatternAndTheOneAFreshCameraUses()
         {
-            Assert.That(BasisHandHeldCamera.GridPatternKeys[0], Is.EqualTo("camera.grid.thirds"));
+            Assert.That(BasisCameraGrid.PatternKeys[0], Is.EqualTo("camera.grid.thirds"));
             Assert.That((int)BasisCameraGridPattern.Thirds, Is.Zero);
 
             Assert.That(new CameraSettings().viewfinderGridPattern, Is.Zero);
@@ -59,23 +59,23 @@ namespace Basis.Tests.Camera
         [Test]
         public void APatternIndexFromAStaleFileCannotReadOffTheTable()
         {
-            Assert.That(BasisHandHeldCamera.GridPattern(-4), Is.Zero);
-            Assert.That(BasisHandHeldCamera.GridPattern(9999),
-                Is.EqualTo(BasisHandHeldCamera.GridPatternKeys.Length - 1));
+            Assert.That(BasisCameraGrid.Pattern(-4), Is.Zero);
+            Assert.That(BasisCameraGrid.Pattern(9999),
+                Is.EqualTo(BasisCameraGrid.PatternKeys.Length - 1));
 
             _camera.SetViewfinderGridPattern(9999);
             Assert.That(_camera.viewfinderGridPattern,
-                Is.EqualTo(BasisHandHeldCamera.GridPatternKeys.Length - 1));
+                Is.EqualTo(BasisCameraGrid.PatternKeys.Length - 1));
         }
 
         [Test]
         public void TheOpacityIsClampedToTheSliderItComesFrom()
         {
             _camera.SetViewfinderGridOpacity(4f);
-            Assert.That(_camera.viewfinderGridOpacity, Is.EqualTo(BasisHandHeldCamera.MaxGridOpacity));
+            Assert.That(_camera.viewfinderGridOpacity, Is.EqualTo(BasisCameraGrid.MaxOpacity));
 
             _camera.SetViewfinderGridOpacity(-4f);
-            Assert.That(_camera.viewfinderGridOpacity, Is.EqualTo(BasisHandHeldCamera.MinGridOpacity));
+            Assert.That(_camera.viewfinderGridOpacity, Is.EqualTo(BasisCameraGrid.MinOpacity));
         }
 
         [Test]
@@ -83,10 +83,10 @@ namespace Basis.Tests.Camera
         {
             // The toggle owns whether the grid is drawn. A zero at one end would be a slider
             // position that reads as broken, and the toggle beside it already covers that case.
-            Assert.That(BasisHandHeldCamera.MinGridOpacity, Is.GreaterThan(0f));
-            Assert.That(BasisHandHeldCamera.MaxGridOpacity, Is.EqualTo(1f));
-            Assert.That(BasisHandHeldCamera.DefaultGridOpacity,
-                Is.InRange(BasisHandHeldCamera.MinGridOpacity, BasisHandHeldCamera.MaxGridOpacity));
+            Assert.That(BasisCameraGrid.MinOpacity, Is.GreaterThan(0f));
+            Assert.That(BasisCameraGrid.MaxOpacity, Is.EqualTo(1f));
+            Assert.That(BasisCameraGrid.DefaultOpacity,
+                Is.InRange(BasisCameraGrid.MinOpacity, BasisCameraGrid.MaxOpacity));
         }
 
         [Test]
@@ -94,9 +94,9 @@ namespace Basis.Tests.Camera
         {
             // A line measured in pixels would halve in apparent width every time the viewfinder
             // gained resolution, and disappear on a 4K feed shown on a preview this small.
-            float small = BasisHandHeldCamera.GridLineThickness(480);
-            float standard = BasisHandHeldCamera.GridLineThickness(1080);
-            float large = BasisHandHeldCamera.GridLineThickness(2160);
+            float small = BasisCameraGrid.LineThickness(480);
+            float standard = BasisCameraGrid.LineThickness(1080);
+            float large = BasisCameraGrid.LineThickness(2160);
 
             Assert.That(small, Is.GreaterThanOrEqualTo(1f), "A line thinner than a pixel is not drawn at all.");
             Assert.That(standard, Is.GreaterThan(small));
@@ -106,8 +106,8 @@ namespace Basis.Tests.Camera
         [Test]
         public void AnAbsurdFeedHeightStillGivesADrawableLine()
         {
-            Assert.That(BasisHandHeldCamera.GridLineThickness(0), Is.EqualTo(1f));
-            Assert.That(BasisHandHeldCamera.GridLineThickness(100000), Is.LessThanOrEqualTo(6f));
+            Assert.That(BasisCameraGrid.LineThickness(0), Is.EqualTo(1f));
+            Assert.That(BasisCameraGrid.LineThickness(100000), Is.LessThanOrEqualTo(6f));
         }
 
         [Test]
@@ -156,7 +156,7 @@ namespace Basis.Tests.Camera
 
             Assert.That(defaults.viewfinderGrid, Is.False);
             Assert.That(defaults.viewfinderGridOpacity,
-                Is.EqualTo(BasisHandHeldCamera.DefaultGridOpacity).Within(1e-4f));
+                Is.EqualTo(BasisCameraGrid.DefaultOpacity).Within(1e-4f));
             Assert.That(defaults.viewfinderGridOpacity, Is.GreaterThan(0f),
                 "A saved opacity of zero would come back as an invisible grid rather than a usable one.");
         }

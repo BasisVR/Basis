@@ -30,6 +30,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 991c8534233d48c9b9663f4d2f7f77a6
+    m_Address: Packages/com.basis.mediapipe/Models/pose_landmarker_full.task.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f85b89cd7e994d67aa953a781ae0b408
+    m_Address: Packages/com.basis.mediapipe/Models/pose_landmarker_heavy.task.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 8959b13be1add604380750c0f2e2f9f5, type: 2}
   m_SchemaSet:

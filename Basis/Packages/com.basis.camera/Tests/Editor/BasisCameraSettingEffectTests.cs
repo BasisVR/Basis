@@ -643,7 +643,7 @@ namespace Basis.Tests.Camera
             _rig.Camera.SetBackgroundMode(BasisCameraBackgroundMode.GreenScreen);
 
             Assert.That(_rig.CaptureCamera.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor));
-            Assert.That(_rig.CaptureCamera.backgroundColor, Is.EqualTo(BasisHandHeldCamera.ChromaGreen));
+            Assert.That(_rig.CaptureCamera.backgroundColor, Is.EqualTo(BasisCameraBackgrounds.ChromaGreen));
         }
 
         [Test]

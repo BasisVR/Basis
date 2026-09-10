@@ -41,8 +41,8 @@ namespace Basis.Tests.Camera
         [Test]
         public void ADarkFrameAsksForMoreExposureAndABrightOneForLess()
         {
-            float brighten = BasisHandHeldCamera.GoalStops(0f, 0.1f, 0.4f, 6f);
-            float darken = BasisHandHeldCamera.GoalStops(0f, 0.8f, 0.4f, 6f);
+            float brighten = BasisCameraMetering.GoalStops(0f, 0.1f, 0.4f, 6f);
+            float darken = BasisCameraMetering.GoalStops(0f, 0.8f, 0.4f, 6f);
 
             Assert.That(brighten, Is.GreaterThan(0f));
             Assert.That(darken, Is.LessThan(0f));
@@ -51,8 +51,8 @@ namespace Basis.Tests.Camera
         [Test]
         public void HalfTheTargetBrightnessIsExactlyOneStopDown()
         {
-            Assert.That(BasisHandHeldCamera.GoalStops(0f, 0.2f, 0.4f, 6f), Is.EqualTo(1f).Within(1e-4f));
-            Assert.That(BasisHandHeldCamera.GoalStops(0f, 0.8f, 0.4f, 6f), Is.EqualTo(-1f).Within(1e-4f));
+            Assert.That(BasisCameraMetering.GoalStops(0f, 0.2f, 0.4f, 6f), Is.EqualTo(1f).Within(1e-4f));
+            Assert.That(BasisCameraMetering.GoalStops(0f, 0.8f, 0.4f, 6f), Is.EqualTo(-1f).Within(1e-4f));
         }
 
         [Test]
@@ -60,7 +60,7 @@ namespace Basis.Tests.Camera
         {
             // Whatever exposure got it there is the exposure it keeps. A loop that drifted here
             // would breathe on a still shot.
-            Assert.That(BasisHandHeldCamera.GoalStops(1.75f, 0.45f, 0.45f, 6f), Is.EqualTo(1.75f).Within(1e-4f));
+            Assert.That(BasisCameraMetering.GoalStops(1.75f, 0.45f, 0.45f, 6f), Is.EqualTo(1.75f).Within(1e-4f));
         }
 
         [Test]
@@ -69,8 +69,8 @@ namespace Basis.Tests.Camera
             // This is the whole difference between a proportional loop and an integrating one. The
             // reading describes a frame rendered at some exposure; the correction belongs on that
             // value, not on wherever the approach has since travelled.
-            float fromZero = BasisHandHeldCamera.GoalStops(0f, 0.2f, 0.4f, 6f);
-            float fromTwo = BasisHandHeldCamera.GoalStops(2f, 0.2f, 0.4f, 6f);
+            float fromZero = BasisCameraMetering.GoalStops(0f, 0.2f, 0.4f, 6f);
+            float fromTwo = BasisCameraMetering.GoalStops(2f, 0.2f, 0.4f, 6f);
 
             Assert.That(fromTwo - fromZero, Is.EqualTo(2f).Within(1e-4f),
                 "Two identical readings taken at exposures two stops apart must ask for goals two stops apart.");
@@ -88,7 +88,7 @@ namespace Basis.Tests.Camera
             for (int Index = 0; Index < 40; Index++)
             {
                 float measured = Mathf.Clamp(sceneAtZeroStops * Mathf.Pow(2f, stops), 0f, 1f);
-                stops = BasisHandHeldCamera.GoalStops(stops, measured, target, 6f);
+                stops = BasisCameraMetering.GoalStops(stops, measured, target, 6f);
             }
 
             float settled = Mathf.Clamp(sceneAtZeroStops * Mathf.Pow(2f, stops), 0f, 1f);
@@ -98,14 +98,14 @@ namespace Basis.Tests.Camera
         [Test]
         public void TheMeterCannotWanderPastItsRange()
         {
-            Assert.That(BasisHandHeldCamera.GoalStops(0f, 0.001f, 0.9f, 2f), Is.EqualTo(2f).Within(1e-4f));
-            Assert.That(BasisHandHeldCamera.GoalStops(0f, 1f, 0.05f, 2f), Is.EqualTo(-2f).Within(1e-4f));
+            Assert.That(BasisCameraMetering.GoalStops(0f, 0.001f, 0.9f, 2f), Is.EqualTo(2f).Within(1e-4f));
+            Assert.That(BasisCameraMetering.GoalStops(0f, 1f, 0.05f, 2f), Is.EqualTo(-2f).Within(1e-4f));
         }
 
         [Test]
         public void APitchBlackFrameDoesNotAskForInfiniteExposure()
         {
-            float stops = BasisHandHeldCamera.GoalStops(0f, 0f, 0.45f, 6f);
+            float stops = BasisCameraMetering.GoalStops(0f, 0f, 0.45f, 6f);
 
             Assert.That(float.IsNaN(stops), Is.False);
             Assert.That(float.IsInfinity(stops), Is.False);
@@ -119,7 +119,7 @@ namespace Basis.Tests.Camera
         {
             foreach (BasisCameraMeteringMode mode in Enum.GetValues(typeof(BasisCameraMeteringMode)))
             {
-                Assert.That(BasisHandHeldCamera.MeteringWeight(mode, 0.5f, 0.5f), Is.GreaterThan(0f),
+                Assert.That(BasisCameraMetering.Weight(mode, 0.5f, 0.5f), Is.GreaterThan(0f),
                     $"{mode} ignores the middle of the picture, so a centred subject would not be metered at all.");
             }
         }
@@ -127,16 +127,16 @@ namespace Basis.Tests.Camera
         [Test]
         public void AverageMeteringWeighsTheWholeFrameEqually()
         {
-            Assert.That(BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.Average, 0.5f, 0.5f),
-                Is.EqualTo(BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.Average, 0.02f, 0.98f)));
+            Assert.That(BasisCameraMetering.Weight(BasisCameraMeteringMode.Average, 0.5f, 0.5f),
+                Is.EqualTo(BasisCameraMetering.Weight(BasisCameraMeteringMode.Average, 0.02f, 0.98f)));
         }
 
         [Test]
         public void CentreWeightedFallsOffTowardsTheEdges()
         {
-            float centre = BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.CentreWeighted, 0.5f, 0.5f);
-            float midway = BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.CentreWeighted, 0.5f, 0.75f);
-            float corner = BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.CentreWeighted, 0f, 0f);
+            float centre = BasisCameraMetering.Weight(BasisCameraMeteringMode.CentreWeighted, 0.5f, 0.5f);
+            float midway = BasisCameraMetering.Weight(BasisCameraMeteringMode.CentreWeighted, 0.5f, 0.75f);
+            float corner = BasisCameraMetering.Weight(BasisCameraMeteringMode.CentreWeighted, 0f, 0f);
 
             Assert.That(centre, Is.GreaterThan(midway));
             Assert.That(midway, Is.GreaterThan(corner));
@@ -146,9 +146,9 @@ namespace Basis.Tests.Camera
         [Test]
         public void SpotMeteringIgnoresEverythingButTheMiddle()
         {
-            Assert.That(BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.Spot, 0.5f, 0.5f), Is.EqualTo(1f));
-            Assert.That(BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.Spot, 0.5f, 0.9f), Is.Zero);
-            Assert.That(BasisHandHeldCamera.MeteringWeight(BasisCameraMeteringMode.Spot, 0.05f, 0.05f), Is.Zero);
+            Assert.That(BasisCameraMetering.Weight(BasisCameraMeteringMode.Spot, 0.5f, 0.5f), Is.EqualTo(1f));
+            Assert.That(BasisCameraMetering.Weight(BasisCameraMeteringMode.Spot, 0.5f, 0.9f), Is.Zero);
+            Assert.That(BasisCameraMetering.Weight(BasisCameraMeteringMode.Spot, 0.05f, 0.05f), Is.Zero);
         }
 
         [Test]
@@ -160,7 +160,7 @@ namespace Basis.Tests.Camera
             {
                 foreach (BasisCameraMeteringMode mode in Enum.GetValues(typeof(BasisCameraMeteringMode)))
                 {
-                    float measured = BasisHandHeldCamera.MeasureBrightness(pixels, 8, 8, mode);
+                    float measured = BasisCameraMetering.Measure(pixels, 8, 8, mode);
                     Assert.That(measured, Is.EqualTo(128f / 255f).Within(1e-3f), $"{mode} did not read a flat frame flat.");
                 }
             }
@@ -183,8 +183,8 @@ namespace Basis.Tests.Camera
                     }
                 }
 
-                float spot = BasisHandHeldCamera.MeasureBrightness(pixels, 32, 32, BasisCameraMeteringMode.Spot);
-                float average = BasisHandHeldCamera.MeasureBrightness(pixels, 32, 32, BasisCameraMeteringMode.Average);
+                float spot = BasisCameraMetering.Measure(pixels, 32, 32, BasisCameraMeteringMode.Spot);
+                float average = BasisCameraMetering.Measure(pixels, 32, 32, BasisCameraMeteringMode.Average);
 
                 Assert.That(spot, Is.EqualTo(64f / 255f).Within(0.02f), "Spot read the surround it is supposed to exclude.");
                 Assert.That(average, Is.GreaterThan(spot + 0.3f));
@@ -200,11 +200,11 @@ namespace Basis.Tests.Camera
         {
             // Zero would be a legitimate reading of a black frame, and would drive the exposure to
             // its limit. "No reading" has to be distinguishable from "very dark".
-            Assert.That(BasisHandHeldCamera.MeasureBrightness(default, 64, 64, BasisCameraMeteringMode.Average), Is.Negative);
+            Assert.That(BasisCameraMetering.Measure(default, 64, 64, BasisCameraMeteringMode.Average), Is.Negative);
 
             using (var pixels = FlatFrame(4, 4, 10))
             {
-                Assert.That(BasisHandHeldCamera.MeasureBrightness(pixels, 0, 0, BasisCameraMeteringMode.Average), Is.Negative);
+                Assert.That(BasisCameraMetering.Measure(pixels, 0, 0, BasisCameraMeteringMode.Average), Is.Negative);
             }
         }
 
@@ -234,13 +234,13 @@ namespace Basis.Tests.Camera
         public void EverySettingOfItIsClampedToTheSliderItComesFrom()
         {
             _camera.SetAutoBrightnessTarget(50f);
-            Assert.That(_camera.autoBrightnessTarget, Is.EqualTo(BasisHandHeldCamera.MaxBrightnessTarget));
+            Assert.That(_camera.autoBrightnessTarget, Is.EqualTo(BasisCameraMetering.MaxTarget));
 
             _camera.SetAutoBrightnessSpeed(-3f);
-            Assert.That(_camera.autoBrightnessSpeed, Is.EqualTo(BasisHandHeldCamera.MinBrightnessSpeed));
+            Assert.That(_camera.autoBrightnessSpeed, Is.EqualTo(BasisCameraMetering.MinSpeed));
 
             _camera.SetAutoBrightnessRange(900f);
-            Assert.That(_camera.autoBrightnessRange, Is.EqualTo(BasisHandHeldCamera.MaxBrightnessRange));
+            Assert.That(_camera.autoBrightnessRange, Is.EqualTo(BasisCameraMetering.MaxRange));
 
             _camera.SetAutoBrightnessMetering(77);
             Assert.That(_camera.autoBrightnessMetering, Is.EqualTo((int)BasisCameraMeteringMode.CentreWeighted),
@@ -252,8 +252,8 @@ namespace Basis.Tests.Camera
         {
             // The loop reads a frame that has already been shown, so its correction always arrives
             // late. Left uncapped, a fast response turns that lag into oscillation.
-            Assert.That(BasisHandHeldCamera.MaxBrightnessSpeed, Is.LessThanOrEqualTo(10f));
-            Assert.That(BasisHandHeldCamera.DefaultBrightnessSpeed, Is.LessThan(BasisHandHeldCamera.MaxBrightnessSpeed));
+            Assert.That(BasisCameraMetering.MaxSpeed, Is.LessThanOrEqualTo(10f));
+            Assert.That(BasisCameraMetering.DefaultSpeed, Is.LessThan(BasisCameraMetering.MaxSpeed));
         }
 
         [Test]
@@ -262,7 +262,7 @@ namespace Basis.Tests.Camera
             CameraSettings defaults = new CameraSettings();
 
             Assert.That(defaults.autoBrightness, Is.False);
-            Assert.That(defaults.autoBrightnessTarget, Is.EqualTo(BasisHandHeldCamera.DefaultBrightnessTarget).Within(1e-4f));
+            Assert.That(defaults.autoBrightnessTarget, Is.EqualTo(BasisCameraMetering.DefaultTarget).Within(1e-4f));
             Assert.That(defaults.autoBrightnessSpeed, Is.GreaterThan(0f));
             Assert.That(defaults.autoBrightnessRange, Is.GreaterThan(0f));
             Assert.That(defaults.autoBrightnessMetering, Is.EqualTo((int)BasisCameraMeteringMode.CentreWeighted));

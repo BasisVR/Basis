@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Drivers;
 using HVR.Basis.Comms;
 using UnityEngine;
 
@@ -15,14 +16,22 @@ namespace Basis.MediaPipe
     {
         public float EyeGainX = 1f;
         public float EyeGainY = 1f;
+        public float GazeStrength = 1f;
         public bool InvertEyeX = false;
         public bool InvertEyeY = false;
         public bool EyeLidIsOpenness = true;
         public float Smoothing = 0.5f;
         public float TongueGain = 1f;
 
+        private const float CutoffResponsive = 10f, CutoffSmooth = 1.5f, Beta = 1f, IrisGainX = 1.5f, IrisGainY = 2f, HoldSeconds = 0.5f, RelaxHz = 3f;
+        private const int LeftGazeX = 0, LeftGazeY = 1, RightGazeX = 2, RightGazeY = 3;
+        private MediaPipeScalarFilter[] _shapes;
+        private readonly MediaPipeScalarFilter[] _gaze = new MediaPipeScalarFilter[4];
+        private MediaPipeScalarFilter _tongue;
         private float[] _smoothed;
-        private float _tongueSmoothed;
+        private float _tongueValue, _lostFor;
+        private bool _started, _irisSeen;
+        private Vector2 _gazeCenterLeft, _gazeCenterRight;
         private readonly Dictionary<int, float> _lastSubmitted = new Dictionary<int, float>();
         private const float SubmitEpsilon = 1f / 255f;
 
@@ -91,53 +100,157 @@ namespace Basis.MediaPipe
             _idTongueOut = HVRAddress.AddressToId("FT/v2/TongueOut");
         }
 
-        public void Apply(in BasisMediaPipeResult result, BasisAvatar avatar)
+        public Vector2 GazeCenterLeft => _gazeCenterLeft;
+        public Vector2 GazeCenterRight => _gazeCenterRight;
+        public bool IrisSeen => _irisSeen;
+
+        public void SetGazeCenter(Vector2 left, Vector2 right)
         {
-            float[] bs = result.FaceBlendshapes;
-            if (avatar == null || bs == null || bs.Length < (int)MediaPipeArkitBlendshape.Count) return;
+            if (!float.IsFinite(left.x) || !float.IsFinite(left.y) || !float.IsFinite(right.x) || !float.IsFinite(right.y)) return;
+            _gazeCenterLeft = left;
+            _gazeCenterRight = right;
+        }
+
+        public void CalibrateGaze()
+        {
+            if (_gaze[LeftGazeX].HasSample) _gazeCenterLeft = new Vector2(_gaze[LeftGazeX].Carried, _gaze[LeftGazeY].Carried);
+            if (_gaze[RightGazeX].HasSample) _gazeCenterRight = new Vector2(_gaze[RightGazeX].Carried, _gaze[RightGazeY].Carried);
+        }
+
+        public void Reset()
+        {
+            _shapes = null;
+            for (int i = 0; i < _gaze.Length; i++) _gaze[i].Reset();
+            _tongue.Reset();
+            _started = false;
+            _lostFor = 0f;
+        }
+
+        // Runs every rendered frame whether or not the face is in view. A lost face holds for a moment and then
+        // eases every channel back to neutral, so the avatar never freezes mid-expression.
+        public void Apply(in BasisMediaPipeResult result, BasisAvatar avatar, in MediaPipeTiming timing)
+        {
+            if (avatar == null) return;
 
             AcquisitionService acquisition = AcquisitionService.SceneInstance;
             if (acquisition == null) return;
 
-            if (_smoothed == null || _smoothed.Length != bs.Length)
-            {
-                _smoothed = (float[])bs.Clone();
-            }
-            float st = 1f - Mathf.Clamp01(Smoothing);
-            for (int i = 0; i < bs.Length; i++)
-            {
-                _smoothed[i] = Mathf.Lerp(_smoothed[i], bs[i], st);
-            }
-            bs = _smoothed;
+            float[] raw = result.FaceBlendshapes;
+            bool present = result.HasFace && raw != null && raw.Length >= (int)MediaPipeArkitBlendshape.Count;
+            if (!present && !_started) return;
 
+            int count = (int)MediaPipeArkitBlendshape.Count;
+            if (_shapes == null || _shapes.Length != count)
+            {
+                _shapes = new MediaPipeScalarFilter[count];
+                _smoothed = new float[count];
+            }
+            float cutoff = timing.Scaled(Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing)));
+
+            if (present)
+            {
+                _started = true;
+                _lostFor = 0f;
+                for (int i = 0; i < count; i++)
+                {
+                    _smoothed[i] = _shapes[i].Apply(raw[i], in timing, cutoff, Beta);
+                }
+                _tongueValue = _tongue.Apply(Mathf.Clamp01(result.TongueOut * TongueGain), in timing, cutoff, Beta);
+                UpdateGaze(in result, in timing, cutoff);
+            }
+            else
+            {
+                _lostFor += timing.RenderDelta;
+                if (_lostFor <= HoldSeconds)
+                {
+                    for (int i = 0; i < count; i++) _smoothed[i] = _shapes[i].Carry(in timing);
+                    _tongueValue = _tongue.Carry(in timing);
+                    for (int i = 0; i < _gaze.Length; i++) _gaze[i].Carry(in timing);
+                }
+                else
+                {
+                    float alpha = BasisFilterMath.Alpha(RelaxHz, timing.RenderDelta);
+                    for (int i = 0; i < count; i++) _smoothed[i] = _shapes[i].Relax(0f, alpha);
+                    _tongueValue = _tongue.Relax(0f, alpha);
+                    _gaze[LeftGazeX].Relax(_gazeCenterLeft.x, alpha);
+                    _gaze[LeftGazeY].Relax(_gazeCenterLeft.y, alpha);
+                    _gaze[RightGazeX].Relax(_gazeCenterRight.x, alpha);
+                    _gaze[RightGazeY].Relax(_gazeCenterRight.y, alpha);
+                }
+            }
+
+            Submit(acquisition, avatar);
+        }
+
+        // Iris landmarks give the gaze; a closed eye reports no gaze and simply holds the last value.
+        private void UpdateGaze(in BasisMediaPipeResult result, in MediaPipeTiming timing, float cutoff)
+        {
+            if (result.HasLeftGaze)
+            {
+                _gaze[LeftGazeX].Apply(result.LeftEyeGaze.x, in timing, cutoff, Beta);
+                _gaze[LeftGazeY].Apply(result.LeftEyeGaze.y, in timing, cutoff, Beta);
+                _irisSeen = true;
+            }
+            else
+            {
+                _gaze[LeftGazeX].Carry(in timing);
+                _gaze[LeftGazeY].Carry(in timing);
+            }
+            if (result.HasRightGaze)
+            {
+                _gaze[RightGazeX].Apply(result.RightEyeGaze.x, in timing, cutoff, Beta);
+                _gaze[RightGazeY].Apply(result.RightEyeGaze.y, in timing, cutoff, Beta);
+                _irisSeen = true;
+            }
+            else
+            {
+                _gaze[RightGazeX].Carry(in timing);
+                _gaze[RightGazeY].Carry(in timing);
+            }
+        }
+
+        private void Submit(AcquisitionService acquisition, BasisAvatar avatar)
+        {
+            float[] bs = _smoothed;
             ResolveRelay(avatar)?.NotifySourceSample(_idEyeLidLeft);
 
             for (int i = 0; i < Direct.Length; i++)
             {
-                SubmitIfChanged(acquisition,_directIds[i], Mathf.Clamp01(bs[(int)Direct[i].src]));
+                SubmitIfChanged(acquisition, _directIds[i], Mathf.Clamp01(bs[(int)Direct[i].src]));
             }
 
-            SubmitIfChanged(acquisition,_idJawX, Get(bs, MediaPipeArkitBlendshape.JawRight) - Get(bs, MediaPipeArkitBlendshape.JawLeft));
-            SubmitIfChanged(acquisition,_idJawZ, Mathf.Clamp01(Get(bs, MediaPipeArkitBlendshape.JawForward)));
-            SubmitIfChanged(acquisition,_idCheekPuffSuck, Mathf.Clamp01(Get(bs, MediaPipeArkitBlendshape.CheekPuff)));
+            SubmitIfChanged(acquisition, _idJawX, Get(bs, MediaPipeArkitBlendshape.JawRight) - Get(bs, MediaPipeArkitBlendshape.JawLeft));
+            SubmitIfChanged(acquisition, _idJawZ, Mathf.Clamp01(Get(bs, MediaPipeArkitBlendshape.JawForward)));
+            SubmitIfChanged(acquisition, _idCheekPuffSuck, Mathf.Clamp01(Get(bs, MediaPipeArkitBlendshape.CheekPuff)));
 
-            float eyeLeftX = Get(bs, MediaPipeArkitBlendshape.EyeLookOutLeft) - Get(bs, MediaPipeArkitBlendshape.EyeLookInLeft);
-            float eyeRightX = Get(bs, MediaPipeArkitBlendshape.EyeLookInRight) - Get(bs, MediaPipeArkitBlendshape.EyeLookOutRight);
-            float eyeY = 0.5f * (Get(bs, MediaPipeArkitBlendshape.EyeLookUpLeft) + Get(bs, MediaPipeArkitBlendshape.EyeLookUpRight))
-                       - 0.5f * (Get(bs, MediaPipeArkitBlendshape.EyeLookDownLeft) + Get(bs, MediaPipeArkitBlendshape.EyeLookDownRight));
+            float eyeLeftX, eyeRightX, eyeY;
+            bool leftIris = _gaze[LeftGazeX].HasSample, rightIris = _gaze[RightGazeX].HasSample;
+            if (leftIris || rightIris)
+            {
+                Vector2 left = leftIris ? new Vector2(_gaze[LeftGazeX].Carried, _gaze[LeftGazeY].Carried) - _gazeCenterLeft : new Vector2(_gaze[RightGazeX].Carried, _gaze[RightGazeY].Carried) - _gazeCenterRight;
+                Vector2 right = rightIris ? new Vector2(_gaze[RightGazeX].Carried, _gaze[RightGazeY].Carried) - _gazeCenterRight : left;
+                eyeLeftX = left.x * IrisGainX * GazeStrength;
+                eyeRightX = right.x * IrisGainX * GazeStrength;
+                eyeY = 0.5f * (left.y + right.y) * IrisGainY * GazeStrength;
+            }
+            else
+            {
+                eyeLeftX = Get(bs, MediaPipeArkitBlendshape.EyeLookOutLeft) - Get(bs, MediaPipeArkitBlendshape.EyeLookInLeft);
+                eyeRightX = Get(bs, MediaPipeArkitBlendshape.EyeLookInRight) - Get(bs, MediaPipeArkitBlendshape.EyeLookOutRight);
+                eyeY = 0.5f * (Get(bs, MediaPipeArkitBlendshape.EyeLookUpLeft) + Get(bs, MediaPipeArkitBlendshape.EyeLookUpRight))
+                     - 0.5f * (Get(bs, MediaPipeArkitBlendshape.EyeLookDownLeft) + Get(bs, MediaPipeArkitBlendshape.EyeLookDownRight));
+            }
 
             float eyeGainX = InvertEyeX ? -EyeGainX : EyeGainX;
             float eyeGainY = InvertEyeY ? -EyeGainY : EyeGainY;
-            SubmitIfChanged(acquisition,_idEyeLeftX, Mathf.Clamp(eyeLeftX * eyeGainX, -1f, 1f));
-            SubmitIfChanged(acquisition,_idEyeRightX, Mathf.Clamp(eyeRightX * eyeGainX, -1f, 1f));
-            SubmitIfChanged(acquisition,_idEyeY, Mathf.Clamp(eyeY * eyeGainY, -1f, 1f));
+            SubmitIfChanged(acquisition, _idEyeLeftX, Mathf.Clamp(eyeLeftX * eyeGainX, -1f, 1f));
+            SubmitIfChanged(acquisition, _idEyeRightX, Mathf.Clamp(eyeRightX * eyeGainX, -1f, 1f));
+            SubmitIfChanged(acquisition, _idEyeY, Mathf.Clamp(eyeY * eyeGainY, -1f, 1f));
 
-            SubmitIfChanged(acquisition,_idEyeLidLeft, EyeLid(Get(bs, MediaPipeArkitBlendshape.EyeBlinkLeft)));
-            SubmitIfChanged(acquisition,_idEyeLidRight, EyeLid(Get(bs, MediaPipeArkitBlendshape.EyeBlinkRight)));
+            SubmitIfChanged(acquisition, _idEyeLidLeft, EyeLid(Get(bs, MediaPipeArkitBlendshape.EyeBlinkLeft)));
+            SubmitIfChanged(acquisition, _idEyeLidRight, EyeLid(Get(bs, MediaPipeArkitBlendshape.EyeBlinkRight)));
 
-            float tongue = Mathf.Clamp01(result.TongueOut * TongueGain);
-            _tongueSmoothed = Mathf.Lerp(_tongueSmoothed, tongue, st);
-            SubmitIfChanged(acquisition,_idTongueOut, _tongueSmoothed);
+            SubmitIfChanged(acquisition, _idTongueOut, _tongueValue);
         }
 
         // Skip submitting near-unchanged values: avoids redundant local SetBlendShapeWeight

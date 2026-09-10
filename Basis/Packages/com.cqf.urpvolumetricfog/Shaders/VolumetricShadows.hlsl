@@ -32,4 +32,22 @@ half VolumetricMainLightRealtimeShadow(float4 shadowCoord)
     return VolumetricSampleShadowmap(TEXTURE2D_ARGS(_MainLightShadowmapTexture, sampler_LinearClampCompare), shadowCoord, shadowSamplingData, shadowParams, false);
 #endif
 }
+float4 VolumetricShadowCoord(float3 positionWS, bool reuseCascade, inout half cascadeIndex, inout float3 cascadeCenter, inout float cascadeRadius2)
+{
+#if defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+    float3 fromCenter = positionWS - cascadeCenter;
+    UNITY_BRANCH
+    if (!reuseCascade || dot(fromCenter, fromCenter) >= cascadeRadius2)
+    {
+        cascadeIndex = ComputeCascadeIndex(positionWS);
+        float4 sphere = cascadeIndex < 0.5 ? _CascadeShadowSplitSpheres0 : (cascadeIndex < 1.5 ? _CascadeShadowSplitSpheres1 : (cascadeIndex < 2.5 ? _CascadeShadowSplitSpheres2 : _CascadeShadowSplitSpheres3));
+        float radius2 = cascadeIndex < 0.5 ? _CascadeShadowSplitSphereRadii.x : (cascadeIndex < 1.5 ? _CascadeShadowSplitSphereRadii.y : (cascadeIndex < 2.5 ? _CascadeShadowSplitSphereRadii.z : _CascadeShadowSplitSphereRadii.w));
+        cascadeCenter = sphere.xyz;
+        cascadeRadius2 = cascadeIndex > 3.5 ? FLT_MAX : radius2;
+    }
+#else
+    cascadeIndex = half(0.0);
+#endif
+    return float4(mul(_MainLightWorldToShadow[cascadeIndex], float4(positionWS, 1.0)).xyz, 0.0);
+}
 #endif

@@ -291,6 +291,8 @@ MonoBehaviour:
   bakeMaxResolution: 256
   bakedAPVVolumeAsset: {fileID: 0}
   bakeUseAsyncCompute: 0
+  froxelComputeShader: {fileID: 7200000, guid: e00244de118fd544e9d0c7dff913e49b, type: 3}
+  froxelColumnComputeShader: {fileID: 7200000, guid: 1688d4f4b3ab4787b0581e351d96b57b, type: 3}
 --- !u!114 &7574712923221662252
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -356,6 +358,8 @@ MonoBehaviour:
   bakeMaxResolution: 256
   bakedAPVVolumeAsset: {fileID: 0}
   bakeUseAsyncCompute: 0
+  froxelComputeShader: {fileID: 7200000, guid: e00244de118fd544e9d0c7dff913e49b, type: 3}
+  froxelColumnComputeShader: {fileID: 7200000, guid: 1688d4f4b3ab4787b0581e351d96b57b, type: 3}
 --- !u!114 &8304327589836468309
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -379,3 +383,5 @@ MonoBehaviour:
   bakeMaxResolution: 256
   bakedAPVVolumeAsset: {fileID: 0}
   bakeUseAsyncCompute: 0
+  froxelComputeShader: {fileID: 7200000, guid: e00244de118fd544e9d0c7dff913e49b, type: 3}
+  froxelColumnComputeShader: {fileID: 7200000, guid: 1688d4f4b3ab4787b0581e351d96b57b, type: 3}

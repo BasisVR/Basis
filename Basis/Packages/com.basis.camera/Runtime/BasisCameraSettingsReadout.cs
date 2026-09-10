@@ -222,7 +222,7 @@ public static class BasisCameraSettingsReadout
         Row("camera.smoothDrag.leash", Number(settings.smoothDragMaxDistance) + " m");
         Row("camera.resize", OnOff(settings.resizeWithGesture));
         Row("camera.streamPreset", BasisCameraStreamPresets.Label(BasisCameraStreamPresets.KeyFor((BasisVideoTransport)settings.streamTransport, settings.streamWidth, settings.streamHeight, settings.streamFrameRate, settings.streamQuality)));
-        Row("camera.transport", BasisHandHeldCamera.GetVideoTransportName((BasisVideoTransport)settings.streamTransport));
+        Row("camera.transport", BasisCameraVideoPlatform.TransportName((BasisVideoTransport)settings.streamTransport));
         Row("camera.streamResolution", settings.streamWidth + " x " + settings.streamHeight);
         Row("camera.streamFrameRate", Number(settings.streamFrameRate) + " Hz");
         Row("camera.streamQuality", settings.streamQuality.ToString());
@@ -232,6 +232,8 @@ public static class BasisCameraSettingsReadout
         // panel wrote itself, and the card parses tags now — so a sender name with a bracket in it
         // would eat the rest of the readout as markup.
         Row("camera.senderName", "<noparse>" + settings.streamSenderName + "</noparse>");
+        Row("camera.directToScreen", OnOff(settings.directToScreen));
+        Row("camera.directToScreen.fit", BasisLocalization.Get(BasisCameraDirectToScreen.FitKeys[(int)BasisCameraDirectToScreen.SanitizeFit(settings.directToScreenFit)]));
 
         Section("camera.gif");
         Row("camera.gif.length", Number(settings.gifDurationSeconds) + " s");
@@ -252,6 +254,7 @@ public static class BasisCameraSettingsReadout
         Row("camera.photogrammetry.distance", Number(settings.photogrammetryDistanceMeters) + " m");
         Row("camera.photogrammetry.angle", Number(settings.photogrammetryAngleDegrees) + " °");
         Row("camera.photogrammetry.resolution", settings.photogrammetryWidth + " px");
+        Row("camera.photogrammetryPath.settle", Number(settings.photogrammetryPathSettleSeconds) + " s");
 
         Basis.Cinematics.BasisCameraModifierStack stack =
             settings.modifiers ?? new Basis.Cinematics.BasisCameraModifierStack();

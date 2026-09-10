@@ -42,16 +42,16 @@ namespace Basis.Tests.Camera
             // The dropdown resolves a selection by its position in the key table and hands that
             // index straight to the palette, so a table that has drifted paints the wrong colour
             // or reads off the end of the array.
-            Assert.That(BasisHandHeldCamera.FocusPeakingColourKeys.Length,
-                Is.EqualTo(BasisHandHeldCamera.FocusPeakingColours.Length));
+            Assert.That(BasisCameraFocusPeaking.ColourKeys.Length,
+                Is.EqualTo(BasisCameraFocusPeaking.Colours.Length));
         }
 
         [Test]
         public void RedIsTheFirstColourAndTheOneAFreshCameraUses()
         {
-            Assert.That(BasisHandHeldCamera.FocusPeakingColourKeys[0], Is.EqualTo("camera.focusPeaking.red"));
+            Assert.That(BasisCameraFocusPeaking.ColourKeys[0], Is.EqualTo("camera.focusPeaking.red"));
 
-            Color red = BasisHandHeldCamera.FocusPeakingColours[0];
+            Color red = BasisCameraFocusPeaking.Colours[0];
             Assert.That(red.r, Is.GreaterThan(0.8f));
             Assert.That(red.g, Is.LessThan(0.3f));
             Assert.That(red.b, Is.LessThan(0.3f));
@@ -63,22 +63,22 @@ namespace Basis.Tests.Camera
         [Test]
         public void AColourIndexFromAStaleFileCannotReadOffThePalette()
         {
-            Assert.That(BasisHandHeldCamera.FocusPeakingColour(-4),
-                Is.EqualTo(BasisHandHeldCamera.FocusPeakingColours[0]));
-            Assert.That(BasisHandHeldCamera.FocusPeakingColour(9999),
-                Is.EqualTo(BasisHandHeldCamera.FocusPeakingColours[BasisHandHeldCamera.FocusPeakingColours.Length - 1]));
+            Assert.That(BasisCameraFocusPeaking.Colour(-4),
+                Is.EqualTo(BasisCameraFocusPeaking.Colours[0]));
+            Assert.That(BasisCameraFocusPeaking.Colour(9999),
+                Is.EqualTo(BasisCameraFocusPeaking.Colours[BasisCameraFocusPeaking.Colours.Length - 1]));
 
             _camera.SetFocusPeakingColour(9999);
             Assert.That(_camera.focusPeakingColour,
-                Is.EqualTo(BasisHandHeldCamera.FocusPeakingColours.Length - 1));
+                Is.EqualTo(BasisCameraFocusPeaking.Colours.Length - 1));
         }
 
         [Test]
         public void MoreSensitiveMeansALowerThreshold()
         {
-            float least = BasisHandHeldCamera.FocusPeakingThreshold(0f);
-            float middle = BasisHandHeldCamera.FocusPeakingThreshold(0.5f);
-            float most = BasisHandHeldCamera.FocusPeakingThreshold(1f);
+            float least = BasisCameraFocusPeaking.Threshold(0f);
+            float middle = BasisCameraFocusPeaking.Threshold(0.5f);
+            float most = BasisCameraFocusPeaking.Threshold(1f);
 
             Assert.That(least, Is.GreaterThan(middle));
             Assert.That(middle, Is.GreaterThan(most));
@@ -90,8 +90,8 @@ namespace Basis.Tests.Camera
             // The toggle owns whether peaking runs. A threshold of zero at one end would paint the
             // whole frame and an unreachable one at the other would paint none of it, either of
             // which is a slider position that reads as broken.
-            Assert.That(BasisHandHeldCamera.FocusPeakingThreshold(1f), Is.GreaterThan(0f));
-            Assert.That(BasisHandHeldCamera.FocusPeakingThreshold(0f), Is.LessThan(1f));
+            Assert.That(BasisCameraFocusPeaking.Threshold(1f), Is.GreaterThan(0f));
+            Assert.That(BasisCameraFocusPeaking.Threshold(0f), Is.LessThan(1f));
         }
 
         [Test]
@@ -155,7 +155,7 @@ namespace Basis.Tests.Camera
             Assert.That(defaults.focusPeaking, Is.False);
             Assert.That(defaults.focusPeakingGreyPicture, Is.False);
             Assert.That(defaults.focusPeakingSensitivity,
-                Is.EqualTo(BasisHandHeldCamera.DefaultFocusPeakingSensitivity).Within(1e-4f));
+                Is.EqualTo(BasisCameraFocusPeaking.DefaultSensitivity).Within(1e-4f));
             Assert.That(defaults.focusPeakingSensitivity, Is.GreaterThan(0f),
                 "A saved sensitivity of zero would come back as the least sensitive setting rather than a usable one.");
         }

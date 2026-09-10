@@ -90,7 +90,7 @@ jobs:
 
   headless-build:
     name: Build headless for ${{ matrix.targetPlatform }}${{ matrix.linuxArchitecture && format(' - {0}', matrix.linuxArchitecture) || '' }}
-    timeout-minutes: 100
+    timeout-minutes: 150
     runs-on: ${{ matrix.buildPlatform }}
     permissions:
       actions: write # to allow us to manage cache
@@ -189,7 +189,26 @@ jobs:
         run: |
           python .github/scripts/sanitize_headless_ci.py "${env:projectPath}"
       - name: "Build Unity project"
-        timeout-minutes: 100
+        id: unity-build
+        timeout-minutes: 70
+        continue-on-error: true
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          buildName: ${{ matrix.buildName }}
+          buildMethod: ${{ matrix.buildMethod }}
+          customParameters: ${{ matrix.customParameters }}
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: ${{ matrix.targetPlatform }}
+          versioning: None
+          buildsPath: build/${{ matrix.buildOutput }}
+          linux64RemoveExecutableExtension: false
+      - name: "Build Unity project (retry)"
+        if: steps.unity-build.outcome == 'failure'
+        timeout-minutes: 70
         uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}

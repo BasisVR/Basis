@@ -27,7 +27,7 @@ namespace Basis.Tests.Camera
         [TearDown]
         public void TearDown()
         {
-            _rig?.Camera?.SetAudioListener(false);
+            BasisHandHeldCameraAudioListener.Set(_rig?.Camera, false);
             _rig?.Dispose();
         }
 
@@ -107,14 +107,14 @@ namespace Basis.Tests.Camera
         {
             // The web stream is pure sockets, so even a machine with no shared-texture backend has
             // one. An empty list would leave the dropdown blank and live output unreachable.
-            var transports = BasisHandHeldCamera.AvailableVideoTransports();
+            var transports = BasisCameraVideoPlatform.Transports();
 
             Assert.That(transports, Is.Not.Empty);
             for (int Index = 0; Index < transports.Count; Index++)
             {
-                Assert.That(BasisHandHeldCamera.GetVideoTransportName(transports[Index]), Is.Not.Null.And.Not.Empty,
+                Assert.That(BasisCameraVideoPlatform.TransportName(transports[Index]), Is.Not.Null.And.Not.Empty,
                     "A transport with no name renders as an empty dropdown row.");
-                Assert.That(BasisHandHeldCamera.GetVideoTransportRequirement(transports[Index]), Is.Not.Null,
+                Assert.That(BasisCameraVideoPlatform.TransportRequirement(transports[Index]), Is.Not.Null,
                     "The requirement text is what tells the user what to install on the receiving side.");
             }
         }
@@ -122,7 +122,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void ChangingTransportWhileIdle_LeavesTheStreamIdle()
         {
-            var transports = BasisHandHeldCamera.AvailableVideoTransports();
+            var transports = BasisCameraVideoPlatform.Transports();
             if (transports.Count < 2) Assert.Ignore("Only one transport is compiled in on this platform.");
 
             _rig.Camera.SetVideoTransport(transports[1]);
@@ -137,7 +137,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void EveryStreamPresetOffered_UsesATransportThisBuildCanRun()
         {
-            List<BasisVideoTransport> transports = BasisHandHeldCamera.AvailableVideoTransports();
+            List<BasisVideoTransport> transports = BasisCameraVideoPlatform.Transports();
             List<BasisCameraStreamPreset> presets = BasisCameraStreamPresets.Available();
 
             Assert.That(presets, Is.Not.Empty, "The web stream is always available, so its presets always are.");
@@ -166,7 +166,7 @@ namespace Basis.Tests.Camera
             Assert.That(platformInRoster, Is.GreaterThan(0));
             Assert.That(web, Is.EqualTo(webInRoster),
                 "MJPEG needs nothing installed, so every one of its presets is offered on every platform.");
-            Assert.That(platform, Is.EqualTo(BasisHandHeldCamera.IsVideoOutputSupported ? platformInRoster : 0),
+            Assert.That(platform, Is.EqualTo(BasisCameraVideoPlatform.Supported ? platformInRoster : 0),
                 "A Spout or Syphon preset on a build with no shared-texture backend would apply a transport that refuses to start.");
         }
 
@@ -494,18 +494,18 @@ namespace Basis.Tests.Camera
             // mean the toggle reads true on a camera that is not actually hearing anything.
             using (BasisCameraSettingsRig second = new BasisCameraSettingsRig())
             {
-                _rig.Camera.SetAudioListener(true);
-                Assert.That(_rig.Camera.IsAudioListener, Is.True);
-                Assert.That(second.Camera.IsAudioListener, Is.False);
+                BasisHandHeldCameraAudioListener.Set(_rig.Camera, true);
+                Assert.That(BasisHandHeldCameraAudioListener.IsHeldBy(_rig.Camera), Is.True);
+                Assert.That(BasisHandHeldCameraAudioListener.IsHeldBy(second.Camera), Is.False);
 
-                second.Camera.SetAudioListener(true);
+                BasisHandHeldCameraAudioListener.Set(second.Camera, true);
 
-                Assert.That(second.Camera.IsAudioListener, Is.True);
-                Assert.That(_rig.Camera.IsAudioListener, Is.False,
+                Assert.That(BasisHandHeldCameraAudioListener.IsHeldBy(second.Camera), Is.True);
+                Assert.That(BasisHandHeldCameraAudioListener.IsHeldBy(_rig.Camera), Is.False,
                     "Taking the listener has to take it from whoever held it.");
 
-                second.Camera.SetAudioListener(false);
-                Assert.That(second.Camera.IsAudioListener, Is.False);
+                BasisHandHeldCameraAudioListener.Set(second.Camera, false);
+                Assert.That(BasisHandHeldCameraAudioListener.IsHeldBy(second.Camera), Is.False);
             }
         }
 
@@ -514,11 +514,11 @@ namespace Basis.Tests.Camera
         {
             using (BasisCameraSettingsRig second = new BasisCameraSettingsRig())
             {
-                _rig.Camera.SetAudioListener(true);
+                BasisHandHeldCameraAudioListener.Set(_rig.Camera, true);
 
-                second.Camera.SetAudioListener(false);
+                BasisHandHeldCameraAudioListener.Set(second.Camera, false);
 
-                Assert.That(_rig.Camera.IsAudioListener, Is.True);
+                Assert.That(BasisHandHeldCameraAudioListener.IsHeldBy(_rig.Camera), Is.True);
             }
         }
 
@@ -565,7 +565,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void SavedPhotosLandUnderTheCamerasOwnPhotosFolder()
         {
-            string path = _rig.Camera.GetSavePath("shot.png");
+            string path = BasisCameraPhotoFolder.PathFor("shot.png");
 
             Assert.That(path, Is.Not.Null.And.Not.Empty);
             Assert.That(path, Does.EndWith("shot.png"));

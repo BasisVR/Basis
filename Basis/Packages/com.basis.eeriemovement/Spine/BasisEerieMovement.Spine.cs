@@ -493,7 +493,7 @@ namespace Basis.IK
                 poseStream.SetRotation(handleUpperChest, deltaWorld * poseStream.GetRotation(handleUpperChest));
             }
         }
-        Vector3 ApplyChestSpring(Vector3 headTargetPos)
+        public Vector3 ApplyChestSpring(Vector3 headTargetPos)
         {
             if (!plan.hasChestSpring)
             {
@@ -502,9 +502,12 @@ namespace Basis.IK
 
             ref BasisChestSpringState spring = ref Ref(chestSpring, 0);
             float hz = chestSpringHz;
+            Vector3 anchorPos = poseStream.AnchorPosition;
+            Quaternion anchorRot = poseStream.AnchorRotation;
+            Vector3 localTarget = Quaternion.Inverse(anchorRot) * (headTargetPos - anchorPos);
             if (hz <= 0f || !spring.Seeded)
             {
-                spring.Pos = headTargetPos;
+                spring.Pos = localTarget;
                 spring.Vel = Vector3.zero;
                 spring.Seeded = true;
                 return headTargetPos;
@@ -512,20 +515,20 @@ namespace Basis.IK
 
             float dt = poseStream.deltaTime;
             if (dt <= 0f)
-                return spring.Pos;
+                return anchorPos + anchorRot * spring.Pos;
 
-            BasisChestSpringCore.Step(spring.Pos, spring.Vel, headTargetPos, dt, hz, chestSpringDamping, out Vector3 newPos, out Vector3 newVel);
+            BasisChestSpringCore.Step(spring.Pos, spring.Vel, localTarget, dt, hz, chestSpringDamping, out Vector3 newPos, out Vector3 newVel);
 
             if (!IsFinite(newPos) || !IsFinite(newVel))
             {
-                spring.Pos = headTargetPos;
+                spring.Pos = localTarget;
                 spring.Vel = Vector3.zero;
                 return headTargetPos;
             }
 
             spring.Pos = newPos;
             spring.Vel = newVel;
-            return newPos;
+            return anchorPos + anchorRot * newPos;
         }
         static bool IsFinite(Vector3 v) => !float.IsNaN(v.x) && !float.IsInfinity(v.x) && !float.IsNaN(v.y) && !float.IsInfinity(v.y) && !float.IsNaN(v.z) && !float.IsInfinity(v.z);
         Vector3 ApplyCrouchBodyOffset(Vector3 headTargetPos, Vector3 hipsPos, Quaternion hipsRot, Vector3 playerUpDir, float fade)

@@ -41,6 +41,10 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     private RTHandle feedHandle;
     private RenderTexture feedTexture;
 
+    /// <summary>How the feed is placed on the window, as the owner has it; re-read with the feed on every frame.</summary>
+    public BasisCameraDirectToScreenFit Fit { get; private set; }
+    public Vector2 Alignment { get; private set; } = BasisCameraDirectToScreen.DefaultAlignment;
+
     private UniversalRenderPipelineAsset rendererSearchedOn;
     private bool rendererHasFeature;
     private bool fallbackHooked;
@@ -79,6 +83,12 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
         screenCamera.backgroundColor = Color.black;
         screenCamera.cullingMask = 0;
         screenCamera.depth = ScreenCameraDepth;
+        // The engine's half of "not an XR camera". URP's allowXRRendering below only stops URP
+        // building eye passes; the engine still sizes a camera aimed at Both eyes to the eye
+        // texture while XR runs, and URP's final blit then covers only that much of the window —
+        // on a wide monitor, the headset mirror showed round the feed. None is Unity's
+        // "Main Display" target eye: the camera's pixel rect is the window's.
+        screenCamera.stereoTargetEye = StereoTargetEyeMask.None;
         screenCamera.targetDisplay = 0;
         screenCamera.targetTexture = null;
         screenCamera.allowDynamicResolution = false;
@@ -111,6 +121,24 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     /// <summary>Whether <paramref name="camera"/> is this output's screen camera — the only camera the feature draws on.</summary>
     public bool IsScreenCamera(Camera camera) => screenCamera != null && ReferenceEquals(camera, screenCamera);
 
+    /// <summary>
+    /// The surface the feed lands on, in pixels: the screen camera's own pixel size, which is
+    /// exactly what URP's final blit covers, so a feed shaped to it can never disagree with the
+    /// area it is drawn over. The screen stands in before the camera has a size.
+    /// </summary>
+    public bool TryGetWindowSize(out int width, out int height)
+    {
+        if (screenCamera != null && screenCamera.pixelWidth > 0 && screenCamera.pixelHeight > 0)
+        {
+            width = screenCamera.pixelWidth;
+            height = screenCamera.pixelHeight;
+            return true;
+        }
+        width = Screen.width;
+        height = Screen.height;
+        return width > 0 && height > 0;
+    }
+
     /// <summary>Starts, or keeps, drawing <paramref name="feed"/> to the window, taking the window from any other output.</summary>
     public void Present(RenderTexture feed)
     {
@@ -140,7 +168,11 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     /// </summary>
     public bool TryGetFeed(out RTHandle handle, out RenderTexture texture)
     {
-        if (owner != null) SetFeed(owner.PreviewTexture);
+        if (owner != null)
+        {
+            SetFeed(owner.PreviewTexture);
+            SetPlacement(owner.DirectToScreenFit, owner.DirectToScreenAlignment);
+        }
         handle = feedHandle;
         texture = feedTexture;
         return handle != null && texture != null && texture.IsCreated();
@@ -162,6 +194,13 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
 
         feedTexture = feed;
         feedHandle = RTHandles.Alloc(new RenderTargetIdentifier(feed), feed.name);
+    }
+
+    /// <summary>Points the output at a fit and alignment by hand, for an output with no owner to read them from.</summary>
+    public void SetPlacement(BasisCameraDirectToScreenFit fit, Vector2 alignment)
+    {
+        Fit = fit;
+        Alignment = alignment;
     }
 
     private void ReleaseFeedHandle()
@@ -249,7 +288,7 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
         ScriptableRenderer renderer = screenCameraData.scriptableRenderer;
         if (renderer == null) return;
 
-        fallbackPass.Setup(handle, texture);
+        fallbackPass.Setup(handle, texture, Fit, Alignment);
         renderer.EnqueuePass(fallbackPass);
     }
 

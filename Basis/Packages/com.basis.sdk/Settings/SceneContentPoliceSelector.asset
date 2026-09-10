@@ -387,3 +387,5 @@ MonoBehaviour:
   - BakerySharedLodUv
   - Basis.Shims.BasisActionTrigger
   - Basis.Shims.BasisPermissionEventShim
+  - BasisPlatformSwitch
+  - Basis.Shims.BasisPlatformEventShim

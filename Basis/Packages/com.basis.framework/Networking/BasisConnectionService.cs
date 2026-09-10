@@ -27,6 +27,7 @@ namespace Basis.Scripts.Networking
 
         public static bool AutoConnectAttempted;
         private static bool _connectInProgress;
+        public static bool ConnectInProgress => _connectInProgress;
 
         // Stable key the loading bar uses to merge updates for the same connection
         // attempt, distinct from the bundle-load key BasisSceneLoad reports under.

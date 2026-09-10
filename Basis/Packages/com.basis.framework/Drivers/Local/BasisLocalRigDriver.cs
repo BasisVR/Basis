@@ -328,6 +328,28 @@ namespace Basis.Scripts.Drivers
             if (!smoothEnabled) return (byte)BasisFilterMode.Passthrough;
             return euroEnabled ? (byte)BasisFilterMode.Euro : (byte)BasisFilterMode.Fallback;
         }
+        private static bool SlotTracked(in BasisEerieFrameFacts facts, int slot)
+        {
+            switch (slot)
+            {
+                case sHips: return facts.hipsTracked;
+                case sHead: return BasisLocalBoneDriver.HeadControl.HasTracked == BasisHasTracked.HasTracker;
+                case sLeftFoot: return facts.leftFootTracked;
+                case sRightFoot: return facts.rightFootTracked;
+                case sChest: return facts.chestTracked;
+                case sLeftLowerLeg: return facts.leftKneeTracked;
+                case sRightLowerLeg: return facts.rightKneeTracked;
+                case sLeftHand: return facts.leftHandWeight > 0f;
+                case sRightHand: return facts.rightHandWeight > 0f;
+                case sLeftLowerArm: return facts.leftElbowTracked;
+                case sRightLowerArm: return facts.rightElbowTracked;
+                case sLeftToe: return facts.leftToeTracked;
+                case sRightToe: return facts.rightToeTracked;
+                case sLeftShoulder: return facts.leftShoulderTracked;
+                case sRightShoulder: return facts.rightShoulderTracked;
+                default: return false;
+            }
+        }
         private static readonly float4[] groupPosTuning = new float4[BasisSmoothingProfiles.GroupCount], groupRotTuning = new float4[BasisSmoothingProfiles.GroupCount];
         private static readonly bool[] groupOff = new bool[BasisSmoothingProfiles.GroupCount];
         private static readonly BasisTrackingHardware[] groupHardware = new BasisTrackingHardware[BasisSmoothingProfiles.GroupCount];
@@ -791,7 +813,7 @@ namespace Basis.Scripts.Drivers
             float w = control.RigLayerWeight;
             return w > 0f ? (w < 1f ? w : 1f) : 0f;
         }
-        private static bool TryComputeButterflyKnee( bool isLeft, Quaternion hipsRot, Vector3 playerUp, float maxOpenDeg, float supineFloor, float dt, Vector3 defaultBendDir, bool haveLeg, Vector3 hipPos, float upperLength, float lowerLength, Vector3 footPos, Quaternion footRot, ref Vector3 smoothedHint, ref float smoothedWeight, out Vector3 hintPos, out float weight)
+        private static bool TryComputeButterflyKnee( bool isLeft, Quaternion hipsRot, Vector3 playerUp, float maxOpenDeg, float supineFloor, float dt, Vector3 defaultBendDir, bool haveLeg, Vector3 hipPos, float upperLength, float lowerLength, Vector3 footPos, Quaternion footRot, Vector3 playspacePos, Quaternion playspaceRot, ref Vector3 smoothedHint, ref float smoothedWeight, out Vector3 hintPos, out float weight)
         {
             hintPos = default;
             weight = 0f;
@@ -817,24 +839,25 @@ namespace Basis.Scripts.Drivers
             BasisButterflyKneeCore.Solve(input, out BasisButterflyKneeResult result);
 
             float alpha = 1f - Mathf.Exp(-ButterflyKneeSmoothRate * dt);
+            Vector3 localHint = Quaternion.Inverse(playspaceRot) * (result.KneeHint - playspacePos);
             if (smoothedWeight <= 0.0001f && result.HintWeight <= 0.0001f)
             {
 
-                smoothedHint = result.KneeHint;
+                smoothedHint = localHint;
                 smoothedWeight = 0f;
                 return false;
             }
-            smoothedHint = Vector3.Lerp(smoothedHint, result.KneeHint, alpha);
+            smoothedHint = Vector3.Lerp(smoothedHint, localHint, alpha);
             smoothedWeight = Mathf.Lerp(smoothedWeight, result.HintWeight, alpha);
             if (smoothedWeight <= 0.001f)
             {
                 return false;
             }
-            hintPos = smoothedHint;
+            hintPos = playspacePos + playspaceRot * smoothedHint;
             weight = smoothedWeight;
             return true;
         }
-        private static bool TryComputeKneeForward( Quaternion hipsRot, float coupling, float smoothRate, Vector3 playerUp, float dt, bool haveLeg, Vector3 hipPos, float upperLength, Vector3 footPos, Quaternion footRot, ref Vector3 smoothedBendDir, ref float smoothedWeight, out Vector3 hintPos, out float weight, out Vector3 bendDir)
+        private static bool TryComputeKneeForward( Quaternion hipsRot, float coupling, float smoothRate, Vector3 playerUp, float dt, bool haveLeg, Vector3 hipPos, float upperLength, Vector3 footPos, Quaternion footRot, Quaternion playspaceRot, ref Vector3 smoothedBendDir, ref float smoothedWeight, out Vector3 hintPos, out float weight, out Vector3 bendDir)
         {
             hintPos = default;
             weight = 0f;
@@ -855,10 +878,11 @@ namespace Basis.Scripts.Drivers
             input.Strength = 1f;
             BasisKneeForwardCore.Solve(input, out BasisKneeForwardResult result);
             float alpha = 1f - Mathf.Exp(-smoothRate * dt);
-            if (smoothedBendDir.sqrMagnitude < 1e-6f) smoothedBendDir = result.BendDir;
-            else smoothedBendDir = Vector3.Slerp(smoothedBendDir.normalized, result.BendDir, alpha);
+            Vector3 localBend = Quaternion.Inverse(playspaceRot) * result.BendDir;
+            if (smoothedBendDir.sqrMagnitude < 1e-6f) smoothedBendDir = localBend;
+            else smoothedBendDir = Vector3.Slerp(smoothedBendDir.normalized, localBend, alpha);
             smoothedWeight = Mathf.Lerp(smoothedWeight, result.HintWeight, alpha);
-            bendDir = smoothedBendDir.sqrMagnitude > 1e-6f ? smoothedBendDir.normalized : result.BendDir;
+            bendDir = smoothedBendDir.sqrMagnitude > 1e-6f ? playspaceRot * smoothedBendDir.normalized : result.BendDir;
             Vector3 mid = (hipPos + footPos) * 0.5f;
             float radius = input.UpperLength > 1e-5f ? input.UpperLength : 0.4f;
             hintPos = mid + bendDir * radius;
@@ -895,8 +919,8 @@ namespace Basis.Scripts.Drivers
         }
         bool frameFootSimScheduled, frameFootReengage, trackersDisabled;
         BasisEerieFrameFacts frameFacts;
-        Quaternion frameHipsRotation, frameLeftSimFootRotation, frameRightSimFootRotation, frameLeftElbowToBone, frameRightElbowToBone, frameLeftKneeToBone, frameRightKneeToBone;
-        Vector3 framePlayerUpDirection, frameLeftKneeAssistHint, frameRightKneeAssistHint, frameLeftKneeBendAxis, frameRightKneeBendAxis;
+        Quaternion frameHipsRotation, frameLeftSimFootRotation, frameRightSimFootRotation, frameLeftElbowToBone, frameRightElbowToBone, frameLeftKneeToBone, frameRightKneeToBone, framePlayspaceRotation;
+        Vector3 framePlayerUpDirection, framePlayspacePosition, frameLeftKneeAssistHint, frameRightKneeAssistHint, frameLeftKneeBendAxis, frameRightKneeBendAxis;
         Vector3 leftHipJointRestLocal, rightHipJointRestLocal;
         float framePlayerUpScale;
         public void ScheduleLocomotionPose(BasisLocalPlayer player, float deltaTime)
@@ -1018,7 +1042,7 @@ namespace Basis.Scripts.Drivers
                     rotTunePtr[i] = groupRotTuning[group];
                     byte newPosMode = (byte)BasisFilterMode.Passthrough;
                     byte newRotMode = (byte)BasisFilterMode.Passthrough;
-                    if (!groupOff[group])
+                    if (!groupOff[group] && SlotTracked(in frameFacts, i))
                     {
                         newPosMode = PickMode(SmoothPos[i], EuroPos[i]);
                         newRotMode = PickMode(SmoothRot[i], EuroRot[i]);
@@ -1080,7 +1104,10 @@ namespace Basis.Scripts.Drivers
             ref BasisEerieMovement data = ref IKJob;
             ref BasisEerieFrameFacts facts = ref frameFacts;
             BasisLocalFootDriver footDriver = localPlayer.BasisLocalFootDriver;
-            Vector3 playerUpScaled = BasisLocalPlayer.localToWorldMatrix.MultiplyVector(Vector3.up);
+            Matrix4x4 playspace = BasisLocalPlayer.localToWorldMatrix;
+            Vector3 playerUpScaled = playspace.MultiplyVector(Vector3.up);
+            framePlayspacePosition = playspace.GetPosition();
+            framePlayspaceRotation = playspace.rotation;
             framePlayerUpScale = playerUpScaled.magnitude;
             framePlayerUpDirection = framePlayerUpScale > 1e-6f ? playerUpScaled / framePlayerUpScale : Vector3.up;
             if (trackersDisabled)
@@ -1136,8 +1163,8 @@ namespace Basis.Scripts.Drivers
             ref float smoothedKneeFwdWeight = ref (isLeft ? ref smoothedLeftKneeFwdWeight : ref smoothedRightKneeFwdWeight);
             ref Vector3 smoothedButterflyHint = ref (isLeft ? ref smoothedLeftButterflyHint : ref smoothedRightButterflyHint);
             ref float smoothedButterflyWeight = ref (isLeft ? ref smoothedLeftButterflyWeight : ref smoothedRightButterflyWeight);
-            bool haveKneeFwd = kneeFollowsFoot && TryComputeKneeForward(hipsRot, kneeFootCoupling, KneeForwardSmoothRate, playerUpDir, deltaTime, haveLeg, hipPos, upperLength, footPos, footRot, ref smoothedKneeFwdHint, ref smoothedKneeFwdWeight, out kneeFwdHint, out kneeFwdWeight, out bendDir);
-            if (butterflyEnabled && TryComputeButterflyKnee(isLeft, hipsRot, playerUpDir, butterflyMaxOpenDeg, butterflySupineFloor, deltaTime, bendDir, haveLeg, hipPos, upperLength, lowerLength, footPos, footRot, ref smoothedButterflyHint, ref smoothedButterflyWeight, out Vector3 butterflyHint, out float butterflyWeight))
+            bool haveKneeFwd = kneeFollowsFoot && TryComputeKneeForward(hipsRot, kneeFootCoupling, KneeForwardSmoothRate, playerUpDir, deltaTime, haveLeg, hipPos, upperLength, footPos, footRot, framePlayspaceRotation, ref smoothedKneeFwdHint, ref smoothedKneeFwdWeight, out kneeFwdHint, out kneeFwdWeight, out bendDir);
+            if (butterflyEnabled && TryComputeButterflyKnee(isLeft, hipsRot, playerUpDir, butterflyMaxOpenDeg, butterflySupineFloor, deltaTime, bendDir, haveLeg, hipPos, upperLength, lowerLength, footPos, footRot, framePlayspacePosition, framePlayspaceRotation, ref smoothedButterflyHint, ref smoothedButterflyWeight, out Vector3 butterflyHint, out float butterflyWeight))
             {
                 hint = butterflyHint;
                 return butterflyWeight;

@@ -512,6 +512,7 @@ namespace Basis.Scripts.Device_Management
 #endif
             await BasisActionDriver.LoadBindings();
             BasisDebug.Log($"Loading mode: {mode}", BasisDebug.LogTag.Device);
+            Basis.Scripts.Rendering.BasisDX12Notice.ShowOnce();
         }
 
         /// <summary>

@@ -51,6 +51,10 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> RememberMenuState = new("remembermenustate", new BasisPlatformDefault<bool>(true));
 
+        public static BasisSettingsBinding<bool> MenuTeleport = new("menuteleport", new BasisPlatformDefault<bool>(true));
+
+        public static BasisSettingsBinding<float> MenuTeleportDistance = new("menuteleportdistance", new BasisPlatformDefault<float>(1.5f));
+
         public static BasisSettingsBinding<bool> ShowDeveloperTab = new("showdevelopertab", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<bool> ShowFrameTimeMs = new("showframetimems", new BasisPlatformDefault<bool>(false));
@@ -97,7 +101,7 @@ namespace Basis.BasisUI
         /// </summary>
         public static BasisSettingsBinding<bool> EnableEyeTracking = new("enableeyetracking", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<float> AvatarRange = new("avatarrange", new BasisPlatformDefault<float>(25));
+        public static BasisSettingsBinding<float> AvatarRange = new("avatarrange", new BasisPlatformDefault<float> { windows = 25, android = 15, ios = 15, linux = 25, other = 25 });
 
         /// <summary>
         /// Maximum number of remote players allowed to show their real avatar at once.
@@ -178,7 +182,7 @@ namespace Basis.BasisUI
         /// 4 = default (LOD 3 updates every 8th frame).
         /// 8 = aggressive (LOD 3 updates every 32nd frame).
         /// </summary>
-        public static BasisSettingsBinding<float> PoseLOD = new("poselod", new BasisPlatformDefault<float>(0));
+        public static BasisSettingsBinding<float> PoseLOD = new("poselod", new BasisPlatformDefault<float> { windows = 0, android = 3, ios = 3, linux = 0, other = 0 });
 
         public static BasisSettingsBinding<float> SnapTurnAngle = new("snapturnangle", new BasisPlatformDefault<float>(25f));
 
@@ -286,6 +290,47 @@ namespace Basis.BasisUI
         /// produced on demand from the world's APV and used immediately.
         /// </summary>
         public static BasisSettingsBinding<bool> VolumetricFogBakedAPV = new("volumetricfogbakedapv", new BasisPlatformDefault<bool>(true));
+
+        public static BasisSettingsBinding<string> VolumetricFogResolution = new("volumetricfogresolution", new BasisPlatformDefault<string>
+        {
+            windows = "Half",
+            android = "Quarter",
+            ios = "Quarter",
+            linux = "Half",
+            other = "Half"
+        });
+
+        public static BasisSettingsBinding<float> VolumetricFogMaxSteps = new("volumetricfogmaxsteps", new BasisPlatformDefault<float>
+        {
+            windows = 128f,
+            android = 48f,
+            ios = 48f,
+            linux = 128f,
+            other = 128f
+        });
+
+        public static BasisSettingsBinding<float> VolumetricFogBlurIterations = new("volumetricfogbluriterations", new BasisPlatformDefault<float>
+        {
+            windows = 2f,
+            android = 1f,
+            ios = 1f,
+            linux = 2f,
+            other = 2f
+        });
+
+        public const float FOG_MAX_STEPS_MIN = 8f;
+        public const float FOG_MAX_STEPS_MAX = 256f;
+        public const float FOG_BLUR_ITERATIONS_MIN = 0f;
+        public const float FOG_BLUR_ITERATIONS_MAX = 4f;
+
+        public static BasisSettingsBinding<bool> VolumetricFogTemporal = new("volumetricfogtemporal", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogFroxels = new("volumetricfogfroxels", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogAnalyticDepth = new("volumetricfoganalyticdepth", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogScaleSteps = new("volumetricfogscalesteps", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> VolumetricFogSunTrims = new("volumetricfogsuntrims", new BasisPlatformDefault<bool>(true));
+
+        public const string FogFroxelGridAuto = "Auto";
+        public static BasisSettingsBinding<string> VolumetricFogFroxelGrid = new("volumetricfogfroxelgrid", new BasisPlatformDefault<string>(FogFroxelGridAuto));
 
         /// <summary>
         /// When enabled, motion blur is driven from a high-priority global Volume owned by
@@ -586,7 +631,7 @@ namespace Basis.BasisUI
             other = false
         });
 
-        public static BasisSettingsBinding<string> Antialiasing = new("antialiasing", new BasisPlatformDefault<string>("msaa 2x"));
+        public static BasisSettingsBinding<string> Antialiasing = new("antialiasing", new BasisPlatformDefault<string> { windows = "msaa 2x", android = "msaa 4x", ios = "msaa 4x", linux = "msaa 2x", other = "msaa 2x" });
 
         public static BasisSettingsBinding<bool> DevVariableRateShading = new("devvariablerateshading", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> DevVariableRateShadingDesktop = new("devvariablerateshadingdesktop", new BasisPlatformDefault<bool>(false));
@@ -797,6 +842,24 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> AvatarPreviewMirror = new("avatarpreviewmirror", new BasisPlatformDefault<bool>(true));
 
+        public static BasisSettingsBinding<string> AvatarPreviewFraming = new("avatarpreviewframing", new BasisPlatformDefault<string>("upperbody"));
+
+        public static BasisSettingsBinding<string> AvatarPreviewPosition = new("avatarpreviewposition", new BasisPlatformDefault<string>("bottomright"));
+
+        public static BasisSettingsBinding<string> AvatarPreviewRotation = new("avatarpreviewrotation", new BasisPlatformDefault<string>("allowall"));
+
+        public static BasisSettingsBinding<float> AvatarPreviewMaxYaw = new("avatarpreviewmaxyaw", new BasisPlatformDefault<float>(90f));
+
+        public static BasisSettingsBinding<float> AvatarPreviewMaxPitch = new("avatarpreviewmaxpitch", new BasisPlatformDefault<float>(60f));
+
+        public static BasisSettingsBinding<float> AvatarPreviewSize = new("avatarpreviewsize", new BasisPlatformDefault<float>(1f));
+
+        public static BasisSettingsBinding<float> AvatarPreviewZoom = new("avatarpreviewzoom", new BasisPlatformDefault<float>(1f));
+
+        public static BasisSettingsBinding<float> AvatarPreviewOffsetX = new("avatarpreviewoffsetx", new BasisPlatformDefault<float>(0f));
+
+        public static BasisSettingsBinding<float> AvatarPreviewOffsetY = new("avatarpreviewoffsety", new BasisPlatformDefault<float>(0f));
+
         public static BasisSettingsBinding<bool> LimitHandHeldCameraRate = new("limithandheldcamerarate", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<float> HandHeldCameraRenderHz = new("handheldcamerarenderhz_v2", new BasisPlatformDefault<float>(30));
@@ -881,9 +944,9 @@ namespace Basis.BasisUI
         public const float FOV_MIN = 50;
         public const float FOV_MAX = 120;
 
-        public static BasisSettingsBinding<float> AvatarDownloadSize = new("avatardownloadsize", new BasisPlatformDefault<float>(256));
+        public static BasisSettingsBinding<float> AvatarDownloadSize = new("avatardownloadsize", new BasisPlatformDefault<float> { windows = 256, android = 64, ios = 64, linux = 256, other = 256 });
 
-        public static BasisSettingsBinding<float> CacheMaxSizeGB = new("cachemaxsizegb", new BasisPlatformDefault<float>(128));
+        public static BasisSettingsBinding<float> CacheMaxSizeGB = new("cachemaxsizegb", new BasisPlatformDefault<float> { windows = 128, android = 8, ios = 8, linux = 128, other = 128 });
 
         /// <summary>
         /// Maximum number of avatar asset bundles that can be downloaded from the network
@@ -892,21 +955,21 @@ namespace Basis.BasisUI
         /// longer on the loading avatar. Tune higher only if you have lots of bandwidth and
         /// the server is fast.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxConcurrentAvatarDownloads = new("maxconcurrentavatardownloads", new BasisPlatformDefault<float>(5));
+        public static BasisSettingsBinding<float> MaxConcurrentAvatarDownloads = new("maxconcurrentavatardownloads", new BasisPlatformDefault<float> { windows = 5, android = 3, ios = 3, linux = 5, other = 5 });
 
         /// <summary>
         /// Maximum number of cached avatar asset bundles that can be loaded from disc at
         /// once. Disc loads are I/O + decryption + bundle-decompression bound. This can be
         /// higher than the download gate because no network is involved.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxConcurrentAvatarDiscLoads = new("maxconcurrentavatardiscloads", new BasisPlatformDefault<float>(15));
+        public static BasisSettingsBinding<float> MaxConcurrentAvatarDiscLoads = new("maxconcurrentavatardiscloads", new BasisPlatformDefault<float> { windows = 15, android = 4, ios = 4, linux = 15, other = 15 });
 
         /// <summary>
         /// Maximum number of addressable (in-build) avatars that can be instantiated
         /// concurrently. Addressable loads are CPU-bound and typically very fast, so this
         /// gate can be the largest of the three.
         /// </summary>
-        public static BasisSettingsBinding<float> MaxConcurrentAvatarAddressables = new("maxconcurrentavataraddressables", new BasisPlatformDefault<float>(25));
+        public static BasisSettingsBinding<float> MaxConcurrentAvatarAddressables = new("maxconcurrentavataraddressables", new BasisPlatformDefault<float> { windows = 25, android = 6, ios = 6, linux = 25, other = 25 });
 
         // ---------------- AVATAR PERFORMANCE LIMITS ----------------
         // Client-side safety net that inspects the pre-download metadata header on each
@@ -918,7 +981,7 @@ namespace Basis.BasisUI
         // avatar (see SMModuleAvatarPerformanceLimits).
 
         public static BasisSettingsBinding<bool> UsePerfLimitTriangles = new("useperflimittriangles", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfTriangles = new("maxperftriangles", new BasisPlatformDefault<float>(2000000));
+        public static BasisSettingsBinding<float> MaxPerfTriangles = new("maxperftriangles", new BasisPlatformDefault<float> { windows = 2000000, android = 100000, ios = 100000, linux = 2000000, other = 2000000 });
 
         public static BasisSettingsBinding<bool> UsePerfLimitBoundsSize = new("useperflimitboundssize", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> MaxPerfBoundsSize = new("maxperfboundssize", new BasisPlatformDefault<float>(50f));
@@ -926,26 +989,26 @@ namespace Basis.BasisUI
         // Texture memory defaults on — 512 MB is generous for a single avatar but
         // catches the 2–4 GB outliers that trip out-of-memory on lower-end hardware.
         public static BasisSettingsBinding<bool> UsePerfLimitTextureMemory = new("useperflimittexturememory", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfTextureMemoryMB = new("maxperftexturememorymb", new BasisPlatformDefault<float>(512));
+        public static BasisSettingsBinding<float> MaxPerfTextureMemoryMB = new("maxperftexturememorymb", new BasisPlatformDefault<float> { windows = 512, android = 64, ios = 64, linux = 512, other = 512 });
 
         public static BasisSettingsBinding<bool> UsePerfLimitSkinnedMeshes = new("useperflimitskinnedmeshes", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfSkinnedMeshes = new("maxperfskinnedmeshes", new BasisPlatformDefault<float>(64));
+        public static BasisSettingsBinding<float> MaxPerfSkinnedMeshes = new("maxperfskinnedmeshes", new BasisPlatformDefault<float> { windows = 64, android = 8, ios = 8, linux = 64, other = 64 });
 
         public static BasisSettingsBinding<bool> UsePerfLimitBasicMeshes = new("useperflimitbasicmeshes", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfBasicMeshes = new("maxperfbasicmeshes", new BasisPlatformDefault<float>(128));
+        public static BasisSettingsBinding<float> MaxPerfBasicMeshes = new("maxperfbasicmeshes", new BasisPlatformDefault<float> { windows = 128, android = 16, ios = 16, linux = 128, other = 128 });
 
         public static BasisSettingsBinding<bool> UsePerfLimitMaterialSlots = new("useperflimitmaterialslots", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfMaterialSlots = new("maxperfmaterialslots", new BasisPlatformDefault<float>(256));
+        public static BasisSettingsBinding<float> MaxPerfMaterialSlots = new("maxperfmaterialslots", new BasisPlatformDefault<float> { windows = 256, android = 16, ios = 16, linux = 256, other = 256 });
 
         public static BasisSettingsBinding<bool> UsePerfLimitJiggleBones = new("useperflimitjigglebones", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfJiggleBones = new("maxperfjigglebones", new BasisPlatformDefault<float>(128));
+        public static BasisSettingsBinding<float> MaxPerfJiggleBones = new("maxperfjigglebones", new BasisPlatformDefault<float> { windows = 128, android = 48, ios = 48, linux = 128, other = 128 });
 
         public static BasisSettingsBinding<bool> UsePerfLimitJiggleColliders = new("useperflimitjigglecolliders", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfJiggleColliders = new("maxperfjigglecolliders", new BasisPlatformDefault<float>(64));
+        public static BasisSettingsBinding<float> MaxPerfJiggleColliders = new("maxperfjigglecolliders", new BasisPlatformDefault<float> { windows = 64, android = 16, ios = 16, linux = 64, other = 64 });
 
         public static BasisSettingsBinding<bool> UseJiggleCollisionFrustumCull = new("usejigglecollisionfrustumcull", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> UseJiggleCollisionDistanceCull = new("usejigglecollisiondistancecull", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> JiggleCollisionCullDistance = new("jigglecollisionculldistance", new BasisPlatformDefault<float>(20));
+        public static BasisSettingsBinding<float> JiggleCollisionCullDistance = new("jigglecollisionculldistance", new BasisPlatformDefault<float> { windows = 20, android = 10, ios = 10, linux = 20, other = 20 });
         public static BasisSettingsBinding<float> JiggleCullFrustumExpansion = new("jigglecullfrustumexpansion", new BasisPlatformDefault<float>(1.2f));
         public static BasisSettingsBinding<float> JiggleCullNearKeepRadius = new("jigglecullnearkeepradius", new BasisPlatformDefault<float>(2.5f));
         public static BasisSettingsBinding<float> JiggleBroadPhaseCellSize = new("jigglebroadphasecellsize", new BasisPlatformDefault<float>(0.5f));
@@ -954,9 +1017,9 @@ namespace Basis.BasisUI
         // colliders (hands become a single sphere), past Mid drop the arm/foot colliders too, past
         // Far remove them entirely.
         public static BasisSettingsBinding<bool> UseJiggleColliderDistanceLod = new("usejigglecolliderdistancelod", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> JiggleColliderLodNearDistance = new("jigglecolliderlodneardistance", new BasisPlatformDefault<float>(25));
-        public static BasisSettingsBinding<float> JiggleColliderLodMidDistance = new("jigglecolliderlodmiddistance", new BasisPlatformDefault<float>(50));
-        public static BasisSettingsBinding<float> JiggleColliderLodFarDistance = new("jigglecolliderlodfardistance", new BasisPlatformDefault<float>(100));
+        public static BasisSettingsBinding<float> JiggleColliderLodNearDistance = new("jigglecolliderlodneardistance", new BasisPlatformDefault<float> { windows = 25, android = 10, ios = 10, linux = 25, other = 25 });
+        public static BasisSettingsBinding<float> JiggleColliderLodMidDistance = new("jigglecolliderlodmiddistance", new BasisPlatformDefault<float> { windows = 50, android = 20, ios = 20, linux = 50, other = 50 });
+        public static BasisSettingsBinding<float> JiggleColliderLodFarDistance = new("jigglecolliderlodfardistance", new BasisPlatformDefault<float> { windows = 100, android = 40, ios = 40, linux = 100, other = 100 });
 
         // Distance-based pause of remote avatars' jiggle SIMULATION itself (Verlet integrate +
         // transform I/O), not just colliders — see BasisJiggleSimulationLOD. Off by default:
@@ -984,19 +1047,19 @@ namespace Basis.BasisUI
         // Particles default on at 4 — a few ambient systems are fine, more is a
         // hand grenade in a crowd. Trimmed, not blocked.
         public static BasisSettingsBinding<bool> UsePerfLimitParticleSystems = new("useperflimitparticlesystems", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfParticleSystems = new("maxperfparticlesystems_v2", new BasisPlatformDefault<float>(4));
+        public static BasisSettingsBinding<float> MaxPerfParticleSystems = new("maxperfparticlesystems_v2", new BasisPlatformDefault<float> { windows = 4, android = 1, ios = 1, linux = 4, other = 4 });
 
         // Trails default on at 4.
         public static BasisSettingsBinding<bool> UsePerfLimitTrailRenderers = new("useperflimittrailrenderers", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfTrailRenderers = new("maxperftrailrenderers_v2", new BasisPlatformDefault<float>(4));
+        public static BasisSettingsBinding<float> MaxPerfTrailRenderers = new("maxperftrailrenderers_v2", new BasisPlatformDefault<float> { windows = 4, android = 1, ios = 1, linux = 4, other = 4 });
 
         // Line renderers default on at 4.
         public static BasisSettingsBinding<bool> UsePerfLimitLineRenderers = new("useperflimitlinerenderers", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfLineRenderers = new("maxperflinerenderers_v2", new BasisPlatformDefault<float>(4));
+        public static BasisSettingsBinding<float> MaxPerfLineRenderers = new("maxperflinerenderers_v2", new BasisPlatformDefault<float> { windows = 4, android = 1, ios = 1, linux = 4, other = 4 });
 
         // Cloth defaults on at 1 — Unity Cloth is CPU-expensive per instance.
         public static BasisSettingsBinding<bool> UsePerfLimitCloth = new("useperflimitcloth", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfCloth = new("maxperfcloth", new BasisPlatformDefault<float>(1));
+        public static BasisSettingsBinding<float> MaxPerfCloth = new("maxperfcloth", new BasisPlatformDefault<float> { windows = 1, android = 0, ios = 0, linux = 1, other = 1 });
 
         // Unity colliders default on at 1 — physics colliders on an avatar
         // aren't free. Jiggle colliders are a separate limit.
@@ -1006,7 +1069,7 @@ namespace Basis.BasisUI
         // Cilbox script behaviours default on at 5 — every CilboxProxy on a remote
         // avatar is one sandboxed MonoBehaviour with its own Update/FixedUpdate tick.
         public static BasisSettingsBinding<bool> UsePerfLimitCilboxBehaviours = new("useperflimitcilboxbehaviours", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> MaxPerfCilboxBehaviours = new("maxperfcilboxbehaviours", new BasisPlatformDefault<float>(5));
+        public static BasisSettingsBinding<float> MaxPerfCilboxBehaviours = new("maxperfcilboxbehaviours", new BasisPlatformDefault<float> { windows = 5, android = 2, ios = 2, linux = 5, other = 5 });
 
         public static BasisSettingsBinding<float> AvatarMeshLOD = new("avatarmeshlod", new BasisPlatformDefault<float>
         {
@@ -1026,7 +1089,7 @@ namespace Basis.BasisUI
         // Nothing wrote shadowCastingMode on a remote renderer before this, so a distant crowd was
         // paying a full extra skinned draw per shadow cascade each.
         public static BasisSettingsBinding<bool> UseAvatarShadowLod = new("useavatarshadowlod", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<bool> UseAvatarVisibilityCull = new("useavatarvisibilitycull", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> UseAvatarVisibilityCull = new("useavatarvisibilitycull", new BasisPlatformDefault<bool> { windows = false, android = true, ios = true, linux = false, other = false });
         public static BasisSettingsBinding<bool> ShowPerformanceBar = new("showperformancebar", new BasisPlatformDefault<bool>(false));
         // UI-formatting only (which legend the CPU field renders) — no LoadAll mirror needed, the
         // settings panel reads RawValue directly each refresh.
@@ -1042,6 +1105,7 @@ namespace Basis.BasisUI
         // whatever the build picks. Unity only takes this from the command line, so a change lands
         // by relaunching into it — see BasisGraphicsApiSelection.
         public static BasisSettingsBinding<string> GraphicsApi = new("graphicsapi", new BasisPlatformDefault<string>(string.Empty));
+        public static BasisSettingsBinding<bool> Dx12Warning = new("dx12warning", new BasisPlatformDefault<bool>(true));
 
         // Shows the baked far avatar carried in a player's bundle (driven by the same
         // networked bone data) whenever their real avatar isn't loaded — past the max avatar
@@ -1058,13 +1122,17 @@ namespace Basis.BasisUI
         //    other = 20
         //});
 
+        // Mesh LOD is generated at import but only ever selected when this is non-zero -
+        // QualitySettings.meshLodThreshold is an error threshold, so 0 means "never drop a
+        // level". Desktop sat at 0, which made every generateMeshLods import inert there.
+        // 15 is half the mobile aggressiveness: enabled, but conservative.
         public static BasisSettingsBinding<float> GlobalMeshLOD = new("globalmeshlod", new BasisPlatformDefault<float>
         {
-            windows = 0,
+            windows = 15,
             android = 30,
             ios = 30,
-            linux = 0,
-            other = 0
+            linux = 15,
+            other = 15
         });
 
         /// <summary>
@@ -1383,10 +1451,10 @@ namespace Basis.BasisUI
 
         // ---------------- HIPS ----------------
         public static BasisSettingsBinding<bool> FBIKHipsSmoothPos =
-            new("fbikhipssmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikhipssmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKHipsSmoothRot =
-            new("fbikhipssmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikhipssmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKHipsEuroPos =
             new("fbikhipseuropos", new BasisPlatformDefault<bool>(true));
@@ -1396,176 +1464,176 @@ namespace Basis.BasisUI
 
         // ---------------- HEAD ----------------
         public static BasisSettingsBinding<bool> FBIKHeadSmoothPos =
-            new("fbikheadsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikheadsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKHeadSmoothRot =
-            new("fbikheadsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikheadsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKHeadEuroPos =
-            new("fbikheadeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikheadeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKHeadEuroRot =
-            new("fbikheadeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikheadeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- LEFT FOOT ----------------
         public static BasisSettingsBinding<bool> FBIKLeftFootSmoothPos =
-            new("fbikleftfootsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikleftfootsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftFootSmoothRot =
-            new("fbikleftfootsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikleftfootsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftFootEuroPos =
-            new("fbikleftfooteuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikleftfooteuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftFootEuroRot =
-            new("fbikleftfooteurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikleftfooteurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- RIGHT FOOT ----------------
         public static BasisSettingsBinding<bool> FBIKRightFootSmoothPos =
-            new("fbikrightfootsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikrightfootsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightFootSmoothRot =
-            new("fbikrightfootsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikrightfootsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightFootEuroPos =
-            new("fbikrightfooteuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikrightfooteuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightFootEuroRot =
-            new("fbikrightfooteurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikrightfooteurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- CHEST ----------------
         public static BasisSettingsBinding<bool> FBIKChestSmoothPos =
-            new("fbikchestsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikchestsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKChestSmoothRot =
-            new("fbikchestsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikchestsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKChestEuroPos =
-            new("fbikchesteuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikchesteuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKChestEuroRot =
-            new("fbikchesteurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikchesteurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- LEFT LOWER LEG ----------------
         public static BasisSettingsBinding<bool> FBIKLeftLowerLegSmoothPos =
-            new("fbikleftlowerlegsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerlegsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftLowerLegSmoothRot =
-            new("fbikleftlowerlegsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerlegsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftLowerLegEuroPos =
-            new("fbikleftlowerlegeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerlegeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftLowerLegEuroRot =
-            new("fbikleftlowerlegeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerlegeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- RIGHT LOWER LEG ----------------
         public static BasisSettingsBinding<bool> FBIKRightLowerLegSmoothPos =
-            new("fbikrightlowerlegsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerlegsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightLowerLegSmoothRot =
-            new("fbikrightlowerlegsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerlegsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightLowerLegEuroPos =
-            new("fbikrightlowerlegeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerlegeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightLowerLegEuroRot =
-            new("fbikrightlowerlegeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerlegeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- LEFT HAND ----------------
         public static BasisSettingsBinding<bool> FBIKLeftHandSmoothPos =
-            new("fbiklefthandsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbiklefthandsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftHandSmoothRot =
-            new("fbiklefthandsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbiklefthandsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftHandEuroPos =
-            new("fbikleftehandeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbiklefthandeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftHandEuroRot =
-            new("fbikleftehandeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbiklefthandeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- RIGHT HAND ----------------
         public static BasisSettingsBinding<bool> FBIKRightHandSmoothPos =
-            new("fbikrighthandsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikrighthandsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightHandSmoothRot =
-            new("fbikrighthandsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikrighthandsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightHandEuroPos =
-            new("fbikrighthandeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikrighthandeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightHandEuroRot =
-            new("fbikrighthandeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikrighthandeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- LEFT LOWER ARM ----------------
         public static BasisSettingsBinding<bool> FBIKLeftLowerArmSmoothPos =
-            new("fbikleftlowerarmsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerarmsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftLowerArmSmoothRot =
-            new("fbikleftlowerarmsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerarmsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftLowerArmEuroPos =
-            new("fbikleftlowerarmeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerarmeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftLowerArmEuroRot =
-            new("fbikleftlowerarmeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikleftlowerarmeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- RIGHT LOWER ARM ----------------
         public static BasisSettingsBinding<bool> FBIKRightLowerArmSmoothPos =
-            new("fbikrightlowerarmsmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerarmsmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightLowerArmSmoothRot =
-            new("fbikrightlowerarmsmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerarmsmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightLowerArmEuroPos =
-            new("fbikrightlowerarmeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerarmeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightLowerArmEuroRot =
-            new("fbikrightlowerarmeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbikrightlowerarmeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- LEFT TOE ----------------
         public static BasisSettingsBinding<bool> FBIKLeftToeSmoothPos =
-            new("fbiklefttoesmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbiklefttoesmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftToeSmoothRot =
-            new("fbiklefttoesmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbiklefttoesmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftToeEuroPos =
-            new("fbiklefttoeeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbiklefttoeeuropos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftToeEuroRot =
-            new("fbiklefttoeeurorot", new BasisPlatformDefault<bool>(false));
+            new("fbiklefttoeeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- RIGHT TOE ----------------
         public static BasisSettingsBinding<bool> FBIKRightToeSmoothPos =
-            new("fbikrighttoesmoothpos", new BasisPlatformDefault<bool>(false));
+            new("fbikrighttoesmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightToeSmoothRot =
-            new("fbikrighttoesmoothrot", new BasisPlatformDefault<bool>(false));
+            new("fbikrighttoesmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKRightToeEuroPos =
-            new("fbikrighttoeeuropos", new BasisPlatformDefault<bool>(false));
+            new("fbikrighttoeeuropos_v2", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> FBIKRightToeEuroRot = new("fbikrighttoeeurorot", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKRightToeEuroRot = new("fbikrighttoeeurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- LEFT SHOULDER ----------------
-        public static BasisSettingsBinding<bool> FBIKLeftShoulderSmoothPos = new("fbikleftshouldersmoothpos", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKLeftShoulderSmoothPos = new("fbikleftshouldersmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKLeftShoulderSmoothRot = new("fbikleftshouldersmoothrot", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> FBIKLeftShoulderEuroPos = new("fbikleftshouldereuropos", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKLeftShoulderEuroPos = new("fbikleftshouldereuropos_v2", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> FBIKLeftShoulderEuroRot = new("fbikleftshouldereurorot", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKLeftShoulderEuroRot = new("fbikleftshouldereurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- RIGHT SHOULDER ----------------
-        public static BasisSettingsBinding<bool> FBIKRightShoulderSmoothPos = new("fbikrightshouldersmoothpos", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKRightShoulderSmoothPos = new("fbikrightshouldersmoothpos_v2", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> FBIKRightShoulderSmoothRot = new("fbikrightshouldersmoothrot", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKRightShoulderSmoothRot = new("fbikrightshouldersmoothrot_v2", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> FBIKRightShoulderEuroPos = new("fbikrightshouldereuropos", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKRightShoulderEuroPos = new("fbikrightshouldereuropos_v2", new BasisPlatformDefault<bool>(true));
 
-        public static BasisSettingsBinding<bool> FBIKRightShoulderEuroRot = new("fbikrightshouldereurorot", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKRightShoulderEuroRot = new("fbikrightshouldereurorot_v2", new BasisPlatformDefault<bool>(true));
 
         // ---------------- PER-BONE CALIBRATION ENABLE ----------------
         // Defaults match the legacy BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker hardcode
@@ -2271,6 +2339,65 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> UseMirrorQualityOverride = new("usemirrorqualityoverride", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<string> MirrorQuality = new("mirrorquality", new BasisPlatformDefault<string>("2048"));
 
+        // Everything below was hardcoded behind #if UNITY_ANDROID. It is the mobile mirror budget:
+        // cheaper defaults on a tile GPU, every one of them user changeable, and "Auto" always means
+        // whatever the mirror itself was authored with.
+        public static BasisSettingsBinding<float> MirrorLodBias = new("mirrorlodbias", new BasisPlatformDefault<float>
+        {
+            windows = 1f,
+            android = 0.75f,
+            ios = 0.75f,
+            linux = 1f,
+            other = 1f
+        });
+
+        public const string MirrorAuto = "Auto";
+
+        public static BasisSettingsBinding<string> MirrorResolutionCap = new("mirrorresolutioncap", new BasisPlatformDefault<string>
+        {
+            windows = MirrorAuto,
+            android = "768",
+            ios = "768",
+            linux = MirrorAuto,
+            other = MirrorAuto
+        });
+
+        public static BasisSettingsBinding<string> MirrorDepthBits = new("mirrordepthbits", new BasisPlatformDefault<string>
+        {
+            windows = MirrorAuto,
+            android = "16",
+            ios = "16",
+            linux = MirrorAuto,
+            other = MirrorAuto
+        });
+
+        public static BasisSettingsBinding<string> MirrorMsaaFloor = new("mirrormsaafloor", new BasisPlatformDefault<string>
+        {
+            windows = MirrorAuto,
+            android = "4",
+            ios = "4",
+            linux = MirrorAuto,
+            other = MirrorAuto
+        });
+
+        public static BasisSettingsBinding<bool> MirrorDepthPrecisionGuard = new("mirrordepthprecisionguard", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
+
+        public static BasisSettingsBinding<bool> MirrorDistanceRateTiers = new("mirrordistanceratetiers", new BasisPlatformDefault<bool>
+        {
+            windows = false,
+            android = true,
+            ios = true,
+            linux = false,
+            other = false
+        });
+
         // ---------------- CAMERA CLIP OVERRIDE ----------------
         public static BasisSettingsBinding<bool> UseCameraClipOverride = new("usecameraclipoverride", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> CameraClipNear = new("cameraclipnear", new BasisPlatformDefault<float>(0.01f));
@@ -2437,6 +2564,15 @@ namespace Basis.BasisUI
             UseVolumetricFogOverride.LoadBindingValue();
             VolumetricFogDensity.LoadBindingValue();
             VolumetricFogBakedAPV.LoadBindingValue();
+            VolumetricFogResolution.LoadBindingValue();
+            VolumetricFogMaxSteps.LoadBindingValue();
+            VolumetricFogBlurIterations.LoadBindingValue();
+            VolumetricFogTemporal.LoadBindingValue();
+            VolumetricFogFroxels.LoadBindingValue();
+            VolumetricFogAnalyticDepth.LoadBindingValue();
+            VolumetricFogScaleSteps.LoadBindingValue();
+            VolumetricFogSunTrims.LoadBindingValue();
+            VolumetricFogFroxelGrid.LoadBindingValue();
             UseMotionBlurOverride.LoadBindingValue();
             MotionBlurIntensity.LoadBindingValue();
             MotionBlurClamp.LoadBindingValue();
@@ -2606,6 +2742,12 @@ namespace Basis.BasisUI
             // Mirror
             UseMirrorQualityOverride.LoadBindingValue();
             MirrorQuality.LoadBindingValue();
+            MirrorLodBias.LoadBindingValue();
+            MirrorResolutionCap.LoadBindingValue();
+            MirrorDepthBits.LoadBindingValue();
+            MirrorMsaaFloor.LoadBindingValue();
+            MirrorDepthPrecisionGuard.LoadBindingValue();
+            MirrorDistanceRateTiers.LoadBindingValue();
 
             // Camera Clip Override
             UseCameraClipOverride.LoadBindingValue();
@@ -2624,6 +2766,7 @@ namespace Basis.BasisUI
             UseAvatarVisibilityCull.LoadBindingValue();
             ShowPerformanceBar.LoadBindingValue();
             UseGpuOcclusionCulling.LoadBindingValue();
+            Dx12Warning.LoadBindingValue();
             UseAvatarFarLod.LoadBindingValue();
             //AvatarFarLodDistance.LoadBindingValue();
             GlobalMeshLOD.LoadBindingValue();
@@ -2697,10 +2840,21 @@ namespace Basis.BasisUI
 
             // UI
             RememberMenuState.LoadBindingValue();
+            MenuTeleport.LoadBindingValue();
+            MenuTeleportDistance.LoadBindingValue();
             ShowDeveloperTab.LoadBindingValue();
             ShowFrameTimeMs.LoadBindingValue();
             AvatarPreview.LoadBindingValue();
             AvatarPreviewMirror.LoadBindingValue();
+            AvatarPreviewFraming.LoadBindingValue();
+            AvatarPreviewPosition.LoadBindingValue();
+            AvatarPreviewRotation.LoadBindingValue();
+            AvatarPreviewMaxYaw.LoadBindingValue();
+            AvatarPreviewMaxPitch.LoadBindingValue();
+            AvatarPreviewSize.LoadBindingValue();
+            AvatarPreviewZoom.LoadBindingValue();
+            AvatarPreviewOffsetX.LoadBindingValue();
+            AvatarPreviewOffsetY.LoadBindingValue();
             LimitHandHeldCameraRate.LoadBindingValue();
             HandHeldCameraRenderHz.LoadBindingValue();
             LimitAvatarPreviewRate.LoadBindingValue();

@@ -172,3 +172,5 @@ MonoBehaviour:
   - HVR.Vixxy.HVRVixxyAggregator
   - HVR.Basis.Comms.HVRMeasure
   - Basis.Shims.BasisPermissionEventShim
+  - BasisPlatformSwitch
+  - Basis.Shims.BasisPlatformEventShim

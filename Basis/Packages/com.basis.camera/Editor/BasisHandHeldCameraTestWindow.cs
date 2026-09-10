@@ -96,7 +96,7 @@ namespace Basis.HandHeldCamera.Editor
             EditorGUILayout.LabelField("Setup", EditorStyles.boldLabel);
             using (new EditorGUI.IndentLevelScope())
             {
-                Status("Platform has a desktop window", BasisHandHeldCamera.IsDirectToScreenSupported,
+                Status("Platform has a desktop window", BasisCameraDirectToScreen.IsSupported,
                     "Direct To Screen is only offered on platforms with a monitor to draw on.");
 
                 UniversalRenderPipelineAsset asset = UniversalRenderPipeline.asset;
@@ -311,6 +311,20 @@ namespace Basis.HandHeldCamera.Editor
                 bool enabled = EditorGUILayout.Toggle("Enabled", camera.DirectToScreen);
                 if (enabled != camera.DirectToScreen) camera.SetDirectToScreen(enabled);
 
+                BasisCameraDirectToScreenFit fit = (BasisCameraDirectToScreenFit)EditorGUILayout.EnumPopup("Fit", camera.DirectToScreenFit);
+                if (fit != camera.DirectToScreenFit) camera.SetDirectToScreenFit(fit);
+                using (new EditorGUI.DisabledScope(fit != BasisCameraDirectToScreenFit.Fit && fit != BasisCameraDirectToScreenFit.Fill))
+                {
+                    Vector2 alignment = camera.DirectToScreenAlignment;
+                    float horizontal = EditorGUILayout.Slider("Horizontal", alignment.x, 0f, 1f);
+                    float vertical = EditorGUILayout.Slider("Vertical", alignment.y, 0f, 1f);
+                    if (horizontal != alignment.x || vertical != alignment.y) camera.SetDirectToScreenAlignment(horizontal, vertical);
+                }
+                if (camera.DirectToScreenFeedFollowsWindow)
+                {
+                    EditorGUILayout.LabelField("Feed", $"following the window: {DescribeTexture(camera.PreviewTexture)}");
+                }
+
                 BasisCameraDirectToScreenState state = camera.DirectToScreenState;
                 bool settled = state == BasisCameraDirectToScreenState.Off || state == BasisCameraDirectToScreenState.Presenting;
                 Status($"State: {state}", settled, DescribeState(state));
@@ -335,7 +349,7 @@ namespace Basis.HandHeldCamera.Editor
                 if (_showMonitorPreview)
                 {
                     EditorGUILayout.LabelField("What the monitor shows while presenting, at the game window's aspect:", EditorStyles.miniLabel);
-                    DrawMonitorPreview(camera.PreviewTexture);
+                    DrawMonitorPreview(camera);
                 }
             }
         }
@@ -360,6 +374,16 @@ namespace Basis.HandHeldCamera.Editor
                     "URP draws the headset mirror at the end of the player camera's stack; the screen camera has to draw after it to cover it.");
             }
 
+            // The final blit lands on the camera's pixel rect: a rect smaller than the window leaves
+            // the headset mirror showing round the feed, which is what a camera still aimed at both
+            // eyes does while XR runs.
+            Rect rect = screen.pixelRect;
+            bool covers = Mathf.Approximately(rect.width, Screen.width) && Mathf.Approximately(rect.height, Screen.height) && rect.x <= 0f && rect.y <= 0f;
+            Status($"Covers the window: camera rect {rect.width:0} x {rect.height:0} at ({rect.x:0}, {rect.y:0}), window {Screen.width} x {Screen.height}, target eye {screen.stereoTargetEye}", covers,
+                covers
+                    ? "The screen camera's pixel rect is the whole window, so the feed can reach every edge."
+                    : "The screen camera's pixel rect is not the whole window; whatever lies outside it keeps the headset mirror. Target eye must be None for the engine to size the camera to the window.");
+
             Status(output.IsUsingFallbackPass ? "Pass: enqueued by hand (fallback)" : "Pass: renderer feature", !output.IsUsingFallbackPass,
                 output.IsUsingFallbackPass
                     ? "No renderer on the pipeline carries the feature, so the pass is enqueued directly on the default renderer. It works, but see Setup."
@@ -380,6 +404,7 @@ namespace Basis.HandHeldCamera.Editor
             EditorGUILayout.LabelField("Source", $"{last.SourceWidth} x {last.SourceHeight}, {last.SourceFormat}, {last.SourceSamples}x MSAA");
             EditorGUILayout.LabelField("Target", $"{last.TargetWidth} x {last.TargetHeight}, {last.TargetFormat}, {last.TargetSamples}x MSAA");
             EditorGUILayout.LabelField("Viewport", $"{last.Viewport.width:0} x {last.Viewport.height:0} at ({last.Viewport.x:0}, {last.Viewport.y:0})");
+            EditorGUILayout.LabelField("Fit", $"{last.Fit}, feed window {last.ScaleBias.x:0.###} x {last.ScaleBias.y:0.###} from ({last.ScaleBias.z:0.###}, {last.ScaleBias.w:0.###})");
         }
 
         private static string DescribeState(BasisCameraDirectToScreenState state)
@@ -399,7 +424,7 @@ namespace Basis.HandHeldCamera.Editor
             }
         }
 
-        private static void DrawMonitorPreview(Texture feed)
+        private static void DrawMonitorPreview(BasisHandHeldCamera camera)
         {
             // The game window's own aspect, so the bars the monitor would show are the bars shown here.
             int windowWidth = Mathf.Max(1, Screen.width);
@@ -412,15 +437,22 @@ namespace Basis.HandHeldCamera.Editor
             if (window.width < 1f || window.height < 1f) return;
 
             EditorGUI.DrawRect(window, Color.black);
+            Texture feed = camera.PreviewTexture;
             if (feed == null)
             {
                 EditorGUI.LabelField(window, "no feed", EditorStyles.centeredGreyMiniLabel);
                 return;
             }
 
-            Rect fitted = BasisCameraDirectToScreenPass.FitViewport(feed.width, feed.height, window);
-            if (fitted.width < 1f || fitted.height < 1f) return;
-            EditorGUI.DrawPreviewTexture(fitted, feed, null, ScaleMode.StretchToFill);
+            // The pass's own placement, so the fit and alignment on the monitor are the ones shown
+            // here. IMGUI counts y down from the top and a viewport up from the bottom: the same
+            // gap, measured from the other edge.
+            BasisCameraDirectToScreenPlacement placement = BasisCameraDirectToScreenPass.Place(camera.DirectToScreenFit, feed.width, feed.height, window, camera.DirectToScreenAlignment);
+            if (placement.IsEmpty) return;
+            Rect viewport = placement.Viewport;
+            viewport.y = window.y + (window.yMax - viewport.yMax);
+            Vector4 crop = placement.ScaleBias;
+            GUI.DrawTextureWithTexCoords(viewport, feed, new Rect(crop.z, crop.w, crop.x, crop.y), false);
         }
 
         // ---------- Shared ----------

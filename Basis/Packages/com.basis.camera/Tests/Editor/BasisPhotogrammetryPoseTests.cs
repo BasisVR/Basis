@@ -10,6 +10,17 @@ namespace Basis.Tests.Camera
     public class BasisPhotogrammetryPoseTests
     {
         [Test]
+        public void PathPointStoresExactlyWhatItWasGiven()
+        {
+            Vector3 position = new Vector3(1f, 2f, 3f);
+            Quaternion rotation = Quaternion.Euler(10f, 20f, 30f);
+            var point = new BasisPhotogrammetryPathPoint(position, rotation);
+
+            Assert.That(point.Position, Is.EqualTo(position));
+            Assert.That(point.Rotation, Is.EqualTo(rotation));
+        }
+
+        [Test]
         public void IdentityRotationAtTheOriginIsTheIdentityMatrix()
         {
             Matrix4x4 matrix = BasisPhotogrammetryPose.BuildNerfTransformMatrix(Vector3.zero, Quaternion.identity);

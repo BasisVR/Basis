@@ -1,0 +1,214 @@
+// Froxel volume fog lighting: evaluates in-scatter and extinction once per camera-aligned froxel from
+// the height density, APV, the main light with its shadow, and URP's realtime additional lights (point,
+// spot and additional directional lights, through the Forward+ cluster lists where available). Runs
+// inside the render graph during the camera render so URP has bound shadows, lights and APV globally.
+// Per-column data (ray, furthest opaque depth, sun constant) comes from VolumetricFogFroxelColumns.compute,
+// which also integrates the result. Lighting modes are uniform flags rather than keywords so the variant
+// count stays at the URP light keywords only.
+
+#pragma kernel CSFroxelLight
+
+#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+#pragma multi_compile _ PROBE_VOLUMES_L1 PROBE_VOLUMES_L2
+#pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+#pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
+
+#include "./VolumetricFogCommon.hlsl"
+#include "./VolumetricFogFroxel.hlsl"
+
+RWTexture3D<float4> _VFFroxelLighting;
+Texture3D<float4> _VFFroxelLightingHistory;
+Texture2D<float4> _VFFroxelColumnSource;
+Texture2D<float4> _VFFroxelColumnLightSource;
+float4x4 _VFFroxelPrevViewProj[2];
+float4x4 _VFFroxelEyeViewProj[2];
+float4 _VFFroxelCameraPos[2];
+float4 _VFFroxelTemporal;        // x = temporal on, y = history valid, z = half rate update, w = frame parity
+float4 _VFFroxelTemporalParams;  // x = feedback, y = light change response
+float4 _VFFroxelLightFlags;      // x = apv enabled, y = apv baked, z = additional lights, w = shared stereo volume
+
+#if USE_CLUSTER_LIGHT_LOOP
+// ClusterInit from URP with the view index passed explicitly: compute has no per-thread stereo eye index,
+// and the shared stereo volume looks lights up in whichever eye sees the froxel.
+ClusterIterator FroxelClusterInit(float2 screenUV, float viewZ, uint eye)
+{
+    ClusterIterator state = (ClusterIterator)0;
+
+    uint2 tileCoord = uint2(saturate(screenUV) * URP_FP_TILE_SCALE);
+    uint tileIndex = tileCoord.y * URP_FP_TILE_COUNT_X + tileCoord.x + URP_FP_TILE_COUNT * eye;
+    state.tileWordsOffset = tileIndex * URP_FP_WORDS_PER_TILE;
+
+    uint zBinIndex = (uint)((IsPerspectiveProjection() ? log2(viewZ) : viewZ) * URP_FP_ZBIN_SCALE + URP_FP_ZBIN_OFFSET) + URP_FP_ZBIN_COUNT * eye;
+    uint zBinLastIndex = URP_FP_ZBIN_COUNT - 1 + URP_FP_ZBIN_COUNT * eye;
+    uint zBinStride = (2 + URP_FP_WORDS_PER_TILE);
+    uint zBinOffset = min(zBinIndex, zBinLastIndex) * zBinStride;
+    state.zBinWordsOffset = zBinOffset + 2;
+    uint header = Select4(asuint(urp_ZBins[zBinOffset / 4]), zBinOffset % 4);
+
+#if MAX_LIGHTS_PER_TILE > 32 || CLUSTER_HAS_REFLECTION_PROBES
+    state.entityIndexNextMax = header;
+#else
+    uint tileWordIndex = state.tileWordsOffset;
+    uint zBinWordIndex = state.zBinWordsOffset;
+    if (URP_FP_WORDS_PER_TILE > 0)
+    {
+        state.tileMask =
+            Select4(asuint(urp_Tiles[tileWordIndex / 4]), tileWordIndex % 4) &
+            Select4(asuint(urp_ZBins[zBinWordIndex / 4]), zBinWordIndex % 4) &
+            (0xFFFFFFFFu << (header & 0x1F)) & (0xFFFFFFFFu >> (31 - (header >> 16)));
+    }
+#endif
+    return state;
+}
+#endif
+
+real3 FroxelAdditionalLight(uint lightIndex, float3 posWS, float3 rd, float density)
+{
+    Light light = GetAdditionalPerObjectLight((int)lightIndex, posWS);
+    real shadow = AdditionalLightRealtimeShadow((int)lightIndex, posWS, light.direction);
+    real phase = CornetteShanksPhaseFunction(_VFAdditionalAnisotropy, dot(rd, light.direction));
+    return light.color * (light.distanceAttenuation * shadow * phase * (_VFAdditionalScattering * density));
+}
+
+real3 FroxelAdditionalLights(float3 posWS, float3 rd, float density, float2 froxelUV, float viewZ, uint viewIndex)
+{
+    real3 color = real3(0.0, 0.0, 0.0);
+
+#if USE_CLUSTER_LIGHT_LOOP
+    uint directionalCount = min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, (uint)MAX_VISIBLE_LIGHTS);
+    UNITY_LOOP
+    for (uint d = 0; d < directionalCount; ++d)
+        color += FroxelAdditionalLight(d, posWS, rd, density);
+
+    float2 screenUV = froxelUV;
+    uint eye = viewIndex;
+    UNITY_BRANCH
+    if (_VFFroxelLightFlags.w > 0.5)
+    {
+        screenUV = ComputeNormalizedDeviceCoordinates(posWS, _VFFroxelEyeViewProj[0]);
+        eye = 0u;
+        UNITY_BRANCH
+        if (any(screenUV < 0.0) || any(screenUV > 1.0))
+        {
+            screenUV = ComputeNormalizedDeviceCoordinates(posWS, _VFFroxelEyeViewProj[1]);
+            eye = 1u;
+        }
+    }
+
+    ClusterIterator iterator = FroxelClusterInit(screenUV, viewZ, eye);
+    uint lightIndex;
+    UNITY_LOOP
+    while (ClusterNext(iterator, lightIndex))
+    {
+        lightIndex += URP_FP_DIRECTIONAL_LIGHTS_COUNT;
+        color += FroxelAdditionalLight(lightIndex, posWS, rd, density);
+    }
+#else
+    uint count = min((uint)_AdditionalLightsCount.x, (uint)MAX_VISIBLE_LIGHTS);
+    UNITY_LOOP
+    for (uint i = 0; i < count; ++i)
+        color += FroxelAdditionalLight(i, posWS, rd, density);
+#endif
+
+    return color;
+}
+
+[numthreads(8, 8, 1)]
+void CSFroxelLight(uint3 id : SV_DispatchThreadID)
+{
+    uint width = (uint)_VFFroxelGridSize.x;
+    uint height = (uint)_VFFroxelGridSize.y;
+    uint slices = (uint)_VFFroxelGridSize.z;
+    uint viewCount = (uint)_VFFroxelParams.w;
+    if (id.x >= width * viewCount || id.y >= height || id.z >= slices)
+        return;
+
+    uint viewIndex = id.x / width;
+    uint3 cell = uint3(id.x - viewIndex * width, id.y, id.z);
+    float3 centerUVW = (float3(cell) + 0.5) / float3(width, height, slices);
+    float4 column = _VFFroxelColumnSource[id.xy];
+
+    UNITY_BRANCH
+    if ((float)cell.z > FroxelCullSlice(column.w))
+    {
+        _VFFroxelLighting[id] = float4(0.0, 0.0, 0.0, VF_FROXEL_CULL_SENTINEL);
+        return;
+    }
+
+    float3 cameraPos = _VFFroxelCameraPos[viewIndex].xyz;
+    bool temporal = _VFFroxelTemporal.x > 0.5;
+
+    float4 history = float4(0.0, 0.0, 0.0, 0.0);
+    bool historyValid = false;
+    UNITY_BRANCH
+    if (temporal && _VFFroxelTemporal.y > 0.5)
+    {
+        float3 centerWS = cameraPos + column.xyz * FroxelSliceToViewDepth(centerUVW.z);
+        float4x4 prevViewProj = _VFFroxelPrevViewProj[viewIndex];
+        float4 prevClip = mul(prevViewProj, float4(centerWS, 1.0));
+        float2 prevUV = ComputeNormalizedDeviceCoordinates(centerWS, prevViewProj);
+        UNITY_BRANCH
+        if (prevClip.w > _VFFroxelParams.x && all(prevUV >= 0.0) && all(prevUV <= 1.0))
+        {
+            history = SAMPLE_TEXTURE3D_LOD(_VFFroxelLightingHistory, sampler_LinearClamp, FroxelUVW(prevUV, prevClip.w, viewIndex), 0.0);
+            historyValid = history.a >= 0.0;
+        }
+    }
+
+    // Half-rate update: with valid history, only every other froxel (checkerboard, flipped each frame) is
+    // relit; the rest carry their reprojected history forward.
+    UNITY_BRANCH
+    if (historyValid && _VFFroxelTemporal.z > 0.5 && ((cell.x + cell.y + cell.z + (uint)_VFFroxelTemporal.w) & 1u) == 1u)
+    {
+        _VFFroxelLighting[id] = history;
+        return;
+    }
+
+    float jitter = 0.0;
+    UNITY_BRANCH
+    if (temporal)
+    {
+        float2 noiseUV = (float2(cell.xy) + 0.5 + float2(cell.z * 7.0, cell.z * 3.0)) * _BlueNoiseParams.xy + _BlueNoiseParams.zw;
+        jitter = SAMPLE_TEXTURE2D_LOD(_BlueNoiseTexture, sampler_PointRepeat, noiseUV, 0.0).r - 0.5;
+    }
+
+    float sampleDepth = FroxelSliceToViewDepth(centerUVW.z + jitter * _VFFroxelGridSize.w);
+    float3 posWS = cameraPos + column.xyz * sampleDepth;
+
+    float invHeightRange = rcp(max(_MaximumHeight - _BaseHeight, 1e-4));
+    float density = GetFogDensity(posWS.y, invHeightRange);
+    float4 result = float4(0.0, 0.0, 0.0, 0.0);
+
+    UNITY_BRANCH
+    if (density > _Density * VF_MIN_DENSITY_FRACTION)
+    {
+        real3 apvColor = EvaluateWeightedAPVDynamic(centerUVW.xy * _ScreenSize.xy, posWS, _VFFroxelLightFlags.x > 0.5, _VFFroxelLightFlags.y > 0.5) * density;
+
+        real3 mainLightColor = real3(0.0, 0.0, 0.0);
+        real3 mainLightConst = _VFFroxelColumnLightSource[id.xy].rgb;
+        UNITY_BRANCH
+        if (any(mainLightConst > 0.0))
+            mainLightColor = GetStepMainLightColor(posWS, mainLightConst, density);
+
+        real3 additionalColor = real3(0.0, 0.0, 0.0);
+        UNITY_BRANCH
+        if (_VFFroxelLightFlags.z > 0.5)
+            additionalColor = FroxelAdditionalLights(posWS, normalize(column.xyz), density, centerUVW.xy, sampleDepth, viewIndex);
+
+        result = float4(apvColor + mainLightColor + additionalColor, _Absortion * density);
+    }
+
+    UNITY_BRANCH
+    if (historyValid)
+    {
+        // Blend less where the lighting actually changed (a moving or strobing light) so history does not
+        // ghost; jitter noise moves a froxel far less than that between frames.
+        float currentLuma = max(result.r, max(result.g, result.b));
+        float historyLuma = max(history.r, max(history.g, history.b));
+        float change = abs(historyLuma - currentLuma) / max(max(historyLuma, currentLuma), 1e-4);
+        float feedback = _VFFroxelTemporalParams.x * (1.0 - _VFFroxelTemporalParams.y * saturate((change - 0.25) * 2.0));
+        result = lerp(result, history, feedback);
+    }
+
+    _VFFroxelLighting[id] = result;
+}

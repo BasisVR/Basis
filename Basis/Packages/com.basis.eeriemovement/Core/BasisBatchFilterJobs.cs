@@ -128,35 +128,21 @@ namespace Basis.Scripts.Drivers
             {
                 st.hasPrev = true;
                 st.prev = q;
+                st.logVecState = default;
                 return q;
             }
-
+            dt = math.max(dt, 1e-6f);
             float4 pv = st.prev.value, qv = q.value;
             if (math.dot(pv, qv) < 0f) qv = -qv;
             q = new quaternion(qv);
-
-            quaternion prevInv = math.conjugate(st.prev), delta = math.mul(q, prevInv);
-            float4 dv = delta.value;
-            float w = math.clamp(dv.w, -1f, 1f), halfAngle = math.acos(w), angle = 2f * halfAngle;
-            if (angle > math.PI) angle -= 2f * math.PI;
-
-            float sinHalf = math.sqrt(math.max(0f, 1f - w * w));
-            float3 axis = sinHalf > 1e-6f ? dv.xyz / sinHalf : new float3(0f, 0f, 0f), logVec = axis * angle;
-            float3 filteredLog = EuroVec3(ref st.logVecState, logVec, dt, minCutoff, beta, dCutoff);
-            float mag = math.length(filteredLog);
-            quaternion filteredDelta;
-            if (mag < 1e-6f)
-            {
-                filteredDelta = quaternion.identity;
-            }
-            else
-            {
-                float3 unit = filteredLog / mag;
-                float halfMag = mag * 0.5f, s = math.sin(halfMag);
-                filteredDelta = new quaternion(unit.x * s, unit.y * s, unit.z * s, math.cos(halfMag));
-            }
-
-            quaternion outQ = math.mul(filteredDelta, st.prev);
+            float4 dv = math.mul(q, math.conjugate(st.prev)).value;
+            float w = math.clamp(dv.w, -1f, 1f), sinHalf = math.sqrt(math.max(0f, 1f - w * w));
+            float3 rate = sinHalf > 1e-6f ? dv.xyz * (2f * math.acos(w) / (sinHalf * dt)) : float3.zero;
+            float ad = Alpha(dCutoff, dt);
+            if (st.logVecState.dxHasPrev) st.logVecState.hatDx = math.lerp(st.logVecState.hatDx, rate, ad);
+            else { st.logVecState.hatDx = rate; st.logVecState.dxHasPrev = true; }
+            float cutoff = minCutoff + beta * math.length(st.logVecState.hatDx), a = Alpha(cutoff, dt);
+            quaternion outQ = math.normalize(SlerpShortest(st.prev, q, a));
             st.prev = outQ;
             return outQ;
         }

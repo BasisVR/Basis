@@ -35,19 +35,19 @@ namespace Basis.Tests.Camera
         public void SettersClampToTheRangesThePanelPromises()
         {
             _camera.SetGifFrameRate(1);
-            Assert.That(_camera.GifFrameRate, Is.EqualTo(BasisHandHeldCamera.MinGifFrameRate));
+            Assert.That(_camera.GifFrameRate, Is.EqualTo(BasisCameraRecordingLimits.MinGifFrameRate));
             _camera.SetGifFrameRate(500);
-            Assert.That(_camera.GifFrameRate, Is.EqualTo(BasisHandHeldCamera.MaxGifFrameRate));
+            Assert.That(_camera.GifFrameRate, Is.EqualTo(BasisCameraRecordingLimits.MaxGifFrameRate));
 
             _camera.SetGifDuration(0f);
-            Assert.That(_camera.GifDurationSeconds, Is.EqualTo(BasisHandHeldCamera.MinGifDurationSeconds));
+            Assert.That(_camera.GifDurationSeconds, Is.EqualTo(BasisCameraRecordingLimits.MinGifDurationSeconds));
             _camera.SetGifDuration(600f);
-            Assert.That(_camera.GifDurationSeconds, Is.EqualTo(BasisHandHeldCamera.MaxGifDurationSeconds));
+            Assert.That(_camera.GifDurationSeconds, Is.EqualTo(BasisCameraRecordingLimits.MaxGifDurationSeconds));
 
             _camera.SetGifWidth(8);
-            Assert.That(_camera.GifWidth, Is.EqualTo(BasisHandHeldCamera.MinGifWidth));
+            Assert.That(_camera.GifWidth, Is.EqualTo(BasisCameraRecordingLimits.MinGifWidth));
             _camera.SetGifWidth(9999);
-            Assert.That(_camera.GifWidth, Is.EqualTo(BasisHandHeldCamera.MaxGifWidth));
+            Assert.That(_camera.GifWidth, Is.EqualTo(BasisCameraRecordingLimits.MaxGifWidth));
 
             _camera.SetGifWidth(500);
             Assert.That(_camera.GifWidth, Is.EqualTo(500), "In-range values pass through unsnapped.");
@@ -73,9 +73,9 @@ namespace Basis.Tests.Camera
         [Test]
         public void EveryPanelWidthPresetIsInsideTheSetterRange()
         {
-            foreach (int preset in BasisHandHeldCamera.GifWidthPresets)
+            foreach (int preset in BasisCameraRecordingLimits.GifWidthPresets)
             {
-                Assert.That(preset, Is.InRange(BasisHandHeldCamera.MinGifWidth, BasisHandHeldCamera.MaxGifWidth));
+                Assert.That(preset, Is.InRange(BasisCameraRecordingLimits.MinGifWidth, BasisCameraRecordingLimits.MaxGifWidth));
             }
         }
 

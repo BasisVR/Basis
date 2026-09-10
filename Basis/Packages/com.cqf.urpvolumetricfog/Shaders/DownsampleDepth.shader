@@ -29,14 +29,30 @@ Shader "Hidden/DownsampleDepth"
             #pragma vertex Vert
             #pragma fragment Frag
 
+            int _DownsampleDepthFactor;
+
             float Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-                float4 depths = GATHER_RED_TEXTURE2D_X(_CameraDepthTexture, sampler_CameraDepthTexture, input.texcoord);
-                
-                float minDepth = Min3(depths.x, depths.y, min(depths.z, depths.w));
-                float maxDepth = Max3(depths.x, depths.y, max(depths.z, depths.w));
+                uint factor = max(2u, (uint)_DownsampleDepthFactor);
+                uint2 sourceOrigin = uint2(input.positionCS.xy) * factor;
+                float2 sourceTexelSize = _CameraDepthTexture_TexelSize.xy;
+                float minDepth = 1.0;
+                float maxDepth = 0.0;
+
+                UNITY_LOOP
+                for (uint y = 0; y < factor; y += 2)
+                {
+                    UNITY_LOOP
+                    for (uint x = 0; x < factor; x += 2)
+                    {
+                        float2 gatherUv = float2(sourceOrigin + uint2(x + 1, y + 1)) * sourceTexelSize;
+                        float4 depths = GATHER_RED_TEXTURE2D_X(_CameraDepthTexture, sampler_CameraDepthTexture, gatherUv);
+                        minDepth = min(minDepth, Min3(depths.x, depths.y, min(depths.z, depths.w)));
+                        maxDepth = max(maxDepth, Max3(depths.x, depths.y, max(depths.z, depths.w)));
+                    }
+                }
 
                 return (uint(input.positionCS.x + input.positionCS.y) & 1) > 0 ? minDepth : maxDepth;
             }
@@ -98,21 +114,28 @@ Shader "Hidden/DownsampleDepth"
             #pragma vertex Vert
             #pragma fragment Frag
 
+            int _DownsampleDepthFactor;
+
             float Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-                float4 depths;
+                uint factor = max(2u, (uint)_DownsampleDepthFactor);
+                uint2 sourceOrigin = uint2(input.positionCS.xy) * factor;
+                float minDepth = 1.0;
+                float maxDepth = 0.0;
 
-                uint2 fullResTopLeftCorner = uint2(input.positionCS.xy * 2.0);
-
-                depths.x = LoadSceneDepth(fullResTopLeftCorner + uint2(0, 1));
-                depths.y = LoadSceneDepth(fullResTopLeftCorner + uint2(1, 1));
-                depths.z = LoadSceneDepth(fullResTopLeftCorner + uint2(1, 0));
-                depths.w = LoadSceneDepth(fullResTopLeftCorner);
-
-                float minDepth = Min3(depths.x, depths.y, min(depths.z, depths.w));
-                float maxDepth = Max3(depths.x, depths.y, max(depths.z, depths.w));
+                UNITY_LOOP
+                for (uint y = 0; y < factor; ++y)
+                {
+                    UNITY_LOOP
+                    for (uint x = 0; x < factor; ++x)
+                    {
+                        float depth = LoadSceneDepth(sourceOrigin + uint2(x, y));
+                        minDepth = min(minDepth, depth);
+                        maxDepth = max(maxDepth, depth);
+                    }
+                }
 
                 return (uint(input.positionCS.x + input.positionCS.y) & 1) > 0 ? minDepth : maxDepth;
             }

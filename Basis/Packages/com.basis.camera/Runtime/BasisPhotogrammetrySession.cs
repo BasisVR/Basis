@@ -130,7 +130,7 @@ namespace Basis
             if (source == null || target == null) return false;
             if (pendingReadbacks.Count >= MaxPendingReadbacks) return false;
 
-            BasisHandHeldCamera.GetStreamBlitCrop(source, target, out Vector2 scale, out Vector2 offset);
+            BasisCameraRenderTargets.GetBlitCrop(source, target, out Vector2 scale, out Vector2 offset);
             Graphics.Blit(source, target, scale, offset);
 
             pendingReadbacks.Add(new PendingReadback

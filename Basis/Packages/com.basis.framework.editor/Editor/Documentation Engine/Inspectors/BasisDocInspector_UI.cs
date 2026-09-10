@@ -23,7 +23,7 @@ public class BasisDocInspector_UI : Editor
     private const string DbAssetPath = "Packages/com.basis.framework.editor/Editor/Documentation Engine/BasisDocDB.asset";
 
     // ---------- Data ----------
-    private BasisDocDB _db;
+    private static BasisDocDB _db;
     private List<MemberRow> _all = new();
     private List<MemberRow> _view = new();
     private readonly List<NavFrame> _nav = new();
@@ -114,9 +114,6 @@ public class BasisDocInspector_UI : Editor
     // ---------- Inspector entry ----------
     public override VisualElement CreateInspectorGUI()
     {
-        _db = AssetDatabase.LoadAssetAtPath<BasisDocDB>(DbAssetPath);
-        _db?.BuildIndex();
-
         var hostType = target.GetType();
         _useApiPanel = ShouldHandleType(hostType);
         var banner = BasisDeprecatedComponentUpgrader.Banner(targets);
@@ -151,12 +148,6 @@ public class BasisDocInspector_UI : Editor
     /// </summary>
     public VisualElement CreateApiReferenceFoldout()
     {
-        if (_db == null)
-        {
-            _db = AssetDatabase.LoadAssetAtPath<BasisDocDB>(DbAssetPath);
-            _db?.BuildIndex();
-        }
-
         var hostType = target.GetType();
         if (!ShouldHandleType(hostType)) return null;
 
@@ -167,9 +158,13 @@ public class BasisDocInspector_UI : Editor
         };
         StyleCardFoldout(apiFoldout);
 
-        _nav.Clear();
-        _nav.Add(BuildRootFrame(hostType));
-        apiFoldout.Add(BuildApiSplitView());
+        apiFoldout.RegisterValueChangedCallback(_ =>
+        {
+            if (!apiFoldout.value || apiFoldout.childCount > 0) return;
+            _nav.Clear();
+            _nav.Add(BuildRootFrame(hostType));
+            apiFoldout.Add(BuildApiSplitView());
+        });
         return apiFoldout;
     }
 
@@ -189,6 +184,7 @@ public class BasisDocInspector_UI : Editor
 
     private bool ShouldHandleType(Type t)
     {
+        if (_db == null) _db = AssetDatabase.LoadAssetAtPath<BasisDocDB>(DbAssetPath);
         if (_db == null) return false;
         if (!typeof(MonoBehaviour).IsAssignableFrom(t)) return false;
         if (!IsOurs(t, t)) return false;

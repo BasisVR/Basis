@@ -1,6 +1,5 @@
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.TransformBinders;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -27,6 +26,13 @@ namespace Basis.Scripts.Drivers
         /// <summary>Vertical FOV in degrees. Camera distance is auto-computed each frame to fit the target framing.</summary>
         public float CameraFieldOfView = 40f;
 
+        public Vector3 VRDisplayAnchorOffset = new Vector3(0.2f, 0.15f, 0.5f);
+        public float VRDisplayHeight = 0.2f;
+
+        public enum PreviewFraming { FullBody, UpperBody, Face }
+        public enum PreviewAnchor { BottomRight, BottomLeft, MiddleRight, MiddleLeft, TopRight, TopLeft }
+        public enum PreviewRotation { LockFace, AllowYaw, AllowPitch, AllowAll }
+
         // Vertical framing target as fractions of player height: bottom of frame is just under
         // the hips, top is just above the head. Horizontal extent follows from the texture aspect.
         private const float FrameBottomFrac = 0.45f;
@@ -41,6 +47,12 @@ namespace Basis.Scripts.Drivers
         // fraction of the hip→head-bone distance, so a raised arm — which also lands inside the
         // renderer bounds — can't blow out the shot. Generous for hair/most hats; very tall hats clip.
         private const float CrownCapRatio = 0.8f;
+        private const float FullBodyFloorPadFrac = 0.03f;
+        private const float FaceNeckDropFrac = 0.15f;
+        private const float FaceNeckPadFrac = 0.05f;
+        private const float FullBodyFallbackBottomFrac = -0.03f;
+        private const float FaceFallbackBottomFrac = 0.78f;
+        private const float MaxOrbitPitchDegrees = 89f;
 
         [System.NonSerialized] public Camera PreviewCamera;
         [System.NonSerialized] public RenderTexture PreviewRT;
@@ -56,6 +68,28 @@ namespace Basis.Scripts.Drivers
         private bool initialized;
         private bool active;
         private Basis.BasisRenderRateLimiter renderRateLimiter;
+        private bool layoutValid;
+        private bool layoutVR;
+        private float layoutFov;
+        private float layoutAspect;
+        private float layoutSizeScale;
+        private float layoutVRHeight;
+        private Vector3 layoutVROffset;
+        private PreviewFraming framing = PreviewFraming.UpperBody;
+        private PreviewAnchor anchor = PreviewAnchor.BottomRight;
+        private PreviewRotation rotationMode = PreviewRotation.AllowAll;
+        private Vector3 lastOrbitYaw = Vector3.forward;
+        private float maxYawDegrees = 90f;
+        private float maxPitchDegrees = 60f;
+        private Object crownAvatar;
+        private float crownAboveHeadRatio;
+        private float sizeScale = 1f;
+        private float zoom = 1f;
+        private float offsetX;
+        private float offsetY;
+        private static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+        private static readonly int MainTexSTId = Shader.PropertyToID("_MainTex_ST");
+        private static readonly int CullModeId = Shader.PropertyToID("_CullMode");
 
         /// <summary>
         /// Stores the driver reference and reads the saved setting.
@@ -91,9 +125,93 @@ namespace Basis.Scripts.Drivers
 
         public void SetMirror(bool mirrored)
         {
-            if (displaySpriteRenderer != null)
+            if (displaySpriteRenderer != null && propertyBlock != null)
             {
-                displaySpriteRenderer.flipX = mirrored;
+                propertyBlock.SetVector(MainTexSTId, mirrored ? new Vector4(-1f, 1f, 1f, 0f) : new Vector4(1f, 1f, 0f, 0f));
+                displaySpriteRenderer.SetPropertyBlock(propertyBlock);
+            }
+        }
+
+        public void SetFraming(string value)
+        {
+            framing = ParseFraming(value);
+        }
+
+        public void SetPosition(string value)
+        {
+            anchor = ParseAnchor(value);
+            layoutValid = false;
+        }
+
+        public void SetRotation(string value)
+        {
+            rotationMode = ParseRotation(value);
+        }
+
+        public void SetMaxYaw(float degrees)
+        {
+            maxYawDegrees = Mathf.Clamp(degrees, 0f, 180f);
+        }
+
+        public void SetMaxPitch(float degrees)
+        {
+            maxPitchDegrees = Mathf.Clamp(degrees, 0f, MaxOrbitPitchDegrees);
+        }
+
+        public void SetSize(float value)
+        {
+            sizeScale = Mathf.Clamp(value, 0.25f, 4f);
+            layoutValid = false;
+        }
+
+        public void SetZoom(float value)
+        {
+            zoom = Mathf.Clamp(value, 0.25f, 4f);
+        }
+
+        public void SetOffsetX(float value)
+        {
+            offsetX = value;
+            layoutValid = false;
+        }
+
+        public void SetOffsetY(float value)
+        {
+            offsetY = value;
+            layoutValid = false;
+        }
+
+        public static PreviewFraming ParseFraming(string value)
+        {
+            switch (value != null ? value.ToLowerInvariant() : string.Empty)
+            {
+                case "fullbody": return PreviewFraming.FullBody;
+                case "face": return PreviewFraming.Face;
+                default: return PreviewFraming.UpperBody;
+            }
+        }
+
+        public static PreviewAnchor ParseAnchor(string value)
+        {
+            switch (value != null ? value.ToLowerInvariant() : string.Empty)
+            {
+                case "bottomleft": return PreviewAnchor.BottomLeft;
+                case "middleright": return PreviewAnchor.MiddleRight;
+                case "middleleft": return PreviewAnchor.MiddleLeft;
+                case "topright": return PreviewAnchor.TopRight;
+                case "topleft": return PreviewAnchor.TopLeft;
+                default: return PreviewAnchor.BottomRight;
+            }
+        }
+
+        public static PreviewRotation ParseRotation(string value)
+        {
+            switch (value != null ? value.ToLowerInvariant() : string.Empty)
+            {
+                case "lockface": return PreviewRotation.LockFace;
+                case "allowyaw": return PreviewRotation.AllowYaw;
+                case "allowpitch": return PreviewRotation.AllowPitch;
+                default: return PreviewRotation.AllowAll;
             }
         }
 
@@ -145,7 +263,7 @@ namespace Basis.Scripts.Drivers
 
             displaySpriteRenderer = displayGO.AddComponent<SpriteRenderer>();
             displaySpriteRenderer.sharedMaterial = new Material(Shader.Find("Basis/UI/Main"));
-            displaySpriteRenderer.flipX = BasisSettingsDefaults.AvatarPreviewMirror.RawValue;
+            displaySpriteRenderer.sharedMaterial.SetInt(CullModeId, (int)UnityEngine.Rendering.CullMode.Off);
 
             // Create a dummy sprite for mesh/UV generation (full 0-1 UVs)
             dummyTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
@@ -155,9 +273,20 @@ namespace Basis.Scripts.Drivers
 
             // MaterialPropertyBlock overrides SpriteRenderer's internal texture
             propertyBlock = new MaterialPropertyBlock();
-            propertyBlock.SetTexture("_MainTex", PreviewRT);
+            propertyBlock.SetTexture(MainTexId, PreviewRT);
             displaySpriteRenderer.SetPropertyBlock(propertyBlock);
+            SetMirror(BasisSettingsDefaults.AvatarPreviewMirror.RawValue);
 
+            framing = ParseFraming(BasisSettingsDefaults.AvatarPreviewFraming.RawValue);
+            anchor = ParseAnchor(BasisSettingsDefaults.AvatarPreviewPosition.RawValue);
+            rotationMode = ParseRotation(BasisSettingsDefaults.AvatarPreviewRotation.RawValue);
+            maxYawDegrees = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewMaxYaw.RawValue, 0f, 180f);
+            maxPitchDegrees = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewMaxPitch.RawValue, 0f, MaxOrbitPitchDegrees);
+            sizeScale = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewSize.RawValue, 0.25f, 4f);
+            zoom = Mathf.Clamp(BasisSettingsDefaults.AvatarPreviewZoom.RawValue, 0.25f, 4f);
+            offsetX = BasisSettingsDefaults.AvatarPreviewOffsetX.RawValue;
+            offsetY = BasisSettingsDefaults.AvatarPreviewOffsetY.RawValue;
+            layoutValid = false;
             initialized = true;
             active = true;
         }
@@ -212,14 +341,15 @@ namespace Basis.Scripts.Drivers
             // Frame from just under the hips to just above the crown using the avatar's own
             // geometry, so the shot fits each avatar's proportions and re-fits when swapped.
             // Falls back to player-height fractions while the avatar/bones aren't ready yet.
-            if (!TryGetAvatarVerticalFraming(feetPos.y, playerHeight, out float frameBottomY, out float frameTopY))
+            if (!TryGetAvatarFraming(feetPos, playerHeight, out Vector3 frameCenter, out float frameBottomY, out float frameTopY))
             {
-                frameBottomY = feetPos.y + playerHeight * FrameBottomFrac;
+                frameCenter = feetPos;
+                float bottomFrac = framing == PreviewFraming.FullBody ? FullBodyFallbackBottomFrac : framing == PreviewFraming.Face ? FaceFallbackBottomFrac : FrameBottomFrac;
+                frameBottomY = feetPos.y + playerHeight * bottomFrac;
                 frameTopY = feetPos.y + playerHeight * FrameTopFrac;
             }
 
             float verticalSpan = frameTopY - frameBottomY;
-            Vector3 frameCenter = feetPos;
             frameCenter.y = (frameBottomY + frameTopY) * 0.5f;
 
             // Distance is bound by the vertical target (hips-to-above-head). Horizontal extent is
@@ -228,55 +358,130 @@ namespace Basis.Scripts.Drivers
             float aspect = (float)TextureWidth / (float)TextureHeight;
             float halfFovTan = Mathf.Tan(CameraFieldOfView * 0.5f * Mathf.Deg2Rad);
             if (halfFovTan < 1e-4f) halfFovTan = 1e-4f;
-            float cameraDistance = (verticalSpan * 0.5f) / halfFovTan;
+            float cameraDistance = (verticalSpan * 0.5f) / (halfFovTan * zoom);
 
-            Vector3 forward = BasisLocalCameraDriver.HeadForward();
-            forward.y = 0f;
-            if (forward.sqrMagnitude < 1e-6f) forward = Vector3.forward;
-            forward.Normalize();
-
+            Vector3 forward = OrbitDirection();
             Vector3 cameraPos = frameCenter + forward * cameraDistance;
 
             PreviewCamera.transform.SetPositionAndRotation(
                 cameraPos,
                 Quaternion.LookRotation(frameCenter - cameraPos));
 
-            if (displayGO != null && parentOfUIGO != null && cachedDriver != null && cachedDriver.Camera != null)
-            {
-                Camera cam = cachedDriver.Camera;
-                cam.CalculateFrustumCorners(new Rect(0, 0, 1, 1), 1f, Camera.MonoOrStereoscopicEye.Left, frustumCorners);
-                float halfW = (frustumCorners[2] - frustumCorners[1]).magnitude * 0.5f;
-                float halfH = (frustumCorners[1] - frustumCorners[0]).magnitude * 0.5f;
-
-                Vector3 viewportPos = BasisDeviceManagement.IsMobileHardware()
-                    ? cachedDriver.MobileMicrophoneViewportPosition
-                    : cachedDriver.DesktopMicrophoneViewportPosition;
-                viewportPos.x = 1f - viewportPos.x;
-                Vector3 parentWorld = cam.ViewportToWorldPoint(viewportPos);
-                parentOfUIGO.transform.localPosition = cam.transform.InverseTransformPoint(parentWorld);
-
-                float displayHeight = halfH * DisplaySizeScale;
-                float displayWidth = displayHeight * aspect;
-                displayGO.transform.localScale = new Vector3(displayWidth, displayHeight, 1f);
-
-                // Anchor the sprite's bottom-right corner to the frustum's bottom-right corner.
-                Vector3 displayCameraLocal = new Vector3(halfW - displayWidth * 0.5f, -halfH + displayHeight * 0.5f, 1f);
-                displayGO.transform.localPosition = displayCameraLocal - parentOfUIGO.transform.localPosition;
-            }
+            UpdateDisplayLayout(aspect);
 
             PreviewCamera.enabled = renderRateLimiter.AllowThisFrame(
                 Time.unscaledDeltaTime, BasisSettingsDefaults.AvatarPreviewRenderHz.RawValue,
                 BasisSettingsDefaults.LimitAvatarPreviewRate.RawValue);
         }
 
-        /// <summary>
-        /// Computes the world-space vertical frame bounds from the avatar's hips bone and the top
-        /// of its renderer bounds (capped to a head-bone-relative ceiling so raised arms don't blow
-        /// the framing out), so tall heads fit and the framing re-fits on avatar swap. Returns false
-        /// when the avatar isn't ready.
-        /// </summary>
-        private bool TryGetAvatarVerticalFraming(float feetY, float playerHeight, out float bottomY, out float topY)
+        private Vector3 OrbitDirection()
         {
+            bool followYaw = rotationMode == PreviewRotation.LockFace || rotationMode == PreviewRotation.AllowPitch;
+            bool followPitch = rotationMode == PreviewRotation.LockFace || rotationMode == PreviewRotation.AllowYaw;
+            Vector3 headForward = HeadForward();
+            Vector3 headYaw = headForward;
+            headYaw.y = 0f;
+            Vector3 bodyYaw = Vector3.zero;
+            var hips = BasisLocalBoneDriver.HipsControl;
+            if (hips != null && hips.HasStore)
+            {
+                bodyYaw = hips.OutgoingWorldData.rotation * Vector3.forward;
+                bodyYaw.y = 0f;
+            }
+            if (bodyYaw.sqrMagnitude < 1e-6f)
+            {
+                bodyYaw = headYaw;
+            }
+            if (bodyYaw.sqrMagnitude < 1e-6f)
+            {
+                bodyYaw = lastOrbitYaw;
+            }
+            bodyYaw.Normalize();
+            Vector3 yawForward = bodyYaw;
+            if (followYaw && headYaw.sqrMagnitude >= 1e-6f)
+            {
+                float yawDelta = Mathf.Clamp(Vector3.SignedAngle(bodyYaw, headYaw.normalized, Vector3.up), -maxYawDegrees, maxYawDegrees);
+                yawForward = Quaternion.AngleAxis(yawDelta, Vector3.up) * bodyYaw;
+            }
+            lastOrbitYaw = yawForward;
+            if (!followPitch)
+            {
+                return yawForward;
+            }
+            float maxPitch = maxPitchDegrees * Mathf.Deg2Rad;
+            float pitch = Mathf.Clamp(Mathf.Asin(Mathf.Clamp(headForward.y, -1f, 1f)), -maxPitch, maxPitch);
+            return yawForward * Mathf.Cos(pitch) + Vector3.up * Mathf.Sin(pitch);
+        }
+
+        private static Vector3 HeadForward()
+        {
+            var head = BasisLocalBoneDriver.HeadControl;
+            if (head != null && head.HasStore)
+            {
+                return head.OutgoingWorldData.rotation * Vector3.forward;
+            }
+            return BasisLocalCameraDriver.HeadForward();
+        }
+
+        private void UpdateDisplayLayout(float aspect)
+        {
+            if (displayGO == null || parentOfUIGO == null || cachedDriver == null || cachedDriver.Camera == null)
+            {
+                return;
+            }
+            Camera cam = cachedDriver.Camera;
+            bool inVR = cachedDriver.CameraData != null && cachedDriver.CameraData.allowXRRendering;
+            float fov = cam.fieldOfView;
+            float camAspect = cam.aspect;
+            if (layoutValid && layoutVR == inVR && layoutFov == fov && layoutAspect == camAspect && layoutSizeScale == DisplaySizeScale && layoutVRHeight == VRDisplayHeight && layoutVROffset == VRDisplayAnchorOffset)
+            {
+                return;
+            }
+            layoutValid = true;
+            layoutVR = inVR;
+            layoutFov = fov;
+            layoutAspect = camAspect;
+            layoutSizeScale = DisplaySizeScale;
+            layoutVRHeight = VRDisplayHeight;
+            layoutVROffset = VRDisplayAnchorOffset;
+
+            float sx = anchor == PreviewAnchor.BottomLeft || anchor == PreviewAnchor.MiddleLeft || anchor == PreviewAnchor.TopLeft ? -1f : 1f;
+            float sy = anchor == PreviewAnchor.TopLeft || anchor == PreviewAnchor.TopRight ? 1f : anchor == PreviewAnchor.MiddleLeft || anchor == PreviewAnchor.MiddleRight ? 0f : -1f;
+            float displayHeight;
+            Vector3 displayLocal;
+            Quaternion displayRotation;
+            if (inVR)
+            {
+                displayHeight = VRDisplayHeight * sizeScale;
+                displayLocal = new Vector3(sx * VRDisplayAnchorOffset.x + offsetX, sy * VRDisplayAnchorOffset.y + offsetY, VRDisplayAnchorOffset.z);
+                displayRotation = displayLocal.sqrMagnitude > 1e-8f ? Quaternion.LookRotation(displayLocal) : Quaternion.identity;
+            }
+            else
+            {
+                cam.CalculateFrustumCorners(new Rect(0, 0, 1, 1), 1f, Camera.MonoOrStereoscopicEye.Mono, frustumCorners);
+                float halfW = (frustumCorners[2] - frustumCorners[1]).magnitude * 0.5f;
+                float halfH = (frustumCorners[1] - frustumCorners[0]).magnitude * 0.5f;
+                displayHeight = halfH * DisplaySizeScale * sizeScale;
+                float displayWidth = displayHeight * aspect;
+
+                // Anchor the sprite's edges to the matching frustum edges, then apply the user's nudge.
+                displayLocal = new Vector3(sx * (halfW - displayWidth * 0.5f) + offsetX * 2f * halfW, sy * (halfH - displayHeight * 0.5f) + offsetY * 2f * halfH, 1f);
+                displayRotation = Quaternion.identity;
+            }
+            parentOfUIGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            displayGO.transform.SetLocalPositionAndRotation(displayLocal, displayRotation);
+            displayGO.transform.localScale = new Vector3(displayHeight * aspect, displayHeight, 1f);
+        }
+
+        /// <summary>
+        /// Computes the world-space frame centre and vertical bounds from the avatar's hips bone and
+        /// the top of its renderer bounds (capped to a head-bone-relative ceiling so raised arms don't
+        /// blow the framing out), so tall heads fit and the framing re-fits on avatar swap. Returns
+        /// false when the avatar isn't ready.
+        /// </summary>
+        private bool TryGetAvatarFraming(Vector3 feetPos, float playerHeight, out Vector3 frameCenter, out float bottomY, out float topY)
+        {
+            frameCenter = feetPos;
             bottomY = 0f;
             topY = 0f;
 
@@ -287,14 +492,109 @@ namespace Basis.Scripts.Drivers
                 return false;
             }
 
-            var renderers = avatar.SkinnedMeshRenderers;
-            if (renderers == null || renderers.Length == 0)
+            var mapping = BasisLocalAvatarDriver.Mapping;
+            bool hasHips = mapping != null && mapping.HasHips && mapping.Hips != null;
+            bool hasHead = mapping != null && mapping.Hashead && mapping.head != null;
+            bool hasNeck = mapping != null && mapping.Hasneck && mapping.neck != null;
+            float hipY = feetPos.y + playerHeight * FrameBottomFrac;
+            if (hasHips)
+            {
+                Vector3 hipsPosition = mapping.Hips.position;
+                hipY = hipsPosition.y;
+                frameCenter.x = hipsPosition.x;
+                frameCenter.z = hipsPosition.z;
+            }
+            Vector3 headPosition = hasHead ? mapping.head.position : Vector3.zero;
+            float headReference = hasHead && hasHips ? headPosition.y - hipY : 0f;
+            if (headReference < 1e-3f)
+            {
+                headReference = playerHeight * 0.5f;
+            }
+
+            float crownY;
+            if (hasHead && crownAvatar == avatar)
+            {
+                crownY = headPosition.y + crownAboveHeadRatio * playerHeight;
+            }
+            else
+            {
+                if (!TryGetRenderersTop(avatar.SkinnedMeshRenderers, out crownY))
+                {
+                    return false;
+                }
+                // Renderer bounds give a tight fit to the real crown (hair/ears/hat), but a raised arm
+                // also lands inside them — so clamp the top to one head-height above the head bone.
+                if (hasHead)
+                {
+                    float ceiling = headPosition.y + headReference * CrownCapRatio;
+                    if (crownY > ceiling)
+                    {
+                        crownY = ceiling;
+                    }
+                    if (crownY < headPosition.y)
+                    {
+                        crownY = headPosition.y;
+                    }
+                    if (playerHeight > 1e-3f)
+                    {
+                        crownAvatar = avatar;
+                        crownAboveHeadRatio = (crownY - headPosition.y) / playerHeight;
+                    }
+                }
+            }
+
+            float span = crownY - hipY;
+            if (span <= 1e-3f)
             {
                 return false;
             }
 
-            float boundsTop = float.NegativeInfinity;
-            bool foundTop = false;
+            switch (framing)
+            {
+                case PreviewFraming.FullBody:
+                {
+                    float fullSpan = crownY - feetPos.y;
+                    if (fullSpan <= 1e-3f)
+                    {
+                        return false;
+                    }
+                    bottomY = feetPos.y - fullSpan * FullBodyFloorPadFrac;
+                    topY = crownY + fullSpan * CrownHeadroomFrac;
+                    return true;
+                }
+                case PreviewFraming.Face:
+                {
+                    if (!hasHead)
+                    {
+                        return false;
+                    }
+                    float neckY = hasNeck ? mapping.neck.position.y : headPosition.y - span * FaceNeckDropFrac;
+                    float faceSpan = crownY - neckY;
+                    if (faceSpan <= 1e-3f)
+                    {
+                        return false;
+                    }
+                    frameCenter.x = headPosition.x;
+                    frameCenter.z = headPosition.z;
+                    bottomY = neckY - faceSpan * FaceNeckPadFrac;
+                    topY = crownY + faceSpan * CrownHeadroomFrac;
+                    return true;
+                }
+                default:
+                    bottomY = hipY - span * HipDropFrac;
+                    topY = crownY + span * CrownHeadroomFrac;
+                    return true;
+            }
+        }
+
+        private static bool TryGetRenderersTop(SkinnedMeshRenderer[] renderers, out float boundsTop)
+        {
+            boundsTop = float.NegativeInfinity;
+            if (renderers == null)
+            {
+                return false;
+            }
+            bool found = false;
             for (int i = 0; i < renderers.Length; i++)
             {
                 var renderer = renderers[i];
@@ -307,49 +607,9 @@ namespace Basis.Scripts.Drivers
                 {
                     boundsTop = rendererTop;
                 }
-                foundTop = true;
+                found = true;
             }
-            if (!foundTop)
-            {
-                return false;
-            }
-
-            var mapping = BasisLocalAvatarDriver.Mapping;
-            bool hasHips = mapping != null && mapping.HasHips && mapping.Hips != null;
-            bool hasHead = mapping != null && mapping.Hashead && mapping.head != null;
-            float hipY = hasHips ? mapping.Hips.position.y : feetY + playerHeight * FrameBottomFrac;
-
-            // Renderer bounds give a tight fit to the real crown (hair/ears/hat), but a raised arm
-            // also lands inside them — so clamp the top to one head-height above the head bone.
-            float crownY = boundsTop;
-            if (hasHead && hasHips)
-            {
-                float headY = mapping.head.position.y;
-                float headReference = headY - hipY;
-                if (headReference < 1e-3f)
-                {
-                    headReference = playerHeight * 0.5f;
-                }
-                float ceiling = headY + headReference * CrownCapRatio;
-                if (crownY > ceiling)
-                {
-                    crownY = ceiling;
-                }
-                if (crownY < headY)
-                {
-                    crownY = headY;
-                }
-            }
-
-            float span = crownY - hipY;
-            if (span <= 1e-3f)
-            {
-                return false;
-            }
-
-            bottomY = hipY - span * HipDropFrac;
-            topY = crownY + span * CrownHeadroomFrac;
-            return true;
+            return found;
         }
 
         /// <summary>
