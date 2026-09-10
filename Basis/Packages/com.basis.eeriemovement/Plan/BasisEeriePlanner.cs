@@ -90,8 +90,10 @@ namespace Basis.IK
             p.chestTarget = job.chestIkTarget && p.hasChestJoint && facts.chestTracked;
             p.leftShoulderTracked = facts.leftShoulderTracked;
             p.rightShoulderTracked = facts.rightShoulderTracked;
-            p.leftShoulder = Shoulder(p.hasLeftShoulder, job.shoulderSolveEnabled, facts.leftShoulderTracked);
-            p.rightShoulder = Shoulder(p.hasRightShoulder, job.shoulderSolveEnabled, facts.rightShoulderTracked);
+            p.leftShoulderWeight = facts.leftShoulderTracked ? Mathf.Clamp01(facts.leftShoulderWeight) : 0f;
+            p.rightShoulderWeight = facts.rightShoulderTracked ? Mathf.Clamp01(facts.rightShoulderWeight) : 0f;
+            p.leftShoulder = Shoulder(p.hasLeftShoulder, job.shoulderSolveEnabled, p.leftShoulderWeight > 0f);
+            p.rightShoulder = Shoulder(p.hasRightShoulder, job.shoulderSolveEnabled, p.rightShoulderWeight > 0f);
             p.leftToeTracked = facts.leftToeTracked;
             p.rightToeTracked = facts.rightToeTracked;
             Arm(ref p.leftArm, ref job, facts.leftHandWeight, facts.leftElbowTracked, facts.leftElbowRoll);
@@ -117,7 +119,7 @@ namespace Basis.IK
             job.offsetRotationRightHand = Unit(job.offsetRotationRightHand);
         }
         public static bool KneeAssistWanted(in BasisEerieFrameFacts facts, bool isLeft) => isLeft ? facts.leftFootTracked && !facts.leftKneeTracked : facts.rightFootTracked && !facts.rightKneeTracked;
-        static BasisEerieShoulderMode Shoulder(bool has, bool solve, bool tracked) => !has ? BasisEerieShoulderMode.None : solve ? BasisEerieShoulderMode.Solve : tracked ? BasisEerieShoulderMode.Tracker : BasisEerieShoulderMode.None;
+        static BasisEerieShoulderMode Shoulder(bool has, bool solve, bool tracked) => !has ? BasisEerieShoulderMode.None : tracked ? BasisEerieShoulderMode.Tracker : solve ? BasisEerieShoulderMode.Solve : BasisEerieShoulderMode.None;
         static void Arm(ref BasisEerieArmPlan arm, ref BasisEerieMovement job, float weight, bool elbowTracked, bool roll)
         {
             arm.weight = weight;

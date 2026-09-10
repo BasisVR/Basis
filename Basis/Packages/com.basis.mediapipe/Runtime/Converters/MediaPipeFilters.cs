@@ -10,7 +10,7 @@ namespace Basis.MediaPipe
     }
     public static class MediaPipeFilterMath
     {
-        public const float DerivativeCutoff = 1f, PositionSlack = 0.02f, TurnSlackDeg = 15f, MaxHandSpeed = 2f, MaxHeadSpeed = 1.5f, MaxTurnDegPerSec = 1000f;
+        public const float DerivativeCutoff = 1f, PositionSlack = 0.02f, TurnSlackDeg = 15f, MaxHandSpeed = 2f, MaxHeadSpeed = 1.5f, MaxTorsoSpeed = 1.5f, MaxTurnDegPerSec = 1000f;
         public static float EuroFloat(ref MediaPipeEuroFloatState st, float x, float dt, float minCutoff, float beta, float dCutoff)
         {
             dt = Mathf.Max(dt, 1e-6f);
@@ -184,7 +184,30 @@ namespace Basis.MediaPipe
                     return Carried;
                 }
             }
+            return Carry(in timing);
+        }
+        public float Carry(in MediaPipeTiming timing)
+        {
+            if (!HasSample) return 0f;
             Carried = Mathf.Lerp(Carried, Sampled, BasisFilterMath.Alpha(timing.CarryCutoff, timing.RenderDelta));
+            return Carried;
+        }
+        public float Relax(float target, float alpha)
+        {
+            if (!HasSample)
+            {
+                Sampled = Carried = target;
+                HasSample = true;
+            }
+            else
+            {
+                Carried = Mathf.Lerp(Carried, target, alpha);
+                Sampled = Carried;
+            }
+            Euro.hatX = Sampled;
+            Euro.hatDx = 0f;
+            Euro.hasPrev = true;
+            Euro.dHasPrev = true;
             return Carried;
         }
         public void Reset()

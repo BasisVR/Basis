@@ -1,5 +1,6 @@
 using Basis.Scripts.Common;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 namespace Basis.IK
 {
@@ -26,34 +27,60 @@ namespace Basis.IK
         }
         void SolveShoulderPass()
         {
-            if (plan.leftShoulder == BasisEerieShoulderMode.None && plan.rightShoulder == BasisEerieShoulderMode.None)
+            if (!plan.hasLeftShoulder && !plan.hasRightShoulder)
             {
                 return;
             }
             BasisSwivelFrame frame = BuildArmFrame();
-            SolveShoulder(true, plan.leftShoulder, frame);
-            SolveShoulder(false, plan.rightShoulder, frame);
+            SolveShoulder(armLeft, frame);
+            SolveShoulder(armRight, frame);
         }
-        void SolveShoulder(bool isLeft, BasisEerieShoulderMode mode, in BasisSwivelFrame frame)
+        void SolveShoulder(int slot, in BasisSwivelFrame frame)
         {
-            BasisBoneHandle shoulder = isLeft ? handleLeftShoulder : handleRightShoulder, upperArm = isLeft ? handleLeftUpperArm : handleRightUpperArm;
-            if (mode == BasisEerieShoulderMode.Tracker)
+            bool isLeft = slot == armLeft;
+            if (!(isLeft ? plan.hasLeftShoulder : plan.hasRightShoulder))
             {
-                poseStream.SetRotation(shoulder, (isLeft ? targetRotationLeftShoulder : targetRotationRightShoulder) * (isLeft ? offsetRotationLeftShoulder : offsetRotationRightShoulder));
                 return;
             }
+            BasisEerieShoulderMode mode = isLeft ? plan.leftShoulder : plan.rightShoulder;
             BasisEerieArmPlan arm = isLeft ? plan.leftArm : plan.rightArm;
-            if (mode != BasisEerieShoulderMode.Solve || !frame.Valid || !arm.solve)
+            BasisBoneHandle shoulder = isLeft ? handleLeftShoulder : handleRightShoulder, upperArm = isLeft ? handleLeftUpperArm : handleRightUpperArm;
+            BasisArmState scratch = default;
+            ref BasisArmState state = ref (plan.hasArmState ? ref Ref(armState, slot) : ref scratch);
+            bool tracked = mode == BasisEerieShoulderMode.Tracker, rhythm = shoulderSolveEnabled && frame.Valid && arm.solve;
+            float weight = tracked ? (isLeft ? plan.leftShoulderWeight : plan.rightShoulderWeight) : 0f;
+            float blend = plan.hasArmState ? BasisShoulderBlendCore.Step(state.ShoulderBlend, weight, poseStream.deltaTime, shoulderTrackerBlendTime) : weight;
+            state.ShoulderBlend = blend;
+            if (!tracked && blend <= 0f)
             {
-                return;
+                state.ShoulderHeld = false;
+                if (!rhythm)
+                {
+                    return;
+                }
             }
-            Quaternion origRot = poseStream.GetRotation(shoulder);
+            Quaternion origRot = poseStream.GetRotation(shoulder), fallback = origRot;
+            if (rhythm && SolveShoulderRhythm(isLeft, shoulder, upperArm, frame, out Quaternion solved))
+            {
+                fallback = arm.weight < 1f ? Quaternion.Slerp(origRot, solved, arm.weight) : solved;
+            }
+            poseStream.GetParentWorld(shoulder.Index, out _, out quaternion parentWorld, out _);
+            Quaternion parentRot = parentWorld;
+            if (tracked)
+            {
+                state.ShoulderHold = Quaternion.Inverse(parentRot) * BasisQuaternionExt.NormalizeSafe((isLeft ? targetRotationLeftShoulder : targetRotationRightShoulder) * (isLeft ? offsetRotationLeftShoulder : offsetRotationRightShoulder));
+                state.ShoulderHeld = true;
+            }
+            poseStream.SetRotation(shoulder, state.ShoulderHeld ? BasisShoulderBlendCore.Blend(fallback, parentRot * state.ShoulderHold, blend) : fallback);
+        }
+        bool SolveShoulderRhythm(bool isLeft, BasisBoneHandle shoulder, BasisBoneHandle upperArm, in BasisSwivelFrame frame, out Quaternion solved)
+        {
             poseStream.ResetToRest(shoulder);
             BasisShoulderSolveInput input = default;
             input.ShoulderPos = poseStream.GetPosition(shoulder);
             input.UpperArmPos = poseStream.GetPosition(upperArm);
             input.HandTargetPos = isLeft ? targetPositionLeftHand : targetPositionRightHand;
-            input.ArmLength = (isLeft ? tposeShoulderToHandLeft - tposeClavicleLenLeft : tposeShoulderToHandRight - tposeClavicleLenRight);
+            input.ArmLength = isLeft ? tposeShoulderToHandLeft - tposeClavicleLenLeft : tposeShoulderToHandRight - tposeClavicleLenRight;
             input.TorsoUp = frame.Up;
             input.TorsoForward = frame.Forward;
             input.TorsoOut = isLeft ? -frame.Right : frame.Right;
@@ -62,12 +89,8 @@ namespace Basis.IK
             input.ProtractionFactor = shoulderProtractionFactor;
             input.MaxDeg = shoulderMaxDeg;
             BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result);
-            if (!result.Apply)
-            {
-                return;
-            }
-            Quaternion solved = result.Delta * poseStream.GetRotation(shoulder);
-            poseStream.SetRotation(shoulder, arm.weight < 1f ? Quaternion.Slerp(origRot, solved, arm.weight) : solved);
+            solved = result.Delta * poseStream.GetRotation(shoulder);
+            return result.Apply;
         }
         void SolveArmPass()
         {

@@ -674,7 +674,7 @@ public sealed class BasisHandHeldCameraGizmos
         /// project without the layer hands back -1, which SetGizmoLayer reads as "stay where you
         /// are", leaving a usable gizmo that the shot can see.
         /// </summary>
-        private static int HiddenFromCaptureLayer => BasisHandHeldCamera.MarkerLayer;
+        private static int HiddenFromCaptureLayer => BasisCameraCaptureLayers.Marker;
 
         private readonly string _name;
         private readonly List<int> _spheres = new List<int>();

@@ -1,7 +1,10 @@
 #if BASIS_MEDIAPIPE
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using Mediapipe;
+using NormalizedLandmark = Mediapipe.Tasks.Components.Containers.NormalizedLandmark;
 using Mediapipe.Tasks.Core;
 using Mediapipe.Tasks.Vision.Core;
 using Mediapipe.Tasks.Vision.FaceLandmarker;
@@ -11,25 +14,60 @@ using Unity.Collections;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Rendering;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Basis.MediaPipe.Homuler
 {
-    /// <summary>
-    /// MediaPipe Unity Plugin (homuler) backend. Compiled only when the plugin is present
-    /// (BASIS_MEDIAPIPE). Runs FaceLandmarker + HandLandmarker + PoseLandmarker in VIDEO mode
-    /// on a background worker thread; the main thread only does GetPixels32 (Unity API) and
-    /// signals the worker. A busy flag drops frames instead of racing the shared buffer.
-    /// </summary>
     public sealed class HomulerMediaPipeBackend : IBasisMediaPipeBackend
     {
         private const string FaceModelAddress = "Packages/com.basis.mediapipe/Models/face_landmarker.task.bytes";
         private const string HandModelAddress = "Packages/com.basis.mediapipe/Models/hand_landmarker.task.bytes";
-        private const string PoseModelAddress = "Packages/com.basis.mediapipe/Models/pose_landmarker_lite.task.bytes";
+        private const string PoseLiteModelAddress = "Packages/com.basis.mediapipe/Models/pose_landmarker_lite.task.bytes";
+        private const string PoseFullModelAddress = "Packages/com.basis.mediapipe/Models/pose_landmarker_full.task.bytes";
+        private const string PoseHeavyModelAddress = "Packages/com.basis.mediapipe/Models/pose_landmarker_heavy.task.bytes";
+        private const int ModelCount = 3, JoinMilliseconds = 3000;
+        private enum Model { Face = 0, Hand = 1, Pose = 2 }
+        private enum LoadState { None, Loading, Ready }
 
         public bool IsAvailable { get; private set; }
+        public bool IsReady => _activeModels > 0;
         public string BackendName => "homuler MediaPipe Unity Plugin";
-        private bool _swapHands;
-        private bool _lowLight;
+
+        private volatile bool _mirror, _lowLight, _swapHands;
+        private readonly LoadState[] _loadState = new LoadState[ModelCount];
+        private readonly int[] _loadToken = new int[ModelCount];
+        private string _requestedPoseModel = string.Empty;
+
+        private FaceLandmarker _face;
+        private HandLandmarker _hand;
+        private PoseLandmarker _pose;
+        private volatile int _activeModels;
+        private readonly ConcurrentQueue<Action> _coordinatorActions = new ConcurrentQueue<Action>();
+
+        private readonly MediaPipeResultSlots _slots = new MediaPipeResultSlots();
+        private long _lastTimestamp;
+
+        private Thread _coordinator, _poseThread, _handThread;
+        private AutoResetEvent _signal, _poseSignal, _handSignal;
+        private ManualResetEventSlim _poseDone, _handDone;
+        private volatile bool _running, _busy;
+        private FaceLandmarkerResult _faceRaw;
+        private PoseLandmarkerResult _poseRaw;
+        private HandLandmarkerResult _handRaw;
+        private bool _faceOk, _poseOk, _handOk;
+
+        private Color32[] _pixels;
+        private byte[] _srcRgba, _rgba;
+        private NativeArray<byte> _native;
+        private int _w, _h;
+        private long _ts;
+        private bool _useAsyncReadback;
+        private volatile bool _readbackPending;
+        private int _pendingW, _pendingH;
+        private long _pendingTs;
+        private RenderTexture _readbackRT;
+        private NativeArray<byte> _readbackNative;
+
         private MediaPipeSideLatch _sides;
         private readonly MediaPipeHandSideResolver _handSides = new MediaPipeHandSideResolver();
         private readonly MediaPipeExposure _exposure = new MediaPipeExposure();
@@ -37,61 +75,19 @@ namespace Basis.MediaPipe.Homuler
         private Vector2 _faceCenter;
         private float _faceSize;
 
-        private FaceLandmarker _face;
-        private HandLandmarker _hand;
-        private PoseLandmarker _pose;
-
-        private readonly object _resultLock = new object();
-        private BasisMediaPipeResult _latest;
-        private bool _hasLatest;
-        private long _lastTimestamp;
-
-        private Thread _worker;
-        private AutoResetEvent _signal;
-        private volatile bool _running;
-        private volatile bool _busy;
-
-        private Color32[] _pixels;
-        private byte[] _srcRgba;
-        private byte[] _rgba;
-        private NativeArray<byte> _native;
-        private int _w;
-        private int _h;
-        private long _ts;
-        private bool _mirror;
-        private bool _useAsyncReadback;
-        private volatile bool _readbackPending;
-        private int _pendingW;
-        private int _pendingH;
-        private long _pendingTs;
-        private RenderTexture _readbackRT;
-        private NativeArray<byte> _readbackNative;
-
-        // Stage timings, in ms, for the diagnostics readout. Written by the worker, read by the main thread --
+        // Stage timings, in ms, for the diagnostics readout. Written by the workers, read by the main thread --
         // deliberately unsynchronised, because they steer a human reading a menu, never any control flow.
-        //
-        // The stages are strictly SERIAL, which is the point of measuring them apart. A submit blocks on
-        // _readbackPending until the GPU hands the frame back (1-3 render frames), and then on _busy until all
-        // three models have run on the single worker thread. Nothing overlaps, so the tracking period really is
-        // the sum of these, and whichever one is biggest is the one worth attacking.
         private long _submitTicks;
-        private volatile float _readbackMs;
-        private volatile float _flipMs;
-        private volatile float _faceMs;
-        private volatile float _poseMs;
-        private volatile float _handMs;
-        private volatile float _worstPeriodMs;
+        private volatile float _readbackMs, _flipMs, _faceMs, _poseMs, _handMs, _inferMs, _worstPeriodMs;
 
         private static float MsSince(long startTicks) =>
             (float)((System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency);
 
         public string TimingBreakdown()
         {
-            float infer = _faceMs + _poseMs + _handMs;
-            float period = _readbackMs + _flipMs + infer;
+            float period = _readbackMs + _flipMs + _inferMs;
             if (!(period > 0f)) return string.Empty;
-
-            return $"readback {_readbackMs:F0} + flip {_flipMs:F0} + face {_faceMs:F0} + pose {_poseMs:F0} + hands {_handMs:F0} = {period:F0}ms (worst {_worstPeriodMs:F0}ms)";
+            return $"readback {_readbackMs:F0} + flip {_flipMs:F0} + inference {_inferMs:F0} (face {_faceMs:F0} | pose {_poseMs:F0} | hands {_handMs:F0}, in parallel) = {period:F0}ms (worst {_worstPeriodMs:F0}ms)";
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -100,43 +96,183 @@ namespace Basis.MediaPipe.Homuler
 
         public void Initialize(BasisMediaPipeConfig config)
         {
-            _mirror = config.MirrorHorizontally;
-            _swapHands = config.SwapHands;
-            _lowLight = config.LowLightBoost;
             _useAsyncReadback = SystemInfo.supportsAsyncGPUReadback;
-            TryCreateLandmarkers(config);
-            IsAvailable = _face != null || _hand != null || _pose != null;
+            IsAvailable = true;
+            _signal = new AutoResetEvent(false);
+            _poseSignal = new AutoResetEvent(false);
+            _handSignal = new AutoResetEvent(false);
+            _poseDone = new ManualResetEventSlim(true);
+            _handDone = new ManualResetEventSlim(true);
+            _running = true;
+            _coordinator = new Thread(CoordinatorLoop) { IsBackground = true, Name = "BasisMediaPipe" };
+            _poseThread = new Thread(() => HelperLoop(_poseSignal, _poseDone, RunPose)) { IsBackground = true, Name = "BasisMediaPipe.Pose" };
+            _handThread = new Thread(() => HelperLoop(_handSignal, _handDone, RunHands)) { IsBackground = true, Name = "BasisMediaPipe.Hands" };
+            _coordinator.Start();
+            _poseThread.Start();
+            _handThread.Start();
+            Reconfigure(config);
+        }
 
-            if (IsAvailable)
+        // Main thread. Landmarkers are created and closed on the coordinator between frames, from model bytes the
+        // main thread fetches asynchronously, so neither the camera nor the worker threads restart and nothing
+        // blocks the frame.
+        public void Reconfigure(BasisMediaPipeConfig config)
+        {
+            if (!_running) return;
+            _mirror = config.MirrorHorizontally;
+            _lowLight = config.LowLightBoost;
+            _swapHands = config.SwapHands;
+
+            Sync(Model.Face, config.EnableFace, FaceModelAddress);
+            Sync(Model.Hand, config.EnableHands, HandModelAddress);
+
+            string poseModel = BasisMediaPipeConfig.NormalizePoseModel(config.PoseModel);
+            if (config.EnablePose && _loadState[(int)Model.Pose] != LoadState.None && !string.Equals(_requestedPoseModel, poseModel, StringComparison.Ordinal))
             {
-                _signal = new AutoResetEvent(false);
-                _running = true;
-                _worker = new Thread(WorkerLoop) { IsBackground = true, Name = "BasisMediaPipe" };
-                _worker.Start();
+                Sync(Model.Pose, false, null);
+            }
+            _requestedPoseModel = poseModel;
+            Sync(Model.Pose, config.EnablePose, PoseModelAddress(poseModel));
+        }
+
+        private static string PoseModelAddress(string model)
+        {
+            switch (model)
+            {
+                case BasisMediaPipeConfig.PoseModelFull: return PoseFullModelAddress;
+                case BasisMediaPipeConfig.PoseModelHeavy: return PoseHeavyModelAddress;
+                default: return PoseLiteModelAddress;
             }
         }
 
-        private bool TryCreateLandmarkers(BasisMediaPipeConfig config)
+        private void Sync(Model model, bool want, string address)
         {
+            int index = (int)model;
+            if (want)
+            {
+                if (_loadState[index] != LoadState.None) return;
+                _loadState[index] = LoadState.Loading;
+                int token = ++_loadToken[index];
+                LoadModelAsync(address, bytes => OnModelLoaded(model, token, address, bytes));
+            }
+            else
+            {
+                if (_loadState[index] == LoadState.None) return;
+                _loadState[index] = LoadState.None;
+                _loadToken[index]++;
+                _coordinatorActions.Enqueue(() => Close(model));
+                _signal.Set();
+            }
+        }
+
+        private void OnModelLoaded(Model model, int token, string address, byte[] bytes)
+        {
+            int index = (int)model;
+            if (!_running || token != _loadToken[index]) return;
+            if (bytes == null || bytes.Length == 0)
+            {
+                _loadState[index] = LoadState.None;
+                BasisDebug.LogError($"BasisMediaPipe(homuler): model '{address}' could not be loaded.");
+                if (model == Model.Pose && !string.Equals(_requestedPoseModel, BasisMediaPipeConfig.PoseModelLite, StringComparison.Ordinal))
+                {
+                    _requestedPoseModel = BasisMediaPipeConfig.PoseModelLite;
+                    Sync(Model.Pose, true, PoseLiteModelAddress);
+                }
+                return;
+            }
+            _loadState[index] = LoadState.Ready;
+            _coordinatorActions.Enqueue(() => Create(model, bytes));
+            _signal.Set();
+        }
+
+        private static void LoadModelAsync(string address, Action<byte[]> onLoaded)
+        {
+            AsyncOperationHandle<TextAsset> handle;
             try
             {
-                if (config.EnableFace) _face = CreateFaceLandmarker(LoadModelBuffer(FaceModelAddress));
-                if (config.EnableHands) _hand = CreateHandLandmarker(LoadModelBuffer(HandModelAddress));
-                if (config.EnablePose) _pose = CreatePoseLandmarker(LoadModelBuffer(PoseModelAddress));
-                return _face != null || _hand != null || _pose != null;
+                handle = Addressables.LoadAssetAsync<TextAsset>(address);
             }
             catch (Exception e)
             {
-                BasisDebug.LogError($"BasisMediaPipe(homuler): landmarker init failed: {e.Message}");
-                _face?.Close();
-                _hand?.Close();
-                _pose?.Close();
-                _face = null;
-                _hand = null;
-                _pose = null;
-                return false;
+                BasisDebug.LogError($"BasisMediaPipe(homuler): addressable '{address}' failed: {e.Message}");
+                onLoaded(null);
+                return;
             }
+            handle.Completed += op =>
+            {
+                byte[] bytes = null;
+                try
+                {
+                    if (op.Status == AsyncOperationStatus.Succeeded && op.Result != null) bytes = op.Result.bytes;
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"BasisMediaPipe(homuler): reading '{address}' failed: {e.Message}");
+                }
+                finally
+                {
+                    Addressables.Release(handle);
+                }
+                onLoaded(bytes);
+            };
         }
+
+        // Coordinator thread, between frames: the helper threads are idle, so swapping a landmarker is safe.
+        private void Create(Model model, byte[] bytes)
+        {
+            try
+            {
+                switch (model)
+                {
+                    case Model.Face:
+                        _face?.Close();
+                        _face = CreateFaceLandmarker(bytes);
+                        break;
+                    case Model.Hand:
+                        _hand?.Close();
+                        _hand = CreateHandLandmarker(bytes);
+                        break;
+                    case Model.Pose:
+                        _pose?.Close();
+                        _pose = CreatePoseLandmarker(bytes);
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"BasisMediaPipe(homuler): {model} landmarker init failed: {e.Message}");
+            }
+            CountModels();
+        }
+
+        private void Close(Model model)
+        {
+            try
+            {
+                switch (model)
+                {
+                    case Model.Face:
+                        _face?.Close();
+                        _face = null;
+                        break;
+                    case Model.Hand:
+                        _hand?.Close();
+                        _hand = null;
+                        break;
+                    case Model.Pose:
+                        _pose?.Close();
+                        _pose = null;
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"BasisMediaPipe(homuler): closing the {model} landmarker failed: {e.Message}");
+            }
+            CountModels();
+        }
+
+        private void CountModels() => _activeModels = (_face != null ? 1 : 0) + (_hand != null ? 1 : 0) + (_pose != null ? 1 : 0);
 
         private static FaceLandmarker CreateFaceLandmarker(byte[] modelBuffer)
         {
@@ -180,10 +316,10 @@ namespace Basis.MediaPipe.Homuler
             return PoseLandmarker.CreateFromOptions(options);
         }
 
-        // Main thread: copy pixels (Unity API) and hand the frame to the worker.
+        // Main thread: copy pixels (Unity API) and hand the frame to the coordinator.
         public void SubmitFrame(WebCamTexture frame, double timestampMs)
         {
-            if (!IsAvailable || _busy || _readbackPending || frame == null || frame.width <= 16) return;
+            if (!_running || _activeModels == 0 || _busy || _readbackPending || frame == null || frame.width <= 16) return;
 
             int w = frame.width;
             int h = frame.height;
@@ -256,12 +392,25 @@ namespace Basis.MediaPipe.Homuler
             _signal.Set();
         }
 
-        private void WorkerLoop()
+        private void CoordinatorLoop()
         {
             while (_running)
             {
                 _signal.WaitOne();
                 if (!_running) break;
+
+                while (_coordinatorActions.TryDequeue(out Action action))
+                {
+                    try
+                    {
+                        action();
+                    }
+                    catch (Exception e)
+                    {
+                        BasisDebug.LogError($"BasisMediaPipe(homuler): reconfigure failed: {e}");
+                    }
+                }
+                if (!_busy) continue;
 
                 try
                 {
@@ -278,10 +427,56 @@ namespace Basis.MediaPipe.Homuler
             }
         }
 
+        private void HelperLoop(AutoResetEvent signal, ManualResetEventSlim done, Action run)
+        {
+            while (_running)
+            {
+                signal.WaitOne();
+                if (!_running) break;
+                try
+                {
+                    run();
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"BasisMediaPipe(homuler): inference failed: {e}");
+                }
+                finally
+                {
+                    done.Set();
+                }
+            }
+        }
+
+        private void RunFace()
+        {
+            long stage = System.Diagnostics.Stopwatch.GetTimestamp();
+            _faceRaw = _face.DetectForVideo(NewImage(_w, _h), _ts);
+            _faceOk = true;
+            _faceMs = MsSince(stage);
+        }
+
+        private void RunPose()
+        {
+            long stage = System.Diagnostics.Stopwatch.GetTimestamp();
+            _poseRaw = _pose.DetectForVideo(NewImage(_w, _h), _ts);
+            _poseOk = true;
+            _poseMs = MsSince(stage);
+        }
+
+        private void RunHands()
+        {
+            long stage = System.Diagnostics.Stopwatch.GetTimestamp();
+            _handRaw = _hand.DetectForVideo(NewImage(_w, _h), _ts);
+            _handOk = true;
+            _handMs = MsSince(stage);
+        }
+
         private void ProcessFrame()
         {
             int w = _w;
             int h = _h;
+            bool mirror = _mirror;
             long stage = System.Diagnostics.Stopwatch.GetTimestamp();
 
             // WebCamTexture origin is bottom-left; MediaPipe expects top-left. Flip rows,
@@ -298,7 +493,7 @@ namespace Basis.MediaPipe.Homuler
                     int dstRow = y * w;
                     for (int x = 0; x < w; x++)
                     {
-                        int src = (srcRow + (_mirror ? (w - 1 - x) : x)) * 4;
+                        int src = (srcRow + (mirror ? (w - 1 - x) : x)) * 4;
                         int dst = (dstRow + x) * 4;
                         _rgba[dst + 0] = lut[_srcRgba[src + 0]];
                         _rgba[dst + 1] = lut[_srcRgba[src + 1]];
@@ -315,7 +510,7 @@ namespace Basis.MediaPipe.Homuler
                     int dstRow = y * w;
                     for (int x = 0; x < w; x++)
                     {
-                        int src = srcRow + (_mirror ? (w - 1 - x) : x);
+                        int src = srcRow + (mirror ? (w - 1 - x) : x);
                         int dst = (dstRow + x) * 4;
                         Color32 c = _pixels[src];
                         _rgba[dst + 0] = lut[c.r];
@@ -329,56 +524,82 @@ namespace Basis.MediaPipe.Homuler
             _native.CopyFrom(_rgba);
             _flipMs = MsSince(stage);
 
-            BasisMediaPipeResult result = new BasisMediaPipeResult { TimestampMs = _ts };
-            // DetectForVideo consumes (disposes) the Image it is given, so build a fresh one per call.
-            stage = System.Diagnostics.Stopwatch.GetTimestamp();
-            if (_face != null)
+            MediaPipeResultSlot slot = _slots.BeginWrite();
+            slot.Result = new BasisMediaPipeResult
             {
-                FaceLandmarkerResult faceResult = _face.DetectForVideo(NewImage(w, h), _ts);
-                ParseFace(faceResult, ref result);
-                if (result.HasFace) result.TongueOut = ComputeTongueOut(faceResult, w, h);
-            }
-            _faceMs = _face != null ? MsSince(stage) : 0f;
-            _hadFace = result.HasFace && result.FaceImageSize > 0f;
-            if (_hadFace)
-            {
-                _faceCenter = result.HeadImagePosition;
-                _faceSize = result.FaceImageSize;
-            }
-            result.LightLevel = _exposure.Level;
-            result.LightBoost = _exposure.Boost;
+                TimestampMs = _ts,
+                ImageAspect = (float)w / h,
+                LightLevel = _exposure.Level,
+                LightBoost = _exposure.Boost,
+            };
 
+            // The three models read the same frame buffer at once, each on its own thread; the buffer is only
+            // rewritten after the next submit, which the busy flag holds back until everything here is done.
+            bool runFace = _face != null, runPose = _pose != null, runHand = _hand != null;
+            _faceOk = false;
+            _poseOk = false;
+            _handOk = false;
+            stage = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (runPose)
+            {
+                _poseDone.Reset();
+                _poseSignal.Set();
+            }
+            if (runHand)
+            {
+                _handDone.Reset();
+                _handSignal.Set();
+            }
+            if (runFace)
+            {
+                try
+                {
+                    RunFace();
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"BasisMediaPipe(homuler): face inference failed: {e}");
+                }
+            }
+            if (runPose) _poseDone.Wait();
+            if (runHand) _handDone.Wait();
+            _inferMs = MsSince(stage);
+
+            if (_faceOk) ParseFace(_faceRaw, slot, mirror, w, h);
             // Pose before hands: the hand landmarker's left/right label is a guess, and the pose (whose sides
             // are repaired from geometry) is what the hands get matched against to settle it.
-            stage = System.Diagnostics.Stopwatch.GetTimestamp();
-            if (_pose != null) ParsePose(_pose.DetectForVideo(NewImage(w, h), _ts), ref result);
-            _poseMs = _pose != null ? MsSince(stage) : 0f;
+            if (_poseOk) ParsePose(_poseRaw, slot, mirror);
+            if (_handOk) ParseHands(_handRaw, slot, mirror);
+            _faceRaw = default;
+            _poseRaw = default;
+            _handRaw = default;
 
-            stage = System.Diagnostics.Stopwatch.GetTimestamp();
-            if (_hand != null) ParseHands(_hand.DetectForVideo(NewImage(w, h), _ts), ref result);
-            _handMs = _hand != null ? MsSince(stage) : 0f;
-
-            float period = _readbackMs + _flipMs + _faceMs + _poseMs + _handMs;
+            float period = _readbackMs + _flipMs + _inferMs;
             if (period > _worstPeriodMs) _worstPeriodMs = period;
 
-            lock (_resultLock)
-            {
-                _latest = result;
-                _hasLatest = true;
-            }
+            _slots.Publish();
         }
 
-        private void ParseFace(FaceLandmarkerResult result, ref BasisMediaPipeResult output)
+        private static Vector2 Point(List<NormalizedLandmark> landmarks, int index) => new Vector2(landmarks[index].x, landmarks[index].y);
+
+        private void ParseFace(FaceLandmarkerResult result, MediaPipeResultSlot slot, bool mirror, int w, int h)
         {
+            ref BasisMediaPipeResult output = ref slot.Result;
             if (result.faceLandmarks != null && result.faceLandmarks.Count > 0)
             {
-                output.HasFace = true;
-                var fl = result.faceLandmarks[0].landmarks;
+                List<NormalizedLandmark> fl = result.faceLandmarks[0].landmarks;
                 if (fl != null && fl.Count > 152)
                 {
-                    Vector3 head = MediaPipeSpace.Image(new Vector3(fl[1].x, fl[1].y, 0f), _mirror);
+                    output.HasFace = true;
+                    Vector3 head = MediaPipeSpace.Image(new Vector3(fl[1].x, fl[1].y, 0f), mirror);
                     output.HeadImagePosition = new Vector2(head.x, head.y);
                     output.FaceImageSize = Mathf.Abs(fl[152].y - fl[10].y);
+                    if (fl.Count >= MediaPipeGaze.LandmarkCount)
+                    {
+                        float aspect = (float)w / h;
+                        output.HasRightGaze = MediaPipeGaze.TryMeasure(Point(fl, MediaPipeGaze.RightImageLeftCorner), Point(fl, MediaPipeGaze.RightImageRightCorner), Point(fl, MediaPipeGaze.RightUpperLid), Point(fl, MediaPipeGaze.RightLowerLid), Point(fl, MediaPipeGaze.RightIris), aspect, out output.RightEyeGaze);
+                        output.HasLeftGaze = MediaPipeGaze.TryMeasure(Point(fl, MediaPipeGaze.LeftImageLeftCorner), Point(fl, MediaPipeGaze.LeftImageRightCorner), Point(fl, MediaPipeGaze.LeftUpperLid), Point(fl, MediaPipeGaze.LeftLowerLid), Point(fl, MediaPipeGaze.LeftIris), aspect, out output.LeftEyeGaze);
+                    }
                 }
             }
 
@@ -387,15 +608,17 @@ namespace Basis.MediaPipe.Homuler
                 var categories = result.faceBlendshapes[0].categories;
                 if (categories != null)
                 {
-                    output.FaceBlendshapes = new float[(int)MediaPipeArkitBlendshape.Count];
+                    float[] shapes = slot.Blendshapes;
+                    Array.Clear(shapes, 0, shapes.Length);
                     for (int i = 0; i < categories.Count; i++)
                     {
                         int index = categories[i].index;
-                        if (index >= 0 && index < output.FaceBlendshapes.Length)
+                        if (index >= 0 && index < shapes.Length)
                         {
-                            output.FaceBlendshapes[index] = categories[i].score;
+                            shapes[index] = categories[i].score;
                         }
                     }
+                    output.FaceBlendshapes = shapes;
                 }
             }
 
@@ -403,67 +626,68 @@ namespace Basis.MediaPipe.Homuler
             {
                 output.FaceTransform = result.facialTransformationMatrixes[0];
             }
+
+            if (output.HasFace) output.TongueOut = ComputeTongueOut(result, w, h);
+
+            _hadFace = output.HasFace && output.FaceImageSize > 0f;
+            if (_hadFace)
+            {
+                _faceCenter = output.HeadImagePosition;
+                _faceSize = output.FaceImageSize;
+            }
         }
 
-        private void ParseHands(HandLandmarkerResult result, ref BasisMediaPipeResult output)
+        private void ParseHands(HandLandmarkerResult result, MediaPipeResultSlot slot, bool mirror)
         {
             if (result.handLandmarks == null) return;
+            ref BasisMediaPipeResult output = ref slot.Result;
 
-            Vector3[] firstImage = null, firstWorld = null, secondImage = null, secondWorld = null;
             bool firstLabelLeft = true;
             int found = 0;
-
             for (int h = 0; h < result.handLandmarks.Count && found < 2; h++)
             {
-                var landmarks = result.handLandmarks[h].landmarks;
-                if (landmarks == null) continue;
+                List<NormalizedLandmark> landmarks = result.handLandmarks[h].landmarks;
+                if (landmarks == null || landmarks.Count < MediaPipeSpace.HandCount) continue;
 
-                Vector3[] image = new Vector3[landmarks.Count];
-                for (int i = 0; i < landmarks.Count; i++)
+                Vector3[] image = slot.HandImage[found], world = slot.HandWorld[found];
+                for (int i = 0; i < MediaPipeSpace.HandCount; i++)
                 {
-                    image[i] = MediaPipeSpace.Image(new Vector3(landmarks[i].x, landmarks[i].y, landmarks[i].z), _mirror);
+                    image[i] = MediaPipeSpace.Image(new Vector3(landmarks[i].x, landmarks[i].y, landmarks[i].z), mirror);
                 }
 
-                Vector3[] world = null;
+                bool hasWorld = false;
                 if (result.handWorldLandmarks != null && h < result.handWorldLandmarks.Count)
                 {
                     var metric = result.handWorldLandmarks[h].landmarks;
-                    if (metric != null)
+                    if (metric != null && metric.Count >= MediaPipeSpace.HandCount)
                     {
-                        world = new Vector3[metric.Count];
-                        for (int i = 0; i < metric.Count; i++)
+                        for (int i = 0; i < MediaPipeSpace.HandCount; i++)
                         {
-                            world[i] = MediaPipeSpace.World(new Vector3(metric[i].x, metric[i].y, metric[i].z), _mirror);
+                            world[i] = MediaPipeSpace.World(new Vector3(metric[i].x, metric[i].y, metric[i].z), mirror);
                         }
+                        hasWorld = true;
                     }
                 }
+                slot.HandHasWorld[found] = hasWorld;
 
-                if (found == 0)
-                {
-                    firstImage = image;
-                    firstWorld = world;
-                    firstLabelLeft = LabelSaysLeft(result, h);
-                }
-                else
-                {
-                    secondImage = image;
-                    secondWorld = world;
-                }
+                if (found == 0) firstLabelLeft = LabelSaysLeft(result, h);
                 found++;
             }
 
             if (found == 0) return;
+            if (found == 2 && MediaPipeHandSideResolver.IsDuplicate(slot.HandImage[0], slot.HandImage[1], output.ImageAspect)) found = 1;
 
-            bool firstIsLeft = _handSides.Resolve(output.PoseLandmarks, firstImage, secondImage, firstLabelLeft, found);
-            Assign(ref output, firstImage, firstWorld, firstIsLeft);
+            bool firstIsLeft = _handSides.Resolve(output.PoseLandmarks, slot.HandImage[0], found == 2 ? slot.HandImage[1] : null, firstLabelLeft, found);
+            Assign(ref output, slot, 0, firstIsLeft);
             if (found == 2)
             {
-                Assign(ref output, secondImage, secondWorld, !firstIsLeft);
+                Assign(ref output, slot, 1, !firstIsLeft);
             }
         }
 
-        private static void Assign(ref BasisMediaPipeResult output, Vector3[] image, Vector3[] world, bool left)
+        private static void Assign(ref BasisMediaPipeResult output, MediaPipeResultSlot slot, int index, bool left)
         {
+            Vector3[] image = slot.HandImage[index], world = slot.HandHasWorld[index] ? slot.HandWorld[index] : null;
             if (left)
             {
                 output.LeftHandLandmarks = image;
@@ -492,38 +716,36 @@ namespace Basis.MediaPipe.Homuler
             return _swapHands ? !isLeft : isLeft;
         }
 
-        private void ParsePose(PoseLandmarkerResult result, ref BasisMediaPipeResult output)
+        private void ParsePose(PoseLandmarkerResult result, MediaPipeResultSlot slot, bool mirror)
         {
+            ref BasisMediaPipeResult output = ref slot.Result;
             if (result.poseWorldLandmarks != null && result.poseWorldLandmarks.Count > 0)
             {
                 var world = result.poseWorldLandmarks[0].landmarks;
-                if (world != null)
+                if (world != null && world.Count >= MediaPipeSpace.PoseCount)
                 {
-                    output.HasPose = true;
-                    Vector3[] arr = new Vector3[world.Count];
-                    for (int i = 0; i < world.Count; i++)
+                    for (int i = 0; i < MediaPipeSpace.PoseCount; i++)
                     {
-                        arr[i] = MediaPipeSpace.World(new Vector3(world[i].x, world[i].y, world[i].z), _mirror);
+                        slot.PoseWorld[i] = MediaPipeSpace.World(new Vector3(world[i].x, world[i].y, world[i].z), mirror);
                     }
-                    output.PoseWorldLandmarks = arr;
+                    output.PoseWorldLandmarks = slot.PoseWorld;
+                    output.HasPose = true;
                 }
             }
 
             if (result.poseLandmarks != null && result.poseLandmarks.Count > 0)
             {
-                var image = result.poseLandmarks[0].landmarks;
-                if (image != null)
+                List<NormalizedLandmark> image = result.poseLandmarks[0].landmarks;
+                if (image != null && image.Count >= MediaPipeSpace.PoseCount)
                 {
-                    output.HasPose = true;
-                    Vector3[] arr = new Vector3[image.Count];
-                    float[] visibility = new float[image.Count];
-                    for (int i = 0; i < image.Count; i++)
+                    for (int i = 0; i < MediaPipeSpace.PoseCount; i++)
                     {
-                        arr[i] = MediaPipeSpace.Image(new Vector3(image[i].x, image[i].y, image[i].z), _mirror);
-                        visibility[i] = image[i].visibility ?? -1f;
+                        slot.Pose[i] = MediaPipeSpace.Image(new Vector3(image[i].x, image[i].y, image[i].z), mirror);
+                        slot.PoseVisibility[i] = image[i].visibility ?? -1f;
                     }
-                    output.PoseLandmarks = arr;
-                    output.PoseVisibility = visibility;
+                    output.PoseLandmarks = slot.Pose;
+                    output.PoseVisibility = slot.PoseVisibility;
+                    output.HasPose = true;
                 }
             }
 
@@ -640,32 +862,25 @@ namespace Basis.MediaPipe.Homuler
         private Image NewImage(int w, int h) =>
             new Image(ImageFormat.Types.Format.Srgba, w, h, w * 4, _native);
 
-        public bool TryGetLatestResult(out BasisMediaPipeResult result)
-        {
-            lock (_resultLock)
-            {
-                if (_hasLatest)
-                {
-                    result = _latest;
-                    _hasLatest = false;
-                    return true;
-                }
-            }
-            result = default;
-            return false;
-        }
+        public bool TryGetLatestResult(out BasisMediaPipeResult result) => _slots.TryTake(out result);
 
         public void Shutdown()
         {
             _running = false;
-            _signal?.Set();
-            if (_worker != null && _worker.IsAlive)
+            for (int i = 0; i < ModelCount; i++)
             {
-                _worker.Join(500);
+                _loadState[i] = LoadState.None;
+                _loadToken[i]++;
             }
-            _worker = null;
-            _signal?.Dispose();
-            _signal = null;
+            _signal?.Set();
+            _poseSignal?.Set();
+            _handSignal?.Set();
+            Join(_coordinator);
+            Join(_poseThread);
+            Join(_handThread);
+            _coordinator = null;
+            _poseThread = null;
+            _handThread = null;
 
             _face?.Close();
             _hand?.Close();
@@ -673,6 +888,20 @@ namespace Basis.MediaPipe.Homuler
             _face = null;
             _hand = null;
             _pose = null;
+            _activeModels = 0;
+            while (_coordinatorActions.TryDequeue(out _)) { }
+
+            _signal?.Dispose();
+            _poseSignal?.Dispose();
+            _handSignal?.Dispose();
+            _poseDone?.Dispose();
+            _handDone?.Dispose();
+            _signal = null;
+            _poseSignal = null;
+            _handSignal = null;
+            _poseDone = null;
+            _handDone = null;
+
             if (_native.IsCreated) _native.Dispose();
             if (_readbackNative.IsCreated)
             {
@@ -686,21 +915,15 @@ namespace Basis.MediaPipe.Homuler
             }
             IsAvailable = false;
             _busy = false;
-            lock (_resultLock) { _hasLatest = false; }
+            _slots.Clear();
         }
 
-        private static byte[] LoadModelBuffer(string address)
+        private static void Join(Thread thread)
         {
-            var handle = Addressables.LoadAssetAsync<TextAsset>(address);
-            TextAsset asset = handle.WaitForCompletion();
-            if (asset == null)
+            if (thread != null && thread.IsAlive && !thread.Join(JoinMilliseconds))
             {
-                Addressables.Release(handle);
-                throw new InvalidOperationException($"BasisMediaPipe(homuler): model addressable '{address}' could not be loaded.");
+                BasisDebug.LogError($"BasisMediaPipe(homuler): thread '{thread.Name}' did not stop in time.");
             }
-            byte[] buffer = asset.bytes;
-            Addressables.Release(handle);
-            return buffer;
         }
     }
 }

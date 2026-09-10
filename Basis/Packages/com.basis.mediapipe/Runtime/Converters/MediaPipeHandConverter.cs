@@ -8,10 +8,11 @@ namespace Basis.MediaPipe
         public float CurlGain = 1f, ThumbMaxAngle = 100f, FingerMaxAngle = 160f, MaxSplayDegrees = 20f, SplayGain = 1f;
         public float FingerSmoothing = 0.5f, PoseSmoothing = 0.5f;
         public bool UseRotation = true, RejectGlitches = true;
-        private const float CutoffResponsive = 10f, CutoffSmooth = 1.5f, Beta = 3.25f, FingerBeta = 0.5f;
+        private const float CutoffResponsive = 10f, CutoffSmooth = 1.5f, Beta = 3.25f, FingerBeta = 0.5f, HoldSeconds = 0.5f, RelaxHz = 3f, RelaxedCurl = 0.6f;
         private const int FingerChannels = 10;
         private MediaPipeRotationFilter leftRot, rightRot;
         private readonly MediaPipeScalarFilter[] leftFingers = new MediaPipeScalarFilter[FingerChannels], rightFingers = new MediaPipeScalarFilter[FingerChannels];
+        private float leftLost, rightLost;
         public int RejectedSamples => leftRot.Rejected + rightRot.Rejected;
         private float RotationCutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(PoseSmoothing));
         private float FingerCutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(FingerSmoothing));
@@ -29,6 +30,7 @@ namespace Basis.MediaPipe
                 leftFingers[i].Reset();
                 rightFingers[i].Reset();
             }
+            leftLost = rightLost = 0f;
         }
         public bool TryGetHandRotation(in BasisMediaPipeResult result, in AvatarHandRig rig, bool left, in MediaPipeTiming timing, out Quaternion rotation)
         {
@@ -75,14 +77,18 @@ namespace Basis.MediaPipe
             Vector3[] left = Fingers(result.LeftHandWorldLandmarks, result.LeftHandLandmarks);
             if (result.HasLeftHand && left != null)
             {
+                leftLost = 0f;
                 ApplyHand(left, driver.LeftHand, true, leftFingers, cutoff, in timing);
             }
+            else leftLost = RelaxHand(driver.LeftHand, leftFingers, leftLost, in timing);
 
             Vector3[] right = Fingers(result.RightHandWorldLandmarks, result.RightHandLandmarks);
             if (result.HasRightHand && right != null)
             {
+                rightLost = 0f;
                 ApplyHand(right, driver.RightHand, false, rightFingers, cutoff, in timing);
             }
+            else rightLost = RelaxHand(driver.RightHand, rightFingers, rightLost, in timing);
         }
         private static Vector3[] Fingers(Vector3[] world, Vector3[] image)
         {
@@ -96,6 +102,28 @@ namespace Basis.MediaPipe
             pose.MiddlePercentage = Finger(filters, 4, Curl(lm, 9, 10, 11, 12, FingerMaxAngle), 0f, cutoff, in timing);
             pose.RingPercentage = Finger(filters, 6, Curl(lm, 13, 14, 15, 16, FingerMaxAngle), Splay(lm, 13, 14, 9, 10, isLeft), cutoff, in timing);
             pose.LittlePercentage = Finger(filters, 8, Curl(lm, 17, 18, 19, 20, FingerMaxAngle), Splay(lm, 17, 18, 13, 14, isLeft), cutoff, in timing);
+        }
+        // A hand that has left the frame holds briefly, then eases to a relaxed pose instead of freezing mid-gesture.
+        private static float RelaxHand(BasisFingerPose pose, MediaPipeScalarFilter[] filters, float lost, in MediaPipeTiming timing)
+        {
+            lost += timing.RenderDelta;
+            if (pose == null || !filters[0].HasSample) return lost;
+            if (lost <= HoldSeconds)
+            {
+                pose.ThumbPercentage = new Vector2(filters[0].Carry(in timing), filters[1].Carry(in timing));
+                pose.IndexPercentage = new Vector2(filters[2].Carry(in timing), filters[3].Carry(in timing));
+                pose.MiddlePercentage = new Vector2(filters[4].Carry(in timing), filters[5].Carry(in timing));
+                pose.RingPercentage = new Vector2(filters[6].Carry(in timing), filters[7].Carry(in timing));
+                pose.LittlePercentage = new Vector2(filters[8].Carry(in timing), filters[9].Carry(in timing));
+                return lost;
+            }
+            float alpha = BasisFilterMath.Alpha(RelaxHz, timing.RenderDelta);
+            pose.ThumbPercentage = new Vector2(filters[0].Relax(RelaxedCurl, alpha), filters[1].Relax(0f, alpha));
+            pose.IndexPercentage = new Vector2(filters[2].Relax(RelaxedCurl, alpha), filters[3].Relax(0f, alpha));
+            pose.MiddlePercentage = new Vector2(filters[4].Relax(RelaxedCurl, alpha), filters[5].Relax(0f, alpha));
+            pose.RingPercentage = new Vector2(filters[6].Relax(RelaxedCurl, alpha), filters[7].Relax(0f, alpha));
+            pose.LittlePercentage = new Vector2(filters[8].Relax(RelaxedCurl, alpha), filters[9].Relax(0f, alpha));
+            return lost;
         }
         private static Vector2 Finger(MediaPipeScalarFilter[] filters, int slot, float curl, float splay, float cutoff, in MediaPipeTiming timing) => new Vector2(filters[slot].Apply(curl, in timing, cutoff, FingerBeta), filters[slot + 1].Apply(splay, in timing, cutoff, FingerBeta));
         private float Curl(Vector3[] lm, int a, int b, int c, int d, float maxAngle)

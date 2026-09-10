@@ -175,5 +175,69 @@ namespace Basis.Tests.IK
             Assert.That(Vector3.Distance(burstLeft, managedLeft), Is.LessThan(1e-3f), "Burst and managed arm solves disagree on the left elbow");
             Assert.That(Vector3.Distance(burstRight, managedRight), Is.LessThan(1e-3f), "Burst and managed arm solves disagree on the right elbow");
         }
+        const float shoulderDt = 1f / 90f;
+        void ShoulderFrame(ref BasisEerieMovement job, bool tracked, float weight)
+        {
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { hipsTracked = true, leftHandWeight = 1f, rightHandWeight = 1f, deltaTime = shoulderDt, leftShoulderTracked = tracked, leftShoulderWeight = weight });
+            skeleton.GatherNow();
+            job.poseStream = skeleton.Stream;
+            job.poseStream.deltaTime = shoulderDt;
+            job.ProcessAnimation();
+        }
+        [Test]
+        public void ShoulderTracker_FullWeight_DrivesTheClavicle_AndFadesBackWhenLost()
+        {
+            BuildRig();
+            Quaternion trackerRot = Quaternion.Euler(0f, 0f, 20f);
+            var job = Job(new Vector3(-0.25f, 1.15f, 0.35f), new Vector3(0.30f, 1.60f, 0.20f));
+            job.shoulderTrackerBlendTime = 0.25f;
+            job.targetRotationLeftShoulder = trackerRot;
+            ShoulderFrame(ref job, false, 0f);
+            Quaternion rhythm = job.poseStream.GetRotation(job.handleLeftShoulder);
+            Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Solve));
+            Assert.That(Quaternion.Angle(rhythm, trackerRot), Is.GreaterThan(5f), "the test tracker pose must differ from the solved shoulder");
+            ShoulderFrame(ref job, true, 1f);
+            Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Tracker));
+            float firstStep = Quaternion.Angle(rhythm, job.poseStream.GetRotation(job.handleLeftShoulder));
+            Assert.That(firstStep, Is.LessThan(2f), "a tracker appearing must not pop the clavicle");
+            Assert.That(firstStep, Is.GreaterThan(0.1f), "the blend must start moving toward the tracker on the first frame");
+            float previous = Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftShoulder), trackerRot);
+            for (int frame = 0; frame < 40; frame++)
+            {
+                ShoulderFrame(ref job, true, 1f);
+                float remaining = Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftShoulder), trackerRot);
+                Assert.That(remaining, Is.LessThanOrEqualTo(previous + 1e-3f), "the clavicle must approach the tracker monotonically");
+                previous = remaining;
+            }
+            Assert.That(previous, Is.LessThan(0.05f), "with a full-weight tracker the clavicle must sit exactly on it");
+            Assert.That(armState[BasisEerieMovement.armLeft].ShoulderBlend, Is.EqualTo(1f));
+            ShoulderFrame(ref job, false, 0f);
+            Assert.That(Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftShoulder), trackerRot), Is.LessThan(2f), "losing the tracker must hold its last pose and fade, not snap to the solve");
+            for (int frame = 0; frame < 40; frame++) ShoulderFrame(ref job, false, 0f);
+            Assert.That(Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftShoulder), rhythm), Is.LessThan(0.05f), "with the tracker gone the clavicle must return to the solved shoulder");
+            Assert.That(armState[BasisEerieMovement.armLeft].ShoulderBlend, Is.EqualTo(0f));
+        }
+        [Test]
+        public void ShoulderTracker_PartialWeight_BlendsTowardTheTracker_AndRunsUnderBurst()
+        {
+            BuildRig();
+            Quaternion trackerRot = Quaternion.Euler(0f, 0f, 20f);
+            var job = Job(new Vector3(-0.25f, 1.15f, 0.35f), new Vector3(0.30f, 1.60f, 0.20f));
+            job.shoulderTrackerBlendTime = 0.25f;
+            job.targetRotationLeftShoulder = trackerRot;
+            ShoulderFrame(ref job, false, 0f);
+            Quaternion rhythm = job.poseStream.GetRotation(job.handleLeftShoulder);
+            for (int frame = 0; frame < 40; frame++) ShoulderFrame(ref job, true, 0.5f);
+            Quaternion half = job.poseStream.GetRotation(job.handleLeftShoulder);
+            float total = Quaternion.Angle(rhythm, trackerRot);
+            Assert.That(Quaternion.Angle(half, rhythm), Is.EqualTo(total * 0.5f).Within(0.3f));
+            Assert.That(Quaternion.Angle(half, trackerRot), Is.EqualTo(total * 0.5f).Within(0.3f));
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { hipsTracked = true, leftHandWeight = 1f, rightHandWeight = 1f, deltaTime = shoulderDt, leftShoulderTracked = true, leftShoulderWeight = 0.5f });
+            skeleton.GatherNow();
+            job.poseStream = skeleton.Stream;
+            job.poseStream.deltaTime = shoulderDt;
+            job.Schedule().Complete();
+            Assert.That(Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftShoulder), half), Is.LessThan(0.05f), "Burst and managed shoulder blends disagree");
+        }
     }
 }

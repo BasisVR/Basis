@@ -881,7 +881,7 @@ public partial class BasisHandHeldCameraUI
             directToScreenAlignX = HHC != null ? HHC.DirectToScreenAlignment.x : baseline.directToScreenAlignX,
             directToScreenAlignY = HHC != null ? HHC.DirectToScreenAlignment.y : baseline.directToScreenAlignY,
             backgroundMode = HHC != null ? (int)HHC.backgroundMode : 0,
-            backgroundCustomColor = HHC != null ? HHC.backgroundCustomColor : BasisHandHeldCamera.ChromaGreen,
+            backgroundCustomColor = HHC != null ? HHC.backgroundCustomColor : BasisCameraBackgrounds.ChromaGreen,
             backgroundKeepsWorld = HHC != null && HHC.backgroundKeepsWorld,
         };
 
@@ -1116,8 +1116,8 @@ public partial class BasisHandHeldCameraUI
         {
             // Direct To Screen's placement did not exist, and a zero alignment is a corner rather
             // than the centre the feed had always been drawn at.
-            settings.directToScreenAlignX = BasisHandHeldCamera.DefaultDirectToScreenAlignment.x;
-            settings.directToScreenAlignY = BasisHandHeldCamera.DefaultDirectToScreenAlignment.y;
+            settings.directToScreenAlignX = BasisCameraDirectToScreen.DefaultAlignment.x;
+            settings.directToScreenAlignY = BasisCameraDirectToScreen.DefaultAlignment.y;
         }
 
         settings.modifiers ??= new BasisCameraModifierStack();
@@ -1238,7 +1238,7 @@ public partial class BasisHandHeldCameraUI
 
             HHC.backgroundCustomColor = settings.backgroundCustomColor.a > 0f
                 ? settings.backgroundCustomColor
-                : BasisHandHeldCamera.ChromaGreen;
+                : BasisCameraBackgrounds.ChromaGreen;
             HHC.backgroundKeepsWorld = settings.backgroundKeepsWorld;
             HHC.SetBackgroundMode((BasisCameraBackgroundMode)settings.backgroundMode);
 
@@ -1421,7 +1421,7 @@ public partial class BasisHandHeldCameraUI
         // After the body, which this defers to: a file that names a film body and asks for the
         // monitor loads with the setting kept and the window left alone, as the panel then says.
         // The fit and alignment first, so the window is taken over already placed.
-        HHC.SetDirectToScreenFit(BasisHandHeldCamera.SanitizeDirectToScreenFit(settings.directToScreenFit));
+        HHC.SetDirectToScreenFit(BasisCameraDirectToScreen.SanitizeFit(settings.directToScreenFit));
         HHC.SetDirectToScreenAlignment(settings.directToScreenAlignX, settings.directToScreenAlignY);
         HHC.SetDirectToScreen(settings.directToScreen);
 

@@ -48,6 +48,7 @@ namespace Basis.Scripts.Drivers
             job.shoulderElevationFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderElevation.RawValue;
             job.shoulderProtractionFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderProtraction.RawValue;
             job.shoulderMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderMaxDeg.RawValue;
+            job.shoulderTrackerBlendTime = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderTrackerBlend.RawValue;
             job.armJointLimits = Basis.BasisUI.BasisSettingsDefaults.FBIKArmJointLimits.RawValue;
             job.armReachSoftness = Basis.BasisUI.BasisSettingsDefaults.FBIKArmReachSoftness.RawValue;
             job.armSwivelSmoothTime = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSmoothTime.RawValue;

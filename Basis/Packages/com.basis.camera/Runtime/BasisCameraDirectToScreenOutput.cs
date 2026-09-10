@@ -43,7 +43,7 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
 
     /// <summary>How the feed is placed on the window, as the owner has it; re-read with the feed on every frame.</summary>
     public BasisCameraDirectToScreenFit Fit { get; private set; }
-    public Vector2 Alignment { get; private set; } = BasisHandHeldCamera.DefaultDirectToScreenAlignment;
+    public Vector2 Alignment { get; private set; } = BasisCameraDirectToScreen.DefaultAlignment;
 
     private UniversalRenderPipelineAsset rendererSearchedOn;
     private bool rendererHasFeature;

@@ -739,6 +739,7 @@ namespace Basis.Scripts.Drivers
             data.shoulderElevationFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderElevation.RawValue;
             data.shoulderProtractionFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderProtraction.RawValue;
             data.shoulderMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderMaxDeg.RawValue;
+            data.shoulderTrackerBlendTime = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderTrackerBlend.RawValue;
             data.armJointLimits = Basis.BasisUI.BasisSettingsDefaults.FBIKArmJointLimits.RawValue;
             data.armReachSoftness = Basis.BasisUI.BasisSettingsDefaults.FBIKArmReachSoftness.RawValue;
             data.armSwivelSmoothTime = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSmoothTime.RawValue;
@@ -814,7 +815,7 @@ namespace Basis.Scripts.Drivers
         {
             return control.HasRigLayer == BasisHasRigLayer.HasRigLayer;
         }
-        private static float HandRigWeight(BasisLocalBoneControl control)
+        private static float RigWeight(BasisLocalBoneControl control)
         {
             if (control == null || control.HasRigLayer != BasisHasRigLayer.HasRigLayer) return 0f;
             float w = control.RigLayerWeight;
@@ -1003,8 +1004,10 @@ namespace Basis.Scripts.Drivers
             facts.rightShoulderTracked = HasRigLayer(BasisLocalBoneDriver.RightShoulderControl);
             facts.leftToeTracked = HasRigLayer(BasisLocalBoneDriver.LeftToeControl);
             facts.rightToeTracked = HasRigLayer(BasisLocalBoneDriver.RightToeControl);
-            facts.leftHandWeight = HandRigWeight(BasisLocalBoneDriver.LeftHandControl);
-            facts.rightHandWeight = HandRigWeight(BasisLocalBoneDriver.RightHandControl);
+            facts.leftHandWeight = RigWeight(BasisLocalBoneDriver.LeftHandControl);
+            facts.rightHandWeight = RigWeight(BasisLocalBoneDriver.RightHandControl);
+            facts.leftShoulderWeight = RigWeight(BasisLocalBoneDriver.LeftShoulderControl);
+            facts.rightShoulderWeight = RigWeight(BasisLocalBoneDriver.RightShoulderControl);
             BasisEeriePlanner.FootIK(ref facts, ref stationaryTimer, ref footIKBlendWeightLeft, ref footIKBlendWeightRight, out frameFootSimScheduled, out frameFootReengage);
             footIKBlendWeight = Mathf.Min(footIKBlendWeightLeft, footIKBlendWeightRight);
             if (frameFootSimScheduled) footDriver.ScheduleSimulate(deltaTime);

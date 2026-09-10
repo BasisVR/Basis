@@ -53,7 +53,7 @@ public class DocEntry
     public List<string> Platforms = new(); // e.g., "Editor", "Runtime", "Android"
 }
 
-public class BasisDocDB : ScriptableObject
+public class BasisDocDB : ScriptableObject, ISerializationCallbackReceiver
 {
     public List<DocEntry> Entries = new();
 
@@ -114,15 +114,15 @@ public class BasisDocDB : ScriptableObject
             }
             if (best != null) return best;
         }
-
-        foreach (var e in Entries)
-        {
-            if (NormalizeTypeKey(e.TypeFullName) != key) continue;
-            if (!string.Equals(e.MemberName, memberName, StringComparison.Ordinal)) continue;
-            if (!string.Equals(e.Kind, kind, StringComparison.Ordinal)) continue;
-            return e;
-        }
         return null;
+    }
+
+    public void OnBeforeSerialize() { }
+
+    public void OnAfterDeserialize()
+    {
+        _byType = null;
+        _typeEntryByKey = null;
     }
 
     /// <summary>

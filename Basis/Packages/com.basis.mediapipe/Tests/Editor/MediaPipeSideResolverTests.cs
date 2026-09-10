@@ -48,6 +48,7 @@ namespace Basis.MediaPipe.Tests
         {
             Vector3[] hand = new Vector3[MediaPipeSpace.HandCount];
             hand[MediaPipeSpace.HandWrist] = wrist;
+            hand[MediaPipeSpace.HandMiddleMcp] = wrist + new Vector2(0f, 0.08f);
             return hand;
         }
         [Test]
@@ -90,6 +91,21 @@ namespace Basis.MediaPipe.Tests
             resolver.Resolve(pose, Hand(new Vector2(0.7f, 0.5f)), null, false, 1);
             for (int i = 0; i < MediaPipeHandSideResolver.ForgetAfter + 1; i++) resolver.Resolve(null, Hand(new Vector2(0.05f, 0.05f)), null, false, 1);
             Assert.IsFalse(resolver.Resolve(null, Hand(new Vector2(0.7f, 0.5f)), null, false, 1), "a memory that old says nothing about a hand appearing there now");
+        }
+        [Test]
+        public void Duplicate_TheSameHandDetectedTwiceIsOneHand()
+        {
+            Vector3[] a = Hand(new Vector2(0.5f, 0.5f)), b = Hand(new Vector2(0.51f, 0.505f));
+            Assert.IsTrue(MediaPipeHandSideResolver.IsDuplicate(a, b, 4f / 3f));
+        }
+        [Test]
+        public void Duplicate_TwoRealHandsAreKept()
+        {
+            Vector3[] a = Hand(new Vector2(0.5f, 0.5f)), b = Hand(new Vector2(0.6f, 0.5f));
+            Assert.IsFalse(MediaPipeHandSideResolver.IsDuplicate(a, b, 4f / 3f));
+            Vector3[] clasped = Hand(new Vector2(0.505f, 0.5f));
+            clasped[MediaPipeSpace.HandMiddleMcp] = new Vector3(0.6f, 0.5f, 0f);
+            Assert.IsFalse(MediaPipeHandSideResolver.IsDuplicate(a, clasped, 4f / 3f), "wrists can touch while the hands point different ways");
         }
     }
 }

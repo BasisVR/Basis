@@ -451,7 +451,7 @@ namespace Basis.Tests.Camera
             foreach (BasisCameraBackgroundMode mode in Enum.GetValues(typeof(BasisCameraBackgroundMode)))
             {
                 Color custom = new Color(0.2f, 0.4f, 0.6f, 1f);
-                Color resolved = BasisHandHeldCamera.ColorForBackgroundMode(mode, custom);
+                Color resolved = BasisCameraBackgrounds.ColorFor(mode, custom);
 
                 if (mode == BasisCameraBackgroundMode.Transparent)
                     Assert.That(resolved.a, Is.Zero, "Transparent must produce a zero-alpha clear for Spout compositing.");
@@ -459,7 +459,7 @@ namespace Basis.Tests.Camera
                     Assert.That(resolved.a, Is.GreaterThan(0f), $"{mode} unexpectedly resolves to a transparent clear colour.");
             }
 
-            Assert.That(BasisHandHeldCamera.ColorForBackgroundMode(BasisCameraBackgroundMode.Custom, Color.red),
+            Assert.That(BasisCameraBackgrounds.ColorFor(BasisCameraBackgroundMode.Custom, Color.red),
                 Is.EqualTo(Color.red), "Custom is the only mode that has to follow the colour picker.");
             Assert.That((int)BasisCameraBackgroundMode.World, Is.Zero,
                 "World has to be the zero value so an old settings file zero-fills to the world, not a green screen.");

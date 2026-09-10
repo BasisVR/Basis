@@ -37,24 +37,24 @@ namespace Basis.Tests.Camera
         public void SettersClampToTheRangesThePanelPromises()
         {
             _camera.SetVideoRecordingFrameRate(1);
-            Assert.That(_camera.VideoRecordingFrameRate, Is.EqualTo(BasisHandHeldCamera.MinVideoFrameRate));
+            Assert.That(_camera.VideoRecordingFrameRate, Is.EqualTo(BasisCameraRecordingLimits.MinVideoFrameRate));
             _camera.SetVideoRecordingFrameRate(500);
-            Assert.That(_camera.VideoRecordingFrameRate, Is.EqualTo(BasisHandHeldCamera.MaxVideoFrameRate));
+            Assert.That(_camera.VideoRecordingFrameRate, Is.EqualTo(BasisCameraRecordingLimits.MaxVideoFrameRate));
 
             _camera.SetVideoRecordingDuration(0f);
-            Assert.That(_camera.VideoRecordingDurationSeconds, Is.EqualTo(BasisHandHeldCamera.MinVideoDurationSeconds));
+            Assert.That(_camera.VideoRecordingDurationSeconds, Is.EqualTo(BasisCameraRecordingLimits.MinVideoDurationSeconds));
             _camera.SetVideoRecordingDuration(9000f);
-            Assert.That(_camera.VideoRecordingDurationSeconds, Is.EqualTo(BasisHandHeldCamera.MaxVideoDurationSeconds));
+            Assert.That(_camera.VideoRecordingDurationSeconds, Is.EqualTo(BasisCameraRecordingLimits.MaxVideoDurationSeconds));
 
             _camera.SetVideoRecordingWidth(8);
-            Assert.That(_camera.VideoRecordingWidth, Is.EqualTo(BasisHandHeldCamera.MinVideoWidth));
+            Assert.That(_camera.VideoRecordingWidth, Is.EqualTo(BasisCameraRecordingLimits.MinVideoWidth));
             _camera.SetVideoRecordingWidth(99999);
-            Assert.That(_camera.VideoRecordingWidth, Is.EqualTo(BasisHandHeldCamera.MaxVideoWidth));
+            Assert.That(_camera.VideoRecordingWidth, Is.EqualTo(BasisCameraRecordingLimits.MaxVideoWidth));
 
             _camera.SetVideoRecordingQuality(1);
-            Assert.That(_camera.VideoRecordingQuality, Is.EqualTo(BasisHandHeldCamera.MinVideoQuality));
+            Assert.That(_camera.VideoRecordingQuality, Is.EqualTo(BasisCameraRecordingLimits.MinVideoQuality));
             _camera.SetVideoRecordingQuality(101);
-            Assert.That(_camera.VideoRecordingQuality, Is.EqualTo(BasisHandHeldCamera.MaxVideoQuality));
+            Assert.That(_camera.VideoRecordingQuality, Is.EqualTo(BasisCameraRecordingLimits.MaxVideoQuality));
 
             _camera.SetVideoRecordingWidth(1600);
             Assert.That(_camera.VideoRecordingWidth, Is.EqualTo(1600), "In-range values pass through unsnapped.");
@@ -83,9 +83,9 @@ namespace Basis.Tests.Camera
         [Test]
         public void EveryPanelWidthPresetIsInsideTheSetterRange()
         {
-            foreach (int preset in BasisHandHeldCamera.VideoWidthPresets)
+            foreach (int preset in BasisCameraRecordingLimits.VideoWidthPresets)
             {
-                Assert.That(preset, Is.InRange(BasisHandHeldCamera.MinVideoWidth, BasisHandHeldCamera.MaxVideoWidth));
+                Assert.That(preset, Is.InRange(BasisCameraRecordingLimits.MinVideoWidth, BasisCameraRecordingLimits.MaxVideoWidth));
             }
         }
 

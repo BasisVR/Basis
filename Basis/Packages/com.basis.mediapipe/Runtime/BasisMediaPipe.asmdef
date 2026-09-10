@@ -9,7 +9,8 @@
         "BasisDebug",
         "Unity.Mathematics",
         "HVR.Basis.Comms",
-        "BasisSettings"
+        "BasisSettings",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

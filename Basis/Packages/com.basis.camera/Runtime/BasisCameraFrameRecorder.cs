@@ -372,7 +372,7 @@ namespace Basis
             // paid for and about to land, and counting them would stall capture at a join.
             if (Session.FramesQueued + CountPendingReadbacks(Session) >= maxPendingFrames) return;
 
-            BasisHandHeldCamera.GetStreamBlitCrop(source, target, out Vector2 scale, out Vector2 offset);
+            BasisCameraRenderTargets.GetBlitCrop(source, target, out Vector2 scale, out Vector2 offset);
             if (flipVertically)
             {
                 // Readback rows come back bottom-up; a format that wants them top-down gets the

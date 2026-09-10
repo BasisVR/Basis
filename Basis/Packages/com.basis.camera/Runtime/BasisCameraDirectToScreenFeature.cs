@@ -104,7 +104,7 @@ public sealed class BasisCameraDirectToScreenPass : ScriptableRenderPass
     private RTHandle feedHandle;
     private RenderTexture feedTexture;
     private BasisCameraDirectToScreenFit fit;
-    private Vector2 alignment = BasisHandHeldCamera.DefaultDirectToScreenAlignment;
+    private Vector2 alignment = BasisCameraDirectToScreen.DefaultAlignment;
 
     public BasisCameraDirectToScreenPass()
     {
@@ -238,7 +238,7 @@ public sealed class BasisCameraDirectToScreenPass : ScriptableRenderPass
     /// hard edge rather than a filtered one.
     /// </summary>
     public static Rect FitViewport(int feedWidth, int feedHeight, Rect window)
-        => FitViewport(feedWidth, feedHeight, window, BasisHandHeldCamera.DefaultDirectToScreenAlignment);
+        => FitViewport(feedWidth, feedHeight, window, BasisCameraDirectToScreen.DefaultAlignment);
 
     /// <summary>The same rectangle, placed along the bars by <paramref name="alignment"/>: 0 is left and bottom, 1 is right and top.</summary>
     public static Rect FitViewport(int feedWidth, int feedHeight, Rect window, Vector2 alignment)

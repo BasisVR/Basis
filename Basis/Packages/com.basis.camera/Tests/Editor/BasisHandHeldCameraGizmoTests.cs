@@ -136,9 +136,9 @@ namespace Basis.Tests.Camera
             try
             {
                 BasisGizmoManager.RenderInAllCameras = false;
-                Assert.That(BasisGizmoManager.DefaultRenderLayer, Is.EqualTo(BasisHandHeldCamera.MarkerLayer),
+                Assert.That(BasisGizmoManager.DefaultRenderLayer, Is.EqualTo(BasisCameraCaptureLayers.Marker),
                     "Gizmos must default to the layer the capture camera culls.");
-                Assert.That(BasisGizmoManager.RenderLayer, Is.EqualTo(BasisHandHeldCamera.MarkerLayer),
+                Assert.That(BasisGizmoManager.RenderLayer, Is.EqualTo(BasisCameraCaptureLayers.Marker),
                     "Nothing should have moved the shared gizmo layer off its default.");
             }
             finally

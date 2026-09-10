@@ -34,7 +34,7 @@ public partial class BasisHandHeldCameraUI
             flashEnabled = true;
 
             backgroundMode = 0;
-            backgroundCustomColor = BasisHandHeldCamera.ChromaGreen;
+            backgroundCustomColor = BasisCameraBackgrounds.ChromaGreen;
             backgroundKeepsWorld = false;
 
             modifiers = new BasisCameraModifierStack();
@@ -94,7 +94,7 @@ public partial class BasisHandHeldCameraUI
             // Off, but with a usable sensitivity already set, so the file a camera loads on the day
             // the feature arrives is not one that switches it on at the least sensitive end.
             focusPeaking = false;
-            focusPeakingSensitivity = BasisHandHeldCamera.DefaultFocusPeakingSensitivity;
+            focusPeakingSensitivity = BasisCameraFocusPeaking.DefaultSensitivity;
             focusPeakingColour = 0;
             focusPeakingGreyPicture = false;
 
@@ -103,14 +103,14 @@ public partial class BasisHandHeldCameraUI
             // faintest setting there is.
             viewfinderGrid = false;
             viewfinderGridPattern = (int)BasisCameraGridPattern.Thirds;
-            viewfinderGridOpacity = BasisHandHeldCamera.DefaultGridOpacity;
+            viewfinderGridOpacity = BasisCameraGrid.DefaultOpacity;
 
             // Same again for the meter: off, but already set up to behave the moment it is on.
             autoBrightness = false;
-            autoBrightnessTarget = BasisHandHeldCamera.DefaultBrightnessTarget;
-            autoBrightnessSpeed = BasisHandHeldCamera.DefaultBrightnessSpeed;
+            autoBrightnessTarget = BasisCameraMetering.DefaultTarget;
+            autoBrightnessSpeed = BasisCameraMetering.DefaultSpeed;
             autoBrightnessMetering = (int)BasisCameraMeteringMode.CentreWeighted;
-            autoBrightnessRange = BasisHandHeldCamera.DefaultBrightnessRange;
+            autoBrightnessRange = BasisCameraMetering.DefaultRange;
 
             // Off by default (a still photo of a moving world is not usually what is wanted), but
             // with the shape of the effect already sane for the moment it is switched on.
@@ -172,7 +172,7 @@ public partial class BasisHandHeldCameraUI
             photogrammetryWidth = 1280;
             photogrammetryPathSettleSeconds = 0.5f;
 
-            streamTransport = (int)(BasisHandHeldCamera.IsVideoOutputSupported ? BasisVideoTransport.Platform : BasisVideoTransport.Web);
+            streamTransport = (int)(BasisCameraVideoPlatform.Supported ? BasisVideoTransport.Platform : BasisVideoTransport.Web);
             streamWidth = BasisVideoOutputSettings.DefaultWidth;
             streamHeight = BasisVideoOutputSettings.DefaultHeight;
             streamFrameRate = BasisVideoOutputSettings.DefaultFrameRate;
@@ -298,7 +298,7 @@ public partial class BasisHandHeldCameraUI
         /// </summary>
         public bool focusPeaking;
         public float focusPeakingSensitivity;
-        /// <summary>Index into <see cref="BasisHandHeldCamera.FocusPeakingColours"/>; 0 is red.</summary>
+        /// <summary>Index into <see cref="BasisCameraFocusPeaking.Colours"/>; 0 is red.</summary>
         public int focusPeakingColour;
         public bool focusPeakingGreyPicture;
 

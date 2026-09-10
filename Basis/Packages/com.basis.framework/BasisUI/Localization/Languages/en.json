@@ -2867,6 +2867,14 @@
       "value": "How much your shoulders roll forward when you reach ahead."
     },
     {
+      "key": "settings.bodyTracking.shoulderTrackerBlend.title",
+      "value": "Shoulder Tracker Blend"
+    },
+    {
+      "key": "settings.bodyTracking.shoulderTrackerBlend.title.tooltip",
+      "value": "Seconds to cross-fade between a shoulder tracker and the automatic shoulder when the tracker appears, changes confidence or drops out."
+    },
+    {
       "key": "settings.bodyTracking.lowerArmTwist.title.tooltip",
       "value": "How much forearm twist is shared down toward the wrist."
     },
@@ -12125,6 +12133,78 @@
     {
       "key": "settings.mediapipe.rejectGlitches.description",
       "value": "Ignores a sudden jump that lasts only one camera frame. Real fast movements arrive one frame later; single-frame spikes never reach the avatar."
+    },
+    {
+      "key": "settings.mediapipe.preview",
+      "value": "Camera Preview"
+    },
+    {
+      "key": "settings.mediapipe.preview.description",
+      "value": "Shows the webcam feed with the tracked landmarks drawn over it. Only rendered while this page is open."
+    },
+    {
+      "key": "settings.mediapipe.poseModel",
+      "value": "Body Model"
+    },
+    {
+      "key": "settings.mediapipe.poseModel.description",
+      "value": "Which pose model tracks your arms and torso. Heavier models are more accurate and cost more CPU."
+    },
+    {
+      "key": "settings.mediapipe.poseModel.lite",
+      "value": "Lite (fastest)"
+    },
+    {
+      "key": "settings.mediapipe.poseModel.full",
+      "value": "Full (balanced)"
+    },
+    {
+      "key": "settings.mediapipe.poseModel.heavy",
+      "value": "Heavy (most accurate)"
+    },
+    {
+      "key": "settings.mediapipe.cameraFpsAuto",
+      "value": "Slow Camera In Low Light"
+    },
+    {
+      "key": "settings.mediapipe.cameraFpsAuto.description",
+      "value": "Drops the camera to 15 frames per second while the room is dark, so the sensor gets a longer exposure. Restores your frame rate when the light comes back."
+    },
+    {
+      "key": "settings.mediapipe.gazeStrength",
+      "value": "Eye Gaze Strength"
+    },
+    {
+      "key": "settings.mediapipe.gazeStrength.description",
+      "value": "How far the avatar's eyes move for a given movement of your irises."
+    },
+    {
+      "key": "settings.mediapipe.status.off",
+      "value": "Webcam tracking is off."
+    },
+    {
+      "key": "settings.mediapipe.status.starting",
+      "value": "Starting the camera..."
+    },
+    {
+      "key": "settings.mediapipe.status.loading",
+      "value": "Loading tracking models..."
+    },
+    {
+      "key": "settings.mediapipe.status.noCamera",
+      "value": "No webcam found. Plug one in and it will be picked up automatically."
+    },
+    {
+      "key": "settings.mediapipe.status.stalled",
+      "value": "The camera stopped sending frames. Restarting it."
+    },
+    {
+      "key": "settings.mediapipe.status.black",
+      "value": "The camera is sending black frames. Check that nothing covers it and that Windows camera privacy settings allow this app."
+    },
+    {
+      "key": "settings.mediapipe.status.running",
+      "value": "Tracking."
     },
     {
       "key": "settings.mediapipe.invertBlink",

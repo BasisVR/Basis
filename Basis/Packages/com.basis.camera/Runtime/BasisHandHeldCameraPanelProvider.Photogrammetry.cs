@@ -48,7 +48,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _photogrammetryDistanceSlider = PanelSlider.CreateNew(content);
             _photogrammetryDistanceSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
                 BasisLocalization.Get("camera.photogrammetry.distance"),
-                BasisHandHeldCamera.MinPhotogrammetryDistanceMeters, BasisHandHeldCamera.MaxPhotogrammetryDistanceMeters,
+                BasisCameraRecordingLimits.MinPhotogrammetryDistanceMeters, BasisCameraRecordingLimits.MaxPhotogrammetryDistanceMeters,
                 false, 2, ValueDisplayMode.Meters));
             _photogrammetryDistanceSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.photogrammetry.distance.description"));
             _photogrammetryDistanceSlider.SetResetDefault(defaults.photogrammetryDistanceMeters);
@@ -57,7 +57,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _photogrammetryAngleSlider = PanelSlider.CreateNew(content);
             _photogrammetryAngleSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
                 BasisLocalization.Get("camera.photogrammetry.angle"),
-                BasisHandHeldCamera.MinPhotogrammetryAngleDegrees, BasisHandHeldCamera.MaxPhotogrammetryAngleDegrees,
+                BasisCameraRecordingLimits.MinPhotogrammetryAngleDegrees, BasisCameraRecordingLimits.MaxPhotogrammetryAngleDegrees,
                 true, 0, ValueDisplayMode.Degrees));
             _photogrammetryAngleSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.photogrammetry.angle.description"));
             _photogrammetryAngleSlider.SetResetDefault(defaults.photogrammetryAngleDegrees);
@@ -71,9 +71,9 @@ namespace Basis.BasisUI.HandHeldCamera
             {
                 if (_activeCamera == null || _photogrammetryResolutionDropdown == null) return;
                 int index = _photogrammetryResolutionDropdown.Index;
-                if (index >= 0 && index < BasisHandHeldCamera.PhotogrammetryWidthPresets.Length)
+                if (index >= 0 && index < BasisCameraRecordingLimits.PhotogrammetryWidthPresets.Length)
                 {
-                    _activeCamera.SetPhotogrammetryWidth(BasisHandHeldCamera.PhotogrammetryWidthPresets[index]);
+                    _activeCamera.SetPhotogrammetryWidth(BasisCameraRecordingLimits.PhotogrammetryWidthPresets[index]);
                 }
             };
 
@@ -83,12 +83,12 @@ namespace Basis.BasisUI.HandHeldCamera
             _photogrammetryCaptureNowButton.Descriptor.SetTooltip(BasisLocalization.Get("camera.photogrammetry.captureNow.description"));
             _photogrammetryCaptureNowButton.OnClicked += () => _activeCamera?.CapturePhotogrammetryFrameNow();
 
-            if (BasisHandHeldCamera.CanOpenPhotosFolder)
+            if (BasisCameraPhotoFolder.CanOpen)
             {
                 RectTransform folderRow = PanelElementDescriptor.BuildActionRow(content, "CameraPhotogrammetryFolderRow");
                 PanelButton openFolderButton = PanelButton.CreateNew(folderRow);
                 openFolderButton.Descriptor.SetTitle(BasisLocalization.Get("camera.openPhotosFolder"));
-                openFolderButton.OnClicked += () => BasisHandHeldCamera.OpenPhotosFolder();
+                openFolderButton.OnClicked += () => BasisCameraPhotoFolder.Open();
             }
         }
 
@@ -217,7 +217,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             cached = width;
 
-            int[] presets = BasisHandHeldCamera.PhotogrammetryWidthPresets;
+            int[] presets = BasisCameraRecordingLimits.PhotogrammetryWidthPresets;
             int nearest = 0;
             for (int index = 1; index < presets.Length; index++)
             {

@@ -31,7 +31,7 @@ namespace Basis.Tests.Camera
             Quaternion.Euler(0f, degrees, 0f) * Vector3.forward * distance;
 
         private static bool ShouldShow(float degrees, bool showing) =>
-            BasisHandHeldCamera.PuckPreviewShouldShow(
+            BasisCameraPuckPreview.ShouldShow(
                 Vector3.zero, Quaternion.identity, HeadAt(degrees), showing, ShowAngle, HideAngle);
 
         [Test]
@@ -83,15 +83,15 @@ namespace Basis.Tests.Camera
             // Authored backwards, the band inverts into a dead zone: shown at 40 degrees, asked to
             // hide at 20, anything between the two both should and should not be up. Taking the
             // wider of the two makes the pair unorderable rather than contradictory.
-            bool showing = BasisHandHeldCamera.PuckPreviewShouldShow(
+            bool showing = BasisCameraPuckPreview.ShouldShow(
                 Vector3.zero, Quaternion.identity, HeadAt(10f), false, 40f, 20f);
             Assert.That(showing, Is.True);
 
-            showing = BasisHandHeldCamera.PuckPreviewShouldShow(
+            showing = BasisCameraPuckPreview.ShouldShow(
                 Vector3.zero, Quaternion.identity, HeadAt(30f), showing, 40f, 20f);
             Assert.That(showing, Is.True, "still within the angle it was shown at");
 
-            showing = BasisHandHeldCamera.PuckPreviewShouldShow(
+            showing = BasisCameraPuckPreview.ShouldShow(
                 Vector3.zero, Quaternion.identity, HeadAt(80f), showing, 40f, 20f);
             Assert.That(showing, Is.False, "past both angles it has to go");
         }
@@ -101,7 +101,7 @@ namespace Basis.Tests.Camera
         {
             // There is no direction to measure, and a camera you are standing in is as pointed at
             // you as it gets. A normalize on a zero vector would otherwise decide this by NaN.
-            Assert.That(BasisHandHeldCamera.PuckPreviewShouldShow(
+            Assert.That(BasisCameraPuckPreview.ShouldShow(
                 Vector3.zero, Quaternion.identity, Vector3.zero, false, ShowAngle, HideAngle), Is.True);
         }
 
@@ -110,8 +110,8 @@ namespace Basis.Tests.Camera
         {
             // Up close is the one case that is already readable; scaling down from there would make
             // it the hardest.
-            Assert.That(BasisHandHeldCamera.PuckPreviewGrowth(0.1f, 1f, 6f), Is.EqualTo(1f));
-            Assert.That(BasisHandHeldCamera.PuckPreviewGrowth(1f, 1f, 6f), Is.EqualTo(1f));
+            Assert.That(BasisCameraPuckPreview.Growth(0.1f, 1f, 6f), Is.EqualTo(1f));
+            Assert.That(BasisCameraPuckPreview.Growth(1f, 1f, 6f), Is.EqualTo(1f));
         }
 
         [Test]
@@ -119,7 +119,7 @@ namespace Basis.Tests.Camera
         {
             // Angular size is size over distance, so a screen three times as far away has to be
             // three times as wide to look the same.
-            Assert.That(BasisHandHeldCamera.PuckPreviewGrowth(3f, 1f, 6f), Is.EqualTo(3f).Within(1e-4f));
+            Assert.That(BasisCameraPuckPreview.Growth(3f, 1f, 6f), Is.EqualTo(3f).Within(1e-4f));
         }
 
         [Test]
@@ -128,8 +128,8 @@ namespace Basis.Tests.Camera
             // Held to the cap rather than tracked all the way out: a camera flown across the map
             // would otherwise be given a screen tens of metres wide, buried in whatever stood
             // between the two of you.
-            Assert.That(BasisHandHeldCamera.PuckPreviewGrowth(500f, 1f, 6f), Is.EqualTo(6f));
-            Assert.That(BasisHandHeldCamera.PuckPreviewGrowth(500f, 1f, 0f), Is.EqualTo(1f),
+            Assert.That(BasisCameraPuckPreview.Growth(500f, 1f, 6f), Is.EqualTo(6f));
+            Assert.That(BasisCameraPuckPreview.Growth(500f, 1f, 0f), Is.EqualTo(1f),
                 "A cap under 1 would shrink the preview rather than hold it.");
         }
 
@@ -138,7 +138,7 @@ namespace Basis.Tests.Camera
         {
             // The reference distance is scaled by avatar height, so a rig that reports zero would
             // divide by it.
-            Assert.That(BasisHandHeldCamera.PuckPreviewGrowth(5f, 0f, 6f), Is.EqualTo(1f));
+            Assert.That(BasisCameraPuckPreview.Growth(5f, 0f, 6f), Is.EqualTo(1f));
         }
 
         [Test]
@@ -146,9 +146,9 @@ namespace Basis.Tests.Camera
         {
             // It is parked out along the lens axis, square in front of the camera, so the layer is
             // the only thing keeping it out of the picture — the same bargain the puck makes.
-            int marker = BasisHandHeldCamera.MarkerLayer;
+            int marker = BasisCameraCaptureLayers.Marker;
             Assert.That(marker, Is.GreaterThanOrEqualTo(0), "This project no longer defines the OverlayUI layer.");
-            Assert.That(BasisHandHeldCamera.IsCaptureLayerUserTogglable(marker), Is.False);
+            Assert.That(BasisCameraCaptureLayers.IsUserTogglable(marker), Is.False);
         }
 
         [Test]

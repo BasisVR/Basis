@@ -370,4 +370,10 @@ namespace Basis.IK
             r.Apply = true;
         }
     }
+    public static class BasisShoulderBlendCore
+    {
+        public const float DefaultBlendTime = 0.25f;
+        public static float Step(float blend, float target, float dt, float blendTime) => blendTime <= 0f ? target : Mathf.MoveTowards(blend, target, Mathf.Max(dt, 0f) / blendTime);
+        public static Quaternion Blend(Quaternion fallback, Quaternion tracked, float blend) => blend <= 0f ? fallback : blend >= 1f ? tracked : Quaternion.Slerp(fallback, tracked, blend);
+    }
 }

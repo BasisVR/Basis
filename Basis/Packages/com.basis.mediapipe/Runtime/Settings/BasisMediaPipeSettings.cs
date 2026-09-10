@@ -90,6 +90,21 @@ namespace Basis.MediaPipe
         public static readonly BasisSettingsBinding<bool> RejectGlitches =
             new BasisSettingsBinding<bool>("mediapipe_rejectglitches", new BasisPlatformDefault<bool>(true));
 
+        public static readonly BasisSettingsBinding<string> PoseModel =
+            new BasisSettingsBinding<string>("mediapipe_posemodel", new BasisPlatformDefault<string>(BasisMediaPipeConfig.PoseModelLite));
+
+        public static readonly BasisSettingsBinding<bool> CameraFpsAuto =
+            new BasisSettingsBinding<bool>("mediapipe_camerafpsauto", new BasisPlatformDefault<bool>(true));
+
+        public static readonly BasisSettingsBinding<bool> ShowPreview =
+            new BasisSettingsBinding<bool>("mediapipe_preview", new BasisPlatformDefault<bool>(true));
+
+        public static readonly BasisSettingsBinding<float> GazeStrength =
+            new BasisSettingsBinding<float>("mediapipe_gazestrength", new BasisPlatformDefault<float>(1f));
+
+        public static readonly BasisSettingsBinding<string> HeadNeutral =
+            new BasisSettingsBinding<string>("mediapipe_headneutral", new BasisPlatformDefault<string>(string.Empty));
+
         public static readonly BasisSettingsBinding<float> HeadPositionStrength =
             new BasisSettingsBinding<float>("mediapipe_headpositionstrength_v2", new BasisPlatformDefault<float>(0.6f));
 
@@ -146,6 +161,11 @@ namespace Basis.MediaPipe
             HandRotation.LoadBindingValue();
             LowLightBoost.LoadBindingValue();
             RejectGlitches.LoadBindingValue();
+            PoseModel.LoadBindingValue();
+            CameraFpsAuto.LoadBindingValue();
+            ShowPreview.LoadBindingValue();
+            GazeStrength.LoadBindingValue();
+            HeadNeutral.LoadBindingValue();
             HeadPositionStrength.LoadBindingValue();
             HeadRotationStrength.LoadBindingValue();
             HeadHeight.LoadBindingValue();

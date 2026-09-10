@@ -71,14 +71,24 @@ namespace Basis.Tests.IK
             }
         }
         [Test]
-        public void Frame_ShoulderMode_SolveBeatsTrackerBeatsNone()
+        public void Frame_ShoulderMode_TrackerBeatsSolveBeatsNone()
         {
             var job = new BasisEerieMovement { shoulderSolveEnabled = true };
             job.plan.hasLeftShoulder = true;
-            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { leftShoulderTracked = true });
-            Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Solve));
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { leftShoulderTracked = true, leftShoulderWeight = 1f });
+            Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Tracker));
+            Assert.That(job.plan.leftShoulderWeight, Is.EqualTo(1f));
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { leftShoulderTracked = true, leftShoulderWeight = 0.4f });
+            Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Tracker));
+            Assert.That(job.plan.leftShoulderWeight, Is.EqualTo(0.4f).Within(1e-6f));
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { leftShoulderTracked = true, leftShoulderWeight = 0f });
+            Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Solve), "a tracker layer at zero weight falls back to the solve");
+            Assert.That(job.plan.leftShoulderWeight, Is.EqualTo(0f));
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { leftShoulderWeight = 1f });
+            Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Solve), "weight without a tracker layer is ignored");
+            Assert.That(job.plan.leftShoulderWeight, Is.EqualTo(0f));
             job.shoulderSolveEnabled = false;
-            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { leftShoulderTracked = true });
+            BasisEeriePlanner.Frame(ref job, new BasisEerieFrameFacts { leftShoulderTracked = true, leftShoulderWeight = 1f });
             Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.Tracker));
             BasisEeriePlanner.Frame(ref job, default);
             Assert.That(job.plan.leftShoulder, Is.EqualTo(BasisEerieShoulderMode.None));

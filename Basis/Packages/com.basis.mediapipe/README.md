@@ -67,19 +67,17 @@ These steps are **done** in this repo — listed so it's reproducible:
 
 ## Using it
 
-Open **Settings → Webcam Tracking**:
-- **Enable Webcam Tracking** — turn it on/off.
-- **Camera** — pick which webcam to use (live device list).
-- **Face & Eyes**, **Hands & Fingers**, **Mirror Camera** — per-feature toggles.
-- **Low Light Boost**, **Reject Tracking Glitches**: brighten a dark camera feed before inference, and drop single-frame landmark jumps (both on by default).
+Open **Settings -> Webcam Tracking**:
+- **Enable Webcam Tracking**: turn it on/off. Every other setting applies live; nothing restarts the camera except a camera, resolution or frame-rate change.
+- **Camera Preview**: the live feed with the pose skeleton, hands, face box and gaze drawn over it, plus a plain-language camera state (no camera, starting, stalled and restarting, black frames, tracking). Only rendered while the page is open.
+- **Camera**, **Camera Resolution**, **Camera Frame Rate**: device and capture settings. A missing camera is retried every few seconds and picked up when plugged in; a camera that stops delivering frames is restarted.
+- **Body Model**: Lite, Full or Heavy pose model, swapped without a restart.
+- **Face & Eyes**, **Hands & Fingers**, **Head Rotation**, **Head Position**, **Arm Tracking**, **Body Lean/Twist**, **Mirror Camera**: per-feature toggles. Eye gaze comes from the iris landmarks; expressions and fingers ease back to neutral when the face or a hand leaves the frame.
+- **Low Light Boost**, **Slow Camera In Low Light**, **Reject Tracking Glitches**: brighten a dark feed before inference, drop to 15 fps for a longer exposure while the room is dark, and drop single-frame landmark jumps (all on by default).
+- **Eye Gaze Strength** and the smoothing sliders: converter tuning, applied on the spot.
+- **Calibrate Head**: captures your neutral head pose and gaze centre. It is also captured automatically the first time your head is held still, and saved across sessions.
 
-Tuning knobs if something looks reversed (no avatar rebuild needed):
-- Blink inverted → flip `MediaPipeFaceConverter.EyeLidIsOpenness`.
-- Hands swapped → `HomulerMediaPipeBackend.SwapHands`.
-- Finger splay direction/strength → `MediaPipeHandConverter.SplayGain` / `MaxSplayDegrees`.
-
-> Inference runs on the main thread (VIDEO mode), so expect a frame-time cost while enabled until
-> the M4 off-thread pass. Cap the camera FPS via `BasisMediaPipeConfig.TargetFps` if needed.
+The three models run on their own threads for one frame at a time, so the tracking rate is set by the slowest model rather than the sum of all three. Results are triple-buffered, so a running session allocates nothing per frame.
 
 ## Platform notes
 

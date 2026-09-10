@@ -9,24 +9,33 @@ namespace Basis.MediaPipe
         private Quaternion neutralInverse = Quaternion.identity;
         private Vector3 neutralPosition;
         private bool calibrated;
-        private MediaPipeRotationFilter rotation;
-        private MediaPipePositionFilter position;
+        private MediaPipeRotationFilter rotationFilter;
+        private MediaPipePositionFilter positionFilter;
         private MediaPipePresenceFade presence;
-        public int RejectedSamples => rotation.Rejected + position.Rejected;
+        public int RejectedSamples => rotationFilter.Rejected + positionFilter.Rejected;
+        public bool Calibrated => calibrated;
+        public Quaternion NeutralRotation => Quaternion.Inverse(neutralInverse);
+        public Vector3 NeutralPosition => neutralPosition;
         private float Cutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing));
+        public void SetNeutral(Quaternion rotation, Vector3 position)
+        {
+            float sqr = rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w;
+            if (!MediaPipeSpace.IsFinite(position) || !float.IsFinite(sqr) || sqr < 0.5f) return;
+            neutralInverse = Quaternion.Inverse(rotation.normalized);
+            neutralPosition = position;
+            calibrated = true;
+            rotationFilter.Reset();
+            positionFilter.Reset();
+        }
         public void Calibrate(in BasisMediaPipeResult result)
         {
             if (!result.HasFace || !MediaPipeSpace.IsUsable(result.FaceTransform)) return;
-            neutralInverse = Quaternion.Inverse(result.FaceTransform.rotation);
-            neutralPosition = result.FaceTransform.GetColumn(3);
-            calibrated = true;
-            rotation.Reset();
-            position.Reset();
+            SetNeutral(result.FaceTransform.rotation, result.FaceTransform.GetColumn(3));
         }
         public void Reset()
         {
-            rotation.Reset();
-            position.Reset();
+            rotationFilter.Reset();
+            positionFilter.Reset();
             presence.Reset();
         }
         public bool TryGetHeadOffset(in BasisMediaPipeResult result, in MediaPipeTiming timing, out Quaternion rotationOffset, out Vector3 positionOffset)
@@ -37,8 +46,8 @@ namespace Basis.MediaPipe
             float weight = presence.Step(present, timing.RenderDelta, HoldSeconds, FadeInHz, FadeOutHz);
             if (weight <= 0f)
             {
-                rotation.Reset();
-                position.Reset();
+                rotationFilter.Reset();
+                positionFilter.Reset();
                 return false;
             }
             Quaternion relative;
@@ -49,13 +58,13 @@ namespace Basis.MediaPipe
                 Vector3 translation = result.FaceTransform.GetColumn(3);
                 Vector3 delta = calibrated ? translation - neutralPosition : Vector3.zero;
                 float cutoff = timing.Scaled(Cutoff);
-                relative = rotation.Apply(calibrated ? neutralInverse * headRot : headRot, in timing, cutoff, Beta, RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f);
-                shift = position.Apply(new Vector3(-delta.x, 0f, -delta.z) * 0.01f, in timing, cutoff, Beta, DepthCutoffScale, RejectGlitches ? MediaPipeFilterMath.MaxHeadSpeed : 0f);
+                relative = rotationFilter.Apply(calibrated ? neutralInverse * headRot : headRot, in timing, cutoff, Beta, RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f);
+                shift = positionFilter.Apply(new Vector3(-delta.x, 0f, -delta.z) * 0.01f, in timing, cutoff, Beta, DepthCutoffScale, RejectGlitches ? MediaPipeFilterMath.MaxHeadSpeed : 0f);
             }
             else
             {
-                relative = rotation.Carry(in timing);
-                shift = position.Carry(in timing);
+                relative = rotationFilter.Carry(in timing);
+                shift = positionFilter.Carry(in timing);
             }
             Vector3 euler = relative.eulerAngles;
             float pitch = NormalizeAngle(euler.x) * (InvertPitch ? -1f : 1f) * PitchGain, yaw = NormalizeAngle(euler.y) * (InvertYaw ? -1f : 1f) * YawGain, roll = NormalizeAngle(euler.z) * (InvertRoll ? -1f : 1f) * RollGain;

@@ -19,6 +19,8 @@ namespace Basis.MediaPipe
 
         public Vector2 LeftEyeGaze;
         public Vector2 RightEyeGaze;
+        public bool HasLeftGaze;
+        public bool HasRightGaze;
 
         public Vector3[] LeftHandLandmarks;
         public Vector3[] RightHandLandmarks;
@@ -38,6 +40,7 @@ namespace Basis.MediaPipe
 
         public bool PoseSidesSwapped;
 
+        public float ImageAspect;
         public float LightLevel;
         public float LightBoost;
 

@@ -96,7 +96,7 @@ namespace Basis.HandHeldCamera.Editor
             EditorGUILayout.LabelField("Setup", EditorStyles.boldLabel);
             using (new EditorGUI.IndentLevelScope())
             {
-                Status("Platform has a desktop window", BasisHandHeldCamera.IsDirectToScreenSupported,
+                Status("Platform has a desktop window", BasisCameraDirectToScreen.IsSupported,
                     "Direct To Screen is only offered on platforms with a monitor to draw on.");
 
                 UniversalRenderPipelineAsset asset = UniversalRenderPipeline.asset;

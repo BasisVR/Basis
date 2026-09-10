@@ -31,24 +31,24 @@ namespace Basis.Tests.Camera
         public void SettersClampToTheRangesThePanelPromises()
         {
             _camera.SetPhotogrammetryDistance(0f);
-            Assert.That(_camera.PhotogrammetryDistanceMeters, Is.EqualTo(BasisHandHeldCamera.MinPhotogrammetryDistanceMeters));
+            Assert.That(_camera.PhotogrammetryDistanceMeters, Is.EqualTo(BasisCameraRecordingLimits.MinPhotogrammetryDistanceMeters));
             _camera.SetPhotogrammetryDistance(100f);
-            Assert.That(_camera.PhotogrammetryDistanceMeters, Is.EqualTo(BasisHandHeldCamera.MaxPhotogrammetryDistanceMeters));
+            Assert.That(_camera.PhotogrammetryDistanceMeters, Is.EqualTo(BasisCameraRecordingLimits.MaxPhotogrammetryDistanceMeters));
 
             _camera.SetPhotogrammetryAngle(0f);
-            Assert.That(_camera.PhotogrammetryAngleDegrees, Is.EqualTo(BasisHandHeldCamera.MinPhotogrammetryAngleDegrees));
+            Assert.That(_camera.PhotogrammetryAngleDegrees, Is.EqualTo(BasisCameraRecordingLimits.MinPhotogrammetryAngleDegrees));
             _camera.SetPhotogrammetryAngle(500f);
-            Assert.That(_camera.PhotogrammetryAngleDegrees, Is.EqualTo(BasisHandHeldCamera.MaxPhotogrammetryAngleDegrees));
+            Assert.That(_camera.PhotogrammetryAngleDegrees, Is.EqualTo(BasisCameraRecordingLimits.MaxPhotogrammetryAngleDegrees));
 
             _camera.SetPhotogrammetryWidth(1);
-            Assert.That(_camera.PhotogrammetryWidth, Is.EqualTo(BasisHandHeldCamera.MinPhotogrammetryWidth));
+            Assert.That(_camera.PhotogrammetryWidth, Is.EqualTo(BasisCameraRecordingLimits.MinPhotogrammetryWidth));
             _camera.SetPhotogrammetryWidth(99999);
-            Assert.That(_camera.PhotogrammetryWidth, Is.EqualTo(BasisHandHeldCamera.MaxPhotogrammetryWidth));
+            Assert.That(_camera.PhotogrammetryWidth, Is.EqualTo(BasisCameraRecordingLimits.MaxPhotogrammetryWidth));
 
             _camera.SetPhotogrammetryPathSettleSeconds(0f);
-            Assert.That(_camera.PhotogrammetryPathSettleSeconds, Is.EqualTo(BasisHandHeldCamera.MinPhotogrammetryPathSettleSeconds));
+            Assert.That(_camera.PhotogrammetryPathSettleSeconds, Is.EqualTo(BasisCameraRecordingLimits.MinPhotogrammetryPathSettleSeconds));
             _camera.SetPhotogrammetryPathSettleSeconds(9999f);
-            Assert.That(_camera.PhotogrammetryPathSettleSeconds, Is.EqualTo(BasisHandHeldCamera.MaxPhotogrammetryPathSettleSeconds));
+            Assert.That(_camera.PhotogrammetryPathSettleSeconds, Is.EqualTo(BasisCameraRecordingLimits.MaxPhotogrammetryPathSettleSeconds));
         }
 
         [Test]
@@ -71,9 +71,9 @@ namespace Basis.Tests.Camera
         [Test]
         public void EveryPanelWidthPresetIsInsideTheSetterRange()
         {
-            foreach (int preset in BasisHandHeldCamera.PhotogrammetryWidthPresets)
+            foreach (int preset in BasisCameraRecordingLimits.PhotogrammetryWidthPresets)
             {
-                Assert.That(preset, Is.InRange(BasisHandHeldCamera.MinPhotogrammetryWidth, BasisHandHeldCamera.MaxPhotogrammetryWidth));
+                Assert.That(preset, Is.InRange(BasisCameraRecordingLimits.MinPhotogrammetryWidth, BasisCameraRecordingLimits.MaxPhotogrammetryWidth));
             }
         }
 

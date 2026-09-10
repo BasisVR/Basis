@@ -58,7 +58,7 @@ namespace Basis
             List<BasisCameraStreamPreset> presets = new List<BasisCameraStreamPreset>(All.Length);
             for (int Index = 0; Index < All.Length; Index++)
             {
-                if (BasisHandHeldCamera.IsVideoTransportAvailable(All[Index].Transport)) presets.Add(All[Index]);
+                if (BasisCameraVideoPlatform.IsAvailable(All[Index].Transport)) presets.Add(All[Index]);
             }
             return presets;
         }
@@ -88,9 +88,9 @@ namespace Basis
             return CustomKey;
         }
 
-        public static string Label(string key) => BasisLocalization.Get(key, BasisHandHeldCamera.VideoOutputBackendName);
+        public static string Label(string key) => BasisLocalization.Get(key, BasisCameraVideoPlatform.BackendName);
 
-        public static string Tooltip(string key) => BasisLocalization.Get(key + ".tooltip", BasisHandHeldCamera.VideoOutputBackendName);
+        public static string Tooltip(string key) => BasisLocalization.Get(key + ".tooltip", BasisCameraVideoPlatform.BackendName);
 
         private static string[] BuildOptionKeys()
         {

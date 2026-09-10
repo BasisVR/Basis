@@ -123,7 +123,7 @@ namespace Basis.MediaPipe.Tests
             BasisMediaPipeResult moved = Result(Turned(by));
 
             converter.Calibrate(rest);
-            Assert.IsTrue(converter.TryGetTorsoOffset(in moved, in Timing, out Quaternion offset));
+            Assert.IsTrue(converter.TryGetTorsoOffset(in moved, in Timing, out Quaternion offset, out _));
 
             Vector3 euler = offset.eulerAngles;
             return new Vector3(Signed(euler.x), Signed(euler.y), Signed(euler.z));
@@ -148,7 +148,7 @@ namespace Basis.MediaPipe.Tests
             BasisMediaPipeResult neutral = Result(MediaPipeArmRetargetTests.ArmDown());
 
             converter.Calibrate(neutral);
-            Assert.IsTrue(converter.TryGetTorsoOffset(in neutral, in Timing, out Quaternion offset));
+            Assert.IsTrue(converter.TryGetTorsoOffset(in neutral, in Timing, out Quaternion offset, out _));
 
             Assert.Less(Quaternion.Angle(offset, Quaternion.identity), 0.1f,
                 "sitting in the calibration pose must leave the chest exactly where the body puts it");

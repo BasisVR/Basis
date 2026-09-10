@@ -456,6 +456,14 @@ public static class SettingsProviderIK
             {
                 shoulderProtSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderProtraction.title.tooltip"));
             }
+            var shoulderTrackerBlendSlider = PanelSlider.CreateAndBind(
+                shoulderParent,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.shoulderTrackerBlend.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.FBIKShoulderTrackerBlend);
+            if (shoulderTrackerBlendSlider != null)
+            {
+                shoulderTrackerBlendSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderTrackerBlend.title.tooltip"));
+            }
 
 //             var shoulderCoupleSlider = PanelSlider.CreateAndBind(
 //                 shoulderParent,
@@ -1873,6 +1881,7 @@ public static class SettingsProviderIK
         BasisSettingsDefaults.FBIKShoulderProtraction.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderCoupleRatio.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderMaxDeg.ResetToDefault();
+        BasisSettingsDefaults.FBIKShoulderTrackerBlend.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderSlideStartDeg.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderSlideMaxDeg.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderSlideFraction.ResetToDefault();

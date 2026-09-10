@@ -1884,6 +1884,7 @@ namespace Basis.BasisUI
         // Scapulohumeral coupling: how much of the humeral swing the girdle takes, and the clamp on the result.
         public static BasisSettingsBinding<float> FBIKShoulderCoupleRatio = new("fbikshouldercoupleratio", new BasisPlatformDefault<float>(0.4f));
         public static BasisSettingsBinding<float> FBIKShoulderMaxDeg = new("fbikshouldermaxdeg_v2", new BasisPlatformDefault<float>(30f));
+        public static BasisSettingsBinding<float> FBIKShoulderTrackerBlend = new("fbikshouldertrackerblend", new BasisPlatformDefault<float>(0.25f));
         // Anatomical shoulder slide (Anatomy > Shoulder Slide): past Start degrees of chest yaw the girdle
         // counter-rotates by Fraction of the excess, capped at Max.
         public static BasisSettingsBinding<float> FBIKShoulderSlideStartDeg = new("fbikshoulderslidestartdeg", new BasisPlatformDefault<float>(30f));
@@ -3100,6 +3101,7 @@ namespace Basis.BasisUI
             FBIKTrackedKneeSwivelDerivCutoffHz.LoadBindingValue();
             FBIKShoulderCoupleRatio.LoadBindingValue();
             FBIKShoulderMaxDeg.LoadBindingValue();
+            FBIKShoulderTrackerBlend.LoadBindingValue();
             FBIKShoulderSlideStartDeg.LoadBindingValue();
             FBIKShoulderSlideMaxDeg.LoadBindingValue();
             FBIKShoulderSlideFraction.LoadBindingValue();

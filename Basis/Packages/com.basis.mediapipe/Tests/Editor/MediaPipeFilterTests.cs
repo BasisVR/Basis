@@ -111,6 +111,34 @@ namespace Basis.MediaPipe.Tests
             Assert.That(at240, Is.EqualTo(at60).Within(0.1f), "a faster render loop must not make the response faster");
         }
         [Test]
+        public void ScalarFilter_RelaxEasesTowardTheTargetAndCarriesOnFromThere()
+        {
+            MediaPipeScalarFilter filter = default;
+            MediaPipeTiming sample = new MediaPipeTiming(1f / 60f, Dt, true);
+            for (int i = 0; i < 30; i++) filter.Apply(1f, sample, 3f, 1f);
+            Assert.That(filter.Carried, Is.EqualTo(1f).Within(0.02f));
+            float relaxed = filter.Relax(0f, 0.5f);
+            Assert.That(relaxed, Is.EqualTo(0.5f).Within(0.02f));
+            for (int i = 0; i < 20; i++) relaxed = filter.Relax(0f, 0.5f);
+            Assert.Less(relaxed, 0.01f);
+            float next = filter.Apply(1f, sample, 3f, 1f);
+            Assert.Less(next, 0.9f, "a fresh sample continues from the relaxed value instead of snapping back to the old one");
+            Assert.Greater(next, 0.05f);
+        }
+        [Test]
+        public void ScalarFilter_RelaxWithNoHistoryStartsAtTheTarget()
+        {
+            MediaPipeScalarFilter filter = default;
+            Assert.AreEqual(0.6f, filter.Relax(0.6f, 0.3f));
+            Assert.IsTrue(filter.HasSample);
+        }
+        [Test]
+        public void ScalarFilter_CarryWithoutASampleIsZero()
+        {
+            MediaPipeScalarFilter filter = default;
+            Assert.AreEqual(0f, filter.Carry(new MediaPipeTiming(1f / 60f, Dt, false)));
+        }
+        [Test]
         public void PositionFilter_HoldsStillWhenTheSampleHoldsStill()
         {
             MediaPipePositionFilter filter = default;

@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -13,8 +15,11 @@ namespace Basis.MediaPipe
     public class BasisMediaPipeManagement : BasisBaseTypeManagement
     {
         public const string SubSystem = "BasisMediaPipe";
+        public const int LowLightFps = 15;
         public string CameraDeviceName = string.Empty;
         public BasisMediaPipeConfig Config = BasisMediaPipeConfig.Default;
+        public static BasisMediaPipeManagement Instance;
+        public event Action OnResult;
 
         private readonly BasisMediaPipeCamera _camera = new BasisMediaPipeCamera();
         private readonly Dictionary<BasisBoneTrackedRole, BasisInputXRSimulate> _trackers = new();
@@ -24,6 +29,7 @@ namespace Basis.MediaPipe
         private readonly MediaPipeHeadConverter _headConverter = new MediaPipeHeadConverter();
         private readonly MediaPipeBodyConverter _bodyConverter = new MediaPipeBodyConverter();
         private readonly MediaPipeArmConverter _armConverter = new MediaPipeArmConverter();
+        private readonly MediaPipeNeutralSampler _neutralSampler = new MediaPipeNeutralSampler();
         private IBasisMediaPipeBackend _backend;
         private BasisMediaPipeResult _latest;
         private bool _hasLatest;
@@ -43,17 +49,37 @@ namespace Basis.MediaPipe
         private float _sampleDelta = 1f / 15f;   // a PRIOR, not a measurement -- see _rateMeasured
         private bool _rateMeasured;
         private bool _armPosePathActive;
-        private Quaternion _torsoOffset = Quaternion.identity;
         private bool _armDiagLogged;
+        private bool _nonFiniteLogged;
+        private Quaternion _torsoOffset = Quaternion.identity;
+        private Vector3 _torsoShift;
+        private float _darkFor, _brightFor, _blackFor;
+        private int _cameraFps;
+
+        private const float DarkLevel = 0.12f, BrightLevel = 0.2f, DarkSeconds = 4f, BrightSeconds = 6f, BlackLevel = 0.01f, BlackSeconds = 2f;
+        private const string NeutralVersion = "1";
+
+        public BasisMediaPipeCamera Camera => _camera;
+        public bool IsRunning => _backend != null;
+        public bool HasResult => _hasLatest;
+        public BasisMediaPipeResult LatestResult => _latest;
+        public bool MirrorPreview => Config.MirrorHorizontally;
+        public bool HeadCalibrated => _headConverter.Calibrated;
+
         public override bool IsDeviceBootable(string BootRequest) => BootRequest == SubSystem;
 
+        // Every setting applies live: converters re-read their tuning, the backend swaps models on its own
+        // threads, and only a camera change restarts the camera. Nothing here restarts the pipeline.
         public void ApplySettings()
         {
+            string device = CameraDeviceName;
+            int width = Config.CameraWidth, height = Config.CameraHeight, fps = Config.TargetFps;
             LoadSettingsIntoConfig();
-            if (_backend != null)
+            if (_backend == null) return;
+            _backend.Reconfigure(Config);
+            if (device != CameraDeviceName || width != Config.CameraWidth || height != Config.CameraHeight || fps != Config.TargetFps)
             {
-                StopSDK();
-                StartSDK();
+                RestartCamera();
             }
         }
 
@@ -74,6 +100,8 @@ namespace Basis.MediaPipe
             Config.EnableChest = BasisMediaPipeSettings.EnableBody.RawValue;
             Config.EnableArmElbowPole = BasisMediaPipeSettings.EnableArmElbowPole.RawValue;
             Config.LowLightBoost = BasisMediaPipeSettings.LowLightBoost.RawValue;
+            Config.CameraFpsAuto = BasisMediaPipeSettings.CameraFpsAuto.RawValue;
+            Config.PoseModel = BasisMediaPipeConfig.NormalizePoseModel(BasisMediaPipeSettings.PoseModel.RawValue);
             Config.EnablePose = Config.EnableChest || Config.EnableHandTracking;
             ApplyTuning();
         }
@@ -85,6 +113,7 @@ namespace Basis.MediaPipe
             _headConverter.InvertPitch = BasisMediaPipeSettings.InvertHeadPitch.RawValue;
             _faceConverter.InvertEyeX = BasisMediaPipeSettings.InvertHeadYaw.RawValue;
             _faceConverter.InvertEyeY = BasisMediaPipeSettings.InvertHeadPitch.RawValue;
+            _faceConverter.GazeStrength = BasisMediaPipeSettings.GazeStrength.RawValue;
             _headConverter.Smoothing = BasisMediaPipeSettings.HeadSmoothing.RawValue;
             _faceConverter.Smoothing = BasisMediaPipeSettings.FaceSmoothing.RawValue;
             _faceConverter.TongueGain = BasisMediaPipeSettings.EnableTongue.RawValue
@@ -126,10 +155,7 @@ namespace Basis.MediaPipe
         public void SetCamera(string deviceName)
         {
             CameraDeviceName = deviceName;
-            if (_backend != null)
-            {
-                _camera.Start(deviceName, Config.CameraWidth, Config.CameraHeight, Config.TargetFps);
-            }
+            RestartCamera();
         }
 
         public void ReloadCamera()
@@ -137,12 +163,18 @@ namespace Basis.MediaPipe
             Config.CameraWidth = BasisMediaPipeSettings.ResolutionWidth.RawValue;
             Config.CameraHeight = BasisMediaPipeSettings.ResolutionHeight.RawValue;
             Config.TargetFps = BasisMediaPipeSettings.CameraFps.RawValue;
-            if (_backend != null)
-            {
-                _camera.Start(CameraDeviceName, Config.CameraWidth, Config.CameraHeight, Config.TargetFps);
-            }
+            RestartCamera();
         }
-        public static BasisMediaPipeManagement Instance;
+
+        private void RestartCamera()
+        {
+            if (_backend == null) return;
+            _cameraFps = Config.TargetFps;
+            _darkFor = 0f;
+            _brightFor = 0f;
+            _camera.Start(CameraDeviceName, Config.CameraWidth, Config.CameraHeight, Config.TargetFps);
+        }
+
         public override void StartSDK()
         {
             Instance = this;
@@ -164,20 +196,20 @@ namespace Basis.MediaPipe
                 return;
             }
 
-            _backend = BasisMediaPipeBackendRegistry.Create();
-            _backend.Initialize(Config);
-            BasisDebug.Log($"BasisMediaPipe: backend = {_backend.BackendName}.");
+            IBasisMediaPipeBackend backend = BasisMediaPipeBackendRegistry.Create();
+            backend.Initialize(Config);
+            BasisDebug.Log($"BasisMediaPipe: backend = {backend.BackendName}.");
 
-            if (!_backend.IsAvailable)
+            if (!backend.IsAvailable)
             {
                 BasisDebug.LogError("BasisMediaPipe: MediaPipe plugin not installed; tracking inert. See package README.");
+                backend.Shutdown();
                 return;
             }
 
-            if (!_camera.Start(CameraDeviceName, Config.CameraWidth, Config.CameraHeight, Config.TargetFps))
-            {
-                BasisDebug.LogError("BasisMediaPipe: failed to start webcam.");
-            }
+            _backend = backend;
+            LoadNeutral();
+            RestartCamera();
 
             BasisLocalPlayer.OnLocalAvatarChanged -= HandleAvatarChanged;
             BasisLocalPlayer.OnLocalAvatarChanged += HandleAvatarChanged;
@@ -192,7 +224,9 @@ namespace Basis.MediaPipe
             _handConverter.Reset();
             _bodyConverter.Reset();
             _headConverter.Reset();
-            CalibrateHead();
+            _faceConverter.Reset();
+            _torsoOffset = Quaternion.identity;
+            _torsoShift = Vector3.zero;
         }
 
         private bool EnsureArmRig()
@@ -435,12 +469,15 @@ namespace Basis.MediaPipe
             _backend?.Shutdown();
             _backend = null;
             _hasLatest = false;
+            _faceConverter.Reset();
+            _handConverter.Reset();
+            _neutralSampler.Reset();
             IsDeviceBooted = false;
         }
 
         public override void Simulate()
         {
-            if(IsDeviceBooted == false)
+            if (IsDeviceBooted == false)
             {
                 return;
             }
@@ -448,6 +485,8 @@ namespace Basis.MediaPipe
             {
                 return;
             }
+            float dt = Time.deltaTime;
+            _camera.Tick(dt);
             if (_camera.IsReady)
             {
                 _backend.SubmitFrame(_camera.Texture, Time.realtimeSinceStartupAsDouble * 1000.0);
@@ -460,11 +499,47 @@ namespace Basis.MediaPipe
                 _latest = result;
                 _hasLatest = true;
                 isNewSample = true;
+                _blackFor = result.LightBoost > 0f && result.LightLevel < BlackLevel ? _blackFor + _sampleDelta : 0f;
+                OnResult?.Invoke();
             }
 
             if (_hasLatest)
             {
-                ApplyResult(in _latest, new MediaPipeTiming(Time.deltaTime, _sampleDelta, isNewSample, MediaPipeExposure.Quality(_latest.LightBoost > 0f ? _latest.LightLevel : -1f)));
+                UpdateAutoFps(dt);
+                ApplyResult(in _latest, new MediaPipeTiming(dt, _sampleDelta, isNewSample, MediaPipeExposure.Quality(_latest.LightBoost > 0f ? _latest.LightLevel : -1f)));
+            }
+        }
+
+        // A dark room is better served by a longer exposure than by gain: drop the camera to 15 fps while it stays
+        // dark, and give the frame rate back once the light returns. Both directions wait a few seconds so a
+        // passing shadow never bounces the camera.
+        private void UpdateAutoFps(float dt)
+        {
+            if (!Config.CameraFpsAuto || Config.TargetFps <= LowLightFps || !(_latest.LightBoost > 0f))
+            {
+                if (_cameraFps != Config.TargetFps)
+                {
+                    _cameraFps = Config.TargetFps;
+                    _camera.SetRequestedFps(_cameraFps);
+                }
+                _darkFor = 0f;
+                _brightFor = 0f;
+                return;
+            }
+            bool dark = _latest.LightLevel < DarkLevel, bright = _latest.LightLevel > BrightLevel;
+            _darkFor = dark ? _darkFor + dt : 0f;
+            _brightFor = bright ? _brightFor + dt : 0f;
+            if (_cameraFps != LowLightFps && _darkFor > DarkSeconds)
+            {
+                _cameraFps = LowLightFps;
+                _darkFor = 0f;
+                _camera.SetRequestedFps(LowLightFps);
+            }
+            else if (_cameraFps != Config.TargetFps && _brightFor > BrightSeconds)
+            {
+                _cameraFps = Config.TargetFps;
+                _brightFor = 0f;
+                _camera.SetRequestedFps(Config.TargetFps);
             }
         }
 
@@ -494,13 +569,21 @@ namespace Basis.MediaPipe
 
         private void ApplyResult(in BasisMediaPipeResult result, in MediaPipeTiming timing)
         {
-            if (Config.EnableFace && result.HasFace)
+            if (Config.EnableFace)
             {
                 _faceConverter.Apply(in result, BasisLocalPlayer.Instance.BasisAvatar, in timing);
             }
             if (Config.EnableHands)
             {
                 _handConverter.Apply(in result, in timing);
+            }
+
+            // No saved neutral yet: capture one the first time the head is held still for a moment, so the
+            // avatar's head is level without anyone finding the Calibrate button.
+            if (!_headConverter.Calibrated && timing.IsNewSample && result.HasFace && MediaPipeSpace.IsUsable(result.FaceTransform)
+                && _neutralSampler.Add(result.FaceTransform.rotation, result.FaceTransform.GetColumn(3)))
+            {
+                ApplyNeutral(_neutralSampler.Rotation, _neutralSampler.Position);
             }
 
             if (Config.EnableHeadPosition || Config.EnableHeadRotation)
@@ -532,12 +615,14 @@ namespace Basis.MediaPipe
             }
 
             _torsoOffset = Quaternion.identity;
+            _torsoShift = Vector3.zero;
             if (Config.EnableChest)
             {
-                if (_bodyConverter.TryGetTorsoOffset(in result, in timing, out Quaternion torsoOffset)
-                    && TryComposeChest(torsoOffset, out Vector3 chestPosition, out Quaternion chestRotation))
+                if (_bodyConverter.TryGetTorsoOffset(in result, in timing, out Quaternion torsoOffset, out Vector3 torsoShift)
+                    && TryComposeChest(torsoOffset, torsoShift, out Vector3 chestPosition, out Quaternion chestRotation))
                 {
                     _torsoOffset = torsoOffset;
+                    _torsoShift = torsoShift;
                     WriteTracker(BasisBoneTrackedRole.Chest, chestPosition, chestRotation);
                 }
                 else
@@ -572,11 +657,9 @@ namespace Basis.MediaPipe
                 RemoveTracker(BasisBoneTrackedRole.LeftLowerArm);
                 RemoveTracker(BasisBoneTrackedRole.RightLowerArm);
             }
-
         }
 
-
-        private static bool TryComposeChest(Quaternion torsoOffset, out Vector3 position, out Quaternion rotation)
+        private static bool TryComposeChest(Quaternion torsoOffset, Vector3 torsoShift, out Vector3 position, out Quaternion rotation)
         {
             position = Vector3.zero;
             rotation = Quaternion.identity;
@@ -592,8 +675,87 @@ namespace Basis.MediaPipe
             Basis.Scripts.Common.BasisCalibratedCoords hipsNow = hips.OutGoingData;
             Quaternion body = hipsNow.rotation * Quaternion.Inverse(hipsRest);
 
-            position = hipsNow.position + body * (chest.TposeLocal.position - hips.TposeLocal.position);
+            position = hipsNow.position + body * (chest.TposeLocal.position - hips.TposeLocal.position + torsoShift);
             rotation = body * torsoOffset * chestRest;
+            return true;
+        }
+
+        private void ApplyNeutral(Quaternion rotation, Vector3 position)
+        {
+            _headConverter.SetNeutral(rotation, position);
+            if (_hasLatest) _bodyConverter.Calibrate(_latest);
+            _faceConverter.CalibrateGaze();
+            SaveNeutral();
+        }
+
+        public void CalibrateHead()
+        {
+            if (!_hasLatest || !_latest.HasFace)
+            {
+                return;
+            }
+
+            _headConverter.Calibrate(_latest);
+            _bodyConverter.Calibrate(_latest);
+            _faceConverter.CalibrateGaze();
+            _neutralSampler.Reset();
+            SaveNeutral();
+        }
+
+        private void SaveNeutral()
+        {
+            if (!_headConverter.Calibrated) return;
+            Quaternion q = _headConverter.NeutralRotation;
+            Vector3 p = _headConverter.NeutralPosition;
+            Vector2 l = _faceConverter.GazeCenterLeft, r = _faceConverter.GazeCenterRight;
+            BasisMediaPipeSettings.HeadNeutral.SetValue(string.Join("|", NeutralVersion, Fields(q.x, q.y, q.z, q.w), Fields(p.x, p.y, p.z), Fields(l.x, l.y), Fields(r.x, r.y)));
+        }
+
+        private void LoadNeutral()
+        {
+            if (TryParseNeutral(BasisMediaPipeSettings.HeadNeutral.RawValue, out Quaternion rotation, out Vector3 position, out Vector2 gazeLeft, out Vector2 gazeRight))
+            {
+                _headConverter.SetNeutral(rotation, position);
+                _faceConverter.SetGazeCenter(gazeLeft, gazeRight);
+            }
+        }
+
+        private static string Fields(params float[] values)
+        {
+            string[] parts = new string[values.Length];
+            for (int i = 0; i < values.Length; i++) parts[i] = values[i].ToString("R", CultureInfo.InvariantCulture);
+            return string.Join(";", parts);
+        }
+
+        public static bool TryParseNeutral(string text, out Quaternion rotation, out Vector3 position, out Vector2 gazeLeft, out Vector2 gazeRight)
+        {
+            rotation = Quaternion.identity;
+            position = Vector3.zero;
+            gazeLeft = Vector2.zero;
+            gazeRight = Vector2.zero;
+            if (string.IsNullOrEmpty(text)) return false;
+            string[] groups = text.Split('|');
+            if (groups.Length < 5 || groups[0] != NeutralVersion) return false;
+            if (!TryFields(groups[1], 4, out float[] q) || !TryFields(groups[2], 3, out float[] p) || !TryFields(groups[3], 2, out float[] l) || !TryFields(groups[4], 2, out float[] r)) return false;
+            float sqr = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
+            if (sqr < 0.5f || sqr > 2f) return false;
+            rotation = new Quaternion(q[0], q[1], q[2], q[3]).normalized;
+            position = new Vector3(p[0], p[1], p[2]);
+            gazeLeft = new Vector2(l[0], l[1]);
+            gazeRight = new Vector2(r[0], r[1]);
+            return true;
+        }
+
+        private static bool TryFields(string group, int count, out float[] values)
+        {
+            values = null;
+            string[] parts = group.Split(';');
+            if (parts.Length != count) return false;
+            values = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                if (!float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) || !float.IsFinite(values[i])) return false;
+            }
             return true;
         }
 
@@ -613,8 +775,6 @@ namespace Basis.MediaPipe
             }
             EnsureTracker(role).FollowMovement.SetLocalPositionAndRotation(position, rotation);
         }
-
-        private bool _nonFiniteLogged;
 
         private static bool IsFinite(Vector3 v) =>
             float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
@@ -762,15 +922,21 @@ namespace Basis.MediaPipe
             RemoveTracker(handRole);
         }
 
-        public void CalibrateHead()
+        public string StatusKey
         {
-            if (!_hasLatest)
+            get
             {
-                return;
+                if (_backend == null) return "settings.mediapipe.status.off";
+                switch (_camera.State)
+                {
+                    case BasisMediaPipeCamera.Status.NoDevice: return "settings.mediapipe.status.noCamera";
+                    case BasisMediaPipeCamera.Status.Starting: return "settings.mediapipe.status.starting";
+                    case BasisMediaPipeCamera.Status.Stalled: return "settings.mediapipe.status.stalled";
+                }
+                if (!_backend.IsReady) return "settings.mediapipe.status.loading";
+                if (_blackFor > BlackSeconds) return "settings.mediapipe.status.black";
+                return "settings.mediapipe.status.running";
             }
-
-            _headConverter.Calibrate(_latest);
-            _bodyConverter.Calibrate(_latest);
         }
 
         public string DiagnosticsText()
@@ -780,11 +946,11 @@ namespace Basis.MediaPipe
                 return "Not running.";
             }
 
-            string status = $"Backend: {_backend.BackendName}\nAvailable: {_backend.IsAvailable}\nCamera: {(_camera.IsReady ? "ready" : "not ready")}";
+            string status = $"Backend: {_backend.BackendName}\nModels: {(_backend.IsReady ? "ready" : "loading")} (body model {Config.PoseModel})\nCamera: {_camera.State} at {_cameraFps} fps, {_camera.Restarts} restart(s)";
             if (_hasLatest)
             {
-                status += $"\nFace: {_latest.HasFace}   L-Hand: {_latest.HasLeftHand}   R-Hand: {_latest.HasRightHand}   Pose: {_latest.HasPose}";
-                status += $"\nArm rig: {(_armRigValid ? "ready" : "unavailable")}";
+                status += $"\nFace: {_latest.HasFace}   L-Hand: {_latest.HasLeftHand}   R-Hand: {_latest.HasRightHand}   Pose: {_latest.HasPose}   Iris: {(_latest.HasLeftGaze || _latest.HasRightGaze)}";
+                status += $"\nArm rig: {(_armRigValid ? "ready" : "unavailable")}   Head neutral: {(_headConverter.Calibrated ? "set" : "waiting for a still face")}";
                 status += _rateMeasured
                     ? $"\nTracking: {1f / Mathf.Max(_sampleDelta, 1e-4f):F1} Hz (camera set to {Config.TargetFps})"
                     : $"\nTracking: not measured yet (camera set to {Config.TargetFps})";
@@ -793,7 +959,8 @@ namespace Basis.MediaPipe
                     : "\nLight: not measured";
                 status += $"\nGlitches rejected: {_armConverter.RejectedSamples + _handConverter.RejectedSamples + _headConverter.RejectedSamples + _bodyConverter.RejectedSamples}";
 
-                // Where the milliseconds actually go. The stages are serial, so the biggest one IS the bottleneck.
+                // Where the milliseconds actually go. Readback, flip and inference are serial; the three models
+                // inside the inference stage run at the same time, so the slowest one is the one worth attacking.
                 string breakdown = _backend.TimingBreakdown();
                 if (!string.IsNullOrEmpty(breakdown))
                 {

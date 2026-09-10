@@ -32,7 +32,7 @@ namespace Basis.MediaPipe
     }
     public sealed class MediaPipeHandSideResolver
     {
-        public const float Ambiguity = 0.02f, Continuity = 0.15f;
+        public const float Ambiguity = 0.02f, Continuity = 0.15f, DuplicateDistance = 0.03f;
         public const int ForgetAfter = 30;
         private static readonly Vector2 Missing = new Vector2(float.NaN, float.NaN);
         private Vector2 lastLeft = Missing, lastRight = Missing;
@@ -41,6 +41,17 @@ namespace Basis.MediaPipe
         {
             leftAge = ForgetAfter;
             rightAge = ForgetAfter;
+        }
+        public static bool IsDuplicate(Vector3[] first, Vector3[] second, float aspect)
+        {
+            if (first == null || second == null || first.Length < MediaPipeSpace.HandCount || second.Length < MediaPipeSpace.HandCount) return false;
+            if (!(aspect > 0f) || !float.IsFinite(aspect)) aspect = 1f;
+            return Near(first[MediaPipeSpace.HandWrist], second[MediaPipeSpace.HandWrist], aspect) && Near(first[MediaPipeSpace.HandMiddleMcp], second[MediaPipeSpace.HandMiddleMcp], aspect);
+        }
+        private static bool Near(Vector3 a, Vector3 b, float aspect)
+        {
+            float dx = (a.x - b.x) * aspect, dy = a.y - b.y, d = dx * dx + dy * dy;
+            return float.IsFinite(d) && d < DuplicateDistance * DuplicateDistance;
         }
         public bool Resolve(Vector3[] pose, Vector3[] first, Vector3[] second, bool labelLeft, int found)
         {

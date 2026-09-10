@@ -76,7 +76,7 @@ namespace Basis.IK
         public float lordosisExtremeChestHorizontalLookUp, lordosisExtremeHipsDownMax, lordosisExtremeChestDownMax;
         public float lordosisExtremeHipsDownLookUp, lordosisExtremeChestDownLookUp;
         public bool shoulderSolveEnabled, shoulderShrugEnabled;
-        public float shoulderElevationFactor, shoulderProtractionFactor, shoulderMaxDeg, lowerArmTwistFraction, upperArmTwistFraction;
+        public float shoulderElevationFactor, shoulderProtractionFactor, shoulderMaxDeg, shoulderTrackerBlendTime, lowerArmTwistFraction, upperArmTwistFraction;
         public bool protectElbow, collideTrackedElbow, armJointLimits;
         public float armReachSoftness, armSwivelSmoothTime, armSwivelMaxRateDeg, armSwivelSwitchDwell, armPriorWeight, armPreviousWeight;
         public float forearmPronationMaxDeg, forearmSupinationMaxDeg, humeralInternalMaxDeg, humeralExternalMaxDeg, wristFlexionMaxDeg;

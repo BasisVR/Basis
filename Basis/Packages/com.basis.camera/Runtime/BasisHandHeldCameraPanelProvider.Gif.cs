@@ -50,7 +50,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _gifDurationSlider = PanelSlider.CreateNew(content);
             _gifDurationSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
                 BasisLocalization.Get("camera.gif.length"),
-                BasisHandHeldCamera.MinGifDurationSeconds, BasisHandHeldCamera.MaxGifDurationSeconds,
+                BasisCameraRecordingLimits.MinGifDurationSeconds, BasisCameraRecordingLimits.MaxGifDurationSeconds,
                 true, 0, ValueDisplayMode.Raw));
             _gifDurationSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.gif.length.description"));
             _gifDurationSlider.SetResetDefault(defaults.gifDurationSeconds);
@@ -59,7 +59,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _gifFrameRateSlider = PanelSlider.CreateNew(content);
             _gifFrameRateSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
                 BasisLocalization.Get("camera.gif.frameRate"),
-                BasisHandHeldCamera.MinGifFrameRate, BasisHandHeldCamera.MaxGifFrameRate,
+                BasisCameraRecordingLimits.MinGifFrameRate, BasisCameraRecordingLimits.MaxGifFrameRate,
                 true, 0, ValueDisplayMode.Hz));
             _gifFrameRateSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.gif.frameRate.description"));
             _gifFrameRateSlider.SetResetDefault(defaults.gifFrameRate);
@@ -68,14 +68,14 @@ namespace Basis.BasisUI.HandHeldCamera
             _gifSizeDropdown = PanelDropdown.CreateNewEntry(content);
             _gifSizeDropdown.Descriptor.SetTitle(BasisLocalization.Get("camera.gif.size"));
             _gifSizeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("camera.gif.size.description"));
-            _gifSizeDropdown.AssignEntries(BuildWidthLabels(BasisHandHeldCamera.GifWidthPresets));
+            _gifSizeDropdown.AssignEntries(BuildWidthLabels(BasisCameraRecordingLimits.GifWidthPresets));
             _gifSizeDropdown.OnValueChanged = _ =>
             {
                 if (_activeCamera == null || _gifSizeDropdown == null) return;
                 int index = _gifSizeDropdown.Index;
-                if (index >= 0 && index < BasisHandHeldCamera.GifWidthPresets.Length)
+                if (index >= 0 && index < BasisCameraRecordingLimits.GifWidthPresets.Length)
                 {
-                    _activeCamera.SetGifWidth(BasisHandHeldCamera.GifWidthPresets[index]);
+                    _activeCamera.SetGifWidth(BasisCameraRecordingLimits.GifWidthPresets[index]);
                 }
             };
 
@@ -95,12 +95,12 @@ namespace Basis.BasisUI.HandHeldCamera
                 if (_activeCamera != null) _activeCamera.GifDither = v;
             };
 
-            if (BasisHandHeldCamera.CanOpenPhotosFolder)
+            if (BasisCameraPhotoFolder.CanOpen)
             {
                 RectTransform folderRow = PanelElementDescriptor.BuildActionRow(content, "CameraGifFolderRow");
                 PanelButton openFolderButton = PanelButton.CreateNew(folderRow);
                 openFolderButton.Descriptor.SetTitle(BasisLocalization.Get("camera.openPhotosFolder"));
-                openFolderButton.OnClicked += () => BasisHandHeldCamera.OpenPhotosFolder();
+                openFolderButton.OnClicked += () => BasisCameraPhotoFolder.Open();
             }
         }
 
@@ -135,7 +135,7 @@ namespace Basis.BasisUI.HandHeldCamera
             SyncToggle(_gifLoopToggle, _activeCamera.GifLoop, ref _lastGifLoop);
             SyncToggle(_gifDitherToggle, _activeCamera.GifDither, ref _lastGifDither);
             _lastGifWidth = -1;
-            SyncWidthDropdown(_gifSizeDropdown, BasisHandHeldCamera.GifWidthPresets, _activeCamera.GifWidth, ref _lastGifWidth);
+            SyncWidthDropdown(_gifSizeDropdown, BasisCameraRecordingLimits.GifWidthPresets, _activeCamera.GifWidth, ref _lastGifWidth);
 
             _lastGifButtonLabel = null;
             _lastGifStatusText = null;
@@ -156,7 +156,7 @@ namespace Basis.BasisUI.HandHeldCamera
             SyncSlider(_gifFrameRateSlider, _activeCamera.GifFrameRate, ref _lastGifFrameRate);
             SyncToggle(_gifLoopToggle, _activeCamera.GifLoop, ref _lastGifLoop);
             SyncToggle(_gifDitherToggle, _activeCamera.GifDither, ref _lastGifDither);
-            SyncWidthDropdown(_gifSizeDropdown, BasisHandHeldCamera.GifWidthPresets, _activeCamera.GifWidth, ref _lastGifWidth);
+            SyncWidthDropdown(_gifSizeDropdown, BasisCameraRecordingLimits.GifWidthPresets, _activeCamera.GifWidth, ref _lastGifWidth);
 
             TickRecordingControls(
                 _activeCamera.GifState, _activeCamera.GifSecondsRemaining,

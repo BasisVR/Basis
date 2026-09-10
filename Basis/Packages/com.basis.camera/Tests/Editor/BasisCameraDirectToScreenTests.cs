@@ -29,13 +29,13 @@ namespace Basis.Tests.Camera
             BasisSettingsDefaults.LimitHandHeldCameraRate.SetValueWithoutNotify(false);
 
             // Every test below stands in the headset unless it says otherwise.
-            BasisHandHeldCamera.VRModeOverrideForTest = true;
+            BasisCameraDirectToScreen.VRModeOverrideForTest = true;
         }
 
         [TearDown]
         public void TearDown()
         {
-            BasisHandHeldCamera.VRModeOverrideForTest = null;
+            BasisCameraDirectToScreen.VRModeOverrideForTest = null;
             BasisSettingsDefaults.LimitHandHeldCameraRate.SetValueWithoutNotify(_limitRate);
             BasisSettingsDefaults.HandHeldCameraRenderHz.SetValueWithoutNotify(_rateHz);
             _rig?.Dispose();
@@ -53,18 +53,18 @@ namespace Basis.Tests.Camera
         [Test]
         public void TheDecision_NeedsEveryConditionAtOnce()
         {
-            Assert.IsTrue(BasisHandHeldCamera.ShouldPresentDirectToScreen(true, true, true, true));
-            Assert.IsFalse(BasisHandHeldCamera.ShouldPresentDirectToScreen(false, true, true, true), "Off is off.");
-            Assert.IsFalse(BasisHandHeldCamera.ShouldPresentDirectToScreen(true, false, true, true),
+            Assert.IsTrue(BasisCameraDirectToScreen.ShouldPresent(true, true, true, true));
+            Assert.IsFalse(BasisCameraDirectToScreen.ShouldPresent(false, true, true, true), "Off is off.");
+            Assert.IsFalse(BasisCameraDirectToScreen.ShouldPresent(true, false, true, true),
                 "In desktop mode the window is already the operator's own view.");
-            Assert.IsFalse(BasisHandHeldCamera.ShouldPresentDirectToScreen(true, true, false, true), "A film body has no socket.");
-            Assert.IsFalse(BasisHandHeldCamera.ShouldPresentDirectToScreen(true, true, true, false), "No window, nothing to draw on.");
+            Assert.IsFalse(BasisCameraDirectToScreen.ShouldPresent(true, true, false, true), "A film body has no socket.");
+            Assert.IsFalse(BasisCameraDirectToScreen.ShouldPresent(true, true, true, false), "No window, nothing to draw on.");
         }
 
         [Test]
         public void SwitchedOn_InVR_TakesTheWindow()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             _rig.Camera.SetDirectToScreen(true);
 
@@ -97,14 +97,14 @@ namespace Basis.Tests.Camera
         [Test]
         public void SwitchingToDesktop_HandsTheWindowBack_AndVRTakesItAgain()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             _rig.Camera.SetDirectToScreen(true);
             Assert.IsTrue(_rig.Camera.IsDirectToScreenPresenting);
             UnityCamera screen = BasisCameraDirectToScreenOutput.Presenting.ScreenCamera;
 
             // The hot-swap to desktop: the mode announces itself and the camera re-decides.
-            BasisHandHeldCamera.VRModeOverrideForTest = false;
+            BasisCameraDirectToScreen.VRModeOverrideForTest = false;
             _rig.Camera.RefreshDirectToScreen();
 
             Assert.IsFalse(_rig.Camera.IsDirectToScreenPresenting, "In desktop mode the main camera is already on the window.");
@@ -114,7 +114,7 @@ namespace Basis.Tests.Camera
             Assert.IsNull(BasisCameraDirectToScreenOutput.Presenting);
 
             // And back into VR: nothing was touched, so it takes the window over again.
-            BasisHandHeldCamera.VRModeOverrideForTest = true;
+            BasisCameraDirectToScreen.VRModeOverrideForTest = true;
             _rig.Camera.RefreshDirectToScreen();
 
             Assert.IsTrue(_rig.Camera.IsDirectToScreenPresenting);
@@ -125,7 +125,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void SwitchingItOff_HandsTheWindowBack()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             _rig.Camera.SetDirectToScreen(true);
             _rig.Camera.SetDirectToScreen(false);
@@ -138,7 +138,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void AFilmBody_HasNoSocketForIt()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             BasisHandHeldCameraUI.CameraSettings film = new BasisHandHeldCameraUI.CameraSettings
             {
@@ -165,7 +165,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void TheMonitor_KeepsAnOffScreenCameraRendering()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             _rig.Camera.SetDirectToScreen(true);
             _rig.Camera.SetRendererVisibleForTest(false);
@@ -177,7 +177,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void TheMonitor_IsNeverThrottled()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             // A cap of one frame a second, which holds the camera off for nearly every gate
             // evaluation — and does, for the viewfinder alone.
@@ -196,7 +196,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void OneCameraHasTheWindowAtATime()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             BasisCameraSettingsRig other = new BasisCameraSettingsRig();
             BasisHandHeldCameraRegistry.Add(_rig.Camera);
@@ -309,9 +309,9 @@ namespace Basis.Tests.Camera
             // Every file from before the placement existed was showing the whole shot, centred.
             Assert.That(_rig.Camera.DirectToScreenFit, Is.EqualTo(BasisCameraDirectToScreenFit.Fit));
             Assert.That(_rig.Camera.DirectToScreenAlignment, Is.EqualTo(Centre));
-            Assert.That(BasisHandHeldCamera.SanitizeDirectToScreenFit(-1), Is.EqualTo(BasisCameraDirectToScreenFit.Fit));
-            Assert.That(BasisHandHeldCamera.SanitizeDirectToScreenFit(99), Is.EqualTo(BasisCameraDirectToScreenFit.Fit), "A file from a build with more fits falls back rather than indexing off the table.");
-            Assert.That(BasisHandHeldCamera.DirectToScreenFitKeys.Length, Is.EqualTo(System.Enum.GetValues(typeof(BasisCameraDirectToScreenFit)).Length),
+            Assert.That(BasisCameraDirectToScreen.SanitizeFit(-1), Is.EqualTo(BasisCameraDirectToScreenFit.Fit));
+            Assert.That(BasisCameraDirectToScreen.SanitizeFit(99), Is.EqualTo(BasisCameraDirectToScreenFit.Fit), "A file from a build with more fits falls back rather than indexing off the table.");
+            Assert.That(BasisCameraDirectToScreen.FitKeys.Length, Is.EqualTo(System.Enum.GetValues(typeof(BasisCameraDirectToScreenFit)).Length),
                 "The dropdown hands its row number to the enum, so a key table out of step picks another fit.");
         }
 
@@ -398,22 +398,22 @@ namespace Basis.Tests.Camera
         [Test]
         public void MatchWindowFeedSize_TakesTheWindowsShapeAtThePreviewsBudget()
         {
-            BasisHandHeldCamera.MatchWindowFeedSize(1920, 1080, 2560, 1080, out int width, out int height);
+            BasisCameraDirectToScreen.MatchWindowFeedSize(1920, 1080, 2560, 1080, out int width, out int height);
             Assert.That((float)width / height, Is.EqualTo(2560f / 1080f).Within(0.01f));
             Assert.That(width * height, Is.EqualTo(1920 * 1080).Within(1920 * 1080 * 0.02f), "The window changes the feed's shape, not its cost.");
             Assert.That(width % 2, Is.Zero, "Even sides: the same texture feeds the video encoders.");
             Assert.That(height % 2, Is.Zero);
 
-            BasisHandHeldCamera.MatchWindowFeedSize(1920, 1080, 1920, 1080, out width, out height);
+            BasisCameraDirectToScreen.MatchWindowFeedSize(1920, 1080, 1920, 1080, out width, out height);
             Assert.That(width, Is.EqualTo(1920));
             Assert.That(height, Is.EqualTo(1080));
 
             // A window far wider than tall: the long side stops at the cap, the aspect does not.
-            BasisHandHeldCamera.MatchWindowFeedSize(3840, 2160, 10000, 500, out width, out height);
-            Assert.That(width, Is.LessThanOrEqualTo(BasisHandHeldCamera.MaxMatchWindowFeedDimension));
+            BasisCameraDirectToScreen.MatchWindowFeedSize(3840, 2160, 10000, 500, out width, out height);
+            Assert.That(width, Is.LessThanOrEqualTo(BasisCameraDirectToScreen.MaxMatchWindowFeedDimension));
             Assert.That((float)width / height, Is.EqualTo(20f).Within(0.5f));
 
-            BasisHandHeldCamera.MatchWindowFeedSize(1920, 1080, 0, 0, out width, out height);
+            BasisCameraDirectToScreen.MatchWindowFeedSize(1920, 1080, 0, 0, out width, out height);
             Assert.That(width, Is.EqualTo(1920), "No window, no shape to take: the preview size stands.");
             Assert.That(height, Is.EqualTo(1080));
         }
@@ -448,7 +448,7 @@ namespace Basis.Tests.Camera
         [Test]
         public void ThePlacement_ReachesTheOutputWithTheFeed()
         {
-            Assume.That(BasisHandHeldCamera.IsDirectToScreenSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
 
             _rig.Camera.SetDirectToScreenFit(BasisCameraDirectToScreenFit.Fill);
             _rig.Camera.SetDirectToScreenAlignment(0.25f, 1.5f);

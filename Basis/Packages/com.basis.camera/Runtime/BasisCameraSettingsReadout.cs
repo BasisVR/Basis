@@ -222,7 +222,7 @@ public static class BasisCameraSettingsReadout
         Row("camera.smoothDrag.leash", Number(settings.smoothDragMaxDistance) + " m");
         Row("camera.resize", OnOff(settings.resizeWithGesture));
         Row("camera.streamPreset", BasisCameraStreamPresets.Label(BasisCameraStreamPresets.KeyFor((BasisVideoTransport)settings.streamTransport, settings.streamWidth, settings.streamHeight, settings.streamFrameRate, settings.streamQuality)));
-        Row("camera.transport", BasisHandHeldCamera.GetVideoTransportName((BasisVideoTransport)settings.streamTransport));
+        Row("camera.transport", BasisCameraVideoPlatform.TransportName((BasisVideoTransport)settings.streamTransport));
         Row("camera.streamResolution", settings.streamWidth + " x " + settings.streamHeight);
         Row("camera.streamFrameRate", Number(settings.streamFrameRate) + " Hz");
         Row("camera.streamQuality", settings.streamQuality.ToString());
@@ -233,7 +233,7 @@ public static class BasisCameraSettingsReadout
         // would eat the rest of the readout as markup.
         Row("camera.senderName", "<noparse>" + settings.streamSenderName + "</noparse>");
         Row("camera.directToScreen", OnOff(settings.directToScreen));
-        Row("camera.directToScreen.fit", BasisLocalization.Get(BasisHandHeldCamera.DirectToScreenFitKeys[(int)BasisHandHeldCamera.SanitizeDirectToScreenFit(settings.directToScreenFit)]));
+        Row("camera.directToScreen.fit", BasisLocalization.Get(BasisCameraDirectToScreen.FitKeys[(int)BasisCameraDirectToScreen.SanitizeFit(settings.directToScreenFit)]));
 
         Section("camera.gif");
         Row("camera.gif.length", Number(settings.gifDurationSeconds) + " s");

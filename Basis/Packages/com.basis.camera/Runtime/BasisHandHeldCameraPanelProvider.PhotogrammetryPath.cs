@@ -54,7 +54,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _photogrammetryPathSettleSlider = PanelSlider.CreateNew(content);
             _photogrammetryPathSettleSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
                 BasisLocalization.Get("camera.photogrammetryPath.settle"),
-                BasisHandHeldCamera.MinPhotogrammetryPathSettleSeconds, BasisHandHeldCamera.MaxPhotogrammetryPathSettleSeconds,
+                BasisCameraRecordingLimits.MinPhotogrammetryPathSettleSeconds, BasisCameraRecordingLimits.MaxPhotogrammetryPathSettleSeconds,
                 false, 1, ValueDisplayMode.Raw));
             _photogrammetryPathSettleSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.photogrammetryPath.settle.description"));
             _photogrammetryPathSettleSlider.SetResetDefault(defaults.photogrammetryPathSettleSeconds);
@@ -68,12 +68,12 @@ namespace Basis.BasisUI.HandHeldCamera
             _photogrammetryPathReplayStatus = BuildRecordingStatusCard(
                 content, "camera.photogrammetryPath.replay.status", "camera.photogrammetryPath.replay.status.idle");
 
-            if (BasisHandHeldCamera.CanOpenPhotosFolder)
+            if (BasisCameraPhotoFolder.CanOpen)
             {
                 RectTransform folderRow = PanelElementDescriptor.BuildActionRow(content, "CameraPhotogrammetryPathFolderRow");
                 PanelButton openFolderButton = PanelButton.CreateNew(folderRow);
                 openFolderButton.Descriptor.SetTitle(BasisLocalization.Get("camera.openPhotosFolder"));
-                openFolderButton.OnClicked += () => BasisHandHeldCamera.OpenPhotosFolder();
+                openFolderButton.OnClicked += () => BasisCameraPhotoFolder.Open();
             }
         }
 
