@@ -1200,6 +1200,7 @@ namespace Basis.BasisUI
                     {
                         if (remotePlayer == null) return;
                         remotePlayer.BypassPerformanceLimits = on;
+                        Basis.Scripts.Avatar.BasisAvatarFactory.ClearDownloadLimitFailure(remotePlayer);
                         // Full reload: turning on restores destroyed components
                         // (no in-place path exists for restore), turning off re-runs
                         // Evaluate and TrimExcessComponents with the real limits.
@@ -1282,7 +1283,7 @@ namespace Basis.BasisUI
                 if (remotePlayer != null)
                 {
                     remotePlayer.AlwaysShowAvatar = on;
-                    if (remotePlayer.IsConsideredFallBackAvatar == on)
+                    if (Basis.Scripts.Avatar.BasisAvatarFactory.ClearDownloadLimitFailure(remotePlayer) || remotePlayer.IsConsideredFallBackAvatar == on)
                     {
                         remotePlayer.ReloadAvatar();
                     }

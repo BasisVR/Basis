@@ -97,6 +97,52 @@ namespace Basis.Scripts.Avatar
             return string.IsNullOrEmpty(BasisLoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation);
         }
         public static long MaxDownloadSizeInMBRemote = 4L * 1024 * 1024 * 1024;
+        public static long RemoteDownloadLimit(BasisRemotePlayer Player)
+        {
+            return Player.AvatarAlwaysLoaded || BasisAvatarPerformanceLimits.BypassAllLimits ? 4L * 1024 * 1024 * 1024 : MaxDownloadSizeInMBRemote;
+        }
+        public static bool ClearDownloadLimitFailure(BasisRemotePlayer Player)
+        {
+            if (Player == null || !Player.HasFailedAvatarLoadGlobally)
+            {
+                return false;
+            }
+            long sectionBytes = DownloadSectionBytes(Player.AlwaysRequestedAvatar?.BasisBundleConnector);
+            if (sectionBytes <= MaxDownloadSizeInMBRemote || sectionBytes > RemoteDownloadLimit(Player))
+            {
+                return false;
+            }
+            Player.HasFailedAvatarLoadGlobally = false;
+            Player.AvatarLoadErrorMessage = null;
+            Player.OnAvatarFailedStateChanged?.Invoke();
+            return true;
+        }
+        private static long DownloadSectionBytes(BasisBundleConnector Connector)
+        {
+            BasisBundleGenerated[] sections = Connector?.BasisBundleGenerated;
+            if (sections == null)
+            {
+                return 0;
+            }
+            long platformBytes = -1, genericBytes = 0;
+            for (int Index = 0; Index < sections.Length; Index++)
+            {
+                BasisBundleGenerated section = sections[Index];
+                if (section == null || section.Platform == null)
+                {
+                    continue;
+                }
+                if (BasisBundleConnector.PlatformMatch(section.Platform))
+                {
+                    platformBytes = Math.Max(platformBytes, section.EndByte);
+                }
+                else if (genericBytes == 0 && BasisBundleConnector.IsGenericBundle(section))
+                {
+                    genericBytes = section.EndByte;
+                }
+            }
+            return platformBytes >= 0 ? platformBytes : genericBytes;
+        }
         /// <summary>
         /// Loads an avatar locally for a <see cref="BasisLocalPlayer"/>.
         /// Can handle download, addressable load, in-scene instantiation, or fallback.
@@ -282,7 +328,7 @@ namespace Basis.Scripts.Avatar
 
                             if (Mode == 0)
                             {
-                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token, MaxDownloadSizeInMBRemote);
+                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token, RemoteDownloadLimit(Player));
                             }
                             else
                             {

@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 using static UnityEngine.Camera;
 using RenderPipeline = UnityEngine.Rendering.RenderPipelineManager;
@@ -101,9 +102,7 @@ public class BasisSDKMirror : MonoBehaviour
         set
         {
             clearFlags = value;
-            Camera refCamera = BasisLocalCameraDriver.HasInstance ? BasisLocalCameraDriver.Instance.Camera : null;
-            if (LeftCamera) updateCameraClearFlags(LeftCamera, refCamera);
-            if (RightCamera) updateCameraClearFlags(RightCamera, refCamera);
+            RefreshCameraClear();
         }
     }
 
@@ -280,20 +279,20 @@ public class BasisSDKMirror : MonoBehaviour
     }
 
     public const string CutoutShaderName = "BasisMirrorCutout";
+    public const string CutoutCoverageShaderName = "BasisMirrorCutoutCoverage";
 
     [NonSerialized] private Material cutoutMaterial;
+    [NonSerialized] private CutoutCoveragePass cutoutCoveragePass;
     [NonSerialized] private bool cutoutEnabled;
-    [NonSerialized] private MirrorClearFlags clearFlagsBeforeCutout;
-    [NonSerialized] private Color clearColorBeforeCutout;
 
     public bool CutoutEnabled => cutoutEnabled;
 
     /// <summary>
     /// Clear flags/colour as the user configured them, ignoring the transparent clear the cutout
-    /// imposes while it is on. Saving the live values instead would overwrite the real choice.
+    /// imposes while it is on.
     /// </summary>
-    public MirrorClearFlags ConfiguredClearFlags => cutoutEnabled ? clearFlagsBeforeCutout : clearFlags;
-    public Color ConfiguredClearColor => cutoutEnabled ? clearColorBeforeCutout : clearColor;
+    public MirrorClearFlags ConfiguredClearFlags => clearFlags;
+    public Color ConfiguredClearColor => clearColor;
 
     /// <summary>
     /// Swaps the surface to the transparent cutout shader and clears the reflection to fully
@@ -314,18 +313,21 @@ public class BasisSDKMirror : MonoBehaviour
         Shader shader = Resources.Load<Shader>(CutoutShaderName);
         if (shader == null || !shader.isSupported) return false;
 
-        clearFlagsBeforeCutout = clearFlags;
-        clearColorBeforeCutout = clearColor;
-
         if (cutoutMaterial == null)
             cutoutMaterial = new Material(shader) { name = $"{name} Mirror Cutout" };
+
+        if (cutoutCoveragePass == null)
+        {
+            Shader coverage = Resources.Load<Shader>(CutoutCoverageShaderName);
+            if (coverage != null && coverage.isSupported)
+                cutoutCoveragePass = new CutoutCoveragePass(CoreUtils.CreateEngineMaterial(coverage));
+        }
 
         SeedCutoutTextures();
         Renderer.sharedMaterial = cutoutMaterial;
         cutoutEnabled = true;
 
-        ClearColor = new Color(0f, 0f, 0f, 0f);
-        ClearFlags = MirrorClearFlags.Color;
+        RefreshCameraClear();
         return true;
     }
 
@@ -336,10 +338,9 @@ public class BasisSDKMirror : MonoBehaviour
         if (Renderer != null && MirrorsMaterial != null)
             Renderer.sharedMaterial = MirrorsMaterial;
 
-        DestroyCutoutMaterial();
+        DestroyCutoutResources();
 
-        ClearColor = clearColorBeforeCutout;
-        ClearFlags = clearFlagsBeforeCutout;
+        RefreshCameraClear();
         return false;
     }
 
@@ -352,8 +353,14 @@ public class BasisSDKMirror : MonoBehaviour
             PortalTextureRight != null ? PortalTextureRight : PortalTextureLeft);
     }
 
-    private void DestroyCutoutMaterial()
+    private void DestroyCutoutResources()
     {
+        if (cutoutCoveragePass != null)
+        {
+            cutoutCoveragePass.Dispose();
+            cutoutCoveragePass = null;
+        }
+
         if (cutoutMaterial == null) return;
 
 #if UNITY_EDITOR
@@ -491,11 +498,7 @@ public class BasisSDKMirror : MonoBehaviour
         set
         {
             clearColor = value;
-            if (clearFlags == MirrorClearFlags.Color)
-            {
-                if (LeftCamera) LeftCamera.backgroundColor = clearColor;
-                if (RightCamera) RightCamera.backgroundColor = clearColor;
-            }
+            RefreshCameraClear();
         }
     }
 
@@ -566,7 +569,9 @@ public class BasisSDKMirror : MonoBehaviour
         transform.localRotation = deltaRotation * transform.localRotation;
     }
 
-    private void OnEnable()
+    private void OnEnable() => Enable(true);
+
+    private void Enable(bool applySettings)
     {
         IsActive = false;
         IsAbleToRender = false;
@@ -603,7 +608,8 @@ public class BasisSDKMirror : MonoBehaviour
         BasisSettingsDefaults.UseMirrorQualityOverride.OnChanged += OnMirrorQualityOverrideChanged;
         BasisSettingsDefaults.Antialiasing.OnChanged += OnAntialiasingChanged;
 
-        BasisMirrorSettingsStore.ApplyTo(this);
+        if (applySettings)
+            BasisMirrorSettingsStore.ApplyTo(this);
 
         if (BasisLocalCameraDriver.HasInstance)
             Initialize();
@@ -623,7 +629,7 @@ public class BasisSDKMirror : MonoBehaviour
     private void OnDestroy()
     {
         BasisMirrorRegistry.Remove(this);
-        DestroyCutoutMaterial();
+        DestroyCutoutResources();
         BasisDeviceManagement.OnBootModeChanged -= BootModeChanged;
         BasisSettingsDefaults.MirrorQuality.OnChanged -= OnMirrorQualityChanged;
         BasisSettingsDefaults.UseMirrorQualityOverride.OnChanged -= OnMirrorQualityOverrideChanged;
@@ -641,7 +647,7 @@ public class BasisSDKMirror : MonoBehaviour
     {
         yield return null;
         CleanUp();
-        OnEnable();
+        Enable(false);
     }
 
     private void CleanUp()
@@ -1158,6 +1164,8 @@ public class BasisSDKMirror : MonoBehaviour
 
         if (UniversalRenderPipeline.SupportsRenderRequest(camera, request))
         {
+            if (cutoutEnabled && cutoutCoveragePass != null)
+                cutoutCoveragePass.Enqueue(camera);
             UniversalRenderPipeline.SubmitRenderRequest(camera, request);
         }
         // else: active RP doesn’t support this request type; safely skip
@@ -1277,8 +1285,22 @@ public class BasisSDKMirror : MonoBehaviour
         IsAbleToRender = isVisible;
     }
 
+    private void RefreshCameraClear()
+    {
+        Camera refCamera = BasisLocalCameraDriver.HasInstance ? BasisLocalCameraDriver.Instance.Camera : null;
+        if (LeftCamera) updateCameraClearFlags(LeftCamera, refCamera);
+        if (RightCamera) updateCameraClearFlags(RightCamera, refCamera);
+    }
+
     private void updateCameraClearFlags(Camera camera, Camera refCamera)
     {
+        if (cutoutEnabled)
+        {
+            camera.backgroundColor = Color.clear;
+            camera.clearFlags = CameraClearFlags.Color;
+            return;
+        }
+
         switch (clearFlags)
         {
             case MirrorClearFlags.Skybox:
@@ -1303,6 +1325,52 @@ public class BasisSDKMirror : MonoBehaviour
                 camera.backgroundColor = refCamera.backgroundColor;
                 camera.clearFlags = refCamera.clearFlags;
                 break;
+        }
+    }
+
+    private sealed class CutoutCoveragePass : ScriptableRenderPass
+    {
+        private sealed class PassData
+        {
+            public Material Material;
+        }
+
+        private readonly Material material;
+        private Camera target;
+
+        public CutoutCoveragePass(Material material)
+        {
+            this.material = material;
+            renderPassEvent = RenderPassEvent.AfterRenderingOpaques;
+        }
+
+        public void Enqueue(Camera camera)
+        {
+            if (!camera.TryGetComponent(out UniversalAdditionalCameraData cameraData)) return;
+            ScriptableRenderer renderer = cameraData.scriptableRenderer;
+            if (renderer == null) return;
+            target = camera;
+            renderer.EnqueuePass(this);
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            if (material == null || frameData.Get<UniversalCameraData>().camera != target) return;
+
+            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis Mirror Cutout Coverage", out PassData passData))
+            {
+                passData.Material = material;
+                builder.SetRenderAttachment(resourceData.activeColorTexture, 0, AccessFlags.ReadWrite);
+                builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture, AccessFlags.Read);
+                builder.AllowPassCulling(false);
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext context) => context.cmd.DrawProcedural(Matrix4x4.identity, data.Material, 0, MeshTopology.Triangles, 3, 1));
+            }
+        }
+
+        public void Dispose()
+        {
+            CoreUtils.Destroy(material);
         }
     }
 }

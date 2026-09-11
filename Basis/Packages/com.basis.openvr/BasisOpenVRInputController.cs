@@ -25,7 +25,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         private static readonly VRBoneTransform_t[] referenceBones = new VRBoneTransform_t[SteamVR_Action_Skeleton.numBones];
         private Vector3 wristAnchorPosition;
         private Quaternion wristAnchorRotation;
-        private bool wristAnchored;
+        private bool wristAnchored, wristSampled;
         private int nextWristAnchorPoll;
 
         // Device pose (controller) from compositor
@@ -215,14 +215,15 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             // Wrist data from skeleton
             int idxWrist = SteamVR_Skeleton_JointIndexes.wrist;
             bool skeletonActive = skeletonAction.GetActive();
+            wristSampled |= skeletonActive;
             if (skeletonActive && Time.frameCount >= nextWristAnchorPoll)
             {
                 nextWristAnchorPoll = Time.frameCount + WristAnchorPollFrames;
                 RefreshWristAnchor(skeletonAction);
             }
             bool useWristAnchor = wristAnchored && BasisSettingsDefaults.QuestControllerFix.RawValue;
-            Vector3 wristLocalPos = useWristAnchor ? wristAnchorPosition : skeletonActive ? BonePositions[idxWrist] : Vector3.zero;
-            Quaternion wristLocalRot = useWristAnchor ? wristAnchorRotation : skeletonActive ? BoneRotations[idxWrist] : Quaternion.identity;
+            Vector3 wristLocalPos = useWristAnchor ? wristAnchorPosition : wristSampled ? BonePositions[idxWrist] : Vector3.zero;
+            Quaternion wristLocalRot = useWristAnchor ? wristAnchorRotation : wristSampled ? BoneRotations[idxWrist] : Quaternion.identity;
 
             // Rotation offset (per hand)
             Quaternion rotOffset = Quaternion.Euler(isLeft ? leftHandToIKRotationOffset : rightHandToIKRotationOffset);

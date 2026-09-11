@@ -106,6 +106,11 @@ public static class SMModuleAvatarPerformanceLimits
         {
             return;
         }
+        if (BasisAvatarFactory.ClearDownloadLimitFailure(player))
+        {
+            player.ReloadAvatar();
+            return;
+        }
         if (player.BasisAvatar == null || player.IsConsideredFallBackAvatar)
         {
             bool wasBlocked = player.LastPerformanceInfo.Blocked;
