@@ -154,6 +154,9 @@ public partial class BasisHandHeldCamera
             flashLight.type = LightType.Spot;
             flashLight.shadows = LightShadows.None;
             flashLight.enabled = false;
+#if Basis_VOLUMETRIC_SUPPORTED
+            go.AddComponent<VolumetricFogLight>().Multiplier = 0f;
+#endif
         }
 
         flashLight.intensity = traits.FlashIntensity;

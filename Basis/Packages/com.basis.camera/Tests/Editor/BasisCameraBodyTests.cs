@@ -276,6 +276,26 @@ namespace Basis.Tests.Camera
                 "A flash nobody fired has nothing to recover from.");
         }
 
+#if Basis_VOLUMETRIC_SUPPORTED
+        [Test]
+        public void TheFlashLightsTheShotButNotTheFogInFrontOfTheLens()
+        {
+            _camera.ApplyCameraMode(BasisCameraMode.Instant);
+            GameObject capture = new GameObject("CaptureCamera");
+            capture.transform.SetParent(_go.transform, false);
+            _camera.captureCamera = capture.AddComponent<UnityEngine.Camera>();
+
+            Assert.That(_camera.TryTakeFrameForTest(), Is.True);
+
+            Light flash = capture.GetComponentInChildren<Light>(true);
+            Assert.That(flash, Is.Not.Null, "An instant camera that took a frame with its flash armed must have fired it.");
+            Assert.That(flash.enabled, Is.True);
+            Assert.That(VolumetricFogLight.TryGetMultiplier(flash, out float multiplier), Is.True,
+                "The flash sits on the lens, so any fog it lights is a veil across the photograph.");
+            Assert.That(multiplier, Is.Zero);
+        }
+#endif
+
         // ---- Loading a saved camera ---------------------------------------------------------
 
         [Test]

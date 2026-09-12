@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -106,6 +107,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         public Vector4 froxelTemporal;
         public Vector4 froxelTemporalParams;
         public Vector4 froxelLightFlags;
+        public Vector4[] additionalLightMultipliers;
         public float froxelShared;
     }
 
@@ -184,6 +186,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
     private static readonly int SunTrimsId = Shader.PropertyToID("_VFSunTrims");
     private static readonly int AdditionalAnisotropyId = Shader.PropertyToID("_VFAdditionalAnisotropy");
     private static readonly int AdditionalScatteringId = Shader.PropertyToID("_VFAdditionalScattering");
+    private static readonly int AdditionalLightMultipliersId = Shader.PropertyToID("_VFAdditionalLightMultipliers");
 
     private static readonly int FogHistoryId = Shader.PropertyToID("_VFFogHistory");
     private static readonly int DepthHistoryId = Shader.PropertyToID("_VFDepthHistory");
@@ -239,6 +242,9 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
     private int froxelColumnDepthArrayKernel = -1;
     private int froxelColumnKernel = -1;
 
+    private readonly Vector4[] additionalLightMultipliers;
+    private int additionalLightMultipliersWritten;
+
     private readonly Dictionary<(Camera camera, int view), VolumetricFogCameraHistory> histories = new Dictionary<(Camera camera, int view), VolumetricFogCameraHistory>();
     private readonly List<(Camera camera, int view)> deadHistoryKeys = new List<(Camera camera, int view)>();
 
@@ -266,6 +272,8 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         froxelProfilingSampler = new ProfilingSampler("Volumetric Fog Froxels");
         renderPassEvent = passEvent;
         requiresIntermediateTexture = false;
+        additionalLightMultipliers = new Vector4[UniversalRenderPipeline.maxVisibleAdditionalLights];
+        Array.Fill(additionalLightMultipliers, Vector4.one);
 
         this.downsampleDepthMaterial = downsampleDepthMaterial;
         this.volumetricFogMaterial = volumetricFogMaterial;
@@ -352,6 +360,9 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
             historyRecent = history.lastFrame >= 0 && Time.frameCount - history.lastFrame <= 2;
             UpdateCameraMatrices(history, cameraData, viewCount, sharedStereo);
         }
+
+        if (useFroxels && parameters.additionalLightsEnabled)
+            UpdateAdditionalLightMultipliers(lightData);
 
         if (useFroxels)
             RecordFroxelPasses(renderGraph, cameraData, resourceData, history, parameters, viewCount, sharedStereo, useTemporal, historyRecent);
@@ -619,6 +630,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
             passData.eyeViewProjection = history.eyeViewProjection;
             passData.froxelTemporalParams = new Vector4(VolumetricFogQuality.TemporalFeedback, VolumetricFogQuality.TemporalLightResponse ? 1.0f : 0.0f, 0.0f, 0.0f);
             passData.froxelLightFlags = new Vector4(parameters.apvEnabled ? 1.0f : 0.0f, parameters.apvBaked ? 1.0f : 0.0f, parameters.additionalLightsEnabled ? 1.0f : 0.0f, sharedStereo ? 1.0f : 0.0f);
+            passData.additionalLightMultipliers = additionalLightMultipliers;
             passData.froxelLighting = lighting;
             passData.froxelLightingHistory = lightingHistory;
             passData.froxelColumn = column;
@@ -747,6 +759,31 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         }
 
         return parameters;
+    }
+
+    private void UpdateAdditionalLightMultipliers(UniversalLightData lightData)
+    {
+        for (int i = 0; i < additionalLightMultipliersWritten; ++i)
+            additionalLightMultipliers[i].x = 1.0f;
+        additionalLightMultipliersWritten = 0;
+
+        if (!VolumetricFogLight.AnyActive)
+            return;
+
+        NativeArray<VisibleLight> visibleLights = lightData.visibleLights;
+        for (int i = 0, lightIndex = 0; i < visibleLights.Length && lightIndex < additionalLightMultipliers.Length; ++i)
+        {
+            if (i == lightData.mainLightIndex)
+                continue;
+
+            if (VolumetricFogLight.TryGetMultiplier(visibleLights[i].light, out float multiplier))
+            {
+                additionalLightMultipliers[lightIndex].x = multiplier;
+                additionalLightMultipliersWritten = lightIndex + 1;
+            }
+
+            ++lightIndex;
+        }
     }
 
     private static void ApplyParameters(Material material, in FogParameters parameters)
@@ -1049,6 +1086,8 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         cmd.SetComputeVectorParam(computeShader, FroxelTemporalId, data.froxelTemporal);
         cmd.SetComputeVectorParam(computeShader, FroxelTemporalParamsId, data.froxelTemporalParams);
         cmd.SetComputeVectorParam(computeShader, FroxelLightFlagsId, data.froxelLightFlags);
+        if (data.froxelLightFlags.z > 0.5f)
+            cmd.SetComputeVectorArrayParam(computeShader, AdditionalLightMultipliersId, data.additionalLightMultipliers);
         cmd.SetComputeMatrixArrayParam(computeShader, FroxelEyeViewProjId, data.eyeViewProjection);
         cmd.SetComputeMatrixArrayParam(computeShader, FroxelPrevViewProjId, data.previousViewProjection);
         cmd.SetComputeVectorArrayParam(computeShader, FroxelCameraPosId, data.cameraPositions);

@@ -26,6 +26,7 @@ float4 _VFFroxelCameraPos[2];
 float4 _VFFroxelTemporal;        // x = temporal on, y = history valid, z = half rate update, w = frame parity
 float4 _VFFroxelTemporalParams;  // x = feedback, y = light change response
 float4 _VFFroxelLightFlags;      // x = apv enabled, y = apv baked, z = additional lights, w = shared stereo volume
+float4 _VFAdditionalLightMultipliers[MAX_VISIBLE_LIGHTS];
 
 #if USE_CLUSTER_LIGHT_LOOP
 // ClusterInit from URP with the view index passed explicitly: compute has no per-thread stereo eye index,
@@ -67,7 +68,7 @@ real3 FroxelAdditionalLight(uint lightIndex, float3 posWS, float3 rd, float dens
     Light light = GetAdditionalPerObjectLight((int)lightIndex, posWS);
     real shadow = AdditionalLightRealtimeShadow((int)lightIndex, posWS, light.direction);
     real phase = CornetteShanksPhaseFunction(_VFAdditionalAnisotropy, dot(rd, light.direction));
-    return light.color * (light.distanceAttenuation * shadow * phase * (_VFAdditionalScattering * density));
+    return light.color * (light.distanceAttenuation * shadow * phase * (_VFAdditionalScattering * _VFAdditionalLightMultipliers[lightIndex].x * density));
 }
 
 real3 FroxelAdditionalLights(float3 posWS, float3 rd, float density, float2 froxelUV, float viewZ, uint viewIndex)
