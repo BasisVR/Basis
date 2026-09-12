@@ -126,6 +126,11 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
         segment?.SetDirty();
     }
 
+    public void RebuildTransformCache() {
+        jiggleRigData.BuildNormalizedDistanceFromRootList();
+        segment?.SetDirty();
+    }
+
     public void SnapToRestPose() {
         jiggleRigData.SnapToRestPose();
     }
