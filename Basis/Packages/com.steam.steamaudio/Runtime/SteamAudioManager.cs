@@ -97,8 +97,10 @@ namespace SteamAudio
         IntPtr mMaterialBuffer = IntPtr.Zero;
         Thread mSimulationThread = null;
         EventWaitHandle mSimulationThreadWaitHandle = null;
+        EventWaitHandle mSimulationDoneHandle = null;
         bool mStopSimulationThread = false;
         bool mSimulationCompleted = false;
+        bool mReflInFlight = false;
 
         // Direct simulation (occlusion ray casting) runs on its own worker, one
         // frame behind the main thread. See ApplyInstance for the pipeline.
@@ -575,6 +577,8 @@ namespace SteamAudio
                 mSimulator = new Simulator(mContext, simulationSettings);
 
                 mSimulationThreadWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
+                mSimulationDoneHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
+                mReflInFlight = false;
 
                 mSimulationThread = new Thread(RunSimulation);
                 mSimulationThread.Start();
@@ -830,6 +834,14 @@ namespace SteamAudio
             // worker still owns the snapshot buffers and any deferred source
             // handles, so nothing below is safe to touch. Outputs land a frame
             // later and the sim self-paces to what the worker can sustain.
+
+            // Clear the reflections in-flight flag only on the worker's own done
+            // signal. Thread.ThreadState is not a synchronisation primitive: after
+            // mSimulationThreadWaitHandle.Set() the worker is signalled but not yet
+            // scheduled, so it still reads WaitSleepJoin while a run is starting.
+            if (mReflInFlight && mSimulationDoneHandle != null && mSimulationDoneHandle.WaitOne(0))
+                mReflInFlight = false;
+
             bool reapNow = mDirectInFlight;
             if (mDirectInFlight)
             {
@@ -855,8 +867,8 @@ namespace SteamAudio
                 mDirectInFlight = false;
             }
 
-            // Worker is idle now, so any native source handle it referenced this
-            // cycle is safe to free (release is deferred from SteamAudioSource.OnDestroy).
+            // The direct worker is idle here; the reflections worker holds the same
+            // native handles in mReflSnapHandles, so the drain blocks on it too.
             DrainPendingSourceReleases();
 
             if (reapNow)
@@ -898,8 +910,7 @@ namespace SteamAudio
             // reflections thread is asleep. Steam Audio forbids Commit overlapping
             // RunDirect/RunReflections. An unconditional per-frame Commit re-walks
             // simulator state natively for nothing on the vast majority of frames.
-            if ((mSceneCommitRequired || mSimulatorCommitRequired) &&
-                mSimulationThread.ThreadState == ThreadState.WaitSleepJoin)
+            if ((mSceneCommitRequired || mSimulatorCommitRequired) && !mReflInFlight)
             {
                 using (sMarkerCommit.Auto())
                 {
@@ -1109,7 +1120,7 @@ namespace SteamAudio
                 mReflKickPending = true;
             }
 
-            if (mSimulationThread.ThreadState == ThreadState.WaitSleepJoin)
+            if (!mReflInFlight)
             {
                 using var reflectionsScope = sMarkerReflections.Auto();
                 if (mSimulationCompleted)
@@ -1151,7 +1162,7 @@ namespace SteamAudio
                             // Builds only — no iplSourceSetInputs here. The native call
                             // moves to RunSimulationInternal (mSimulationThread), mirroring
                             // the direct pipeline: main thread stages a snapshot while the
-                            // worker is proven idle (ThreadState gate around this whole
+                            // worker is proven idle (idle gate around this whole
                             // block), the worker owns SetInputs -> Run -> GetOutputs.
                             EnsureReflectionsSnapshotCapacity(srcTotal);
 
@@ -1246,6 +1257,7 @@ namespace SteamAudio
                 }
                 else
                 {
+                    mReflInFlight = true;
                     mSimulationThreadWaitHandle.Set();
                 }
             }
@@ -1367,6 +1379,7 @@ namespace SteamAudio
                     break;
 
                 RunSimulationInternal();
+                mSimulationDoneHandle.Set();
             }
         }
 
@@ -1448,6 +1461,7 @@ namespace SteamAudio
                 Singleton.mStopSimulationThread = true;
                 Singleton.mSimulationThreadWaitHandle.Set();
                 Singleton.mSimulationThread.Join();
+                Singleton.mReflInFlight = false;
             }
 
             if (Singleton.mDirectThread != null)
@@ -1532,6 +1546,7 @@ namespace SteamAudio
                 Singleton.mStopSimulationThread = true;
                 Singleton.mSimulationThreadWaitHandle.Set();
                 Singleton.mSimulationThread.Join();
+                Singleton.mReflInFlight = false;
             }
 
             if (Singleton.mDirectThread != null)
@@ -1660,6 +1675,8 @@ namespace SteamAudio
             Singleton.mSimulator = new Simulator(Singleton.mContext, simulationSettings);
 
             Singleton.mStopSimulationThread = false;
+            Singleton.mReflInFlight = false;
+            Singleton.mSimulationDoneHandle.Reset();
             Singleton.mSimulationThread = new Thread(Singleton.RunSimulation);
             Singleton.mSimulationThread.Start();
 
@@ -1771,7 +1788,7 @@ namespace SteamAudio
 
         // Grows the reflections worker snapshot buffers. Only called from the input
         // staging slice in ApplyInstance, which — like the direct snapshot build —
-        // only runs while mSimulationThread is proven idle (the ThreadState gate
+        // only runs while mSimulationThread is proven idle (the idle gate
         // around the whole reflections block), so a reallocation can never race the
         // worker reading them.
         private void EnsureReflectionsSnapshotCapacity(int required)
@@ -1793,11 +1810,40 @@ namespace SteamAudio
         // reap WaitOne, or after the worker thread is joined on shutdown/reinit).
         private void DrainPendingSourceReleases()
         {
+            if (sPendingSourceRelease.Count == 0)
+                return;
+
+            BlockUntilReflectionsIdleInstance();
+
             while (sPendingSourceRelease.Count > 0)
             {
                 Source s = sPendingSourceRelease.Dequeue();
                 if (s != null) s.Release();
             }
+        }
+
+        // Main-thread barrier against the reflections worker. iplSourceAdd/Remove,
+        // iplSimulatorAddProbeBatch/RemoveProbeBatch and iplSourceRelease all mutate or
+        // free state that iplSimulatorRunReflections walks; overlapping them corrupts the
+        // simulator natively. Source churn (avatar swaps, players joining, far-LOD
+        // installs) is rare relative to the 10 Hz reflections cadence, so the worst case
+        // is one cycle of stall on the frame the churn happens.
+        public static void BlockUntilReflectionsIdle()
+        {
+            SteamAudioManager s = Singleton;
+            if (s == null)
+                return;
+
+            s.BlockUntilReflectionsIdleInstance();
+        }
+
+        private void BlockUntilReflectionsIdleInstance()
+        {
+            if (!mReflInFlight || mSimulationDoneHandle == null)
+                return;
+
+            mSimulationDoneHandle.WaitOne();
+            mReflInFlight = false;
         }
 
         // Returns true if the release was queued for a worker-idle point. Returns

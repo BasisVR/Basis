@@ -359,6 +359,7 @@ namespace SteamAudio
                     mSource = null;
                 else
                 {
+                    SteamAudioManager.BlockUntilReflectionsIdle();
                     mSource.Release();
                     mSource = null;
                 }

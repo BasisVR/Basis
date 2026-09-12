@@ -273,6 +273,7 @@ namespace Basis.Scripts.BasisSdk.Highlight
                 builder.UseTexture(rawSoft, AccessFlags.Read);
 
                 builder.SetRenderAttachment(resourceData.activeColorTexture, 0, AccessFlags.Write);
+                builder.EnableFoveatedRasterization(cameraData.xr.supportsFoveatedRendering);
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
 

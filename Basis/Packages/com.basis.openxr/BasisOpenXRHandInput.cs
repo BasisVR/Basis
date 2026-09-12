@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.UIElements;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Hands.Gestures;
@@ -57,11 +58,12 @@ public class BasisOpenXRHandInput : BasisInputController
     private InputAction _triggerTouchAction;
     private InputAction _thumbrestTouchAction;
     private InputAction _devicePositionAction;
-    private InputAction _deviceRotationAction;
     private InputAction _palmPoseActionPosition;
     private InputAction _palmPoseActionRotation;
-    private InputAction _pointerPositionAction;
-    private InputAction _pointerRotationAction;
+
+    private UnityEngine.InputSystem.InputDevice _poseDevice;
+    private Vector3Control _devicePositionControl, _pointerPositionControl;
+    private QuaternionControl _deviceRotationControl, _pointerRotationControl;
 
     /// <summary>
     /// Raw unmodified hand coordinates before final calibration.
@@ -168,11 +170,21 @@ public class BasisOpenXRHandInput : BasisInputController
         _triggerTouchAction = TriggerTouch.action;
         _thumbrestTouchAction = ThumbrestTouch.action;
         _devicePositionAction = DeviceActionPosition.action;
-        _deviceRotationAction = DeviceActionRotation.action;
         _palmPoseActionPosition = PalmPoseActionPosition.action;
         _palmPoseActionRotation = PalmPoseActionRotation.action;
-        _pointerPositionAction = pointerPosition.action;
-        _pointerRotationAction = pointerRotation.action;
+    }
+    private void ResolvePoseControls()
+    {
+        UnityEngine.InputSystem.InputDevice device = null;
+        if (_triggerAction != null && _triggerAction.controls.Count != 0) device = _triggerAction.controls[0].device;
+        if (device == null && _gripAction != null && _gripAction.controls.Count != 0) device = _gripAction.controls[0].device;
+        if (device == null && _devicePositionAction != null && _devicePositionAction.controls.Count != 0) device = _devicePositionAction.controls[0].device;
+        if (ReferenceEquals(device, _poseDevice)) return;
+        _poseDevice = device;
+        _devicePositionControl = device?.TryGetChildControl<Vector3Control>("devicePosition");
+        _deviceRotationControl = device?.TryGetChildControl<QuaternionControl>("deviceRotation");
+        _pointerPositionControl = device?.TryGetChildControl<Vector3Control>("pointerPosition");
+        _pointerRotationControl = device?.TryGetChildControl<QuaternionControl>("pointerRotation");
     }
     private void EnableInputActions()
     {
@@ -267,9 +279,9 @@ public class BasisOpenXRHandInput : BasisInputController
         PollButtonsAndAxes();
 
         PollPose();
-        if (_pointerPositionAction != null)
+        if (_pointerPositionControl != null)
         {
-            ComputeUnscaledDeviceCoord(ref PointerPositionYScaled, _pointerPositionAction.ReadValue<Vector3>());
+            ComputeUnscaledDeviceCoord(ref PointerPositionYScaled, _pointerPositionControl.ReadValue());
         }
 
         UpdateRaycastOffset();
@@ -278,8 +290,8 @@ public class BasisOpenXRHandInput : BasisInputController
         var originLocal = PointerPositionYScaled.position * playerToAvatar;
         var originWorld = OffsetCoords.position + (OffsetCoords.rotation * originLocal);
 
-        Quaternion aimWorldRotation = _pointerRotationAction != null
-            ? OffsetCoords.rotation * _pointerRotationAction.ReadValue<Quaternion>()
+        Quaternion aimWorldRotation = _pointerRotationControl != null
+            ? OffsetCoords.rotation * _pointerRotationControl.ReadValue()
             : HandFinal.rotation;
 
         ComputeRaycastDirection(
@@ -291,13 +303,14 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     private void PollPose()
     {
-        if (_devicePositionAction != null)
+        ResolvePoseControls();
+        if (_devicePositionControl != null)
         {
-            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _devicePositionAction.ReadValue<Vector3>());
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _devicePositionControl.ReadValue());
         }
-        if (_deviceRotationAction != null)
+        if (_deviceRotationControl != null)
         {
-            UnscaledDeviceCoord.rotation = _deviceRotationAction.ReadValue<Quaternion>();
+            UnscaledDeviceCoord.rotation = _deviceRotationControl.ReadValue();
         }
         ConvertToScaledDeviceCoord();
         ControlOnlyAsHand(HandFinal.position, HandFinal.rotation);
