@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using static BasisAvatarValidator;
 using Basis.Scripts.BasisSdk.Players;
@@ -17,7 +18,41 @@ public partial class BasisAvatarSDKInspector : Editor
     private const string PendingTestInEditorAvatarIdSessionKey = "BasisAvatarSDKInspector.PendingTestInEditorAvatarId";
 
     public delegate void BeforeTestInEditorHandler(GameObject clone);
+    public delegate void BeforeTestInEditorOriginalDeactivationHandler(
+        GameObject original,
+        TestInEditorOriginalDeactivationContext context);
+
+    public sealed class TestInEditorOriginalDeactivationContext
+    {
+        public int SettleFrames { get; private set; }
+
+        public void RequestSettleFrames(int frames)
+        {
+            SettleFrames = Math.Max(SettleFrames, Math.Max(0, frames));
+        }
+    }
+    /// <summary>
+    /// Legacy Test in Editor preparation stage. The clone is active when this runs, matching the
+    /// historical contract for consumers that expect initialized Animator/renderer state.
+    /// </summary>
     public static BeforeTestInEditorHandler OnBeforeTestInEditor;
+    /// <summary>
+    /// Structural Test in Editor preparation stage. The clone is intentionally inactive here so
+    /// authoring-only behaviours cannot execute before final build-time conversion has completed.
+    /// Processors registered here must support inactive hierarchies.
+    /// </summary>
+    public static BeforeTestInEditorHandler OnBeforeTestInEditorPrepareInactive;
+    /// <summary>
+    /// Final inactive Test in Editor preparation stage. Runs after structural clone processors and
+    /// immediately before the clone is activated. Build-time component replacement belongs here.
+    /// </summary>
+    public static BeforeTestInEditorHandler OnBeforeTestInEditorFinalize;
+    /// <summary>
+    /// Runs while the authored Test in Editor object is still active, immediately before Basis
+    /// deactivates it. Handlers may inspect feature-specific runtime components and return the number
+    /// of inactive frames they require before Basis clones the object. The largest request wins.
+    /// </summary>
+    public static event BeforeTestInEditorOriginalDeactivationHandler OnBeforeTestInEditorOriginalDeactivation;
     private static BasisAvatar ScheduledTestInEditorAvatar;
 
     public static event Action<BasisAvatarSDKInspector> InspectorGuiCreated;
@@ -102,7 +137,7 @@ public partial class BasisAvatarSDKInspector : Editor
     private void OnEnable()
     {
         visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(BasisSDKConstants.AvataruxmlPath);
-        Avatar = (BasisAvatar)target;
+        Avatar = target as BasisAvatar;
     }
     public void OnDisable()
     {
@@ -114,8 +149,12 @@ public partial class BasisAvatarSDKInspector : Editor
 
     public override VisualElement CreateInspectorGUI()
     {
-        Avatar = (BasisAvatar)target;
+        Avatar = target as BasisAvatar;
         rootElement = new VisualElement();
+        if (Avatar == null)
+        {
+            return rootElement;
+        }
         if (visualTree != null)
         {
             uiElementsRoot = visualTree.CloneTree();
@@ -274,8 +313,11 @@ public partial class BasisAvatarSDKInspector : Editor
     }
     private void OnSceneGUI()
     {
-        Avatar = (BasisAvatar)target;
-        BasisAvatarGizmoEditor.UpdateGizmos(this, Avatar);
+        Avatar = target as BasisAvatar;
+        if (Avatar != null)
+        {
+            BasisAvatarGizmoEditor.UpdateGizmos(this, Avatar);
+        }
     }
     public void SetupItems()
     {
@@ -615,6 +657,12 @@ public partial class BasisAvatarSDKInspector : Editor
 
     private static void RequestAvatarLoad(BasisAvatar avatar)
     {
+        if (avatar == null)
+        {
+            BasisDebug.LogError("Unable to Test In Editor because the avatar reference is no longer valid.", BasisDebug.LogTag.Editor);
+            return;
+        }
+
         if (BasisLocalPlayerData.PlayerReady)
         {
             BasisDebug.Log("Player Ready Loading", BasisDebug.LogTag.Editor);
@@ -642,54 +690,154 @@ public partial class BasisAvatarSDKInspector : Editor
         LoadAvatar(avatar);
     }
 
-    private static async void LoadAvatar(BasisAvatar avatar)
+    private static GameObject InstantiateInactiveClone(GameObject originalObject)
     {
-        BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
-
-        var jigglesToReset = new List<MonoBehaviour>();
-        foreach (MonoBehaviour jiggle in avatar.gameObject.GetComponentsInChildren<MonoBehaviour>(false))
+        GameObject stagingRoot = new GameObject("Basis Test In Editor Clone Staging")
         {
-            if (jiggle != null
-                && jiggle.GetType().FullName == "GatorDragonGames.JigglePhysics.JiggleRig"
-                && jiggle.enabled)
+            hideFlags = HideFlags.HideAndDontSave
+        };
+        stagingRoot.SetActive(false);
+
+        if (!EditorUtility.IsPersistent(originalObject) && originalObject.scene.IsValid() && originalObject.scene.isLoaded)
+        {
+            SceneManager.MoveGameObjectToScene(stagingRoot, originalObject.scene);
+        }
+
+        try
+        {
+            GameObject clone = GameObject.Instantiate(originalObject, stagingRoot.transform, true);
+            // The inactive parent prevents Awake/OnEnable from running even when the source is an
+            // active persistent prefab asset. Make activeSelf false before removing that parent.
+            clone.SetActive(false);
+            clone.transform.SetParent(null, true);
+            return clone;
+        }
+        finally
+        {
+            if (Application.isPlaying)
             {
-                jigglesToReset.Add(jiggle);
+                GameObject.Destroy(stagingRoot);
+            }
+            else
+            {
+                GameObject.DestroyImmediate(stagingRoot);
             }
         }
-        GameObject inSceneItem;
-        if (jigglesToReset.Count > 0)
-        {
-            BasisDebug.Log("Enabled Jiggles were found when Test in Editor was entered. The avatar will be disabled in order to reset the Jiggle transforms.", BasisDebug.LogTag.Editor);
-            avatar.gameObject.SetActive(false);
-            // It's a bit of a hack, but waiting three frames works.
-            await Awaitable.NextFrameAsync();
-            await Awaitable.NextFrameAsync();
-            await Awaitable.NextFrameAsync();
-            inSceneItem = GameObject.Instantiate(avatar.gameObject);
-            avatar.gameObject.SetActive(true);
-            inSceneItem.SetActive(true);
-        }
-        else
-        {
-            inSceneItem = GameObject.Instantiate(avatar.gameObject);
-        }
+    }
 
+    private static void ProcessTestInEditorClone(GameObject inSceneItem)
+    {
         BasisAssetBundlePipeline.DestroyEditorOnlyInAvatar(inSceneItem);
+        OnBeforeTestInEditorPrepareInactive?.Invoke(inSceneItem);
+        OnBeforeTestInEditorFinalize?.Invoke(inSceneItem);
+
+        // Finalization has removed/replaced authoring-only runtime scripts. Activate before the
+        // legacy hook and PostProcessAvatar so consumers see the same initialized hierarchy they
+        // historically received and active-only bone traversal remains valid.
+        inSceneItem.SetActive(true);
         OnBeforeTestInEditor?.Invoke(inSceneItem);
         BasisAssetBundlePipeline.PostProcessAvatar(inSceneItem);
+    }
 
-        BasisLoadableBundle LoadableBundle = new BasisLoadableBundle
+    private static int GetTestInEditorOriginalSettleFrames(GameObject originalObject)
+    {
+        var context = new TestInEditorOriginalDeactivationContext();
+        OnBeforeTestInEditorOriginalDeactivation?.Invoke(originalObject, context);
+        return context.SettleFrames;
+    }
+
+    private static async void LoadAvatar(BasisAvatar avatar)
+    {
+        if (avatar == null || avatar.gameObject == null)
         {
-            LoadableGameobject = new BasisLoadableGameobject() { InSceneItem = inSceneItem }
-        };
-        LoadableBundle.LoadableGameobject.InSceneItem.transform.parent = null;
-        LoadableBundle.BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
+            BasisDebug.LogError("Unable to Test In Editor because the avatar reference is no longer valid.", BasisDebug.LogTag.Editor);
+            return;
+        }
+
+        BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
+
+        GameObject originalObject = avatar.gameObject;
+        bool originalWasActive = originalObject.activeSelf;
+        bool disabledOriginal = false;
+        bool cloneHandedToPlayer = false;
+        GameObject inSceneItem = null;
+
+        try
         {
-            RemoteBeeFileLocation = BasisGenerateUniqueID.GenerateUniqueID()
-        };
-        BasisDebug.Log("Requesting Avatar Load", BasisDebug.LogTag.Editor);
-        await BasisLocalPlayerData.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
-        BasisDebug.Log("Avatar Load Complete", BasisDebug.LogTag.Editor);
+            // In play mode the authored scene instance and the Test in Editor clone must never run
+            // together. Persistent prefab assets are not scene instances and must not be modified.
+            bool canDisableOriginal = Application.isPlaying
+                && !EditorUtility.IsPersistent(originalObject)
+                && originalObject.scene.IsValid()
+                && originalObject.scene.isLoaded;
+
+            int settleFrames = 0;
+            if (canDisableOriginal && originalWasActive)
+            {
+                settleFrames = GetTestInEditorOriginalSettleFrames(originalObject);
+                originalObject.SetActive(false);
+                disabledOriginal = true;
+            }
+
+            for (int frame = 0; disabledOriginal && frame < settleFrames; frame++)
+            {
+                await Awaitable.NextFrameAsync();
+            }
+
+            inSceneItem = InstantiateInactiveClone(originalObject);
+
+            ProcessTestInEditorClone(inSceneItem);
+
+            BasisLoadableBundle LoadableBundle = new BasisLoadableBundle
+            {
+                LoadableGameobject = new BasisLoadableGameobject() { InSceneItem = inSceneItem }
+            };
+            LoadableBundle.LoadableGameobject.InSceneItem.transform.parent = null;
+            LoadableBundle.BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
+            {
+                RemoteBeeFileLocation = BasisGenerateUniqueID.GenerateUniqueID()
+            };
+            BasisDebug.Log("Requesting Avatar Load", BasisDebug.LogTag.Editor);
+            IBasisLocalPlayer localPlayer = BasisLocalPlayerData.Instance;
+            if (localPlayer == null)
+            {
+                throw new InvalidOperationException("The local player disappeared before Test In Editor could load the prepared avatar.");
+            }
+
+            // From this point the local-player avatar path owns the clone. Do not destroy it from the
+            // editor catch path if loading fails after ownership has been accepted.
+            cloneHandedToPlayer = true;
+            await localPlayer.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
+            BasisDebug.Log("Avatar Load Complete", BasisDebug.LogTag.Editor);
+
+            // The in-scene object is now the local player's avatar. Keep the authored scene instance
+            // disabled for the rest of play mode so there is never a second copy executing beside it.
+            disabledOriginal = false;
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Test In Editor failed while preparing the avatar clone: {ex}", BasisDebug.LogTag.Editor);
+            if (inSceneItem != null && !cloneHandedToPlayer)
+            {
+                if (Application.isPlaying)
+                {
+                    GameObject.Destroy(inSceneItem);
+                }
+                else
+                {
+                    GameObject.DestroyImmediate(inSceneItem);
+                }
+            }
+        }
+        finally
+        {
+            // Only restore if preparation failed before ownership of the clone transferred to the
+            // local-player avatar path. Successful play-mode tests intentionally leave it disabled.
+            if (disabledOriginal && originalObject != null)
+            {
+                originalObject.SetActive(originalWasActive);
+            }
+        }
     }
     private void ClearResultLabel()
     {
