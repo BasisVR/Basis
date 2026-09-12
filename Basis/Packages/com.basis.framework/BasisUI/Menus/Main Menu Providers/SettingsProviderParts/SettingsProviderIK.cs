@@ -471,11 +471,14 @@ public static class SettingsProviderIK
 //                 BasisSettingsDefaults.FBIKShoulderCoupleRatio);
 //             shoulderCoupleSlider?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderCoupleRatio.title.tooltip"));
 
-//             var shoulderMaxSlider = PanelSlider.CreateAndBind(
-//                 shoulderParent,
-//                 PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.shoulderMaxDeg.title"), 0f, 60f, false, 0, ValueDisplayMode.Raw),
-//                 BasisSettingsDefaults.FBIKShoulderMaxDeg);
-//             shoulderMaxSlider?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderMaxDeg.title.tooltip"));
+            var shoulderMaxSlider = PanelSlider.CreateAndBind(
+                shoulderParent,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.shoulderMaxDeg.title"), 0f, 60f, false, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.FBIKShoulderMaxDeg);
+            if (shoulderMaxSlider != null)
+            {
+                shoulderMaxSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderMaxDeg.title.tooltip"));
+            }
 
 //             var shoulderSlideStartSlider = PanelSlider.CreateAndBind(
 //                 shoulderParent,

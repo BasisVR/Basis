@@ -153,28 +153,37 @@ namespace Basis.IK
             {
                 return;
             }
-            BasisArmSolveCore.Pose(input, result, restRootRot, restMidRot, out Quaternion upperRot, out Quaternion lowerRot);
-            poseStream.SetRotation(root, upperRot);
-            poseStream.SetRotation(mid, lowerRot);
-            poseStream.SetRotation(tip, input.TargetRotation);
+            BasisArmSolveCore.Pose(input, result, restRootRot, restMidRot, out Quaternion upperRot, out Quaternion lowerRot, out float forearmRollDeg);
             float posWeight = arm.weight;
-            if (posWeight < 1f)
-            {
-                poseStream.SetRotation(root, Quaternion.Slerp(origRootRot, poseStream.GetRotation(root), posWeight));
-                poseStream.SetRotation(mid, Quaternion.Slerp(origMidRot, poseStream.GetRotation(mid), posWeight));
-                poseStream.SetRotation(tip, Quaternion.Slerp(origTipRot, poseStream.GetRotation(tip), posWeight));
-            }
+            poseStream.SetRotation(root, posWeight < 1f ? Quaternion.Slerp(origRootRot, upperRot, posWeight) : upperRot);
+            poseStream.SetRotation(mid, posWeight < 1f ? Quaternion.Slerp(origMidRot, lowerRot, posWeight) : lowerRot);
             if (arm.upperTwist) ApplyArmTwist(isLeft ? handleLeftUpperArmTwist : handleRightUpperArmTwist, root, mid, upperArmTwistFraction, isLeft ? tposeLeftUpperArmChildBind : tposeRightUpperArmChildBind, isLeft ? tposeLeftUpperArmTwistBind : tposeRightUpperArmTwistBind);
+            ApplyForearmRoll(mid, tip, forearmRollDeg * posWeight);
+            poseStream.SetRotation(tip, posWeight < 1f ? Quaternion.Slerp(origTipRot, input.TargetRotation, posWeight) : input.TargetRotation);
             if (arm.lowerTwist) ApplyArmTwist(isLeft ? handleLeftLowerArmTwist : handleRightLowerArmTwist, mid, tip, lowerArmTwistFraction, isLeft ? tposeLeftLowerArmChildBind : tposeRightLowerArmChildBind, isLeft ? tposeLeftLowerArmTwistBind : tposeRightLowerArmTwistBind);
         }
         void ApplyArmTwist(BasisBoneHandle twist, BasisBoneHandle parent, BasisBoneHandle child, float fraction, Quaternion childBind, Quaternion twistBind)
         {
             poseStream.GetPositionAndRotation(parent, out Vector3 parentPos, out Quaternion parentRot);
             poseStream.GetPositionAndRotation(child, out Vector3 childPos, out Quaternion childRot);
-            if (BasisTwistSolveCore.Solve(parentRot, childRot, childPos - parentPos, fraction, childBind, twistBind, out Quaternion twistWorld, out _, out _))
+            float share = BasisTwistSolveCore.SegmentPositionFraction(parentPos, childPos, poseStream.GetPosition(twist)) * fraction;
+            if (BasisTwistSolveCore.Solve(parentRot, childRot, childPos - parentPos, share, childBind, twistBind, out Quaternion twistWorld, out _, out _))
             {
                 poseStream.SetRotation(twist, twistWorld);
             }
+        }
+        void ApplyForearmRoll(BasisBoneHandle mid, BasisBoneHandle tip, float rollDeg)
+        {
+            if (rollDeg < 0.001f && rollDeg > -0.001f)
+            {
+                return;
+            }
+            Vector3 axis = poseStream.GetPosition(tip) - poseStream.GetPosition(mid);
+            if (axis.sqrMagnitude < sqrEpsilon)
+            {
+                return;
+            }
+            poseStream.SetRotation(mid, Quaternion.AngleAxis(rollDeg, axis.normalized) * poseStream.GetRotation(mid));
         }
         void ApplyArmSwingChestFollow()
         {

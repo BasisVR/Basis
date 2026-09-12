@@ -1891,13 +1891,13 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> FBIKShoulderSlideMaxDeg = new("fbikshoulderslidemaxdeg", new BasisPlatformDefault<float>(15f));
         public static BasisSettingsBinding<float> FBIKShoulderSlideFraction = new("fbikshoulderslidefraction", new BasisPlatformDefault<float>(0.4f));
         public static BasisSettingsBinding<bool> FBIKArmJointLimits = new("fbikarmjointlimits", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> FBIKArmReachSoftness = new("fbikarmreachsoftness", new BasisPlatformDefault<float>(0.04f));
+        public static BasisSettingsBinding<float> FBIKArmReachSoftness = new("fbikarmreachsoftness", new BasisPlatformDefault<float>(0.02f));
         public static BasisSettingsBinding<float> FBIKArmSwivelSmoothTime = new("fbikarmswivelsmoothtime", new BasisPlatformDefault<float>(0.08f));
         public static BasisSettingsBinding<float> FBIKArmSwivelMaxRate = new("fbikarmswivelmaxrate", new BasisPlatformDefault<float>(720f));
         public static BasisSettingsBinding<float> FBIKArmSwivelSwitchDwell = new("fbikarmswivelswitchdwell", new BasisPlatformDefault<float>(0.2f));
-        public static BasisSettingsBinding<float> FBIKArmPriorWeight = new("fbikarmpriorweight", new BasisPlatformDefault<float>(1f));
+        public static BasisSettingsBinding<float> FBIKArmPriorWeight = new("fbikarmpriorweight", new BasisPlatformDefault<float>(0.5f));
         public static BasisSettingsBinding<float> FBIKArmPreviousWeight = new("fbikarmpreviousweight", new BasisPlatformDefault<float>(0.25f));
-        public static BasisSettingsBinding<float> FBIKForearmPronationMax = new("fbikforearmpronationmax", new BasisPlatformDefault<float>(95f));
+        public static BasisSettingsBinding<float> FBIKForearmPronationMax = new("fbikforearmpronationmax", new BasisPlatformDefault<float>(90f));
         public static BasisSettingsBinding<float> FBIKForearmSupinationMax = new("fbikforearmsupinationmax", new BasisPlatformDefault<float>(90f));
         public static BasisSettingsBinding<float> FBIKHumeralInternalMax = new("fbikhumeralinternalmax", new BasisPlatformDefault<float>(70f));
         public static BasisSettingsBinding<float> FBIKHumeralExternalMax = new("fbikhumeralexternalmax", new BasisPlatformDefault<float>(90f));
@@ -2033,8 +2033,8 @@ namespace Basis.BasisUI
         // Arm twist DISTRIBUTION STRENGTH (1 = fully even: each twist bone takes a share equal to its position
         // along the bone -> linear roll gradient; 0 = no twist bone, roll piles up at the wrist). Key bumped to
         // _v2 because the meaning changed from a raw roll fraction (old 0.5/0.3) to a position-scaled strength.
-        public static BasisSettingsBinding<float> FBIKLowerArmTwistFraction = new("fbiklowerarmtwistfraction_v3", new BasisPlatformDefault<float>(0.5f));
-        public static BasisSettingsBinding<float> FBIKUpperArmTwistFraction = new("fbikupperarmtwistfraction_v3", new BasisPlatformDefault<float>(0.5f));
+        public static BasisSettingsBinding<float> FBIKLowerArmTwistFraction = new("fbiklowerarmtwistfraction_v3", new BasisPlatformDefault<float>(1f));
+        public static BasisSettingsBinding<float> FBIKUpperArmTwistFraction = new("fbikupperarmtwistfraction_v3", new BasisPlatformDefault<float>(1f));
 
         // Anatomy — IK refinements modeled on real biomechanics. Persistence keys are versioned
         // (_v2) so existing installs with the old off-by-default values saved pick up the new
@@ -3334,11 +3334,57 @@ namespace Basis.BasisUI
             // through its own accessor so a pre-load touch can't pin the default blocklist.
             Basis.Scripts.Avatar.BasisContentTagFilter.ReloadBinding();
 
+            AdoptKnownArmDefaults();
+
             // Subscribers that read RawValue (Apply* in OnSettingsFinishedChanges)
             // ran during Initialize before bindings were refreshed from the file —
             // re-notify so they pick up the loaded values.
             BasisSettingsSystem.NotifyFinishedChanges();
         }
+        public const string ArmDefaultsAdoptedKey = "fbikarmdefaults_v2";
+        public static void AdoptKnownArmDefaults()
+        {
+            if (BasisSettingsSystem.HasSaveData(ArmDefaultsAdoptedKey))
+            {
+                return;
+            }
+            AdoptKnownDefault(FBIKLowerArmTwistFraction, 0.5f);
+            AdoptKnownDefault(FBIKUpperArmTwistFraction, 0.5f, 0.3f);
+            AdoptKnownDefault(FBIKShoulderElevation, 0.4f);
+            AdoptKnownDefault(FBIKShoulderProtraction, 0.3f);
+            AdoptKnownDefault(FBIKShoulderMaxDeg, 25f);
+            AdoptKnownDefault(FBIKArmReachSoftness, 0.06f, 0.04f);
+            AdoptKnownDefault(FBIKArmPriorWeight, 1f);
+            AdoptKnownDefault(FBIKForearmPronationMax, 95f);
+            BasisSettingsSystem.SaveBool(ArmDefaultsAdoptedKey, true);
+        }
+        static void AdoptKnownDefault(BasisSettingsBinding<float> binding, params float[] superseded)
+        {
+            float shipped = binding.DefaultValue.GetDefault();
+            bool hasStored = BasisSettingsSystem.HasSaveData(binding.BindingKey);
+            float stored = hasStored ? BasisSettingsSystem.LoadFloat(binding.BindingKey, shipped) : shipped;
+            if (TryAdoptKnownDefault(hasStored, stored, shipped, superseded, out float value))
+            {
+                binding.SetValue(value);
+            }
+        }
+        public static bool TryAdoptKnownDefault(bool hasStored, float stored, float shipped, float[] superseded, out float value)
+        {
+            value = shipped;
+            if (!hasStored || !DefaultDiffers(stored, shipped) || superseded == null)
+            {
+                return false;
+            }
+            for (int i = 0; i < superseded.Length; i++)
+            {
+                if (!DefaultDiffers(stored, superseded[i]))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        static bool DefaultDiffers(float a, float b) => a - b > 1e-4f || b - a > 1e-4f;
 
         public static void ApplyDebugLogTagFilter(string value)
         {

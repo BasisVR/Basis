@@ -11,6 +11,7 @@ namespace Basis.IK
         public const float TorsoWeight = 1.5f, TrackerPriorWeight = 4f, SwitchMarginCost = 0.12f, LocalBasinDeg = 60f, BasinJumpDeg = 100f;
         public const float HeadFadeStartSin = 0.15f, HeadFadeFullSin = 0.45f, ElevationFadeStart = 0.85f, ElevationFadeFull = 0.97f, RestOutward = 0.35f, RestBack = 0.25f;
         public const float TeleportFraction = 0.6f, TrackerSmoothTime = 0.015f, MinReachFraction = 0.05f, TrackerLimitScale = 0.15f, ModelWeight = 0.85f;
+        public const float WristKeepFrac = 0.15f, WristKeepMaxDeg = 15f, ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static void Frame(Vector3 axis, Vector3 torsoUp, Vector3 torsoForward, Vector3 torsoOut, out Vector3 ex, out Vector3 ey)
         {
@@ -306,7 +307,8 @@ namespace Basis.IK
             }
             return cost;
         }
-        public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, out Quaternion upperRot, out Quaternion lowerRot)
+        public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, out Quaternion upperRot, out Quaternion lowerRot) => Pose(i, r, restUpperRot, restLowerRot, out upperRot, out lowerRot, out _);
+        public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, out Quaternion upperRot, out Quaternion lowerRot, out float forearmRollDeg)
         {
             Vector3 u0 = (i.RestElbow - i.Shoulder).normalized, w0 = (i.RestHand - i.RestElbow).normalized, u = (r.Elbow - i.Shoulder).normalized, w = (r.Hand - r.Elbow).normalized;
             Vector3 h0 = Swing(i.TorsoOut, u0, i.TorsoUp);
@@ -315,6 +317,22 @@ namespace Basis.IK
             h0.Normalize();
             upperRot = Align(restUpperRot, u0, u, h0, r.Hinge);
             lowerRot = Align(restLowerRot, w0, w, h0, r.Hinge);
+            forearmRollDeg = ForearmRoll(i, r, lowerRot, restLowerRot);
+        }
+        public static float ForearmRoll(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion lowerRot, Quaternion restLowerRot)
+        {
+            Vector3 forearm = r.Hand - r.Elbow;
+            float forearmSqr = forearm.sqrMagnitude;
+            if (forearmSqr < sqrEpsilon)
+            {
+                return 0f;
+            }
+            Quaternion lowerInv = Quaternion.Inverse(lowerRot);
+            Quaternion delta = lowerInv * i.TargetRotation * Quaternion.Inverse(Quaternion.Inverse(restLowerRot) * i.RestHandRotation);
+            float demand = BasisTwistSolveCore.SignedTwistAngleDeg(delta, lowerInv * (forearm / Mathf.Sqrt(forearmSqr))), magnitude = Mathf.Abs(demand);
+            float roll = (magnitude - Mathf.Min(WristKeepFrac * magnitude, WristKeepMaxDeg)) * (1f - Smoothstep(WrapFadeStartDeg, WrapFadeEndDeg, magnitude));
+            if (roll > ForearmRollMaxDeg) roll = ForearmRollMaxDeg;
+            return demand < 0f ? -roll : roll;
         }
         static Quaternion Align(Quaternion rest, Vector3 from, Vector3 to, Vector3 hingeRest, Vector3 hinge)
         {

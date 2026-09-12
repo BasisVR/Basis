@@ -29,12 +29,31 @@ namespace Basis.IK.Mocap
         // Pole flips measured on REAL human motion: the elbow jumps while the hand barely moves.
         public int ElbowPops, KneePops;
     }
+    public struct BasisMocapArmKnobs
+    {
+        public bool Active;
+        public float PriorWeight, PreviousWeight, ReachSoftness, PronationMaxDeg, SupinationMaxDeg, SmoothTime;
+        public void Apply(ref BasisArmSolveInput i)
+        {
+            if (!Active)
+            {
+                return;
+            }
+            if (PriorWeight >= 0f) i.PriorWeight = PriorWeight;
+            if (PreviousWeight >= 0f) i.PreviousWeight = PreviousWeight;
+            if (ReachSoftness > 0f) i.ReachSoftness = ReachSoftness;
+            if (PronationMaxDeg > 0f) i.Limits.PronationMaxDeg = PronationMaxDeg;
+            if (SupinationMaxDeg > 0f) i.Limits.SupinationMaxDeg = SupinationMaxDeg;
+            if (SmoothTime >= 0f) i.SmoothTime = SmoothTime;
+        }
+    }
     public static class BasisMocapAccuracy
     {
         // A pole flip: the joint jumps hard while the end effector is essentially still. Real human motion is
         // smooth, so any such jump is the solver's doing, not the human's.
         const float hipSpringHz = 8f, hipSpringDamping = 1f, popJointM = 0.05f;
         public static System.Text.StringBuilder legDump;
+        public static BasisMocapArmKnobs ArmKnobs;
         const float popEffectorM = 0.01f; // while the hand/foot moved under 1 cm
         // The PRE-IK limb, modelled the way the runtime actually produces it: a fixed bind pose riding the parent
         // (chest for an arm, hips for a leg), rebuilt from scratch every frame, with IK layered on top. That is
@@ -261,6 +280,7 @@ namespace Basis.IK.Mocap
                 i.HasHintRotation = true;
                 i.HintRotation = clip.Get(f, jE).Rotation;
             }
+            ArmKnobs.Apply(ref i);
             BasisArmSolveCore.Solve(i, ref state, out BasisArmSolveResult r);
             solvedElbow = r.Valid ? r.Elbow : elbow;
             handErr = r.Valid ? Vector3.Distance(r.Hand, truthHand) : Vector3.Distance(hand, truthHand);

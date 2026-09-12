@@ -17,7 +17,8 @@ namespace Basis.Tests.IK
         NativeArray<BasisLegSlotState> legState;
         NativeArray<BasisLegDiagnostics> legDiagnostics;
         BasisIKGizmoRecorder gizmos;
-        Transform hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftUpperLeg, leftLowerLeg, leftFoot, rightUpperLeg, rightLowerLeg, rightFoot;
+        Transform hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftLowerArmTwist, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftUpperLeg, leftLowerLeg, leftFoot, rightUpperLeg, rightLowerLeg, rightFoot;
+        const float twistPosition = 0.6f;
         bool burstWasEnabled, burstWasSynchronous;
         [SetUp]
         public void SetUp()
@@ -63,6 +64,7 @@ namespace Basis.Tests.IK
             leftUpperArm = Bone("LeftUpperArm", leftShoulder, new Vector3(-0.18f, 1.40f, 0f));
             leftLowerArm = Bone("LeftLowerArm", leftUpperArm, new Vector3(-0.46f, 1.40f, 0f));
             leftHand = Bone("LeftHand", leftLowerArm, new Vector3(-0.72f, 1.40f, 0f));
+            leftLowerArmTwist = Bone("LeftLowerArmTwist", leftLowerArm, Vector3.Lerp(leftLowerArm.position, leftHand.position, twistPosition));
             rightShoulder = Bone("RightShoulder", chest, new Vector3(0.05f, 1.40f, 0f));
             rightUpperArm = Bone("RightUpperArm", rightShoulder, new Vector3(0.18f, 1.40f, 0f));
             rightLowerArm = Bone("RightLowerArm", rightUpperArm, new Vector3(0.46f, 1.40f, 0f));
@@ -73,7 +75,7 @@ namespace Basis.Tests.IK
             rightUpperLeg = Bone("RightUpperLeg", hips, new Vector3(0.09f, 0.90f, 0f));
             rightLowerLeg = Bone("RightLowerLeg", rightUpperLeg, new Vector3(0.09f, 0.48f, 0f));
             rightFoot = Bone("RightFoot", rightLowerLeg, new Vector3(0.09f, 0.08f, 0f));
-            Transform[] bones = { hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftUpperLeg, leftLowerLeg, leftFoot, rightUpperLeg, rightLowerLeg, rightFoot };
+            Transform[] bones = { hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftLowerArmTwist, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftUpperLeg, leftLowerLeg, leftFoot, rightUpperLeg, rightLowerLeg, rightFoot };
             skeleton = new BasisPoseSkeleton();
             skeleton.Build(hips, bones);
             skeleton.GatherNow();
@@ -103,6 +105,7 @@ namespace Basis.Tests.IK
                 armJointLimits = true, armReachSoftness = 0.06f, armSwivelSmoothTime = 0.08f, armSwivelMaxRateDeg = 720f, armSwivelSwitchDwell = 0.2f, armPriorWeight = 1f, armPreviousWeight = 0.25f,
                 forearmPronationMaxDeg = 95f, forearmSupinationMaxDeg = 90f, humeralInternalMaxDeg = 70f, humeralExternalMaxDeg = 90f, wristFlexionMaxDeg = 80f, wristExtensionMaxDeg = 70f, wristRadialMaxDeg = 20f, wristUlnarMaxDeg = 30f,
                 collisionsEnabled = true, protectElbow = true, chestRadius = 0.055f, collisionSkin = 0.025f, chestArmSwingFactor = 0.3f, chestArmSwingMaxDeg = 15f, chestFollowChestShare = 0.6f,
+                lowerArmTwistFraction = 1f, upperArmTwistFraction = 1f,
                 armState = armState, chainSpineRestFrames = restFrames, chestSpring = chestSpring, legState = legState, legDiagnostics = legDiagnostics, gizmos = gizmos,
             };
             job.handleHips = skeleton.Bind(hips);
@@ -114,6 +117,7 @@ namespace Basis.Tests.IK
             job.handleLeftUpperArm = skeleton.Bind(leftUpperArm);
             job.handleLeftLowerArm = skeleton.Bind(leftLowerArm);
             job.handleLeftHand = skeleton.Bind(leftHand);
+            job.handleLeftLowerArmTwist = skeleton.Bind(leftLowerArmTwist);
             job.handleRightShoulder = skeleton.Bind(rightShoulder);
             job.handleRightUpperArm = skeleton.Bind(rightUpperArm);
             job.handleRightLowerArm = skeleton.Bind(rightLowerArm);
@@ -238,6 +242,71 @@ namespace Basis.Tests.IK
             job.poseStream.deltaTime = shoulderDt;
             job.Schedule().Complete();
             Assert.That(Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftShoulder), half), Is.LessThan(0.05f), "Burst and managed shoulder blends disagree");
+        }
+        static float WristResidualDeg(in BasisEerieMovement job)
+        {
+            Quaternion fore = job.poseStream.GetRotation(job.handleLeftLowerArm), hand = job.poseStream.GetRotation(job.handleLeftHand);
+            Vector3 axis = job.poseStream.GetPosition(job.handleLeftHand) - job.poseStream.GetPosition(job.handleLeftLowerArm);
+            Quaternion foreInv = Quaternion.Inverse(fore);
+            return BasisTwistSolveCore.SignedTwistAngleDeg(foreInv * hand, foreInv * axis.normalized);
+        }
+        void Settle(ref BasisEerieMovement job, int frames)
+        {
+            for (int frame = 0; frame < frames; frame++)
+            {
+                skeleton.GatherNow();
+                job.poseStream = skeleton.Stream;
+                job.poseStream.deltaTime = 1f / 90f;
+                job.ProcessAnimation();
+            }
+        }
+        [Test]
+        public void ForearmRoll_FollowsTheHandTwist_AndTheWristKeepsOnlyItsShare()
+        {
+            BuildRig();
+            Vector3 left = new Vector3(-0.28f, 1.18f, 0.34f), right = new Vector3(0.30f, 1.60f, 0.20f);
+            var job = Job(left, right);
+            Settle(ref job, 30);
+            Quaternion foreBefore = job.poseStream.GetRotation(job.handleLeftLowerArm);
+            Vector3 axis = (job.poseStream.GetPosition(job.handleLeftHand) - job.poseStream.GetPosition(job.handleLeftLowerArm)).normalized;
+            Vector3 handBefore = job.poseStream.GetPosition(job.handleLeftHand);
+            float residualBefore = WristResidualDeg(job);
+            job.targetRotationLeftHand = Quaternion.AngleAxis(60f, axis) * job.targetRotationLeftHand;
+            Settle(ref job, 30);
+            float residualAfter = WristResidualDeg(job);
+            Assert.That(Mathf.Abs(residualBefore), Is.LessThanOrEqualTo(BasisArmSolveCore.WristKeepMaxDeg + 1f), "the wrist carried more axial twist than a carpus can before the roll");
+            Assert.That(Mathf.Abs(residualAfter), Is.LessThanOrEqualTo(BasisArmSolveCore.WristKeepMaxDeg + 1f), $"the wrist was left pinching {residualAfter:F1} deg after a 60 deg controller roll");
+            Quaternion foreAfter = job.poseStream.GetRotation(job.handleLeftLowerArm);
+            float carried = BasisTwistSolveCore.SignedTwistAngleDeg(foreAfter * Quaternion.Inverse(foreBefore), axis);
+            Assert.That(Mathf.Abs(carried), Is.GreaterThan(40f), $"the forearm only carried {carried:F1} deg of a 60 deg controller roll");
+            Assert.That(Mathf.Abs(carried), Is.LessThan(62f), $"the forearm over-rolled, carrying {carried:F1} deg of a 60 deg controller roll");
+            Assert.That(Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftHand), job.targetRotationLeftHand * job.offsetRotationLeftHand), Is.LessThan(0.1f), "the roll moved the hand off the controller");
+            Assert.That(Vector3.Distance(job.poseStream.GetPosition(job.handleLeftHand), handBefore), Is.LessThan(0.02f), "a pure forearm roll must not move the hand");
+            Assert.That(Vector3.Distance(job.poseStream.GetPosition(job.handleLeftHand), left), Is.LessThan(0.01f), "the hand left its target");
+            Quaternion managed = job.poseStream.GetRotation(job.handleLeftLowerArm);
+            skeleton.GatherNow();
+            job.poseStream = skeleton.Stream;
+            job.poseStream.deltaTime = 1f / 90f;
+            job.Schedule().Complete();
+            Assert.That(Quaternion.Angle(job.poseStream.GetRotation(job.handleLeftLowerArm), managed), Is.LessThan(0.2f), "Burst and managed disagree on the forearm roll");
+        }
+        [Test]
+        public void TheForearmTwistBone_CarriesTheShareItsPositionAlongTheBoneEarns()
+        {
+            BuildRig();
+            Vector3 left = new Vector3(-0.28f, 1.18f, 0.34f), right = new Vector3(0.30f, 1.60f, 0.20f);
+            var job = Job(left, right);
+            Assert.That(job.plan.leftArm.lowerTwist, Is.True, "the rig must exercise the forearm twist bone");
+            Settle(ref job, 30);
+            Vector3 axis = (job.poseStream.GetPosition(job.handleLeftHand) - job.poseStream.GetPosition(job.handleLeftLowerArm)).normalized;
+            job.targetRotationLeftHand = Quaternion.AngleAxis(60f, axis) * job.targetRotationLeftHand;
+            Settle(ref job, 30);
+            Quaternion fore = job.poseStream.GetRotation(job.handleLeftLowerArm), foreInv = Quaternion.Inverse(fore);
+            Vector3 axisLocal = foreInv * (job.poseStream.GetPosition(job.handleLeftHand) - job.poseStream.GetPosition(job.handleLeftLowerArm)).normalized;
+            float wrist = BasisTwistSolveCore.SignedTwistAngleDeg(foreInv * job.poseStream.GetRotation(job.handleLeftHand), axisLocal);
+            float carried = BasisTwistSolveCore.SignedTwistAngleDeg(foreInv * job.poseStream.GetRotation(job.handleLeftLowerArmTwist), axisLocal);
+            Assert.That(Mathf.Abs(wrist), Is.GreaterThan(3f), "anti-vacuity: the wrist must still hold a real share for the twist bone to split");
+            Assert.That(carried, Is.EqualTo(wrist * twistPosition).Within(1f), $"a twist bone {twistPosition * 100f:F0}% along the forearm must carry that share of the wrist twist, not a flat fraction of it");
         }
     }
 }
