@@ -11,7 +11,9 @@ namespace HVR.Basis.NDMF
         static BasisNDMFBuildHook()
         {
             BasisAssetBundlePipeline.OnBeforeBuildPrefab += (prefab, _) => BasisAvatarPrefabProcessor(prefab);
-            BasisAvatarSDKInspector.OnBeforeTestInEditor += prefab => BasisAvatarPrefabProcessor(prefab);
+            // Test In Editor keeps the clone inactive until final build-time conversion is complete.
+            // NDMF is a structural processor, so it belongs in the explicit inactive preparation stage.
+            BasisAvatarSDKInspector.OnBeforeTestInEditorPrepareInactive += prefab => BasisAvatarPrefabProcessor(prefab);
         }
 
         private static GameObject BasisAvatarPrefabProcessor(GameObject copy)

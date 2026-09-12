@@ -3177,10 +3177,17 @@ spiperf.End();
 			Cilbox tac = null;
 
 			foreach ( var tacCandidate in se ) {
-				if ( tacCandidate.gameObject.scene.IsValid() && !EditorUtility.IsPersistent(tacCandidate) ) {
-					tac = tacCandidate;
-					break;
-				}
+				if( !tacCandidate.gameObject.scene.IsValid() || EditorUtility.IsPersistent(tacCandidate) )
+					continue;
+
+				// When processing a specific scene, assembly data and generated proxies must use a
+				// Cilbox from that scene. Falling through to an arbitrary loaded scene mutates live
+				// content and can bind proxies to the wrong sandbox/permission model.
+				if( scene != null && tacCandidate.gameObject.scene != scene.Value )
+					continue;
+
+				tac = tacCandidate;
+				break;
 			}
 
 			if( tac != null )
