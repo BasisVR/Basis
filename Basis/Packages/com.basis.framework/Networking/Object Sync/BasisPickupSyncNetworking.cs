@@ -717,9 +717,16 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
 
         if (IsOwnedLocallyOnClient)
         {
+            // Held with KinematicWhileInteracting - preserve kinematic state
+            bool heldKinematic = BasisPickupInteractable != null
+                && BasisPickupInteractable.KinematicWhileInteracting
+                && BasisPickupInteractable.RequiresUpdateLoop;
             if (pendingStealRequest != null)
             {
-                SetIsKinematicOnPickup(_authoredKinematic);
+                if (!heldKinematic)
+                {
+                    SetIsKinematicOnPickup(_authoredKinematic);
+                }
                 if (BasisPickupInteractable != null)
                 {
                     if (BasisPickupInteractable.KinematicWhileInteracting)
@@ -733,13 +740,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
                 }
                 pendingStealRequest = null;
             }
-            else if (BasisPickupInteractable != null
-                && BasisPickupInteractable.KinematicWhileInteracting
-                && BasisPickupInteractable.RequiresUpdateLoop)
-            {
-                // Held with KinematicWhileInteracting - preserve kinematic state
-            }
-            else
+            else if (!heldKinematic)
             {
                 SetIsKinematicOnPickup(_authoredKinematic);
             }
