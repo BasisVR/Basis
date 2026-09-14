@@ -643,4 +643,261 @@ namespace Cilbox
 			return td;
 		}
 	}
+
+	public enum ProxyFieldType : byte
+	{
+		Empty       = 0,  // null field
+		String      = 1,  // "s"
+		Primitive   = 2,  // "e<StackType>" — primitives and enums
+		CilboxRef   = 3,  // "cba" — Cilboxable object reference
+		ObjectRef   = 4,  // "obj" — UnityEngine.Object reference
+		Array       = 5,  // "a"
+		Json        = 6,  // "j" — JsonUtility-serialized struct
+	}
+
+	// Primitive-only value payload. 16 bytes (no object slot). NOTE: keep the
+	// value-slot field offsets in lockstep with StackElement (offset 8, same
+	// union layout) - the consume site copies the 8-byte `l` slot directly into
+	// StackElement.l, relying on identical bit layout for b/f/d/l/e.
+	[StructLayout(LayoutKind.Explicit)]
+	public struct PrimitivePayload
+	{
+		[FieldOffset(0)] public StackType type;
+		[FieldOffset(8)] public bool   b;
+		[FieldOffset(8)] public float  f;
+		[FieldOffset(8)] public double d;
+		[FieldOffset(8)] public long   l;
+		[FieldOffset(8)] public ulong  e;
+
+		public void Unbox( object i, StackType st )
+		{
+			type = st;
+			switch( st )
+			{
+				case StackType.Boolean: this.l = ((bool)i)?1:0; break;
+				case StackType.Sbyte:   this.l = (sbyte)i;      break;
+				case StackType.Byte:    this.e = (byte)i;       break;
+				case StackType.Short:   this.l = (short)i;      break;
+				case StackType.Ushort:  this.e = (ushort)i;     break;
+				case StackType.Int:     this.l = (int)i;        break;
+				case StackType.Uint:    this.e = (uint)i;       break;
+				case StackType.Long:    this.l = (long)i;       break;
+				case StackType.Ulong:   this.e = (ulong)i;      break;
+				case StackType.Float:   this.l = 0; this.f = (float)i;  break;
+				case StackType.Double:  this.d = (double)i;     break;
+			}
+		}
+
+		public void ToStackElement(ref StackElement se)
+		{
+			se.type = type;
+			se.l = l; // copy full 8 bytes
+			se.o = null; // clear if previously set
+		}
+	}
+
+	public class SerializedProxyField
+	{
+		public byte fieldType;            // ProxyFieldType
+		public string fieldName;          // null for non-root (array elements)
+		public int matchingInstanceId;    // -1 for non-root
+
+		// String / Json
+		public string data;               // value as string / JSON text
+		// Primitive
+		public PrimitivePayload primitiveValue;  // primitiveValue.type holds the StackType
+
+		// CilboxRef / ObjectRef
+		public int fieldObjectIndex;      // index into fieldsObjects
+		public bool objectRefIsNull;      // true when the original ref was null
+		public string objectRefName;      // fv.ToString() of the referenced object
+
+		// Array / Json
+		public SerializedTypeDescriptor elementType;
+
+		// Array (recursive)
+		public SerializedProxyField[] arrayElements;
+
+		private static String PrimitiveToString( in PrimitivePayload v )
+		{
+			switch( v.type )
+			{
+				case StackType.Boolean: return v.b.ToString();
+				case StackType.Sbyte:   return ((sbyte)v.l).ToString();
+				case StackType.Byte:    return ((byte)v.e).ToString();
+				case StackType.Short:   return ((short)v.l).ToString();
+				case StackType.Ushort:  return ((ushort)v.e).ToString();
+				case StackType.Int:     return ((int)v.l).ToString();
+				case StackType.Uint:    return ((uint)v.e).ToString();
+				case StackType.Long:    return v.l.ToString();
+				case StackType.Ulong:   return v.e.ToString();
+				case StackType.Float:   return v.f.ToString();
+				case StackType.Double:  return v.d.ToString();
+				default: throw new CilboxException( $"Unknown primitive StackType {v.type}" );
+			}
+		}
+
+		private static PrimitivePayload PrimitiveFromString( String d, StackType st )
+		{
+			PrimitivePayload v = default;
+			v.type = st;
+			switch( st )
+			{
+				case StackType.Boolean: v.l = bool.Parse( d ) ? 1 : 0; break;
+				case StackType.Sbyte:   v.l = sbyte.Parse( d );        break;
+				case StackType.Byte:    v.e = byte.Parse( d );         break;
+				case StackType.Short:   v.l = short.Parse( d );        break;
+				case StackType.Ushort:  v.e = ushort.Parse( d );       break;
+				case StackType.Int:     v.l = int.Parse( d );          break;
+				case StackType.Uint:    v.e = uint.Parse( d );         break;
+				case StackType.Long:    v.l = long.Parse( d );         break;
+				case StackType.Ulong:   v.e = ulong.Parse( d );        break;
+				case StackType.Float:   v.l = 0; v.f = float.Parse( d ); break;
+				case StackType.Double:  v.d = double.Parse( d );       break;
+				default: throw new CilboxException( $"Unknown primitive StackType {st}" );
+			}
+			return v;
+		}
+
+		// Mirrors CilboxProxy.SerializeThing. Empty fields emit ONLY {empty:"true"}.
+		// Otherwise: [n], [miid], then type-specific keys in master's exact order.
+		public Serializee ToSerializee()
+		{
+			Dictionary<String, Serializee> f = new Dictionary<String, Serializee>();
+
+			if( (ProxyFieldType)fieldType == ProxyFieldType.Empty )
+			{
+				f["empty"] = new Serializee( "true" );
+				return new Serializee( f );
+			}
+
+			if( fieldName != null )
+				f["n"] = new Serializee( fieldName );
+			if( matchingInstanceId >= 0 )
+				f["miid"] = new Serializee( matchingInstanceId.ToString() );
+
+			switch( (ProxyFieldType)fieldType )
+			{
+				case ProxyFieldType.String:
+					f["d"] = new Serializee( data );
+					f["t"] = new Serializee( "s" );
+					break;
+				case ProxyFieldType.Primitive:
+					f["d"] = new Serializee( PrimitiveToString( primitiveValue ) );
+					f["t"] = new Serializee( "e" + primitiveValue.type );
+					break;
+				case ProxyFieldType.CilboxRef:
+					f["fo"] = new Serializee( fieldObjectIndex.ToString() );
+					f["t"] = new Serializee( "cba" );
+					f["or"] = new Serializee( objectRefName );
+					break;
+				case ProxyFieldType.ObjectRef:
+					f["fo"] = new Serializee( fieldObjectIndex.ToString() );
+					f["t"] = new Serializee( "obj" );
+					f["or"] = new Serializee( objectRefName );
+					break;
+				case ProxyFieldType.Array:
+					f["t"] = new Serializee( "a" );
+					f["at"] = elementType.ToSerializee();
+					f["al"] = new Serializee( arrayElements.Length.ToString() );
+					Serializee[] ad = new Serializee[arrayElements.Length];
+					for( int i = 0; i < arrayElements.Length; i++ )
+						ad[i] = arrayElements[i].ToSerializee();
+					f["ad"] = new Serializee( ad );
+					break;
+				case ProxyFieldType.Json:
+					f["t"] = new Serializee( "j" );
+					f["d"] = new Serializee( data );
+					f["at"] = elementType.ToSerializee();
+					break;
+			}
+			return new Serializee( f );
+		}
+
+		public static SerializedProxyField FromSerializee( Serializee s )
+		{
+			Dictionary<String, Serializee> m = s.AsMap();
+			SerializedProxyField f = new SerializedProxyField();
+			f.matchingInstanceId = -1;
+
+			if( m.ContainsKey( "empty" ) )
+			{
+				f.fieldType = (byte)ProxyFieldType.Empty;
+				return f;
+			}
+
+			if( m.TryGetValue( "n", out Serializee nS ) )
+				f.fieldName = nS.AsString();
+			if( m.TryGetValue( "miid", out Serializee miidS ) )
+				f.matchingInstanceId = Int32.Parse( miidS.AsString() );
+
+			String t = m["t"].AsString();
+			if( t == "s" )
+			{
+				f.fieldType = (byte)ProxyFieldType.String;
+				f.data = m["d"].AsString();
+			}
+			else if( t == "cba" )
+			{
+				f.fieldType = (byte)ProxyFieldType.CilboxRef;
+				f.fieldObjectIndex = Int32.Parse( m["fo"].AsString() );
+				f.objectRefName = m["or"].AsString();
+				f.objectRefIsNull = f.objectRefName == "null";
+			}
+			else if( t == "obj" )
+			{
+				f.fieldType = (byte)ProxyFieldType.ObjectRef;
+				f.fieldObjectIndex = Int32.Parse( m["fo"].AsString() );
+				f.objectRefName = m["or"].AsString();
+				f.objectRefIsNull = f.objectRefName == "null";
+			}
+			else if( t == "a" )
+			{
+				f.fieldType = (byte)ProxyFieldType.Array;
+				f.elementType = SerializedTypeDescriptor.FromSerializee( m["at"] );
+				Serializee[] ad = m["ad"].AsArray();
+				f.arrayElements = new SerializedProxyField[ad.Length];
+				for( int i = 0; i < ad.Length; i++ )
+					f.arrayElements[i] = FromSerializee( ad[i] );
+			}
+			else if( t == "j" )
+			{
+				f.fieldType = (byte)ProxyFieldType.Json;
+				f.data = m["d"].AsString();
+				f.elementType = SerializedTypeDescriptor.FromSerializee( m["at"] );
+			}
+			else if( t.Length > 0 && t[0] == 'e' )
+			{
+				f.fieldType = (byte)ProxyFieldType.Primitive;
+				StackType st = (StackType)Enum.Parse( typeof(StackType), t.Substring(1) );
+				f.primitiveValue = PrimitiveFromString( m["d"].AsString(), st );
+			}
+			return f;
+		}
+	}
+
+	public class SerializedProxy
+	{
+		public SerializedProxyField[] fields;
+
+		// Root is a List of per-field Maps, base64-encoded — identical to
+		// master's serializedObjectData.
+		public string SerializeString()
+		{
+			Serializee[] arr = new Serializee[fields.Length];
+			for( int i = 0; i < fields.Length; i++ )
+				arr[i] = fields[i].ToSerializee();
+			return Convert.ToBase64String( new Serializee( arr ).DumpAsMemory().ToArray() );
+		}
+
+		public static SerializedProxy DeserializeString( string base64 )
+		{
+			SerializedProxy p = new SerializedProxy();
+			Serializee[] arr = new Serializee( Convert.FromBase64String( base64 ), Serializee.ElementType.Map ).AsArray();
+			p.fields = new SerializedProxyField[arr.Length];
+			for( int i = 0; i < arr.Length; i++ )
+				p.fields[i] = SerializedProxyField.FromSerializee( arr[i] );
+			return p;
+		}
+	}
 }

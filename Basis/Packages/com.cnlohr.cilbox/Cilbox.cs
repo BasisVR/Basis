@@ -50,6 +50,8 @@ namespace Cilbox
 
 	public class CilboxMethod
 	{
+		private static readonly ArrayPool<StackElement> s_stackElementPool = ArrayPool<StackElement>.Create();
+
 		public CilboxClass parentClass;
 		public int MaxStackSize;
 		public String methodName;
@@ -155,19 +157,24 @@ namespace Cilbox
 			int plen = parametersIn?.Length ?? 0;
 			int thisOffset = isStatic ? 0 : 1;
 
-			StackElement [] parameters = new StackElement[plen+thisOffset];
-			StackElement [] stackBuffer = new StackElement[Cilbox.defaultStackSize];
+			int paramArrayLen = plen+thisOffset;
+			StackElement[] paramStackArray = s_stackElementPool.Rent(paramArrayLen + Cilbox.defaultStackSize);
 
+			ArraySegment<StackElement> parameters  = new (paramStackArray, 0, paramArrayLen);
+			ArraySegment<StackElement> stackBuffer = new (paramStackArray, paramArrayLen, Cilbox.defaultStackSize);
+
+			// Calling parameters[p].Load does not modify the original element in paramStackArray
+			// Use the full paramStackArray assuming that parameters start at index 0
 			if( isStatic )
 			{
 				for( int p = 0; p < plen; p++ )
-					parameters[p].Load( parametersIn[p] );
+					paramStackArray[p].Load( parametersIn[p] );
 			}
 			else
 			{
-				parameters[0].Load( ths );
+				paramStackArray[0].Load( ths );
 				for( int p = 0; p < plen; p++ )
-					parameters[p+1].Load( parametersIn[p] );
+					paramStackArray[p+1].Load( parametersIn[p] );
 				plen++;
 			}
 
@@ -184,6 +191,10 @@ namespace Cilbox
 				else parentClass.box.DisableWithReason(e.ToString());
 				if( e is CilboxUnhandledInterpretedException uhe && uhe.Throwee is System.Exception te ) throw te;
 				throw;
+			}
+			finally
+			{
+				s_stackElementPool.Return(paramStackArray, true);
 			}
 			parentClass.box.InterpreterExit();
 
@@ -1418,8 +1429,8 @@ spiperf.Begin();
 						case 6: // ldelem.i8: the only variant without an unsigned counterpart, emitted for
 							// long[] and ulong[] alike.  A (ulong[]) cast also succeeds on a long[], so
 							// only here the element type must decide the signedness of the stack type.
-							if( Type.GetTypeCode( arr.GetType().GetElementType() ) == TypeCode.UInt64 )
-								stackBuffer[sp].LoadUlong( ((ulong[])arr)[index] );
+							if( arr is ulong[] ulongArr )
+								stackBuffer[sp].LoadUlong( ulongArr[index] );
 							else
 								stackBuffer[sp].LoadLong( ((long[])arr)[index] );
 							break;
@@ -1514,8 +1525,8 @@ spiperf.Begin();
 							break;
 						case 4: // stelem.i8 (used for Int64/UInt64 element arrays; SetValue can't
 							// put a boxed long into a ulong[], so store through the array cast)
-							if( Type.GetTypeCode( asArr.GetType().GetElementType() ) == TypeCode.UInt64 )
-								((ulong[])asArr)[index] = valSE.e;
+							if( asArr is ulong[] ulongArr )
+								ulongArr[index] = valSE.e;
 							else
 								((long[])asArr)[index] = valSE.l;
 							break;
@@ -2047,6 +2058,16 @@ spiperf.End();
 
 		public String [] baseClassNames = new String[0];
 
+		// cache importFunctionNames because they won't change between Cilbox loads; avoids
+		// reflection lookups on every class load.
+		private static readonly string[] importFunctionNames = BuildImportFunctionNames();
+		private static string[] BuildImportFunctionNames()
+		{
+			string[] names = Enum.GetNames(typeof(ImportFunctionID));
+			names[0] = ".ctor";
+			return names;
+		}
+
 		public bool LoadCilboxClass( Cilbox box, SerializedClass sc )
 		{
 			this.box = box;
@@ -2087,18 +2108,11 @@ spiperf.End();
 
 			// These imports are for things like Start(), Update(), Awake(), etc...
 			// so that we can call back into the class.
-			int numImportFunctions = Enum.GetNames(typeof(ImportFunctionID)).Length;
+			int numImportFunctions = importFunctionNames.Length;
 			importFunctionToId = new uint[numImportFunctions];
 			for( int i = 0; i < numImportFunctions; i++ )
 			{
-				String fn = Enum.GetName(typeof(ImportFunctionID), i);
-				if( i == 0 ) fn = ".ctor";
-				uint idx = 0;
-				importFunctionToId[i] = 0xffffffff;
-				if( methodNameToIndex.TryGetValue(fn, out idx ) )
-				{
-					importFunctionToId[i] = idx;
-				}
+				importFunctionToId[i] = methodNameToIndex.GetValueOrDefault(importFunctionNames[i], 0xffffffff);
 			}
 
 			return true;
