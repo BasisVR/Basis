@@ -13,8 +13,7 @@
         "BasisSDK",
         "BasisSDKEditor",
         "BasisShims",
-        "Cilbox",
-        "BasisSDKEditor"
+        "Cilbox"
     ],
     "includePlatforms": [
         "Editor"
