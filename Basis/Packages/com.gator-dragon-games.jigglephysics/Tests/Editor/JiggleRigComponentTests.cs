@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -259,6 +260,19 @@ internal class JiggleRigComponentTests {
         rig.component.ResampleRestPose();
 
         Assert.DoesNotThrow(() => Frame(6));
+    }
+
+    [Test]
+    public void RebuildTransformCache_IncludesBonesAddedAfterAuthoringCacheWasBuilt() {
+        var rig = CreateRig("structural");
+        var addedBone = scene.Spawn("Bell$generated", rig.Tip, new Vector3(0.25f, 0f, 0f));
+
+        Assert.Throws<KeyNotFoundException>(() => rig.component.GetJiggleRigData().GetCache(addedBone));
+
+        rig.component.RebuildTransformCache();
+
+        Assert.DoesNotThrow(() => rig.component.GetJiggleRigData().GetCache(addedBone));
+        Assert.DoesNotThrow(() => JigglePhysics.CreateJiggleTree(rig.component.GetJiggleRigData(), null));
     }
 
     // --------------------------------------------------------------- teleport
