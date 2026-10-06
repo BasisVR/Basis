@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -77,29 +78,64 @@ namespace Basis.Shims
     public sealed class BasisNetworkAvatarCilboxBehaviour : BasisNetworkAvatarBehaviour
     {
         [SerializeField] private CilboxProxy target;
+        [SerializeField] private bool useGenericNetworkBehaviourApi;
 
         public CilboxProxy Target => target;
+        public bool UsesGenericNetworkBehaviourApi => useGenericNetworkBehaviourApi;
 
-        public void Bind(CilboxProxy proxy)
+        public void Bind(CilboxProxy proxy, bool genericNetworkBehaviourApi = false)
         {
             target = proxy;
+            useGenericNetworkBehaviourApi = genericNetworkBehaviourApi;
+        }
+
+        private void Start()
+        {
+            if (!useGenericNetworkBehaviourApi)
+            {
+                return;
+            }
+
+            BasisNetworkPlayer.OnPlayerJoined += OnGenericPlayerJoined;
+            BasisNetworkPlayer.OnPlayerLeft += OnGenericPlayerLeft;
+        }
+
+        private void OnDestroy()
+        {
+            if (!useGenericNetworkBehaviourApi)
+            {
+                return;
+            }
+
+            BasisNetworkPlayer.OnPlayerJoined -= OnGenericPlayerJoined;
+            BasisNetworkPlayer.OnPlayerLeft -= OnGenericPlayerLeft;
         }
 
         public override void OnNetworkReady(bool isLocallyOwned)
         {
-            BasisCilboxNetworkDispatch.Invoke(target, nameof(OnNetworkReady), new object[] { isLocallyOwned });
+            if (useGenericNetworkBehaviourApi)
+            {
+                BasisCilboxNetworkDispatch.Invoke(target, "OnNetworkReady");
+            }
+            else
+            {
+                BasisCilboxNetworkDispatch.Invoke(target, nameof(OnNetworkReady), new object[] { isLocallyOwned });
+            }
         }
 
         public override void OnNetworkTerminated(bool wasLocallyOwned)
         {
-            BasisCilboxNetworkDispatch.Invoke(target, nameof(OnNetworkTerminated), new object[] { wasLocallyOwned });
+            if (!useGenericNetworkBehaviourApi)
+            {
+                BasisCilboxNetworkDispatch.Invoke(target, nameof(OnNetworkTerminated), new object[] { wasLocallyOwned });
+            }
         }
 
         public override void OnNetworkMessageReceived(ushort remoteUser, byte[] buffer, DeliveryMethod deliveryMethod)
         {
             BasisCilboxNetworkDispatch.Invoke(
                 target,
-                nameof(OnNetworkMessageReceived),
+                useGenericNetworkBehaviourApi ? "OnNetworkMessage" : nameof(OnNetworkMessageReceived),
                 new object[] { remoteUser, buffer, deliveryMethod });
         }
 
@@ -107,16 +143,115 @@ namespace Basis.Shims
         {
             BasisCilboxNetworkDispatch.Invoke(
                 target,
-                nameof(OnDirectNetworkMessageReceived),
+                useGenericNetworkBehaviourApi ? "OnDirectNetworkMessage" : nameof(OnDirectNetworkMessageReceived),
                 new object[] { remoteUser, buffer, deliveryMethod });
         }
 
         public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
         {
-            BasisCilboxNetworkDispatch.Invoke(
-                target,
-                nameof(OnNetworkMessageServerReductionSystem),
-                new object[] { buffer });
+            if (!useGenericNetworkBehaviourApi)
+            {
+                BasisCilboxNetworkDispatch.Invoke(
+                    target,
+                    nameof(OnNetworkMessageServerReductionSystem),
+                    new object[] { buffer });
+            }
+        }
+
+        internal bool IsGenericLocalOwner()
+        {
+            return NetworkedPlayer != null && NetworkedPlayer.IsLocal;
+        }
+
+        internal ushort GenericNetworkId()
+        {
+            return MessageIndex;
+        }
+
+        internal Task<BasisOwnershipResult> GenericTakeOwnershipAsync()
+        {
+            if (NetworkedPlayer != null && NetworkedPlayer.IsLocal)
+            {
+                return Task.FromResult(new BasisOwnershipResult(true, NetworkedPlayer.playerId));
+            }
+
+            return Task.FromResult(BasisOwnershipResult.Failed);
+        }
+
+        internal Task<BasisOwnershipResult> GenericRequestOwnershipAsync()
+        {
+            return NetworkedPlayer != null
+                ? Task.FromResult(new BasisOwnershipResult(true, NetworkedPlayer.playerId))
+                : Task.FromResult(BasisOwnershipResult.Failed);
+        }
+
+        internal void GenericSendCustomEventDelayedSeconds(Action callback, float delaySeconds, EventTiming timing)
+        {
+            StartCoroutine(InvokeGenericActionAfterSeconds(callback, delaySeconds, timing));
+        }
+
+        internal void GenericSendCustomEventDelayedFrames(Action callback, int delayFrames, EventTiming timing)
+        {
+            StartCoroutine(InvokeGenericActionAfterFrames(callback, delayFrames, timing));
+        }
+
+        private IEnumerator InvokeGenericActionAfterSeconds(Action callback, float delaySeconds, EventTiming timing)
+        {
+            switch (timing)
+            {
+                case EventTiming.FixedUpdate:
+                    float fixedElapsed = 0f;
+                    while (fixedElapsed < delaySeconds)
+                    {
+                        yield return new WaitForFixedUpdate();
+                        fixedElapsed += Time.fixedDeltaTime;
+                    }
+                    break;
+                case EventTiming.LateUpdate:
+                    float lateElapsed = 0f;
+                    while (lateElapsed < delaySeconds)
+                    {
+                        yield return new WaitForEndOfFrame();
+                        lateElapsed += Time.deltaTime;
+                    }
+                    break;
+                default:
+                    yield return new WaitForSeconds(delaySeconds);
+                    break;
+            }
+
+            callback?.Invoke();
+        }
+
+        private IEnumerator InvokeGenericActionAfterFrames(Action callback, int delayFrames, EventTiming timing)
+        {
+            for (int index = 0; index < delayFrames; index++)
+            {
+                switch (timing)
+                {
+                    case EventTiming.FixedUpdate:
+                        yield return new WaitForFixedUpdate();
+                        break;
+                    case EventTiming.LateUpdate:
+                        yield return new WaitForEndOfFrame();
+                        break;
+                    default:
+                        yield return null;
+                        break;
+                }
+            }
+
+            callback?.Invoke();
+        }
+
+        private void OnGenericPlayerJoined(BasisNetworkPlayer player)
+        {
+            BasisCilboxNetworkDispatch.Invoke(target, "OnPlayerJoined", new object[] { player });
+        }
+
+        private void OnGenericPlayerLeft(BasisNetworkPlayer player)
+        {
+            BasisCilboxNetworkDispatch.Invoke(target, "OnPlayerLeft", new object[] { player });
         }
     }
 
@@ -211,7 +346,11 @@ namespace Basis.Shims
             string redirectName = name switch
             {
                 ".ctor" => nameof(AvatarConstructor),
-                "OnNetworkReady" => nameof(AvatarReadyCallbackNoop),
+
+                // Native BasisNetworkAvatarBehaviour API.
+                "OnNetworkReady" => parameters != null && parameters.Length == 0
+                    ? nameof(AvatarGenericCallbackNoop)
+                    : nameof(AvatarReadyCallbackNoop),
                 "OnNetworkTerminated" => nameof(AvatarReadyCallbackNoop),
                 "OnNetworkMessageReceived" => nameof(AvatarMessageCallbackNoop),
                 "OnDirectNetworkMessageReceived" => nameof(AvatarMessageCallbackNoop),
@@ -219,6 +358,25 @@ namespace Basis.Shims
                 "NetworkMessageSend" => nameof(NetworkMessageSend),
                 "NetworkMessageSendDirect" => nameof(NetworkMessageSendDirect),
                 "ServerReductionSystemMessageSend" => nameof(ServerReductionSystemMessageSend),
+
+                // BasisNetworkBehaviour source API translated onto avatar MessageIndex routing.
+                "Start" => nameof(AvatarGenericLifecycleNoop),
+                "OnDestroy" => nameof(AvatarGenericLifecycleNoop),
+                "OnServerOwnershipDestroyed" => nameof(AvatarGenericCallbackNoop),
+                "OnOwnershipTransfer" => nameof(AvatarGenericOwnershipCallbackNoop),
+                "OnNetworkMessage" => nameof(AvatarGenericMessageCallbackNoop),
+                "OnDirectNetworkMessage" => nameof(AvatarGenericMessageCallbackNoop),
+                "OnPlayerLeft" => nameof(AvatarGenericPlayerCallbackNoop),
+                "OnPlayerJoined" => nameof(AvatarGenericPlayerCallbackNoop),
+                "get_NetworkID" => nameof(AvatarGenericGetNetworkID),
+                "IsLocalOwner" => nameof(AvatarGenericIsLocalOwner),
+                "SendCustomNetworkEvent" => nameof(AvatarGenericSendCustomNetworkEvent),
+                "SendCustomNetworkEventDirect" => nameof(AvatarGenericSendCustomNetworkEventDirect),
+                "SendCustomEventDelayedSeconds" => nameof(AvatarGenericSendCustomEventDelayedSeconds),
+                "SendCustomEventDelayedFrames" => nameof(AvatarGenericSendCustomEventDelayedFrames),
+                "TakeOwnership" => nameof(AvatarGenericTakeOwnership),
+                "TakeOwnershipAsync" => nameof(AvatarGenericTakeOwnershipAsync),
+                "RequestWhoIsOwnershipAsync" => nameof(AvatarGenericRequestWhoIsOwnershipAsync),
                 _ => null,
             };
 
@@ -347,13 +505,106 @@ namespace Basis.Shims
         }
 
         public static void AvatarConstructor(object self) { }
+        public static void AvatarGenericLifecycleNoop(object self) { }
+        public static void AvatarGenericCallbackNoop(object self) { }
         public static void AvatarReadyCallbackNoop(object self, bool locallyOwned) { }
+        public static void AvatarGenericOwnershipCallbackNoop(object self, BasisNetworkPlayer player) { }
+        public static void AvatarGenericMessageCallbackNoop(
+            object self,
+            ushort remoteUser,
+            byte[] buffer,
+            DeliveryMethod deliveryMethod) { }
+        public static void AvatarGenericPlayerCallbackNoop(object self, BasisNetworkPlayer player) { }
         public static void AvatarMessageCallbackNoop(
             object self,
             ushort remoteUser,
             byte[] buffer,
             DeliveryMethod deliveryMethod) { }
         public static void AvatarReductionCallbackNoop(object self, byte[] buffer) { }
+
+        public static ushort AvatarGenericGetNetworkID(object self)
+        {
+            return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host)
+                ? host.GenericNetworkId()
+                : (ushort)0;
+        }
+
+        public static bool AvatarGenericIsLocalOwner(object self)
+        {
+            return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host) &&
+                   host.IsGenericLocalOwner();
+        }
+
+        public static void AvatarGenericSendCustomNetworkEvent(
+            object self,
+            byte[] buffer,
+            DeliveryMethod deliveryMethod,
+            ushort[] recipients)
+        {
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.NetworkMessageSend(buffer, deliveryMethod, recipients);
+            }
+        }
+
+        public static void AvatarGenericSendCustomNetworkEventDirect(
+            object self,
+            byte[] buffer,
+            DeliveryMethod deliveryMethod,
+            ushort[] recipients,
+            bool allowServerFallback)
+        {
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.NetworkMessageSendDirect(buffer, deliveryMethod, recipients, allowServerFallback);
+            }
+        }
+
+        public static void AvatarGenericSendCustomEventDelayedSeconds(
+            object self,
+            Action callback,
+            float delaySeconds,
+            EventTiming timing)
+        {
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.GenericSendCustomEventDelayedSeconds(callback, delaySeconds, timing);
+            }
+        }
+
+        public static void AvatarGenericSendCustomEventDelayedFrames(
+            object self,
+            Action callback,
+            int delayFrames,
+            EventTiming timing)
+        {
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.GenericSendCustomEventDelayedFrames(callback, delayFrames, timing);
+            }
+        }
+
+        public static void AvatarGenericTakeOwnership(object self)
+        {
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                _ = host.GenericTakeOwnershipAsync();
+            }
+        }
+
+        public static Task<BasisOwnershipResult> AvatarGenericTakeOwnershipAsync(object self, int timeout)
+        {
+            return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host)
+                ? host.GenericTakeOwnershipAsync()
+                : Task.FromResult(BasisOwnershipResult.Failed);
+        }
+
+        public static Task<BasisOwnershipResult> AvatarGenericRequestWhoIsOwnershipAsync(object self, int timeout)
+        {
+            return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host)
+                ? host.GenericRequestOwnershipAsync()
+                : Task.FromResult(BasisOwnershipResult.Failed);
+        }
 
         public static void NetworkMessageSend(
             object self,
