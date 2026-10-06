@@ -370,12 +370,16 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
             "BasisNetworkContentBase+BasisContentInformation",
-            // Do not expose BasisNetworkBehaviour's public state fields through the Cilbox
-            // type override. Native method/property calls can remap the interpreted receiver
-            // to its BasisNetworkCilboxBehaviour host; ldfld/stfld cannot. Whitelisting those
-            // fields would make inherited scripts read proxy storage rather than live network
-            // state. Use the redirected method/property surface (NetworkID, IsLocalOwner,
-            // TakeOwnership*, SendCustomNetworkEvent*, callbacks) instead.
+            // Legacy BasisNetworkShim scripts read these fields from a real native shim component.
+            // Keep the original permissions so already-built content continues to load. Direct
+            // Cilbox inheritance cannot safely read them through "this" because the interpreted
+            // receiver is a CilboxProxy; the editor scanner/build hook rejects that specific case.
+            "Basis.BasisNetworkBehaviour.CurrentOwnerId",
+			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+			"Basis.BasisNetworkBehaviour.HasNetworkID",
+            "Basis.Shims.BasisNetworkCilboxBehaviour.CurrentOwnerId",
+			"Basis.Shims.BasisNetworkCilboxBehaviour.IsOwnedLocallyOnServer",
+			"Basis.Shims.BasisNetworkCilboxBehaviour.HasNetworkID",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
 			// Quantizer configuration (Precision/Min/Max/RequiredBits/Mask) on the script's
 			// own instance; Compress/Decompress clamp, so a mangled config can't corrupt.
@@ -598,7 +602,9 @@ namespace Cilbox
 
 			if (declaringType == typeof(Basis.Shims.BasisNetworkCilboxBehaviour))
 			{
-				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveNormal(usage, name, parametersIn);
+				mi = this is CilboxAvatarBasis
+					? Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn)
+					: Basis.Shims.BasisCilboxNetworkRedirect.ResolveNormal(usage, name, parametersIn);
 				return mi != null;
 			}
 			if (declaringType == typeof(Basis.Shims.BasisNetworkAvatarCilboxBehaviour))

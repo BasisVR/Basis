@@ -83,6 +83,23 @@ namespace Basis.Shims.Editor
             "OnTransformParentChanged", "OnBeforeTransformParentChanged",
         };
 
+        private static readonly HashSet<string> UnsupportedInheritedNetworkFields =
+            new HashSet<string>(StringComparer.Ordinal)
+            {
+                nameof(Basis.BasisNetworkBehaviour.HasNetworkID),
+                nameof(Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer),
+                nameof(Basis.BasisNetworkBehaviour.IsOwnedLocallyOnClient),
+                nameof(Basis.BasisNetworkBehaviour.CurrentOwnerId),
+                nameof(Basis.BasisNetworkBehaviour.currentOwnedPlayer),
+            };
+
+        private enum ReceiverKind
+        {
+            Unknown,
+            ScriptInstance,
+            Other,
+        }
+
         private static Dictionary<short, OpCode> _opcodes;
 
         private static void BuildOpcodes()
@@ -165,12 +182,579 @@ namespace Basis.Shims.Editor
             scan.Fields.AddRange(fields.Values);
             scan.Methods.AddRange(methods.Values);
 
+            AddUnsupportedInheritedNetworkFieldIssue(scriptType, scan);
+
             scan.Types.Sort((a, b) => string.Compare(a.SortKey, b.SortKey, StringComparison.Ordinal));
             scan.Fields.Sort((a, b) => string.Compare(a.SortKey, b.SortKey, StringComparison.Ordinal));
             scan.Methods.Sort((a, b) => string.Compare(a.SortKey, b.SortKey, StringComparison.Ordinal));
             scan.SameAssembly.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
 
             return scan;
+        }
+
+        internal static bool UsesUnsupportedInheritedNetworkStateField(
+            Type scriptType,
+            out string fields)
+        {
+            List<string> names = FindUnsupportedInheritedNetworkStateFields(scriptType);
+            if (names.Count == 0)
+            {
+                fields = null;
+                return false;
+            }
+
+            fields = string.Join(", ", names);
+            return true;
+        }
+
+        private static void AddUnsupportedInheritedNetworkFieldIssue(
+            Type scriptType,
+            CilboxScriptScan scan)
+        {
+            List<string> names = FindUnsupportedInheritedNetworkStateFields(scriptType);
+            if (names.Count == 0)
+            {
+                return;
+            }
+
+            scan.Issues.Add(new CilboxScriptIssue
+            {
+                TitleKey = "sdk.cilbox.scan.issue.networkStateField",
+                Detail = string.Join(", ", names),
+                IsError = true,
+            });
+        }
+
+        private static List<string> FindUnsupportedInheritedNetworkStateFields(Type scriptType)
+        {
+            var result = new HashSet<string>(StringComparer.Ordinal);
+            if (scriptType == null ||
+                !typeof(Basis.BasisNetworkBehaviour).IsAssignableFrom(scriptType))
+            {
+                return new List<string>();
+            }
+
+            const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic |
+                                     BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+            var holders = new List<Type> { scriptType };
+            holders.AddRange(scriptType.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic));
+
+            for (int holderIndex = 0; holderIndex < holders.Count; holderIndex++)
+            {
+                Type holder = holders[holderIndex];
+                var bodies = new List<MethodBase>();
+                bodies.AddRange(holder.GetMethods(all));
+                bodies.AddRange(holder.GetConstructors(all));
+
+                for (int methodIndex = 0; methodIndex < bodies.Count; methodIndex++)
+                {
+                    FindUnsupportedInheritedNetworkStateFields(
+                        bodies[methodIndex],
+                        scriptType,
+                        result);
+                }
+            }
+
+            var names = new List<string>(result);
+            names.Sort(StringComparer.Ordinal);
+            return names;
+        }
+
+        private static void FindUnsupportedInheritedNetworkStateFields(
+            MethodBase method,
+            Type scriptType,
+            HashSet<string> result)
+        {
+            MethodBody body;
+            byte[] il;
+            try
+            {
+                body = method.GetMethodBody();
+                if (body == null)
+                {
+                    return;
+                }
+
+                il = body.GetILAsByteArray();
+                if (il == null || il.Length == 0)
+                {
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            var stack = new List<ReceiverKind>();
+            var locals = new ReceiverKind[body.LocalVariables.Count];
+            ParameterInfo[] parameters = method.GetParameters();
+            int argumentCount = parameters.Length + (method.IsStatic ? 0 : 1);
+            var arguments = new ReceiverKind[argumentCount];
+
+            int argumentOffset = 0;
+            if (!method.IsStatic)
+            {
+                arguments[0] = method.DeclaringType == scriptType
+                    ? ReceiverKind.ScriptInstance
+                    : ReceiverKind.Other;
+                argumentOffset = 1;
+            }
+
+            for (int parameterIndex = 0; parameterIndex < parameters.Length; parameterIndex++)
+            {
+                arguments[parameterIndex + argumentOffset] =
+                    IsScriptInstanceType(parameters[parameterIndex].ParameterType, scriptType)
+                        ? ReceiverKind.ScriptInstance
+                        : ReceiverKind.Other;
+            }
+
+            Module module = method.Module;
+            Type[] typeArgs = null;
+            Type[] methodArgs = null;
+            try
+            {
+                if (method.DeclaringType != null && method.DeclaringType.IsGenericType)
+                {
+                    typeArgs = method.DeclaringType.GetGenericArguments();
+                }
+                if (method.IsGenericMethod)
+                {
+                    methodArgs = method.GetGenericArguments();
+                }
+            }
+            catch (Exception)
+            {
+                typeArgs = null;
+                methodArgs = null;
+            }
+
+            int i = 0;
+            while (i < il.Length)
+            {
+                int instructionOffset = i;
+                short key;
+                byte first = il[i++];
+                if (first == 0xFE && i < il.Length)
+                {
+                    key = unchecked((short)(0xFE00 | il[i++]));
+                }
+                else
+                {
+                    key = first;
+                }
+
+                if (!_opcodes.TryGetValue(key, out OpCode code))
+                {
+                    return;
+                }
+
+                int operandStart = i;
+                int operandSize = OperandSize(code.OperandType, il, operandStart);
+                if (operandSize < 0 || operandStart + operandSize > il.Length)
+                {
+                    return;
+                }
+
+                if (TryHandleArgumentOrLocalInstruction(
+                        code,
+                        il,
+                        operandStart,
+                        arguments,
+                        locals,
+                        stack))
+                {
+                    i += operandSize;
+                    continue;
+                }
+
+                if (code == OpCodes.Dup)
+                {
+                    stack.Add(stack.Count > 0 ? stack[stack.Count - 1] : ReceiverKind.Unknown);
+                    i += operandSize;
+                    continue;
+                }
+
+                if (code == OpCodes.Pop)
+                {
+                    Pop(stack);
+                    i += operandSize;
+                    continue;
+                }
+
+                if (code == OpCodes.Ldfld || code == OpCodes.Ldflda || code == OpCodes.Stfld ||
+                    code == OpCodes.Ldsfld || code == OpCodes.Ldsflda || code == OpCodes.Stsfld)
+                {
+                    FieldInfo field = ResolveField(module, il, operandStart, typeArgs, methodArgs);
+
+                    if (code == OpCodes.Stfld)
+                    {
+                        Pop(stack);
+                        ReceiverKind receiver = Pop(stack);
+                        RecordUnsupportedField(field, receiver, result);
+                    }
+                    else if (code == OpCodes.Ldfld || code == OpCodes.Ldflda)
+                    {
+                        ReceiverKind receiver = Pop(stack);
+                        RecordUnsupportedField(field, receiver, result);
+                        stack.Add(FieldResultKind(field, scriptType));
+                    }
+                    else if (code == OpCodes.Stsfld)
+                    {
+                        Pop(stack);
+                    }
+                    else
+                    {
+                        stack.Add(FieldResultKind(field, scriptType));
+                    }
+
+                    i += operandSize;
+                    continue;
+                }
+
+                if (code == OpCodes.Call || code == OpCodes.Callvirt || code == OpCodes.Newobj)
+                {
+                    MethodBase called = ResolveMethod(module, il, operandStart, typeArgs, methodArgs);
+                    if (called == null)
+                    {
+                        stack.Clear();
+                        i += operandSize;
+                        continue;
+                    }
+
+                    ParameterInfo[] calledParameters = called.GetParameters();
+                    for (int parameterIndex = calledParameters.Length - 1; parameterIndex >= 0; parameterIndex--)
+                    {
+                        Pop(stack);
+                    }
+
+                    if (code != OpCodes.Newobj && !called.IsStatic)
+                    {
+                        Pop(stack);
+                    }
+
+                    if (code == OpCodes.Newobj)
+                    {
+                        Type constructed = called.DeclaringType;
+                        stack.Add(IsScriptInstanceType(constructed, scriptType)
+                            ? ReceiverKind.ScriptInstance
+                            : ReceiverKind.Other);
+                    }
+                    else if (called is MethodInfo calledMethod && calledMethod.ReturnType != typeof(void))
+                    {
+                        stack.Add(IsScriptInstanceType(calledMethod.ReturnType, scriptType)
+                            ? ReceiverKind.ScriptInstance
+                            : ReceiverKind.Other);
+                    }
+
+                    i += operandSize;
+                    continue;
+                }
+
+                if (code == OpCodes.Castclass || code == OpCodes.Isinst)
+                {
+                    ReceiverKind value = Pop(stack);
+                    stack.Add(value);
+                    i += operandSize;
+                    continue;
+                }
+
+                if (code.FlowControl == FlowControl.Return ||
+                    code.FlowControl == FlowControl.Throw ||
+                    code == OpCodes.Leave ||
+                    code == OpCodes.Leave_S)
+                {
+                    stack.Clear();
+                    i += operandSize;
+                    continue;
+                }
+
+                ApplyGenericStackEffect(code, stack);
+
+                // Branch targets produced by the C# compiler normally start with a balanced
+                // evaluation stack. Clear our symbolic approximation after an unconditional
+                // branch so a value from the lexical fall-through cannot be mistaken for the
+                // receiver on the target path.
+                if (code.FlowControl == FlowControl.Branch)
+                {
+                    stack.Clear();
+                }
+
+                i += operandSize;
+            }
+        }
+
+        private static bool TryHandleArgumentOrLocalInstruction(
+            OpCode code,
+            byte[] il,
+            int operandStart,
+            ReceiverKind[] arguments,
+            ReceiverKind[] locals,
+            List<ReceiverKind> stack)
+        {
+            int index;
+            if (TryGetLoadArgumentIndex(code, il, operandStart, out index))
+            {
+                stack.Add(index >= 0 && index < arguments.Length
+                    ? arguments[index]
+                    : ReceiverKind.Unknown);
+                return true;
+            }
+
+            if (TryGetStoreArgumentIndex(code, il, operandStart, out index))
+            {
+                ReceiverKind value = Pop(stack);
+                if (index >= 0 && index < arguments.Length)
+                {
+                    arguments[index] = value;
+                }
+                return true;
+            }
+
+            if (TryGetLoadLocalIndex(code, il, operandStart, out index))
+            {
+                stack.Add(index >= 0 && index < locals.Length
+                    ? locals[index]
+                    : ReceiverKind.Unknown);
+                return true;
+            }
+
+            if (TryGetStoreLocalIndex(code, il, operandStart, out index))
+            {
+                ReceiverKind value = Pop(stack);
+                if (index >= 0 && index < locals.Length)
+                {
+                    locals[index] = value;
+                }
+                return true;
+            }
+
+            if (code == OpCodes.Ldarga || code == OpCodes.Ldarga_S ||
+                code == OpCodes.Ldloca || code == OpCodes.Ldloca_S)
+            {
+                stack.Add(ReceiverKind.Other);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetLoadArgumentIndex(OpCode code, byte[] il, int operandStart, out int index)
+        {
+            if (code == OpCodes.Ldarg_0) { index = 0; return true; }
+            if (code == OpCodes.Ldarg_1) { index = 1; return true; }
+            if (code == OpCodes.Ldarg_2) { index = 2; return true; }
+            if (code == OpCodes.Ldarg_3) { index = 3; return true; }
+            if (code == OpCodes.Ldarg_S) { index = il[operandStart]; return true; }
+            if (code == OpCodes.Ldarg) { index = BitConverter.ToUInt16(il, operandStart); return true; }
+            index = -1;
+            return false;
+        }
+
+        private static bool TryGetStoreArgumentIndex(OpCode code, byte[] il, int operandStart, out int index)
+        {
+            if (code == OpCodes.Starg_S) { index = il[operandStart]; return true; }
+            if (code == OpCodes.Starg) { index = BitConverter.ToUInt16(il, operandStart); return true; }
+            index = -1;
+            return false;
+        }
+
+        private static bool TryGetLoadLocalIndex(OpCode code, byte[] il, int operandStart, out int index)
+        {
+            if (code == OpCodes.Ldloc_0) { index = 0; return true; }
+            if (code == OpCodes.Ldloc_1) { index = 1; return true; }
+            if (code == OpCodes.Ldloc_2) { index = 2; return true; }
+            if (code == OpCodes.Ldloc_3) { index = 3; return true; }
+            if (code == OpCodes.Ldloc_S) { index = il[operandStart]; return true; }
+            if (code == OpCodes.Ldloc) { index = BitConverter.ToUInt16(il, operandStart); return true; }
+            index = -1;
+            return false;
+        }
+
+        private static bool TryGetStoreLocalIndex(OpCode code, byte[] il, int operandStart, out int index)
+        {
+            if (code == OpCodes.Stloc_0) { index = 0; return true; }
+            if (code == OpCodes.Stloc_1) { index = 1; return true; }
+            if (code == OpCodes.Stloc_2) { index = 2; return true; }
+            if (code == OpCodes.Stloc_3) { index = 3; return true; }
+            if (code == OpCodes.Stloc_S) { index = il[operandStart]; return true; }
+            if (code == OpCodes.Stloc) { index = BitConverter.ToUInt16(il, operandStart); return true; }
+            index = -1;
+            return false;
+        }
+
+        private static FieldInfo ResolveField(
+            Module module,
+            byte[] il,
+            int operandStart,
+            Type[] typeArgs,
+            Type[] methodArgs)
+        {
+            try
+            {
+                int token = BitConverter.ToInt32(il, operandStart);
+                return module.ResolveField(token, typeArgs, methodArgs);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static MethodBase ResolveMethod(
+            Module module,
+            byte[] il,
+            int operandStart,
+            Type[] typeArgs,
+            Type[] methodArgs)
+        {
+            try
+            {
+                int token = BitConverter.ToInt32(il, operandStart);
+                return module.ResolveMethod(token, typeArgs, methodArgs);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static void RecordUnsupportedField(
+            FieldInfo field,
+            ReceiverKind receiver,
+            HashSet<string> result)
+        {
+            if (receiver == ReceiverKind.ScriptInstance &&
+                field != null &&
+                field.DeclaringType == typeof(Basis.BasisNetworkBehaviour) &&
+                UnsupportedInheritedNetworkFields.Contains(field.Name))
+            {
+                result.Add(field.Name);
+            }
+        }
+
+        private static ReceiverKind FieldResultKind(FieldInfo field, Type scriptType)
+        {
+            return field != null && IsScriptInstanceType(field.FieldType, scriptType)
+                ? ReceiverKind.ScriptInstance
+                : ReceiverKind.Other;
+        }
+
+        private static bool IsScriptInstanceType(Type type, Type scriptType)
+        {
+            if (type == null || scriptType == null)
+            {
+                return false;
+            }
+
+            while (type.IsByRef || type.IsPointer)
+            {
+                type = type.GetElementType();
+                if (type == null)
+                {
+                    return false;
+                }
+            }
+
+            return scriptType.IsAssignableFrom(type);
+        }
+
+        private static ReceiverKind Pop(List<ReceiverKind> stack)
+        {
+            if (stack.Count == 0)
+            {
+                return ReceiverKind.Unknown;
+            }
+
+            int index = stack.Count - 1;
+            ReceiverKind value = stack[index];
+            stack.RemoveAt(index);
+            return value;
+        }
+
+        private static void ApplyGenericStackEffect(OpCode code, List<ReceiverKind> stack)
+        {
+            int popCount = StackPopCount(code.StackBehaviourPop);
+            if (popCount < 0)
+            {
+                stack.Clear();
+            }
+            else
+            {
+                for (int i = 0; i < popCount; i++)
+                {
+                    Pop(stack);
+                }
+            }
+
+            int pushCount = StackPushCount(code.StackBehaviourPush);
+            if (pushCount < 0)
+            {
+                stack.Clear();
+                return;
+            }
+
+            for (int i = 0; i < pushCount; i++)
+            {
+                stack.Add(ReceiverKind.Other);
+            }
+        }
+
+        private static int StackPopCount(StackBehaviour behaviour)
+        {
+            switch (behaviour)
+            {
+                case StackBehaviour.Pop0:
+                    return 0;
+                case StackBehaviour.Pop1:
+                case StackBehaviour.Popi:
+                case StackBehaviour.Popref:
+                    return 1;
+                case StackBehaviour.Pop1_pop1:
+                case StackBehaviour.Popi_pop1:
+                case StackBehaviour.Popi_popi:
+                case StackBehaviour.Popi_popi8:
+                case StackBehaviour.Popi_popr4:
+                case StackBehaviour.Popi_popr8:
+                case StackBehaviour.Popref_pop1:
+                case StackBehaviour.Popref_popi:
+                    return 2;
+                case StackBehaviour.Popi_popi_popi:
+                case StackBehaviour.Popref_popi_pop1:
+                case StackBehaviour.Popref_popi_popi:
+                case StackBehaviour.Popref_popi_popi8:
+                case StackBehaviour.Popref_popi_popr4:
+                case StackBehaviour.Popref_popi_popr8:
+                case StackBehaviour.Popref_popi_popref:
+                    return 3;
+                case StackBehaviour.Varpop:
+                    return -1;
+                default:
+                    return -1;
+            }
+        }
+
+        private static int StackPushCount(StackBehaviour behaviour)
+        {
+            switch (behaviour)
+            {
+                case StackBehaviour.Push0:
+                    return 0;
+                case StackBehaviour.Push1:
+                case StackBehaviour.Pushi:
+                case StackBehaviour.Pushi8:
+                case StackBehaviour.Pushr4:
+                case StackBehaviour.Pushr8:
+                case StackBehaviour.Pushref:
+                    return 1;
+                case StackBehaviour.Push1_push1:
+                    return 2;
+                case StackBehaviour.Varpush:
+                    return -1;
+                default:
+                    return -1;
+            }
         }
 
         /// <summary>The problems that are about the script's shape rather than about a whitelist.</summary>

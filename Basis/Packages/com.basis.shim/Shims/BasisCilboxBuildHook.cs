@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Networking.Behaviour;
 using Basis.Shims;
+using Basis.Shims.Editor;
 using Cilbox;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -368,6 +369,17 @@ public class BasisCilboxBuildHook
             }
             else if (typeof(Basis.BasisNetworkBehaviour).IsAssignableFrom(sourceType))
             {
+                if (BasisCilboxScriptScanner.UsesUnsupportedInheritedNetworkStateField(
+                        sourceType,
+                        out string networkFields))
+                {
+                    throw new InvalidOperationException(
+                        $"Cilbox script {sourceType.FullName} directly inherits BasisNetworkBehaviour " +
+                        $"and accesses inherited network state field(s): {networkFields}. " +
+                        "Those fields cannot be remapped from CilboxProxy to the native network host. " +
+                        "Use NetworkID, IsLocalOwner(), ownership methods/callbacks, or a native BasisNetworkShim reference instead.");
+                }
+
                 if (proxy.box is CilboxAvatarBasis)
                 {
                     EnsureAvatarNetworkBridge(proxy, true);

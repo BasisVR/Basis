@@ -881,6 +881,7 @@
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "The class has no [Cilboxable] attribute, so it will not be converted at build and will be destroyed on load unless ContentPolice approves it." },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "Defines Unity messages the proxy never forwards, so they will never run: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "Returns IEnumerator, but the sandbox has no coroutines: {0}" },
-    { "key": "sdk.cilbox.scan.issue.onEnable", "value": "Defines OnEnable. The first one is dropped, so one-time setup belongs in Start." }
+    { "key": "sdk.cilbox.scan.issue.onEnable", "value": "Defines OnEnable. The first one is dropped, so one-time setup belongs in Start." },
+    { "key": "sdk.cilbox.scan.issue.networkStateField", "value": "Direct BasisNetworkBehaviour inheritance cannot access inherited network state fields through this: {0}. Use NetworkID, IsLocalOwner(), ownership methods/callbacks, or a native BasisNetworkShim reference instead." }
   ]
 }
