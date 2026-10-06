@@ -14,6 +14,27 @@ namespace Basis.Tests.Sync
     public sealed class BasisCilboxNetworkOverrideTests
     {
         private sealed class GenericNetworkScript : BasisNetworkBehaviour { }
+        private sealed class DirectNetworkFieldScript : BasisNetworkBehaviour
+        {
+            public bool ReadsInheritedState()
+            {
+                return HasNetworkID && IsOwnedLocallyOnServer && CurrentOwnerId != 0;
+            }
+        }
+
+        private sealed class DirectNetworkScriptUsingNativeShim : BasisNetworkBehaviour
+        {
+            public BasisNetworkShim Shim;
+
+            public bool ReadsShimState()
+            {
+                return Shim != null &&
+                       Shim.HasNetworkID &&
+                       Shim.IsOwnedLocallyOnServer &&
+                       Shim.CurrentOwnerId != 0;
+            }
+        }
+
         private sealed class AvatarNetworkScript : BasisNetworkAvatarBehaviour { }
 
         private GameObject root;
@@ -43,7 +64,7 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
-        public void AvatarBox_OverridesAvatarAndGenericNetworkBehaviourWithAvatarVariant()
+        public void AvatarBox_UsesAvatarHostButKeepsGenericMetadataOverrideCompatible()
         {
             var box = root.AddComponent<CilboxAvatarBasis>();
 
@@ -54,7 +75,8 @@ namespace Basis.Tests.Sync
 
             Assert.IsTrue(
                 box.GetTypeOverride(typeof(BasisNetworkBehaviour).FullName, out Type genericReplacement));
-            Assert.AreEqual(typeof(BasisNetworkAvatarCilboxBehaviour), genericReplacement);
+            Assert.AreEqual(typeof(BasisNetworkCilboxBehaviour), genericReplacement);
+            Assert.IsTrue(typeof(BasisNetworkBehaviour).IsAssignableFrom(genericReplacement));
         }
 
         [Test]
@@ -102,23 +124,77 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
-        public void NetworkStateFields_RemainBlockedBecauseFieldReceiversCannotBeRemapped()
+        public void LegacyNetworkShimFields_RemainAllowedWhileNewUnsafeFieldsStayBlocked()
         {
             var sceneBox = root.AddComponent<CilboxSceneBasis>();
             Assert.IsTrue(
-                sceneBox.GetTypeOverride(typeof(BasisNetworkBehaviour).FullName, out Type normalReplacement));
-            Assert.IsFalse(sceneBox.CheckFieldAllowed(normalReplacement.FullName, nameof(BasisNetworkBehaviour.HasNetworkID)));
-            Assert.IsFalse(sceneBox.CheckFieldAllowed(normalReplacement.FullName, nameof(BasisNetworkBehaviour.IsOwnedLocallyOnClient)));
-            Assert.IsFalse(sceneBox.CheckFieldAllowed(normalReplacement.FullName, nameof(BasisNetworkBehaviour.currentOwnedPlayer)));
+                sceneBox.GetTypeOverride(typeof(BasisNetworkBehaviour).FullName, out Type sceneReplacement));
+
+            Assert.IsTrue(sceneBox.CheckFieldAllowed(sceneReplacement.FullName, nameof(BasisNetworkBehaviour.HasNetworkID)));
+            Assert.IsTrue(sceneBox.CheckFieldAllowed(sceneReplacement.FullName, nameof(BasisNetworkBehaviour.IsOwnedLocallyOnServer)));
+            Assert.IsTrue(sceneBox.CheckFieldAllowed(sceneReplacement.FullName, nameof(BasisNetworkBehaviour.CurrentOwnerId)));
+            Assert.IsFalse(sceneBox.CheckFieldAllowed(sceneReplacement.FullName, nameof(BasisNetworkBehaviour.IsOwnedLocallyOnClient)));
+            Assert.IsFalse(sceneBox.CheckFieldAllowed(sceneReplacement.FullName, nameof(BasisNetworkBehaviour.currentOwnedPlayer)));
 
             UnityEngine.Object.DestroyImmediate(sceneBox);
             var avatarBox = root.AddComponent<CilboxAvatarBasis>();
+            Assert.IsTrue(
+                avatarBox.GetTypeOverride(typeof(BasisNetworkBehaviour).FullName, out Type avatarGenericReplacement));
+            Assert.AreEqual(typeof(BasisNetworkCilboxBehaviour), avatarGenericReplacement);
+            Assert.IsTrue(avatarBox.CheckFieldAllowed(avatarGenericReplacement.FullName, nameof(BasisNetworkBehaviour.HasNetworkID)));
+            Assert.IsTrue(avatarBox.CheckFieldAllowed(avatarGenericReplacement.FullName, nameof(BasisNetworkBehaviour.IsOwnedLocallyOnServer)));
+            Assert.IsTrue(avatarBox.CheckFieldAllowed(avatarGenericReplacement.FullName, nameof(BasisNetworkBehaviour.CurrentOwnerId)));
+
+            BasisNetworkShim shim = root.AddComponent<BasisNetworkShim>();
+            shim.HasNetworkID = true;
+            shim.IsOwnedLocallyOnServer = true;
+            shim.CurrentOwnerId = 42;
+
+            FieldInfo field = avatarGenericReplacement.GetField(
+                nameof(BasisNetworkBehaviour.HasNetworkID),
+                BindingFlags.Public | BindingFlags.Instance);
+            Assert.IsNotNull(field);
+            Assert.AreEqual(true, field.GetValue(shim));
+
+            Assert.IsTrue(BasisCilboxNetworkRedirect.IsLocalOwner(shim));
+            Assert.IsTrue(BasisCilboxNetworkRedirect.AvatarGenericIsLocalOwner(shim));
+            Assert.AreEqual(shim.NetworkID, BasisCilboxNetworkRedirect.GetNetworkID(shim));
+            Assert.AreEqual(shim.NetworkID, BasisCilboxNetworkRedirect.AvatarGenericGetNetworkID(shim));
+
             Assert.IsTrue(
                 avatarBox.GetTypeOverride(typeof(BasisNetworkAvatarBehaviour).FullName, out Type avatarReplacement));
             Assert.IsFalse(avatarBox.CheckFieldAllowed(avatarReplacement.FullName, nameof(BasisNetworkAvatarBehaviour.NetworkedPlayer)));
             Assert.IsFalse(avatarBox.CheckFieldAllowed(
                 typeof(Basis.Scripts.Behaviour.BasisAvatarMonoBehaviour).FullName,
                 nameof(Basis.Scripts.Behaviour.BasisAvatarMonoBehaviour.MessageIndex)));
+        }
+
+        [Test]
+        public void BuildHook_RejectsDirectInheritedNetworkStateFieldAccess()
+        {
+            CilboxProxy proxy = root.AddComponent<CilboxProxy>();
+            proxy.className = typeof(DirectNetworkFieldScript).FullName;
+
+            TargetInvocationException exception = Assert.Throws<TargetInvocationException>(
+                () => InvokeAttachNetworkBridges(root));
+            Assert.IsInstanceOf<InvalidOperationException>(exception.InnerException);
+            StringAssert.Contains(nameof(BasisNetworkBehaviour.HasNetworkID), exception.InnerException.Message);
+            StringAssert.Contains(nameof(BasisNetworkBehaviour.IsOwnedLocallyOnServer), exception.InnerException.Message);
+            StringAssert.Contains(nameof(BasisNetworkBehaviour.CurrentOwnerId), exception.InnerException.Message);
+        }
+
+        [Test]
+        public void BuildHook_AllowsLegacyFieldsWhenReceiverIsNativeNetworkShim()
+        {
+            CilboxProxy proxy = root.AddComponent<CilboxProxy>();
+            proxy.className = typeof(DirectNetworkScriptUsingNativeShim).FullName;
+
+            Assert.DoesNotThrow(() => InvokeAttachNetworkBridges(root));
+
+            BasisNetworkCilboxBehaviour[] bridges =
+                root.GetComponents<BasisNetworkCilboxBehaviour>();
+            Assert.AreEqual(1, bridges.Length);
+            Assert.AreSame(proxy, bridges[0].Target);
         }
 
         [Test]
@@ -284,7 +360,7 @@ namespace Basis.Tests.Sync
             Assert.IsTrue(
                 box.CheckMethodAllowed(
                     out MethodInfo redirect,
-                    typeof(BasisNetworkAvatarCilboxBehaviour),
+                    typeof(BasisNetworkCilboxBehaviour),
                     methodName,
                     descriptors,
                     Array.Empty<SerializedTypeDescriptor>(),

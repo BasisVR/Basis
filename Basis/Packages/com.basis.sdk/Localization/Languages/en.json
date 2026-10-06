@@ -933,6 +933,7 @@
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "Defines Unity messages the proxy never forwards, so they will never run: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "Returns IEnumerator, but the sandbox has no coroutines: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "Defines OnEnable. The first one is dropped, so one-time setup belongs in Start." },
+    { "key": "sdk.cilbox.scan.issue.networkStateField", "value": "Direct BasisNetworkBehaviour inheritance cannot access inherited network state fields through this: {0}. Use NetworkID, IsLocalOwner(), ownership methods/callbacks, or a native BasisNetworkShim reference instead." },
     { "key": "sdk.cilbox.api.externalLink.title", "value": "Opening a web page" },
     { "key": "sdk.cilbox.api.externalLink.summary", "value": "Asks the player to open a page in their browser. The player always sees the address and decides; it only works right after they used this world or prop, never from an avatar, and the callback says whether it opened. Application.OpenURL goes through the same question." },
     { "key": "sdk.cilbox.api.connection.title", "value": "Switching or leaving servers" },

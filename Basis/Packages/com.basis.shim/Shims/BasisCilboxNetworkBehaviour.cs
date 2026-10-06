@@ -421,14 +421,14 @@ namespace Basis.Shims
 
         public static ushort GetNetworkID(object self)
         {
-            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host)
+            return TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host)
                 ? host.NetworkID
                 : (ushort)0;
         }
 
         public static bool IsLocalOwner(object self)
         {
-            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host) &&
+            return TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host) &&
                    host.IsLocalOwner();
         }
 
@@ -438,7 +438,7 @@ namespace Basis.Shims
             DeliveryMethod deliveryMethod,
             ushort[] recipients)
         {
-            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            if (TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host))
             {
                 host.SendCustomNetworkEvent(buffer, deliveryMethod, recipients);
             }
@@ -451,7 +451,7 @@ namespace Basis.Shims
             ushort[] recipients,
             bool allowServerFallback)
         {
-            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            if (TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host))
             {
                 host.SendCustomNetworkEventDirect(
                     buffer, deliveryMethod, recipients, allowServerFallback);
@@ -464,7 +464,7 @@ namespace Basis.Shims
             float delaySeconds,
             EventTiming timing)
         {
-            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            if (TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host))
             {
                 host.SendCustomEventDelayedSeconds(callback, delaySeconds, timing);
             }
@@ -476,7 +476,7 @@ namespace Basis.Shims
             int delayFrames,
             EventTiming timing)
         {
-            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            if (TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host))
             {
                 host.SendCustomEventDelayedFrames(callback, delayFrames, timing);
             }
@@ -484,7 +484,7 @@ namespace Basis.Shims
 
         public static void TakeOwnership(object self)
         {
-            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            if (TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host))
             {
                 host.TakeOwnership();
             }
@@ -492,14 +492,14 @@ namespace Basis.Shims
 
         public static Task<BasisOwnershipResult> TakeOwnershipAsync(object self, int timeout)
         {
-            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host)
+            return TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host)
                 ? host.TakeOwnershipAsync(timeout)
                 : Task.FromResult(BasisOwnershipResult.Failed);
         }
 
         public static Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(object self, int timeout)
         {
-            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host)
+            return TryResolveNormalHost(self, out Basis.BasisNetworkBehaviour host)
                 ? host.RequestWhoIsOwnershipAsync(timeout)
                 : Task.FromResult(BasisOwnershipResult.Failed);
         }
@@ -524,6 +524,11 @@ namespace Basis.Shims
 
         public static ushort AvatarGenericGetNetworkID(object self)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                return native.NetworkID;
+            }
+
             return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host)
                 ? host.GenericNetworkId()
                 : (ushort)0;
@@ -531,6 +536,11 @@ namespace Basis.Shims
 
         public static bool AvatarGenericIsLocalOwner(object self)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                return native.IsLocalOwner();
+            }
+
             return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host) &&
                    host.IsGenericLocalOwner();
         }
@@ -541,6 +551,12 @@ namespace Basis.Shims
             DeliveryMethod deliveryMethod,
             ushort[] recipients)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                native.SendCustomNetworkEvent(buffer, deliveryMethod, recipients);
+                return;
+            }
+
             if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
             {
                 host.NetworkMessageSend(buffer, deliveryMethod, recipients);
@@ -554,6 +570,13 @@ namespace Basis.Shims
             ushort[] recipients,
             bool allowServerFallback)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                native.SendCustomNetworkEventDirect(
+                    buffer, deliveryMethod, recipients, allowServerFallback);
+                return;
+            }
+
             if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
             {
                 host.NetworkMessageSendDirect(buffer, deliveryMethod, recipients, allowServerFallback);
@@ -566,6 +589,12 @@ namespace Basis.Shims
             float delaySeconds,
             EventTiming timing)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                native.SendCustomEventDelayedSeconds(callback, delaySeconds, timing);
+                return;
+            }
+
             if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
             {
                 host.GenericSendCustomEventDelayedSeconds(callback, delaySeconds, timing);
@@ -578,6 +607,12 @@ namespace Basis.Shims
             int delayFrames,
             EventTiming timing)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                native.SendCustomEventDelayedFrames(callback, delayFrames, timing);
+                return;
+            }
+
             if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
             {
                 host.GenericSendCustomEventDelayedFrames(callback, delayFrames, timing);
@@ -586,6 +621,12 @@ namespace Basis.Shims
 
         public static void AvatarGenericTakeOwnership(object self)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                native.TakeOwnership();
+                return;
+            }
+
             if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
             {
                 _ = host.GenericTakeOwnershipAsync();
@@ -594,6 +635,11 @@ namespace Basis.Shims
 
         public static Task<BasisOwnershipResult> AvatarGenericTakeOwnershipAsync(object self, int timeout)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                return native.TakeOwnershipAsync(timeout);
+            }
+
             return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host)
                 ? host.GenericTakeOwnershipAsync()
                 : Task.FromResult(BasisOwnershipResult.Failed);
@@ -601,6 +647,11 @@ namespace Basis.Shims
 
         public static Task<BasisOwnershipResult> AvatarGenericRequestWhoIsOwnershipAsync(object self, int timeout)
         {
+            if (self is Basis.BasisNetworkBehaviour native)
+            {
+                return native.RequestWhoIsOwnershipAsync(timeout);
+            }
+
             return TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host)
                 ? host.GenericRequestOwnershipAsync()
                 : Task.FromResult(BasisOwnershipResult.Failed);
@@ -652,11 +703,14 @@ namespace Basis.Shims
             new ConditionalWeakTable<object, HashSet<string>>();
         private static readonly object MissingHostLogLock = new object();
 
-        private static bool TryResolveNormalHost(object self, out BasisNetworkCilboxBehaviour host)
+        private static bool TryResolveNormalHost(object self, out Basis.BasisNetworkBehaviour host)
         {
-            if (self is BasisNetworkCilboxBehaviour direct)
+            // Legacy Cilbox content can hold a real BasisNetworkShim/native
+            // BasisNetworkBehaviour reference. Preserve its original behavior instead of
+            // forcing it through the generated Cilbox companion.
+            if (self is Basis.BasisNetworkBehaviour native)
             {
-                host = direct;
+                host = native;
                 return true;
             }
 
