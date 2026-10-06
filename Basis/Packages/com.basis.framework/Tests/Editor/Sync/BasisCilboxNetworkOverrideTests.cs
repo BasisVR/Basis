@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Reflection;
 using Basis;
 using Basis.Scripts.Networking.Behaviour;
@@ -42,14 +43,62 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
-        public void AvatarBox_OverridesAvatarNetworkBehaviourWithAvatarVariant()
+        public void AvatarBox_OverridesAvatarAndGenericNetworkBehaviourWithAvatarVariant()
         {
             var box = root.AddComponent<CilboxAvatarBasis>();
 
             Assert.IsTrue(
-                box.GetTypeOverride(typeof(BasisNetworkAvatarBehaviour).FullName, out Type replacement));
-            Assert.AreEqual(typeof(BasisNetworkAvatarCilboxBehaviour), replacement);
-            Assert.IsTrue(typeof(BasisNetworkAvatarBehaviour).IsAssignableFrom(replacement));
+                box.GetTypeOverride(typeof(BasisNetworkAvatarBehaviour).FullName, out Type avatarReplacement));
+            Assert.AreEqual(typeof(BasisNetworkAvatarCilboxBehaviour), avatarReplacement);
+            Assert.IsTrue(typeof(BasisNetworkAvatarBehaviour).IsAssignableFrom(avatarReplacement));
+
+            Assert.IsTrue(
+                box.GetTypeOverride(typeof(BasisNetworkBehaviour).FullName, out Type genericReplacement));
+            Assert.AreEqual(typeof(BasisNetworkAvatarCilboxBehaviour), genericReplacement);
+        }
+
+        [Test]
+        public void AvatarContentPolice_AllowsOnlyAvatarCilboxNetworkHost()
+        {
+            const string path = "Packages/com.basis.sdk/Settings/AvatarContentPoliceSelector.asset";
+            string asset = File.ReadAllText(path);
+
+            StringAssert.Contains("Basis.Shims.BasisNetworkAvatarCilboxBehaviour", asset);
+            StringAssert.DoesNotContain("Basis.Shims.BasisNetworkCilboxBehaviour", asset);
+        }
+
+        [Test]
+        public void AvatarBox_RedirectsGenericNetworkSendReceiveSurfaceToAvatarHost()
+        {
+            var box = root.AddComponent<CilboxAvatarBasis>();
+
+            AssertAvatarGenericRedirect(
+                box,
+                "SendCustomNetworkEvent",
+                new[]
+                {
+                    typeof(byte[]),
+                    typeof(Basis.Network.Core.DeliveryMethod),
+                    typeof(ushort[]),
+                },
+                nameof(BasisCilboxNetworkRedirect.AvatarGenericSendCustomNetworkEvent));
+
+            AssertAvatarGenericRedirect(
+                box,
+                "OnNetworkMessage",
+                new[]
+                {
+                    typeof(ushort),
+                    typeof(byte[]),
+                    typeof(Basis.Network.Core.DeliveryMethod),
+                },
+                nameof(BasisCilboxNetworkRedirect.AvatarGenericMessageCallbackNoop));
+
+            AssertAvatarGenericRedirect(
+                box,
+                "get_NetworkID",
+                Type.EmptyTypes,
+                nameof(BasisCilboxNetworkRedirect.AvatarGenericGetNetworkID));
         }
 
         [Test]
@@ -98,6 +147,30 @@ namespace Basis.Tests.Sync
 
             Assert.IsInstanceOf<BasisNetworkBehaviour>(genericBridges[0]);
             Assert.IsInstanceOf<BasisNetworkAvatarBehaviour>(avatarBridges[0]);
+        }
+
+        [Test]
+        public void BuildHook_GenericNetworkScriptInAvatarBox_UsesAvatarBridgeOnly()
+        {
+            var avatarBox = root.AddComponent<CilboxAvatarBasis>();
+            CilboxProxy proxy = root.AddComponent<CilboxProxy>();
+            proxy.box = avatarBox;
+            proxy.className = typeof(GenericNetworkScript).FullName;
+
+            BasisNetworkCilboxBehaviour staleGeneric =
+                root.AddComponent<BasisNetworkCilboxBehaviour>();
+            staleGeneric.Bind(proxy);
+
+            InvokeAttachNetworkBridges(root);
+            InvokeAttachNetworkBridges(root);
+
+            Assert.AreEqual(0, root.GetComponents<BasisNetworkCilboxBehaviour>().Length);
+
+            BasisNetworkAvatarCilboxBehaviour[] avatarBridges =
+                root.GetComponents<BasisNetworkAvatarCilboxBehaviour>();
+            Assert.AreEqual(1, avatarBridges.Length);
+            Assert.AreSame(proxy, avatarBridges[0].Target);
+            Assert.IsTrue(avatarBridges[0].UsesGenericNetworkBehaviourApi);
         }
 
         [Test]
@@ -194,6 +267,30 @@ namespace Basis.Tests.Sync
                 box.GetTypeOverride(typeof(BasisNetworkBehaviour).FullName, out Type replacement));
             Assert.AreEqual(typeof(BasisNetworkCilboxBehaviour), replacement);
             Assert.IsTrue(typeof(BasisNetworkBehaviour).IsAssignableFrom(replacement));
+        }
+
+        private static void AssertAvatarGenericRedirect(
+            CilboxAvatarBasis box,
+            string methodName,
+            Type[] parameters,
+            string expectedRedirect)
+        {
+            var descriptors = new SerializedTypeDescriptor[parameters.Length];
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                descriptors[i] = SerializedTypeDescriptorBuilder.FromNativeType(parameters[i]);
+            }
+
+            Assert.IsTrue(
+                box.CheckMethodAllowed(
+                    out MethodInfo redirect,
+                    typeof(BasisNetworkAvatarCilboxBehaviour),
+                    methodName,
+                    descriptors,
+                    Array.Empty<SerializedTypeDescriptor>(),
+                    string.Empty));
+            Assert.IsNotNull(redirect);
+            Assert.AreEqual(expectedRedirect, redirect.Name);
         }
 
         private static void InvokeAttachNetworkBridges(GameObject contentRoot)

@@ -364,11 +364,18 @@ public class BasisCilboxBuildHook
 
             if (typeof(BasisNetworkAvatarBehaviour).IsAssignableFrom(sourceType))
             {
-                EnsureAvatarNetworkBridge(proxy);
+                EnsureAvatarNetworkBridge(proxy, false);
             }
             else if (typeof(Basis.BasisNetworkBehaviour).IsAssignableFrom(sourceType))
             {
-                EnsureNetworkBridge(proxy);
+                if (proxy.box is CilboxAvatarBasis)
+                {
+                    EnsureAvatarNetworkBridge(proxy, true);
+                }
+                else
+                {
+                    EnsureNetworkBridge(proxy);
+                }
             }
         }
     }
@@ -389,20 +396,37 @@ public class BasisCilboxBuildHook
         EditorUtility.SetDirty(bridge);
     }
 
-    private static void EnsureAvatarNetworkBridge(CilboxProxy proxy)
+    private static void EnsureAvatarNetworkBridge(CilboxProxy proxy, bool genericNetworkBehaviourApi)
     {
         BasisNetworkAvatarCilboxBehaviour[] existing = proxy.GetComponents<BasisNetworkAvatarCilboxBehaviour>();
         for (int i = 0; i < existing.Length; i++)
         {
             if (existing[i] != null && existing[i].Target == proxy)
             {
+                existing[i].Bind(proxy, genericNetworkBehaviourApi);
+                EditorUtility.SetDirty(existing[i]);
+                RemoveGenericNetworkBridge(proxy);
                 return;
             }
         }
 
         BasisNetworkAvatarCilboxBehaviour bridge = proxy.gameObject.AddComponent<BasisNetworkAvatarCilboxBehaviour>();
-        bridge.Bind(proxy);
+        bridge.Bind(proxy, genericNetworkBehaviourApi);
         EditorUtility.SetDirty(bridge);
+        RemoveGenericNetworkBridge(proxy);
+    }
+
+    private static void RemoveGenericNetworkBridge(CilboxProxy proxy)
+    {
+        BasisNetworkCilboxBehaviour[] genericBridges = proxy.GetComponents<BasisNetworkCilboxBehaviour>();
+        for (int i = genericBridges.Length - 1; i >= 0; i--)
+        {
+            BasisNetworkCilboxBehaviour bridge = genericBridges[i];
+            if (bridge != null && bridge.Target == proxy)
+            {
+                UnityEngine.Object.DestroyImmediate(bridge);
+            }
+        }
     }
 
     private static Type FindLoadedType(string fullName)

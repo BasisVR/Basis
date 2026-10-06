@@ -132,6 +132,11 @@ namespace Cilbox
 		{
 			switch (sType)
 			{
+				case "Basis.BasisNetworkBehaviour":
+					// Generic network behaviours authored on avatars still use the avatar
+					// transport so BasisNetworkPlayer assigns a stable MessageIndex.
+					t = typeof(Basis.Shims.BasisNetworkAvatarCilboxBehaviour);
+					return true;
 				case "Basis.Scripts.Networking.Behaviour.BasisNetworkAvatarBehaviour":
 					t = typeof(Basis.Shims.BasisNetworkAvatarCilboxBehaviour);
 					return true;
