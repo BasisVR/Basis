@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Basis.Network.Core;
 using Basis.Scripts.Networking.Behaviour;
@@ -261,12 +263,15 @@ namespace Basis.Shims
 
         public static ushort GetNetworkID(object self)
         {
-            return ResolveNormalHost(self).NetworkID;
+            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host)
+                ? host.NetworkID
+                : (ushort)0;
         }
 
         public static bool IsLocalOwner(object self)
         {
-            return ResolveNormalHost(self).IsLocalOwner();
+            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host) &&
+                   host.IsLocalOwner();
         }
 
         public static void SendCustomNetworkEvent(
@@ -275,7 +280,10 @@ namespace Basis.Shims
             DeliveryMethod deliveryMethod,
             ushort[] recipients)
         {
-            ResolveNormalHost(self).SendCustomNetworkEvent(buffer, deliveryMethod, recipients);
+            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            {
+                host.SendCustomNetworkEvent(buffer, deliveryMethod, recipients);
+            }
         }
 
         public static void SendCustomNetworkEventDirect(
@@ -285,8 +293,11 @@ namespace Basis.Shims
             ushort[] recipients,
             bool allowServerFallback)
         {
-            ResolveNormalHost(self).SendCustomNetworkEventDirect(
-                buffer, deliveryMethod, recipients, allowServerFallback);
+            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            {
+                host.SendCustomNetworkEventDirect(
+                    buffer, deliveryMethod, recipients, allowServerFallback);
+            }
         }
 
         public static void SendCustomEventDelayedSeconds(
@@ -295,7 +306,10 @@ namespace Basis.Shims
             float delaySeconds,
             EventTiming timing)
         {
-            ResolveNormalHost(self).SendCustomEventDelayedSeconds(callback, delaySeconds, timing);
+            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            {
+                host.SendCustomEventDelayedSeconds(callback, delaySeconds, timing);
+            }
         }
 
         public static void SendCustomEventDelayedFrames(
@@ -304,22 +318,32 @@ namespace Basis.Shims
             int delayFrames,
             EventTiming timing)
         {
-            ResolveNormalHost(self).SendCustomEventDelayedFrames(callback, delayFrames, timing);
+            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            {
+                host.SendCustomEventDelayedFrames(callback, delayFrames, timing);
+            }
         }
 
         public static void TakeOwnership(object self)
         {
-            ResolveNormalHost(self).TakeOwnership();
+            if (TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host))
+            {
+                host.TakeOwnership();
+            }
         }
 
         public static Task<BasisOwnershipResult> TakeOwnershipAsync(object self, int timeout)
         {
-            return ResolveNormalHost(self).TakeOwnershipAsync(timeout);
+            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host)
+                ? host.TakeOwnershipAsync(timeout)
+                : Task.FromResult(BasisOwnershipResult.Failed);
         }
 
         public static Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(object self, int timeout)
         {
-            return ResolveNormalHost(self).RequestWhoIsOwnershipAsync(timeout);
+            return TryResolveNormalHost(self, out BasisNetworkCilboxBehaviour host)
+                ? host.RequestWhoIsOwnershipAsync(timeout)
+                : Task.FromResult(BasisOwnershipResult.Failed);
         }
 
         public static void AvatarConstructor(object self) { }
@@ -337,12 +361,18 @@ namespace Basis.Shims
             DeliveryMethod deliveryMethod,
             ushort[] recipients)
         {
-            ResolveAvatarHost(self).NetworkMessageSend(buffer, deliveryMethod, recipients);
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.NetworkMessageSend(buffer, deliveryMethod, recipients);
+            }
         }
 
         public static void NetworkMessageSend(object self, DeliveryMethod deliveryMethod)
         {
-            ResolveAvatarHost(self).NetworkMessageSend(deliveryMethod);
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.NetworkMessageSend(deliveryMethod);
+            }
         }
 
         public static void NetworkMessageSendDirect(
@@ -352,20 +382,31 @@ namespace Basis.Shims
             ushort[] recipients,
             bool allowServerFallback)
         {
-            ResolveAvatarHost(self).NetworkMessageSendDirect(
-                buffer, deliveryMethod, recipients, allowServerFallback);
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.NetworkMessageSendDirect(
+                    buffer, deliveryMethod, recipients, allowServerFallback);
+            }
         }
 
         public static void ServerReductionSystemMessageSend(object self, byte[] buffer)
         {
-            ResolveAvatarHost(self).ServerReductionSystemMessageSend(buffer);
+            if (TryResolveAvatarHost(self, out BasisNetworkAvatarCilboxBehaviour host))
+            {
+                host.ServerReductionSystemMessageSend(buffer);
+            }
         }
 
-        private static BasisNetworkCilboxBehaviour ResolveNormalHost(object self)
+        private static readonly ConditionalWeakTable<object, HashSet<string>> MissingHostLogs =
+            new ConditionalWeakTable<object, HashSet<string>>();
+        private static readonly object MissingHostLogLock = new object();
+
+        private static bool TryResolveNormalHost(object self, out BasisNetworkCilboxBehaviour host)
         {
             if (self is BasisNetworkCilboxBehaviour direct)
             {
-                return direct;
+                host = direct;
+                return true;
             }
 
             if (self is CilboxProxy proxy)
@@ -376,20 +417,23 @@ namespace Basis.Shims
                 {
                     if (hosts[i] != null && hosts[i].Target == proxy)
                     {
-                        return hosts[i];
+                        host = hosts[i];
+                        return true;
                     }
                 }
             }
 
-            throw new InvalidOperationException(
-                "No BasisNetworkCilboxBehaviour is bound to the interpreted networking instance.");
+            host = null;
+            LogMissingHostOnce(self, nameof(BasisNetworkCilboxBehaviour));
+            return false;
         }
 
-        private static BasisNetworkAvatarCilboxBehaviour ResolveAvatarHost(object self)
+        private static bool TryResolveAvatarHost(object self, out BasisNetworkAvatarCilboxBehaviour host)
         {
             if (self is BasisNetworkAvatarCilboxBehaviour direct)
             {
-                return direct;
+                host = direct;
+                return true;
             }
 
             if (self is CilboxProxy proxy)
@@ -400,13 +444,34 @@ namespace Basis.Shims
                 {
                     if (hosts[i] != null && hosts[i].Target == proxy)
                     {
-                        return hosts[i];
+                        host = hosts[i];
+                        return true;
                     }
                 }
             }
 
-            throw new InvalidOperationException(
-                "No BasisNetworkAvatarCilboxBehaviour is bound to the interpreted avatar networking instance.");
+            host = null;
+            LogMissingHostOnce(self, nameof(BasisNetworkAvatarCilboxBehaviour));
+            return false;
+        }
+
+        private static void LogMissingHostOnce(object self, string hostType)
+        {
+            if (self != null)
+            {
+                lock (MissingHostLogLock)
+                {
+                    HashSet<string> logged = MissingHostLogs.GetOrCreateValue(self);
+                    if (!logged.Add(hostType))
+                    {
+                        return;
+                    }
+                }
+            }
+
+            Debug.LogError(
+                $"[BasisCilboxNetwork] No {hostType} is bound to this interpreted networking instance; the operation was ignored.",
+                self as UnityEngine.Object);
         }
     }
 }

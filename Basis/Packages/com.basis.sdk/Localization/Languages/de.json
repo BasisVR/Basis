@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "Zuerst den deklarierenden Typ erlauben." },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "Die Methoden dieses Typs sind eingeschränkt. Trage den Namen unter Methodenbeschränkungen im Tab {0} ein." },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "Die Klasse hat kein [Cilboxable]-Attribut, wird also beim Build nicht konvertiert und beim Laden entfernt, sofern ContentPolice sie nicht freigibt." },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "Die Klasse erbt von einem Netzwerk-Behaviour. Der ersetzende Proxy ist keines, die Overrides feuern also nie — hänge stattdessen den Netzwerk-Shim an." },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "Definiert Unity-Nachrichten, die der Proxy nie weiterleitet, sie laufen also nie: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "Gibt IEnumerator zurück, aber die Sandbox kennt keine Coroutinen: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "Definiert OnEnable. Das erste entfällt, einmalige Einrichtung gehört daher in Start." }

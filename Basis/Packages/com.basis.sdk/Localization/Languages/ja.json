@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "先に宣言元の型を許可してください。" },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "この型のメソッドは制限されています。{0} タブのメソッド制限に名前を追加してください。" },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "クラスに [Cilboxable] 属性がありません。ビルド時に変換されず、ContentPolice が承認しない限り読み込み時に削除されます。" },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "クラスがネットワーク behaviour を継承しています。置き換わるプロキシはそれではないためオーバーライドは呼ばれません。ネットワークシムを使ってください。" },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "プロキシが転送しない Unity メッセージを定義しています。これらは実行されません: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "IEnumerator を返していますが、サンドボックスにコルーチンはありません: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "OnEnable を定義しています。最初の 1 回は届かないので、一度だけの初期化は Start に置いてください。" }

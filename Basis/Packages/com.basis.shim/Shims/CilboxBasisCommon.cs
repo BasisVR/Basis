@@ -370,9 +370,12 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
             "BasisNetworkContentBase+BasisContentInformation",
-            "Basis.BasisNetworkBehaviour.CurrentOwnerId",
-			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
-			"Basis.BasisNetworkBehaviour.HasNetworkID",
+            // Do not expose BasisNetworkBehaviour's public state fields through the Cilbox
+            // type override. Native method/property calls can remap the interpreted receiver
+            // to its BasisNetworkCilboxBehaviour host; ldfld/stfld cannot. Whitelisting those
+            // fields would make inherited scripts read proxy storage rather than live network
+            // state. Use the redirected method/property surface (NetworkID, IsLocalOwner,
+            // TakeOwnership*, SendCustomNetworkEvent*, callbacks) instead.
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
 			// Quantizer configuration (Precision/Min/Max/RequiredBits/Mask) on the script's
 			// own instance; Compress/Decompress clamp, so a mangled config can't corrupt.

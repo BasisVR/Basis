@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "請先允許其宣告型別。" },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "該型別的方法受限。請在{0}分頁的方法限制中加入這個名稱。" },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "該類別沒有 [Cilboxable] 屬性，因此建置時不會被轉換，除非 ContentPolice 核准，否則載入時會被銷毀。" },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "該類別繼承了網路 behaviour。取代它的 proxy 並不是，因此那些覆寫永遠不會觸發——請改用網路 shim。" },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "定義了 proxy 從不轉送的 Unity 訊息，因此它們永遠不會執行：{0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "回傳了 IEnumerator，但沙箱中沒有協程：{0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "定義了 OnEnable。第一次會遺失，因此一次性初始化應放在 Start。" }
