@@ -26,6 +26,7 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
 			"Basis.BasisNetworkBehaviour",
+			"Basis.Shims.BasisNetworkCilboxBehaviour",
 			"Basis.BasisNetworkShim*",
 			"BasisNetworkCommon+EventTiming",
 			"Basis.Shims.BasisOsc*",
@@ -911,6 +912,24 @@ namespace Cilbox
 			mi = null;
 			CilboxProfiler.Resolving(this);
 
+			// Network methods must resolve to the native Cilbox bridge before general whitelist checks.
+			if (declaringType == typeof(Basis.Shims.BasisNetworkCilboxBehaviour))
+			{
+				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveNormal(usage, name, parametersIn);
+				return mi != null;
+			}
+			if (declaringType == typeof(Basis.Shims.BasisNetworkAvatarCilboxBehaviour))
+			{
+				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn);
+				return mi != null;
+			}
+			if (declaringType == typeof(Basis.Scripts.Behaviour.BasisAvatarMonoBehaviour) &&
+				(name == "OnNetworkReady" || name == "OnNetworkMessageServerReductionSystem"))
+			{
+				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn);
+				return mi != null;
+			}
+
 			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
 
 			// Redirect every UnityEngine.Object.Instantiate variant through the sanitizing
@@ -1088,6 +1107,9 @@ namespace Cilbox
 			if (ExtraGetTypeOverride(sType, out t)) return true;
 			switch (sType)
 			{
+				case "Basis.BasisNetworkBehaviour":
+					t = typeof(Basis.Shims.BasisNetworkCilboxBehaviour);
+					return true;
 				case "Basis.Shims.BasisNetworkShim":
 					t = typeof(Basis.BasisNetworkShim);
 					return true;

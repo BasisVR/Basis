@@ -582,6 +582,8 @@ namespace Basis.Shims.Editor
             ("UnityEngine.Debug", "Basis.Shims.BasisDebugPropsShim"),
             ("UnityEngine.Video.VideoPlayer", "Basis.Shims.VideoPlayerShim"),
             ("Basis.Scripts.BasisSdk.BasisAvatar", LocFormat("sdk.cilbox.override.avatarBoxOnly", "Basis.Shims.BasisAvatarShim")),
+            ("Basis.BasisNetworkBehaviour", "Basis.Shims.BasisNetworkCilboxBehaviour"),
+            ("Basis.Scripts.Networking.Behaviour.BasisNetworkAvatarBehaviour", LocFormat("sdk.cilbox.override.avatarBoxOnly", "Basis.Shims.BasisNetworkAvatarCilboxBehaviour")),
             ("Basis.Shims.BasisNetworkShim", "Basis.BasisNetworkShim"),
         };
 
