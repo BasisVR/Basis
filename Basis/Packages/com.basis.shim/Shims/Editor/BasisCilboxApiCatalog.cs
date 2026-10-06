@@ -354,48 +354,25 @@ sync.Enabled = true;",
                 GroupKey = GroupNetworking,
                 TitleKey = "sdk.cilbox.api.makeNetworkable.title",
                 SummaryKey = "sdk.cilbox.api.makeNetworkable.summary",
-                Requires = new[] { new CilboxApiRequirement("Basis.SafeUtil") },
+                Requires = new[] { new CilboxApiRequirement("Basis.BasisNetworkBehaviour") },
                 Example =
 @"using Basis;
 using Basis.Network.Core;
-using UnityEngine;
 using Cilbox;
 
 [Cilboxable]
-public class Door : MonoBehaviour
+public class Door : BasisNetworkBehaviour
 {
-    BasisNetworkShim net;
+    public override void OnNetworkReady() { }
 
-    void Start()
-    {
-        // A cilboxed script CANNOT derive from BasisNetworkBehaviour — the proxy
-        // that replaces it is not one, so the overrides would never fire. Get the
-        // shim instead; cilbox adds the component on GetComponent.
-        net = gameObject.GetComponent<BasisNetworkShim>();
-
-        // SafeUtil.MakeNetworkable(this) does the same thing and returns the shim.
-
-        net.NetworkReady += OnReady;
-        net.NetworkMessageReceived += OnMessage;
-    }
-
-    void OnDestroy()
-    {
-        if (net == null) return;
-        net.NetworkReady -= OnReady;
-        net.NetworkMessageReceived -= OnMessage;
-    }
-
-    void OnReady() { }
-
-    void OnMessage(ushort sender, byte[] buffer, DeliveryMethod method)
+    public override void OnNetworkMessage(ushort sender, byte[] buffer, DeliveryMethod method)
     {
         if (buffer != null && buffer.Length > 0) open = buffer[0] != 0;
     }
 
     void Broadcast(bool value)
     {
-        net.SendCustomNetworkEvent(new byte[] { value ? (byte)1 : (byte)0 },
+        SendCustomNetworkEvent(new byte[] { value ? (byte)1 : (byte)0 },
             DeliveryMethod.ReliableSequenced);
     }
 }",
@@ -407,13 +384,17 @@ public class Door : MonoBehaviour
                 SummaryKey = "sdk.cilbox.api.ownership.summary",
                 Requires = new[] { new CilboxApiRequirement("Basis.BasisNetworkBehaviour") },
                 Example =
-@"if (net.HasNetworkID && net.IsOwnedLocallyOnServer)
+@"if (IsLocalOwner())
 {
     // Only the owner should be writing authoritative state.
 }
 
-net.RequestOwnershipIfNone();
-net.OwnershipTransfer += newOwner => Debug.Log($""owner {newOwner.playerId}"");",
+TakeOwnership();
+
+public override void OnOwnershipTransfer(BasisNetworkPlayer newOwner)
+{
+    Debug.Log($""owner {newOwner.playerId}"");
+}",
             },
             new CilboxApiEntry
             {

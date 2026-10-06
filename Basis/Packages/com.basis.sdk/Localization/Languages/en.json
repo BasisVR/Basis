@@ -750,7 +750,7 @@
     { "key": "sdk.cilbox.api.blendShapeSync.title", "value": "Bulk blendshapes" },
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "Reads and writes many blendshapes in one call instead of one interpreted call per shape." },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "Networking a script" },
-    { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "A cilboxed script cannot inherit the network behaviour, so it attaches a shim and subscribes to its events instead." },
+    { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "Cilbox scripts can inherit the normal Basis network behaviours; the sandbox maps them to native networking adapters automatically." },
     { "key": "sdk.cilbox.api.ownership.title", "value": "Ownership" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "Who is authoritative for this object, and how to ask for it." },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "Delayed callbacks" },
@@ -879,7 +879,7 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "Allow the declaring type first." },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "This type's methods are restricted. Add the name under Method restrictions on the {0} tab." },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "The class has no [Cilboxable] attribute, so it will not be converted at build and will be destroyed on load unless ContentPolice approves it." },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "The class inherits a network behaviour. The proxy that replaces it is not one, so those overrides never fire — attach the network shim instead." },
+    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "The class inherits an unsupported network behaviour. Use BasisNetworkBehaviour, or BasisNetworkAvatarBehaviour for avatar-channel networking." },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "Defines Unity messages the proxy never forwards, so they will never run: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "Returns IEnumerator, but the sandbox has no coroutines: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "Defines OnEnable. The first one is dropped, so one-time setup belongs in Start." }

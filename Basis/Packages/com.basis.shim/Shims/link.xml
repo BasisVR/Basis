@@ -477,6 +477,9 @@
         <type fullname="Basis.Shims.BasisAvatarShim+OnReady" preserve="all"/>
         <type fullname="Basis.Shims.BasisAvatarShim+AvatarReadyEvent" preserve="all"/>
         <type fullname="Basis.Shims.BasisCilboxInstantiateShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisNetworkCilboxBehaviour" preserve="all"/>
+        <type fullname="Basis.Shims.BasisNetworkAvatarCilboxBehaviour" preserve="all"/>
+        <type fullname="Basis.Shims.BasisCilboxNetworkRedirect" preserve="all"/>
         <type fullname="Basis.Shims.BasisJiggleEventShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisDebugPropsShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisPlayspaceInputShim" preserve="all"/>
