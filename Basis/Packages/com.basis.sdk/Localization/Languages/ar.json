@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "اسمح أولاً بالنوع المُعلِن." },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "دوال هذا النوع مقيّدة. أضف الاسم ضمن قيود الدوال في تبويب {0}." },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "لا يحمل الصنف السمة [Cilboxable]، فلن يُحوَّل عند البناء وسيُحذف عند التحميل ما لم يعتمده ContentPolice." },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "يرث الصنف مكوّن شبكة. الوسيط الذي يحلّ محلّه ليس منه، فلن تُطلَق تلك التجاوزات — أرفق وسيط الشبكة بدلاً من ذلك." },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "يعرّف رسائل Unity لا يمرّرها الوسيط، فلن تعمل أبدًا: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "يُعيد IEnumerator، لكن بيئة العزل بلا كوروتينات: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "يعرّف OnEnable. أول واحد يضيع، لذا ضع التهيئة لمرة واحدة في Start." }

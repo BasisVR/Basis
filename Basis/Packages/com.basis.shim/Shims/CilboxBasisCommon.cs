@@ -22,6 +22,7 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
 			"Basis.BasisNetworkBehaviour",
+			"Basis.Shims.BasisNetworkCilboxBehaviour",
 			"Basis.BasisNetworkShim*",
 			"BasisNetworkCommon+EventTiming",
 			"Basis.Shims.BasisOsc*",
@@ -369,9 +370,16 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
             "BasisNetworkContentBase+BasisContentInformation",
+            // Legacy BasisNetworkShim scripts read these fields from a real native shim component.
+            // Keep the original permissions so already-built content continues to load. Direct
+            // Cilbox inheritance cannot safely read them through "this" because the interpreted
+            // receiver is a CilboxProxy; the editor scanner/build hook rejects that specific case.
             "Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
 			"Basis.BasisNetworkBehaviour.HasNetworkID",
+            "Basis.Shims.BasisNetworkCilboxBehaviour.CurrentOwnerId",
+			"Basis.Shims.BasisNetworkCilboxBehaviour.IsOwnedLocallyOnServer",
+			"Basis.Shims.BasisNetworkCilboxBehaviour.HasNetworkID",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
 			// Quantizer configuration (Precision/Min/Max/RequiredBits/Mask) on the script's
 			// own instance; Compress/Decompress clamp, so a mangled config can't corrupt.
@@ -592,6 +600,25 @@ namespace Cilbox
 		{
 			mi = null;
 
+			if (declaringType == typeof(Basis.Shims.BasisNetworkCilboxBehaviour))
+			{
+				mi = this is CilboxAvatarBasis
+					? Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn)
+					: Basis.Shims.BasisCilboxNetworkRedirect.ResolveNormal(usage, name, parametersIn);
+				return mi != null;
+			}
+			if (declaringType == typeof(Basis.Shims.BasisNetworkAvatarCilboxBehaviour))
+			{
+				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn);
+				return mi != null;
+			}
+			if (declaringType == typeof(Basis.Scripts.Behaviour.BasisAvatarMonoBehaviour) &&
+				(name == "OnNetworkReady" || name == "OnNetworkMessageServerReductionSystem"))
+			{
+				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn);
+				return mi != null;
+			}
+
 			if (name.Contains("Invoke")) return false;
 
 			// UnityEngine.Application.OpenURL opens an arbitrary URL in the native browser.
@@ -667,6 +694,9 @@ namespace Cilbox
 			if (ExtraGetTypeOverride(sType, out t)) return true;
 			switch (sType)
 			{
+				case "Basis.BasisNetworkBehaviour":
+					t = typeof(Basis.Shims.BasisNetworkCilboxBehaviour);
+					return true;
 				case "Basis.Shims.BasisNetworkShim":
 					t = typeof(Basis.BasisNetworkShim);
 					return true;

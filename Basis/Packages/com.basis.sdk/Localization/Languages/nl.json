@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "Sta eerst het declarerende type toe." },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "De methoden van dit type zijn beperkt. Voeg de naam toe bij Methodebeperkingen op het tabblad {0}." },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "De klasse heeft geen [Cilboxable]-attribuut, wordt dus niet omgezet bij de build en wordt bij het laden verwijderd tenzij ContentPolice haar goedkeurt." },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "De klasse erft van een netwerk-behaviour. De proxy die haar vervangt is er geen, dus die overrides vuren nooit — koppel de netwerkshim." },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "Definieert Unity-berichten die de proxy nooit doorstuurt, dus die draaien nooit: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "Geeft IEnumerator terug, maar de sandbox kent geen coroutines: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "Definieert OnEnable. De eerste gaat verloren, dus eenmalige setup hoort in Start." }

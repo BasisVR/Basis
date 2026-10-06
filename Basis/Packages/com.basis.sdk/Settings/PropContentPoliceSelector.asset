@@ -331,6 +331,7 @@ MonoBehaviour:
   - Prism.UI.MediaPlayerUI
   - Basis.Scripts.UI.UI_Panels.BasisUIComponent
   - Cilbox.CilboxProxy
+  - Basis.Shims.BasisNetworkCilboxBehaviour
   - UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton
   - GatorDragonGames.JigglePhysics.JiggleRig
