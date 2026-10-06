@@ -410,10 +410,19 @@ public class BasisCilboxBuildHook
         System.Reflection.Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
         for (int i = 0; i < assemblies.Length; i++)
         {
-            Type type = assemblies[i].GetType(fullName, false);
-            if (type != null)
+            try
             {
-                return type;
+                Type type = assemblies[i].GetType(fullName, false);
+                if (type != null)
+                {
+                    return type;
+                }
+            }
+            catch (Exception)
+            {
+                // Dynamic/reflection-only assemblies can reject type lookup.
+                // They cannot contain the authored MonoBehaviour we are resolving,
+                // so skip them instead of aborting the build hook.
             }
         }
         return null;
