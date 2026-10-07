@@ -9,7 +9,7 @@ namespace Basis.IK
         public const float HumeralWeight = 0.6f, PronationWeight = 0.6f, WristFlexWeight = 0.35f, WristDevWeight = 0.35f, WristStrainWeight = 0.12f;
         public const float TorsoWeight = 1.5f;
         public const float HeadFadeStartSin = 0.15f, HeadFadeFullSin = 0.45f, ElevationFadeStart = 0.85f, ElevationFadeFull = 0.97f, RestOutward = 0.35f, RestBack = 0.25f;
-        public const float MinReachFraction = 0.05f, ModelWeight = 0.85f;
+        public const float MinReachFraction = 0.05f, ModelWeight = 0.85f, TeleportFraction = 0.6f, TrackerSmoothTime = 0.015f;
         public const float WristKeepFrac = 0.15f, WristKeepMaxDeg = 15f, ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static void Frame(Vector3 axis, Vector3 torsoUp, Vector3 torsoForward, Vector3 torsoOut, out Vector3 ex, out Vector3 ey)
@@ -99,18 +99,14 @@ namespace Basis.IK
             float chain = upper + lower;
             Vector3 handPos = i.Shoulder + axis * dEff;
 
-            // Elbow hint: a world-space point the elbow points toward. An elbow tracker is used as-is;
-            // otherwise one is built from the body and shaped by the rules below.
+            // If we don't have an elbow hint (active elbow tracker) then we make our own and position it accordingly.
             Vector3 worldHint = i.HintPosition;
             if (!i.HasHint)
             {
                 // Start behind and below the hand.
                 worldHint = handPos - i.TorsoForward * (chain * 2f) - i.TorsoUp * (chain * 0.5f);
 
-                // Keep the hint behind the plane through the shoulder and hand that faces body-forward;
-                // realistically the elbow never goes in front of it. A hint in front is mirrored behind rather
-                // than flattened onto the plane, so it never collapses onto the arm line.
-                // The plane faces sideways when the arm points straight forward/back, so fade out there.
+                // Keep the elbow hint behind the shoulder/hand plane since realistically it should never swing out forwards
                 Vector3 planeFront = i.TorsoForward - axis * Vector3.Dot(i.TorsoForward, axis);
                 float planeFrontLen = planeFront.magnitude, behindFade = Smoothstep(0.1f, 0.3f, planeFrontLen);
                 if (behindFade > 0f)
@@ -120,9 +116,7 @@ namespace Basis.IK
                     if (front > 0f) worldHint -= planeFront * (2f * front * behindFade);
                 }
 
-                // As the hand comes in toward and past the shoulder to the torso, push the hint outward so the
-                // elbow sticks out instead of back. Distances are sideways only, in arm lengths.
-                // The head is on the body midline; without one, assume a typical shoulder half-width of 0.3 arm lengths.
+                // Stick the elbow outward if the hand is moved inward toward the torso so it doesn't clip inside.
                 float handOut = Vector3.Dot(handPos - i.Shoulder, i.TorsoOut) / chain;
                 float midToShoulder = i.HasHead ? Vector3.Dot(i.Shoulder - i.HeadPosition, i.TorsoOut) / chain : 0.3f;
                 float outPush = Smoothstep(-midToShoulder, midToShoulder * 2f, -handOut) * 2.5f;
@@ -132,7 +126,23 @@ namespace Basis.IK
             // Project the hint onto the elbow circle to get the swivel angle.
             Vector3 hintDir = worldHint - center;
             hintDir -= axis * Vector3.Dot(hintDir, axis);
-            float swivelDeg = hintDir.sqrMagnitude > sqrEpsilon ? DirToDeg(hintDir.normalized, ex, ey) : BodyPrior(i, axis, ex, ey);
+            float targetDeg = hintDir.sqrMagnitude > sqrEpsilon ? DirToDeg(hintDir.normalized, ex, ey) : BodyPrior(i, axis, ex, ey);
+
+            // Smooth the swivel toward the target or teleport if needed
+            float swivelDeg;
+            bool teleport = state.Seeded && (i.TargetPosition - state.LastTarget).sqrMagnitude > TeleportFraction * TeleportFraction * chain * chain;
+            float smoothTime = i.HasHint ? TrackerSmoothTime : i.SmoothTime;
+            if (!state.Seeded || teleport || i.Dt <= 0f)
+            {
+                swivelDeg = targetDeg;
+            }
+            else
+            {
+                float delta = Wrap(targetDeg - state.SwivelDeg), alpha = smoothTime > 1e-4f ? 1f - Mathf.Exp(-i.Dt / smoothTime) : 1f, step = delta * alpha;
+                float maxStep = i.MaxRateDeg > 0f ? i.MaxRateDeg * i.Dt : float.MaxValue;
+                if (step > maxStep) step = maxStep; else if (step < -maxStep) step = -maxStep;
+                swivelDeg = Wrap(state.SwivelDeg + step);
+            }
 
             float side = i.IsLeft ? 1f : -1f;
             Quaternion restHandInv = Quaternion.Inverse(i.RestHandRotation);
@@ -142,10 +152,10 @@ namespace Basis.IK
             Vector3 finalDir = DegToDir(swivelDeg, ex, ey), finalElbow = center + finalDir * radius;
             Joints(i, finalElbow, finalDir, axis, side, palm, handFwd, out r.HumeralDeg, out r.PronationDeg, out r.WristFlexDeg, out r.WristDevDeg);
 
-            r.PriorDeg = swivelDeg;
+            r.PriorDeg = targetDeg;
+            r.RawDeg = targetDeg;
             r.SwivelDeg = swivelDeg;
-            // Diagnostic only: joint-limit and torso strain of the chosen pose.
-            r.Cost = PoseCost(i, finalElbow, finalDir, axis, side, palm, handFwd, humeralFade, i.JointLimits);
+            r.Cost = PoseCost(i, finalElbow, finalDir, axis, side, palm, handFwd, humeralFade, i.JointLimits); // Unused I think
             r.Elbow = finalElbow;
             r.Hand = handPos;
             r.Axis = axis;
@@ -160,8 +170,9 @@ namespace Basis.IK
             state.Switched = false;
             state.HintPosition = i.HintPosition;
             state.ConstrainedHintPosition = worldHint;
-            state.PriorDeg = swivelDeg;
-            state.PriorDir = finalDir;
+            state.PriorDeg = targetDeg;
+            state.RawDeg = targetDeg;
+            state.PriorDir = DegToDir(targetDeg, ex, ey);
             state.ElbowDir = finalDir;
             state.ReachRatio = r.ReachRatio;
             state.ElbowDeg = r.ElbowDeg;
