@@ -5,10 +5,8 @@ namespace Basis.IK
     [BurstCompile]
     public static class BasisArmSolveCore
     {
-        public const float MinElbowInteriorDeg = 35f, LimitMarginDeg = 12f, HardLimitWeight = 0.006f;
-        public const float HumeralWeight = 0.6f, PronationWeight = 0.6f, WristFlexWeight = 0.35f, WristDevWeight = 0.35f, WristStrainWeight = 0.12f;
-        public const float TorsoWeight = 1.5f;
-        public const float HeadFadeStartSin = 0.15f, HeadFadeFullSin = 0.45f, ElevationFadeStart = 0.85f, ElevationFadeFull = 0.97f, RestOutward = 0.35f, RestBack = 0.25f;
+        public const float MinElbowInteriorDeg = 35f;
+        public const float HeadFadeStartSin = 0.15f, HeadFadeFullSin = 0.45f, RestOutward = 0.35f, RestBack = 0.25f;
         public const float MinReachFraction = 0.05f, ModelWeight = 0.85f, TeleportFraction = 0.6f, TrackerSmoothTime = 0.015f;
         public const float WristKeepFrac = 0.15f, WristKeepMaxDeg = 15f, ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
@@ -51,12 +49,6 @@ namespace Basis.IK
             return Mathf.Max(Mathf.Max(d2 > 0f ? Mathf.Sqrt(d2) : 0f, Mathf.Abs(upper - lower) + epsilon), MinReachFraction * (upper + lower));
         }
         public static Vector3 Hinge(Vector3 elbowDir, Vector3 axis, float side) => Vector3.Cross(elbowDir, axis) * side;
-        static float LimitCost(float x, float lo, float hi, float weight)
-        {
-            float soft = Mathf.Max(lo + LimitMarginDeg - x, x - (hi - LimitMarginDeg));
-            float cost = soft > 0f ? weight * (soft / LimitMarginDeg) * (soft / LimitMarginDeg) : 0f, excess = Mathf.Max(lo - x, x - hi);
-            return excess > 0f ? cost + HardLimitWeight * excess * excess : cost;
-        }
         static float Smoothstep(float a, float b, float v)
         {
             float t = b > a ? Mathf.Clamp01((v - a) / (b - a)) : (v >= b ? 1f : 0f);
@@ -67,8 +59,6 @@ namespace Basis.IK
         {
             r = default;
             float upper = (i.RestElbow - i.Shoulder).magnitude, lower = (i.RestHand - i.RestElbow).magnitude;
-            r.UpperLength = upper;
-            r.LowerLength = lower;
             if (upper <= epsilon || lower <= epsilon)
             {
                 return;
@@ -87,8 +77,6 @@ namespace Basis.IK
             // The tracked hand is a hard endpoint. Only move it off the controller
             // when the target is outside the arm's anatomical reach interval.
             float dEff = Mathf.Clamp(reachDistance, minReach, upper + lower);
-            r.TargetDistance = reachDistance;
-            r.EffectiveDistance = dEff;
             r.ReachRatio = reachDistance / (upper + lower);
             float cosAlpha = Mathf.Clamp((upper * upper + dEff * dEff - lower * lower) / (2f * upper * dEff), -1f, 1f), sinAlpha = Mathf.Sqrt(Mathf.Max(0f, 1f - cosAlpha * cosAlpha));
             Vector3 center = i.Shoulder + axis * (upper * cosAlpha);
@@ -148,20 +136,12 @@ namespace Basis.IK
             Quaternion restHandInv = Quaternion.Inverse(i.RestHandRotation);
             Vector3 palmLocal = restHandInv * Swing(i.TorsoOut, (i.RestElbow - i.Shoulder).normalized, -i.TorsoUp), fwdLocal = restHandInv * (i.RestHand - i.RestElbow).normalized;
             Vector3 palm = i.TargetRotation * palmLocal, handFwd = i.TargetRotation * fwdLocal;
-            float humeralFade = 1f - Smoothstep(ElevationFadeStart, ElevationFadeFull, Vector3.Dot(axis, i.TorsoUp));
             Vector3 finalDir = DegToDir(swivelDeg, ex, ey), finalElbow = center + finalDir * radius;
             Joints(i, finalElbow, finalDir, axis, side, palm, handFwd, out r.HumeralDeg, out r.PronationDeg, out r.WristFlexDeg, out r.WristDevDeg);
 
-            r.PriorDeg = targetDeg;
-            r.RawDeg = targetDeg;
-            r.SwivelDeg = swivelDeg;
-            r.Cost = PoseCost(i, finalElbow, finalDir, axis, side, palm, handFwd, humeralFade, i.JointLimits); // Unused I think
             r.Elbow = finalElbow;
             r.Hand = handPos;
-            r.Axis = axis;
-            r.ElbowDir = finalDir;
             r.Hinge = Hinge(finalDir, axis, side);
-            r.Switched = false;
             r.Valid = true;
             state.SwivelDeg = swivelDeg;
             state.Seeded = true;
@@ -180,26 +160,6 @@ namespace Basis.IK
             state.PronationDeg = r.PronationDeg;
             state.WristFlexDeg = r.WristFlexDeg;
             state.WristDevDeg = r.WristDevDeg;
-            state.Cost = r.Cost;
-        }
-        static float PoseCost(in BasisArmSolveInput i, Vector3 elbow, Vector3 dir, Vector3 axis, float side, Vector3 palm, Vector3 handFwd, float humeralFade, bool limits)
-        {
-            float cost = 0f;
-            if (limits)
-            {
-                Joints(i, elbow, dir, axis, side, palm, handFwd, out float humeral, out float pronation, out float flex, out float dev);
-                cost += humeralFade * LimitCost(humeral, -i.Limits.HumeralInternalMaxDeg, i.Limits.HumeralExternalMaxDeg, HumeralWeight);
-                cost += LimitCost(pronation, -i.Limits.SupinationMaxDeg, i.Limits.PronationMaxDeg, PronationWeight);
-                cost += LimitCost(flex, -i.Limits.WristExtensionMaxDeg, i.Limits.WristFlexionMaxDeg, WristFlexWeight);
-                cost += LimitCost(dev, -i.Limits.WristUlnarMaxDeg, i.Limits.WristRadialMaxDeg, WristDevWeight);
-                float nf = flex / Mathf.Max(i.Limits.WristFlexionMaxDeg, 1f), nd = dev / Mathf.Max(i.Limits.WristRadialMaxDeg, 1f), np = pronation / 90f;
-                cost += WristStrainWeight * (nf * nf + nd * nd + np * np);
-            }
-            if (i.TorsoCapsule)
-            {
-                cost += TorsoCost(elbow, i.TorsoA, i.TorsoB, i.TorsoRadius);
-            }
-            return cost;
         }
         static void Joints(in BasisArmSolveInput i, Vector3 elbow, Vector3 dir, Vector3 axis, float side, Vector3 palm, Vector3 handFwd, out float humeralDeg, out float pronationDeg, out float flexDeg, out float devDeg)
         {
@@ -256,24 +216,6 @@ namespace Basis.IK
                 if (mix.sqrMagnitude > sqrEpsilon) blend = mix.normalized;
             }
             return DirToDeg(blend, ex, ey);
-        }
-        static float TorsoCost(Vector3 elbow, Vector3 a, Vector3 b, float radius)
-        {
-            Vector3 ab = b - a;
-            float abSqr = ab.sqrMagnitude, t = abSqr > sqrEpsilon ? Mathf.Clamp01(Vector3.Dot(elbow - a, ab) / abSqr) : 0f;
-            Vector3 q = a + ab * t;
-            float dist = (elbow - q).magnitude, margin = radius * 1.5f;
-            if (dist >= margin)
-            {
-                return 0f;
-            }
-            float soft = (margin - dist) / Mathf.Max(margin - radius, epsilon), cost = TorsoWeight * soft * soft;
-            if (dist < radius)
-            {
-                float pen = (radius - dist) / Mathf.Max(radius, epsilon);
-                cost += TorsoWeight * 8f * pen * pen;
-            }
-            return cost;
         }
         public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, out Quaternion upperRot, out Quaternion lowerRot) => Pose(i, r, restUpperRot, restLowerRot, out upperRot, out lowerRot, out _);
         public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, out Quaternion upperRot, out Quaternion lowerRot, out float forearmRollDeg)
