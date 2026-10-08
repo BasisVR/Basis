@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using UnityEditor;
+using UnityEditor.Build;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -195,6 +197,7 @@ public static class BasisAssetBundlePipeline
 
     public static void PostProcessAvatar(GameObject prefab)
     {
+        StripContentPasswords(prefab);
         if (prefab.TryGetComponent<BasisAvatar>(out BasisAvatar avatar))
         {
             var processing = avatar.ProcessingAvatarOptions;
@@ -213,6 +216,16 @@ public static class BasisAssetBundlePipeline
             {
                 avatar.TransformStorage = BasisAvatarTransformStorage.CaptureFrom(animator);
             }
+        }
+    }
+
+    public static void StripContentPasswords(GameObject root)
+    {
+        BasisContentBase[] contents = root.GetComponentsInChildren<BasisContentBase>(true);
+        for (int Index = 0; Index < contents.Length; Index++)
+        {
+            contents[Index].UseCustomPassword = false;
+            contents[Index].UserSelectedPassword = string.Empty;
         }
     }
 
@@ -304,6 +317,18 @@ public static class BasisAssetBundlePipeline
             {
                 DestroyIfEditorOnlyRecursive(child.gameObject);
             }
+        }
+    }
+}
+public class BasisContentPasswordSceneStripper : IProcessSceneWithReport
+{
+    public int callbackOrder => 0;
+    public void OnProcessScene(Scene scene, BuildReport report)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int Index = 0; Index < roots.Length; Index++)
+        {
+            BasisAssetBundlePipeline.StripContentPasswords(roots[Index]);
         }
     }
 }

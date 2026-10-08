@@ -89,7 +89,7 @@ public class BasisPropSDKInspector : Editor
             BasisSDKCommonInspector.CreatePropSpawnFoldout(settingsContainer, BasisProp);
 
             BasisSDKCommonInspector.CreateBuildTargetOptions(BasisSDKCommonInspector.ResolveBuildTargetsContainer(uiElementsRoot));
-            BasisSDKCommonInspector.CreateBuildOptionsDropdown(BasisSDKCommonInspector.ResolveBuildContainer(uiElementsRoot));
+            BasisSDKCommonInspector.CreateBuildOptionsDropdown(BasisSDKCommonInspector.ResolveBuildContainer(uiElementsRoot), serializedObject);
 
             BasisSDKCommonInspector.CreateContentTagsFoldout(BasisSDKCommonInspector.ResolveContentTagsContainer(uiElementsRoot), BasisProp);
             BasisSDKCommonInspector.CreateContentGroupIdFoldout(BasisSDKCommonInspector.ResolveContentTagsContainer(uiElementsRoot), BasisProp);
@@ -144,8 +144,7 @@ public class BasisPropSDKInspector : Editor
                 ImageBytes = BasisTextureCompression.ToPngBytes(Image);
             }
             Debug.Log($"Building Prop Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
-            BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-            (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
+            (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets, BasisProp.UseCustomPassword, BasisProp.UserSelectedPassword);
             EditorUtility.ClearProgressBar();
             ClearResultLabel();
 

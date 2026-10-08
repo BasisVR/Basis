@@ -72,8 +72,20 @@ Commonly used environment variables:
 | `EnableStatistics`   | `true`                          | Enables the statistics module.                    |
 | `EnableConsole`      | `false`                         | Enables the interactive server console (CLI).     |
 | `DisallowHeadless`   | `false`                         | Disconnects connected headless clients and blocks new ones. |
+| `NetworkStackId`     | (unset, UDP only)               | Transports to listen on. `litenetlib,websocket` also accepts web browsers over TCP. |
 
 A more comprehensive list of configurable settings can typically be found by inspecting the generated `config/config.xml` after an initial run, or by checking the server's internal documentation if available.
+
+### Web Clients (WebSocket)
+
+Browsers cannot use UDP, so web builds of Basis connect over WebSocket. The server can listen on both at once: set `NetworkStackId` to `litenetlib,websocket` and every player, whichever transport they used, joins the same world.
+
+1. Set `NetworkStackId: litenetlib,websocket` in the `environment` block (or `<NetworkStackId>litenetlib,websocket</NetworkStackId>` in `config/config.xml`).
+2. Publish the same port number over TCP as well as UDP: `- "4296:4296/tcp"`. The WebSocket listener uses the game port number unless `config/transports/websocket.xml` sets its own `Port`.
+3. A page served over `https://` may only open `wss://` connections. Either put a TLS-terminating reverse proxy in front of the server (Caddy, nginx, Traefik) and forward it to the container's TCP port, or set `TlsEnabled`, `TlsCertificatePath` and `TlsKeyPath` in `config/transports/websocket.xml` (a mounted Let's Encrypt `fullchain.pem` and `privkey.pem` work; the file is reloaded when it changes).
+4. Behind a proxy, add the proxy's address to `TrustedProxies` in `websocket.xml` so the server sees each player's real address in `X-Forwarded-For`. Without it every web player appears to come from the proxy, and an IP ban would hit all of them.
+
+`/health` lists each transport under `transports`, with its peer count and, for WebSocket, pending handshakes and shed updates.
 
 ## Docker Compose Configuration
 

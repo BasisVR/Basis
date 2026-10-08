@@ -156,6 +156,7 @@ namespace Basis.Network.Server
                 // cannot distinguish a server holding live state from one drowning in collections,
                 // and those want opposite fixes.
                 string gc = ",\"gc\":" + BuildGcJson();
+                string transports = ",\"transports\":" + BuildTransportsJson();
 
                 if (NetworkServer.Configuration.EnableStatistics && NetworkServer.Server != null)
                 {
@@ -190,16 +191,17 @@ namespace Basis.Network.Server
                         // unreadable — you cannot tell a server that is genuinely past capacity from
                         // one whose queue is simply sized too small, which is exactly the confusion
                         // that let a fixed 256 shed half of all avatar updates unnoticed.
-                        $"\"queuePerPeer\":{(NetworkServer.Server as LNLNetManager)?.manager?.EffectiveUnreliableQueuePerPeer ?? 0}," +
+                        $"\"queuePerPeer\":{NetworkServer.Server.LiteNetLibManager()?.EffectiveUnreliableQueuePerPeer ?? 0}," +
                         // The voice queue's own bound. Reported separately because it is sized on a
                         // different budget and is expected to be the DEEPER of the two — reading a
                         // voice drop against the bulk bound would make a correctly-tuned server look
                         // misconfigured.
-                        $"\"voiceQueuePerPeer\":{(NetworkServer.Server as LNLNetManager)?.manager?.EffectivePriorityUnreliableQueuePerPeer ?? 0}," +
+                        $"\"voiceQueuePerPeer\":{NetworkServer.Server.LiteNetLibManager()?.EffectivePriorityUnreliableQueuePerPeer ?? 0}," +
                         $"\"currentTime\":\"{nowUtc:O}\"," +
                         $"\"startTime\":\"{startTimeUtc:O}\"," +
                         $"\"version\":\"{BasisNetworkVersion.ServerVersion}\"" +
                         gc +
+                        transports +
                         bsr +
                         "}";
                 }
@@ -213,6 +215,7 @@ namespace Basis.Network.Server
                         $"\"startTime\":\"{startTimeUtc:O}\"," +
                         $"\"version\":\"{BasisNetworkVersion.ServerVersion}\"" +
                         gc +
+                        transports +
                         bsr +
                         "}";
                 }
@@ -252,6 +255,34 @@ namespace Basis.Network.Server
         /// here would be inferred rather than measured. <c>committedMb</c> is the honest proxy —
         /// DATAS scaling down shows up there.</para>
         /// </summary>
+        private static string BuildTransportsJson()
+        {
+            System.Text.StringBuilder builder = new System.Text.StringBuilder("[");
+            NetManager server = NetworkServer.Server;
+            if (server != null)
+            {
+                bool first = true;
+                foreach (NetManager transport in server.Transports())
+                {
+                    if (!first) builder.Append(',');
+                    first = false;
+                    builder.Append("{\"id\":\"").Append(transport.StackId).Append("\",");
+                    builder.Append("\"running\":").Append(transport.IsRunning ? "true" : "false").Append(',');
+                    builder.Append("\"peers\":").Append(transport.ConnectedPeersCount);
+                    if (transport is BasisWebSocketNetManager webSocket)
+                    {
+                        builder.Append(",\"port\":").Append(webSocket.ListenPort);
+                        builder.Append(",\"tls\":").Append(webSocket.IsTls ? "true" : "false");
+                        builder.Append(",\"handshakes\":").Append(webSocket.PendingHandshakes);
+                        builder.Append(",\"droppedUnreliable\":").Append(webSocket.UnreliableDropped);
+                        builder.Append(",\"droppedVoice\":").Append(webSocket.PriorityUnreliableDropped);
+                    }
+                    builder.Append('}');
+                }
+            }
+            return builder.Append(']').ToString();
+        }
+
         private static string BuildGcJson()
         {
             // The richer counters are net5+; this assembly also targets netstandard2.1 for the Unity

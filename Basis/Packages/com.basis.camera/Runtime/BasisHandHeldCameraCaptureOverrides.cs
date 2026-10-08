@@ -2,7 +2,7 @@ using Basis.Scripts.Rendering;
 using UnityEngine;
 public partial class BasisHandHeldCamera
 {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
     private BasisGlobalIlluminationCaptureOverride giOverride = BasisCameraCaptureOverrides.DefaultGlobalIllumination();
     public bool OverrideGlobalIllumination { get; private set; }
     public BasisGlobalIlluminationCaptureOverride GlobalIlluminationOverride => giOverride;
@@ -32,7 +32,7 @@ public partial class BasisHandHeldCamera
     public void SetGlobalIlluminationOverrideReflectionProbes(bool value) => giOverride.ReflectionProbes = value;
     public void SetGlobalIlluminationOverrideMirrors(bool value) => giOverride.Mirrors = value;
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
     private BasisRTAOCaptureOverride rtaoOverride = BasisCameraCaptureOverrides.DefaultRTAO();
     public bool OverrideRTAO { get; private set; }
     public BasisRTAOCaptureOverride RTAOOverride => rtaoOverride;

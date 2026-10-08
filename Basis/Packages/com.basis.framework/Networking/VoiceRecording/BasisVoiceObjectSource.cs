@@ -49,7 +49,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
 
 #if UNITY_IOS && !UNITY_EDITOR
             Receiver.decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
-#else
+#elif !UNITY_WEBGL || UNITY_EDITOR
             Receiver.decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 

@@ -225,7 +225,7 @@ namespace Basis.Scripts.Rendering
 
         [NoAutoStaticsCleanup] private static readonly Dictionary<ScriptableRendererFeature, bool> beforeBuild = new Dictionary<ScriptableRendererFeature, bool>();
 
-        public static void ActivateForBuild()
+        public static void ActivateForBuild(bool includeSurfaceCache = true)
         {
             List<ScriptableRendererFeature> buildFeatures = new List<ScriptableRendererFeature>();
             for (int level = 0; level < QualitySettings.count; level++)
@@ -236,6 +236,7 @@ namespace Basis.Scripts.Rendering
             for (int index = 0; index < buildFeatures.Count; index++)
             {
                 ScriptableRendererFeature feature = buildFeatures[index];
+                if (!includeSurfaceCache && feature is SurfaceCacheGIRendererFeature) { continue; }
                 if (!beforeBuild.ContainsKey(feature)) { beforeBuild.Add(feature, feature.isActive); }
                 feature.SetActive(true);
             }

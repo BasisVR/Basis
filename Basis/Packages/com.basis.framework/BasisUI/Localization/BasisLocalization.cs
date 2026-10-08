@@ -48,6 +48,7 @@ namespace Basis.BasisUI
 
         private static bool _initialized;
         private static string _currentLanguage = DefaultLanguage;
+        private static LanguageAssets _deferredTables;
 
         /// <summary>
         /// When enabled, every key that falls all the way through to the raw-key
@@ -113,7 +114,14 @@ namespace Basis.BasisUI
         /// Languages discovered on disk. Always includes English as the first
         /// entry (from the embedded fallback) even if the file is missing.
         /// </summary>
-        public static IReadOnlyList<LanguageOption> Available => _available;
+        public static IReadOnlyList<LanguageOption> Available
+        {
+            get
+            {
+                EnsureDeferredTables();
+                return _available;
+            }
+        }
         /// <summary>
         /// Loads the fallback (English) table and selects the active language.
         /// On first run (no persisted "language" key) the OS locale is probed
@@ -135,7 +143,7 @@ namespace Basis.BasisUI
                 return;
             }
             _initialized = true;
-            LoadAllTables();
+            LoadAllTables(languageCode);
           //  BasisDebug.Log($"Loading Langauge {languageCode}", BasisDebug.LogTag.Language);
             if (string.IsNullOrEmpty(languageCode))
             {
@@ -156,6 +164,7 @@ namespace Basis.BasisUI
         /// </summary>
         private static string DetectSystemLanguage()
         {
+            EnsureDeferredTables();
             int CodeCount = _available.Count;
             List<string> codes = new(CodeCount);
             for (int i = 0; i < CodeCount; i++)
@@ -185,6 +194,10 @@ namespace Basis.BasisUI
             {
                 languageCode = DefaultLanguage;
                 BasisDebug.Log($"Submitted Empty Language Code Falled Back to  {DefaultLanguage}", BasisDebug.LogTag.Language);
+            }
+            if (!_allTables.ContainsKey(languageCode))
+            {
+                EnsureDeferredTables();
             }
             _current.Clear();
             if (!string.Equals(languageCode, DefaultLanguage, StringComparison.OrdinalIgnoreCase))
@@ -308,11 +321,12 @@ namespace Basis.BasisUI
         /// is copied into managed dictionaries so the Addressable handle is
         /// released immediately after parsing.</para>
         /// </summary>
-        private static void LoadAllTables()
+        private static void LoadAllTables(string languageCode)
         {
             _allTables.Clear();
             _fallback.Clear();
             _available.Clear();
+            _deferredTables = null;
 
             // English is always present even if its asset is missing, so
             // Get(key) falls back to the raw key instead of returning empty.
@@ -346,8 +360,10 @@ namespace Basis.BasisUI
 
             // TextAsset.text re-decodes the whole byte blob on every access — read exactly once per file.
             int assetCount = assets.Count;
-            var names = new string[assetCount];
             var texts = new string[assetCount];
+            var deferredTexts = new string[assetCount];
+            var deferredBytes = new byte[assetCount][];
+            var tables = new LanguageAssets(assetCount);
             for (int i = 0; i < assetCount; i++)
             {
                 TextAsset asset = assets[i];
@@ -355,60 +371,150 @@ namespace Basis.BasisUI
                 {
                     continue;
                 }
-                names[i] = asset.name;
-                texts[i] = asset.text;
+                tables.Names[i] = asset.name;
+                if (IsStartupLanguage(asset.name, languageCode))
+                {
+                    texts[i] = asset.text;
+                    continue;
+                }
+                tables.Deferred[i] = true;
+                byte[] bytes = asset.bytes;
+                if (bytes.Length > 0 && bytes[0] == (byte)'{')
+                {
+                    deferredBytes[i] = bytes;
+                }
+                else
+                {
+                    deferredTexts[i] = asset.text;
+                }
             }
             Addressables.Release(handle);
 
-            var parsedTables = new BasisLanguageTable[assetCount];
-            var builtTables = new Dictionary<string, string>[assetCount];
-            System.Threading.Tasks.Parallel.For(0, assetCount, i =>
+            BasisTasks.For(0, assetCount, i =>
             {
-                string text = texts[i];
-                if (string.IsNullOrEmpty(text))
+                if (!tables.Deferred[i])
                 {
-                    return;
+                    ParseTable(tables, i, texts[i]);
                 }
-
-                BasisLanguageTable parsed;
-                try
-                {
-                    parsed = JsonUtility.FromJson<BasisLanguageTable>(text);
-                }
-                catch (Exception e)
-                {
-                    BasisDebug.LogError($"Failed to parse language asset \"{names[i]}\": {e}", BasisDebug.LogTag.Language);
-                    return;
-                }
-
-                if (parsed == null || string.IsNullOrEmpty(parsed.code))
-                {
-                    return;
-                }
-
-                Dictionary<string, string> table = new(parsed.entries?.Count ?? 0);
-                if (parsed.entries != null)
-                {
-                    for (int j = 0; j < parsed.entries.Count; j++)
-                    {
-                        BasisLanguageEntry entry = parsed.entries[j];
-                        if (entry == null || string.IsNullOrEmpty(entry.key))
-                        {
-                            continue;
-                        }
-
-                        table[entry.key] = entry.value ?? string.Empty;
-                    }
-                }
-
-                parsedTables[i] = parsed;
-                builtTables[i] = table;
             });
 
-            for (int Index = 0; Index < assetCount; Index++)
+            if (!tables.CodesMatchNames(false))
             {
-                BasisLanguageTable parsed = parsedTables[Index];
-                Dictionary<string, string> table = builtTables[Index];
+                ParseDeferred(tables, deferredTexts, deferredBytes);
+                MergeTables(tables, false, true);
+                RebuildAvailable(tables);
+                return;
+            }
+
+            MergeTables(tables, false, false);
+            tables.Pending = BasisTasks.Run(() => ParseDeferred(tables, deferredTexts, deferredBytes));
+            _deferredTables = tables;
+        }
+
+        private sealed class LanguageAssets
+        {
+            public readonly string[] Names;
+            public readonly bool[] Deferred;
+            public readonly BasisLanguageTable[] Parsed;
+            public readonly Dictionary<string, string>[] Built;
+            public System.Threading.Tasks.Task Pending;
+
+            public LanguageAssets(int count)
+            {
+                Names = new string[count];
+                Deferred = new bool[count];
+                Parsed = new BasisLanguageTable[count];
+                Built = new Dictionary<string, string>[count];
+            }
+
+            public bool CodesMatchNames(bool deferred)
+            {
+                for (int i = 0; i < Names.Length; i++)
+                {
+                    if (Deferred[i] == deferred && Parsed[i] != null && !string.Equals(Parsed[i].code, Names[i], StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+
+        private static bool IsStartupLanguage(string assetName, string languageCode)
+        {
+            return string.Equals(assetName, DefaultLanguage, StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrEmpty(languageCode) && string.Equals(assetName, languageCode, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static void ParseDeferred(LanguageAssets tables, string[] deferredTexts, byte[][] deferredBytes)
+        {
+            BasisTasks.For(0, tables.Names.Length, i =>
+            {
+                if (!tables.Deferred[i])
+                {
+                    return;
+                }
+                string text = deferredBytes[i] != null ? System.Text.Encoding.UTF8.GetString(deferredBytes[i]) : deferredTexts[i];
+                deferredBytes[i] = null;
+                deferredTexts[i] = null;
+                ParseTable(tables, i, text);
+            });
+        }
+
+        private static void ParseTable(LanguageAssets tables, int index, string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            BasisLanguageTable parsed;
+            try
+            {
+                parsed = JsonUtility.FromJson<BasisLanguageTable>(text);
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Failed to parse language asset \"{tables.Names[index]}\": {e}", BasisDebug.LogTag.Language);
+                return;
+            }
+
+            if (parsed == null || string.IsNullOrEmpty(parsed.code))
+            {
+                return;
+            }
+
+            Dictionary<string, string> table = new(parsed.entries?.Count ?? 0);
+            if (parsed.entries != null)
+            {
+                for (int j = 0; j < parsed.entries.Count; j++)
+                {
+                    BasisLanguageEntry entry = parsed.entries[j];
+                    if (entry == null || string.IsNullOrEmpty(entry.key))
+                    {
+                        continue;
+                    }
+
+                    table[entry.key] = entry.value ?? string.Empty;
+                }
+            }
+
+            parsed.entries = null;
+            tables.Parsed[index] = parsed;
+            tables.Built[index] = table;
+        }
+
+        private static void MergeTables(LanguageAssets tables, bool deferred, bool all)
+        {
+            for (int Index = 0; Index < tables.Names.Length; Index++)
+            {
+                if (!all && tables.Deferred[Index] != deferred)
+                {
+                    continue;
+                }
+
+                BasisLanguageTable parsed = tables.Parsed[Index];
+                Dictionary<string, string> table = tables.Built[Index];
                 if (parsed == null || table == null)
                 {
                     continue;
@@ -430,6 +536,19 @@ namespace Basis.BasisUI
                     {
                         _fallback[kv.Key] = kv.Value;
                     }
+                }
+            }
+        }
+
+        private static void RebuildAvailable(LanguageAssets tables)
+        {
+            _available.Clear();
+            _available.Add(new LanguageOption(DefaultLanguage, "English"));
+            for (int Index = 0; Index < tables.Names.Length; Index++)
+            {
+                BasisLanguageTable parsed = tables.Parsed[Index];
+                if (parsed == null || string.Equals(parsed.code, DefaultLanguage, StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
                 }
 
@@ -448,6 +567,39 @@ namespace Basis.BasisUI
                     _available.Add(new LanguageOption(parsed.code, nativeName));
                 }
             }
+        }
+
+        private static void EnsureDeferredTables()
+        {
+            LanguageAssets tables = _deferredTables;
+            if (tables == null)
+            {
+                return;
+            }
+            _deferredTables = null;
+
+            try
+            {
+                tables.Pending.Wait();
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Failed to parse deferred language assets: {e}", BasisDebug.LogTag.Language);
+                return;
+            }
+
+            if (tables.CodesMatchNames(true))
+            {
+                MergeTables(tables, true, false);
+                RebuildAvailable(tables);
+                return;
+            }
+
+            _allTables.Clear();
+            _fallback.Clear();
+            MergeTables(tables, false, true);
+            RebuildAvailable(tables);
+            LoadLanguage(_currentLanguage, notify: true);
         }
     }
 }

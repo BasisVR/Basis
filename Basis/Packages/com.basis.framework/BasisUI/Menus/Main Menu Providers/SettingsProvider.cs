@@ -2021,7 +2021,7 @@ namespace Basis.BasisUI
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(qualityToggle, qualityGroup, true,
                 _ => descriptor.ForceRebuild());
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             {
                 PanelSectionToggle giToggle = PanelSectionToggle.CreateNewEntry(container);
                 PanelElementDescriptor giGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -2509,7 +2509,7 @@ namespace Basis.BasisUI
             }
 #endif
 
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             {
                 PanelSectionToggle rtaoToggle = PanelSectionToggle.CreateNewEntry(container);
                 PanelElementDescriptor rtaoGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -4449,7 +4449,7 @@ namespace Basis.BasisUI
                 toggleVrsDesktop.AssignBinding(BasisSettingsDefaults.DevVariableRateShadingDesktop);
             }
 
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             PanelToggle toggleRtaoDebug = PanelToggle.CreateNewEntry(container);
             toggleRtaoDebug.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.rtaoDebug"));
             toggleRtaoDebug.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.rtaoDebug.tooltip"));
@@ -4469,7 +4469,7 @@ namespace Basis.BasisUI
             dropdownRtaoStage.AssignBinding(BasisSettingsDefaults.DevRtaoDebugStage);
 #endif
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             PanelDropdown dropdownGiDebug = PanelDropdown.CreateNewEntry(container);
             dropdownGiDebug.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.giDebug"));
             dropdownGiDebug.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.giDebug.tooltip"));

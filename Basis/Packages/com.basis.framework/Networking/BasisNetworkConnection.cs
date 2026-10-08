@@ -58,6 +58,14 @@ namespace Basis.Scripts.Networking
 
             BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId).UseNativeSockets = false;
 
+            bool runsInBrowser = BasisBrowserWebSocketChannel.IsSupported;
+            if (isHostMode && runsInBrowser)
+            {
+                BasisDebug.LogError("A web build cannot host a server; connect to one instead.", BasisDebug.LogTag.Networking);
+                HandleDisconnection(null, new DisconnectInfo { Reason = DisconnectReason.ConnectionFailed });
+                return;
+            }
+
             if (isHostMode)
             {
                 ipString = "localhost";
@@ -126,7 +134,7 @@ namespace Basis.Scripts.Networking
 
             BasisDebug.Log("Network Starting Client");
 
-            _ = Task.Run(() =>
+            void StartClient()
             {
                 try
                 {
@@ -146,7 +154,7 @@ namespace Basis.Scripts.Networking
                         UseAuth = true,
                         Password = primitivePassword,
                         EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue,
-                        NetworkStackId = networkStackId ?? string.Empty,
+                        NetworkStackId = BasisNetworkStackRegistry.ParseStackList(networkStackId)[0],
                     };
                     // Pass the token into anything that supports cancellation
                     LocalPlayerPeer = NetworkClient.StartClient(
@@ -182,7 +190,16 @@ namespace Basis.Scripts.Networking
                         Reason = DisconnectReason.UnknownHost
                     });
                 }
-            });
+            }
+
+            if (runsInBrowser)
+            {
+                StartClient();
+            }
+            else
+            {
+                _ = Task.Run(StartClient);
+            }
         }
         public static void OnDestroy()
         {

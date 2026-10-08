@@ -895,7 +895,7 @@ public partial class BasisHandHeldCameraUI
         }
 #endif
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         if (HHC != null)
         {
             settings.overrideGlobalIllumination = HHC.OverrideGlobalIllumination;
@@ -927,7 +927,7 @@ public partial class BasisHandHeldCameraUI
         }
 #endif
 
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
         if (HHC != null)
         {
             settings.overrideRTAO = HHC.OverrideRTAO;
@@ -1435,7 +1435,7 @@ public partial class BasisHandHeldCameraUI
         }
 #endif
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         HHC.SetGlobalIlluminationOverrideMode(settings.giMode);
         HHC.SetGlobalIlluminationOverrideSkinnedMeshes(settings.giSkinnedMeshes);
         HHC.SetGlobalIlluminationOverrideLayers(settings.giLayers);
@@ -1466,7 +1466,7 @@ public partial class BasisHandHeldCameraUI
         HHC.SetOverrideGlobalIllumination(settings.overrideGlobalIllumination);
 #endif
 
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
         HHC.SetRTAOOverrideMode(settings.rtaoMode);
         HHC.SetRTAOOverrideIntensity(settings.rtaoIntensity);
         HHC.SetRTAOOverrideRadius(settings.rtaoRadius);

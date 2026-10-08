@@ -68,6 +68,11 @@ namespace Basis.Network.Core
         {
             NetworkReceiveUnconnectedEvent?.Invoke(remoteEndPoint, reader);
         }
+
+        public void RaiseNetworkError(IPEndPoint endPoint, SocketError socketError)
+        {
+            NetworkErrorEvent?.Invoke(endPoint, socketError);
+        }
     }
 
     public interface ConnectionRequest
@@ -100,6 +105,10 @@ namespace Basis.Network.Core
         public int Mtu { get; }
 
         public object Tag { get; set; }
+
+        public string StackId => BasisNetworkStackRegistry.LiteNetLibId;
+
+        public bool SupportsDirectConnect => true;
 
         // public readonly NetStatistics Statistics;
     }
@@ -136,6 +145,12 @@ namespace Basis.Network.Core
         public NetStatistics Statistics { get; }
 
         public int ConnectedPeersCount { get; }
+
+        public bool IsRunning => true;
+
+        public string StackId => BasisNetworkStackRegistry.LiteNetLibId;
+
+        public string ListenDescription => null;
 
         /// <summary>
         /// Unreliable packets dropped because a peer's send queue was over budget — i.e. the server

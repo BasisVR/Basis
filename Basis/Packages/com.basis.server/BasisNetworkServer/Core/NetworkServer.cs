@@ -318,23 +318,51 @@ public static class NetworkServer
         // Read straight from the config rather than from the mirror in the reduction system, so
         // this does not depend on InitializePulseSettings having run first. 0 is auto, which always
         // derives more than one, so only an explicit 1 means "never add a socket".
-        if (Server is LNLNetManager lnlServer && lnlServer.manager != null)
+        LiteNetLib.NetManager lnlManager = Server.LiteNetLibManager();
+        if (lnlManager != null)
         {
-            lnlServer.manager.AllowSendSocketGrowth = Basis.Network.Core.BasisTransportConfigStore
+            lnlManager.AllowSendSocketGrowth = Basis.Network.Core.BasisTransportConfigStore
                 .Get<Basis.Network.Core.LNLTransportConfig>(
                     Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId).MaxSendSockets != 1;
         }
 
         Server.Start(ipv4, ipv6, configuration.SetPort);
-        if (Server is LNLNetManager started && started.manager != null && !started.manager.IsRunning)
+        bool allRunning = true;
+        foreach (NetManager transport in Server.Transports())
         {
-            BNL.LogError($"Not listening: UDP port {configuration.SetPort} could not be bound. Another process may already be using it.");
+            if (transport.IsRunning)
+            {
+                BNL.Log($"Listening on {transport.ListenDescription ?? transport.StackId}");
+                continue;
+            }
+            allRunning = false;
+            if (transport is LNLNetManager)
+            {
+                BNL.LogError($"Not listening: UDP port {configuration.SetPort} could not be bound. Another process may already be using it.");
+            }
+            else
+            {
+                BNL.LogError($"Not listening: the '{transport.StackId}' transport could not start. See the errors above.");
+            }
+        }
+        if (!allRunning)
+        {
+            try { Server.Stop(); } catch (Exception ex) { BNL.LogWarning($"Stopping transports after a failed start threw: {ex.Message}"); }
             return false;
         }
-        BNL.Log($"Listening on UDP port {configuration.SetPort}");
         BNL.Log($"  IPv4 bind: {ipv4}");
         BNL.Log($"  IPv6 bind: [{ipv6}]");
         return true;
+    }
+
+    public static IReadOnlyList<NetPeer> PeersOnTransport(string stackId)
+    {
+        List<NetPeer> peers = new List<NetPeer>();
+        foreach (NetPeer peer in PeerSnapshot)
+        {
+            if (string.Equals(peer.StackId, stackId, StringComparison.OrdinalIgnoreCase)) peers.Add(peer);
+        }
+        return peers;
     }
     #endregion
     public static void BroadcastMessageToClients(NetDataWriter writer, byte channel, NetPeer sender, ReadOnlySpan<NetPeer> clients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int maxMessages = 70)

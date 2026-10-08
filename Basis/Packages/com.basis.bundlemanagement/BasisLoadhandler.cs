@@ -792,7 +792,7 @@ public static partial class BasisLoadHandler
 
         foreach (string file in files)
         {
-            loadTasks.Add(Task.Run(async () =>
+            loadTasks.Add(BasisTasks.Run(async () =>
             {
                // BasisDebug.Log($"Loading file: {file}");
                 try

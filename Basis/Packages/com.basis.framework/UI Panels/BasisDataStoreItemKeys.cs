@@ -468,7 +468,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         // FIX: EnsureLoaded guarantees disk state is in memory before any mutation.
         // Uses double-check pattern: fast path avoids lock overhead after first load.
-        private static async Task EnsureLoaded()
+        public static async Task EnsureLoaded()
         {
             if (_loaded) return;
 

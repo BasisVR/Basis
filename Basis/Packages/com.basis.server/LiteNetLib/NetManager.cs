@@ -1244,9 +1244,24 @@ namespace LiteNetLib
             return netPeer;
         }
 
+        public Func<int> PeerIdAllocator;
+        public Action<int> PeerIdRelease;
+
         private int GetNextPeerId()
         {
+            Func<int> allocator = PeerIdAllocator;
+            if (allocator != null)
+                return allocator();
             return _peerIds.TryDequeue(out int id) ? id : _lastPeerId++;
+        }
+
+        private void ReleasePeerId(int id)
+        {
+            Action<int> release = PeerIdRelease;
+            if (release != null)
+                release(id);
+            else
+                _peerIds.Enqueue(id);
         }
 
         private void ProcessConnectRequest(

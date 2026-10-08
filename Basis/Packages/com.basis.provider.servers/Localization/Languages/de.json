@@ -236,6 +236,10 @@
       "value": "Host-Netzwerk-Stack"
     },
     {
+      "key": "menu.servers.hostStackBoth",
+      "value": "LiteNetLib + WebSocket (Desktop- und Browser-Spieler)"
+    },
+    {
       "key": "menu.servers.networkStack",
       "value": "Netzwerk-Stack"
     },

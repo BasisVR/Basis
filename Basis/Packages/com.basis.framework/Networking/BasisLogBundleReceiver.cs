@@ -198,7 +198,7 @@ public static partial class BasisLogBundleReceiver
         Reset();
 
         BasisUILoadingBar.ProgressReport(ProgressKey, 95f, ExtractLabel);
-        _ = Task.Run(() => ExpandAndNotify(payload, payloadLen, rawLen, compressed, destDir));
+        _ = BasisTasks.Run(() => ExpandAndNotify(payload, payloadLen, rawLen, compressed, destDir));
     }
 
     private static void ExpandAndNotify(byte[] payload, int payloadLen, int rawLen, bool compressed, string destDir)

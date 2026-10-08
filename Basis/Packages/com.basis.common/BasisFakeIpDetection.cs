@@ -128,7 +128,7 @@ namespace Basis.Scripts.Common
             try
             {
                 Task<IPAddress[]> lookup = Dns.GetHostAddressesAsync(name);
-                if (await Task.WhenAny(lookup, Task.Delay(ProbeTimeoutMs)) != lookup) return false;
+                if (await Task.WhenAny(lookup, BasisTasks.Delay(ProbeTimeoutMs)) != lookup) return false;
                 addresses = await lookup;
             }
             catch (Exception)

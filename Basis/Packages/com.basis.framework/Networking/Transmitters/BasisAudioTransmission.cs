@@ -34,9 +34,11 @@ namespace Basis.Scripts.Networking.Transmitters
         // OnAudioReady, but in 40ms mode the encoder needs 1920 samples per call. We
         // copy each tick's 960 valid samples into _frameAccum and only encode once it
         // is full. _frameAccumFilled tracks how many samples are currently buffered.
+#if !BASIS_DISABLE_MICROPHONE
         private float[] _frameAccum;
         private int _frameAccumFilled;
         private volatile bool _accumResetRequested;
+#endif
 #endif
         /// <summary>
         /// When true, voice is sent on AnnounceVoiceChannel (channel 4) instead of VoiceChannel (channel 3).
@@ -77,8 +79,10 @@ namespace Basis.Scripts.Networking.Transmitters
                 _directEncoder?.Dispose();
                 _directEncoder = null;
             }
+#if !BASIS_DISABLE_MICROPHONE
             _frameAccum = null;
             _frameAccumFilled = 0;
+#endif
 #endif
         }
 
@@ -155,7 +159,9 @@ namespace Basis.Scripts.Networking.Transmitters
         /// </summary>
         private void ApplyFrameDuration(float durationSeconds)
         {
+#if !BASIS_DISABLE_MICROPHONE
             _accumResetRequested = true;
+#endif
         }
 
         /// <summary>
@@ -234,7 +240,9 @@ namespace Basis.Scripts.Networking.Transmitters
             // In normal mode we only send if someone is in range.
             if (!IsInAnnounceMode && !NetworkedPlayer.HasReasonToSendAudio)
             {
+#if !BASIS_DISABLE_MICROPHONE
                 _frameAccumFilled = 0;
+#endif
                 return;
             }
 
@@ -388,7 +396,9 @@ namespace Basis.Scripts.Networking.Transmitters
 #if UNITY_SERVER
             return;
 #else
+#if !BASIS_DISABLE_MICROPHONE
             _frameAccumFilled = 0;
+#endif
 
             if (!IsInAnnounceMode && !NetworkedPlayer.HasReasonToSendAudio)
             {

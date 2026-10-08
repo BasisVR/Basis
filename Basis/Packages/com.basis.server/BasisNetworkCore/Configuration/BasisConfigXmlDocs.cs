@@ -41,6 +41,7 @@ namespace Basis.Network.Core
         {
             RegisterServerConfig();
             RegisterLnlConfig();
+            RegisterWebSocketConfig();
         }
 
         /// <summary>Serialize <paramref name="value"/> to <paramref name="writer"/> with doc comments injected for <paramref name="type"/>.</summary>
@@ -146,7 +147,7 @@ namespace Basis.Network.Core
             };
             t.Fields.Add(new FieldDoc("ConfigVersion", " Config schema version, managed automatically. When the server gains new settings this file is rewritten to add them (with their defaults) and this number is bumped — don't edit by hand. "));
             t.Fields.Add(new FieldDoc("PeerLimit", " Maximum number of simultaneously connected peers (players). int. Default 65535. ", " ===== Networking / listener ===== "));
-            t.Fields.Add(new FieldDoc("SetPort", " UDP port the server binds and listens on; clients connect to this. ushort, range 1-65535. "));
+            t.Fields.Add(new FieldDoc("SetPort", " UDP port the server binds and listens on; clients connect to this. When NetworkStackId includes websocket, that transport listens on the same number over TCP unless transports/websocket.xml sets its own Port. ushort, range 1-65535. "));
             t.Fields.Add(new FieldDoc("ServerName", " Display name shown as the row title in client server-list UIs (server-info query). string. "));
             t.Fields.Add(new FieldDoc("ServerMotd", " Short message-of-the-day returned alongside the server name. string; empty = none. "));
             t.Fields.Add(new FieldDoc("ServerUUID", " Stable application-level server identity sent to every client when it joins. Independent of IP addresses, ports, DNS and transport; set this explicitly when an embedded server should share another identity. string; defaults to a generated UUID and persists in config.xml. "));
@@ -178,7 +179,7 @@ namespace Basis.Network.Core
             t.Fields.Add(new FieldDoc("Password", " Password clients must present to join. Change this for any non-local server! string. ", " ===== Authentication ===== "));
             t.Fields.Add(new FieldDoc("UseAuth", " Require the join password (above) to be correct. true|false. "));
             t.Fields.Add(new FieldDoc("UseAuthIdentity", " Require cryptographic player-identity (DID) verification in addition to the password. true|false. The headless load-test client console supports this, so it can stay enabled. "));
-            t.Fields.Add(new FieldDoc("NetworkStackId", " Transport stack id. Empty = the default ('litenetlib'); only 'litenetlib' is registered and unknown ids fall back to it. Per-stack tuning lives in config/transports/<id>.xml. string. "));
+            t.Fields.Add(new FieldDoc("NetworkStackId", " Transports the server listens on, as a comma-separated list of stack ids. Empty = the default ('litenetlib', UDP only). 'litenetlib,websocket' also accepts WebSocket clients (web browsers, or native clients on networks that block UDP) over TCP, by default on the same port number as SetPort. Every transport shares one player id space, so players on different transports see each other normally. Unknown ids are skipped with a warning. Per-stack tuning lives in config/transports/<id>.xml. string. "));
             t.Fields.Add(new FieldDoc("BasisUserRestrictionMode", " Player join restriction mode. Allowed values: Normal | BanList | AllowList | RejoinOnly. RejoinOnly locks the server to the players connected when it was enabled (admins may still join) and resets to Normal on restart. "));
             t.Fields.Add(new FieldDoc("HowManyDuplicateAuthCanExist", " How many connections sharing the same auth identity may exist at once. int. "));
             t.Fields.Add(new FieldDoc("AuthValidationTimeOutMiliseconds", " Time a client has to complete auth validation before being dropped. int (ms). "));
@@ -272,6 +273,36 @@ namespace Basis.Network.Core
             t.Fields.Add(new FieldDoc("PacketPoolSizePerPeer", " Recycled packets kept per connected peer, so the packet pool grows with the crowd instead of hitting a fixed wall. The pool absorbs the gap between a burst of sends draining it and those packets being returned, and that gap scales with peer count: measured at ~2,850 players a fixed 65,536 pool swung between full (recycled packets discarded) and empty (every send allocating), with ~36% of pool requests allocating. The effective ceiling is peers x this value, floored at PacketPoolSize and capped by PacketPoolSizeMax. 0 disables scaling. int. "));
             t.Fields.Add(new FieldDoc("PacketPoolSizeMax", " Hard ceiling on the scaled packet pool, so peer count cannot turn into unbounded memory. Each pooled packet retains its buffer (up to one MTU), so this is roughly the worst-case pool footprint in packets. int; 0 = size automatically from available memory, which is recommended. This used to be a fixed 262144, which is the wall from roughly 5400 peers upward: at 8000 peers the per-peer rule asks for 384000 and every recycle past the cap was discarded for the garbage collector to re-allocate. Set a positive value only to pin it. "));
             _docs[typeof(LNLTransportConfig)] = t;
+        }
+
+        private static void RegisterWebSocketConfig()
+        {
+            var t = new TypeDoc
+            {
+                Header = " WebSocket transport (sidecar for the 'websocket' network stack). Only used when NetworkStackId in config.xml includes 'websocket'. This is how web browsers connect, and it also works for native clients on networks that block UDP. Traffic is TCP, so unreliable data cannot overtake reliable data; the server sheds queued position and voice updates for a peer that falls behind instead of letting its latency grow. ",
+            };
+            t.Fields.Add(new FieldDoc("ConfigVersion", " Config schema version, managed automatically; new settings are added to this file on load - don't edit by hand. "));
+            t.Fields.Add(new FieldDoc("Port", " TCP port to listen on. 0 = the same number as SetPort in config.xml (UDP and TCP ports are separate, so both can be 4296). Open it as TCP in your firewall and container port mappings. ushort. ", " ===== Listening ===== "));
+            t.Fields.Add(new FieldDoc("Path", " Request path clients must use, for example /basis behind a reverse proxy that routes by path. Empty = accept any path. string. "));
+            t.Fields.Add(new FieldDoc("AllowedOrigins", " Web origins allowed to connect, comma-separated (for example https://play.example.com). * = any origin. Clients that send no Origin header (native clients) are always allowed. string. "));
+            t.Fields.Add(new FieldDoc("TlsEnabled", " Serve wss:// directly. A browser on an https:// page can only open wss:// connections, so either enable this or put a TLS-terminating reverse proxy (Caddy, nginx) in front of the server. true|false. ", " ===== TLS ===== "));
+            t.Fields.Add(new FieldDoc("TlsCertificatePath", " Certificate file: a .pfx/.p12 bundle, or a PEM certificate chain (fullchain.pem) together with TlsKeyPath. Relative paths are looked up next to the server, then in the config folder. The file is checked once a minute and reloaded when it changes, so renewals need no restart. string. "));
+            t.Fields.Add(new FieldDoc("TlsKeyPath", " PEM private key (privkey.pem) for a PEM certificate. Empty when the key is inside the certificate file. string. "));
+            t.Fields.Add(new FieldDoc("TlsCertificatePassword", " Password for a .pfx file or an encrypted PEM key. Empty for none. string. "));
+            t.Fields.Add(new FieldDoc("TrustedProxies", " Reverse proxies whose X-Forwarded-For and X-Real-IP headers are believed, as comma-separated addresses or CIDR ranges. Connections from anywhere else are identified by their own address, so these headers cannot be used to dodge an IP ban. Add your proxy here when it is not on this machine; without it every player behind the proxy shares the proxy's address. string. ", " ===== Reverse proxies ===== "));
+            t.Fields.Add(new FieldDoc("ClientUseTls", " Client side only: connect with wss:// when a server is given as a plain host and port. A full ws:// or wss:// address always wins. true|false. "));
+            t.Fields.Add(new FieldDoc("HandshakeTimeoutMs", " How long a new connection may take to finish its TLS and WebSocket handshake and be answered by the server. int (ms). ", " ===== Timing ===== "));
+            t.Fields.Add(new FieldDoc("MaxPendingHandshakes", " Connections allowed to be mid-handshake at once; more are closed immediately until some finish. Bounds what a flood of half-open connections can cost. int. "));
+            t.Fields.Add(new FieldDoc("PingInterval", " Interval between keep-alive pings. int (ms). "));
+            t.Fields.Add(new FieldDoc("DisconnectTimeout", " Time with nothing received from a peer before it is disconnected. int (ms). "));
+            t.Fields.Add(new FieldDoc("ConnectTimeoutMs", " Client side only: how long to wait for the server to accept a connection. int (ms). "));
+            t.Fields.Add(new FieldDoc("MaxMessageBytes", " Largest single WebSocket message accepted from a peer; a peer sending more is disconnected. int (bytes). ", " ===== Limits ===== "));
+            t.Fields.Add(new FieldDoc("MaxPendingBytesPerPeer", " Reliable data allowed to queue for one peer before it is judged unable to keep up and disconnected. int (bytes). "));
+            t.Fields.Add(new FieldDoc("MaxUnreliableBytesPerPeer", " Queued position and other unreliable data allowed per peer; past this, new updates for that peer are dropped, since a newer one replaces them anyway. Counted in droppedUnreliable on /health. int (bytes). "));
+            t.Fields.Add(new FieldDoc("MaxVoiceBytesPerPeer", " Queued voice allowed per peer, separate from the budget above so a backlog of position updates cannot shed voice. Counted in droppedVoice on /health. int (bytes). "));
+            t.Fields.Add(new FieldDoc("SocketSendBufferBytes", " Kernel send buffer per connection. Smaller keeps queued data in the server, where it can be shed, instead of in the kernel, where it only adds latency. int (bytes); 0 = OS default. "));
+            t.Fields.Add(new FieldDoc("VirtualMtu", " Payload size the server assumes for a WebSocket peer when it packs avatar updates, the same role the UDP MTU plays for LiteNetLib peers. int (bytes); the default matches the largest UDP MTU. "));
+            _docs[typeof(BasisWebSocketTransportConfig)] = t;
         }
     }
 }

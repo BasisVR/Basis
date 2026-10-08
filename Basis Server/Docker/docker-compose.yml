@@ -14,8 +14,10 @@ services:
       PeerLimit: 1024
       EnableStatistics: true
       EnableConsole: false
+      # NetworkStackId: litenetlib,websocket
     ports:
       - "4296:4296/udp"
+      # - "4296:4296/tcp"
       - "10666:10666/tcp"
       - "1234:1234/tcp"
     volumes:

@@ -15,6 +15,11 @@ public static partial class BasisEncryptionWrapper
     private const int KeySize = 32;
     private const int IvSize = 16;
     private const int DecryptChunkSize = 64 * 1024;
+    private const int AesBlockSize = 16;
+    private const int ParallelDecryptReadSize = 1024 * 1024;
+    private const long ParallelDecryptMinChunk = 1024L * 1024L;
+    private const long ParallelDecryptThreshold = 4L * 1024L * 1024L;
+    private static readonly int ParallelDecryptWorkers = Math.Max(1, Math.Min(8, Environment.ProcessorCount / 2));
     public const int IterationSize = 10000;
     /// <summary>
     /// Largest single-dimension byte[] the runtime will allocate (0x7FFFFFC7), and therefore the
@@ -80,7 +85,7 @@ public static partial class BasisEncryptionWrapper
         if (inputFileInfo.Length > LargeFileThreshold)
         {
             // Offload to background thread for large files
-            return Task.Run(() => EncryptFileInternalAsync(UniqueID, password, inputPath, outputPath, reportProgress));
+            return BasisTasks.Run(() => EncryptFileInternalAsync(UniqueID, password, inputPath, outputPath, reportProgress));
         }
         else
         {
@@ -158,7 +163,7 @@ public static partial class BasisEncryptionWrapper
         BasisProgressReport reportProgress,
         CancellationToken ct = default)
     {
-        return Task.Run(() => DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress, ct), ct);
+        return BasisTasks.Run(() => DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress, ct), ct);
     }
 
     /// <summary>
@@ -176,7 +181,7 @@ public static partial class BasisEncryptionWrapper
         BasisProgressReport reportProgress,
         CancellationToken ct = default)
     {
-        return Task.Run(() => DecryptFromFileInternalAsync(UniqueID, password, filePath, offset, length, reportProgress, ct), ct);
+        return BasisTasks.Run(() => DecryptFromFileInternalAsync(UniqueID, password, filePath, offset, length, reportProgress, ct), ct);
     }
 
     private static async Task<BasisDecryptResult> DecryptFromFileInternalAsync(
@@ -231,6 +236,23 @@ public static partial class BasisEncryptionWrapper
                     $"Section range {offset}..{offset + length} lies outside {filePath} ({fileStream.Length} bytes).");
             }
 
+            long cipherLength = length - SaltSize - IvSize;
+            int chunks = ParallelDecryptChunkCount(cipherLength);
+            if (chunks > 1)
+            {
+                byte[] header = new byte[SaltSize + IvSize];
+                fileStream.Seek(offset, SeekOrigin.Begin);
+                int readHeader = ReadExactly(fileStream, header, header.Length);
+                if (readHeader != header.Length)
+                {
+                    return BasisDecryptResult.Fail(
+                        BasisDecryptError.WrongFormatOrCorruptHeader,
+                        $"Failed to read header (salt/iv). Read={readHeader}/{header.Length}.");
+                }
+                long cipherStart = offset + SaltSize + IvSize;
+                return await DecryptParallelAsync(UniqueID, password, header, cipherLength, chunks, at => OpenFileAt(filePath, cipherStart + at), reportProgress, ct);
+            }
+
             fileStream.Seek(offset, SeekOrigin.Begin);
             using var bounded = new BoundedReadStream(fileStream, length);
             return await DecryptStreamInternalAsync(UniqueID, password, bounded, length, reportProgress, ct);
@@ -280,6 +302,13 @@ public static partial class BasisEncryptionWrapper
             // ciphertext mid-decryption, causing PKCS7 padding failures under load.
             byte[] localCopy = new byte[encryptedData.Length];
             Buffer.BlockCopy(encryptedData, 0, localCopy, 0, encryptedData.Length);
+
+            long cipherLength = localCopy.Length - SaltSize - IvSize;
+            int chunks = ParallelDecryptChunkCount(cipherLength);
+            if (chunks > 1)
+            {
+                return await DecryptParallelAsync(UniqueID, password, localCopy, cipherLength, chunks, at => new MemoryStream(localCopy, (int)(SaltSize + IvSize + at), (int)(cipherLength - at), writable: false), reportProgress, ct);
+            }
 
             using var msInput = new MemoryStream(localCopy, writable: false);
             return await DecryptStreamInternalAsync(UniqueID, password, msInput, encryptedData.Length, reportProgress, ct);
@@ -408,6 +437,151 @@ public static partial class BasisEncryptionWrapper
             read += n;
         }
         return read;
+    }
+
+    private static int ReadExactly(Stream source, byte[] buffer, int count)
+    {
+        int read = 0;
+        while (read < count)
+        {
+            int n = source.Read(buffer, read, count - read);
+            if (n <= 0) break;
+            read += n;
+        }
+        return read;
+    }
+
+    private static int ParallelDecryptChunkCount(long cipherLength)
+    {
+        if (cipherLength < ParallelDecryptThreshold || cipherLength > MaxPlaintextBytes || cipherLength % AesBlockSize != 0)
+        {
+            return 1;
+        }
+        return (int)Math.Min(ParallelDecryptWorkers, cipherLength / ParallelDecryptMinChunk);
+    }
+
+    private static Stream OpenFileAt(string filePath, long position)
+    {
+        var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: false);
+        stream.Seek(position, SeekOrigin.Begin);
+        return stream;
+    }
+
+    private static async Task<BasisDecryptResult> DecryptParallelAsync(
+        string UniqueID,
+        BasisPassword password,
+        byte[] header,
+        long cipherLength,
+        int chunkCount,
+        Func<long, Stream> openAt,
+        BasisProgressReport reportProgress,
+        CancellationToken ct)
+    {
+        byte[] salt = new byte[SaltSize];
+        byte[] iv = new byte[IvSize];
+        Buffer.BlockCopy(header, 0, salt, 0, SaltSize);
+        Buffer.BlockCopy(header, SaltSize, iv, 0, IvSize);
+        byte[] keyBytes = DeriveKeyPbkdf2Sha1(password.VP, salt, IterationSize, KeySize);
+
+        int length = checked((int)cipherLength);
+        byte[] plain = new byte[length];
+        long blocks = cipherLength / AesBlockSize;
+        long[] decrypted = new long[1];
+        int[] starts = new int[chunkCount];
+        int[] counts = new int[chunkCount];
+        var workers = new Task<int>[chunkCount];
+        for (int i = 0; i < chunkCount; i++)
+        {
+            int start = (int)(blocks * i / chunkCount * AesBlockSize);
+            int end = (int)(blocks * (i + 1) / chunkCount * AesBlockSize);
+            bool last = i == chunkCount - 1;
+            starts[i] = start;
+            counts[i] = end - start;
+            workers[i] = BasisTasks.Run(() => DecryptChunk(openAt, keyBytes, iv, plain, start, end - start, last, decrypted, ct), ct);
+        }
+
+        Task<int[]> all = Task.WhenAll(workers);
+        float lastReportedProgress = 0;
+        while (!all.IsCompleted)
+        {
+            await Task.WhenAny(all, BasisTasks.Delay(50));
+            float progress = (float)Interlocked.Read(ref decrypted[0]) / length * 90f + 5f;
+            if (progress - lastReportedProgress >= 1f)
+            {
+                reportProgress?.ReportProgress(UniqueID, progress, ProgressReadingData);
+                lastReportedProgress = progress;
+            }
+        }
+
+        int[] written = await all;
+        for (int i = 0; i < chunkCount - 1; i++)
+        {
+            if (written[i] != counts[i])
+            {
+                return BasisDecryptResult.Fail(BasisDecryptError.Unknown, $"Parallel decrypt chunk {i} produced {written[i]} of {counts[i]} bytes.");
+            }
+        }
+
+        int total = starts[chunkCount - 1] + written[chunkCount - 1];
+        byte[] result;
+        if (total == plain.Length)
+        {
+            result = plain;
+        }
+        else
+        {
+            result = new byte[total];
+            Buffer.BlockCopy(plain, 0, result, 0, total);
+        }
+
+        reportProgress?.ReportProgress(UniqueID, 100, ProgressDecryptionComplete);
+        return BasisDecryptResult.Ok(result);
+    }
+
+    private static int DecryptChunk(Func<long, Stream> openAt, byte[] key, byte[] headerIv, byte[] plain, int start, int count, bool last, long[] decrypted, CancellationToken ct)
+    {
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(ParallelDecryptReadSize);
+        try
+        {
+            using Stream source = openAt(start == 0 ? 0 : start - AesBlockSize);
+            byte[] iv = headerIv;
+            if (start != 0)
+            {
+                iv = new byte[AesBlockSize];
+                if (ReadExactly(source, iv, AesBlockSize) != AesBlockSize)
+                {
+                    throw new EndOfStreamException($"Encrypted section ended before chunk {start}.");
+                }
+            }
+
+            using var aes = Aes.Create();
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = last ? PaddingMode.PKCS7 : PaddingMode.None;
+            using ICryptoTransform decryptor = aes.CreateDecryptor(key, iv);
+
+            int consumed = 0;
+            int written = 0;
+            while (consumed < count)
+            {
+                ct.ThrowIfCancellationRequested();
+                int want = Math.Min(ParallelDecryptReadSize, count - consumed);
+                if (ReadExactly(source, buffer, want) != want)
+                {
+                    throw new EndOfStreamException($"Encrypted section ended inside chunk {start}.");
+                }
+                written += decryptor.TransformBlock(buffer, 0, want, plain, start + written);
+                consumed += want;
+                Interlocked.Add(ref decrypted[0], want);
+            }
+
+            byte[] tail = decryptor.TransformFinalBlock(buffer, 0, 0);
+            Buffer.BlockCopy(tail, 0, plain, start + written, tail.Length);
+            return written + tail.Length;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>

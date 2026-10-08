@@ -3,7 +3,7 @@ using System;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using UnityEngine;
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
 using Basis.Rendering.RTAO;
 #endif
 
@@ -186,7 +186,7 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             if (Enum.TryParse(giQualityOverride, true, out BasisGlobalIlluminationQuality quality))
             {
                 BasisGlobalIlluminationSettings.Current.quality = quality;
@@ -207,7 +207,7 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             if (Enum.TryParse(rtaoQualityOverride, true, out BasisRTAOQuality quality))
             {
                 BasisRTAOFeature.HasQualityOverride = true;

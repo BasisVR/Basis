@@ -99,8 +99,7 @@ public class BasisSceneValidator : BasisValidationRunner
             bucket.Pass(BasisEditorLocalization.Get("sdk.sceneValidator.bundleDescription.set"));
         }
 
-        BasisAssetBundleObject assetBundleObject = BasisValidationAssetCache.AssetBundleObject;
-        if (assetBundleObject != null && assetBundleObject.UseCustomPassword && string.IsNullOrEmpty(assetBundleObject.UserSelectedPassword))
+        if (Scene.UseCustomPassword && string.IsNullOrEmpty(Scene.UserSelectedPassword))
         {
             bucket.Error(BasisEditorLocalization.Get("sdk.sceneValidator.password.empty"), ValidationCategory.Security);
         }

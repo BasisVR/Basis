@@ -126,7 +126,9 @@ namespace Basis.Scripts.Networking
         {
             BasisPlayerSettingsManager.EnsureInitialized();
             sShutdown = false;
+#if !(UNITY_WEBGL && !UNITY_EDITOR)
             EnsureRunning();
+#endif
         }
 
         /// <summary>
@@ -166,8 +168,12 @@ namespace Basis.Scripts.Networking
             {
                 return;
             }
+#if UNITY_WEBGL && !UNITY_EDITOR
+            Process(new Job(payload, isBatch, Volatile.Read(ref sGeneration)));
+#else
             EnsureRunning();
             sJobs.Add(new Job(payload, isBatch, Volatile.Read(ref sGeneration)));
+#endif
         }
 
         private static void EnsureRunning()
@@ -213,30 +219,35 @@ namespace Basis.Scripts.Networking
             {
                 foreach (Job job in sJobs.GetConsumingEnumerable((CancellationToken)state))
                 {
-                    try
-                    {
-                        if (job.Generation != Volatile.Read(ref sGeneration))
-                        {
-                            // Submitted before a teardown; whatever it describes is gone.
-                            continue;
-                        }
-                        if (job.IsBatch)
-                        {
-                            DecodeBatch(job.Payload, job.Generation);
-                        }
-                        else
-                        {
-                            DecodeSingle(job.Payload, job.Generation);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        BasisDebug.LogError($"Dropping corrupt remote-player spawn packet: {ex.Message}", BasisDebug.LogTag.Networking);
-                    }
+                    Process(job);
                 }
             }
             catch (OperationCanceledException)
             {
+            }
+        }
+
+        private static void Process(Job job)
+        {
+            try
+            {
+                if (job.Generation != Volatile.Read(ref sGeneration))
+                {
+                    // Submitted before a teardown; whatever it describes is gone.
+                    return;
+                }
+                if (job.IsBatch)
+                {
+                    DecodeBatch(job.Payload, job.Generation);
+                }
+                else
+                {
+                    DecodeSingle(job.Payload, job.Generation);
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"Dropping corrupt remote-player spawn packet: {ex.Message}", BasisDebug.LogTag.Networking);
             }
         }
 

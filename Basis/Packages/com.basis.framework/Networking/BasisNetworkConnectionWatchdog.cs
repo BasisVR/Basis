@@ -411,6 +411,15 @@ namespace Basis.Scripts.Networking
         {
             try
             {
+                NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
+                if (peer != null && peer.StackId == BasisNetworkStackRegistry.WebSocketId)
+                {
+                    BasisWebSocketTransportConfig webSocket = BasisTransportConfigStore.Get<BasisWebSocketTransportConfig>(BasisNetworkStackRegistry.WebSocketId);
+                    if (webSocket != null && webSocket.DisconnectTimeout > 0)
+                    {
+                        return webSocket.DisconnectTimeout;
+                    }
+                }
                 LNLTransportConfig config = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
                 if (config != null && config.DisconnectTimeout > 0)
                 {

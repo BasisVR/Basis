@@ -21,7 +21,7 @@ namespace Basis.BasisUI.HandHeldCamera
     /// </summary>
     public partial class BasisHandHeldCameraPanelProvider
     {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         private PanelSectionToggle _giSection;
         private PanelElementDescriptor _giGroup;
         private PanelToggle _giOverrideToggle;

@@ -43,6 +43,10 @@
       "value": "Host Networking Stack"
     },
     {
+      "key": "menu.servers.hostStackBoth",
+      "value": "LiteNetLib + WebSocket (desktop and browser players)"
+    },
+    {
       "key": "menu.servers.hostMode",
       "value": "Host Mode"
     },

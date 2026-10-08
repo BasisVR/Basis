@@ -202,9 +202,14 @@ namespace Basis.Scripts.Networking
         [NoAutoStaticsCleanup] static readonly ManualResetEventSlim s_computeDone = new ManualResetEventSlim(true);
         static volatile bool s_computeInFlight;
         static volatile Exception s_computeException;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        static readonly bool ParallelComputeAvailable = false;
+#else
+        static readonly bool ParallelComputeAvailable = true;
+#endif
         static void RunParallelCompute()
         {
-            if (s_parallelCount <= 4)
+            if (s_parallelCount <= 4 || !ParallelComputeAvailable)
             {
                 for (int i = 0; i < s_parallelCount; i++)
                 {
@@ -242,6 +247,18 @@ namespace Basis.Scripts.Networking
 
         static void KickParallelCompute()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            s_computeInFlight = true;
+            try
+            {
+                RunParallelCompute();
+            }
+            catch (Exception ex)
+            {
+                s_computeException = ex;
+            }
+            s_computeDone.Set();
+#else
             if (s_computeThread == null)
             {
                 s_computeThread = new Thread(ComputeThreadLoop)
@@ -256,6 +273,7 @@ namespace Basis.Scripts.Networking
             s_computeDone.Reset();
             s_computeInFlight = true;
             s_computeKick.Set();
+#endif
         }
 
         static void StopComputeWorker()
@@ -371,6 +389,11 @@ namespace Basis.Scripts.Networking
             {
                 Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.ComputeAll();
             }
+        }
+
+        public static void TickTransports()
+        {
+            BasisNetworkStackRegistry.TickActive();
         }
 
         /// <summary>

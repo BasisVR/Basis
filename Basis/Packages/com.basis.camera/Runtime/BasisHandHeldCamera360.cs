@@ -40,7 +40,7 @@ public partial class BasisHandHeldCamera
 
         RenderTexture equirect = BasisCameraRenderTargets.Create(perEyeWidth, fullHeight, RenderTextureFormat.ARGBFloat, 0, 1, false);
         RenderTexture cubeLeft = BasisCameraRenderTargets.CreateCube(faceSize, depth), cubeRight = stereo ? BasisCameraRenderTargets.CreateCube(faceSize, depth) : null;
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         SMModuleGlobalIlluminationURP.SuspendCamera(captureCamera, true);
 #endif
         bool rendered;
@@ -63,7 +63,7 @@ public partial class BasisHandHeldCamera
         }
         finally
         {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             SMModuleGlobalIlluminationURP.SuspendCamera(captureCamera, false);
 #endif
             if (!headWasNormal) BasisLocalAvatarDriver.ScaleHeadToZero();
@@ -114,7 +114,7 @@ public partial class BasisHandHeldCamera
 
         if (exr)
         {
-            imageData = await Task.Run(() =>
+            imageData = await BasisTasks.Run(() =>
             {
                 byte[] encoded = ImageConversion.EncodeArrayToEXR(raw, GraphicsFormat.R32G32B32A32_SFloat, (uint)width, (uint)height, 0, Texture2D.EXRFlags.CompressZIP);
                 return photoMetadata != null ? BasisHandHeldCameraPhotoMetadata.Embed(encoded, "EXR", photoMetadata, width, height) : encoded;
@@ -122,7 +122,7 @@ public partial class BasisHandHeldCamera
         }
         else
         {
-            (imageData, printCopy) = await Task.Run(() =>
+            (imageData, printCopy) = await BasisTasks.Run(() =>
             {
                 byte[] rgba = BasisCamera360.Tonemap(raw, width, height, exposure, contrast, saturation);
                 byte[] encoded = ImageConversion.EncodeArrayToPNG(rgba, GraphicsFormat.R8G8B8A8_SRGB, (uint)width, (uint)height, 0);

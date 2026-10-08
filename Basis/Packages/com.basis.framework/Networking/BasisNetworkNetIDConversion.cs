@@ -61,7 +61,7 @@ public static partial class BasisNetworkIdResolver
     {
         using var cts = new CancellationTokenSource(TimeoutMilliseconds);
 
-        var completedTask = await Task.WhenAny(task, Task.Delay(TimeoutMilliseconds, cts.Token));
+        var completedTask = await Task.WhenAny(task, BasisTasks.Delay(TimeoutMilliseconds, cts.Token));
         if (completedTask == task)
         {
             try

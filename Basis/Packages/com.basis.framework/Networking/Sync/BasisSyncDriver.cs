@@ -187,7 +187,7 @@ namespace Basis.Scripts.Networking.Sync
             _advanceDelta = deltaTime;
             if (n > 8)
             {
-                System.Threading.Tasks.Parallel.For(0, n, _advanceOptions, _advanceBody);
+                BasisTasks.For(0, n, _advanceOptions, _advanceBody);
             }
             else
             {

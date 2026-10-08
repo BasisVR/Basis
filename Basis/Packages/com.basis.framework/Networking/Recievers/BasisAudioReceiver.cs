@@ -974,7 +974,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_IOS && !UNITY_EDITOR
             // iOS requires statically linked Opus library
             decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
-#else
+#elif !UNITY_WEBGL || UNITY_EDITOR
             decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 #endif

@@ -1,11 +1,15 @@
 using System.Globalization;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Settings;
+[NoAutoStaticsCleanup]
 public abstract class BasisSettingsBase : MonoBehaviour
 {
+    [System.ThreadStatic] private static string lastSettingName, lastSettingNameLower, lastOptionValue, lastOptionValueLower;
+    [System.ThreadStatic] private static CultureInfo lastSettingCulture;
     public virtual void Awake()
     {
         BasisSettingsSystem.OnSettingChanged += TOLowerValidSettingsChange;
@@ -41,7 +45,26 @@ public abstract class BasisSettingsBase : MonoBehaviour
     }
     public void TOLowerValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        ValidSettingsChange(matchedSettingName.ToLower(), optionValue.ToLower());
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        if (matchedSettingName == null || optionValue == null || !ReferenceEquals(culture, lastSettingCulture))
+        {
+            lastSettingCulture = culture;
+            lastSettingName = null;
+            lastOptionValue = null;
+            ValidSettingsChange(matchedSettingName.ToLower(), optionValue.ToLower());
+            return;
+        }
+        if (!ReferenceEquals(matchedSettingName, lastSettingName))
+        {
+            lastSettingNameLower = matchedSettingName.ToLower();
+            lastSettingName = matchedSettingName;
+        }
+        if (!ReferenceEquals(optionValue, lastOptionValue))
+        {
+            lastOptionValueLower = optionValue.ToLower();
+            lastOptionValue = optionValue;
+        }
+        ValidSettingsChange(lastSettingNameLower, lastOptionValueLower);
     }
     /// <summary>
     /// Called when a valid setting change occurs.

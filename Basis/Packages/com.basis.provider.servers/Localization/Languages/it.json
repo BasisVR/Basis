@@ -236,6 +236,10 @@
       "value": "Stack di rete dell'host"
     },
     {
+      "key": "menu.servers.hostStackBoth",
+      "value": "LiteNetLib + WebSocket (giocatori desktop e browser)"
+    },
+    {
       "key": "menu.servers.networkStack",
       "value": "Stack di rete"
     },

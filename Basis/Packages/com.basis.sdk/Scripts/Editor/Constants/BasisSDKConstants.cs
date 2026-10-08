@@ -95,6 +95,15 @@ public class BasisSDKConstants
         BuildTarget.StandaloneLinux64,
         BuildTarget.Android,
         BuildTarget.iOS,
+        BuildTarget.WebGL,
+    };
+    public static List<BuildTarget> defaultTargets = new List<BuildTarget>
+    {
+        BuildTarget.StandaloneWindows64,
+        BuildTarget.StandaloneOSX,
+        BuildTarget.StandaloneLinux64,
+        BuildTarget.Android,
+        BuildTarget.iOS,
     };
 
     public static Dictionary<BuildTarget, string> targetDisplayNames = new Dictionary<BuildTarget, string>
@@ -104,6 +113,7 @@ public class BasisSDKConstants
         { BuildTarget.StandaloneLinux64, "Linux" },
         { BuildTarget.Android, "Android" },
         { BuildTarget.iOS, "iOS" },
+        { BuildTarget.WebGL, "Web" },
     };
     public static List<BuildTarget> OcclusionCullingTargets = new List<BuildTarget>
     {

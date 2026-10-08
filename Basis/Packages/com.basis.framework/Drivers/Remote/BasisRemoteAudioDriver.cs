@@ -1,6 +1,8 @@
 using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Networking.Receivers;
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
 using SteamAudio;
+#endif
 using System;
 using UnityEngine;
 

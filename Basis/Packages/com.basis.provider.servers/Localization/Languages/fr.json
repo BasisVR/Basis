@@ -236,6 +236,10 @@
       "value": "Pile réseau de l'hôte"
     },
     {
+      "key": "menu.servers.hostStackBoth",
+      "value": "LiteNetLib + WebSocket (joueurs sur ordinateur et navigateur)"
+    },
+    {
       "key": "menu.servers.networkStack",
       "value": "Pile réseau"
     },

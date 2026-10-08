@@ -494,11 +494,11 @@ namespace Basis.BasisUI.HandHeldCamera
                 BuildBackgroundGroup(content);
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(_backgroundSection, _backgroundGroup, false, OnSectionExpanded);
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
                 BuildGlobalIlluminationGroup(content);
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(_giSection, _giGroup, false, OnSectionExpanded);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
                 BuildRTAOGroup(content);
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(_rtaoSection, _rtaoGroup, false, OnSectionExpanded);
 #endif
@@ -842,7 +842,7 @@ namespace Basis.BasisUI.HandHeldCamera
 #if Basis_VOLUMETRIC_SUPPORTED
             _fogSlider?.SetResetDefault(defaults.VolumetricFogVolumedensity);
 #endif
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             _giIntensitySlider?.SetResetDefault(defaults.giIntensity);
             _giSaturationSlider?.SetResetDefault(defaults.giSaturation);
             _giObscuranceSlider?.SetResetDefault(defaults.giObscurance);
@@ -856,7 +856,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _giBounceThresholdSlider?.SetResetDefault(defaults.giBounceThreshold);
             _giFireflyClampSlider?.SetResetDefault(defaults.giFireflyClamp);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             _rtaoIntensitySlider?.SetResetDefault(defaults.rtaoIntensity);
             _rtaoRadiusSlider?.SetResetDefault(defaults.rtaoRadius);
             _rtaoDirectStrengthSlider?.SetResetDefault(defaults.rtaoDirectStrength);
@@ -1039,7 +1039,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _fogOverrideToggle = null;
             _fogSlider = null;
 #endif
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             _giOverrideToggle = null;
             _giModeDropdown = null;
             _giLayersDropdown = null;
@@ -1066,7 +1066,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _giReflectionProbesToggle = null;
             _giMirrorsToggle = null;
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             _rtaoOverrideToggle = null;
             _rtaoModeDropdown = null;
             _rtaoIntensitySlider = null;
@@ -1105,11 +1105,11 @@ namespace Basis.BasisUI.HandHeldCamera
 #if Basis_VOLUMETRIC_SUPPORTED
             _fogSection = null;
 #endif
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             _giSection = null;
             _giGroup = null;
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             _rtaoSection = null;
             _rtaoGroup = null;
 #endif
@@ -3202,10 +3202,10 @@ namespace Basis.BasisUI.HandHeldCamera
             SetSectionActive(_layersSection, _layersGroup, active);
             SetSectionActive(_performanceSection, _performanceGroup, active);
             SetSectionActive(_gizmoSection, _gizmoGroup, active);
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             SetSectionActive(_giSection, _giGroup, active);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             SetSectionActive(_rtaoSection, _rtaoGroup, active);
 #endif
 
@@ -3363,10 +3363,10 @@ namespace Basis.BasisUI.HandHeldCamera
             RefreshVolumetricFogVisibility();
 #endif
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             SeedGlobalIlluminationControls();
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             SeedRTAOControls();
 #endif
 

@@ -171,7 +171,7 @@ public partial class BasisTrackedBundleWrapper
         #endif
         if (Volatile.Read(ref _requestedTimes) <= 0)
         {
-            await Task.Delay(TimeSpan);
+            await BasisTasks.Delay(TimeSpan);
             if (TryClaimUnload())
             {
                 if (isGltfContent)

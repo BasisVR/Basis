@@ -249,6 +249,7 @@ namespace Basis.Scripts.Device_Management
             {
                 Instance = this;
             }
+            await Basis.Scripts.Platform.BasisWebAddressables.WhenReady();
 
             // Detect Wine/Proton once up front so any subsystem can branch on it.
             BasisProtonDetection.Initialize();

@@ -70,7 +70,7 @@ namespace BasisNetworkServer
         {
             if (_natListener != null) return;
 
-            var manager = (NetworkServer.Server as LNLNetManager)?.manager;
+            var manager = NetworkServer.Server?.LiteNetLibManager();
             if (manager == null)
             {
                 BNL.LogError("[P2P] NetManager not initialised or active stack is not LiteNetLib, cannot start P2P broker.");
@@ -179,6 +179,12 @@ namespace BasisNetworkServer
             }
             if (!NetworkServer.AuthenticatedPeers.TryGetValue(msg.otherPlayerId, out NetPeer target))
             {
+                SendSub(sender, BasisNetworkCommons.P2PSub_Cancel, msg.sessionToken, msg.otherPlayerId);
+                return;
+            }
+            if (!sender.SupportsDirectConnect || !target.SupportsDirectConnect)
+            {
+                BNL.Log($"[P2P] Peer {sender.Id} asked for a direct link with {target.Id}, but one of them is on a transport that cannot take direct links ({sender.StackId}/{target.StackId}).");
                 SendSub(sender, BasisNetworkCommons.P2PSub_Cancel, msg.sessionToken, msg.otherPlayerId);
                 return;
             }
@@ -343,7 +349,7 @@ namespace BasisNetworkServer
                     }
 
                     BNL.Log($"[P2P] Both NAT endpoints collected for token {Preview(token)}. Firing NatIntroduce (spray={spray}).{lanTag}");
-                    LiteNetLib.NetManager lnlManager = (NetworkServer.Server as LNLNetManager)?.manager;
+                    LiteNetLib.NetManager lnlManager = NetworkServer.Server?.LiteNetLibManager();
                     if (lnlManager == null) return;
                     lnlManager.NatPunchModule.NatIntroduce(
                         aInternal,

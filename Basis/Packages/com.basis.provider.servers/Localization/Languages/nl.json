@@ -236,6 +236,10 @@
       "value": "Host-netwerkstack"
     },
     {
+      "key": "menu.servers.hostStackBoth",
+      "value": "LiteNetLib + WebSocket (desktop- en browserspelers)"
+    },
+    {
       "key": "menu.servers.networkStack",
       "value": "Netwerkstack"
     },

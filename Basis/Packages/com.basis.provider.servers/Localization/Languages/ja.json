@@ -236,6 +236,10 @@
       "value": "ホストネットワーキングスタック"
     },
     {
+      "key": "menu.servers.hostStackBoth",
+      "value": "LiteNetLib + WebSocket（デスクトップとブラウザーのプレイヤー）"
+    },
+    {
       "key": "menu.servers.networkStack",
       "value": "ネットワーキングスタック"
     },

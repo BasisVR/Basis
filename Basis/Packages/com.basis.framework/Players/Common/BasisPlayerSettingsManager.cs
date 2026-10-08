@@ -97,7 +97,7 @@ public static partial class BasisPlayerSettingsManager
             // Read off the main thread; only the (trivial) JSON parse resumes on it. A missing file
             // returns defaults WITHOUT writing — the record is created only when a setting actually
             // changes (SetPlayerSettings), so joining never touches the disk for write.
-            string json = await Task.Run(() => File.Exists(path) ? File.ReadAllText(path) : null);
+            string json = await BasisTasks.Run(() => File.Exists(path) ? File.ReadAllText(path) : null);
 
             BasisPlayerSettingsData data = default;
             bool valid = false;
@@ -165,7 +165,7 @@ public static partial class BasisPlayerSettingsManager
         {
             cache[key] = settings;
             string json = JsonUtility.ToJson(settings, false);
-            await Task.Run(() => File.WriteAllText(path, json));
+            await BasisTasks.Run(() => File.WriteAllText(path, json));
         }
         finally
         {

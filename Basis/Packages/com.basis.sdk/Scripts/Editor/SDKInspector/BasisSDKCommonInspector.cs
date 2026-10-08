@@ -797,7 +797,7 @@ public static class BasisSDKCommonInspector
         }
     }
 
-    public static void CreateBuildOptionsDropdown(VisualElement parent)
+    public static void CreateBuildOptionsDropdown(VisualElement parent, SerializedObject serializedObject)
     {
         BasisAssetBundleObject assetBundleObject =
             AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(
@@ -810,14 +810,17 @@ public static class BasisSDKCommonInspector
         };
         parent.Add(foldout);
 
+        SerializedProperty useCustomPassword = serializedObject.FindProperty(nameof(BasisContentBase.UseCustomPassword));
+        SerializedProperty userSelectedPassword = serializedObject.FindProperty(nameof(BasisContentBase.UserSelectedPassword));
+
         Toggle toggle = new Toggle(BasisEditorLocalization.Get("sdk.commonInspector.useCustomPassword"))
         {
-            value = assetBundleObject.UseCustomPassword
+            value = useCustomPassword.boolValue
         };
 
         TextField passwordField = new TextField(BasisEditorLocalization.Get("sdk.commonInspector.password"))
         {
-            value = assetBundleObject.UserSelectedPassword,
+            value = userSelectedPassword.stringValue,
             isPasswordField = true // masks input
         };
 
@@ -827,28 +830,21 @@ public static class BasisSDKCommonInspector
             ? DisplayStyle.Flex
             : DisplayStyle.None;
 
+        toggle.BindProperty(useCustomPassword);
+        passwordField.BindProperty(userSelectedPassword);
+
         toggle.RegisterValueChangedCallback(evt =>
         {
-            assetBundleObject.UseCustomPassword = evt.newValue;
-
             passwordField.SetEnabled(evt.newValue);
             passwordField.style.display = evt.newValue
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
 
-            if (!evt.newValue)
+            if (!evt.newValue && !string.IsNullOrEmpty(userSelectedPassword.stringValue))
             {
-                assetBundleObject.UserSelectedPassword = "";
-                passwordField.value = "";
+                userSelectedPassword.stringValue = "";
+                serializedObject.ApplyModifiedProperties();
             }
-
-            EditorUtility.SetDirty(assetBundleObject);
-        });
-
-        passwordField.RegisterValueChangedCallback(evt =>
-        {
-            assetBundleObject.UserSelectedPassword = evt.newValue;
-            EditorUtility.SetDirty(assetBundleObject);
         });
 
         foldout.Add(toggle);

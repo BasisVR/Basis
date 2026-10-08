@@ -26,6 +26,7 @@ namespace Basis
             ErrorHandlers.AttachGlobalHandlers();
             ConfigManager.LoadOrCreateConfigXml("ClientSimConfig.xml");
             NetDebug.Logger = new BasisClientLogger();
+            BasisNetworkPackages.Initialize(typeof(BasisNetworkPackages).Assembly, typeof(NetworkClient).Assembly);
 
             // Face-data test mode: BASIS_EMIT_FACE=1 attaches a synthetic AdditionalAvatarData to
             // every avatar send and logs when other clients' additional data arrives — an

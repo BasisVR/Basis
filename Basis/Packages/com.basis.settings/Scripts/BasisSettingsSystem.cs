@@ -529,7 +529,7 @@ namespace Basis.Scripts.Settings
                 }
                 _saveInFlight = true;
             }
-            System.Threading.Tasks.Task.Run(SaveWorker);
+            BasisTasks.Run(SaveWorker);
         }
 
         private static void SaveWorker()

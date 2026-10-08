@@ -79,6 +79,7 @@ public static partial class BasisIOManagement
             nameof(RuntimePlatform.OSXPlayer) => "StandaloneOSX",
             nameof(RuntimePlatform.Android) => "Android",
             nameof(RuntimePlatform.IPhonePlayer) => "iOS",
+            nameof(RuntimePlatform.WebGLPlayer) => "WebGL",
             _ => normalized,
         };
     }

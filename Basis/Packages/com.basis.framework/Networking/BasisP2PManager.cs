@@ -194,6 +194,11 @@ namespace Basis.Scripts.Networking
                 BasisDebug.LogError("[P2P] Not connected to server.");
                 return null;
             }
+            if (!BasisNetworkConnection.LocalPlayerPeer.SupportsDirectConnect)
+            {
+                BasisDebug.LogWarning("[P2P] Direct connections need a UDP link to the server, and this one is a WebSocket.");
+                return null;
+            }
             if (!BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId) || localId == targetPlayerId)
             {
                 BasisDebug.LogError("[P2P] Cannot request a session with yourself.");
@@ -573,6 +578,11 @@ namespace Basis.Scripts.Networking
         private static void OnInboundRequest(BasisP2PSignalMessage msg)
         {
             BasisDebug.Log($"[P2P] Server forwarded a direct-connection Request from player {msg.otherPlayerId} (token {msg.sessionToken}).");
+            if (BasisNetworkConnection.LocalPlayerPeer != null && !BasisNetworkConnection.LocalPlayerPeer.SupportsDirectConnect)
+            {
+                SendSubToServer(BasisNetworkCommons.P2PSub_Decline, msg.otherPlayerId, msg.sessionToken);
+                return;
+            }
             if (_sessionsByOtherId.ContainsKey(msg.otherPlayerId))
             {
                 BasisDebug.LogWarning($"[P2P] Auto-declining: already have a session with player {msg.otherPlayerId}.");

@@ -236,6 +236,10 @@
       "value": "主機網路堆疊"
     },
     {
+      "key": "menu.servers.hostStackBoth",
+      "value": "LiteNetLib + WebSocket（桌面端與瀏覽器玩家）"
+    },
+    {
       "key": "menu.servers.networkStack",
       "value": "網路堆疊"
     },
