@@ -143,6 +143,11 @@ namespace Basis.BasisUI
                 return;
             }
             _initialized = true;
+            if (!Basis.Scripts.Platform.BasisWebAddressables.IsReady)
+            {
+                InitializeWhenContentReady();
+                return;
+            }
             LoadAllTables(languageCode);
           //  BasisDebug.Log($"Loading Langauge {languageCode}", BasisDebug.LogTag.Language);
             if (string.IsNullOrEmpty(languageCode))
@@ -153,6 +158,13 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.Language.SetValue(languageCode);
             }
             LoadLanguage(languageCode);
+        }
+
+        private static async void InitializeWhenContentReady()
+        {
+            await Basis.Scripts.Platform.BasisWebAddressables.WhenReady();
+            _initialized = false;
+            Initialize();
         }
 
         /// <summary>

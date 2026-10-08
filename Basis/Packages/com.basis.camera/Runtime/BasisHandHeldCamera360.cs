@@ -135,7 +135,7 @@ public partial class BasisHandHeldCamera
 
         try
         {
-            await File.WriteAllBytesAsync(path, imageData);
+            await BasisFiles.WriteAllBytesAsync(path, imageData);
         }
         catch (Exception e)
         {

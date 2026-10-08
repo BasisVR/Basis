@@ -1567,6 +1567,13 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         // the source it described.
         if (!reopen) Media = null;
         EndSession();
+        if (Application.platform == RuntimePlatform.WebGLPlayer)
+        {
+            LastErrorMessage = "the media player is not available in the web player";
+            BasisDebug.LogWarning($"[BasisMedia] {LastErrorMessage}", BasisDebug.LogTag.Video);
+            State = BmState.Error;
+            return;
+        }
         if (!_abiChecked)
         {
             uint abi = BasisMediaNative.bm_abi_version();

@@ -228,7 +228,7 @@ public static partial class BasisEncryptionWrapper
                 return BasisDecryptResult.Fail(BasisDecryptError.Unknown, OversizedMessage(length));
             }
 
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 96 * 1024, useAsync: true);
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 96 * 1024, useAsync: BasisTasks.ThreadsAvailable);
             if (offset < 0 || offset + length > fileStream.Length)
             {
                 return BasisDecryptResult.Fail(
@@ -399,7 +399,9 @@ public static partial class BasisEncryptionWrapper
         {
             ct.ThrowIfCancellationRequested();
 
-            int bytesRead = await cryptoStream.ReadAsync(plain.AsMemory(totalRead, Math.Min(DecryptChunkSize, cipherLength - totalRead)), ct);
+            int bytesRead = BasisTasks.ThreadsAvailable
+                ? await cryptoStream.ReadAsync(plain.AsMemory(totalRead, Math.Min(DecryptChunkSize, cipherLength - totalRead)), ct)
+                : cryptoStream.Read(plain, totalRead, Math.Min(DecryptChunkSize, cipherLength - totalRead));
             if (bytesRead <= 0) break;
 
             totalRead += bytesRead;
@@ -432,7 +434,7 @@ public static partial class BasisEncryptionWrapper
         int read = 0;
         while (read < count)
         {
-            int n = await source.ReadAsync(buffer.AsMemory(read, count - read), ct);
+            int n = BasisTasks.ThreadsAvailable ? await source.ReadAsync(buffer.AsMemory(read, count - read), ct) : source.Read(buffer, read, count - read);
             if (n <= 0) break;
             read += n;
         }

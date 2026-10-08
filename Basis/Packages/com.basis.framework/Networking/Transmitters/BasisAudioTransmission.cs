@@ -89,7 +89,9 @@ namespace Basis.Scripts.Networking.Transmitters
 #if !UNITY_SERVER
         private void InitializeEncoder()
         {
+#if !UNITY_WEBGL || UNITY_EDITOR
             encoder = CreateConfiguredEncoder(LocalOpusSettings.ServerBitrate);
+#endif
             LocalOpusSettings.OnPacketLossPercentChanged += ApplyPacketLossPerc;
             LocalOpusSettings.OnBitrateChanged += ApplyBitrate;
             SharedOpusSettings.OnDesiredDurationChanged += ApplyFrameDuration;

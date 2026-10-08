@@ -212,7 +212,7 @@ namespace Basis.Scripts.Avatar
                         // ResolveGate picks between download / disc-load / addressable so
                         // slow network downloads can't starve fast cached or in-memory loads.
                         SemaphoreSlim gate = await ResolveGate(Mode, BasisLoadableBundle);
-                        await gate.WaitAsync(token);
+                        await (BasisTasks.ThreadsAvailable ? gate.WaitAsync(token) : gate.WaitAsync());
                         try
                         {
                             token.ThrowIfCancellationRequested();
@@ -336,7 +336,7 @@ namespace Basis.Scripts.Avatar
                     case 1:
                     default:
                         SemaphoreSlim gate = await ResolveGate(Mode, BasisLoadableBundle);
-                        await gate.WaitAsync(token);
+                        await (BasisTasks.ThreadsAvailable ? gate.WaitAsync(token) : gate.WaitAsync());
                         try
                         {
                             token.ThrowIfCancellationRequested();

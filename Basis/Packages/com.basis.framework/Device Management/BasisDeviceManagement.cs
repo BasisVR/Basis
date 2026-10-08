@@ -1037,6 +1037,10 @@ namespace Basis.Scripts.Device_Management
 #if UNITY_SERVER
             return BasisConstants.Headless;
 #else
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
+            {
+                return BasisConstants.Desktop;
+            }
             if (Application.isMobilePlatform) // try to boot vr first on standalone devices.
             {
                 // iOS devices (iPhones/iPads) should use Desktop mode for touch controls

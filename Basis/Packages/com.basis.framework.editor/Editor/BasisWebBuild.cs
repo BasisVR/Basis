@@ -36,7 +36,7 @@ public static class BasisWebBuild
     {
         string buildPath = GetArgument("customBuildPath");
         if (string.IsNullOrWhiteSpace(buildPath)) throw new BuildFailedException("Required command line argument '-customBuildPath' was not provided.");
-        Build(buildPath);
+        Build(buildPath, Array.IndexOf(Environment.GetCommandLineArgs(), "-webStackTraces") >= 0);
     }
 
     public static void CheckWebScripts()
@@ -70,12 +70,13 @@ public static class BasisWebBuild
         if (!webDefines.SequenceEqual(defines)) PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.WebGL, webDefines);
     }
 
-    public static void Build(string buildPath)
+    public static void Build(string buildPath, bool stackTraces = false)
     {
         if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.WebGL, BuildTarget.WebGL)) throw new BuildFailedException("The Web build module is not installed for this editor.");
         Debug.Log($"[BasisWebBuild] buildPath={buildPath} activeBuildTarget(before)={EditorUserBuildSettings.activeBuildTarget}");
         if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL) Debug.Log($"[BasisWebBuild] SwitchActiveBuildTarget(WebGL) => {EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.WebGL, BuildTarget.WebGL)}");
         ApplyPlayerSettings();
+        if (stackTraces) PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.FullWithStacktrace;
         Directory.CreateDirectory(buildPath);
         AddressableAssetSettings addressableSettings = AddressableAssetSettingsDefaultObject.Settings;
         AddressableAssetSettings.PlayerBuildOption originalOption = AddressableAssetSettings.PlayerBuildOption.PreferencesValue;

@@ -16,51 +16,101 @@ namespace Basis.Scripts.Platform
     public static class BasisWebAddressables
     {
         private const string RuntimePathToken = "{UnityEngine.AddressableAssets.Addressables.RuntimePath}";
+        private const int SettleFrames = 2;
         private static readonly string[] SkippedBundles = { "mediapipemodels", "openlipsync" };
-        private static readonly List<AsyncOperationHandle> HeldBundles = new List<AsyncOperationHandle>();
-        private static Task _ready = Task.CompletedTask;
+        private static readonly List<AsyncOperationHandle<IAssetBundleResource>> HeldBundles = new List<AsyncOperationHandle<IAssetBundleResource>>();
+        private static TaskCompletionSource<bool> _readySource;
+        private static int _pendingBundles;
+        private static int _failedBundles;
 
-        public static bool IsReady => _ready == null || _ready.IsCompleted;
+        public static bool IsReady => _readySource == null || _readySource.Task.IsCompleted;
 
         public static Task WhenReady()
         {
-            return _ready ?? Task.CompletedTask;
+            return _readySource == null ? Task.CompletedTask : _readySource.Task;
         }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void Install()
         {
-            Addressables.ResourceManager.ResourceProviders.Add(new BasisSyncBundledAssetProvider());
-            _ready = PreloadLocalBundles();
+            _readySource = new TaskCompletionSource<bool>();
+            try
+            {
+                Addressables.ResourceManager.ResourceProviders.Add(new BasisSyncBundledAssetProvider());
+                Addressables.InitializeAsync().Completed += OnInitialized;
+            }
+            catch (Exception e)
+            {
+                Finish($"Addressables could not start: {e}", true);
+            }
         }
 #endif
 
-        private static async Task PreloadLocalBundles()
+        private static void OnInitialized(AsyncOperationHandle<IResourceLocator> initialization)
         {
             try
             {
-                await Addressables.InitializeAsync().Task;
+                if (initialization.Status != AsyncOperationStatus.Succeeded)
+                {
+                    Finish($"Addressables failed to initialize: {initialization.OperationException}", true);
+                    return;
+                }
                 string localRoot = Addressables.RuntimePath;
                 HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
-                List<Task> loads = new List<Task>();
+                List<IResourceLocation> bundles = new List<IResourceLocation>();
                 foreach (IResourceLocator locator in Addressables.ResourceLocators)
                 {
                     foreach (IResourceLocation location in locator.AllLocations)
                     {
-                        if (location.ResourceType != typeof(IAssetBundleResource) || !(location.InternalId.StartsWith(localRoot, StringComparison.Ordinal) || location.InternalId.StartsWith(RuntimePathToken, StringComparison.Ordinal)) || !seen.Add(location.InternalId) || IsSkipped(location.InternalId)) continue;
-                        AsyncOperationHandle<IAssetBundleResource> handle = Addressables.ResourceManager.ProvideResource<IAssetBundleResource>(location);
-                        HeldBundles.Add(handle);
-                        loads.Add(handle.Task);
+                        if (location.ResourceType != typeof(IAssetBundleResource) || !IsLocal(location.InternalId, localRoot) || IsSkipped(location.InternalId) || !seen.Add(location.InternalId)) continue;
+                        bundles.Add(location);
                     }
                 }
-                await Task.WhenAll(loads);
-                BasisDebug.Log($"[BasisWebAddressables] Preloaded {loads.Count} local bundles.");
+                _pendingBundles = bundles.Count + 1;
+                for (int index = 0; index < bundles.Count; index++)
+                {
+                    AsyncOperationHandle<IAssetBundleResource> handle = Addressables.ResourceManager.ProvideResource<IAssetBundleResource>(bundles[index]);
+                    HeldBundles.Add(handle);
+                    handle.Completed += OnBundleLoaded;
+                }
+                CountDown();
             }
             catch (Exception e)
             {
-                BasisDebug.LogError($"[BasisWebAddressables] Preloading local bundles failed: {e}");
+                Finish($"Preloading local bundles failed: {e}", true);
             }
+        }
+
+        private static void OnBundleLoaded(AsyncOperationHandle<IAssetBundleResource> handle)
+        {
+            if (handle.Status != AsyncOperationStatus.Succeeded)
+            {
+                _failedBundles++;
+                BasisDebug.LogError($"[BasisWebAddressables] Could not preload {handle.DebugName}: {handle.OperationException}");
+            }
+            CountDown();
+        }
+
+        private static void CountDown()
+        {
+            if (--_pendingBundles == 0) Finish($"Preloaded {HeldBundles.Count - _failedBundles} of {HeldBundles.Count} local bundles.", _failedBundles > 0);
+        }
+
+        private static async void Finish(string message, bool failed)
+        {
+            if (failed) BasisDebug.LogError($"[BasisWebAddressables] {message}");
+            else BasisDebug.Log($"[BasisWebAddressables] {message}");
+            for (int frame = 0; frame < SettleFrames; frame++)
+            {
+                await Awaitable.NextFrameAsync();
+            }
+            _readySource?.TrySetResult(true);
+        }
+
+        private static bool IsLocal(string internalId, string localRoot)
+        {
+            return internalId.StartsWith(localRoot, StringComparison.Ordinal) || internalId.StartsWith(RuntimePathToken, StringComparison.Ordinal);
         }
 
         private static bool IsSkipped(string internalId)

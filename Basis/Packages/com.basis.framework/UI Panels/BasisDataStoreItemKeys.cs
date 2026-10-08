@@ -264,7 +264,7 @@ namespace Basis.Scripts.UI.UI_Panels
             byte[] byteData;
             try
             {
-                byteData = await File.ReadAllBytesAsync(FilePath);
+                byteData = await BasisFiles.ReadAllBytesAsync(FilePath);
             }
             catch (System.Exception e)
             {
@@ -357,7 +357,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
             try
             {
-                byte[] backupData = await File.ReadAllBytesAsync(backupPath);
+                byte[] backupData = await BasisFiles.ReadAllBytesAsync(backupPath);
                 if (backupData == null || backupData.Length == 0)
                     return false;
 
@@ -422,7 +422,7 @@ namespace Basis.Scripts.UI.UI_Panels
             // File.Move on a non-existent tmp file, causing a FileNotFoundException.
             try
             {
-                await File.WriteAllBytesAsync(tempPath, byteData);
+                await BasisFiles.WriteAllBytesAsync(tempPath, byteData);
             }
             catch (System.Exception e)
             {

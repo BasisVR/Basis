@@ -711,7 +711,7 @@ public static partial class BasisLoadHandler
             return Task.FromResult((true, inMemory));
         }
 
-        return Task.Run<(bool, BasisBEEExtensionMeta)>(() =>
+        return BasisTasks.Run<(bool, BasisBEEExtensionMeta)>(() =>
         {
             string currentPlatform = BasisIOManagement.GetCurrentCachePlatform();
             if (TryLazyLoadDiscInfo(MetaURL, currentPlatform, out BasisBEEExtensionMeta lazyInfo))
@@ -740,7 +740,7 @@ public static partial class BasisLoadHandler
                 }
             }
             string tempPath = filePath + ".tmp";
-            await File.WriteAllBytesAsync(tempPath, serializedData);
+            await BasisFiles.WriteAllBytesAsync(tempPath, serializedData);
             if (File.Exists(filePath))
             {
                 File.Replace(tempPath, filePath, null);
@@ -797,7 +797,7 @@ public static partial class BasisLoadHandler
                // BasisDebug.Log($"Loading file: {file}");
                 try
                 {
-                    byte[] fileData = await File.ReadAllBytesAsync(file);
+                    byte[] fileData = await BasisFiles.ReadAllBytesAsync(file);
                     BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
                     OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
                 }

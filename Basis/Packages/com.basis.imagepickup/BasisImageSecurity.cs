@@ -378,7 +378,7 @@ namespace Basis.ImagePickup
             byte[] bytes;
             try
             {
-                bytes = await Task.Run(() => File.ReadAllBytes(path));
+                bytes = await BasisTasks.Run(() => File.ReadAllBytes(path));
             }
             catch (Exception e)
             {
@@ -575,7 +575,7 @@ namespace Basis.ImagePickup
 
             bool downscale = allowDownscale && ExceedsDisplayCaps(sourceWidth, sourceHeight);
 
-            (Color32[] pixels, int width, int height, byte[] clean, bool hasAlpha, string error) = await Task.Run(() =>
+            (Color32[] pixels, int width, int height, byte[] clean, bool hasAlpha, string error) = await BasisTasks.Run(() =>
             {
                 Color32[] finalPixels = sourcePixels;
                 int finalWidth = sourceWidth;
