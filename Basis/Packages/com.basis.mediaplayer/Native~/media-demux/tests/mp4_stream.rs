@@ -104,6 +104,24 @@ fn faststart_demuxes_the_full_fixture() {
     assert_eq!(s.first_audio_pts, Some(MediaTime::from_micros(-21333)));
 }
 
+/// A `covr` item whose `data` box has type 14 (PNG), as ffmpeg writes an
+/// attached picture, neither stops the file opening nor costs its tracks,
+/// and the picture comes through as the art.
+#[test]
+fn a_png_cover_opens_and_is_the_art() {
+    let mut demux = open("h264-aac-png-cover.mp4");
+    let art = demux.artwork().expect("the cover is read");
+    assert_eq!(art.mime, "image/png");
+    assert!(art.data.starts_with(b"\x89PNG\r\n\x1a\n"), "the stored PNG");
+
+    let s = drain(&mut demux);
+    assert_eq!((s.video_formats, s.audio_formats), (1, 1));
+    // The ffprobe-verified packet counts for this fixture.
+    assert_eq!(s.video_aus, 60);
+    assert_eq!(s.audio_aus, 95);
+    assert_eq!(s.video_keys, 2, "2 s at GOP 30 / 30 fps");
+}
+
 /// A B-frame track's `mdhd` runs a frame past the 12 s its edit list,
 /// `tkhd` and `mvhd` state; the duration is the edit list's.
 #[test]

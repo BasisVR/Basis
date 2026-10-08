@@ -694,7 +694,9 @@ impl TryFrom<u32> for DataType {
             0x000001 => Ok(Self::Text),
             0x00000D => Ok(Self::Image),
             0x000015 => Ok(Self::TempoCpil),
-            _ => Err(Error::InvalidData("invalid data type")),
+            // Patched: any other type (PNG and BMP covers among them) is
+            // kept as raw bytes rather than failing the whole `moov`.
+            _ => Ok(Self::Binary),
         }
     }
 }
