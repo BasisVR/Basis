@@ -114,6 +114,11 @@ namespace Basis.EventDriver
                 if (system.subSystemList[Index].type == typeof(PostLateUpdate.UpdateCustomRenderTextures))
                 {
                     int Insert = Index + 1;
+                    if (Insert < system.subSystemList.Length && system.subSystemList[Insert].type == typeof(BasisJiggleCompleteStep))
+                    {
+                        system.subSystemList[Insert].updateDelegate = CompleteIfPending;
+                        return true;
+                    }
                     PlayerLoopSystem[] replacement = new PlayerLoopSystem[system.subSystemList.Length + 1];
                     Array.Copy(system.subSystemList, replacement, Insert);
                     replacement[Insert] = new PlayerLoopSystem

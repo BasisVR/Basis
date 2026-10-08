@@ -142,6 +142,14 @@ public static class NetworkServer
         Listener = null;
         AuthenticatedPeers.Clear();
         _peerSnapshot = Array.Empty<NetPeer>();
+        BasisNetworkCore.BasisNetworkIDDatabase.Reset();
+        BasisNetworkResourceManagement.Reset();
+        BasisNetworkPreloadResourceManagement.Reset();
+        BasisNetworkContentShare.Reset();
+        BasisNetworkPIPCamera.Reset();
+        Basis.Network.Server.Generic.BasisNetworkImageCache.Reset();
+        Basis.Network.Server.Generic.BasisImageBandwidthGovernor.Reset();
+        BasisNetworkServer.BasisServerP2PBroker.Reset();
     }
 
     public static void InitializePulseSettings()

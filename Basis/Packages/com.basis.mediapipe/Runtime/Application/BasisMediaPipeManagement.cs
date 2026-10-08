@@ -463,6 +463,14 @@ namespace Basis.MediaPipe
             }
         }
 
+        private void OnDestroy()
+        {
+            if (_backend != null)
+            {
+                StopSDK();
+            }
+        }
+
         public override void StopSDK()
         {
             BasisLocalPlayer.OnLocalAvatarChanged -= HandleAvatarChanged;

@@ -14,7 +14,9 @@ namespace Basis.Developer.Recorder
         [RuntimeInitializeOnLoadMethod]
         private static void Register()
         {
+            SettingsProvider.DeveloperSectionBuilders.Remove(BuildSection);
             SettingsProvider.DeveloperSectionBuilders.Add(BuildSection);
+            SettingsProvider.DeveloperResetActions.Remove(ResetDefaults);
             SettingsProvider.DeveloperResetActions.Add(ResetDefaults);
             BasisRecorderSettings.EnsureLoaded();
         }

@@ -68,8 +68,18 @@ namespace Basis.Scripts.Player
         /// </remarks>
         public static void DeInitialize()
         {
-            Addressables.Release(LocalHandle);
-            Addressables.Release(TposeController);
+            if (LocalHandle.IsValid())
+            {
+                Addressables.Release(LocalHandle);
+                LocalHandle = default;
+            }
+            if (TposeHandle.IsValid())
+            {
+                Addressables.Release(TposeHandle);
+                TposeHandle = default;
+            }
+            LocalPlayerReadyToSpawn = null;
+            TposeController = null;
         }
 
         /// <summary>

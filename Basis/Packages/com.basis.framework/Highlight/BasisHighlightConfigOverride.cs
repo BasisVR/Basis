@@ -21,6 +21,7 @@ namespace Basis.Scripts.BasisSdk.Highlight
         [RuntimeInitializeOnLoadMethod]
         private static void Initialize()
         {
+            BasisSettingsSystem.OnSettingsFinishedChanges -= Apply;
             BasisSettingsSystem.OnSettingsFinishedChanges += Apply;
         }
 

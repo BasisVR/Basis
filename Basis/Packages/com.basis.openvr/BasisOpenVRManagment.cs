@@ -498,6 +498,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             SteamVR_Render = null;
             IsInUse = false;
             SteamVR_Events.DeviceConnected.RemoveListener(OnDeviceConnected);
+            SteamVR_Events.System(EVREventType.VREvent_TrackedDeviceRoleChanged).RemoveListener(OnTrackedDeviceRoleChanged);
             SteamVR_Events.System(EVREventType.VREvent_SteamVRSectionSettingChanged).RemoveListener(OnResolutionSettingChanged);
             SteamVR_Events.System(EVREventType.VREvent_DashboardDeactivated).RemoveListener(OnResolutionSettingChanged);
             SteamVR_Events.System(EVREventType.VREvent_TrackedDeviceUserInteractionStarted).RemoveListener(OnHMDUserInteractionStarted);

@@ -24,9 +24,13 @@ namespace Basis.BasisUI
         {
             ApplyJitterBufferDepth();
             ApplyClipBufferScalar();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyRemoteAudioToAll;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyRemoteAudioToAll;
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyJitterBufferDepth;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyJitterBufferDepth;
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyClipBufferScalar;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyClipBufferScalar;
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyHrtfProfile;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyHrtfProfile;
         }
 

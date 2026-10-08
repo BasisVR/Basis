@@ -29,6 +29,7 @@ namespace Basis.Scripts.UI
         [RuntimeInitializeOnLoadMethod]
         private static void Initialize()
         {
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyToAllDevices;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyToAllDevices;
         }
 

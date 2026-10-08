@@ -90,6 +90,15 @@ namespace BasisNetworkServer
             BNL.Log("[P2P] Broker initialised.");
         }
 
+        public static void Reset()
+        {
+            _natListener = null;
+            _sessions.Clear();
+            _peerSessions.Clear();
+            _offloadedPairs.Clear();
+            Volatile.Write(ref _offloadedPairCount, 0);
+        }
+
         public static void HandleP2PMessage(NetPacketReader reader, NetPeer peer)
         {
             byte sub = reader.GetByte();

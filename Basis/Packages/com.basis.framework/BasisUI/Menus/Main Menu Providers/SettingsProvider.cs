@@ -101,27 +101,37 @@ namespace Basis.BasisUI
         public static void AddToMenu()
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new SettingsProvider());
+            _avatarRateTickSubscribed = false;
 #if !BASIS_DISABLE_MICROPHONE
             SMDMicrophone.OnMicrophoneSettingsChanged += SyncUiFromSnapshot;
             SMDMicrophone.OnMicrophoneDevicesChanged += RefreshMicrophoneDeviceEntries;
 #endif
             ApplyOpenLipSyncMaxSlots();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyOpenLipSyncMaxSlots;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyOpenLipSyncMaxSlots;
             ApplyJiggleCollisionCulling();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyJiggleCollisionCulling;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyJiggleCollisionCulling;
             BasisJiggleColliderLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisJiggleColliderLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisJiggleColliderLOD.ApplyFromSettings;
             BasisJiggleSimulationLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisJiggleSimulationLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisJiggleSimulationLOD.ApplyFromSettings;
             BasisAvatarSkinLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisAvatarSkinLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisAvatarSkinLOD.ApplyFromSettings;
             BasisAvatarShadowLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisAvatarShadowLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisAvatarShadowLOD.ApplyFromSettings;
             Basis.Scripts.Rendering.BasisVisibilitySystem.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= Basis.Scripts.Rendering.BasisVisibilitySystem.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += Basis.Scripts.Rendering.BasisVisibilitySystem.ApplyFromSettings;
             BasisAvatarFarLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisAvatarFarLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisAvatarFarLOD.ApplyFromSettings;
             ApplyDesktopInputInVR();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyDesktopInputInVR;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyDesktopInputInVR;
         }
 

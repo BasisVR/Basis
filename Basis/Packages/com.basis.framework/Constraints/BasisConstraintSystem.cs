@@ -298,10 +298,6 @@ namespace Basis.Scripts.Constraints
 
         public static void Dispose()
         {
-            if (!sInitialized)
-            {
-                return;
-            }
             sPending.Complete();
             sPending = default;
 
