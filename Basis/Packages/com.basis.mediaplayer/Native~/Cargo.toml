@@ -72,3 +72,4 @@ codegen-units = 1
 [patch.crates-io]
 retina = { path = "third_party/retina" }
 matroska-demuxer = { path = "third_party/matroska-demuxer" }
+re_mp4 = { path = "third_party/re_mp4" }

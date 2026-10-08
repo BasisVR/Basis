@@ -5,6 +5,11 @@ using System.Runtime.InteropServices;
 /// ABI v4 bindings for basis_media. Probe <see cref="bm_abi_version"/>
 /// first and refuse a mismatch loudly; every other export takes the
 /// generational session handle.
+/// Buffer pointers are read or filled before an export returns and never
+/// kept; pinning for the call alone (<c>fixed</c>, <c>stackalloc</c>, or the
+/// marshaller pinning an array or <c>out</c> argument) is enough. The one
+/// pointer the engine keeps past the call is the native texture handed to
+/// <see cref="bm_session_set_output_texture"/>.
 /// </summary>
 public static class BasisMediaNative
 {

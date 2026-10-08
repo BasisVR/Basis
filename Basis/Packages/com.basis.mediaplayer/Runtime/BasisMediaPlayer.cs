@@ -169,9 +169,9 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
     Texture _texture;
     Texture2D _artwork;
     bool _artworkRead;
-    /// Whether _texture is the cover art rather than a decode target. The
-    /// engine presents into a video texture every frame; art is a still it
-    /// never touches, so the render event must not be issued for it.
+    /// Whether the outputs hold the cover art. Art stays on them until the
+    /// source's first picture is presented, so the engine may already be
+    /// drawing into a video texture in _texture while this is true.
     bool _textureIsArtwork;
     /// Whether _texture has been handed to the outputs. A video texture is
     /// registered with the engine as soon as the frame size is known, while
@@ -327,7 +327,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
 
     /// <summary>Video frames presented this session.</summary>
     public long PresentedFrameCount { get; private set; }
-    internal Texture Texture => _textureShown ? _texture : null;
+    internal Texture Texture => _textureIsArtwork ? _artwork : _textureShown ? _texture : null;
 
     /// <summary>Cover art the container carried, decoded, or null. Audio-only
     /// sources with art drive it onto the output texture, so a screen shows
@@ -1895,7 +1895,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         System.Threading.Volatile.Write(ref _syncRatePpm, 0);
         System.Threading.Volatile.Write(ref _avOffsetUs, int.MinValue);
         _eventsDroppedSeen = 0;
-        bool hadTexture = _textureShown;
+        bool hadTexture = _textureShown || _textureIsArtwork;
         SetOutputTexture(null);
         _textureIsArtwork = false;
         _textureShown = false;
@@ -2193,9 +2193,14 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         // reconnect, an encoder change, a variant switch), and the output has
         // to follow: Direct3D refuses to copy into a texture of another size,
         // and the Vulkan pass would smear or crop.
-        bool resized = _texture != null && !_textureIsArtwork && snapshot.Width > 0
+        // Art shown before the frame size was known makes way for the video at
+        // its first frame.
+        bool engineTexture = _texture != null && !ReferenceEquals(_texture, _artwork);
+        bool resized = engineTexture && snapshot.Width > 0
             && (_texture.width != (int)snapshot.Width || _texture.height != (int)snapshot.Height);
-        if ((_texture == null || resized) && snapshot.Width > 0)
+        if (!engineTexture && snapshot.Width > 0)
+            _textureShown = false;
+        if ((!engineTexture || resized) && snapshot.Width > 0)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             // Vulkan graphics contract (normative in the ABI header):
@@ -2223,10 +2228,11 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         if (_texture != null && !_textureShown && snapshot.FramesPresented > 0)
         {
             _textureShown = true;
+            _textureIsArtwork = false;
             OnOutputTextureChanged?.Invoke(_texture);
         }
 
-        if (_texture != null && !_textureIsArtwork)
+        if (_texture != null && !ReferenceEquals(_texture, _artwork))
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             // Camera.AddCommandBuffer is silently ignored under URP;
@@ -2395,7 +2401,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         _artwork = texture;
 
         // A source with pictures of its own owns the output; art fills it
-        // only when there is no video to show.
+        // until there is video to show.
         if (snapshot.Width == 0 && _texture == null)
         {
             SetOutputTexture(_artwork);

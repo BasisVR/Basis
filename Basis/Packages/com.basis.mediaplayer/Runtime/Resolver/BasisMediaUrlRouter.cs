@@ -51,7 +51,10 @@ public interface IBasisVideoResolver
 [AutoStaticsCleanup]
 public static partial class BasisMediaUrlRouter
 {
-    private static readonly List<IBasisVideoResolver> Resolvers = new List<IBasisVideoResolver>();
+    // Integrations register once per process (the yt-dlp installer skips a
+    // repeat), so a list cleared on a Play entry would stay empty until the
+    // next code reload.
+    [NoAutoStaticsCleanup] private static readonly List<IBasisVideoResolver> Resolvers = new List<IBasisVideoResolver>();
 
     /// <summary>
     /// Registers <paramref name="resolver"/> so <see cref="TryResolveAndLoad"/> consults it,
