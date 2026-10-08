@@ -145,7 +145,7 @@ public static class BasisEncryptionToData
         while (!assetBundleCreateRequest.isDone)
         {
             progressCallback.ReportProgress(UniqueID, 20 + Mathf.Min(assetBundleCreateRequest.progress, 0.99f) * 80, "Loading bundle");
-            await Task.Delay(50);
+            await BasisTasks.Delay(50);
         }
 
         progressCallback.ReportProgress(UniqueID, 100, "Loading bundle");

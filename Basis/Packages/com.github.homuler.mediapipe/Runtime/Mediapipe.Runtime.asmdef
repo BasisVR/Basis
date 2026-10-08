@@ -3,7 +3,9 @@
     "rootNamespace": "",
     "references": [],
     "includePlatforms": [],
-    "excludePlatforms": [],
+    "excludePlatforms": [
+        "WebGL"
+    ],
     "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [

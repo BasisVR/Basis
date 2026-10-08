@@ -166,8 +166,7 @@ public class BasisAvatarValidator : BasisValidationRunner
                 BasisEditorLocalization.Get("sdk.avatarValidator.bundleDescription.fix"));
         }
 
-        BasisAssetBundleObject assetBundleObject = BasisValidationAssetCache.AssetBundleObject;
-        if (assetBundleObject != null && assetBundleObject.UseCustomPassword && string.IsNullOrEmpty(assetBundleObject.UserSelectedPassword))
+        if (Avatar.UseCustomPassword && string.IsNullOrEmpty(Avatar.UserSelectedPassword))
         {
             bucket.Error(BasisEditorLocalization.Get("sdk.avatarValidator.password.empty"), ValidationCategory.Security);
         }

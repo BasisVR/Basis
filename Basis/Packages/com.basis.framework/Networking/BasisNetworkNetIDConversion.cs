@@ -33,7 +33,7 @@ public static partial class BasisNetworkIdResolver
             return await AwaitWithTimeout(existingTcs.Task, stringId);
         }
 
-        var tcs = new TaskCompletionSource<ushort>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<ushort>(BasisTasks.ThreadsAvailable ? TaskCreationOptions.RunContinuationsAsynchronously : TaskCreationOptions.None);
         if (!PendingResolutions.TryAdd(stringId, tcs))
         {
             return await AwaitWithTimeout(PendingResolutions[stringId].Task, stringId);
@@ -61,7 +61,7 @@ public static partial class BasisNetworkIdResolver
     {
         using var cts = new CancellationTokenSource(TimeoutMilliseconds);
 
-        var completedTask = await Task.WhenAny(task, Task.Delay(TimeoutMilliseconds, cts.Token));
+        var completedTask = await Task.WhenAny(task, BasisTasks.Delay(TimeoutMilliseconds, cts.Token));
         if (completedTask == task)
         {
             try

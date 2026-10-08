@@ -261,8 +261,9 @@ namespace Basis.BasisUI
 
 #if !BASIS_DISABLE_TMP_FALLBACKS
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void AutoInstall()
+        private static async void AutoInstall()
         {
+            await Basis.Scripts.Platform.BasisWebAddressables.WhenReady();
             InstallFallbacks();
         }
 #endif
@@ -302,7 +303,7 @@ namespace Basis.BasisUI
                 }
 
                 TMP_FontAsset shipped = group.Label == JaJpLabel ? GetShippedJapaneseFallback() : group.Label == EmojiLabel ? GetShippedEmojiFallback() : null;
-                TMP_FontAsset tmpFont = shipped ?? TryCreateDynamicOSFallback(group.Label, group.Candidates);
+                TMP_FontAsset tmpFont = shipped ?? (Application.platform == RuntimePlatform.WebGLPlayer ? null : TryCreateDynamicOSFallback(group.Label, group.Candidates));
                 if (tmpFont != null)
                 {
                     fallbacks.Add(tmpFont);
@@ -312,7 +313,7 @@ namespace Basis.BasisUI
                     }
                     BasisDebug.Log($"[BasisTMPFontFallbacks] Installed {group.Label} using OS font family '{tmpFont.faceInfo.familyName}'.");
                 }
-                else
+                else if (Application.platform != RuntimePlatform.WebGLPlayer)
                 {
                     BasisDebug.LogError($"[BasisTMPFontFallbacks] None of the candidates for {group.Label} could be resolved on this OS. Candidates tried: {string.Join(", ", group.Candidates)}");
                 }

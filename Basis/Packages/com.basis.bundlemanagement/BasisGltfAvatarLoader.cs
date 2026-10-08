@@ -21,7 +21,7 @@ public static class BasisGltfAvatarLoader
             return false;
         }
 
-        BasisGenericAvatarData avatarData = await Task.Run(() => BasisGenericAvatarData.FromJson(generated.GenericAvatarDataJson));
+        BasisGenericAvatarData avatarData = await BasisTasks.Run(() => BasisGenericAvatarData.FromJson(generated.GenericAvatarDataJson));
         if (avatarData == null)
         {
             BasisDebug.LogError("Generic (glTF) load: section carries no BasisGenericAvatarData; cannot rebuild a humanoid avatar.");
@@ -45,7 +45,7 @@ public static class BasisGltfAvatarLoader
         int glbLength = BasisGenericBlendshapeSidecar.GetGlbLength(sectionBytes);
         if (glbLength > 0 && glbLength < sectionBytes.Length)
         {
-            (blendshapeSidecar, glbBytes) = await Task.Run(() =>
+            (blendshapeSidecar, glbBytes) = await BasisTasks.Run(() =>
             {
                 BasisGenericBlendshapeSidecar sidecar = BasisGenericBlendshapeSidecar.TryParse(sectionBytes, glbLength);
                 byte[] glb = new byte[glbLength];

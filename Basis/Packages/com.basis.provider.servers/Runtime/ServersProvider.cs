@@ -501,6 +501,13 @@ namespace Basis.BasisUI
                 ids.Add(s.Id);
                 names.Add(s.DisplayName);
             }
+            if (ids.Count > 1)
+            {
+                string allIds = string.Join(",", ids);
+                string allNames = string.Join(" + ", names);
+                ids.Add(allIds);
+                names.Add(allNames);
+            }
             _hostStackDropdown.AssignEntries(names);
 
             string savedId = BasisDataStore.LoadString(HostStackIdFile, BasisNetworkStackRegistry.DefaultId);
@@ -523,7 +530,11 @@ namespace Basis.BasisUI
         private string ReadHostStackId()
         {
             string saved = BasisDataStore.LoadString(HostStackIdFile, BasisNetworkStackRegistry.DefaultId);
-            return BasisNetworkStackRegistry.IsRegistered(saved) ? saved : BasisNetworkStackRegistry.DefaultId;
+            foreach (string id in BasisNetworkStackRegistry.ParseStackList(saved))
+            {
+                if (!BasisNetworkStackRegistry.IsRegistered(id)) return BasisNetworkStackRegistry.DefaultId;
+            }
+            return string.IsNullOrWhiteSpace(saved) ? BasisNetworkStackRegistry.DefaultId : saved;
         }
 
         private static ServerDirectoryEntry CreateHostEntry(string stackId)
@@ -732,7 +743,20 @@ namespace Basis.BasisUI
             // If the user pasted a connection string into the Address field
             // (address:port#password), split it so port/password get the parsed
             // values too instead of the user having to fill three fields.
-            if (!string.IsNullOrEmpty(addressInput)
+            bool claimedAddress = BasisNetworkStackRegistry.TryMatchAddress(addressInput, out string claimedStackId);
+            if (claimedAddress)
+            {
+                ConnectionTarget claimed = BasisNetworkStackRegistry.ParseTarget(claimedStackId, addressInput);
+                string claimedHost = claimed.Get(ConnectionTarget.Keys.Address);
+                if (!string.IsNullOrEmpty(claimedHost))
+                {
+                    address = claimedHost;
+                    if (ushort.TryParse(claimed.Get(ConnectionTarget.Keys.Port), out ushort claimedPort) && claimedPort > 0) parsedPortOverride = claimedPort;
+                    string claimedPassword = claimed.Get(ConnectionTarget.Keys.Password);
+                    if (!string.IsNullOrEmpty(claimedPassword)) parsedPasswordOverride = claimedPassword;
+                }
+            }
+            else if (!string.IsNullOrEmpty(addressInput)
                 && (addressInput.IndexOf(':') >= 0 || addressInput.IndexOf('#') >= 0)
                 && SavedServerStore.TryParseConnectionString(addressInput, out string pAddr, out ushort pPort, out bool portProvided, out string pPassword))
             {
@@ -780,7 +804,7 @@ namespace Basis.BasisUI
             string finalPassword = parsedPasswordOverride ?? (_editPassword.Password ?? string.Empty);
             entry.Password = finalPassword;
             entry.HasPassword = !string.IsNullOrEmpty(finalPassword);
-            entry.NetworkStackId = ReadStackDropdownId();
+            entry.NetworkStackId = claimedAddress ? claimedStackId : ReadStackDropdownId();
 
             SavedServerStore.Save(saved);
 

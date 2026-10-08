@@ -67,7 +67,7 @@ public static partial class BasisMediaLogDrain
     /// <summary>From a player's tick. Idempotent within a frame.</summary>
     internal static unsafe void Pump()
     {
-        if (_drainedFrame == Time.frameCount) return;
+        if (_drainedFrame == Time.frameCount || Application.platform == RuntimePlatform.WebGLPlayer) return;
         _drainedFrame = Time.frameCount;
 
         var records = stackalloc BmLogRecord[DrainBatch];

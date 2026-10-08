@@ -65,6 +65,19 @@ to force a VR mode from boot.
 3. Open the project and make sure to load the scene Initialisation
 4. Enter play!
 
+ ### Web (browser) builds
+
+Basis can also be built as a Web player that runs in the browser on WebAssembly and WebGPU.
+
+1. Install Unity's Web build support module for the project's editor version.
+2. Build with `Basis/Build/Web Player`, or from the command line with `-buildTarget WebGL -executeMethod BasisWebBuild.BuildWeb -customBuildPath <folder>`. The build targets WebGPU only and 64-bit WebAssembly (up to 16 GB of memory), so players need a browser with WebGPU and WebAssembly Memory64, such as current Chrome or Edge. Safari does not support Memory64 yet.
+3. Serve the output folder over HTTPS (localhost works for testing). Serving the `.unityweb` files with `Content-Encoding: br` makes loading faster.
+4. Browsers cannot use UDP, so web builds connect over WebSocket, which is a separate package (`com.basis.transport.websocket`) that Basis does not include. Install it into the Unity project before building for the web, and into every server web players should join. See "Web Clients (WebSocket)" in `Basis Server/Docker/README.md`.
+5. Browsers download avatars, worlds and props themselves, so the host serving them must send `Access-Control-Allow-Origin` headers (for example the CORS option of a CDN pull zone), and content must be built for the Web target.
+6. A link can join a server on load: `?connection=wss://example.com:4296&password=...&name=...` (`connection` also accepts `host:port`).
+
+Not available in the Web player yet: voice chat, VR, Steam Audio, MediaPipe tracking, lip sync, the media player, and Basis global illumination and ray traced AO.
+
  ## Contact
 
 basis enquiries - developerbasis@gmail.com

@@ -40,6 +40,8 @@ public static class BasisQualitySettingsGuard
     }
     public static void Validate()
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            return;
         if (NamesMatch(QualitySettings.names))
             return;
 

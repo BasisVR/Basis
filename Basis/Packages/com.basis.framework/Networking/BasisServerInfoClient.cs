@@ -27,6 +27,10 @@ namespace Basis.Scripts.Networking
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void AutoRegister()
         {
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
+            {
+                return;
+            }
             BasisNetworkStackRegistry.RegisterProbe(BasisNetworkStackRegistry.LiteNetLibId, ProbeAsync);
         }
 

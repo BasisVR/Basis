@@ -155,7 +155,7 @@ public partial class BasisContentSphere : BasisInteractableObject
 
                 // Blend 50% type color with 50% texture
                 Color[] pixels = texture.GetPixels();
-                await Task.Run(() =>
+                await BasisTasks.Run(() =>
                 {
                     for (int i = 0; i < pixels.Length; i++)
                     {

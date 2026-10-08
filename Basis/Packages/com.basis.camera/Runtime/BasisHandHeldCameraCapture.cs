@@ -59,10 +59,10 @@ public partial class BasisHandHeldCamera
         bool headWasNormal = BasisLocalAvatarDriver.IsNormalHead;
         BasisLocalAvatarDriver.ScaleHeadToNormal();
         ToggleToneMapping(CaptureTonemapping);
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         SMModuleGlobalIlluminationURP.BeginCapture(captureCamera, OverrideGlobalIllumination ? GlobalIlluminationOverride : (BasisGlobalIlluminationCaptureOverride?)null);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
         BasisRTAOIntegration.BeginCapture(captureCamera, OverrideRTAO ? RTAOOverride : (BasisRTAOCaptureOverride?)null);
 #endif
         try
@@ -71,10 +71,10 @@ public partial class BasisHandHeldCamera
         }
         finally
         {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             SMModuleGlobalIlluminationURP.EndCapture();
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             BasisRTAOIntegration.EndCapture();
 #endif
             if (!headWasNormal) BasisLocalAvatarDriver.ScaleHeadToZero();
@@ -127,7 +127,7 @@ public partial class BasisHandHeldCamera
             byte[] pixels = new byte[raw.Length];
             Unity.Collections.NativeArray<byte>.Copy(raw, pixels, raw.Length);
 
-            (byte[] imageData, BasisCameraPrintResize.PrintCopy print) = await Task.Run(() =>
+            (byte[] imageData, BasisCameraPrintResize.PrintCopy print) = await BasisTasks.Run(() =>
             {
                 byte[] encoded = exr ? ImageConversion.EncodeArrayToEXR(pixels, pixelFormat, (uint)width, (uint)height, 0, Texture2D.EXRFlags.CompressZIP) : ImageConversion.EncodeArrayToPNG(pixels, pixelFormat, (uint)width, (uint)height, 0);
                 if (photoMetadata != null) encoded = BasisHandHeldCameraPhotoMetadata.Embed(encoded, format, photoMetadata, width, height);
@@ -135,7 +135,7 @@ public partial class BasisHandHeldCamera
             });
             printCopy = print;
 
-            await File.WriteAllBytesAsync(path, imageData);
+            await BasisFiles.WriteAllBytesAsync(path, imageData);
         }
         catch (Exception e)
         {

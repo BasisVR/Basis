@@ -40,7 +40,7 @@ public static partial class BasisOpenLipSyncDriver
     public static AsyncOperationHandle<TextAsset> configAsset;
     public static void BeginInitialize()
     {
-        if (_initialized || modelAsset.IsValid()) return;
+        if (_initialized || modelAsset.IsValid() || Application.platform == RuntimePlatform.WebGLPlayer) return;
 
         modelAsset = Addressables.LoadAssetAsync<TextAsset>(ModelAddress);
         configAsset = Addressables.LoadAssetAsync<TextAsset>(ConfigAddress);
@@ -48,7 +48,7 @@ public static partial class BasisOpenLipSyncDriver
 
     public static void EndInitialize()
     {
-        if (_initialized) return;
+        if (_initialized || Application.platform == RuntimePlatform.WebGLPlayer) return;
 
         try
         {

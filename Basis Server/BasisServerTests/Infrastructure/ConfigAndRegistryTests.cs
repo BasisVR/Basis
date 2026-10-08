@@ -707,6 +707,7 @@ public class LNLConnectionTargetParserTests
 /// BasisNetworkStackRegistry register/lookup semantics. All mutations use unique test stack ids;
 /// the active stack id is restored after each test that changes it.
 /// </summary>
+[Collection("BasisServer shared network statics")]
 public class NetworkStackRegistryTests
 {
     private sealed class RecordingParser : IConnectionTargetParser

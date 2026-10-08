@@ -15,7 +15,7 @@ namespace BasisNetworkServer
                               IPEndPoint bInternal, IPEndPoint bExternal,
                               string token)
         {
-            LiteNetLib.NetManager lnl = (NetworkServer.Server as LNLNetManager)?.manager;
+            LiteNetLib.NetManager lnl = NetworkServer.Server?.LiteNetLibManager();
             if (lnl == null) return;
             lnl.NatPunchModule.NatIntroduce(aInternal, aExternal, bInternal, bExternal, token);
         }

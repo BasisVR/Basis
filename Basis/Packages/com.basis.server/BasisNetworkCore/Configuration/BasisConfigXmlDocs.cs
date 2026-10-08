@@ -43,6 +43,20 @@ namespace Basis.Network.Core
             RegisterLnlConfig();
         }
 
+        public static void Register(Type type, string header, params FieldDoc[] fields)
+        {
+            if (type == null) throw new ArgumentNullException(nameof(type));
+            var t = new TypeDoc { Header = header };
+            if (fields != null)
+            {
+                foreach (FieldDoc field in fields)
+                {
+                    if (field != null) t.Fields.Add(field);
+                }
+            }
+            lock (_docs) _docs[type] = t;
+        }
+
         /// <summary>Serialize <paramref name="value"/> to <paramref name="writer"/> with doc comments injected for <paramref name="type"/>.</summary>
         public static void Serialize(XmlSerializer serializer, Type type, object value, TextWriter writer)
         {
@@ -58,7 +72,12 @@ namespace Basis.Network.Core
 
         private static void Inject(XDocument doc, Type type)
         {
-            if (doc.Root == null || !_docs.TryGetValue(type, out TypeDoc entry)) return;
+            if (doc.Root == null) return;
+            TypeDoc entry;
+            lock (_docs)
+            {
+                if (!_docs.TryGetValue(type, out entry)) return;
+            }
 
             var byField = new Dictionary<string, FieldDoc>();
             foreach (FieldDoc f in entry.Fields) byField[f.Field] = f;
@@ -146,7 +165,7 @@ namespace Basis.Network.Core
             };
             t.Fields.Add(new FieldDoc("ConfigVersion", " Config schema version, managed automatically. When the server gains new settings this file is rewritten to add them (with their defaults) and this number is bumped — don't edit by hand. "));
             t.Fields.Add(new FieldDoc("PeerLimit", " Maximum number of simultaneously connected peers (players). int. Default 65535. ", " ===== Networking / listener ===== "));
-            t.Fields.Add(new FieldDoc("SetPort", " UDP port the server binds and listens on; clients connect to this. ushort, range 1-65535. "));
+            t.Fields.Add(new FieldDoc("SetPort", " UDP port the server binds and listens on; clients connect to this. Other transports in NetworkStackId listen on the same number by default, over their own protocol, unless their file in config/transports sets its own port. ushort, range 1-65535. "));
             t.Fields.Add(new FieldDoc("ServerName", " Display name shown as the row title in client server-list UIs (server-info query). string. "));
             t.Fields.Add(new FieldDoc("ServerMotd", " Short message-of-the-day returned alongside the server name. string; empty = none. "));
             t.Fields.Add(new FieldDoc("ServerUUID", " Stable application-level server identity sent to every client when it joins. Independent of IP addresses, ports, DNS and transport; set this explicitly when an embedded server should share another identity. string; defaults to a generated UUID and persists in config.xml. "));
@@ -178,7 +197,7 @@ namespace Basis.Network.Core
             t.Fields.Add(new FieldDoc("Password", " Password clients must present to join. Change this for any non-local server! string. ", " ===== Authentication ===== "));
             t.Fields.Add(new FieldDoc("UseAuth", " Require the join password (above) to be correct. true|false. "));
             t.Fields.Add(new FieldDoc("UseAuthIdentity", " Require cryptographic player-identity (DID) verification in addition to the password. true|false. The headless load-test client console supports this, so it can stay enabled. "));
-            t.Fields.Add(new FieldDoc("NetworkStackId", " Transport stack id. Empty = the default ('litenetlib'); only 'litenetlib' is registered and unknown ids fall back to it. Per-stack tuning lives in config/transports/<id>.xml. string. "));
+            t.Fields.Add(new FieldDoc("NetworkStackId", " Transports the server listens on, as a comma-separated list of stack ids. Empty = the default ('litenetlib', UDP only). Other transports come from server packages and add their own ids: with the WebSocket transport package installed, 'litenetlib,websocket' also accepts web browsers and native clients on networks that block UDP. Every transport shares one player id space, so players on different transports see each other normally. An id whose package is not installed is skipped with a warning. Per-stack tuning lives in config/transports/<id>.xml. string. "));
             t.Fields.Add(new FieldDoc("BasisUserRestrictionMode", " Player join restriction mode. Allowed values: Normal | BanList | AllowList | RejoinOnly. RejoinOnly locks the server to the players connected when it was enabled (admins may still join) and resets to Normal on restart. "));
             t.Fields.Add(new FieldDoc("HowManyDuplicateAuthCanExist", " How many connections sharing the same auth identity may exist at once. int. "));
             t.Fields.Add(new FieldDoc("AuthValidationTimeOutMiliseconds", " Time a client has to complete auth validation before being dropped. int (ms). "));

@@ -21,7 +21,7 @@ namespace Basis.BasisUI.HandHeldCamera
     /// </summary>
     public partial class BasisHandHeldCameraPanelProvider
     {
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
         private PanelSectionToggle _rtaoSection;
         private PanelElementDescriptor _rtaoGroup;
         private PanelToggle _rtaoOverrideToggle;

@@ -12,7 +12,7 @@ namespace Basis.Scripts.Editor
         public void OnPreprocessBuild(BuildReport report)
         {
             if (report.summary.platformGroup == BuildTargetGroup.Standalone && report.summary.GetSubtarget<StandaloneBuildSubtarget>() == StandaloneBuildSubtarget.Server) { return; }
-            BasisLightingSolutions.ActivateForBuild();
+            BasisLightingSolutions.ActivateForBuild(report.summary.platform != BuildTarget.WebGL);
         }
 
         public void OnPostprocessBuild(BuildReport report) => BasisLightingSolutions.RestoreAfterBuild();

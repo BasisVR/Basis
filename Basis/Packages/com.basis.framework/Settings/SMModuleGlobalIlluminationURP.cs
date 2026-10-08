@@ -2,7 +2,7 @@ using Unity.Scripting.LifecycleManagement;
 // Global illumination is optional: the define comes from the com.basis.globalillumination package
 // being present (asmdef versionDefines), and the effect is not viable on mobile GPUs, so the whole
 // integration compiles out on Android.
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;

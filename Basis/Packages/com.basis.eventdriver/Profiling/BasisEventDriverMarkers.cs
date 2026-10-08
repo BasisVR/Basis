@@ -20,6 +20,7 @@ namespace Basis.EventDriver
             MainThreadActions = new BasisMarker(Group, "MainThreadActions"),
             LifecycleQueue = new BasisMarker(NetworkGroup, "LifecycleQueue"),
             ConnectionWatchdog = new BasisMarker(NetworkGroup, "ConnectionWatchdog"),
+            NetworkTransportTick = new BasisMarker(NetworkGroup, "TransportTick"),
             InputSystemUpdate = new BasisMarker(Group, "Input.InputSystemUpdate"),
             OscAcquisition = new BasisMarker(Group, "OSC.Acquisition"),
             PerformanceLimits = new BasisMarker(Group, "PerfLimits.AvatarLimits"),

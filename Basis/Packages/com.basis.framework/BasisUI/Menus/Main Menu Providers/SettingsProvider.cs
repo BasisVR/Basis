@@ -101,27 +101,37 @@ namespace Basis.BasisUI
         public static void AddToMenu()
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new SettingsProvider());
+            _avatarRateTickSubscribed = false;
 #if !BASIS_DISABLE_MICROPHONE
             SMDMicrophone.OnMicrophoneSettingsChanged += SyncUiFromSnapshot;
             SMDMicrophone.OnMicrophoneDevicesChanged += RefreshMicrophoneDeviceEntries;
 #endif
             ApplyOpenLipSyncMaxSlots();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyOpenLipSyncMaxSlots;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyOpenLipSyncMaxSlots;
             ApplyJiggleCollisionCulling();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyJiggleCollisionCulling;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyJiggleCollisionCulling;
             BasisJiggleColliderLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisJiggleColliderLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisJiggleColliderLOD.ApplyFromSettings;
             BasisJiggleSimulationLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisJiggleSimulationLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisJiggleSimulationLOD.ApplyFromSettings;
             BasisAvatarSkinLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisAvatarSkinLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisAvatarSkinLOD.ApplyFromSettings;
             BasisAvatarShadowLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisAvatarShadowLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisAvatarShadowLOD.ApplyFromSettings;
             Basis.Scripts.Rendering.BasisVisibilitySystem.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= Basis.Scripts.Rendering.BasisVisibilitySystem.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += Basis.Scripts.Rendering.BasisVisibilitySystem.ApplyFromSettings;
             BasisAvatarFarLOD.ApplyFromSettings();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= BasisAvatarFarLOD.ApplyFromSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += BasisAvatarFarLOD.ApplyFromSettings;
             ApplyDesktopInputInVR();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyDesktopInputInVR;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyDesktopInputInVR;
         }
 
@@ -2021,7 +2031,7 @@ namespace Basis.BasisUI
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(qualityToggle, qualityGroup, true,
                 _ => descriptor.ForceRebuild());
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             {
                 PanelSectionToggle giToggle = PanelSectionToggle.CreateNewEntry(container);
                 PanelElementDescriptor giGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -2509,7 +2519,7 @@ namespace Basis.BasisUI
             }
 #endif
 
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             {
                 PanelSectionToggle rtaoToggle = PanelSectionToggle.CreateNewEntry(container);
                 PanelElementDescriptor rtaoGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -4449,7 +4459,7 @@ namespace Basis.BasisUI
                 toggleVrsDesktop.AssignBinding(BasisSettingsDefaults.DevVariableRateShadingDesktop);
             }
 
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             PanelToggle toggleRtaoDebug = PanelToggle.CreateNewEntry(container);
             toggleRtaoDebug.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.rtaoDebug"));
             toggleRtaoDebug.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.rtaoDebug.tooltip"));
@@ -4469,7 +4479,7 @@ namespace Basis.BasisUI
             dropdownRtaoStage.AssignBinding(BasisSettingsDefaults.DevRtaoDebugStage);
 #endif
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             PanelDropdown dropdownGiDebug = PanelDropdown.CreateNewEntry(container);
             dropdownGiDebug.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.giDebug"));
             dropdownGiDebug.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.giDebug.tooltip"));

@@ -126,10 +126,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             //Phase 4: Network I/O
             BasisNetworkPIPCamera.UpdatePIPPositions(now);
-            if (NetworkServer.Server is LNLNetManager lnlReductionServer && lnlReductionServer.manager != null)
-            {
-                lnlReductionServer.manager.TriggerUpdate();
-            }
+            NetworkServer.Server?.LiteNetLibManager()?.TriggerUpdate();
             if (profiling)
             {
                 BSRProfiler.triggerTicks += Stopwatch.GetTimestamp() - phaseTick;

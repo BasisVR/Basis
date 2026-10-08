@@ -648,7 +648,7 @@ public static class BasisGenericAvatarExporter
             return null;
         }
         using MemoryStream stream = new MemoryStream();
-        bool success = await export.SaveToStreamAndDispose(stream);
+        bool success = await export.SaveToStreamAndDispose(stream, forceSync: true);
         if (!success)
         {
             BasisDebug.LogError("Generic avatar export: glb serialization failed.");

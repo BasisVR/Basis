@@ -15,6 +15,9 @@ public abstract class BasisContentBase : BasisNetworkContentBase
     [SerializeField]
     public BasisBundleDescription BasisBundleDescription;
 
+    public bool UseCustomPassword;
+    public string UserSelectedPassword;
+
     /// <summary>
     /// Transient component snapshot captured during the load-time content walk
     /// (<see cref="BasisContentHarvest"/>). Null outside loading; the load path

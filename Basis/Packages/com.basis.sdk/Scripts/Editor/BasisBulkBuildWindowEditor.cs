@@ -321,8 +321,8 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
                                 var (ok, msg) = await BasisBundleBuild.GameObjectBundleBuild(
                                     imageBytes, avatar, targets,
-                                    assetBundleObject.UseCustomPassword,
-                                    assetBundleObject.UserSelectedPassword);
+                                    avatar.UseCustomPassword,
+                                    avatar.UserSelectedPassword);
 
                                 LogResult(ok, msg, e);
                                 break;
@@ -335,8 +335,8 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
                                 var (ok, msg) = await BasisBundleBuild.GameObjectBundleBuild(
                                     imageBytes, prop, targets,
-                                    assetBundleObject.UseCustomPassword,
-                                    assetBundleObject.UserSelectedPassword);
+                                    prop.UseCustomPassword,
+                                    prop.UserSelectedPassword);
 
                                 LogResult(ok, msg, e);
                                 break;

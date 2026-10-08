@@ -120,6 +120,7 @@ public static partial class BasisNetworkPIPCameraDriver
     {
         if (initialized) return;
 
+        DisposeContainers();
         currentPositions = new NativeList<float3>(InitialCapacity, Allocator.Persistent);
         targetPositions = new NativeList<float3>(InitialCapacity, Allocator.Persistent);
         currentRotations = new NativeList<quaternion>(InitialCapacity, Allocator.Persistent);
@@ -158,6 +159,17 @@ public static partial class BasisNetworkPIPCameraDriver
         }
         loadedPrefab = null;
 
+        DisposeContainers();
+
+        playerIdToIndex.Clear();
+        denseToPlayerId.Clear();
+        pendingNameBakes.Clear();
+
+        initialized = false;
+    }
+
+    private static void DisposeContainers()
+    {
         if (currentPositions.IsCreated) currentPositions.Dispose();
         if (targetPositions.IsCreated) targetPositions.Dispose();
         if (currentRotations.IsCreated) currentRotations.Dispose();
@@ -165,12 +177,6 @@ public static partial class BasisNetworkPIPCameraDriver
         if (nameplateHeights.IsCreated) nameplateHeights.Dispose();
         if (cameraTransforms.isCreated) cameraTransforms.Dispose();
         if (namePlateTransforms.isCreated) namePlateTransforms.Dispose();
-
-        playerIdToIndex.Clear();
-        denseToPlayerId.Clear();
-        pendingNameBakes.Clear();
-
-        initialized = false;
     }
 
     public static void ClearRemotePIPs()

@@ -40,6 +40,7 @@ ENV SetPort=4296 \
 
 # Expose UDP port for game traffic and TCP port for health checks
 EXPOSE ${SetPort}/udp
+EXPOSE ${SetPort}/tcp
 EXPOSE ${HealthCheckPort}/tcp
 EXPOSE ${PromethusPort}/tcp
 

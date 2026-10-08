@@ -249,7 +249,7 @@ public static partial class BasisFarAvatarBuilder
             }
         }
 
-        parse = Task.Run(() =>
+        parse = BasisTasks.Run(() =>
         {
             BasisFarLodPayload payload = BasisFarLodPayload.TryParseBase64(payloadBase64);
             payload?.PrepareDecodedMeshData();

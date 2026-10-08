@@ -162,7 +162,7 @@ public static partial class BasisUserDataBackup
             return new BackupResult { Success = false, Error = e.Message };
         }
 
-        return await Task.Run(() => WriteArchive(root, destination, prefsJson, manifest, includeCachedContent));
+        return await BasisTasks.Run(() => WriteArchive(root, destination, prefsJson, manifest, includeCachedContent));
     }
 
     private static BackupResult WriteArchive(
@@ -309,7 +309,7 @@ public static partial class BasisUserDataBackup
         string folder = ResolveBackupsFolder();
         if (folder == null) return new List<ArchiveInfo>();
 
-        (List<ArchiveInfo> Archives, List<string> Manifests) scanned = await Task.Run(() =>
+        (List<ArchiveInfo> Archives, List<string> Manifests) scanned = await BasisTasks.Run(() =>
         {
             List<ArchiveInfo> archives = ListArchives(folder);
             List<string> manifests = new(archives.Count);
@@ -446,7 +446,7 @@ public static partial class BasisUserDataBackup
         (RestoreResult Result, List<PrefEntry> Prefs) extracted;
         try
         {
-            extracted = await Task.Run(() => Extract(root, archivePath));
+            extracted = await BasisTasks.Run(() => Extract(root, archivePath));
         }
         catch (Exception e)
         {

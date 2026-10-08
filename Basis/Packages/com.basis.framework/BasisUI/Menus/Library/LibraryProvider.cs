@@ -30,6 +30,7 @@ namespace Basis.BasisUI
         public static async void AddToMenu()
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new LibraryProvider());
+            await Basis.Scripts.Platform.BasisWebAddressables.WhenReady();
 
             // begin meta data caching here
             // load all the keys

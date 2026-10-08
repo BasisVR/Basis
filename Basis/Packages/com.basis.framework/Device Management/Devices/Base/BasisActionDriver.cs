@@ -714,7 +714,7 @@ public static partial class BasisActionDriver
 
         try
         {
-            string json = await File.ReadAllTextAsync(SavePath);
+            string json = await BasisFiles.ReadAllTextAsync(SavePath);
 
             if (string.IsNullOrEmpty(json))
             {
@@ -767,7 +767,7 @@ public static partial class BasisActionDriver
             {
                 Directory.CreateDirectory(dir);
             }
-            await File.WriteAllTextAsync(SavePath, json);
+            await BasisFiles.WriteAllTextAsync(SavePath, json);
 
 #if UNITY_EDITOR
             BasisDebug.Log($"Bindings Saved {wrapper.records?.Length ?? 0} bindings to {SavePath}", BasisDebug.LogTag.Input);
