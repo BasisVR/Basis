@@ -88,7 +88,7 @@ with `--release` for timing):
 
 | Command | Does |
 | --- | --- |
-| `probe <src>` | Reports container and codecs; `--decode` adds first-frame timing (Windows) |
+| `probe <src>` | Reports container, codecs and any embedded cover art; `--decode` adds first-frame timing (Windows), `--artwork-out <path>` writes the art as stored |
 | `play <src> --csv out.csv` | Plays through the engine, writing the engine capture. `--audio-out`, `--seek-to-ms` and `--decode` are optional |
 | `bench <src>` | Measures time to first frame and seek time |
 | `caps` | Prints what this machine can play |
@@ -226,7 +226,7 @@ connection. Set **Liveness** to Live for those.
 | Matroska demuxer rows | Matroska/WebM gets expected counts, converts H.264 to Annex-B, announces VP9 and Opus, applies CodecDelay and cue-seeks to keyframes. A string, codec private data or frame stating more than the demuxer holds is refused before it is allocated, whatever size the source claims. A track number past 32 bits is passed over rather than narrowed onto another track. | `cargo test -p media-demux --test mkv_stream` | CI |
 | Raw audio demuxer rows | FLAC, Ogg Opus, MP3, ADTS and WAV demux with exact timestamps, report duration, seek, and refuse unsupported layouts with a typed error. | `cargo test -p media-demux --test raw_audio` + `cargo test -p media-demux --lib` | CI |
 | Parse error label | A parse error from any demuxer reads `parse: …` followed by that demuxer's own message: a malformed WAV reads `parse: WAV data chunk before fmt`. | `cargo test -p media-demux --test raw_audio a_wav_parse_error` | CI |
-| Embedded cover art | Cover art is extracted undecoded from FLAC, Ogg, ID3v2 and MP4 tags, refusing hostile lengths and preferring the front cover. | `cargo test -p media-demux --lib artwork` + `--test raw_audio`; by hand: play an audio-only source with an asymmetric picture and check it on the output texture | CI; by hand |
+| Embedded cover art | Cover art is extracted undecoded from FLAC, Ogg, ID3v2 and MP4 tags, refusing hostile lengths and preferring the front cover. | `cargo test -p media-demux --lib artwork` + `--test raw_audio`; by hand: `bm-probe probe <file> --artwork-out <path>` reports the art's type and size and writes it as stored, and an audio-only source with an asymmetric picture shows it upright on the output texture | CI; by hand |
 | Matroska stated geometry | Matroska stating a NaN, infinite or huge audio rate, channel count or duration skips that track or reports unknown duration; video plays. | `cargo test -p media-demux --test mkv_stream` | CI |
 | MKV/WebM playback | H.264+AAC, VP9/Opus, AV1/Opus and H.265+AAC Matroska/WebM files play end to end with both tracks. | `cargo run -p bm-probe -- play fixtures/mkv/h264-aac.mkv --duration 8`, and likewise `vp9-opus.webm`, `av1-opus.webm` and `h265-aac.mkv` | By hand |
 | Audio track selection | Each audio track in MP4 and Matroska is listed with its language and playable by index; out-of-range picks the first. | `cargo test -p media-demux --test audio_tracks`; `cargo run -p bm-probe -- play fixtures/h264-multiaudio.mp4 --audio-track {0,1} --audio-out out.f32` | CI; by hand |

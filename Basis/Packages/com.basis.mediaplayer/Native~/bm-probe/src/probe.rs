@@ -9,7 +9,12 @@ use media_clock::Generation;
 use media_demux::Demuxer;
 use media_demux::{AudioCodec, ContainerKind, DemuxLimits, Format, StreamEvent, VideoCodec};
 
-pub fn run(url: &str, decode: bool, allow_local: bool) -> ExitCode {
+pub fn run(
+    url: &str,
+    decode: bool,
+    allow_local: bool,
+    artwork_out: Option<&std::path::Path>,
+) -> ExitCode {
     let opened = Instant::now();
     let mut source = match crate::open_source(url, allow_local) {
         Ok(source) => source,
@@ -94,6 +99,22 @@ pub fn run(url: &str, decode: bool, allow_local: bool) -> ExitCode {
     }
     if let Some((codec, rate, channels)) = audio {
         println!("audio:         {codec:?} {rate} Hz, {channels} ch");
+    }
+    match demux.artwork() {
+        Some(art) => {
+            println!("artwork:       {}, {} bytes", art.mime, art.data.len());
+            if let Some(path) = artwork_out
+                && let Err(e) = std::fs::write(path, &art.data)
+            {
+                eprintln!("probe: {}: {e}", path.display());
+                return ExitCode::FAILURE;
+            }
+        }
+        None if artwork_out.is_some() => {
+            eprintln!("probe: {url}: no cover art to write");
+            return ExitCode::FAILURE;
+        }
+        None => {}
     }
     println!("parse time:    {parse_ms:.1}ms");
 

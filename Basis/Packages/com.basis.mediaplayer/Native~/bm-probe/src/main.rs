@@ -55,6 +55,10 @@ enum Command {
         /// server on this machine. They are refused by default.
         #[arg(long)]
         allow_local: bool,
+        /// Write the embedded cover art, as the container stores it, to
+        /// this path.
+        #[arg(long)]
+        artwork_out: Option<std::path::PathBuf>,
     },
     /// Play a source through the whole engine for a set time, then print a
     /// summary. Optionally write the diagnostics capture as CSV.
@@ -177,7 +181,8 @@ fn main() -> ExitCode {
             url,
             decode,
             allow_local,
-        } => probe::run(&url, decode, allow_local),
+            artwork_out,
+        } => probe::run(&url, decode, allow_local, artwork_out.as_deref()),
         Command::Play {
             url,
             duration,
