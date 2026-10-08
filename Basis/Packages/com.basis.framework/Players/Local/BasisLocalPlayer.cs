@@ -147,11 +147,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 LoadModeLocal,
                 out BasisDataStore.BasisSavedAvatar LastUsedAvatar);
 
-            if (LoadedState)
-            {
-                await LoadInitialAvatar(LastUsedAvatar);
-            }
-            else
+            if (!LoadedState || !WearLoadingAvatar())
             {
                 await LoadFallbackAvatar();
             }
@@ -175,18 +171,38 @@ namespace Basis.Scripts.BasisSdk.Players
             PlayerReady = true;
             OnLocalPlayerInitialized?.Invoke();
             BasisLocalPlayerData.RaiseLocalPlayerInitialized();
+
+            if (LoadedState)
+            {
+                RestoreLastUsedAvatar(LastUsedAvatar);
+            }
         }
 
-        public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
+        private async void RestoreLastUsedAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
+        {
+            try
+            {
+                await LoadInitialAvatar(LastUsedAvatar, LoadFallbackOnFailure: false);
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Restoring the last used avatar failed, keeping the loading avatar: {e}", BasisDebug.LogTag.Avatar);
+            }
+        }
+
+        public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar, bool LoadFallbackOnFailure = true)
         {
             if (LastUsedAvatar.loadmode == (byte)BasisLoadMode.ByGameobjectReference)
             {
                 BasisDebug.Log("failed to load last used : in-scene avatars cannot be restored", BasisDebug.LogTag.Avatar);
-                await LoadFallbackAvatar();
+                if (LoadFallbackOnFailure)
+                {
+                    await LoadFallbackAvatar();
+                }
                 return;
             }
 
-            await BasisDataStoreItemKeys.LoadKeys();
+            await BasisDataStoreItemKeys.EnsureLoaded();
             ItemKey matchingKey = null;
             ItemKey[] activeKeys = BasisDataStoreItemKeys.DisplayKeys();
             foreach (ItemKey Key in activeKeys)
@@ -202,7 +218,10 @@ namespace Basis.Scripts.BasisSdk.Players
             if (unlockPassword == null)
             {
                 BasisDebug.Log("failed to load last used : no stored password and no key found", BasisDebug.LogTag.Avatar);
-                await LoadFallbackAvatar();
+                if (LoadFallbackOnFailure)
+                {
+                    await LoadFallbackAvatar();
+                }
                 return;
             }
 
@@ -220,6 +239,22 @@ namespace Basis.Scripts.BasisSdk.Players
             };
             BasisDebug.Log(onDisc ? "loading previously loaded avatar" : "last used avatar missing from disc cache, re-downloading", BasisDebug.LogTag.Avatar);
             await CreateAvatar(LastUsedAvatar.loadmode, bundle);
+        }
+
+        private bool WearLoadingAvatar()
+        {
+            BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this, this.transform.position, Quaternion.identity);
+            if (BasisAvatar == null)
+            {
+                return false;
+            }
+            CurrentAvatarUniqueID = BasisAvatarFactory.LoadingAvatar.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+            AvatarMetaData = BasisAvatarFactory.LoadingAvatar;
+            AvatarLoadMode = LoadModeLocal;
+            AvatarSwitched();
+            OnLocalAvatarChanged?.Invoke();
+            BasisConstraintSystem.SetPriorityRoot(BasisAvatar.transform.root);
+            return true;
         }
 
         public async Task LoadFallbackAvatar()
@@ -311,8 +346,13 @@ namespace Basis.Scripts.BasisSdk.Players
         public async Task CreateAvatar(byte LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
             string previousAvatarUniqueID = CurrentAvatarUniqueID;
-            CurrentAvatarUniqueID = BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+            string requestedAvatarUniqueID = BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+            CurrentAvatarUniqueID = requestedAvatarUniqueID;
             bool loaded = await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle, this.transform.position, Quaternion.identity);
+            if (!string.Equals(CurrentAvatarUniqueID, requestedAvatarUniqueID, StringComparison.Ordinal))
+            {
+                return;
+            }
             if (!loaded)
             {
                 CurrentAvatarUniqueID = previousAvatarUniqueID;

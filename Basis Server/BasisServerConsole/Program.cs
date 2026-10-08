@@ -34,6 +34,7 @@ namespace Basis
             RegisterStopSignals();
 
             BasisConsoleCommands.WaitForPredecessorExit(args);
+            Basis.Network.Core.BasisNetworkPackages.Initialize(typeof(Basis.Network.Core.BasisNetworkPackages).Assembly, typeof(NetworkServer).Assembly, typeof(Program).Assembly);
 
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string configDir = Path.Combine(baseDir, Configuration.ConfigFolderName);
@@ -160,6 +161,7 @@ namespace Basis
             BasisConsoleCommands.RegisterCommand("/restart", "Restarts the server, applying settings that need a restart.", BasisConsoleCommands.HandleRestart);
             BasisConsoleCommands.RegisterCommand("/help", "Displays all available commands.", BasisConsoleCommands.HandleHelp);
             BasisConsoleCommands.RegisterCommand("/clear", "Clears the console", BasisConsoleCommands.HandleClear);
+            BasisConsoleCommands.RegisterCommand("/packages", "Lists the server packages built into this server.", HandlePackages);
             BasisConsoleCommands.RegisterPermissionCommands();
             BasisConsoleCommands.RegisterConfigurationCommands(config);
             if (config.EnableConsole)
@@ -213,6 +215,21 @@ namespace Basis
             if (config.EnableStatistics) BasisStatistics.StopWorkerThread();
             BNL.Log("Server shut down successfully.");
             Exit(exitCode);
+        }
+
+        private static void HandlePackages(string[] args)
+        {
+            const string prefix = "BasisServerPackage:";
+            int count = 0;
+            foreach (System.Reflection.AssemblyMetadataAttribute metadata in typeof(Program).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false))
+            {
+                if (!metadata.Key.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                BNL.Log($"{metadata.Key.Substring(prefix.Length)} {metadata.Value}");
+                count++;
+            }
+            if (count == 0) BNL.Log("No server packages are built into this server.");
+            foreach (Type entry in Basis.Network.Core.BasisNetworkPackages.Loaded) BNL.Log($"Running {entry.FullName}");
+            foreach (string failure in Basis.Network.Core.BasisNetworkPackages.Failures) BNL.LogError(failure);
         }
 
         private static void Attempt(string step, Action action)

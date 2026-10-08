@@ -15,7 +15,9 @@ using Basis.Scripts.UI;
 using Basis.Scripts.UI.NamePlate;
 using GatorDragonGames.JigglePhysics;
 using HVR.Basis.Comms;
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
 using SteamAudio;
+#endif
 using System;
 using System.Collections.Generic;
 using Unity.Jobs;
@@ -201,6 +203,7 @@ namespace Basis.EventDriver
             {
                 Application.onBeforeRender -= OnBeforeRender;
             }
+            BasisSceneFactory.DeInitialize();
         }
         /// <summary>
         /// Unity update loop. Drains main-thread actions, advances network simulation (compute),
@@ -262,6 +265,10 @@ namespace Basis.EventDriver
                     // adds later, so starting early costs the remote players nothing.
                     BasisOpenLipSyncContext.ProcessAllPending();
                 }
+            }
+            using (Prof.NetworkTransportTick.Auto())
+            {
+                BasisNetworkManagement.TickTransports();
             }
             // Drain everything that arrived from worker threads
             using (Prof.MainThreadActions.Auto())
@@ -726,7 +733,7 @@ namespace Basis.EventDriver
                 catch (Exception ex) { BasisDebug.LogErrorOnce($"ScheduleTransmitJobs failed: {ex}", BasisDebug.LogTag.Event); }
             }
 
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
             // Stays after the local eye apply: the listener/source gather TAA can share the local
             // player hierarchy with the eye-write job, and the two have never been in flight
             // together — the gather also wants the final camera-side poses for this frame.
@@ -941,7 +948,7 @@ namespace Basis.EventDriver
             ProfileEnd(PROF_NAMEPLATE_COMPLETE);
             BasisFiniteWatchdog.CheckpointRemote("PostNamePlates");
 
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
             // ── SteamAudio apply ──
             // After the jiggle pose schedule, not in OnBeforeRender: its reap/push/snapshot
             // main-thread cost overlaps the in-flight pose jobs. Nothing it reads is fresher

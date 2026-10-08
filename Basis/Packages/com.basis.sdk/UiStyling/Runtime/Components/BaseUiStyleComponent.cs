@@ -41,6 +41,9 @@ namespace Basis.BasisUI.Styling
         private void OnValidate()
         {
             if (!enabled) return;
+#if UNITY_EDITOR
+            if (Application.isPlaying && UnityEditor.EditorUtility.IsPersistent(this)) return;
+#endif
             ApplyActiveStyle();
         }
     }

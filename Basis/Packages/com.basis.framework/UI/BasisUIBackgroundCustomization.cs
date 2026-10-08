@@ -43,6 +43,7 @@ namespace Basis.Scripts.UI
         [RuntimeInitializeOnLoadMethod]
         private static void Initialize()
         {
+            BasisSettingsSystem.OnSettingsFinishedChanges -= Apply;
             BasisSettingsSystem.OnSettingsFinishedChanges += Apply;
         }
 

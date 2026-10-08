@@ -12,7 +12,8 @@
         "iOS",
         "macOSStandalone",
         "tvOS",
-        "VisionOS"
+        "VisionOS",
+        "WebGL"
     ],
     "allowUnsafeCode": false,
     "overrideReferences": false,

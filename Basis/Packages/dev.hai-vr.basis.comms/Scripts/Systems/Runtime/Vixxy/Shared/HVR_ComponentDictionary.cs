@@ -10,23 +10,34 @@ namespace HVR.Vixxy
 
         public static bool TryGetComponentType(string fullClassName, out Type foundType)
         {
-            return ComponentDictionary.TryGetValue(fullClassName, out foundType);
+            if (!ComponentDictionary.TryGetValue(fullClassName, out foundType))
+            {
+                foundType = FindComponentType(fullClassName);
+                ComponentDictionary[fullClassName] = foundType;
+            }
+            return foundType != null;
         }
 
-        static HVR_ComponentDictionary()
+        private static Type FindComponentType(string fullClassName)
         {
-            // This whole operation takes a non-negligible amount of time, so only do it once.
             var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
             foreach (var assembly in assemblies)
             {
-                foreach (var type in assembly.GetTypes())
+                Type type;
+                try
                 {
-                    if (typeof(Component).IsAssignableFrom(type))
-                    {
-                        ComponentDictionary.TryAdd(type.FullName, type);
-                    }
+                    type = assembly.GetType(fullClassName, false);
+                }
+                catch (ArgumentException)
+                {
+                    return null;
+                }
+                if (type != null && typeof(Component).IsAssignableFrom(type))
+                {
+                    return type;
                 }
             }
+            return null;
         }
     }
 }

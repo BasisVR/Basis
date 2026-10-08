@@ -160,7 +160,7 @@ public static partial class BasisPreloadContentStore
         string text;
         try
         {
-            text = await File.ReadAllTextAsync(FilePath);
+            text = await BasisFiles.ReadAllTextAsync(FilePath);
         }
         catch (Exception e)
         {
@@ -243,7 +243,7 @@ public static partial class BasisPreloadContentStore
         string tempPath = FilePath + ".tmp";
         try
         {
-            await File.WriteAllTextAsync(tempPath, doc.ToString());
+            await BasisFiles.WriteAllTextAsync(tempPath, doc.ToString());
         }
         catch (Exception e)
         {

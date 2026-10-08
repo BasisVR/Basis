@@ -25,9 +25,6 @@ public static class BasisValidationAssetCache
     private static readonly Dictionary<EntityId, int[]> ShaderTextureProperties = new Dictionary<EntityId, int[]>(32);
     private static readonly List<int> PropertyScratch = new List<int>(32);
 
-    private static BasisAssetBundleObject _assetBundleObject;
-    private static bool _assetBundleObjectResolved;
-
     // 0 = not looked yet, 1 = present, 2 = missing. The lookup is a disk hit and the answer cannot
     // change without restarting the editor, so it is worth doing exactly once.
     private static int _il2cppState;
@@ -40,8 +37,6 @@ public static class BasisValidationAssetCache
         AssetPaths.Clear();
         Importers.Clear();
         ShaderTextureProperties.Clear();
-        _assetBundleObject = null;
-        _assetBundleObjectResolved = false;
 
         try
         {
@@ -130,19 +125,6 @@ public static class BasisValidationAssetCache
         int[] ids = PropertyScratch.Count == 0 ? Array.Empty<int>() : PropertyScratch.ToArray();
         ShaderTextureProperties[key] = ids;
         return ids;
-    }
-
-    public static BasisAssetBundleObject AssetBundleObject
-    {
-        get
-        {
-            if (!_assetBundleObjectResolved)
-            {
-                _assetBundleObjectResolved = true;
-                _assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-            }
-            return _assetBundleObject;
-        }
     }
 
     /// <summary>

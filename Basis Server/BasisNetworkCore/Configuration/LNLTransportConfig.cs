@@ -3,7 +3,7 @@ using System;
 namespace Basis.Network.Core
 {
     [Serializable]
-    public sealed class LNLTransportConfig : IBasisTransportConfigMigration
+    public sealed class LNLTransportConfig : IBasisTransportConfigMigration, IBasisTransportTimeouts
     {
         /// <summary>Bump to force existing files to be rewritten; newly-added fields are healed automatically on load.</summary>
         public const int CurrentConfigVersion = 10;
@@ -45,6 +45,7 @@ namespace Basis.Network.Core
         public int NatPortPredictionRange = 32;
         public int PingInterval = 1500;
         public int DisconnectTimeout = 30000;
+        int IBasisTransportTimeouts.DisconnectTimeoutMs => DisconnectTimeout;
         public bool SimulatePacketLoss = false;
         public bool SimulateLatency = false;
         public int SimulationPacketLossChance = 10;

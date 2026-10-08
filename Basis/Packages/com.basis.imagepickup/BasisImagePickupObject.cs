@@ -485,7 +485,7 @@ namespace Basis.ImagePickup
             {
                 string folder = SaveFolder();
                 path = Path.Combine(folder, BasisImageSecurity.GenerateSafeFileName(".gif"));
-                error = await Task.Run(() => WriteCleanGif(gif, folder, path));
+                error = await BasisTasks.Run(() => WriteCleanGif(gif, folder, path));
             }
             catch (Exception e)
             {

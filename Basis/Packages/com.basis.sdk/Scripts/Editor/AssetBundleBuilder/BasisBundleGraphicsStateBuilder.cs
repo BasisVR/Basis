@@ -184,6 +184,7 @@ public static class BasisBundleGraphicsStateBuilder
             case BuildTarget.StandaloneLinux64: platform = RuntimePlatform.LinuxPlayer; return true;
             case BuildTarget.Android: platform = RuntimePlatform.Android; return true;
             case BuildTarget.iOS: platform = RuntimePlatform.IPhonePlayer; return true;
+            case BuildTarget.WebGL: platform = RuntimePlatform.WebGLPlayer; return true;
             default: platform = default; return false;
         }
     }

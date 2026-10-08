@@ -21,8 +21,9 @@ public static partial class SettingsProviderUIStyle
     }
 
     [RuntimeInitializeOnLoadMethod]
-    private static void Init()
+    private static async void Init()
     {
+        await Basis.Scripts.Platform.BasisWebAddressables.WhenReady();
         CacheOriginals();
         ApplySavedPaletteColors();
     }

@@ -28,7 +28,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             _lastRebalanceTick = nowTick;
 
             double peerPressure = 0;
-            LiteNetLib.NetManager lnl = (NetworkServer.Server as LNLNetManager)?.manager;
+            LiteNetLib.NetManager lnl = NetworkServer.Server?.LiteNetLibManager();
             if (lnl != null)
             {
                 peerPressure = lnl.PeerUpdatePressure;

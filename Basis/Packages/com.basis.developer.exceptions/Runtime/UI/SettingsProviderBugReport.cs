@@ -32,6 +32,7 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         private static void Register()
         {
+            SettingsProvider.DeveloperSectionBuilders.Remove(BuildBugReportGroup);
             SettingsProvider.DeveloperSectionBuilders.Add(BuildBugReportGroup);
         }
 

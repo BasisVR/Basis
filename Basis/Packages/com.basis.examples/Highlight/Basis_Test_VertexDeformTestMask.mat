@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Basis_Test_VertexDeformTestMask
-  m_Shader: {fileID: 4800000, guid: d4e5f6a7b8c9d0e1f21a2b3c4d5e6f64, type: 3}
+  m_Shader: {fileID: 4800000, guid: 51d5c20d52d50297874cb492be237f65, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []

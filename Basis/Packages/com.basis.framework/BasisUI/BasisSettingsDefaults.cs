@@ -1184,9 +1184,15 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> DisableDirectConnections = new("disabledirectconnections", new BasisPlatformDefault<bool>(false));
 
+#if BASIS_DISABLE_MICROPHONE
+        public static BasisSettingsBinding<string> MicStartBehavior = new("micstartbehavior", new BasisPlatformDefault<string>("Muted"));
+
+        public static BasisSettingsBinding<string> MicMuteBehavior = new("micmutebehavior", new BasisPlatformDefault<string>("Shutdown Microphone"));
+#else
         public static BasisSettingsBinding<string> MicStartBehavior = new("micstartbehavior", new BasisPlatformDefault<string>(BasisLocalMicrophoneDriver.SettingStartOff));
 
         public static BasisSettingsBinding<string> MicMuteBehavior = new("micmutebehavior", new BasisPlatformDefault<string>(BasisLocalMicrophoneDriver.SettingMuteShutdown));
+#endif
 
         public static BasisSettingsBinding<bool> TalkToNoOne = new("talktonoone", new BasisPlatformDefault<bool>(false));
 

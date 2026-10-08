@@ -121,6 +121,7 @@ public static partial class BasisNetworkLifeCycle
     {
         BasisDebug.Log($"Shutting Down Network Connection", BasisDebug.LogTag.Networking);
         BasisNetworkConnectionWatchdog.Reset();
+        BasisP2PManager.Shutdown();
         if (BasisNetworkConnection.LocalPlayerPeer != null && BasisNetworkPlayers.Players.TryGetValue((ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId, out var networkedPlayer))
         {
             if (networkedPlayer?.Player is BasisLocalPlayer local)

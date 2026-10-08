@@ -4,7 +4,9 @@ using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.TransformBinders;
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
 using SteamAudio;
+#endif
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -33,7 +35,7 @@ namespace Basis.Scripts.Drivers
 
         public Transform ListenerTransform;
         public AudioListener Listener;
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
         public SteamAudioListener SteamListener;
 #endif
 
@@ -441,7 +443,7 @@ namespace Basis.Scripts.Drivers
 
             avatarPreviewDriver.Initialize(this);
 
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
             if (SteamListener != null)
             {
                 SteamAudioManager.NotifyAudioListenerChanged();
@@ -459,7 +461,7 @@ namespace Basis.Scripts.Drivers
 
             ListenerTransform = null;
             Listener = null;
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
             SteamListener = null;
 #endif
 
@@ -749,6 +751,7 @@ namespace Basis.Scripts.Drivers
                     ListenerTransform.SetLocalPose(Vector3.zero, Quaternion.identity);
                     _listenerDetachedFromCamera = false;
                 }
+#if !BASIS_DISABLE_MICROPHONE
                 if (CameraData.allowXRRendering)
                 {
                     Vector3 offset = VRMicrophoneLocalOffset;
@@ -788,6 +791,7 @@ namespace Basis.Scripts.Drivers
                         _micLayoutDistance = MicrophoneAnchorDistance;
                     }
                 }
+#endif
                 avatarPreviewDriver.Simulate();
             }
 

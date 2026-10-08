@@ -411,10 +411,11 @@ namespace Basis.Scripts.Networking
         {
             try
             {
-                LNLTransportConfig config = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
-                if (config != null && config.DisconnectTimeout > 0)
+                NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
+                string stackId = peer != null ? peer.StackId : BasisNetworkStackRegistry.DefaultId;
+                if (BasisTransportConfigStore.Get(stackId) is IBasisTransportTimeouts timeouts && timeouts.DisconnectTimeoutMs > 0)
                 {
-                    return config.DisconnectTimeout;
+                    return timeouts.DisconnectTimeoutMs;
                 }
             }
             catch (Exception ex)

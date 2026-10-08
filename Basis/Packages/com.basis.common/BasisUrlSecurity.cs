@@ -89,6 +89,7 @@ namespace Basis.Scripts.Common
             string host = uri.Host;
             if (string.IsNullOrEmpty(host)) return null;
             if (IPAddress.TryParse(host.Trim('[', ']'), out _)) return null;
+            if (Application.platform == RuntimePlatform.WebGLPlayer) return null;
 
             bool allowLoopback = Application.isEditor;
             IPAddress[] addresses;

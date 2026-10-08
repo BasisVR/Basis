@@ -79,7 +79,7 @@ public static class BasisTextureCompression
     {
         if (pngBytes == null) throw new ArgumentNullException(nameof(pngBytes));
 
-        byte[] decoded = await Task.Run(() => Convert.FromBase64String(pngBytes));
+        byte[] decoded = await BasisTasks.Run(() => Convert.FromBase64String(pngBytes));
         var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         tex.LoadImage(decoded);
 
@@ -121,7 +121,7 @@ public static class BasisTextureCompression
 
         int offsetX = (MaxSize - newW) / 2;
         int offsetY = (MaxSize - newH) / 2;
-        byte[] composed = await Task.Run(() => ComposeSquare(scaled, newW, newH, offsetX, offsetY));
+        byte[] composed = await BasisTasks.Run(() => ComposeSquare(scaled, newW, newH, offsetX, offsetY));
 
         var result = new Texture2D(MaxSize, MaxSize, TextureFormat.RGBA32, false);
         result.LoadRawTextureData(composed);

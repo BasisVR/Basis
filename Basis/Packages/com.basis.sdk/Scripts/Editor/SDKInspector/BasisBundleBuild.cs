@@ -170,8 +170,7 @@ public static class BasisBundleBuild
     }
     public static bool CheckTarget(BuildTarget target)
     {
-        bool isSupported = BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target) ||
-                           BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Android, target);
+        bool isSupported = BuildPipeline.IsBuildTargetSupported(BuildPipeline.GetBuildTargetGroup(target), target);
 
         Debug.Log($"{target.ToString()} Build Target Installed: {isSupported}");
         return isSupported;
@@ -524,6 +523,10 @@ public static class BasisBundleBuild
             if (!ErrorChecking(basisContentBase, out string error))
             {
                 return (false, error);
+            }
+            if (useProvidedPassword && string.IsNullOrEmpty(OverriddenPassword))
+            {
+                return (false, "Custom password is enabled but empty! Please enter a password or turn the custom password off.");
             }
 
             AdjustBuildTargetOrder(targets);

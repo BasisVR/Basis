@@ -19,6 +19,7 @@ public static partial class BasisLogManager
 
     public static void Start()
     {
+        if (!BasisTasks.ThreadsAvailable) return;
         lock (logLock)
         {
             if (logProcessingThread != null) return;
@@ -104,6 +105,12 @@ public static partial class BasisLogManager
     }
     public static void HandleLog(string logString, string stackTrace, LogType type)
     {
+        if (!BasisTasks.ThreadsAvailable)
+        {
+            AddLog(logString, stackTrace, type);
+            LogChanged = true;
+            return;
+        }
         if (logQueue == null) Start();
         try
         {

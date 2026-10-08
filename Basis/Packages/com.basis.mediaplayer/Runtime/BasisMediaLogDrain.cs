@@ -60,13 +60,14 @@ public static partial class BasisMediaLogDrain
     public static event Action<BasisMediaLogLine> LineReceived;
 
     /// Lines the ring has evicted, as last reported, so growth is announced
-    /// once rather than every frame it stays non-zero.
-    static ulong _evictedSeen;
+    /// once rather than every frame it stays non-zero. The ring's count is the
+    /// plugin's and outlives a Play session, so this must too.
+    [NoAutoStaticsCleanup] static ulong _evictedSeen;
 
     /// <summary>From a player's tick. Idempotent within a frame.</summary>
     internal static unsafe void Pump()
     {
-        if (_drainedFrame == Time.frameCount) return;
+        if (_drainedFrame == Time.frameCount || Application.platform == RuntimePlatform.WebGLPlayer) return;
         _drainedFrame = Time.frameCount;
 
         var records = stackalloc BmLogRecord[DrainBatch];

@@ -199,9 +199,25 @@ namespace Basis.Network.Core
         }
     }
 
-    public class LNLNetManager : NetManager
+    public class LNLNetManager : NetManager, IBasisSharedPeerIds
     {
         public LiteNetLib.NetManager manager;
+
+        public void UsePeerIdAllocator(BasisPeerIdAllocator allocator)
+        {
+            if (allocator == null)
+            {
+                manager.PeerIdAllocator = null;
+                manager.PeerIdRelease = null;
+                return;
+            }
+            manager.PeerIdAllocator = allocator.Allocate;
+            manager.PeerIdRelease = id => allocator.Release(id);
+        }
+
+        public bool IsRunning => manager != null && manager.IsRunning;
+
+        public string ListenDescription => manager != null && manager.IsRunning ? $"UDP port {manager.LocalPort} (LiteNetLib)" : null;
 
         public LNLNetManager(EventBasedNetListener listener, Configuration configuration)
         {

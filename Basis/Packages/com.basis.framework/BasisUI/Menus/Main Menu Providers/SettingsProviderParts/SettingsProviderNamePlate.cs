@@ -13,6 +13,7 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         static void Init()
         {
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyNamePlateSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyNamePlateSettings;
         }
 

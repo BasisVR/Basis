@@ -432,7 +432,7 @@ public static partial class BasisAudioClipPlayer
 #if UNITY_IOS && !UNITY_EDITOR
             // iOS requires statically linked Opus library
             decoder = new OpusSharp.Core.Static.OpusDecoder(SampleRate, channels);
-#else
+#elif !UNITY_WEBGL || UNITY_EDITOR
             decoder = new OpusSharp.Core.Dynamic.OpusDecoder(SampleRate, channels);
 #endif
             for (int packetIndex = audioPacketStart; packetIndex < packets.Count; packetIndex++)

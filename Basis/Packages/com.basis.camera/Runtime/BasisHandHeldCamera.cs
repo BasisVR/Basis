@@ -99,7 +99,7 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     }
     public new async void OnDestroy()
     {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         SMModuleGlobalIlluminationURP.UnregisterCamera(captureCamera);
 #endif
         BasisNetworkPlayer.OnLocalPlayerJoined -= AnnouncePipOnJoin;

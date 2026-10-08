@@ -383,7 +383,7 @@ public static partial class BasisAudioGizmos
         float main = Mathf.Clamp01(SMModuleAudio.ActiveMainVolume);
         float dist = DistanceAttenuation(audio.audioSource);
         float dir = 1f, occ = 1f;
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
         if (audio.audioSource != null && audio.audioSource.TryGetComponent<SteamAudio.SteamAudioSource>(out var sa))
         {
             dir = Mathf.Clamp01(sa.directivityValue);
@@ -501,7 +501,7 @@ public static partial class BasisAudioGizmos
                   .Append("%  Net ").Append(Mathf.RoundToInt(net * 100f)).Append("%\n");
         AppendFactor("Slider", slider);
         AppendFactor("Dist", dist);
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
         AppendFactor("Facing", dir);
         AppendFactor("Occlude", occ);
 #endif

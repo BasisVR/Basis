@@ -2,7 +2,7 @@ using Unity.Scripting.LifecycleManagement;
 // Ray traced ambient occlusion is optional: the define comes from the com.basis.rtao package being
 // present (asmdef versionDefines), and neither the traced path nor the compute fallback is viable on
 // mobile GPUs, so the whole integration compiles out on Android.
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
 using Basis.BasisUI;
 using Basis.Rendering.RTAO;
 using Basis.Scripts.BasisSdk.Players;

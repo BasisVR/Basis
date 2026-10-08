@@ -83,7 +83,7 @@ namespace Basis.BasisUI
         private static readonly Dictionary<string, string> _baseline = new Dictionary<string, string>();
         private static bool _initialized;
         private static bool _applying;
-        private static bool _subscribed;
+        [NoAutoStaticsCleanup] private static bool _subscribed;
         private static bool _baselineDirty;
         private static int _autoFrameGate;
 
@@ -332,6 +332,7 @@ namespace Basis.BasisUI
             }
 
             Subscribe();
+            BasisSettingsDefaults.PerformanceModeLevel.OnChanged -= OnLevelSettingChanged;
             BasisSettingsDefaults.PerformanceModeLevel.OnChanged += OnLevelSettingChanged;
         }
 

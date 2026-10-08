@@ -180,8 +180,15 @@ namespace Basis.Scripts.Settings
             }
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
-            Application.quitting -= FlushPendingSaves;
-            Application.quitting += FlushPendingSaves;
+            Application.quitting -= OnQuitting;
+            Application.quitting += OnQuitting;
+        }
+
+        private static void OnQuitting()
+        {
+            Application.quitting -= OnQuitting;
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            FlushPendingSaves();
         }
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -529,7 +536,7 @@ namespace Basis.Scripts.Settings
                 }
                 _saveInFlight = true;
             }
-            System.Threading.Tasks.Task.Run(SaveWorker);
+            BasisTasks.Run(SaveWorker);
         }
 
         private static void SaveWorker()

@@ -307,7 +307,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (HasAudioSource)
+            if (HasAudioSource && decoder != null)
             {
                 // Pass MaxFrameSize (the buffer's true capacity) as available space so a
                 // 40 ms packet still decodes during in-flight transitions where this
@@ -338,7 +338,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (!HasAudioSource) return;
+            if (!HasAudioSource || decoder == null) return;
             try
             {
                 pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.MaxFrameSize, false);
@@ -412,7 +412,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (HasAudioSource)
+            if (HasAudioSource && decoder != null)
             {
                 try
                 {
@@ -439,7 +439,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (!HasAudioSource) return;
+            if (!HasAudioSource || decoder == null) return;
             try
             {
                 pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.FrameSize, true);
@@ -974,7 +974,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_IOS && !UNITY_EDITOR
             // iOS requires statically linked Opus library
             decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
-#else
+#elif !UNITY_WEBGL || UNITY_EDITOR
             decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 #endif

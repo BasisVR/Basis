@@ -35,6 +35,12 @@ public static partial class BasisSceneFactory
         SceneManager.sceneUnloaded += OnSceneUnloaded;
 
     }
+    public static void DeInitialize()
+    {
+        BasisScene.Ready -= Initialize;
+        BasisScene.Destroyed -= BasisSceneDestroyed;
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+    }
     private static void OnSceneUnloaded(Scene unloadedScene)
     {
         // Check if any BasisScene still exists after the scene was unloaded
