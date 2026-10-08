@@ -1,11 +1,7 @@
 using Basis.Network.Core;
-using BasisNetworkCore.Security;
-using BasisNetworkServer.Security;
-using BasisServerHandle;
 using System.Net;
 using System.Net.Sockets;
 using Xunit;
-using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 
 namespace BasisServerTests;
 
@@ -98,7 +94,7 @@ public class MultiTransportTests
         IPEndPoint asker = new IPEndPoint(IPAddress.Parse("198.51.100.20"), 5555);
         transports[1].Listener.RaiseNetworkReceiveUnconnected(asker, NetPacketReader.Create(new byte[] { 1 }, 0, 1, () => { }));
         Assert.Equal(1, raised);
-        NetDataWriter reply = WebSocketTestSupport.Writer(1, 2);
+        NetDataWriter reply = TransportTestSupport.Writer(1, 2);
         Assert.True(composite.SendUnconnectedMessage(reply, asker));
         Assert.Equal(new[] { asker }, transports[1].UnconnectedSentTo);
         Assert.Empty(transports[0].UnconnectedSentTo);
@@ -149,25 +145,30 @@ public class MultiTransportTests
         Assert.Equal(new[] { "websocket", "litenetlib" }, BasisNetworkStackRegistry.ParseStackList(" websocket ; litenetlib "));
         Assert.Equal(new[] { "litenetlib" }, BasisNetworkStackRegistry.ParseStackList("litenetlib, LiteNetLib"));
         Assert.True(BasisNetworkStackRegistry.ContainsStack("litenetlib+websocket", "WebSocket"));
-        Assert.False(BasisNetworkStackRegistry.ContainsStack("", BasisNetworkStackRegistry.WebSocketId));
+        Assert.False(BasisNetworkStackRegistry.ContainsStack("", "websocket"));
     }
 
     [Fact]
     public void RegistryBuildsACompositeOnlyWhenMoreThanOneStackIsUsable()
     {
         string original = BasisNetworkStackRegistry.ActiveStackId;
+        string first = ConfigTestSupport.NewStackId();
+        string second = ConfigTestSupport.NewStackId();
+        BasisNetworkStackRegistry.Register(first, "First", (listener, configuration) => new ScriptedTransport(first, listener));
+        BasisNetworkStackRegistry.Register(second, "Second", (listener, configuration) => new ScriptedTransport(second, listener));
         try
         {
-            NetManager both = BasisNetworkStackRegistry.Create("litenetlib, websocket", new EventBasedNetListener(), new Configuration());
-            BasisMultiTransportNetManager composite = Assert.IsType<BasisMultiTransportNetManager>(both);
+            NetManager all = BasisNetworkStackRegistry.Create($"litenetlib, {first}, {second}", new EventBasedNetListener(), new Configuration());
+            BasisMultiTransportNetManager composite = Assert.IsType<BasisMultiTransportNetManager>(all);
             Assert.IsType<LNLNetManager>(composite.Transports[0]);
-            Assert.IsType<BasisWebSocketNetManager>(composite.Transports[1]);
-            Assert.Equal("litenetlib,websocket", BasisNetworkStackRegistry.ActiveStackId);
-            Assert.NotNull(both.LiteNetLibManager());
-            Assert.NotNull(both.FindTransport<BasisWebSocketNetManager>());
+            Assert.Equal(first, Assert.IsType<ScriptedTransport>(composite.Transports[1]).Id);
+            Assert.Equal(second, Assert.IsType<ScriptedTransport>(composite.Transports[2]).Id);
+            Assert.Equal($"litenetlib,{first},{second}", BasisNetworkStackRegistry.ActiveStackId);
+            Assert.NotNull(all.LiteNetLibManager());
+            Assert.NotNull(all.FindTransport<ScriptedTransport>());
 
-            NetManager one = BasisNetworkStackRegistry.Create("websocket, not-a-real-stack", new EventBasedNetListener(), new Configuration());
-            Assert.IsType<BasisWebSocketNetManager>(one);
+            NetManager one = BasisNetworkStackRegistry.Create(second + ", not-a-real-stack", new EventBasedNetListener(), new Configuration());
+            Assert.Equal(second, Assert.IsType<ScriptedTransport>(one).Id);
             Assert.Null(one.LiteNetLibManager());
             Assert.Single(one.Transports());
         }
@@ -197,181 +198,6 @@ public class MultiTransportTests
         finally
         {
             BasisNetworkStackRegistry.SetActiveStackId(original);
-        }
-    }
-
-    [Fact]
-    public async Task LiteNetLibAndWebSocketPlayersGetDistinctIdsFromOneSpace()
-    {
-        int port = WebSocketTestSupport.FreeTcpAndUdpPort();
-        EventBasedNetListener serverListener = new EventBasedNetListener();
-        RecordedEvents server = new RecordedEvents(serverListener);
-        List<NetPeer> accepted = new();
-        server.OnRequest = request =>
-        {
-            NetPeer peer = request.Accept();
-            lock (accepted) accepted.Add(peer);
-            return peer;
-        };
-        BasisMultiTransportNetManager composite = new BasisMultiTransportNetManager(
-            new[] { BasisNetworkStackRegistry.LiteNetLibId, BasisNetworkStackRegistry.WebSocketId },
-            serverListener,
-            new Configuration(),
-            (id, listener, configuration) => id == BasisNetworkStackRegistry.WebSocketId
-                ? new BasisWebSocketNetManager(listener, WebSocketTestSupport.FastConfig())
-                : BasisNetworkStackRegistry.CreateSingle(id, listener, configuration));
-        composite.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port);
-        EventBasedNetListener webListener = new EventBasedNetListener();
-        RecordedEvents web = new RecordedEvents(webListener);
-        BasisWebSocketNetManager webClient = new BasisWebSocketNetManager(webListener, WebSocketTestSupport.FastConfig());
-        EventBasedNetListener udpListener = new EventBasedNetListener();
-        RecordedEvents udp = new RecordedEvents(udpListener);
-        NetManager udpClient = BasisNetworkStackRegistry.CreateSingle(BasisNetworkStackRegistry.LiteNetLibId, udpListener, new Configuration());
-        try
-        {
-            Assert.True(((NetManager)composite).IsRunning);
-            ((NetManager)webClient).Start();
-            udpClient.Start();
-            NetPeer webPeer = webClient.Connect("127.0.0.1", port, WebSocketTestSupport.Writer(1));
-            NetPeer udpPeer = udpClient.Connect("127.0.0.1", port, WebSocketTestSupport.Writer(2));
-            await web.NextConnected();
-            await udp.NextConnected();
-            await WebSocketTestSupport.Until(() => { lock (accepted) return accepted.Count == 2; });
-            NetPeer[] peers;
-            lock (accepted) peers = accepted.ToArray();
-            Assert.NotEqual(peers[0].Id, peers[1].Id);
-            Assert.All(peers, peer => Assert.True(composite.PeerIds.IsLive(peer.Id)));
-            Assert.Contains(peers, peer => peer.StackId == BasisNetworkStackRegistry.WebSocketId && peer.Id == webPeer.RemoteId);
-            Assert.Contains(peers, peer => peer.StackId == BasisNetworkStackRegistry.LiteNetLibId && peer.Id == udpPeer.RemoteId);
-            Assert.Equal(2, ((NetManager)composite).ConnectedPeersCount);
-
-            NetPeer serverSideWeb = peers.First(peer => peer.StackId == BasisNetworkStackRegistry.WebSocketId);
-            NetPeer serverSideUdp = peers.First(peer => peer.StackId == BasisNetworkStackRegistry.LiteNetLibId);
-            serverSideWeb.Send(new byte[] { 42 }, BasisNetworkCommons.ChatChannel, DeliveryMethod.ReliableOrdered);
-            serverSideUdp.Send(new byte[] { 43 }, BasisNetworkCommons.ChatChannel, DeliveryMethod.ReliableOrdered);
-            Assert.Equal(new byte[] { 42 }, (await web.NextReceived()).Data);
-            Assert.Equal(new byte[] { 43 }, (await udp.NextReceived()).Data);
-        }
-        finally
-        {
-            webClient.Stop();
-            udpClient.Stop();
-            composite.Stop();
-        }
-    }
-
-    [Fact]
-    public void ACompositeWithATransportThatCannotBindIsNotRunning()
-    {
-        int port = WebSocketTestSupport.FreeTcpAndUdpPort();
-        TcpListener blocker = new TcpListener(IPAddress.Loopback, port);
-        blocker.Start();
-        BasisMultiTransportNetManager composite = new BasisMultiTransportNetManager(
-            new[] { BasisNetworkStackRegistry.LiteNetLibId, BasisNetworkStackRegistry.WebSocketId },
-            new EventBasedNetListener(),
-            new Configuration(),
-            (id, listener, configuration) => id == BasisNetworkStackRegistry.WebSocketId
-                ? new BasisWebSocketNetManager(listener, WebSocketTestSupport.FastConfig())
-                : BasisNetworkStackRegistry.CreateSingle(id, listener, configuration));
-        try
-        {
-            composite.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port);
-            NetManager manager = composite;
-            Assert.False(manager.IsRunning);
-            Assert.True(composite.Transports[0].IsRunning);
-            Assert.False(composite.Transports[1].IsRunning);
-        }
-        finally
-        {
-            composite.Stop();
-            blocker.Stop();
-        }
-    }
-}
-
-[Collection("BasisServer shared network statics")]
-public class MixedTransportServerTests
-{
-    [Fact]
-    public async Task TheServerAdmitsAWebPlayerAndAUdpPlayerIntoOneWorld()
-    {
-        using ServerStaticsScope scope = new ServerStaticsScope();
-        int port = WebSocketTestSupport.FreeTcpAndUdpPort();
-        Configuration config = new Configuration
-        {
-            SetPort = (ushort)port,
-            PeerLimit = 100,
-            UseAuth = false,
-            UseAuthIdentity = false,
-            HasFileSupport = false,
-            EnableStatistics = false,
-            BasisUserRestrictionMode = BasisUserRestrictionMode.Normal,
-            NetworkStackId = "litenetlib,websocket",
-            OverrideAutoDiscoveryOfIpv = true,
-            IPv4Address = "127.0.0.1",
-            IPv6Address = "::1",
-        };
-        NetworkServer.Configuration = config;
-        NetworkServer.Auth = new FakeAuth { Result = true };
-        NetworkServer.AuthIdentity = new MapAuthIdentity();
-        NetworkServer.AllowList = new BasisAllowList();
-        NetworkServer.BanList = new BasisBanList();
-        NetworkServer.HighQualityLength = ConvertToSize(BitQuality.High);
-        Assert.True(NetworkServer.SetupServer(config));
-        BasisServerHandleEvents.SubscribeServerEvents();
-
-        EventBasedNetListener webListener = new EventBasedNetListener();
-        RecordedEvents web = new RecordedEvents(webListener);
-        BasisWebSocketNetManager webClient = new BasisWebSocketNetManager(webListener, WebSocketTestSupport.FastConfig());
-        EventBasedNetListener udpListener = new EventBasedNetListener();
-        RecordedEvents udp = new RecordedEvents(udpListener);
-        NetManager udpClient = BasisNetworkStackRegistry.CreateSingle(BasisNetworkStackRegistry.LiteNetLibId, udpListener, new Configuration());
-        try
-        {
-            Assert.IsType<BasisMultiTransportNetManager>(NetworkServer.Server);
-            ((NetManager)webClient).Start();
-            udpClient.Start();
-            byte[] webJoin = LifecycleSupport.ConnectPayload(BasisNetworkVersion.ServerVersion, Array.Empty<byte>(), LifecycleSupport.MakeReady(LifecycleSupport.NewUuid(), "Browser Player"));
-            NetPeer webPeer = webClient.Connect("127.0.0.1", port, WebSocketTestSupport.Writer(webJoin));
-            await web.NextConnected();
-            await WebSocketTestSupport.Until(() => web.Received.Any(item => item.Channel == BasisNetworkCommons.metaDataChannel));
-            await WebSocketTestSupport.Until(() => NetworkServer.AuthenticatedPeers.Count == 1);
-
-            byte[] udpJoin = LifecycleSupport.ConnectPayload(BasisNetworkVersion.ServerVersion, Array.Empty<byte>(), LifecycleSupport.MakeReady(LifecycleSupport.NewUuid(), "Desktop Player"));
-            NetPeer udpPeer = udpClient.Connect("127.0.0.1", port, WebSocketTestSupport.Writer(udpJoin));
-            await udp.NextConnected();
-            await WebSocketTestSupport.Until(() => udp.Received.Any(item => item.Channel == BasisNetworkCommons.metaDataChannel));
-            await WebSocketTestSupport.Until(() => NetworkServer.AuthenticatedPeers.Count == 2);
-
-            NetPeer[] admitted = NetworkServer.AuthenticatedPeers.Values.ToArray();
-            Assert.Contains(admitted, peer => peer.StackId == BasisNetworkStackRegistry.WebSocketId && peer.Id == webPeer.RemoteId);
-            Assert.Contains(admitted, peer => peer.StackId == BasisNetworkStackRegistry.LiteNetLibId && peer.Id == udpPeer.RemoteId);
-            Assert.NotEqual(webPeer.RemoteId, udpPeer.RemoteId);
-            Assert.Single(NetworkServer.PeersOnTransport(BasisNetworkStackRegistry.WebSocketId));
-
-            await WebSocketTestSupport.Until(() => web.Received.Any(item => item.Channel == BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel), 8000);
-            await WebSocketTestSupport.Until(() => udp.Received.Any(item => item.Channel == BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel), 8000);
-
-            webPeer.Disconnect();
-            await WebSocketTestSupport.Until(() => NetworkServer.AuthenticatedPeers.Count == 1);
-            Assert.Equal(udpPeer.RemoteId, NetworkServer.AuthenticatedPeers.Keys.Single());
-        }
-        finally
-        {
-            webClient.Stop();
-            udpClient.Stop();
-            DateTime deadline = DateTime.UtcNow.AddSeconds(3);
-            while (!NetworkServer.AuthenticatedPeers.IsEmpty && DateTime.UtcNow < deadline)
-            {
-                await Task.Delay(20);
-            }
-            foreach (NetPeer straggler in NetworkServer.AuthenticatedPeers.Values.ToArray())
-            {
-                BasisServerHandleEvents.HandlePeerDisconnected(straggler, new DisconnectInfo { Reason = DisconnectReason.DisconnectPeerCalled });
-            }
-            BasisServerHandleEvents.StopWorker();
-            NetworkServer.Server = null!;
-            NetworkServer.Listener = null!;
         }
     }
 }

@@ -236,10 +236,6 @@
       "value": "Pilha de rede do host"
     },
     {
-      "key": "menu.servers.hostStackBoth",
-      "value": "LiteNetLib + WebSocket (jogadores de desktop e navegador)"
-    },
-    {
       "key": "menu.servers.networkStack",
       "value": "Pilha de rede"
     },

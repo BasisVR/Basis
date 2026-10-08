@@ -501,10 +501,12 @@ namespace Basis.BasisUI
                 ids.Add(s.Id);
                 names.Add(s.DisplayName);
             }
-            if (BasisNetworkStackRegistry.IsRegistered(BasisNetworkStackRegistry.LiteNetLibId) && BasisNetworkStackRegistry.IsRegistered(BasisNetworkStackRegistry.WebSocketId))
+            if (ids.Count > 1)
             {
-                ids.Add(BasisNetworkStackRegistry.LiteNetLibId + "," + BasisNetworkStackRegistry.WebSocketId);
-                names.Add(BasisLocalization.Get("menu.servers.hostStackBoth"));
+                string allIds = string.Join(",", ids);
+                string allNames = string.Join(" + ", names);
+                ids.Add(allIds);
+                names.Add(allNames);
             }
             _hostStackDropdown.AssignEntries(names);
 
@@ -741,14 +743,17 @@ namespace Basis.BasisUI
             // If the user pasted a connection string into the Address field
             // (address:port#password), split it so port/password get the parsed
             // values too instead of the user having to fill three fields.
-            bool isWebAddress = BasisWebSocketConnectionTargetParser.IsUrl(addressInput);
-            if (isWebAddress)
+            bool claimedAddress = BasisNetworkStackRegistry.TryMatchAddress(addressInput, out string claimedStackId);
+            if (claimedAddress)
             {
-                if (BasisWebSocketConnectionTargetParser.TryParse(addressInput, out string webAddress, out ushort webPort, out string webPassword))
+                ConnectionTarget claimed = BasisNetworkStackRegistry.ParseTarget(claimedStackId, addressInput);
+                string claimedHost = claimed.Get(ConnectionTarget.Keys.Address);
+                if (!string.IsNullOrEmpty(claimedHost))
                 {
-                    address = webAddress;
-                    parsedPortOverride = webPort;
-                    if (!string.IsNullOrEmpty(webPassword)) parsedPasswordOverride = webPassword;
+                    address = claimedHost;
+                    if (ushort.TryParse(claimed.Get(ConnectionTarget.Keys.Port), out ushort claimedPort) && claimedPort > 0) parsedPortOverride = claimedPort;
+                    string claimedPassword = claimed.Get(ConnectionTarget.Keys.Password);
+                    if (!string.IsNullOrEmpty(claimedPassword)) parsedPasswordOverride = claimedPassword;
                 }
             }
             else if (!string.IsNullOrEmpty(addressInput)
@@ -799,7 +804,7 @@ namespace Basis.BasisUI
             string finalPassword = parsedPasswordOverride ?? (_editPassword.Password ?? string.Empty);
             entry.Password = finalPassword;
             entry.HasPassword = !string.IsNullOrEmpty(finalPassword);
-            entry.NetworkStackId = isWebAddress ? BasisNetworkStackRegistry.WebSocketId : ReadStackDropdownId();
+            entry.NetworkStackId = claimedAddress ? claimedStackId : ReadStackDropdownId();
 
             SavedServerStore.Save(saved);
 

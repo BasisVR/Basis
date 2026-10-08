@@ -58,7 +58,7 @@ namespace Basis.Scripts.Networking
 
             BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId).UseNativeSockets = false;
 
-            bool runsInBrowser = BasisBrowserWebSocketChannel.IsSupported;
+            bool runsInBrowser = Application.platform == RuntimePlatform.WebGLPlayer;
             if (isHostMode && runsInBrowser)
             {
                 BasisDebug.LogError("A web build cannot host a server; connect to one instead.", BasisDebug.LogTag.Networking);

@@ -203,6 +203,7 @@ namespace Basis.EventDriver
             {
                 Application.onBeforeRender -= OnBeforeRender;
             }
+            BasisSceneFactory.DeInitialize();
         }
         /// <summary>
         /// Unity update loop. Drains main-thread actions, advances network simulation (compute),

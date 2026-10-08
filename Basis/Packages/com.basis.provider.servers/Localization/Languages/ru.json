@@ -236,10 +236,6 @@
       "value": "Сетевой стек хоста"
     },
     {
-      "key": "menu.servers.hostStackBoth",
-      "value": "LiteNetLib + WebSocket (игроки на ПК и в браузере)"
-    },
-    {
       "key": "menu.servers.networkStack",
       "value": "Сетевой стек"
     },

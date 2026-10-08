@@ -344,7 +344,9 @@ namespace Basis.BasisUI
             // Get(key) falls back to the raw key instead of returning empty.
             _available.Add(new LanguageOption(DefaultLanguage, "English"));
 
-            AsyncOperationHandle<IList<TextAsset>> handle = Addressables.LoadAssetsAsync<TextAsset>(LanguageLabel, null);
+            AsyncOperationHandle<IList<TextAsset>> handle = Application.platform == RuntimePlatform.WebGLPlayer
+                ? Basis.Scripts.Platform.BasisWebAddressables.LoadPreloadedAssetsNow<TextAsset>(LanguageLabel)
+                : Addressables.LoadAssetsAsync<TextAsset>(LanguageLabel, null);
             IList<TextAsset> assets;
             try
             {

@@ -236,10 +236,6 @@
       "value": "مكدس الشبكة للمضيف"
     },
     {
-      "key": "menu.servers.hostStackBoth",
-      "value": "LiteNetLib + WebSocket (لاعبو سطح المكتب والمتصفح)"
-    },
-    {
       "key": "menu.servers.networkStack",
       "value": "مكدس الشبكة"
     },

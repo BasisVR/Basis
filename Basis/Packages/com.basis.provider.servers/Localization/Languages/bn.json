@@ -236,10 +236,6 @@
       "value": "হোস্ট নেটওয়ার্কিং স্ট্যাক"
     },
     {
-      "key": "menu.servers.hostStackBoth",
-      "value": "LiteNetLib + WebSocket (ডেস্কটপ ও ব্রাউজার খেলোয়াড়)"
-    },
-    {
       "key": "menu.servers.networkStack",
       "value": "নেটওয়ার্কিং স্ট্যাক"
     },

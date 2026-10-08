@@ -236,10 +236,6 @@
       "value": "Pila de red del anfitrión"
     },
     {
-      "key": "menu.servers.hostStackBoth",
-      "value": "LiteNetLib + WebSocket (jugadores de escritorio y navegador)"
-    },
-    {
       "key": "menu.servers.networkStack",
       "value": "Pila de red"
     },

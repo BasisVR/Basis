@@ -72,13 +72,13 @@ Commonly used environment variables:
 | `EnableStatistics`   | `true`                          | Enables the statistics module.                    |
 | `EnableConsole`      | `false`                         | Enables the interactive server console (CLI).     |
 | `DisallowHeadless`   | `false`                         | Disconnects connected headless clients and blocks new ones. |
-| `NetworkStackId`     | (unset, UDP only)               | Transports to listen on. `litenetlib,websocket` also accepts web browsers over TCP. |
+| `NetworkStackId`     | (unset, UDP only)               | Transports to listen on. With the WebSocket transport package installed, `litenetlib,websocket` also accepts web browsers over TCP. |
 
 A more comprehensive list of configurable settings can typically be found by inspecting the generated `config/config.xml` after an initial run, or by checking the server's internal documentation if available.
 
 ### Web Clients (WebSocket)
 
-Browsers cannot use UDP, so web builds of Basis connect over WebSocket. The server can listen on both at once: set `NetworkStackId` to `litenetlib,websocket` and every player, whichever transport they used, joins the same world.
+Browsers cannot use UDP, so web builds of Basis connect over WebSocket. WebSocket support is a separate package, `com.basis.transport.websocket`, that Basis does not include. Install it on the server with the Basis Package Manager (`basispm --project <repo> server-install <its git URL>`); the image build then restores it from git like any other server package (a `file:` path outside `Basis Server` is not in the Docker build context). With it installed, the server can listen on both at once: set `NetworkStackId` to `litenetlib,websocket` and every player, whichever transport they used, joins the same world.
 
 1. Set `NetworkStackId: litenetlib,websocket` in the `environment` block (or `<NetworkStackId>litenetlib,websocket</NetworkStackId>` in `config/config.xml`).
 2. Publish the same port number over TCP as well as UDP: `- "4296:4296/tcp"`. The WebSocket listener uses the game port number unless `config/transports/websocket.xml` sets its own `Port`.

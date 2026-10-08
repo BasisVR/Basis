@@ -160,7 +160,7 @@ namespace Basis.Scripts.Networking
                 // is actually reachable. Skipped in host-mode: the local server may not be
                 // listening yet. Non-fatal: if the probe fails we fall back to the hostname.
                 bool skipResolve = isHostMode
-                    || BasisBrowserWebSocketChannel.IsSupported
+                    || Application.platform == RuntimePlatform.WebGLPlayer
                     || !string.Equals(stackId, BasisNetworkStackRegistry.LiteNetLibId, StringComparison.OrdinalIgnoreCase);
                 Task<string> resolveTask = skipResolve
                     ? Task.FromResult(address)
@@ -367,16 +367,15 @@ namespace Basis.Scripts.Networking
             entry = null;
             if (!TryGetPageParameter(PageConnectionParameter, out string value)) return false;
             if (value.IndexOf('#') < 0 && TryGetPageParameter(PagePasswordParameter, out string pagePassword)) value += "#" + pagePassword;
-            if (!BasisWebSocketConnectionTargetParser.TryParse(value, out string address, out ushort port, out string password))
+            ConnectionTarget target = BasisNetworkStackRegistry.ParseAddress(value);
+            if (string.IsNullOrWhiteSpace(target.Get(ConnectionTarget.Keys.Address)))
             {
                 BasisDebug.LogWarning($"connection page parameter could not be parsed: {value}");
                 return false;
             }
-            string raw = BasisWebSocketConnectionTargetParser.IsUrl(address) ? address : address.IndexOf(':') >= 0 ? $"[{address}]:{port}" : $"{address}:{port}";
-            ConnectionTarget target = new ConnectionTarget(BasisNetworkStackRegistry.WebSocketId, raw);
-            target.Set(ConnectionTarget.Keys.Address, address);
-            target.Set(ConnectionTarget.Keys.Port, port.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            target.Set(ConnectionTarget.Keys.Password, password ?? string.Empty);
+            int hash = value.IndexOf('#');
+            target.Raw = hash >= 0 ? value.Substring(0, hash) : value;
+            string password = target.Get(ConnectionTarget.Keys.Password, string.Empty);
             entry = new ServerDirectoryEntry
             {
                 Id = CommandLineEntryId,
@@ -384,7 +383,7 @@ namespace Basis.Scripts.Networking
                 DisplayName = string.Empty,
                 Target = target,
                 HasPassword = !string.IsNullOrEmpty(password),
-                Password = password ?? string.Empty,
+                Password = password,
                 CanEdit = false,
                 CanRemove = false,
             };
@@ -394,7 +393,7 @@ namespace Basis.Scripts.Networking
         private static bool TryGetPageParameter(string name, out string value)
         {
             value = null;
-            if (!BasisBrowserWebSocketChannel.IsSupported) return false;
+            if (Application.platform != RuntimePlatform.WebGLPlayer) return false;
             string url = Application.absoluteURL;
             int start = string.IsNullOrEmpty(url) ? -1 : url.IndexOf('?');
             if (start < 0) return false;

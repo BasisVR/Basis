@@ -236,10 +236,6 @@
       "value": "主机网络栈"
     },
     {
-      "key": "menu.servers.hostStackBoth",
-      "value": "LiteNetLib + WebSocket（桌面端和浏览器玩家）"
-    },
-    {
       "key": "menu.servers.networkStack",
       "value": "网络栈"
     },

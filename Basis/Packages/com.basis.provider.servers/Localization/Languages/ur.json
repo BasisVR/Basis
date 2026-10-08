@@ -236,10 +236,6 @@
       "value": "ہوسٹ نیٹ ورکنگ اسٹیک"
     },
     {
-      "key": "menu.servers.hostStackBoth",
-      "value": "LiteNetLib + WebSocket (ڈیسک ٹاپ اور براؤزر کھلاڑی)"
-    },
-    {
       "key": "menu.servers.networkStack",
       "value": "نیٹ ورکنگ اسٹیک"
     },

@@ -32,7 +32,6 @@ namespace Basis.Network.Core
     public static class BasisNetworkStackRegistry
     {
         public const string LiteNetLibId = "litenetlib";
-        public const string WebSocketId = "websocket";
         public const string DefaultId = LiteNetLibId;
 
         public readonly struct StackInfo
@@ -57,6 +56,7 @@ namespace Basis.Network.Core
             public StackProbeDelegate Probe;
             public Action Tick;
             public PeerIntroducerFactory IntroducerFactory;
+            public Func<string, bool> AddressMatcher;
         }
 
         private static readonly Dictionary<string, Slot> _slots
@@ -72,11 +72,6 @@ namespace Basis.Network.Core
             Register(LiteNetLibId, "LiteNetLib", (listener, config) => new LNLNetManager(listener, config));
             RegisterParser(LiteNetLibId, new LNLConnectionTargetParser());
             BasisTransportConfigStore.RegisterType(LiteNetLibId, typeof(LNLTransportConfig));
-            Register(WebSocketId, "WebSocket", (listener, config) => new BasisWebSocketNetManager(listener, config));
-            RegisterParser(WebSocketId, new BasisWebSocketConnectionTargetParser());
-            RegisterProbe(WebSocketId, BasisWebSocketProbe.ProbeAsync);
-            BasisTransportConfigStore.RegisterType(WebSocketId, typeof(BasisWebSocketTransportConfig));
-            RegisterPump(BasisWebSocketPolling.PollAll);
         }
 
         private static Action[] _pumps = Array.Empty<Action>();
@@ -203,6 +198,67 @@ namespace Basis.Network.Core
             }
         }
 
+        public static void RegisterAddressMatcher(string stackId, Func<string, bool> matcher)
+        {
+            if (string.IsNullOrEmpty(stackId)) throw new ArgumentException("Stack id is required", nameof(stackId));
+            if (matcher == null) throw new ArgumentNullException(nameof(matcher));
+            lock (_lock)
+            {
+                if (!_slots.TryGetValue(stackId, out Slot slot))
+                {
+                    BNL.LogWarning($"Cannot register an address matcher for unknown stack '{stackId}'");
+                    return;
+                }
+                slot.AddressMatcher = matcher;
+            }
+        }
+
+        public static bool TryMatchAddress(string address, out string stackId)
+        {
+            stackId = null;
+            if (string.IsNullOrWhiteSpace(address)) return false;
+            List<KeyValuePair<string, Func<string, bool>>> matchers = new List<KeyValuePair<string, Func<string, bool>>>();
+            lock (_lock)
+            {
+                foreach (StackInfo stack in _stacks)
+                {
+                    if (_slots.TryGetValue(stack.Id, out Slot slot) && slot.AddressMatcher != null)
+                    {
+                        matchers.Add(new KeyValuePair<string, Func<string, bool>>(stack.Id, slot.AddressMatcher));
+                    }
+                }
+            }
+            foreach (KeyValuePair<string, Func<string, bool>> matcher in matchers)
+            {
+                bool matched;
+                try { matched = matcher.Value(address); }
+                catch (Exception ex)
+                {
+                    BNL.LogError($"Address matcher for stack '{matcher.Key}' threw: {ex.Message}");
+                    continue;
+                }
+                if (matched)
+                {
+                    stackId = matcher.Key;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static ConnectionTarget ParseTarget(string stackId, string raw)
+        {
+            string effective = string.IsNullOrEmpty(stackId) ? DefaultId : stackId;
+            ConnectionTarget target = new ConnectionTarget(effective, raw);
+            GetParser(effective)?.Parse(target);
+            return target;
+        }
+
+        public static ConnectionTarget ParseAddress(string raw)
+        {
+            return ParseTarget(TryMatchAddress(raw, out string stackId) ? stackId : DefaultId, raw);
+        }
+
         public static NetManager Create(string id, EventBasedNetListener listener, Configuration configuration)
         {
             List<string> requested = ParseStackList(id);
@@ -217,7 +273,7 @@ namespace Basis.Network.Core
                     }
                     else
                     {
-                        BNL.LogWarning($"Network stack '{stackId}' is not registered and will not be started");
+                        BNL.LogWarning($"Network stack '{stackId}' is not registered and will not be started; the package that provides it is not installed");
                     }
                 }
             }
@@ -241,7 +297,7 @@ namespace Basis.Network.Core
             {
                 if (!_slots.TryGetValue(effective, out slot))
                 {
-                    BNL.LogWarning($"Network stack '{effective}' is not registered, falling back to '{DefaultId}'");
+                    BNL.LogWarning($"Network stack '{effective}' is not registered (the package that provides it is not installed), falling back to '{DefaultId}'");
                     slot = _slots[DefaultId];
                 }
             }

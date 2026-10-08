@@ -30,6 +30,41 @@ namespace Basis.Scripts.Platform
             return _readySource == null ? Task.CompletedTask : _readySource.Task;
         }
 
+        public static AsyncOperationHandle<IList<T>> LoadPreloadedAssetsNow<T>(object key)
+        {
+            List<T> assets = new List<T>();
+            IList<IResourceLocation> found;
+            AsyncOperationHandle<IList<IResourceLocation>> locations = Addressables.LoadResourceLocationsAsync(key, typeof(T));
+            try
+            {
+                found = locations.WaitForCompletion();
+            }
+            catch (Exception e)
+            {
+                Addressables.Release(locations);
+                return Addressables.ResourceManager.CreateCompletedOperation<IList<T>>(assets, $"Locations for {key} are not available yet: {e.Message}");
+            }
+            if (found != null)
+            {
+                for (int index = 0; index < found.Count; index++)
+                {
+                    AsyncOperationHandle<T> load = Addressables.LoadAssetAsync<T>(found[index]);
+                    try
+                    {
+                        T asset = load.WaitForCompletion();
+                        if (asset != null) assets.Add(asset);
+                    }
+                    catch (Exception e)
+                    {
+                        BasisDebug.LogError($"[BasisWebAddressables] {found[index].PrimaryKey} is not preloaded: {e.Message}");
+                    }
+                    Addressables.Release(load);
+                }
+            }
+            Addressables.Release(locations);
+            return Addressables.ResourceManager.CreateCompletedOperation<IList<T>>(assets, string.Empty);
+        }
+
 #if UNITY_WEBGL && !UNITY_EDITOR
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void Install()

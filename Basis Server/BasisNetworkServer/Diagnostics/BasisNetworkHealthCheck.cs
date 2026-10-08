@@ -242,6 +242,83 @@ namespace Basis.Network.Server
 
         private static string Int(long value) => value.ToString(CultureInfo.InvariantCulture);
 
+        internal static string BuildTransportsJson()
+        {
+            StringBuilder builder = new StringBuilder("[");
+            NetManager server = NetworkServer.Server;
+            if (server != null)
+            {
+                bool first = true;
+                HealthFields fields = new HealthFields(builder);
+                foreach (NetManager transport in server.Transports())
+                {
+                    if (!first) builder.Append(',');
+                    first = false;
+                    builder.Append("{\"id\":");
+                    AppendJsonString(builder, transport.StackId);
+                    builder.Append(",\"running\":").Append(transport.IsRunning ? "true" : "false");
+                    builder.Append(",\"peers\":").Append(transport.ConnectedPeersCount);
+                    if (transport is IBasisTransportHealth health)
+                    {
+                        try
+                        {
+                            health.WriteHealth(fields);
+                        }
+                        catch (Exception ex)
+                        {
+                            BNL.LogWarning($"Transport '{transport.StackId}' could not report its health: {ex.Message}");
+                        }
+                    }
+                    builder.Append('}');
+                }
+            }
+            return builder.Append(']').ToString();
+        }
+
+        private sealed class HealthFields : IBasisHealthWriter
+        {
+            private readonly StringBuilder _builder;
+
+            public HealthFields(StringBuilder builder)
+            {
+                _builder = builder;
+            }
+
+            public void Number(string name, long value) => Name(name).Append(value.ToString(CultureInfo.InvariantCulture));
+
+            public void Flag(string name, bool value) => Name(name).Append(value ? "true" : "false");
+
+            public void Text(string name, string value) => AppendJsonString(Name(name), value);
+
+            private StringBuilder Name(string name)
+            {
+                _builder.Append(',');
+                AppendJsonString(_builder, name);
+                return _builder.Append(':');
+            }
+        }
+
+        private static void AppendJsonString(StringBuilder builder, string value)
+        {
+            builder.Append('"');
+            foreach (char c in value ?? string.Empty)
+            {
+                switch (c)
+                {
+                    case '"': builder.Append("\\\""); break;
+                    case '\\': builder.Append("\\\\"); break;
+                    case '\n': builder.Append("\\n"); break;
+                    case '\r': builder.Append("\\r"); break;
+                    case '\t': builder.Append("\\t"); break;
+                    default:
+                        if (c < ' ') builder.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                        else builder.Append(c);
+                        break;
+                }
+            }
+            builder.Append('"');
+        }
+
         /// <summary>
         /// GC counters, so allocation pressure can be told apart from live state.
         ///
@@ -255,34 +332,6 @@ namespace Basis.Network.Server
         /// here would be inferred rather than measured. <c>committedMb</c> is the honest proxy —
         /// DATAS scaling down shows up there.</para>
         /// </summary>
-        private static string BuildTransportsJson()
-        {
-            System.Text.StringBuilder builder = new System.Text.StringBuilder("[");
-            NetManager server = NetworkServer.Server;
-            if (server != null)
-            {
-                bool first = true;
-                foreach (NetManager transport in server.Transports())
-                {
-                    if (!first) builder.Append(',');
-                    first = false;
-                    builder.Append("{\"id\":\"").Append(transport.StackId).Append("\",");
-                    builder.Append("\"running\":").Append(transport.IsRunning ? "true" : "false").Append(',');
-                    builder.Append("\"peers\":").Append(transport.ConnectedPeersCount);
-                    if (transport is BasisWebSocketNetManager webSocket)
-                    {
-                        builder.Append(",\"port\":").Append(webSocket.ListenPort);
-                        builder.Append(",\"tls\":").Append(webSocket.IsTls ? "true" : "false");
-                        builder.Append(",\"handshakes\":").Append(webSocket.PendingHandshakes);
-                        builder.Append(",\"droppedUnreliable\":").Append(webSocket.UnreliableDropped);
-                        builder.Append(",\"droppedVoice\":").Append(webSocket.PriorityUnreliableDropped);
-                    }
-                    builder.Append('}');
-                }
-            }
-            return builder.Append(']').ToString();
-        }
-
         private static string BuildGcJson()
         {
             // The richer counters are net5+; this assembly also targets netstandard2.1 for the Unity

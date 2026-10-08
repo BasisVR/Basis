@@ -27,9 +27,8 @@ namespace Basis.Scripts.Networking
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void AutoRegister()
         {
-            if (BasisBrowserWebSocketChannel.IsSupported)
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
             {
-                BasisNetworkStackRegistry.RegisterProbe(BasisNetworkStackRegistry.LiteNetLibId, BasisWebSocketProbe.ProbeAsync);
                 return;
             }
             BasisNetworkStackRegistry.RegisterProbe(BasisNetworkStackRegistry.LiteNetLibId, ProbeAsync);

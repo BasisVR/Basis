@@ -196,7 +196,7 @@ namespace Basis.Scripts.Networking
             }
             if (!BasisNetworkConnection.LocalPlayerPeer.SupportsDirectConnect)
             {
-                BasisDebug.LogWarning("[P2P] Direct connections need a UDP link to the server, and this one is a WebSocket.");
+                BasisDebug.LogWarning("[P2P] This connection's transport does not support direct connections.");
                 return null;
             }
             if (!BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId) || localId == targetPlayerId)
