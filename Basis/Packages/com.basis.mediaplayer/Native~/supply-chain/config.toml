@@ -22,6 +22,9 @@ url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
 [policy.matroska-demuxer]
 audit-as-crates-io = true
 
+[policy.re_mp4]
+audit-as-crates-io = true
+
 [policy.retina]
 audit-as-crates-io = true
 
