@@ -7,7 +7,7 @@ namespace Basis.IK
     {
         public const float MinElbowInteriorDeg = 35f;
         public const float HeadFadeStartSin = 0.15f, HeadFadeFullSin = 0.45f, RestOutward = 0.35f, RestBack = 0.25f;
-        public const float MinReachFraction = 0.05f, ModelWeight = 0.85f, TeleportFraction = 0.6f, TrackerSmoothTime = 0.015f;
+        public const float MinReachFraction = 0.05f, ModelWeight = 0.85f, TeleportFraction = 0.6f;
         public const float WristKeepFrac = 0.15f, WristKeepMaxDeg = 15f, ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static void Frame(Vector3 axis, Vector3 torsoUp, Vector3 torsoForward, Vector3 torsoOut, out Vector3 ex, out Vector3 ey)
@@ -89,7 +89,7 @@ namespace Basis.IK
 
             // If we don't have an elbow hint (active elbow tracker) then we make our own and position it accordingly.
             Vector3 worldHint = i.HintPosition;
-            if (!i.HasHint)
+            if (!i.HasTrackerHint)
             {
                 // Start behind and below the hand.
                 worldHint = handPos - i.TorsoForward * (chain * 2f) - i.TorsoUp * (chain * 0.5f);
@@ -105,10 +105,14 @@ namespace Basis.IK
                 }
 
                 // Stick the elbow outward if the hand is moved inward toward the torso so it doesn't clip inside.
-                float handOut = Vector3.Dot(handPos - i.Shoulder, i.TorsoOut) / chain;
-                float midToShoulder = i.HasHead ? Vector3.Dot(i.Shoulder - i.HeadPosition, i.TorsoOut) / chain : 0.3f;
-                float outPush = Smoothstep(-midToShoulder, midToShoulder * 2f, -handOut) * 2.5f;
-                worldHint += i.TorsoOut * (outPush * chain);
+                //   How far the hand is in front of the chest (negative when behind)
+                float chestToHandForward = Vector3.Dot(handPos - i.Chest, i.TorsoForward) / chain;
+                float shoulderToHand = Vector3.Dot(handPos - i.Shoulder, i.TorsoOut) / chain;  // How far the hand is away from the shoulder
+                float chestToShoulder = Vector3.Dot(i.Shoulder - i.Chest, i.TorsoOut) / chain; // How far the shoulder is from the chest
+                float inward = Smoothstep(-chestToShoulder / 2.0f, chestToShoulder * 2f, -shoulderToHand); // How far the hand has moved inward past the shoulder
+                float outPush = inward * 4.0f; //   How far to push the elbow hint
+                float forwardPush = Smoothstep(0f, chestToShoulder, chestToHandForward) * inward * 2.0f; //   How far to push the elbow hint forward
+                worldHint += i.TorsoOut * (outPush * chain) + i.TorsoForward * (forwardPush * chain);
             }
 
             // Project the hint onto the elbow circle to get the swivel angle.
@@ -119,14 +123,16 @@ namespace Basis.IK
             // Smooth the swivel toward the target or teleport if needed
             float swivelDeg;
             bool teleport = state.Seeded && (i.TargetPosition - state.LastTarget).sqrMagnitude > TeleportFraction * TeleportFraction * chain * chain;
-            float smoothTime = i.HasHint ? TrackerSmoothTime : i.SmoothTime;
             if (!state.Seeded || teleport || i.Dt <= 0f)
             {
                 swivelDeg = targetDeg;
             }
             else
             {
-                float delta = Wrap(targetDeg - state.SwivelDeg), alpha = smoothTime > 1e-4f ? 1f - Mathf.Exp(-i.Dt / smoothTime) : 1f, step = delta * alpha;
+                // If we have an actual tracker for the elbow, don't smooth since the trackers have their own smoothing.
+                // Otherwise, use internal tracker
+                float smoothing = !i.HasTrackerHint ? i.SmoothTime : 0.0f;
+                float delta = Wrap(targetDeg - state.SwivelDeg), alpha = smoothing > 1e-4f ? 1f - Mathf.Exp(-i.Dt / smoothing) : 1f, step = delta * alpha;
                 float maxStep = i.MaxRateDeg > 0f ? i.MaxRateDeg * i.Dt : float.MaxValue;
                 if (step > maxStep) step = maxStep; else if (step < -maxStep) step = -maxStep;
                 swivelDeg = Wrap(state.SwivelDeg + step);

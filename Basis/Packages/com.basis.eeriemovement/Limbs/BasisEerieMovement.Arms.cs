@@ -109,10 +109,12 @@ namespace Basis.IK
             }
             BasisBoneHandle root = isLeft ? handleLeftUpperArm : handleRightUpperArm, mid = isLeft ? handleLeftLowerArm : handleRightLowerArm, tip = isLeft ? handleLeftHand : handleRightHand;
             ResetToRest(root, mid, tip);
+            poseStream.GetPositionAndRotation(handleChest, out Vector3 chest, out _);
             poseStream.GetPositionAndRotation(root, out Vector3 shoulder, out Quaternion restRootRot);
             poseStream.GetPositionAndRotation(mid, out Vector3 elbow, out Quaternion restMidRot);
             poseStream.GetPositionAndRotation(tip, out Vector3 hand, out Quaternion restTipRot);
             BasisArmSolveInput input = default;
+            input.Chest = chest;
             input.Shoulder = shoulder;
             input.RestElbow = elbow;
             input.RestHand = hand;
@@ -125,7 +127,7 @@ namespace Basis.IK
             input.TorsoForward = frame.Forward;
             input.TorsoOut = isLeft ? -frame.Right : frame.Right;
             input.IsLeft = isLeft;
-            input.HasHint = arm.trackerHint;
+            input.HasTrackerHint = arm.trackerHint;
             input.HintPosition = isLeft ? hintPositionLeftHand : hintPositionRightHand;
             input.HasHintRotation = arm.hintRoll;
             input.HintRotation = isLeft ? hintRotationLeftHand : hintRotationRightHand;
