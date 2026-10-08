@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI.Styling;
@@ -9,47 +10,48 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI.HandHeldCamera
 {
+    [AutoStaticsCleanup]
     public partial class BasisHandHeldCameraPanelProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         public const string StaticTitleKey = "menu.provider.cameraSettings";
         public static string StaticTitle => BasisLocalization.Get(StaticTitleKey);
 
-        private static readonly int[] VideoResolutionWidths = { 1280, 1920, 2560, 3840 };
-        private static readonly int[] VideoResolutionHeights = { 720, 1080, 1440, 2160 };
-        private static readonly int[] MsaaSampleCounts = { 1, 2, 4, 8 };
+        [NoAutoStaticsCleanup] private static readonly int[] VideoResolutionWidths = { 1280, 1920, 2560, 3840 };
+        [NoAutoStaticsCleanup] private static readonly int[] VideoResolutionHeights = { 720, 1080, 1440, 2160 };
+        [NoAutoStaticsCleanup] private static readonly int[] MsaaSampleCounts = { 1, 2, 4, 8 };
 
         // Index 0 follows the subject's depth automatically; index 1 uses the Focus Distance slider.
-        private static readonly string[] FocusModeKeys = { "camera.focusAuto", "camera.focusManual" };
-        private static readonly string[] DoFModeValues = { "Off", "Gaussian", "Bokeh" };
-        private static readonly string[] DoFModeKeys = { "ui.option.off", "camera.mode.gaussian", "camera.mode.bokeh" };
+        [NoAutoStaticsCleanup] private static readonly string[] FocusModeKeys = { "camera.focusAuto", "camera.focusManual" };
+        [NoAutoStaticsCleanup] private static readonly string[] DoFModeValues = { "Off", "Gaussian", "Bokeh" };
+        [NoAutoStaticsCleanup] private static readonly string[] DoFModeKeys = { "ui.option.off", "camera.mode.gaussian", "camera.mode.bokeh" };
 
         // Ordered to match BasisCameraDetachedMarker (Off / Puck / Wireframe).
-        private static readonly string[] DetachedMarkerKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] DetachedMarkerKeys =
         {
             "camera.detachedMarker.off", "camera.detachedMarker.puck", "camera.detachedMarker.wireframe",
         };
 
         // Ordered to match URP's MotionBlurQuality and MotionBlurMode, which the UI stores as their
         // index — a label reordered here silently picks a different enum entry.
-        private static readonly string[] MotionBlurQualityLabels = { "Low", "Medium", "High" };
-        private static readonly string[] MotionBlurQualityKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurQualityLabels = { "Low", "Medium", "High" };
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurQualityKeys =
         {
             "camera.motionBlurQuality.low", "camera.motionBlurQuality.medium", "camera.motionBlurQuality.high"
         };
-        private static readonly string[] MotionBlurModeLabels = { "Camera Only", "Camera And Objects" };
-        private static readonly string[] MotionBlurModeKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurModeLabels = { "Camera Only", "Camera And Objects" };
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurModeKeys =
         {
             "camera.motionBlurMode.cameraOnly", "camera.motionBlurMode.cameraAndObjects"
         };
 
         // In URP's TonemappingMode order, which is what the setting stores.
-        private static readonly string[] TonemappingKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] TonemappingKeys =
         {
             "camera.tonemapping.none", "camera.tonemapping.neutral", "camera.tonemapping.aces",
         };
 
         // Ordered to match the PhotoTagging_* values the binding stores.
-        private static readonly string[] PhotoTaggingKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] PhotoTaggingKeys =
         {
             "settings.chat.camera.photoMetadata.noOne",
             "settings.chat.camera.photoMetadata.everyone",
@@ -178,7 +180,7 @@ namespace Basis.BasisUI.HandHeldCamera
         /// Metering modes in <see cref="BasisCameraMeteringMode"/> order — the dropdown hands its
         /// row number straight to the enum, so a table out of step picks a different meter.
         /// </summary>
-        private static readonly string[] MeteringKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] MeteringKeys =
         {
             "camera.metering.average",
             "camera.metering.centre",

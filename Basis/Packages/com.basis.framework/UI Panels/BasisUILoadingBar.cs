@@ -1,4 +1,5 @@
 
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -26,7 +27,8 @@ namespace Basis.Scripts.UI.UI_Panels
         }
     }
 
-    public class BasisUILoadingBar : BasisUIBase
+    [AutoStaticsCleanup]
+    public partial class BasisUILoadingBar : BasisUIBase
     {
         public TextMeshPro TextMeshPro;
         public SpriteRenderer Renderer;
@@ -52,7 +54,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public const float StaleOperationTimeout = 30f;
         private static Coroutine expirySweepCoroutine;
         private static MonoBehaviour expirySweepHost;
-        private static readonly WaitForSeconds expirySweepInterval = new WaitForSeconds(1f);
+        [NoAutoStaticsCleanup] private static readonly WaitForSeconds expirySweepInterval = new WaitForSeconds(1f);
 
         public static void Initialize()
         {
@@ -68,8 +70,8 @@ namespace Basis.Scripts.UI.UI_Panels
 
         // Cached delegate + queue avoids per-call closure allocation (~80 bytes GC per call)
         static readonly ConcurrentQueue<(string UniqueID, float Progress, string Info, float Lifetime)> _pendingReports = new();
-        static readonly Action _processPendingReports = ProcessPendingReports;
-        static readonly Action _closeLoadingBarNow = CloseLoadingBarNow;
+        [NoAutoStaticsCleanup] static readonly Action _processPendingReports = ProcessPendingReports;
+        [NoAutoStaticsCleanup] static readonly Action _closeLoadingBarNow = CloseLoadingBarNow;
 
         public static void ProgressReport(string UniqueID, float progress, string info)
         {

@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.Scripts.Avatar;
 using UnityEngine;
 using UnityEngine.UI;
-public static class SettingsProviderPerformanceLimits
+[AutoStaticsCleanup]
+public static partial class SettingsProviderPerformanceLimits
 {
     private static RectTransform _layoutRoot;
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Constraints;
@@ -32,7 +33,8 @@ namespace Basis.Scripts.Constraints
     /// call <see cref="BasisConstraintBase.SetDirty"/> after doing so, since the cached parent row
     /// is resolved at rebuild.
     /// </summary>
-    public static class BasisConstraintSystem
+    [AutoStaticsCleanup]
+    public static partial class BasisConstraintSystem
     {
         private sealed class Registration
         {
@@ -206,25 +208,25 @@ namespace Basis.Scripts.Constraints
         private static readonly Dictionary<Transform, int> sDepthCache = new Dictionary<Transform, int>();
         private static readonly List<Transform> sDepthStack = new List<Transform>();
 
-        private static NativeList<BasisConstraintSlot> sSlots;
-        private static NativeList<BasisConstraintSource> sSources;
-        private static NativeList<BasisConstraintWorld> sWorld;
-        private static NativeList<BasisConstraintTransform> sLocal;
-        private static NativeList<BasisConstraintResult> sResults;
-        private static NativeList<int> sOrder;
+        [NoAutoStaticsCleanup] private static NativeList<BasisConstraintSlot> sSlots;
+        [NoAutoStaticsCleanup] private static NativeList<BasisConstraintSource> sSources;
+        [NoAutoStaticsCleanup] private static NativeList<BasisConstraintWorld> sWorld;
+        [NoAutoStaticsCleanup] private static NativeList<BasisConstraintTransform> sLocal;
+        [NoAutoStaticsCleanup] private static NativeList<BasisConstraintResult> sResults;
+        [NoAutoStaticsCleanup] private static NativeList<int> sOrder;
         /// <summary>(start, count) into sOrder, one entry per group the solve can run on its own.</summary>
-        private static NativeList<int2> sSolveGroups;
-        private static NativeList<int> sTargetRow;
-        private static NativeList<BasisConstraintDampState> sDampState;
+        [NoAutoStaticsCleanup] private static NativeList<int2> sSolveGroups;
+        [NoAutoStaticsCleanup] private static NativeList<int> sTargetRow;
+        [NoAutoStaticsCleanup] private static NativeList<BasisConstraintDampState> sDampState;
         /// <summary>(sampled transform row, results row) per bone, for the chain-driving kinds.</summary>
-        private static NativeList<int2> sChain;
+        [NoAutoStaticsCleanup] private static NativeList<int2> sChain;
         /// <summary>Each chain member's pose at capture, parallel to sChain. Referential holds its
         /// members in the arrangement these describe, whichever one is leading.</summary>
-        private static NativeList<BasisConstraintWorld> sChainBind;
-        private static NativeList<float3> sChainPositions;
-        private static NativeList<float> sChainLengths;
-        private static TransformAccessArray sTracked;
-        private static TransformAccessArray sTargets;
+        [NoAutoStaticsCleanup] private static NativeList<BasisConstraintWorld> sChainBind;
+        [NoAutoStaticsCleanup] private static NativeList<float3> sChainPositions;
+        [NoAutoStaticsCleanup] private static NativeList<float> sChainLengths;
+        [NoAutoStaticsCleanup] private static TransformAccessArray sTracked;
+        [NoAutoStaticsCleanup] private static TransformAccessArray sTargets;
 
         private static JobHandle sPending;
         /// <summary>Chain-scratch entries reserved per solve group; the longest chain in the table.</summary>

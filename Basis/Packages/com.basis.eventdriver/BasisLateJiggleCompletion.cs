@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using GatorDragonGames.JigglePhysics;
 using UnityEngine;
@@ -23,7 +24,8 @@ namespace Basis.EventDriver
     /// parented to a jiggled bone are the ones in that window now. If that shows up, set
     /// <see cref="Enabled"/> false and the completion goes back to its original place.
     /// </summary>
-    public static class BasisLateJiggleCompletion
+    [AutoStaticsCleanup]
+    public static partial class BasisLateJiggleCompletion
     {
         /// <summary>
         /// False puts the completion back inline where it was. Kept as a switch rather than removed

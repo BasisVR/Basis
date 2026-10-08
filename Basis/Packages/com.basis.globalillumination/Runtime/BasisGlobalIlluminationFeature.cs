@@ -1,12 +1,14 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.Common;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
+[AutoStaticsCleanup]
 [DisallowMultipleRendererFeature("Basis Global Illumination")]
 [Tooltip("Screen space global illumination: rays are marched through the depth buffer and the camera colour at the hit is gathered as indirect light, so no GBuffer or albedo is required.")]
-public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
+public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererFeature
 {
     public const string ShaderName = "Hidden/Basis/GlobalIllumination";
     public const string RayStagesShaderName = "Hidden/Basis/GlobalIlluminationRT";
@@ -39,8 +41,6 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
     private Material m_Material;
     private Material m_RayStagesMaterial;
     private BasisGlobalIlluminationPass m_Pass;
-    private BasisGlobalIlluminationPass.SpecularPass m_SpecularPass;
-    private BasisGlobalIlluminationPass.SpecularColorCapturePass m_ColorCapturePass;
     private BasisGlobalIlluminationDebugView m_DebugView;
 
     public bool ReflectionProbes { get { return m_ReflectionProbes; } set { m_ReflectionProbes = value; } }
@@ -102,8 +102,6 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         m_Pass = new BasisGlobalIlluminationPass(m_Material);
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.DebugView = m_DebugView;
-        m_SpecularPass = new BasisGlobalIlluminationPass.SpecularPass();
-        m_ColorCapturePass = new BasisGlobalIlluminationPass.SpecularColorCapturePass();
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -114,34 +112,9 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         if (!ShouldRender(cameraData.camera, cameraData.cameraType, cameraData.postProcessEnabled)) { return; }
 
         BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
-        if (!settings.IsActive()) { return; }
-
-        // One answer for both passes: the reflection trace reflects about the same normals the diffuse
-        // gather bounces off, so a prepass the diffuse pass would ask for is read by the reflections too.
-        bool wantsNormals = m_NormalsPrepass && settings.normalSource == BasisGlobalIlluminationNormalSource.NormalsTexture;
-
-        // Reflections have to be published before the opaque draws that consume them, so they are a separate
-        // pass at a separate injection point rather than another stage of the one below. See SpecularPass.
-        if (settings.SpecularActive() && m_SpecularPass != null)
-        {
-            m_SpecularPass.Setup(m_Material, m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback, RayTracingAvailable, m_Pass);
-            m_SpecularPass.UseNormalsTexture = wantsNormals;
-            ScriptableRenderPassInput specularInputs = ScriptableRenderPassInput.Depth;
-            if (wantsNormals) { specularInputs |= ScriptableRenderPassInput.Normal; }
-            m_SpecularPass.ConfigureInput(specularInputs);
-            renderer.EnqueuePass(m_SpecularPass);
-
-            // The screen space backend reads the previous frame's colour, so a pass at the other end of the
-            // frame has to have written it. The ray traced backend relights its hits instead and the copy
-            // would be a dead cost there, which is why this is enqueued per backend rather than always.
-            if (m_ColorCapturePass != null && BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, RayTracingAvailable))
-            {
-                m_ColorCapturePass.Setup(m_Material);
-                renderer.EnqueuePass(m_ColorCapturePass);
-            }
-        }
-
         if (!settings.DiffuseActive()) { return; }
+
+        bool wantsNormals = m_NormalsPrepass && settings.normalSource == BasisGlobalIlluminationNormalSource.NormalsTexture;
 
         // Motion is asked for only when the temporal filter is going to reproject through it. URP renders
         // a whole extra pass to produce that texture, and a frame that will not read it should not pay for
@@ -179,13 +152,17 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
 
     public bool ShouldRender(Camera camera, CameraType cameraType, bool postProcessEnabled)
     {
-        if (!isActive) { return false; }
+        return isActive && ShouldRender(camera, cameraType, postProcessEnabled, m_ReflectionProbes, m_Mirrors, m_RenderingDebugger, CameraFilter);
+    }
+
+    public static bool ShouldRender(Camera camera, CameraType cameraType, bool postProcessEnabled, bool reflectionProbes, bool mirrors, bool renderingDebugger, Func<Camera, bool> filter)
+    {
         if (!SupportsPlatform()) { return false; }
         if (cameraType == CameraType.Preview) { return false; }
-        if (cameraType == CameraType.Reflection && !m_ReflectionProbes) { return false; }
+        if (cameraType == CameraType.Reflection && !reflectionProbes) { return false; }
 
         bool mirror = IsMirrorReflection(camera);
-        if (mirror && !m_Mirrors) { return false; }
+        if (mirror && !mirrors) { return false; }
         // A mirror is exempt from the post processing requirement, and the exemption is the whole reason
         // mirrors have never shown a bounce. Mirrors ship with Render Post Processing OFF - it is a sensible
         // default for a camera that renders the room a second time - and this effect is not part of that
@@ -193,8 +170,7 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         // provides. Gating it on that toggle meant a mirror showed the room unlit next to a direct view of
         // the same room lit, and no author would have connected the two settings.
         if (!postProcessEnabled && !mirror) { return false; }
-        if (!m_RenderingDebugger && !KeepRenderingWithDebugger && DebugManager.instance.isAnyDebugUIActive) { return false; }
-        Func<Camera, bool> filter = CameraFilter;
+        if (!renderingDebugger && !KeepRenderingWithDebugger && DebugManager.instance.isAnyDebugUIActive) { return false; }
         return filter == null || camera == null || filter(camera);
     }
 
@@ -210,21 +186,26 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
     /// </summary>
     private void ResolveShader()
     {
+        ResolveShaders(this, ref m_Shader, ref m_RayStagesShader, ref m_RayTraceShader, ref m_RayTraceCompute);
+    }
+
+    public static void ResolveShaders(ScriptableRendererFeature owner, ref Shader shader, ref Shader rayStagesShader, ref RayTracingShader rayTraceShader, ref ComputeShader rayTraceCompute)
+    {
 #if UNITY_EDITOR
         bool resolved = false;
-        if (m_Shader == null) { m_Shader = Shader.Find(ShaderName); resolved |= m_Shader != null; }
-        if (m_RayStagesShader == null) { m_RayStagesShader = Shader.Find(RayStagesShaderName); resolved |= m_RayStagesShader != null; }
-        if (m_RayTraceShader == null)
+        if (shader == null) { shader = Shader.Find(ShaderName); resolved |= shader != null; }
+        if (rayStagesShader == null) { rayStagesShader = Shader.Find(RayStagesShaderName); resolved |= rayStagesShader != null; }
+        if (rayTraceShader == null)
         {
-            m_RayTraceShader = UnityEditor.AssetDatabase.LoadAssetAtPath<RayTracingShader>(ShaderRoot + "BasisGlobalIlluminationRT.raytrace");
-            resolved |= m_RayTraceShader != null;
+            rayTraceShader = UnityEditor.AssetDatabase.LoadAssetAtPath<RayTracingShader>(ShaderRoot + "BasisGlobalIlluminationRT.raytrace");
+            resolved |= rayTraceShader != null;
         }
-        if (m_RayTraceCompute == null)
+        if (rayTraceCompute == null)
         {
-            m_RayTraceCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(ShaderRoot + "BasisGlobalIlluminationRT.compute");
-            resolved |= m_RayTraceCompute != null;
+            rayTraceCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(ShaderRoot + "BasisGlobalIlluminationRT.compute");
+            resolved |= rayTraceCompute != null;
         }
-        if (resolved && !UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) { UnityEditor.EditorUtility.SetDirty(this); }
+        if (resolved && !UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) { UnityEditor.EditorUtility.SetDirty(owner); }
 #endif
     }
 
@@ -233,8 +214,6 @@ public sealed class BasisGlobalIlluminationFeature : ScriptableRendererFeature
         base.Dispose(disposing);
         m_Pass?.Dispose();
         m_Pass = null;
-        m_SpecularPass = null;
-        m_ColorCapturePass = null;
         CoreUtils.Destroy(m_Material);
         m_Material = null;
         CoreUtils.Destroy(m_RayStagesMaterial);

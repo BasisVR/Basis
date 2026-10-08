@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Device_Management;
@@ -19,7 +20,8 @@ using static SerializableBasis;
 /// Handles sending/receiving content share messages and managing sphere GameObjects.
 /// Handles sending/receiving content share messages and managing sphere GameObjects.
 /// </summary>
-public static class BasisContentShareManager
+[AutoStaticsCleanup]
+public static partial class BasisContentShareManager
 {
     /// <summary>
     /// All active content share spheres keyed by SphereNetID.

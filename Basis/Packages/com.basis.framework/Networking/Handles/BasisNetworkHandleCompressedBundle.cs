@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Profiler;
@@ -34,7 +35,8 @@ using System;
 /// on the wire. Only that group is transposed; doing it to the fixed-size quality groups is a
 /// net loss. See BundleCompressionExperiment in the server tests.
 /// </summary>
-public static class BasisNetworkHandleCompressedBundle
+[AutoStaticsCleanup]
+public static partial class BasisNetworkHandleCompressedBundle
 {
     // Per-thread scratch buffers. The Unity receive path runs on the LiteNetLib listener
     // thread (UnsyncedEvents = true on the server, equivalent on client), but async void

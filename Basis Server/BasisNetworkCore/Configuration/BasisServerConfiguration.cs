@@ -35,7 +35,8 @@ public class Configuration
     // 13: LogConnectionHandshake added - the per-connection auth chatter is now off by default.
     // 14: CompanyName and ProductName added - the client company and product name a connection must report.
     // 15: ServerUUID added - the stable application-level identity sent to clients when they join.
-    public const int CurrentConfigVersion = 15;
+    // 16: ContentSphereLeaveTimeoutSeconds and ContentSphereDeletionTimerSeconds added - how long shared orbs outlive their sharer, and an optional lifetime.
+    public const int CurrentConfigVersion = 16;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
@@ -354,6 +355,8 @@ public class Configuration
     /// <summary>Movement mode the policy pins players to when its bit is set: 0 Walk, 1 Fly, 2 NoClip.</summary>
     public byte LocomotionPolicyMode = 0;
     public int MaxContentSpheresPerPlayer = 32;
+    public int ContentSphereLeaveTimeoutSeconds = 60;
+    public int ContentSphereDeletionTimerSeconds = 0;
     /// <summary>
     /// Most distinct network ids one player may register in a session. Every synced object (prop,
     /// synced transform, image manager) claims one from a shared 65,536-wide space that is only

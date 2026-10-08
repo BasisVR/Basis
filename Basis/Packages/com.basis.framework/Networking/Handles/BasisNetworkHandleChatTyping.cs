@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
@@ -7,9 +8,10 @@ using System.Threading;
 /// <summary>
 /// Sends and receives transient player chat typing state on EventsChannel.
 /// </summary>
-public static class BasisNetworkHandleChatTyping
+[AutoStaticsCleanup]
+public static partial class BasisNetworkHandleChatTyping
 {
-    private static ThreadLocal<NetDataWriter> threadLocalWriter;
+    [NoAutoStaticsCleanup] private static ThreadLocal<NetDataWriter> threadLocalWriter;
     private static bool initialized;
     private static bool hasLastSentTypingState;
     private static bool lastSentTypingState;

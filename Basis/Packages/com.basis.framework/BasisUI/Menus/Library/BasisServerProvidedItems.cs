@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.UI.UI_Panels;
 using System;
@@ -12,7 +13,8 @@ namespace Basis.BasisUI
     /// Items are session-scoped: cleared when the local player disconnects so they
     /// don't pollute the user's persisted library between server visits.
     /// </summary>
-    public static class BasisServerProvidedItems
+    [AutoStaticsCleanup]
+    public static partial class BasisServerProvidedItems
     {
         private static readonly List<BasisDataStoreItemKeys.ItemKey> _items = new();
 

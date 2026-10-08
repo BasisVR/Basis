@@ -474,7 +474,7 @@
     { "key": "projectSetup.buildModules.scriptingBackendIl2cpp", "value": "ہمیشہ IL2CPP" },
     { "key": "projectSetup.buildModules.scriptingBackendMono", "value": "ہمیشہ Mono" },
     { "key": "projectSetup.buildModules.scriptingBackendCoreClr", "value": "ہمیشہ CoreCLR" },
-    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "Windows اور macOS بلڈز کے لیے IL2CPP/Mono/CoreCLR جواب یاد رکھتا ہے تاکہ آپ سے ہر بار نہ پوچھا جائے۔ جبری پلیٹ فارمز متاثر نہیں ہوتے: Android اور iOS ہمیشہ IL2CPP استعمال کرتے ہیں، Linux ہمیشہ Mono استعمال کرتا ہے۔ بلڈ پرامپٹ میں کوئی بیک اینڈ منتخب کرنا بھی اس ترتیب کو اپ ڈیٹ کرتا ہے۔" },
+    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "Windows اور macOS بلڈز کے لیے IL2CPP/Mono/CoreCLR جواب یاد رکھتا ہے تاکہ آپ سے ہر بار نہ پوچھا جائے۔ جبری پلیٹ فارمز متاثر نہیں ہوتے: Android اور iOS ہمیشہ IL2CPP استعمال کرتے ہیں، Linux ہمیشہ CoreCLR (ARM64: IL2CPP) استعمال کرتا ہے۔ بلڈ پرامپٹ میں کوئی بیک اینڈ منتخب کرنا بھی اس ترتیب کو اپ ڈیٹ کرتا ہے۔" },
 
     { "key": "projectSetup.platformQuality.foldout", "value": "پلیٹ فارم اور کوالٹی" },
     { "key": "projectSetup.platformQuality.windows", "value": "Windows" },

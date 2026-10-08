@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Audio;
 using Basis.Scripts.BasisSdk.Helpers;
@@ -16,8 +17,9 @@ namespace Basis.Scripts.Networking.Receivers
     /// Receives, decodes, buffers, and plays remote voice audio for a networked player.
     /// Uses a single <see cref="BasisVoiceBuffer"/> for packet reordering and PCM playback.
     /// </summary>
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisAudioReceiver
+    public partial class BasisAudioReceiver
     {
         [SerializeReference] public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver = null;
         public AudioSource audioSource;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Basis.Scripts.BasisSdk.Interactions
@@ -18,7 +19,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
     /// movers are idle.
     /// </para>
     /// </summary>
-    public static class BasisPhysicsSyncGate
+    [AutoStaticsCleanup]
+    public static partial class BasisPhysicsSyncGate
     {
         private static bool Dirty;
 

@@ -1,13 +1,15 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 
 namespace Basis.BasisUI
 {
-    public static class BasisDownloadCenter
+    [AutoStaticsCleanup]
+    public static partial class BasisDownloadCenter
     {
         private static readonly List<BasisDownload> _active = new();
-        private static readonly object _lock = new();
+        [NoAutoStaticsCleanup] private static readonly object _lock = new();
         private static int _version;
 
         public static int Version => Volatile.Read(ref _version);

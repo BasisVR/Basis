@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using System;
@@ -6,7 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 
-public static class BasisNetworkIdResolver
+[AutoStaticsCleanup]
+public static partial class BasisNetworkIdResolver
 {
 
     public static ConcurrentDictionary<string, ushort> KnownIdMap = new ConcurrentDictionary<string, ushort>();

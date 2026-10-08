@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -5,7 +6,8 @@ using UnityEngine.Rendering;
 
 namespace Basis.Scripts.UI.NamePlate
 {
-    public static class BasisNamePlateDepthMaterials
+    [AutoStaticsCleanup]
+    public static partial class BasisNamePlateDepthMaterials
     {
         public const string ObjectKeyword = "BASIS_NAMEPLATE_OBJECT";
         public const string PanelShaderName = "Basis/NamePlate/Panel";
@@ -15,7 +17,7 @@ namespace Basis.Scripts.UI.NamePlate
         private static float appliedPull = float.NaN;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int SheenId = Shader.PropertyToID("_Sheen");
-        private static readonly int[] BlendStateIds =
+        [NoAutoStaticsCleanup] private static readonly int[] BlendStateIds =
         {
             Shader.PropertyToID("_SrcBlend"),
             Shader.PropertyToID("_DstBlend"),

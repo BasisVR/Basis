@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Text;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -7,7 +8,8 @@ using Unity.Mathematics;
 
 namespace Basis.BasisUI
 {
-    public static class BasisVoiceRangePanelUpdater
+    [AutoStaticsCleanup]
+    public static partial class BasisVoiceRangePanelUpdater
     {
         private const int RefreshIntervalTicks = 6;
         private const int MaxRows = 50;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -69,7 +70,8 @@ namespace Basis.Scripts.Networking
     /// What deliberately did NOT move: avatar calibration. It is Animator/Transform/
     /// TransformAccessArray work end to end and is main-thread by construction.
     /// </remarks>
-    public static class BasisAvatarLoadThread
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarLoadThread
     {
         private readonly struct Job
         {
@@ -90,9 +92,11 @@ namespace Basis.Scripts.Networking
             }
         }
 
-        private static readonly BlockingCollection<Job> sJobs = new BlockingCollection<Job>();
-        private static readonly object sStartLock = new object();
+        [NoAutoStaticsCleanup] private static readonly BlockingCollection<Job> sJobs = new BlockingCollection<Job>();
+        [NoAutoStaticsCleanup] private static readonly object sStartLock = new object();
         private static Thread sThread;
+        [NoAutoStaticsCleanup] private static CancellationTokenSource sStop;
+        private static volatile bool sShutdown;
 
         /// <summary>
         /// Generation counter bumped by <see cref="Flush"/>. Records prepared before a teardown
@@ -121,6 +125,7 @@ namespace Basis.Scripts.Networking
         public static void Initialize()
         {
             BasisPlayerSettingsManager.EnsureInitialized();
+            sShutdown = false;
             EnsureRunning();
         }
 
@@ -167,50 +172,71 @@ namespace Basis.Scripts.Networking
 
         private static void EnsureRunning()
         {
-            if (Volatile.Read(ref sThread) != null)
+            if (Volatile.Read(ref sThread) != null || sShutdown)
             {
                 return;
             }
             lock (sStartLock)
             {
-                if (sThread != null)
+                if (sThread != null || sShutdown)
                 {
                     return;
                 }
+                sStop = new CancellationTokenSource();
                 Thread thread = new Thread(Run)
                 {
                     IsBackground = true,
                     Name = "Basis Avatar Load",
                 };
                 Volatile.Write(ref sThread, thread);
-                thread.Start();
+                thread.Start(sStop.Token);
+                UnityEngine.Application.quitting -= Shutdown;
+                UnityEngine.Application.quitting += Shutdown;
             }
         }
 
-        private static void Run()
+        private static void Shutdown()
         {
-            foreach (Job job in sJobs.GetConsumingEnumerable())
+            UnityEngine.Application.quitting -= Shutdown;
+            lock (sStartLock)
             {
-                try
+                sShutdown = true;
+                sStop?.Cancel();
+                sStop = null;
+                Volatile.Write(ref sThread, null);
+            }
+        }
+
+        private static void Run(object state)
+        {
+            try
+            {
+                foreach (Job job in sJobs.GetConsumingEnumerable((CancellationToken)state))
                 {
-                    if (job.Generation != Volatile.Read(ref sGeneration))
+                    try
                     {
-                        // Submitted before a teardown; whatever it describes is gone.
-                        continue;
+                        if (job.Generation != Volatile.Read(ref sGeneration))
+                        {
+                            // Submitted before a teardown; whatever it describes is gone.
+                            continue;
+                        }
+                        if (job.IsBatch)
+                        {
+                            DecodeBatch(job.Payload, job.Generation);
+                        }
+                        else
+                        {
+                            DecodeSingle(job.Payload, job.Generation);
+                        }
                     }
-                    if (job.IsBatch)
+                    catch (Exception ex)
                     {
-                        DecodeBatch(job.Payload, job.Generation);
-                    }
-                    else
-                    {
-                        DecodeSingle(job.Payload, job.Generation);
+                        BasisDebug.LogError($"Dropping corrupt remote-player spawn packet: {ex.Message}", BasisDebug.LogTag.Networking);
                     }
                 }
-                catch (Exception ex)
-                {
-                    BasisDebug.LogError($"Dropping corrupt remote-player spawn packet: {ex.Message}", BasisDebug.LogTag.Networking);
-                }
+            }
+            catch (OperationCanceledException)
+            {
             }
         }
 

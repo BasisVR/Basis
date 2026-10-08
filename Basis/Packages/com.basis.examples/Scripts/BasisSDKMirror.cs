@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
@@ -17,7 +18,8 @@ using RenderPipeline = UnityEngine.Rendering.RenderPipelineManager;
 using UnityEditor;
 #endif
 
-public class BasisSDKMirror : MonoBehaviour
+[AutoStaticsCleanup]
+public partial class BasisSDKMirror : MonoBehaviour
 {
     public enum MirrorClearFlags
     {

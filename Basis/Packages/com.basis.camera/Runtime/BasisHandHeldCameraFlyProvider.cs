@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.BasisUI.HandHeldCamera
 {
-    public class BasisHandHeldCameraFlyProvider : BasisMenuActionProvider<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class BasisHandHeldCameraFlyProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         private static readonly Color FlyingColor = new Color(0.4f, 0.78f, 1f, 1f);
 

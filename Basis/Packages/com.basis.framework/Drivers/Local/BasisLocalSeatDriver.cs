@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -7,8 +8,9 @@ using GatorDragonGames.JigglePhysics;
 using UnityEngine;
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public class BasisLocalSeatDriver
+    public partial class BasisLocalSeatDriver
     {
         [System.NonSerialized] public BasisLocalPlayer LocalPlayer;
 
@@ -659,10 +661,10 @@ namespace Basis.Scripts.Drivers
         }
 
         private const float SeatGizmoLineWidth = 0.004f;
-        private static readonly int[] _seatAxisIds = NewSeatIds(12);
-        private static readonly int[] _seatPointIds = NewSeatIds(3);
-        private static readonly int[] _seatSegIds = NewSeatIds(6);
-        private static readonly int[] _seatLabelIds = NewSeatIds(5);
+        [NoAutoStaticsCleanup] private static readonly int[] _seatAxisIds = NewSeatIds(12);
+        [NoAutoStaticsCleanup] private static readonly int[] _seatPointIds = NewSeatIds(3);
+        [NoAutoStaticsCleanup] private static readonly int[] _seatSegIds = NewSeatIds(6);
+        [NoAutoStaticsCleanup] private static readonly int[] _seatLabelIds = NewSeatIds(5);
         private static bool _seatGizmosCreated;
         private static bool _seatGizmosVisible;
         private static bool _seatGizmoHooked;

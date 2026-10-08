@@ -1,3 +1,4 @@
+#nullable enable annotations
 using System;
 using OpusSharp.Core.Interfaces;
 using OpusSharp.Core.SafeHandlers;

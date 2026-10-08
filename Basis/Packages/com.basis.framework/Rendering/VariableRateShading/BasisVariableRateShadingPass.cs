@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using UnityEngine;
@@ -8,7 +9,8 @@ using UnityEngine.Rendering.Universal;
 
 namespace Basis.Scripts.Rendering
 {
-    internal class BasisVariableRateShadingPass : ScriptableRenderPass
+    [AutoStaticsCleanup]
+    internal partial class BasisVariableRateShadingPass : ScriptableRenderPass
     {
         private const string PropSri = "_BasisSri";
         private const string PropTile = "_BasisVrsTile";
@@ -34,7 +36,7 @@ namespace Basis.Scripts.Rendering
         private const float AnisoBandGrowth = 1f;
         private const float AnisoBandMin = 0.04f;
 
-        private static readonly ProfilingSampler samplerVrs = new ProfilingSampler("BasisVariableRateShading");
+        [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerVrs = new ProfilingSampler("BasisVariableRateShading");
         public static float GpuMs => samplerVrs.gpuElapsedTime;
         public static void SetProfilingEnabled(bool enabled) => samplerVrs.enableRecording = enabled;
 

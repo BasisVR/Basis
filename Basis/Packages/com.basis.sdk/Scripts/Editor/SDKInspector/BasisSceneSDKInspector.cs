@@ -13,10 +13,10 @@ public class BasisSceneSDKInspector : Editor
 {
     public VisualTreeAsset visualTree;
     public BasisScene BasisScene;
-    public VisualElement rootElement;
-    public VisualElement uiElementsRoot;
+    [System.NonSerialized] public VisualElement rootElement;
+    [System.NonSerialized] public VisualElement uiElementsRoot;
     private Label resultLabel;
-    public BasisSceneValidator BasisSceneValidator;
+    [System.NonSerialized] public BasisSceneValidator BasisSceneValidator;
     public bool SpawnPointGizmoState = false;
 
     public void OnEnable()

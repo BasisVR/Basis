@@ -240,6 +240,8 @@ namespace Basis.BasisUI
 
             Add(table, BasisFrameCostSide.Gpu,
                 BasisSettingsDefaults.Antialiasing,
+                BasisSettingsDefaults.UpscalerQuality,
+                BasisSettingsDefaults.DlssModel,
                 BasisSettingsDefaults.RenderResolution,
                 BasisSettingsDefaults.HDRSupport,
                 BasisSettingsDefaults.FoveatedRendering,

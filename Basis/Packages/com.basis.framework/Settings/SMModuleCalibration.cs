@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -7,7 +8,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Basis.IK;
 
-public class SMModuleCalibration : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleCalibration : BasisSettingsBase
 {
     public static BasisSelectedHeightMode HeightMode = BasisSelectedHeightMode.Auto;
     public static bool ApplyCustomScale = false;

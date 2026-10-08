@@ -1,9 +1,11 @@
-﻿using UnityEngine;
+﻿using Unity.Scripting.LifecycleManagement;
+using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
+    [AutoStaticsCleanup]
     [AddComponentMenu("HVR.Basis/Comms/Internal/Acquisition Service")]
-    public class AcquisitionService : MonoBehaviour
+    public partial class AcquisitionService : MonoBehaviour
     {
         public static AcquisitionService SceneInstance => HVRCommsUtil.GetOrCreateSceneInstance(ref _sceneInstance);
         private static AcquisitionService _sceneInstance;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -18,7 +19,8 @@ using UnityEngine;
 /// Bandwidth toggle adds received bytes-on-wire/sec and packet rate per player. Player poses are
 /// clamped to the target on the wire — there is no extrapolation overshoot like the value-sync gizmos.
 /// </summary>
-public static class BasisPlayerNetworkGizmos
+[AutoStaticsCleanup]
+public static partial class BasisPlayerNetworkGizmos
 {
     // Mirrored from settings by SMModuleDebugOptions.
     public static bool Show;

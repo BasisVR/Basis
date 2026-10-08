@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -13,7 +14,8 @@ using UnityEngine.SceneManagement;
 
 namespace Basis
 {
-    public static class BasisRuntimeSpawnRegistry
+    [AutoStaticsCleanup]
+    public static partial class BasisRuntimeSpawnRegistry
     {
         public enum RegistryChangeType : byte
         {
@@ -572,7 +574,7 @@ namespace Basis
 
         private static readonly Dictionary<string, PendingLoad> _pendingLoads = new();
         private static readonly ConcurrentQueue<(string PendingId, float Progress, string Stage)> _pendingProgressQueue = new();
-        private static readonly Action _drainPendingProgress = DrainPendingProgress;
+        [NoAutoStaticsCleanup] private static readonly Action _drainPendingProgress = DrainPendingProgress;
 
         public static IReadOnlyCollection<PendingLoad> GetPendingLoads() => _pendingLoads.Values;
 

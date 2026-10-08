@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -17,7 +18,8 @@ using UnityEngine;
 /// LogBundleBegin / LogBundleChunk / LogBundleEnd admin messages. The wire format and
 /// container layout are documented on the server's BasisServerLogBundleService.
 /// </summary>
-public static class BasisLogBundleReceiver
+[AutoStaticsCleanup]
+public static partial class BasisLogBundleReceiver
 {
     private const long MaxBytes = 256L * 1024 * 1024;
     private const int MaxChunks = 4_000_000;

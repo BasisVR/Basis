@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Text;
 using UnityEngine;
@@ -10,7 +11,8 @@ namespace Basis.Scripts.Avatar
     /// ConstellationDebug). It never changes avatar behaviour, and the whole capture is wrapped so a report
     /// failure can never break calibration.
     /// </summary>
-    public static class BasisCalibrationQualityReport
+    [AutoStaticsCleanup]
+    public static partial class BasisCalibrationQualityReport
     {
         public static bool HasReport;
         public static string Grade = "-";

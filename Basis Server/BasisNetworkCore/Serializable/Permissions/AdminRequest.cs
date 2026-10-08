@@ -132,8 +132,8 @@ namespace BasisNetworkCore.Serializable
             GlobalGetAvatarScaleLimits, // server→client: min/max avatar eye height in metres. Payload: [float minMeters][float maxMeters]
             SetGlobalAvatarScaleLimits, // admin: set min/max avatar eye height in metres (persisted). Non-admins are clamped to this range; admins bypass it. Payload: [float minMeters][float maxMeters]
 
-            GlobalGetResourceLimits, // server→client: persisted DoS caps. Payload: [int maxContentSpheresPerPlayer]
-            SetGlobalResourceLimits, // admin: set the persisted DoS caps. Payload: [int maxContentSpheresPerPlayer]
+            GlobalGetResourceLimits, // server→client: persisted DoS caps. Payload: [int maxContentSpheresPerPlayer][int contentSphereLeaveTimeoutSeconds][int contentSphereDeletionTimerSeconds]
+            SetGlobalResourceLimits, // admin: set the persisted DoS caps. Payload: [int maxContentSpheresPerPlayer][int contentSphereLeaveTimeoutSeconds][int contentSphereDeletionTimerSeconds]; the two timers are optional, older clients send only the cap
 
             // admin: toggle the global Cilbox lock. While set, every client blocks sandboxed Cilbox
             // code on avatars from running (props/worlds keep their own). State is appended in

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -20,7 +21,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
     /// Touch flow per hand:
     ///   None ─▶ Hovering ─▶ Pressing ─▶ release ─▶ Hovering / None
     /// </summary>
-    public class BasisDirectTouch
+    [AutoStaticsCleanup]
+    public partial class BasisDirectTouch
     {
         // ── Geometry ────────────────────────────────────────────────────
         // User-tunable via BasisSettingsDefaults (VR Finger Touch settings);
@@ -63,7 +65,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         // ── Internals ──────────────────────────────────────────────────
         private const int k_MaxHovered = 32;
-        private static readonly Collider[] _hitBuffer = new Collider[16];
+        [NoAutoStaticsCleanup] private static readonly Collider[] _hitBuffer = new Collider[16];
         private static LayerMask _uiMask;
 
         // Fixed two slots: [0] = left, [1] = right

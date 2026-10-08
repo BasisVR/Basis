@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -12,12 +13,13 @@ using UnityEngine;
 
 namespace Basis.MediaPipe
 {
-    public class BasisMediaPipeManagement : BasisBaseTypeManagement
+    [AutoStaticsCleanup]
+    public partial class BasisMediaPipeManagement : BasisBaseTypeManagement
     {
         public const string SubSystem = "BasisMediaPipe";
         public const int LowLightFps = 15;
         public string CameraDeviceName = string.Empty;
-        public BasisMediaPipeConfig Config = BasisMediaPipeConfig.Default;
+        [NonSerialized] public BasisMediaPipeConfig Config = BasisMediaPipeConfig.Default;
         public static BasisMediaPipeManagement Instance;
         public event Action OnResult;
 

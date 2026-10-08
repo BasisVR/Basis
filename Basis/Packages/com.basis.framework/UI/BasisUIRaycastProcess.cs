@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management;
@@ -11,7 +12,8 @@ using UnityEngine.EventSystems;
 
 namespace Basis.Scripts.UI
 {
-    public class BasisUIRaycastProcess
+    [AutoStaticsCleanup]
+    public partial class BasisUIRaycastProcess
     {
         public float ClickSpeed = 0.3f;
         public static bool HasTarget;

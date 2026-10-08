@@ -466,14 +466,14 @@ namespace LinkerGenerator
             if (string.IsNullOrEmpty(fullName))
                 return result;
 
-            var loaded = AppDomain.CurrentDomain.GetAssemblies();
+            var loaded = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
             int star = fullName.IndexOf('*');
             if (star < 0)
             {
                 string name = fullName.Replace('/', '+');
                 for (int pass = 0; pass < 2; pass++)
                 {
-                    for (int i = 0; i < loaded.Length; i++)
+                    for (int i = 0; i < loaded.Count; i++)
                     {
                         bool declared = loaded[i].GetName().Name == declaredAssemblyName;
                         if ((pass == 0) != declared)
@@ -494,7 +494,7 @@ namespace LinkerGenerator
 
             string prefix = fullName.Substring(0, star).Replace('/', '+');
             string suffix = fullName.Substring(star + 1).Replace('/', '+');
-            for (int i = 0; i < loaded.Length; i++)
+            for (int i = 0; i < loaded.Count; i++)
             {
                 if (!IsValidPlayerAssemblyName(loaded[i].GetName().Name))
                     continue;

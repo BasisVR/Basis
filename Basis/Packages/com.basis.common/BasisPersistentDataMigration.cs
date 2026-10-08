@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,7 +12,8 @@ namespace Basis.Scripts.Common
     /// intentionally left behind so a product-name migration does not drag many gigabytes of
     /// disposable data into the new install.
     /// </summary>
-    public static class BasisPersistentDataMigration
+    [AutoStaticsCleanup]
+    public static partial class BasisPersistentDataMigration
     {
         const string OldCompany = "Basis Unity";
         const string OldProduct = "Basis Unity";
@@ -19,8 +21,8 @@ namespace Basis.Scripts.Common
 
         // Root-level persistent files are overwhelmingly settings and small user stores. Keep the
         // portable/user-owned formats while excluding logs, temporary output and diagnostics.
-        static readonly string[] UserRootExtensions = { ".json", ".bas", ".xml", ".txt" };
-        static readonly string[] ExcludedSuffixes =
+        [NoAutoStaticsCleanup] static readonly string[] UserRootExtensions = { ".json", ".bas", ".xml", ".txt" };
+        [NoAutoStaticsCleanup] static readonly string[] ExcludedSuffixes =
         {
             ".log", ".csv", ".bak", ".tmp", ".filterstack", ".report.txt", ".corrupt_backup",
         };
@@ -34,7 +36,7 @@ namespace Basis.Scripts.Common
         // cache), GraphicsState (render cache), CrashReports, PulledServerLogs and developer/debug
         // capture folders. Recordings/backups are included because telling a user the old directory
         // is safe to delete must not strand content they explicitly created there.
-        static readonly string[] UserFolders =
+        [NoAutoStaticsCleanup] static readonly string[] UserFolders =
         {
             "PlayerSettings",
             "BasisActions",

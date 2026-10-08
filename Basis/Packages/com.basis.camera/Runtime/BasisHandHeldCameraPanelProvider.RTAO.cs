@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Rendering;
 using UnityEngine;
@@ -194,7 +195,7 @@ namespace Basis.BasisUI.HandHeldCamera
         {
             if (_activeCamera == null) return;
 
-            bool rtaoSupported = BasisSettingsDefaults.UseRayTracedAmbientOcclusion.RawValue;
+            bool rtaoSupported = BasisLightingSolutions.BasisAmbientOcclusion;
             _rtaoOverrideToggle?.SetInteractable(rtaoSupported, rtaoSupported ? null : BasisLocalization.Get("camera.rtao.override.disabled"));
             _rtaoOverrideToggle?.SetValueWithoutNotify(_activeCamera.OverrideRTAO);
 
@@ -219,7 +220,7 @@ namespace Basis.BasisUI.HandHeldCamera
         }
 
         /// <summary>Denoise dropdown's raw values, index-matched to <c>BasisRTAOSettingsMap.ReadDenoisePasses</c>'s 0-3.</summary>
-        private static readonly string[] RTAODenoiseKeys = { "Off", "Standard", "High", "Maximum" };
+        [NoAutoStaticsCleanup] private static readonly string[] RTAODenoiseKeys = { "Off", "Standard", "High", "Maximum" };
 
         /// <summary>Every control below the master toggle follows it, the same as the Global Illumination section.</summary>
         private void RefreshRTAOVisibility()

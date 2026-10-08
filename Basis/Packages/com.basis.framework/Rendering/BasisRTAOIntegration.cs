@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 // Ray traced ambient occlusion is optional: the define comes from the com.basis.rtao package being
 // present (asmdef versionDefines), and neither the traced path nor the compute fallback is viable on
 // mobile GPUs, so the whole integration compiles out on Android.
@@ -50,7 +51,8 @@ namespace Basis.Scripts.Rendering
         public float SpecularRelief;
     }
 
-    public static class BasisRTAOIntegration
+    [AutoStaticsCleanup]
+    public static partial class BasisRTAOIntegration
     {
         private static bool installed;
         private static bool capturing;
@@ -158,6 +160,7 @@ namespace Basis.Scripts.Rendering
             BasisGlobalIlluminationFeature.ExternalAmbientOcclusionActive = ExternalAmbientOcclusionActive;
 #endif
             BasisSettingsSystem.OnSettingChanged += OnSettingChanged;
+            BasisSettingsSystem.OnSettingsFinishedChanges -= Apply;
             BasisSettingsSystem.OnSettingsFinishedChanges += Apply;
 
             // Hardware RT support is a capability query into the engine's D3D12/Vulkan device, so on a
@@ -213,10 +216,11 @@ namespace Basis.Scripts.Rendering
 #if BASIS_HAS_GI
         private static bool ExternalAmbientOcclusionActive(Camera camera)
         {
-            return BasisRTAOFeature.RuntimeEnabled
+            return BasisLightingSolutions.UnityAmbientOcclusionRunning
+                || (BasisRTAOFeature.RuntimeEnabled
                 && AcceptsCamera(camera)
                 && BasisRTAOFeature.HasIntensityOverride
-                && BasisRTAOFeature.IntensityOverride > 0f;
+                && BasisRTAOFeature.IntensityOverride > 0f);
         }
 
         /// <summary>
@@ -235,7 +239,7 @@ namespace Basis.Scripts.Rendering
         private static IRayTracingAccelStruct ProvideSharedStructure(byte wanted)
         {
             BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
-            if (settings == null || !settings.enable || settings.mode != BasisGlobalIlluminationMode.RayTraced)
+            if (settings == null || !settings.UsesRayTracer())
                 return null;
 
             BasisGlobalIlluminationRayTracer tracer = BasisGlobalIlluminationRayTracer.Instance;
@@ -307,6 +311,7 @@ namespace Basis.Scripts.Rendering
 
             string lowered = key.ToLowerInvariant();
             return lowered == BasisSettingsDefaults.UseRayTracedAmbientOcclusion.BindingKey
+                || lowered == BasisSettingsDefaults.AmbientOcclusionSolution.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionMode.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionQuality.BindingKey
                 || lowered == BasisSettingsDefaults.RayTracedAmbientOcclusionIntensity.BindingKey
@@ -330,7 +335,7 @@ namespace Basis.Scripts.Rendering
 
         public static void Apply()
         {
-            BasisRTAOFeature.RuntimeEnabled = BasisSettingsDefaults.UseRayTracedAmbientOcclusion.RawValue;
+            BasisRTAOFeature.RuntimeEnabled = BasisLightingSolutions.BasisAmbientOcclusion;
 
             BasisRTAOFeature.HasTracingModeOverride = true;
             BasisRTAOFeature.TracingModeOverride = BasisRTAOSettingsMap.ReadMode(BasisSettingsDefaults.RayTracedAmbientOcclusionMode.RawValue);

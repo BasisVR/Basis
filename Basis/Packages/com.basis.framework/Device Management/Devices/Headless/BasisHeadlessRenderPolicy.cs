@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_SERVER
 using System;
 using UnityEngine;
@@ -12,7 +13,8 @@ using UnityEngine;
 /// is already in place when the first avatar bundle is read: Unity drops the top mips at
 /// load time, so the memory is never allocated rather than freed later.
 /// </summary>
-public static class BasisHeadlessRenderPolicy
+[AutoStaticsCleanup]
+public static partial class BasisHeadlessRenderPolicy
 {
     /// <summary>Name of the quality level to select when present.</summary>
     public const string HeadlessQualityLevelName = "HEADLESS";

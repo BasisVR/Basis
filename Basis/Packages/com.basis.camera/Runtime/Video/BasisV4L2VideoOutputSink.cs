@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR_LINUX || (UNITY_STANDALONE_LINUX && !UNITY_EDITOR)
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,8 @@ using UnityEngine;
 using UnityEngine.Rendering;
 namespace Basis
 {
-    public sealed unsafe class BasisV4L2VideoOutputSink : IBasisVideoOutputSink
+    [AutoStaticsCleanup]
+    public sealed unsafe partial class BasisV4L2VideoOutputSink : IBasisVideoOutputSink
     {
         private const int oRdwr = 0x0002, EINTR = 4;
         private const uint FourccXBGR32 = 0x34325258;

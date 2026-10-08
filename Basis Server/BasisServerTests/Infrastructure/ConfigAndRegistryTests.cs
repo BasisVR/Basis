@@ -168,6 +168,8 @@ public class ServerConfigurationDefaultsTests
         Assert.Equal("", cfg.ApiKey);
         Assert.True(cfg.CrashReportingEnabled);
         Assert.Equal(32, cfg.MaxContentSpheresPerPlayer);
+        Assert.Equal(60, cfg.ContentSphereLeaveTimeoutSeconds);
+        Assert.Equal(0, cfg.ContentSphereDeletionTimerSeconds);
     }
 
     [Fact]
@@ -185,7 +187,8 @@ public class ServerConfigurationDefaultsTests
         // 13: added LogConnectionHandshake; the per-connection auth chatter is now off by default.
         // 14: added CompanyName and ProductName, the client identity a connection must report.
         // 15: added the persistent application-level ServerUUID.
-        Assert.Equal(15, Configuration.CurrentConfigVersion);
+        // 16: added the shared-orb leave timeout and deletion timer.
+        Assert.Equal(16, Configuration.CurrentConfigVersion);
         Assert.Equal(0, new Configuration().ConfigVersion);
         Assert.Equal("config", Configuration.ConfigFolderName);
         Assert.Equal("logs", Configuration.LogsFolderName);

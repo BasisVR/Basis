@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 
@@ -8,7 +9,8 @@ namespace Basis.Scripts.Device_Management
     /// Each VR SDK (OpenVR, OpenXR) reports presence from its own assembly via <see cref="ReportPresence"/>.
     /// Consumers subscribe to <see cref="OnPresenceChanged"/> — debounced to reject flicker.
     /// </summary>
-    public static class BasisHMDPresence
+    [AutoStaticsCleanup]
+    public static partial class BasisHMDPresence
     {
         /// <summary>
         /// Current committed presence state. Only changes after the debounce window.

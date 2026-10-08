@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -7,8 +8,9 @@ using UnityEngine;
 
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisOpenLipSyncContext : IDisposable
+    public partial class BasisOpenLipSyncContext : IDisposable
     {
         public const int VisemeCount = Frame.VisemeCount; // 15
 

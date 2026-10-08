@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -19,15 +20,16 @@ namespace Basis.Scripts.Networking.Receivers
     /// Receives networked avatar state for a remote player, stages and interpolates frames,
     /// and applies a posed result to the avatar each frame. Also brokers remote audio.
     /// </summary>
+    [AutoStaticsCleanup]
     [DefaultExecutionOrder(15001)]
     [Serializable]
-    public class BasisNetworkReceiver : BasisNetworkPlayer
+    public partial class BasisNetworkReceiver : BasisNetworkPlayer
     {
         public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 51
 
         // Cached delegates — created once, avoids per-frame Action/Comparison heap allocations.
-        private static readonly Action<BasisAvatarBuffer> s_releaseBuffer = BasisAvatarBufferPool.Release;
-        private static readonly Comparison<BasisAvatarBuffer> s_sequenceCompare = static (a, b) => (sbyte)(a.Sequence - b.Sequence);
+        [NoAutoStaticsCleanup] private static readonly Action<BasisAvatarBuffer> s_releaseBuffer = BasisAvatarBufferPool.Release;
+        [NoAutoStaticsCleanup] private static readonly Comparison<BasisAvatarBuffer> s_sequenceCompare = static (a, b) => (sbyte)(a.Sequence - b.Sequence);
 
         private double _serverClockSeconds;
         private bool _serverClockSeeded;
@@ -379,21 +381,21 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             // Audio decode is thread-safe (per-receiver decoder/buffers, no Unity API).
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.AudioDecode");
 #endif
             if (!AudioReceiverModule.IsAudioActive || AudioReceiverModule.VoiceBuffer.DecodedFrameCount == 0)
             {
                 AudioReceiverModule.DrainAndDecodeThreadSafe();
             }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
 
             if (!hasRequiredData) return;
 
             // 1) Pull network packets, drop stale, sort by sequence, then stage
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.PacketDrain");
 #endif
             if (System.Threading.Interlocked.Exchange(ref _pendingCount, 0) > 0)
@@ -471,12 +473,12 @@ namespace Basis.Scripts.Networking.Receivers
                 }
                 StagedCount = _stagedRing.Count;
             }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
 
             // 2) Ensure we have a valid interpolation window (Current -> Next)
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.BufferWindow");
 #endif
             if (!HasCurrentBuffer)
@@ -492,7 +494,7 @@ namespace Basis.Scripts.Networking.Receivers
             HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
             if (!HasBufferHolds)
             {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
                 UnityEngine.Profiling.Profiler.EndSample();
 #endif
                 return;
@@ -511,12 +513,12 @@ namespace Basis.Scripts.Networking.Receivers
                 }
             }
             StagedCount = _stagedRing.Count;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
 
             // 3) Advance time and slide the interpolation window forward as needed.
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.FrameInputs");
 #endif
             if (HasBufferHolds)
@@ -647,7 +649,7 @@ namespace Basis.Scripts.Networking.Receivers
                     SentLatest = false;
                 }
             }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
         }

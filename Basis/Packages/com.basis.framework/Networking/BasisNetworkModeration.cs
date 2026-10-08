@@ -1,4 +1,5 @@
-﻿using Basis.BasisUI;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.BasisSdk.Players;
@@ -14,7 +15,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 
-public static class BasisNetworkModeration
+[AutoStaticsCleanup]
+public static partial class BasisNetworkModeration
 {
     private static bool ValidateString(string param, string paramName)
     {
@@ -1942,6 +1944,8 @@ public static class BasisNetworkModeration
 
     /// <summary>Server-pushed cap on active content-share spheres per player.</summary>
     public static int ServerMaxContentSpheresPerPlayer { get; private set; } = 32;
+    public static int ServerContentSphereLeaveTimeoutSeconds { get; private set; } = 60;
+    public static int ServerContentSphereDeletionTimerSeconds { get; private set; } = 0;
 
     /// <summary>Fired when the server pushes new resource limits (spheres/player).</summary>
     public static event Action<int> OnResourceLimitsChanged;
@@ -1949,6 +1953,11 @@ public static class BasisNetworkModeration
     private static void HandleResourceLimits(NetDataReader reader)
     {
         ServerMaxContentSpheresPerPlayer = reader.GetInt();
+        if (reader.AvailableBytes >= sizeof(int) * 2)
+        {
+            ServerContentSphereLeaveTimeoutSeconds = reader.GetInt();
+            ServerContentSphereDeletionTimerSeconds = reader.GetInt();
+        }
         OnResourceLimitsChanged?.Invoke(ServerMaxContentSpheresPerPlayer);
     }
 
@@ -1956,12 +1965,16 @@ public static class BasisNetworkModeration
     /// Admin: set the server-wide resource caps (content spheres per player).
     /// Persisted to config.xml and broadcast to every admin panel.
     /// </summary>
-    public static void SetGlobalResourceLimits(int maxContentSpheresPerPlayer)
+    public static void SetGlobalResourceLimits(int maxContentSpheresPerPlayer, int contentSphereLeaveTimeoutSeconds, int contentSphereDeletionTimerSeconds)
     {
         if (maxContentSpheresPerPlayer < 1) maxContentSpheresPerPlayer = 1;
+        if (contentSphereLeaveTimeoutSeconds < 0) contentSphereLeaveTimeoutSeconds = 0;
+        if (contentSphereDeletionTimerSeconds < 0) contentSphereDeletionTimerSeconds = 0;
         SendAdminRequest(
             AdminRequestMode.SetGlobalResourceLimits,
-            w => w.Put(maxContentSpheresPerPlayer));
+            w => w.Put(maxContentSpheresPerPlayer),
+            w => w.Put(contentSphereLeaveTimeoutSeconds),
+            w => w.Put(contentSphereDeletionTimerSeconds));
     }
 
     /// <summary>Server-pushed BSR reduction settings. Mirror of the config.xml BSR block; populated on connect and on every admin change.</summary>

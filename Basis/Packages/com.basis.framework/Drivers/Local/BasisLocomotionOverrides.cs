@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisCharacterController;
 using System;
 using System.Collections.Generic;
@@ -44,7 +45,8 @@ namespace Basis.Scripts.Drivers
     /// highest-priority entry to set a field wins it, and removing a key restores whatever
     /// the entry beneath it asked for, or the authored baseline when none remain.
     /// </summary>
-    public static class BasisLocomotionOverrides
+    [AutoStaticsCleanup]
+    public static partial class BasisLocomotionOverrides
     {
         public const string AdminKey = "BasisAdmin";
         public const int AdminPriority = int.MaxValue;
@@ -67,9 +69,9 @@ namespace Basis.Scripts.Drivers
             public BasisLocomotionValues Values;
         }
 
-        private static readonly object Sync = new object();
+        [NoAutoStaticsCleanup] private static readonly object Sync = new object();
         private static readonly List<Entry> Entries = new List<Entry>();
-        private static readonly Comparison<Entry> Order = CompareEntries;
+        [NoAutoStaticsCleanup] private static readonly Comparison<Entry> Order = CompareEntries;
         private static long _sequence;
         private static int _version;
 

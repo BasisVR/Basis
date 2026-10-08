@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using System.Collections.Concurrent;
@@ -10,9 +11,10 @@ public delegate void BasisClientMessageHandler(NetPeer peer, NetPacketReader rea
 /// channel (0-59); multiplexed plugin messages bind to a ushort id read from the 61-63
 /// channel payload. Lets handlers be added or removed without editing a shared constant table.
 /// </summary>
-public static class BasisClientMessageRegistry
+[AutoStaticsCleanup]
+public static partial class BasisClientMessageRegistry
 {
-    private static readonly BasisClientMessageHandler[] CoreHandlers = new BasisClientMessageHandler[BasisNetworkCommons.TotalChannels];
+    [NoAutoStaticsCleanup] private static readonly BasisClientMessageHandler[] CoreHandlers = new BasisClientMessageHandler[BasisNetworkCommons.TotalChannels];
     private static readonly ConcurrentDictionary<ushort, BasisClientMessageHandler> PluginHandlers = new();
 
     /// <summary>The descriptors from the most recent server Supply, for introspection / plugin binding.</summary>

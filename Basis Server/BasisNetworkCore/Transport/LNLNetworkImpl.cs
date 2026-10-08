@@ -31,7 +31,7 @@ namespace Basis.Network.Core
         {
             NetPacketReader read = new NetPacketReader(reader);
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             read.channel = channelNumber;
             read.method = (DeliveryMethod)(byte)deliveryMethod;
 #endif
@@ -45,7 +45,7 @@ namespace Basis.Network.Core
             if (messageType != LiteNetLib.UnconnectedMessageType.BasicMessage) return;
 
             NetPacketReader read = new NetPacketReader(reader);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             read.channel = 255;
             read.method = DeliveryMethod.Unreliable;
 #endif

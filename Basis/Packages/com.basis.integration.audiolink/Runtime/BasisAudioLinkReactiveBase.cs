@@ -52,7 +52,7 @@ namespace Basis.Integration.AudioLink
                     return false;
                 }
                 _nextSearchFrame = Time.frameCount + 30;
-                AudioLinkSource = FindFirstObjectByType<AL.AudioLink>();
+                AudioLinkSource = FindAnyObjectByType<AL.AudioLink>();
                 if (AudioLinkSource == null)
                 {
                     return false;

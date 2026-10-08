@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -57,9 +58,9 @@ public static class BasisHeadlessBuild
         EditorUserBuildSettings.standaloneBuildSubtarget = standaloneSubtarget;
         if (target == BuildTarget.StandaloneLinux64)
         {
-            int linuxArchitecture = ParseLinuxArchitecture(linuxArchitectureArg);
-            PlayerSettings.SetArchitecture(NamedBuildTarget.FromBuildTargetGroup(targetGroup), linuxArchitecture);
-            Debug.Log($"[BasisHeadlessBuild] Linux architecture(set)={linuxArchitecture}");
+            PropertyInfo linuxArchitecture = BasisBuildDialogAndSettings.LinuxArchitectureProperty ?? throw new BuildFailedException("Linux build support is not installed in this editor.");
+            linuxArchitecture.SetValue(null, (OSArchitecture)ParseLinuxArchitecture(linuxArchitectureArg));
+            Debug.Log($"[BasisHeadlessBuild] Linux architecture(set)={linuxArchitecture.GetValue(null)}");
         }
         Debug.Log($"[BasisHeadlessBuild] activeBuildTarget(after)={EditorUserBuildSettings.activeBuildTarget}");
         Debug.Log($"[BasisHeadlessBuild] standaloneBuildSubtarget(set)={EditorUserBuildSettings.standaloneBuildSubtarget}");

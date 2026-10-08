@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
@@ -21,7 +22,8 @@ namespace Basis.Scripts.Drivers
     /// Always self-terminates (Application.Quit) once the capture is written, so it never idles
     /// connected to a real server.
     /// </summary>
-    public static class BasisRenderCaptureAutomation
+    [AutoStaticsCleanup]
+    public static partial class BasisRenderCaptureAutomation
     {
         private const float PostConnectSettleSeconds = 18f;
         private const float PostCaptureQuitDelaySeconds = 2f;

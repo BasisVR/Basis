@@ -40,9 +40,6 @@ MonoBehaviour:
   APVContributionWeight:
     m_OverrideState: 1
     m_Value: 1
-  apvMode:
-    m_OverrideState: 1
-    m_Value: 0
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 1
@@ -61,15 +58,15 @@ MonoBehaviour:
   LTCGIScattering:
     m_OverrideState: 0
     m_Value: 1
-  resolution:
+  enableAdditionalLightsContribution:
     m_OverrideState: 1
-    m_Value: 2
-  maxSteps:
-    m_OverrideState: 1
-    m_Value: 188
-  blurIterations:
-    m_OverrideState: 1
-    m_Value: 3
+    m_Value: 1
+  additionalLightsAnisotropy:
+    m_OverrideState: 0
+    m_Value: 0.4
+  additionalLightsScattering:
+    m_OverrideState: 0
+    m_Value: 0.15
   enabled:
     m_OverrideState: 1
     m_Value: 1
@@ -275,7 +272,6 @@ MonoBehaviour:
   - {fileID: -6290886246738873344}
   - {fileID: -5447088460976690848}
   - {fileID: -6620855548041248108}
-  - {fileID: -2599256114276534526}
 --- !u!114 &764296954430757058
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -362,9 +358,6 @@ MonoBehaviour:
   APVContributionWeight:
     m_OverrideState: 0
     m_Value: 1
-  apvMode:
-    m_OverrideState: 1
-    m_Value: 0
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 0
@@ -383,15 +376,15 @@ MonoBehaviour:
   LTCGIScattering:
     m_OverrideState: 0
     m_Value: 1
-  resolution:
+  enableAdditionalLightsContribution:
     m_OverrideState: 1
-    m_Value: 2
-  maxSteps:
-    m_OverrideState: 1
-    m_Value: 64
-  blurIterations:
-    m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1
+  additionalLightsAnisotropy:
+    m_OverrideState: 0
+    m_Value: 0.4
+  additionalLightsScattering:
+    m_OverrideState: 0
+    m_Value: 0.15
   enabled:
     m_OverrideState: 1
     m_Value: 0
@@ -438,9 +431,6 @@ MonoBehaviour:
   APVContributionWeight:
     m_OverrideState: 0
     m_Value: 1
-  apvMode:
-    m_OverrideState: 1
-    m_Value: 0
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 0
@@ -459,15 +449,15 @@ MonoBehaviour:
   LTCGIScattering:
     m_OverrideState: 0
     m_Value: 1
-  resolution:
+  enableAdditionalLightsContribution:
     m_OverrideState: 1
-    m_Value: 2
-  maxSteps:
-    m_OverrideState: 1
-    m_Value: 128
-  blurIterations:
-    m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1
+  additionalLightsAnisotropy:
+    m_OverrideState: 0
+    m_Value: 0.4
+  additionalLightsScattering:
+    m_OverrideState: 0
+    m_Value: 0.15
   enabled:
     m_OverrideState: 1
     m_Value: 0
@@ -489,13 +479,19 @@ MonoBehaviour:
   active: 1
   mode:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 3
   neutralHDRRangeReductionMode:
     m_OverrideState: 1
     m_Value: 2
   acesPreset:
     m_OverrideState: 1
     m_Value: 5
+  agxContrast:
+    m_OverrideState: 0
+    m_Value: 1.193
+  agxMidGrey:
+    m_OverrideState: 0
+    m_Value: 0.18
   hueShiftAmount:
     m_OverrideState: 1
     m_Value: 0

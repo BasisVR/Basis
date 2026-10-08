@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 /// <summary>
@@ -7,7 +8,8 @@ using UnityEngine;
 /// developer-tab toggle before passing <c>shouldShow=true</c>. Call <see cref="Shutdown"/>
 /// when the producing device is torn down.
 /// </summary>
-public static class BasisEyeGazeGizmo
+[AutoStaticsCleanup]
+public static partial class BasisEyeGazeGizmo
 {
     private const float RayLength = 5f;
     private const float TargetSize = 0.04f;

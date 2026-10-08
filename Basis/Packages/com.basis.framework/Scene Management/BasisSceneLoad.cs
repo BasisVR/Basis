@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,7 +8,8 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 namespace Basis.Scripts.Drivers
 {
-    public static class BasisSceneLoad
+    [AutoStaticsCleanup]
+    public static partial class BasisSceneLoad
     {
         public static BasisProgressReport progressCallback = new BasisProgressReport();
         /// <summary>

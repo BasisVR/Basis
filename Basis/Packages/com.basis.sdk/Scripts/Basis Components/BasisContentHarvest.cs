@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
@@ -67,7 +68,7 @@ namespace Basis.Scripts.BasisSdk
     /// GetComponent / is-chains. Lives on <see cref="BasisContentBase"/> and is transient — the
     /// load path nulls it once consumed.
     /// </summary>
-    public sealed class BasisContentHarvest
+    public sealed partial class BasisContentHarvest
     {
         public List<Component> Components;
         public List<BasisComponentKind> Kinds;
@@ -78,7 +79,8 @@ namespace Basis.Scripts.BasisSdk
         // Per-type free lists backing Rent()/ReturnToPool(). Main-thread only — the
         // content walk instantiates GameObjects and so can never run off the main
         // thread, which is why these stacks need no locking.
-        private static class Pool<T>
+        [AutoStaticsCleanup]
+        private static partial class Pool<T>
         {
             private static readonly Stack<List<T>> Free = new Stack<List<T>>();
             public static List<T> Rent() => Free.Count > 0 ? Free.Pop() : new List<T>(64);

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.Device_Management.Devices;
@@ -5,7 +6,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Debugging
 {
-    public static class BasisTrackerIdentifyGizmos
+    [AutoStaticsCleanup]
+    public static partial class BasisTrackerIdentifyGizmos
     {
         private sealed class Entry
         {
@@ -28,7 +30,7 @@ namespace Basis.Scripts.Debugging
         /// BackgroundColor1, ~0.1 luma) as small text, and survive being multiplied
         /// by <see cref="EmissionIntensity"/> into an emissive sphere in-world.
         /// </summary>
-        private static readonly Color[] Palette =
+        [NoAutoStaticsCleanup] private static readonly Color[] Palette =
         {
             new Color(0.30f, 0.60f, 1.00f), // blue
             new Color(1.00f, 0.55f, 0.10f), // orange

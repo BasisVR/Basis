@@ -2355,6 +2355,18 @@
       "value": "Smooth jagged edges on objects, at some performance cost."
     },
     {
+      "key": "settings.graphics.upscalerQuality.tooltip",
+      "value": "How much of the full resolution the upscaler renders before rebuilding the image. Lower settings run faster but look softer."
+    },
+    {
+      "key": "settings.graphics.upscalerSharpness.tooltip",
+      "value": "Sharpens the upscaled image to bring back fine detail that DLSS and FSR soften. 0 turns sharpening off."
+    },
+    {
+      "key": "settings.graphics.dlssModel.tooltip",
+      "value": "Which DLSS AI model rebuilds the image. Newer models are sharper and ghost less, but take a little more GPU time."
+    },
+    {
       "key": "settings.graphics.verticalSync.tooltip",
       "value": "Sync frame rate to your display to reduce screen tearing."
     },
@@ -7951,6 +7963,18 @@
       "value": "Antialiasing"
     },
     {
+      "key": "settings.graphics.upscalerQuality",
+      "value": "Upscaler Quality"
+    },
+    {
+      "key": "settings.graphics.upscalerSharpness",
+      "value": "Upscaler Sharpness"
+    },
+    {
+      "key": "settings.graphics.dlssModel",
+      "value": "DLSS Model"
+    },
+    {
       "key": "settings.graphics.verticalSync",
       "value": "Vertical Sync"
     },
@@ -8500,7 +8524,7 @@
     },
     {
       "key": "settings.graphics.rtao.mode.tooltip",
-      "value": "Auto traces the real scene on a graphics card that supports ray tracing and drops to the screen space estimator on one that does not. Ray Traced turns the effect off rather than falling back. Screen Space only sees what is already drawn on screen, but it runs anywhere."
+      "value": "Screen Space estimates occlusion from what is already drawn on screen and runs on any graphics card, DirectX 11 included. Ray Traced traces the real scene and needs DirectX 12 and a graphics card with hardware ray tracing, such as NVIDIA RTX; without one it falls back to Screen Space."
     },
     {
       "key": "settings.graphics.rtao.mode.rayTraced",
@@ -9017,6 +9041,742 @@
     {
       "key": "settings.graphics.gi.specular.tooltip",
       "value": "Reflect the room in smooth surfaces with a traced mirror ray, in place of the static reflection probe. Ray Traced mode reflects things that are off screen; Screen Space mode walks the depth buffer and runs on any GPU."
+    },
+    {
+      "key": "settings.graphics.solution.basis",
+      "value": "Basis"
+    },
+    {
+      "key": "settings.graphics.solution.unity",
+      "value": "Unity"
+    },
+    {
+      "key": "settings.graphics.gi.solution",
+      "value": "Solution"
+    },
+    {
+      "key": "settings.graphics.gi.solution.tooltip",
+      "value": "Basis runs the Basis global illumination with the settings below. Unity runs Unity's Surface Cache global illumination, which replaces the world's baked lighting on Unity Lit materials and takes its settings from the world's volumes."
+    },
+    {
+      "key": "settings.graphics.rtao.solution",
+      "value": "Solution"
+    },
+    {
+      "key": "settings.graphics.rtao.solution.tooltip",
+      "value": "Basis runs the Basis ambient occlusion with the settings below. Unity runs Unity's Screen Space Ambient Occlusion, which takes its settings from the world's volumes."
+    },
+    {
+      "key": "settings.graphics.reflections.title",
+      "value": "Reflections"
+    },
+    {
+      "key": "settings.graphics.reflections.enable",
+      "value": "Enable Reflections"
+    },
+    {
+      "key": "settings.graphics.reflections.enable.tooltip",
+      "value": "Reflect the room in smooth surfaces in place of the static reflection probe. Works on its own, with or without global illumination. Costs real frame time, so it is off by default."
+    },
+    {
+      "key": "settings.graphics.reflections.solution",
+      "value": "Solution"
+    },
+    {
+      "key": "settings.graphics.reflections.solution.tooltip",
+      "value": "Basis traces its own reflections with the settings below. Unity runs Unity's Screen Space Reflections, which take their settings from the world's volumes."
+    },
+    {
+      "key": "settings.graphics.reflections.mode",
+      "value": "Reflection Mode"
+    },
+    {
+      "key": "settings.graphics.reflections.mode.tooltip",
+      "value": "Screen Space walks the depth buffer and runs on any GPU, but can only reflect what is already on screen. Ray Traced reflects the world itself, including what is off screen, and needs a graphics card with ray tracing; without one it falls back to Screen Space."
+    },
+    {
+      "key": "settings.graphics.rayTracing.unavailable",
+      "value": "Ray tracing is not available with this graphics card and Graphics API, so Ray Traced runs as Screen Space here. Set Graphics API to DirectX 12 on a graphics card with hardware ray tracing, such as NVIDIA RTX, to use it."
+    },
+    {
+      "key": "settings.graphics.gi.mode.screenSpace.tooltip",
+      "value": "Works from what the camera already drew. Runs on any graphics card, DirectX 11 included."
+    },
+    {
+      "key": "settings.graphics.gi.mode.rayTraced.tooltip",
+      "value": "Traces the world itself, including what is off screen. Needs DirectX 12 and a graphics card with hardware ray tracing, such as NVIDIA RTX; anywhere else it runs as Screen Space."
+    },
+    {
+      "key": "settings.graphics.rtao.mode.screenSpace.tooltip",
+      "value": "Estimates occlusion from what the camera already drew. Runs on any graphics card, DirectX 11 included."
+    },
+    {
+      "key": "settings.graphics.rtao.mode.rayTraced.tooltip",
+      "value": "Traces the real scene. Needs DirectX 12 and a graphics card with hardware ray tracing, such as NVIDIA RTX; anywhere else it runs as Screen Space."
+    },
+    {
+      "key": "settings.graphics.unity.option.low",
+      "value": "Low"
+    },
+    {
+      "key": "settings.graphics.unity.option.medium",
+      "value": "Medium"
+    },
+    {
+      "key": "settings.graphics.unity.option.high",
+      "value": "High"
+    },
+    {
+      "key": "settings.graphics.unity.option.ultra",
+      "value": "Ultra"
+    },
+    {
+      "key": "settings.graphics.unity.option.custom",
+      "value": "Custom"
+    },
+    {
+      "key": "settings.graphics.unity.option.full",
+      "value": "Full"
+    },
+    {
+      "key": "settings.graphics.unity.option.half",
+      "value": "Half"
+    },
+    {
+      "key": "settings.graphics.unity.option.quarter",
+      "value": "Quarter"
+    },
+    {
+      "key": "settings.graphics.unity.option.off",
+      "value": "Off"
+    },
+    {
+      "key": "settings.graphics.unity.option.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.graphics.unity.option.on",
+      "value": "On"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.mode.ssao",
+      "value": "SSAO"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.mode.gtao",
+      "value": "GTAO"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.noise.blueNoise",
+      "value": "Blue Noise"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.noise.interleavedGradient",
+      "value": "Interleaved Gradient"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.spatialFilter.bilateral",
+      "value": "Bilateral"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.spatialFilter.box",
+      "value": "Box"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.depthSource.depth",
+      "value": "Depth"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.depthSource.depthNormals",
+      "value": "Depth Normals"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.blurQuality.low",
+      "value": "Low (Kawase)"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.blurQuality.medium",
+      "value": "Medium (Gaussian)"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.blurQuality.high",
+      "value": "High (Bilateral)"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.preset.fast",
+      "value": "Fast"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.preset.balanced",
+      "value": "Balanced"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.preset.highQuality",
+      "value": "High Quality"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.preset.bestQuality",
+      "value": "Best Quality"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.upscaling.bilinear",
+      "value": "Bilinear"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.upscaling.bilateral",
+      "value": "Bilateral"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.marching.linear",
+      "value": "Linear"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.marching.hierarchical",
+      "value": "Hierarchical"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.roughnessFilter.boxBlur",
+      "value": "Box Blur"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.roughnessFilter.gaussianBlur",
+      "value": "Gaussian Blur"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.mode",
+      "value": "Method"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.mode.tooltip",
+      "value": "GTAO is Unity's newer horizon based ambient occlusion and looks more accurate. SSAO is the older, cheaper method."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.noise",
+      "value": "Sampling Noise"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.noise.tooltip",
+      "value": "Interleaved Gradient gives a steady, still pattern. Blue Noise changes every frame, which looks softer in motion and costs slightly more."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.intensity",
+      "value": "Intensity"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.intensity.tooltip",
+      "value": "How dark the occlusion gets."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.radius",
+      "value": "Radius"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.radius.tooltip",
+      "value": "How far, in metres, each surface looks for nearby geometry that blocks light. Larger reaches further and costs more."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.falloffDistance",
+      "value": "Falloff Distance"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.falloffDistance.tooltip",
+      "value": "How far from the camera, in metres, occlusion is drawn before it fades out."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.afterOpaque",
+      "value": "Apply After Opaque"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.afterOpaque.tooltip",
+      "value": "Multiplies occlusion onto the finished opaque image instead of feeding it into the lighting, so it also reaches shaders that ignore Unity's occlusion."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.directLightingStrength",
+      "value": "Direct Lighting Strength"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.directLightingStrength.tooltip",
+      "value": "How much occlusion also darkens light coming straight from light sources."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.minimumRadius",
+      "value": "Minimum Radius (Pixels)"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.minimumRadius.tooltip",
+      "value": "Keeps GTAO visible far away by never letting its radius shrink below this many pixels on screen."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.computeShader",
+      "value": "Compute Shader"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.computeShader.tooltip",
+      "value": "Auto runs GTAO as a compute shader wherever it can, which adds the spatial and temporal filters and the direction and step counts, and as a fragment shader in VR, where Unity's compute version cannot draw both eyes. On and Off force the choice."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.spatialFilter",
+      "value": "Spatial Filter"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.spatialFilter.tooltip",
+      "value": "How compute GTAO is smoothed. Bilateral keeps edges sharp; Box is cheaper."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.quality",
+      "value": "Quality"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.quality.tooltip",
+      "value": "Low, Medium and High use Unity's own sample, blur and resolution settings. Custom unlocks them below."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.depthSource",
+      "value": "Depth Source"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.depthSource.tooltip",
+      "value": "Depth Normals reads real surface normals from an extra prepass. Depth rebuilds them from the depth buffer, which is cheaper but less exact."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.normalQuality",
+      "value": "Normal Quality"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.normalQuality.tooltip",
+      "value": "How many depth samples rebuild each normal when Depth Source is Depth."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.downsample",
+      "value": "Downsample"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.downsample.tooltip",
+      "value": "Computes occlusion at half resolution. Faster and softer."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.blurQuality",
+      "value": "Blur Quality"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.blurQuality.tooltip",
+      "value": "How the noise is smoothed. High keeps edges sharp and costs the most."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.sampleCount",
+      "value": "Sample Count"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.sampleCount.tooltip",
+      "value": "How many samples each pixel takes. More is smoother and slower."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.directionCount",
+      "value": "Direction Count"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.directionCount.tooltip",
+      "value": "How many directions compute GTAO searches around each pixel."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.stepCount",
+      "value": "Step Count"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.stepCount.tooltip",
+      "value": "How many steps compute GTAO takes along each direction."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.temporalFilter",
+      "value": "Temporal Filter"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.temporalFilter.tooltip",
+      "value": "Blends occlusion across frames to remove noise. Can leave trails behind fast movement."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.ghostingMitigation",
+      "value": "Ghosting Mitigation"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.ghostingMitigation.tooltip",
+      "value": "How readily old frames are discarded when things move. Higher leaves fewer trails but more noise."
+    },
+    {
+      "key": "settings.graphics.unity.ssao.historyLength",
+      "value": "History Length"
+    },
+    {
+      "key": "settings.graphics.unity.ssao.historyLength.tooltip",
+      "value": "How much past frames contribute. Higher is smoother and trails more."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.quality",
+      "value": "Quality"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.quality.tooltip",
+      "value": "Low to Ultra use Unity's own sampling, filtering and resolution settings. Custom unlocks them below."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.intensity",
+      "value": "Intensity"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.intensity.tooltip",
+      "value": "Scales the bounced light Unity's global illumination adds."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.volumeSize",
+      "value": "Volume Size"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.volumeSize.tooltip",
+      "value": "How far, in metres, the lighting cache reaches around you."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.volumeResolution",
+      "value": "Volume Resolution"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.volumeResolution.tooltip",
+      "value": "Detail of the lighting cache. Higher holds finer lighting and uses more memory; changing it rebuilds the cache."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.cascadeCount",
+      "value": "Cascade Count"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.cascadeCount.tooltip",
+      "value": "How many nested cache volumes extend its reach. Changing it rebuilds the cache."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.distanceFallback",
+      "value": "Distance Fallback"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.distanceFallback.tooltip",
+      "value": "Lights the far distance with a probe built from the sky and environment."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.patchWarping",
+      "value": "Patch Warping"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.patchWarping.tooltip",
+      "value": "Reduces flickering on flat surfaces that line up with the cache grid, such as floors."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.sampleCount",
+      "value": "Sample Count"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.sampleCount.tooltip",
+      "value": "Rays traced for each cache patch per frame. More is cleaner and slower."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.warmUpMultiplier",
+      "value": "Warm-Up Multiplier"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.warmUpMultiplier.tooltip",
+      "value": "Extra samples for newly seen surfaces, so lighting settles faster as you move."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.multiBounce",
+      "value": "Multi-Bounce"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.multiBounce.tooltip",
+      "value": "Lets light bounce more than once."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.bouncePatchAllocation",
+      "value": "Bounce Patch Allocation"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.bouncePatchAllocation.tooltip",
+      "value": "Creates cache patches where bounced rays land when none exist yet, at extra cost."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.defragCount",
+      "value": "Defrag Count"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.defragCount.tooltip",
+      "value": "Cache patches tidied up each frame."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.temporalSmoothing",
+      "value": "Temporal Smoothing"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.temporalSmoothing.tooltip",
+      "value": "How much each patch keeps its earlier lighting. Higher is steadier but reacts more slowly."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.spatialFilter",
+      "value": "Spatial Filter"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.spatialFilter.tooltip",
+      "value": "Blends each patch with its neighbours to reduce noise."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.spatialSampleCount",
+      "value": "Spatial Samples"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.spatialSampleCount.tooltip",
+      "value": "Neighbouring patches blended for each patch."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.spatialRadius",
+      "value": "Spatial Radius"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.spatialRadius.tooltip",
+      "value": "How far, in metres, the spatial filter reaches."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.postTemporal",
+      "value": "Post Temporal Filter"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.postTemporal.tooltip",
+      "value": "An extra smoothing pass over time for steadier lighting."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.lookupSampleCount",
+      "value": "Lookup Samples"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.lookupSampleCount.tooltip",
+      "value": "Samples used to read the cache for each pixel on screen."
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.denoisingPasses",
+      "value": "Denoising Passes"
+    },
+    {
+      "key": "settings.graphics.unity.surfaceCache.denoisingPasses.tooltip",
+      "value": "Smoothing passes on screen. More removes noise at extra cost."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.preset",
+      "value": "Performance Preset"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.preset.tooltip",
+      "value": "Fast to Best Quality use Unity's own resolution, marching and ray settings. Custom unlocks them below."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.resolution",
+      "value": "Resolution"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.resolution.tooltip",
+      "value": "Resolution reflections are traced at. Lower is faster and blurrier."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.upscaling",
+      "value": "Upscaling"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.upscaling.tooltip",
+      "value": "How lower resolution reflections are scaled up. Bilateral is sharper and costs more."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.maxRaySteps",
+      "value": "Max Ray Steps"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.maxRaySteps.tooltip",
+      "value": "Steps each reflection ray may take. More finds more hits and costs more."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.objectThickness",
+      "value": "Object Thickness"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.objectThickness.tooltip",
+      "value": "How close a ray must pass to the depth buffer to count as a hit. Higher hides shimmer but is less accurate."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.marching",
+      "value": "Marching Method"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.marching.tooltip",
+      "value": "Hierarchical skips through a depth pyramid and stays accurate at high step counts. Linear is cheaper and suits low step counts."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.maxRayLength",
+      "value": "Max Ray Length"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.maxRayLength.tooltip",
+      "value": "How far, in metres, a ray travels with Linear marching."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.hitRefinementSteps",
+      "value": "Hit Refinement Steps"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.hitRefinementSteps.tooltip",
+      "value": "Extra search steps at the end of each ray that close gaps and stair-stepping."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.finalThicknessMultiplier",
+      "value": "Final Thickness Multiplier"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.finalThicknessMultiplier.tooltip",
+      "value": "Tightens the hit test during refinement for more precise contact."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.transparents",
+      "value": "Reflect Transparent Objects"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.transparents.tooltip",
+      "value": "Includes transparent objects in reflections, at the cost of an extra pass."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.strength",
+      "value": "Strength"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.strength.tooltip",
+      "value": "Overall strength of the reflections."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.clampColor",
+      "value": "Clamp Bright Reflections"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.clampColor.tooltip",
+      "value": "Limits how bright a reflected pixel can get, which stops bright speckles."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.maxColor",
+      "value": "Max Brightness"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.maxColor.tooltip",
+      "value": "The brightest a reflected pixel may be while clamping is on."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.roughnessFilter",
+      "value": "Rough Reflections"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.roughnessFilter.tooltip",
+      "value": "How rough surfaces blur what they reflect. Off makes every reflection a sharp mirror and is cheapest."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.roughnessScale",
+      "value": "Roughness Scale"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.roughnessScale.tooltip",
+      "value": "Makes rough reflections sharper below zero and blurrier above it."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.contactHardening",
+      "value": "Contact Hardening"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.contactHardening.tooltip",
+      "value": "Keeps reflections sharp where a reflected object meets the surface. Costs extra."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.contactHardeningScale",
+      "value": "Contact Hardening Scale"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.contactHardeningScale.tooltip",
+      "value": "How much sharpness is kept near contact."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.contactDistanceBias",
+      "value": "Contact Distance Bias"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.contactDistanceBias.tooltip",
+      "value": "Weights short distances over long ones when hardening. Raise it if contacts still look blurry."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.minimumSmoothness",
+      "value": "Minimum Smoothness"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.minimumSmoothness.tooltip",
+      "value": "Surfaces rougher than this get no screen space reflection."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.smoothnessFadeStart",
+      "value": "Smoothness Fade Start"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.smoothnessFadeStart.tooltip",
+      "value": "Smoothness at which reflections start fading out toward the minimum."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.screenEdgeFade",
+      "value": "Screen Edge Fade"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.screenEdgeFade.tooltip",
+      "value": "How far from the screen edge reflections fade out, hiding where the screen runs out of picture."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.normalFade",
+      "value": "Normal Fade"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.normalFade.tooltip",
+      "value": "Fades reflections depending on which way the surface faces."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.rayLengthFade",
+      "value": "Ray Length Fade"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.rayLengthFade.tooltip",
+      "value": "Distance before the end of a Linear ray over which its reflection fades out."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.reflectSky",
+      "value": "Reflect Sky"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.reflectSky.tooltip",
+      "value": "Traces the sky too, instead of leaving it to the reflection probe or skybox."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.temporalFiltering",
+      "value": "Temporal Filtering"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.temporalFiltering.tooltip",
+      "value": "Blends reflections across frames to reduce flicker. Can leave trails."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.historyBlend",
+      "value": "History Blend"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.historyBlend.tooltip",
+      "value": "How much of earlier frames is kept. Higher is steadier and trails more."
+    },
+    {
+      "key": "settings.graphics.unity.ssr.afterOpaque",
+      "value": "Apply After Opaque"
+    },
+    {
+      "key": "settings.graphics.unity.ssr.afterOpaque.tooltip",
+      "value": "Composites reflections onto the finished opaque image. Cheaper on some hardware, less physically correct."
     },
     {
       "key": "settings.graphics.gi.specularIntensity",
@@ -14207,6 +14967,58 @@
       "value": "FSR 3 (temporal)"
     },
     {
+      "key": "settings.graphics.aa.dlss",
+      "value": "DLSS"
+    },
+    {
+      "key": "settings.graphics.aa.fsr2",
+      "value": "FSR 2 (temporal)"
+    },
+    {
+      "key": "settings.graphics.aa.fsr4",
+      "value": "FSR 4 (temporal)"
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.native",
+      "value": "Native"
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.quality",
+      "value": "Quality"
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.balanced",
+      "value": "Balanced"
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.performance",
+      "value": "Performance"
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.ultraPerformance",
+      "value": "Ultra Performance"
+    },
+    {
+      "key": "settings.graphics.dlssModel.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.graphics.dlssModel.default",
+      "value": "NVIDIA Default"
+    },
+    {
+      "key": "settings.graphics.dlssModel.k",
+      "value": "Transformer (K)"
+    },
+    {
+      "key": "settings.graphics.dlssModel.m",
+      "value": "Transformer 2 (M)"
+    },
+    {
+      "key": "settings.graphics.dlssModel.l",
+      "value": "Transformer 2 (L)"
+    },
+    {
       "key": "settings.graphics.hdr.32bit",
       "value": "32bit"
     },
@@ -15207,6 +16019,22 @@
     {
       "key": "settings.admin.title.maxContentSpheresPerPlayer.description",
       "value": "Maximum active content-share spheres a single player may have at once."
+    },
+    {
+      "key": "settings.admin.title.contentSphereLeaveTimeout",
+      "value": "Orb Timeout After Sharer Leaves (seconds)"
+    },
+    {
+      "key": "settings.admin.title.contentSphereLeaveTimeout.description",
+      "value": "How long a shared orb stays after the player who dropped it leaves, so everyone else still has time to save it. 0 removes it as soon as they leave."
+    },
+    {
+      "key": "settings.admin.title.contentSphereDeletionTimer",
+      "value": "Orb Deletion Timer (seconds)"
+    },
+    {
+      "key": "settings.admin.title.contentSphereDeletionTimer.description",
+      "value": "Every shared orb is deleted this many seconds after it is dropped, even if its sharer is still here. 0 turns the timer off."
     },
     {
       "key": "settings.admin.title.applyResourceLimits",
@@ -18263,6 +19091,62 @@
     {
       "key": "settings.graphics.aa.fsr.tooltip",
       "value": "No multisampling. Upscales with AMD FidelityFX Super Resolution, which holds more detail than plain filtering."
+    },
+    {
+      "key": "settings.graphics.aa.dlss.tooltip",
+      "value": "No multisampling. NVIDIA DLSS smooths edges using recent frames, and on desktop can render fewer pixels to run faster. Needs an NVIDIA RTX graphics card."
+    },
+    {
+      "key": "settings.graphics.aa.fsr2.tooltip",
+      "value": "No multisampling. AMD FidelityFX Super Resolution 2 smooths edges using recent frames, and on desktop can render fewer pixels to run faster. Runs on most graphics cards."
+    },
+    {
+      "key": "settings.graphics.aa.fsr3.tooltip",
+      "value": "No multisampling. AMD FidelityFX Super Resolution 3 smooths edges using recent frames, and on desktop can render fewer pixels to run faster. Runs on most graphics cards with DirectX 12."
+    },
+    {
+      "key": "settings.graphics.aa.fsr4.tooltip",
+      "value": "No multisampling. AMD FidelityFX Super Resolution 4 uses machine learning to smooth edges, and on desktop can render fewer pixels to run faster. Needs an AMD Radeon RX 9000 series graphics card and DirectX 12."
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.native.tooltip",
+      "value": "Renders at full resolution and only uses the upscaler to smooth edges. The sharpest image, with no speedup."
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.quality.tooltip",
+      "value": "Renders about two thirds of the resolution on each axis. A modest speedup with little visible loss."
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.balanced.tooltip",
+      "value": "Renders a little under 60 percent of the resolution on each axis. A middle ground between speed and sharpness."
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.performance.tooltip",
+      "value": "Renders half the resolution on each axis. A large speedup with a visibly softer image."
+    },
+    {
+      "key": "settings.graphics.upscalerQuality.ultraPerformance.tooltip",
+      "value": "Renders a third of the resolution on each axis. The fastest option, best kept for very high resolution displays."
+    },
+    {
+      "key": "settings.graphics.dlssModel.auto.tooltip",
+      "value": "Uses the second generation transformer model (L) on RTX 40 series and newer cards, and NVIDIA's default on older cards."
+    },
+    {
+      "key": "settings.graphics.dlssModel.default.tooltip",
+      "value": "Lets the DLSS library pick its default model for each quality level."
+    },
+    {
+      "key": "settings.graphics.dlssModel.k.tooltip",
+      "value": "First generation transformer model. The cheapest to run, a good fit for RTX 20 and 30 series cards."
+    },
+    {
+      "key": "settings.graphics.dlssModel.m.tooltip",
+      "value": "Second generation transformer model tuned for speed. Sharper than K, but fine detail shimmers more than with K or L."
+    },
+    {
+      "key": "settings.graphics.dlssModel.l.tooltip",
+      "value": "Second generation transformer model. Sharper than K and nearly as steady. Best on RTX 40 series and newer, and the most expensive to run."
     },
     {
       "key": "settings.graphics.vsync.on.tooltip",

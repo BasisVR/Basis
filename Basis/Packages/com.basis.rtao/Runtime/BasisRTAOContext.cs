@@ -13,8 +13,8 @@ namespace Basis.Rendering.RTAO
 
         private GraphicsBuffer traceScratch, buildScratch;
 
-        public static bool HardwareSupported => SystemInfo.supportsComputeShaders && RayTracingContext.IsBackendSupported(RayTracingBackend.Hardware);
-        public static bool ComputeSupported => RayTracingContext.IsBackendSupported(RayTracingBackend.Compute);
+        public static bool HardwareSupported => SystemInfo.supportsComputeShaders && (RayTracingContext.GetCapabilities(RayTracingBackend.Hardware) & CapabilityMask.RayTracingShaders) != 0;
+        public static bool ComputeSupported => (RayTracingContext.GetCapabilities(RayTracingBackend.Compute) & CapabilityMask.RayTracingShaders) != 0;
 
         private BasisRTAOContext(RayTracingContext context, IRayTracingShader shader)
         {

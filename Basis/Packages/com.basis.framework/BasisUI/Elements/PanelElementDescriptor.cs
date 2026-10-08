@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,8 +12,9 @@ using UnityEngine.UI;
 namespace Basis.BasisUI
 {
 
+    [AutoStaticsCleanup]
     [RequireComponent(typeof(LayoutElement))]
-    public class PanelElementDescriptor : AddressableUIInstanceBase
+    public partial class PanelElementDescriptor : AddressableUIInstanceBase
     {
 
         public static RectTransform BuildActionRow(RectTransform parent, string name)

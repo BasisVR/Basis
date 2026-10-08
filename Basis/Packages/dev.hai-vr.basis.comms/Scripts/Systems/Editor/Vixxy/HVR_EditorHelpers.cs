@@ -90,7 +90,7 @@ namespace HVR.Vixxy.Editor
 
         public static Type FindEditorOnlyTypeOrNull()
         {
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
             foreach (var assembly in assemblies)
             {
                 foreach (var type in assembly.GetTypes())

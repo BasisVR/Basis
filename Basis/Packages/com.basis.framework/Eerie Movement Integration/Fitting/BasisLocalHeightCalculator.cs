@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
-public static class BasisLocalHeightCalculator
+[AutoStaticsCleanup]
+public static partial class BasisLocalHeightCalculator
 {
     private const float EyeArmTolerance = 0.30f;
     private static Vector3 HandSpanPoint(BasisInput input) => input is BasisInputController controller ? controller.UnscaledHandTarget : input.UnscaledDeviceCoord.position;

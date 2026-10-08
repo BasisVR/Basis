@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.IO;
 using Basis.BasisUI;
@@ -12,7 +13,8 @@ using UnityEngine;
 /// nothing is built for a half the user leaves shut, and the archive list is scanned on a worker
 /// thread so opening Restore never stalls the menu on zip reads.
 /// </summary>
-public static class SettingsProviderBackup
+[AutoStaticsCleanup]
+public static partial class SettingsProviderBackup
 {
     private static bool _busy;
 

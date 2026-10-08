@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Basis.Scripts.Drivers;
@@ -8,7 +9,8 @@ using UnityEngine.Jobs;
 
 namespace Basis.Scripts.Rendering
 {
-    public static class BasisVisibilitySystem
+    [AutoStaticsCleanup]
+    public static partial class BasisVisibilitySystem
     {
         public const int MaxCameras = 16;
 
@@ -27,12 +29,12 @@ namespace Basis.Scripts.Rendering
         public static int MaxApplyPerTick = 32;
         public static float MaxApplyMillisecondsPerTick = 1f;
 
-        private static NativeArray<BasisVisibilityCamera> _cameras;
-        private static NativeList<int> _changed;
+        [NoAutoStaticsCleanup] private static NativeArray<BasisVisibilityCamera> _cameras;
+        [NoAutoStaticsCleanup] private static NativeList<int> _changed;
 
         private static readonly List<Camera> _cameraScratch = new List<Camera>(8);
         private static readonly Plane[] _planeScratch = new Plane[6];
-        private static readonly Stopwatch _stopwatch = new Stopwatch();
+        [NoAutoStaticsCleanup] private static readonly Stopwatch _stopwatch = new Stopwatch();
 
         private static int _cameraCount;
         private static JobHandle _handle;

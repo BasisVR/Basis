@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,11 +8,12 @@ using UnityEngine.UI;
 
 namespace HVR.Vixxy
 {
-    public static class HVR_VixxyPermitted
+    [AutoStaticsCleanup]
+    public static partial class HVR_VixxyPermitted
     {
         /// List of types that can be toggled and affected by field or property accesses.<br/>
         /// Field and property access have further restrictions, see further down below in this class.
-        private static readonly List<Type> PermittedTypes = new()
+        [NoAutoStaticsCleanup] private static readonly List<Type> PermittedTypes = new()
         {
             // Other
             typeof(Transform),
@@ -49,7 +51,7 @@ namespace HVR.Vixxy
         };
 
         /// Same as above, but those are strings. This is so we may reference types from other packages without creating a dependency.
-        private static readonly List<string> PermittedTypeNames = new()
+        [NoAutoStaticsCleanup] private static readonly List<string> PermittedTypeNames = new()
         {
             // Renderers
             "UnityEngine.Rendering.Universal.DecalProjector",
@@ -77,7 +79,7 @@ namespace HVR.Vixxy
             "Basis.Scripts.BasisSdk.Constraints.BasisTwistChain",
         };
 
-        private static readonly HashSet<string> RuntimePermittedTypeNames;
+        [NoAutoStaticsCleanup] private static readonly HashSet<string> RuntimePermittedTypeNames;
 
         /// If true, all field accesses are allowed on the permitted types.<br/>
         /// Otherwise, access is dictated by the PermittedStandardAccess list further down below.

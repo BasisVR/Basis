@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+[AutoStaticsCleanup]
 [System.Serializable]
-public class BasisBundleConnector
+public partial class BasisBundleConnector
 {
     public string UniqueVersion;
     [SerializeField]

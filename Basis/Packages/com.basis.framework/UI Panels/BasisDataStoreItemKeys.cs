@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Unity.Scripting.LifecycleManagement;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,8 @@ namespace Basis.Scripts.UI.UI_Panels
     /// Separate keystore for ITEMS (so items don't collide with avatar keys).
     /// Writes to: Application.persistentDataPath/ItemKeyStore.json
     /// </summary>
-    public static class BasisDataStoreItemKeys
+    [AutoStaticsCleanup]
+    public static partial class BasisDataStoreItemKeys
     {
         [System.Serializable]
         public struct PinnedSettings
@@ -110,7 +112,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         // FIX: SemaphoreSlim(1,1) prevents concurrent async mutations from corrupting
         // the shared keys array or causing lost updates between read and SaveKeysToFile.
-        private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+        [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
         public static async Task AddNewKey(ItemKey newKey)
         {

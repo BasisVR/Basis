@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine.InputSystem;
 
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Device_Management
     /// most <see cref="IdlePumpInterval"/>.
     /// </summary>
 
-    public static class BasisInputSystemPump
+    [AutoStaticsCleanup]
+    public static partial class BasisInputSystemPump
     {
         public static BasisInputPumpMode Mode = BasisInputPumpMode.Adaptive;
         /// <summary>

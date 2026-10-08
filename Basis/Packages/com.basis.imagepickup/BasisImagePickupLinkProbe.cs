@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using UnityEngine;
@@ -24,7 +25,8 @@ namespace Basis.ImagePickup
     /// This governs the local uplink only. The relay's fan-out budget stays a fixed ceiling — a fast local
     /// line is no reason to make a server forward more.
     /// </summary>
-    internal static class BasisImagePickupLinkProbe
+    [AutoStaticsCleanup]
+    internal static partial class BasisImagePickupLinkProbe
     {
         /// <summary>
         /// Rolling per-slot minima of the round trip. The baseline is the smallest of them, so it tracks a
@@ -32,7 +34,7 @@ namespace Basis.ImagePickup
         /// single expiring slot would take whatever the round trip happened to be at expiry — congestion
         /// included — and then ramp merrily into it.
         /// </summary>
-        private static readonly float[] _baselineSlots = new float[BaselineSlotCount];
+        [NoAutoStaticsCleanup] private static readonly float[] _baselineSlots = new float[BaselineSlotCount];
         private const int BaselineSlotCount = 4;
 
         private static int _baselineSlot;

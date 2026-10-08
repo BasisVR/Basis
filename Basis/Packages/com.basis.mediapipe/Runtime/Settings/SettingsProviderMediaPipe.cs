@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Linq;
 using Basis.BasisUI;
@@ -10,7 +11,8 @@ namespace Basis.MediaPipe
     /// as a section inside the framework's Tracker Settings tab via
     /// SettingsProvider.TrackerSettingsExtraBuilder.
     /// </summary>
-    public static class SettingsProviderMediaPipe
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderMediaPipe
     {
         private static readonly List<string> PoseModelIds = new List<string> { BasisMediaPipeConfig.PoseModelLite, BasisMediaPipeConfig.PoseModelFull, BasisMediaPipeConfig.PoseModelHeavy };
 

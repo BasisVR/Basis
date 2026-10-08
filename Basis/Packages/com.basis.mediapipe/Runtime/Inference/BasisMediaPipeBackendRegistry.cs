@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 
 namespace Basis.MediaPipe
@@ -7,7 +8,8 @@ namespace Basis.MediaPipe
     /// The homuler assembly registers its factory at startup; when absent, Create()
     /// returns a no-op backend so the feature stays inert.
     /// </summary>
-    public static class BasisMediaPipeBackendRegistry
+    [AutoStaticsCleanup]
+    public static partial class BasisMediaPipeBackendRegistry
     {
         private static Func<IBasisMediaPipeBackend> _factory;
 

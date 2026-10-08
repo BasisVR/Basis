@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class PanelSectionToggleHelpers
+    [AutoStaticsCleanup]
+    public static partial class PanelSectionToggleHelpers
     {
         /// <summary>
         /// Creates a titled content group for a section toggle and registers it for divider ownership.

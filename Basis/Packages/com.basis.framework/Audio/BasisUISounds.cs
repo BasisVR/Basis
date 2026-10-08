@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using UnityEngine;
 
 namespace Basis.Scripts.Audio
 {
-    public static class BasisUISounds
+    [AutoStaticsCleanup]
+    public static partial class BasisUISounds
     {
         private static BasisSoundPack _pack;
         private static bool _resolved;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -22,7 +23,8 @@ namespace Basis.Scripts.Drivers
     /// one EMA-smoothed instant per segment for a live HUD, this records every sampled frame into a
     /// fixed-size buffer for the capture window and reports min/avg/median/p95/max/stddev.
     /// </summary>
-    public static class BasisRenderProfileHistory
+    [AutoStaticsCleanup]
+    public static partial class BasisRenderProfileHistory
     {
         public const int DefaultFrames = 300;
         private const double NsToMs = 1.0 / 1_000_000.0;
@@ -30,7 +32,7 @@ namespace Basis.Scripts.Drivers
             ProfilerRecorderOptions.WrapAroundWhenCapacityReached |
             ProfilerRecorderOptions.StartImmediately |
             ProfilerRecorderOptions.SumAllSamplesInFrame;
-        private static readonly string[] AlwaysIncludeMarkerPrefixes = { "BasisVisibility.", "BasisNamePlate." };
+        [NoAutoStaticsCleanup] private static readonly string[] AlwaysIncludeMarkerPrefixes = { "BasisVisibility.", "BasisNamePlate." };
         private const int MaxDiscoveredMarkers = 500;
         private const int TopMarkerReportCount = 25;
         // Found by inspecting real captures, not derivable from the API: these enumerate as
@@ -39,7 +41,7 @@ namespace Basis.Scripts.Drivers
         // the smaller ones (EngineJob ~9ms, WaitForTargetFPS ~3ms — both plausible-looking but still
         // not real per-frame cost). This list is necessarily incomplete; expect to extend it as new
         // ones turn up in future captures rather than treating it as exhaustive.
-        private static readonly string[] ExcludedMarkerNames =
+        [NoAutoStaticsCleanup] private static readonly string[] ExcludedMarkerNames =
         {
             "BeginJob", "EndJob", "ScheduleJob", "WaitForCompleted", "ScheduleAllocJob", "KickJobs",
             "Idle", "Semaphore.WaitForSignal", "EngineJob", "WaitForTargetFPS",

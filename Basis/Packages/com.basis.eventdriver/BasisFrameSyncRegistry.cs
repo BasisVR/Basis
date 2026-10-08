@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 
@@ -38,7 +39,8 @@ namespace Basis.EventDriver
     /// count across scene loads and eventually refuse registrations for every later prop in the
     /// session.
     /// </summary>
-    public static class BasisFrameSyncRegistry
+    [AutoStaticsCleanup]
+    public static partial class BasisFrameSyncRegistry
     {
         /// <summary>
         /// Hard ceiling on simultaneously registered entries. Sandboxed content reaches this

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.Common;
 using UnityEngine;
@@ -23,10 +24,11 @@ namespace Basis.Scripts.Device_Management
         HeadsetWorn,
     }
 
-    public static class BasisPlatformDetection
+    [AutoStaticsCleanup]
+    public static partial class BasisPlatformDetection
     {
-        public static readonly string[] ConditionNames = Enum.GetNames(typeof(BasisPlatformCondition));
-        private static readonly BasisPlatformCondition[] ConditionValues = (BasisPlatformCondition[])Enum.GetValues(typeof(BasisPlatformCondition));
+        [NoAutoStaticsCleanup] public static readonly string[] ConditionNames = Enum.GetNames(typeof(BasisPlatformCondition));
+        [NoAutoStaticsCleanup] private static readonly BasisPlatformCondition[] ConditionValues = (BasisPlatformCondition[])Enum.GetValues(typeof(BasisPlatformCondition));
         private static Action changed;
         private static bool hooked;
 

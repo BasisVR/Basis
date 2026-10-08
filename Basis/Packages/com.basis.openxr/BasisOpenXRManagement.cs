@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -13,8 +14,9 @@ using UnityEngine.XR.OpenXR;
 
 namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 {
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisOpenXRManagement : BasisBaseTypeManagement
+    public partial class BasisOpenXRManagement : BasisBaseTypeManagement
     {
         [SerializeField]
         private List<BasisInput> controls = new List<BasisInput>();

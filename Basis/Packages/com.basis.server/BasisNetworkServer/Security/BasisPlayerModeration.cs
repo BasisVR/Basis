@@ -1315,9 +1315,18 @@ namespace BasisNetworkServer.Security
             int maxContentSpheresPerPlayer = reader.GetInt();
             BasisResourceLimitManager.SetLimits(maxContentSpheresPerPlayer);
             NetworkServer.Configuration.MaxContentSpheresPerPlayer = BasisResourceLimitManager.MaxContentSpheresPerPlayer;
+            if (reader.AvailableBytes >= sizeof(int) * 2)
+            {
+                int leaveTimeoutSeconds = reader.GetInt();
+                int deletionTimerSeconds = reader.GetInt();
+                BasisResourceLimitManager.SetContentSphereTimers(leaveTimeoutSeconds, deletionTimerSeconds);
+                NetworkServer.Configuration.ContentSphereLeaveTimeoutSeconds = BasisResourceLimitManager.ContentSphereLeaveTimeoutSeconds;
+                NetworkServer.Configuration.ContentSphereDeletionTimerSeconds = BasisResourceLimitManager.ContentSphereDeletionTimerSeconds;
+            }
             SaveConfig();
             BasisResourceLimitManager.BroadcastState();
-            SendBackMessage(peer, $"Resource limits set: spheres/player {BasisResourceLimitManager.MaxContentSpheresPerPlayer}.");
+            int deletionTimer = BasisResourceLimitManager.ContentSphereDeletionTimerSeconds;
+            SendBackMessage(peer, $"Resource limits set: spheres/player {BasisResourceLimitManager.MaxContentSpheresPerPlayer}, orbs stay {BasisResourceLimitManager.ContentSphereLeaveTimeoutSeconds}s after their sharer leaves, deletion timer {(deletionTimer > 0 ? $"{deletionTimer}s" : "off")}.");
         }
 
         private static void HandleReductionSettingsSet(NetPeer peer, NetPacketReader reader)

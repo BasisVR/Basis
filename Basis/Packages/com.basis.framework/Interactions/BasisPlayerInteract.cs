@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -12,7 +13,8 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Basis.Scripts.BasisSdk.Interactions
 {
-    public class BasisPlayerInteract : MonoBehaviour
+    [AutoStaticsCleanup]
+    public partial class BasisPlayerInteract : MonoBehaviour
     {
         public static LayerMask IgnoreRaycasting;
         public static LayerMask playerLayer;
@@ -68,7 +70,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return origin + (delta / distance) * applied;
         }
 
-        private static readonly Collider[] _grabHitBuffer = new Collider[32];
+        [NoAutoStaticsCleanup] private static readonly Collider[] _grabHitBuffer = new Collider[32];
 
         [SerializeField]
         public BasisInteractInput[] InteractInputs = new BasisInteractInput[] { };
@@ -936,7 +938,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private static readonly Dictionary<BasisInput, HoverGizmo> _hoverGizmos = new Dictionary<BasisInput, HoverGizmo>();
         private static readonly HashSet<BasisInput> _hoverSeen = new HashSet<BasisInput>();
         private static readonly List<BasisInput> _hoverStale = new List<BasisInput>();
-        private static readonly Vector3[] _hoverRingBuf = new Vector3[HoverCircleSeg];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] _hoverRingBuf = new Vector3[HoverCircleSeg];
         private static bool _hoverHooked;
 
         public static void UpdateHoverGizmos(bool show)

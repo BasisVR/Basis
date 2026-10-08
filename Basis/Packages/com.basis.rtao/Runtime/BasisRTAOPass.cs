@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -81,7 +82,8 @@ namespace Basis.Rendering.RTAO
         }
     }
 
-    public sealed class BasisRTAOPass : ScriptableRenderPass, IDisposable
+    [AutoStaticsCleanup]
+    public sealed partial class BasisRTAOPass : ScriptableRenderPass, IDisposable
     {
         private const int TemporalKernelGroup = 8;
         // A fixed tap count spread over more pixels only gets noisier, so the search is capped - but the cap
@@ -136,7 +138,7 @@ namespace Basis.Rendering.RTAO
         public BasisRTAOHistory History => history;
         internal Material CompositeMaterial => compositeMaterial;
 
-        private static readonly ProfilingSampler samplerAll = new ProfilingSampler("BasisRTAO");
+        [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerAll = new ProfilingSampler("BasisRTAO");
         public static float GpuMs => samplerAll.gpuElapsedTime;
         public static void SetProfilingEnabled(bool enabled) => samplerAll.enableRecording = enabled;
 
@@ -553,7 +555,7 @@ namespace Basis.Rendering.RTAO
                 prepassMaterial.SetVector(BasisRTAOShaderIds.FullSize, fullSize);
                 prepassMaterial.SetVector(BasisRTAOShaderIds.Composite, composite);
                 prepassMaterial.SetInteger(BasisRTAOShaderIds.Scale, scale);
-                bool hasCameraNormals = resourceData.cameraNormalsTexture.IsValid();
+                bool hasCameraNormals = (input & ScriptableRenderPassInput.Normal) != 0 && resourceData.cameraNormalsTexture.IsValid();
                 prepassMaterial.SetInteger(BasisRTAOShaderIds.UseCameraNormals, hasCameraNormals ? 1 : 0);
 
                 data.material = prepassMaterial;
@@ -767,13 +769,13 @@ namespace Basis.Rendering.RTAO
 
         // Interpolated once per pass per direction per camera per frame is a string allocation every one of
         // them; the shapes are known up front, so name them up front.
-        private static readonly string[] HorizontalBlurNames =
+        [NoAutoStaticsCleanup] private static readonly string[] HorizontalBlurNames =
         {
             "BasisRTAO Denoise 0 Horizontal", "BasisRTAO Denoise 1 Horizontal",
             "BasisRTAO Denoise 2 Horizontal", "BasisRTAO Denoise 3 Horizontal"
         };
 
-        private static readonly string[] VerticalBlurNames =
+        [NoAutoStaticsCleanup] private static readonly string[] VerticalBlurNames =
         {
             "BasisRTAO Denoise 0 Vertical", "BasisRTAO Denoise 1 Vertical",
             "BasisRTAO Denoise 2 Vertical", "BasisRTAO Denoise 3 Vertical"

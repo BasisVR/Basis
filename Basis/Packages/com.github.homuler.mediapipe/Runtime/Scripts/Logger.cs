@@ -55,7 +55,7 @@ namespace Mediapipe
       _InternalLogger = new LoggerWrapper(newLogger);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogException(Exception exception, UnityEngine.Object context)
     {
       if (MinLogLevel >= LogLevel.Error)
@@ -64,7 +64,7 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogException(Exception exception)
     {
       if (MinLogLevel >= LogLevel.Error)
@@ -73,7 +73,7 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogError(string tag, object message, UnityEngine.Object context)
     {
       if (MinLogLevel >= LogLevel.Error)
@@ -82,7 +82,7 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogError(string tag, object message)
     {
       if (MinLogLevel >= LogLevel.Error)
@@ -91,13 +91,13 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogError(object message)
     {
       LogError(null, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogWarning(string tag, object message, UnityEngine.Object context)
     {
       if (MinLogLevel >= LogLevel.Info)
@@ -106,7 +106,7 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogWarning(string tag, object message)
     {
       if (MinLogLevel >= LogLevel.Info)
@@ -115,13 +115,13 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogWarning(object message)
     {
       LogWarning(null, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Log(LogLevel logLevel, string tag, object message, UnityEngine.Object context)
     {
       if (MinLogLevel >= logLevel)
@@ -130,7 +130,7 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Log(LogLevel logLevel, string tag, object message)
     {
       if (MinLogLevel >= logLevel)
@@ -139,7 +139,7 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Log(LogLevel logLevel, object message, UnityEngine.Object context)
     {
       if (MinLogLevel >= logLevel)
@@ -148,7 +148,7 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Log(LogLevel logLevel, object message)
     {
       if (MinLogLevel >= logLevel)
@@ -157,67 +157,67 @@ namespace Mediapipe
       }
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Log(string tag, object message)
     {
       Log(LogLevel.Info, tag, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Log(object message)
     {
       Log(LogLevel.Info, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogInfo(string tag, object message, UnityEngine.Object context)
     {
       Log(LogLevel.Info, tag, message, context);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogInfo(string tag, object message)
     {
       Log(LogLevel.Info, tag, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogInfo(object message)
     {
       Log(LogLevel.Info, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogVerbose(string tag, object message, UnityEngine.Object context)
     {
       Log(LogLevel.Verbose, tag, message, context);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogVerbose(string tag, object message)
     {
       Log(LogLevel.Verbose, tag, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogVerbose(object message)
     {
       Log(LogLevel.Verbose, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogDebug(string tag, object message, UnityEngine.Object context)
     {
       Log(LogLevel.Debug, tag, message, context);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogDebug(string tag, object message)
     {
       Log(LogLevel.Debug, tag, message);
     }
 
-    [Conditional("DEBUG"), Conditional("DEVELOPMENT_BUILD")]
+    [Conditional("DEBUG"), Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void LogDebug(object message)
     {
       Log(LogLevel.Debug, message);

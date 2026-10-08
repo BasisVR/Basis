@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using UnityEngine;
-public static class BasisHandHeldCameraReticle
+[AutoStaticsCleanup]
+public static partial class BasisHandHeldCameraReticle
 {
     private static int holders;
     public static void Acquire()

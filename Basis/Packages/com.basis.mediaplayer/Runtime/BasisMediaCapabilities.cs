@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Text;
 using UnityEngine;
@@ -10,7 +11,8 @@ using UnityEngine;
 /// <see cref="Json"/>. The set is a snapshot: a DecodeFallbackHwToSw
 /// diagnostics event (code 3) advises calling <see cref="Requery"/>.
 /// </summary>
-public static class BasisMediaCapabilities
+[AutoStaticsCleanup]
+public static partial class BasisMediaCapabilities
 {
     static BmCapabilitySet _set;
     static string _json;

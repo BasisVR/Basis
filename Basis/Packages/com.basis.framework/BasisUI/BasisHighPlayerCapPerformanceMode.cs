@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.BTween;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -26,14 +27,15 @@ namespace Basis.BasisUI
     /// whether that's this instance emptying or the player leaving to a smaller one. A level picked
     /// by hand from the Graphics tab is never touched this way.
     /// </summary>
-    public static class BasisHighPlayerCapPerformanceMode
+    [AutoStaticsCleanup]
+    public static partial class BasisHighPlayerCapPerformanceMode
     {
         // Population tiers in ascending order. A tier arms when the occupant count exceeds its
         // threshold. The count includes the local player, so "over 250 people" means 251 occupants.
-        private static readonly int[] Thresholds = BasisPerformanceMode.PopulationThresholds;
+        [NoAutoStaticsCleanup] private static readonly int[] Thresholds = BasisPerformanceMode.PopulationThresholds;
 
         // Whether each tier's prompt has already been offered this app run.
-        private static readonly bool[] _tierAsked = new bool[Thresholds.Length];
+        [NoAutoStaticsCleanup] private static readonly bool[] _tierAsked = new bool[Thresholds.Length];
 
         // Cheap throttle so the player-count read isn't taken every single frame in a known-heavy
         // instance. ~ every 32 frames is plenty responsive for a one-off suggestion.

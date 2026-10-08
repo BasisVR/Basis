@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Buffers;
 using System.Globalization;
@@ -32,9 +33,10 @@ using UnityEngine.Rendering;
 // snapshot without being one of the registered consumers below (a component in
 // another package, a test harness's own Update) still sees this frame's values
 // rather than the previous frame's.
+[AutoStaticsCleanup]
 [DefaultExecutionOrder(-100)]
 [AddComponentMenu("Basis/Basis Media Player")]
-public class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
+public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
 {
     /// <summary>The authored URL: a stream, a file path or a page URL.</summary>
     [Tooltip("http(s) URL or absolute file path.")]
@@ -1387,7 +1389,7 @@ public class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         }
     }
 
-    static readonly BasisBitrateTrack[] NoBitrateTracks = Array.Empty<BasisBitrateTrack>();
+    [NoAutoStaticsCleanup] static readonly BasisBitrateTrack[] NoBitrateTracks = Array.Empty<BasisBitrateTrack>();
 
     /// <summary>Always empty: the engine has no managed bitrate ladder (a
     /// resolver picks the rung before the open; the engine picks an HLS

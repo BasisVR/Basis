@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -25,7 +26,8 @@ namespace Basis.Shims
 	///         Spawn( p.GetBonePosition( HumanBodyBones.Head ) );
 	/// </code>
 	/// </summary>
-	public static class BasisPlayersShim
+	[AutoStaticsCleanup]
+	public static partial class BasisPlayersShim
 	{
 		private static IBasisPlayer[] cached = Array.Empty<IBasisPlayer>();
 		private static ushort[] cachedIds = Array.Empty<ushort>();

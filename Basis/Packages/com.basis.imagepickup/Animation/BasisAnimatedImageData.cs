@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -71,9 +72,10 @@ namespace Basis.ImagePickup
     /// Native animation owner used by every runtime stage while an animation is resident. Payload-backed
     /// pickups may dispose this decoded pool and reconstruct it later from their compact payload.
     /// </summary>
-    public sealed class BasisAnimatedImageData : IDisposable
+    [AutoStaticsCleanup]
+    public sealed partial class BasisAnimatedImageData : IDisposable
     {
-        private static readonly object MemoryBudgetLock = new();
+        [NoAutoStaticsCleanup] private static readonly object MemoryBudgetLock = new();
         private static long _residentNativeBytes;
         private static long _residentCompositorBytes;
         private static long _reservedRestoreBytes;

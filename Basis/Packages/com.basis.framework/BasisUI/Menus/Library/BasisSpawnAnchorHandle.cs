@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
@@ -6,7 +7,8 @@ using UnityEngine.Rendering;
 
 namespace Basis.BasisUI
 {
-    public class BasisSpawnAnchorHandle : BasisPickupInteractable
+    [AutoStaticsCleanup]
+    public partial class BasisSpawnAnchorHandle : BasisPickupInteractable
     {
         public const float BodyDiameter = 0.12f;
         public const float ArrowLength = 0.18f;
@@ -39,9 +41,9 @@ namespace Basis.BasisUI
         private static readonly Color TickColor = new Color(0.7f, 0.7f, 0.75f, 0.7f);
         private static readonly Color NorthColor = new Color(0.95f, 0.95f, 1f, 0.9f);
         private static readonly Color PlumbColor = new Color(0.35f, 0.9f, 0.4f, 0.35f);
-        private static readonly Vector3[] ring = new Vector3[RingPoints];
-        private static readonly Vector3[] yawArc = new Vector3[ArcPoints];
-        private static readonly Vector3[] tiltArc = new Vector3[ArcPoints];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] ring = new Vector3[RingPoints];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] yawArc = new Vector3[ArcPoints];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] tiltArc = new Vector3[ArcPoints];
         private static MaterialPropertyBlock block;
 
         public bool IsGrabbed { get; private set; }

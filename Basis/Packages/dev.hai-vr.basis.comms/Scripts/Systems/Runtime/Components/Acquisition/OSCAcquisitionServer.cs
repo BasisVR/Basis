@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
@@ -9,8 +10,9 @@ using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
+    [AutoStaticsCleanup]
     [AddComponentMenu("HVR.Basis/Comms/Internal/OSC Acquisition Server")]
-    public class OSCAcquisitionServer : MonoBehaviour
+    public partial class OSCAcquisitionServer : MonoBehaviour
     {
         public static OSCAcquisitionServer SceneInstance => HVRCommsUtil.GetOrCreateSceneInstance(ref _sceneInstance);
         private static OSCAcquisitionServer _sceneInstance;

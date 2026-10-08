@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.Device_Management.Devices;
@@ -7,7 +8,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Device_Management
 {
-    public static class BasisDeviceOffsets
+    [AutoStaticsCleanup]
+    public static partial class BasisDeviceOffsets
     {
         public const string SettingsPrefix = "deviceoffset::";
         private static readonly Dictionary<string, Offset> cache = new Dictionary<string, Offset>();
@@ -175,6 +177,7 @@ namespace Basis.Scripts.Device_Management
                 return;
             }
             waitingForSettings = true;
+            BasisSettingsSystem.OnSettingsFinishedChanges -= OnSettingsLoaded;
             BasisSettingsSystem.OnSettingsFinishedChanges += OnSettingsLoaded;
         }
 

@@ -86,6 +86,16 @@
             "name": "com.basis.rtao",
             "expression": "",
             "define": "BASIS_HAS_RTAO"
+        },
+        {
+            "name": "com.unity.modules.nvidia",
+            "expression": "",
+            "define": "BASIS_HAS_NVIDIA"
+        },
+        {
+            "name": "com.unity.modules.amd",
+            "expression": "",
+            "define": "BASIS_HAS_AMD"
         }
     ],
     "noEngineReferences": false

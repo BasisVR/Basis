@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.BasisUI.Styling;
@@ -5,7 +6,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public static class SettingsProviderUIStyle
+[AutoStaticsCleanup]
+public static partial class SettingsProviderUIStyle
 {
     private static readonly Dictionary<UiPaletteStyle, Color> OriginalPaletteColors = new();
 

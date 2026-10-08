@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_SERVER
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
@@ -20,7 +21,8 @@ using static SerializableBasis;
 /// Designed for testing what 1000+ simultaneous audio sources sound and look like.
 /// Each headless client picks a random clip and loops it over the network.
 /// </summary>
-public static class BasisAudioClipPlayer
+[AutoStaticsCleanup]
+public static partial class BasisAudioClipPlayer
 {
     public static bool IsActive { get; private set; }
 
@@ -29,7 +31,7 @@ public static class BasisAudioClipPlayer
     private static Thread playbackThread;
     private static volatile bool shouldRun;
 
-    private static OpusSharp.Core.Interfaces.IOpusEncoder encoder;
+    [NoAutoStaticsCleanup] private static OpusSharp.Core.Interfaces.IOpusEncoder encoder;
     private static AudioSegmentDataMessage segment;
     private static NetDataWriter writer;
     private static byte sequenceNumber;
@@ -46,7 +48,7 @@ public static class BasisAudioClipPlayer
     public static string ClipDirectory;
 
 
-    private static OpusSharp.Core.Interfaces.IOpusDecoder decoder;
+    [NoAutoStaticsCleanup] private static OpusSharp.Core.Interfaces.IOpusDecoder decoder;
 
     /// <summary>
     /// Attempts to initialize the clip player. If the AudioClips directory exists and

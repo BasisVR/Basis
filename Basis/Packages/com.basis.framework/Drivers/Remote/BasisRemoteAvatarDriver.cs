@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
@@ -15,8 +16,9 @@ using UnityEngine;
 
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public class BasisRemoteAvatarDriver : BasisAvatarDriver
+    public partial class BasisRemoteAvatarDriver : BasisAvatarDriver
     {
         // Remote calibration is the main-thread half of every avatar load, reload, far LOD swap
         // and range re-entry, and it reported one number for ~20 different stages. These split it

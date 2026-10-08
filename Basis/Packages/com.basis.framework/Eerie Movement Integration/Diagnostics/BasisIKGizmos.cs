@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.IK;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
@@ -6,7 +7,8 @@ using UnityEngine;
 using static Basis.Scripts.Avatar.BasisAvatarIKStageCalibration;
 namespace Basis.Scripts.Debugging
 {
-    public static class BasisIKColliderGizmo
+    [AutoStaticsCleanup]
+    public static partial class BasisIKColliderGizmo
     {
         private const int CapSegments = 16;
         private const int LinesPerCapsule = 6;
@@ -28,13 +30,13 @@ namespace Basis.Scripts.Debugging
         private static readonly Color TorsoColor = new Color(0f, 1f, 0f, 0.9f);
         private static readonly Color HandColor = new Color(0f, 1f, 1f, 0.9f);
         private static readonly Color UpperArmColor = new Color(1f, 0f, 1f, 0.9f);
-        private static readonly int[] lineIds = new int[LinesPerCapsule * CapsuleCount];
+        [NoAutoStaticsCleanup] private static readonly int[] lineIds = new int[LinesPerCapsule * CapsuleCount];
         private static readonly int[] pointSphereIds = new int[2] { -1, -1 };
-        private static readonly int[] labelIds = new int[CapsuleCount];
-        private static readonly string[] CapsuleNames =
+        [NoAutoStaticsCleanup] private static readonly int[] labelIds = new int[CapsuleCount];
+        [NoAutoStaticsCleanup] private static readonly string[] CapsuleNames =
             { "Hips", "Spine", "Chest", "LeftHand", "RightHand", "LeftUpperArm", "RightUpperArm" };
         private const float LabelScale = 0.02f;
-        private static readonly Vector3[] capBuffer = new Vector3[CapSegments];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] capBuffer = new Vector3[CapSegments];
         private static bool createdGizmos, visibleGizmos, registered;
         public static void Hide()
         {
@@ -374,7 +376,8 @@ namespace Basis.Scripts.Debugging
             visibleGizmos = false;
         }
     }
-    public static class BasisHintOffsetGizmos
+    [AutoStaticsCleanup]
+    public static partial class BasisHintOffsetGizmos
     {
         public static bool Show;
         private const int RoleCount = 5;
@@ -389,7 +392,7 @@ namespace Basis.Scripts.Debugging
         private static readonly Color XAxisColor = new Color(1f, 0.2f, 0.2f, 0.9f);
         private static readonly Color YAxisColor = new Color(0.2f, 1f, 0.2f, 0.9f);
         private static readonly Color ZAxisColor = new Color(0.2f, 0.4f, 1f, 0.9f);
-        private static readonly BasisBoneTrackedRole[] Roles =
+        [NoAutoStaticsCleanup] private static readonly BasisBoneTrackedRole[] Roles =
         {
             BasisBoneTrackedRole.Chest,
             BasisBoneTrackedRole.LeftLowerArm,
@@ -397,14 +400,14 @@ namespace Basis.Scripts.Debugging
             BasisBoneTrackedRole.LeftLowerLeg,
             BasisBoneTrackedRole.RightLowerLeg,
         };
-        private static readonly int[] rawSphere = NewIds();
-        private static readonly int[] biasedSphere = NewIds();
-        private static readonly int[] offsetLine = NewIds();
-        private static readonly int[] axisX = NewIds();
-        private static readonly int[] axisY = NewIds();
-        private static readonly int[] axisZ = NewIds();
-        private static readonly int[] labelGizmoIds = NewIds();
-        private static readonly bool[] slotVisible = new bool[RoleCount];
+        [NoAutoStaticsCleanup] private static readonly int[] rawSphere = NewIds();
+        [NoAutoStaticsCleanup] private static readonly int[] biasedSphere = NewIds();
+        [NoAutoStaticsCleanup] private static readonly int[] offsetLine = NewIds();
+        [NoAutoStaticsCleanup] private static readonly int[] axisX = NewIds();
+        [NoAutoStaticsCleanup] private static readonly int[] axisY = NewIds();
+        [NoAutoStaticsCleanup] private static readonly int[] axisZ = NewIds();
+        [NoAutoStaticsCleanup] private static readonly int[] labelGizmoIds = NewIds();
+        [NoAutoStaticsCleanup] private static readonly bool[] slotVisible = new bool[RoleCount];
         private static bool createdGizmos, registered;
         public static void Tick(bool shouldShow, bool showLabels, Vector3 cameraPos)
         {

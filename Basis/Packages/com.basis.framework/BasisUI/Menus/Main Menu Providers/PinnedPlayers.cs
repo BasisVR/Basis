@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -5,14 +6,15 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class PinnedPlayers
+    [AutoStaticsCleanup]
+    public static partial class PinnedPlayers
     {
         private const string FileName = "pinnedPlayers.json";
         private const string LegacyPlayerPrefsKey = "BasisUI.PinnedPlayerUUIDs";
         private const int MaxPins = 256;
 
         private static readonly string FilePath = Path.Combine(Application.persistentDataPath, FileName);
-        private static readonly object _gate = new object();
+        [NoAutoStaticsCleanup] private static readonly object _gate = new object();
 
         private static HashSet<string> _pinned;
 

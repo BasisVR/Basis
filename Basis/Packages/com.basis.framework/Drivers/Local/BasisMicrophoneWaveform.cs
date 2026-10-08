@@ -1,15 +1,17 @@
+using Unity.Scripting.LifecycleManagement;
 #if !BASIS_DISABLE_MICROPHONE
 using System;
 using System.Threading;
 using UnityEngine;
 
-public static class BasisMicrophoneWaveform
+[AutoStaticsCleanup]
+public static partial class BasisMicrophoneWaveform
 {
     public const int Columns = 192;
     public const int ColumnsPerSecond = 50;
     public const int MaxChannels = 2;
 
-    private static readonly Vector4[] packed = new Vector4[Columns];
+    [NoAutoStaticsCleanup] private static readonly Vector4[] packed = new Vector4[Columns];
 
     private static int subscribers;
     private static int writeGate;

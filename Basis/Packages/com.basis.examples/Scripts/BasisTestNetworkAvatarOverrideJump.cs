@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
 using Basis.Scripts.Networking.Behaviour;
 using Basis.Network.Core;
 using UnityEngine.InputSystem;
-public class BasisTestNetworkAvatarOverrideJump : BasisNetworkAvatarBehaviour
+[AutoStaticsCleanup]
+public partial class BasisTestNetworkAvatarOverrideJump : BasisNetworkAvatarBehaviour
 {
     new public static bool VisibleInAvatarMenu = false;
     public BasisPlayer BasisPlayer;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using System;
@@ -10,7 +11,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Networking
 {
-    public sealed class SavedServersDirectorySource : IServerDirectorySource
+    [AutoStaticsCleanup]
+    public sealed partial class SavedServersDirectorySource : IServerDirectorySource
     {
         public const string Id = "savedServers";
 

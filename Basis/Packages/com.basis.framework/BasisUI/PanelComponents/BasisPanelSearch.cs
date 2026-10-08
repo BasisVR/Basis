@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -50,7 +51,8 @@ namespace Basis.BasisUI
     /// its own reasons — one that applies to a single mode, say — keeps it hidden, and a control the
     /// page reveals mid-search is filtered like any other on the next <see cref="Refresh"/>.</para>
     /// </summary>
-    public sealed class BasisPanelSearch
+    [AutoStaticsCleanup]
+    public sealed partial class BasisPanelSearch
     {
         /// <summary>
         /// Quiet time after the last keystroke before the page is re-filtered. Long enough that a run

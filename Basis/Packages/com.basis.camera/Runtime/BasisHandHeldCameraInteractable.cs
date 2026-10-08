@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Desktop;
@@ -18,6 +19,7 @@ using Basis.Scripts.UI.NamePlate;
 /// - Provides a desktop “fly” mode with smoothed movement/rotation, momentum, and auto-leveling
 /// - Locks/unlocks player controls while interacting
 /// </summary>
+[AutoStaticsCleanup]
 public abstract partial class BasisHandHeldCameraInteractable : BasisPickupInteractable
 {
     /// <summary>Owning handheld camera component and metadata.</summary>

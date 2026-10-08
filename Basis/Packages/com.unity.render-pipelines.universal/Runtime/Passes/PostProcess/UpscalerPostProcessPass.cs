@@ -15,6 +15,7 @@ namespace UnityEngine.Rendering.Universal
         bool m_IsValid;
 
 #if ENABLE_UPSCALER_FRAMEWORK
+        private static readonly ProfilingSampler k_ViewCopyProfilingSampler = new ProfilingSampler("Upscaler View Copy");
         bool m_WarnedHardwareDrsTemporalUnsupported;
         bool m_WarnedMissingMotionData;
         bool m_WarnedMissingOpaqueTexture;
@@ -205,7 +206,8 @@ namespace UnityEngine.Rendering.Universal
             // Fetch the framework-owned options for this upscaler (per-camera overrides are future work).
             UpscalerOptions upscalerOptions = UniversalRenderPipeline.upscaling.GetGlobalOptions(upscaler);
 
-            io.context = UniversalRenderPipeline.upscaling.AcquireContext(
+            bool recordPerView = io.enableTexArray && upscaler.isTemporal && upscaler is not STPIUpscaler;
+            io.context = recordPerView ? null : UniversalRenderPipeline.upscaling.AcquireContext(
                 viewId,
                 upscaler,
                 upscalerOptions,
@@ -233,7 +235,10 @@ namespace UnityEngine.Rendering.Universal
             io.options = upscalerOptions;
 
             // Insert the active upscaler's render graph passes
-            upscaler.RecordRenderGraph(renderGraph, frameData);
+            if (recordPerView)
+                RecordPerView(renderGraph, frameData, io, upscaler, upscalerOptions);
+            else
+                upscaler.RecordRenderGraph(renderGraph, frameData);
 
             // Update the camera resolution to reflect the upscaled size
             var dstDesc = io.cameraColor.GetDescriptor(renderGraph);
@@ -306,6 +311,135 @@ namespace UnityEngine.Rendering.Universal
         }
 
 #if ENABLE_UPSCALER_FRAMEWORK
+        sealed class ViewInputs
+        {
+            internal readonly Matrix4x4[] projection = new Matrix4x4[1], previousProjection = new Matrix4x4[1], previousPreviousProjection = new Matrix4x4[1];
+            internal readonly Matrix4x4[] view = new Matrix4x4[1], previousView = new Matrix4x4[1], previousPreviousView = new Matrix4x4[1];
+            internal readonly Vector3[] position = new Vector3[1], previousPosition = new Vector3[1], previousPreviousPosition = new Vector3[1];
+        }
+
+        class ViewCopyPassData
+        {
+            internal TextureHandle source;
+            internal TextureHandle destination;
+            internal int sourceSlice;
+            internal int destinationSlice;
+        }
+
+        ViewInputs[] m_ViewInputs = Array.Empty<ViewInputs>();
+
+        void RecordPerView(RenderGraph renderGraph, ContextContainer frameData, UpscalingIO io, IUpscaler upscaler, UpscalerOptions upscalerOptions)
+        {
+            int viewCount = io.numActiveViews;
+            if (m_ViewInputs.Length < viewCount)
+            {
+                int allocated = m_ViewInputs.Length;
+                Array.Resize(ref m_ViewInputs, viewCount);
+                for (int viewIndex = allocated; viewIndex < viewCount; viewIndex++)
+                    m_ViewInputs[viewIndex] = new ViewInputs();
+            }
+
+            TextureHandle color = io.cameraColor;
+            TextureHandle depth = io.cameraDepth;
+            TextureHandle motionVectors = io.motionVectorColor;
+            TextureHandle reactiveMask = io.reactiveMask;
+            Matrix4x4[] projection = io.projectionMatrices, previousProjection = io.previousProjectionMatrices, previousPreviousProjection = io.previousPreviousProjectionMatrices;
+            Matrix4x4[] view = io.viewMatrices, previousView = io.previousViewMatrices, previousPreviousView = io.previousPreviousViewMatrices;
+            Vector3[] position = io.worldSpaceCameraPositions, previousPosition = io.previousWorldSpaceCameraPositions, previousPreviousPosition = io.previousPreviousWorldSpaceCameraPositions;
+            TextureDesc colorDesc = color.GetDescriptor(renderGraph);
+            TextureHandle output = TextureHandle.nullHandle;
+
+            io.enableTexArray = false;
+            io.numActiveViews = 1;
+            for (int viewIndex = 0; viewIndex < viewCount; viewIndex++)
+            {
+                ViewInputs inputs = m_ViewInputs[viewIndex];
+                io.projectionMatrices = SliceView(projection, inputs.projection, viewIndex);
+                io.previousProjectionMatrices = SliceView(previousProjection, inputs.previousProjection, viewIndex);
+                io.previousPreviousProjectionMatrices = SliceView(previousPreviousProjection, inputs.previousPreviousProjection, viewIndex);
+                io.viewMatrices = SliceView(view, inputs.view, viewIndex);
+                io.previousViewMatrices = SliceView(previousView, inputs.previousView, viewIndex);
+                io.previousPreviousViewMatrices = SliceView(previousPreviousView, inputs.previousPreviousView, viewIndex);
+                io.worldSpaceCameraPositions = SliceView(position, inputs.position, viewIndex);
+                io.previousWorldSpaceCameraPositions = SliceView(previousPosition, inputs.previousPosition, viewIndex);
+                io.previousPreviousWorldSpaceCameraPositions = SliceView(previousPreviousPosition, inputs.previousPreviousPosition, viewIndex);
+                io.cameraColor = CopyViewToTexture(renderGraph, color, viewIndex, "_UpscalerViewColor");
+                io.cameraDepth = CopyViewToTexture(renderGraph, depth, viewIndex, "_UpscalerViewDepth");
+                io.motionVectorColor = motionVectors.IsValid() ? CopyViewToTexture(renderGraph, motionVectors, viewIndex, "_UpscalerViewMotionVectors") : motionVectors;
+                io.reactiveMask = reactiveMask.IsValid() ? CopyViewToTexture(renderGraph, reactiveMask, viewIndex, "_UpscalerViewReactiveMask") : reactiveMask;
+                io.context = UniversalRenderPipeline.upscaling.AcquireContext((ulong)HashCode.Combine(io.cameraInstanceID, viewIndex), upscaler, upscalerOptions, io.postUpscaleResolution);
+
+                upscaler.RecordRenderGraph(renderGraph, frameData);
+
+                if (!output.IsValid())
+                {
+                    TextureDesc outputDesc = io.cameraColor.GetDescriptor(renderGraph);
+                    outputDesc.dimension = colorDesc.dimension;
+                    outputDesc.slices = colorDesc.slices;
+                    outputDesc.vrUsage = colorDesc.vrUsage;
+                    outputDesc.enableRandomWrite = false;
+                    outputDesc.clearBuffer = false;
+                    outputDesc.name = k_UpscaledColorTargetName;
+                    output = renderGraph.CreateTexture(outputDesc);
+                }
+                CopySlice(renderGraph, io.cameraColor, 0, output, viewIndex);
+            }
+
+            io.cameraColor = output;
+            io.cameraDepth = depth;
+            io.motionVectorColor = motionVectors;
+            io.reactiveMask = reactiveMask;
+            io.enableTexArray = true;
+            io.numActiveViews = viewCount;
+            io.projectionMatrices = projection;
+            io.previousProjectionMatrices = previousProjection;
+            io.previousPreviousProjectionMatrices = previousPreviousProjection;
+            io.viewMatrices = view;
+            io.previousViewMatrices = previousView;
+            io.previousPreviousViewMatrices = previousPreviousView;
+            io.worldSpaceCameraPositions = position;
+            io.previousWorldSpaceCameraPositions = previousPosition;
+            io.previousPreviousWorldSpaceCameraPositions = previousPreviousPosition;
+        }
+
+        static T[] SliceView<T>(T[] source, T[] slice, int viewIndex)
+        {
+            if (source == null || viewIndex >= source.Length)
+                return source;
+
+            slice[0] = source[viewIndex];
+            return slice;
+        }
+
+        static TextureHandle CopyViewToTexture(RenderGraph renderGraph, TextureHandle source, int viewIndex, string name)
+        {
+            TextureDesc desc = source.GetDescriptor(renderGraph);
+            desc.dimension = TextureDimension.Tex2D;
+            desc.slices = 1;
+            desc.vrUsage = VRTextureUsage.None;
+            desc.clearBuffer = false;
+            desc.discardBuffer = false;
+            desc.name = name;
+            TextureHandle destination = renderGraph.CreateTexture(desc);
+            CopySlice(renderGraph, source, viewIndex, destination, 0);
+            return destination;
+        }
+
+        static void CopySlice(RenderGraph renderGraph, TextureHandle source, int sourceSlice, TextureHandle destination, int destinationSlice)
+        {
+            using (var builder = renderGraph.AddUnsafePass<ViewCopyPassData>("Upscaler View Copy", out var passData, k_ViewCopyProfilingSampler))
+            {
+                passData.source = source;
+                passData.destination = destination;
+                passData.sourceSlice = sourceSlice;
+                passData.destinationSlice = destinationSlice;
+                builder.UseTexture(source, AccessFlags.Read);
+                builder.UseTexture(destination, destinationSlice == 0 ? AccessFlags.Write : AccessFlags.ReadWrite);
+                builder.SetRenderFunc(static (ViewCopyPassData data, UnsafeGraphContext ctx) =>
+                    CommandBufferHelpers.GetNativeCommandBuffer(ctx.cmd).CopyTexture(data.source, data.sourceSlice, data.destination, data.destinationSlice));
+            }
+        }
+
         static internal bool RequiresReactiveMaskPass(IUpscaler upscaler)
         {
             UpscalerOptions upscalerOptions = UniversalRenderPipeline.upscaling.GetGlobalOptions(upscaler);

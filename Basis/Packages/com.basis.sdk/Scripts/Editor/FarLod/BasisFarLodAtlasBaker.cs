@@ -1629,7 +1629,7 @@ public static class BasisFarLodAtlasBaker
                 _fog = RenderSettings.fog,
             };
 
-            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            Light[] lights = Object.FindObjectsByType<Light>();
             List<Light> disabled = new List<Light>(lights.Length);
             for (int i = 0; i < lights.Length; i++)
             {

@@ -25,15 +25,15 @@ public partial class BasisAvatarSDKInspector : Editor
     public static event Action ValueChanged;
     public VisualTreeAsset visualTree;
     public BasisAvatar Avatar;
-    public VisualElement uiElementsRoot;
+    [NonSerialized] public VisualElement uiElementsRoot;
     public bool AvatarEyePositionState = false;
     public bool AvatarMouthPositionState = false;
-    public VisualElement rootElement;
-    public AvatarSDKVisemes AvatarSDKVisemes = new AvatarSDKVisemes();
+    [NonSerialized] public VisualElement rootElement;
+    [NonSerialized] public AvatarSDKVisemes AvatarSDKVisemes = new AvatarSDKVisemes();
     public Button EventCallbackAvatarBundleButton { get; private set; }
     private Label resultLabel; // Store the result label for later clearing
     public string Error;
-    public BasisAvatarValidator BasisAvatarValidator;
+    [NonSerialized] public BasisAvatarValidator BasisAvatarValidator;
 
     [InitializeOnLoadMethod]
     private static void InitializeTestInEditorHooks()

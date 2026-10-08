@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management;
@@ -14,13 +15,14 @@ namespace Basis.Scripts.UI
     /// the interaction line colour from <see cref="BasisSettingsDefaults.PickupLineColor"/>.
     /// An unset colour keeps the built-in appearance. Re-applied on every settings change.
     /// </summary>
-    public static class BasisRaycastLineCustomization
+    [AutoStaticsCleanup]
+    public static partial class BasisRaycastLineCustomization
     {
         private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorID = Shader.PropertyToID("_Color");
         private static MaterialPropertyBlock _block;
 
-        private static readonly Gradient DefaultUiGradient = BuildDefaultUiGradient();
+        [NoAutoStaticsCleanup] private static readonly Gradient DefaultUiGradient = BuildDefaultUiGradient();
 
         public static float Width => BasisSettingsDefaults.RaycastLineWidth.RawValue;
 

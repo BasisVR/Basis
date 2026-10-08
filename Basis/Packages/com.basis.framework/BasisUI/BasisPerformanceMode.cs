@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -24,7 +25,8 @@ namespace Basis.BasisUI
     /// <para>Edits the player makes to a controlled setting while the mode is on are folded
     /// back into the snapshot, so they survive turning the mode off again.</para>
     /// </summary>
-    public static class BasisPerformanceMode
+    [AutoStaticsCleanup]
+    public static partial class BasisPerformanceMode
     {
         public const string LevelOff = "Off";
         public const string LevelLight = "Light";
@@ -32,7 +34,7 @@ namespace Basis.BasisUI
         public const string LevelAggressive = "Aggressive";
 
         /// <summary>Occupant counts (local player included) that arm Light / Balanced / Aggressive.</summary>
-        public static readonly int[] PopulationThresholds = { 250, 500, 1000 };
+        [NoAutoStaticsCleanup] public static readonly int[] PopulationThresholds = { 250, 500, 1000 };
 
         private const float DeEscalateMargin = 0.9f;
         private const int AutoFrameGateMask = 31;
@@ -71,8 +73,8 @@ namespace Basis.BasisUI
             public List<BaselineEntry> Entries = new List<BaselineEntry>();
         }
 
-        private static readonly string[] QualityTiers = { "Very Low", "Low", "Medium", "High", "Ultra" };
-        private static readonly string[] AntialiasingTiers = { "Off", "MSAA 2X", "MSAA 4X", "MSAA 8X" };
+        [NoAutoStaticsCleanup] private static readonly string[] QualityTiers = { "Very Low", "Low", "Medium", "High", "Ultra" };
+        [NoAutoStaticsCleanup] private static readonly string[] AntialiasingTiers = { "Off", "MSAA 2X", "MSAA 4X", "MSAA 8X" };
 
         private static FloatRule[] _floatRules;
         private static BoolRule[] _boolRules;

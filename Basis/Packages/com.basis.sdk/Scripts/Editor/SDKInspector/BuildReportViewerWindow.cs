@@ -296,7 +296,7 @@ public class BuildReportViewerWindow : EditorWindow
 
     private Type GetTypeFromAllAssemblies(string typeName)
     {
-        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (Assembly assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             Type type = assembly.GetType(typeName);
             if (type != null) return type;

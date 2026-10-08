@@ -298,13 +298,10 @@ namespace UnityEngine.Rendering.Universal
             // Calculate a bias value which corrects the mip lod selection logic when image scaling is active.
             float mipBias;
 #if ENABLE_UPSCALER_FRAMEWORK
-            IUpscaler activeUpscaler = UniversalRenderPipeline.upscaling?.activeUpscaler;
+            IUpscaler activeUpscaler = UniversalRenderPipeline.GetCameraUpscaler(camera);
             if (activeUpscaler != null && activeUpscaler.isTemporal && cameraData.imageScalingMode == ImageScalingMode.Upscaling)
             {
-                // Temporal upscaler is active - use its mip bias calculation directly, bypassing TAA settings
-                Vector2Int preRes = new Vector2Int((int)scaledCameraTargetWidth, (int)scaledCameraTargetHeight);
-                Vector2Int postRes = new Vector2Int((int)cameraWidth, (int)cameraHeight);
-                mipBias = activeUpscaler.CalculateMipBias(preRes, postRes);
+                mipBias = Mathf.Min(Mathf.Min(Mathf.Log(scaledCameraTargetWidth / cameraWidth, 2f), Mathf.Log(scaledCameraTargetHeight / cameraHeight, 2f)), 0f);
             }
             else
 #endif

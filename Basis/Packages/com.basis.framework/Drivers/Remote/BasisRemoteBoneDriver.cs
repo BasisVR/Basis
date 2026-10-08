@@ -1,4 +1,5 @@
-﻿using Basis.Network.Core.Compression;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.Network.Core.Compression;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -526,27 +527,28 @@ public struct WriteBoneRotationJob : IJobParallelForTransform
 /// Static orchestration layer for remote bone simulation.
 /// Manages persistent SoA buffers, TransformAccessArrays, scheduling, and disposal.
 /// </summary>
-public static class RemoteBoneJobSystem
+[AutoStaticsCleanup]
+public static partial class RemoteBoneJobSystem
 {
     // Persistent SoA
     /// <summary>Authoring TPose/offsets per avatar.</summary>
-    static NativeList<TposeAndOffsetDataJob> sAuthoring;
+    [NoAutoStaticsCleanup] static NativeList<TposeAndOffsetDataJob> sAuthoring;
     /// <summary>Per-frame scale caches per avatar.</summary>
-    static NativeList<RemoteScaleCache> sScale;
+    [NoAutoStaticsCleanup] static NativeList<RemoteScaleCache> sScale;
     /// <summary>Per-frame pose outputs per avatar.</summary>
-    static NativeList<RemoteFrameOutput> sOut;
+    [NoAutoStaticsCleanup] static NativeList<RemoteFrameOutput> sOut;
     /// <summary>Separate mouth-only world positions for fast lookup (avoids full RemoteFrameOutput copy).</summary>
-    static NativeList<float3> sMouthPositions;
+    [NoAutoStaticsCleanup] static NativeList<float3> sMouthPositions;
     /// <summary>Mouth facing directions, kept beside <see cref="sMouthPositions"/>.</summary>
-    static NativeList<float3> sMouthForwards;
+    [NoAutoStaticsCleanup] static NativeList<float3> sMouthForwards;
 
     // Cached TPose quats (job friendly)
     /// <summary>TPose head quaternions per avatar.</summary>
-    static NativeList<quaternion> sTPoseHeadRot;
+    [NoAutoStaticsCleanup] static NativeList<quaternion> sTPoseHeadRot;
     /// <summary>TPose hips quaternions per avatar.</summary>
-    static NativeList<quaternion> sTPoseHipsRot;
+    [NoAutoStaticsCleanup] static NativeList<quaternion> sTPoseHipsRot;
     /// <summary>TPose hips localPosition per avatar — base for the hips delta apply.</summary>
-    static NativeList<float3> sTPoseHipsLocalPos;
+    [NoAutoStaticsCleanup] static NativeList<float3> sTPoseHipsLocalPos;
     /// <summary>
     /// Generic→rig decode operators for the HIPS rotation, per avatar:
     /// <c>hips.localRotation = sHipsDecodePre[i] * networkHipsRotation * sHipsDecodePost[i]</c>.
@@ -555,38 +557,38 @@ public static class RemoteBoneJobSystem
     /// avatar's own TposeLocal[Hips] and TposeFromRoot[Hips] — see
     /// <see cref="Basis.Network.Core.Compression.BasisGenericBoneRotation"/>.
     /// </summary>
-    static NativeList<quaternion> sHipsDecodePre;
+    [NoAutoStaticsCleanup] static NativeList<quaternion> sHipsDecodePre;
     /// <summary>Right factor of the pair above; see <see cref="sHipsDecodePre"/>.</summary>
-    static NativeList<quaternion> sHipsDecodePost;
+    [NoAutoStaticsCleanup] static NativeList<quaternion> sHipsDecodePost;
 
     // Transform access arrays (roots / hips). Both write-only now — nothing on this path reads a
     // transform back.
     /// <summary>Root transforms per avatar.</summary>
-    static TransformAccessArray sRoots;
+    [NoAutoStaticsCleanup] static TransformAccessArray sRoots;
     /// <summary>Hips transforms per avatar.</summary>
-    static TransformAccessArray sHips;
+    [NoAutoStaticsCleanup] static TransformAccessArray sHips;
 
     // ─── Baked hips→head chain (replaces the head transform read-back) ───
     /// <summary>Chain links, flat with a fixed <see cref="HeadChainStride"/> block per avatar.</summary>
-    static NativeList<HeadChainLink> sHeadChain;
+    [NoAutoStaticsCleanup] static NativeList<HeadChainLink> sHeadChain;
     /// <summary>Per-avatar chain length + base scale, parallel to the SoA.</summary>
-    static NativeList<HeadChainHeader> sHeadChainHeader;
+    [NoAutoStaticsCleanup] static NativeList<HeadChainHeader> sHeadChainHeader;
     /// <summary>Per-avatar stride in <see cref="sHeadChain"/>. A humanoid spine chain uses 5; the
     /// slack absorbs rigs that sync extra bones between hips and head.</summary>
     public const int HeadChainStride = 8;
 
     /// <summary>Nameplate transforms per avatar.</summary>
-    static TransformAccessArray sNamePlate;
+    [NoAutoStaticsCleanup] static TransformAccessArray sNamePlate;
     /// <summary>Avatar scale proxy transforms per avatar.</summary>
-    static TransformAccessArray sAvatarScale;
+    [NoAutoStaticsCleanup] static TransformAccessArray sAvatarScale;
     /// <summary>Mouth transforms per avatar.</summary>
-    static TransformAccessArray sMouth;
+    [NoAutoStaticsCleanup] static TransformAccessArray sMouth;
 
     // ─── Skeleton bone rotation job data ───
     // Flat TAA holding ALL bone transforms for ALL remote players.
     // Layout: [player0_bone0..bone(N-1), player1_bone0..bone(N-1), ...]
     // where N = BasisBoneRotationCompression.SyncBoneCount (51).
-    static TransformAccessArray sSkeletonBones;
+    [NoAutoStaticsCleanup] static TransformAccessArray sSkeletonBones;
     /// <summary>
     /// Left factor of the generic→rig decode, flat parallel to sSkeletonBones:
     /// <c>localRotation = sSkeletonDecodePre[i] * networkRotation * sSkeletonDecodePost[i]</c>.
@@ -595,20 +597,20 @@ public static class RemoteBoneJobSystem
     /// frame the pair reduces to (T-pose local, identity), i.e. the plain T-pose × delta compose
     /// this used to be.
     /// </summary>
-    static NativeList<quaternion> sSkeletonDecodePre;
+    [NoAutoStaticsCleanup] static NativeList<quaternion> sSkeletonDecodePre;
     /// <summary>Right factor of the pair above; see <see cref="sSkeletonDecodePre"/>.</summary>
-    static NativeList<quaternion> sSkeletonDecodePost;
+    [NoAutoStaticsCleanup] static NativeList<quaternion> sSkeletonDecodePost;
     /// <summary>Valid mask (1 = bone exists, 0 = null/skip), flat parallel to sSkeletonBones.</summary>
-    static NativeList<byte> sSkeletonValid;
+    [NoAutoStaticsCleanup] static NativeList<byte> sSkeletonValid;
     /// <summary>Precomputed local rotations (decode operators × network rotation) consumed by <see cref="ApplySkeletonRotationsJob"/>.</summary>
-    static NativeArray<quaternion> sSkeletonRotations;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sSkeletonRotations;
     /// <summary>Last rotation actually written to each bone transform, parallel to
     /// <see cref="sSkeletonRotations"/>. Owned by the compute pass and refreshed by the
     /// effector-IK write-back; (0,0,0,0) reads as "no known value" and forces a write.</summary>
-    static NativeArray<quaternion> sSkeletonLastWritten;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sSkeletonLastWritten;
     /// <summary>Per-bone write gate produced by the compute pass: 1 = the rotation changed and the
     /// transform must be written, 0 = skip. Already accounts for <see cref="sSkeletonValid"/>.</summary>
-    static NativeArray<byte> sSkeletonWriteMask;
+    [NoAutoStaticsCleanup] static NativeArray<byte> sSkeletonWriteMask;
 
     /// <summary>
     /// Capacity to allocate for a required length: rounds up so a steadily growing instance
@@ -622,34 +624,34 @@ public static class RemoteBoneJobSystem
         return capacity;
     }
     /// <summary>End-effector IK flat buffers, parallel to sSkeletonBones: read-pose outputs + local overrides.</summary>
-    static NativeArray<float3> sIkReadPos;
-    static NativeArray<quaternion> sIkReadWorldRot;
-    static NativeArray<quaternion> sIkReadLocalRot;
-    static NativeArray<quaternion> sIkOverrideRot;
-    static NativeArray<byte> sIkOverrideMask;
+    [NoAutoStaticsCleanup] static NativeArray<float3> sIkReadPos;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sIkReadWorldRot;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sIkReadLocalRot;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sIkOverrideRot;
+    [NoAutoStaticsCleanup] static NativeArray<byte> sIkOverrideMask;
     /// <summary>Dummy transform for null bone slots in the TAA.</summary>
     static Transform sDummyBone;
 
     // Temp per-frame buffers (reused)
     /// <summary>Head world pose, produced by the head-chain FK inside BulkCopyHipsAndDeriveJob and
     /// consumed by <see cref="BasisRemoteBoneJob"/>.</summary>
-    static NativeArray<float3> sTmpHeadPos;
-    static NativeArray<quaternion> sTmpHeadRot;
+    [NoAutoStaticsCleanup] static NativeArray<float3> sTmpHeadPos;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sTmpHeadRot;
 
     // Hips world pose (populated from BasisRemoteNetworkDriver each frame).
     // The wire's Position/Rotation slots carry hips world directly so the server
     // reduction system reads hips for distance and the visually anchored bone
     // gets the high-precision channel.
-    static NativeArray<float3> sTmpHipsWorldPos;
-    static NativeArray<quaternion> sTmpHipsWorldRot;
-    static NativeArray<float3> sTmpAvatarScales;
-    static NativeArray<byte> sTmpScaleChanged;
+    [NoAutoStaticsCleanup] static NativeArray<float3> sTmpHipsWorldPos;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sTmpHipsWorldRot;
+    [NoAutoStaticsCleanup] static NativeArray<float3> sTmpAvatarScales;
+    [NoAutoStaticsCleanup] static NativeArray<byte> sTmpScaleChanged;
     // Per-frame derived root world pose — written by the combined
     // BulkCopyHipsAndDeriveJob in one pass alongside the hips world copy and
     // scale. Input to ApplyRootAndScaleJob. Computed such that
     //   root.world × hips.local = hips.world (received).
-    static NativeArray<float3> sTmpRootDerivedPos;
-    static NativeArray<quaternion> sTmpRootDerivedRot;
+    [NoAutoStaticsCleanup] static NativeArray<float3> sTmpRootDerivedPos;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> sTmpRootDerivedRot;
 
     // Bookkeeping
     /// <summary>Map from external key → internal SoA index. Flat array indexed by ushort player ID; -1 = absent.</summary>
@@ -657,7 +659,7 @@ public static class RemoteBoneJobSystem
     /// <summary>Reverse map: internal SoA index → external key. Maintained directly by Add/Remove,
     /// so Schedule does not need to snapshot a managed List each frame. Sized to the high-water
     /// mark of <see cref="AuthoringLength"/>; consumers always pair it with an explicit count.</summary>
-    static NativeArray<int> sKeyArray;
+    [NoAutoStaticsCleanup] static NativeArray<int> sKeyArray;
     /// <summary>
     /// Native mirror of each remote player's face visibility, indexed by ushort player ID — the
     /// same key space as <see cref="sKeyToIndex"/>, so entries never move when the SoA
@@ -666,7 +668,7 @@ public static class RemoteBoneJobSystem
     /// themselves instead of the main thread walking the receiver list to marshal one bool per
     /// player. 0 = hidden, 1 = visible.
     /// </summary>
-    static NativeArray<byte> sFaceVisible;
+    [NoAutoStaticsCleanup] static NativeArray<byte> sFaceVisible;
     /// <summary>
     /// Native mirror of whether each player's nameplate is currently being displayed, indexed by
     /// ushort player ID like <see cref="sFaceVisible"/>. Owned entirely by
@@ -674,7 +676,7 @@ public static class RemoteBoneJobSystem
     /// disabled, blocked, out of range, face-hidden or switched off in settings costs no
     /// transform write in <see cref="MappedNameplateApplyJob"/>. 0 = not displayed.
     /// </summary>
-    static NativeArray<byte> sNamePlateActive;
+    [NoAutoStaticsCleanup] static NativeArray<byte> sNamePlateActive;
     /// <summary>Key space of <see cref="sFaceVisible"/> and <see cref="sKeyToIndex"/>.</summary>
     const int KeySpace = 65536;
 
@@ -774,7 +776,7 @@ public static class RemoteBoneJobSystem
 
     /// <summary>Scratch for <see cref="BakeHeadChain"/>. Main-thread only, one avatar at a time.</summary>
     static readonly List<Transform> sBakeWalk = new List<Transform>(32);
-    static readonly HeadChainLink[] sBakeLinks = new HeadChainLink[HeadChainStride];
+    [NoAutoStaticsCleanup] static readonly HeadChainLink[] sBakeLinks = new HeadChainLink[HeadChainStride];
 
     /// <summary>Component-wise divide that won't blow up on a zero/degenerate denominator.</summary>
     static float3 SafeRatio(float3 numerator, float3 denominator)

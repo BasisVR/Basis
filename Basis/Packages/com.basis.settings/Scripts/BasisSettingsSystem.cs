@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.IO;
@@ -60,10 +61,11 @@ namespace Basis.Scripts.Settings
         }
     }
 
-    public static class BasisSettingsSystem
+    [AutoStaticsCleanup]
+    public static partial class BasisSettingsSystem
     {
         public const string SettingsJson = "settingsConfig.json";
-        private static string _filePath;
+        [NoAutoStaticsCleanup] private static string _filePath;
         private static string FilePath => _filePath ??= Path.Combine(Application.persistentDataPath, SettingsJson);
         // private static readonly string currentVersion = "2.0.5";
         private static SettingsData settingsData = new SettingsData();
@@ -85,9 +87,9 @@ namespace Basis.Scripts.Settings
         /// UniqueName, OptionValue
         /// </summary>
         public static event Action<string, string> OnSettingChanged;
-        public static event Action OnSettingsFinishedChanges;
+        [NoAutoStaticsCleanup] public static event Action OnSettingsFinishedChanges;
         private static int _batchDepth;
-        private static bool _batchSavePending;
+        [NoAutoStaticsCleanup] private static bool _batchSavePending;
         private static bool _batchFinishPending;
 
         /// <summary>
@@ -176,7 +178,9 @@ namespace Basis.Scripts.Settings
             {
                 BasisSettingsSystem.LoadAllSettings();
             }
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
+            Application.quitting -= FlushPendingSaves;
             Application.quitting += FlushPendingSaves;
         }
 
@@ -470,9 +474,9 @@ namespace Basis.Scripts.Settings
             ForceQualityRefresh();
         }
 
-        private static readonly object _saveLock = new object();
-        private static string _pendingSaveJson;
-        private static bool _saveInFlight;
+        [NoAutoStaticsCleanup] private static readonly object _saveLock = new object();
+        [NoAutoStaticsCleanup] private static string _pendingSaveJson;
+        [NoAutoStaticsCleanup] private static bool _saveInFlight;
 
         public static void SaveAllSettings()
         {

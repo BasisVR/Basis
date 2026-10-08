@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Basis.BasisUI;
@@ -12,7 +13,8 @@ using UnityEngine;
 
 namespace Basis.Integration.TrackerObjects
 {
-    internal static class BasisTrackerObjectsLibraryHook
+    [AutoStaticsCleanup]
+    internal static partial class BasisTrackerObjectsLibraryHook
     {
         private static readonly Vector2 PickerSize = new Vector2(900, 720);
         private static readonly Vector2 RowSize = new Vector2(80, 80);

@@ -16,7 +16,7 @@ namespace HVR.Vixxy
         static HVR_ComponentDictionary()
         {
             // This whole operation takes a non-negligible amount of time, so only do it once.
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
             foreach (var assembly in assemblies)
             {
                 foreach (var type in assembly.GetTypes())

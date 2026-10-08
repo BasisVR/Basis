@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -6,7 +7,8 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using UnityEngine;
-public static class BasisAutoScaleEstimator
+[AutoStaticsCleanup]
+public static partial class BasisAutoScaleEstimator
 {
     const float MinEyeHeight = 1.10f;
     const float MaxEyeHeight = 2.10f;
@@ -80,7 +82,8 @@ public static class BasisAutoScaleEstimator
         return maxArmSpan > 0f ? Mathf.Clamp(maxArmSpan, lo, hi) : eyeHeight;
     }
 }
-public static class BasisCalibrationRefitGate
+[AutoStaticsCleanup]
+public static partial class BasisCalibrationRefitGate
 {
     static readonly HashSet<BasisInteractableObject> sheld = new();
     public static void MarkInteracting(BasisInteractableObject interactable)

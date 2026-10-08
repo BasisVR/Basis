@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
@@ -10,7 +11,8 @@ namespace Basis.Scripts.Rendering
     /// LateUpdate. Unlike the removed staged renderer reveal, this never exposes body and clothing
     /// in different frames: every renderer is suppressed and restored as one unit.
     /// </summary>
-    public static class BasisAvatarPsoReveal
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarPsoReveal
     {
         private const int RevealPriority = 10000;
         public static bool Enabled = false;

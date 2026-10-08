@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Threading.Tasks;
 
@@ -11,7 +12,8 @@ namespace Basis.Scripts.BasisSdk.Players
     // SDK-side local player data. Framework's BasisLocalPlayer writes Instance
     // when present; otherwise the SDK editor preview writes a stand-in (gated
     // by BASIS_FRAMEWORK_EXISTS so only one writer ever runs).
-    public static class BasisLocalPlayerData
+    [AutoStaticsCleanup]
+    public static partial class BasisLocalPlayerData
     {
         public static IBasisLocalPlayer Instance;
         public static bool PlayerReady;

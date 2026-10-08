@@ -5,10 +5,12 @@
 #elif UNITY_EDITOR_LINUX || (UNITY_STANDALONE_LINUX && !UNITY_EDITOR)
 #define BASIS_VIDEO_OUTPUT_V4L2
 #endif
+using Unity.Scripting.LifecycleManagement;
 using Basis;
 using System.Collections.Generic;
 using UnityEngine;
-public static class BasisCameraVideoPlatform
+[AutoStaticsCleanup]
+public static partial class BasisCameraVideoPlatform
 {
     private static readonly HashSet<string> ClaimedSenderNames = new HashSet<string>();
     private static readonly HashSet<int> ClaimedWebPorts = new HashSet<int>();

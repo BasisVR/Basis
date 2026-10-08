@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management;
 using UnityEngine;
 public enum BasisCameraDirectToScreenState
@@ -15,11 +16,12 @@ public enum BasisCameraDirectToScreenFit
     Stretch = 2,
     MatchWindow = 3,
 }
-public static class BasisCameraDirectToScreen
+[AutoStaticsCleanup]
+public static partial class BasisCameraDirectToScreen
 {
     public const int MaxMatchWindowFeedDimension = 4096;
     public static readonly Vector2 DefaultAlignment = new Vector2(0.5f, 0.5f);
-    public static readonly string[] FitKeys = { "camera.directToScreen.fit.fit", "camera.directToScreen.fit.fill", "camera.directToScreen.fit.stretch", "camera.directToScreen.fit.matchWindow" };
+    [NoAutoStaticsCleanup] public static readonly string[] FitKeys = { "camera.directToScreen.fit.fit", "camera.directToScreen.fit.fill", "camera.directToScreen.fit.stretch", "camera.directToScreen.fit.matchWindow" };
 #if UNITY_INCLUDE_TESTS
     public static bool? VRModeOverrideForTest;
 #endif

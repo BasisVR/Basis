@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,8 +8,9 @@ namespace Basis.BasisUI
     /// <summary>
     /// This is the backing data that supports and manages the MenuInstance in the scene.
     /// </summary>
+    [AutoStaticsCleanup]
     [Serializable]
-    public abstract class BasisMenuBase<TMenu> where TMenu : BasisMenuBase<TMenu>
+    public abstract partial class BasisMenuBase<TMenu> where TMenu : BasisMenuBase<TMenu>
     {
 
         public static implicit operator bool(BasisMenuBase<TMenu> menu) => menu != null;

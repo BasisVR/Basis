@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.BasisUI;
 using Basis.Scripts.Networking;
@@ -10,7 +11,8 @@ namespace Basis.Streaming
     /// <see cref="BasisSettingsDefaults.EnableStreamingMeta"/> so the listener
     /// starts/stops the moment the user flips the toggle.
     /// </summary>
-    public sealed class BasisStreamingMetaRuntime : MonoBehaviour
+    [AutoStaticsCleanup]
+    public sealed partial class BasisStreamingMetaRuntime : MonoBehaviour
     {
         public const string Host = "127.0.0.1";
         public const int DefaultPort = 9080;

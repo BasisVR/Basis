@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -21,7 +22,8 @@ using UnityEngine;
 /// The cap is the viewer's setting, never the world's, for the same reason the
 /// decode route is: it describes this machine.
 /// </summary>
-public static class BasisMediaSessionGovernor
+[AutoStaticsCleanup]
+public static partial class BasisMediaSessionGovernor
 {
     /// <summary>How near a dormant player must be, as a fraction of the
     /// distance to the active player it would displace, before it takes its

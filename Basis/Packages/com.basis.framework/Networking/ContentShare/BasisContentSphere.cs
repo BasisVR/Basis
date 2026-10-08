@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
@@ -16,7 +17,8 @@ using static SerializableBasis;
 /// Interactable content share sphere that can be picked up to load content.
 /// Follows the BasisAvatarPedestal pattern for interaction and dialogue.
 /// </summary>
-public class BasisContentSphere : BasisInteractableObject
+[AutoStaticsCleanup]
+public partial class BasisContentSphere : BasisInteractableObject
 {
     public string SphereNetID { get; private set; }
     public string ContentURL { get; private set; }

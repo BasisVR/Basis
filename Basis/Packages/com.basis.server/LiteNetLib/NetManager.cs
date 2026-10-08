@@ -1384,7 +1384,7 @@ namespace LiteNetLib
                 {
                     ntpPacket.ValidateReply();
                 }
-                catch (InvalidOperationException ex)
+                catch (InvalidOperationException)
                 {
                     //NetDebug.Write(NetLogLevel.Trace, $"NTP response error: {ex.Message}");
                     ntpPacket = null;

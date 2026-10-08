@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
@@ -13,8 +14,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
     /// Provides hover, interact, and influence event management for input devices.
     /// Requires a <see cref="Rigidbody"/> if using trigger-based hover spheres.
     /// </summary>
+    [AutoStaticsCleanup]
     [Serializable]
-    public abstract class BasisInteractableObject : MonoBehaviour
+    public abstract partial class BasisInteractableObject : MonoBehaviour
     {
         /// <summary>
         /// Collider references used for range checks and interaction.

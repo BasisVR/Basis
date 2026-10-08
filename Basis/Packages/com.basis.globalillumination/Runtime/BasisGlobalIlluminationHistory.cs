@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-public sealed class BasisGlobalIlluminationHistory
+[AutoStaticsCleanup]
+public sealed partial class BasisGlobalIlluminationHistory
 {
     public readonly struct Key : System.IEquatable<Key>
     {
@@ -24,10 +26,10 @@ public sealed class BasisGlobalIlluminationHistory
 
     private static readonly Dictionary<Key, BasisGlobalIlluminationHistory> stores = new Dictionary<Key, BasisGlobalIlluminationHistory>();
     private static readonly List<Key> pruneScratch = new List<Key>();
-    private static readonly string[] indirectNames = { "_BasisGIHistoryIndirect0", "_BasisGIHistoryIndirect1" };
-    private static readonly string[] statsNames = { "_BasisGIHistoryStats0", "_BasisGIHistoryStats1" };
-    private static readonly string[] specularNames = { "_BasisGIHistorySpecular0", "_BasisGIHistorySpecular1" };
-    private static readonly string[] specularStatsNames = { "_BasisGIHistorySpecularStats0", "_BasisGIHistorySpecularStats1" };
+    [NoAutoStaticsCleanup] private static readonly string[] indirectNames = { "_BasisGIHistoryIndirect0", "_BasisGIHistoryIndirect1" };
+    [NoAutoStaticsCleanup] private static readonly string[] statsNames = { "_BasisGIHistoryStats0", "_BasisGIHistoryStats1" };
+    [NoAutoStaticsCleanup] private static readonly string[] specularNames = { "_BasisGIHistorySpecular0", "_BasisGIHistorySpecular1" };
+    [NoAutoStaticsCleanup] private static readonly string[] specularStatsNames = { "_BasisGIHistorySpecularStats0", "_BasisGIHistorySpecularStats1" };
     public static IReadOnlyDictionary<Key, BasisGlobalIlluminationHistory> Stores => stores;
 
     public RTHandle[] Indirect = new RTHandle[2];

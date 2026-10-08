@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.BasisUI;
 using Basis.Scripts.Audio;
@@ -28,7 +29,8 @@ using static SerializableBasis;
 /// camera and nameplate is an independent scene root so the transform writes spread
 /// across worker threads instead of serializing on a shared hierarchy.
 /// </summary>
-public static class BasisNetworkPIPCameraDriver
+[AutoStaticsCleanup]
+public static partial class BasisNetworkPIPCameraDriver
 {
     /// <summary>
     /// Fired when a remote player's PIP camera is created.
@@ -55,13 +57,13 @@ public static class BasisNetworkPIPCameraDriver
 
     // Dense per-camera SoA. Index i is shared across all of these plus the two
     // TransformAccessArrays and denseToPlayerId; swap-back removal keeps them aligned.
-    private static NativeList<float3> currentPositions;
-    private static NativeList<float3> targetPositions;
-    private static NativeList<quaternion> currentRotations;
-    private static NativeList<quaternion> targetRotations;
-    private static NativeList<float> nameplateHeights;
-    private static TransformAccessArray cameraTransforms;
-    private static TransformAccessArray namePlateTransforms;
+    [NoAutoStaticsCleanup] private static NativeList<float3> currentPositions;
+    [NoAutoStaticsCleanup] private static NativeList<float3> targetPositions;
+    [NoAutoStaticsCleanup] private static NativeList<quaternion> currentRotations;
+    [NoAutoStaticsCleanup] private static NativeList<quaternion> targetRotations;
+    [NoAutoStaticsCleanup] private static NativeList<float> nameplateHeights;
+    [NoAutoStaticsCleanup] private static TransformAccessArray cameraTransforms;
+    [NoAutoStaticsCleanup] private static TransformAccessArray namePlateTransforms;
     private static readonly List<ushort> denseToPlayerId = new();
     private static readonly Dictionary<ushort, int> playerIdToIndex = new();
     private static JobHandle pipHandle;

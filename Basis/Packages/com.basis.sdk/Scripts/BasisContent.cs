@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public static class BasisContent
+[AutoStaticsCleanup]
+public static partial class BasisContent
 {
     static readonly Dictionary<Scene, BasisScene> SceneContent = new Dictionary<Scene, BasisScene>();
     public static bool SpawnedByLocalPlayer(GameObject gameObject) => TryResolve(gameObject, out BasisContentBase content) && content.SpawnedByLocalPlayer;

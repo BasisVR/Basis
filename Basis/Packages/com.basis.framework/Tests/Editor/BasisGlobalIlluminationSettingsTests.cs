@@ -6,6 +6,7 @@ using System;
 using System.Globalization;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Rendering;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -17,22 +18,32 @@ namespace Basis.Tests.Graphics
     {
         private GameObject host;
         private Func<UnityEngine.Camera, bool> previousFilter;
+        private Func<UnityEngine.Camera, bool> previousReflectionFilter;
         private UnityEngine.Camera previousCameraInstance;
+        private BasisGlobalIlluminationSettings previousSettings;
 
         [SetUp]
         public void SetUp()
         {
             previousFilter = BasisGlobalIlluminationFeature.CameraFilter;
+            previousReflectionFilter = BasisReflectionFeature.CameraFilter;
             previousCameraInstance = BasisLocalCameraDriver.CameraInstance;
+            previousSettings = BasisGlobalIlluminationSettings.Current.Clone();
         }
 
         [TearDown]
         public void TearDown()
         {
             BasisGlobalIlluminationFeature.CameraFilter = previousFilter;
+            BasisReflectionFeature.CameraFilter = previousReflectionFilter;
             BasisLocalCameraDriver.CameraInstance = previousCameraInstance;
+            BasisGlobalIlluminationSettings.Current.CopyFrom(previousSettings);
             if (host != null)
             {
+                if (host.TryGetComponent(out SMModuleGlobalIlluminationURP module))
+                {
+                    module.RestoreAuthoredFeatureValues();
+                }
                 UnityEngine.Object.DestroyImmediate(host);
                 host = null;
             }
@@ -522,6 +533,70 @@ namespace Basis.Tests.Graphics
             finally
             {
                 feature.SetActive(authored);
+            }
+        }
+
+        [Test]
+        public void ReflectionsRunWithGlobalIlluminationOff()
+        {
+            SMModuleGlobalIlluminationURP module = NewModule();
+            module.ValidSettingsChange(BasisSettingsDefaults.UseGlobalIllumination.BindingKey, "false");
+            module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationSpecular.BindingKey, "true");
+            Assert.IsFalse(module.GlobalIllumination.enable);
+            Assert.IsTrue(module.GlobalIllumination.specular);
+            Assert.IsTrue(module.GlobalIllumination.SpecularActive());
+            BasisReflectionFeature feature = SMModuleGlobalIlluminationURP.FindReflectionFeature();
+            if (feature != null)
+            {
+                Assert.IsTrue(feature.isActive, "the reflection feature has to follow the reflections setting, not the global illumination one");
+            }
+        }
+
+        [Test]
+        public void ReflectionsKeepTheirOwnMode()
+        {
+            SMModuleGlobalIlluminationURP module = NewModule();
+            module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationMode.BindingKey, "ray traced");
+            module.ValidSettingsChange(BasisSettingsDefaults.ReflectionsMode.BindingKey, "screen space");
+            Assert.IsTrue(module.GlobalIllumination.IsRayTraced());
+            Assert.IsFalse(module.GlobalIllumination.IsSpecularRayTraced());
+
+            module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationMode.BindingKey, "screen space");
+            module.ValidSettingsChange(BasisSettingsDefaults.ReflectionsMode.BindingKey, "ray traced");
+            Assert.IsFalse(module.GlobalIllumination.IsRayTraced());
+            Assert.IsTrue(module.GlobalIllumination.IsSpecularRayTraced());
+        }
+
+        [Test]
+        public void PickingUnitysSolutionTurnsOnlyThatBasisEffectOff()
+        {
+            if (!BasisLightingSolutions.HasUnityGlobalIllumination || !BasisLightingSolutions.HasUnityReflections)
+            {
+                Assert.Ignore("The active render pipeline carries no Unity global illumination or reflections feature.");
+            }
+            SMModuleGlobalIlluminationURP module = NewModule();
+            bool useGlobalIllumination = BasisSettingsDefaults.UseGlobalIllumination.RawValue;
+            bool useReflections = BasisSettingsDefaults.GlobalIlluminationSpecular.RawValue;
+            BasisSettingsDefaults.UseGlobalIllumination.SetValueWithoutNotify(true);
+            BasisSettingsDefaults.GlobalIlluminationSpecular.SetValueWithoutNotify(true);
+            try
+            {
+                module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationSolution.BindingKey, "basis");
+                module.ValidSettingsChange(BasisSettingsDefaults.ReflectionsSolution.BindingKey, "basis");
+                Assert.IsTrue(module.GlobalIllumination.enable);
+                Assert.IsTrue(module.GlobalIllumination.specular);
+
+                module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationSolution.BindingKey, "unity");
+                Assert.IsFalse(module.GlobalIllumination.enable);
+                Assert.IsTrue(module.GlobalIllumination.specular, "the global illumination solution must not decide the reflections");
+
+                module.ValidSettingsChange(BasisSettingsDefaults.ReflectionsSolution.BindingKey, "unity");
+                Assert.IsFalse(module.GlobalIllumination.specular);
+            }
+            finally
+            {
+                BasisSettingsDefaults.UseGlobalIllumination.SetValueWithoutNotify(useGlobalIllumination);
+                BasisSettingsDefaults.GlobalIlluminationSpecular.SetValueWithoutNotify(useReflections);
             }
         }
 

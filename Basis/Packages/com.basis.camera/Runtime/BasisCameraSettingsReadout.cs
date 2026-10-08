@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Text;
 using Basis;
 using Basis.BasisUI;
@@ -24,7 +25,8 @@ using CameraSettings = BasisHandHeldCameraUI.CameraSettings;
 /// knowing is <em>which</em> of fifty values moved. That is the question this page exists for, and
 /// the colour is the answer to it.</para>
 /// </summary>
-public static class BasisCameraSettingsReadout
+[AutoStaticsCleanup]
+public static partial class BasisCameraSettingsReadout
 {
     private static readonly StringBuilder Builder = new StringBuilder(2048);
 

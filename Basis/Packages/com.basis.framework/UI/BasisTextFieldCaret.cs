@@ -1,12 +1,14 @@
+using Unity.Scripting.LifecycleManagement;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Basis.Scripts.UI
 {
-    public static class BasisTextFieldCaret
+    [AutoStaticsCleanup]
+    public static partial class BasisTextFieldCaret
     {
-        private static readonly Event CaretEvent = new Event();
+        [NoAutoStaticsCleanup] private static readonly Event CaretEvent = new Event();
 
         private static TMP_Text overflowPatchedLabel;
         private static TextOverflowModes overflowPreviousMode;

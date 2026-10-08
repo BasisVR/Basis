@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -12,7 +13,8 @@ namespace Basis.Scripts.Drivers
     // persistentDataPath/ArmIKRuntime. Records the SOLVED bones (upper-arm / elbow / hand) plus the IK
     // inputs (hand target, elbow hint, hint-on) so the diff shows exactly what moves when the elbow
     // jitters while the hand is held rock-solid. Cheap no-op (one bool) when not capturing.
-    public static class BasisArmIKRuntimeRecorder
+    [AutoStaticsCleanup]
+    public static partial class BasisArmIKRuntimeRecorder
     {
         public static bool Active { get; private set; }
         static readonly List<string> _rows = new List<string>(8192);

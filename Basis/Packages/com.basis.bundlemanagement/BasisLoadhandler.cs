@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -11,7 +12,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using static BasisSerialization;
 using static BundledContentHolder;
-public static class BasisLoadHandler
+[AutoStaticsCleanup]
+public static partial class BasisLoadHandler
 {
     public static bool IsInitialized = false;
     public static ConcurrentDictionary<string, BasisTrackedBundleWrapper> LoadedBundles = new ConcurrentDictionary<string, BasisTrackedBundleWrapper>();
@@ -22,7 +24,15 @@ public static class BasisLoadHandler
     {
         BasisDebug.Log("Game has started after scene load.", BasisDebug.LogTag.Event);
         await EnsureInitializationComplete();
+        SceneManager.sceneUnloaded -= SceneUnloaded;
         SceneManager.sceneUnloaded += SceneUnloaded;
+        Application.quitting -= OnQuitting;
+        Application.quitting += OnQuitting;
+    }
+    private static void OnQuitting()
+    {
+        Application.quitting -= OnQuitting;
+        SceneManager.sceneUnloaded -= SceneUnloaded;
     }
     private static async void SceneUnloaded(Scene UnloadedScene)
     {

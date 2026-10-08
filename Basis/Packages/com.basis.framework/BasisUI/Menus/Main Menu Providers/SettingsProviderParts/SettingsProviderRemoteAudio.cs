@@ -1,4 +1,5 @@
-﻿using Basis.Scripts.Networking;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
 using SteamAudio;
 using System;
@@ -13,7 +14,8 @@ namespace Basis.BasisUI
     /// Settings tab for remote player audio configuration.
     /// Exposes AudioSource and Steam Audio settings that apply to all remote players.
     /// </summary>
-    public static class SettingsProviderRemoteAudio
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderRemoteAudio
     {
         [RuntimeInitializeOnLoadMethod]
         static void Init()

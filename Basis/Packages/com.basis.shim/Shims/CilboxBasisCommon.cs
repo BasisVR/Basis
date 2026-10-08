@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using System.Collections.Generic;
 using System;
@@ -6,9 +7,10 @@ using Basis.Scripts.BasisSdk.Constraints;
 
 namespace Cilbox
 {
-	public abstract class CilboxBasisCommon : Cilbox
+	[AutoStaticsCleanup]
+	public abstract partial class CilboxBasisCommon : Cilbox
 	{
-		protected static readonly HashSet<string> commonWhiteListType = new HashSet<string>(){
+		[NoAutoStaticsCleanup] protected static readonly HashSet<string> commonWhiteListType = new HashSet<string>(){
 			// Text Mesh Pro types
 			"TMPro.*",
 
@@ -790,6 +792,15 @@ namespace Cilbox
 			}
 
 			return true;
+		}
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		static void LoadBclFacades()
+		{
+			foreach (string name in new[] { "mscorlib", "System", "System.Core" })
+			{
+				try { Assembly.Load(new AssemblyName(name)); } catch (Exception) { }
+			}
 		}
 
 		public override bool GetTypeOverride(string sType, out Type t)

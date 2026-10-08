@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -29,7 +30,7 @@ namespace Basis.BasisUI.HandHeldCamera
         /// its own internal numbering; four steps is what anybody actually chooses between, and the
         /// setting still stores the raw value so a file naming one of the other six keeps it.
         /// </summary>
-        private static readonly int[] GrainTypeValues =
+        [NoAutoStaticsCleanup] private static readonly int[] GrainTypeValues =
         {
             (int)UnityEngine.Rendering.Universal.FilmGrainLookup.Thin2,
             (int)UnityEngine.Rendering.Universal.FilmGrainLookup.Medium1,
@@ -37,7 +38,7 @@ namespace Basis.BasisUI.HandHeldCamera
             (int)UnityEngine.Rendering.Universal.FilmGrainLookup.Large02,
         };
 
-        private static readonly string[] GrainTypeKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] GrainTypeKeys =
         {
             "camera.filmGrain.type.fine",
             "camera.filmGrain.type.medium",

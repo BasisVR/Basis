@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using UnityEngine;
 
-public class SMModuleSitStand : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleSitStand : BasisSettingsBase
 {
     public static bool IsSteatedMode = false;
     public static float MissingHeightDelta = 0;

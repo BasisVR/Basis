@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,7 +13,8 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class BasisSpawnAnchors
+    [AutoStaticsCleanup]
+    public static partial class BasisSpawnAnchors
     {
         [Serializable]
         public class SpawnAnchor

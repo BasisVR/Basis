@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using System.Collections.Generic;
 using System;
@@ -5,8 +6,9 @@ using System.Reflection;
 
 namespace Cilbox
 {
+	[AutoStaticsCleanup]
 	[CilboxTarget]
-	public class CilboxPropBasis : CilboxBasisCommon
+	public partial class CilboxPropBasis : CilboxBasisCommon
 	{
 		static readonly HashSet<string> extraWhiteListType = new HashSet<string>(){
 			// Prop-specific Basis types
@@ -375,7 +377,7 @@ namespace Cilbox
 			return base.CheckMethodAllowed(out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature);
 		}
 
-		static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);
+		[NoAutoStaticsCleanup] static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);
 		public static HashSet<string> GetWhiteListTypes() => mergedWhiteListType;
 	}
 }

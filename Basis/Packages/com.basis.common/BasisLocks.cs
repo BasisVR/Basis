@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Common
     /// Each context stores unique lock owner names only.
     /// Thread-safe.
     /// </summary>
-    public static class BasisLocks
+    [AutoStaticsCleanup]
+    public static partial class BasisLocks
     {
         public const string LookRotation = "LookRotation";
         public const string Movement = "Movement";

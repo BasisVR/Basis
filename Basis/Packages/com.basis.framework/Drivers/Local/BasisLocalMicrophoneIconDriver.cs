@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if !BASIS_DISABLE_MICROPHONE
 using Basis.BasisUI;
 using Basis.Scripts.Audio;
@@ -9,8 +10,9 @@ using Vector3 = UnityEngine.Vector3;
 
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public class BasisLocalMicrophoneIconDriver
+    public partial class BasisLocalMicrophoneIconDriver
     {
         public enum MicrophoneDisplayMode
         {

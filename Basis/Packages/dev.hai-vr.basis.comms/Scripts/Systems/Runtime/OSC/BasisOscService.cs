@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -9,7 +10,8 @@ using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
-    public static class BasisOscService
+    [AutoStaticsCleanup]
+    public static partial class BasisOscService
     {
         private const string AvatarParametersPrefix = "/avatar/parameters/";
         public static event Action<OscMessage> MessageReceived;
@@ -72,7 +74,7 @@ namespace HVR.Basis.Comms
                 PrefixRoutes.Length > 0;
         }
 
-        private static readonly object ReceiverLock = new object();
+        [NoAutoStaticsCleanup] private static readonly object ReceiverLock = new object();
         private static readonly Dictionary<EntityId, ReceiverRegistration> Receivers = new Dictionary<EntityId, ReceiverRegistration>();
         private static readonly ConcurrentDictionary<string, int> RawPathToAddressId = new ConcurrentDictionary<string, int>(StringComparer.Ordinal);
         // Main-thread dispatch scratch buffer. Rebuilt with receiver capacity whenever subscriptions change.

@@ -24,7 +24,7 @@ namespace Basis.Setup
         public static void Rebuild()
         {
             var found = new List<IBasisSetupModule>();
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
             {
                 Type[] types;
                 try

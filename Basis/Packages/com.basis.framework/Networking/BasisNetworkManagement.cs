@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking.Receivers;
@@ -22,7 +23,8 @@ namespace Basis.Scripts.Networking
     /// Lifecycle (Initialize/Destroy) is driven by
     /// <see cref="Basis.Scripts.Device_Management.BasisDeviceManagement"/>.
     /// </summary>
-    public static class BasisNetworkManagement
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkManagement
     {
         #region Connection Settings
 
@@ -110,7 +112,7 @@ namespace Basis.Scripts.Networking
         /// <summary>
         /// Metadata message received from the server at connect.
         /// </summary>
-        public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
+        [NoAutoStaticsCleanup] public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
 
         /// <summary>
         /// Application-level identity advertised by the currently connected server. Empty until
@@ -169,7 +171,7 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static JobHandle BoneJobSystem;
 #if UNITY_EDITOR
-        private static readonly System.Diagnostics.Stopwatch _profilerStopwatch = new System.Diagnostics.Stopwatch();
+        [NoAutoStaticsCleanup] private static readonly System.Diagnostics.Stopwatch _profilerStopwatch = new System.Diagnostics.Stopwatch();
 #endif
         private static float _timer;
         public static bool HasRequested;
@@ -178,9 +180,9 @@ namespace Basis.Scripts.Networking
         // Written on main thread before Parallel.For, read by worker threads.
         static BasisNetworkReceiver[] s_parallelSnapshot;
         static double s_parallelDeltaTime;
-        static readonly Action<int> s_parallelComputeBody = ParallelComputeBody;
+        [NoAutoStaticsCleanup] static readonly Action<int> s_parallelComputeBody = ParallelComputeBody;
         // Leave headroom for Unity's job worker threads.
-        static readonly ParallelOptions s_parallelOptions = new ParallelOptions
+        [NoAutoStaticsCleanup] static readonly ParallelOptions s_parallelOptions = new ParallelOptions
         {
             MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 2)
         };
@@ -195,8 +197,9 @@ namespace Basis.Scripts.Networking
         static int s_parallelCount;
         static bool s_computePending;
         static Thread s_computeThread;
-        static readonly ManualResetEventSlim s_computeKick = new ManualResetEventSlim(false);
-        static readonly ManualResetEventSlim s_computeDone = new ManualResetEventSlim(true);
+        static volatile bool s_computeStop;
+        [NoAutoStaticsCleanup] static readonly ManualResetEventSlim s_computeKick = new ManualResetEventSlim(false);
+        [NoAutoStaticsCleanup] static readonly ManualResetEventSlim s_computeDone = new ManualResetEventSlim(true);
         static volatile bool s_computeInFlight;
         static volatile Exception s_computeException;
         static void RunParallelCompute()
@@ -221,6 +224,10 @@ namespace Basis.Scripts.Networking
             {
                 s_computeKick.Wait();
                 s_computeKick.Reset();
+                if (s_computeStop)
+                {
+                    return;
+                }
                 try
                 {
                     RunParallelCompute();
@@ -243,10 +250,31 @@ namespace Basis.Scripts.Networking
                     Name = "Basis Network Compute",
                 };
                 s_computeThread.Start();
+                Application.quitting -= StopComputeWorker;
+                Application.quitting += StopComputeWorker;
             }
             s_computeDone.Reset();
             s_computeInFlight = true;
             s_computeKick.Set();
+        }
+
+        static void StopComputeWorker()
+        {
+            Application.quitting -= StopComputeWorker;
+            Thread thread = s_computeThread;
+            if (thread == null)
+            {
+                return;
+            }
+            JoinPendingCompute();
+            s_computeStop = true;
+            s_computeKick.Set();
+            if (thread.IsAlive)
+            {
+                thread.Join();
+            }
+            s_computeStop = false;
+            s_computeThread = null;
         }
 
         static void JoinComputeWorker()

@@ -1,5 +1,7 @@
 using LinkerGenerator;
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Build;
@@ -31,12 +33,16 @@ public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
 #endif
     };
 
-    // Platforms you want to force Mono (example: your Linux choice).
-    private static readonly HashSet<BuildTarget> MonoOnlyTargets = new HashSet<BuildTarget>
+    // Platforms you want to force CoreCLR (example: your Linux choice).
+    private static readonly HashSet<BuildTarget> CoreClrOnlyTargets = new HashSet<BuildTarget>
     {
         BuildTarget.StandaloneLinux64,
         BuildTarget.LinuxHeadlessSimulation,
     };
+
+    internal static PropertyInfo LinuxArchitectureProperty => Type.GetType("UnityEditor.LinuxStandalone.UserBuildSettings, UnityEditor.LinuxStandalone.Extensions")?.GetProperty("architecture", BindingFlags.Public | BindingFlags.Static);
+
+    private static bool IsLinuxArm64(BuildTarget target) => target == BuildTarget.StandaloneLinux64 && LinuxArchitectureProperty?.GetValue(null) is OSArchitecture architecture && architecture == OSArchitecture.ARM64;
 
     public void OnPreprocessBuild(BuildReport report)
     {
@@ -47,7 +53,9 @@ public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
         BumpVersionsIfNeeded(report.summary.platform);
 
         var namedBuildTarget =
-            UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(report.summary.platformGroup);
+            report.summary.platformGroup == BuildTargetGroup.Standalone && report.summary.GetSubtarget<StandaloneBuildSubtarget>() == StandaloneBuildSubtarget.Server
+                ? UnityEditor.Build.NamedBuildTarget.Server
+                : UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(report.summary.platformGroup);
 
         var currentBackend = PlayerSettings.GetScriptingBackend(namedBuildTarget);
         var target = report.summary.platform;
@@ -59,10 +67,10 @@ public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
             return;
         }
 
-        // 2) Force Mono-only targets
-        if (MonoOnlyTargets.Contains(target))
+        // 2) Force CoreCLR-only targets
+        if (CoreClrOnlyTargets.Contains(target))
         {
-            SetBackendIfNeeded(namedBuildTarget, currentBackend, ScriptingImplementation.Mono2x);
+            SetBackendIfNeeded(namedBuildTarget, currentBackend, IsLinuxArm64(target) ? ScriptingImplementation.IL2CPP : ScriptingImplementation.CoreCLR);
             return;
         }
 
@@ -83,8 +91,8 @@ public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
         }
         else if (Application.isBatchMode)
         {
-            // Safe default for CI: keep current backend
-            desired = currentBackend;
+            // Safe default for CI: CoreCLR
+            desired = ScriptingImplementation.CoreCLR;
         }
         else
         {

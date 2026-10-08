@@ -474,7 +474,7 @@
     { "key": "projectSetup.buildModules.scriptingBackendIl2cpp", "value": "সর্বদা IL2CPP" },
     { "key": "projectSetup.buildModules.scriptingBackendMono", "value": "সর্বদা Mono" },
     { "key": "projectSetup.buildModules.scriptingBackendCoreClr", "value": "সর্বদা CoreCLR" },
-    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "Windows এবং macOS বিল্ডের জন্য IL2CPP/Mono/CoreCLR উত্তর মনে রাখে যাতে আপনাকে প্রতিবার জিজ্ঞাসা করা না হয়। বাধ্যতামূলক প্ল্যাটফর্ম প্রভাবিত হয় না: Android এবং iOS সর্বদা IL2CPP ব্যবহার করে, Linux সর্বদা Mono ব্যবহার করে। বিল্ড প্রম্পটে একটি ব্যাকএন্ড বেছে নিলে এই সেটিংও আপডেট হয়।" },
+    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "Windows এবং macOS বিল্ডের জন্য IL2CPP/Mono/CoreCLR উত্তর মনে রাখে যাতে আপনাকে প্রতিবার জিজ্ঞাসা করা না হয়। বাধ্যতামূলক প্ল্যাটফর্ম প্রভাবিত হয় না: Android এবং iOS সর্বদা IL2CPP ব্যবহার করে, Linux সর্বদা CoreCLR (ARM64: IL2CPP) ব্যবহার করে। বিল্ড প্রম্পটে একটি ব্যাকএন্ড বেছে নিলে এই সেটিংও আপডেট হয়।" },
 
     { "key": "projectSetup.platformQuality.foldout", "value": "প্ল্যাটফর্ম এবং গুণমান" },
     { "key": "projectSetup.platformQuality.windows", "value": "Windows" },

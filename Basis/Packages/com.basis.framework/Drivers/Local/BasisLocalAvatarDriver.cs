@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
@@ -14,8 +15,9 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisLocalAvatarDriver : BasisAvatarDriver
+    public partial class BasisLocalAvatarDriver : BasisAvatarDriver
     {
 
         public const string Locomotion = "Locomotion";

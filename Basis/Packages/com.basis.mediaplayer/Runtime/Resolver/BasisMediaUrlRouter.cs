@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -47,7 +48,8 @@ public interface IBasisVideoResolver
 /// thread: the resolver list is unsynchronised, and registering while a resolve is
 /// iterating would corrupt it.
 /// </summary>
-public static class BasisMediaUrlRouter
+[AutoStaticsCleanup]
+public static partial class BasisMediaUrlRouter
 {
     private static readonly List<IBasisVideoResolver> Resolvers = new List<IBasisVideoResolver>();
 
@@ -70,7 +72,7 @@ public static class BasisMediaUrlRouter
 
     // Delimiters that end the path portion of a URL (query / fragment), hoisted so
     // IsDirectlyPlayable doesn't allocate a char[] per call.
-    private static readonly char[] PathEnd = { '?', '#' };
+    [NoAutoStaticsCleanup] private static readonly char[] PathEnd = { '?', '#' };
 
     /// <summary>
     /// Routes <paramref name="url"/> through the registered resolvers in priority order.
@@ -140,7 +142,7 @@ public static class BasisMediaUrlRouter
     // demuxer, a raw manifest goes through a resolver. .opus but not .ogg:
     // .opus is Opus by convention, while .ogg is a generic container that may carry
     // codecs the engine does not decode.
-    private static readonly string[] DirectExtensions =
+    [NoAutoStaticsCleanup] private static readonly string[] DirectExtensions =
     {
         ".mp4", ".m4v", ".m4a", ".m4s", ".mov",
         ".ts", ".m2ts", ".mts",
@@ -174,7 +176,7 @@ public static class BasisMediaUrlRouter
 
     // Delimiters that end the authority portion of a scheme-less URL, hoisted so
     // SchemeFor doesn't allocate a char[] per call.
-    private static readonly char[] AuthorityEnd = { '/', '?', '#' };
+    [NoAutoStaticsCleanup] private static readonly char[] AuthorityEnd = { '/', '?', '#' };
 
     /// <summary>
     /// The scheme to default a scheme-less <paramref name="authority"/> ("host[:port][/path…]")

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -41,7 +42,8 @@ namespace Basis.Shims
 	/// actually applied. <see cref="PerformanceTier"/> reports that separately for a world that
 	/// wants to tell "the player chose Low" from "the client forced Low".</para>
 	/// </summary>
-	public static class BasisGraphicsSettingsShim
+	[AutoStaticsCleanup]
+	public static partial class BasisGraphicsSettingsShim
 	{
 		/// <summary>Longest key a query may name. Anything longer is refused without a lookup.</summary>
 		public const int MaxKeyLength = 64;
@@ -63,11 +65,11 @@ namespace Basis.Shims
 		public const string KeyHdrSupport = "hdrsupport";
 		public const string KeyRenderResolution = "render resolution";
 
-		private static readonly string[] tierNames = { "Very Low", "Low", "Medium", "High", "Ultra" };
+		[NoAutoStaticsCleanup] private static readonly string[] tierNames = { "Very Low", "Low", "Medium", "High", "Ultra" };
 
 		// Every key a sandboxed script may read, and the binding that answers for it. Adding a row
 		// is the only way to widen the surface; there is no prefix rule and no passthrough.
-		private static readonly KeyValuePair<string, Func<string>>[] readable =
+		[NoAutoStaticsCleanup] private static readonly KeyValuePair<string, Func<string>>[] readable =
 		{
 			new KeyValuePair<string, Func<string>>( KeyQualityLevel, () => BasisSettingsDefaults.QualityLevel.RawValue ),
 			new KeyValuePair<string, Func<string>>( KeyShadowQuality, () => BasisSettingsDefaults.ShadowQuality.RawValue ),
@@ -87,7 +89,7 @@ namespace Basis.Shims
 			new KeyValuePair<string, Func<string>>( "usebloomoverride", () => Flag( BasisSettingsDefaults.UseBloomOverride.RawValue ) ),
 		};
 
-		private static readonly Dictionary<string, Func<string>> lookup = BuildLookup();
+		[NoAutoStaticsCleanup] private static readonly Dictionary<string, Func<string>> lookup = BuildLookup();
 		private static readonly Dictionary<string, string> overrides = new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase );
 		private static bool subscribed;
 

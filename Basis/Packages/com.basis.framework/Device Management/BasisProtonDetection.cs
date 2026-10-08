@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Runtime.InteropServices;
 
@@ -16,7 +17,8 @@ namespace Basis.Scripts.Device_Management
     /// <see cref="WineVersion"/> is <c>null</c>. Reading any property auto-initializes,
     /// so call order is never load-bearing — startup just primes the cache and logs once.
     /// </remarks>
-    public static class BasisProtonDetection
+    [AutoStaticsCleanup]
+    public static partial class BasisProtonDetection
     {
 #if UNITY_STANDALONE_WIN
         [DllImport("kernel32.dll", EntryPoint = "GetModuleHandleA", CharSet = CharSet.Ansi, ExactSpelling = true)]

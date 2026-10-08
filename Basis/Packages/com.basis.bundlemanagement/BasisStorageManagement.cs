@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +10,8 @@ using UnityEngine;
 /// Manages BEE file storage on disk: tracks total size, enforces a configurable max (default 128 GB),
 /// evicts oldest files (LRU by file write time), and provides listing/deletion APIs.
 /// </summary>
-public static class BasisStorageManagement
+[AutoStaticsCleanup]
+public static partial class BasisStorageManagement
 {
     /// <summary>
     /// Default maximum cache size in bytes (128 GB).

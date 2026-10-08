@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Globalization;
 using Basis.Scripts.BasisSdk;
@@ -7,7 +8,8 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class BasisMenuStateMemory
+    [AutoStaticsCleanup]
+    public static partial class BasisMenuStateMemory
     {
         private const string ActiveTabKey = "menu.state.activetab";
         private const string ScrollPrefix = "menu.state.scroll.";

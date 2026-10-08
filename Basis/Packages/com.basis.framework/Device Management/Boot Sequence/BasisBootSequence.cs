@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Addressable_Driver.Resource;
 using System;
 using System.Threading.Tasks;
@@ -19,8 +20,9 @@ namespace Basis.Scripts.Boot_Sequence
     /// Initializes Addressables and spawns the framework GameObject.
     /// Handles cleanup both on app quit and when leaving Play Mode in the Editor.
     /// </summary>
+    [AutoStaticsCleanup]
     [DefaultExecutionOrder(-50)]
-    public static class BasisBootSequence
+    public static partial class BasisBootSequence
     {
         /// <summary>
         /// Reference to the loaded boot manager instance (framework root) if created.
@@ -35,7 +37,7 @@ namespace Basis.Scripts.Boot_Sequence
         /// <summary>
         /// Guard to ensure we only hook global events once.
         /// </summary>
-        public static bool HasEvents = false;
+        [NoAutoStaticsCleanup] public static bool HasEvents = false;
 
         /// <summary>
         /// If true, will instantiate the framework after Addressables initialization completes.

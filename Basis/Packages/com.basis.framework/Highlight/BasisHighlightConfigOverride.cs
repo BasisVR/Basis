@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Scripts.Settings;
@@ -12,7 +13,8 @@ namespace Basis.Scripts.BasisSdk.Highlight
     /// the material's own colour. Highlight renderers register on creation and the
     /// colour is re-applied on every settings change.
     /// </summary>
-    public static class BasisHighlightConfigOverride
+    [AutoStaticsCleanup]
+    public static partial class BasisHighlightConfigOverride
     {
         private static Color? _current;
 

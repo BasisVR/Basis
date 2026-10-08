@@ -62,7 +62,7 @@ namespace SteamAudio
     {
         public override Transform GetListenerTransform()
         {
-            var audioListener = GameObject.FindObjectOfType<AudioListener>();
+            var audioListener = GameObject.FindAnyObjectByType<AudioListener>();
             return (audioListener != null) ? audioListener.transform : null;
         }
 

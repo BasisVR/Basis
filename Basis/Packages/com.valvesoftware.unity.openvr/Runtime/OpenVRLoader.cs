@@ -442,7 +442,14 @@ namespace Unity.XR.OpenVR
         [AOT.MonoPInvokeCallback(typeof(TickCallbackDelegate))]
         public static void TickCallback(int value)
         {
-            OpenVREvents.Update();
+            try
+            {
+                OpenVREvents.Update();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
         }
 
 #if UNITY_EDITOR

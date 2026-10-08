@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,7 +15,8 @@ using UnityEngine;
 /// preloaded world becomes the initial world and any preloaded props respawn at the placed transform
 /// they were saved with. Skipped when the app is auto-joining a server (the server provides the world).
 /// </summary>
-public static class BasisBootContentLoader
+[AutoStaticsCleanup]
+public static partial class BasisBootContentLoader
 {
     private static bool _attempted;
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -13,7 +14,8 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-public static class BasisSceneFactory
+[AutoStaticsCleanup]
+public static partial class BasisSceneFactory
 {
     public const string BasisLoadingSceneKey = "BasisLoadingScene";
 
@@ -23,7 +25,7 @@ public static class BasisSceneFactory
     public static float RespawnHeight = -100f;
     public static BasisLocalPlayer BasisLocalPlayer;
     private static bool _isLoadingLoadingScene = false;
-    private static AsyncOperationHandle<SceneInstance>? _loadingSceneHandle = null;
+    [NoAutoStaticsCleanup] private static AsyncOperationHandle<SceneInstance>? _loadingSceneHandle = null;
 
     public static void Initialize()
     {

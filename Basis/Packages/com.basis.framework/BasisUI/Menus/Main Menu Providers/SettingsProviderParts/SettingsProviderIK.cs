@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
@@ -10,7 +11,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public static class SettingsProviderIK
+[AutoStaticsCleanup]
+public static partial class SettingsProviderIK
 {
     public const string SeatedMode_Seated = "Seated Mode";
     public const string SeatedMode_Standing = "Standing Mode";
@@ -18,7 +20,7 @@ public static class SettingsProviderIK
     private static readonly List<PanelToggle> _euroToggleUIs = new();
     private static readonly List<PanelToggle> _trackerLerpToggleUIs = new();
 
-    private static readonly string[] PlayspaceMoverInputValues =
+    [NoAutoStaticsCleanup] private static readonly string[] PlayspaceMoverInputValues =
     {
         BasisLocalPlayspaceMover.InputGrip,
         BasisLocalPlayspaceMover.InputTrigger,
@@ -30,7 +32,7 @@ public static class SettingsProviderIK
         BasisLocalPlayspaceMover.InputMenu,
     };
 
-    private static readonly string[] PlayspaceMoverInputKeys =
+    [NoAutoStaticsCleanup] private static readonly string[] PlayspaceMoverInputKeys =
     {
         "settings.bodyTracking.playspaceMover.input.grip",
         "settings.bodyTracking.playspaceMover.input.trigger",

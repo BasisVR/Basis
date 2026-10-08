@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.IK;
 using Basis.Scripts.BasisSdk.Players;
@@ -5,7 +6,8 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 
-public static class BasisHeightDriver
+[AutoStaticsCleanup]
+public static partial class BasisHeightDriver
 {
     public const float FallbackHeightInMeters = 1.61f;
 

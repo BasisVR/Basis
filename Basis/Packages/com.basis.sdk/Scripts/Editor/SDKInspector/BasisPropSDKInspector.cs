@@ -12,11 +12,11 @@ public class BasisPropSDKInspector : Editor
 {
     public VisualTreeAsset visualTree;
     public BasisProp BasisProp;
-    public VisualElement rootElement;
-    public VisualElement uiElementsRoot;
+    [System.NonSerialized] public VisualElement rootElement;
+    [System.NonSerialized] public VisualElement uiElementsRoot;
     private Label resultLabel;
     public BasisAssetBundleObject assetBundleObject;
-    public BasisPropValidator BasisPropValidator;
+    [System.NonSerialized] public BasisPropValidator BasisPropValidator;
 
     public void OnEnable()
     {

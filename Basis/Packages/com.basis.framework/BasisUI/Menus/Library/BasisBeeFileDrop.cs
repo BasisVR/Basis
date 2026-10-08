@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Platform;
 using Basis.Scripts.UI.UI_Panels;
 using System;
@@ -25,7 +26,8 @@ namespace Basis.BasisUI
     /// added on a guess: an entry the user did not confirm would sit in their library failing to
     /// load with no obvious cause.
     /// </summary>
-    public static class BasisBeeFileDrop
+    [AutoStaticsCleanup]
+    public static partial class BasisBeeFileDrop
     {
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.System;
 
@@ -39,7 +41,7 @@ namespace Basis.BasisUI
         /// Folder-wide password files, tried after the per-file names so a folder holding several
         /// BEEs with their own passwords still resolves each one correctly.
         /// </summary>
-        private static readonly string[] SharedPasswordFileNames =
+        [NoAutoStaticsCleanup] private static readonly string[] SharedPasswordFileNames =
         {
             "dontuploadmepassword.txt", // what BasisBundleBuild writes beside every BEE it builds
             "password.txt",

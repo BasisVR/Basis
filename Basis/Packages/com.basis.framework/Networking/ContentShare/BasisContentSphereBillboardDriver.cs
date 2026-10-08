@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Drivers;
 using Unity.Burst;
@@ -11,10 +12,11 @@ using UnityEngine.Jobs;
 /// single Burst job. Orbs keep spinning; only the title label is re-faced each frame.
 /// Ticked from BasisEventDriver.LateUpdateBody alongside the remote nameplate jobs.
 /// </summary>
-public static class BasisContentSphereBillboardDriver
+[AutoStaticsCleanup]
+public static partial class BasisContentSphereBillboardDriver
 {
     private static readonly List<Transform> _labels = new List<Transform>(16);
-    private static TransformAccessArray _transforms;
+    [NoAutoStaticsCleanup] private static TransformAccessArray _transforms;
     private static JobHandle _handle;
     private static bool _scheduled;
     private static bool _dirty;

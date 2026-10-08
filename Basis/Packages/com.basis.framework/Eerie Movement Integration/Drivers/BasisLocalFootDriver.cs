@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
@@ -8,6 +9,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+[AutoStaticsCleanup]
 [Serializable]
 public partial class BasisLocalFootDriver
 {
@@ -163,7 +165,7 @@ public partial class BasisLocalFootDriver
     [SerializeField] private float footHeightOffset;
     [SerializeField] private float fastSpeedRef;
     private Transform avatarTransform, hips, leftFootBone, rightFootBone;
-    private static readonly string[] footNames = { "Left", "Right" };
+    [NoAutoStaticsCleanup] private static readonly string[] footNames = { "Left", "Right" };
     private unsafe ref BasisFootNativeState Foot(int slot) => ref UnsafeUtility.ArrayElementAsRef<BasisFootNativeState>(nativeFeet.GetUnsafePtr(), slot);
     private float rayCastRange;
     private Quaternion footAlignLeft = Quaternion.identity;
@@ -1307,15 +1309,15 @@ public partial class BasisLocalFootDriver
     public float DerivedStepHeight => stepHeightCalc;
     public float DerivedStepTrigger => stepTriggerDist;
     public float DerivedFastSpeed => fastSpeedRef;
-    private static readonly int[] gCurrent = { -1, -1 };
-    private static readonly int[] gForward = { -1, -1 };
-    private static readonly int[] gIdeal = { -1, -1 };
-    private static readonly int[] gPlantIdeal = { -1, -1 };
-    private static readonly int[] gStepArc = { -1, -1 };
-    private static readonly int[] gStepTarget = { -1, -1 };
-    private static readonly int[] gKnee = { -1, -1 };
-    private static readonly int[] gHipFoot = { -1, -1 };
-    private static readonly int[] gLabel = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gCurrent = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gForward = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gIdeal = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gPlantIdeal = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gStepArc = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gStepTarget = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gKnee = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gHipFoot = { -1, -1 };
+    [NoAutoStaticsCleanup] private static readonly int[] gLabel = { -1, -1 };
     private static int gBodyForward = -1;
     private static int gVelocity = -1;
     private static bool gizmosCreated, gizmosVisible, gizmoHooked;

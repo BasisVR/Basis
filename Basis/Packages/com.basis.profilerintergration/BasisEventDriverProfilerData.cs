@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR
 using System.Diagnostics;
 
@@ -7,7 +8,8 @@ using System.Diagnostics;
 /// Zero overhead when <see cref="Enabled"/> is false (single bool check per section).
 /// Written by BasisEventDriver, read by the editor profiler window.
 /// </summary>
-public static class BasisEventDriverProfilerData
+[AutoStaticsCleanup]
+public static partial class BasisEventDriverProfilerData
 {
     /// <summary>Set true by the editor window to start collecting. BasisEventDriver checks this.</summary>
     public static volatile bool Enabled;
@@ -96,12 +98,12 @@ public static class BasisEventDriverProfilerData
 
     // ── History ring buffer ─────────────────────────────────────────────
     public const int HistorySize = 300;
-    public static readonly double[] LateUpdateHistory = new double[HistorySize];
-    public static readonly double[] NetworkApplyHistory = new double[HistorySize];
-    public static readonly double[] RemoteAudioHistory = new double[HistorySize];
-    public static readonly double[] RemoteFaceHistory = new double[HistorySize];
-    public static readonly double[] JiggleHistory = new double[HistorySize];
-    public static readonly double[] LocalPlayerHistory = new double[HistorySize];
+    [NoAutoStaticsCleanup] public static readonly double[] LateUpdateHistory = new double[HistorySize];
+    [NoAutoStaticsCleanup] public static readonly double[] NetworkApplyHistory = new double[HistorySize];
+    [NoAutoStaticsCleanup] public static readonly double[] RemoteAudioHistory = new double[HistorySize];
+    [NoAutoStaticsCleanup] public static readonly double[] RemoteFaceHistory = new double[HistorySize];
+    [NoAutoStaticsCleanup] public static readonly double[] JiggleHistory = new double[HistorySize];
+    [NoAutoStaticsCleanup] public static readonly double[] LocalPlayerHistory = new double[HistorySize];
     public static int HistoryIndex;
 
     public static void PushHistory()
@@ -118,8 +120,8 @@ public static class BasisEventDriverProfilerData
     }
 
     // ── Stopwatch helper ────────────────────────────────────────────────
-    public static readonly Stopwatch SW = new Stopwatch();
-    public static readonly Stopwatch SW2 = new Stopwatch(); // nested timing
+    [NoAutoStaticsCleanup] public static readonly Stopwatch SW = new Stopwatch();
+    [NoAutoStaticsCleanup] public static readonly Stopwatch SW2 = new Stopwatch(); // nested timing
 
     public static void Begin()  { SW.Restart(); }
     public static double End()  { SW.Stop(); return SW.Elapsed.TotalMilliseconds; }

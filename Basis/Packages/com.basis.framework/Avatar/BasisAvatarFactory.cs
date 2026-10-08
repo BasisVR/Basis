@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.BasisSdk;
@@ -22,7 +23,8 @@ namespace Basis.Scripts.Avatar
     /// Provides methods for local and remote avatar loading, fallback handling,
     /// initialization, and cleanup.
     /// </summary>
-    public static class BasisAvatarFactory
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarFactory
     {
         // The main-thread half of every avatar swap — load, reload, far LOD, range re-entry. It
         // reported nothing at all before, so a load-in spike could only be attributed to whatever

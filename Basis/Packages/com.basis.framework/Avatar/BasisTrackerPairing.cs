@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,7 +22,8 @@ namespace Basis.Scripts.Avatar
     /// reconcile pass finds the pre-existing pairing and re-creates the merged
     /// virtual on the spot — no user re-pairing required.
     /// </summary>
-    public static class BasisTrackerPairing
+    [AutoStaticsCleanup]
+    public static partial class BasisTrackerPairing
     {
         private const string FileName = "trackerPairings.json";
 

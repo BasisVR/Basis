@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
@@ -8,7 +9,8 @@ using UnityEngine;
 using Basis.IK;
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
-    public class BasisDesktopEye : BasisInput
+    [AutoStaticsCleanup]
+    public partial class BasisDesktopEye : BasisInput
     {
         public Camera Camera;
 

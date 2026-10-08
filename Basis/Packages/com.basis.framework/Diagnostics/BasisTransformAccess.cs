@@ -28,7 +28,7 @@ using UnityEngine;
 public static class BasisTransformAccess
 {
     // ── World position ──────────────────────────────────────────────────────────────────────────
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Vector3 GetPosition(this Transform t, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetPosition);
@@ -54,7 +54,7 @@ public static class BasisTransformAccess
 #endif
 
     // ── World rotation ──────────────────────────────────────────────────────────────────────────
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Quaternion GetRotation(this Transform t, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetRotation);
@@ -80,7 +80,7 @@ public static class BasisTransformAccess
 #endif
 
     // ── World pose (the combined API — one interop round trip instead of two) ───────────────────
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static void GetPose(this Transform t, out Vector3 position, out Quaternion rotation, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetPose);
@@ -107,7 +107,7 @@ public static class BasisTransformAccess
 #endif
 
     // ── Local position / rotation ───────────────────────────────────────────────────────────────
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Vector3 GetLocalPosition(this Transform t, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetLocalPosition);
@@ -180,7 +180,7 @@ public static class BasisTransformAccess
 #endif
 
     // ── Scale ───────────────────────────────────────────────────────────────────────────────────
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Vector3 GetLocalScale(this Transform t, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetLocalScale);
@@ -216,7 +216,7 @@ public static class BasisTransformAccess
 #endif
 
     // ── Matrices ────────────────────────────────────────────────────────────────────────────────
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Matrix4x4 GetLocalToWorld(this Transform t, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetLocalToWorld);
@@ -239,7 +239,7 @@ public static class BasisTransformAccess
     // ── Basis vectors ───────────────────────────────────────────────────────────────────────────
     // Each of these is a full rotation read plus a multiply on the native side. Reading `rotation`
     // once and deriving two or three of them is strictly cheaper — GetRotation then `rot * Vector3.up`.
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Vector3 GetForward(this Transform t, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetForward);
@@ -271,7 +271,7 @@ public static class BasisTransformAccess
     // ── Hierarchy ───────────────────────────────────────────────────────────────────────────────
     // A reparent invalidates every cached world pose beneath it, so Reparent drops the whole cache
     // rather than trying to work out which slots moved.
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Transform GetParent(this Transform t, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.GetParent);
@@ -297,7 +297,7 @@ public static class BasisTransformAccess
 #endif
 
     // ── Space conversion ────────────────────────────────────────────────────────────────────────
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     public static Vector3 ToWorldPoint(this Transform t, Vector3 localPoint, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
     {
         BasisTransformAudit.Record(file, line, BasisTransformOp.ToWorldPoint);

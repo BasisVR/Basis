@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
-public static class BasisCullingCameraRegistry
+[AutoStaticsCleanup]
+public static partial class BasisCullingCameraRegistry
 {
     private static readonly List<Camera> Cameras = new List<Camera>(8);
 

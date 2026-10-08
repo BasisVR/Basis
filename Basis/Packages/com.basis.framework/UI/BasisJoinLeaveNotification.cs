@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -18,7 +19,8 @@ namespace Basis.Scripts.UI
     /// Object pool pre-allocates MaxMessages slots, reuses GameObjects.
     /// Mesh cache avoids regenerating identical rounded quads.
     /// </summary>
-    public static class BasisJoinLeaveNotification
+    [AutoStaticsCleanup]
+    public static partial class BasisJoinLeaveNotification
     {
         public static float MessageDuration = 5f;
         public static int MaxMessages = 5;

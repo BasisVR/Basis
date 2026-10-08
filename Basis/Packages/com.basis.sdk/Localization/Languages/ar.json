@@ -474,7 +474,7 @@
     { "key": "projectSetup.buildModules.scriptingBackendIl2cpp", "value": "دائمًا IL2CPP" },
     { "key": "projectSetup.buildModules.scriptingBackendMono", "value": "دائمًا Mono" },
     { "key": "projectSetup.buildModules.scriptingBackendCoreClr", "value": "دائمًا CoreCLR" },
-    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "يتذكّر إجابة IL2CPP/Mono/CoreCLR لبنيات Windows وmacOS حتى لا تُسأل في كل مرة. المنصّات المفروضة غير متأثرة: Android وiOS يستخدمان دائمًا IL2CPP، وLinux يستخدم دائمًا Mono. اختيار خلفية في مطالبة البناء يحدّث هذا الإعداد أيضًا." },
+    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "يتذكّر إجابة IL2CPP/Mono/CoreCLR لبنيات Windows وmacOS حتى لا تُسأل في كل مرة. المنصّات المفروضة غير متأثرة: Android وiOS يستخدمان دائمًا IL2CPP، وLinux يستخدم دائمًا CoreCLR (ARM64: IL2CPP). اختيار خلفية في مطالبة البناء يحدّث هذا الإعداد أيضًا." },
 
     { "key": "projectSetup.platformQuality.foldout", "value": "النظام الأساسي والجودة" },
     { "key": "projectSetup.platformQuality.windows", "value": "Windows" },

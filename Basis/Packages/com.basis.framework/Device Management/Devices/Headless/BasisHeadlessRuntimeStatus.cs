@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using System;
 
-public static class BasisHeadlessRuntimeStatus
+[AutoStaticsCleanup]
+public static partial class BasisHeadlessRuntimeStatus
 {
-    private static readonly object sync = new object();
+    [NoAutoStaticsCleanup] private static readonly object sync = new object();
 
     public static bool IsHealthListenerRunning { get; private set; }
     public static bool IsConnected { get; private set; }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Networking.Sync
     /// drives owned objects' transmit cadence. Ticked from BasisEventDriver alongside the pickup
     /// driver: Initialize/OnDestroy, ScheduleRemote (Update), TransmitOwned + CompleteRemote (LateUpdate).
     /// </summary>
-    public static class BasisSyncDriver
+    [AutoStaticsCleanup]
+    public static partial class BasisSyncDriver
     {
         private static readonly List<BasisSyncedObject> _remote = new List<BasisSyncedObject>();
         private static readonly HashSet<BasisSyncedObject> _owned = new HashSet<BasisSyncedObject>();
@@ -31,16 +33,16 @@ namespace Basis.Scripts.Networking.Sync
         private static JobHandle _jobHandle;
 
         // Per-slot (indexed by remote list position).
-        private static NativeArray<byte> _active;
-        private static NativeArray<float> _t;
-        private static NativeArray<int> _contBase, _contCount, _rotBase, _rotCount, _discBase, _discCount;
+        [NoAutoStaticsCleanup] private static NativeArray<byte> _active;
+        [NoAutoStaticsCleanup] private static NativeArray<float> _t;
+        [NoAutoStaticsCleanup] private static NativeArray<int> _contBase, _contCount, _rotBase, _rotCount, _discBase, _discCount;
 
         // Pools.
-        private static NativeArray<float> _contCur, _contNext, _contOut;
-        private static NativeArray<byte> _contMode;
-        private static NativeArray<quaternion> _rotCur, _rotNext, _rotOut;
-        private static NativeArray<byte> _rotMode;
-        private static NativeArray<int> _discNext, _discOut;
+        [NoAutoStaticsCleanup] private static NativeArray<float> _contCur, _contNext, _contOut;
+        [NoAutoStaticsCleanup] private static NativeArray<byte> _contMode;
+        [NoAutoStaticsCleanup] private static NativeArray<quaternion> _rotCur, _rotNext, _rotOut;
+        [NoAutoStaticsCleanup] private static NativeArray<byte> _rotMode;
+        [NoAutoStaticsCleanup] private static NativeArray<int> _discNext, _discOut;
 
         // ── Batched distance/relevance reduction ──
         // Every owned object used to compute its own nearest-observer distance inside TransmitIfDue,
@@ -59,19 +61,19 @@ namespace Basis.Scripts.Networking.Sync
         private static int _reductionMasksPerObject = 1;
         private static int _reductionRawPlayerCount;
         private static readonly List<BasisSyncedObject> _reductionParticipants = new List<BasisSyncedObject>();
-        private static NativeArray<float3> _reductionObjectPositions;
-        private static NativeArray<float> _reductionRadiusSq;
-        private static NativeArray<float3> _reductionPlayerPositions;
-        private static NativeArray<float> _reductionNearestSq;
-        private static NativeArray<ulong> _reductionMask;
+        [NoAutoStaticsCleanup] private static NativeArray<float3> _reductionObjectPositions;
+        [NoAutoStaticsCleanup] private static NativeArray<float> _reductionRadiusSq;
+        [NoAutoStaticsCleanup] private static NativeArray<float3> _reductionPlayerPositions;
+        [NoAutoStaticsCleanup] private static NativeArray<float> _reductionNearestSq;
+        [NoAutoStaticsCleanup] private static NativeArray<ulong> _reductionMask;
         private static ushort[] _reductionPlayerIds = new ushort[0];
         private static ushort[] _reductionRecipientScratch = new ushort[0];
 
         // Receive decode fan-out. Each receiver touches only its own state and packets are only
         // produced by the main-thread action drain, which cannot run while this pass blocks.
         private static float _advanceDelta;
-        private static readonly System.Action<int> _advanceBody = AdvanceRemoteBody;
-        private static readonly System.Threading.Tasks.ParallelOptions _advanceOptions = new System.Threading.Tasks.ParallelOptions
+        [NoAutoStaticsCleanup] private static readonly System.Action<int> _advanceBody = AdvanceRemoteBody;
+        [NoAutoStaticsCleanup] private static readonly System.Threading.Tasks.ParallelOptions _advanceOptions = new System.Threading.Tasks.ParallelOptions
         {
             MaxDegreeOfParallelism = System.Math.Max(1, System.Environment.ProcessorCount - 2)
         };
@@ -86,8 +88,8 @@ namespace Basis.Scripts.Networking.Sync
         // Transform bindings.
         private static readonly List<Transform> _bindTransforms = new List<Transform>();
         private static readonly List<BasisSyncApplyBinding> _bindings = new List<BasisSyncApplyBinding>();
-        private static TransformAccessArray _taa;
-        private static NativeArray<BasisSyncApplyBinding> _bindingsArr;
+        [NoAutoStaticsCleanup] private static TransformAccessArray _taa;
+        [NoAutoStaticsCleanup] private static NativeArray<BasisSyncApplyBinding> _bindingsArr;
 
         public static void Initialize()
         {

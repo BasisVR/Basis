@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,9 +8,10 @@ using UnityEngine;
 /// Per-camera logic (mirror updates, screen effects) can then skip reflection cameras via
 /// <see cref="IsReflectionCamera"/> instead of relying on object-name prefixes.
 /// </summary>
+[AutoStaticsCleanup]
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Camera))]
-public sealed class BasisMirrorReflectionCamera : MonoBehaviour
+public sealed partial class BasisMirrorReflectionCamera : MonoBehaviour
 {
     private static readonly HashSet<Camera> ReflectionCameras = new HashSet<Camera>();
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Runtime.InteropServices;
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
     /// render as their physical geometry instead of the generic sphere fallback. A compact stand-in
     /// for SteamVR's stripped <c>SteamVR_RenderModel</c> component.
     /// </summary>
-    public class BasisOpenVRRenderModel : MonoBehaviour
+    [AutoStaticsCleanup]
+    public partial class BasisOpenVRRenderModel : MonoBehaviour
     {
         private BasisInput owner;
         private Mesh generatedMesh;

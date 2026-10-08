@@ -53,7 +53,6 @@
     <assembly fullname="GPUUtilities" preserve="all" />
     <assembly fullname="Generator.Equals" preserve="all" />
     <assembly fullname="Generator.Equals.Runtime" preserve="all" />
-    <assembly fullname="Google.Protobuf" preserve="all" />
     <assembly fullname="HVR.Basis.Comms" preserve="all" />
     <assembly fullname="HVR.Basis.Comms.HVRUtility" preserve="all" />
     <assembly fullname="HVR.LicenseReview" preserve="all" />
@@ -62,6 +61,7 @@
     <assembly fullname="Klak.Syphon.Runtime" preserve="all" />
     <assembly fullname="LiteNetLib" preserve="all" />
     <assembly fullname="MeaMod.DNS" preserve="all" />
+    <assembly fullname="Mediapipe.Google.Protobuf" preserve="all" />
     <assembly fullname="Mediapipe.Runtime" preserve="all" />
     <assembly fullname="Microsoft.ML.OnnxRuntime" preserve="all" />
     <assembly fullname="Newtonsoft.Json" preserve="all" />

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -12,12 +13,13 @@ using UnityEngine;
 /// Transform read it is measuring — this is a hunting tool, not something to leave armed. The whole
 /// class compiles out of player builds.
 /// </summary>
-public static class BasisTransformAudit
+[AutoStaticsCleanup]
+public static partial class BasisTransformAudit
 {
     /// <summary>Master toggle, off by default. Armed from Basis/Debug/Transform Access.</summary>
     public static bool Enabled;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     /// <summary>One row per (file, line) that has performed at least one operation while armed.</summary>
     public sealed class Site
     {
@@ -43,7 +45,7 @@ public static class BasisTransformAudit
         }
     }
 
-    static readonly char[] k_Separators = { '/', '\\' };
+    [NoAutoStaticsCleanup] static readonly char[] k_Separators = { '/', '\\' };
 
     readonly struct SiteKey : System.IEquatable<SiteKey>
     {
@@ -57,8 +59,8 @@ public static class BasisTransformAudit
 
     static readonly Dictionary<SiteKey, Site> sSites = new Dictionary<SiteKey, Site>();
     static readonly List<Site> sOrdered = new List<Site>();
-    static readonly int[] sOpsThisFrame = new int[(int)BasisTransformOp.Count];
-    static readonly int[] sOpsLastFrame = new int[(int)BasisTransformOp.Count];
+    [NoAutoStaticsCleanup] static readonly int[] sOpsThisFrame = new int[(int)BasisTransformOp.Count];
+    [NoAutoStaticsCleanup] static readonly int[] sOpsLastFrame = new int[(int)BasisTransformOp.Count];
     static int sFrame = -1;
     static int sCallsThisFrame;
     static bool sWasEnabled;

@@ -243,7 +243,6 @@ public static class AssetBundleBuilder
         };
 #if UNITY_6000_0_OR_NEWER
         sReport.summary.totalErrors = report.summary.totalErrors;
-        sReport.summary.multiProcessEnabled = report.summary.multiProcessEnabled;
         sReport.summary.buildType = report.summary.buildType;
 #endif
         if (!Directory.Exists(ReportDirectoryPath))

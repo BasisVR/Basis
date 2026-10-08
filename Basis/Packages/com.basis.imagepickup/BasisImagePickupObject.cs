@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +15,8 @@ namespace Basis.ImagePickup
     /// Hide/Save/Delete controls and the spawner label. Any client can grab it; grabbing claims movement
     /// authority and that client broadcasts the transform until someone else grabs it.
     /// </summary>
-    public class BasisImagePickupObject : MonoBehaviour
+    [AutoStaticsCleanup]
+    public partial class BasisImagePickupObject : MonoBehaviour
     {
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.Pickups;
         private const float TransferLabelDropMeters = 0.06f;

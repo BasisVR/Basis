@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using System;
@@ -14,7 +15,8 @@ namespace Basis.Scripts.Networking
     /// connection automatically when the failure came from the server side rather than the user.
     /// Ticked once per frame from the event driver; every entry point is main-thread only.
     /// </summary>
-    public static class BasisNetworkConnectionWatchdog
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkConnectionWatchdog
     {
         /// <summary>
         /// Headless builds run their own reconnect loop in BasisHeadlessManagement and have no
@@ -40,7 +42,7 @@ namespace Basis.Scripts.Networking
         public const int MaxReconnectAttempts = 5;
 
         private const float DefaultDisconnectTimeoutMs = 30000f;
-        private static readonly float[] RetryDelaysSeconds = { 3f, 5f, 10f, 20f, 30f };
+        [NoAutoStaticsCleanup] private static readonly float[] RetryDelaysSeconds = { 3f, 5f, 10f, 20f, 30f };
 
         public static BasisConnectionHealth Health { get; private set; } = BasisConnectionHealth.Idle;
         public static event Action<BasisConnectionHealth> OnHealthChanged;

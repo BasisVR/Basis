@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
     /// <summary>
@@ -8,7 +9,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     /// Sender hops:   Submitted (behaviour → transmitter) → Attached (Compress put it on a frame).
     /// Receiver hops: Parsed (frame carried a section) → gate results → Dispatched (behaviour ran).
     /// </summary>
-    public static class BasisAdditionalDataDiagnostics
+    [AutoStaticsCleanup]
+    public static partial class BasisAdditionalDataDiagnostics
     {
         // ── Sender ──
         public static long SenderSubmitted;          // OnAvatarServerReductionSystemMessageSend calls

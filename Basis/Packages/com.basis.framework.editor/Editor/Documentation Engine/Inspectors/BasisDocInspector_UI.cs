@@ -1484,7 +1484,7 @@ public class BasisDocInspector_UI : Editor
     {
         var a = t.Assembly;
         yield return a;
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (var asm in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             if (asm == a) continue;
             var n = asm.GetName().Name ?? "";

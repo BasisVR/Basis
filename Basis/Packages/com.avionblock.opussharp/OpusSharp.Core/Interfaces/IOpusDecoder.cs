@@ -1,3 +1,4 @@
+#nullable enable annotations
 using System;
 
 // ReSharper disable MemberCanBePrivate.Global

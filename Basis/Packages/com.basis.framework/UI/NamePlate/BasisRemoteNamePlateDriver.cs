@@ -1,4 +1,5 @@
-﻿using Basis.BasisUI;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
@@ -14,7 +15,8 @@ using UnityEngine.AddressableAssets;
 
 namespace Basis.Scripts.UI.NamePlate
 {
-    public static class BasisRemoteNamePlateDriver
+    [AutoStaticsCleanup]
+    public static partial class BasisRemoteNamePlateDriver
     {
         public const string CombinedNameplateMeshName = "CombinedNameplateMesh";
 
@@ -906,8 +908,8 @@ namespace Basis.Scripts.UI.NamePlate
         // (same indices, swap-back moves included). Written on state transitions via
         // SyncPlateJobState — never gathered per frame — so ScheduleSimulate is only a
         // Schedule call. Results computed by PlatePulseJob, applied in CompleteNamePlates.
-        private static NativeArray<PlateJobState> jobStates;
-        private static NativeArray<PlateOutput> results;
+        [NoAutoStaticsCleanup] private static NativeArray<PlateJobState> jobStates;
+        [NoAutoStaticsCleanup] private static NativeArray<PlateOutput> results;
         private static JobHandle pulseHandle;
         private static bool pulseScheduled;
 

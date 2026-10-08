@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.Desktop;
@@ -6,7 +7,8 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-public class BasisOnScreenControls : MonoBehaviour
+[AutoStaticsCleanup]
+public partial class BasisOnScreenControls : MonoBehaviour
 {
     public BasisScreenUIJoyStick LeftControl;
     public BasisScreenUIJoyStick RightControl;

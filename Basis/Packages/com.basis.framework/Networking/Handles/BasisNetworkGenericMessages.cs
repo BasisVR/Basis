@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -10,7 +11,8 @@ using System.Threading.Tasks;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static DarkRift.Basis_Common.Serializable.SerializableBasis;
 using static SerializableBasis;
-public static class BasisNetworkGenericMessages
+[AutoStaticsCleanup]
+public static partial class BasisNetworkGenericMessages
 {
     public class DeferredMessage
     {
@@ -35,7 +37,7 @@ public static class BasisNetworkGenericMessages
     public delegate void OnNetworkMessageReceiveOwnershipTransfer(string UniqueEntityID, ushort NetIdNewOwner, bool IsOwner);
     public delegate void OnNetworkMessageReceiveOwnershipRemoved(string UniqueEntityID);
     // Sending message with different conditions
-    private static readonly ThreadLocal<NetDataWriter> threadLocalWriter = new ThreadLocal<NetDataWriter>(() => new NetDataWriter());
+    [NoAutoStaticsCleanup] private static readonly ThreadLocal<NetDataWriter> threadLocalWriter = new ThreadLocal<NetDataWriter>(() => new NetDataWriter());
     public static void RegisterHandler(ushort messageIndex, Action<ushort, byte[], DeliveryMethod> handler)
     {
         _handlers[messageIndex] = handler;

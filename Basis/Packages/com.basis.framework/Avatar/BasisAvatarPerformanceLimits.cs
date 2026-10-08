@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
@@ -30,7 +31,8 @@ namespace Basis.Scripts.Avatar
     ///     user-placed jiggle colliders. Destroys excess instances so the avatar
     ///     still renders instead of being fully blocked.
     /// </summary>
-    public static class BasisAvatarPerformanceLimits
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarPerformanceLimits
     {
         /// <summary>
         /// What the reconcile pass should do with a single remote player after a
@@ -356,7 +358,7 @@ namespace Basis.Scripts.Avatar
         // GetComponentsInChildren<Collider>() which sums all subtypes, so we sum the
         // same set here when predicting whether a limit change would flip anything.
         // JiggleColliderExample is intentionally excluded — it has its own limit.
-        private static readonly string[] UnityColliderMetadataNames =
+        [NoAutoStaticsCleanup] private static readonly string[] UnityColliderMetadataNames =
         {
             "MeshCollider",
             "BoxCollider",

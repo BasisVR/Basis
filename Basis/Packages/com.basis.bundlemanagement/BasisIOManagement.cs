@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.IO;
 using System.Threading;
@@ -5,7 +6,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 
-public static class BasisIOManagement
+[AutoStaticsCleanup]
+public static partial class BasisIOManagement
 {
     public static string PersistentDataPath { get; private set; }
     public static RuntimePlatform CachedPlatform { get; private set; }

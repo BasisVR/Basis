@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
@@ -10,7 +11,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static SerializableBasis;
-public static class BasisNetworkLifeCycle
+[AutoStaticsCleanup]
+public static partial class BasisNetworkLifeCycle
 {
     /// <summary>
     /// boots up the network management

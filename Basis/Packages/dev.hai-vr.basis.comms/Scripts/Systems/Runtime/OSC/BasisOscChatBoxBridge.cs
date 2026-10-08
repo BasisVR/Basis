@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
@@ -10,7 +11,8 @@ namespace HVR.Basis.Comms
     /// <summary>
     /// Routes supported ChatBox OSC messages into Basis's native chat systems.
     /// </summary>
-    internal static class BasisOscChatBoxBridge
+    [AutoStaticsCleanup]
+    internal static partial class BasisOscChatBoxBridge
     {
         private const string ChatboxInputPath = "/chatbox/input";
         private static readonly HashSet<string> WarnedInvalidSignatures = new HashSet<string>(StringComparer.Ordinal);

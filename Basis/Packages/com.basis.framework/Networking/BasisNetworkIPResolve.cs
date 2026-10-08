@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using UnityEngine;
 
-public static class BasisNetworkIPResolve
+[AutoStaticsCleanup]
+public static partial class BasisNetworkIPResolve
 {
     public static string ResolveHosttoIP(string hostname)
     {

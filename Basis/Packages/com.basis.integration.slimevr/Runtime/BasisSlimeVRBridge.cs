@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if BASIS_FRAMEWORK_EXISTS
 using System;
 using System.Collections;
@@ -30,7 +31,8 @@ namespace Basis.Integration.SlimeVR
     /// autobone / height calibration). Also exposes live tracker/battery state and SlimeVR's
     /// reset actions for other systems (HUDs, menus, bindings).
     /// </summary>
-    public static class BasisSlimeVRBridge
+    [AutoStaticsCleanup]
+    public static partial class BasisSlimeVRBridge
     {
         public static bool IsConnected { get; private set; }
         public static bool HasBodyMetrics { get; private set; }
@@ -44,7 +46,7 @@ namespace Basis.Integration.SlimeVR
         public static event Action<BasisSlimeVRBodyMetrics> OnBodyMetricsChanged;
         public static event Action OnTrackersUpdated;
 
-        private static BasisSolarXRClient _client;
+        [NoAutoStaticsCleanup] private static BasisSolarXRClient _client;
         private static bool _hooked;
         private static bool _pendingSeatedApply;
 
@@ -69,7 +71,7 @@ namespace Basis.Integration.SlimeVR
         /// <summary><see cref="Time.realtimeSinceStartup"/> at the last recapture.</summary>
         public static float LastRecaptureRealtime { get; private set; } = float.NegativeInfinity;
 
-        private static readonly object _trackerSwapLock = new object();
+        [NoAutoStaticsCleanup] private static readonly object _trackerSwapLock = new object();
         private static List<SlimeVRTrackerSnapshot> _incomingTrackers;
         private static bool _trackerFlushQueued;
 
@@ -93,10 +95,15 @@ namespace Basis.Integration.SlimeVR
             if (!_hooked)
             {
                 _hooked = true;
+                Application.quitting -= Shutdown;
                 Application.quitting += Shutdown;
+                BasisSlimeVRSettings.Enable.OnChanged -= OnEnableSettingChanged;
                 BasisSlimeVRSettings.Enable.OnChanged += OnEnableSettingChanged;
+                BasisSlimeVRSettings.ApplyBodyMeasurements.OnChanged -= OnApplySettingChanged;
                 BasisSlimeVRSettings.ApplyBodyMeasurements.OnChanged += OnApplySettingChanged;
+                BasisSlimeVRSettings.Transport.OnChanged -= OnTransportSettingChanged;
                 BasisSlimeVRSettings.Transport.OnChanged += OnTransportSettingChanged;
+                BasisSlimeVRSettings.TrackerSource.OnChanged -= OnTrackerSourceChanged;
                 BasisSlimeVRSettings.TrackerSource.OnChanged += OnTrackerSourceChanged;
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChanged;
                 // Every calibration (menu, auto-bind, or our own recapture) becomes the new mounting

@@ -17,7 +17,7 @@ public class BasisContentPoliceSelectorEditor : Editor
     public void OnEnable()
     {
         // Get all MonoBehaviour types in the project
-        monoBehaviourTypes = AppDomain.CurrentDomain.GetAssemblies()
+        monoBehaviourTypes = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies()
             .SelectMany(assembly => assembly.GetTypes())
             .Where(type => type.IsSubclassOf(typeof(UnityEngine.Component)) && !type.IsAbstract)
             .ToList();

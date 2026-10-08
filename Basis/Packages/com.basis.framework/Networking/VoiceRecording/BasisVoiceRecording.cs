@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -24,7 +25,8 @@ namespace Basis.Scripts.Networking.VoiceRecording
     /// This is the trusted, full-surface API. Untrusted world scripts (Cilbox) must go through
     /// the restricted shim, never this class directly — this exposes raw PCM and disk output.
     /// </summary>
-    public static class BasisVoiceRecording
+    [AutoStaticsCleanup]
+    public static partial class BasisVoiceRecording
     {
         public const int DefaultConsentTimeoutMs = 15000;
         private const float RequestRateLimitSeconds = 3f;
@@ -43,7 +45,7 @@ namespace Basis.Scripts.Networking.VoiceRecording
         private static readonly Dictionary<ushort, float> _lastRequestTime = new Dictionary<ushort, float>();
         private static float _lastPromptTime = -999f;
 
-        private static readonly float[] _tickScratch = new float[RemoteOpusSettings.MaxFrameSize * 4];
+        [NoAutoStaticsCleanup] private static readonly float[] _tickScratch = new float[RemoteOpusSettings.MaxFrameSize * 4];
         private static Capture[] _tickSnapshot = Array.Empty<Capture>();
 
         /// <summary>A recordee granted us consent (recorder side).</summary>

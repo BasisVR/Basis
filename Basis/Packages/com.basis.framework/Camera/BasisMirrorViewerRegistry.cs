@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,7 +8,8 @@ using UnityEngine;
 /// and does not register here. Mirror reflection cameras must never register — see
 /// <see cref="BasisMirrorReflectionCamera"/>.
 /// </summary>
-public static class BasisMirrorViewerRegistry
+[AutoStaticsCleanup]
+public static partial class BasisMirrorViewerRegistry
 {
     private static readonly List<Camera> Cameras = new List<Camera>(4);
 

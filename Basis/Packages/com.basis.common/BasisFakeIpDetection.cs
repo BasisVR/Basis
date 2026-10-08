@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Diagnostics;
 using System.Net;
@@ -19,7 +20,8 @@ namespace Basis.Scripts.Common
     /// negative costs an unprompted player (who can still find the setting) and a false positive
     /// costs one declined dialog.</para>
     /// </summary>
-    public static class BasisFakeIpDetection
+    [AutoStaticsCleanup]
+    public static partial class BasisFakeIpDetection
     {
         /// <summary>
         /// True for the RFC 2544 benchmarking range, 198.18.0.0/15 — Clash's and sing-box's default
@@ -55,8 +57,8 @@ namespace Basis.Scripts.Common
         /// </summary>
         private static readonly long CacheTicks = Stopwatch.Frequency * 30;
 
-        private static readonly object Gate = new object();
-        private static Task<bool> Probe;
+        [NoAutoStaticsCleanup] private static readonly object Gate = new object();
+        [NoAutoStaticsCleanup] private static Task<bool> Probe;
         private static long ProbeStamp;
 
         /// <summary>

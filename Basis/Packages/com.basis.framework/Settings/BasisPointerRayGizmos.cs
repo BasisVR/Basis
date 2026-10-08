@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -11,7 +12,8 @@ using UnityEngine;
 /// renders in-game rather than only in the editor scene view. Driven from
 /// SMModuleDebugOptions under the GizmoPointerRay toggle.
 /// </summary>
-public static class BasisPointerRayGizmos
+[AutoStaticsCleanup]
+public static partial class BasisPointerRayGizmos
 {
     public static bool Show;
 

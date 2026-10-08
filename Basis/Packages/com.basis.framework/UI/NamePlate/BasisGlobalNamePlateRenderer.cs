@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Basis.Scripts.Device_Management;
@@ -26,7 +27,8 @@ namespace Basis.Scripts.UI.NamePlate
     ///    matrices and pushes the position buffer with revalidation disabled.
     /// Hidden plates collapse to a degenerate point via a zero matrix, so visibility needs no rebuild.
     /// </summary>
-    public static class BasisGlobalNamePlateRenderer
+    [AutoStaticsCleanup]
+    public static partial class BasisGlobalNamePlateRenderer
     {
         private const float NoCullExtent = 100000f;
 
@@ -73,8 +75,8 @@ namespace Basis.Scripts.UI.NamePlate
 
         // Per-frame plate data, indexed by snapshot order.
         private static readonly List<BasisRemoteNamePlate> snapshot = new(64);
-        private static NativeArray<Matrix4x4> matrices;
-        private static NativeArray<Color> plateColors;
+        [NoAutoStaticsCleanup] private static NativeArray<Matrix4x4> matrices;
+        [NoAutoStaticsCleanup] private static NativeArray<Color> plateColors;
         private static int plateCapacity;
 
         // Plate-order → playerId (cached at topology rebuild) and → dense sOut slot (resolved each
@@ -82,16 +84,16 @@ namespace Basis.Scripts.UI.NamePlate
         // pose (sOut: hips + height) in Burst, instead of reading the plate Transform on the main
         // thread. The nameplate is a standalone scene root scaled by NamePlateSize, so its full
         // world matrix is hips-position + yaw-to-camera + that uniform scale.
-        private static NativeArray<int> plateKey;
-        private static NativeArray<int> plateSlot;
+        [NoAutoStaticsCleanup] private static NativeArray<int> plateKey;
+        [NoAutoStaticsCleanup] private static NativeArray<int> plateSlot;
         // Per-plate world position copied out of sOut during the gather, so the scheduled
         // matrix job never dereferences the bone system's array while deferred to before-render.
-        private static NativeArray<float3> platePos;
+        [NoAutoStaticsCleanup] private static NativeArray<float3> platePos;
         // Snapshot mirrored as a plain array so the per-frame gather indexes a T[] instead of
         // List<T>.this[] (the List indexer's bounds-check showed up in the gather).
         private static BasisRemoteNamePlate[] snapArr = System.Array.Empty<BasisRemoteNamePlate>();
         // Reused scratch for the per-vertex GPU plate-id UV fill (avoids a per-rebuild Temp alloc).
-        private static NativeArray<Vector2> uvScratch;
+        [NoAutoStaticsCleanup] private static NativeArray<Vector2> uvScratch;
 
         // Topology rebuild (CombineMeshes) is heavy and allocates; coalesce it during join storms so
         // it runs at most once per this many frames while plates are streaming in. A lone join after
@@ -104,13 +106,13 @@ namespace Basis.Scripts.UI.NamePlate
         // CombineInstance[] GC. Flip false to fall back to the CombineMeshes path. (Text still uses
         // CombineMeshes.)
         public static bool ManualMergePanel = true;
-        private static NativeArray<PanelVertex> panelScratch;
-        private static NativeArray<uint> indexScratch;
-        private static NativeArray<Vector3> tmpPos;
-        private static NativeArray<Vector2> tmpUv0;
-        private static NativeArray<int> tmpIdx;
+        [NoAutoStaticsCleanup] private static NativeArray<PanelVertex> panelScratch;
+        [NoAutoStaticsCleanup] private static NativeArray<uint> indexScratch;
+        [NoAutoStaticsCleanup] private static NativeArray<Vector3> tmpPos;
+        [NoAutoStaticsCleanup] private static NativeArray<Vector2> tmpUv0;
+        [NoAutoStaticsCleanup] private static NativeArray<int> tmpIdx;
         private static readonly List<Mesh> srcMeshList = new(64);
-        private static readonly VertexAttributeDescriptor[] PanelLayout =
+        [NoAutoStaticsCleanup] private static readonly VertexAttributeDescriptor[] PanelLayout =
         {
             new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
             new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2),
@@ -128,12 +130,12 @@ namespace Basis.Scripts.UI.NamePlate
         // Manual text merge (same idea as the panel, but the forked TMP SDF vertex is multi-channel:
         // position + normal + color + 4-component UV0 (atlas + SDF scale in .w) + the plate id in UV2).
         public static bool ManualMergeText = true;
-        private static NativeArray<TextVertex> textScratch;
+        [NoAutoStaticsCleanup] private static NativeArray<TextVertex> textScratch;
         // Per-source-mesh write offsets + plate id, filled on the main thread and read by MergeTextJob.
-        private static NativeArray<int> textVOff;
-        private static NativeArray<int> textIOff;
-        private static NativeArray<int> textPlateId;
-        private static readonly VertexAttributeDescriptor[] TextLayout =
+        [NoAutoStaticsCleanup] private static NativeArray<int> textVOff;
+        [NoAutoStaticsCleanup] private static NativeArray<int> textIOff;
+        [NoAutoStaticsCleanup] private static NativeArray<int> textPlateId;
+        [NoAutoStaticsCleanup] private static readonly VertexAttributeDescriptor[] TextLayout =
         {
             new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
             new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3),
@@ -159,8 +161,8 @@ namespace Basis.Scripts.UI.NamePlate
         public static bool UseBoneSystemMatrices = true;
 
         // Shared GPU per-plate buffers (matrices stored as 4 float4 columns each).
-        private static GraphicsBuffer plateMatrixBuffer;
-        private static GraphicsBuffer plateColorBuffer;
+        [NoAutoStaticsCleanup] private static GraphicsBuffer plateMatrixBuffer;
+        [NoAutoStaticsCleanup] private static GraphicsBuffer plateColorBuffer;
         private static int gpuBufferCapacity;
 
         private static Layer panel;

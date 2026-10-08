@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.Sync;
@@ -24,7 +25,8 @@ using UnityEngine;
 /// (anchor sphere + "#id own" label with tx rates) instead — without it the client that
 /// grabbed the pickup or drives the vehicle sees nothing and reads that as "sync broken".
 /// </summary>
-public static class BasisSyncGizmos
+[AutoStaticsCleanup]
+public static partial class BasisSyncGizmos
 {
     // Mirrored from settings by SMModuleDebugOptions.
     public static bool Show;

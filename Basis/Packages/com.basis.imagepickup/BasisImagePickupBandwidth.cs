@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 
 namespace Basis.ImagePickup
@@ -19,7 +20,8 @@ namespace Basis.ImagePickup
     /// it again would just mean half of what they asked for. Only the fallback used when a server says
     /// nothing is a guess, and it is a small one.
     /// </summary>
-    internal static class BasisImagePickupBandwidth
+    [AutoStaticsCleanup]
+    internal static partial class BasisImagePickupBandwidth
     {
         private static double _uplinkTokens;
         private static double _relayTokens;

@@ -1,4 +1,5 @@
-﻿using Basis.Scripts.Common;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
@@ -7,8 +8,9 @@ using UnityEngine;
 
 namespace Basis.Scripts.TransformBinders.BoneControl
 {
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisLocalBoneControl
+    public partial class BasisLocalBoneControl
     {
         public const float AngleBeforeSpeedup = 25f;
 

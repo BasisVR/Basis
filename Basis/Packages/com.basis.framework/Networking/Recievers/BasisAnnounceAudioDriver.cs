@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -20,7 +21,8 @@ namespace Basis.Scripts.Networking.Receivers
     /// Each announcing player gets one non-spatialized (2D) AudioSource parented
     /// to BasisDeviceManagement.Instance so it persists across scene loads.
     /// </summary>
-    public static class BasisAnnounceAudioDriver
+    [AutoStaticsCleanup]
+    public static partial class BasisAnnounceAudioDriver
     {
         /// <summary>
         /// Per-player announce audio state.

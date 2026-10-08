@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -17,7 +18,8 @@ namespace Basis.BasisUI
     /// paths must call <see cref="DestroyInstance"/> instead or every released element leaks.
     /// </para>
     /// </summary>
-    public static class BasisAddressablePrefabCache
+    [AutoStaticsCleanup]
+    public static partial class BasisAddressablePrefabCache
     {
         private static readonly Dictionary<string, GameObject> Prefabs = new Dictionary<string, GameObject>();
         private static readonly Dictionary<string, AsyncOperationHandle<GameObject>> Handles = new Dictionary<string, AsyncOperationHandle<GameObject>>();

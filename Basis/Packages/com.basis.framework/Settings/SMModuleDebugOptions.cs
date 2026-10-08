@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,7 +12,8 @@ using Basis.Scripts.Device_Management.Devices.Pairing;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 
-public class SMModuleDebugOptions : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleDebugOptions : BasisSettingsBase
 {
     public static SMModuleDebugOptions Instance;
 

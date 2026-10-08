@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.IK;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -7,10 +8,11 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
-public static class BasisBodyEvidenceSampler
+[AutoStaticsCleanup]
+public static partial class BasisBodyEvidenceSampler
 {
     public const int FrameInterval = 5;
-    static NativeReference<BasisBodyEvidenceState> sstate;
+    [NoAutoStaticsCleanup] static NativeReference<BasisBodyEvidenceState> sstate;
     static JobHandle handle;
     static bool scheduled;
     static bool allocated;

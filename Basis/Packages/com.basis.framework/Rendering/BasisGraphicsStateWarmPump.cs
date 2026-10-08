@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Drivers;
 
-public static class BasisGraphicsStateWarmPump
+[AutoStaticsCleanup]
+public static partial class BasisGraphicsStateWarmPump
 {
     private static bool _running;
 

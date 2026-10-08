@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Helpers;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -9,8 +10,9 @@ namespace Basis.Scripts.UI
     /// Keeps a <see cref="BoxCollider"/> matched to the panel so the existing physics
     /// raycast finds it, and converts a world ray into UI Toolkit panel coordinates.
     /// </summary>
+    [AutoStaticsCleanup]
     [RequireComponent(typeof(PanelRenderer))]
-    public class BasisUIToolkitPanel : MonoBehaviour
+    public partial class BasisUIToolkitPanel : MonoBehaviour
     {
         public PanelRenderer Document;
         public bool ManageCollider = true;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if !BASIS_DISABLE_MICROPHONE
 using UnityEngine;
 using System;
@@ -6,7 +7,8 @@ using Basis.Scripts.Audio;
 using Basis.Scripts.Device_Management;
 using System.Threading;
 
-public static class BasisLocalMicrophoneDriver
+[AutoStaticsCleanup]
+public static partial class BasisLocalMicrophoneDriver
 {
     private static int head = 0;
     private static int captured = 0;
@@ -24,8 +26,8 @@ public static class BasisLocalMicrophoneDriver
     // race where MicrophoneUpdate.Set() lands between the worker's WaitOne return and
     // a manual Reset(), stalling one tick of processing.
     private static AutoResetEvent processingEvent = new AutoResetEvent(false);
-    private static readonly object processingLock = new object();
-    private static readonly object ringLock = new object();
+    [NoAutoStaticsCleanup] private static readonly object processingLock = new object();
+    [NoAutoStaticsCleanup] private static readonly object ringLock = new object();
 
     public const string MicrophoneState = "MicrophoneState";
     public const string SettingStartOff = "Muted";
@@ -76,7 +78,7 @@ public static class BasisLocalMicrophoneDriver
     public static int rmsIndex = 0;
     public static float averageRms;
 
-    public static RNNoise.NET.Denoiser Denoiser = new RNNoise.NET.Denoiser();
+    [NoAutoStaticsCleanup] public static RNNoise.NET.Denoiser Denoiser = new RNNoise.NET.Denoiser();
     public static int minFreq = 48000;
     public static int maxFreq = 48000;
 
@@ -95,7 +97,7 @@ public static class BasisLocalMicrophoneDriver
 
     public static bool isPaused = false;
 
-    private static CancellationTokenSource processingTokenSource;
+    [NoAutoStaticsCleanup] private static CancellationTokenSource processingTokenSource;
 
     private static int warmupSamples = 0;
     private static bool inWarmup = false;
@@ -103,10 +105,10 @@ public static class BasisLocalMicrophoneDriver
     public const int ProcessFrameSize = 960;  // 20ms at 48kHz
     public const int DenoiserFrameSize = 480; // 10ms at 48kHz
 
-    private static readonly BasisMicrophonePacer _pacer = new BasisMicrophonePacer();
+    [NoAutoStaticsCleanup] private static readonly BasisMicrophonePacer _pacer = new BasisMicrophonePacer();
     private const int PaceMaxWaitMilliseconds = 20;
 
-    private static readonly BasisMicrophoneAgc _agc = new BasisMicrophoneAgc();
+    [NoAutoStaticsCleanup] private static readonly BasisMicrophoneAgc _agc = new BasisMicrophoneAgc();
     private static BasisMicrophoneAgc.Settings _agcSettings;
     private static float _prevAgcAmp = 1f;
 
@@ -129,7 +131,7 @@ public static class BasisLocalMicrophoneDriver
 
     private const float AutoGateOverNoise = 2.5f;
 
-    private static readonly BasisNoiseFloorTracker _gateNoiseFloor = new BasisNoiseFloorTracker();
+    [NoAutoStaticsCleanup] private static readonly BasisNoiseFloorTracker _gateNoiseFloor = new BasisNoiseFloorTracker();
     private static float _lastGateThreshold;
 
     private static float _noiseGateGain = 0f; // 0 = closed, 1 = open
@@ -149,7 +151,7 @@ public static class BasisLocalMicrophoneDriver
     // straight off the clip; the processing thread downmixes them into the mono ring and
     // carries everything from there (AGC, limiter, denoise, gate, Opus encode, network
     // send). This keeps the capture read as the ONLY main-thread stage of the pipeline.
-    private static readonly object stagingLock = new object();
+    [NoAutoStaticsCleanup] private static readonly object stagingLock = new object();
     private static float[] stagingBuffer;
     private static int stagingChunkStride; // ProcessFrameSize * channels at alloc time
     private static int stagingChannels = 1;

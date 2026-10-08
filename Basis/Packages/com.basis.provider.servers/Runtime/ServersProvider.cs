@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BTween;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
@@ -18,7 +19,8 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
-    public class ServersProvider : BasisMenuActionProvider<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class ServersProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()

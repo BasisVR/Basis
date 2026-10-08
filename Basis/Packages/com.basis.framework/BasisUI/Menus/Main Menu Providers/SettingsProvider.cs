@@ -1880,11 +1880,53 @@ namespace Basis.BasisUI
             PanelDropdown dropdownAntialiasing = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
             dropdownAntialiasing.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.antialiasing"));
             dropdownAntialiasing.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.antialiasing.tooltip"));
-            dropdownAntialiasing.AssignLocalizedEntries(
-                new List<string> { "Off","MSAA 2X","MSAA 4X","MSAA 8X","Linear","Point","FSR"/*,"STP"*/ },
-                new List<string> { "ui.option.off", "settings.graphics.aa.msaa2x", "settings.graphics.aa.msaa4x", "settings.graphics.aa.msaa8x", "settings.graphics.aa.linear", "settings.graphics.aa.point", "settings.graphics.aa.fsr" },
-                new List<string> { "settings.graphics.aa.off.tooltip" });
+            List<string> antialiasingEntries = new List<string> { "Off","MSAA 2X","MSAA 4X","MSAA 8X","Linear","Point","FSR"/*,"STP"*/ };
+            List<string> antialiasingKeys = new List<string> { "ui.option.off", "settings.graphics.aa.msaa2x", "settings.graphics.aa.msaa4x", "settings.graphics.aa.msaa8x", "settings.graphics.aa.linear", "settings.graphics.aa.point", "settings.graphics.aa.fsr" };
+            for (int upscalerIndex = 0; upscalerIndex < SMModuleAntialiasingURP.TemporalUpscalerOptions.Length; upscalerIndex++)
+            {
+                if (SMModuleAntialiasingURP.IsUpscalerSupported(SMModuleAntialiasingURP.TemporalUpscalerOptions[upscalerIndex]))
+                {
+                    antialiasingEntries.Add(SMModuleAntialiasingURP.TemporalUpscalerOptions[upscalerIndex]);
+                    antialiasingKeys.Add(SMModuleAntialiasingURP.TemporalUpscalerLabelKeys[upscalerIndex]);
+                }
+            }
+            dropdownAntialiasing.AssignLocalizedEntries(antialiasingEntries, antialiasingKeys, new List<string> { "settings.graphics.aa.off.tooltip" });
             dropdownAntialiasing.AssignBinding(BasisSettingsDefaults.Antialiasing);
+            if (dropdownAntialiasing.Index < 0)
+            {
+                dropdownAntialiasing.SetValueWithoutNotify(BasisSettingsDefaults.Antialiasing.DefaultValue.GetDefault());
+            }
+
+            PanelDropdown dropdownUpscalerQuality = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
+            dropdownUpscalerQuality.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.upscalerQuality"));
+            dropdownUpscalerQuality.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.upscalerQuality.tooltip"));
+            dropdownUpscalerQuality.AssignLocalizedEntries(new List<string>(SMModuleAntialiasingURP.UpscalerQualityOptions), new List<string>(SMModuleAntialiasingURP.UpscalerQualityLabelKeys));
+            dropdownUpscalerQuality.AssignBinding(BasisSettingsDefaults.UpscalerQuality);
+            dropdownUpscalerQuality.Descriptor.SetActive(SMModuleAntialiasingURP.IsTemporalUpscalerOption(dropdownAntialiasing.Value) && !BasisDeviceManagement.IsCurrentModeVR());
+
+            PanelSlider sliderUpscalerSharpness = PanelSlider.CreateEntryAndBind(
+                qualityGroup.ContentParent,
+                new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.upscalerSharpness"),
+                    "",
+                    BasisSettingsDefaults.UPSCALER_SHARPNESS_MIN, BasisSettingsDefaults.UPSCALER_SHARPNESS_MAX, false, 0, ValueDisplayMode.Percentage),
+                BasisSettingsDefaults.UpscalerSharpness);
+            sliderUpscalerSharpness.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.upscalerSharpness.tooltip"));
+            sliderUpscalerSharpness.Descriptor.SetActive(SMModuleAntialiasingURP.IsTemporalUpscalerOption(dropdownAntialiasing.Value));
+
+            PanelDropdown dropdownDlssModel = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
+            dropdownDlssModel.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.dlssModel"));
+            dropdownDlssModel.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.dlssModel.tooltip"));
+            dropdownDlssModel.AssignLocalizedEntries(new List<string>(SMModuleAntialiasingURP.DlssModelOptions), new List<string>(SMModuleAntialiasingURP.DlssModelLabelKeys));
+            dropdownDlssModel.AssignBinding(BasisSettingsDefaults.DlssModel);
+            dropdownDlssModel.Descriptor.SetActive(SMModuleAntialiasingURP.IsDlssOption(dropdownAntialiasing.Value));
+
+            dropdownAntialiasing.OnValueChanged += (val) =>
+            {
+                dropdownUpscalerQuality.Descriptor.SetActive(SMModuleAntialiasingURP.IsTemporalUpscalerOption(val) && !BasisDeviceManagement.IsCurrentModeVR());
+                sliderUpscalerSharpness.Descriptor.SetActive(SMModuleAntialiasingURP.IsTemporalUpscalerOption(val));
+                dropdownDlssModel.Descriptor.SetActive(SMModuleAntialiasingURP.IsDlssOption(val));
+                qualityGroup.ForceRebuild();
+            };
 
             if (BasisDeviceManagement.IsUserInDesktop())
             {
@@ -1994,6 +2036,13 @@ namespace Basis.BasisUI
                 toggleGi.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.enable.tooltip"));
                 SettingsProviderBottleneckHints.Mark(toggleGi, BasisFrameCostSide.Gpu);
 
+                PanelDropdown dropdownGiSolution = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
+                dropdownGiSolution.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.solution"));
+                dropdownGiSolution.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.solution.tooltip"));
+                AssignLightingSolutionEntries(dropdownGiSolution, BasisLightingSolutions.HasUnityGlobalIllumination, BasisSettingsDefaults.GlobalIlluminationSolution);
+                SettingsProviderBottleneckHints.Mark(dropdownGiSolution, BasisFrameCostSide.Gpu);
+                Action<bool> showUnityGi = SettingsProviderUnityLighting.BuildGlobalIllumination(giGroup.ContentParent, RebuildGiLayout);
+
                 PanelDropdown dropdownGiPreset = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiPreset.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.preset"));
                 dropdownGiPreset.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.preset.tooltip"));
@@ -2006,7 +2055,7 @@ namespace Basis.BasisUI
 
                 PanelDropdown dropdownGiMode = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiMode.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.mode"));
-                dropdownGiMode.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.mode.tooltip"));
+                dropdownGiMode.Descriptor.SetTooltip(WithRayTracingNote(BasisLocalization.Get("settings.graphics.gi.mode.tooltip"), giCanTrace));
                 dropdownGiMode.AssignLocalizedEntries(
                     new List<string> { "Screen Space", "Ray Traced" },
                     new List<string> { "settings.graphics.gi.mode.screenSpace", "settings.graphics.gi.mode.rayTraced" });
@@ -2184,53 +2233,6 @@ namespace Basis.BasisUI
                 toggleGiReflectionProbes.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.reflectionProbes.tooltip"));
                 SettingsProviderBottleneckHints.Mark(toggleGiReflectionProbes, BasisFrameCostSide.Gpu);
 
-                PanelToggle toggleGiSpecular = PanelToggle.CreateNewEntry(giAdvanced.ContentParent);
-                toggleGiSpecular.AssignBinding(BasisSettingsDefaults.GlobalIlluminationSpecular);
-                toggleGiSpecular.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.specular"));
-                toggleGiSpecular.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specular.tooltip"));
-                SettingsProviderBottleneckHints.Mark(toggleGiSpecular, BasisFrameCostSide.Gpu);
-
-                PanelSlider sliderGiSpecularIntensity = PanelSlider.CreateEntryAndBind(
-                    giAdvanced.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularIntensity"),
-                        "",
-                        BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MIN,
-                        BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MAX,
-                        false, 2, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationSpecularIntensity);
-                sliderGiSpecularIntensity.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularIntensity.tooltip"));
-
-                PanelSlider sliderGiSpecularMaxRoughness = PanelSlider.CreateEntryAndBind(
-                    giAdvanced.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularMaxRoughness"),
-                        "",
-                        BasisSettingsDefaults.GI_SPECULAR_MAX_ROUGHNESS_MIN,
-                        BasisSettingsDefaults.GI_SPECULAR_MAX_ROUGHNESS_MAX,
-                        false, 2, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationSpecularMaxRoughness);
-                sliderGiSpecularMaxRoughness.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularMaxRoughness.tooltip"));
-
-                PanelSlider sliderGiSpecularRayLength = PanelSlider.CreateEntryAndBind(
-                    giAdvanced.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularRayLength"),
-                        "",
-                        BasisSettingsDefaults.GI_SPECULAR_RAY_LENGTH_MIN,
-                        BasisSettingsDefaults.GI_SPECULAR_RAY_LENGTH_MAX,
-                        false, 0, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationSpecularRayLength);
-                sliderGiSpecularRayLength.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularRayLength.tooltip"));
-                SettingsProviderBottleneckHints.Mark(sliderGiSpecularRayLength, BasisFrameCostSide.Gpu);
-
-                PanelSlider sliderGiSpecularFadeDistance = PanelSlider.CreateEntryAndBind(
-                    giAdvanced.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularFadeDistance"),
-                        "",
-                        BasisSettingsDefaults.GI_SPECULAR_FADE_DISTANCE_MIN,
-                        BasisSettingsDefaults.GI_SPECULAR_FADE_DISTANCE_MAX,
-                        false, 0, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationSpecularFadeDistance);
-                sliderGiSpecularFadeDistance.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularFadeDistance.tooltip"));
-
                 PanelSlider sliderGiObscuranceRadius = PanelSlider.CreateEntryAndBind(
                     giAdvanced.ContentParent,
                     new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.obscuranceRadius"),
@@ -2316,48 +2318,43 @@ namespace Basis.BasisUI
 
                 void SetGiRowsActive(bool val)
                 {
-                    bool rayTraced = val && giCanTrace && dropdownGiMode.Value == "Ray Traced";
-                    dropdownGiPreset.Descriptor.SetActive(val);
-                    dropdownGiMode.Descriptor.SetActive(val && giCanTrace);
+                    bool basis = val && !BasisLightingSolutions.PicksUnityGlobalIllumination(dropdownGiSolution.Value);
+                    bool rayTraced = basis && giCanTrace && dropdownGiMode.Value == "Ray Traced";
+                    dropdownGiSolution.Descriptor.SetActive(val);
+                    showUnityGi(val && !basis);
+                    dropdownGiPreset.Descriptor.SetActive(basis);
+                    dropdownGiMode.Descriptor.SetActive(basis);
                     // Both of these describe what goes into the acceleration structure, which only the ray
                     // traced path builds. On screen space the trace walks the depth buffer, so neither has
                     // anything to act on and showing them promises a control that does nothing.
                     dropdownGiLayers.Descriptor.SetActive(rayTraced);
                     dropdownGiSkinned.Descriptor.SetActive(rayTraced);
-                    dropdownGiQuality.Descriptor.SetActive(val);
-                    dropdownGiResolution.Descriptor.SetActive(val);
-                    sliderGiIntensity.Descriptor.SetActive(val);
-                    sliderGiSaturation.Descriptor.SetActive(val);
-                    sliderGiObscurance.Descriptor.SetActive(val);
-                    sliderGiRayLength.Descriptor.SetActive(val);
-                    sliderGiSmoothing.Descriptor.SetActive(val);
-                    toggleGiWideBlur.Descriptor.SetActive(val);
-                    toggleGiTemporal.Descriptor.SetActive(val);
-                    sliderGiTemporalResponse.Descriptor.SetActive(val && toggleGiTemporal.Value);
-                    dropdownGiFallback.Descriptor.SetActive(val);
+                    dropdownGiQuality.Descriptor.SetActive(basis);
+                    dropdownGiResolution.Descriptor.SetActive(basis);
+                    sliderGiIntensity.Descriptor.SetActive(basis);
+                    sliderGiSaturation.Descriptor.SetActive(basis);
+                    sliderGiObscurance.Descriptor.SetActive(basis);
+                    sliderGiRayLength.Descriptor.SetActive(basis);
+                    sliderGiSmoothing.Descriptor.SetActive(basis);
+                    toggleGiWideBlur.Descriptor.SetActive(basis);
+                    toggleGiTemporal.Descriptor.SetActive(basis);
+                    sliderGiTemporalResponse.Descriptor.SetActive(basis && toggleGiTemporal.Value);
+                    dropdownGiFallback.Descriptor.SetActive(basis);
                     toggleGiIgnoreBakedEmission.Descriptor.SetActive(rayTraced);
-                    sliderGiLightmappedReceive.Descriptor.SetActive(val);
-                    toggleGiRayReuse.Descriptor.SetActive(val && !rayTraced);
-                    toggleGiEmitters.Descriptor.SetActive(val);
-                    sliderGiEmitterIntensity.Descriptor.SetActive(val && toggleGiEmitters.Value);
-                    toggleGiReflectionProbes.Descriptor.SetActive(val);
+                    sliderGiLightmappedReceive.Descriptor.SetActive(basis);
+                    toggleGiRayReuse.Descriptor.SetActive(basis && !rayTraced);
+                    toggleGiEmitters.Descriptor.SetActive(basis);
+                    sliderGiEmitterIntensity.Descriptor.SetActive(basis && toggleGiEmitters.Value);
+                    toggleGiReflectionProbes.Descriptor.SetActive(basis);
 
                     // The fold itself goes with the effect, so turning global illumination off does not
                     // leave a section header standing over nothing.
-                    giAdvancedToggle.Descriptor.SetActive(val);
+                    giAdvancedToggle.Descriptor.SetActive(basis);
 
                     // Obscurance radius, fade distance and the firefly ceiling are read by both traces.
-                    sliderGiObscuranceRadius.Descriptor.SetActive(val);
-                    sliderGiFadeDistance.Descriptor.SetActive(val);
-                    sliderGiFireflyClamp.Descriptor.SetActive(val);
-
-                    // The reflection controls follow their own toggle the way emitter intensity follows
-                    // its own - both backends read all four, so none of them is gated on the mode.
-                    bool specular = val && toggleGiSpecular.Value;
-                    sliderGiSpecularIntensity.Descriptor.SetActive(specular);
-                    sliderGiSpecularMaxRoughness.Descriptor.SetActive(specular);
-                    sliderGiSpecularRayLength.Descriptor.SetActive(specular);
-                    sliderGiSpecularFadeDistance.Descriptor.SetActive(specular);
+                    sliderGiObscuranceRadius.Descriptor.SetActive(basis);
+                    sliderGiFadeDistance.Descriptor.SetActive(basis);
+                    sliderGiFireflyClamp.Descriptor.SetActive(basis);
 
                     // The ray origin offsets and the bounce cutoff only exist on the traced path - the
                     // screen space march walks the depth buffer and has no ray origin to push off a surface.
@@ -2387,7 +2384,7 @@ namespace Basis.BasisUI
                     SetGiRowsActive(toggleGi.Value);
                     RebuildGiLayout();
                 };
-                toggleGiSpecular.OnValueChanged += (_) =>
+                dropdownGiSolution.OnValueChanged += (_) =>
                 {
                     SetGiRowsActive(toggleGi.Value);
                     RebuildGiLayout();
@@ -2404,6 +2401,110 @@ namespace Basis.BasisUI
                 }
 
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(giToggle, giGroup, true,
+                    _ => descriptor.ForceRebuild());
+            }
+
+            {
+                PanelSectionToggle reflectionsToggle = PanelSectionToggle.CreateNewEntry(container);
+                PanelElementDescriptor reflectionsGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
+                    reflectionsToggle,
+                    container,
+                    BasisLocalization.Get("settings.graphics.reflections.title"),
+                    showGroupTitle: false);
+
+                PanelToggle toggleReflections = PanelToggle.CreateNewEntry(reflectionsGroup.ContentParent);
+                toggleReflections.AssignBinding(BasisSettingsDefaults.GlobalIlluminationSpecular);
+                toggleReflections.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.reflections.enable"));
+                toggleReflections.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.reflections.enable.tooltip"));
+                SettingsProviderBottleneckHints.Mark(toggleReflections, BasisFrameCostSide.Gpu);
+
+                PanelDropdown dropdownReflectionsSolution = PanelDropdown.CreateNewEntry(reflectionsGroup.ContentParent);
+                dropdownReflectionsSolution.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.reflections.solution"));
+                dropdownReflectionsSolution.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.reflections.solution.tooltip"));
+                AssignLightingSolutionEntries(dropdownReflectionsSolution, BasisLightingSolutions.HasUnityReflections, BasisSettingsDefaults.ReflectionsSolution);
+                SettingsProviderBottleneckHints.Mark(dropdownReflectionsSolution, BasisFrameCostSide.Gpu);
+                Action<bool> showUnityReflections = SettingsProviderUnityLighting.BuildReflections(reflectionsGroup.ContentParent, RebuildReflectionsLayout);
+
+                bool reflectionsCanTrace = BasisGlobalIlluminationRayContext.HardwareSupported;
+
+                PanelDropdown dropdownReflectionsMode = PanelDropdown.CreateNewEntry(reflectionsGroup.ContentParent);
+                dropdownReflectionsMode.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.reflections.mode"));
+                dropdownReflectionsMode.Descriptor.SetTooltip(WithRayTracingNote(BasisLocalization.Get("settings.graphics.reflections.mode.tooltip"), reflectionsCanTrace));
+                dropdownReflectionsMode.AssignLocalizedEntries(
+                    new List<string> { "Screen Space", "Ray Traced" },
+                    new List<string> { "settings.graphics.gi.mode.screenSpace", "settings.graphics.gi.mode.rayTraced" });
+                dropdownReflectionsMode.AssignBinding(BasisSettingsDefaults.ReflectionsMode);
+                SettingsProviderBottleneckHints.Mark(dropdownReflectionsMode, BasisFrameCostSide.Gpu);
+
+                PanelSlider sliderReflectionsIntensity = PanelSlider.CreateEntryAndBind(
+                    reflectionsGroup.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularIntensity"),
+                        "",
+                        BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MIN,
+                        BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MAX,
+                        false, 2, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationSpecularIntensity);
+                sliderReflectionsIntensity.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularIntensity.tooltip"));
+
+                PanelSlider sliderReflectionsMaxRoughness = PanelSlider.CreateEntryAndBind(
+                    reflectionsGroup.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularMaxRoughness"),
+                        "",
+                        BasisSettingsDefaults.GI_SPECULAR_MAX_ROUGHNESS_MIN,
+                        BasisSettingsDefaults.GI_SPECULAR_MAX_ROUGHNESS_MAX,
+                        false, 2, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationSpecularMaxRoughness);
+                sliderReflectionsMaxRoughness.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularMaxRoughness.tooltip"));
+
+                PanelSlider sliderReflectionsRayLength = PanelSlider.CreateEntryAndBind(
+                    reflectionsGroup.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularRayLength"),
+                        "",
+                        BasisSettingsDefaults.GI_SPECULAR_RAY_LENGTH_MIN,
+                        BasisSettingsDefaults.GI_SPECULAR_RAY_LENGTH_MAX,
+                        false, 0, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationSpecularRayLength);
+                sliderReflectionsRayLength.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularRayLength.tooltip"));
+                SettingsProviderBottleneckHints.Mark(sliderReflectionsRayLength, BasisFrameCostSide.Gpu);
+
+                PanelSlider sliderReflectionsFadeDistance = PanelSlider.CreateEntryAndBind(
+                    reflectionsGroup.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.specularFadeDistance"),
+                        "",
+                        BasisSettingsDefaults.GI_SPECULAR_FADE_DISTANCE_MIN,
+                        BasisSettingsDefaults.GI_SPECULAR_FADE_DISTANCE_MAX,
+                        false, 0, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationSpecularFadeDistance);
+                sliderReflectionsFadeDistance.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.specularFadeDistance.tooltip"));
+
+                void SetReflectionRowsActive(bool val)
+                {
+                    bool basis = val && !BasisLightingSolutions.PicksUnityReflections(dropdownReflectionsSolution.Value);
+                    dropdownReflectionsSolution.Descriptor.SetActive(val);
+                    showUnityReflections(val && !basis);
+                    dropdownReflectionsMode.Descriptor.SetActive(basis);
+                    sliderReflectionsIntensity.Descriptor.SetActive(basis);
+                    sliderReflectionsMaxRoughness.Descriptor.SetActive(basis);
+                    sliderReflectionsRayLength.Descriptor.SetActive(basis);
+                    sliderReflectionsFadeDistance.Descriptor.SetActive(basis);
+                }
+
+                void RebuildReflectionsLayout() =>
+                    PanelElementDescriptor.RebuildLayoutChain(reflectionsGroup.ContentParent, container);
+
+                SetReflectionRowsActive(toggleReflections.Value);
+                dropdownReflectionsSolution.OnValueChanged += (_) =>
+                {
+                    SetReflectionRowsActive(toggleReflections.Value);
+                    RebuildReflectionsLayout();
+                };
+                toggleReflections.OnValueChanged += (val) =>
+                {
+                    SetReflectionRowsActive(val);
+                    RebuildReflectionsLayout();
+                };
+
+                PanelSectionToggleHelpers.FinalizeCollapsibleGroup(reflectionsToggle, reflectionsGroup, true,
                     _ => descriptor.ForceRebuild());
             }
 #endif
@@ -2423,11 +2524,18 @@ namespace Basis.BasisUI
                 toggleRtao.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.enable.tooltip"));
                 SettingsProviderBottleneckHints.Mark(toggleRtao, BasisFrameCostSide.Gpu);
 
+                PanelDropdown dropdownRtaoSolution = PanelDropdown.CreateNewEntry(rtaoGroup.ContentParent);
+                dropdownRtaoSolution.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.rtao.solution"));
+                dropdownRtaoSolution.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.solution.tooltip"));
+                AssignLightingSolutionEntries(dropdownRtaoSolution, BasisLightingSolutions.HasUnityAmbientOcclusion, BasisSettingsDefaults.AmbientOcclusionSolution);
+                SettingsProviderBottleneckHints.Mark(dropdownRtaoSolution, BasisFrameCostSide.Gpu);
+                Action<bool> showUnityAo = SettingsProviderUnityLighting.BuildAmbientOcclusion(rtaoGroup.ContentParent, RebuildRtaoLayout);
+
                 bool rtaoCanTrace = Basis.Rendering.RTAO.BasisRTAOContext.HardwareSupported;
 
                 PanelDropdown dropdownRtaoMode = PanelDropdown.CreateNewEntry(rtaoGroup.ContentParent);
                 dropdownRtaoMode.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.rtao.mode"));
-                dropdownRtaoMode.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.rtao.mode.tooltip"));
+                dropdownRtaoMode.Descriptor.SetTooltip(WithRayTracingNote(BasisLocalization.Get("settings.graphics.rtao.mode.tooltip"), rtaoCanTrace));
                 dropdownRtaoMode.AssignLocalizedEntries(
                     new List<string> { "Screen Space", "Ray Traced" },
                     new List<string> { "settings.graphics.rtao.mode.screenSpace", "settings.graphics.rtao.mode.rayTraced" });
@@ -2602,37 +2710,40 @@ namespace Basis.BasisUI
 
                 void SetRtaoRowsActive(bool val)
                 {
-                    bool tracesGeometry = val && rtaoCanTrace && Basis.Rendering.RTAO.BasisRTAOTracing.IsRayTraced(
+                    bool basis = val && !BasisLightingSolutions.PicksUnityAmbientOcclusion(dropdownRtaoSolution.Value);
+                    showUnityAo(val && !basis);
+                    bool tracesGeometry = basis && rtaoCanTrace && Basis.Rendering.RTAO.BasisRTAOTracing.IsRayTraced(
                         Basis.Rendering.RTAO.BasisRTAOTracing.Resolve(Basis.Rendering.RTAO.BasisRTAOSettingsMap.ReadMode(dropdownRtaoMode.Value)));
-                    dropdownRtaoMode.Descriptor.SetActive(val && rtaoCanTrace);
-                    dropdownRtaoQuality.Descriptor.SetActive(val);
-                    sliderRtaoIntensity.Descriptor.SetActive(val);
-                    sliderRtaoRadius.Descriptor.SetActive(val);
-                    dropdownRtaoApply.Descriptor.SetActive(val);
-                    dropdownRtaoDenoise.Descriptor.SetActive(val);
+                    dropdownRtaoSolution.Descriptor.SetActive(val);
+                    dropdownRtaoMode.Descriptor.SetActive(basis);
+                    dropdownRtaoQuality.Descriptor.SetActive(basis);
+                    sliderRtaoIntensity.Descriptor.SetActive(basis);
+                    sliderRtaoRadius.Descriptor.SetActive(basis);
+                    dropdownRtaoApply.Descriptor.SetActive(basis);
+                    dropdownRtaoDenoise.Descriptor.SetActive(basis);
                     // Occlusion On Direct Light only means anything on the lighting path; the final image
                     // multiply dims everything by definition.
-                    bool throughLighting = val && dropdownRtaoApply.Value != "Final Image";
+                    bool throughLighting = basis && dropdownRtaoApply.Value != "Final Image";
                     sliderRtaoDirect.Descriptor.SetActive(throughLighting);
-                    toggleRtaoOtherCameras.Descriptor.SetActive(val);
+                    toggleRtaoOtherCameras.Descriptor.SetActive(basis);
                     // Both describe the acceleration structure, which only the traced path builds. On the
-                    // screen space estimator there is no structure for either to fill or filter, and on a
-                    // GPU that cannot trace at all the mode row is hidden too, so tracesGeometry - not the
-                    // dropdown alone - is what decides these.
+                    // screen space estimator there is no structure for either to fill or filter, and a GPU
+                    // that cannot trace runs the estimator whatever the mode row says, so tracesGeometry -
+                    // not the dropdown alone - is what decides these.
                     dropdownRtaoLayers.Descriptor.SetActive(tracesGeometry);
                     dropdownRtaoSkinned.Descriptor.SetActive(tracesGeometry);
 
                     // The fold goes with the effect, so switching occlusion off does not leave a section
                     // header standing over nothing.
-                    rtaoAdvancedToggle.Descriptor.SetActive(val);
+                    rtaoAdvancedToggle.Descriptor.SetActive(basis);
 
                     // Falloff, contrast, the distance fade and the gloss relief shape the result whichever
                     // way it was gathered, so they stay for the screen space estimator too.
-                    sliderRtaoFalloff.Descriptor.SetActive(val);
-                    sliderRtaoPower.Descriptor.SetActive(val);
-                    sliderRtaoFadeStart.Descriptor.SetActive(val);
-                    sliderRtaoFadeEnd.Descriptor.SetActive(val);
-                    sliderRtaoSpecularRelief.Descriptor.SetActive(val);
+                    sliderRtaoFalloff.Descriptor.SetActive(basis);
+                    sliderRtaoPower.Descriptor.SetActive(basis);
+                    sliderRtaoFadeStart.Descriptor.SetActive(basis);
+                    sliderRtaoFadeEnd.Descriptor.SetActive(basis);
+                    sliderRtaoSpecularRelief.Descriptor.SetActive(basis);
 
                     // The ray start offsets only exist where there are rays. The screen space estimator
                     // marches the depth buffer and has no origin to push off a surface.
@@ -2646,6 +2757,11 @@ namespace Basis.BasisUI
                     PanelElementDescriptor.RebuildLayoutChain(rtaoGroup.ContentParent, container);
 
                 SetRtaoRowsActive(toggleRtao.Value);
+                dropdownRtaoSolution.OnValueChanged += (_) =>
+                {
+                    SetRtaoRowsActive(toggleRtao.Value);
+                    RebuildRtaoLayout();
+                };
                 dropdownRtaoApply.OnValueChanged += (_) =>
                 {
                     SetRtaoRowsActive(toggleRtao.Value);
@@ -3533,6 +3649,28 @@ namespace Basis.BasisUI
             sliderPsoCache.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.psoCacheSize.tooltip"));
         }
 
+        private static string WithRayTracingNote(string tooltip, bool canTrace)
+        {
+            return canTrace ? tooltip : tooltip + " " + BasisLocalization.Get("settings.graphics.rayTracing.unavailable");
+        }
+
+        private static void AssignLightingSolutionEntries(PanelDropdown dropdown, bool unityAvailable, BasisSettingsBinding<string> binding)
+        {
+            List<string> entries = new List<string> { BasisLightingSolutions.SolutionBasis };
+            List<string> keys = new List<string> { BasisLightingSolutions.SolutionLabelKeys[0] };
+            if (unityAvailable)
+            {
+                entries.Add(BasisLightingSolutions.SolutionUnity);
+                keys.Add(BasisLightingSolutions.SolutionLabelKeys[1]);
+            }
+            dropdown.AssignLocalizedEntries(entries, keys);
+            dropdown.AssignBinding(binding);
+            if (dropdown.Index < 0)
+            {
+                dropdown.SetValueWithoutNotify(binding.DefaultValue.GetDefault());
+            }
+        }
+
         private static void ResetGraphicsDefaults()
         {
             BasisSettingsDefaults.PsoCacheSizeMb.ResetToDefault();
@@ -3553,6 +3691,9 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.QualityLevel.ResetToDefault();
             BasisSettingsDefaults.ShadowQuality.ResetToDefault();
             BasisSettingsDefaults.Antialiasing.ResetToDefault();
+            BasisSettingsDefaults.UpscalerQuality.ResetToDefault();
+            BasisSettingsDefaults.UpscalerSharpness.ResetToDefault();
+            BasisSettingsDefaults.DlssModel.ResetToDefault();
             BasisSettingsDefaults.VSync.ResetToDefault();
             BasisSettingsDefaults.VSyncCapFps.ResetToDefault();
             BasisSettingsDefaults.HeadsetRefreshRate.ResetToDefault();
@@ -3616,6 +3757,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.MotionBlurQuality.ResetToDefault();
             BasisSettingsDefaults.MotionBlurMode.ResetToDefault();
             BasisSettingsDefaults.UseGlobalIllumination.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationSolution.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationMode.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPreset.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationLayers.ResetToDefault();
@@ -3644,11 +3786,15 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationReflectionProbes.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSpecular.ResetToDefault();
+            BasisSettingsDefaults.ReflectionsSolution.ResetToDefault();
+            BasisSettingsDefaults.ReflectionsMode.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSpecularIntensity.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSpecularMaxRoughness.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSpecularRayLength.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSpecularFadeDistance.ResetToDefault();
             BasisSettingsDefaults.UseRayTracedAmbientOcclusion.ResetToDefault();
+            BasisSettingsDefaults.AmbientOcclusionSolution.ResetToDefault();
+            BasisUnityLightingSettings.ResetToDefaults();
             BasisSettingsDefaults.RayTracedAmbientOcclusionMode.ResetToDefault();
             BasisSettingsDefaults.RayTracedAmbientOcclusionQuality.ResetToDefault();
             BasisSettingsDefaults.RayTracedAmbientOcclusionIntensity.ResetToDefault();

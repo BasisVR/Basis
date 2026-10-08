@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -15,7 +16,8 @@ using static BasisHeightDriver;
 
 namespace Basis.Scripts.UI
 {
-    public class BasisUIRaycast
+    [AutoStaticsCleanup]
+    public partial class BasisUIRaycast
     {
         public BasisPointRaycaster BasisPointRaycaster;
         static LayerMask OverlayUI;

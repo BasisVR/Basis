@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if BASIS_FRAMEWORK_EXISTS
 using System;
 using System.Collections.Generic;
@@ -16,7 +17,8 @@ namespace Basis.Integration.SlimeVR
     /// is off — SlimeVR stamps the SteamVR role too, so falling through would re-bind it via the
     /// scanner's TrustSteamVRRoles path.
     /// </summary>
-    public static class BasisSlimeVRTrackerRoles
+    [AutoStaticsCleanup]
+    public static partial class BasisSlimeVRTrackerRoles
     {
         private const string SerialPrefix = "human://";
 

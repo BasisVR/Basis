@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -14,7 +15,8 @@ namespace Basis.BasisUI
     /// this class handles cached metadata for items in the library, such as the name, thumbnail, and other info that can be retrieved from the BEE file without fully loading the content. 
     /// This allows for faster filtering and sorting in the library UI without needing to load each item first.
     /// </summary>
-    public static class CachedMetaData
+    [AutoStaticsCleanup]
+    public static partial class CachedMetaData
     {
         // Represents a cached metadata entry for an item
         public class CachedContent
@@ -350,7 +352,7 @@ namespace Basis.BasisUI
         {
             BasisDebug.LogError(ex);
         }
-        private static readonly SemaphoreSlim _preloadGate = new SemaphoreSlim(4);
+        [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _preloadGate = new SemaphoreSlim(4);
 
         public static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
         {

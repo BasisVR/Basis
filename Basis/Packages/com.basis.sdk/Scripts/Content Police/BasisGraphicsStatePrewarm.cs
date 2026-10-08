@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Unity.Jobs;
 using UnityEngine;
@@ -30,7 +31,8 @@ using UnityEngine.Rendering;
 /// on this device, it should never need to pay the PSO-creation cost again — the budget is sized
 /// to make that true for a very long time, not to keep the cache small.
 /// </summary>
-public static class BasisGraphicsStatePrewarm
+[AutoStaticsCleanup]
+public static partial class BasisGraphicsStatePrewarm
 {
     // Developer toggle, default off. Set from BasisSettingsDefaults.EnableGraphicsStatePrewarm.
     // Gated at init so flipping it off keeps the subsystem dormant (no trace, no warm, no file).

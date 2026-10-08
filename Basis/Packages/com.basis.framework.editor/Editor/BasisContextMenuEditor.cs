@@ -18,7 +18,7 @@ public static class BasisContextMenuEditor
     /// </summary>
     static Type FindType(string name)
     {
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (var asm in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             try
             {

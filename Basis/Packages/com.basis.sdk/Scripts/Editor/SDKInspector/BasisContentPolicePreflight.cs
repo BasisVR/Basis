@@ -149,7 +149,7 @@ public static class BasisContentPolicePreflight
 
     static ContentPoliceSelector ResolveSelector(BundledContentHolder.Selector selector)
     {
-        BundledContentHolder holder = UnityEngine.Object.FindFirstObjectByType<BundledContentHolder>(
+        BundledContentHolder holder = UnityEngine.Object.FindAnyObjectByType<BundledContentHolder>(
             FindObjectsInactive.Include);
         if (holder == null || !holder.GetSelector(selector, out ContentPoliceSelector police))
         {
@@ -264,8 +264,8 @@ public static class BasisCilboxTypeCheck
         AttributeType = Type.GetType("CilboxableAttribute, Cilbox");
         if (AttributeType == null)
         {
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (int Index = 0; Index < assemblies.Length; Index++)
+            IReadOnlyList<Assembly> assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
+            for (int Index = 0; Index < assemblies.Count; Index++)
             {
                 AttributeType = assemblies[Index].GetType("CilboxableAttribute", false);
                 if (AttributeType != null)

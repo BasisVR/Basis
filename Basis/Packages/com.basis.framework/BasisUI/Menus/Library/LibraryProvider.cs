@@ -1,4 +1,5 @@
-﻿using Basis.BasisUI.Styling;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI.Styling;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -21,6 +22,7 @@ using static SerializableBasis;
 
 namespace Basis.BasisUI
 {
+    [AutoStaticsCleanup]
     public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         #region Provider Setup

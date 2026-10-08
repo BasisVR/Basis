@@ -1,4 +1,5 @@
-﻿using Basis.Scripts.Networking;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.Scripts.Networking;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -18,7 +19,8 @@ using UnityEngine;
 /// "not yet cached"; subsystems populate their slot after the first computation and
 /// read from it on subsequent loads.
 /// </summary>
-public static class BasisAvatarModelCache
+[AutoStaticsCleanup]
+public static partial class BasisAvatarModelCache
 {
     /// <summary>
     /// Per-avatar-model cache entry. Each subsystem owns a slot.

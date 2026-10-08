@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using TMPro;
@@ -16,7 +17,8 @@ namespace Basis.BasisUI
     /// Runs once before the first scene loads. Define
     /// <c>BASIS_DISABLE_TMP_FALLBACKS</c> to opt out.
     /// </summary>
-    public static class BasisTMPFontFallbacks
+    [AutoStaticsCleanup]
+    public static partial class BasisTMPFontFallbacks
     {
         private const int DefaultSamplingPointSize = 90;
         private const string JaJpLabel = "Basis Fallback - ja-JP";
@@ -27,7 +29,7 @@ namespace Basis.BasisUI
         private const string EmojiLabel = "Basis Fallback - Emoji";
         private const string ShippedEmojiFontAddress = "Packages/com.basis.sdk/Fonts/NotoEmoji-Regular.ttf";
 
-        private static readonly string[] CjkLabels = { JaJpLabel, KoKrLabel, ZhHansLabel, ZhHantLabel };
+        [NoAutoStaticsCleanup] private static readonly string[] CjkLabels = { JaJpLabel, KoKrLabel, ZhHansLabel, ZhHantLabel };
 
         private static bool _installed;
         private static TMP_FontAsset _shippedJapaneseFallback;
@@ -48,7 +50,7 @@ namespace Basis.BasisUI
         /// intentionally overlaps Windows / macOS / Linux / Android so a
         /// single array serves every platform.
         /// </summary>
-        private static readonly (string Label, string[] Candidates)[] FallbackGroups = new[]
+        [NoAutoStaticsCleanup] private static readonly (string Label, string[] Candidates)[] FallbackGroups = new[]
         {
             ("Basis Fallback - zh-Hant", new[]
             {

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Net;
 using System.Threading.Tasks;
@@ -5,7 +6,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Common
 {
-    public static class BasisUrlSecurity
+    [AutoStaticsCleanup]
+    public static partial class BasisUrlSecurity
     {
         /// <summary>
         /// Lets a host that <em>resolves</em> into the RFC 2544 benchmarking range (198.18.0.0/15)

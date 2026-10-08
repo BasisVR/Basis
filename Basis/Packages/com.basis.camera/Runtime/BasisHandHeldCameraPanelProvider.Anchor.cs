@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using CameraAnchorKind = BasisHandHeldCameraInteractable.CameraAnchorKind;
@@ -19,7 +20,7 @@ namespace Basis.BasisUI.HandHeldCamera
         /// One entry per <see cref="CameraPinSpace"/>, in enum order — the dropdown reads its
         /// selection back as an index into this.
         /// </summary>
-        private static readonly string[] AnchorSpaceKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] AnchorSpaceKeys =
         {
             "camera.anchor.hand", "camera.anchor.playspace", "camera.anchor.world", "camera.anchor.attached",
         };

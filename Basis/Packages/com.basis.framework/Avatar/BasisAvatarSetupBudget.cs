@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,7 +39,8 @@ namespace Basis.Scripts.Avatar
     /// Remote loads only; the local avatar path does not pass through here, so nothing about
     /// local startup depends on the pump running.
     /// </remarks>
-    public static class BasisAvatarSetupBudget
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarSetupBudget
     {
         /// <summary>
         /// Wall-clock budget for the installs admitted at one quiet point — the real limiter.
@@ -63,7 +65,7 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         public static int BudgetPerFrame = 16;
 
-        static readonly System.Diagnostics.Stopwatch sInstallClock = new System.Diagnostics.Stopwatch();
+        [NoAutoStaticsCleanup] static readonly System.Diagnostics.Stopwatch sInstallClock = new System.Diagnostics.Stopwatch();
 
         private readonly struct Waiter
         {

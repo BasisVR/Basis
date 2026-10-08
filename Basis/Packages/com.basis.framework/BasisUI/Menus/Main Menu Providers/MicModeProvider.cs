@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if !BASIS_DISABLE_MICROPHONE
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
@@ -6,7 +7,8 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public class MicModeProvider : BasisMenuActionProvider<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class MicModeProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         static MicModeProvider _instance;
         static bool _added;

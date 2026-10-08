@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -8,8 +9,9 @@ using static SerializableBasis;
 
 namespace Basis.Scripts.Networking.Transmitters
 {
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public class BasisAudioTransmission
+    public partial class BasisAudioTransmission
     {
 #if !UNITY_SERVER
         public OpusSharp.Core.Interfaces.IOpusEncoder encoder;

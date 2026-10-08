@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.LowLevelPhysics;
 namespace Basis.Scripts.BasisSdk.Interactions
 {
-    public class BasisColliderClone
+    [AutoStaticsCleanup]
+    public partial class BasisColliderClone
     {
         private static Quaternion rotCapsuleX = Quaternion.Euler(new Vector3(0, 0, 90));
         private static Quaternion rotCapsuleZ = Quaternion.Euler(new Vector3(90, 0, 0));

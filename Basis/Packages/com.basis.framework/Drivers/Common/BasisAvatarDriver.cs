@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
@@ -18,8 +19,9 @@ namespace Basis.Scripts.Drivers
     /// <see cref="BasisBoneTrackedRole"/> values, spine membership checks, and utilities
     /// to add/remove serialized jiggle colliders based on a <see cref="BasisTransformMapping"/>.
     /// </remarks>
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public abstract class BasisAvatarDriver
+    public abstract partial class BasisAvatarDriver
     {
         /// <summary>
         /// Attempts to convert a Unity <see cref="HumanBodyBones"/> value into a <see cref="BasisBoneTrackedRole"/>.

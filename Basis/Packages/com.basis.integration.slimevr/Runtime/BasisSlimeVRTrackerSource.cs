@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if BASIS_FRAMEWORK_EXISTS
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
@@ -20,7 +21,8 @@ namespace Basis.Integration.SlimeVR
     /// placed into Basis playspace via an HMD-anchored transform (both frames are gravity-aligned, so the
     /// HMD alone fixes the alignment) — which is why this needs SlimeVR to have an HMD reference.
     /// </summary>
-    public static class BasisSlimeVRTrackerSource
+    [AutoStaticsCleanup]
+    public static partial class BasisSlimeVRTrackerSource
     {
         private const string SubSystem = nameof(BasisSlimeVRTrackerSource);
         private const string SerialPrefix = "human://";

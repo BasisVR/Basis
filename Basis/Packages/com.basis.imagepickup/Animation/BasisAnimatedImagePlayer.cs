@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using Basis.Scripts.Networking;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -11,7 +12,8 @@ namespace Basis.ImagePickup
     /// Animation compositor resources are created lazily. Payload-backed animations also release
     /// decoded frame data after remaining outside or occluded from gameplay cameras for a grace period.
     /// </summary>
-    public sealed class BasisAnimatedImagePlayer : MonoBehaviour
+    [AutoStaticsCleanup]
+    public sealed partial class BasisAnimatedImagePlayer : MonoBehaviour
     {
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.Rendering;
 

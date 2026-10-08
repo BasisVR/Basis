@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Text;
 using Basis.Scripts.Drivers;
@@ -5,11 +6,12 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class SettingsProviderPerformanceBar
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderPerformanceBar
     {
         private const int RefreshIntervalTicks = 10;
 
-        private static readonly string[] GpuLabels =
+        [NoAutoStaticsCleanup] private static readonly string[] GpuLabels =
         {
             "settings.graphics.performanceBar.segment.shadows",
             "settings.graphics.performanceBar.segment.opaque",
@@ -21,7 +23,7 @@ namespace Basis.BasisUI
         };
         // Order must match BasisPerformanceCpuSegment exactly - it indexes both this array and
         // BasisPerformanceBarView.CpuPalette.
-        private static readonly string[] CpuLabels =
+        [NoAutoStaticsCleanup] private static readonly string[] CpuLabels =
         {
             "settings.graphics.performanceBar.segment.eventDriver",
             "settings.graphics.performanceBar.segment.ik",

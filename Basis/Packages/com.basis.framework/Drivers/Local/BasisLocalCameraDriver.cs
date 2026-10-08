@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
@@ -17,7 +18,8 @@ namespace Basis.Scripts.Drivers
     /// manages render-time head scaling, positions UI relative to the camera,
     /// and wires microphone visual feedback into the camera lifecycle.
     /// </summary>
-    public class BasisLocalCameraDriver : MonoBehaviour
+    [AutoStaticsCleanup]
+    public partial class BasisLocalCameraDriver : MonoBehaviour
     {
         /// <summary>True when an instance is alive and assigned to <see cref="Instance"/>.</summary>
         public static bool HasInstance;

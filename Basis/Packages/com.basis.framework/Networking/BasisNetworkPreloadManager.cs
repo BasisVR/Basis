@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.Network.Core;
@@ -16,7 +17,8 @@ using static SerializableBasis;
 /// Handles downloading content without spawning, tracking readiness,
 /// and responding to server spawn signals.
 /// </summary>
-public static class BasisNetworkPreloadManager
+[AutoStaticsCleanup]
+public static partial class BasisNetworkPreloadManager
 {
     /// <summary>
     /// Timeout duration for synchronized loads. If a client hasn't finished

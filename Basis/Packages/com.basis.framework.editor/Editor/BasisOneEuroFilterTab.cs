@@ -178,7 +178,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
         {
             // Heuristic 1: Find a type that exposes the exact static method:
             // public static void UpdateOneEuroParameters(float, float, float, bool)
-            var all = AppDomain.CurrentDomain.GetAssemblies()
+            var all = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies()
                 // Exclude dynamic or editor-only system assemblies to speed up
                 .Where(a =>
                 {
@@ -243,7 +243,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
             if (_runtimeType == null)
             {
                 // Scan all assemblies for short names
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                foreach (var asm in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
                 {
                     var t = asm.GetType(qualifiedTypeName, throwOnError: false);
                     if (t != null) { _runtimeType = t; break; }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_ANDROID && !UNITY_EDITOR
 using System;
 using System.Collections.Generic;
@@ -24,7 +25,8 @@ using UnityEngine.Rendering;
 /// Android only. The D3D11 path rebuilds its consumer on registration and has
 /// no equivalent requirement.
 /// </summary>
-internal static class BasisMediaTextureRetirement
+[AutoStaticsCleanup]
+internal static partial class BasisMediaTextureRetirement
 {
     /// <summary>
     /// Collect events a retired texture is held for. It has to exceed the
@@ -41,7 +43,7 @@ internal static class BasisMediaTextureRetirement
     }
 
     static readonly List<Entry> pending = new List<Entry>();
-    static CommandBuffer collect;
+    [NoAutoStaticsCleanup] static CommandBuffer collect;
     static Driver driver;
     static bool quitting;
 

@@ -10,11 +10,11 @@ namespace Valve.VR
 {
     public class SteamVR_Render : MonoBehaviour
     {
-        public TrackedDevicePose_t[] poses = new TrackedDevicePose_t[OpenVR.k_unMaxTrackedDeviceCount];
-        public TrackedDevicePose_t[] gamePoses = new TrackedDevicePose_t[0];
+        [System.NonSerialized] public TrackedDevicePose_t[] poses = new TrackedDevicePose_t[OpenVR.k_unMaxTrackedDeviceCount];
+        [System.NonSerialized] public TrackedDevicePose_t[] gamePoses = new TrackedDevicePose_t[0];
         private WaitForEndOfFrame waitForEndOfFrame = new WaitForEndOfFrame();
         private EVRScreenshotType[] screenshotTypes = new EVRScreenshotType[] { EVRScreenshotType.StereoPanorama };
-        public VREvent_t vrEvent;
+        [System.NonSerialized] public VREvent_t vrEvent;
         public uint size;
         private const string openVRDeviceName = "OpenVR";
         [HideInInspector]
@@ -22,7 +22,6 @@ namespace Valve.VR
 
         internal static bool isPlaying = false;
         private Coroutine initializeCoroutine;
-        private bool loadedOpenVRDeviceSuccess = false;
         private IEnumerator RenderLoop()
         {
             while (Application.isPlaying)
@@ -222,14 +221,9 @@ namespace Valve.VR
 
         private void XRDevice_deviceLoaded(string deviceName)
         {
-            if (deviceName == openVRDeviceName)
-            {
-                loadedOpenVRDeviceSuccess = true;
-            }
-            else
+            if (deviceName != openVRDeviceName)
             {
                 Debug.LogError("<b>[SteamVR]</b> Tried to async load: " + openVRDeviceName + ". Loaded: " + deviceName, this);
-                loadedOpenVRDeviceSuccess = true; //try anyway
             }
         }
 

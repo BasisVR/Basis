@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -9,6 +10,7 @@ using UnityEngine.Rendering.Universal;
 // Partial so the reflection pass can live in its own file and still reach the shader id table, the stage
 // enum and the Execute switch this one owns. See BasisGlobalIlluminationSpecularPass.cs for why reflections
 // need a second pass rather than another stage of this one.
+[AutoStaticsCleanup]
 public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 {
     public const int PassTrace = 0, PassTemporal = 1, PassBlur = 2, PassComposite = 3, PassDebug = 4, PassCopyColor = 5;
@@ -167,16 +169,16 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly int idRtTraceMask = Shader.PropertyToID("_BasisGIRtTraceMask");
     private const string RtAccelName = "_BasisGIRtAccel";
 
-    private static readonly ProfilingSampler samplerRayPrepass = new ProfilingSampler("Basis GI Ray Prepass");
-    private static readonly ProfilingSampler samplerRayTrace = new ProfilingSampler("Basis GI Ray Trace");
-    private static readonly ProfilingSampler samplerRayResolve = new ProfilingSampler("Basis GI Ray Resolve");
-    private static readonly ProfilingSampler samplerCopy = new ProfilingSampler("Basis GI Copy Color");
-    private static readonly ProfilingSampler samplerLightmapMask = new ProfilingSampler("Basis GI Lightmap Mask");
-    private static readonly ProfilingSampler samplerCoarse = new ProfilingSampler("Basis GI Coarse Depth");
-    private static readonly ProfilingSampler samplerTrace = new ProfilingSampler("Basis GI Trace");
-    private static readonly ProfilingSampler samplerTemporal = new ProfilingSampler("Basis GI Temporal");
-    private static readonly ProfilingSampler samplerBlur = new ProfilingSampler("Basis GI Blur");
-    private static readonly ProfilingSampler samplerComposite = new ProfilingSampler("Basis GI Composite");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerRayPrepass = new ProfilingSampler("Basis GI Ray Prepass");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerRayTrace = new ProfilingSampler("Basis GI Ray Trace");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerRayResolve = new ProfilingSampler("Basis GI Ray Resolve");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerCopy = new ProfilingSampler("Basis GI Copy Color");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerLightmapMask = new ProfilingSampler("Basis GI Lightmap Mask");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerCoarse = new ProfilingSampler("Basis GI Coarse Depth");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerTrace = new ProfilingSampler("Basis GI Trace");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerTemporal = new ProfilingSampler("Basis GI Temporal");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerBlur = new ProfilingSampler("Basis GI Blur");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerComposite = new ProfilingSampler("Basis GI Composite");
 
     public static float GpuMs =>
         samplerCopy.gpuElapsedTime + samplerLightmapMask.gpuElapsedTime + samplerCoarse.gpuElapsedTime + samplerTrace.gpuElapsedTime +
@@ -210,8 +212,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static int invocationFrame = -1, invocationCount;
     public static int InvocationsThisFrame => invocationCount;
 
-    private static readonly Vector4[] emitterSpheres = new Vector4[MaxEmitters];
-    private static readonly Vector4[] emitterRadiance = new Vector4[MaxEmitters];
+    [NoAutoStaticsCleanup] private static readonly Vector4[] emitterSpheres = new Vector4[MaxEmitters];
+    [NoAutoStaticsCleanup] private static readonly Vector4[] emitterRadiance = new Vector4[MaxEmitters];
     private static readonly List<BasisGlobalIlluminationEmitter> emitterScratch = new List<BasisGlobalIlluminationEmitter>();
     private readonly Matrix4x4[] previousViewProjection = new Matrix4x4[2];
     private readonly Vector4[] constants = new Vector4[4];

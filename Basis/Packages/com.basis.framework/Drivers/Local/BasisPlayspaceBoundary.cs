@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR;
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Drivers
     /// check <see cref="HasBoundary"/> and say so rather than inventing a rectangle.
     /// </para>
     /// </summary>
-    public static class BasisPlayspaceBoundary
+    [AutoStaticsCleanup]
+    public static partial class BasisPlayspaceBoundary
     {
         private static readonly List<XRInputSubsystem> _subsystems = new List<XRInputSubsystem>();
         private static readonly List<Vector3> _scratch = new List<Vector3>();

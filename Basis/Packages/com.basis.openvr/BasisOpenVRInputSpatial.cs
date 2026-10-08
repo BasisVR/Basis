@@ -13,8 +13,8 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         public OpenVRDevice Device;
 
         // Compositor poses (same pattern as your controller)
-        public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
-        public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
+        [System.NonSerialized] public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
+        [System.NonSerialized] public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
         public EVRCompositorError result;
 
         // Optional: keep if you still want a notion of what this *represents*

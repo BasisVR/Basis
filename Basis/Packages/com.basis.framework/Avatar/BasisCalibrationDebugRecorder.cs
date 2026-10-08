@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -19,7 +20,8 @@ namespace Basis.Scripts.Drivers
     /// of calibration. The gate is read once at <see cref="Begin"/>; when off, every Record
     /// call is a single bool check so it is free to leave the instrumentation in place.
     /// </summary>
-    public static class BasisCalibrationDebugRecorder
+    [AutoStaticsCleanup]
+    public static partial class BasisCalibrationDebugRecorder
     {
         /// <summary>True only between a <see cref="Begin"/> with the toggle on and its <see cref="Flush"/>.</summary>
         public static bool Enabled { get; private set; }

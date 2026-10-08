@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
@@ -33,7 +34,8 @@ namespace Basis.Shims
 	/// Nothing here is a write handle: every method returns a bool, and a UUID never crosses the
 	/// boundary. Players are named by the <see cref="IBasisPlayer"/> the roster already handed out.
 	/// </summary>
-	public static class BasisPermissionsShim
+	[AutoStaticsCleanup]
+	public static partial class BasisPermissionsShim
 	{
 		/// <summary>How long an answer about another player is reused before asking again.</summary>
 		private const float CacheSeconds = 5f;

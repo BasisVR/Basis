@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Audio;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
@@ -18,7 +19,8 @@ namespace Basis.Scripts.Device_Management.Devices
     /// Manages device identity, role assignment, calibration offsets, raycasting helpers,
     /// and lifecycle hooks for polling and applying data to the local rig.
     /// </summary>
-    public abstract class BasisInput : MonoBehaviour
+    [AutoStaticsCleanup]
+    public abstract partial class BasisInput : MonoBehaviour
     {
         /// <summary>
         /// Whether event subscriptions have been registered for this input.

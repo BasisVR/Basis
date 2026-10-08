@@ -38,7 +38,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             try
             {
-                Assembly assembly = Assembly.LoadFrom(path);
+                Assembly assembly = LoadBackendAssembly(path);
                 Type factory = assembly.GetType(BasisComputeFactoryTypeName);
                 if (factory == null)
                 {
@@ -89,7 +89,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             try
             {
-                Assembly assembly = Assembly.LoadFrom(path);
+                Assembly assembly = LoadBackendAssembly(path);
                 Type factory = assembly.GetType(BasisComputeFactoryTypeName);
                 MethodInfo method = factory?.GetMethod("DescribeDevices", BindingFlags.Public | BindingFlags.Static);
                 return method?.Invoke(null, null) as string;
@@ -98,6 +98,15 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             {
                 return null;
             }
+        }
+
+        private static Assembly LoadBackendAssembly(string path)
+        {
+#if UNITY_6000_5_OR_NEWER
+            return UnityEngine.Assemblies.CurrentAssemblies.LoadFromPath(path);
+#else
+            return Assembly.LoadFrom(path);
+#endif
         }
 
         private const string BasisComputeFactoryTypeName = "Basis.Network.Compute.BasisComputeFactory";

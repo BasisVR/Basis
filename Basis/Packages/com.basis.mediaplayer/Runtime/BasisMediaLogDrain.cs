@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -24,7 +25,8 @@ using UnityEngine;
 /// lines produced with no player anywhere wait in the ring until one
 /// appears, or age out of it.
 /// </summary>
-public static class BasisMediaLogDrain
+[AutoStaticsCleanup]
+public static partial class BasisMediaLogDrain
 {
     /// Records per drain call. The ring holds 512 and drops its oldest, so
     /// what one call cannot carry is asked for again rather than lost.

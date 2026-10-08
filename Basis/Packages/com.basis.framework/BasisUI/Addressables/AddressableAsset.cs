@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -7,9 +8,11 @@ using UnityEngine.ResourceManagement.ResourceLocations;
 
 namespace Basis.BasisUI
 {
-    public static class AddressableAssets
+    [AutoStaticsCleanup]
+    public static partial class AddressableAssets
     {
-        public static class Sprites
+        [AutoStaticsCleanup]
+        public static partial class Sprites
         {
             public static string Settings = "Packages/com.basis.sdk/Sprites/Icons/IonIcon Settings.png";
             public static string Servers = "Packages/com.basis.sdk/Textures/Runtime/server-outline.png";

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Networking;
 using Basis.Network.Core;
 using System.Collections.Generic;
@@ -7,7 +8,8 @@ using static SerializableBasis;
 
 namespace Basis.BasisUI
 {
-    public class NetworkStatsPanelUpdater : MonoBehaviour
+    [AutoStaticsCleanup]
+    public partial class NetworkStatsPanelUpdater : MonoBehaviour
     {
         public PanelElementDescriptor ConnectionField;
         public PanelElementDescriptor ServerField;

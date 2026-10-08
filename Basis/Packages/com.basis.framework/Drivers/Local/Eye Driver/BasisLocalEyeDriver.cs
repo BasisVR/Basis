@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
@@ -19,8 +20,9 @@ using UnityEngine.Jobs;
 ///
 /// NOTE: We jobify the math/state. Transform reads/writes stay on main thread (LateUpdate).
 /// </summary>
+[AutoStaticsCleanup]
 [System.Serializable]
-public class BasisLocalEyeDriver
+public partial class BasisLocalEyeDriver
 {
 
     public static float MaxAngleDeg => BasisLocalEyeDriverData.MaxLookAngleDeg;
@@ -37,8 +39,8 @@ public class BasisLocalEyeDriver
     public static Transform rightEyeTransform;
     public static BasisEyeCalibration calLeft;
     public static BasisEyeCalibration calRight;
-    private static NativeArray<BasisEyeState> _state;
-    private static TransformAccessArray _eyeTransforms;
+    [NoAutoStaticsCleanup] private static NativeArray<BasisEyeState> _state;
+    [NoAutoStaticsCleanup] private static TransformAccessArray _eyeTransforms;
     public static bool Override = false;
     public static bool IsEnabled = false;
     public static JobHandle handle;
@@ -126,15 +128,15 @@ public class BasisLocalEyeDriver
     // Remote players are read straight out of the bone system's SoA by the job (slot →
     // player ID via the reverse key map, visibility via the native mirror), so the
     // gather no longer scales with player count.
-    private static NativeArray<float3> _jobTargetFocus;
-    private static NativeArray<float> _jobTargetPriority;
-    private static NativeArray<byte> _jobTargetIsCurrent;
-    private static NativeArray<GazeJobResult> _jobResult;
+    [NoAutoStaticsCleanup] private static NativeArray<float3> _jobTargetFocus;
+    [NoAutoStaticsCleanup] private static NativeArray<float> _jobTargetPriority;
+    [NoAutoStaticsCleanup] private static NativeArray<byte> _jobTargetIsCurrent;
+    [NoAutoStaticsCleanup] private static NativeArray<GazeJobResult> _jobResult;
     // Used when RemoteBoneJobSystem hasn't initialized yet so the IJob's [ReadOnly]
     // arrays still pass safety validation. The job loop never reads from them because
     // playerSlots stays 0 in that state.
-    private static NativeArray<RemoteFrameOutput> _jobFramesPlaceholder;
-    private static NativeArray<int> _jobKeysPlaceholder;
+    [NoAutoStaticsCleanup] private static NativeArray<RemoteFrameOutput> _jobFramesPlaceholder;
+    [NoAutoStaticsCleanup] private static NativeArray<int> _jobKeysPlaceholder;
     private static BasisGazeTarget[] _jobTargetManagedRefs;
     private static int _jobTargetCapacity;
 

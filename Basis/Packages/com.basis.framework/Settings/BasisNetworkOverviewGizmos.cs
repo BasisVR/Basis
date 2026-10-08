@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -13,7 +14,8 @@ using UnityEngine;
 /// <see cref="SMModuleDebugOptions"/>; the label text only re-tessellates when a
 /// quantized total moves (see BasisNetworkGizmoLabelCore.OverviewKey).
 /// </summary>
-public static class BasisNetworkOverviewGizmos
+[AutoStaticsCleanup]
+public static partial class BasisNetworkOverviewGizmos
 {
     // Mirrored from settings by SMModuleDebugOptions.
     public static bool Show;

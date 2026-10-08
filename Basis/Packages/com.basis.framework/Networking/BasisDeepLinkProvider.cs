@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Common;
@@ -24,7 +25,8 @@ namespace Basis.Scripts.Networking
     /// URL format:  <c>scheme://host[:port][?password=xxx]</c>
     ///   Password must be in the query string — URL fragments are stripped by some OSes.
     /// </summary>
-    public static class BasisDeepLinkProvider
+    [AutoStaticsCleanup]
+    public static partial class BasisDeepLinkProvider
     {
         /// <summary>URL scheme registered with the OS. Change before building — not runtime-configurable.</summary>
         public const string DeepLinkScheme = "basisdemo";
@@ -46,21 +48,28 @@ namespace Basis.Scripts.Networking
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Initialize()
         {
+            Application.deepLinkActivated -= OnDeepLinkActivated;
             Application.deepLinkActivated += OnDeepLinkActivated;
-            Application.quitting += () =>
-            {
-                if (_pendingShow != null)
-                {
-                    BasisNetworkManagement.OnIstanceCreated -= _pendingShow;
-                    _pendingShow = null;
-                }
-            };
+            Application.quitting -= OnQuitting;
+            Application.quitting += OnQuitting;
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (SingleInstance && !InitializeSingleInstance()) return;
             RegisterPlatformUrlScheme();
 #elif UNITY_STANDALONE_LINUX && !UNITY_EDITOR
             RegisterPlatformUrlScheme();
 #endif
+        }
+
+        private static void OnQuitting()
+        {
+            Application.quitting -= OnQuitting;
+            Application.deepLinkActivated -= OnDeepLinkActivated;
+            if (_pendingShow != null)
+            {
+                BasisNetworkManagement.OnIstanceCreated -= _pendingShow;
+                _pendingShow = null;
+            }
+            _deepLinkActive = false;
         }
 
         /// <summary>

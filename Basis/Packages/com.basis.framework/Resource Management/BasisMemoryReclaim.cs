@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -12,7 +13,8 @@ using UnityEngine.Profiling;
 /// where a stall is already happening. <see cref="BasisSceneFactory"/> requests one when the last
 /// BasisScene has gone and the loading screen is coming up.</para>
 /// </summary>
-public static class BasisMemoryReclaim
+[AutoStaticsCleanup]
+public static partial class BasisMemoryReclaim
 {
     public static bool Enabled = true;
     public static float MinimumIntervalSeconds = 15f;

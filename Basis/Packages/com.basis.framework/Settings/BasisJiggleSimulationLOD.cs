@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Networking;
 using UnityEngine;
@@ -14,7 +15,8 @@ using UnityEngine;
 /// simulation cost on a far/occluded avatar's jiggle bones instead of a reduced-but-nonzero rate. The
 /// local player is never touched.
 /// </summary>
-public static class BasisJiggleSimulationLOD
+[AutoStaticsCleanup]
+public static partial class BasisJiggleSimulationLOD
 {
     public static bool Enabled;
 

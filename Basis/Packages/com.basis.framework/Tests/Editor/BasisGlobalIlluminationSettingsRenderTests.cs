@@ -136,7 +136,7 @@ namespace Basis.Tests.Graphics
             glow.SetColor("_BaseColor", Color.black);
             glow.SetColor("_EmissionColor", new Color(16f, 0.5f, 0.5f));
             glow.EnableKeyword("_EMISSION");
-            glow.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            glow.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeIndirectEmission;
             AddBox(new Vector3(-0.7f, 0.6f, 0.55f), new Vector3(0.45f, 0.45f, 0.45f), glow);
 
             GameObject emitterHost = Own(new GameObject("BasisGISettingsEmitter"));

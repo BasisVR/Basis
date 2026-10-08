@@ -1,11 +1,13 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.BTween
 {
+    [AutoStaticsCleanup]
     [Serializable]
-    public abstract class BaseTween<T> where T: BaseTween<T>, new()
+    public abstract partial class BaseTween<T> where T: BaseTween<T>, new()
     {
 
         public static implicit operator bool(BaseTween<T> tween) => tween != null;

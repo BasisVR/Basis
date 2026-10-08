@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management.Devices;
 using UnityEngine;
 #if UNITY_GLTFAST
@@ -15,7 +16,8 @@ using UnityEngine.XR.OpenXR;
 /// render-model extensions (SteamVR / Steam Frame) return a model; elsewhere the owner keeps its
 /// baked/sphere fallback. Requires the <c>com.unity.cloud.gltfast</c> package.
 /// </summary>
-public class BasisOpenXRRenderModel : MonoBehaviour
+[AutoStaticsCleanup]
+public partial class BasisOpenXRRenderModel : MonoBehaviour
 {
 #if UNITY_GLTFAST
     private const float RenderModelCheckInterval = 0.25f;

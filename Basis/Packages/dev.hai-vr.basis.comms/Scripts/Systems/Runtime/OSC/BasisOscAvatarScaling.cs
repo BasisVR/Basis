@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using HVR.Basis.Comms.OSC;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
-    public static class BasisOscAvatarScaling
+    [AutoStaticsCleanup]
+    public static partial class BasisOscAvatarScaling
     {
         private static bool _initialized;
 

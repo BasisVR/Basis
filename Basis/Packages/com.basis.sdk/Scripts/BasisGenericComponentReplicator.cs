@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -34,7 +35,8 @@ using UnityEngine;
 ///   replicated runs there, and every clone still passes the full ContentPolice walk.
 /// Capture and apply share the same field-walk rules, which is what keeps them symmetric.
 /// </summary>
-public static class BasisGenericComponentReplicator
+[AutoStaticsCleanup]
+public static partial class BasisGenericComponentReplicator
 {
     public const int MaxDepth = 8;
     public const int MaxJsonBytes = 2 * 1024 * 1024;
@@ -590,7 +592,7 @@ public static class BasisGenericComponentReplicator
             for (int Index = 0; Index < declared.Length; Index++)
             {
                 FieldInfo field = declared[Index];
-                if (field.IsNotSerialized || field.IsInitOnly)
+                if (field.IsDefined(typeof(NonSerializedAttribute), false) || field.IsInitOnly)
                 {
                     continue;
                 }
@@ -639,7 +641,7 @@ public static class BasisGenericComponentReplicator
         // full name.
         int comma = assemblyQualifiedName.IndexOf(',');
         string fullName = comma > 0 ? assemblyQualifiedName.Substring(0, comma) : assemblyQualifiedName;
-        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (Assembly assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             type = assembly.GetType(fullName, false);
             if (type != null)

@@ -351,7 +351,7 @@ public partial class BasisProjectSetup : EditorWindow
     {
         if (go == null || string.IsNullOrEmpty(simpleTypeName)) return false;
 
-        var type = AppDomain.CurrentDomain.GetAssemblies()
+        var type = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies()
             .SelectMany(a =>
             {
                 Type[] types = Type.EmptyTypes;
@@ -1116,7 +1116,7 @@ public class ListenForLocalSpawn : MonoBehaviour
     }
     private static Type FindTypeByName(string fullName)
     {
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (var asm in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             var t = asm.GetType(fullName, throwOnError: false);
             if (t != null) return t;

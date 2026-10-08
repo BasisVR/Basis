@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -9,9 +10,11 @@ using UnityEngine;
 using Basis.IK;
 namespace Basis.Scripts.Avatar
 {
-    public static class BasisAvatarIKStageCalibration
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarIKStageCalibration
     {
-        public static class BasisHintBiasStore
+        [AutoStaticsCleanup]
+        public static partial class BasisHintBiasStore
         {
             public static readonly Dictionary<BasisBoneTrackedRole, Vector3> LocalOffset = new();
 
@@ -23,7 +26,8 @@ namespace Basis.Scripts.Avatar
         // Per-role limb bend-plane normal captured in the tracker's local frame at calibration. Consumed by
         // BasisLocalRigDriver via BasisTrackerBendNormalCore.ResolveWorldNormal so the knee bend plane follows
         // the lower-leg tracker's rotation instead of a fixed hips-frame axis (flip-free, natural bending).
-        public static class BasisBendNormalStore
+        [AutoStaticsCleanup]
+        public static partial class BasisBendNormalStore
         {
             public static readonly Dictionary<BasisBoneTrackedRole, Vector3> LocalAxis = new();
 
@@ -32,7 +36,8 @@ namespace Basis.Scripts.Avatar
             public static void Clear() => LocalAxis.Clear();
         }
 
-        public static class BasisLimbRollStore
+        [AutoStaticsCleanup]
+        public static partial class BasisLimbRollStore
         {
             public static readonly Dictionary<BasisBoneTrackedRole, Quaternion> TrackerToBone = new();
 
@@ -41,7 +46,8 @@ namespace Basis.Scripts.Avatar
             public static void Clear() => TrackerToBone.Clear();
         }
 
-        public static class ConstellationDebug
+        [AutoStaticsCleanup]
+        public static partial class ConstellationDebug
         {
             public class DebugSample
             {

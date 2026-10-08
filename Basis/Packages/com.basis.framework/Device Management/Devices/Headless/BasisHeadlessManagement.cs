@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Common;
@@ -20,7 +21,8 @@ using UnityEngine.SceneManagement;
 /// Handles scene stripping (textures, probes, UI), config load, and network connect.
 /// </summary>
 #if UNITY_SERVER
-public class BasisHeadlessManagement : BasisBaseTypeManagement
+[AutoStaticsCleanup]
+public partial class BasisHeadlessManagement : BasisBaseTypeManagement
 {
     /// <summary>Injected/created headless eye input.</summary>
     public BasisHeadlessInput BasisHeadlessInput;
@@ -1235,12 +1237,12 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         return false;
     }
 
-    public static string[] adjectives = { "Swift", "Brave", "Clever", "Fierce", "Nimble", "Silent", "Bold", "Lucky", "Strong", "Mighty", "Sneaky", "Fearless", "Wise", "Vicious", "Daring" };
-    public static string[] nouns = { "Warrior", "Hunter", "Mage", "Rogue", "Paladin", "Shaman", "Knight", "Archer", "Monk", "Druid", "Assassin", "Sorcerer", "Ranger", "Guardian", "Berserker" };
-    public static string[] titles = { "the Swift", "the Bold", "the Silent", "the Brave", "the Fierce", "the Wise", "the Protector", "the Shadow", "the Flame", "the Phantom" };
-    public static string[] animals = { "Wolf", "Tiger", "Eagle", "Dragon", "Lion", "Bear", "Hawk", "Panther", "Raven", "Serpent", "Fox", "Falcon" };
+    [NoAutoStaticsCleanup] public static string[] adjectives = { "Swift", "Brave", "Clever", "Fierce", "Nimble", "Silent", "Bold", "Lucky", "Strong", "Mighty", "Sneaky", "Fearless", "Wise", "Vicious", "Daring" };
+    [NoAutoStaticsCleanup] public static string[] nouns = { "Warrior", "Hunter", "Mage", "Rogue", "Paladin", "Shaman", "Knight", "Archer", "Monk", "Druid", "Assassin", "Sorcerer", "Ranger", "Guardian", "Berserker" };
+    [NoAutoStaticsCleanup] public static string[] titles = { "the Swift", "the Bold", "the Silent", "the Brave", "the Fierce", "the Wise", "the Protector", "the Shadow", "the Flame", "the Phantom" };
+    [NoAutoStaticsCleanup] public static string[] animals = { "Wolf", "Tiger", "Eagle", "Dragon", "Lion", "Bear", "Hawk", "Panther", "Raven", "Serpent", "Fox", "Falcon" };
 
-    public static (string Name, string Hex)[] colors =
+    [NoAutoStaticsCleanup] public static (string Name, string Hex)[] colors =
     {
         ("Red", "#FF0000"),
         ("Blue", "#0000FF"),

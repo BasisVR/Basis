@@ -48,7 +48,7 @@ jobs:
   build-client:
     name: Build client for ${{ matrix.targetPlatform }}
     timeout-minutes: 100
-    runs-on: ${{ matrix.buildPlatform }}
+    runs-on: ubuntu-latest
     permissions:
       actions: write # to allow us to manage cache
     env:
@@ -57,13 +57,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        targetPlatform:
-          - StandaloneLinux64
-        buildPlatform:
-          - ubuntu-latest
         include:
-          - buildPlatform: windows-2022
-            targetPlatform: StandaloneWindows64
+          - targetPlatform: StandaloneLinux64
+            unityModules: linux-coreclr
+          - targetPlatform: StandaloneWindows64
+            unityModules: windows-coreclr
     needs: [check-secret]
     if: needs.check-secret.outputs.secret-is-set == 'true'
     steps:
@@ -72,7 +70,6 @@ jobs:
       # Also consider https://github.com/easimon/maximize-build-space/, which pulls some other tricks.
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
-        if: matrix.buildPlatform == 'ubuntu-latest'
         with:
           tool-cache: true
           android: true
@@ -102,27 +99,13 @@ jobs:
         shell: bash
         run: |
           python3 .github/scripts/sanitize_linux_client_ci.py "${projectPath}"
-      # Fix docker not ready on windows
-      - name: Ensure Docker service is running
-        if: matrix.buildPlatform == 'windows-2022'
-        shell: powershell
-        run: |
-          Start-Service docker
-      - name: Wait for Docker to be ready
-        if: matrix.buildPlatform == 'windows-2022'
-        shell: powershell
-        run: |
-          $maxAttempts = 40
-          for ($i=0; $i -lt $maxAttempts; $i++) {
-            docker info > $null 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "Docker is ready"
-              exit 0
-            }
-            Write-Host "Waiting for Docker..."
-            Start-Sleep -Seconds 3
-          }
-          throw "Docker did not become ready in time"
+      - name: "Build Unity editor image"
+        id: unity-image
+        timeout-minutes: 40
+        uses: ./.github/actions/unity-editor-image
+        with:
+          projectPath: ${{ env.projectPath }}
+          modules: ${{ matrix.unityModules }}
       - name: "Build Unity project"
         timeout-minutes: 100
         uses: BasisVR/unity-builder@main
@@ -131,6 +114,7 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
+          customImage: ${{ steps.unity-image.outputs.image }}
           buildName: ${{ env.buildName }}
           projectPath: ${{ env.projectPath }}
           targetPlatform: ${{ matrix.targetPlatform }}
@@ -184,8 +168,7 @@ jobs:
         if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
         shell: bash
         run: >
-          ${{ matrix.buildPlatform == 'ubuntu-latest' && 'sudo' || '' }}
-          rm -rvf "build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
+          sudo rm -rvf "build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
       - name: Archive client
         uses: thedoctor0/zip-release@0.7.6
         if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
@@ -203,7 +186,7 @@ jobs:
             ${{ github.workspace }}/BasisVR ${{ matrix.targetPlatform }} Symbols.zip
   build-client-android:
     name: Build client for Android
-    timeout-minutes: 100
+    timeout-minutes: 150
     runs-on: ubuntu-latest
     permissions:
       actions: write # to allow us to manage cache
@@ -243,6 +226,13 @@ jobs:
         shell: bash
         run: |
           python3 .github/scripts/sanitize_android_client_ci.py "${projectPath}"
+      - name: "Build Unity editor image"
+        id: unity-image
+        timeout-minutes: 40
+        uses: ./.github/actions/unity-editor-image
+        with:
+          projectPath: ${{ env.projectPath }}
+          modules: android
       - name: "Build Unity project"
         timeout-minutes: 100
         uses: BasisVR/unity-builder@main
@@ -251,6 +241,7 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
+          customImage: ${{ steps.unity-image.outputs.image }}
           buildName: ${{ env.buildName }}
           projectPath: ${{ env.projectPath }}
           targetPlatform: Android

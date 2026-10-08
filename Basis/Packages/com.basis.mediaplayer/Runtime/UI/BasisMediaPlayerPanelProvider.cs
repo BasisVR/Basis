@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
@@ -13,7 +14,8 @@ using UnityEngine.UI;
 /// while the scene holds no players. <see cref="BasisMediaPlayerRegistry"/> is
 /// the data source.
 /// </summary>
-public class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<BasisMainMenu>
+[AutoStaticsCleanup]
+public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<BasisMainMenu>
 {
     public const string Perm_Control = "basis.mediaplayer.control";
     public const string StaticTitleKey = "menu.provider.mediaPlayers";

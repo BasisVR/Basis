@@ -19,6 +19,7 @@ namespace Basis.Tests.GlobalIllumination
 
         private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
         private readonly Func<Camera, bool> previousFilter;
+        private readonly Func<Camera, bool> previousReflectionFilter;
         private readonly bool previousKeepWithDebugger;
         private readonly BasisGlobalIlluminationDebugView previousDebugView;
         private readonly Texture previousReflection;
@@ -120,9 +121,6 @@ namespace Basis.Tests.GlobalIllumination
             text.Append("pipeline=").Append(GraphicsSettings.currentRenderPipeline != null ? GraphicsSettings.currentRenderPipeline.name : "<none>");
             text.Append(" quality=").Append(QualitySettings.names.Length > 0 ? QualitySettings.names[QualitySettings.GetQualityLevel()] : "?");
             text.Append(" device=").Append(SystemInfo.graphicsDeviceType);
-            text.Append(" renderGraph=").Append(GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>() != null
-                ? (GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>().enableRenderCompatibilityMode ? "compatibility" : "on")
-                : "?");
 
             BasisGlobalIlluminationFeature[] features = Resources.FindObjectsOfTypeAll<BasisGlobalIlluminationFeature>();
             text.Append(" features=").Append(features.Length);
@@ -163,8 +161,10 @@ namespace Basis.Tests.GlobalIllumination
         public BasisGlobalIlluminationRenderHarness()
         {
             previousFilter = BasisGlobalIlluminationFeature.CameraFilter;
+            previousReflectionFilter = BasisReflectionFeature.CameraFilter;
             previousKeepWithDebugger = BasisGlobalIlluminationFeature.KeepRenderingWithDebugger;
             BasisGlobalIlluminationFeature.CameraFilter = null;
+            BasisReflectionFeature.CameraFilter = null;
             BasisGlobalIlluminationFeature.KeepRenderingWithDebugger = true;
 
             Feature = ResolveFeature();
@@ -275,7 +275,7 @@ namespace Basis.Tests.GlobalIllumination
             if (material.HasProperty("_EmissionEnabled")) { material.SetFloat("_EmissionEnabled", lit ? 1f : 0f); }
             CoreUtils.SetKeyword(material, "_EMISSION", lit);
             material.globalIlluminationFlags = lit
-                ? MaterialGlobalIlluminationFlags.RealtimeEmissive
+                ? MaterialGlobalIlluminationFlags.RealtimeIndirectEmission
                 : MaterialGlobalIlluminationFlags.EmissiveIsBlack;
         }
 
@@ -738,6 +738,7 @@ namespace Basis.Tests.GlobalIllumination
         public void Dispose()
         {
             BasisGlobalIlluminationFeature.CameraFilter = previousFilter;
+            BasisReflectionFeature.CameraFilter = previousReflectionFilter;
             BasisGlobalIlluminationFeature.KeepRenderingWithDebugger = previousKeepWithDebugger;
             if (Feature != null) { Feature.DebugView = previousDebugView; }
             RenderSettings.customReflectionTexture = previousReflection;

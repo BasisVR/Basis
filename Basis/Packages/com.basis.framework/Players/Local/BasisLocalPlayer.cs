@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.IK;
 using Basis.Scripts.Animator_Driver;
 using Basis.Scripts.Audio;
@@ -21,7 +22,8 @@ using static BasisHeightDriver;
 
 namespace Basis.Scripts.BasisSdk.Players
 {
-    public class BasisLocalPlayer : BasisPlayer, IBasisLocalPlayer
+    [AutoStaticsCleanup]
+    public partial class BasisLocalPlayer : BasisPlayer, IBasisLocalPlayer
     {
         public static BasisLocalPlayer Instance { get; private set; }
 

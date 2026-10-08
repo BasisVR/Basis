@@ -33,7 +33,7 @@ public class BasisFiniteWatchdogWindow : EditorWindow
 
         BasisFiniteWatchdog.Enabled = EditorGUILayout.ToggleLeft("Enabled (scans while in play mode)", BasisFiniteWatchdog.Enabled);
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
         BasisFiniteWatchdog.FullSweepIntervalSeconds = EditorGUILayout.Slider(
             new GUIContent("Renderer sweep interval (s)", "How often the all-renderers bounds sweep runs. The per-frame camera/root checks are free."),
             BasisFiniteWatchdog.FullSweepIntervalSeconds, 0.25f, 10f);

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 namespace Basis.BasisUI
 {
     /// <summary>
@@ -5,7 +6,8 @@ namespace Basis.BasisUI
     /// implementation lives in the BasisExamples assembly (it configures BasisSDKMirror
     /// directly), which this assembly cannot reference; it registers itself here on boot.
     /// </summary>
-    public static class BasisCalibrationMirrorService
+    [AutoStaticsCleanup]
+    public static partial class BasisCalibrationMirrorService
     {
         public static IBasisCalibrationMirror Provider;
         public static bool Available => Provider != null;

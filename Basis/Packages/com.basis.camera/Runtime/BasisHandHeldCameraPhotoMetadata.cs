@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -7,7 +8,8 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using UnityEngine;
 
-public static class BasisHandHeldCameraPhotoMetadata
+[AutoStaticsCleanup]
+public static partial class BasisHandHeldCameraPhotoMetadata
 {
     public struct TaggedPerson
     {
@@ -715,7 +717,7 @@ public static class BasisHandHeldCameraPhotoMetadata
 
     // ---------------- PNG ----------------
 
-    private static readonly byte[] PngSignature = { 137, 80, 78, 71, 13, 10, 26, 10 };
+    [NoAutoStaticsCleanup] private static readonly byte[] PngSignature = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
     private static byte[] EmbedPng(byte[] png, string summary, string json, string xmp)
     {

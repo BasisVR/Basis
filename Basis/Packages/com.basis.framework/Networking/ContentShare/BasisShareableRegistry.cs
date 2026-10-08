@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 
@@ -36,7 +37,8 @@ public sealed class BasisShareableEntry
 /// (e.g. the image pickup) register their own entries, so the Library UI can monitor and remove them
 /// without the framework referencing those packages.
 /// </summary>
-public static class BasisShareableRegistry
+[AutoStaticsCleanup]
+public static partial class BasisShareableRegistry
 {
     private static readonly Dictionary<string, BasisShareableEntry> Entries = new Dictionary<string, BasisShareableEntry>();
 

@@ -474,7 +474,7 @@
     { "key": "projectSetup.buildModules.scriptingBackendIl2cpp", "value": "Sempre IL2CPP" },
     { "key": "projectSetup.buildModules.scriptingBackendMono", "value": "Sempre Mono" },
     { "key": "projectSetup.buildModules.scriptingBackendCoreClr", "value": "Sempre CoreCLR" },
-    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "Ricorda la risposta IL2CPP/Mono/CoreCLR per le build Windows e macOS così non ti viene chiesto ogni volta. Le piattaforme forzate non sono interessate: Android e iOS usano sempre IL2CPP, Linux usa sempre Mono. Scegliere un backend nel prompt di build aggiorna anche questa impostazione." },
+    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "Ricorda la risposta IL2CPP/Mono/CoreCLR per le build Windows e macOS così non ti viene chiesto ogni volta. Le piattaforme forzate non sono interessate: Android e iOS usano sempre IL2CPP, Linux usa sempre CoreCLR (ARM64: IL2CPP). Scegliere un backend nel prompt di build aggiorna anche questa impostazione." },
 
     { "key": "projectSetup.platformQuality.foldout", "value": "Piattaforma e Qualità" },
     { "key": "projectSetup.platformQuality.windows", "value": "Windows" },

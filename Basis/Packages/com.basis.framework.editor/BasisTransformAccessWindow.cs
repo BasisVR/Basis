@@ -40,7 +40,7 @@ public class BasisTransformAccessWindow : EditorWindow
             new GUIContent("Record (play mode)", "Count every funnelled operation by call site."),
             BasisTransformAudit.Enabled);
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
         BasisLocalPose.ValidateHits = EditorGUILayout.ToggleLeft(
             new GUIContent("Validate cache hits",
                 "Re-read the real Transform on every BasisLocalPose cache hit and compare. A mismatch means " +
@@ -135,7 +135,7 @@ public class BasisTransformAccessWindow : EditorWindow
 #endif
     }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     /// <summary>Compact "GetPosition x3, GetPose x1" summary of what a site actually does.</summary>
     static string DescribeOps(BasisTransformAudit.Site s)
     {

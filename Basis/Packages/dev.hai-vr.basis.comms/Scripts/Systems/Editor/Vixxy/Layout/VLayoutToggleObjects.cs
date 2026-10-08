@@ -69,7 +69,7 @@ namespace HVR.Vixxy.Editor
                 if (componentSp.objectReferenceValue != null && componentSp.objectReferenceValue.GetType() == typeof(Transform))
                 {
                     var t = (Transform)componentSp.objectReferenceValue;
-                    var obj = EditorGUILayout.ObjectField(GUIContent.none, t.gameObject, typeof(GameObject));
+                    var obj = EditorGUILayout.ObjectField(GUIContent.none, t.gameObject, typeof(GameObject), true);
                     if (obj != t.gameObject && obj != t)
                     {
                         componentSp.objectReferenceValue = obj;

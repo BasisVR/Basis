@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.Behaviour;
 using Basis.Scripts.Networking.Behaviour;
@@ -6,9 +7,10 @@ using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
+    [AutoStaticsCleanup]
     [AddComponentMenu("HVR.Basis/Comms/Internal/HVR Networking Carrier")]
     [HelpURL("https://docs.hai-vr.dev/docs/basis/avatar-customization")]
-    public class HVRNetworkingCarrier : BasisNetworkAvatarBehaviour, IHVRTransmitter, IHVRInitializable
+    public partial class HVRNetworkingCarrier : BasisNetworkAvatarBehaviour, IHVRTransmitter, IHVRInitializable
     {
         new public static bool VisibleInAvatarMenu = false;
         private bool _networkReady;

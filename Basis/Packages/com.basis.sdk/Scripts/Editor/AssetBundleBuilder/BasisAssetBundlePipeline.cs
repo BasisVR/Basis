@@ -153,9 +153,9 @@ public static class BasisAssetBundlePipeline
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
             BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
             var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            if (ScriptingImplementation.Mono2x != PlayerSettings.GetScriptingBackend(namedBuildTarget))
+            if (targetGroup == BuildTargetGroup.Standalone && ScriptingImplementation.CoreCLR != PlayerSettings.GetScriptingBackend(namedBuildTarget))
             {
-                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.Mono2x);
+                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.CoreCLR);
             }
 
             return new(true, new BasisBundleBuild.BasisBundleBuildResult(value.Item1, value.Item2, meta, farLodBase64));
@@ -180,9 +180,9 @@ public static class BasisAssetBundlePipeline
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
             BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
             var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            if (ScriptingImplementation.Mono2x != PlayerSettings.GetScriptingBackend(namedBuildTarget))
+            if (targetGroup == BuildTargetGroup.Standalone && ScriptingImplementation.CoreCLR != PlayerSettings.GetScriptingBackend(namedBuildTarget))
             {
-                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.Mono2x);
+                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.CoreCLR);
             }
 
             return new(false, new BasisBundleBuild.BasisBundleBuildResult(null, new AssetBundleBuilder.InformationHash(), default));

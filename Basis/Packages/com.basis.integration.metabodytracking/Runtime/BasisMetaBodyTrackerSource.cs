@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if BASIS_FRAMEWORK_EXISTS
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
@@ -17,7 +18,8 @@ namespace Basis.Integration.MetaBodyTracking
     /// through the existing announced-tracker pipeline unchanged — the offsets, bend hints and
     /// rotation calibration are captured by the same full-body pass a physical tracker gets.
     /// </summary>
-    public static class BasisMetaBodyTrackerSource
+    [AutoStaticsCleanup]
+    public static partial class BasisMetaBodyTrackerSource
     {
         public const string SubSystem = nameof(BasisMetaBodyTrackerSource);
         public const string SerialPrefix = "metabody://";
@@ -53,7 +55,7 @@ namespace Basis.Integration.MetaBodyTracking
         /// own those bones and their real poses beat any solve. The elbows and knees ride the arm and
         /// leg segment ends, which are Basis's LowerArm/LowerLeg tracker roles.
         /// </summary>
-        private static readonly BodyPart[] Parts =
+        [NoAutoStaticsCleanup] private static readonly BodyPart[] Parts =
         {
             new BodyPart(BasisMetaBodyJoint.Hips, BasisBoneTrackedRole.Hips, "WAIST", false),
             new BodyPart(BasisMetaBodyJoint.Chest, BasisBoneTrackedRole.Chest, "CHEST", false),
@@ -65,7 +67,7 @@ namespace Basis.Integration.MetaBodyTracking
             new BodyPart(BasisMetaBodyJoint.RightFootAnkle, BasisBoneTrackedRole.RightFoot, "RIGHT_FOOT", true),
         };
 
-        private static readonly Dictionary<string, BasisBoneTrackedRole> RolesBySerialToken =
+        [NoAutoStaticsCleanup] private static readonly Dictionary<string, BasisBoneTrackedRole> RolesBySerialToken =
             new Dictionary<string, BasisBoneTrackedRole>(System.StringComparer.OrdinalIgnoreCase);
 
         private static readonly HashSet<BasisMetaBodyJoint> _created = new HashSet<BasisMetaBodyJoint>();

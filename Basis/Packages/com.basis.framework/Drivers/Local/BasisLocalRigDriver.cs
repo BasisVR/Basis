@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
@@ -19,6 +20,7 @@ using static BasisHeightDriver;
 using Basis.Scripts.Debugging;
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [Serializable]
     public partial class BasisLocalRigDriver
     {
@@ -37,12 +39,12 @@ namespace Basis.Scripts.Drivers
         private BasisLocalPlayer localPlayer;
         public BasisTransformMapping basisTransformMapping;
         public const int sHips = 0, sHead = 1, sLeftFoot = 2, sRightFoot = 3, sChest = 4, sLeftLowerLeg = 5, sRightLowerLeg = 6, sLeftHand = 7, sRightHand = 8, sLeftLowerArm = 9, sRightLowerArm = 10, sLeftToe = 11, sRightToe = 12, sLeftShoulder = 13, sRightShoulder = 14, SlotCount = 15;
-        static readonly string[] SlotNames =
+        [NoAutoStaticsCleanup] static readonly string[] SlotNames =
         {
             "Hips", "Head", "LeftFoot", "RightFoot", "Chest", "LeftLowerLeg", "RightLowerLeg", "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftToe", "RightToe", "LeftShoulder", "RightShoulder",
         };
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
-        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
         private void WatchdogCheckFilterSlots(string stage)
         {
             if (!BasisFiniteWatchdog.Enabled || !posInputs.IsCreated)
@@ -94,7 +96,7 @@ namespace Basis.Scripts.Drivers
         System.IntPtr watchdogStreamPtr;
         string watchdogStreamStage;
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
-        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
         private unsafe void WatchdogCheckPoseStream(string stage)
         {
             if (!BasisFiniteWatchdog.Enabled || !PoseSkeleton.IsCreated)
@@ -371,9 +373,9 @@ namespace Basis.Scripts.Drivers
                 default: return false;
             }
         }
-        private static readonly float4[] groupPosTuning = new float4[BasisSmoothingProfiles.GroupCount], groupRotTuning = new float4[BasisSmoothingProfiles.GroupCount];
-        private static readonly bool[] groupOff = new bool[BasisSmoothingProfiles.GroupCount];
-        private static readonly BasisTrackingHardware[] groupHardware = new BasisTrackingHardware[BasisSmoothingProfiles.GroupCount];
+        [NoAutoStaticsCleanup] private static readonly float4[] groupPosTuning = new float4[BasisSmoothingProfiles.GroupCount], groupRotTuning = new float4[BasisSmoothingProfiles.GroupCount];
+        [NoAutoStaticsCleanup] private static readonly bool[] groupOff = new bool[BasisSmoothingProfiles.GroupCount];
+        [NoAutoStaticsCleanup] private static readonly BasisTrackingHardware[] groupHardware = new BasisTrackingHardware[BasisSmoothingProfiles.GroupCount];
         private static void ResolveGroupHardware()
         {
             for (int Index = 0; Index < groupHardware.Length; Index++)

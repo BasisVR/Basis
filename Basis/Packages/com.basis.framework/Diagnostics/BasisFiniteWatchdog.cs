@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Unity.Scripting.LifecycleManagement;
+using System.Collections.Generic;
 using System.Text;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -22,12 +23,13 @@ using UnityEngine;
 /// Every entry point is [Conditional], so the calls themselves are stripped outside the
 /// editor and development builds.
 /// </summary>
-public static class BasisFiniteWatchdog
+[AutoStaticsCleanup]
+public static partial class BasisFiniteWatchdog
 {
     /// <summary>Master toggle, off by default; the event driver only ticks the scan while this is set.</summary>
     public static bool Enabled;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     static bool sDisarmed;
     static float sNextFullSweepTime;
 
@@ -176,7 +178,7 @@ public static class BasisFiniteWatchdog
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Tick()
     {
         if (!Enabled)
@@ -299,7 +301,7 @@ public static class BasisFiniteWatchdog
     /// names the writer.
     /// </summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Checkpoint(string stage)
     {
         if (!Enabled || sDisarmed)
@@ -331,7 +333,7 @@ public static class BasisFiniteWatchdog
     /// the wrong end of that. Budgeted by <see cref="RemotePlayersPerCheckpoint"/>.
     /// </summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void CheckpointRemote(string stage)
     {
         if (!Enabled || sDisarmed || !ScanRemotePlayers)
@@ -360,7 +362,7 @@ public static class BasisFiniteWatchdog
     /// written is known and is the only one worth looking at.
     /// </summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void CheckpointRemote(string stage, BasisRemotePlayer remote)
     {
         if (!Enabled || sDisarmed || !ScanRemotePlayers || remote == null || remote.IsDestroyed)
@@ -396,7 +398,7 @@ public static class BasisFiniteWatchdog
 
     /// <summary>Reports a bad value that lives outside the transform hierarchy, then disarms.</summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void ReportValue(string stage, string what, string detail)
     {
         if (!Enabled || sDisarmed || !ShouldReportValue(what))
@@ -419,7 +421,7 @@ public static class BasisFiniteWatchdog
     /// a bad head target is attributed to the device, the chain solve, or neither.
     /// </summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void CheckpointBoneControls(string stage)
     {
         if (!Enabled || sDisarmed)
@@ -832,37 +834,37 @@ public static class BasisFiniteWatchdog
     }
 #else
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Tick()
     {
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void Checkpoint(string stage)
     {
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void CheckpointRemote(string stage)
     {
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void CheckpointRemote(string stage, Basis.Scripts.BasisSdk.Players.BasisRemotePlayer remote)
     {
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void CheckpointBoneControls(string stage)
     {
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    [System.Diagnostics.Conditional("UNITY_INCLUDE_INSTRUMENTATION")]
     public static void ReportValue(string stage, string what, string detail)
     {
     }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Device_Management;
@@ -15,7 +16,8 @@ using LiteNatAddressType = LiteNetLib.NatAddressType;
 
 namespace Basis.Scripts.Networking
 {
-    public static class BasisP2PManager
+    [AutoStaticsCleanup]
+    public static partial class BasisP2PManager
     {
         public enum P2PSessionState : byte
         {
@@ -53,7 +55,7 @@ namespace Basis.Scripts.Networking
         private const long PunchTimeoutMs = 6000;           // Punching/Reconnecting stuck this long => retry
         private const long HealthyDwellResetMs = 30000;     // continuous-Connected time that clears the flap counter
         private const int MaxPartialAutoRetries = 2;        // connect->die->reconnect flaps before we rest for manual retry
-        private static readonly int[] PartialBackoffMs = { 0, 3000 };
+        [NoAutoStaticsCleanup] private static readonly int[] PartialBackoffMs = { 0, 3000 };
         // Stopwatch is monotonic and available on every runtime; health timestamps are stored
         // as Stopwatch ticks and converted to ms for the timeouts above.
         private static readonly double StopwatchTicksToMs = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
@@ -111,14 +113,14 @@ namespace Basis.Scripts.Networking
         private static int _connectedSessionCount;
 
         // Direct-link health watchdog (see the Health*/Partial* constants above).
-        private static Timer _healthTimer;
+        [NoAutoStaticsCleanup] private static Timer _healthTimer;
         private static int _healthTickRunning;
 
         private static LiteNetManager _p2pManager;
         private static EventBasedNetListener _p2pListener;
         private static LiteNatPunchListener _natListener;
         private static BasisCryptoLayer _p2pCryptoLayer;
-        private static readonly object _initLock = new object();
+        [NoAutoStaticsCleanup] private static readonly object _initLock = new object();
 
         // Direct connections are always encrypted. When the link re-punches we reuse the
         // same derived keys, so the nonce counter is advanced by this gap on every

@@ -1,17 +1,19 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Drivers;
 using TMPro;
 using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class SettingsProviderFrameBottleneck
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderFrameBottleneck
     {
         private const int RefreshIntervalTicks = 15;
         private const int TicksBeforeFreeze = 2;
         private const int RefreshesBeforeVerdictChange = 4;
         private const BasisFrameBottleneckKind UnsetKind = (BasisFrameBottleneckKind)(-1);
 
-        private static readonly BasisFrameBottleneckKind[] AllKinds =
+        [NoAutoStaticsCleanup] private static readonly BasisFrameBottleneckKind[] AllKinds =
         {
             BasisFrameBottleneckKind.Measuring,
             BasisFrameBottleneckKind.Cpu,

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -20,7 +21,8 @@ namespace Basis.Scripts.Networking
     /// custom-UI application can connect without the Servers panel package present.
     /// The Servers panel (com.basis.provider.servers) is a thin UI on top of this.
     /// </summary>
-    public static class BasisConnectionService
+    [AutoStaticsCleanup]
+    public static partial class BasisConnectionService
     {
         public const string UsernameFileName = "CachedUserName.BAS";
         public const string LastConnectedServerIdFile = "LastConnectedServerId.BAS";

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
@@ -12,7 +13,8 @@ using UnityEngine.UI;
 /// of the SDK-side inspector authoring helper — same preset list, same string
 /// matching, so a creator's "Gore" tag and a viewer's "Gore" block line up.
 /// </summary>
-public static class SettingsProviderContentTags
+[AutoStaticsCleanup]
+public static partial class SettingsProviderContentTags
 {
     /// <summary>
     /// Holds every PanelToggle representing a non-preset custom blocked tag, keyed

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
@@ -8,7 +9,8 @@ using UnityEngine.Rendering;
 namespace Basis.Scripts.UI
 {
 
-    public static class BasisUIBackgroundCustomization
+    [AutoStaticsCleanup]
+    public static partial class BasisUIBackgroundCustomization
     {
         private const string BackgroundShaderName = "Basis/UI/Background";
         private const string LowTierKeyword = "_BASISBG_LOW";

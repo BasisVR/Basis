@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,7 +14,8 @@ namespace Basis.Scripts.UI.NamePlate
     /// Consider per plate → Apply), so plates never register themselves and there is no
     /// stale bookkeeping. Selection math lives in <see cref="BasisNamePlateOverlayCore"/>.
     /// </summary>
-    public static class BasisNamePlateOverlayLimiter
+    [AutoStaticsCleanup]
+    public static partial class BasisNamePlateOverlayLimiter
     {
         /// <summary>Chat bubbles rendered at once — the nearest win.</summary>
         public static int MaxVisibleChatBubbles = 24;

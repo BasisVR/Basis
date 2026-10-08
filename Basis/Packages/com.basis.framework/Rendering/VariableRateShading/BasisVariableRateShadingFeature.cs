@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using UnityEngine;
@@ -12,8 +13,9 @@ namespace Basis.Scripts.Rendering
     /// periphery, then binds it onto URP's depth, depth-normals, opaque, skybox and
     /// transparent passes. Desktop only; Quest keeps its native OpenXR foveation.
     /// </summary>
+    [AutoStaticsCleanup]
     [DisallowMultipleRendererFeature("BasisVariableRateShading")]
-    public class BasisVariableRateShadingFeature : ScriptableRendererFeature
+    public partial class BasisVariableRateShadingFeature : ScriptableRendererFeature
     {
         [SerializeField] private ComputeShader buildShader;
         [SerializeField] private float gazeProjectDistance = 3f;

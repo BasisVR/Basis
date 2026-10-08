@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk.Players;
@@ -11,7 +12,8 @@ namespace Basis.BasisUI
     /// <summary>
     /// Used by the LibraryProvider.cs when a item is desired to spawn with a raycast placement
     /// </summary>
-    public static class PlacementManager
+    [AutoStaticsCleanup]
+    public static partial class PlacementManager
     {
 
         #region CalculateLocalRenderBounds, TransformBoundsAABB

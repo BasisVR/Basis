@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,7 +12,8 @@ namespace Basis.ImagePickup
     /// remains in flight at a time. If a larger allocation is unavailable, excess candidates
     /// rotate through later batches and retain the physics fallback meanwhile.
     /// </summary>
-    internal static class BasisAnimatedImageDepthVisibility
+    [AutoStaticsCleanup]
+    internal static partial class BasisAnimatedImageDepthVisibility
     {
         internal const int SamplesPerCard = 5;
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.Rendering;
@@ -29,8 +31,8 @@ namespace Basis.ImagePickup
             Array.Empty<BasisAnimatedImagePlayer>();
         private static readonly Plane[] _frustumPlanes = new Plane[6];
 
-        private static GraphicsBuffer _sampleBuffer;
-        private static GraphicsBuffer _visibilityBuffer;
+        [NoAutoStaticsCleanup] private static GraphicsBuffer _sampleBuffer;
+        [NoAutoStaticsCleanup] private static GraphicsBuffer _visibilityBuffer;
         private static int _cardCapacity;
         private static int _lastFailedCapacity;
         private static float _nextCapacityRetryTime;

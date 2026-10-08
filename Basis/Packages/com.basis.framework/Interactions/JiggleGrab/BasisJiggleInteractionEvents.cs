@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
@@ -26,7 +27,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
     /// Events are edge triggered with a dwell, so a hand resting on a chain produces one begin and
     /// one end rather than a callback every frame.
     /// </summary>
-    public static class BasisJiggleInteractionEvents
+    [AutoStaticsCleanup]
+    public static partial class BasisJiggleInteractionEvents
     {
         /// <summary>Cap on simultaneously registered listeners.</summary>
         public const int MaxListeners = 256;

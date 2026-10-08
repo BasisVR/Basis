@@ -152,7 +152,9 @@ namespace AudioLink
 
         private double _fpsTime = 0;
         private int _fpsCount = 0;
+#if UNITY_EDITOR
         private int _lastUpdatedFrame = -1;
+#endif
 
         // Fix for AVPro mono game output bug (if running the game with a mono output source like a headset)
         private int _rightChannelTestDelay = 300;
@@ -671,7 +673,9 @@ namespace AudioLink
 
         private void CacheAudioTarget()
         {
-#if UNITY_2022_3_OR_NEWER
+#if UNITY_6000_5_OR_NEWER
+            var listeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude);
+#elif UNITY_2022_3_OR_NEWER
             var listeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
             var listeners = FindObjectsOfType<AudioListener>(true);

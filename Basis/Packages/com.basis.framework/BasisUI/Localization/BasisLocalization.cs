@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -33,7 +34,8 @@ namespace Basis.BasisUI
     /// TMP_Settings.fallbackFontAssets (or to the individual text labels) for
     /// translated strings to render correctly.
     /// </summary>
-    public static class BasisLocalization
+    [AutoStaticsCleanup]
+    public static partial class BasisLocalization
     {
         public const string DefaultLanguage = "en";
         public const string LanguageLabel = "language";

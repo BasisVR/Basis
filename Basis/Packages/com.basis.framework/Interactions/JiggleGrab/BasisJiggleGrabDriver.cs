@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
@@ -11,7 +12,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.BasisSdk.Interactions
 {
-    public static class BasisJiggleGrabDriver
+    [AutoStaticsCleanup]
+    public static partial class BasisJiggleGrabDriver
     {
         public const int MaxAnnouncedGrabs = 2048;
         public const int MaxAppliedGrabs = JiggleGrabConstraint.MaxTotalGrabs;
@@ -68,7 +70,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private static readonly List<GrabState> applied = new List<GrabState>();
         private static readonly List<GrabState> removalScratch = new List<GrabState>();
         private static readonly List<GrabState> demotionScratch = new List<GrabState>();
-        private static readonly JiggleGrabConstraint[] constraintScratch = new JiggleGrabConstraint[MaxAppliedGrabs];
+        [NoAutoStaticsCleanup] private static readonly JiggleGrabConstraint[] constraintScratch = new JiggleGrabConstraint[MaxAppliedGrabs];
         private static int lastPushedCount;
         private static int promotionCursor;
         private static bool initialized;

@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Behaviour;
 using Basis.Scripts.Networking.Behaviour;
 using Basis.Network.Core;
 using UnityEngine;
-public class BasisTestNetwork : BasisNetworkAvatarBehaviour
+[AutoStaticsCleanup]
+public partial class BasisTestNetwork : BasisNetworkAvatarBehaviour
 {
     new public static bool VisibleInAvatarMenu = false;
     public bool Send = false;

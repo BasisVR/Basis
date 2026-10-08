@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,7 +20,8 @@ namespace Basis.Cinematics
     /// <para>Import is the same door in reverse — everything in the folder is read in — rather than
     /// a file picker, which there is no way to drive from inside a headset.</para>
     /// </summary>
-    public static class BasisCameraDollyPresets
+    [AutoStaticsCleanup]
+    public static partial class BasisCameraDollyPresets
     {
         public const string PresetsJson = "DollyPresets.json";
 

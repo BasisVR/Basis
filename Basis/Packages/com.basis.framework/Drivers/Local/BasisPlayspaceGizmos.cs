@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Text;
 using Basis.BasisUI;
@@ -27,7 +28,8 @@ namespace Basis.Scripts.Drivers
     /// hence the master hook.
     /// </para>
     /// </summary>
-    public static class BasisPlayspaceGizmos
+    [AutoStaticsCleanup]
+    public static partial class BasisPlayspaceGizmos
     {
         private const float LineWidth = 0.006f;
         private const float ThinLineWidth = 0.003f;
@@ -65,8 +67,8 @@ namespace Basis.Scripts.Drivers
         private static readonly BasisGizmoSet _hands = new BasisGizmoSet("PlayspaceHands");
         private static readonly BasisGizmoSet _readouts = new BasisGizmoSet("PlayspaceReadouts");
 
-        private static readonly Vector3[] _ring = new Vector3[RingSegments];
-        private static readonly Vector3[] _ringB = new Vector3[RingSegments];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] _ring = new Vector3[RingSegments];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] _ringB = new Vector3[RingSegments];
         private static Vector3[] _outline = Array.Empty<Vector3>();
         private static Vector3[] _outlineRail = Array.Empty<Vector3>();
 

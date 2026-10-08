@@ -53,7 +53,7 @@ namespace Basis.Setup.Modules
 
         private static Type FindType(string simpleName)
         {
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (Assembly assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
             {
                 Type[] types;
                 try

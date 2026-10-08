@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Players;
@@ -32,7 +33,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     /// then a Burst-compiled IJob maps them into generic space and compresses the bitstream in
     /// a single pass (BasisBoneDeltaAndCompressJob).
     /// </summary>
-    public static class BasisNetworkAvatarCompressor
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkAvatarCompressor
     {
         static bool sInitialized;
 
@@ -59,28 +61,28 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         static quaternion sHipsEncodePost;
 
         // Scratch buffer for 54 delta quaternions (indexed by slot in BONE_WRITE_ORDER)
-        static NativeArray<quaternion> sBoneDeltas;
+        [NoAutoStaticsCleanup] static NativeArray<quaternion> sBoneDeltas;
 
         // Job system persistent arrays
-        static TransformAccessArray sBoneTransformAccess;
-        static NativeArray<int> sSlotRemap;
-        static NativeArray<quaternion> sCurrentLocalRotations;
-        static NativeArray<quaternion> sTposeNative;
-        static NativeArray<quaternion> sEncodePreNative;
-        static NativeArray<quaternion> sEncodePostNative;
-        static NativeArray<byte> sBpcNative;
-        static NativeArray<float> sMaxComponentNative;
+        [NoAutoStaticsCleanup] static TransformAccessArray sBoneTransformAccess;
+        [NoAutoStaticsCleanup] static NativeArray<int> sSlotRemap;
+        [NoAutoStaticsCleanup] static NativeArray<quaternion> sCurrentLocalRotations;
+        [NoAutoStaticsCleanup] static NativeArray<quaternion> sTposeNative;
+        [NoAutoStaticsCleanup] static NativeArray<quaternion> sEncodePreNative;
+        [NoAutoStaticsCleanup] static NativeArray<quaternion> sEncodePostNative;
+        [NoAutoStaticsCleanup] static NativeArray<byte> sBpcNative;
+        [NoAutoStaticsCleanup] static NativeArray<float> sMaxComponentNative;
         // Restricted-DOF tables (v52), one entry per wire slot: DOF class, hinge/twist axis
         // codes and half-ranges. Constant per protocol version, staged once for the Burst job.
-        static NativeArray<byte> sDofNative;
-        static NativeArray<byte> sAxisANative;
-        static NativeArray<byte> sAxisBNative;
-        static NativeArray<float> sRangeANative;
-        static NativeArray<float> sRangeBNative;
+        [NoAutoStaticsCleanup] static NativeArray<byte> sDofNative;
+        [NoAutoStaticsCleanup] static NativeArray<byte> sAxisANative;
+        [NoAutoStaticsCleanup] static NativeArray<byte> sAxisBNative;
+        [NoAutoStaticsCleanup] static NativeArray<float> sRangeANative;
+        [NoAutoStaticsCleanup] static NativeArray<float> sRangeBNative;
         static bool sJobArraysReady;
 
         // Persistent NativeArray for jobified compression output — avoids per-frame TempJob allocation.
-        static NativeArray<byte> sJobOutputBuffer;
+        [NoAutoStaticsCleanup] static NativeArray<byte> sJobOutputBuffer;
 
         // Wire quality is locked to HIGH
         static readonly BitQuality WireQuality = BitQuality.High;
@@ -117,7 +119,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         const int RawScaleOffset = RawEffRotOffset + 16;               // scale
         const int RawMaskOffset = RawScaleOffset + 1;                  // effector mask (exact)
         const int RawFloatCount = RawMaskOffset + 1;
-        static readonly float[] sRawCurrent = new float[RawFloatCount];
+        [NoAutoStaticsCleanup] static readonly float[] sRawCurrent = new float[RawFloatCount];
         static float[] sRawLastSent;
         static bool sRawCaptured;
         static bool sHasRawLastSent;
@@ -371,7 +373,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         // Live finger rotations remapped out of wire-slot order into finger*3+joint order, which is
         // how the pose grid indexes them. BONE_WRITE_ORDER groups fingers by joint tier (all
         // proximals, then all intermediates, then all distals), so the two orders do not coincide.
-        static NativeArray<quaternion> sFingerLiveByJoint;
+        [NoAutoStaticsCleanup] static NativeArray<quaternion> sFingerLiveByJoint;
 
         const int FirstFingerBone = (int)HumanBodyBones.LeftThumbProximal;
 
@@ -447,8 +449,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         // End-effector capture scratch (reused each frame; rot pre-seeded to identity so the codec
         // never encodes a zero quaternion for unanchored slots).
-        static readonly Unity.Mathematics.float3[] sEffectorPos = new Unity.Mathematics.float3[BasisAvatarEndEffectors.EffectorCount];
-        static readonly quaternion[] sEffectorRot = { quaternion.identity, quaternion.identity, quaternion.identity, quaternion.identity };
+        [NoAutoStaticsCleanup] static readonly Unity.Mathematics.float3[] sEffectorPos = new Unity.Mathematics.float3[BasisAvatarEndEffectors.EffectorCount];
+        [NoAutoStaticsCleanup] static readonly quaternion[] sEffectorRot = { quaternion.identity, quaternion.identity, quaternion.identity, quaternion.identity };
 
         /// <summary>
         /// Fills the effector scratch arrays with hips-local target offset + tip world rotation
@@ -656,7 +658,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             return sFingerFallback;
         }
 
-        static NativeArray<float2> sFingerFallback;
+        [NoAutoStaticsCleanup] static NativeArray<float2> sFingerFallback;
 
         static unsafe void CompressBoneRotationsJobified(byte[] dst, NativeArray<float2> fingerPercentages, ref int byteOffset)
         {

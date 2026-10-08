@@ -474,7 +474,7 @@
     { "key": "projectSetup.buildModules.scriptingBackendIl2cpp", "value": "始终使用 IL2CPP" },
     { "key": "projectSetup.buildModules.scriptingBackendMono", "value": "始终使用 Mono" },
     { "key": "projectSetup.buildModules.scriptingBackendCoreClr", "value": "始终使用 CoreCLR" },
-    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "记住 Windows 和 macOS 构建的 IL2CPP/Mono/CoreCLR 选择，这样就不会每次都询问你。强制平台不受影响：Android 和 iOS 始终使用 IL2CPP，Linux 始终使用 Mono。在构建提示中选择后端也会更新此设置。" },
+    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "记住 Windows 和 macOS 构建的 IL2CPP/Mono/CoreCLR 选择，这样就不会每次都询问你。强制平台不受影响：Android 和 iOS 始终使用 IL2CPP，Linux 始终使用 CoreCLR (ARM64: IL2CPP)。在构建提示中选择后端也会更新此设置。" },
 
     { "key": "projectSetup.platformQuality.foldout", "value": "平台与质量" },
     { "key": "projectSetup.platformQuality.windows", "value": "Windows" },

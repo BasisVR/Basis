@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.UI_Panels;
 using TMPro;
@@ -13,7 +14,8 @@ namespace Basis.ImagePickup
     /// Built on demand by <see cref="BasisImagePickupObject.SetBackPanelVisible"/> the first time the menu
     /// opens, then reused — the returned object is the canvas root the pickup toggles.
     /// </summary>
-    public static class BasisImagePickupBackPanel
+    [AutoStaticsCleanup]
+    public static partial class BasisImagePickupBackPanel
     {
         private const float PanelPixels = 400f;
 

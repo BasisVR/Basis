@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 // Global illumination is optional: the define comes from the com.basis.globalillumination package
 // being present (asmdef versionDefines), and the effect is not viable on mobile GPUs, so the whole
 // integration compiles out on Android.
@@ -6,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Rendering;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -50,6 +52,7 @@ public struct BasisGlobalIlluminationState
     public bool ReflectionProbes;
     public bool Mirrors;
     public bool Specular;
+    public BasisGlobalIlluminationMode ReflectionsMode;
     public float SpecularIntensity;
     public float SpecularMaxRoughness;
     public float SpecularRayLength;
@@ -67,7 +70,7 @@ public struct BasisGlobalIlluminationState
     {
         return new BasisGlobalIlluminationState
         {
-            Enabled = BasisSettingsDefaults.UseGlobalIllumination.DefaultValue.GetDefault(),
+            Enabled = BasisSettingsDefaults.UseGlobalIllumination.DefaultValue.GetDefault() && !BasisLightingSolutions.IsUnity(BasisSettingsDefaults.GlobalIlluminationSolution.DefaultValue.GetDefault()),
             Mode = SMModuleGlobalIlluminationURP.ReadMode(BasisSettingsDefaults.GlobalIlluminationMode.DefaultValue.GetDefault()),
             SkinnedMeshes = SMModuleGlobalIlluminationURP.ReadSkinnedMode(BasisSettingsDefaults.GlobalIlluminationSkinnedMeshes.DefaultValue.GetDefault()),
             Layers = BasisSettingsDefaults.GlobalIlluminationLayers.DefaultValue.GetDefault(),
@@ -89,7 +92,8 @@ public struct BasisGlobalIlluminationState
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.DefaultValue.GetDefault(),
             ReflectionProbes = BasisSettingsDefaults.GlobalIlluminationReflectionProbes.DefaultValue.GetDefault(),
             Mirrors = BasisSettingsDefaults.GlobalIlluminationMirrors.DefaultValue.GetDefault(),
-            Specular = BasisSettingsDefaults.GlobalIlluminationSpecular.DefaultValue.GetDefault(),
+            Specular = BasisSettingsDefaults.GlobalIlluminationSpecular.DefaultValue.GetDefault() && !BasisLightingSolutions.IsUnity(BasisSettingsDefaults.ReflectionsSolution.DefaultValue.GetDefault()),
+            ReflectionsMode = SMModuleGlobalIlluminationURP.ReadMode(BasisSettingsDefaults.ReflectionsMode.DefaultValue.GetDefault()),
             SpecularIntensity = BasisSettingsDefaults.GlobalIlluminationSpecularIntensity.DefaultValue.GetDefault(),
             SpecularMaxRoughness = BasisSettingsDefaults.GlobalIlluminationSpecularMaxRoughness.DefaultValue.GetDefault(),
             SpecularRayLength = BasisSettingsDefaults.GlobalIlluminationSpecularRayLength.DefaultValue.GetDefault(),
@@ -108,7 +112,7 @@ public struct BasisGlobalIlluminationState
     {
         return new BasisGlobalIlluminationState
         {
-            Enabled = BasisSettingsDefaults.UseGlobalIllumination.RawValue,
+            Enabled = BasisLightingSolutions.BasisGlobalIllumination,
             Mode = SMModuleGlobalIlluminationURP.ReadMode(BasisSettingsDefaults.GlobalIlluminationMode.RawValue),
             SkinnedMeshes = SMModuleGlobalIlluminationURP.ReadSkinnedMode(BasisSettingsDefaults.GlobalIlluminationSkinnedMeshes.RawValue),
             Layers = BasisSettingsDefaults.GlobalIlluminationLayers.RawValue,
@@ -130,7 +134,8 @@ public struct BasisGlobalIlluminationState
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.RawValue,
             ReflectionProbes = BasisSettingsDefaults.GlobalIlluminationReflectionProbes.RawValue,
             Mirrors = BasisSettingsDefaults.GlobalIlluminationMirrors.RawValue,
-            Specular = BasisSettingsDefaults.GlobalIlluminationSpecular.RawValue,
+            Specular = BasisLightingSolutions.BasisReflections,
+            ReflectionsMode = SMModuleGlobalIlluminationURP.ReadMode(BasisSettingsDefaults.ReflectionsMode.RawValue),
             SpecularIntensity = BasisSettingsDefaults.GlobalIlluminationSpecularIntensity.RawValue,
             SpecularMaxRoughness = BasisSettingsDefaults.GlobalIlluminationSpecularMaxRoughness.RawValue,
             SpecularRayLength = BasisSettingsDefaults.GlobalIlluminationSpecularRayLength.RawValue,
@@ -189,7 +194,8 @@ public struct BasisGlobalIlluminationCaptureOverride
     public bool Mirrors;
 }
 
-public class SMModuleGlobalIlluminationURP : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
 {
     public const int CaptureRayCount = 8;
     public const int CaptureRaySteps = 64;
@@ -204,15 +210,15 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private BasisGlobalIlluminationCaptureOverride? captureOverride;
 
     /// <summary>Canonical option strings for <see cref="BasisGlobalIlluminationCaptureOverride.Mode"/>, index-matched to the live Mode dropdown. Parsed by <see cref="ReadMode"/>.</summary>
-    public static readonly string[] ModeOptions = { "Screen Space", "Ray Traced" };
+    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Screen Space", "Ray Traced" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadSkinnedMode"/>.</summary>
-    public static readonly string[] SkinnedMeshesOptions = { "Off", "Proxy" };
+    [NoAutoStaticsCleanup] public static readonly string[] SkinnedMeshesOptions = { "Off", "Proxy" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadLayers"/>.</summary>
-    public static readonly string[] LayersOptions = { "Avatars", "World", "World And Avatars" };
+    [NoAutoStaticsCleanup] public static readonly string[] LayersOptions = { "Avatars", "World", "World And Avatars" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadQuality"/>.</summary>
-    public static readonly string[] QualityOptions = { "Low", "Medium", "High", "Ultra" };
+    [NoAutoStaticsCleanup] public static readonly string[] QualityOptions = { "Low", "Medium", "High", "Ultra" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadFallback"/>.</summary>
-    public static readonly string[] FallbackOptions = { "None", "Sky", "Reflection Probe" };
+    [NoAutoStaticsCleanup] public static readonly string[] FallbackOptions = { "None", "Sky", "Reflection Probe" };
 
     /// <summary>What the effect is rendering with. The settings provider writes straight into this.</summary>
     public BasisGlobalIlluminationSettings GlobalIllumination => BasisGlobalIlluminationSettings.Current;
@@ -253,12 +259,16 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_SPECULAR_RAY_LENGTH => BasisSettingsDefaults.GlobalIlluminationSpecularRayLength.BindingKey;
     private static string K_GI_SPECULAR_FADE_DISTANCE => BasisSettingsDefaults.GlobalIlluminationSpecularFadeDistance.BindingKey;
     private static string K_GI_DEBUG_VIEW => BasisSettingsDefaults.DevGiDebugView.BindingKey;
+    private static string K_GI_SOLUTION => BasisSettingsDefaults.GlobalIlluminationSolution.BindingKey;
+    private static string K_REFLECTIONS_SOLUTION => BasisSettingsDefaults.ReflectionsSolution.BindingKey;
+    private static string K_REFLECTIONS_MODE => BasisSettingsDefaults.ReflectionsMode.BindingKey;
 
     public override void Awake()
     {
         base.Awake();
         instance = this;
         BasisGlobalIlluminationFeature.CameraFilter = AcceptsCamera;
+        BasisReflectionFeature.CameraFilter = AcceptsCamera;
         BasisGlobalIlluminationFeature.KeepRenderingWithDebugger = true;
         ApplyOverride();
     }
@@ -270,6 +280,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
         if (instance == this)
         {
             BasisGlobalIlluminationFeature.CameraFilter = null;
+            BasisReflectionFeature.CameraFilter = null;
             instance = null;
         }
     }
@@ -345,7 +356,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     /// </summary>
     public static void BeginCapture(Camera camera, BasisGlobalIlluminationCaptureOverride? photoOverride = null)
     {
-        if (instance == null || instance.state.Capture || !instance.state.Enabled || !IsCameraRegistered(camera))
+        if (instance == null || instance.state.Capture || !(instance.state.Enabled || instance.state.Specular) || !IsCameraRegistered(camera))
         {
             return;
         }
@@ -367,7 +378,10 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        if (matchedSettingName == K_USE_GI) { state.Enabled = optionValue == "true"; }
+        if (matchedSettingName == K_USE_GI) { state.Enabled = optionValue == "true" && !BasisLightingSolutions.PicksUnityGlobalIllumination(BasisSettingsDefaults.GlobalIlluminationSolution.RawValue); }
+        else if (matchedSettingName == K_GI_SOLUTION) { state.Enabled = BasisSettingsDefaults.UseGlobalIllumination.RawValue && !BasisLightingSolutions.PicksUnityGlobalIllumination(optionValue); }
+        else if (matchedSettingName == K_REFLECTIONS_SOLUTION) { state.Specular = BasisSettingsDefaults.GlobalIlluminationSpecular.RawValue && !BasisLightingSolutions.PicksUnityReflections(optionValue); }
+        else if (matchedSettingName == K_REFLECTIONS_MODE) { state.ReflectionsMode = ReadMode(optionValue); }
         else if (matchedSettingName == K_GI_MODE) { state.Mode = ReadMode(optionValue); }
         else if (matchedSettingName == K_GI_SKINNED) { state.SkinnedMeshes = ReadSkinnedMode(optionValue); }
         else if (matchedSettingName == K_GI_LAYERS) { state.Layers = optionValue; }
@@ -416,7 +430,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_EMITTERS) { state.Emitters = optionValue == "true"; }
         else if (matchedSettingName == K_GI_REFLECTION_PROBES) { state.ReflectionProbes = optionValue == "true"; }
         else if (matchedSettingName == K_GI_MIRRORS) { state.Mirrors = optionValue == "true"; }
-        else if (matchedSettingName == K_GI_SPECULAR) { state.Specular = optionValue == "true"; }
+        else if (matchedSettingName == K_GI_SPECULAR) { state.Specular = optionValue == "true" && !BasisLightingSolutions.PicksUnityReflections(BasisSettingsDefaults.ReflectionsSolution.RawValue); }
         else if (matchedSettingName == K_GI_SPECULAR_INTENSITY)
         {
             if (!SliderReadOption(optionValue, out float value)) { return; }
@@ -610,7 +624,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
             effective.RayReuse = o.RayReuse;
             effective.Emitters = o.Emitters;
             effective.EmitterIntensity = o.EmitterIntensity;
-            effective.Specular = o.Specular;
+            effective.Specular = o.Specular && !BasisLightingSolutions.PicksUnityReflections(BasisSettingsDefaults.ReflectionsSolution.RawValue);
             effective.ObscuranceRadius = o.ObscuranceRadius;
             effective.FadeDistance = o.FadeDistance;
             effective.NormalBias = o.NormalBias;
@@ -634,8 +648,10 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     public void ApplyFeature(BasisGlobalIlluminationState effective)
     {
         BasisGlobalIlluminationFeature feature = FindFeature();
-        RememberAuthoredFeatureValues(feature);
+        BasisReflectionFeature reflections = FindReflectionFeature();
+        RememberAuthoredFeatureValues(feature, reflections);
         Apply(feature, effective.Enabled, effective.ReflectionProbes, effective.Mirrors);
+        Apply(reflections, effective.Specular, effective.ReflectionProbes, effective.Mirrors);
     }
 
     // The feature is a sub-asset of the renderer, not a scene object, so writing to it in the editor
@@ -644,30 +660,58 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private bool authoredActive;
     private bool authoredReflectionProbes;
     private bool authoredMirrors;
+    private bool hasAuthoredReflectionValues;
+    private bool authoredReflectionsActive;
+    private bool authoredReflectionsProbes;
+    private bool authoredReflectionsMirrors;
 
-    private void RememberAuthoredFeatureValues(BasisGlobalIlluminationFeature feature)
+    private void RememberAuthoredFeatureValues(BasisGlobalIlluminationFeature feature, BasisReflectionFeature reflections)
     {
-        if (hasAuthoredFeatureValues || feature == null)
+        if (!hasAuthoredFeatureValues && feature != null)
         {
-            return;
+            hasAuthoredFeatureValues = true;
+            authoredActive = feature.isActive;
+            authoredReflectionProbes = feature.ReflectionProbes;
+            authoredMirrors = feature.Mirrors;
         }
-        hasAuthoredFeatureValues = true;
-        authoredActive = feature.isActive;
-        authoredReflectionProbes = feature.ReflectionProbes;
-        authoredMirrors = feature.Mirrors;
+        if (!hasAuthoredReflectionValues && reflections != null)
+        {
+            hasAuthoredReflectionValues = true;
+            authoredReflectionsActive = reflections.isActive;
+            authoredReflectionsProbes = reflections.ReflectionProbes;
+            authoredReflectionsMirrors = reflections.Mirrors;
+        }
     }
 
     public void RestoreAuthoredFeatureValues()
     {
-        if (!hasAuthoredFeatureValues)
+        if (hasAuthoredFeatureValues)
         {
-            return;
+            hasAuthoredFeatureValues = false;
+            Apply(FindFeature(), authoredActive, authoredReflectionProbes, authoredMirrors);
         }
-        hasAuthoredFeatureValues = false;
-        Apply(FindFeature(), authoredActive, authoredReflectionProbes, authoredMirrors);
+        if (hasAuthoredReflectionValues)
+        {
+            hasAuthoredReflectionValues = false;
+            Apply(FindReflectionFeature(), authoredReflectionsActive, authoredReflectionsProbes, authoredReflectionsMirrors);
+        }
     }
 
     public static void Apply(BasisGlobalIlluminationFeature feature, bool enabled, bool reflectionProbes, bool mirrors)
+    {
+        if (feature == null)
+        {
+            return;
+        }
+        feature.ReflectionProbes = reflectionProbes;
+        feature.Mirrors = mirrors;
+        if (feature.isActive != enabled)
+        {
+            feature.SetActive(enabled);
+        }
+    }
+
+    public static void Apply(BasisReflectionFeature feature, bool enabled, bool reflectionProbes, bool mirrors)
     {
         if (feature == null)
         {
@@ -692,7 +736,19 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
             ?? FindFeature(GraphicsSettings.defaultRenderPipeline as UniversalRenderPipelineAsset);
     }
 
+    public static BasisReflectionFeature FindReflectionFeature()
+    {
+        return FindFeature<BasisReflectionFeature>(QualitySettings.renderPipeline as UniversalRenderPipelineAsset)
+            ?? FindFeature<BasisReflectionFeature>(GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset)
+            ?? FindFeature<BasisReflectionFeature>(GraphicsSettings.defaultRenderPipeline as UniversalRenderPipelineAsset);
+    }
+
     public static BasisGlobalIlluminationFeature FindFeature(UniversalRenderPipelineAsset asset)
+    {
+        return FindFeature<BasisGlobalIlluminationFeature>(asset);
+    }
+
+    public static T FindFeature<T>(UniversalRenderPipelineAsset asset) where T : ScriptableRendererFeature
     {
         if (asset == null)
         {
@@ -709,9 +765,9 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
             List<ScriptableRendererFeature> features = data.rendererFeatures;
             for (int Feature = 0; Feature < features.Count; Feature++)
             {
-                if (features[Feature] is BasisGlobalIlluminationFeature giFeature)
+                if (features[Feature] is T match)
                 {
-                    return giFeature;
+                    return match;
                 }
             }
         }
@@ -739,6 +795,7 @@ public class SMModuleGlobalIlluminationURP : BasisSettingsBase
         // Mode still decides the backend: Ray Traced walks the shared acceleration structure, Screen
         // Space (and any GPU without ray tracing) walks the depth buffer against the previous frame.
         target.specular = state.Specular;
+        target.specularMode = state.ReflectionsMode;
         target.specularIntensity = Mathf.Clamp(state.SpecularIntensity, BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MIN, BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MAX);
         target.specularMaxRoughness = Mathf.Clamp(state.SpecularMaxRoughness, BasisSettingsDefaults.GI_SPECULAR_MAX_ROUGHNESS_MIN, BasisSettingsDefaults.GI_SPECULAR_MAX_ROUGHNESS_MAX);
         target.specularRayLength = Mathf.Clamp(state.SpecularRayLength, BasisSettingsDefaults.GI_SPECULAR_RAY_LENGTH_MIN, BasisSettingsDefaults.GI_SPECULAR_RAY_LENGTH_MAX);

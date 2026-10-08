@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
@@ -12,8 +13,9 @@ using Unity.Mathematics;
 using UnityEngine;
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public class BasisLocalBoneDriver
+    public partial class BasisLocalBoneDriver
     {
         private const float CalibrationSphereTint = 0.25f;
         public static BasisLocalBoneControl NeckControl, HeadControl, SpineControl, HipsControl, EyeControl;
@@ -58,7 +60,7 @@ namespace Basis.Scripts.Drivers
         private const float CalibrationBallMinDiameterFrac = 0.06f;
         private const float CalibrationLatchLineWidthFrac = 0.004f;
         private static readonly Color CalibrationLatchColor = new Color(0.4f, 1f, 0.6f, 1f);
-        private static readonly BasisBoneTrackedRole[] SpineChainOrder =
+        [NoAutoStaticsCleanup] private static readonly BasisBoneTrackedRole[] SpineChainOrder =
         {
             BasisBoneTrackedRole.CenterEye,
             BasisBoneTrackedRole.Head,
@@ -68,39 +70,39 @@ namespace Basis.Scripts.Drivers
             BasisBoneTrackedRole.Hips,
             BasisBoneTrackedRole.Mouth,
         };
-        private static readonly BasisBoneTrackedRole[] LeftArmChainOrder =
+        [NoAutoStaticsCleanup] private static readonly BasisBoneTrackedRole[] LeftArmChainOrder =
         {
             BasisBoneTrackedRole.LeftShoulder,
             BasisBoneTrackedRole.LeftUpperArm,
             BasisBoneTrackedRole.LeftLowerArm,
             BasisBoneTrackedRole.LeftHand,
         };
-        private static readonly BasisBoneTrackedRole[] RightArmChainOrder =
+        [NoAutoStaticsCleanup] private static readonly BasisBoneTrackedRole[] RightArmChainOrder =
         {
             BasisBoneTrackedRole.RightShoulder,
             BasisBoneTrackedRole.RightUpperArm,
             BasisBoneTrackedRole.RightLowerArm,
             BasisBoneTrackedRole.RightHand,
         };
-        private static readonly BasisBoneTrackedRole[] LeftLegChainOrder =
+        [NoAutoStaticsCleanup] private static readonly BasisBoneTrackedRole[] LeftLegChainOrder =
         {
             BasisBoneTrackedRole.LeftUpperLeg,
             BasisBoneTrackedRole.LeftLowerLeg,
             BasisBoneTrackedRole.LeftFoot,
             BasisBoneTrackedRole.LeftToes,
         };
-        private static readonly BasisBoneTrackedRole[] RightLegChainOrder =
+        [NoAutoStaticsCleanup] private static readonly BasisBoneTrackedRole[] RightLegChainOrder =
         {
             BasisBoneTrackedRole.RightUpperLeg,
             BasisBoneTrackedRole.RightLowerLeg,
             BasisBoneTrackedRole.RightFoot,
             BasisBoneTrackedRole.RightToes,
         };
-        private static readonly BasisBoneTrackedRole[][] SkeletonChainOrders =
+        [NoAutoStaticsCleanup] private static readonly BasisBoneTrackedRole[][] SkeletonChainOrders =
         {
             SpineChainOrder, LeftArmChainOrder, RightArmChainOrder, LeftLegChainOrder, RightLegChainOrder,
         };
-        private static readonly string[] SkeletonChainNames =
+        [NoAutoStaticsCleanup] private static readonly string[] SkeletonChainNames =
         {
             "Spine", "LeftArm", "RightArm", "LeftLeg", "RightLeg",
         };

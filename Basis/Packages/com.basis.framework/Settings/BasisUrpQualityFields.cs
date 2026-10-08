@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Reflection;
 using UnityEngine.Rendering.Universal;
@@ -19,7 +20,8 @@ using UnityEngine.Rendering.Universal;
 /// at all. All six are <c>[SerializeField]</c>, so Unity's serializer keeps them and IL2CPP
 /// managed stripping won't remove them.</para>
 /// </summary>
-public static class BasisUrpQualityFields
+[AutoStaticsCleanup]
+public static partial class BasisUrpQualityFields
 {
     /// <summary>Cached handle to one private field, with a typed get/set that no-ops if absent.</summary>
     public readonly struct Field<T>

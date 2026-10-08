@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Unity.Profiling;
@@ -16,7 +17,8 @@ namespace Basis.Scripts.Drivers
     public enum BasisPerformanceGpuSegment { Shadows, Opaque, GlobalIllumination, Reflections, Rtao, Transparent, Other }
     public enum BasisPerformanceCpuSegment { EventDriver, Ik, Movement, AvatarLoad, Networking, Jiggle, Voice, RenderDispatch, Other }
 
-    public static class BasisPerformanceBarData
+    [AutoStaticsCleanup]
+    public static partial class BasisPerformanceBarData
     {
         public const int GpuSegmentCount = 7;
         public const int CpuSegmentCount = 9;
@@ -38,8 +40,8 @@ namespace Basis.Scripts.Drivers
             public float SmoothedMs;
         }
 
-        private static readonly float[] gpuMs = new float[GpuSegmentCount];
-        private static readonly float[] cpuMs = new float[CpuSegmentCount];
+        [NoAutoStaticsCleanup] private static readonly float[] gpuMs = new float[GpuSegmentCount];
+        [NoAutoStaticsCleanup] private static readonly float[] cpuMs = new float[CpuSegmentCount];
         private static readonly List<MarkerRow> cpuRows = new List<MarkerRow>();
         private static readonly HashSet<string> knownMarkers = new HashSet<string>();
         private static readonly List<ProfilerRecorderHandle> handleScratch = new List<ProfilerRecorderHandle>(1024);

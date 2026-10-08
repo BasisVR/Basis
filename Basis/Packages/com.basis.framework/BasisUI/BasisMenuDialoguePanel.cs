@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BTween;
@@ -8,7 +9,8 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
-    public class BasisMenuDialoguePanel : BasisMenuPanel
+    [AutoStaticsCleanup]
+    public partial class BasisMenuDialoguePanel : BasisMenuPanel
     {
 
         public static class DialogueStyles

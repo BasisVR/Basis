@@ -873,6 +873,12 @@
       "source": "builtin",
       "dependencies": {}
     },
+    "com.unity.modules.amd": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
     "com.unity.modules.androidjni": {
       "version": "1.0.0",
       "depth": 0,
@@ -951,6 +957,12 @@
         "com.unity.modules.uielements": "1.0.0",
         "com.unity.modules.audio": "1.0.0"
       }
+    },
+    "com.unity.modules.nvidia": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
     },
     "com.unity.modules.particlesystem": {
       "version": "1.0.0",

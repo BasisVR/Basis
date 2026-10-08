@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using UnityEngine;
@@ -36,7 +37,8 @@ namespace Basis.Scripts.Platform
     /// Copied *files* are forwarded to <see cref="BasisDesktopFileDrop.SubmitDroppedFiles"/> instead,
     /// so pasting a file from Explorer behaves exactly like dragging it in.
     /// </summary>
-    public static class BasisDesktopClipboard
+    [AutoStaticsCleanup]
+    public static partial class BasisDesktopClipboard
     {
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.System;
 

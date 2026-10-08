@@ -1,4 +1,5 @@
-﻿using Basis.BasisUI;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisCharacterController;
@@ -21,7 +22,8 @@ namespace Basis.Scripts.Networking
     /// <summary>
     /// Connection/session management, server runner, time utilities, and send helpers.
     /// </summary>
-    public static class BasisNetworkConnection
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkConnection
     {
         public static NetPeer LocalPlayerPeer { get; set; }
         public static NetworkClient NetworkClient { get; set; } = new NetworkClient();

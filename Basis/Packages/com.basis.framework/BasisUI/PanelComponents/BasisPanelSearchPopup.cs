@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -45,7 +46,8 @@ namespace Basis.BasisUI
     /// opened in the background — it calls <see cref="MarkDirty"/> and the list is asked again.
     /// </para>
     /// </summary>
-    public class BasisPanelSearchPopup : MonoBehaviour
+    [AutoStaticsCleanup]
+    public partial class BasisPanelSearchPopup : MonoBehaviour
     {
         public const string TitleKey = "menu.panel.search";
         public const string TooltipKey = "menu.panel.search.tooltip";

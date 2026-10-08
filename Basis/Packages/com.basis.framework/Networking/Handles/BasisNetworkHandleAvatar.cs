@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.IK;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
@@ -7,7 +8,8 @@ using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Profiler;
 using System.Collections.Concurrent;
 using static SerializableBasis;
-public static class BasisNetworkHandleAvatar
+[AutoStaticsCleanup]
+public static partial class BasisNetworkHandleAvatar
 {
     public static ConcurrentQueue<ServerSideSyncPlayerMessage> Message = new ConcurrentQueue<ServerSideSyncPlayerMessage>();
 

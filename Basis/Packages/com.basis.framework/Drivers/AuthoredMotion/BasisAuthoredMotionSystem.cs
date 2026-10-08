@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
@@ -276,7 +277,8 @@ public struct AuthoredMotionJob : IJobParallelForTransform
 /// <c>Registration</c> records (rest poses captured once at registration); a structural change
 /// rebuilds the native containers from them.</para>
 /// </summary>
-public static class BasisAuthoredMotionSystem
+[AutoStaticsCleanup]
+public static partial class BasisAuthoredMotionSystem
 {
     sealed class Registration
     {
@@ -292,11 +294,11 @@ public static class BasisAuthoredMotionSystem
     }
 
     // Persistent SoA, parallel to sTargets.
-    static NativeList<AuthoredMovementData> sMovements;
-    static NativeList<AuthoredOptionData> sOptions;   // shared RandomSelect option bands
-    static NativeList<float4> sRotationSamples;       // shared Sequence rotation frames (absolute, xyzw)
-    static NativeList<byte> sValidMask;
-    static TransformAccessArray sTargets;
+    [NoAutoStaticsCleanup] static NativeList<AuthoredMovementData> sMovements;
+    [NoAutoStaticsCleanup] static NativeList<AuthoredOptionData> sOptions;   // shared RandomSelect option bands
+    [NoAutoStaticsCleanup] static NativeList<float4> sRotationSamples;       // shared Sequence rotation frames (absolute, xyzw)
+    [NoAutoStaticsCleanup] static NativeList<byte> sValidMask;
+    [NoAutoStaticsCleanup] static TransformAccessArray sTargets;
     static Transform[] sTargetScratch = System.Array.Empty<Transform>();
 
     static readonly List<Registration> sRegistrations = new List<Registration>();

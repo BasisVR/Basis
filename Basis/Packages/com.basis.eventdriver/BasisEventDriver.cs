@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BTween;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -28,6 +29,7 @@ namespace Basis.EventDriver
     /// Central per-frame driver that coordinates device actions, networking compute/apply,
     /// physics scheduling for JigglePhysics, and various local simulation hooks.
     /// </summary>
+    [AutoStaticsCleanup]
     [DefaultExecutionOrder(-31950)]
     public partial class BasisEventDriver : MonoBehaviour
     {
@@ -214,7 +216,7 @@ namespace Basis.EventDriver
         {
             using var updateScope = Prof.Update.Auto();
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             BasisFiniteWatchdog.Checkpoint("UpdateStart (render / physics / previous frame tail)");
             BasisFiniteWatchdog.CheckpointRemote("UpdateStart (render / physics / previous frame tail)");
 #endif
@@ -355,7 +357,7 @@ namespace Basis.EventDriver
             }
             timeSinceLastUpdate += DeltaTime;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             BasisFiniteWatchdog.Checkpoint("UpdateTail (pre-animator)");
             BasisFiniteWatchdog.CheckpointRemote("UpdateTail (pre-animator)");
 #endif

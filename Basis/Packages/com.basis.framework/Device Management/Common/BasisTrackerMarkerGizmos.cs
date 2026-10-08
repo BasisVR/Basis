@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
@@ -19,7 +20,8 @@ namespace Basis.Scripts.Device_Management
     /// BasisEventDriver just before the gizmo submission; gizmo ids are lazily re-created after
     /// the debug-gizmo master teardown wipes the manager.
     /// </summary>
-    public static class BasisTrackerMarkerGizmos
+    [AutoStaticsCleanup]
+    public static partial class BasisTrackerMarkerGizmos
     {
         // Matches FallbackSphere's BasisVisualTracker.ScaleOfModel.
         private const float MarkerDiameter = 0.05f;

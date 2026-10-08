@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Basis.Scripts.BasisCharacterController;
@@ -18,6 +19,7 @@ using P2PState = Basis.Scripts.Networking.BasisP2PManager.P2PSessionState;
 
 namespace Basis.BasisUI
 {
+    [AutoStaticsCleanup]
     public partial class IndividualPlayerProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         [RuntimeInitializeOnLoadMethod]
@@ -276,7 +278,7 @@ namespace Basis.BasisUI
         // ========= Addressables Sprite (cached) =========
         private const string MeterSpriteAddress = "Packages/com.basis.sdk/Sprites/HalfCircle 512 Right.png";
         private static Sprite s_meterSprite;
-        private static Task<Sprite> s_meterSpriteTask;
+        [NoAutoStaticsCleanup] private static Task<Sprite> s_meterSpriteTask;
 
         private static Task<Sprite> GetMeterSpriteAsync()
         {

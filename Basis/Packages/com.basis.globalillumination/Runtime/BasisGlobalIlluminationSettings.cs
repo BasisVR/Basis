@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 public enum BasisGlobalIlluminationQuality
@@ -66,7 +67,8 @@ public enum BasisGlobalIlluminationDebugView
 /// The settings provider is the source of truth now and writes here directly. What a camera renders with
 /// is the value that is in this object.
 /// </summary>
-public sealed class BasisGlobalIlluminationSettings
+[AutoStaticsCleanup]
+public sealed partial class BasisGlobalIlluminationSettings
 {
     public const float IntensityMin = 0f, IntensityMax = 8f;
     public const float ObscuranceMin = 0f, ObscuranceMax = 1f;
@@ -106,7 +108,7 @@ public sealed class BasisGlobalIlluminationSettings
     /// feature and both passes. Never null, so nothing downstream has to guard it - a client that never
     /// touches settings runs the authored defaults below.
     /// </summary>
-    public static readonly BasisGlobalIlluminationSettings Current = new BasisGlobalIlluminationSettings();
+    [NoAutoStaticsCleanup] public static readonly BasisGlobalIlluminationSettings Current = new BasisGlobalIlluminationSettings();
 
     public bool enable = false;
     public BasisGlobalIlluminationMode mode = BasisGlobalIlluminationMode.ScreenSpace;
@@ -223,6 +225,7 @@ public sealed class BasisGlobalIlluminationSettings
     /// having over a screen space diffuse gather, and a diffuse gather is worth having without them.
     /// </summary>
     public bool specular = false;
+    public BasisGlobalIlluminationMode specularMode = BasisGlobalIlluminationMode.ScreenSpace;
     public float specularIntensity = 1f;
     /// <summary>
     /// The roughness at which the traced mirror ray stops being a usable stand-in and the reflection probe
@@ -342,7 +345,7 @@ public sealed class BasisGlobalIlluminationSettings
         specular = other.specular; specularIntensity = other.specularIntensity;
         specularMaxRoughness = other.specularMaxRoughness; specularRayLength = other.specularRayLength;
         specularFadeDistance = other.specularFadeDistance; specularBounces = other.specularBounces;
-        specularTemporal = other.specularTemporal;
+        specularTemporal = other.specularTemporal; specularMode = other.specularMode;
         resolution = other.resolution; temporalFilter = other.temporalFilter; temporalResponse = other.temporalResponse;
         motionVectors = other.motionVectors; depthRejection = other.depthRejection;
         neighbourhoodClamp = other.neighbourhoodClamp; fireflyClamp = other.fireflyClamp;
@@ -363,7 +366,7 @@ public sealed class BasisGlobalIlluminationSettings
     /// Ray traced reflections. Whether the backend can actually serve them is a separate question the
     /// feature answers - this is only what was asked for.
     /// </summary>
-    public bool SpecularActive() => enable && specular && specularIntensity > 0f;
+    public bool SpecularActive() => specular && specularIntensity > 0f;
 
     public bool IsActive() => DiffuseActive() || SpecularActive();
 
@@ -409,6 +412,8 @@ public sealed class BasisGlobalIlluminationSettings
     }
 
     public bool IsRayTraced() => mode == BasisGlobalIlluminationMode.RayTraced;
+    public bool IsSpecularRayTraced() => specularMode == BasisGlobalIlluminationMode.RayTraced;
+    public bool UsesRayTracer() => (DiffuseActive() && IsRayTraced()) || (SpecularActive() && IsSpecularRayTraced());
 
     private static int interfaceFilteredLayers;
     private static bool interfaceFilteredLayersResolved;

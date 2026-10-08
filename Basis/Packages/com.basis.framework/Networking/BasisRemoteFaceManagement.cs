@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -24,31 +25,32 @@ using UnityEngine.Jobs;
 /// - Managed face/eye-array references are cached in Simulate so the Apply loop
 ///   doesn't redo receiver→remote→driver chains 1k times per frame.
 /// </summary>
-public static class BasisRemoteFaceManagement
+[AutoStaticsCleanup]
+public static partial class BasisRemoteFaceManagement
 {
-    public static NativeArray<EyeState> eyeStates;
-    public static NativeArray<BlinkState> blinkStates;
+    [NoAutoStaticsCleanup] public static NativeArray<EyeState> eyeStates;
+    [NoAutoStaticsCleanup] public static NativeArray<BlinkState> blinkStates;
 
     // Authoritative per-remote eye state. Job updates in-place; Apply reads.
-    public static NativeArray<EyeOutput> eyeOut;
-    public static NativeArray<float> blinkOut;
+    [NoAutoStaticsCleanup] public static NativeArray<EyeOutput> eyeOut;
+    [NoAutoStaticsCleanup] public static NativeArray<float> blinkOut;
 
     // Per-slot eye calibration + active flag, pushed each Simulate from Face drivers.
     // useJobEye[i] = 1 when the slot has eye bones AND is not face-tracking-overridden.
-    public static NativeArray<EyeCalibrationBlit> eyeCalLeft;
-    public static NativeArray<EyeCalibrationBlit> eyeCalRight;
-    public static NativeArray<float> eyeMaxLookRad;
-    public static NativeArray<byte> useJobEye;
+    [NoAutoStaticsCleanup] public static NativeArray<EyeCalibrationBlit> eyeCalLeft;
+    [NoAutoStaticsCleanup] public static NativeArray<EyeCalibrationBlit> eyeCalRight;
+    [NoAutoStaticsCleanup] public static NativeArray<float> eyeMaxLookRad;
+    [NoAutoStaticsCleanup] public static NativeArray<byte> useJobEye;
     const float DefaultMaxLookRad = BasisRemoteFaceDriver.UncappedLookAngleRad;
 
     // Pre-computed eye localRotation outputs from the burst job.
-    public static NativeArray<quaternion> eyeRotL;
-    public static NativeArray<quaternion> eyeRotR;
+    [NoAutoStaticsCleanup] public static NativeArray<quaternion> eyeRotL;
+    [NoAutoStaticsCleanup] public static NativeArray<quaternion> eyeRotR;
 
     // Last blink weight (0..100) actually written to SkinnedMeshRenderer per slot.
     // NaN sentinel forces first-write through. Used to skip SetBlendShapeWeight
     // when the weight hasn't changed since last frame (steady-state: w=0 every frame).
-    public static NativeArray<float> lastBlinkApplied;
+    [NoAutoStaticsCleanup] public static NativeArray<float> lastBlinkApplied;
 
     // Managed caches built each Simulate. Indexed [0, count). Avoids
     // snapshot[i].RemotePlayer.RemoteFaceDriver / .EyesAndMouth dereferences in Apply.
@@ -71,8 +73,8 @@ public static class BasisRemoteFaceManagement
     // Membership is "slot has eye bones AND both transforms non-null" — OverrideEye
     // is checked dynamically inside the job via useJobEye, so flipping override
     // does NOT trigger a rebuild.
-    public static TransformAccessArray eyeTransforms;
-    public static NativeArray<int> pairToSlot;
+    [NoAutoStaticsCleanup] public static TransformAccessArray eyeTransforms;
+    [NoAutoStaticsCleanup] public static NativeArray<int> pairToSlot;
     public static int eyeTransformPairCount;
 
     // Driver-keyed registry behind eyeTransforms: pair p (transforms 2p, 2p+1) is owned by pairDriver[p], in a
@@ -90,7 +92,7 @@ public static class BasisRemoteFaceManagement
     // lastHasEyeBones[i] mirrors the slot's eye-bones-presence as it was when we
     // last built eyeTransforms. Compared against the current value during Simulate
     // to detect avatar reloads / player swaps cheaply.
-    public static NativeArray<byte> lastHasEyeBones;
+    [NoAutoStaticsCleanup] public static NativeArray<byte> lastHasEyeBones;
     public static int lastBuiltCount;
     public static bool eyeTransformJobScheduled;
     public static uint lastSnapshotVersion;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -22,7 +23,8 @@ namespace Basis.Shims
     /// pre-existing platform issue that AudioListener/AudioSource PCM-read APIs are whitelisted
     /// for scene scripts (see the Cilbox audio whitelist) — that must be closed independently.
     /// </summary>
-    public static class BasisVoiceRoutingShim
+    [AutoStaticsCleanup]
+    public static partial class BasisVoiceRoutingShim
     {
         private static int _nextRouteId = 1;
         private static readonly Dictionary<int, BasisVoiceObjectSource> _routes = new Dictionary<int, BasisVoiceObjectSource>();

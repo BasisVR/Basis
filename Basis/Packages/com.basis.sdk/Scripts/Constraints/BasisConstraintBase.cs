@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -26,7 +27,8 @@ namespace Basis.Scripts.BasisSdk.Constraints
     /// <see cref="sources"/> is a structural edit: go through the source API below, or call
     /// <see cref="SetDirty"/> if you mutate the serialized list directly.
     /// </summary>
-    public abstract class BasisConstraintBase : MonoBehaviour
+    [AutoStaticsCleanup]
+    public abstract partial class BasisConstraintBase : MonoBehaviour
     {
         /// <summary>
         /// Raised when any constraint component is enabled (<c>true</c>) or disabled (<c>false</c>),

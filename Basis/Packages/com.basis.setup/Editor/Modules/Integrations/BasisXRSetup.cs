@@ -28,7 +28,7 @@ namespace Basis.Setup.Modules
                 AssetDatabase.LoadAssetAtPath<XRGeneralSettingsPerBuildTarget>(PerBuildTargetPath);
             if (perBuildTarget != null)
             {
-                EditorBuildSettings.AddConfigObject(XRGeneralSettings.k_SettingsKey, perBuildTarget, true);
+                EditorBuildSettings.AddConfigObject(XRGeneralSettings.settingsKey, perBuildTarget, true);
             }
         }
     }

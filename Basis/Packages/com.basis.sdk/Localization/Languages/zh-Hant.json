@@ -474,7 +474,7 @@
     { "key": "projectSetup.buildModules.scriptingBackendIl2cpp", "value": "一律使用 IL2CPP" },
     { "key": "projectSetup.buildModules.scriptingBackendMono", "value": "一律使用 Mono" },
     { "key": "projectSetup.buildModules.scriptingBackendCoreClr", "value": "一律使用 CoreCLR" },
-    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "記住 Windows 與 macOS 建置的 IL2CPP/Mono/CoreCLR 選擇，讓您不必每次都被詢問。強制指定的平台不受影響：Android 與 iOS 一律使用 IL2CPP，Linux 一律使用 Mono。在建置提示中選擇後端也會更新此設定。" },
+    { "key": "projectSetup.buildModules.scriptingBackendHelp", "value": "記住 Windows 與 macOS 建置的 IL2CPP/Mono/CoreCLR 選擇，讓您不必每次都被詢問。強制指定的平台不受影響：Android 與 iOS 一律使用 IL2CPP，Linux 一律使用 CoreCLR (ARM64: IL2CPP)。在建置提示中選擇後端也會更新此設定。" },
 
     { "key": "projectSetup.platformQuality.foldout", "value": "平台與品質" },
     { "key": "projectSetup.platformQuality.windows", "value": "Windows" },

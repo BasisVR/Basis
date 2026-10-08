@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking;
 using System;
@@ -17,7 +18,8 @@ using Unity.Mathematics;
 ///
 /// Replaces muscle-based interpolation with per-bone quaternion delta interpolation.
 /// </summary>
-public static class BasisRemoteNetworkDriver
+[AutoStaticsCleanup]
+public static partial class BasisRemoteNetworkDriver
 {
     /// <summary>
     /// Hard ceiling on a slot index, not an allocation size. Slots are keyed by playerId, which the
@@ -67,76 +69,76 @@ public static class BasisRemoteNetworkDriver
     public static int Capacity => _capacity;
 
     // ─── INPUTS (4 control points p0..p3 for Catmull-Rom; p1=prev=Current, p2=target=Next) ───
-    static NativeArray<float3> _p0Positions;
-    static NativeArray<float3> _prevPositions;
-    static NativeArray<float3> _targetPositions;
-    static NativeArray<float3> _p3Positions;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _p0Positions;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _prevPositions;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _targetPositions;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _p3Positions;
 
-    static NativeArray<float3> _prevScales;
-    static NativeArray<float3> _targetScales;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _prevScales;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _targetScales;
 
-    static NativeArray<quaternion> _p0Rotations;
-    static NativeArray<quaternion> _prevRotations;
-    static NativeArray<quaternion> _targetRotations;
-    static NativeArray<quaternion> _p3Rotations;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _p0Rotations;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _prevRotations;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _targetRotations;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _p3Rotations;
 
     // Hips local-position delta (vs TPose) — interpolated alongside the root
     // pose so seated/IK overrides on the local rig reach remotes smoothly.
-    static NativeArray<float3> _prevHipsDelta;
-    static NativeArray<float3> _targetHipsDelta;
-    static NativeArray<float3> _outHipsDelta;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _prevHipsDelta;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _targetHipsDelta;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _outHipsDelta;
 
     // Hips local-rotation delta (vs TPose). Carries hips orientation — hips is
     // excluded from the bone packet's BONE_WRITE_ORDER so this is the only
     // channel that reproduces twist/lean of the hips bone independent of root.
-    static NativeArray<quaternion> _prevHipsRotDelta;
-    static NativeArray<quaternion> _targetHipsRotDelta;
-    static NativeArray<quaternion> _outHipsRotDelta;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _prevHipsRotDelta;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _targetHipsRotDelta;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _outHipsRotDelta;
 
-    static NativeArray<double> _interpolationTimes;
-    static NativeArray<double> _deltaTimes;
+    [NoAutoStaticsCleanup] static NativeArray<double> _interpolationTimes;
+    [NoAutoStaticsCleanup] static NativeArray<double> _deltaTimes;
 
     // ─── RAW INTERPOLATED OUTPUTS ───
-    static NativeArray<float3> _outPositions;
-    static NativeArray<float3> _outScales;
-    static NativeArray<quaternion> _outRotations;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _outPositions;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _outScales;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _outRotations;
 
     // ─── FILTERED POSE OUTPUTS ───
-    static NativeArray<float3> _filteredPositions;
-    static NativeArray<quaternion> _filteredRotations;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _filteredPositions;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _filteredRotations;
 
-    static NativeArray<byte> _poseFilterSeeded;
-    static NativeArray<float3> _posPrevRaw;
-    static NativeArray<float3> _posPrevFiltered;
-    static NativeArray<float3> _posPrevDerivFiltered;
-    static NativeArray<quaternion> _rotPrevRaw;
-    static NativeArray<quaternion> _rotPrevFiltered;
-    static NativeArray<float2> _rotDerivFilter;
+    [NoAutoStaticsCleanup] static NativeArray<byte> _poseFilterSeeded;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _posPrevRaw;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _posPrevFiltered;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _posPrevDerivFiltered;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _rotPrevRaw;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _rotPrevFiltered;
+    [NoAutoStaticsCleanup] static NativeArray<float2> _rotDerivFilter;
 
     // ─── SCALED BODY ───
-    static NativeArray<float> _humanScales;
-    static NativeArray<float3> _scaledBodyPositions;
+    [NoAutoStaticsCleanup] static NativeArray<float> _humanScales;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _scaledBodyPositions;
 
     // ─── SCALE CHANGE ───
-    static NativeArray<bool> _HasScaleChange;
-    static NativeArray<float3> _lastAppliedScales;
+    [NoAutoStaticsCleanup] static NativeArray<bool> _HasScaleChange;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _lastAppliedScales;
 
     // ─── BONE ROTATIONS (Catmull-Rom over 4 control points; heavy 1€ filter removed) ───
     // Flat arrays: [player0_bone0, ..., player0_bone(N-1), player1_bone0, ...]
-    static NativeArray<quaternion> _p0BoneRotations;      // neighbour before the window (start tangent)
-    static NativeArray<quaternion> _prevBoneRotations;    // p1 = window start (Current)
-    static NativeArray<quaternion> _targetBoneRotations;  // p2 = window end   (Next)
-    static NativeArray<quaternion> _p3BoneRotations;      // neighbour after the window (end tangent)
-    static NativeArray<quaternion> _outBoneRotations;     // final interpolated bone deltas (read by compose)
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _p0BoneRotations;      // neighbour before the window (start tangent)
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _prevBoneRotations;    // p1 = window start (Current)
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _targetBoneRotations;  // p2 = window end   (Next)
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _p3BoneRotations;      // neighbour after the window (end tangent)
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _outBoneRotations;     // final interpolated bone deltas (read by compose)
 
     // LOD skip flag per player
-    static NativeArray<byte> _skipBones;
+    [NoAutoStaticsCleanup] static NativeArray<byte> _skipBones;
 
     // End-effector IK inputs, playerId-keyed (mask [playerId]; offset/tipRot [playerId*4 + effector]).
-    static NativeArray<byte> _effMask;
-    static NativeArray<float3> _effOffset;
-    static NativeArray<quaternion> _effTipRot;
-    static IntPtr _ptrEffMask, _ptrEffOffset, _ptrEffTipRot;
+    [NoAutoStaticsCleanup] static NativeArray<byte> _effMask;
+    [NoAutoStaticsCleanup] static NativeArray<float3> _effOffset;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _effTipRot;
+    [NoAutoStaticsCleanup] static IntPtr _ptrEffMask, _ptrEffOffset, _ptrEffTipRot;
 
     // State
     static bool _initialized;
@@ -145,36 +147,36 @@ public static class BasisRemoteNetworkDriver
     public static JobHandle oneEuroJob;
 
     // ─── CACHED READ POINTERS ───
-    static IntPtr _ptrScaleChange;
-    static IntPtr _ptrFilteredRotations;
-    static IntPtr _ptrScaledBodyPositions;
-    static IntPtr _ptrFilteredBoneRotations;
-    static IntPtr _ptrOutScales;
+    [NoAutoStaticsCleanup] static IntPtr _ptrScaleChange;
+    [NoAutoStaticsCleanup] static IntPtr _ptrFilteredRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrScaledBodyPositions;
+    [NoAutoStaticsCleanup] static IntPtr _ptrFilteredBoneRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrOutScales;
 
     // ─── CACHED WRITE POINTERS ───
-    static IntPtr _ptrInterpolationTimes;
-    static IntPtr _ptrDeltaTimes;
-    static IntPtr _ptrHumanScales;
-    static IntPtr _ptrP0Positions;
-    static IntPtr _ptrPrevPositions;
-    static IntPtr _ptrTargetPositions;
-    static IntPtr _ptrP3Positions;
-    static IntPtr _ptrPrevScales;
-    static IntPtr _ptrTargetScales;
-    static IntPtr _ptrP0Rotations;
-    static IntPtr _ptrPrevRotations;
-    static IntPtr _ptrTargetRotations;
-    static IntPtr _ptrP3Rotations;
-    static IntPtr _ptrP0BoneRotations;
-    static IntPtr _ptrPrevBoneRotations;
-    static IntPtr _ptrTargetBoneRotations;
-    static IntPtr _ptrP3BoneRotations;
-    static IntPtr _ptrPrevHipsDelta;
-    static IntPtr _ptrTargetHipsDelta;
-    static IntPtr _ptrPrevHipsRotDelta;
-    static IntPtr _ptrTargetHipsRotDelta;
-    static IntPtr _ptrPoseFilterSeeded;
-    static IntPtr _ptrSkipBones;
+    [NoAutoStaticsCleanup] static IntPtr _ptrInterpolationTimes;
+    [NoAutoStaticsCleanup] static IntPtr _ptrDeltaTimes;
+    [NoAutoStaticsCleanup] static IntPtr _ptrHumanScales;
+    [NoAutoStaticsCleanup] static IntPtr _ptrP0Positions;
+    [NoAutoStaticsCleanup] static IntPtr _ptrPrevPositions;
+    [NoAutoStaticsCleanup] static IntPtr _ptrTargetPositions;
+    [NoAutoStaticsCleanup] static IntPtr _ptrP3Positions;
+    [NoAutoStaticsCleanup] static IntPtr _ptrPrevScales;
+    [NoAutoStaticsCleanup] static IntPtr _ptrTargetScales;
+    [NoAutoStaticsCleanup] static IntPtr _ptrP0Rotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrPrevRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrTargetRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrP3Rotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrP0BoneRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrPrevBoneRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrTargetBoneRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrP3BoneRotations;
+    [NoAutoStaticsCleanup] static IntPtr _ptrPrevHipsDelta;
+    [NoAutoStaticsCleanup] static IntPtr _ptrTargetHipsDelta;
+    [NoAutoStaticsCleanup] static IntPtr _ptrPrevHipsRotDelta;
+    [NoAutoStaticsCleanup] static IntPtr _ptrTargetHipsRotDelta;
+    [NoAutoStaticsCleanup] static IntPtr _ptrPoseFilterSeeded;
+    [NoAutoStaticsCleanup] static IntPtr _ptrSkipBones;
 
     /// <summary>
     /// Mark a player index to skip bone interpolation on the next Compute().
@@ -1214,7 +1216,7 @@ public static class BasisRemoteNetworkDriver
         }.Schedule(count, batch, deps);
     }
 
-    static IntPtr _ptrFilteredPositions;
+    [NoAutoStaticsCleanup] static IntPtr _ptrFilteredPositions;
 
     /// <summary>
     /// Returns a raw pointer to the filtered bone rotation deltas for a player.

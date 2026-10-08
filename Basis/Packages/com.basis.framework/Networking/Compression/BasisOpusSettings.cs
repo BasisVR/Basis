@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using OpusSharp.Core;
 using System;
 using UnityEngine;
 
-public static class LocalOpusSettings
+[AutoStaticsCleanup]
+public static partial class LocalOpusSettings
 {
     public static int RecordingFullLength = 1;
     public static OpusPredefinedValues OpusApplication = OpusPredefinedValues.OPUS_APPLICATION_AUDIO;
@@ -151,7 +153,8 @@ public static class LocalOpusSettings
         }
     }
 }
-public static class SharedOpusSettings
+[AutoStaticsCleanup]
+public static partial class SharedOpusSettings
 {
     /// <summary>
     /// Opus frame duration in seconds. Only 0.02 (20 ms) and 0.04 (40 ms) are
@@ -176,7 +179,8 @@ public static class SharedOpusSettings
         OnDesiredDurationChanged?.Invoke(durationSeconds);
     }
 }
-public static class RemoteOpusSettings
+[AutoStaticsCleanup]
+public static partial class RemoteOpusSettings
 {
     public static OpusPredefinedValues OpusApplication = OpusPredefinedValues.OPUS_APPLICATION_AUDIO;
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -92,9 +93,10 @@ public struct BasisCameraDirectToScreenPlacement
 /// what guarantees there is a final blit to ride.
 /// </para>
 /// </summary>
-public sealed class BasisCameraDirectToScreenPass : ScriptableRenderPass
+[AutoStaticsCleanup]
+public sealed partial class BasisCameraDirectToScreenPass : ScriptableRenderPass
 {
-    private static readonly ProfilingSampler PassSampler = new ProfilingSampler("Basis Direct To Screen");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler PassSampler = new ProfilingSampler("Basis Direct To Screen");
     public static float GpuMs => PassSampler.gpuElapsedTime;
     public static void SetProfilingEnabled(bool enabled) => PassSampler.enableRecording = enabled;
 

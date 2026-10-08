@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using Basis.Scripts.Avatar;
@@ -7,7 +8,8 @@ using Basis.Scripts.Networking.Receivers;
 using Basis.Network.Core;
 using UnityEngine;
 
-public static class BasisNetworkHandleRemoval
+[AutoStaticsCleanup]
+public static partial class BasisNetworkHandleRemoval
 {
     // Pending player-lifecycle work (joins + leaves), drained on the main thread
     // with a per-frame budget so a mass join/leave event can't stall the renderer.
@@ -33,7 +35,7 @@ public static class BasisNetworkHandleRemoval
     /// </remarks>
     public static float LifecycleBudgetMillisecondsPerFrame = 1.5f;
 
-    private static readonly System.Diagnostics.Stopwatch sLifecycleClock = new System.Diagnostics.Stopwatch();
+    [NoAutoStaticsCleanup] private static readonly System.Diagnostics.Stopwatch sLifecycleClock = new System.Diagnostics.Stopwatch();
 
     /// <summary>
     /// Drains queued lifecycle actions on the main thread until either budget is spent.

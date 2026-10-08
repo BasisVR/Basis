@@ -413,7 +413,7 @@ namespace Basis.Tests.GlobalIllumination
             Material material = new Material(shader);
             try
             {
-                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeIndirectEmission;
                 material.EnableKeyword("_EMISSION");
                 if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", new Color(2f, 1f, 0.5f)); }
                 if (material.HasProperty("_EmissionEnabled")) { material.SetFloat("_EmissionEnabled", 1f); }
@@ -447,7 +447,7 @@ namespace Basis.Tests.GlobalIllumination
             {
                 // The colour, not the author-time flag. A surface emits nothing because it is black, and
                 // that is the one test of it that stays true when the colour is driven at runtime.
-                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeIndirectEmission;
                 material.EnableKeyword("_EMISSION");
                 if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", Color.black); }
 
@@ -513,7 +513,7 @@ namespace Basis.Tests.GlobalIllumination
                     Assert.Ignore("This shader declares no _EMISSION keyword, so there is no switch to read.");
                 }
 
-                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeIndirectEmission;
                 material.DisableKeyword("_EMISSION");
                 if (material.HasProperty("_EmissionColor")) { material.SetColor("_EmissionColor", Color.white); }
 

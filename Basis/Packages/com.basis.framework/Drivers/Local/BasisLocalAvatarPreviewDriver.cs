@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders;
@@ -13,8 +14,9 @@ namespace Basis.Scripts.Drivers
     /// Off by default; toggled via the AvatarPreview setting.
     /// All objects are created at runtime and cleaned up on disable/destroy.
     /// </summary>
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public class BasisLocalAvatarPreviewDriver
+    public partial class BasisLocalAvatarPreviewDriver
     {
         [Header("Render Texture")]
         public static int TextureWidth = 768;

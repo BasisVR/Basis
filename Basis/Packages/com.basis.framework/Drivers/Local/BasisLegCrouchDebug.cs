@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -12,7 +13,8 @@ namespace Basis.Scripts.Drivers
     /// frame the leg flips -- crucially this includes the LIVE foot-driver knee hint, which the offline crouch
     /// sweep (synthetic hint) can't reproduce.
     /// </summary>
-    public static class BasisLegCrouchDebug
+    [AutoStaticsCleanup]
+    public static partial class BasisLegCrouchDebug
     {
         public static bool Enabled;
         const int MaxRows = 8000;

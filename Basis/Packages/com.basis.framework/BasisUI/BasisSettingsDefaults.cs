@@ -368,6 +368,7 @@ namespace Basis.BasisUI
         public const float MOTION_BLUR_CLAMP_MAX = 0.2f;
 
         public static BasisSettingsBinding<bool> UseGlobalIllumination = new("useglobalillumination", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<string> GlobalIlluminationSolution = new("globalilluminationsolution", new BasisPlatformDefault<string>("Basis"));
         // Screen Space marches the depth buffer and can only gather what the frame already drew. Ray Traced
         // traces the scene itself against an acceleration structure, so it also carries light from behind the
         // camera and shades what it hits with the real lights and emissive materials - and it needs a GPU
@@ -448,6 +449,8 @@ namespace Basis.BasisUI
         /// without reflections, and reflections are worth having over a screen space diffuse gather.
         /// </summary>
         public static BasisSettingsBinding<bool> GlobalIlluminationSpecular = new("globalilluminationspecular", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<string> ReflectionsSolution = new("reflectionssolution", new BasisPlatformDefault<string>("Basis"));
+        public static BasisSettingsBinding<string> ReflectionsMode = new("reflectionsmode", new BasisPlatformDefault<string>("Screen Space"));
         // The reflection's own look controls, shown while the toggle above is on. Defaults match the
         // settings object's own, so a player who never touches them gets exactly what the toggle alone
         // used to give.
@@ -522,6 +525,7 @@ namespace Basis.BasisUI
         // Ray traced ambient occlusion. Off by default because it is a real slice of the frame and it
         // needs a ray tracing GPU for the traced path.
         public static BasisSettingsBinding<bool> UseRayTracedAmbientOcclusion = new("useraytracedambientocclusion", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<string> AmbientOcclusionSolution = new("ambientocclusionsolution", new BasisPlatformDefault<string>("Basis"));
         // Auto traces against the scene on a ray tracing GPU and drops to the screen space estimator on one
         // without. Direct3D11 has no ray tracing path at all, so it always lands on Screen Space there.
         // Screen space rather than the traced path: this is the backend everything can run, and nobody
@@ -632,6 +636,11 @@ namespace Basis.BasisUI
         });
 
         public static BasisSettingsBinding<string> Antialiasing = new("antialiasing", new BasisPlatformDefault<string> { windows = "msaa 2x", android = "msaa 4x", ios = "msaa 4x", linux = "msaa 2x", other = "msaa 2x" });
+        public static BasisSettingsBinding<string> UpscalerQuality = new("upscalerquality", new BasisPlatformDefault<string>("Native"));
+        public static BasisSettingsBinding<float> UpscalerSharpness = new("upscalersharpness", new BasisPlatformDefault<float>(0.5f));
+        public const float UPSCALER_SHARPNESS_MIN = 0f;
+        public const float UPSCALER_SHARPNESS_MAX = 1f;
+        public static BasisSettingsBinding<string> DlssModel = new("dlssmodel", new BasisPlatformDefault<string>("Auto"));
 
         public static BasisSettingsBinding<bool> DevVariableRateShading = new("devvariablerateshading", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> DevVariableRateShadingDesktop = new("devvariablerateshadingdesktop", new BasisPlatformDefault<bool>(false));
@@ -2568,6 +2577,9 @@ namespace Basis.BasisUI
             ShadowQuality.LoadBindingValue();
             HDRSupport.LoadBindingValue();
             Antialiasing.LoadBindingValue();
+            UpscalerQuality.LoadBindingValue();
+            UpscalerSharpness.LoadBindingValue();
+            DlssModel.LoadBindingValue();
             DevVariableRateShading.LoadBindingValue();
             DevVariableRateShadingDesktop.LoadBindingValue();
             DevGiDebugView.LoadBindingValue();
@@ -2593,6 +2605,7 @@ namespace Basis.BasisUI
             MotionBlurQuality.LoadBindingValue();
             MotionBlurMode.LoadBindingValue();
             UseGlobalIllumination.LoadBindingValue();
+            GlobalIlluminationSolution.LoadBindingValue();
             GlobalIlluminationMode.LoadBindingValue();
             GlobalIlluminationPreset.LoadBindingValue();
             GlobalIlluminationSkinnedMeshes.LoadBindingValue();
@@ -2615,6 +2628,8 @@ namespace Basis.BasisUI
             GlobalIlluminationReflectionProbes.LoadBindingValue();
             GlobalIlluminationMirrors.LoadBindingValue();
             GlobalIlluminationSpecular.LoadBindingValue();
+            ReflectionsSolution.LoadBindingValue();
+            ReflectionsMode.LoadBindingValue();
             GlobalIlluminationSpecularIntensity.LoadBindingValue();
             GlobalIlluminationSpecularMaxRoughness.LoadBindingValue();
             GlobalIlluminationSpecularRayLength.LoadBindingValue();
@@ -2628,6 +2643,7 @@ namespace Basis.BasisUI
             GlobalIlluminationFireflyClamp.LoadBindingValue();
 
             UseRayTracedAmbientOcclusion.LoadBindingValue();
+            AmbientOcclusionSolution.LoadBindingValue();
             RayTracedAmbientOcclusionMode.LoadBindingValue();
             RayTracedAmbientOcclusionQuality.LoadBindingValue();
             RayTracedAmbientOcclusionIntensity.LoadBindingValue();

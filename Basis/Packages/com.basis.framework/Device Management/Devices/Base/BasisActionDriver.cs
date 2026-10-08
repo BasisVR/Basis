@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -16,7 +17,8 @@ using UnityEngine;
 /// <summary>
 /// Routes input actions to one or more tracked roles and runs the bound action delegates efficiently.
 /// </summary>
-public static class BasisActionDriver
+[AutoStaticsCleanup]
+public static partial class BasisActionDriver
 {
     /// <summary>
     /// File name used to persist bindings to disk.
@@ -311,7 +313,7 @@ public static class BasisActionDriver
         }
 
         s_DispatchRole = trackedRole;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
         for (int Index = 0; Index < compiled.Length; Index++)
         {
             var actionImpl = compiled[Index];
@@ -557,7 +559,7 @@ public static class BasisActionDriver
         BasisLocalPlayer.Instance.LocalCharacterDriver.IsDescendHeld = current.GripButton;
     }
 
-    private static readonly InputAction[] s_ActionImplArray = new InputAction[(int)ActionId.Count]
+    [NoAutoStaticsCleanup] private static readonly InputAction[] s_ActionImplArray = new InputAction[(int)ActionId.Count]
     {
         SetMovementSpeedMultiplierFromPrimary2DAxis,   // 0
         SetMovementVectorFromPrimary2DAxis,            // 1
@@ -575,7 +577,7 @@ public static class BasisActionDriver
 
     private static readonly List<ActionId> s_EmptyActions = new List<ActionId>(0);
     private static readonly List<BasisBoneTrackedRole> s_EmptyRoles = new List<BasisBoneTrackedRole>(0);
-    private static readonly InputAction[] s_EmptyImpls = Array.Empty<InputAction>();
+    [NoAutoStaticsCleanup] private static readonly InputAction[] s_EmptyImpls = Array.Empty<InputAction>();
     private static bool s_SuppressRebuild;
 
     // Per-role frame guard + reusable aggregate buffers for UpdatePlayerControlForRole: a role's

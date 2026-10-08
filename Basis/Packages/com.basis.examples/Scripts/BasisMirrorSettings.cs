@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.IO;
 using Basis.Scripts.BasisSdk.Interactions;
@@ -45,7 +46,8 @@ public class BasisMirrorSettings
     public bool renderShadows = true;
 }
 
-public static class BasisMirrorSettingsStore
+[AutoStaticsCleanup]
+public static partial class BasisMirrorSettingsStore
 {
     public const string MirrorSettingsJson = "MirrorSettings.json";
 

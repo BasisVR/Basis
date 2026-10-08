@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -20,7 +21,8 @@ namespace Basis.BasisUI
     /// <summary>
     /// Used by the LibraryProvider.cs to specifically load a type of content with a given BasisDataStoreItemKeys.ItemKey
     /// </summary>
-    public static class ContentLoader
+    [AutoStaticsCleanup]
+    public static partial class ContentLoader
     {
         /// <summary>
         /// A reachability warning from the last avatar load attempt, if any.
@@ -33,7 +35,7 @@ namespace Basis.BasisUI
         /// Static progress report forwarded during library content loading.
         /// Subscribe to OnProgressReport to receive loading progress updates.
         /// </summary>
-        public static readonly BasisProgressReport LibraryLoadProgress = new BasisProgressReport();
+        [NoAutoStaticsCleanup] public static readonly BasisProgressReport LibraryLoadProgress = new BasisProgressReport();
 
         private static void ForwardProgress(string uniqueID, float progress, string eventDescription)
         {

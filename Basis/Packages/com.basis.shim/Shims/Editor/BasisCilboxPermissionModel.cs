@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
@@ -86,7 +87,8 @@ namespace Basis.Shims.Editor
     /// UI that reports its own opinion of the rules is worse than none, because the one failure it
     /// hides is "the window said allowed and the sandbox said no".</para>
     /// </summary>
-    internal static class BasisCilboxPermissionModel
+    [AutoStaticsCleanup]
+    internal static partial class BasisCilboxPermissionModel
     {
         public const string CommonSourceFile = "CilboxBasisCommon.cs";
 
@@ -169,7 +171,7 @@ namespace Basis.Shims.Editor
 
             try
             {
-                info.Probe = FormatterServices.GetUninitializedObject(type) as Cilbox.Cilbox;
+                info.Probe = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(type) as Cilbox.Cilbox;
             }
             catch (Exception e)
             {
@@ -485,7 +487,7 @@ namespace Basis.Shims.Editor
             Type found = Type.GetType(fullName, false);
             if (found == null)
             {
-                foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+                foreach (Assembly assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
                 {
                     try
                     {
@@ -537,7 +539,7 @@ namespace Basis.Shims.Editor
         /// into a list. Shown so the window can explain a refusal no whitelist accounts for; the
         /// verdicts above never consult this table, they call the real method.
         /// </summary>
-        public static readonly (string Type, string Members, string ReasonKey)[] HardDenies =
+        [NoAutoStaticsCleanup] public static readonly (string Type, string Members, string ReasonKey)[] HardDenies =
         {
             ("*", "*Invoke*", "sdk.cilbox.deny.invoke"),
             ("System.IntPtr, System.UIntPtr, System.Void*, System.RuntimeFieldHandle, System.RuntimeMethodHandle, System.RuntimeTypeHandle",
@@ -557,7 +559,7 @@ namespace Basis.Shims.Editor
         /// <c>GetTypeOverride</c>. A script writing <c>UnityEngine.Debug</c> is really calling
         /// <c>BasisDebugPropsShim</c>, which is worth saying out loud.
         /// </summary>
-        public static readonly (string Written, string Actual)[] TypeOverrides =
+        [NoAutoStaticsCleanup] public static readonly (string Written, string Actual)[] TypeOverrides =
         {
             ("UnityEngine.Debug", "Basis.Shims.BasisDebugPropsShim"),
             ("UnityEngine.Video.VideoPlayer", "Basis.Shims.VideoPlayerShim"),

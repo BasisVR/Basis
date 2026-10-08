@@ -16,12 +16,14 @@ namespace Valve.VR
         public List<SteamVR_Input_ActionFile_Action> actions = new List<SteamVR_Input_ActionFile_Action>();
         public List<SteamVR_Input_ActionFile_ActionSet> action_sets = new List<SteamVR_Input_ActionFile_ActionSet>();
         public List<SteamVR_Input_ActionFile_DefaultBinding> default_bindings = new List<SteamVR_Input_ActionFile_DefaultBinding>();
+#pragma warning disable UAC1009
         public List<Dictionary<string, string>> localization = new List<Dictionary<string, string>>();
+#pragma warning restore UAC1009
 
         [JsonIgnore]
         public string filePath;
 
-        [JsonIgnore]
+        [JsonIgnore, System.NonSerialized]
         public List<SteamVR_Input_ActionFile_LocalizationItem> localizationHelperList = new List<SteamVR_Input_ActionFile_LocalizationItem>();
 
         public void InitializeHelperLists()

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -5,7 +6,8 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-public class BasisVisualStateModule : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class BasisVisualStateModule : BasisSettingsBase
 {
     public static string AdaptiveCircleId = "Adaptive Circle Display.prefab";
 

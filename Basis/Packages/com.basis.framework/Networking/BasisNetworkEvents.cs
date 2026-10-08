@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
@@ -11,9 +12,10 @@ using K4os.Compression.LZ4;
 using System;
 using System.Buffers;
 using static SerializableBasis;
-public static class BasisNetworkEvents
+[AutoStaticsCleanup]
+public static partial class BasisNetworkEvents
 {
-    private static bool _coreHandlersRegistered;
+    [NoAutoStaticsCleanup] private static bool _coreHandlersRegistered;
 
     static BasisNetworkEvents()
     {
@@ -796,7 +798,7 @@ public static class BasisNetworkEvents
     }
     // Reused across both stat-frame calls: RequestStatFrames fires on a 0.1s timer while the
     // stats view is open, so a fresh writer per call was garbage every tick for one bool.
-    private static readonly NetDataWriter StatFrameWriter = new NetDataWriter();
+    [NoAutoStaticsCleanup] private static readonly NetDataWriter StatFrameWriter = new NetDataWriter();
 
     public static void RequestStatFrames()
     {

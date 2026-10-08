@@ -227,16 +227,21 @@ namespace Basis.Tests.GlobalIllumination
         {
             BasisGlobalIlluminationSettings settings = new BasisGlobalIlluminationSettings();
 
-            settings.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            settings.specularMode = BasisGlobalIlluminationMode.ScreenSpace;
             Assert.IsTrue(BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, true),
                 "Screen Space mode must use the screen space backend even where ray tracing exists - the mode is the player's costing decision");
             Assert.IsTrue(BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, false));
 
-            settings.mode = BasisGlobalIlluminationMode.RayTraced;
+            settings.specularMode = BasisGlobalIlluminationMode.RayTraced;
             Assert.IsFalse(BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, true),
                 "Ray Traced mode with the hardware for it must keep the ray traced backend");
             Assert.IsTrue(BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, false),
                 "Ray Traced mode without the hardware used to mean no reflections at all; it must fall back to screen space the way the diffuse gather falls back");
+
+            settings.mode = BasisGlobalIlluminationMode.RayTraced;
+            settings.specularMode = BasisGlobalIlluminationMode.ScreenSpace;
+            Assert.IsTrue(BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, true),
+                "the reflections follow their own mode, not the diffuse gather's");
         }
 
         [Test]

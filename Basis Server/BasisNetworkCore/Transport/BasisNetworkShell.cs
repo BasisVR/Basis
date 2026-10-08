@@ -172,7 +172,7 @@ namespace Basis.Network.Core
         Action RecycleInternal;
         bool recycled;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
 		internal byte channel;
 		internal DeliveryMethod method;
 #endif
@@ -198,7 +198,7 @@ namespace Basis.Network.Core
                 return;
             }
             recycled = true;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
 			if (IsOkTOHaveEmptyData == false)
 			{
 				if (!EndOfData && AvailableBytes > 0)

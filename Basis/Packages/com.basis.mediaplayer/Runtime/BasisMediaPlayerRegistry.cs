@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 
@@ -7,7 +8,8 @@ using System.Collections.Generic;
 /// over the set (an in-world players panel, a session governor) watch
 /// <see cref="OnChanged"/> rather than scanning the scene.
 /// </summary>
-public static class BasisMediaPlayerRegistry
+[AutoStaticsCleanup]
+public static partial class BasisMediaPlayerRegistry
 {
     private static readonly List<BasisMediaPlayer> players = new List<BasisMediaPlayer>();
 

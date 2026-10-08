@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine.UI;
@@ -17,7 +18,8 @@ namespace Basis.BasisUI
     /// it was taken for, so a release that lands after the menu was closed or rebuilt again
     /// (Unity defers Destroy to the end of the frame) restores nothing.
     /// </summary>
-    public static class BasisMenuPromptRestore
+    [AutoStaticsCleanup]
+    public static partial class BasisMenuPromptRestore
     {
         private static BasisMenuInstance _owner;
         private static string _providerTitle = string.Empty;

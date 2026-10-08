@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -28,7 +29,8 @@ namespace Basis.Scripts.Drivers
     /// mode uses for its height delta. That shifts the whole tracking space (view, hands, avatar) without
     /// moving the capsule or touching gravity, so it persists for free. Gated by the "Vertical" toggle.
     /// </summary>
-    public static class BasisLocalPlayspaceMover
+    [AutoStaticsCleanup]
+    public static partial class BasisLocalPlayspaceMover
     {
         public const string InputGrip = "Grip";
         public const string InputTrigger = "Trigger";

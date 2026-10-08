@@ -110,7 +110,7 @@ internal static class BasisProjectSettingsUI
             EditorGUILayout.HelpBox(
                 Tr("projectSetup.buildModules.scriptingBackendHelp",
                     "Remembers the IL2CPP/Mono/CoreCLR answer for Windows and macOS builds so you’re not asked every time. " +
-                    "Forced platforms are unaffected: Android and iOS always use IL2CPP, Linux always uses Mono. " +
+                    "Forced platforms are unaffected: Android and iOS always use IL2CPP, Linux always uses CoreCLR (ARM64: IL2CPP). " +
                     "Choosing a backend in the build prompt also updates this setting."),
                 MessageType.None);
         }

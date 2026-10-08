@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.Network.Core;
@@ -17,7 +18,8 @@ using UnityEngine.SceneManagement;
 using static BasisNetworkContentBase;
 using static BundledContentHolder;
 using static SerializableBasis;
-public static class BasisNetworkSpawnItem
+[AutoStaticsCleanup]
+public static partial class BasisNetworkSpawnItem
 {
     private static CancellationTokenSource _loadCts = new CancellationTokenSource();
     public static bool RequestSceneLoad(string UnlockPassword, string CombinedURL, bool Persist, bool Admin, out LocalLoadResource localLoadResource, byte loadStrategy = 0)

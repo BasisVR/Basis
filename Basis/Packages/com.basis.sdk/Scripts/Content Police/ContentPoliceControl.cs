@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,7 +11,8 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
-public static class ContentPoliceControl
+[AutoStaticsCleanup]
+public static partial class ContentPoliceControl
 {
     public static bool ShaderPrewarmEnabled = false;
     public static bool MaterialCorrectionEnabled = false;
@@ -54,7 +56,7 @@ public static class ContentPoliceControl
         }
     }
 
-    private static readonly MediaFieldPolicy[] mediaFieldPolicies =
+    [NoAutoStaticsCleanup] private static readonly MediaFieldPolicy[] mediaFieldPolicies =
     {
         new MediaFieldPolicy("BasisMediaPlayerStreaming", "ConfigureOnStart"),
         new MediaFieldPolicy("BasisMediaPlayer", "playOnStart", "allowLocalAddresses"),
@@ -1162,7 +1164,7 @@ public static class ContentPoliceControl
     // asset is mutated.
     // ------------------------------------------------------------------
 
-    private static readonly AnimationEvent[] EmptyAnimationEvents = new AnimationEvent[0];
+    [NoAutoStaticsCleanup] private static readonly AnimationEvent[] EmptyAnimationEvents = new AnimationEvent[0];
 
     private static void StripEventsFromRuntimeController(RuntimeAnimatorController controller)
     {

@@ -34,6 +34,9 @@ public enum VolumetricFogAPVMode
 #if UNITY_6000_0_OR_NEWER
 [VolumeRequiresRendererFeatures(typeof(VolumetricFogRendererFeature))]
 #endif
+#if UNITY_6000_3_OR_NEWER
+[DisplayInfo(name = "Volumetric Fog")]
+#endif
 [SupportedOnRenderPipeline(typeof(UniversalRenderPipelineAsset))]
 #else
 [VolumeComponentMenuForRenderPipeline("Custom/Volumetric Fog", typeof(UniversalRenderPipeline))]
@@ -103,10 +106,12 @@ public sealed class VolumetricFogVolumeComponent : VolumeComponent, IPostProcess
 
 	#region Initialization Methods
 
+#if !UNITY_6000_3_OR_NEWER
 	public VolumetricFogVolumeComponent() : base()
 	{
 		displayName = "Volumetric Fog";
 	}
+#endif
 
 	#endregion
 

@@ -176,15 +176,54 @@ namespace Basis.Tests.GlobalIllumination
             Assert.IsFalse(volume.IsActive());
         }
 
-        /// <summary>The component's own switch still turns everything off, reflections included.</summary>
         [Test]
-        public void DisablingTheComponentTurnsReflectionsOffToo()
+        public void ReflectionsRunWithGlobalIlluminationOff()
         {
             volume.enable = false;
             volume.specular = true;
             volume.specularIntensity = 1f;
-            Assert.IsFalse(volume.SpecularActive());
-            Assert.IsFalse(volume.IsActive());
+            Assert.IsFalse(volume.DiffuseActive());
+            Assert.IsTrue(volume.SpecularActive());
+            Assert.IsTrue(volume.IsActive());
+        }
+
+        [Test]
+        public void ReflectionsCarryTheirOwnMode()
+        {
+            volume.mode = BasisGlobalIlluminationMode.RayTraced;
+            volume.specularMode = BasisGlobalIlluminationMode.ScreenSpace;
+            Assert.IsTrue(volume.IsRayTraced());
+            Assert.IsFalse(volume.IsSpecularRayTraced());
+
+            volume.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            volume.specularMode = BasisGlobalIlluminationMode.RayTraced;
+            Assert.IsFalse(volume.IsRayTraced());
+            Assert.IsTrue(volume.IsSpecularRayTraced());
+
+            BasisGlobalIlluminationSettings copy = volume.Clone();
+            Assert.AreEqual(BasisGlobalIlluminationMode.RayTraced, copy.specularMode);
+        }
+
+        [Test]
+        public void TheRayTracerIsInUseWhenEitherPathTraces()
+        {
+            volume.enable = true;
+            volume.intensity = 1f;
+            volume.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            volume.specular = false;
+            Assert.IsFalse(volume.UsesRayTracer());
+
+            volume.mode = BasisGlobalIlluminationMode.RayTraced;
+            Assert.IsTrue(volume.UsesRayTracer());
+
+            volume.enable = false;
+            volume.specular = true;
+            volume.specularIntensity = 1f;
+            volume.specularMode = BasisGlobalIlluminationMode.ScreenSpace;
+            Assert.IsFalse(volume.UsesRayTracer());
+
+            volume.specularMode = BasisGlobalIlluminationMode.RayTraced;
+            Assert.IsTrue(volume.UsesRayTracer());
         }
 
         /// <summary>

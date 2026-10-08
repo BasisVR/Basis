@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -14,35 +15,36 @@ using UnityEngine.InputSystem.Users;
 
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
-    public static class BasisLocalInputActions
+    [AutoStaticsCleanup]
+    public static partial class BasisLocalInputActions
     {
         public static InputActionAsset Asset;
 
-        public static InputAction MoveAction;
-        public static InputAction LookAction;
-        public static InputAction JumpAction;
-        public static InputAction CrouchAction;
-        public static InputAction ProneAction;
-        public static InputAction RunButton;
-        public static InputAction Escape;
-        public static InputAction Tab;
-        public static InputAction PrimaryButtonGetState;
-        public static InputAction PointerAction;
+        [NoAutoStaticsCleanup] public static InputAction MoveAction;
+        [NoAutoStaticsCleanup] public static InputAction LookAction;
+        [NoAutoStaticsCleanup] public static InputAction JumpAction;
+        [NoAutoStaticsCleanup] public static InputAction CrouchAction;
+        [NoAutoStaticsCleanup] public static InputAction ProneAction;
+        [NoAutoStaticsCleanup] public static InputAction RunButton;
+        [NoAutoStaticsCleanup] public static InputAction Escape;
+        [NoAutoStaticsCleanup] public static InputAction Tab;
+        [NoAutoStaticsCleanup] public static InputAction PrimaryButtonGetState;
+        [NoAutoStaticsCleanup] public static InputAction PointerAction;
 
-        public static InputAction DesktopSwitch;
-        public static InputAction VRSwitch;
-        public static InputAction XRSwitch;
+        [NoAutoStaticsCleanup] public static InputAction DesktopSwitch;
+        [NoAutoStaticsCleanup] public static InputAction VRSwitch;
+        [NoAutoStaticsCleanup] public static InputAction XRSwitch;
 
-        public static InputAction LeftMousePressed;
-        public static InputAction RightMousePressed;
-        public static InputAction MiddleMouseScroll;
-        public static InputAction MiddleMouseScrollClick;
+        [NoAutoStaticsCleanup] public static InputAction LeftMousePressed;
+        [NoAutoStaticsCleanup] public static InputAction RightMousePressed;
+        [NoAutoStaticsCleanup] public static InputAction MiddleMouseScroll;
+        [NoAutoStaticsCleanup] public static InputAction MiddleMouseScrollClick;
 
-        public static InputAction MoveLocalUpDown;
-        public static InputAction OpenChat;
-        public static InputAction ToggleMicMute;
-        public static InputAction ToggleThirdPerson;
-        public static InputAction CameraZoomAction;
+        [NoAutoStaticsCleanup] public static InputAction MoveLocalUpDown;
+        [NoAutoStaticsCleanup] public static InputAction OpenChat;
+        [NoAutoStaticsCleanup] public static InputAction ToggleMicMute;
+        [NoAutoStaticsCleanup] public static InputAction ToggleThirdPerson;
+        [NoAutoStaticsCleanup] public static InputAction CameraZoomAction;
 
         public static float MouseSensitivity = 1f;
         public static float JoystickSensitivity = 1f;

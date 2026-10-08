@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -7,7 +8,8 @@ using UnityEngine.Rendering;
 /// the whole application. Every camera that renders the effect in a frame refreshes it at most once, so a
 /// mirror, a photo camera and the player's eye all trace the same structure instead of building one each.
 /// </summary>
-public sealed class BasisGlobalIlluminationRayTracer : IDisposable
+[AutoStaticsCleanup]
+public sealed partial class BasisGlobalIlluminationRayTracer : IDisposable
 {
     public readonly struct SkyBinding
     {
@@ -27,7 +29,7 @@ public sealed class BasisGlobalIlluminationRayTracer : IDisposable
         public bool IsValid => Cube != null && Intensity > 0f;
     }
 
-    private static BasisGlobalIlluminationRayTracer instance;
+    [NoAutoStaticsCleanup] private static BasisGlobalIlluminationRayTracer instance;
     private static string failure;
     private static int failedSignature;
 

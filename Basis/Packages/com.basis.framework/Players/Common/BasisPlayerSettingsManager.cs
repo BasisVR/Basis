@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -5,10 +6,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public static class BasisPlayerSettingsManager
+[AutoStaticsCleanup]
+public static partial class BasisPlayerSettingsManager
 {
-    private static readonly string Dir = Path.Combine(Application.persistentDataPath, "PlayerSettings");
-    private static readonly char[] InvalidChars = Path.GetInvalidFileNameChars();
+    [NoAutoStaticsCleanup] private static readonly string Dir = Path.Combine(Application.persistentDataPath, "PlayerSettings");
+    [NoAutoStaticsCleanup] private static readonly char[] InvalidChars = Path.GetInvalidFileNameChars();
 
     // One lock per file
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new ConcurrentDictionary<string, SemaphoreSlim>();

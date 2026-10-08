@@ -1,12 +1,14 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
 // Registration runs in edit mode too, so an author placing emitters sees their light in the scene view
 // rather than only after entering play mode.
+[AutoStaticsCleanup]
 [ExecuteAlways]
 [AddComponentMenu("Basis/Rendering/Basis Global Illumination Emitter")]
 [DisallowMultipleComponent]
-public sealed class BasisGlobalIlluminationEmitter : MonoBehaviour
+public sealed partial class BasisGlobalIlluminationEmitter : MonoBehaviour
 {
     public static readonly List<BasisGlobalIlluminationEmitter> Registered = new List<BasisGlobalIlluminationEmitter>();
 

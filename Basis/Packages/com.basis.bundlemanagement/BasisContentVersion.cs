@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 
@@ -13,7 +14,8 @@ using System.Collections.Concurrent;
 /// bundle published before versioning, every client built before it, and the GUID-per-upload flow
 /// all produce empty tags, so they keep the exact pre-existing behavior.</para>
 /// </summary>
-public static class BasisContentVersion
+[AutoStaticsCleanup]
+public static partial class BasisContentVersion
 {
     /// <summary>
     /// Minimum spacing between version-triggered re-downloads of the same url.

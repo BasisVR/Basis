@@ -173,7 +173,7 @@ namespace LiteNetLib
                     }
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 //NetDebug.WriteForce(NetLogLevel.Info, $"Error while getting interface infos: {e}");
             }

@@ -252,7 +252,7 @@ namespace Basis.BasisUI.HandHeldCamera
         {
             if (_activeCamera == null) return;
 
-            bool giSupported = BasisSettingsDefaults.UseGlobalIllumination.RawValue;
+            bool giSupported = Basis.Scripts.Rendering.BasisLightingSolutions.BasisGlobalIllumination;
             _giOverrideToggle?.SetInteractable(giSupported, giSupported ? null : BasisLocalization.Get("camera.gi.override.disabled"));
             _giOverrideToggle?.SetValueWithoutNotify(_activeCamera.OverrideGlobalIllumination);
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 
 namespace Basis.Scripts.Networking.Sync
@@ -12,7 +13,8 @@ namespace Basis.Scripts.Networking.Sync
     /// allocator) — otherwise it collides with that object's receive handler. Verify a real batched round-trip before
     /// shipping it on.
     /// </summary>
-    public static class BasisSyncBatchCollector
+    [AutoStaticsCleanup]
+    public static partial class BasisSyncBatchCollector
     {
         /// <summary>Reserved scene-data messageIndex that carries a batch. Must not collide with any assigned NetworkID.</summary>
         public const ushort BatchMessageIndex = ushort.MaxValue;

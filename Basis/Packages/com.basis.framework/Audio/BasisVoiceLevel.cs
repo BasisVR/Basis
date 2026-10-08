@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Basis.Scripts.Audio
@@ -15,7 +16,8 @@ namespace Basis.Scripts.Audio
     /// the room rather than dimming as you walk away, or sitting at 0 for whoever turned the
     /// speaker down.</para>
     /// </summary>
-    public static class BasisVoiceLevel
+    [AutoStaticsCleanup]
+    public static partial class BasisVoiceLevel
     {
         /// <summary>dBFS mapped to 0.</summary>
         public const float MinDb = -60f;

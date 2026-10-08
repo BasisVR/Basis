@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Basis.Scripts.UI.UI_Panels
 {
-    public static class BasisDataStoreAvatarKeys
+    [AutoStaticsCleanup]
+    public static partial class BasisDataStoreAvatarKeys
     {
         [System.Serializable]
         public class AvatarKey
