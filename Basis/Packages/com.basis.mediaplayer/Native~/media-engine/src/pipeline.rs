@@ -379,10 +379,11 @@ fn presented_this_generation(presented: u64, current: u64) -> bool {
 }
 
 /// Whether a presentation ends Buffering: only the timeline in force
-/// counts, and not while a pause is waiting to complete on it. Split out
-/// as above.
-fn buffering_ends(presented: u64, current: u64, pause_wanted: bool) -> bool {
-    presented == current && !pause_wanted
+/// counts, not while a seek is queued or still in the demuxer (until it
+/// returns, the timeline in force is the one being left), and not while a
+/// pause is waiting to complete on it. Split out as above.
+fn buffering_ends(presented: u64, current: u64, seeks_pending: u32, pause_wanted: bool) -> bool {
+    presented == current && seeks_pending == 0 && !pause_wanted
 }
 
 /// Whether the audio pull may serve the ring: in Playing, or in Buffering
@@ -1118,9 +1119,13 @@ impl PipelineShared {
         let Ok(_timeline) = self.timeline.try_lock() else {
             return;
         };
+        // The counter before the generation, as in `settle_pause`: reading
+        // zero guarantees the generation read is the last seek's.
+        let seeks_pending = self.seeks_pending.load(Ordering::Acquire);
         if !buffering_ends(
             generation,
             self.shared.generation.load(Ordering::Relaxed),
+            seeks_pending,
             self.pause_wanted.load(Ordering::Relaxed),
         ) {
             return;
@@ -3769,13 +3774,17 @@ mod tests {
     /// due frame; that frame reports the old picture, not the landing.
     #[test]
     fn buffering_ends_only_for_the_timeline_in_force() {
-        assert!(buffering_ends(7, 7, false), "this timeline presented");
+        assert!(buffering_ends(7, 7, 0, false), "this timeline presented");
         assert!(
-            !buffering_ends(7, 8, false),
+            !buffering_ends(7, 8, 0, false),
             "a frame from the retired timeline ended the new one's Buffering"
         );
         assert!(
-            !buffering_ends(7, 7, true),
+            !buffering_ends(7, 7, 1, false),
+            "a seek still in the demuxer let the timeline being left end Buffering"
+        );
+        assert!(
+            !buffering_ends(7, 7, 0, true),
             "a pause waiting on the landing keeps Buffering for settle_pause"
         );
     }
