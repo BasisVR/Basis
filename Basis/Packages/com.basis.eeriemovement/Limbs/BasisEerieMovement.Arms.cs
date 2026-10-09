@@ -188,36 +188,5 @@ namespace Basis.IK
             }
             poseStream.SetRotation(mid, Quaternion.AngleAxis(rollDeg, axis.normalized) * poseStream.GetRotation(mid));
         }
-        void ApplyArmSwingChestFollow()
-        {
-            BasisSwivelFrame frame = BuildArmFrame();
-            if (!frame.Valid || chestArmSwingMaxDeg <= 0f)
-            {
-                return;
-            }
-            float wl = plan.leftArm.solve ? plan.leftArm.weight : 0f, wr = plan.rightArm.solve ? plan.rightArm.weight : 0f, wSum = wl + wr;
-            if (wSum <= 0f)
-            {
-                return;
-            }
-            Vector3 chestPos = poseStream.GetPosition(handleChest), hands = (targetPositionLeftHand * wl + targetPositionRightHand * wr) / wSum, toHands = hands - chestPos;
-            toHands -= playerUp * Vector3.Dot(toHands, playerUp);
-            Vector3 forward = frame.Forward - playerUp * Vector3.Dot(frame.Forward, playerUp);
-            if (toHands.sqrMagnitude < sqrEpsilon || forward.sqrMagnitude < sqrEpsilon)
-            {
-                return;
-            }
-            float yaw = Mathf.Clamp(Vector3.SignedAngle(forward.normalized, toHands.normalized, playerUp) * chestArmSwingFactor, -chestArmSwingMaxDeg, chestArmSwingMaxDeg) * Mathf.Min(wSum, 1f);
-            if (Mathf.Abs(yaw) < 1e-3f)
-            {
-                return;
-            }
-            float chestShare = plan.hasUpperChest ? Mathf.Clamp01(chestFollowChestShare) : 1f;
-            poseStream.SetRotation(handleChest, Quaternion.AngleAxis(yaw * chestShare, playerUp) * poseStream.GetRotation(handleChest));
-            if (plan.hasUpperChest && chestShare < 1f)
-            {
-                poseStream.SetRotation(handleUpperChest, Quaternion.AngleAxis(yaw * (1f - chestShare), playerUp) * poseStream.GetRotation(handleUpperChest));
-            }
-        }
     }
 }

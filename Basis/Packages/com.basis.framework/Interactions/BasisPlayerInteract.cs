@@ -90,7 +90,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         private BasisDirectTouch _directTouch;
 
-        private void Start()
+        private void Awake()
         {
             IgnoreRaycasting = LayerMask.NameToLayer("Ignore Raycast");
             playerLayer = LayerMask.NameToLayer("Player");
@@ -109,6 +109,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
                    ~(1 << (int)IgnoredByInteractable) &
                    ~(1 << (int)LocalPlayerAvatar);
 
+            AsyncOperationHandle<Material> op = Addressables.LoadAssetAsync<Material>(LoadMaterialAddress);
+            LineMaterial = op.WaitForCompletion();
+            asyncOperationLineMaterial = op;
+        }
+
+        private void Start()
+        {
             Instance = this;
 
             _directTouch = new BasisDirectTouch();
@@ -125,10 +132,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 BasisInput device = array[i];
                 OnInputChanged(device);
             }
-
-            AsyncOperationHandle<Material> op = Addressables.LoadAssetAsync<Material>(LoadMaterialAddress);
-            LineMaterial = op.WaitForCompletion();
-            asyncOperationLineMaterial = op;
         }
 
         private void OnDestroy()

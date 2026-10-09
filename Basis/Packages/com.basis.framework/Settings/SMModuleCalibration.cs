@@ -152,11 +152,8 @@ public partial class SMModuleCalibration : BasisSettingsBase
     private static string K_FBIK_HAND_SKIN => BasisSettingsDefaults.FBIKHandSkin.BindingKey;
     private static string K_FBIK_SHOULDER_SOLVE => BasisSettingsDefaults.FBIKShoulderSolveEnabled.BindingKey;
     private static string K_FBIK_SHOULDER_SHRUG => BasisSettingsDefaults.FBIKShoulderShrug.BindingKey;
-    private static string K_FBIK_SHOULDER_RETRACTION => BasisSettingsDefaults.FBIKShoulderRetraction.BindingKey;
     private static string K_FBIK_SHOULDER_ELEVATION => BasisSettingsDefaults.FBIKShoulderElevation.BindingKey;
     private static string K_FBIK_SHOULDER_PROTRACTION => BasisSettingsDefaults.FBIKShoulderProtraction.BindingKey;
-    private static string K_FBIK_MAX_BEND_DEG => BasisSettingsDefaults.FBIKMaxBendDeg.BindingKey;
-    private static string K_FBIK_MAX_CHEST_DELTA => BasisSettingsDefaults.FBIKMaxChestDelta.BindingKey;
 
     // Calibration sphere scale keys
     private static string K_CALIB_HIPS => BasisSettingsDefaults.CalibSphereScaleHips.BindingKey;
@@ -613,24 +610,12 @@ public partial class SMModuleCalibration : BasisSettingsBase
                 if (bool.TryParse(optionValue, out var shrugVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderShrugEnabled = shrugVal);
                 break;
 
-            case var s when s == K_FBIK_SHOULDER_RETRACTION:
-             //   if (bool.TryParse(optionValue, out var retractVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderRetractionEnabled = retractVal);
-                break;
-
             case var s when s == K_FBIK_SHOULDER_ELEVATION:
                 if (SliderReadOption(optionValue, out var seVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.shoulderElevationFactor = seVal);
                 break;
 
             case var s when s == K_FBIK_SHOULDER_PROTRACTION:
                 if (SliderReadOption(optionValue, out var spVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.shoulderProtractionFactor = spVal);
-                break;
-
-            case var s when s == K_FBIK_MAX_BEND_DEG:
-                if (SliderReadOption(optionValue, out var mbVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.maxBendDeg = mbVal);
-                break;
-
-            case var s when s == K_FBIK_MAX_CHEST_DELTA:
-                if (SliderReadOption(optionValue, out var mcdVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.maxChestDeltaDeg = mcdVal);
                 break;
 
             // ---------- CALIBRATION SPHERE SCALE ----------

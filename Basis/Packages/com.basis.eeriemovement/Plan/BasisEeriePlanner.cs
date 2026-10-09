@@ -85,9 +85,7 @@ namespace Basis.IK
             p.headChain = !p.chestChain && p.hasHead;
             p.crouchOffset = !facts.chestTracked && !facts.hipsTracked && !facts.seated && !facts.prone;
             p.gaitPelvis = !facts.hipsTracked && facts.footSimReady && Mathf.Min(facts.leftFootSim, facts.rightFootSim) > 0.001f;
-            p.lordosis = job.anatCervicalLordosis && p.hasNeck;
             p.spineRom = job.spineAnatomicalRom && p.hasSpineRestFrames;
-            p.chestTarget = job.chestIkTarget && p.hasChestJoint && facts.chestTracked;
             p.leftShoulderTracked = facts.leftShoulderTracked;
             p.rightShoulderTracked = facts.rightShoulderTracked;
             p.leftShoulderWeight = facts.leftShoulderTracked ? Mathf.Clamp01(facts.leftShoulderWeight) : 0f;
@@ -98,7 +96,6 @@ namespace Basis.IK
             p.rightToeTracked = facts.rightToeTracked;
             Arm(ref p.leftArm, ref job, facts.leftHandWeight, facts.leftElbowTracked, facts.leftElbowRoll);
             Arm(ref p.rightArm, ref job, facts.rightHandWeight, facts.rightElbowTracked, facts.rightElbowRoll);
-            p.armSwingChestFollow = job.chestArmSwingFactor > 0f && p.hasHips && p.hasChest && (p.leftArm.weight > 0f || p.rightArm.weight > 0f);
             Leg(ref p.leftLeg, ref job, in facts, true);
             Leg(ref p.rightLeg, ref job, in facts, false);
             p.leftToeDriven = p.hasLeftToe && facts.leftToeTracked;

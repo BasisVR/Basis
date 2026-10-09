@@ -3031,10 +3031,6 @@
       "value": "Maximum sideways bend of the wrist toward the little finger, in degrees."
     },
     {
-      "key": "settings.bodyTracking.maxBendDeg.title.tooltip",
-      "value": "Largest angle the spine is allowed to bend, in degrees."
-    },
-    {
       "key": "settings.bodyTracking.struggleStart.title.tooltip",
       "value": "How far you can reach before the body starts to strain."
     },
@@ -3043,188 +3039,16 @@
       "value": "The reach distance at which the body is fully stretched."
     },
     {
-      "key": "settings.bodyTracking.maxChestDelta.title.tooltip",
-      "value": "Largest angle the chest may twist away from the hips."
-    },
-    {
       "key": "settings.bodyTracking.maxHipDelta.title.tooltip",
       "value": "Largest angle the hips may twist away from the chest."
-    },
-    {
-      "key": "settings.bodyTracking.spineBendPitch.title.tooltip",
-      "value": "How much forward and backward lean the lower spine handles."
-    },
-    {
-      "key": "settings.bodyTracking.chestBendPitch.title.tooltip",
-      "value": "How much forward and backward lean the chest (lower thoracic) handles."
-    },
-    {
-      "key": "settings.bodyTracking.chestBendYaw.title.tooltip",
-      "value": "How much side-to-side turning the chest (lower thoracic) handles."
-    },
-    {
-      "key": "settings.bodyTracking.chestBendRoll.title.tooltip",
-      "value": "How much sideways lean the chest (lower thoracic) handles."
-    },
-    {
-      "key": "settings.bodyTracking.neckYawShare.title.tooltip",
-      "value": "Share of a head turn the neck bone carries; the rest stays at the head joint."
-    },
-    {
-      "key": "settings.bodyTracking.spineStretchMax.title.tooltip",
-      "value": "How far the spine bones may stretch before the head comes off the headset when tracked hips or chest sit too far from the head."
     },
     {
       "key": "settings.bodyTracking.vspineTorsoYawDeadzoneVR.title.tooltip",
       "value": "Head turn the torso ignores in VR before it follows; glances inside it stay in the neck."
     },
     {
-      "key": "settings.bodyTracking.spineBendYaw.title.tooltip",
-      "value": "How much side-to-side turning the lower spine handles."
-    },
-    {
-      "key": "settings.bodyTracking.spineBendRoll.title.tooltip",
-      "value": "How much sideways tilting the lower spine handles."
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendPitch.title.tooltip",
-      "value": "How much forward and backward lean the upper chest handles."
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendYaw.title.tooltip",
-      "value": "How much side-to-side turning the upper chest handles."
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendRoll.title.tooltip",
-      "value": "How much sideways tilting the upper chest handles."
-    },
-    {
-      "key": "settings.bodyTracking.spineSquishBoost.title.tooltip",
-      "value": "How much the spine compresses when you crouch or bend down."
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxForward.title.tooltip",
-      "value": "Largest forward lean the spine is allowed, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxBackward.title.tooltip",
-      "value": "Largest backward lean the spine is allowed, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxLateral.title.tooltip",
-      "value": "Largest sideways lean the spine is allowed, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.neckMaxCone.title.tooltip",
-      "value": "Largest angle the neck may tilt away from upright, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.hipHingeStart.title.tooltip",
-      "value": "Lean angle at which your hips begin to hinge forward."
-    },
-    {
-      "key": "settings.bodyTracking.hipHingeMaxAdd.title.tooltip",
-      "value": "Extra hip hinge added at full forward lean, in degrees."
-    },
-    {
       "key": "settings.bodyTracking.moveBodyBackWhenCrouching.title.tooltip",
       "value": "How far your body shifts backward as you crouch down."
-    },
-    {
-      "key": "settings.bodyTracking.swingSmoothRate.title.tooltip",
-      "value": "How quickly body swing motion settles; higher reacts faster."
-    },
-    {
-      "key": "settings.bodyTracking.chestSpringHz.title.tooltip",
-      "value": "Stiffness of the springy chest motion; higher feels tighter."
-    },
-    {
-      "key": "settings.bodyTracking.chestSpringDamping.title.tooltip",
-      "value": "How quickly chest spring bounce settles instead of wobbling."
-    },
-    {
-      "key": "settings.bodyTracking.spineCcdRelax.title.tooltip",
-      "value": "How loosely the spine solves; lower makes it follow more strictly."
-    },
-    {
-      "key": "settings.bodyTracking.spineTwistKeep.title.tooltip",
-      "value": "How much the lower back may twist to reach. Lower bends sideways instead of corkscrewing when your head is off to one side."
-    },
-    {
-      "key": "settings.bodyTracking.spineNeckTwistKeep.title.tooltip",
-      "value": "How much the neck may twist to follow your head. Higher lets the neck turn freely."
-    },
-    {
-      "key": "settings.bodyTracking.chestArmSwingFactor.title.tooltip",
-      "value": "How much your chest turns along with arm swings."
-    },
-    {
-      "key": "settings.bodyTracking.chestArmSwingMax.title.tooltip",
-      "value": "Largest chest turn allowed from arm swing, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisPitchGain.title.tooltip",
-      "value": "How much the lower back curves as you lean forward."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisBase.title.tooltip",
-      "value": "Resting amount of lower-back curve while standing upright."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisNeckShare.title.tooltip",
-      "value": "How much of the back curve is carried up into the neck."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisMaxHeadPitch.title.tooltip",
-      "value": "Largest head tilt that feeds into back curve, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeStart.title.tooltip",
-      "value": "Lean angle where extreme back-curve shaping begins."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeFull.title.tooltip",
-      "value": "Lean angle where extreme back-curve shaping reaches full strength."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeRollForward.title.tooltip",
-      "value": "Extra forward roll applied during extreme back curves, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeRollBackward.title.tooltip",
-      "value": "Extra backward roll applied during extreme back curves, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsHoriz.title.tooltip",
-      "value": "Sideways hip shift allowed during extreme back curves."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsHorizLookUp.title.tooltip",
-      "value": "Maximum forward hips shift at a full look UP, in meters. In an arch the pelvis leads. Default: 0.025"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestHorizLookUp.title.tooltip",
-      "value": "Maximum forward chest shift at a full look UP, in meters. Kept well under the hips value so the chest does not lead the body. Default: 0.01"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestHoriz.title.tooltip",
-      "value": "Sideways chest shift allowed during extreme back curves."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsDown.title.tooltip",
-      "value": "Downward hip shift allowed during extreme back curves."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestDown.title.tooltip",
-      "value": "Downward chest shift allowed during extreme back curves."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsDownLookUp.title.tooltip",
-      "value": "Downward hip shift while looking up during extreme back curves."
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestDownLookUp.title.tooltip",
-      "value": "Downward chest shift while looking up during extreme back curves."
     },
     {
       "key": "settings.bodyTracking.vspineChestPitchFrac.title.tooltip",
@@ -3297,22 +3121,6 @@
     {
       "key": "settings.bodyTracking.derivativeCutoff.title.tooltip",
       "value": "Smoothing applied to motion speed to steady the filter."
-    },
-    {
-      "key": "settings.bodyTracking.anat.diffStiffness.title.tooltip",
-      "value": "Vary spine stiffness along its length for more natural bending."
-    },
-    {
-      "key": "settings.bodyTracking.anat.shoulderSlide.title.tooltip",
-      "value": "Let the shoulder blades slide as your arms reach around."
-    },
-    {
-      "key": "settings.bodyTracking.anat.cervicalLordosis.title.tooltip",
-      "value": "Add a natural forward curve to the neck."
-    },
-    {
-      "key": "settings.bodyTracking.anat.pelvicTwistRouting.title.tooltip",
-      "value": "Route pelvic twist through the spine for more lifelike turning."
     },
     {
       "key": "settings.bodyTracking.anat.legSwivelSmoothing.title.tooltip",
@@ -11003,52 +10811,12 @@
       "value": "IK refinements modeled on real biomechanics."
     },
     {
-      "key": "settings.bodyTracking.anat.diffStiffness.title",
-      "value": "Differential Lumbar / Thoracic Stiffness"
-    },
-    {
-      "key": "settings.bodyTracking.anat.diffStiffness.description",
-      "value": "Routes spine twist preferentially to the upper chest (thoracic) since the lumbar is biomechanically twist-resistant. Cuts spine yaw weight, boosts upper chest yaw."
-    },
-    {
-      "key": "settings.bodyTracking.anat.shoulderSlide.title",
-      "value": "Shoulder Slide on Chest Twist"
-    },
-    {
-      "key": "settings.bodyTracking.anat.shoulderSlide.description",
-      "value": "Counter-yaws shoulders past 30° of chest twist, mimicking the way the scapula slides on the rib cage during torso turns."
-    },
-    {
-      "key": "settings.bodyTracking.anat.cervicalLordosis.title",
-      "value": "Cervical Lordosis"
-    },
-    {
-      "key": "settings.bodyTracking.anat.cervicalLordosis.description",
-      "value": "Adds a small forward pitch to the neck so the head sits more naturally forward of the neck axis."
-    },
-    {
-      "key": "settings.bodyTracking.anat.pelvicTwistRouting.title",
-      "value": "Pelvic-Thoracic Twist Routing"
-    },
-    {
-      "key": "settings.bodyTracking.anat.pelvicTwistRouting.description",
-      "value": "Forces hip-to-chest twist to distribute 75% upper chest / 25% spine — the real anatomical ratio for axial rotation."
-    },
-    {
       "key": "settings.bodyTracking.anat.spineRom.title",
       "value": "Anatomical Spine Limits"
     },
     {
       "key": "settings.bodyTracking.anat.spineRom.description",
       "value": "Holds each spine bone inside the range of motion of the real vertebrae it stands for — the lumbar barely twists, the chest barely folds, the neck is free. Stops impossible spine poses."
-    },
-    {
-      "key": "settings.bodyTracking.anat.chestIkTarget.title",
-      "value": "Chest IK Target"
-    },
-    {
-      "key": "settings.bodyTracking.anat.chestIkTarget.description",
-      "value": "With a chest tracker, pulls the chest bone onto the tracker's position instead of leaving it wherever the head solve happens to put it. The head keeps priority and stays on the headset. Does nothing without a chest tracker."
     },
     {
       "key": "settings.bodyTracking.anat.legSwivelSmoothing.title",
@@ -11199,14 +10967,6 @@
       "value": "How much the shoulder moves forward when the hand reaches out. Default: 0.3"
     },
     {
-      "key": "settings.bodyTracking.maxBendDeg.title",
-      "value": "Max Spine Bend (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.maxBendDeg.description",
-      "value": "Maximum bend angle for the spine chain. Default: 90"
-    },
-    {
       "key": "settings.bodyTracking.struggleStart.title",
       "value": "Struggle Start"
     },
@@ -11223,68 +10983,12 @@
       "value": "Arm extension ratio where struggle is fully applied. Default: 1.0"
     },
     {
-      "key": "settings.bodyTracking.maxChestDelta.title",
-      "value": "Max Chest Delta (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.maxChestDelta.description",
-      "value": "Maximum rotation delta allowed for the chest bone per frame. Default: 90"
-    },
-    {
       "key": "settings.bodyTracking.maxHipDelta.title",
       "value": "Max Hip Delta (deg)"
     },
     {
       "key": "settings.bodyTracking.maxHipDelta.description",
       "value": "Maximum rotation delta allowed for the hip bone per frame. Default: 90"
-    },
-    {
-      "key": "settings.bodyTracking.spineBendPitch.title",
-      "value": "Spine Bend Pitch (forward/back)"
-    },
-    {
-      "key": "settings.bodyTracking.spineBendPitch.description",
-      "value": "Fraction of forward/back lean absorbed by the spine bone (lumbar). Default: 0.40"
-    },
-    {
-      "key": "settings.bodyTracking.chestBendPitch.title",
-      "value": "Chest Bend Pitch (forward/back)"
-    },
-    {
-      "key": "settings.bodyTracking.chestBendPitch.description",
-      "value": "Fraction of forward/back lean absorbed by the chest bone (lower thoracic). Default: 0.20"
-    },
-    {
-      "key": "settings.bodyTracking.chestBendYaw.title",
-      "value": "Chest Bend Yaw (twist)"
-    },
-    {
-      "key": "settings.bodyTracking.chestBendYaw.description",
-      "value": "Fraction of head yaw absorbed by the chest bone (lower thoracic). Default: 0.15"
-    },
-    {
-      "key": "settings.bodyTracking.chestBendRoll.title",
-      "value": "Chest Bend Roll (side)"
-    },
-    {
-      "key": "settings.bodyTracking.chestBendRoll.description",
-      "value": "Fraction of sideways lean absorbed by the chest bone (lower thoracic). Default: 0.15"
-    },
-    {
-      "key": "settings.bodyTracking.neckYawShare.title",
-      "value": "Neck Yaw Share"
-    },
-    {
-      "key": "settings.bodyTracking.neckYawShare.description",
-      "value": "Share of the head's turn relative to the torso that the neck bone carries; the remainder stays at the head joint. Default: 0.5"
-    },
-    {
-      "key": "settings.bodyTracking.spineStretchMax.title",
-      "value": "Spine Stretch Max"
-    },
-    {
-      "key": "settings.bodyTracking.spineStretchMax.description",
-      "value": "Maximum uniform stretch of the spine bones (fraction) before the head is projected onto the chain's reach when tracked hips or chest sit too far from the head. Default: 0.03"
     },
     {
       "key": "settings.bodyTracking.vspineTorsoYawDeadzoneVR.title",
@@ -11295,102 +10999,6 @@
       "value": "Head turn the torso ignores in VR before it follows the head; used when Torso Yaw Play In VR is on. Default: 30"
     },
     {
-      "key": "settings.bodyTracking.spineBendYaw.title",
-      "value": "Spine Bend Yaw (twist)"
-    },
-    {
-      "key": "settings.bodyTracking.spineBendYaw.description",
-      "value": "Fraction of head-twist absorbed by the spine bone. Lumbar twists very little. Default: 0.10"
-    },
-    {
-      "key": "settings.bodyTracking.spineBendRoll.title",
-      "value": "Spine Bend Roll (side)"
-    },
-    {
-      "key": "settings.bodyTracking.spineBendRoll.description",
-      "value": "Fraction of side-lean absorbed by the spine bone. Default: 0.35"
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendPitch.title",
-      "value": "Upper Chest Bend Pitch"
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendPitch.description",
-      "value": "Fraction of forward/back lean absorbed by the upper chest (thoracic). Default: 0.25"
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendYaw.title",
-      "value": "Upper Chest Bend Yaw"
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendYaw.description",
-      "value": "Fraction of head-twist absorbed by the upper chest. Default: 0.30"
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendRoll.title",
-      "value": "Upper Chest Bend Roll"
-    },
-    {
-      "key": "settings.bodyTracking.upperChestBendRoll.description",
-      "value": "Fraction of side-lean absorbed by the upper chest. Default: 0.20"
-    },
-    {
-      "key": "settings.bodyTracking.spineSquishBoost.title",
-      "value": "Spine Squish Boost"
-    },
-    {
-      "key": "settings.bodyTracking.spineSquishBoost.description",
-      "value": "Scales bend weights with head-to-hips compression: spine folds more when crouched, straightens when reaching up. 0 disables. Default: 0.5"
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxForward.title",
-      "value": "Spine Max Forward (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxForward.description",
-      "value": "Maximum forward bend per spine joint contribution. Default: 60"
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxBackward.title",
-      "value": "Spine Max Backward (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxBackward.description",
-      "value": "Maximum backward bend per spine joint contribution. Default: 25"
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxLateral.title",
-      "value": "Spine Max Lateral (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.spineMaxLateral.description",
-      "value": "Maximum side-bend per spine joint contribution. Default: 25"
-    },
-    {
-      "key": "settings.bodyTracking.neckMaxCone.title",
-      "value": "Neck Max Bend (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.neckMaxCone.description",
-      "value": "Caps how far the neck bends away from the chest before the chest and spine take over, preventing neck overbend. Default: 45"
-    },
-    {
-      "key": "settings.bodyTracking.hipHingeStart.title",
-      "value": "Hip Hinge Start (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.hipHingeStart.description",
-      "value": "Forward lean angle past which the pelvis tilts forward to share the bend. Default: 30"
-    },
-    {
-      "key": "settings.bodyTracking.hipHingeMaxAdd.title",
-      "value": "Hip Hinge Max Add (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.hipHingeMaxAdd.description",
-      "value": "Maximum additional pelvis pitch contributed by the hinge. Default: 15"
-    },
-    {
       "key": "settings.bodyTracking.moveBodyBackWhenCrouching.title",
       "value": "Move Body Back When Crouching"
     },
@@ -11399,204 +11007,12 @@
       "value": "Shifts the hips back as the head drops, so a squat or forward bow sits over the feet instead of folding straight down. Multiplies the head's drop distance; 0 disables. Default: 1"
     },
     {
-      "key": "settings.bodyTracking.swingSmoothRate.title",
-      "value": "Elbow Swing Smoothing (deg/s)"
-    },
-    {
-      "key": "settings.bodyTracking.swingSmoothRate.description",
-      "value": "Caps how fast the elbow can swing around the shoulder-to-hand axis, so collision pushes and pose flips ease in instead of popping. Lower = smoother (more lag); 0 disables. Default: 720"
-    },
-    {
-      "key": "settings.bodyTracking.chestSpringHz.title",
-      "value": "Chest Spring Hz"
-    },
-    {
-      "key": "settings.bodyTracking.chestSpringHz.description",
-      "value": "Spring frequency for the body's lag behind head motion. 0 disables. Default: 12"
-    },
-    {
-      "key": "settings.bodyTracking.chestSpringDamping.title",
-      "value": "Chest Spring Damping"
-    },
-    {
-      "key": "settings.bodyTracking.chestSpringDamping.description",
-      "value": "Damping ratio. 1 = critically damped (no overshoot). Default: 1.0"
-    },
-    {
-      "key": "settings.bodyTracking.spineCcdRelax.title",
-      "value": "Spine Solver Smoothing"
-    },
-    {
-      "key": "settings.bodyTracking.spineCcdRelax.description",
-      "value": "Under-relaxation for the spine CCD aim. Lower = smoother but softer reach; 1 = full step. Default: 0.8"
-    },
-    {
-      "key": "settings.bodyTracking.spineTwistKeep.title",
-      "value": "Spine Twist – Lower Back"
-    },
-    {
-      "key": "settings.bodyTracking.spineTwistKeep.description",
-      "value": "Axial twist the lower back (lumbar) may use to reach an off-center head. A real lumbar barely twists — lower bends sideways instead of corkscrewing. Default: 0.25"
-    },
-    {
-      "key": "settings.bodyTracking.spineNeckTwistKeep.title",
-      "value": "Spine Twist – Neck"
-    },
-    {
-      "key": "settings.bodyTracking.spineNeckTwistKeep.description",
-      "value": "Axial twist the neck (cervical) may use; the joints between interpolate. Higher lets the neck turn freely like a real spine. Default: 0.9"
-    },
-    {
-      "key": "settings.bodyTracking.chestArmSwingFactor.title",
-      "value": "Chest Arm-Swing Factor"
-    },
-    {
-      "key": "settings.bodyTracking.chestArmSwingFactor.description",
-      "value": "How much the chest yaws to follow hand targets when no chest tracker is present. 0 disables. Default: 0.3"
-    },
-    {
-      "key": "settings.bodyTracking.chestArmSwingMax.title",
-      "value": "Chest Arm-Swing Max (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.chestArmSwingMax.description",
-      "value": "Cap on the chest yaw contributed by arm-swing. Default: 15"
-    },
-    {
       "key": "settings.bodyTracking.chestSpringHeadVelGain.title",
       "value": "Chest Spring Head-Velocity Gain"
     },
     {
       "key": "settings.bodyTracking.chestSpringHeadVelGain.description",
       "value": "Feeds head linear velocity into the chest spring so the body leads quick head moves instead of just lagging. 0 disables (pure reactive spring). Default: 0.7"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisPitchGain.title",
-      "value": "Lordosis Pitch Gain (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisPitchGain.description",
-      "value": "Extra cervical bend at full head-down on top of the 5° base. 0 = constant 5° lordosis; positive scales with how far the head is looking down. Only used when Cervical Lordosis (Anatomy) is on. Default: 8"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisBase.title",
-      "value": "Lordosis Base Bend (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisBase.description",
-      "value": "Forward cervical bend held in a neutral, level-head pose, before pitch coupling is added. Only used when Cervical Lordosis (Anatomy) is on. Default: 5"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisNeckShare.title",
-      "value": "Lordosis Neck Share"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisNeckShare.description",
-      "value": "Fraction of the lordosis bend applied at the neck rather than the upperChest, when an upperChest bone exists. 1 = all neck. Default: 0.65"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisMaxHeadPitch.title",
-      "value": "Lordosis Max Head Pitch (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisMaxHeadPitch.description",
-      "value": "Clamp on head pitch up/down before the lordosis solve, so a steeply pitched head can't drive the neck past anatomical limits. Default: 80"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeStart.title",
-      "value": "Lordosis Extreme Onset (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeStart.description",
-      "value": "Head pitch magnitude at which the extreme-look response (extra spine roll plus hips/chest shift) begins ramping in. Default: 50"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeFull.title",
-      "value": "Lordosis Extreme Full (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeFull.description",
-      "value": "Head pitch magnitude at which the extreme-look response reaches full strength. Should sit above the onset value. Default: 80"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeRollForward.title",
-      "value": "Lordosis Extreme Roll Forward (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeRollForward.description",
-      "value": "Maximum extra spine roll added at full extreme look-down. Default: 10"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeRollBackward.title",
-      "value": "Lordosis Extreme Roll Backward (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeRollBackward.description",
-      "value": "Maximum extra spine roll added at full extreme look-up. Default: 4"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsHoriz.title",
-      "value": "Lordosis Extreme Hips Shift (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsHoriz.description",
-      "value": "Maximum horizontal hips counter-shift at full extreme look, in meters. Default: 0.025"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestHoriz.title",
-      "value": "Lordosis Extreme Chest Shift (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestHoriz.description",
-      "value": "Maximum horizontal chest counter-shift at full extreme look, in meters. Default: 0.04"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsHorizLookUp.title",
-      "value": "Lordosis Extreme Hips Shift, Look Up (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsHorizLookUp.description",
-      "value": "Maximum forward hips shift at a full look UP, in meters. In an arch the pelvis leads. Default: 0.025"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestHorizLookUp.title",
-      "value": "Lordosis Extreme Chest Shift, Look Up (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestHorizLookUp.description",
-      "value": "Maximum forward chest shift at a full look UP, in meters. Kept well under the hips value so the chest does not lead the body. Default: 0.01"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsDown.title",
-      "value": "Lordosis Extreme Hips Drop (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsDown.description",
-      "value": "Maximum downward hips shift at full look-down, in meters. Default: 0.015"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestDown.title",
-      "value": "Lordosis Extreme Chest Drop (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestDown.description",
-      "value": "Maximum downward chest shift at full look-down, in meters. Default: 0.025"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsDownLookUp.title",
-      "value": "Lordosis Extreme Hips Drop, Look-Up (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeHipsDownLookUp.description",
-      "value": "Downward hips shift at full look-up, in meters; much smaller than the look-down drop. Default: 0.0005"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestDownLookUp.title",
-      "value": "Lordosis Extreme Chest Drop, Look-Up (m)"
-    },
-    {
-      "key": "settings.bodyTracking.lordosisExtremeChestDownLookUp.description",
-      "value": "Downward chest shift at full look-up, in meters; much smaller than the look-down drop. Default: 0.001"
     },
     {
       "key": "settings.bodyTracking.section.virtualSpine.title",
@@ -15483,30 +14899,6 @@
       "value": "Aim each knee along its foot's facing instead of straight ahead, so turned feet don't twist the leg."
     },
     {
-      "key": "settings.bodyTracking.wristAxialBound.title",
-      "value": "Bound Wrist Twist"
-    },
-    {
-      "key": "settings.bodyTracking.wristAxialBound.title.tooltip",
-      "value": "Stop the wrist rolling past its anatomical limit when the hand tracker over-rotates."
-    },
-    {
-      "key": "settings.bodyTracking.elbowDrag.title",
-      "value": "Elbow Drag"
-    },
-    {
-      "key": "settings.bodyTracking.elbowDrag.title.tooltip",
-      "value": "Let the elbow trail behind the hand when you have no elbow tracker, so the arm feels weighted instead of snapping."
-    },
-    {
-      "key": "settings.bodyTracking.elbowDragHz.title",
-      "value": "Elbow Drag Response"
-    },
-    {
-      "key": "settings.bodyTracking.elbowDragHz.title.tooltip",
-      "value": "Corner frequency of the drag, in hertz. Lower feels heavier and lags more; higher follows the hand closely."
-    },
-    {
       "key": "settings.bodyTracking.shoulderShrug.title",
       "value": "Shoulder Shrug"
     },
@@ -15515,52 +14907,12 @@
       "value": "Raise the shoulder as the hand reaches overhead, the way a real shoulder rides up."
     },
     {
-      "key": "settings.bodyTracking.shoulderRetraction.title",
-      "value": "Shoulder Retraction"
-    },
-    {
-      "key": "settings.bodyTracking.shoulderRetraction.title.tooltip",
-      "value": "Pull the shoulder back as the hand reaches behind you, instead of leaving the chest square."
-    },
-    {
-      "key": "settings.bodyTracking.shoulderCoupleRatio.title",
-      "value": "Shoulder Coupling"
-    },
-    {
-      "key": "settings.bodyTracking.shoulderCoupleRatio.title.tooltip",
-      "value": "How much of the arm's swing the shoulder takes on. 0 keeps the shoulder still; 1 lets it follow the arm fully."
-    },
-    {
       "key": "settings.bodyTracking.shoulderMaxDeg.title",
       "value": "Shoulder Travel Limit"
     },
     {
       "key": "settings.bodyTracking.shoulderMaxDeg.title.tooltip",
       "value": "Largest angle the shoulder may rotate away from its bind pose, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.shoulderSlideStart.title",
-      "value": "Shoulder Slide Start"
-    },
-    {
-      "key": "settings.bodyTracking.shoulderSlideStart.title.tooltip",
-      "value": "Arm elevation at which the shoulder starts sliding upward, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.shoulderSlideMax.title",
-      "value": "Shoulder Slide Limit"
-    },
-    {
-      "key": "settings.bodyTracking.shoulderSlideMax.title.tooltip",
-      "value": "Largest upward slide of the shoulder once sliding has begun, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.shoulderSlideFraction.title",
-      "value": "Shoulder Slide Amount"
-    },
-    {
-      "key": "settings.bodyTracking.shoulderSlideFraction.title.tooltip",
-      "value": "How much of the available slide range is actually used. 0 disables sliding."
     },
     {
       "key": "settings.bodyTracking.bodyFit.maxDeviation.title",
@@ -15601,22 +14953,6 @@
     {
       "key": "settings.bodyTracking.kneeFootFollow.title.tooltip",
       "value": "How strongly the knee tracks its foot while you are standing upright."
-    },
-    {
-      "key": "settings.bodyTracking.spineGazeFollow.title",
-      "value": "Spine Follows Gaze"
-    },
-    {
-      "key": "settings.bodyTracking.spineGazeFollow.title.tooltip",
-      "value": "How much the spine turns toward where you are looking."
-    },
-    {
-      "key": "settings.bodyTracking.neckGazeFollow.title",
-      "value": "Neck Follows Gaze"
-    },
-    {
-      "key": "settings.bodyTracking.neckGazeFollow.title.tooltip",
-      "value": "How much the neck turns toward where you are looking."
     },
     {
       "key": "settings.bodyTracking.vspineGazeSwingRemoval.title",
@@ -15665,110 +15001,6 @@
     {
       "key": "settings.bodyTracking.vspineNodPivotEstimate.description",
       "value": "Works out where your head really pivots when you nod, by watching the headset, instead of assuming your avatar's neck matches yours. Stops the whole body sliding out from under you when you look up or down. Default: on"
-    },
-    {
-      "key": "settings.bodyTracking.neckGazeFollowMax.title",
-      "value": "Neck Gaze Limit"
-    },
-    {
-      "key": "settings.bodyTracking.neckGazeFollowMax.title.tooltip",
-      "value": "Largest angle the neck may turn to follow your gaze, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.thoracicBendStiffen.title",
-      "value": "Upper Back Stiffness"
-    },
-    {
-      "key": "settings.bodyTracking.thoracicBendStiffen.title.tooltip",
-      "value": "How much the upper back resists bending, keeping the curve lower in the spine."
-    },
-    {
-      "key": "settings.bodyTracking.spineTautBand.title",
-      "value": "Spine Taut Band"
-    },
-    {
-      "key": "settings.bodyTracking.spineTautBand.title.tooltip",
-      "value": "Slack in the spine chain before it pulls taut, as a fraction of spine length."
-    },
-    {
-      "key": "settings.bodyTracking.bendTwistCoupling.title",
-      "value": "Bend/Twist Coupling"
-    },
-    {
-      "key": "settings.bodyTracking.bendTwistCoupling.title.tooltip",
-      "value": "How much twisting the spine also bends it, the way a real torso couples the two."
-    },
-    {
-      "key": "settings.bodyTracking.trunkCounterbalance.title",
-      "value": "Trunk Counterbalance"
-    },
-    {
-      "key": "settings.bodyTracking.trunkCounterbalance.title.tooltip",
-      "value": "Lean the trunk against a reach to keep your weight over your feet."
-    },
-    {
-      "key": "settings.bodyTracking.elbowSwingSmoothing.title",
-      "value": "Elbow Swing Smoothing"
-    },
-    {
-      "key": "settings.bodyTracking.elbowSwingSmoothing.title.tooltip",
-      "value": "Rate-limits the elbow/knee swing and how fast a torso-collision push eases in. Off = the elbow swings freely (test for over-damping)."
-    },
-    {
-      "key": "settings.bodyTracking.trunkCounterbalanceMax.title",
-      "value": "Counterbalance Limit"
-    },
-    {
-      "key": "settings.bodyTracking.trunkCounterbalanceMax.title.tooltip",
-      "value": "Largest counterbalance lean allowed, as a fraction of the full range."
-    },
-    {
-      "key": "settings.bodyTracking.chestFollowChestShare.title",
-      "value": "Chest Follow Share"
-    },
-    {
-      "key": "settings.bodyTracking.chestFollowChestShare.title.tooltip",
-      "value": "How much of the chest tracker's motion the chest takes, with the rest passed to the spine."
-    },
-    {
-      "key": "settings.bodyTracking.chestIkWeight.title",
-      "value": "Chest IK Weight"
-    },
-    {
-      "key": "settings.bodyTracking.chestIkWeight.title.tooltip",
-      "value": "How strongly the chest is pulled onto its tracker. 0 leaves the chest to the spine solve."
-    },
-    {
-      "key": "settings.bodyTracking.chestIkIterations.title",
-      "value": "Chest IK Iterations"
-    },
-    {
-      "key": "settings.bodyTracking.chestIkIterations.title.tooltip",
-      "value": "Solver passes per frame for the chest. More is more accurate and more expensive."
-    },
-    {
-      "key": "settings.bodyTracking.chestIkSweeps.title",
-      "value": "Head Restore Sweeps"
-    },
-    {
-      "key": "settings.bodyTracking.chestIkSweeps.title.tooltip",
-      "value": "Extra passes that put the head back on target after the chest has been solved."
-    },
-    {
-      "key": "settings.bodyTracking.chestPosPullMax.title",
-      "value": "Chest Pull Limit"
-    },
-    {
-      "key": "settings.bodyTracking.chestPosPullMax.title.tooltip",
-      "value": "Largest angle the chest may swing to reach its tracker, in degrees."
-    },
-    {
-      "key": "settings.bodyTracking.chestPullMaxDist.title",
-      "value": "Chest Pull Distance"
-    },
-    {
-      "key": "settings.bodyTracking.chestPullMaxDist.title.tooltip",
-      "value": "How far the chest may be pulled toward its tracker."
     },
     {
       "key": "settings.bodyTracking.trackedKneeMinCutoff.title",

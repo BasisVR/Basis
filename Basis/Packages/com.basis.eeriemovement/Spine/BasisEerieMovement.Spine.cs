@@ -90,7 +90,6 @@ namespace Basis.IK
             SpineData.chestTargetRotation = targetRotationChest * offsetRotationChest;
             SpineData.chestForward = Vector3.forward;
             SpineData.chestHintWeight = hasTrackedChest ? 1f : 0f;
-            //SpineData.chestPositionWeight = hasTrackedChest ? Mathf.Clamp01(chestIkWeight) : 0f;
             RalivIKSpine.SolveSpine(ref SpineData);
             BasisBoneHandle rootHandle = chainHeadToSpine[count - 1];
             poseStream.SetPosition(rootHandle, SpineData.positions[0]);
