@@ -537,4 +537,5 @@ librist staged first).
 [`Native~/TESTING.md`](Native~/TESTING.md) covers prerequisites and testing.
 [`TESTING.md`](TESTING.md) has the checks for the Unity side, and
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) the licences of what the
-package includes.
+package includes. After a change to `Native~/Cargo.lock`, update the licence
+files and bake the licence manifest as that file describes.

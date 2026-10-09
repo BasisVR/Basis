@@ -2,8 +2,15 @@
 
 The native engine (`basis_media`) is a Rust binary that links its dependencies
 statically, so the shipped `.dll` / `.so` embeds them. Everything in the graph is
-permissively licensed and every licence in it requires attribution, which is
-what this file provides.
+permissively licensed, and every licence in it except CC0-1.0 (`to_method`)
+requires attribution. The licence texts and copyright notices, `to_method`'s
+included, are in [`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt); this
+file is the overview.
+
+The same texts are split one file per licence, plus one per C library, in
+`ThirdPartyLicenses~/`. The licence manifest in
+`dev.hai-vr.hvr.license-review` tracks those files, so the client lists them
+under Settings, Third-party licences, beside every other package's licence.
 
 Nothing here is copyleft. `Native~/deny.toml` holds the allowed licence set and
 `Native~/tools/ci.ps1` fails the build on anything outside it, so a dependency
@@ -22,37 +29,31 @@ does.
 
 ## Licences in the shipped graph
 
-Resolved from the engine's own `Cargo.lock` for the shipping library, per
-target: 302 crates on Windows x64, 281 on Android arm64, 289 on Linux x64. The
-Windows graph is the largest and is broken down here; the other two are
-subsets of the same licence set.
+`THIRD_PARTY_LICENSES.txt` covers the shipping library (`media-ffi` with the
+`rist` feature) on the three targets it ships on, without build and dev
+dependencies or the workspace's own crates, plus the C libraries linked into
+it. Where a crate offers a choice of licence, the text given is the licence
+taken; `Native~/deny.toml` sets what may be chosen at all.
 
-| Licence | Crates |
-| --- | --- |
-| MIT or Apache-2.0 (either, at your option) | 207 |
-| MIT | 40 |
-| Unicode-3.0 | 18 |
-| Unlicense or MIT | 7 |
-| BSD-3-Clause | 4 |
-| ISC | 4 |
-| BSD-2-Clause, or Apache-2.0, or MIT | 3 |
-| Apache-2.0, or ISC, or MIT | 3 |
-| Apache-2.0 | 3 |
-| MIT, Apache-2.0 or Zlib | 2 |
-| one each: BSD-2-Clause; CC0-1.0; CDLA-Permissive-2.0; Apache-2.0 and ISC; Apache-2.0 or BSL-1.0; and four further permissive combinations | 11 |
+`ThirdPartyLicenses~/` holds the same sections, so a change to
+`Native~/Cargo.lock` or to a vendored C library that changes what the plugin
+links needs both updated to match.
 
-Where a crate offers a choice, the permissive option is the one taken, and
-`Native~/deny.toml` lists what may be chosen.
+The client shows the texts as baked into the licence manifest, not the files,
+so after changing a file, select `BasisFrameworkLicenseManifest` in
+`dev.hai-vr.hvr.license-review` and press Bake. Bake does not mark the asset
+as changed, so edit any field in its inspector and set it back before File,
+Save Project, or nothing reaches the disk. Bake also re-reads every other
+package's licence, so entries baked from a checkout with other line endings
+show in the diff as whitespace-only changes.
 
-To regenerate the exact list, from `Native~/`:
-
-```sh
-cargo metadata --format-version 1 --locked --filter-platform x86_64-pc-windows-msvc
-```
-
-Each package object carries `name`, `version` and `license`. Filtering by
-platform matters: without it the resolver reports crates for targets this
-engine is never built for, and their licences are not obligations here.
+A licence that enters the graph needs a new file in `ThirdPartyLicenses~/`,
+with `_license_` in its name so the manifest's inspector finds it: tick it
+there, then under Edit Licenses give it its SPDX identifier and a product name
+in the form the others use. A licence that leaves the graph takes its file
+with it, and the inspector no longer lists it: delete its entry from the
+package's `trackedPackages` list with the inspector in Debug mode. Bake after
+either.
 
 ## Libraries worth naming
 
@@ -66,7 +67,7 @@ lifting, or whose licence differs from the MIT/Apache norm:
 | **claxon** | Apache-2.0 | FLAC audio decoding |
 | **retina** | MIT or Apache-2.0 | RTSP client and RTP depacketisation. Vendored, see below |
 | **matroska-demuxer** | Zlib, or MIT, or Apache-2.0 | Matroska/WebM parsing. Vendored, see below |
-| **re_mp4** | MIT | MP4 and fragmented-MP4 parsing |
+| **re_mp4** | MIT | MP4 and fragmented-MP4 parsing. Vendored, see below |
 | **m3u8-rs** | MIT | HLS playlist parsing |
 | **str0m** | MIT or Apache-2.0 | WebRTC (the WHEP receive path) |
 | **webrtc-rs** `rtp` / `rtcp` / `webrtc-util` | MIT or Apache-2.0 | RTP and RTCP packet formats |
@@ -85,9 +86,10 @@ IDNA handling.
 
 ## Vendored sources
 
-Three dependencies are vendored under `Native~/third_party/` rather than taken
-from crates.io, each with its patches and the reason for them documented in a
-`PATCHES.md` beside the source:
+Four dependencies live under `Native~/third_party/` rather than coming from
+crates.io. The three Rust crates are vendored, each with its patches and the
+reason for them documented in a `PATCHES.md` beside the source; librist is
+built from a pinned upstream tag:
 
 - **retina** (MIT or Apache-2.0) — patched for servers that advertise an
   all-zero SSRC, for AAC access units delivered without the RTP marker bit, for
@@ -96,10 +98,13 @@ from crates.io, each with its patches and the reason for them documented in a
 - **matroska-demuxer** (Zlib, or MIT, or Apache-2.0) — patched so cue-based
   seeking resolves against the right cluster and lands on the keyframe at or
   before the requested time.
-- **librist** (BSD-2-Clause), which vendors **mbedTLS** (Apache-2.0) — the RIST
-  live-ingest transport. Built from source by
+- **re_mp4** (MIT) — patched so a metadata item of a type the crate does not
+  list, such as a PNG cover, is read as binary instead of failing the file.
+- **librist** (BSD-2-Clause), which vendors **mbedTLS** (Apache-2.0) and
+  **cJSON** (MIT) — the RIST live-ingest transport. Built from source by
   `Native~/tools/build-librist.ps1` on Windows and `build-librist.sh` on Linux;
-  the static library is not committed.
+  the static library is not committed. Its notices, and those of the code it
+  compiles in, are in `Native~/third_party/librist/LICENSES.txt`.
 
 ## RIST, per platform
 

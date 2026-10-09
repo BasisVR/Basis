@@ -14,6 +14,7 @@ prefabs. None of the rows below has an automated test. The engine's tests are in
 | Which routes open a URL, the prompt, or the resolvers (`Runtime/Resolver/`) | [URL consent](#url-consent) |
 | How engine events and log lines reach the Console | [Console diagnostics](#console-diagnostics) |
 | Texture handling or the native plugin | [Direct3D 11 and 12](#direct3d-11-and-12) |
+| The engine's dependencies or its licence files (`Native~/Cargo.lock`, `ThirdPartyLicenses~/`) | [Third-party licences](#third-party-licences) |
 
 When the pull request is ready, report the rows as the engine guide's
 [Reporting in a pull request](Native~/TESTING.md#reporting-in-a-pull-request)
@@ -181,6 +182,15 @@ file given with `-logFile <path>`.
 | Playback | Play a video with sound, seek forwards and back, pause, resume | Picture and sound throughout, seeks land on their target, the pause holds its frame, and no `consumer open failed` line |
 | Screenshot | From a script, call `CaptureScreenshot()` on a player showing a known frame, with **Flip Screenshots Vertically** off, then again with it on | Off: the PNG under `Screenshots/` in the persistent data folder is upright. On: inverted |
 | Render-thread cost | With `BasisMediaPlayerDiagnostics` recording, leave a minute of playback untouched, then a minute with the player idle | Mean frame time within 0.1 ms of the idle minute, and no more than three extra frames over 33 ms. If either misses, run both minutes again; a second miss is a regression |
+
+## Third-party licences
+
+Update the files and bake as [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+describes.
+
+| Row | Do | Expect |
+| --- | --- | --- |
+| Licence list | In Play Mode, open Settings, Third-party licences | A **Basis Media Player** entry and one **Basis Media Player engine: …** entry per file in `ThirdPartyLicenses~/`. Each expands to its whole text, the ISC and Apache-2.0 entries included |
 
 ## Still needs a person
 
