@@ -515,7 +515,7 @@ namespace UnityEngine.Rendering.Universal
 
             CreateShadowTextures(renderGraph, width, height);
 
-            CreateCameraSortingLayerTexture(renderGraph, cameraTargetDescriptor, width, height);
+            CreateCameraSortingLayerTexture(renderGraph, cameraTargetDescriptor);
 
             CreateRenderingLayersTexture(renderGraph, width, height);
 
@@ -743,17 +743,14 @@ namespace UnityEngine.Rendering.Universal
             resourceData.shadowDepth = UniversalRenderer.CreateRenderGraphTexture(renderGraph, shadowDepthDesc, "_ShadowDepth", false, FilterMode.Bilinear);
         }
 
-        void CreateCameraSortingLayerTexture(RenderGraph renderGraph, RenderTextureDescriptor cameraDesc, int width, int height)
+        void CreateCameraSortingLayerTexture(RenderGraph renderGraph, RenderTextureDescriptor cameraDesc)
         {
             if (m_Renderer2DData.useCameraSortingLayerTexture)
             {
                 Universal2DResourceData resourceData = frameData.Get<Universal2DResourceData>();
 
-                var desc = new RenderTextureDescriptor(width, height);
-                desc.graphicsFormat = cameraDesc.graphicsFormat;
-
-                CopyCameraSortingLayerPass.ConfigureDescriptor(m_Renderer2DData.cameraSortingLayerDownsamplingMethod, ref desc, out var filterMode);
-                RenderingUtils.ReAllocateHandleIfNeeded(ref m_CameraSortingLayerHandle, desc, filterMode, TextureWrapMode.Clamp, name: CopyCameraSortingLayerPass.k_CameraSortingLayerTexture);
+                CopyCameraSortingLayerPass.ConfigureDescriptor(m_Renderer2DData.cameraSortingLayerDownsamplingMethod, ref cameraDesc, out var filterMode);
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_CameraSortingLayerHandle, cameraDesc, filterMode, TextureWrapMode.Clamp, name: CopyCameraSortingLayerPass.k_CameraSortingLayerTexture);
                 resourceData.cameraSortingLayerTexture = renderGraph.ImportTexture(m_CameraSortingLayerHandle);
             }
         }
@@ -1052,8 +1049,20 @@ namespace UnityEngine.Rendering.Universal
                 culledLights[i].CacheValues();
             }
 
-            ShadowCasterGroup2DManager.CacheValues();
+            // Providers FIRST, then cache. CallOnBeforeRender is what finally reaches each shape
+            // provider's OnBeforeRender, and the SpriteRenderer and SpriteSkin providers set the
+            // caster's flip there from SpriteRenderer.flipX / flipY. ShadowCaster2D.CacheValues READS
+            // that flip and bakes it into m_CachedShadowMatrix, which is the matrix the shader gets.
+            //
+            // Caching first therefore drew every shadow with the PREVIOUS frame's flip: a flip toggled
+            // at runtime lagged the sprite by a frame, and on the first frame after a caster
+            // initialised the stored flip was still false, so the shadow was not flipped at all.
+            //
+            // Safe in this order because the dependency runs one way only. No provider reads the
+            // caster's cached state, and CallOnBeforeRender needs just the camera and the light cull
+            // result -- the lights' own CacheValues is the loop above and still precedes it.
             ShadowRendering.CallOnBeforeRender(cameraData.camera, renderingData.lightCullResult);
+            ShadowCasterGroup2DManager.CacheValues();
 
             RendererLighting.lightBatch.Reset();
         }
@@ -1187,7 +1196,8 @@ namespace UnityEngine.Rendering.Universal
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             UniversalPostProcessingData postProcessingData = frameData.Get<UniversalPostProcessingData>();
 
-            bool drawGizmos = UniversalRenderPipelineDebugDisplaySettings.Instance.renderingSettings.sceneOverrideMode == DebugSceneOverrideMode.None;
+            // Disable Gizmos when using scene overrides. Gizmos break some effects like Overdraw debug.
+            bool drawGizmos = !UniversalRenderPipelineDebugDisplaySettings.Instance.isSceneOverrideActive;
 
             if (drawGizmos)
                 DrawRenderGraphGizmos(renderGraph, frameData, commonResourceData.activeColorTexture, commonResourceData.activeDepthTexture, GizmoSubset.PreImageEffects);

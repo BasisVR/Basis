@@ -392,7 +392,7 @@
       "dependencies": {}
     },
     "com.unity.addressables": {
-      "version": "4.0.1",
+      "version": "4.1.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -705,7 +705,7 @@
       }
     },
     "com.unity.xr.hands": {
-      "version": "1.10.0-pre.1",
+      "version": "1.10.0-pre.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
