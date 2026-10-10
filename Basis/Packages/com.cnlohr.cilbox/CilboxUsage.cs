@@ -50,7 +50,7 @@ namespace Cilbox
 		public CilboxUsage( Cilbox b ) { box = b; }
 
 		// This is after the type has been fully de-arrayed and de-templated.
-		bool CheckTypeSecurity( String sType )
+		bool CheckTypeSecurity( Type sType )
 		{
 			// Types defined inside this cilbox are serialized and interpreted locally,
 			// so they should not be forced through the native whitelist.
@@ -346,7 +346,10 @@ namespace Cilbox
 			String [] vTypeNameNoArray = typeName.Split( "[" );
 			String typeNameNoArray = ( vTypeNameNoArray.Length > 0 ) ? vTypeNameNoArray[0] : typeName;
 			String arrayEnding = typeName.Substring( typeNameNoArray.Length );
-			if( !CheckTypeSecurity( typeNameNoArray ) ) return null;
+
+			// Why are we checking type security here?
+			//if( !CheckTypeSecurity( typeNameNoArray ) ) return null;
+
 			return typeNameNoArray + arrayEnding + refSuffix;
 		}
 
@@ -360,13 +363,17 @@ namespace Cilbox
 			// This happens when the type is a reference to a specific type
 			// But for security purposes, we just want to check the base type
 			//  i.e.  System.byte& ===> System.byte
+
+			
+			/*
 			if( typeName.EndsWith('&') ) typeName = typeName[..^1];
 			String [] vTypeNameNoArray = typeName.Split( "[" );
 			typeName = ( vTypeNameNoArray.Length > 0 ) ? vTypeNameNoArray[0] : typeName;
 			String [] vTypeNameNoGenerics = typeName.Split( "`" );
 			typeName = ( vTypeNameNoGenerics.Length > 0 ) ? vTypeNameNoGenerics[0] : typeName;
-
-			if( !CheckTypeSecurity( typeName ) ) return false;
+			*/
+			if (typeInfo.IsPointer || typeInfo.IsArray) t = typeInfo.GetElementType();
+			if( !CheckTypeSecurity( t ) ) return false;
 			foreach( Type tt in typeInfo.GenericTypeArguments )
 			{
 				if( !CheckTypeSecurityRecursive( tt ) ) return false;
@@ -451,6 +458,7 @@ namespace Cilbox
 			if( ga != null )
 				ret = ret.MakeGenericType(ga);
 
+			if( !CheckTypeSecurity( ret ) ) return null;
 			return ret;
 		}
 
@@ -706,7 +714,7 @@ namespace Cilbox
 		    public void ActionCallback3<T0,T1,T2>( T0 o0, T1 o1, T2 o2 )           { FuncCallback3<T0,T1,T2,object>( o0, o1, o2 ); }
 		    public void ActionCallback4<T0,T1,T2,T3>( T0 o0, T1 o1, T2 o2, T3 o3 ) { FuncCallback4<T0,T1,T2,T3,object>( o0, o1, o2, o3 ); }
 
-		    public TR FuncCallback0<TR>( )                                             { object[] oa = new object[0]; return Coerce<TR>( meth.Interpret( o, oa ) ); }
+		    public TR FuncCallback0<TR>( )                                             { object[] oa = System.Array.Empty<object>(); return Coerce<TR>( meth.Interpret( o, oa ) ); }
 		    public TR FuncCallback1<T0,TR>( T0 o0 )                                    { object[] oa = new object[1]; oa[0] = o0; return Coerce<TR>( meth.Interpret( o, oa ) ); }
 		    public TR FuncCallback2<T0,T1,TR>( T0 o0, T1 o1 )                          { object[] oa = new object[2]; oa[0] = o0; oa[1] = o1; return Coerce<TR>( meth.Interpret( o, oa ) ); }
 		    public TR FuncCallback3<T0,T1,T2,TR>( T0 o0, T1 o1, T2 o2 )                { object[] oa = new object[3]; oa[0] = o0; oa[1] = o1; oa[2] = o2; return Coerce<TR>( meth.Interpret( o, oa ) ); }

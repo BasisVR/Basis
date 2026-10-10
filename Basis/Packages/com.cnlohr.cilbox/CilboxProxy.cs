@@ -246,7 +246,7 @@ namespace Cilbox
 					{
 						// If it's another cilbox proxy, it's OK.
 					}
-					else if( !box.CheckTypeAllowed( t.FullName ) )
+					else if( !box.CheckTypeAllowed( t ) )
 					{
 						Debug.LogWarning( $"Contraband found in script {className} field ID {i}: {o.GetType()}" );
 						runtimeFieldsObjects[i] = null;
@@ -321,7 +321,7 @@ namespace Cilbox
 				}
 
 				// Call interpreted constructor.
-				box.InterpretIID( cls, this, ImportFunctionID.dotCtor, null );
+				cls.InterpretMethod(this, ImportFunctionID.dotCtor, null);
 
 				// load serialized fields.
 				for( int i = 0; i < fieldCount; i++ )
@@ -342,8 +342,7 @@ namespace Cilbox
 
 				proxyWasSetup = true;
 				runtimeFieldsObjects = null;
-				// Keep the serialized payload so a runtime clone can initialize its own proxy.
-				// Unity does not serialize proxyWasSetup, so cloned proxies must load this data again.
+				serializedObjectData = null;
 				if (verboseLogging)
 					Debug.Log( $"RuntimeProxyLoad complete for class {className}" );
 			}
@@ -421,7 +420,7 @@ namespace Cilbox
 					}
 				}
 
-				if( !isCilboxElementType && !box.CheckTypeAllowed( t.ToString() ) )
+				if( !isCilboxElementType && !box.CheckTypeAllowed( t ) )
 				{
 					proxyWasSetup = false;
 					throw new Exception( $"Contraband ARRAY found in script {className} field {rootFieldName}" );
@@ -500,24 +499,24 @@ namespace Cilbox
 
 			if( proxyWasSetup ) {
 				// Call Awake after initialization.
-				box.InterpretIID( cls, this, ImportFunctionID.Awake, null );
-				box.InterpretIID( cls, this, ImportFunctionID.Start, null );
+				cls.InterpretMethod(this, ImportFunctionID.Awake, null);
+				cls.InterpretMethod(this, ImportFunctionID.Start, null);
 			}
 		}
-		void FixedUpdate() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.FixedUpdate, null ); }
-		void Update() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.Update, null ); }
-		void LateUpdate() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.LateUpdate, null ); }
-		void OnEnable() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.OnEnable, null ); }
-		void OnDisable() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.OnDisable, null ); }
-		void OnDestroy() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.OnDestroy, null ); }
-		void OnTriggerEnter(Collider c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerEnter, new object[] { c }); }
-		void OnTriggerExit(Collider c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerExit, new object[] { c }); }
-		void OnCollisionEnter(Collision c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnCollisionEnter, new object[] { c }); }
-		void OnCollisionExit(Collision c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnCollisionExit, new object[] { c }); }
-		void OnTriggerStay(Collider c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerStay, new object[] { c }); }
-		void OnCollisionStay(Collision c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnCollisionStay, new object[] { c }); }
-		void OnRenderObject() { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnRenderObject, null); }
-		void OnWillRenderObject() { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnWillRenderObject, null); }
+		void FixedUpdate() { if( proxyWasSetup ) cls.InterpretMethod(this, ImportFunctionID.FixedUpdate, null); }
+		void Update() { if( proxyWasSetup ) cls.InterpretMethod(this, ImportFunctionID.Update, null); }
+		void LateUpdate() { if( proxyWasSetup ) cls.InterpretMethod(this, ImportFunctionID.LateUpdate, null); }
+		void OnEnable() { if( proxyWasSetup ) cls.InterpretMethod(this, ImportFunctionID.OnEnable, null); }
+		void OnDisable() { if( proxyWasSetup ) cls.InterpretMethod(this, ImportFunctionID.OnDisable, null); }
+		void OnDestroy() { if( proxyWasSetup ) cls.InterpretMethod(this, ImportFunctionID.OnDestroy, null); }
+		void OnTriggerEnter(Collider c) { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnTriggerEnter, new object[] { c }); }
+		void OnTriggerExit(Collider c) { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnTriggerExit, new object[] { c }); }
+		void OnCollisionEnter(Collision c) { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnCollisionEnter, new object[] { c }); }
+		void OnCollisionExit(Collision c) { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnCollisionExit, new object[] { c }); }
+		void OnTriggerStay(Collider c) { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnTriggerStay, new object[] { c }); }
+		void OnCollisionStay(Collision c) { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnCollisionStay, new object[] { c }); }
+		void OnRenderObject() { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnRenderObject, null); }
+		void OnWillRenderObject() { if (proxyWasSetup) cls.InterpretMethod(this, ImportFunctionID.OnWillRenderObject, null); }
 	}
 }
 
