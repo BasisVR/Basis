@@ -1,4 +1,6 @@
 using Basis.Network.Core;
+using System;
+using System.Globalization;
 
 public static partial class SerializableBasis
 {
@@ -24,6 +26,8 @@ public static partial class SerializableBasis
         /// UnlockPassword is unused. Receivers are offered it for their saved list.
         /// </summary>
         DollyTrack = 4,
+        Link = 5,
+        Text = 6,
     }
 
     /// <summary>
@@ -38,8 +42,26 @@ public static partial class SerializableBasis
         /// format that grows, and a bound on what one message can cost everybody in the room.
         /// </summary>
         public const int MaxLength = 16384;
+        public const int MaxTextLength = 4096;
 
-        public static bool IsPayloadType(ContentShareType type) => type == ContentShareType.DollyTrack;
+        public static bool IsPayloadType(ContentShareType type) => type == ContentShareType.DollyTrack || IsTextType(type);
+        public static bool IsTextType(ContentShareType type) => type == ContentShareType.Link || type == ContentShareType.Text;
+        public static int MaxLengthFor(ContentShareType type) => IsTextType(type) ? MaxTextLength : MaxLength;
+        public static bool TryParseLink(string value, out Uri link)
+        {
+            link = null;
+            if (string.IsNullOrEmpty(value) || value.Length > MaxTextLength) return false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (char.IsWhiteSpace(c) || char.IsControl(c) || char.GetUnicodeCategory(c) == UnicodeCategory.Format) return false;
+            }
+            if (!Uri.TryCreate(value, UriKind.Absolute, out Uri parsed)) return false;
+            if (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps) return false;
+            if (string.IsNullOrEmpty(parsed.Host)) return false;
+            link = parsed;
+            return true;
+        }
     }
 
     /// <summary>
@@ -108,6 +130,7 @@ public static partial class SerializableBasis
         public string SharerUUID;
         public string SharerDisplayName;
         public ContentShareMessage contentShareMessage;
+        public bool SharerProtected;
 
         public void Deserialize(NetDataReader reader)
         {
@@ -115,6 +138,7 @@ public static partial class SerializableBasis
             SharerUUID = reader.GetString();
             SharerDisplayName = reader.GetString();
             contentShareMessage.Deserialize(reader);
+            SharerProtected = reader.AvailableBytes > 0 && reader.GetBool();
         }
 
         public void Serialize(NetDataWriter writer)
@@ -123,6 +147,7 @@ public static partial class SerializableBasis
             writer.Put(SharerUUID ?? string.Empty);
             writer.Put(SharerDisplayName ?? string.Empty);
             contentShareMessage.Serialize(writer);
+            writer.Put(SharerProtected);
         }
     }
 

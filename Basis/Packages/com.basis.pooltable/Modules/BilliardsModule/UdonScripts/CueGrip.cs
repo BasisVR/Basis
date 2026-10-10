@@ -1,7 +1,8 @@
 using Basis.Scripts.BasisSdk.Interactions;
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Shims;
 using UnityEngine;
+[Cilboxable]
 public class CueGrip : MonoBehaviour
 {
     private CueController controller;
@@ -20,7 +21,7 @@ public class CueGrip : MonoBehaviour
         pickup.OnInteractStartEvent.AddListener(OnPickup);
         pickup.OnInteractEndEvent.AddListener(OnDrop);
         pickup.OnPickupUse.AddListener(OnPickupUse);
-        if (BasisDeviceManagement.IsCurrentModeVR())
+        if (BasisPlatformShim.IsVR)
         {
             pickup.AutoHold = BasisInteractableObject.BasisAutoHold.None;
         }
@@ -46,7 +47,7 @@ public class CueGrip : MonoBehaviour
     }
     public void OnPickup(BasisInput Input)
     {
-        BasisDebug.Log("OnPIckup");
+        Debug.Log("OnPIckup");
         if (isSecondary)
         {
             controller._OnSecondaryPickup();
@@ -58,7 +59,7 @@ public class CueGrip : MonoBehaviour
     }
     public void OnDrop(BasisInput Input)
     {
-        BasisDebug.Log("OnDrop");
+        Debug.Log("OnDrop");
         if (isSecondary)
         {
             controller._OnSecondaryDrop();

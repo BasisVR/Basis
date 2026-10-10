@@ -1,8 +1,10 @@
 
 
 using Basis;
-using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Shims;
 using UnityEngine;
+[Cilboxable]
 public class CameraManager : MonoBehaviour
 {
     [SerializeField] private GameObject[] staticCameras;
@@ -53,10 +55,10 @@ public class CameraManager : MonoBehaviour
             CueController controller = table.activeCue;
             if (controller == null) return;
 
-            BasisNetworkPlayer player = controller._GetHolder();
+            IBasisPlayer player = controller._GetHolder();
 
             Vector3 position;
-            if (BasisUtilities.IsValid(player))
+            if (player != null)
             {
                 position = player.GetPosition();
             }

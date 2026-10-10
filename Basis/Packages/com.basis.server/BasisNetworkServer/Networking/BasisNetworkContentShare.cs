@@ -92,14 +92,30 @@ public static class BasisNetworkContentShare
                 // whole of what limits it.
                 contentName = "Dolly track";
                 break;
+            case ContentShareType.Link:
+                contentName = "Link";
+                break;
+            case ContentShareType.Text:
+                contentName = "Text";
+                break;
             default:
                 BNL.LogError($"Unknown content share type {(byte)msg.ContentType} from peer {peer.Id}");
                 return;
         }
         if (ContentSharePayload.IsPayloadType(msg.ContentType)
-            && (msg.ContentURL == null || msg.ContentURL.Length > ContentSharePayload.MaxLength))
+            && (msg.ContentURL == null || msg.ContentURL.Length > ContentSharePayload.MaxLengthFor(msg.ContentType)))
         {
-            BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLength}.");
+            BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLengthFor(msg.ContentType)}.");
+            return;
+        }
+        if (msg.ContentType == ContentShareType.Link && !ContentSharePayload.TryParseLink(msg.ContentURL, out _))
+        {
+            BNL.LogError($"Link share from peer {peer.Id} is not an http or https address.");
+            return;
+        }
+        if (msg.ContentType == ContentShareType.Text && string.IsNullOrWhiteSpace(msg.ContentURL))
+        {
+            BNL.LogError($"Text share from peer {peer.Id} is empty.");
             return;
         }
 
@@ -132,7 +148,8 @@ public static class BasisNetworkContentShare
             },
             SharerUUID = sharerUUID,
             SharerDisplayName = sharerDisplayName,
-            contentShareMessage = msg
+            contentShareMessage = msg,
+            SharerProtected = PermissionIntegration.HasValidRequirement(peer, PermNodes.protection)
         };
 
         if (ActiveSpheres.TryAdd(msg.SphereNetID, new ActiveSphere(serverMsg, Stopwatch.GetTimestamp())))
@@ -180,14 +197,21 @@ public static class BasisNetworkContentShare
             BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "You do not have permission to remove shared content.");
             return;
         }
-        // ContentShareDelete is default-granted, so the sharer check is what stops one player
-        // deleting everyone else's orbs.
-        if ((existing.SharerLeft || existing.SharerId != requesterId)
-            && !(NetworkServer.AuthIdentity.NetIDToUUID(peer, out string requesterUuid) && PermissionIntegration.HasValidRequirement(requesterUuid, PermNodes.protection)))
+        bool isSharer = !existing.SharerLeft && existing.SharerId == requesterId;
+        if (!isSharer && !(NetworkServer.AuthIdentity.NetIDToUUID(peer, out string requesterUuid) && PermissionIntegration.HasValidRequirement(requesterUuid, PermNodes.protection)))
         {
-            BNL.LogWarning($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} they did not share.");
-            BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "Only the player who shared this content can remove it.");
-            return;
+            if (existing.Message.SharerProtected)
+            {
+                BNL.LogWarning($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} shared by a protected player.");
+                BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "This was shared by a protected player, so only they or a moderator can remove it.");
+                return;
+            }
+            if (BasisNetworkServer.Security.BasisGlobalLockManager.ContentRemovalLocked)
+            {
+                BNL.LogWarning($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} they did not share while content removal is locked.");
+                BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "An admin has locked removing other players' content, so only the player who shared this can remove it.");
+                return;
+            }
         }
         if (ActiveSpheres.TryRemove(msg.SphereNetID, out _))
         {

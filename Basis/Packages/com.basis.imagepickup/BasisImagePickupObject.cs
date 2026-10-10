@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Platform;
 using TMPro;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ namespace Basis.ImagePickup
 {
     /// <summary>
     /// A spawned image pickup. Front face shows the image on an unlit material; the back carries the
-    /// Hide/Save/Delete controls and the spawner label. Any client can grab it; grabbing claims movement
+    /// Hide/Copy/Save/Delete controls and the spawner label. Any client can grab it; grabbing claims movement
     /// authority and that client broadcasts the transform until someone else grabs it.
     /// </summary>
     [AutoStaticsCleanup]
@@ -31,7 +32,9 @@ namespace Basis.ImagePickup
         public TextMeshProUGUI DeleteLabel;
         public TextMeshProUGUI SpawnerLabel;
         public TextMeshProUGUI SaveLabel;
+        public TextMeshProUGUI CopyLabel;
         private bool _languageHooked;
+        private bool _copyPending;
 
         private Texture2D _posterTexture;
         private byte[] _cleanPng;
@@ -186,7 +189,7 @@ namespace Basis.ImagePickup
         }
 
         /// <summary>
-        /// Shows or hides the Hide/Save/Delete controls on the card's back, following the main menu. The panel
+        /// Shows or hides the Hide/Copy/Save/Delete controls on the card's back, following the main menu. The panel
         /// is a world-space canvas with its own graphic raycaster, so it is built on first show and only
         /// toggled after that: a room full of pickups would otherwise each keep a live canvas, and each
         /// raycast against controls nobody can click while the menu is shut. Grabbing and moving the card is
@@ -200,6 +203,8 @@ namespace Basis.ImagePickup
                     return;
                 CancelInvoke(nameof(DisarmDelete));
                 DisarmDelete();
+                CancelInvoke(nameof(RestoreCopyLabel));
+                RestoreCopyLabel();
                 _backPanel.SetActive(false);
                 return;
             }
@@ -542,6 +547,61 @@ namespace Basis.ImagePickup
             }
         }
 
+        public void OnCopyPressed()
+        {
+            if (_cleanPng == null || _cleanPng.Length == 0 || _copyPending) return;
+            TryCopyGifSource(out byte[] gif);
+            CopyToClipboardAsync(_cleanPng, gif);
+        }
+
+        private async void CopyToClipboardAsync(byte[] png, byte[] gif)
+        {
+            _copyPending = true;
+            List<BasisClipboardImage> formats;
+            try
+            {
+                formats = await BasisTasks.Run(() => BuildClipboardFormats(png, gif));
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogWarning($"Image pickup could not prepare every clipboard format ({e.Message}); copying the PNG alone.", LogTag);
+                formats = new List<BasisClipboardImage> { new BasisClipboardImage { Format = BasisClipboardImageFormat.Png, Data = png } };
+            }
+            if (this == null) return;
+            _copyPending = false;
+            bool copied = BasisClipboard.CopyImage(formats);
+            if (!copied) BasisDebug.LogWarning("Image pickup could not copy the image to the clipboard.", LogTag);
+            if (CopyLabel == null) return;
+            CopyLabel.text = BasisLocalization.Get(copied ? "ui.copied" : "imagePickup.panel.copyFailed");
+            CancelInvoke(nameof(RestoreCopyLabel));
+            Invoke(nameof(RestoreCopyLabel), BasisClipboard.ConfirmSeconds);
+        }
+
+        internal static List<BasisClipboardImage> BuildClipboardFormats(byte[] png, byte[] gif)
+        {
+            List<BasisClipboardImage> formats = new List<BasisClipboardImage>(3);
+            if (gif != null)
+            {
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    if (BasisGifSanitizer.TryWrite(gif, stream, out string error)) formats.Add(new BasisClipboardImage { Format = BasisClipboardImageFormat.Gif, Data = stream.ToArray() });
+                    else BasisDebug.LogWarning($"Image pickup copies the poster frame only; the GIF was refused ({error}).", LogTag);
+                }
+            }
+            formats.Add(new BasisClipboardImage { Format = BasisClipboardImageFormat.Png, Data = png });
+            if (BasisPngImage.TryDecode(png, out int width, out int height, out byte[] rgba, out _))
+            {
+                byte[] dib = BasisDibImage.Encode(rgba, width, height);
+                if (dib != null) formats.Add(new BasisClipboardImage { Format = BasisClipboardImageFormat.Bitmap, Data = dib });
+            }
+            return formats;
+        }
+
+        private void RestoreCopyLabel()
+        {
+            if (CopyLabel != null) CopyLabel.text = BasisLocalization.Get("imagePickup.panel.copy");
+        }
+
         public void OnDeletePressed()
         {
             if (!_deleteArmed)
@@ -711,6 +771,7 @@ namespace Basis.ImagePickup
                 : BasisLocalization.Get("imagePickup.panel.spawnedBy", OwnerName == "Unknown" ? BasisLocalization.Get("imagePickup.panel.unknownOwner") : OwnerName);
             if (HideLabel != null) HideLabel.text = BasisLocalization.Get(_hidden ? "imagePickup.panel.show" : "imagePickup.panel.hide");
             if (SaveLabel != null) SaveLabel.text = BasisLocalization.Get("imagePickup.panel.save");
+            if (CopyLabel != null) CopyLabel.text = BasisLocalization.Get("imagePickup.panel.copy");
             if (DeleteLabel != null) DeleteLabel.text = BasisLocalization.Get(_deleteArmed ? "imagePickup.panel.confirmDelete" : "imagePickup.panel.delete");
         }
 

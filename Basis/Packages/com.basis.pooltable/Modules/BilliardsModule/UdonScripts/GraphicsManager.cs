@@ -3,11 +3,13 @@
 using UnityEngine;
 
 using TMPro;
-using System.Data;
 using Basis;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Shims;
 
 
+[Cilboxable]
 public class GraphicsManager : MonoBehaviour
 {
     [Header("4 Ball")]
@@ -71,6 +73,8 @@ public class GraphicsManager : MonoBehaviour
     private GameObject[] balls;
     private Transform[] ballTransforms;
     private Vector3[] ballPositions;
+    private float[] introPositions = new float[16 * 3];
+    private float[] introScales = new float[16 * 3];
 
     public void _Init(BilliardsModule table_)
     {
@@ -144,16 +148,22 @@ public class GraphicsManager : MonoBehaviour
     {
         if (!table.gameLive) return;
 
-        uint ball_bit = 0x1u;
-        uint pocketed = table.ballsPocketedLocal;
-        for (int i = 0; i < 16; i++)
-        {
-            if ((ball_bit & pocketed) == 0x0u)
-            {
-                ballTransforms[i].localPosition = ballPositions[i];
-            }
+        BasisTransformBatchShim.SetLocalPositions(ballTransforms, ballPositions, table.ballsPocketedLocal);
+    }
 
-            ball_bit <<= 1;
+    private float winnerTextOffAt;
+    private int renderProbeAfterFrame = -1;
+    public void _TickDeferred(float now)
+    {
+        if (winnerTextOffAt > 0 && now >= winnerTextOffAt)
+        {
+            winnerTextOffAt = 0;
+            disableWinnerText();
+        }
+        if (renderProbeAfterFrame >= 0 && Time.frameCount > renderProbeAfterFrame)
+        {
+            renderProbeAfterFrame = -1;
+            renderProbe();
         }
     }
 
@@ -189,16 +199,19 @@ public class GraphicsManager : MonoBehaviour
         }
     }
 
-    private void tickIntroBall(Transform ball, float offset)
+    private void tickIntroBall(int ball, float offset, float scale)
     {
-        float localTime = Mathf.Clamp(introAnimationTime - offset, 0.0f, 1.0f);
-        float localTimeInverse = (1.0f - localTime) * (table.k_BALL_DIAMETRE / BilliardsModule.ballMeshDiameter);
+        float localTime = introAnimationTime - offset;
+        localTime = localTime < 0.0f ? 0.0f : (localTime > 1.0f ? 1.0f : localTime);
+        float localTimeInverse = (1.0f - localTime) * scale;
 
-        Vector3 temp = ball.localPosition;
-        temp.y = Mathf.Abs(Mathf.Cos(localTime * 6.29f)) * localTime * 0.5f;
-        ball.localPosition = temp;
+        float bounce = Mathf.Cos(localTime * 6.29f);
+        int o = ball * 3;
+        introPositions[o + 1] = (bounce < 0.0f ? -bounce : bounce) * localTime * 0.5f;
 
-        ball.localScale = new Vector3(localTimeInverse, localTimeInverse, localTimeInverse);
+        introScales[o] = localTimeInverse;
+        introScales[o + 1] = localTimeInverse;
+        introScales[o + 2] = localTimeInverse;
     }
 
     private void tickIntroAnimation()
@@ -210,13 +223,19 @@ public class GraphicsManager : MonoBehaviour
         if (introAnimationTime < 0.0f)
             introAnimationTime = 0.0f;
 
+        float scale = table.k_BALL_DIAMETRE / BilliardsModule.ballMeshDiameter;
+        BasisTransformBatchShim.GetLocalPositions(ballTransforms, introPositions);
+
         // Cueball drops late
-        tickIntroBall(table.balls[0].transform, 0.33f);
+        tickIntroBall(0, 0.33f, scale);
 
         for (int i = 1; i < 16; i++)
         {
-            tickIntroBall(table.balls[i].transform, 0.84f + i * 0.03f);
+            tickIntroBall(i, 0.84f + i * 0.03f, scale);
         }
+
+        BasisTransformBatchShim.SetLocalPositions(ballTransforms, introPositions);
+        BasisTransformBatchShim.SetLocalScales(ballTransforms, introScales);
     }
 
 
@@ -256,20 +275,20 @@ public class GraphicsManager : MonoBehaviour
     {
         if (players[2] == -1 || !table.teamsLocal)
         {
-            playerNames[0].text = "<size=13>" + _FormatName(BasisNetworkPlayer.GetPlayerById(players[0]));
+            playerNames[0].text = "<size=13>" + _FormatName(table._GetPlayer(players[0]));
         }
         else
         {
-            playerNames[0].text = "<size=7><line-height=8.25>" + _FormatName(BasisNetworkPlayer.GetPlayerById(players[0])) + "\n" + _FormatName(BasisNetworkPlayer.GetPlayerById(players[2]));
+            playerNames[0].text = "<size=7><line-height=8.25>" + _FormatName(table._GetPlayer(players[0])) + "\n" + _FormatName(table._GetPlayer(players[2]));
         }
 
         if (players[3] == -1 || !table.teamsLocal)
         {
-            playerNames[1].text = "<size=13>" + _FormatName(BasisNetworkPlayer.GetPlayerById(players[1]));
+            playerNames[1].text = "<size=13>" + _FormatName(table._GetPlayer(players[1]));
         }
         else
         {
-            playerNames[1].text = "<size=7><line-height=8.25>" + _FormatName(BasisNetworkPlayer.GetPlayerById(players[1])) + "\n" + _FormatName(BasisNetworkPlayer.GetPlayerById(players[3]));
+            playerNames[1].text = "<size=7><line-height=8.25>" + _FormatName(table._GetPlayer(players[1])) + "\n" + _FormatName(table._GetPlayer(players[3]));
         }
     }
 
@@ -280,8 +299,7 @@ public class GraphicsManager : MonoBehaviour
         {
             winnerText.gameObject.SetActive(true);
             winnerText.text = "Game reset!";
-            numGameResets++;
-            table.networkingManager.SendCustomEventDelayedSeconds(disableWinnerText, 15f);
+            winnerTextOffAt = Time.time + 15f;
         }
         else
         {
@@ -289,11 +307,8 @@ public class GraphicsManager : MonoBehaviour
         }
     }
 
-    int numGameResets = 0;
     public void disableWinnerText()
     {
-        numGameResets--;
-        if (numGameResets != 0) return;
         winnerText.gameObject.SetActive(false);
     }
 
@@ -304,8 +319,8 @@ public class GraphicsManager : MonoBehaviour
 
     public void _SetWinners(uint winnerId, int[] players)
     {
-        BasisNetworkPlayer player1 = winnerId == 0 ? BasisNetworkPlayer.GetPlayerById(players[0]) : BasisNetworkPlayer.GetPlayerById(players[1]);
-        BasisNetworkPlayer player2 = winnerId == 0 ? BasisNetworkPlayer.GetPlayerById(players[2]) : BasisNetworkPlayer.GetPlayerById(players[3]);
+        IBasisPlayer player1 = winnerId == 0 ? table._GetPlayer(players[0]) : table._GetPlayer(players[1]);
+        IBasisPlayer player2 = winnerId == 0 ? table._GetPlayer(players[2]) : table._GetPlayer(players[3]);
 
         winnerText.gameObject.SetActive(true);
         winnerText.gameObject.transform.localRotation = Quaternion.identity;
@@ -317,15 +332,15 @@ public class GraphicsManager : MonoBehaviour
         {
             winnerText.text = _FormatName(player1) + " and " + _FormatName(player2) + " win!";
         }
-        numGameResets++;
-        table.networkingManager.SendCustomEventDelayedSeconds(disableWinnerText, 15f);
+        winnerTextOffAt = Time.time + 15f;
     }
 
-    public string _FormatName(BasisNetworkPlayer player)
+    public string _FormatName(IBasisPlayer player)
     {
         if (player == null) { return "No one"; }
         //  if (table.nameColorHook == null) return player.displayName;
-        if (player.displayName == null) return string.Empty;
+        string displayName = player.DisplayName;
+        if (displayName == null) return string.Empty;
 
         //table.nameColorHook.SetProgramVariable("inOwner", player.displayName);
         //  table.nameColorHook.SendCustomEvent("_GetNameColor");
@@ -336,7 +351,7 @@ public class GraphicsManager : MonoBehaviour
         //   return rainbow(player.displayName);
         // }
         //<color=#{color}></color
-        return $"{player.displayName}>";
+        return displayName;
     }
 
     private string rainbow(string name)
@@ -404,7 +419,7 @@ public class GraphicsManager : MonoBehaviour
         fourBallPoint.GetComponent<MeshFilter>().sharedMesh = plus ? fourBallMeshPlus : fourBallMeshMinus;
         fourBallPoint.transform.localPosition = pos;
         fourBallPoint.transform.localScale = Vector3.zero;
-        fourBallPoint.transform.LookAt(BasisNetworkPlayer.LocalPlayer.GetPosition());
+        fourBallPoint.transform.LookAt(BasisPlayersShim.Local.GetPosition());
     }
 
     public void _FlashTableLight()
@@ -1049,17 +1064,14 @@ int uniform_cue_colour;
         dynamicProbe.size = reflBounds;
 
         // prevent probe being rendered twice in one frame (late joiners)
-        if (!renderingProbe)
+        if (renderProbeAfterFrame < 0)
         {
-            table.networkingManager.SendCustomEventDelayedFrames(renderProbe, 1);
-            renderingProbe = true;
+            renderProbeAfterFrame = Time.frameCount;
         }
     }
 
-    bool renderingProbe = false;
     public void renderProbe()
     {
-        renderingProbe = false;
-        table.reflection_main.RenderProbe();
+        if (table.reflection_main) table.reflection_main.RenderProbe();
     }
 }

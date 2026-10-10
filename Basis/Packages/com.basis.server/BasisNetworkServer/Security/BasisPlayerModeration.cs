@@ -536,6 +536,11 @@ namespace BasisNetworkServer.Security
                     });
                     break;
 
+                case AdminRequestMode.GlobalToggleContentRemoval:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalFeatureToggle(peer, "Removing other players' content", BasisGlobalLockManager.ToggleContentRemoval()));
+                    break;
+
                 case AdminRequestMode.SetGlobalAvatarScaleLimits:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleAvatarScaleLimitsSet(peer, reader));

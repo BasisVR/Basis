@@ -546,7 +546,7 @@ namespace Basis.Shims.Editor
         [NoAutoStaticsCleanup] public static readonly (string Type, string Members, string ReasonKey)[] HardDenies =
         {
             ("*", "*Invoke*", "sdk.cilbox.deny.invoke"),
-            ("System.IntPtr, System.UIntPtr, System.Void*, System.RuntimeFieldHandle, System.RuntimeMethodHandle, System.RuntimeTypeHandle",
+            ("System.IntPtr, System.UIntPtr, System.Void*, System.RuntimeFieldHandle, System.RuntimeMethodHandle, System.RuntimeTypeHandle, System.Runtime.CompilerServices.Unsafe, System.Runtime.InteropServices.Marshal, System.Runtime.InteropServices.MemoryMarshal, System.Runtime.InteropServices.GCHandle, System.Runtime.InteropServices.NativeLibrary",
                 "(the whole type)", "sdk.cilbox.deny.nativePointers"),
             ("Unity.Collections.NativeArray<T>",
                 "everything except get_Length, get_IsCreated, ToArray, CopyTo, Equals, GetHashCode, ToString",

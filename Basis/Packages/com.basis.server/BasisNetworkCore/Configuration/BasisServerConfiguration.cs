@@ -451,6 +451,7 @@ public class Configuration
     /// </summary>
     public bool SafeDisplayNamesForced = false;
     public bool GifsLocked = false;
+    public bool ContentRemovalLocked = false;
 
     // ── REST API ──────────────────────────────────────────────────────────────
     /// <summary>Set to true to enable the REST management API.</summary>

@@ -1,4 +1,5 @@
 using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.UI_Panels;
 using TMPro;
@@ -10,7 +11,7 @@ namespace Basis.ImagePickup
 {
     /// <summary>
     /// Builds the world-space control panel on the back of an image pickup: a spawner label plus
-    /// Hide/Save/Delete buttons. Uses the Basis world-UI stack so the VR laser and desktop cursor can click it.
+    /// Hide/Copy/Save/Delete buttons. Uses the Basis world-UI stack so the VR laser and desktop cursor can click it.
     /// Built on demand by <see cref="BasisImagePickupObject.SetBackPanelVisible"/> the first time the menu
     /// opens, then reused — the returned object is the canvas root the pickup toggles.
     /// </summary>
@@ -50,16 +51,26 @@ namespace Basis.ImagePickup
 
             pickup.SpawnerLabel = CreateLabel(canvasRect, uiLayer, string.Empty, new Vector2(0f, 150f), new Vector2(PanelPixels - 20f, 80f), 30f);
 
-            pickup.HideLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(-130f, -120f), pickup.OnHidePressed);
-            pickup.SaveLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(0f, -120f), pickup.OnSavePressed);
-            pickup.DeleteLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(130f, -120f), pickup.OnDeletePressed);
+            bool canCopy = BasisClipboard.CanCopyImages;
+            float width = canCopy ? 90f : 120f, step = canCopy ? 97f : 130f;
+            float x = canCopy ? -1.5f * step : -step;
+            pickup.HideLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnHidePressed);
+            if (canCopy)
+            {
+                x += step;
+                pickup.CopyLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnCopyPressed);
+            }
+            x += step;
+            pickup.SaveLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnSavePressed);
+            x += step;
+            pickup.DeleteLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnDeletePressed);
             pickup.RefreshPanelLabels();
 
             canvasObject.SetActive(true);
             return canvasObject;
         }
 
-        private static TextMeshProUGUI CreateButton(RectTransform parent, int layer, string label, Vector2 anchoredPosition, UnityAction onClick)
+        private static TextMeshProUGUI CreateButton(RectTransform parent, int layer, string label, Vector2 anchoredPosition, float width, UnityAction onClick)
         {
             var buttonObject = new GameObject(label + "Button", typeof(RectTransform));
             buttonObject.layer = layer;
@@ -67,7 +78,7 @@ namespace Basis.ImagePickup
             var rect = (RectTransform)buttonObject.transform;
             rect.SetParent(parent, false);
             rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = new Vector2(120f, 80f);
+            rect.sizeDelta = new Vector2(width, 80f);
 
             var image = buttonObject.AddComponent<Image>();
             image.color = new Color(0.80f, 0.82f, 0.88f, 0.95f);
@@ -77,7 +88,12 @@ namespace Basis.ImagePickup
             button.targetGraphic = image;
             button.onClick.AddListener(onClick);
 
-            return CreateLabel(rect, layer, label, Vector2.zero, new Vector2(120f, 80f), 28f);
+            TextMeshProUGUI text = CreateLabel(rect, layer, label, Vector2.zero, new Vector2(width - 8f, 80f), 28f);
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 14f;
+            text.fontSizeMax = 28f;
+            return text;
         }
 
         private static TextMeshProUGUI CreateLabel(RectTransform parent, int layer, string text, Vector2 anchoredPosition, Vector2 size, float fontSize)

@@ -5,6 +5,54 @@ namespace Basis.Shims
 {
 	public static class BasisSphereCastShim
 	{
+		public const int RayOriginX = 0;
+		public const int RayOriginY = 1;
+		public const int RayOriginZ = 2;
+		public const int RayDirectionX = 3;
+		public const int RayDirectionY = 4;
+		public const int RayDirectionZ = 5;
+		public const int RayDistance = 6;
+		public const int RayHitX = 7;
+		public const int RayHitY = 8;
+		public const int RayHitZ = 9;
+		public const int RayLength = 10;
+
+		public static int NormalizeAndSweepSpheres(float[] ray, float[] centersX, float[] centersY, float[] centersZ, int count, uint skipMask,
+			float contactDistanceSq, float overlapDistanceSq, out bool overlapping)
+		{
+			overlapping = false;
+			if (ray == null || ray.Length < RayLength)
+			{
+				return -1;
+			}
+			normalize(ray[RayDirectionX], ray[RayDirectionY], ray[RayDirectionZ], out float nx, out float ny, out float nz);
+			ray[RayDirectionX] = nx;
+			ray[RayDirectionY] = ny;
+			ray[RayDirectionZ] = nz;
+			float nearest = ray[RayDistance];
+			int hit = SweepSpheres(ray[RayOriginX], ray[RayOriginY], ray[RayOriginZ], nx, ny, nz, centersX, centersY, centersZ, count, skipMask,
+				contactDistanceSq, overlapDistanceSq, ref nearest, out overlapping);
+			ray[RayDistance] = nearest;
+			return hit;
+		}
+
+		public static bool RaySphere(float[] ray, float centerX, float centerY, float centerZ, float radiusSq)
+		{
+			if (ray == null || ray.Length < RayLength)
+			{
+				return false;
+			}
+			normalize(ray[RayDirectionX], ray[RayDirectionY], ray[RayDirectionZ], out float nx, out float ny, out float nz);
+			if (!raySphere(ray[RayOriginX], ray[RayOriginY], ray[RayOriginZ], nx, ny, nz, centerX, centerY, centerZ, radiusSq, out float px, out float py, out float pz))
+			{
+				return false;
+			}
+			ray[RayHitX] = px;
+			ray[RayHitY] = py;
+			ray[RayHitZ] = pz;
+			return true;
+		}
+
 		public static int SweepSpheres(float originX, float originY, float originZ, float directionX, float directionY, float directionZ,
 			float[] centersX, float[] centersY, float[] centersZ, int count, uint skipMask, float contactDistanceSq, float overlapDistanceSq,
 			ref float nearest, out bool overlapping)

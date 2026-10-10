@@ -832,6 +832,11 @@ namespace Basis.BasisUI
 
             BuildIdentitySection(container, descriptor);
 
+            PanelSectionToggleHelpers.CreateLazyBoxedSection(container,
+                BasisLocalization.Get("settings.cilboxPermissions.title"),
+                () => SettingsProviderCilboxPermissions.BuildSection(container, descriptor),
+                false, _ => descriptor.ForceRebuild());
+
             // ---- Backup & Restore ----
             // Lazy, with lazy Create/Restore halves inside: a collapsed section costs nothing,
             // and the archive list is scanned (on a worker thread) only when Restore opens, so

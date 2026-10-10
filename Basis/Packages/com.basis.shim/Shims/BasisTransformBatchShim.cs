@@ -126,6 +126,96 @@ namespace Basis.Shims
 			}
 		}
 
+		public static void GetPositions(Transform[] sources, float[] xyz)
+		{
+			if (sources == null || xyz == null)
+			{
+				return;
+			}
+			int count = Mathf.Min(sources.Length, xyz.Length / 3);
+			for (int i = 0; i < count; i++)
+			{
+				Transform source = sources[i];
+				Vector3 value = source != null ? source.GetPosition() : Vector3.zero;
+				int o = i * 3;
+				xyz[o] = value.x;
+				xyz[o + 1] = value.y;
+				xyz[o + 2] = value.z;
+			}
+		}
+
+		public static void GetLocalPositions(Transform[] sources, float[] xyz)
+		{
+			if (sources == null || xyz == null)
+			{
+				return;
+			}
+			int count = Mathf.Min(sources.Length, xyz.Length / 3);
+			for (int i = 0; i < count; i++)
+			{
+				Transform source = sources[i];
+				Vector3 value = source != null ? source.GetLocalPosition() : Vector3.zero;
+				int o = i * 3;
+				xyz[o] = value.x;
+				xyz[o + 1] = value.y;
+				xyz[o + 2] = value.z;
+			}
+		}
+
+		public static void SetPositions(Transform[] targets, float[] xyz)
+		{
+			if (targets == null || xyz == null)
+			{
+				return;
+			}
+			int count = Mathf.Min(targets.Length, xyz.Length / 3);
+			for (int i = 0; i < count; i++)
+			{
+				Transform target = targets[i];
+				if (target != null)
+				{
+					int o = i * 3;
+					target.SetPosition(new Vector3(xyz[o], xyz[o + 1], xyz[o + 2]));
+				}
+			}
+		}
+
+		public static void SetLocalPositions(Transform[] targets, float[] xyz)
+		{
+			if (targets == null || xyz == null)
+			{
+				return;
+			}
+			int count = Mathf.Min(targets.Length, xyz.Length / 3);
+			for (int i = 0; i < count; i++)
+			{
+				Transform target = targets[i];
+				if (target != null)
+				{
+					int o = i * 3;
+					target.SetLocalPosition(new Vector3(xyz[o], xyz[o + 1], xyz[o + 2]));
+				}
+			}
+		}
+
+		public static void SetLocalScales(Transform[] targets, float[] xyz)
+		{
+			if (targets == null || xyz == null)
+			{
+				return;
+			}
+			int count = Mathf.Min(targets.Length, xyz.Length / 3);
+			for (int i = 0; i < count; i++)
+			{
+				Transform target = targets[i];
+				if (target != null)
+				{
+					int o = i * 3;
+					target.SetLocalScale(new Vector3(xyz[o], xyz[o + 1], xyz[o + 2]));
+				}
+			}
+		}
+
 		public static void RotateWorld(Transform[] targets, Transform space, float[] x, float[] y, float[] z)
 		{
 			if (targets == null || x == null || y == null || z == null)

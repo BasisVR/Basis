@@ -27,6 +27,8 @@ public partial class BasisContentSphere : BasisInteractableObject
     public ushort CreatorPlayerID { get; private set; }
     public string CreatorUUID { get; private set; }
     public string CreatorDisplayName { get; private set; }
+    public bool SharerProtected { get; private set; }
+    public bool CanLocalPlayerRemove => BasisContentShareManager.CanLocalPlayerRemove(CreatorPlayerID, SharerProtected);
 
     /// <summary>
     /// Fired when any content sphere is interacted with.
@@ -44,7 +46,7 @@ public partial class BasisContentSphere : BasisInteractableObject
     public static float RotationSpeed = 30f;
     public static int MaxTitleNameLength = 24;
     public Texture2D texture;
-    public void Initialize(string sphereNetID, string contentURL, string unlockPassword, ContentShareType contentType, ushort creatorPlayerID, string creatorUUID, string creatorDisplayName)
+    public void Initialize(string sphereNetID, string contentURL, string unlockPassword, ContentShareType contentType, ushort creatorPlayerID, string creatorUUID, string creatorDisplayName, bool sharerProtected)
     {
         SphereNetID = sphereNetID;
         ContentURL = contentURL;
@@ -53,6 +55,7 @@ public partial class BasisContentSphere : BasisInteractableObject
         CreatorPlayerID = creatorPlayerID;
         CreatorUUID = creatorUUID;
         CreatorDisplayName = creatorDisplayName;
+        SharerProtected = sharerProtected;
         InteractRange = 2f;
         _restPosition = transform.position;
 
@@ -271,6 +274,12 @@ public partial class BasisContentSphere : BasisInteractableObject
             sharerLine = BasisLocalization.Get("content.share.sharedByUnknown");
         }
 
+        if (ContentSharePayload.IsTextType(ContentType))
+        {
+            BasisContentShareText.Present(this, title, sharerLine);
+            return;
+        }
+
         string description;
         if (ContentType == ContentShareType.Server)
         {
@@ -303,17 +312,30 @@ public partial class BasisContentSphere : BasisInteractableObject
         }
 
         BasisMainMenu.Open();
-        BasisMainMenu.Instance.OpenDialogue(title, description, BasisLocalization.Get("ui.save"), BasisLocalization.Get("library.delete"), value =>
+        BasisMenuBase<BasisMainMenu> menu = BasisMainMenu.Instance;
+        if (menu == null || menu.Dialogue != null) return;
+        if (CanLocalPlayerRemove)
         {
-            if (value)
+            menu.OpenDialogue(title, description, BasisLocalization.Get("ui.save"), BasisLocalization.Get("library.delete"), value =>
             {
-                SaveToLibrary();
-            }
-            else
+                if (value)
+                {
+                    SaveToLibrary();
+                }
+                else
+                {
+                    RequestRemove();
+                }
+            }, category: BasisNotificationCategory.Content);
+        }
+        else
+        {
+            menu.OpenDialogue(title, description, BasisLocalization.Get("ui.save"), value =>
             {
-                RequestRemove();
-            }
-        }, category: BasisNotificationCategory.Content);
+                if (value) SaveToLibrary();
+            }, category: BasisNotificationCategory.Content);
+        }
+        if (menu.Dialogue != null) menu.Dialogue.CaptureOnClose = false;
     }
 
     private async void SaveToLibrary()
@@ -423,6 +445,8 @@ public partial class BasisContentSphere : BasisInteractableObject
         ContentShareType.World => "library.shareable.world",
         ContentShareType.Server => "library.shareable.server",
         ContentShareType.DollyTrack => "library.shareable.dollyTrack",
+        ContentShareType.Link => "library.shareable.link",
+        ContentShareType.Text => "library.shareable.text",
         _ => "library.shareable.other",
     };
 

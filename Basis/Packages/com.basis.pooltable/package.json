@@ -16,6 +16,8 @@
     "com.basis.common": "0.0.1",
     "com.basis.framework": "0.0.1",
     "com.basis.sdk": "0.0.1",
-    "com.basis.server": "1.0.0"
+    "com.basis.server": "1.0.0",
+    "com.basis.shim": "0.0.1",
+    "com.cnlohr.cilbox": "0.1.0"
   }
 }

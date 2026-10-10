@@ -6015,6 +6015,10 @@
       "value": "Loading..."
     },
     {
+      "key": "library.notWorking",
+      "value": "Not working"
+    },
+    {
       "key": "library.creationDate",
       "value": "Creation Date"
     },
@@ -6761,6 +6765,14 @@
     {
       "key": "library.dialog.remove.body",
       "value": "Are you sure you want to remove this {0}?"
+    },
+    {
+      "key": "library.dialog.notWorking.title",
+      "value": "{0} is not working"
+    },
+    {
+      "key": "library.dialog.notWorking.body",
+      "value": "It could not be loaded from {0}. Remove it from your library?"
     },
     {
       "key": "library.dialog.unloadExisting.title",
@@ -14331,6 +14343,206 @@
       "value": "Click a player to open moderation actions."
     },
     {
+      "key": "settings.cilboxPermissions.title",
+      "value": "Script Permissions"
+    },
+    {
+      "key": "settings.cilboxPermissions.description",
+      "value": "Some worlds, props and avatars run scripts that need things the normal script sandbox blocks. Basis asks you before those scripts run. Everything you allowed is listed here. Removing an entry blocks it again and stops that content's scripts straight away."
+    },
+    {
+      "key": "settings.cilboxPermissions.allowed",
+      "value": "Allowed"
+    },
+    {
+      "key": "settings.cilboxPermissions.empty",
+      "value": "Nothing allowed yet."
+    },
+    {
+      "key": "settings.cilboxPermissions.count",
+      "value": "{0} allowed"
+    },
+    {
+      "key": "settings.cilboxPermissions.remembered",
+      "value": "Remembered since {0} UTC"
+    },
+    {
+      "key": "settings.cilboxPermissions.sessionOnly",
+      "value": "Allowed until you close Basis"
+    },
+    {
+      "key": "settings.cilboxPermissions.remove",
+      "value": "Remove"
+    },
+    {
+      "key": "settings.cilboxPermissions.remove.tooltip",
+      "value": "Block these permissions again. Its scripts stop if it is running, and Basis asks again the next time it loads."
+    },
+    {
+      "key": "settings.cilboxPermissions.remove.confirm",
+      "value": "Remove the script permissions you gave {0}? Its scripts stop if it is running."
+    },
+    {
+      "key": "settings.cilboxPermissions.removeAll",
+      "value": "Remove All"
+    },
+    {
+      "key": "settings.cilboxPermissions.removeAll.tooltip",
+      "value": "Block every script permission you have allowed."
+    },
+    {
+      "key": "settings.cilboxPermissions.removeAll.confirm",
+      "value": "Remove all {0} script permissions? Content using them stops running its scripts."
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.title",
+      "value": "Allow Script Permissions?"
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.body",
+      "value": "{0} ({1}) wants to do things scripts are normally blocked from doing:"
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.allow",
+      "value": "Allow"
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.remember",
+      "value": "Allow and Remember"
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.deny",
+      "value": "Don't Allow"
+    },
+    {
+      "key": "settings.cilboxPermissions.kind.avatar",
+      "value": "avatar"
+    },
+    {
+      "key": "settings.cilboxPermissions.kind.prop",
+      "value": "prop"
+    },
+    {
+      "key": "settings.cilboxPermissions.kind.world",
+      "value": "world"
+    },
+    {
+      "key": "settings.cilboxPermissions.unnamed",
+      "value": "Unnamed content"
+    },
+    {
+      "key": "settings.cilboxPermissions.more",
+      "value": "+{0} more"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.openWebPages",
+      "value": "Open web pages in your browser"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.quit",
+      "value": "Close Basis"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.appControl",
+      "value": "Control the Basis app"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.files",
+      "value": "Read and change files on your computer"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.internet",
+      "value": "Connect to the internet without asking"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.programs",
+      "value": "Start other programs on your computer"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.sandboxEscape",
+      "value": "Run code outside the script sandbox"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.microphone",
+      "value": "Use your microphone"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.webcam",
+      "value": "Use your webcam"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.scenes",
+      "value": "Load or unload worlds"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.yourPlayer",
+      "value": "Move, teleport or freeze you"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.localMedia",
+      "value": "Open video or audio files on your computer"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.screenshots",
+      "value": "Save screenshots to your computer"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.mediaUrls",
+      "value": "Play media from any address without asking"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.deviceInfo",
+      "value": "Read details about your device"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.background",
+      "value": "Run code in the background"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.storage",
+      "value": "Save data on your computer"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.input",
+      "value": "Read your keyboard, mouse and controllers"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.addComponents",
+      "value": "Add new components to objects"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.graphics",
+      "value": "Change graphics and display settings"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.cameras",
+      "value": "Control cameras"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.physics",
+      "value": "Change physics"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.audio",
+      "value": "Change audio settings"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.basisInternals",
+      "value": "Use Basis features scripts can't normally use"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.messages",
+      "value": "Call functions on other objects by name"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.invoke",
+      "value": "Call functions indirectly"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.other",
+      "value": "Use other features scripts can't normally use"
+    },
+    {
       "key": "ui.option.on",
       "value": "On"
     },
@@ -21003,6 +21215,70 @@
     {
       "key": "ui.layer.overlayUI",
       "value": "Overlay UI"
+    },
+    {
+      "key": "library.shareable.link",
+      "value": "Shared Link"
+    },
+    {
+      "key": "library.shareable.text",
+      "value": "Shared Text"
+    },
+    {
+      "key": "content.share.type.link",
+      "value": "Link"
+    },
+    {
+      "key": "content.share.type.text",
+      "value": "Text"
+    },
+    {
+      "key": "content.share.link.open",
+      "value": "Open Link"
+    },
+    {
+      "key": "content.share.link.open.question",
+      "value": "Open this link in your browser?"
+    },
+    {
+      "key": "content.share.link.site",
+      "value": "Website"
+    },
+    {
+      "key": "content.share.paste.link.title",
+      "value": "Share Link?"
+    },
+    {
+      "key": "content.share.paste.link.body",
+      "value": "Share this link with everyone on the server? You choose where to place it next."
+    },
+    {
+      "key": "content.share.paste.text.title",
+      "value": "Share Text?"
+    },
+    {
+      "key": "content.share.paste.text.body",
+      "value": "Share this text with everyone on the server? You choose where to place it next."
+    },
+    {
+      "key": "content.share.paste.tooLong.title",
+      "value": "Text Too Long"
+    },
+    {
+      "key": "content.share.paste.tooLong",
+      "value": "This text is {0} characters long. Shared text is limited to {1} characters."
+    },
+    {
+      "key": "settings.admin.title.lockContentRemoval",
+      "value": "Lock Content Removal"
+    },
+    {
+      "key": "settings.admin.title.lockContentRemoval.tooltip",
+      "value": "Only the player who shared or spawned something can remove it. When off, anyone can remove anything except what a protected player shared or spawned. Admins are unaffected."
+    },
+    {
+      "key": "library.disabled.removalLocked",
+      "value": "An admin has locked removing other players' content."
     }
   ]
 }

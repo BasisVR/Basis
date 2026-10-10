@@ -24,6 +24,7 @@ public sealed class BasisShareableEntry
     public BasisShareableKind Kind;
     public string Title;
     public string SharerName;
+    public bool Protected;
 
     /// <summary>Buttons rendered on the entry (in order), e.g. a "Share"/"Unshare" toggle
     /// followed by a remove button. Removal is just a <see cref="BasisShareableActionStyle.Destructive"/>

@@ -35,6 +35,7 @@ namespace Basis.BasisUI
         }
 
         private static readonly Dictionary<string, CachedContent> _metaCache = new();
+        private static readonly Dictionary<string, string> _notWorking = new();
         private static bool _languageHooked;
 
         public static bool TryGetMeta(string url, out CachedContent meta)
@@ -46,7 +47,27 @@ namespace Basis.BasisUI
         {
             if (string.IsNullOrEmpty(url) || meta == null) return;
             _metaCache[url] = meta;
+            _notWorking.Remove(url);
             EnsureLanguageHook();
+        }
+        public static bool IsNotWorking(string url)
+        {
+            return _notWorking.ContainsKey(url ?? string.Empty);
+        }
+        private static void MarkNotWorking(string url, string reason)
+        {
+            _notWorking[url ?? string.Empty] = reason;
+            BasisDebug.LogWarning($"Item '{url}' is not working ({reason}). Kept in the library until the user chooses to remove it.");
+        }
+        public static string DisplayNameFor(BasisDataStoreItemKeys.ItemKey item)
+        {
+            string url = item?.Url ?? string.Empty;
+            if (TryGetMeta(url, out CachedContent meta) && !string.IsNullOrEmpty(meta?.Name))
+            {
+                return meta.Name;
+            }
+            string name = Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ? System.IO.Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(uri.AbsolutePath)) : string.Empty;
+            return string.IsNullOrEmpty(name) ? url : name;
         }
 
         private static void EnsureLanguageHook()
@@ -209,8 +230,8 @@ namespace Basis.BasisUI
             BasisMetaLoadResult metaResult = await BasisBeeManagement.HandleMetaOnlyLoad(newWrapper.basisTrackedBundleWrapper, Report, CancellationSource.Token);
 
             // On transient (network/SSL/cancel) failure, do NOT fall through to LoadWrapperFromDisc —
-            // that path auto-removes the key when IsMetaDataOnDisc returns false, which would delete
-            // the user's cached item just because the remote is unreachable right now.
+            // that path reports the item as not working when IsMetaDataOnDisc returns false, which
+            // would flag the user's cached item just because the remote is unreachable right now.
             if (!metaResult.Loaded && metaResult.IsTransient)
             {
                 return new MetaOnlyLoadOutcome(null, true);
@@ -218,7 +239,7 @@ namespace Basis.BasisUI
 
             // Local BEE files are read straight from disk and never written to the on-disc meta cache,
             // so the LoadWrapperFromDisc lookup below would treat the missing cache entry as a corrupt
-            // item and remove it. The connector is already populated by the meta-only load above.
+            // item. The connector is already populated by the meta-only load above.
             if (BasisIOManagement.TryResolveLocalBeePath(item.Url, out _))
             {
                 return new MetaOnlyLoadOutcome(metaResult.Loaded ? newWrapper : null, false);
@@ -289,8 +310,7 @@ namespace Basis.BasisUI
 
             if (!item.EmbeddedSettings.IsEmbedded && string.IsNullOrEmpty(item.Pass))
             {
-                BasisDebug.LogError($"Item '{urlKey}' has no unlock password so it can never load. Removing from library.");
-                await BasisDataStoreItemKeys.RemoveKey(item);
+                MarkNotWorking(urlKey, "no unlock password");
                 return;
             }
 
@@ -342,9 +362,7 @@ namespace Basis.BasisUI
 
                 if (cached == null || cached.BasisBundleConnector == null)
                 {
-                    BasisDebug.LogError($"Item '{urlKey}' has corrupt or invalid data. Removing from library.");
-                    BasisStorageManagement.DeleteStoredFile(urlKey);
-                    await BasisDataStoreItemKeys.RemoveKey(item);
+                    MarkNotWorking(urlKey, "corrupt or invalid data");
                     return;
                 }
 
@@ -353,22 +371,13 @@ namespace Basis.BasisUI
             catch (Exception ex)
             {
                 string exMessage = ex.Message + " " + (ex.InnerException?.Message ?? string.Empty);
-                if (BasisMetaLoadResult.LooksLikeTransientError(exMessage))
+                if (BasisMetaLoadResult.LooksLikeTransientError(exMessage) || string.IsNullOrEmpty(BasisIOManagement.PersistentDataPath))
                 {
                     BasisDebug.LogWarning($"Deferred meta preload for '{item?.Url}' — transient error: {ex.Message}");
                     return;
                 }
 
-                BasisDebug.LogError($"Failed to load metadata for '{item?.Url}'. Removing from library. Error: {ex.Message}");
-                try
-                {
-                    BasisStorageManagement.DeleteStoredFile(item?.Url);
-                    await BasisDataStoreItemKeys.RemoveKey(item);
-                }
-                catch (Exception cleanupEx)
-                {
-                    BasisDebug.LogError(cleanupEx);
-                }
+                MarkNotWorking(item?.Url, ex.Message);
             }
         }
         [HideInCallstack]

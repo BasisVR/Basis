@@ -1,21 +1,26 @@
 using Basis;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
+using Basis.Shims;
 using System;
-using System.IO;
 using UnityEngine;
-public class CueController : BasisNetworkBehaviour
+[Cilboxable]
+public class CueController : MonoBehaviour
 {
     [SerializeField] private BilliardsModule table;
 
     [SerializeField] private CueGrip primary;
     [SerializeField] private CueGrip secondary;
-    public BasisPickupSyncNetworking PrimaryNetworking;
-    public BasisPickupSyncNetworking SecondaryNetworking;
 
     [SerializeField] private GameObject desktop;
     [SerializeField] private GameObject body;
     [SerializeField] private GameObject cuetip;
+
+    private BasisNetworkShim net;
+    private BasisNetworkBehaviour primaryNetworking;
+    private BasisNetworkBehaviour secondaryNetworking;
+    private int holderId = -1;
 
     private bool holderIsDesktop;
 
@@ -40,6 +45,17 @@ public class CueController : BasisNetworkBehaviour
 
     private Renderer cueRenderer;
 
+    private Transform bodyTransform;
+    private Transform primaryTransform;
+    private Transform secondaryTransform;
+    private Transform desktopTransform;
+    private Transform tableTransform;
+    private Transform[] gripTransforms;
+    private Vector3[] gripPositions = new Vector3[2];
+    private float lagFixedDeltaTime = -1;
+    private float lagSmoothing = -1;
+    private float lagFactor;
+
     private float gripSize;
     private float cuetipDistance;
 
@@ -48,110 +64,126 @@ public class CueController : BasisNetworkBehaviour
     [NonSerialized]
     public bool TeamBlue;
 
-    public CueLockState SynccueLockState;
+    private bool lockHolderIsDesktop;
+    private bool lockPrimaryLocked;
+    private Vector3 lockPrimaryPos;
+    private Vector3 lockPrimaryDir;
+    private bool lockSecondaryLocked;
+    private Vector3 lockSecondaryPos;
+    private float lockCueScale;
 
-    [System.Serializable]
-    public struct CueLockState
+    private const int LockStateLength = 43;
+
+    private byte[] lockStateToBytes()
     {
-        public bool syncedHolderIsDesktop;
+        byte[] data = new byte[LockStateLength];
+        data[0] = lockHolderIsDesktop ? (byte)1 : (byte)0;
 
-        public bool primaryLocked;
-        public Vector3 primaryLockPos;
-        public Vector3 primaryLockDir;
+        data[1] = lockPrimaryLocked ? (byte)1 : (byte)0;
+        int o = BasisBinaryShim.WriteVector3(data, 2, lockPrimaryPos);
+        o = BasisBinaryShim.WriteVector3(data, o, lockPrimaryDir);
 
-        public bool secondaryLocked;
-        public Vector3 secondaryLockPos;
+        data[o++] = lockSecondaryLocked ? (byte)1 : (byte)0;
+        o = BasisBinaryShim.WriteVector3(data, o, lockSecondaryPos);
 
-        public float cueScale;
+        BasisBinaryShim.WriteSingle(data, o, lockCueScale);
+        return data;
+    }
 
-        // Convert to byte array
-        public byte[] ToByteArray()
-        {
-            using (MemoryStream stream = new MemoryStream())
-            using (BinaryWriter writer = new BinaryWriter(stream))
-            {
-                writer.Write(syncedHolderIsDesktop);
+    private bool lockStateFromBytes(byte[] data)
+    {
+        if (data == null || data.Length < LockStateLength) return false;
 
-                writer.Write(primaryLocked);
-                WriteVector3(writer, primaryLockPos);
-                WriteVector3(writer, primaryLockDir);
+        lockHolderIsDesktop = data[0] != 0;
 
-                writer.Write(secondaryLocked);
-                WriteVector3(writer, secondaryLockPos);
+        lockPrimaryLocked = data[1] != 0;
+        lockPrimaryPos = BasisBinaryShim.ReadVector3(data, 2);
+        lockPrimaryDir = BasisBinaryShim.ReadVector3(data, 14);
 
-                writer.Write(cueScale);
+        lockSecondaryLocked = data[26] != 0;
+        lockSecondaryPos = BasisBinaryShim.ReadVector3(data, 27);
 
-                return stream.ToArray();
-            }
-        }
-
-        // Convert from byte array
-        public static CueLockState FromByteArray(byte[] data)
-        {
-            CueLockState state = new CueLockState();
-            using (MemoryStream stream = new MemoryStream(data))
-            using (BinaryReader reader = new BinaryReader(stream))
-            {
-                state.syncedHolderIsDesktop = reader.ReadBoolean();
-
-                state.primaryLocked = reader.ReadBoolean();
-                state.primaryLockPos = ReadVector3(reader);
-                state.primaryLockDir = ReadVector3(reader);
-
-                state.secondaryLocked = reader.ReadBoolean();
-                state.secondaryLockPos = ReadVector3(reader);
-
-                state.cueScale = reader.ReadSingle();
-            }
-            return state;
-        }
-
-        private static void WriteVector3(BinaryWriter writer, Vector3 vec)
-        {
-            writer.Write(vec.x);
-            writer.Write(vec.y);
-            writer.Write(vec.z);
-        }
-
-        private static Vector3 ReadVector3(BinaryReader reader)
-        {
-            return new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-        }
+        lockCueScale = BasisBinaryShim.ReadSingle(data, 39);
+        return true;
     }
     public void _Init()
     {
+        bodyTransform = body.transform;
+        primaryTransform = primary.transform;
+        secondaryTransform = secondary.transform;
+        desktopTransform = desktop.transform;
+        tableTransform = table.transform;
+        gripTransforms = new Transform[] { primaryTransform, secondaryTransform };
+
         cueRenderer = this.transform.Find("body/render").GetComponent<Renderer>();
 
         primaryController = primary;
         secondaryController = secondary;
         primaryController._Init(this, false);
         secondaryController._Init(this, true);
+        primaryNetworking = primary.GetComponent<BasisNetworkBehaviour>();
+        secondaryNetworking = secondary.GetComponent<BasisNetworkBehaviour>();
 
         gripSize = 0.03f;
-        cuetipDistance = (cuetip.transform.position - primary.transform.position).magnitude;
+        cuetipDistance = (cuetip.transform.position - primaryTransform.position).magnitude;
 
-        origPrimaryPosition = primary.transform.position;
-        origSecondaryPosition = secondary.transform.position;
+        origPrimaryPosition = primaryTransform.position;
+        origSecondaryPosition = secondaryTransform.position;
 
         lagPrimaryPosition = origPrimaryPosition;
         lagSecondaryPosition = origSecondaryPosition;
 
         resetSecondaryOffset();
         _RefreshRenderer();
+
+        net = SafeUtil.MakeNetworkable(this);
+        if (net != null)
+        {
+            net.NetworkReady += OnNetworkReady;
+            net.NetworkMessageReceived += OnNetworkMessage;
+            net.OwnershipTransfer += OnOwnershipTransfer;
+            net.PlayerJoined += OnPlayerJoined;
+        }
     }
-    public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
+    private void OnNetworkReady()
     {
-        SynccueLockState = CueLockState.FromByteArray(buffer);
+        if (net.IsOwnedLocallyOnServer)
+        {
+            holderId = table._LocalPlayerId();
+        }
+        else if (table._GetPlayer(net.CurrentOwnerId) != null)
+        {
+            holderId = net.CurrentOwnerId;
+        }
+    }
+    private void OnOwnershipTransfer(BasisNetworkPlayer player)
+    {
+        if (player != null) holderId = player.playerId;
+    }
+    private void OnPlayerJoined(BasisNetworkPlayer player)
+    {
+        if (player == null || !IsLocalOwner()) return;
+        if (player.playerId == table._LocalPlayerId()) return;
+        net.SendCustomNetworkEvent(lockStateToBytes(), DeliveryMethod.ReliableOrdered, new ushort[] { player.playerId });
+    }
+    private void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
+    {
+        if (buffer == null || !lockStateFromBytes(buffer)) return;
         refreshCueScale();
+    }
+    private bool IsLocalOwner()
+    {
+        return net != null && net.IsLocalOwner();
     }
     private void RequestSerialization()
     {
-        SendCustomNetworkEvent(SynccueLockState.ToByteArray(), DeliveryMethod.ReliableOrdered);
+        if (net == null || !net.HasNetworkID) return;
+        net.SendCustomNetworkEvent(lockStateToBytes(), DeliveryMethod.ReliableOrdered, null);
     }
     private void refreshCueScale()
     {
-        float factor = Mathf.Clamp(SynccueLockState.cueScale, 0.5f, 1.5f) - 0.5f;
-        body.transform.localScale = new Vector3(Mathf.Lerp(0.7f, 1.3f, factor), Mathf.Lerp(0.7f, 1.3f, factor), SynccueLockState.cueScale);
+        float factor = Mathf.Clamp(lockCueScale, 0.5f, 1.5f) - 0.5f;
+        bodyTransform.localScale = new Vector3(Mathf.Lerp(0.7f, 1.3f, factor), Mathf.Lerp(0.7f, 1.3f, factor), lockCueScale);
     }
 
     private void refreshCueSmoothing()
@@ -198,22 +230,22 @@ public class CueController : BasisNetworkBehaviour
         {
             newpos = table.tableModels[table.tableModelLocal].CueOrange.position;
         }
-        primary.transform.localRotation = Quaternion.identity;
-        secondary.transform.localRotation = Quaternion.identity;
-        desktop.transform.localRotation = Quaternion.identity;
+        primaryTransform.localRotation = Quaternion.identity;
+        secondaryTransform.localRotation = Quaternion.identity;
+        desktopTransform.localRotation = Quaternion.identity;
         origPrimaryPosition = newpos;
-        primary.transform.position = origPrimaryPosition;
-        origSecondaryPosition = primary.transform.TransformPoint(secondaryOffset);
-        secondary.transform.position = origSecondaryPosition;
+        primaryTransform.position = origPrimaryPosition;
+        origSecondaryPosition = primaryTransform.TransformPoint(secondaryOffset);
+        secondaryTransform.position = origSecondaryPosition;
         lagSecondaryPosition = origSecondaryPosition;
         lagPrimaryPosition = origPrimaryPosition;
-        desktop.transform.position = origPrimaryPosition;
-        body.transform.position = origPrimaryPosition;
+        desktopTransform.position = origPrimaryPosition;
+        bodyTransform.position = origPrimaryPosition;
     }
     public void UpdateDesktopPosition()
     {
-        body.transform.GetPositionAndRotation(out var pos,out Quaternion Rotation);
-        desktop.transform.SetPositionAndRotation(pos, Rotation);
+        bodyTransform.GetPositionAndRotation(out var pos,out Quaternion Rotation);
+        desktopTransform.SetPositionAndRotation(pos, Rotation);
     }
     private void FixedUpdate()
     {
@@ -224,49 +256,49 @@ public class CueController : BasisNetworkBehaviour
                 // must not be shooting, since that takes control of the cue object
                 if (!table.desktopManager._IsInUI() || !table.desktopManager._IsShooting())
                 {
-                    if (!SynccueLockState.primaryLocked || table.noLockingLocal)
+                    if (!lockPrimaryLocked || table.noLockingLocal)
                     {
                         // base of cue goes to primary
-                        body.transform.position = lagPrimaryPosition;
+                        bodyTransform.position = lagPrimaryPosition;
 
                         // holding in primary hand
                         if (!secondaryHolding)
                         {
                             // nothing in secondary hand. have the second grip track the cue
-                            secondary.transform.position = primary.transform.TransformPoint(secondaryOffset);
-                            body.transform.LookAt(lagSecondaryPosition);
+                            secondaryTransform.position = primaryTransform.TransformPoint(secondaryOffset);
+                            bodyTransform.LookAt(lagSecondaryPosition);
                         }
-                        else if (!SynccueLockState.secondaryLocked)
+                        else if (!lockSecondaryLocked)
                         {
                             // holding secondary hand. have cue track the second grip
-                            body.transform.LookAt(lagSecondaryPosition);
+                            bodyTransform.LookAt(lagSecondaryPosition);
                         }
                         else
                         {
                             // locking secondary hand. lock rotation on point
-                            body.transform.LookAt(SynccueLockState.secondaryLockPos);
+                            bodyTransform.LookAt(lockSecondaryPos);
                         }
 
                         // copy z rotation of primary
-                        float rotation = primary.transform.localEulerAngles.z;
-                        Vector3 bodyRotation = body.transform.localEulerAngles;
+                        float rotation = primaryTransform.localEulerAngles.z;
+                        Vector3 bodyRotation = bodyTransform.localEulerAngles;
                         bodyRotation.z = rotation;
-                        body.transform.localEulerAngles = bodyRotation;
+                        bodyTransform.localEulerAngles = bodyRotation;
                     }
                     else
                     {
                         // locking primary hand. fix cue in line and ignore secondary hand
-                        Vector3 delta = lagPrimaryPosition - SynccueLockState.primaryLockPos;
-                        float distance = Vector3.Dot(delta, SynccueLockState.primaryLockDir);
-                        body.transform.position = SynccueLockState.primaryLockPos + SynccueLockState.primaryLockDir * distance;
+                        Vector3 delta = lagPrimaryPosition - lockPrimaryPos;
+                        float distance = Vector3.Dot(delta, lockPrimaryDir);
+                        bodyTransform.position = lockPrimaryPos + lockPrimaryDir * distance;
                     }
 
                     UpdateDesktopPosition();
                 }
                 else
                 {
-                    body.transform.position = desktop.transform.position;
-                    body.transform.rotation = desktop.transform.rotation;
+                    bodyTransform.position = desktopTransform.position;
+                    bodyTransform.rotation = desktopTransform.rotation;
                 }
 
                 // clamp controllers
@@ -277,39 +309,39 @@ public class CueController : BasisNetworkBehaviour
         else if (!table.localPlayerDistant && table.gameLive)
         {
             // other player has cue
-            if (!SynccueLockState.syncedHolderIsDesktop)
+            if (!lockHolderIsDesktop)
             {
                 // other player is in vr, use the grips which update faster
-                if (!SynccueLockState.primaryLocked || table.noLockingLocal)
+                if (!lockPrimaryLocked || table.noLockingLocal)
                 {
                     // base of cue goes to primary
-                    body.transform.position = lagPrimaryPosition;
+                    bodyTransform.position = lagPrimaryPosition;
 
                     // holding in primary hand
-                    if (!SynccueLockState.secondaryLocked)
+                    if (!lockSecondaryLocked)
                     {
                         // have cue track the second grip
-                        body.transform.LookAt(lagSecondaryPosition);
+                        bodyTransform.LookAt(lagSecondaryPosition);
                     }
                     else
                     {
                         // locking secondary hand. lock rotation on point
-                        body.transform.LookAt(SynccueLockState.secondaryLockPos);
+                        bodyTransform.LookAt(lockSecondaryPos);
                     }
                 }
                 else
                 {
                     // locking primary hand. fix cue in line and ignore secondary hand
-                    Vector3 delta = lagPrimaryPosition - SynccueLockState.primaryLockPos;
-                    float distance = Vector3.Dot(delta, SynccueLockState.primaryLockDir);
-                    body.transform.position = SynccueLockState.primaryLockPos + SynccueLockState.primaryLockDir * distance;
+                    Vector3 delta = lagPrimaryPosition - lockPrimaryPos;
+                    float distance = Vector3.Dot(delta, lockPrimaryDir);
+                    bodyTransform.position = lockPrimaryPos + lockPrimaryDir * distance;
                 }
             }
             else
             {
                 // other player is on desktop, use the slower synced marker
-                body.transform.position = desktop.transform.position;
-                body.transform.rotation = desktop.transform.rotation;
+                bodyTransform.position = desktopTransform.position;
+                bodyTransform.rotation = desktopTransform.rotation;
             }
             updateLagPosition();
         }
@@ -320,55 +352,61 @@ public class CueController : BasisNetworkBehaviour
         // we can't remove this because this directly affects physics
         // must occur at the end after we've finished updating the transform's position
         // otherwise vrchat will try to change it because it's a pickup
-        lagPrimaryPosition = Vector3.Lerp(lagPrimaryPosition, primary.transform.position, 1 - Mathf.Pow(0.5f, Time.fixedDeltaTime * cueSmoothing));
-        if (!SynccueLockState.secondaryLocked)
+        float fixedDeltaTime = Time.fixedDeltaTime;
+        if (fixedDeltaTime != lagFixedDeltaTime || cueSmoothing != lagSmoothing)
         {
-            lagSecondaryPosition = Vector3.Lerp(lagSecondaryPosition, secondary.transform.position, 1 - Mathf.Pow(0.5f, Time.fixedDeltaTime * cueSmoothing));
+            lagFixedDeltaTime = fixedDeltaTime;
+            lagSmoothing = cueSmoothing;
+            lagFactor = 1 - Mathf.Pow(0.5f, fixedDeltaTime * cueSmoothing);
+        }
+        BasisTransformBatchShim.GetPositions(gripTransforms, gripPositions);
+        lagPrimaryPosition = Vector3.Lerp(lagPrimaryPosition, gripPositions[0], lagFactor);
+        if (!lockSecondaryLocked)
+        {
+            lagSecondaryPosition = Vector3.Lerp(lagSecondaryPosition, gripPositions[1], lagFactor);
         }
     }
 
     private Vector3 clamp(Vector3 input, float minX, float maxX, float minY, float maxY, float minZ, float maxZ)
     {
-        input.x = Mathf.Clamp(input.x, minX, maxX);
-        input.y = Mathf.Clamp(input.y, minY, maxY);
-        input.z = Mathf.Clamp(input.z, minZ, maxZ);
-        return input;
+        return new Vector3(Mathf.Clamp(input.x, minX, maxX), Mathf.Clamp(input.y, minY, maxY), Mathf.Clamp(input.z, minZ, maxZ));
     }
 
     private void resetSecondaryOffset()
     {
-        Vector3 position = primary.transform.InverseTransformPoint(secondary.transform.position);
+        Vector3 position = primaryTransform.InverseTransformPoint(secondaryTransform.position);
         secondaryOffset = position.normalized * Mathf.Clamp(position.magnitude, gripSize * 2, cuetipDistance);
     }
 
     private void takeOwnership()
     {
-        TakeOwnership();
-        PrimaryNetworking.TakeOwnership();
-        SecondaryNetworking.TakeOwnership();
+        holderId = table._LocalPlayerId();
+        if (net != null) net.TakeOwnership();
+        if (primaryNetworking != null) primaryNetworking.TakeOwnership();
+        if (secondaryNetworking != null) secondaryNetworking.TakeOwnership();
     }
 
     private void resetPosition()
     {
-        primary.transform.position = origPrimaryPosition;
-        primary.transform.localRotation = Quaternion.identity;
-        secondary.transform.position = origSecondaryPosition;
-        secondary.transform.localRotation = Quaternion.identity;
-        desktop.transform.position = origPrimaryPosition;
-        desktop.transform.localRotation = Quaternion.identity;
-        body.transform.position = origPrimaryPosition;
-        body.transform.LookAt(origSecondaryPosition);
+        primaryTransform.position = origPrimaryPosition;
+        primaryTransform.localRotation = Quaternion.identity;
+        secondaryTransform.position = origSecondaryPosition;
+        secondaryTransform.localRotation = Quaternion.identity;
+        desktopTransform.position = origPrimaryPosition;
+        desktopTransform.localRotation = Quaternion.identity;
+        bodyTransform.position = origPrimaryPosition;
+        bodyTransform.LookAt(origSecondaryPosition);
     }
 
     public void _OnPrimaryPickup()
     {
         takeOwnership();
 
-        holderIsDesktop = !BasisNetworkPlayer.LocalPlayer.IsUserInVR();
-        SynccueLockState.syncedHolderIsDesktop = holderIsDesktop;
+        holderIsDesktop = BasisPlatformShim.IsDesktop;
+        lockHolderIsDesktop = holderIsDesktop;
         primaryHolding = true;
-        SynccueLockState.primaryLocked = false;
-        SynccueLockState.cueScale = cueScaleMine;
+        lockPrimaryLocked = false;
+        lockCueScale = cueScaleMine;
         RequestSerialization();
         refreshCueScale();
 
@@ -382,7 +420,7 @@ public class CueController : BasisNetworkBehaviour
     public void _OnPrimaryDrop()
     {
         primaryHolding = false;
-        SynccueLockState.syncedHolderIsDesktop = false;
+        lockHolderIsDesktop = false;
         RequestSerialization();
         refreshCueScale();
 
@@ -397,20 +435,20 @@ public class CueController : BasisNetworkBehaviour
         clampControllers();
 
         // make sure lag position is reset
-        lagPrimaryPosition = primary.transform.position;
-        lagSecondaryPosition = secondary.transform.position;
+        lagPrimaryPosition = primaryTransform.position;
+        lagSecondaryPosition = secondaryTransform.position;
 
         // move cue to primary grip, since it should be bounded
-        body.transform.position = primary.transform.position;
+        bodyTransform.position = primaryTransform.position;
         // make sure cue is facing the secondary grip (since it may have flown off)
-        body.transform.LookAt(secondary.transform.position);
+        bodyTransform.LookAt(secondaryTransform.position);
         // copy z rotation of primary
-        float rotation = primary.transform.localEulerAngles.z;
-        Vector3 bodyRotation = body.transform.localEulerAngles;
+        float rotation = primaryTransform.localEulerAngles.z;
+        Vector3 bodyRotation = bodyTransform.localEulerAngles;
         bodyRotation.z = rotation;
-        body.transform.localEulerAngles = bodyRotation;
+        bodyTransform.localEulerAngles = bodyRotation;
         // rotate primary grip to face cue, since cue is visual source of truth
-        primary.transform.rotation = body.transform.rotation;
+        primaryTransform.rotation = bodyTransform.rotation;
         // reset secondary offset
         resetSecondaryOffset();
         // update desktop marker
@@ -423,9 +461,9 @@ public class CueController : BasisNetworkBehaviour
     {
         if (!holderIsDesktop)
         {
-            SynccueLockState.primaryLocked = true;
-            SynccueLockState.primaryLockPos = body.transform.position;
-            SynccueLockState.primaryLockDir = body.transform.forward.normalized;
+            lockPrimaryLocked = true;
+            lockPrimaryPos = bodyTransform.position;
+            lockPrimaryDir = bodyTransform.forward.normalized;
             RequestSerialization();
 
             table._TriggerCueActivate();
@@ -436,7 +474,7 @@ public class CueController : BasisNetworkBehaviour
     {
         if (!holderIsDesktop)
         {
-            SynccueLockState.primaryLocked = false;
+            lockPrimaryLocked = false;
             RequestSerialization();
 
             table._TriggerCueDeactivate();
@@ -446,7 +484,7 @@ public class CueController : BasisNetworkBehaviour
     public void _OnSecondaryPickup()
     {
         secondaryHolding = true;
-        SynccueLockState.secondaryLocked = false;
+        lockSecondaryLocked = false;
         RequestSerialization();
     }
 
@@ -459,15 +497,15 @@ public class CueController : BasisNetworkBehaviour
 
     public void _OnSecondaryUseDown()
     {
-        SynccueLockState.secondaryLocked = true;
-        SynccueLockState.secondaryLockPos = secondary.transform.position;
+        lockSecondaryLocked = true;
+        lockSecondaryPos = secondaryTransform.position;
 
         RequestSerialization();
     }
 
     public void _OnSecondaryUseUp()
     {
-        SynccueLockState.secondaryLocked = false;
+        lockSecondaryLocked = false;
 
         RequestSerialization();
     }
@@ -502,7 +540,7 @@ public class CueController : BasisNetworkBehaviour
     {
         cueScaleMine = scale;
         if (!IsLocalOwner()) return;
-        SynccueLockState.cueScale = cueScaleMine;
+        lockCueScale = cueScaleMine;
         RequestSerialization();
         refreshCueScale();
     }
@@ -510,21 +548,21 @@ public class CueController : BasisNetworkBehaviour
     public void resetScale()
     {
         if (!IsLocalOwner()) return;
-        if (SynccueLockState.cueScale == 1) return;
-        SynccueLockState.cueScale = 1;
+        if (lockCueScale == 1) return;
+        lockCueScale = 1;
         RequestSerialization();
         refreshCueScale();
     }
 
     private void clampControllers()
     {
-        clampTransform(primary.transform);
-        clampTransform(secondary.transform);
+        clampTransform(primaryTransform);
+        clampTransform(secondaryTransform);
     }
 
     private void clampTransform(Transform child)
     {
-        child.position = table.transform.TransformPoint(clamp(table.transform.InverseTransformPoint(child.position), -4.25f, 4.25f, 0f, 4f, -3.5f, 3.5f));
+        child.position = tableTransform.TransformPoint(clamp(tableTransform.InverseTransformPoint(child.position), -4.25f, 4.25f, 0f, 4f, -3.5f, 3.5f));
     }
 
     public GameObject _GetDesktopMarker()
@@ -537,8 +575,8 @@ public class CueController : BasisNetworkBehaviour
         return cuetip;
     }
 
-    public BasisNetworkPlayer _GetHolder()
+    public IBasisPlayer _GetHolder()
     {
-        return PrimaryNetworking.currentOwnedPlayer;
+        return table._GetPlayer(holderId);
     }
 }

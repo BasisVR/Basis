@@ -67,6 +67,8 @@ public static partial class ContentPoliceControl
     // no avatar script runs. Avatar content only — props and worlds keep their own Cilbox.
     public static bool AvatarCilboxLocked = false;
 
+    public static Action<GameObject> OnBeforeContentActivated;
+
     // Cilbox lives in com.cnlohr.cilbox which this assembly does not reference, so the lock strip
     // matches by full type name: the avatar sandbox host and its per-behaviour proxies.
     private static readonly HashSet<string> LockedAvatarCilboxTypeNames = new HashSet<string>(StringComparer.Ordinal)
@@ -542,6 +544,14 @@ public static partial class ContentPoliceControl
     {
         if (content != null)
         {
+            try
+            {
+                OnBeforeContentActivated?.Invoke(content);
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"[ContentPolice] Pre-activation hook failed for {content.name}: {e}", BasisDebug.LogTag.Event);
+            }
             content.SetActive(true);
         }
     }

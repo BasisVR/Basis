@@ -1540,6 +1540,9 @@ public class ControlAndResourceMessageRoundTripTests
     [InlineData(ContentShareType.Prop)]
     [InlineData(ContentShareType.World)]
     [InlineData(ContentShareType.Server)]
+    [InlineData(ContentShareType.DollyTrack)]
+    [InlineData(ContentShareType.Link)]
+    [InlineData(ContentShareType.Text)]
     public void ContentShareMessage_RoundTripsAllFields(ContentShareType type)
     {
         var msg = new ContentShareMessage
@@ -1651,6 +1654,36 @@ public class ControlAndResourceMessageRoundTripTests
         Assert.Equal(string.Empty, back.SharerUUID);
         Assert.Equal(string.Empty, back.SharerDisplayName);
         Assert.Equal(ContentShareType.Prop, back.contentShareMessage.ContentType);
+    }
+
+    [Fact]
+    public void ServerContentShareMessage_CarriesSharerProtection_AndReadsOlderPayloadsAsUnprotected()
+    {
+        var msg = new ServerContentShareMessage
+        {
+            playerIdMessage = new PlayerIdMessage { playerID = 9 },
+            SharerUUID = "uuid",
+            SharerDisplayName = "name",
+            contentShareMessage = new ContentShareMessage { SphereNetID = "s", ContentURL = "hello", UnlockPassword = string.Empty, ContentType = ContentShareType.Text },
+            SharerProtected = true,
+        };
+        var writer = new NetDataWriter();
+        msg.Serialize(writer);
+        var back = new ServerContentShareMessage();
+        back.Deserialize(ReaderFor(writer));
+        Assert.True(back.SharerProtected);
+        Assert.Equal("hello", back.contentShareMessage.ContentURL);
+
+        var older = new NetDataWriter();
+        msg.playerIdMessage.Serialize(older);
+        older.Put(msg.SharerUUID);
+        older.Put(msg.SharerDisplayName);
+        msg.contentShareMessage.Serialize(older);
+        var fromOlderServer = new ServerContentShareMessage();
+        fromOlderServer.Deserialize(ReaderFor(older));
+        Assert.False(fromOlderServer.SharerProtected);
+        Assert.Equal("s", fromOlderServer.contentShareMessage.SphereNetID);
+        Assert.Equal(ContentShareType.Text, fromOlderServer.contentShareMessage.ContentType);
     }
 
     [Fact]

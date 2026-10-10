@@ -11378,7 +11378,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7839368377965777035}
   m_Father: {fileID: 1104892808721815049}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3780616983508798003
@@ -11439,7 +11438,6 @@ MonoBehaviour:
     fourBallCueBallSynced: 0
     isUrgentSynced: 0
     colorTurnSynced: 0
-  playerSlot: {fileID: 7839368377965777037}
 --- !u!1 &3722839266830675777
 GameObject:
   m_ObjectHideFlags: 0
@@ -31777,57 +31775,6 @@ MonoBehaviour:
   clearColor: {r: 0, g: 0, b: 0, a: 1}
   bounds: []
   internalTexture: {fileID: 8400000, guid: 2c6d3d5f879696e419b00eaaf1352b1b, type: 2}
---- !u!1 &7839368377965777032
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 7839368377965777035}
-  - component: {fileID: 7839368377965777037}
-  m_Layer: 22
-  m_Name: Slot1
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &7839368377965777035
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7839368377965777032}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 5957070741940906047}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7839368377965777037
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7839368377965777032}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f727c93275c4f24e95c21afea5d35cc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  HasNetworkID: 0
-  IsOwnedLocallyOnServer: 0
-  IsOwnedLocallyOnClient: 0
-  CurrentOwnerId: 0
-  SyncPlayerSession:
-    slot: 0
-    leave: 0
 --- !u!1 &7839368378687396394
 GameObject:
   m_ObjectHideFlags: 0

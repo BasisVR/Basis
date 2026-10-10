@@ -1306,6 +1306,10 @@ public static partial class BasisNetworkModeration
 
     public static event Action<bool> OnGlobalGifsLockedChanged;
 
+    public static bool GlobalContentRemovalLocked { get; private set; }
+
+    public static event Action<bool> OnGlobalContentRemovalLockedChanged;
+
     /// <summary>Fired when the text-chat lock flag changes.</summary>
     public static event Action<bool> OnGlobalTextChatLockedChanged;
 
@@ -1602,7 +1606,16 @@ public static partial class BasisNetworkModeration
                 OnGlobalGifsLockedChanged?.Invoke(GlobalGifsLocked);
             }
         }
-        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}, AdditionalAvatarData: {GlobalAdditionalAvatarDataLock}, CameraMask: {GlobalCameraDisallowMask}, Restriction: {GlobalUserRestrictionMode}, PlayspaceMover: {GlobalPlayspaceMoverLocked}, DirectConnect: {GlobalDirectConnectLocked}, Cilbox: {GlobalCilboxLocked}, Images: {GlobalImagesLocked}, EndEffectorIKDisabled: {GlobalEndEffectorIKDisabled}, TextChat: {GlobalTextChatLocked}, VoiceChat: {GlobalVoiceChatLocked}, MediaPlayer: {GlobalMediaPlayerLocked}, CameraCapture: {GlobalCameraCaptureLocked}, PropGrabbing: {GlobalPropGrabbingLocked}, SafeDisplayNames: {GlobalSafeDisplayNamesForced}, Gifs: {GlobalGifsLocked}", BasisDebug.LogTag.Networking);
+        if (reader.AvailableBytes >= 1)
+        {
+            bool nextContentRemovalLocked = reader.GetBool();
+            if (nextContentRemovalLocked != GlobalContentRemovalLocked)
+            {
+                GlobalContentRemovalLocked = nextContentRemovalLocked;
+                OnGlobalContentRemovalLockedChanged?.Invoke(GlobalContentRemovalLocked);
+            }
+        }
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}, AdditionalAvatarData: {GlobalAdditionalAvatarDataLock}, CameraMask: {GlobalCameraDisallowMask}, Restriction: {GlobalUserRestrictionMode}, PlayspaceMover: {GlobalPlayspaceMoverLocked}, DirectConnect: {GlobalDirectConnectLocked}, Cilbox: {GlobalCilboxLocked}, Images: {GlobalImagesLocked}, EndEffectorIKDisabled: {GlobalEndEffectorIKDisabled}, TextChat: {GlobalTextChatLocked}, VoiceChat: {GlobalVoiceChatLocked}, MediaPlayer: {GlobalMediaPlayerLocked}, CameraCapture: {GlobalCameraCaptureLocked}, PropGrabbing: {GlobalPropGrabbingLocked}, SafeDisplayNames: {GlobalSafeDisplayNamesForced}, Gifs: {GlobalGifsLocked}, ContentRemoval: {GlobalContentRemovalLocked}", BasisDebug.LogTag.Networking);
         OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked, GlobalServersLocked);
     }
 
@@ -1635,6 +1648,7 @@ public static partial class BasisNetworkModeration
         if (GlobalPropGrabbingLocked) { GlobalPropGrabbingLocked = false; OnGlobalPropGrabbingLockedChanged?.Invoke(false); }
         if (GlobalSafeDisplayNamesForced) { GlobalSafeDisplayNamesForced = false; OnGlobalSafeDisplayNamesForcedChanged?.Invoke(false); }
         if (GlobalGifsLocked) { GlobalGifsLocked = false; OnGlobalGifsLockedChanged?.Invoke(false); }
+        if (GlobalContentRemovalLocked) { GlobalContentRemovalLocked = false; OnGlobalContentRemovalLockedChanged?.Invoke(false); }
 
         if (GlobalEndEffectorIKDisabled)
         {
@@ -1820,6 +1834,11 @@ public static partial class BasisNetworkModeration
     public static void GlobalToggleGifs()
     {
         SendAdminRequest(AdminRequestMode.GlobalToggleGifs);
+    }
+
+    public static void GlobalToggleContentRemoval()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleContentRemoval);
     }
 
     /// <summary>

@@ -8,7 +8,9 @@
         "BasisSDK",
         "Unity.InputSystem",
         "BasisCommon",
-        "BasisDebug"
+        "BasisDebug",
+        "Cilbox",
+        "BasisShims"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

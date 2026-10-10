@@ -65,6 +65,20 @@ namespace Basis.BasisUI
             return await contentRemovalDialog.WaitAsync();
         }
 
+        public static async Task<bool> PromptUserForNotWorking(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, string name)
+        {
+            DialogBox<bool> contentRemovalDialog = DialogBox<bool>.Create(panel, new Vector2(900, 240),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.notWorking.title", LibraryProviderStrUtil.TitleToCase(name)),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.notWorking.body", item.Url),
+                AddressableAssets.Sprites.Information,
+                true
+            );
+
+            BuildDialogButtons(contentRemovalDialog);
+
+            return await contentRemovalDialog.WaitAsync();
+        }
+
         // alternate prompt direct with string
         public static async Task<bool> PromptUserForRemoval(BasisMenuPanel panel, string assetName, string type)
         {

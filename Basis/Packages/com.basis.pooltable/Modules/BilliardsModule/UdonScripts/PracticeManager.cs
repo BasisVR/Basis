@@ -5,6 +5,7 @@ using UnityEngine;
 
 
 
+[Cilboxable]
 public class PracticeManager : MonoBehaviour
 {
     private BilliardsModule table;
@@ -161,7 +162,7 @@ public class PracticeManager : MonoBehaviour
             if (snookerUndo)
             {
                 // repositioining the ball counts as a step, so we need to go back to the last step when it wasn't our turn
-                if ((byte)state[4] == (byte)table.localTeamId)
+                if ((uint)state[4] == table.localTeamId)
                 {
                     continue;
                 }

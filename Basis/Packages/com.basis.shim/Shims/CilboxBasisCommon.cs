@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System;
 using System.Reflection;
 using Basis.Scripts.BasisSdk.Constraints;
+using CilboxItems = Basis.BasisUI.BasisCilboxPermissionText;
 
 namespace Cilbox
 {
@@ -678,6 +679,27 @@ namespace Cilbox
 		protected abstract HashSet<string> ExtraWhiteListFields { get; }
 		protected abstract Dictionary<Type, HashSet<string>> ExtraMethodWhitelist { get; }
 
+		internal CilboxBasisConsent.State consentState;
+		internal string consentHash;
+		internal HashSet<string> consentGranted;
+		internal CilboxBasisConsent.Scan consentScan;
+
+		protected bool Beyond(string item, bool floor)
+		{
+			if (consentScan != null)
+			{
+				(floor ? consentScan.Blocked : consentScan.Items).Add(item);
+				return true;
+			}
+			return !floor && CilboxBasisConsent.Permits(this, item);
+		}
+
+		protected static string MethodItem(Type declaringType, string name)
+		{
+			string type = declaringType != null && declaringType.FullName != null ? GetSanitizedTypeName(declaringType) : "?";
+			return CilboxItems.MethodPrefix + type + "." + name;
+		}
+
 		// Denied regardless of what a wildcard covers: "System.Int*" is a bare prefix match
 		// and would otherwise admit System.IntPtr.
 		private static readonly HashSet<string> hardDeniedTypes = new HashSet<string>(StringComparer.Ordinal)
@@ -688,23 +710,33 @@ namespace Cilbox
 			"System.RuntimeFieldHandle",
 			"System.RuntimeMethodHandle",
 			"System.RuntimeTypeHandle",
+			"System.Runtime.CompilerServices.Unsafe",
+			"System.Runtime.InteropServices.Marshal",
+			"System.Runtime.InteropServices.MemoryMarshal",
+			"System.Runtime.InteropServices.GCHandle",
+			"System.Runtime.InteropServices.NativeLibrary",
 		};
 
 		public override bool CheckTypeAllowed(Type t)
 		{
-			if (t == null || t.IsPointer || t.FullName == null) return false;
+			if (t == null || t.FullName == null) return false;
+			if (t.IsPointer) return Beyond(CilboxItems.TypePrefix + t.FullName, true);
 			return CheckTypeAllowed(GetSanitizedTypeName(t));
 		}
 
 		public override bool CheckFieldAllowed(Type t, string sFieldName)
 		{
-			if (t == null || t.IsPointer || t.FullName == null) return false;
+			if (t == null || t.FullName == null) return false;
+			if (t.IsPointer) return Beyond(CilboxItems.FieldPrefix + t.FullName + "." + sFieldName, true);
+			FieldInfo field = t.GetField(sFieldName, BindingFlags.Static | BindingFlags.Public | BindingFlags.Instance);
+			if (field != null && field.FieldType.IsPointer) return Beyond(CilboxItems.FieldPrefix + GetSanitizedTypeName(t) + "." + sFieldName, true);
 			return CheckFieldAllowed(GetSanitizedTypeName(t), sFieldName);
 		}
 
 		public bool CheckTypeAllowed(string sType)
 		{
-			if (sType != null && hardDeniedTypes.Contains(sType)) return false;
+			if (sType == null) return false;
+			if (hardDeniedTypes.Contains(sType)) return Beyond(CilboxItems.TypePrefix + sType, true);
 			if (commonWhiteListType.Contains(sType)) return true;
 			if (ExtraWhiteListType.Contains(sType)) return true;
 			foreach (var allowedType in commonWhiteListType)
@@ -715,7 +747,7 @@ namespace Cilbox
 			{
 				if (MatchesWildcard(allowedType, sType)) return true;
 			}
-			return false;
+			return Beyond(CilboxItems.TypePrefix + sType, false);
 		}
 
 		public bool CheckFieldAllowed(string sType, string sFieldName)
@@ -732,16 +764,44 @@ namespace Cilbox
 			{
 				if (MatchesWildcard(allowedField, fullField)) return true;
 			}
-			return false;
+			return Beyond(CilboxItems.FieldPrefix + fullField, false);
 		}
 
 		public override bool CheckMethodAllowed(out MethodInfo mi, Type declaringType, string name, SerializedTypeDescriptor[] parametersIn, SerializedTypeDescriptor[] genericArgumentsIn, string fullSignature)
 		{
 			mi = null;
 
-			if (name.Contains("Invoke")) return false;
+			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
 
-			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return false;
+			// Redirect every UnityEngine.Object.Instantiate variant through the sanitizing
+			// shim so spawned prefabs are scrubbed (disallowed components destroyed,
+			// persistent UnityEvent listeners killed) while parked under a disabled host
+			// before they become active in hierarchy.
+			if (declaringType == typeof(UnityEngine.Object) &&
+				(name == "Instantiate" || name == "InstantiateAsync"))
+			{
+				mi = Basis.Shims.BasisCilboxInstantiateShim.ResolveShim(
+					usage, name, parametersIn, genericArgumentsIn, fullSignature);
+				return mi != null;
+			}
+
+			// NativeArray<T> only bounds-checks its indexer under ENABLE_UNITY_COLLECTIONS_CHECKS,
+			// which release players do not define. Restricted to the members that copy out.
+			if (declaringType != null && declaringType.IsGenericType &&
+				declaringType.GetGenericTypeDefinition().FullName == "Unity.Collections.NativeArray`1")
+			{
+				return name == "get_Length" || name == "get_IsCreated" ||
+					   name == "ToArray" || name == "CopyTo" ||
+					   name == "Equals" || name == "GetHashCode" || name == "ToString" ||
+					   Beyond(MethodItem(declaringType, name), true);
+			}
+
+			return CuratedMethodAllowed(declaringType, name) || Beyond(MethodItem(declaringType, name), false);
+		}
+
+		private bool CuratedMethodAllowed(Type declaringType, string name)
+		{
+			if (name.Contains("Invoke")) return false;
 
 			// UnityEngine.Application.OpenURL opens an arbitrary URL in the native browser.
 			// Same shape blocks Quit, Unload, LoadLevel*, ExternalCall/Eval and other
@@ -760,18 +820,6 @@ namespace Cilbox
 				name.StartsWith("Load", StringComparison.Ordinal)))
 				return false;
 
-			// Redirect every UnityEngine.Object.Instantiate variant through the sanitizing
-			// shim so spawned prefabs are scrubbed (disallowed components destroyed,
-			// persistent UnityEvent listeners killed) while parked under a disabled host
-			// before they become active in hierarchy.
-			if (declaringType == typeof(UnityEngine.Object) &&
-				(name == "Instantiate" || name == "InstantiateAsync"))
-			{
-				mi = Basis.Shims.BasisCilboxInstantiateShim.ResolveShim(
-					usage, name, parametersIn, genericArgumentsIn, fullSignature);
-				return mi != null;
-			}
-
 			// SendMessage / BroadcastMessage / AddComponent reach behaviours by name and
 			// bypass cilbox sanitisation.
 			if (declaringType == typeof(UnityEngine.GameObject) && (
@@ -789,16 +837,6 @@ namespace Cilbox
 				name == "GetBehaviour" ||
 				name == "GetBehaviours"))
 				return false;
-
-			// NativeArray<T> only bounds-checks its indexer under ENABLE_UNITY_COLLECTIONS_CHECKS,
-			// which release players do not define. Restricted to the members that copy out.
-			if (declaringType != null && declaringType.IsGenericType &&
-				declaringType.GetGenericTypeDefinition().FullName == "Unity.Collections.NativeArray`1")
-			{
-				return name == "get_Length" || name == "get_IsCreated" ||
-					   name == "ToArray" || name == "CopyTo" ||
-					   name == "Equals" || name == "GetHashCode" || name == "ToString";
-			}
 
 			bool inCommon = commonMethodWhitelist.TryGetValue(declaringType, out var commonAllowed);
 			bool inExtra = ExtraMethodWhitelist.TryGetValue(declaringType, out var extraAllowed);

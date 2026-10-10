@@ -7,13 +7,14 @@ using UnityEngine;
 
 
 
+[Cilboxable]
 public class RepositionManager : MonoBehaviour
 {
 
     private BilliardsModule table;
 
     private int repositionCount;
-    private bool[] repositioning;
+    private int[] repositioning;
 
     int repositionMode = 0;
     public void onUseDown()
@@ -28,7 +29,7 @@ public class RepositionManager : MonoBehaviour
     {
         table = table_;
 
-        repositioning = new bool[table.balls.Length];
+        repositioning = new int[table.balls.Length];
 
         _OnGameStarted();
     }
@@ -49,7 +50,7 @@ public class RepositionManager : MonoBehaviour
         Transform tableSurface = table.tableSurface;
         for (int i = 0; i < repositioning.Length; i++)
         {
-            if (!repositioning[i]) continue;
+            if (repositioning[i] == 0) continue;
             if (i > 0 && !table.isPracticeMode) continue;
 
             GameObject ball = table.balls[i];
@@ -166,9 +167,9 @@ public class RepositionManager : MonoBehaviour
         }
 
         int idx = grip.idx;
-        if (repositioning[idx]) return;
+        if (repositioning[idx] != 0) return;
 
-        repositioning[idx] = true;
+        repositioning[idx] = 1;
         repositionCount++;
         return;
     }
@@ -176,9 +177,9 @@ public class RepositionManager : MonoBehaviour
     public void _EndReposition(Repositioner grip)
     {
         int idx = grip.idx;
-        if (!repositioning[idx]) return;
+        if (repositioning[idx] == 0) return;
 
-        repositioning[idx] = false;
+        repositioning[idx] = 0;
         repositionCount--;
 
         grip._Reset();

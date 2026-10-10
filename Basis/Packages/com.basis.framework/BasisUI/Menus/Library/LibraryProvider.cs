@@ -358,7 +358,7 @@ namespace Basis.BasisUI
                 return wrapper;
             }
 
-            // If the metadata is missing on disk, remove the key and DO NOT attempt to create a bundle from it.
+            // If the metadata is missing on disk, DO NOT attempt to create a bundle from it.
             var (onDisc, info) = await BasisLoadHandler.IsMetaDataOnDiscAsync(item.Url);
             if (onDisc)
             {
@@ -380,8 +380,7 @@ namespace Basis.BasisUI
             }
             else
             {
-                BasisDebug.LogError($"Attempted to BuildWrapper({item.Url}) but IsMetaDataOnDisc returned false, removing item {item.Url}");
-                await BasisDataStoreItemKeys.RemoveKey(item);
+                BasisDebug.LogError($"Attempted to BuildWrapper({item.Url}) but IsMetaDataOnDisc returned false");
                 return null;
             }
         }
@@ -1016,6 +1015,12 @@ namespace Basis.BasisUI
                         desc.ForceRebuild();
                     }
                 }
+                else if (CachedMetaData.IsNotWorking(urlKey))
+                {
+                    desc.SetTitle(BasisLocalization.Get("library.notWorking"));
+                    desc.SetDescription(urlKey);
+                    desc.ForceRebuild();
+                }
                 else
                 {
                     desc.SetTitle(BasisLocalization.Get("library.loading"));
@@ -1041,7 +1046,7 @@ namespace Basis.BasisUI
                 }
                 catch (Exception ex)
                 {
-                    BasisDebug.LogError($"Item '{chosen?.Url}' failed to open and will be removed: {ex.Message}");
+                    BasisDebug.LogError($"Item '{chosen?.Url}' failed to open: {ex.Message}");
                     _ = HandleBadItem(chosen);
                 }
             };
@@ -1171,8 +1176,33 @@ namespace Basis.BasisUI
             return item.PinnedSettings.IsPinned ? BasisLocalization.Get("library.pinned") : BasisLocalization.Get("library.pin");
         }
 
+        private static async Task RetryOrPromptNotWorking(BasisDataStoreItemKeys.ItemKey item)
+        {
+            if (!CachedMetaData.IsNotWorking(item.Url))
+            {
+                await CachedMetaData.PreloadMetaDataForItem(item);
+                if (CachedMetaData.TryGetMeta(item.Url, out CachedMetaData.CachedContent meta) && meta?.BasisBundleConnector?.BasisBundleDescription != null)
+                {
+                    if (PanelAlive)
+                    {
+                        ShowItemOverlay(item);
+                    }
+                    return;
+                }
+            }
+            await HandleBadItem(item);
+        }
+
         private static async Task HandleBadItem(BasisDataStoreItemKeys.ItemKey item)
         {
+            if (!PanelAlive || item.EmbeddedSettings.IsEmbedded || BasisServerProvidedItems.IsServerProvided(item))
+            {
+                return;
+            }
+            if (!await LibraryProviderDialogRemove.PromptUserForNotWorking(panel, item, CachedMetaData.DisplayNameFor(item)))
+            {
+                return;
+            }
             BasisStorageManagement.DeleteStoredFile(item.Url);
             await BasisDataStoreItemKeys.RemoveKey(item);
             await RefreshCurrentTab();
@@ -1220,9 +1250,9 @@ namespace Basis.BasisUI
             }
             else if (!hasMeta || metadata?.BasisBundleConnector == null || metadata.BasisBundleConnector.BasisBundleDescription == null)
             {
-                // Bad or missing file - show error, remove from disk, and refresh
-                BasisDebug.LogError($"Item '{item.Url}' has invalid or missing metadata. Removing from library.");
-                _ = HandleBadItem(item);
+                // Bad or missing file - retry the load, then ask the user whether to remove it
+                BasisDebug.LogWarning($"Item '{item.Url}' has invalid or missing metadata.");
+                _ = RetryOrPromptNotWorking(item);
                 return;
             }
             else
@@ -2480,6 +2510,15 @@ namespace Basis.BasisUI
         /// <see cref="BasisRuntimeSpawnRegistry.SpawnInstance"/> behind it — pending and failed
         /// loads. Kept in one place so the two can never drift from each other.
         /// </summary>
+        private static bool CanRemoveSpawn(BasisRuntimeSpawnRegistry.SpawnMethod method, bool isProtected, string creatorUUID)
+        {
+            if (method != BasisRuntimeSpawnRegistry.SpawnMethod.Network || IsProtected) return true;
+            if (isProtected) return false;
+            return !BasisNetworkModeration.GlobalContentRemovalLocked || (BasisLocalPlayer.Instance != null && creatorUUID == BasisLocalPlayer.Instance.UUID);
+        }
+
+        private static string RemoveDisabledReason(bool isProtected) => BasisLocalization.Get(isProtected ? "library.disabled.protected" : "library.disabled.removalLocked");
+
         private static bool RowPassesFilters(BasisRuntimeSpawnRegistry.SpawnMode mode, BasisRuntimeSpawnRegistry.SpawnMethod method, string creatorUUID, bool isProtected, bool persistent, string title)
         {
             if (!string.IsNullOrWhiteSpace(_currentSearchQuery))
@@ -2597,7 +2636,7 @@ namespace Basis.BasisUI
             _pendingLoadRowInfo[pending.PendingId] = itemTextInfo.Descriptor;
 
             // Same rule the spawned/failed rows use: a protected networked item is an admin's to remove.
-            bool canRemove = pending.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !pending.isProtected || IsProtected;
+            bool canRemove = CanRemoveSpawn(pending.SpawnMethod, pending.isProtected, pending.UUIDOfCreator);
 
             BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
@@ -2605,7 +2644,7 @@ namespace Basis.BasisUI
                 Icon = AddressableAssets.Sprites.Trash,
                 Tooltip = BasisLocalization.Get("library.instantiated.pending.cancel.tooltip"),
                 Disabled = !canRemove,
-                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                DisabledReason = canRemove ? null : RemoveDisabledReason(pending.isProtected),
                 OnClick = async () =>
                 {
                     BasisDebug.Log($"CreatePendingListEntry() -> requested cancel of pending load = {pending.Url} of PendingId = {pending.PendingId} of SpawnMethod = {pending.SpawnMethod} and SpawnMode = {pending.SpawnMode}");
@@ -2742,7 +2781,7 @@ namespace Basis.BasisUI
             itemTextInfo.Descriptor.SetWidth(400);
 
             // Same rule the spawned rows use: a protected networked item is an admin's to remove.
-            bool canRemove = failed.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !failed.isProtected || IsProtected;
+            bool canRemove = CanRemoveSpawn(failed.SpawnMethod, failed.isProtected, failed.UUIDOfCreator);
 
             BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
@@ -2750,7 +2789,7 @@ namespace Basis.BasisUI
                 Icon = AddressableAssets.Sprites.Trash,
                 Tooltip = BasisLocalization.Get("library.instantiated.failed.remove.tooltip"),
                 Disabled = !canRemove,
-                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                DisabledReason = canRemove ? null : RemoveDisabledReason(failed.isProtected),
                 OnClick = async () =>
                 {
                     BasisDebug.Log($"CreateFailedListEntry() -> requested removal of failed item = {failed.Url} of LoadedNetID = {failed.LoadedNetID} of SpawnMethod = {failed.SpawnMethod} and SpawnMode = {failed.SpawnMode}");
@@ -2818,6 +2857,14 @@ namespace Basis.BasisUI
 
             itemListPanel.Descriptor.SetWidth(1400);
             itemListPanel.Descriptor.SetHeight(95);
+
+            if (entry.Protected)
+            {
+                PanelImage protectedPanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+                protectedPanelImage.SetSize(new Vector2(80, 80));
+                protectedPanelImage.SetIcon(AddressableAssets.Sprites.Admin);
+                protectedPanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.admin.tooltip"));
+            }
 
             PanelImage typePanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
             typePanelImage.SetSize(new Vector2(80, 80));
@@ -2946,6 +2993,8 @@ namespace Basis.BasisUI
                 case BasisShareableKind.World: return AddressableAssets.Sprites.World;
                 case BasisShareableKind.Server: return AddressableAssets.Sprites.Network;
                 case BasisShareableKind.DollyTrack: return AddressableAssets.Sprites.Camera;
+                case BasisShareableKind.Link: return AddressableAssets.Sprites.Link;
+                case BasisShareableKind.Text: return AddressableAssets.Sprites.List;
                 default: return AddressableAssets.Sprites.Items;
             }
         }
@@ -2960,6 +3009,8 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Server: return BasisLocalization.Get("library.shareable.server");
                 case BasisShareableKind.Image: return BasisLocalization.Get("library.shareable.image");
                 case BasisShareableKind.DollyTrack: return BasisLocalization.Get("library.shareable.dollyTrack");
+                case BasisShareableKind.Link: return BasisLocalization.Get("library.shareable.link");
+                case BasisShareableKind.Text: return BasisLocalization.Get("library.shareable.text");
                 default: return BasisLocalization.Get("library.shareable.other");
             }
         }
@@ -3252,7 +3303,7 @@ namespace Basis.BasisUI
             }
 
             // Network items can be protected; only an admin may remove those. Non-network items always removable.
-            bool canRemove = itemKey.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !itemKey.isProtected || IsProtected;
+            bool canRemove = CanRemoveSpawn(itemKey.SpawnMethod, itemKey.isProtected, itemKey.UUIDOfCreator);
 
             BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
@@ -3260,7 +3311,7 @@ namespace Basis.BasisUI
                 Icon = AddressableAssets.Sprites.Trash,
                 Tooltip = BasisLocalization.Get("library.instantiated.remove.tooltip"),
                 Disabled = !canRemove,
-                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                DisabledReason = canRemove ? null : RemoveDisabledReason(itemKey.isProtected),
                 OnClick = async () =>
                 {
                     BasisDebug.Log($"CreateListEntry() -> requested removal of item = {itemKey.Url} of instanceID = {instanceID} of SpawnMethod = {itemKey.SpawnMethod} and SpawnMode = {itemKey.SpawnMode}");

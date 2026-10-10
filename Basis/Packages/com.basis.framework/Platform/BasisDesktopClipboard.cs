@@ -1,12 +1,12 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 #endif
@@ -58,6 +58,8 @@ namespace Basis.Scripts.Platform
         public static event Action<BasisClipboardImage> OnImagePasted;
 
         private static readonly ConcurrentQueue<BasisClipboardImage> _pending = new();
+        public static event Action<string> OnTextPasted;
+        private static readonly ConcurrentQueue<string> _pendingText = new();
 
         /// <summary>
         /// When false the paste chord is ignored, though <see cref="SubmitImage"/> still works. Lets a
@@ -78,6 +80,12 @@ namespace Basis.Scripts.Platform
             _pending.Enqueue(image);
         }
 
+        public static void SubmitText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            _pendingText.Enqueue(text);
+        }
+
         /// <summary>
         /// Reads the paste chord, captures the clipboard when it fires, and raises
         /// <see cref="OnImagePasted"/> for everything queued. Called once per frame from
@@ -90,6 +98,7 @@ namespace Basis.Scripts.Platform
         public static void Dispatch()
         {
             PollPasteChord();
+            DispatchText();
 
             int count = _pending.Count;
             if (count == 0) return;
@@ -116,6 +125,35 @@ namespace Basis.Scripts.Platform
                     }
                 }
             }
+        }
+
+        private static void DispatchText()
+        {
+            if (_pendingText.IsEmpty) return;
+            int count = _pendingText.Count;
+            Delegate[] subscribers = OnTextPasted?.GetInvocationList();
+            for (int i = 0; i < count; i++)
+            {
+                if (!_pendingText.TryDequeue(out string text)) break;
+                if (subscribers == null) continue;
+                for (int s = 0; s < subscribers.Length; s++)
+                {
+                    try
+                    {
+                        ((Action<string>)subscribers[s]).Invoke(text);
+                    }
+                    catch (Exception exception)
+                    {
+                        BasisDebug.LogError($"Clipboard paste: {subscribers[s].Method?.DeclaringType?.Name} failed on pasted text ({exception.Message}).", LogTag);
+                    }
+                }
+            }
+        }
+
+        private static void CaptureText()
+        {
+            string text = GUIUtility.systemCopyBuffer;
+            if (!string.IsNullOrEmpty(text)) SubmitText(text);
         }
 
         private static void PollPasteChord()
@@ -171,21 +209,32 @@ namespace Basis.Scripts.Platform
 
 #if !(UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
         /// <summary>
-        /// Reads the clipboard and queues whatever image it holds. No-op away from Windows: the other
-        /// desktop platforms need their own native clipboard access, and there is none to build on here.
+        /// Reads the clipboard text. Images are Windows only: the other desktop platforms need their own
+        /// native clipboard access, and there is none to build on here.
         /// </summary>
         public static void Capture()
         {
+            CaptureText();
         }
+
+        public static bool CanCopyImages => false;
+
+        public static bool CopyImage(IReadOnlyList<BasisClipboardImage> formats) => false;
 #else
         private const uint CF_DIB = 8;
         private const uint CF_DIBV5 = 17;
         private const uint CF_HDROP = 15;
 
         private const int OpenClipboardAttempts = 8;
+        private const uint GMEM_MOVEABLE = 0x0002;
 
         [DllImport("user32.dll", SetLastError = true)] private static extern bool OpenClipboard(IntPtr hWndNewOwner);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool CloseClipboard();
+        [DllImport("user32.dll", SetLastError = true)] private static extern bool EmptyClipboard();
+        [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetClipboardData(uint format, IntPtr handle);
+        [DllImport("user32.dll")] private static extern IntPtr GetActiveWindow();
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr GlobalAlloc(uint flags, UIntPtr bytes);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr GlobalFree(IntPtr handle);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool IsClipboardFormatAvailable(uint format);
         [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr GetClipboardData(uint format);
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern uint RegisterClipboardFormat(string format);
@@ -204,14 +253,21 @@ namespace Basis.Scripts.Platform
 
         /// <summary>
         /// Reads the clipboard and queues whatever image it holds, or forwards copied files to the
-        /// file-drop bridge. Public so a UI paste button can bypass the chord entirely.
+        /// file-drop bridge, or queues its text when it holds neither. Public so a UI paste button can
+        /// bypass the chord entirely.
         /// </summary>
         public static void Capture()
         {
-            if (!TryOpenClipboard())
+            if (CaptureImageOrFiles()) return;
+            CaptureText();
+        }
+
+        private static bool CaptureImageOrFiles()
+        {
+            if (!TryOpenClipboard(IntPtr.Zero))
             {
                 BasisDebug.LogWarning("Clipboard paste: another application is holding the clipboard open.", LogTag);
-                return;
+                return true;
             }
 
             try
@@ -221,23 +277,24 @@ namespace Basis.Scripts.Platform
                 // Order matters. GIF first because it is the only format that survives as an animation;
                 // a browser that offers both GIF and PNG has already flattened the PNG to one frame.
                 // Then the lossless file formats, and only then the raw bitmap every source can produce.
-                if (TryQueue(_gifFormat, BasisClipboardImageFormat.Gif)) return;
-                if (TryQueue(_mimeGifFormat, BasisClipboardImageFormat.Gif)) return;
-                if (TryQueue(_pngFormat, BasisClipboardImageFormat.Png)) return;
-                if (TryQueue(_mimePngFormat, BasisClipboardImageFormat.Png)) return;
-                if (TryQueue(_jpegFormat, BasisClipboardImageFormat.Jpeg)) return;
-                if (TryQueue(_mimeJpegFormat, BasisClipboardImageFormat.Jpeg)) return;
+                if (TryQueue(_gifFormat, BasisClipboardImageFormat.Gif)) return true;
+                if (TryQueue(_mimeGifFormat, BasisClipboardImageFormat.Gif)) return true;
+                if (TryQueue(_pngFormat, BasisClipboardImageFormat.Png)) return true;
+                if (TryQueue(_mimePngFormat, BasisClipboardImageFormat.Png)) return true;
+                if (TryQueue(_jpegFormat, BasisClipboardImageFormat.Jpeg)) return true;
+                if (TryQueue(_mimeJpegFormat, BasisClipboardImageFormat.Jpeg)) return true;
 
                 // CF_DIBV5 before CF_DIB: same pixels, but the V5 header carries an explicit alpha mask
                 // instead of leaving the fourth channel's meaning to guesswork.
-                if (TryQueue(CF_DIBV5, BasisClipboardImageFormat.Bitmap)) return;
-                if (TryQueue(CF_DIB, BasisClipboardImageFormat.Bitmap)) return;
+                if (TryQueue(CF_DIBV5, BasisClipboardImageFormat.Bitmap)) return true;
+                if (TryQueue(CF_DIB, BasisClipboardImageFormat.Bitmap)) return true;
 
-                TryForwardCopiedFiles();
+                return TryForwardCopiedFiles();
             }
             catch (Exception exception)
             {
                 BasisDebug.LogError($"Clipboard paste: reading the clipboard failed ({exception.Message}).", LogTag);
+                return true;
             }
             finally
             {
@@ -249,12 +306,77 @@ namespace Basis.Scripts.Platform
         /// The clipboard is a single global lock that any process can be holding for a moment, so a
         /// first failure means "busy", not "unavailable". Retried a few times before giving up.
         /// </summary>
-        private static bool TryOpenClipboard()
+        private static bool TryOpenClipboard(IntPtr owner)
         {
             for (int attempt = 0; attempt < OpenClipboardAttempts; attempt++)
             {
-                if (OpenClipboard(IntPtr.Zero)) return true;
+                if (OpenClipboard(owner)) return true;
             }
+            return false;
+        }
+
+        public static bool CanCopyImages => true;
+
+        public static bool CopyImage(IReadOnlyList<BasisClipboardImage> formats)
+        {
+            if (formats == null || formats.Count == 0) return false;
+            if (!TryOpenClipboard(GetActiveWindow()))
+            {
+                BasisDebug.LogWarning("Clipboard copy: another application is holding the clipboard open.", LogTag);
+                return false;
+            }
+
+            try
+            {
+                if (!EmptyClipboard()) return false;
+                RegisterFormats();
+                int written = 0;
+                for (int i = 0; i < formats.Count; i++)
+                {
+                    BasisClipboardImage image = formats[i];
+                    if (image == null || image.Data == null || image.Data.Length == 0) continue;
+                    uint format = image.Format switch
+                    {
+                        BasisClipboardImageFormat.Png => _pngFormat,
+                        BasisClipboardImageFormat.Gif => _gifFormat,
+                        BasisClipboardImageFormat.Bitmap => CF_DIB,
+                        _ => 0,
+                    };
+                    if (format != 0 && WriteGlobal(format, image.Data)) written++;
+                }
+                return written > 0;
+            }
+            catch (Exception exception)
+            {
+                BasisDebug.LogError($"Clipboard copy: writing the clipboard failed ({exception.Message}).", LogTag);
+                return false;
+            }
+            finally
+            {
+                CloseClipboard();
+            }
+        }
+
+        private static bool WriteGlobal(uint format, byte[] data)
+        {
+            IntPtr handle = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)(uint)data.Length);
+            if (handle == IntPtr.Zero) return false;
+            IntPtr pointer = GlobalLock(handle);
+            if (pointer == IntPtr.Zero)
+            {
+                GlobalFree(handle);
+                return false;
+            }
+            try
+            {
+                Marshal.Copy(data, 0, pointer, data.Length);
+            }
+            finally
+            {
+                GlobalUnlock(handle);
+            }
+            if (SetClipboardData(format, handle) != IntPtr.Zero) return true;
+            GlobalFree(handle);
             return false;
         }
 
@@ -335,12 +457,12 @@ namespace Basis.Scripts.Platform
         /// dragged one, but it is not ours to release — DragFinish here would free memory the clipboard
         /// still owns — so the handle is only read.
         /// </summary>
-        private static void TryForwardCopiedFiles()
+        private static bool TryForwardCopiedFiles()
         {
-            if (!IsClipboardFormatAvailable(CF_HDROP)) return;
+            if (!IsClipboardFormatAvailable(CF_HDROP)) return false;
 
             IntPtr hDrop = GetClipboardData(CF_HDROP);
-            if (hDrop == IntPtr.Zero) return;
+            if (hDrop == IntPtr.Zero) return true;
 
             var paths = new List<string>();
             uint count = DragQueryFile(hDrop, 0xFFFFFFFF, null, 0);
@@ -356,8 +478,9 @@ namespace Basis.Scripts.Platform
                 if (!string.IsNullOrEmpty(path)) paths.Add(path);
             }
 
-            if (paths.Count == 0) return;
+            if (paths.Count == 0) return true;
             BasisDesktopFileDrop.SubmitDroppedFiles(paths.ToArray());
+            return true;
         }
 #endif
     }

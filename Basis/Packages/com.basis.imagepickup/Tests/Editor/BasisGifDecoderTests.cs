@@ -828,6 +828,30 @@ namespace Basis.ImagePickup.Tests
         }
 
         [Test]
+        public void ClipboardCopyOffersTheSanitizedGifAheadOfThePoster()
+        {
+            byte[] source = Convert.FromBase64String(AnimatedGif);
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            byte[] poster;
+            try
+            {
+                poster = texture.EncodeToPNG();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+
+            var formats = BasisImagePickupObject.BuildClipboardFormats(poster, source);
+
+            Assert.That(formats.Count, Is.EqualTo(3));
+            Assert.That(formats[0].Format, Is.EqualTo(Basis.Scripts.Platform.BasisClipboardImageFormat.Gif));
+            Assert.That(formats[0].Data, Is.EqualTo(SaveGif(source)));
+            Assert.That(formats[1].Format, Is.EqualTo(Basis.Scripts.Platform.BasisClipboardImageFormat.Png));
+            Assert.That(formats[2].Format, Is.EqualTo(Basis.Scripts.Platform.BasisClipboardImageFormat.Bitmap));
+        }
+
+        [Test]
         public void SavedGifDropsEverythingTheDecoderSkips()
         {
             byte[] marker = Encoding.ASCII.GetBytes("BASIS-SAVE-MARKER");
