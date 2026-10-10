@@ -16,7 +16,8 @@
         "BasisSDKEditor",
         "BasisEditor",
         "HVR.Basis.Comms",
-        "BasisExamples"
+        "BasisExamples",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

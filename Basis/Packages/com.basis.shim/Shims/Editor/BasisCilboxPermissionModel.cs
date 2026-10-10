@@ -248,7 +248,9 @@ namespace Basis.Shims.Editor
             if (box?.Probe == null || string.IsNullOrEmpty(typeName)) return false;
             try
             {
-                return box.Probe.CheckTypeAllowed(typeName);
+                if (box.Probe is CilboxBasisCommon basisBox) return basisBox.CheckTypeAllowed(typeName);
+                Type type = ResolveType(typeName);
+                return type != null && box.Probe.CheckTypeAllowed(type);
             }
             catch (Exception)
             {
@@ -262,7 +264,9 @@ namespace Basis.Shims.Editor
             if (box?.Probe == null || string.IsNullOrEmpty(typeName)) return false;
             try
             {
-                return box.Probe.CheckFieldAllowed(typeName, fieldName);
+                if (box.Probe is CilboxBasisCommon basisBox) return basisBox.CheckFieldAllowed(typeName, fieldName);
+                Type type = ResolveType(typeName);
+                return type != null && box.Probe.CheckFieldAllowed(type, fieldName);
             }
             catch (Exception)
             {

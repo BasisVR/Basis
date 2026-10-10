@@ -287,7 +287,10 @@ public static class AssetBundleBuilder
             string fileOutput = files[index];
             string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileOutput);
             Hash128 bundleHash = manifest.GetAssetBundleHash(fileOutput);
-            BuildPipeline.GetCRCForAssetBundle(fileOutput, out uint crc);
+            if (!BuildPipeline.GetCRCForAssetBundle(Path.Combine(targetDirectory, fileOutput), out uint crc))
+            {
+                BasisDebug.LogError($"Could not read the CRC of {fileOutput}, clients will load it without an integrity check.");
+            }
             string actualFilePath = $"{Path.Combine(targetDirectory, fileNameWithoutExtension)}";
             InformationHash informationHash = new InformationHash
             {

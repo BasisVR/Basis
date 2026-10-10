@@ -178,6 +178,7 @@ namespace Cilbox
 			// block every method to keep prop scripts out of the local player's locomotion.
 			{ typeof(Basis.Shims.BasisPlayspaceInputShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisDesktopInputShim), new HashSet<string>() },
 			// Jiggle grab/touch events, so a prop with jiggle can answer being handled the same way
 			// an avatar or a world object can.
 			{ typeof(Basis.Shims.BasisJiggleEventShim), new HashSet<string>{

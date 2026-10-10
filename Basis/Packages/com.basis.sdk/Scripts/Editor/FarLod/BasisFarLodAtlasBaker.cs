@@ -141,6 +141,8 @@ public static class BasisFarLodAtlasBaker
         RenderTexture maskRegionTexture = null;
         Texture2D bodyReadback = null;
         Texture2D regionReadback = null;
+        Texture2D bodyLinearReadback = null;
+        Texture2D regionLinearReadback = null;
         Renderer[] avatarRenderers = null;
         bool[] avatarRendererStates = null;
         try
@@ -162,6 +164,8 @@ public static class BasisFarLodAtlasBaker
 
             bodyReadback = NewReadback(captureSize);
             regionReadback = NewReadback(regionCaptureSize);
+            bodyLinearReadback = NewLinearReadback(captureSize);
+            regionLinearReadback = NewLinearReadback(regionCaptureSize);
 
             if (!DetectCaptureMode(camera, bodyReadback, captureSize))
             {
@@ -184,8 +188,8 @@ public static class BasisFarLodAtlasBaker
             // below still aborts if priming empties them. Mask targets are always 1x because
             // sample-averaging would corrupt the encoded ids/depth; the part-id shader carries
             // its own DepthOnly pass, so priming is satisfied there.
-            bodyTexture = GetCaptureTarget(captureSize, sUseMsaaTargets);
-            regionTexture = GetCaptureTarget(regionCaptureSize, sUseMsaaTargets);
+            bodyTexture = GetCaptureTarget(captureSize, sUseMsaaTargets, true);
+            regionTexture = GetCaptureTarget(regionCaptureSize, sUseMsaaTargets, true);
 
             if (mask.IsValid)
             {
@@ -234,7 +238,7 @@ public static class BasisFarLodAtlasBaker
             for (int v = 0; v < bodyDirections.Length; v++)
             {
                 Vector3 directionWorld = (rootRotation * bodyDirections[v]).normalized;
-                CaptureView view = CaptureOne(camera, bodyTexture, bodyReadback, captureSize,
+                CaptureView view = CaptureOne(camera, bodyTexture, bodyReadback, bodyLinearReadback, captureSize,
                     centerWorld, directionWorld, rootRotation, radius, isRegion: false, default,
                     maskObject, maskBodyTexture, avatarRenderers, avatarRendererStates, radius, out bool backgroundFresh);
                 if (backgroundFresh)
@@ -277,7 +281,7 @@ public static class BasisFarLodAtlasBaker
                         // Close-ups can legitimately fill their corners with avatar, so the
                         // freshness verdict is ignored — the body-view gate above already
                         // proved or condemned this capture mode.
-                        views.Add(CaptureOne(camera, regionTexture, regionReadback, regionCaptureSize,
+                        views.Add(CaptureOne(camera, regionTexture, regionReadback, regionLinearReadback, regionCaptureSize,
                             regionCenterWorld, directionWorld, rootRotation, regionRadius, isRegion: true, valid,
                             maskObject, maskRegionTexture, avatarRenderers, avatarRendererStates, radius, out _));
                     }
@@ -381,6 +385,14 @@ public static class BasisFarLodAtlasBaker
             if (regionReadback != null)
             {
                 Object.DestroyImmediate(regionReadback);
+            }
+            if (bodyLinearReadback != null)
+            {
+                Object.DestroyImmediate(bodyLinearReadback);
+            }
+            if (regionLinearReadback != null)
+            {
+                Object.DestroyImmediate(regionLinearReadback);
             }
             if (cameraObject != null)
             {
@@ -487,9 +499,17 @@ public static class BasisFarLodAtlasBaker
         };
     }
 
-    private static RenderTexture GetCaptureTarget(int size, bool msaa)
+    private static Texture2D NewLinearReadback(int size)
     {
-        RenderTextureDescriptor descriptor = new RenderTextureDescriptor(size, size, RenderTextureFormat.ARGB32, 24)
+        return new Texture2D(size, size, TextureFormat.RGBAHalf, false, true)
+        {
+            hideFlags = HideFlags.HideAndDontSave,
+        };
+    }
+
+    private static RenderTexture GetCaptureTarget(int size, bool msaa, bool hdr = false)
+    {
+        RenderTextureDescriptor descriptor = new RenderTextureDescriptor(size, size, hdr ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.ARGB32, 24)
         {
             msaaSamples = msaa ? 4 : 1,
         };
@@ -519,7 +539,7 @@ public static class BasisFarLodAtlasBaker
         return directions.ToArray();
     }
 
-    private static CaptureView CaptureOne(Camera camera, RenderTexture target, Texture2D readback, int size,
+    private static CaptureView CaptureOne(Camera camera, RenderTexture target, Texture2D readback, Texture2D linearReadback, int size,
         Vector3 centerWorld, Vector3 directionWorld, Quaternion rootRotation, float frameRadius, bool isRegion, Bounds validBoundsRoot,
         GameObject maskObject, RenderTexture maskTarget, Renderer[] avatarRenderers, bool[] avatarRendererStates,
         float clearanceRadius, out bool backgroundFresh)
@@ -546,27 +566,35 @@ public static class BasisFarLodAtlasBaker
             camera.transform.SetPositionAndRotation(centerWorld - directionWorld * (frameRadius * 2f), Quaternion.LookRotation(directionWorld, up));
         }
 
-        Color32[] onBlack = RenderAndRead(camera, readback, size, new Color(0f, 0f, 0f, 0f));
-        Color32[] onWhite = RenderAndRead(camera, readback, size, new Color(1f, 1f, 1f, 0f));
+        float[] blackLinear = RenderAndReadLinear(camera, linearReadback, size, new Color(0f, 0f, 0f, 0f));
+        float[] whiteLinear = RenderAndReadLinear(camera, linearReadback, size, new Color(1f, 1f, 1f, 0f));
+        Color32[] onBlack = new Color32[size * size];
+        Color32[] onWhite = new Color32[size * size];
+        for (int p = 0, c = 0; p < onBlack.Length; p++, c += 3)
+        {
+            onBlack[p] = new Color32(EncodeSrgb(blackLinear[c]), EncodeSrgb(blackLinear[c + 1]), EncodeSrgb(blackLinear[c + 2]), 255);
+            onWhite[p] = new Color32(EncodeSrgb(whiteLinear[c]), EncodeSrgb(whiteLinear[c + 1]), EncodeSrgb(whiteLinear[c + 2]), 255);
+        }
         // Freshness: the raw reads must actually contain THIS camera's renders — the black
         // pass shows a black background and the white pass a white one. A capture path that
         // hands back some other buffer (observed on live-editor render requests) fails this
         // on every corner, no matter what it contains.
         backgroundFresh = CornersMatch(onBlack, size, expectDark: true) && CornersMatch(onWhite, size, expectDark: false);
-        for (int p = 0; p < onBlack.Length; p++)
+        for (int p = 0, c = 0; p < onBlack.Length; p++, c += 3)
         {
-            int difference = (Mathf.Abs(onWhite[p].r - onBlack[p].r) + Mathf.Abs(onWhite[p].g - onBlack[p].g) + Mathf.Abs(onWhite[p].b - onBlack[p].b)) / 3;
-            int coverage = 255 - difference;
+            float r = blackLinear[c], g = blackLinear[c + 1], b = blackLinear[c + 2];
+            float difference = (Mathf.Abs(whiteLinear[c] - r) + Mathf.Abs(whiteLinear[c + 1] - g) + Mathf.Abs(whiteLinear[c + 2] - b)) / 3f;
+            float coverage = Mathf.Clamp01(1f - difference);
             // Un-premultiply: the color rendered on black is truth × coverage — divide the
             // background attenuation back out so silhouette edges don't bake in dark fringes.
-            if (coverage > 6 && coverage < 255)
+            if (coverage > 6f / 255f && coverage < 1f)
             {
-                float scale = 255f / coverage;
-                onBlack[p].r = (byte)Mathf.Min(255f, onBlack[p].r * scale);
-                onBlack[p].g = (byte)Mathf.Min(255f, onBlack[p].g * scale);
-                onBlack[p].b = (byte)Mathf.Min(255f, onBlack[p].b * scale);
+                float scale = 1f / coverage;
+                r *= scale;
+                g *= scale;
+                b *= scale;
             }
-            onBlack[p].a = (byte)coverage;
+            onBlack[p] = new Color32(EncodeSrgb(r), EncodeSrgb(g), EncodeSrgb(b), (byte)Mathf.RoundToInt(coverage * 255f));
         }
 
         // Part-id + depth pass: same camera, only the vertex-colored snapshot mesh visible.
@@ -807,6 +835,57 @@ public static class BasisFarLodAtlasBaker
         return readback.GetPixels32();
     }
 
+    private static float[] RenderAndReadLinear(Camera camera, Texture2D readback, int captureSize, Color background)
+    {
+        camera.backgroundColor = background;
+        SubmitRender(camera);
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = camera.targetTexture;
+        readback.ReadPixels(new Rect(0, 0, captureSize, captureSize), 0, 0, false);
+        RenderTexture.active = previous;
+        NativeArray<ushort> halves = readback.GetPixelData<ushort>(0);
+        float[] rgb = new float[captureSize * captureSize * 3];
+        for (int h = 0, c = 0; c < rgb.Length; h += 4, c += 3)
+        {
+            rgb[c] = Mathf.HalfToFloat(halves[h]);
+            rgb[c + 1] = Mathf.HalfToFloat(halves[h + 1]);
+            rgb[c + 2] = Mathf.HalfToFloat(halves[h + 2]);
+        }
+        return rgb;
+    }
+
+    private const int SrgbEncodeSteps = 16384;
+    private static byte[] sSrgbEncode;
+    private static float[] sSrgbDecode;
+
+    private static byte EncodeSrgb(float linear)
+    {
+        if (sSrgbEncode == null)
+        {
+            byte[] table = new byte[SrgbEncodeSteps + 1];
+            for (int i = 0; i <= SrgbEncodeSteps; i++)
+            {
+                table[i] = (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.LinearToGammaSpace(i / (float)SrgbEncodeSteps) * 255f), 0, 255);
+            }
+            sSrgbEncode = table;
+        }
+        return sSrgbEncode[(int)(Mathf.Clamp01(linear) * SrgbEncodeSteps + 0.5f)];
+    }
+
+    private static float DecodeSrgb(byte encoded)
+    {
+        if (sSrgbDecode == null)
+        {
+            float[] table = new float[256];
+            for (int i = 0; i < 256; i++)
+            {
+                table[i] = Mathf.GammaToLinearSpace(i / 255f);
+            }
+            sSrgbDecode = table;
+        }
+        return sSrgbDecode[encoded];
+    }
+
     /// <summary>Measured lighting response of the last bake — consumed by the generator.</summary>
     public static float LastMinBrightness;
     public static float LastMaxBrightness = 4f;
@@ -1022,11 +1101,7 @@ public static class BasisFarLodAtlasBaker
 
     private static Color32 ApplyAo(Color32 color, float aoFactor)
     {
-        return new Color32(
-            (byte)Mathf.Clamp(Mathf.RoundToInt(color.r * aoFactor), 0, 255),
-            (byte)Mathf.Clamp(Mathf.RoundToInt(color.g * aoFactor), 0, 255),
-            (byte)Mathf.Clamp(Mathf.RoundToInt(color.b * aoFactor), 0, 255),
-            255);
+        return new Color32(EncodeSrgb(DecodeSrgb(color.r) * aoFactor), EncodeSrgb(DecodeSrgb(color.g) * aoFactor), EncodeSrgb(DecodeSrgb(color.b) * aoFactor), 255);
     }
 
     private static Color32[] ProjectAtlas(List<CaptureView> views, Matrix4x4 rootToWorld, Quaternion rootRotation,
@@ -1566,7 +1641,8 @@ public static class BasisFarLodAtlasBaker
         try
         {
             source.SetPixels32(atlas);
-            source.Apply(true, false);
+            SetLinearMipChain(source, atlas, atlasSize);
+            source.Apply(false, false);
 
             List<BasisFarLodPayload.FarLodTexture> textures = new List<BasisFarLodPayload.FarLodTexture>(2);
             AppendCompressed(textures, source, TextureFormat.DXT1, BasisFarLodPayload.FarLodTextureFormat.BC1);
@@ -1576,6 +1652,39 @@ public static class BasisFarLodAtlasBaker
         finally
         {
             Object.DestroyImmediate(source);
+        }
+    }
+
+    private static void SetLinearMipChain(Texture2D texture, Color32[] baseLevel, int baseSize)
+    {
+        Color32[] level = baseLevel;
+        int levelSize = baseSize;
+        for (int mip = 1; mip < texture.mipmapCount; mip++)
+        {
+            int nextSize = Mathf.Max(1, levelSize / 2);
+            Color32[] next = new Color32[nextSize * nextSize];
+            for (int y = 0; y < nextSize; y++)
+            {
+                int y0 = Mathf.Min(y * 2, levelSize - 1);
+                int y1 = Mathf.Min(y * 2 + 1, levelSize - 1);
+                for (int x = 0; x < nextSize; x++)
+                {
+                    int x0 = Mathf.Min(x * 2, levelSize - 1);
+                    int x1 = Mathf.Min(x * 2 + 1, levelSize - 1);
+                    Color32 a = level[y0 * levelSize + x0];
+                    Color32 b = level[y0 * levelSize + x1];
+                    Color32 c = level[y1 * levelSize + x0];
+                    Color32 d = level[y1 * levelSize + x1];
+                    next[y * nextSize + x] = new Color32(
+                        EncodeSrgb((DecodeSrgb(a.r) + DecodeSrgb(b.r) + DecodeSrgb(c.r) + DecodeSrgb(d.r)) * 0.25f),
+                        EncodeSrgb((DecodeSrgb(a.g) + DecodeSrgb(b.g) + DecodeSrgb(c.g) + DecodeSrgb(d.g)) * 0.25f),
+                        EncodeSrgb((DecodeSrgb(a.b) + DecodeSrgb(b.b) + DecodeSrgb(c.b) + DecodeSrgb(d.b)) * 0.25f),
+                        255);
+                }
+            }
+            texture.SetPixels32(next, mip);
+            level = next;
+            levelSize = nextSize;
         }
     }
 

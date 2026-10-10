@@ -32,6 +32,7 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton+ClickEvent",
 			"Basis.Scripts.BasisSdk.Interactions.BasisSeat",
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject+BasisAutoHold",
 			"Basis.BasisImageDownloader",
 			"Basis.IBasisImageDownload",
 			"Basis.BasisStringDownloader",
@@ -196,6 +197,7 @@ namespace Cilbox
 		static readonly HashSet<string> extraWhiteListFields = new HashSet<string>(){
 			// TUBE world-script additions (Cilbox conversion)
 			"Basis.Scripts.Drivers.BasisLocalCameraDriver.CameraInstance",
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.AutoHold",
 
 			// SteamAudioSource tuning fields for spatialized announce (issue #911). Curated
 			// safe set: excludes native handles (reflectionsIR IntPtr), baked-data refs,
@@ -341,6 +343,13 @@ namespace Cilbox
 				nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.TryGetOccupant),
 				nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.TrySeatLocalPlayer),
 				nameof(Basis.Scripts.BasisSdk.Interactions.BasisSeat.EjectLocalPlayer),
+				} },
+			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable), new HashSet<string>{
+				nameof(Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.Drop),
+				} },
+			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string>{
+				$"get_{nameof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.InteractableEnabled)}",
+				$"set_{nameof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.InteractableEnabled)}",
 				} },
 			// Restrict BasisDeviceManagement to the single mode query the menu uses.
 			{ typeof(Basis.Scripts.Device_Management.BasisDeviceManagement), new HashSet<string>{ "IsCurrentModeVR" } },

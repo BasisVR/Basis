@@ -161,6 +161,7 @@ namespace Cilbox
 			"UnityEngine.Debug", // Remapped via GetTypeOverride to BasisDebugPropsShim.
 			"UnityEngine.Events.UnityAction",
 			"UnityEngine.Events.UnityEvent",
+			"UnityEngine.Events.UnityEventBase",
 			"UnityEngine.Events.UnityEventCallState",
 			"UnityEngine.GameObject", // Hyper restrictive, see method whitelist.
 			"UnityEngine.Gradient",
@@ -478,6 +479,8 @@ namespace Cilbox
 			"BasisPlatformSwitch.Rules",
 			"BasisPlatformSwitchRule.*",
 
+			"UnityEngine.UI.Toggle.onValueChanged",
+
 			// Unity Event Systems fields
 			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
 			"UnityEngine.EventSystems.PointerEventData.hovered",
@@ -687,7 +690,19 @@ namespace Cilbox
 			"System.RuntimeTypeHandle",
 		};
 
-		public override bool CheckTypeAllowed(string sType)
+		public override bool CheckTypeAllowed(Type t)
+		{
+			if (t == null || t.IsPointer || t.FullName == null) return false;
+			return CheckTypeAllowed(GetSanitizedTypeName(t));
+		}
+
+		public override bool CheckFieldAllowed(Type t, string sFieldName)
+		{
+			if (t == null || t.IsPointer || t.FullName == null) return false;
+			return CheckFieldAllowed(GetSanitizedTypeName(t), sFieldName);
+		}
+
+		public bool CheckTypeAllowed(string sType)
 		{
 			if (sType != null && hardDeniedTypes.Contains(sType)) return false;
 			if (commonWhiteListType.Contains(sType)) return true;
@@ -703,7 +718,7 @@ namespace Cilbox
 			return false;
 		}
 
-		public override bool CheckFieldAllowed(string sType, string sFieldName)
+		public bool CheckFieldAllowed(string sType, string sFieldName)
 		{
 			if (!CheckTypeAllowed(sType)) return false;
 			string fullField = sType + "." + sFieldName;
@@ -725,6 +740,8 @@ namespace Cilbox
 			mi = null;
 
 			if (name.Contains("Invoke")) return false;
+
+			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return false;
 
 			// UnityEngine.Application.OpenURL opens an arbitrary URL in the native browser.
 			// Same shape blocks Quit, Unload, LoadLevel*, ExternalCall/Eval and other

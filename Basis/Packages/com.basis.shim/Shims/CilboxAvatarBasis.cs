@@ -31,6 +31,9 @@ namespace Cilbox
 			// SkinnedMeshRenderer it holds — only the per-call reflection overhead changes.
 			"Basis.Shims.BasisTransformSyncShim",
 			"Basis.Shims.BasisBlendShapeSyncShim",
+			"Basis.Shims.BasisTransformBatchShim",
+			"Basis.Shims.BasisVectorArrayShim",
+			"Basis.Shims.BasisSphereCastShim",
 
 			// HVR Vixxy
 			"HVR.Vixxy.HVRVixxyMenuItem", // Restrictive, see method whitelist.
