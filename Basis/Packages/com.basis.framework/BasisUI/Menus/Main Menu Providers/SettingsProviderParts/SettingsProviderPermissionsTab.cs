@@ -314,7 +314,7 @@ namespace Basis.BasisUI
                 // Build group display. Instantiate while the section is active so each entry's
                 // Awake runs now and keeps the title we set below; a collapsed (inactive) section
                 // defers Awake until expand, which re-applies the prefab's default ("Press"/blank).
-                GroupsGroup.SetDescription($"{snapshot.Groups.Count} group(s) on server.");
+                GroupsGroup.SetDescription(BasisLocalization.Get("settings.perm.groupsOnServer", snapshot.Groups.Count));
                 bool groupsWasActive = GroupsGroup.gameObject.activeSelf;
                 GroupsGroup.gameObject.SetActive(true);
                 foreach (var group in snapshot.Groups)
@@ -323,9 +323,9 @@ namespace Basis.BasisUI
                         PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, GroupsParent);
                     entry.SetTitle(group.Name);
 
-                    string nodesStr = group.Nodes.Count > 0 ? string.Join(", ", group.Nodes) : "(none)";
-                    string parentsStr = group.Parents.Count > 0 ? string.Join(", ", group.Parents) : "(none)";
-                    entry.SetDescription($"Nodes: {nodesStr}\nInherits: {parentsStr}");
+                    string nodesStr = group.Nodes.Count > 0 ? string.Join(", ", group.Nodes) : BasisLocalization.Get("settings.perm.none");
+                    string parentsStr = group.Parents.Count > 0 ? string.Join(", ", group.Parents) : BasisLocalization.Get("settings.perm.none");
+                    entry.SetDescription(BasisLocalization.Get("settings.perm.groupEntry", nodesStr, parentsStr));
 
                     _groupEntries.Add(entry.gameObject);
 
@@ -350,7 +350,7 @@ namespace Basis.BasisUI
                 GroupsGroup.gameObject.SetActive(groupsWasActive);
 
                 // Build user display (same active-while-building requirement as groups above).
-                UsersGroup.SetDescription($"{snapshot.Users.Count} user(s) with explicit entries.");
+                UsersGroup.SetDescription(BasisLocalization.Get("settings.perm.usersWithEntries", snapshot.Users.Count));
                 bool usersWasActive = UsersGroup.gameObject.activeSelf;
                 UsersGroup.gameObject.SetActive(true);
                 foreach (var user in snapshot.Users)
@@ -362,9 +362,9 @@ namespace Basis.BasisUI
                     string displayName = ResolveDisplayName(user.Uuid);
                     entry.SetTitle(displayName != null ? $"{displayName} ({ShortenUuid(user.Uuid)})" : user.Uuid);
 
-                    string groupsStr = user.Groups.Count > 0 ? string.Join(", ", user.Groups) : "(default)";
-                    string nodesStr = user.Nodes.Count > 0 ? string.Join(", ", user.Nodes) : "(none)";
-                    entry.SetDescription($"Groups: {groupsStr}\nNodes: {nodesStr}");
+                    string groupsStr = user.Groups.Count > 0 ? string.Join(", ", user.Groups) : BasisLocalization.Get("settings.perm.default");
+                    string nodesStr = user.Nodes.Count > 0 ? string.Join(", ", user.Nodes) : BasisLocalization.Get("settings.perm.none");
+                    entry.SetDescription(BasisLocalization.Get("settings.perm.userEntry", groupsStr, nodesStr));
 
                     _userEntries.Add(entry.gameObject);
 

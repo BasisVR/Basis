@@ -214,18 +214,18 @@ namespace Basis.Integration.SlimeVR
         {
             if (!BasisSlimeVRSettings.Enable.RawValue)
             {
-                return "Disabled.";
+                return BasisLocalization.Get("settings.slimevr.status.disabled");
             }
             if (!BasisSlimeVRBridge.IsConnected)
             {
-                return "Looking for a SlimeVR server...";
+                return BasisLocalization.Get("settings.slimevr.status.searching");
             }
 
-            var text = new StringBuilder("Connected.");
+            var text = new StringBuilder(BasisLocalization.Get("settings.slimevr.status.connected"));
             if (BasisSlimeVRBridge.HasBodyMetrics)
             {
                 var metrics = BasisSlimeVRBridge.LastBodyMetrics;
-                text.Append($" Eye height {metrics.EyeHeightMeters:F2}m, full height {metrics.FullHeightMeters:F2}m, arm span {metrics.ControllerSpanMeters:F2}m.");
+                text.Append(' ').Append(BasisLocalization.Get("settings.slimevr.status.bodyMetrics", metrics.EyeHeightMeters.ToString("F2"), metrics.FullHeightMeters.ToString("F2"), metrics.ControllerSpanMeters.ToString("F2")));
             }
 
             int physical = 0;
@@ -244,16 +244,13 @@ namespace Basis.Integration.SlimeVR
             }
             if (physical > 0)
             {
-                text.Append($" {physical} trackers");
-                if (lowestBattery < float.MaxValue)
-                {
-                    text.Append($", lowest battery {lowestBattery:F0}%");
-                }
-                text.Append('.');
+                text.Append(' ').Append(lowestBattery < float.MaxValue
+                    ? BasisLocalization.Get("settings.slimevr.status.trackersBattery", physical, lowestBattery.ToString("F0"))
+                    : BasisLocalization.Get("settings.slimevr.status.trackers", physical));
             }
             if (BasisSlimeVRBridge.OffsetsStale)
             {
-                text.Append($" Tracker mounting changed ({BasisSlimeVRBridge.MountingDriftDegrees:F0}°) — refreshing full-body offsets.");
+                text.Append(' ').Append(BasisLocalization.Get("settings.slimevr.status.mountingChanged", BasisSlimeVRBridge.MountingDriftDegrees.ToString("F0")));
             }
             return text.ToString();
         }

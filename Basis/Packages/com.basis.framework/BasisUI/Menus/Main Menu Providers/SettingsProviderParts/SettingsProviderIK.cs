@@ -1436,7 +1436,11 @@ public static partial class SettingsProviderIK
         var boneNames = _bones.Select(b => b.Name).ToList();
         _boneDropdown = PanelDropdown.CreateNewEntry(boneSelectGroup.ContentParent);
         _boneDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.ik.title.bone"));
-        _boneDropdown.AssignEntries(boneNames);
+        _boneDropdown.AssignLocalizedEntries(boneNames, boneNames.Select(name =>
+        {
+            string compact = name.Replace(" ", string.Empty);
+            return "ui.bodyRole." + char.ToLowerInvariant(compact[0]) + compact.Substring(1);
+        }).ToList());
         _boneDropdown.AssignBinding(BasisSettingsDefaults.SelectedBone);
         _boneDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.ik.title.bone.tooltip"));
         _boneDropdown.OnValueChanged += _ => RebindBoneEditor();

@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "Disabilita terza persona"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "La porta deve essere compresa tra 1 e 65535"
     }
   ]
 }

@@ -152,17 +152,20 @@ public static class NetworkServer
         BasisNetworkServer.BasisServerP2PBroker.Reset();
     }
 
+    private static void ApplySendSocketCeiling(IBasisTransportScaling scaling)
+    {
+        if (scaling == null) return;
+        // 0 = auto, derived from the core count. See BasisCpuBudget.AutoMaxSendSockets.
+        BasisServerReductionSystemEvents.MaxSendSockets = scaling.MaxSendSockets > 0
+            ? scaling.MaxSendSockets
+            : Basis.Network.Core.BasisCpuBudget.AutoMaxSendSockets;
+    }
+
     public static void InitializePulseSettings()
     {
         BasisServerReductionSystemEvents.SetMaxDegreeOfParallelism(Configuration.BSRMaxDegreeOfParallelism);
         BasisServerReductionSystemEvents.SetSendPhaseBudgetPercent(Configuration.BSRSendPhaseBudgetPercent);
-        int configuredMaxSockets = Basis.Network.Core.BasisTransportConfigStore
-            .Get<Basis.Network.Core.LNLTransportConfig>(
-                Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId).MaxSendSockets;
-        // 0 = auto, derived from the core count. See BasisCpuBudget.AutoMaxSendSockets.
-        BasisServerReductionSystemEvents.MaxSendSockets = configuredMaxSockets > 0
-            ? configuredMaxSockets
-            : Basis.Network.Core.BasisCpuBudget.AutoMaxSendSockets;
+        ApplySendSocketCeiling(Server?.FindCapability<IBasisTransportScaling>());
         BasisServerReductionSystemEvents.BSRBaseMultiplier = Configuration.BSRBaseMultiplier;
         BasisServerReductionSystemEvents.BSRSMillisecondDefaultInterval = Configuration.BSRSMillisecondDefaultInterval;
         BasisServerReductionSystemEvents.BSRSIncreaseRate = Configuration.BSRSIncreaseRate;
@@ -282,9 +285,6 @@ public static class NetworkServer
             BasisPlayerModeration.LoadBannedPlayers,
             BasisPlayerMuteManager.LoadMutedPlayers,
             () => BasisNetworkChat.LoadWordFilter(Configuration));
-        BasisNetworkStackRegistry.RegisterIntroducerFactory(
-            BasisNetworkStackRegistry.LiteNetLibId,
-            _ => new BasisNetworkServer.LNLPeerIntroducer());
         BasisNetworkServer.BasisServerP2PBroker.Initialize();
     }
 
@@ -323,15 +323,12 @@ public static class NetworkServer
             ipv6 = IPAddress.IPv6Any;
         }
 
-        // Read straight from the config rather than from the mirror in the reduction system, so
-        // this does not depend on InitializePulseSettings having run first. 0 is auto, which always
-        // derives more than one, so only an explicit 1 means "never add a socket".
-        LiteNetLib.NetManager lnlManager = Server.LiteNetLibManager();
-        if (lnlManager != null)
+        // 0 is auto, which always derives more than one, so only an explicit 1 means "never add a socket".
+        IBasisTransportScaling scaling = Server.FindCapability<IBasisTransportScaling>();
+        if (scaling != null)
         {
-            lnlManager.AllowSendSocketGrowth = Basis.Network.Core.BasisTransportConfigStore
-                .Get<Basis.Network.Core.LNLTransportConfig>(
-                    Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId).MaxSendSockets != 1;
+            scaling.AllowSendSocketGrowth = scaling.MaxSendSockets != 1;
+            ApplySendSocketCeiling(scaling);
         }
 
         Server.Start(ipv4, ipv6, configuration.SetPort);
@@ -344,14 +341,7 @@ public static class NetworkServer
                 continue;
             }
             allRunning = false;
-            if (transport is LNLNetManager)
-            {
-                BNL.LogError($"Not listening: UDP port {configuration.SetPort} could not be bound. Another process may already be using it.");
-            }
-            else
-            {
-                BNL.LogError($"Not listening: the '{transport.StackId}' transport could not start. See the errors above.");
-            }
+            BNL.LogError($"Not listening: the '{transport.StackId}' transport could not start on port {configuration.SetPort}. Another process may already be using it; see the errors above.");
         }
         if (!allRunning)
         {

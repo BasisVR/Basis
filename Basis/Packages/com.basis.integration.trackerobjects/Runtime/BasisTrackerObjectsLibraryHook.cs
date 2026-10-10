@@ -225,8 +225,8 @@ namespace Basis.Integration.TrackerObjects
                 {
                     BasisInput tracker = candidates[index];
                     string roleLabel = tracker.TryGetRole(out BasisBoneTrackedRole role)
-                        ? role.ToString()
-                        : "Tracker";
+                        ? SettingsProviderControllerConfig.BodyRoleLabel(role)
+                        : BasisLocalization.Get("trackerLinking.trackerFallback");
                     PanelButton row = PanelButton.CreateNew(PanelButton.ButtonStyles.StandardButton, picker.Descriptor.ContentParent);
                     row.Descriptor.SetTitle($"{roleLabel} — {tracker.UniqueDeviceIdentifier}");
                     row.SetSize(PickerRowSize);

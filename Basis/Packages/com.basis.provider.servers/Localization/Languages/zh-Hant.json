@@ -4,20 +4,20 @@
   "entries": [
     {
       "key": "menu.servers.username",
-      "value": "用户名"
+      "value": "使用者名稱"
     },
     { "key": "menu.servers.username.hint", "value": "輸入使用者名稱以連線" },
     {
       "key": "menu.servers.connect",
-      "value": "连接"
+      "value": "連接"
     },
     {
       "key": "menu.servers.reconnect",
-      "value": "重新连接"
+      "value": "重新連接"
     },
     {
       "key": "menu.servers.host",
-      "value": "主机"
+      "value": "本機自架"
     },
     {
       "key": "menu.servers.ipAddress",
@@ -29,23 +29,23 @@
     },
     {
       "key": "menu.servers.password",
-      "value": "密码"
+      "value": "密碼"
     },
     {
       "key": "menu.servers.hostMode",
-      "value": "主机模式"
+      "value": "主機模式"
     },
     {
       "key": "menu.servers.hostMode.description",
-      "value": "运行本地服务器并连接到它。"
+      "value": "執行本機伺服器並連線至該伺服器。"
     },
     {
       "key": "menu.servers.autoConnect",
-      "value": "自动连接"
+      "value": "自動重新加入"
     },
     {
       "key": "menu.servers.autoConnect.description",
-      "value": "启动时自动连接到上次的服务器。"
+      "value": "Basis 啟動時自動重新加入你上次的伺服器。"
     },
     {
       "key": "menu.servers.list.empty",
@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "停用第三人稱"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "連接埠必須介於 1-65535 之間"
     }
   ]
 }

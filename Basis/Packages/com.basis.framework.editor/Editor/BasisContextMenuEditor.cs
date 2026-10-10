@@ -113,8 +113,8 @@ public static class BasisContextMenuEditor
     }
 
     /// <summary>
-    /// Adds a joint-based pickup for physics-constrained manipulation.
-    /// Components: BoxCollider (if needed) + Rigidbody + ConfigurableJoint + BasisPickupJointInteractable
+    /// Adds a pickup held through a physics joint, so it collides with the world while held, with network sync.
+    /// Components: BoxCollider (if needed) + Rigidbody + BasisPickupJointInteractable + BasisPickupSyncNetworking
     /// </summary>
     [MenuItem("GameObject/Basis/Pickup (Joint)", false, 1)]
     static void AddPickupJoint()
@@ -123,12 +123,10 @@ public static class BasisContextMenuEditor
         {
             EnsureCollider(go);
             var rb = EnsureComponent<Rigidbody>(go);
-            var joint = EnsureComponent<ConfigurableJoint>(go);
             var pickup = EnsureComponent<BasisPickupJointInteractable>(go);
             pickup.RigidRef = rb;
-            pickup.ColliderRef = go.GetComponent<Collider>();
-            joint.autoConfigureConnectedAnchor = false;
-            joint.configuredInWorldSpace = true;
+            pickup.KinematicWhileInteracting = false;
+            EnsureComponent<BasisPickupSyncNetworking>(go);
             EditorUtility.SetDirty(go);
         }
     }

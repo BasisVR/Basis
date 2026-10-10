@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "تھرڈ پرسن غیر فعال کریں"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "پورٹ 1 سے 65535 کے درمیان ہونا چاہیے"
     }
   ]
 }

@@ -6,7 +6,6 @@
         "BasisSDK",
         "BasisNetworkClient",
         "BasisNetworkCore",
-        "LiteNetLib",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [

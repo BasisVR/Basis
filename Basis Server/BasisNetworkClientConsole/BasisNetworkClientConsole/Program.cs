@@ -116,10 +116,8 @@ namespace Basis
             // drop — exercises the keyframe-NACK/re-key recovery paths under realistic conditions.
             if (int.TryParse(Environment.GetEnvironmentVariable("BASIS_PACKET_LOSS"), out int lossPct) && lossPct > 0)
             {
-                var lnl = Basis.Network.Core.BasisTransportConfigStore.Get<Basis.Network.Core.LNLTransportConfig>(
-                    Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId);
-                lnl.SimulatePacketLoss = true;
-                lnl.SimulationPacketLossChance = Math.Min(lossPct, 100);
+                ClientManager.SetTransportOption(Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId, "SimulatePacketLoss", true);
+                ClientManager.SetTransportOption(Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId, "SimulationPacketLossChance", Math.Min(lossPct, 100));
                 BNL.Log($"[FaceObserver] Simulating {lossPct}% packet loss on every client.");
             }
 

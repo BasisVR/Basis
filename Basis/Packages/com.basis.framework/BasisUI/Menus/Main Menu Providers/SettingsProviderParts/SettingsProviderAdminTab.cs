@@ -911,9 +911,9 @@ namespace Basis.BasisUI
             resetLogsButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.resetAllLogs.tooltip"));
             resetLogsButton.OnClicked += () => WithConfirm(
                 BasisLocalization.Get("settings.admin.title.resetAllLogs"),
-                "Permanently delete the server's logs and crash reports? This cannot be undone.",
-                "Delete",
-                "Cancel",
+                BasisLocalization.Get("settings.admin.confirm.resetAllLogs.body"),
+                BasisLocalization.Get("library.delete"),
+                BasisLocalization.Get("ui.cancel"),
                 () => BasisNetworkModeration.DeleteAllLogs());
 
             PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(logsToggle, container, logsStart, false, _ => descriptor.ForceRebuild());

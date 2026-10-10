@@ -563,7 +563,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (caster.FirstHit(out RaycastHit first, maxDistance) && first.collider != null)
             {
                 BasisInteractableObject owner = BasisInteractableObject.OwnerOfCollider(first.collider);
-                if (owner != null)
+                if (owner != null && first.distance <= owner.RayReach(maxDistance))
                 {
                     target = owner;
                     point = first.point;
@@ -588,7 +588,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 RaycastHit hit = hits[index];
                 Collider collider = hit.collider;
-                if (collider == null || hit.distance > maxDistance)
+                if (collider == null)
                 {
                     continue;
                 }
@@ -596,7 +596,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 BasisInteractableObject owner = BasisInteractableObject.OwnerOfCollider(collider);
                 if (owner != null)
                 {
-                    if (hit.distance < targetDistance)
+                    if (hit.distance < targetDistance && hit.distance <= owner.RayReach(maxDistance))
                     {
                         targetDistance = hit.distance;
                         target = owner;

@@ -43,8 +43,8 @@ public static partial class BasisLogBundleReceiver
 
     // Loading-bar progress (admin "pull server logs" is a chunked download with real elapsed time).
     private const string ProgressKey = "ServerLogDownload";
-    private const string DownloadLabel = "Downloading server logs";
-    private const string ExtractLabel = "Extracting server logs";
+    private static string DownloadLabel => Basis.BasisUI.BasisLocalization.Get("settings.admin.logs.downloading");
+    private static string ExtractLabel => Basis.BasisUI.BasisLocalization.Get("settings.admin.logs.extracting");
     private static int _lastReportedPercent;
 
     // Chunks map to 0–90% so the bar stays open across the End()/extraction handoff; extraction
@@ -171,7 +171,7 @@ public static partial class BasisLogBundleReceiver
         {
             BasisDebug.LogError($"Server reported log bundle failure: {message}");
             ClearProgress();
-            BasisNetworkModeration.DisplayMessage(string.IsNullOrEmpty(message) ? "Server failed to send logs." : message);
+            BasisNetworkModeration.DisplayMessage(string.IsNullOrEmpty(message) ? Basis.BasisUI.BasisLocalization.Get("settings.admin.logs.serverFailed") : message);
             Reset();
             return;
         }
@@ -180,7 +180,7 @@ public static partial class BasisLogBundleReceiver
         {
             BasisDebug.LogError($"Log bundle incomplete ({_offset}/{_payloadBytes} bytes, {_received}/{_totalChunks} chunks).");
             ClearProgress();
-            BasisNetworkModeration.DisplayMessage("Log transfer was incomplete; please try again.");
+            BasisNetworkModeration.DisplayMessage(Basis.BasisUI.BasisLocalization.Get("settings.admin.logs.incomplete"));
             Reset();
             return;
         }
@@ -226,14 +226,14 @@ public static partial class BasisLogBundleReceiver
             BasisDebug.Log($"Saved {fileCount} server log file(s) to {destDir}", BasisDebug.LogTag.Networking);
             ClearProgress();
             BasisDeviceManagement.EnqueueOnMainThread(() =>
-                BasisNetworkModeration.DisplayMessageWithFolder($"Server logs saved to:\n{destDir}", destDir));
+                BasisNetworkModeration.DisplayMessageWithFolder(Basis.BasisUI.BasisLocalization.Get("settings.admin.logs.saved", destDir), destDir));
         }
         catch (Exception e)
         {
             BasisDebug.LogError($"Failed to save server logs: {e.Message}");
             ClearProgress();
             BasisDeviceManagement.EnqueueOnMainThread(() =>
-                BasisNetworkModeration.DisplayMessage($"Failed to save server logs: {e.Message}"));
+                BasisNetworkModeration.DisplayMessage(Basis.BasisUI.BasisLocalization.Get("settings.admin.logs.saveFailed", e.Message)));
         }
     }
 

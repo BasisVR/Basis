@@ -21,7 +21,6 @@
         "Unity.XR.Management",
         "Unity.Addressables",
         "BasisGizmos",
-        "LiteNetLib",
         "BasisNetworkCore",
         "BasisNetworkServer",
         "BasisNetworkClient",

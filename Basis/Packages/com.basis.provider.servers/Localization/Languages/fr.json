@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "Désactiver la troisième personne"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "Le port doit être compris entre 1 et 65535"
     }
   ]
 }

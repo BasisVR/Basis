@@ -2119,6 +2119,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> NPHoverMenuOnly = new("np_hovermenuonly", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> NPSize = new("np_size", new BasisPlatformDefault<float>(1f));
         public static BasisSettingsBinding<float> NPTransparency = new("np_transparency", new BasisPlatformDefault<float>(0.45f));
+        public static BasisSettingsBinding<float> NPSelectDistance = new("np_selectdistance", new BasisPlatformDefault<float>(5f));
         public static BasisSettingsBinding<float> ChatSize = new("chat_size", new BasisPlatformDefault<float>(1.5f));
 
         // ---------------- ADMIN ----------------
@@ -3023,6 +3024,7 @@ namespace Basis.BasisUI
             NPHoverMenuOnly.LoadBindingValue();
             NPSize.LoadBindingValue();
             NPTransparency.LoadBindingValue();
+            NPSelectDistance.LoadBindingValue();
             ChatSize.LoadBindingValue();
 
             // Admin

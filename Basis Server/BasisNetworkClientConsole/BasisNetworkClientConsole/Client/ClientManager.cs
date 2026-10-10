@@ -301,11 +301,17 @@ namespace Basis.Network
         public Configuration CreateConfig()
         {
             Configuration Configuration = new Configuration();
-            Basis.Network.Core.BasisTransportConfigStore.Get<Basis.Network.Core.LNLTransportConfig>(
-                Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId).UseNativeSockets = true;
+            SetTransportOption(BasisNetworkStackRegistry.LiteNetLibId, "UseNativeSockets", true);
             Configuration.UseAuthIdentity = true;
 
             return Configuration;
+        }
+        public static void SetTransportOption(string stackId, string field, object value)
+        {
+            if (!BasisTransportConfigStore.RegisteredTypes.TryGetValue(stackId, out Type type)) return;
+            System.Reflection.MethodInfo get = Array.Find(typeof(BasisTransportConfigStore).GetMethods(), m => m.Name == nameof(BasisTransportConfigStore.Get) && m.IsGenericMethodDefinition);
+            object config = get.MakeGenericMethod(type).Invoke(null, new object[] { stackId });
+            type.GetField(field)?.SetValue(config, value);
         }
     }
 

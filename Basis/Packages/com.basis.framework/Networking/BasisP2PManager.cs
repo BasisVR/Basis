@@ -9,10 +9,6 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Threading;
 using static SerializableBasis;
-using LiteNetManager = LiteNetLib.NetManager;
-using LiteNetDataWriter = LiteNetLib.Utils.NetDataWriter;
-using LiteNatPunchListener = LiteNetLib.EventBasedNatPunchListener;
-using LiteNatAddressType = LiteNetLib.NatAddressType;
 
 namespace Basis.Scripts.Networking
 {
@@ -85,7 +81,7 @@ namespace Basis.Scripts.Networking
             public NetPeer P2PPeer;
             public IPAddress ExpectedRemoteAddress;
             public int PunchAttempts;
-            public LiteNatAddressType ConnectionType;
+            public bool SameNetwork;
             public bool ConnectIssued;
             public byte[] LocalEphemeralPrivate;
             public byte[] LocalEphemeralPublic;
@@ -116,10 +112,8 @@ namespace Basis.Scripts.Networking
         [NoAutoStaticsCleanup] private static Timer _healthTimer;
         private static int _healthTickRunning;
 
-        private static LiteNetManager _p2pManager;
+        private static IBasisP2PSocket _p2pSocket;
         private static EventBasedNetListener _p2pListener;
-        private static LiteNatPunchListener _natListener;
-        private static BasisCryptoLayer _p2pCryptoLayer;
         [NoAutoStaticsCleanup] private static readonly object _initLock = new object();
 
         // Direct connections are always encrypted. When the link re-punches we reuse the
@@ -175,14 +169,12 @@ namespace Basis.Scripts.Networking
                 _healthTimer?.Dispose();
                 _healthTimer = null;
 
-                if (_p2pManager != null)
+                if (_p2pSocket != null)
                 {
-                    try { _p2pManager.Stop(); }
+                    try { _p2pSocket.Stop(); }
                     catch (Exception ex) { BasisDebug.LogError($"[P2P] Stop failed: {ex.Message}"); }
-                    _p2pManager = null;
+                    _p2pSocket = null;
                     _p2pListener = null;
-                    _natListener = null;
-                    _p2pCryptoLayer = null;
                 }
             }
         }
@@ -290,7 +282,7 @@ namespace Basis.Scripts.Networking
         {
             if (!_sessionsByOtherId.TryGetValue(otherPlayerId, out Session s)) return false;
             if (s.State != P2PSessionState.Connected) return false;
-            return s.ConnectionType == LiteNatAddressType.Internal;
+            return s.SameNetwork;
         }
 
         // Round-trip time in milliseconds for the P2P link to the given player.
@@ -633,14 +625,14 @@ namespace Basis.Scripts.Networking
             Interlocked.Exchange(ref s.PunchStartedTicks, System.Diagnostics.Stopwatch.GetTimestamp());
             NotifyStateChanged(s.OtherPlayerId, s.State);
 
-            if (_p2pManager == null || string.IsNullOrEmpty(ServerHost) || ServerPort == 0)
+            if (_p2pSocket == null || string.IsNullOrEmpty(ServerHost) || ServerPort == 0)
             {
                 BasisDebug.LogError("[P2P] P2P NetManager or server endpoint missing — cannot punch.");
                 DropSession(s, P2PSessionState.Failed);
                 return;
             }
 
-            BasisDebug.Log($"[P2P] StartPunch token={Preview(s.Token)} player={s.OtherPlayerId} attempt={s.PunchAttempts}/{MaxPunchAttempts} initiator={s.LocalIsInitiator} → sending {PunchRequestSends} NatIntroduceRequest(s) to {ServerHost}:{ServerPort} from P2P port {_p2pManager.LocalPort}.");
+            BasisDebug.Log($"[P2P] StartPunch token={Preview(s.Token)} player={s.OtherPlayerId} attempt={s.PunchAttempts}/{MaxPunchAttempts} initiator={s.LocalIsInitiator} → sending {PunchRequestSends} NatIntroduceRequest(s) to {ServerHost}:{ServerPort} from P2P port {_p2pSocket.LocalPort}.");
             SendIntroduceBurst(s.Token);
         }
 
@@ -668,11 +660,11 @@ namespace Basis.Scripts.Networking
         {
             if (!_sessionsByToken.TryGetValue(token, out Session s) || s.State != P2PSessionState.Punching)
                 return false;
-            var mgr = _p2pManager;
-            if (mgr == null) return false;
+            var socket = _p2pSocket;
+            if (socket == null) return false;
             try
             {
-                mgr.NatPunchModule.SendNatIntroduceRequest(ServerHost, ServerPort, token);
+                socket.RequestIntroduction(ServerHost, ServerPort, token);
             }
             catch (Exception ex)
             {
@@ -685,7 +677,7 @@ namespace Basis.Scripts.Networking
         {
             lock (_initLock)
             {
-                if (_p2pManager != null) return;
+                if (_p2pSocket != null) return;
 
                 _p2pListener = new EventBasedNetListener();
                 _p2pListener.ConnectionRequestEvent += OnP2PConnectionRequest;
@@ -693,31 +685,23 @@ namespace Basis.Scripts.Networking
                 _p2pListener.PeerDisconnectedEvent += OnP2PPeerDisconnected;
                 _p2pListener.NetworkReceiveEvent += OnP2PNetworkReceive;
 
-                _natListener = new LiteNatPunchListener();
-                _natListener.NatIntroductionSuccess += OnNatIntroductionSuccess;
-
-                _p2pCryptoLayer = new BasisCryptoLayer();
-                _p2pManager = new LiteNetManager(_p2pListener, _p2pCryptoLayer)
+                string stackId = BasisNetworkConnection.LocalPlayerPeer?.StackId ?? BasisNetworkStackRegistry.DefaultId;
+                IBasisP2PSocket socket = BasisNetworkStackRegistry.CreateP2PSocket(stackId, _p2pListener, OnNatIntroductionSuccess);
+                if (socket == null)
                 {
-                    NatPunchEnabled = true,
-                    UnsyncedEvents = true,
-                    AutoRecycle = false,
-                    ChannelsCount = BasisNetworkCommons.TotalChannels,
-                    UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
-                };
-                _p2pManager.NatPunchModule.Init(_natListener);
-                _p2pManager.NatPunchModule.UnsyncedEvents = true;
-
-                if (!_p2pManager.Start())
-                {
-                    BasisDebug.LogError("[P2P] Failed to start P2P NetManager.");
-                    _p2pManager = null;
+                    BasisDebug.LogError($"[P2P] The '{stackId}' transport cannot open direct connections.");
                     _p2pListener = null;
-                    _natListener = null;
                     return;
                 }
+                if (!socket.Start())
+                {
+                    BasisDebug.LogError("[P2P] Failed to start P2P NetManager.");
+                    _p2pListener = null;
+                    return;
+                }
+                _p2pSocket = socket;
 
-                BasisDebug.Log($"[P2P] P2P NetManager listening on port {_p2pManager.LocalPort}.");
+                BasisDebug.Log($"[P2P] P2P NetManager listening on port {socket.LocalPort}.");
                 _healthTimer ??= new Timer(HealthTick, null, HealthCheckIntervalMs, HealthCheckIntervalMs);
             }
         }
@@ -725,7 +709,7 @@ namespace Basis.Scripts.Networking
         // The introduce response is chosen by the server, so without this it can aim every client's
         // punch at an address of its choosing. An External candidate must be global unicast; an
         // Internal one may be RFC1918 / ULA / fe80 because that is what a same-LAN peer looks like.
-        private static bool IsAcceptablePunchTarget(IPEndPoint endPoint, LiteNatAddressType type, out string reason)
+        private static bool IsAcceptablePunchTarget(IPEndPoint endPoint, bool sameNetwork, out string reason)
         {
             reason = null;
             if (endPoint == null || endPoint.Address == null)
@@ -743,7 +727,7 @@ namespace Basis.Scripts.Networking
             {
                 return true;
             }
-            if (type == LiteNatAddressType.Internal && (IsLanAddress(ip) || IPAddress.IsLoopback(ip)))
+            if (sameNetwork && (IsLanAddress(ip) || IPAddress.IsLoopback(ip)))
             {
                 return true;
             }
@@ -769,7 +753,7 @@ namespace Basis.Scripts.Networking
             return false;
         }
 
-        private static void OnNatIntroductionSuccess(IPEndPoint targetEndPoint, LiteNatAddressType type, string token)
+        private static void OnNatIntroductionSuccess(IPEndPoint targetEndPoint, bool sameNetwork, string token)
         {
             if (!_sessionsByToken.TryGetValue(token, out Session s))
             {
@@ -781,7 +765,7 @@ namespace Basis.Scripts.Networking
                 return;
             }
 
-            if (!IsAcceptablePunchTarget(targetEndPoint, type, out string targetReason))
+            if (!IsAcceptablePunchTarget(targetEndPoint, sameNetwork, out string targetReason))
             {
                 BasisDebug.LogError($"[P2P] Refusing punch target for player {s.OtherPlayerId}: {targetReason}");
                 DropSession(s, P2PSessionState.Failed);
@@ -793,8 +777,8 @@ namespace Basis.Scripts.Networking
             if (firstSuccess)
             {
                 s.ExpectedRemoteAddress = targetEndPoint.Address;
-                s.ConnectionType = type;
-                BasisDebug.Log($"[P2P] NatIntroductionSuccess: player {s.OtherPlayerId} reachable ({type}{(type == LiteNatAddressType.Internal ? " — same LAN" : "")}).");
+                s.SameNetwork = sameNetwork;
+                BasisDebug.Log($"[P2P] NatIntroductionSuccess: player {s.OtherPlayerId} reachable ({(sameNetwork ? "Internal — same LAN" : "External")}).");
             }
 
             // Both sides connect to the discovered endpoint; LiteNetLib's simultaneous-open
@@ -815,9 +799,9 @@ namespace Basis.Scripts.Networking
             {
                 // Give the handshake its own timeout window (distinct from the introduce burst).
                 Interlocked.Exchange(ref s.PunchStartedTicks, System.Diagnostics.Stopwatch.GetTimestamp());
-                var connectData = new LiteNetDataWriter();
+                var connectData = new NetDataWriter();
                 connectData.Put(token);
-                _p2pManager.Connect(targetEndPoint, connectData);
+                _p2pSocket.Connect(targetEndPoint, connectData);
             }
             catch (Exception ex)
             {
@@ -899,7 +883,7 @@ namespace Basis.Scripts.Networking
             ApplyState(matched, P2PSessionState.Connected);
             matched.PunchAttempts = 0;
             NotifyStateChanged(matched.OtherPlayerId, matched.State);
-            BasisDebug.Log($"[P2P] CONNECTED to player {matched.OtherPlayerId} via {(matched.ConnectionType == LiteNatAddressType.Internal ? "LAN" : "Internet")} (token {Preview(matched.Token)}); sending LinkUp to server.");
+            BasisDebug.Log($"[P2P] CONNECTED to player {matched.OtherPlayerId} via {(matched.SameNetwork ? "LAN" : "Internet")} (token {Preview(matched.Token)}); sending LinkUp to server.");
 
             SendSubToServer(BasisNetworkCommons.P2PSub_LinkUp, matched.OtherPlayerId, matched.Token);
             BasisAvatarRateRegistry.ForceNextAnnouncement();
@@ -1288,9 +1272,10 @@ namespace Basis.Scripts.Networking
 
         private static bool InstallSessionKeys(Session s, IPEndPoint endpoint)
         {
-            if (_p2pCryptoLayer == null || endpoint == null || s.SendKey == null || s.RecvKey == null) return false;
-            if (s.CryptoEndpoint != null) _p2pCryptoLayer.RemoveEndpoint(s.CryptoEndpoint);
-            _p2pCryptoLayer.SetEndpointKeys(endpoint, s.SendKey, s.RecvKey, s.CryptoCounterBase);
+            IBasisP2PSocket socket = _p2pSocket;
+            if (socket == null || endpoint == null || s.SendKey == null || s.RecvKey == null) return false;
+            if (s.CryptoEndpoint != null) socket.RemoveEndpoint(s.CryptoEndpoint);
+            socket.SetEndpointKeys(endpoint, s.SendKey, s.RecvKey, s.CryptoCounterBase);
             s.CryptoEndpoint = endpoint;
             s.CryptoCounterBase += P2PReconnectNonceGap;
             return true;
@@ -1298,9 +1283,10 @@ namespace Basis.Scripts.Networking
 
         private static void RemoveSessionKeys(Session s)
         {
-            if (_p2pCryptoLayer != null && s.CryptoEndpoint != null)
+            IBasisP2PSocket socket = _p2pSocket;
+            if (socket != null && s.CryptoEndpoint != null)
             {
-                _p2pCryptoLayer.RemoveEndpoint(s.CryptoEndpoint);
+                socket.RemoveEndpoint(s.CryptoEndpoint);
                 s.CryptoEndpoint = null;
             }
         }

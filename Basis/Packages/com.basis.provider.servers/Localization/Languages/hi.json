@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "थर्ड पर्सन अक्षम करें"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "पोर्ट 1 से 65535 के बीच होना चाहिए"
     }
   ]
 }

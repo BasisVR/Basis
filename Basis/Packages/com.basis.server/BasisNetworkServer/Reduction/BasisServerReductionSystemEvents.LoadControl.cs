@@ -28,16 +28,16 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             _lastRebalanceTick = nowTick;
 
             double peerPressure = 0;
-            LiteNetLib.NetManager lnl = NetworkServer.Server?.LiteNetLibManager();
-            if (lnl != null)
+            IBasisTransportScaling transport = NetworkServer.Server?.FindCapability<IBasisTransportScaling>();
+            if (transport != null)
             {
-                peerPressure = lnl.PeerUpdatePressure;
+                peerPressure = transport.PeerUpdatePressure;
 
                 // Differentiate the transport's totals here rather than having it call into the
-                // allocator — LiteNetLib is vendored and does not reference Basis.Network.Core, so
-                // the counters cross the boundary as plain numbers.
-                long peers = lnl.PeersUpdatedTotal;
-                long busy = lnl.PeerUpdateBusyMicros;
+                // allocator: the transport does not reference the allocator, so the counters cross
+                // the boundary as plain numbers.
+                long peers = transport.PeersUpdatedTotal;
+                long busy = transport.PeerUpdateBusyMicros;
                 if (_lastPeersUpdatedTotal > 0 || _lastPeerBusyMicros > 0)
                 {
                     BasisCpuBudget.PeerUpdateLease.AddWork(
@@ -54,20 +54,18 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             // Tell the transport how full the machine is, so its pool can tell being short of
             // workers apart from being short of cores.
             double util = BasisCpuBudget.SampleUtilization();
-            if (lnl != null)
+            if (transport != null)
             {
-                lnl.MachineUtilization = util;
-
                 // Push the current grant, not just the one from construction. Without this the
                 // transport keeps whatever share it was handed at startup and none of the
                 // rebalancing above reaches it — the allocator would be moving a number nobody
                 // reads. The transport still sizes itself inside this cap by population and by its
                 // own probe; the cap is the ceiling that makes the two pools compose.
-                lnl.PeerUpdateWorkerCap = BasisCpuBudget.PeerUpdateCap;
+                transport.ApplyCpuBudget(util, BasisCpuBudget.PeerUpdateCap);
                 // Send capacity is set by socket count, not core count — tell the budget how many
                 // actually bound so the send pool is sized for the paths that exist.
-                BasisCpuBudget.SetSendSocketCount(lnl.BoundSendSocketCount);
-                MaybeGrowSendSockets(lnl, nowTick, util);
+                BasisCpuBudget.SetSendSocketCount(transport.BoundSendSocketCount);
+                MaybeGrowSendSockets(transport, nowTick, util);
             }
 
             // Say which pool is hot, periodically. The split is tuned from measurements taken on
@@ -85,18 +83,18 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             if (WriteLoadLog && nowTick - _lastPoolLoadLogTick >= PoolLoadLogIntervalTicks)
             {
                 _lastPoolLoadLogTick = nowTick;
-                int peerWorkers = lnl?.PeerUpdateWorkers ?? 0;
+                int peerWorkers = transport?.PeerUpdateWorkers ?? 0;
                 int pop = NetworkServer.Server?.ConnectedPeersCount ?? 0;
                 BNL.Log(
                     $"[CPU/POP] {pop} peers | send {parallelOptions.MaxDegreeOfParallelism}/{BasisCpuBudget.ReductionSendCap} wkr " +
                     $"({_pairsPerWorkerMs:F0} pairs/wkr-ms, budget {_sendBudgetDutyEma:F2}), " +
                     $"peer-upd {peerWorkers}/{BasisCpuBudget.PeerUpdateCap} wkr " +
-                    $"(pass {lnl?.PeerUpdatePassMs ?? 0:F1}/{LiteNetLib.NetManager.PeerPassTargetMs:F0} ms), " +
+                    $"(pass {transport?.PeerUpdatePassMs ?? 0:F1}/{transport?.PeerUpdatePassTargetMs ?? 0:F0} ms), " +
                     $"machine {BasisCpuBudget.Utilization * 100:F0}% of {BasisCpuBudget.TotalCores} cores | " +
                     $"drops {_dropsPerPlayerWindow:F2}/player (esc {DropEscalatePerPlayer:F2}), " +
                     $"slice {_sliceCount}/{MaxSliceCount()}, " +
                     $"tier {_loadShedTier} {LoadShedTierName(_loadShedTier)}, " +
-                    $"unrel q {(lnl != null ? lnl.EffectiveUnreliableQueuePerPeer : 0)}/peer");
+                    $"unrel q {transport?.UnreliableQueuePerPeer ?? 0}/peer");
             }
         }
 
@@ -140,13 +138,13 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             _dropRateEma += (perSecond - _dropRateEma) * Alpha;
         }
 
-        private static void MaybeGrowSendSockets(LiteNetLib.NetManager lnl, long nowTick, double utilization)
+        private static void MaybeGrowSendSockets(IBasisTransportScaling transport, long nowTick, double utilization)
         {
             SampleDropRate();
 
             if (MaxSendSockets <= 1) return;
 
-            if (!lnl.CanAddSendSockets)
+            if (!transport.CanAddSendSockets)
             {
                 WarnSocketGrowthUnavailable(utilization);
                 return;
@@ -168,14 +166,14 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     _socketGrowthHelpless = true;
                     _dropRateAtGiveUp = _dropRateEma;
                     BNL.LogWarning(
-                        $"[CPU] Added a send socket ({lnl.BoundSendSocketCount} now) and the drop rate did not " +
+                        $"[CPU] Added a send socket ({transport.BoundSendSocketCount} now) and the drop rate did not " +
                         $"improve ({_dropRateAtGrow:F0} -> {_dropRateEma:F0} drops/s). More receive threads are " +
                         $"not the fix -- raise sysctl net.core.rmem_max, or the link itself is saturated. " +
                         $"Socket growth paused.");
                 }
                 else
                 {
-                    BNL.Log($"[CPU] Send socket {lnl.BoundSendSocketCount} cut the drop rate " +
+                    BNL.Log($"[CPU] Send socket {transport.BoundSendSocketCount} cut the drop rate " +
                             $"{_dropRateAtGrow:F0} -> {_dropRateEma:F0} drops/s.");
                 }
             }
@@ -190,7 +188,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 BNL.Log($"[CPU] Drop rate rose to {_dropRateEma:F0}/s since socket growth was paused; retrying.");
             }
 
-            if (lnl.BoundSendSocketCount >= MaxSendSockets) return;
+            if (transport.BoundSendSocketCount >= MaxSendSockets) return;
 
             if (!NetworkPathUnderPressure(utilization, out bool receiveDropping))
             {
@@ -208,10 +206,10 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             _sendPressureStreak = 0;
             _lastSocketGrowTick = nowTick;
 
-            if (lnl.TryAddSendSocket())
+            if (transport.TryAddSendSocket())
             {
-                BasisCpuBudget.SetSendSocketCount(lnl.BoundSendSocketCount);
-                BNL.Log($"[CPU] Send path was the limit — added a socket, now {lnl.BoundSendSocketCount} " +
+                BasisCpuBudget.SetSendSocketCount(transport.BoundSendSocketCount);
+                BNL.Log($"[CPU] Send path was the limit — added a socket, now {transport.BoundSendSocketCount} " +
                         $"(send workers may rise to {BasisCpuBudget.ReductionSendCap}).");
 
                 // Only drop-driven growth gets put on trial. Send-side pressure is judged by the

@@ -757,6 +757,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return input.BasisUIRaycast != null && input.BasisUIRaycast.HadRaycastUITarget;
         }
 
+        public virtual float RayReach(float defaultReach)
+        {
+            return defaultReach;
+        }
+
         /// <summary>
         /// Determines if the input can directly grab this object via hand proximity.
         /// Only applicable to hand inputs (LeftHand/RightHand).

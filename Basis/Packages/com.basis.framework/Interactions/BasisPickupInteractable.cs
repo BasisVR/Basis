@@ -347,6 +347,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private bool _lerping;
         private bool _weldedHold;
         private bool _gripAlignedHold;
+        private Vector3 _grabPoint;
+        private Quaternion _grabSourceRotation = Quaternion.identity;
 
         /// <summary>
         /// True while this hold is actually driven by <see cref="GripPoint"/> — a welded hand hold whose
@@ -356,6 +358,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// easing in) would otherwise have every observer hold the object by a handle the owner is not.
         /// </summary>
         internal bool HoldIsGripAligned => _gripAlignedHold && !_lerping;
+
+        protected internal virtual bool HoldControlsKinematic => KinematicWhileInteracting;
+
+        protected internal virtual bool HoldFollowsHand => true;
 
         private Vector3 magicNumberHandOffsetRight = new(0.26f, -0.14f, 0.24f); // right, down, forward
         private Quaternion magicNumberHandRotationRight = Quaternion.Euler(00, 010, -100);
@@ -608,19 +614,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         inRot = weldHandRot;
                     }
                     input.PlaySoundEffect("grab", SMModuleAudio.ActiveMenusVolume);
-                    if (RigidRef != null)
-                    {
-                        if (KinematicWhileInteracting)
-                        {
-                            _previousKinematicValue = RigidRef.isKinematic;
-                            RigidRef.isKinematic = true;
-                        }
-                        else
-                        {
-                            _previousGravityValue = RigidRef.useGravity;
-                            RigidRef.useGravity = false;
-                        }
-                    }
+                    BeginHoldPhysics();
 
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Interacting);
                     RequiresUpdateLoop = true;
@@ -676,6 +670,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     }
 
                     InputConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
+                    _grabSourceRotation = inRot;
+                    _grabPoint = LerpToHandOnPickup || _gripAlignedHold
+                        ? -(Quaternion.Inverse(offsetRot) * offsetPos)
+                        : Quaternion.Inverse(ActiveRotation) * (GetClosestPoint(inPos) - ActivePosition);
 
                     InputConstraint.Enabled = true;
 
@@ -741,22 +739,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     _gripAlignedHold = false;
                     InputConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
 
-                    if (RigidRef != null)
-                    {
-                        if (KinematicWhileInteracting)
-                        {
-                            RigidRef.isKinematic = _previousKinematicValue;
-                        }
-                        else
-                        {
-                            RigidRef.useGravity = _previousGravityValue;
-                        }
-
-                        if (!RigidRef.isKinematic)
-                        {
-                            OnDropVelocity();
-                        }
-                    }
+                    EndHoldPhysics();
                     BasisDebug.Log($"OnInteractEnd", BasisDebug.LogTag.Pickups);
 
                     if (BasisDeviceManagement.IsUserInDesktop())
@@ -766,6 +749,45 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     OnInteractEndEvent?.Invoke(input);
                 }
+            }
+        }
+
+        protected virtual void BeginHoldPhysics()
+        {
+            if (RigidRef == null)
+            {
+                return;
+            }
+            if (KinematicWhileInteracting)
+            {
+                _previousKinematicValue = RigidRef.isKinematic;
+                RigidRef.isKinematic = true;
+            }
+            else
+            {
+                _previousGravityValue = RigidRef.useGravity;
+                RigidRef.useGravity = false;
+            }
+        }
+
+        protected virtual void EndHoldPhysics()
+        {
+            if (RigidRef == null)
+            {
+                return;
+            }
+            if (KinematicWhileInteracting)
+            {
+                RigidRef.isKinematic = _previousKinematicValue;
+            }
+            else
+            {
+                RigidRef.useGravity = _previousGravityValue;
+            }
+
+            if (!RigidRef.isKinematic)
+            {
+                OnDropVelocity();
             }
         }
 
@@ -1093,6 +1115,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
             {
+                if (constrainToAxis != BasisAxisType.None)
+                {
+                    pos = FollowGrabPoint(pos, transform.rotation * _grabPoint, inRot * Quaternion.Inverse(_grabSourceRotation), InputConstraint.GlobalWeight);
+                }
+
                 bool forceGridSnap = BasisSettingsDefaults.ForceGridSnap.RawValue;
                 if (enableGridSnap || forceGridSnap)
                 {
@@ -1110,17 +1137,27 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         negativeTravelLimit, positiveTravelLimit, ref pos, ref rot);
                 }
 
-                // Prefer Rigidbody movement when present to preserve physics consistency.
-                if (RigidRef != null && !RigidRef.isKinematic)
-                {
-                    RigidRef.Move(pos, rot);
-                }
-                else
-                {
-                    transform.SetPositionAndRotation(pos, rot);
-                }
+                ApplyHeldPose(ref pos, ref rot);
                 CalculateVelocity(pos, rot);
             }
+        }
+
+        protected virtual void ApplyHeldPose(ref Vector3 position, ref Quaternion rotation)
+        {
+            // Prefer Rigidbody movement when present to preserve physics consistency.
+            if (RigidRef != null && !RigidRef.isKinematic)
+            {
+                RigidRef.Move(position, rotation);
+            }
+            else
+            {
+                transform.SetPositionAndRotation(position, rotation);
+            }
+        }
+
+        internal static Vector3 FollowGrabPoint(Vector3 position, Vector3 grabOffset, Quaternion handTurn, float weight)
+        {
+            return position + weight * (handTurn * grabOffset - grabOffset);
         }
 
         /// <summary>
@@ -1140,19 +1177,16 @@ namespace Basis.Scripts.BasisSdk.Interactions
             switch (axis)
             {
                 case BasisAxisType.X:
-                    proposedLocalPosition = IsWithinTravelLimit(proposedLocalPosition.x, startLocalPosition.x, negativeLimit, positiveLimit)
-                        ? new Vector3(proposedLocalPosition.x, currentLocalPosition.y, currentLocalPosition.z)
-                        : currentLocalPosition;
+                    proposedLocalPosition = new Vector3(ClampToTravelLimit(proposedLocalPosition.x, startLocalPosition.x, negativeLimit, positiveLimit),
+                        currentLocalPosition.y, currentLocalPosition.z);
                     break;
                 case BasisAxisType.Y:
-                    proposedLocalPosition = IsWithinTravelLimit(proposedLocalPosition.y, startLocalPosition.y, negativeLimit, positiveLimit)
-                        ? new Vector3(currentLocalPosition.x, proposedLocalPosition.y, currentLocalPosition.z)
-                        : currentLocalPosition;
+                    proposedLocalPosition = new Vector3(currentLocalPosition.x,
+                        ClampToTravelLimit(proposedLocalPosition.y, startLocalPosition.y, negativeLimit, positiveLimit), currentLocalPosition.z);
                     break;
                 case BasisAxisType.Z:
-                    proposedLocalPosition = IsWithinTravelLimit(proposedLocalPosition.z, startLocalPosition.z, negativeLimit, positiveLimit)
-                        ? new Vector3(currentLocalPosition.x, currentLocalPosition.y, proposedLocalPosition.z)
-                        : currentLocalPosition;
+                    proposedLocalPosition = new Vector3(currentLocalPosition.x, currentLocalPosition.y,
+                        ClampToTravelLimit(proposedLocalPosition.z, startLocalPosition.z, negativeLimit, positiveLimit));
                     break;
                 case BasisAxisType.None:
                 default:
@@ -1165,10 +1199,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
             rotation = target.rotation;
         }
 
-        private static bool IsWithinTravelLimit(float current, float start, float negativeLimit, float positiveLimit)
+        private static float ClampToTravelLimit(float proposed, float start, float negativeLimit, float positiveLimit)
         {
-            float delta = math.abs(current - start);
-            return (current < start && delta <= negativeLimit) || (current > start && delta <= positiveLimit);
+            return math.clamp(proposed, start - math.max(negativeLimit, 0f), start + math.max(positiveLimit, 0f));
         }
 
         /// <summary>

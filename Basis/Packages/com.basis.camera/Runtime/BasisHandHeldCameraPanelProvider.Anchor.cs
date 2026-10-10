@@ -208,7 +208,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 entries.Add(id.ToString());
                 labels.Add(remotes.TryGetValue(id, out var remote) && !string.IsNullOrEmpty(remote.SafeDisplayName)
                     ? remote.SafeDisplayName
-                    : $"Player {id}");
+                    : BasisLocalization.Get("camera.anchorTarget.player", id));
             }
 
             _anchorTargetDropdown.AssignEntries(entries, labels);
@@ -324,7 +324,7 @@ namespace Basis.BasisUI.HandHeldCamera
             => Basis.Scripts.Networking.BasisNetworkPlayers.RemotePlayers.TryGetValue(netId, out var remote) &&
                remote != null && !string.IsNullOrEmpty(remote.SafeDisplayName)
                 ? remote.SafeDisplayName
-                : $"Player {netId}";
+                : BasisLocalization.Get("camera.anchorTarget.player", netId);
 
         /// <summary>
         /// Re-seeds the anchor dropdown when something else has moved it — a camera mode applied,

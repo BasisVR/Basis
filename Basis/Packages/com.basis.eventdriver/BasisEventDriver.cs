@@ -385,6 +385,8 @@ namespace Basis.EventDriver
 
             fixedDeltaTime = Time.fixedDeltaTime;
             fixedTimeAsDouble = Time.fixedTimeAsDouble;
+            try { BasisPickupJointInteractable.OnFixedSimulate?.Invoke(fixedTimeAsDouble); }
+            catch (Exception ex) { BasisDebug.LogErrorOnce($"OnFixedSimulate failed: {ex}", BasisDebug.LogTag.Event); }
             if (BasisLocalPlayer.PlayerReady)
             {
                 using (Prof.SceneFactorySimulate.Auto())

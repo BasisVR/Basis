@@ -56,8 +56,6 @@ namespace Basis.Scripts.Networking
             string uuid = identity?.Uuid ?? string.Empty;
             string companyName = Application.companyName, productName = Application.productName;
 
-            BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId).UseNativeSockets = false;
-
             bool runsInBrowser = Application.platform == RuntimePlatform.WebGLPlayer;
             if (isHostMode && runsInBrowser)
             {

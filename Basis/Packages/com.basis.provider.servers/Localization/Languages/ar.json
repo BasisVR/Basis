@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "تعطيل المنظور الثالث"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "يجب أن يكون المنفذ بين 1 و65535"
     }
   ]
 }

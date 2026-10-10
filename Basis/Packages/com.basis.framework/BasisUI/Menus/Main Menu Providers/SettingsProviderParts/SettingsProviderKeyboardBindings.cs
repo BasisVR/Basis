@@ -21,36 +21,36 @@ public static class SettingsProviderKeyboardBindings
 
         // Movement — split WASD vs Arrow Keys
         BuildSplitCompositeGroups(container, playerMap.FindAction("Move"),
-            "Movement (WASD)", "Primary movement keys.",
-            "Movement (Arrow Keys)", "Alternative movement keys.",
+            BasisLocalization.Get("settings.controls.keyboard.movementWasd"), BasisLocalization.Get("settings.controls.keyboard.movementWasd.description"),
+            BasisLocalization.Get("settings.controls.keyboard.movementArrows"), BasisLocalization.Get("settings.controls.keyboard.movementArrows.description"),
             asset);
 
         // Camera
-        BuildActionGroup(container, playerMap.FindAction("Look Delta"), "Look",
-            "Camera", "Keyboard camera controls.", asset);
+        BuildActionGroup(container, playerMap.FindAction("Look Delta"), "look",
+            BasisLocalization.Get("settings.controls.keyboard.camera"), BasisLocalization.Get("settings.controls.keyboard.camera.description"), asset);
 
         // Vertical Movement
-        BuildActionGroup(container, playerMap.FindAction("MoveLocalUpDown"), "Fly",
-            "Vertical Movement", "Fly up and down.", asset);
+        BuildActionGroup(container, playerMap.FindAction("MoveLocalUpDown"), "fly",
+            BasisLocalization.Get("settings.controls.keyboard.verticalMovement"), BasisLocalization.Get("settings.controls.keyboard.verticalMovement.description"), asset);
 
         // Actions
-        BuildSimpleGroup(container, playerMap, asset, "Actions", "Common gameplay actions.",
-            ("Jump", "Jump"),
-            ("Running", "Sprint"),
-            ("Crouch", "Crouch"),
-            ("Prone", "Prone"),
-            ("ToggleMicMute", "Microphone Input"));
+        BuildSimpleGroup(container, playerMap, asset, BasisLocalization.Get("settings.controls.keyboard.actions"), BasisLocalization.Get("settings.controls.keyboard.actions.description"),
+            ("Jump", BasisLocalization.Get("settings.controls.keyboard.action.jump")),
+            ("Running", BasisLocalization.Get("settings.controls.keyboard.action.sprint")),
+            ("Crouch", BasisLocalization.Get("settings.controls.keyboard.action.crouch")),
+            ("Prone", BasisLocalization.Get("settings.controls.keyboard.action.prone")),
+            ("ToggleMicMute", BasisLocalization.Get("settings.controls.keyboard.action.microphoneInput")));
 
         // Menu
-        BuildSimpleGroup(container, playerMap, asset, "Menu", "Menu and UI shortcuts.",
-            ("Tab", "Free Cursor"),
-            ("OpenChat", "Open Chat"));
+        BuildSimpleGroup(container, playerMap, asset, BasisLocalization.Get("settings.controls.keyboard.menu"), BasisLocalization.Get("settings.controls.keyboard.menu.description"),
+            ("Tab", BasisLocalization.Get("settings.controls.keyboard.action.freeCursor")),
+            ("OpenChat", BasisLocalization.Get("settings.controls.keyboard.action.openChat")));
 
         // Mode Switching
-        BuildSimpleGroup(container, playerMap, asset, "Mode Switching", "Switch input mode.",
-            ("HotSwitchToDesktop", "Desktop Mode"),
-            ("HotSwtichToXR", "XR Mode"),
-            ("HotSwtichToVR", "VR Mode"));
+        BuildSimpleGroup(container, playerMap, asset, BasisLocalization.Get("settings.controls.keyboard.modeSwitching"), BasisLocalization.Get("settings.controls.keyboard.modeSwitching.description"),
+            ("HotSwitchToDesktop", BasisLocalization.Get("settings.controls.keyboard.action.desktopMode")),
+            ("HotSwtichToXR", BasisLocalization.Get("settings.controls.keyboard.action.xrMode")),
+            ("HotSwtichToVR", BasisLocalization.Get("settings.controls.keyboard.action.vrMode")));
     }
 
     private static void BuildSplitCompositeGroups(
@@ -106,7 +106,7 @@ public static class SettingsProviderKeyboardBindings
     }
 
     private static void BuildActionGroup(
-        RectTransform container, InputAction action, string actionDesc,
+        RectTransform container, InputAction action, string actionKey,
         string groupTitle, string groupDesc,
         InputActionAsset asset)
     {
@@ -121,11 +121,12 @@ public static class SettingsProviderKeyboardBindings
             if (binding.isComposite) continue;
             if (!IsKeyboardBinding(binding)) continue;
 
-            string baseLabel;
-            if (binding.isPartOfComposite)
-                baseLabel = $"{actionDesc} {GetPartLabel(action.name, binding.name)}";
-            else
-                baseLabel = actionDesc;
+            string partSuffix = binding.isPartOfComposite ? GetPartSuffix(action.name, binding.name) : null;
+            string baseLabel = partSuffix != null
+                ? BasisLocalization.Get($"settings.controls.keyboard.action.{actionKey}.{partSuffix}")
+                : binding.isPartOfComposite
+                    ? $"{BasisLocalization.Get($"settings.controls.keyboard.action.{actionKey}")} {binding.name}"
+                    : BasisLocalization.Get($"settings.controls.keyboard.action.{actionKey}");
 
             string partKey = binding.isPartOfComposite ? binding.name.ToLower() : "_solo";
 
@@ -133,7 +134,7 @@ public static class SettingsProviderKeyboardBindings
             if (partCounts.TryGetValue(partKey, out int count))
             {
                 partCounts[partKey] = count + 1;
-                label = $"{baseLabel} (Alt)";
+                label = BasisLocalization.Get("settings.controls.keyboard.alt", baseLabel);
             }
             else
             {
@@ -222,27 +223,33 @@ public static class SettingsProviderKeyboardBindings
 
     private static string GetPartLabel(string actionName, string partName)
     {
+        string suffix = GetPartSuffix(actionName, partName);
+        return suffix != null ? BasisLocalization.Get("settings.controls.keyboard.move." + suffix) : partName;
+    }
+
+    private static string GetPartSuffix(string actionName, string partName)
+    {
         string norm = partName.ToLower();
         if (actionName == "Move")
         {
             return norm switch
             {
-                "up" => "Forward",
-                "down" => "Backward",
-                "left" => "Left",
-                "right" => "Right",
-                _ => partName
+                "up" => "forward",
+                "down" => "backward",
+                "left" => "left",
+                "right" => "right",
+                _ => null
             };
         }
         return norm switch
         {
-            "up" => "Up",
-            "down" => "Down",
-            "left" => "Left",
-            "right" => "Right",
-            "positive" => "Up",
-            "negative" => "Down",
-            _ => partName
+            "up" => "up",
+            "down" => "down",
+            "left" => "left",
+            "right" => "right",
+            "positive" => "up",
+            "negative" => "down",
+            _ => null
         };
     }
 
@@ -256,7 +263,7 @@ public static class SettingsProviderKeyboardBindings
     {
         if (defaultKey == currentKey)
             return $"{label} \u2014 [{currentKey}]";
-        return $"{label} \u2014 [{currentKey}] (default {defaultKey})";
+        return $"{label} \u2014 [{currentKey}] {BasisLocalization.Get("settings.controls.keyboard.defaultKey", defaultKey)}";
     }
 
     #endregion
@@ -279,7 +286,7 @@ public static class SettingsProviderKeyboardBindings
     private static void StartRebind(PanelButton button, InputAction action,
         int bindingIndex, string label, string defaultKey, InputActionAsset asset)
     {
-        button.Descriptor.SetTitle($"{label} \u2014 Press a key...");
+        button.Descriptor.SetTitle($"{label} \u2014 {BasisLocalization.Get("settings.controls.keyboard.pressKey")}");
 
         action.Disable();
 

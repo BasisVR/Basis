@@ -5,7 +5,6 @@
         "Basis Framework",
         "BasisNetworkCore",
         "BasisNetworkClient",
-        "LiteNetLib",
         "BasisDebug",
         "Unity.TextMeshPro"
     ],

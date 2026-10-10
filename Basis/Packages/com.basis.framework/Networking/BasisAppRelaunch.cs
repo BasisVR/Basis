@@ -1,3 +1,4 @@
+using Basis.Network.Core;
 using Basis.Scripts.Device_Management;
 using UnityEngine;
 #if UNITY_EDITOR
@@ -54,11 +55,12 @@ namespace Basis.Scripts.Networking
             string ip = BasisNetworkManagement.Ip;
             if (string.IsNullOrEmpty(ip)) return string.Empty;
 
-            string value = ip + ":" + BasisNetworkManagement.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (!string.IsNullOrEmpty(BasisNetworkManagement.Password))
-                value += "#" + BasisNetworkManagement.Password;
-
-            return value;
+            string stackId = BasisNetworkConnection.LocalPlayerPeer?.StackId ?? BasisNetworkStackRegistry.DefaultId;
+            ConnectionTarget target = new ConnectionTarget(stackId, ip);
+            target.Set(ConnectionTarget.Keys.Address, ip);
+            target.Set(ConnectionTarget.Keys.Port, BasisNetworkManagement.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            target.Set(ConnectionTarget.Keys.Password, BasisNetworkManagement.Password ?? string.Empty);
+            return BasisNetworkStackRegistry.GetParser(stackId)?.Format(target) ?? string.Empty;
         }
 
         private const string HostReconnectArg = "--host-reconnect";

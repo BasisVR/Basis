@@ -115,13 +115,6 @@ public class TransportHookTests
         Assert.True(section >= 0 && section < alphaDoc && alphaDoc < alpha);
         Assert.Contains("<!-- Beta doc -->", xml);
     }
-
-    [Fact]
-    public void TransportConfigsReportTheirDisconnectTimeout()
-    {
-        IBasisTransportTimeouts timeouts = new LNLTransportConfig { DisconnectTimeout = 4321 };
-        Assert.Equal(4321, timeouts.DisconnectTimeoutMs);
-    }
 }
 
 [Collection("BasisServer shared network statics")]

@@ -7,7 +7,6 @@
         "BasisSDK",
         "BasisCommon",
         "BasisNetworkCore",
-        "LiteNetLib",
         "BasisDebug",
         "BasisGizmos",
         "UnityEngine.UI",

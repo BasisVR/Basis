@@ -312,6 +312,15 @@ namespace Basis.BasisUI
             return false;
         }
 
+        public static string GetLayerName(int layer)
+        {
+            string name = LayerMask.LayerToName(layer);
+            if (string.IsNullOrEmpty(name)) return name;
+            string compact = name.Replace(" ", string.Empty);
+            string suffix = compact.ToUpperInvariant() == compact ? compact.ToLowerInvariant() : char.ToLowerInvariant(compact[0]) + compact.Substring(1);
+            return TryGet("ui.layer." + suffix, out string label) ? label : name;
+        }
+
         /// <summary>
         /// Formatted variant of <see cref="Get(string)"/>. Uses the
         /// invariant culture so numeric formatting stays consistent with the

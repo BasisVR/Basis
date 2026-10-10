@@ -7,7 +7,6 @@ using Basis.Scripts.Drivers;
 using Basis.Network.Core;
 using System;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -145,7 +144,7 @@ namespace Basis.Scripts.Networking
                 string address = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
                 string portString = entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty;
                 ushort port;
-                if (!ushort.TryParse(portString, out port)) port = LNLConnectionTargetParser.DefaultPort;
+                if (!ushort.TryParse(portString, out port)) port = HostPortConnectionTargetParser.DefaultPort;
                 string stackId = entry.Target?.StackId ?? BasisNetworkStackRegistry.DefaultId;
 
                 BasisNetworkManagement.Port = port;
@@ -271,7 +270,7 @@ namespace Basis.Scripts.Networking
                 if (string.IsNullOrWhiteSpace(userName) && TryGetPageParameter(PageNameParameter, out string pageName)) userName = pageName;
                 if (string.IsNullOrWhiteSpace(userName))
                 {
-                    ReportConnectionError("Set a username before joining a server.");
+                    ReportConnectionError(BasisLocalization.Get("menu.servers.deepLink.usernameRequired.body"));
                     return;
                 }
 
@@ -333,16 +332,12 @@ namespace Basis.Scripts.Networking
         private static bool BuildEntryFromConnectionString(string value, out ServerDirectoryEntry entry)
         {
             entry = null;
-            if (!LNLConnectionTargetParser.TryParseConnectionString(value, out string addr, out ushort port, out _, out string password))
-                return false;
-
-            bool isIPv6 = IPAddress.TryParse(addr, out IPAddress parsedAddr)
-                && parsedAddr.AddressFamily == AddressFamily.InterNetworkV6;
-            string raw = isIPv6 ? $"[{addr}]:{port}" : $"{addr}:{port}";
-            ConnectionTarget target = new ConnectionTarget(BasisNetworkStackRegistry.DefaultId, raw);
-            target.Set(ConnectionTarget.Keys.Address, addr);
-            target.Set(ConnectionTarget.Keys.Port, port.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            target.Set(ConnectionTarget.Keys.Password, password ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            ConnectionTarget target = BasisNetworkStackRegistry.ParseAddress(value);
+            if (string.IsNullOrWhiteSpace(target.Get(ConnectionTarget.Keys.Address))) return false;
+            int hash = value.IndexOf('#');
+            target.Raw = hash >= 0 ? value.Substring(0, hash) : value;
+            string password = target.Get(ConnectionTarget.Keys.Password, string.Empty);
 
             entry = new ServerDirectoryEntry
             {
@@ -351,7 +346,7 @@ namespace Basis.Scripts.Networking
                 DisplayName = string.Empty,
                 Target = target,
                 HasPassword = !string.IsNullOrEmpty(password),
-                Password = password ?? string.Empty,
+                Password = password,
                 CanEdit = false,
                 CanRemove = false,
             };
@@ -367,27 +362,9 @@ namespace Basis.Scripts.Networking
             entry = null;
             if (!TryGetPageParameter(PageConnectionParameter, out string value)) return false;
             if (value.IndexOf('#') < 0 && TryGetPageParameter(PagePasswordParameter, out string pagePassword)) value += "#" + pagePassword;
-            ConnectionTarget target = BasisNetworkStackRegistry.ParseAddress(value);
-            if (string.IsNullOrWhiteSpace(target.Get(ConnectionTarget.Keys.Address)))
-            {
-                BasisDebug.LogWarning($"connection page parameter could not be parsed: {value}");
-                return false;
-            }
-            int hash = value.IndexOf('#');
-            target.Raw = hash >= 0 ? value.Substring(0, hash) : value;
-            string password = target.Get(ConnectionTarget.Keys.Password, string.Empty);
-            entry = new ServerDirectoryEntry
-            {
-                Id = CommandLineEntryId,
-                SourceId = SavedServersDirectorySource.Id,
-                DisplayName = string.Empty,
-                Target = target,
-                HasPassword = !string.IsNullOrEmpty(password),
-                Password = password,
-                CanEdit = false,
-                CanRemove = false,
-            };
-            return true;
+            if (BuildEntryFromConnectionString(value, out entry)) return true;
+            BasisDebug.LogWarning($"connection page parameter could not be parsed: {value}");
+            return false;
         }
 
         private static bool TryGetPageParameter(string name, out string value)

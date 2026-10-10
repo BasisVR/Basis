@@ -135,7 +135,11 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         BasisCameraRenderTargets.Release(ref srgbResolveTexture);
         BasisCameraRenderTargets.DestroyAndClear(ref actualMaterial);
 
-        if (HandHeld != null) HandHeld.ReleaseUILock();
+        if (HandHeld != null)
+        {
+            HandHeld.ReleaseUILock();
+            HandHeld.ReleaseLocalizedLabels();
+        }
 
         BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(SimulateLatePriority, SimulateLate);
 

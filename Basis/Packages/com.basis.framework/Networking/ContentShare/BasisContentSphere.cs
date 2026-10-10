@@ -247,7 +247,7 @@ public partial class BasisContentSphere : BasisInteractableObject
         OnSphereInteracted?.Invoke(this);
 
         string typeName = GetContentTypeName();
-        string title = $"Shared {typeName}";
+        string title = BasisLocalization.Get(ShareableTitleKey());
 
         string sharerLine;
         bool hasName = !string.IsNullOrEmpty(CreatorDisplayName);
@@ -256,19 +256,19 @@ public partial class BasisContentSphere : BasisInteractableObject
         // long enough to wrap and dominate the dialog when shown at body size.
         if (hasName && hasUUID)
         {
-            sharerLine = $"Shared by {CreatorDisplayName} <size=50%>({CreatorUUID})</size>";
+            sharerLine = BasisLocalization.Get("library.shareable.sharedBy", $"{CreatorDisplayName} <size=50%>({CreatorUUID})</size>");
         }
         else if (hasName)
         {
-            sharerLine = $"Shared by {CreatorDisplayName}";
+            sharerLine = BasisLocalization.Get("library.shareable.sharedBy", CreatorDisplayName);
         }
         else if (hasUUID)
         {
-            sharerLine = $"Shared by <size=50%>{CreatorUUID}</size>";
+            sharerLine = BasisLocalization.Get("library.shareable.sharedBy", $"<size=50%>{CreatorUUID}</size>");
         }
         else
         {
-            sharerLine = "Shared by an unknown player";
+            sharerLine = BasisLocalization.Get("content.share.sharedByUnknown");
         }
 
         string description;
@@ -277,21 +277,33 @@ public partial class BasisContentSphere : BasisInteractableObject
             string addrLine = ContentURL ?? string.Empty;
             if (SavedServerStore.TryParseConnectionString(addrLine, out string a, out ushort p, out bool _, out string _))
                 addrLine = $"{a}:{p}";
-            description = $"{sharerLine}\n\nAdd {addrLine} to your saved server list?";
+            description = $"{sharerLine}\n\n{BasisLocalization.Get("content.share.addServer", addrLine)}";
         }
         else if (ContentSharePayload.IsPayloadType(ContentType))
         {
             string detail = BasisContentSharePayloadRegistry.Describe(ContentType, ContentURL);
-            string named = string.IsNullOrEmpty(detail) ? typeName.ToLower() : $"\"{ClampName(detail)}\"";
-            description = $"{sharerLine}\n\nSave {named} to your saved {typeName.ToLower()}s?";
+            string named = string.IsNullOrEmpty(detail) ? typeName : $"\"{ClampName(detail)}\"";
+            string question = ContentType != ContentShareType.DollyTrack
+                ? BasisLocalization.Get("content.share.save.payload", named, typeName)
+                : string.IsNullOrEmpty(detail)
+                    ? BasisLocalization.Get("content.share.save.dollyTrack.unnamed")
+                    : BasisLocalization.Get("content.share.save.dollyTrack", named);
+            description = $"{sharerLine}\n\n{question}";
         }
         else
         {
-            description = $"{sharerLine}\n\nSave this shared {typeName.ToLower()} to your library?";
+            string saveKey = ContentType switch
+            {
+                ContentShareType.Avatar => "content.share.save.avatar",
+                ContentShareType.Prop => "content.share.save.prop",
+                ContentShareType.World => "content.share.save.world",
+                _ => "content.share.save.item",
+            };
+            description = $"{sharerLine}\n\n{BasisLocalization.Get(saveKey, typeName)}";
         }
 
         BasisMainMenu.Open();
-        BasisMainMenu.Instance.OpenDialogue(title, description, "Save", "Delete", value =>
+        BasisMainMenu.Instance.OpenDialogue(title, description, BasisLocalization.Get("ui.save"), BasisLocalization.Get("library.delete"), value =>
         {
             if (value)
             {
@@ -404,18 +416,28 @@ public partial class BasisContentSphere : BasisInteractableObject
         }
     }
 
+    private string ShareableTitleKey() => ContentType switch
+    {
+        ContentShareType.Avatar => "library.shareable.avatar",
+        ContentShareType.Prop => "library.shareable.prop",
+        ContentShareType.World => "library.shareable.world",
+        ContentShareType.Server => "library.shareable.server",
+        ContentShareType.DollyTrack => "library.shareable.dollyTrack",
+        _ => "library.shareable.other",
+    };
+
     public string GetContentTypeName()
     {
         switch (ContentType)
         {
-            case ContentShareType.Avatar: return "Avatar";
-            case ContentShareType.Prop: return "Prop";
-            case ContentShareType.World: return "World";
-            case ContentShareType.Server: return "Server";
+            case ContentShareType.Avatar: return BasisLocalization.Get("content.share.type.avatar");
+            case ContentShareType.Prop: return BasisLocalization.Get("content.share.type.prop");
+            case ContentShareType.World: return BasisLocalization.Get("content.share.type.world");
+            case ContentShareType.Server: return BasisLocalization.Get("content.share.type.server");
             default:
                 return BasisContentSharePayloadRegistry.TryGet(ContentType, out BasisContentSharePayloadKind nameKind)
-                    ? nameKind.Name
-                    : "Unknown";
+                    ? (string.IsNullOrEmpty(nameKind.NameKey) ? nameKind.Name : BasisLocalization.Get(nameKind.NameKey))
+                    : BasisLocalization.Get("content.share.type.unknown");
         }
     }
 

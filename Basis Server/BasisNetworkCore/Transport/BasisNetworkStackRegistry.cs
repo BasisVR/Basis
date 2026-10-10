@@ -28,6 +28,7 @@ namespace Basis.Network.Core
 
     public delegate Task<ServerProbeResult> StackProbeDelegate(ConnectionTarget target, int timeoutMs, CancellationToken ct);
     public delegate IPeerIntroducer PeerIntroducerFactory(NetManager activeManager);
+    public delegate IBasisP2PSocket P2PSocketFactory(EventBasedNetListener listener, BasisP2PIntroduced onIntroduced);
 
     public static class BasisNetworkStackRegistry
     {
@@ -56,6 +57,7 @@ namespace Basis.Network.Core
             public StackProbeDelegate Probe;
             public Action Tick;
             public PeerIntroducerFactory IntroducerFactory;
+            public P2PSocketFactory P2PSocketFactory;
             public Func<string, bool> AddressMatcher;
         }
 
@@ -66,13 +68,6 @@ namespace Basis.Network.Core
         private static string _activeStackId = string.Empty;
 
         public static event Action<string> ActiveStackChanged;
-
-        static BasisNetworkStackRegistry()
-        {
-            Register(LiteNetLibId, "LiteNetLib", (listener, config) => new LNLNetManager(listener, config));
-            RegisterParser(LiteNetLibId, new LNLConnectionTargetParser());
-            BasisTransportConfigStore.RegisterType(LiteNetLibId, typeof(LNLTransportConfig));
-        }
 
         private static Action[] _pumps = Array.Empty<Action>();
 
@@ -198,6 +193,21 @@ namespace Basis.Network.Core
             }
         }
 
+        public static void RegisterP2PSocketFactory(string stackId, P2PSocketFactory factory)
+        {
+            if (string.IsNullOrEmpty(stackId)) throw new ArgumentException("Stack id is required", nameof(stackId));
+            if (factory == null) throw new ArgumentNullException(nameof(factory));
+            lock (_lock)
+            {
+                if (!_slots.TryGetValue(stackId, out Slot slot))
+                {
+                    BNL.LogWarning($"Cannot register a direct-connection socket for unknown stack '{stackId}'");
+                    return;
+                }
+                slot.P2PSocketFactory = factory;
+            }
+        }
+
         public static void RegisterAddressMatcher(string stackId, Func<string, bool> matcher)
         {
             if (string.IsNullOrEmpty(stackId)) throw new ArgumentException("Stack id is required", nameof(stackId));
@@ -279,6 +289,7 @@ namespace Basis.Network.Core
             }
             if (stacks.Count == 0)
             {
+                if (!IsRegistered(DefaultId)) throw new InvalidOperationException(NoTransportMessage(id));
                 BNL.LogWarning($"No registered network stack in '{id}', falling back to '{DefaultId}'");
                 stacks.Add(DefaultId);
             }
@@ -297,11 +308,16 @@ namespace Basis.Network.Core
             {
                 if (!_slots.TryGetValue(effective, out slot))
                 {
+                    if (!_slots.TryGetValue(DefaultId, out slot)) throw new InvalidOperationException(NoTransportMessage(effective));
                     BNL.LogWarning($"Network stack '{effective}' is not registered (the package that provides it is not installed), falling back to '{DefaultId}'");
-                    slot = _slots[DefaultId];
                 }
             }
             return slot.Factory(listener, configuration);
+        }
+
+        private static string NoTransportMessage(string requested)
+        {
+            return $"Network stack '{requested}' is not registered and neither is the default '{DefaultId}'. Install a transport package, for example com.basis.transport.litenetlib.";
         }
 
         public static void ReplaceFactory(string id, NetManagerFactory factory)
@@ -350,11 +366,13 @@ namespace Basis.Network.Core
                 if (!string.Equals(effective, DefaultId, StringComparison.OrdinalIgnoreCase))
                 {
                     BNL.LogWarning($"No connection-target parser registered for stack '{effective}', falling back to '{DefaultId}'");
-                    if (_slots.TryGetValue(DefaultId, out Slot fallback)) return fallback.Parser;
+                    if (_slots.TryGetValue(DefaultId, out Slot fallback) && fallback.Parser != null) return fallback.Parser;
                 }
             }
-            return null;
+            return HostPortParser;
         }
+
+        private static readonly IConnectionTargetParser HostPortParser = new HostPortConnectionTargetParser();
 
         public static Task<ServerProbeResult> ProbeAsync(ConnectionTarget target, int timeoutMs, CancellationToken ct)
         {
@@ -436,21 +454,22 @@ namespace Basis.Network.Core
             PeerIntroducerFactory factory;
             lock (_lock)
             {
-                if (!_slots.TryGetValue(effective, out Slot slot) || slot.IntroducerFactory == null)
-                {
-                    if (!string.Equals(effective, DefaultId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        BNL.LogWarning($"No peer introducer registered for stack '{effective}', falling back to '{DefaultId}'");
-                    }
-                    if (!_slots.TryGetValue(DefaultId, out Slot fallback) || fallback.IntroducerFactory == null) return null;
-                    factory = fallback.IntroducerFactory;
-                }
-                else
-                {
-                    factory = slot.IntroducerFactory;
-                }
+                if (!_slots.TryGetValue(effective, out Slot slot) || slot.IntroducerFactory == null) return null;
+                factory = slot.IntroducerFactory;
             }
             return factory(activeManager);
+        }
+
+        public static IBasisP2PSocket CreateP2PSocket(string stackId, EventBasedNetListener listener, BasisP2PIntroduced onIntroduced)
+        {
+            string effective = string.IsNullOrEmpty(stackId) ? DefaultId : stackId;
+            P2PSocketFactory factory;
+            lock (_lock)
+            {
+                if (!_slots.TryGetValue(effective, out Slot slot) || slot.P2PSocketFactory == null) return null;
+                factory = slot.P2PSocketFactory;
+            }
+            return factory(listener, onIntroduced);
         }
 
         public static bool IsRegistered(string id)

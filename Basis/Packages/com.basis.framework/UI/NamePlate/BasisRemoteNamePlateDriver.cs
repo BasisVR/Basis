@@ -96,6 +96,7 @@ namespace Basis.Scripts.UI.NamePlate
         public static bool NamePlateHoverMenuOnly = false;
         public static float NamePlateSize = 1f;
         public static float NamePlateTransparency = 0.45f;
+        public static float NamePlateSelectDistance = 5f;
         public static float ChatSize = 1f;
         // The chat bubble stacks on top of the name panel, so its clearance IS the panel's half
         // height — same constant, not a second copy of the number.
@@ -169,6 +170,7 @@ namespace Basis.Scripts.UI.NamePlate
             NamePlateHoverMenuOnly = BasisSettingsDefaults.NPHoverMenuOnly.RawValue;
             NamePlateSize = BasisSettingsDefaults.NPSize.RawValue;
             NamePlateTransparency = BasisSettingsDefaults.NPTransparency.RawValue;
+            NamePlateSelectDistance = BasisSettingsDefaults.NPSelectDistance.RawValue;
             ChatSize = BasisSettingsDefaults.ChatSize.RawValue;
             lastMenuOpenState = BasisMainMenu.Instance != null;
 
@@ -529,6 +531,7 @@ namespace Basis.Scripts.UI.NamePlate
             NamePlateHoverMenuOnly = hoverMenuOnly;
             NamePlateSize = newSize;
             NamePlateTransparency = newTransparency;
+            NamePlateSelectDistance = BasisSettingsDefaults.NPSelectDistance.RawValue;
             ChatSize = BasisSettingsDefaults.ChatSize.RawValue;
 
             UpdateCachedColors(newTransparency);
@@ -549,6 +552,7 @@ namespace Basis.Scripts.UI.NamePlate
                     plate.Self.localScale = scale;
                 }
 
+                plate.InteractRange = NamePlateSelectDistance;
                 plate.ApplyTalkModeColors();
                 plate.RefreshChatLayout();
             }

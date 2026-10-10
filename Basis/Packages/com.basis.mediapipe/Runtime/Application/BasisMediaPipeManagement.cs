@@ -958,7 +958,7 @@ namespace Basis.MediaPipe
         {
             if (_backend == null)
             {
-                return "Not running.";
+                return Basis.BasisUI.BasisLocalization.Get("settings.mediapipe.diagnostics.notRunning");
             }
 
             string status = $"Backend: {_backend.BackendName}\nModels: {(_backend.IsReady ? "ready" : "loading")} (body model {Config.PoseModel})\nCamera: {_camera.State} at {_cameraFps} fps, {_camera.Restarts} restart(s)";

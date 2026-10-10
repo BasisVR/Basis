@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "三人称視点を無効化"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "ポートは 1～65535 の範囲で指定してください"
     }
   ]
 }

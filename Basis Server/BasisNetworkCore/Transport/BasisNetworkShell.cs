@@ -152,6 +152,10 @@ namespace Basis.Network.Core
 
         public string ListenDescription => null;
 
+        public void Flush()
+        {
+        }
+
         /// <summary>
         /// Unreliable packets dropped because a peer's send queue was over budget — i.e. the server
         /// could not drain what it was producing and shed the oldest position updates instead of

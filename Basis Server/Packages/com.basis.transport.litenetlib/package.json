@@ -1,0 +1,14 @@
+{
+  "name": "com.basis.transport.litenetlib",
+  "version": "1.0.0",
+  "displayName": "Basis LiteNetLib Transport",
+  "description": "UDP network transport for Basis, built on LiteNetLib. Adds the 'litenetlib' network stack (Basis's default) to the client and, through the Basis Server package manager, to the server, plus the UDP server-list probe and NAT-punched direct connections between players.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "vpmDependencies": {
+    "com.basis.server": "1.0.0"
+  }
+}

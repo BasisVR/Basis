@@ -754,7 +754,7 @@ namespace Basis.BasisUI
                             var url = k.Url ?? string.Empty;
                             if (k.EmbeddedSettings.IsEmbedded && k.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
                             {
-                                if (!string.IsNullOrEmpty(url) && url.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                                if (!string.IsNullOrEmpty(url) && (url.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0 || EmbeddedItems.GetDisplayNameForEmbeddedItem(k).IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0))
                                 {
                                     return true;
                                 }
@@ -990,7 +990,7 @@ namespace Basis.BasisUI
             if (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
             {
 
-                desc.SetTitle(urlKey);
+                desc.SetTitle(LibraryProviderStrUtil.TitleToCase(EmbeddedItems.GetDisplayNameForEmbeddedItem(item)));
                 desc.SetDescription(urlKey);
                 desc.ForceRebuild();
 

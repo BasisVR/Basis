@@ -152,24 +152,24 @@ public class MultiTransportTests
     public void RegistryBuildsACompositeOnlyWhenMoreThanOneStackIsUsable()
     {
         string original = BasisNetworkStackRegistry.ActiveStackId;
+        string zeroth = ConfigTestSupport.NewStackId();
         string first = ConfigTestSupport.NewStackId();
         string second = ConfigTestSupport.NewStackId();
+        BasisNetworkStackRegistry.Register(zeroth, "Zeroth", (listener, configuration) => new ScriptedTransport(zeroth, listener));
         BasisNetworkStackRegistry.Register(first, "First", (listener, configuration) => new ScriptedTransport(first, listener));
         BasisNetworkStackRegistry.Register(second, "Second", (listener, configuration) => new ScriptedTransport(second, listener));
         try
         {
-            NetManager all = BasisNetworkStackRegistry.Create($"litenetlib, {first}, {second}", new EventBasedNetListener(), new Configuration());
+            NetManager all = BasisNetworkStackRegistry.Create($"{zeroth}, {first}, {second}", new EventBasedNetListener(), new Configuration());
             BasisMultiTransportNetManager composite = Assert.IsType<BasisMultiTransportNetManager>(all);
-            Assert.IsType<LNLNetManager>(composite.Transports[0]);
+            Assert.Equal(zeroth, Assert.IsType<ScriptedTransport>(composite.Transports[0]).Id);
             Assert.Equal(first, Assert.IsType<ScriptedTransport>(composite.Transports[1]).Id);
             Assert.Equal(second, Assert.IsType<ScriptedTransport>(composite.Transports[2]).Id);
-            Assert.Equal($"litenetlib,{first},{second}", BasisNetworkStackRegistry.ActiveStackId);
-            Assert.NotNull(all.LiteNetLibManager());
+            Assert.Equal($"{zeroth},{first},{second}", BasisNetworkStackRegistry.ActiveStackId);
             Assert.NotNull(all.FindTransport<ScriptedTransport>());
 
             NetManager one = BasisNetworkStackRegistry.Create(second + ", not-a-real-stack", new EventBasedNetListener(), new Configuration());
             Assert.Equal(second, Assert.IsType<ScriptedTransport>(one).Id);
-            Assert.Null(one.LiteNetLibManager());
             Assert.Single(one.Transports());
         }
         finally

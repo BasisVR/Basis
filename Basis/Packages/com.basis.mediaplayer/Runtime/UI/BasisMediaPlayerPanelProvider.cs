@@ -848,12 +848,12 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
     {
         if (_subtitleDropdown == null || _activePlayer == null) return;
         var tracks = _activePlayer.SubtitleTracks;
-        var labels = new List<string> { "CC (embedded)" };
+        var labels = new List<string> { BasisLocalization.Get("mediaPlayer.subtitles.embedded") };
         for (int i = 0; i < tracks.Count; i++)
         {
             var t = tracks[i];
             labels.Add(!string.IsNullOrEmpty(t.Label) ? t.Label
-                : (!string.IsNullOrEmpty(t.Language) ? t.Language : $"Track {i + 1}"));
+                : (!string.IsNullOrEmpty(t.Language) ? t.Language : BasisLocalization.Get("mediaPlayer.subtitles.track", i + 1)));
         }
         _subtitleDropdown.AssignEntries(labels);
         int sel = _activePlayer.SelectedSubtitleTrackIndex;
@@ -1162,11 +1162,11 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
         // A dormant player is idle for a reason the viewer set, so say that
         // rather than leaving it reading as though nothing was ever loaded.
         _statusBuilder.Append("<color=").Append(dormant ? "#9AA0A6" : StatusColorHex(status)).Append("><b>")
-            .Append(dormant ? "Dormant" : StatusLabel(status)).Append("</b></color>");
+            .Append(dormant ? BasisLocalization.Get("mediaPlayer.status.dormant") : StatusLabel(status)).Append("</b></color>");
         if (dormant)
-            _statusBuilder.Append("\n<color=#9AA0A6>Beyond the limit of ")
-                .Append(BasisMediaSessionGovernor.MaxActive)
-                .Append(" playing at once. Select it to start it.</color>");
+            _statusBuilder.Append("\n<color=#9AA0A6>")
+                .Append(BasisLocalization.Get("mediaPlayer.status.dormant.description", BasisMediaSessionGovernor.MaxActive))
+                .Append("</color>");
         if (durSec > 0)
             _statusBuilder.Append("  <color=#9AA0A6>").Append(FormatTime(posSec))
                 .Append(" / ").Append(FormatTime(durSec)).Append("</color>");
@@ -1181,7 +1181,7 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
         if (status == BmState.Error)
         {
             if (string.IsNullOrEmpty(errText))
-                _statusBuilder.Append("\n<color=#E5534B>Error ").Append(err).Append("</color>");
+                _statusBuilder.Append("\n<color=#E5534B>").Append(BasisLocalization.Get("mediaPlayer.status.errorCode", err)).Append("</color>");
             else
                 _statusBuilder.Append("\n<color=#E5534B><noparse>").Append(SanitizeForMarkup(errText)).Append("</noparse></color>");
         }
@@ -1193,7 +1193,7 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
             // Part of the source was refused and the rest plays on, so the
             // state word stays accurate and the reason is a separate note.
             if (!string.IsNullOrEmpty(errText))
-                _statusBuilder.Append("\n<color=#E6C15A>Issue: <noparse>").Append(SanitizeForMarkup(errText)).Append("</noparse></color>");
+                _statusBuilder.Append("\n<color=#E6C15A>").Append(BasisLocalization.Get("mediaPlayer.status.issue")).Append(" <noparse>").Append(SanitizeForMarkup(errText)).Append("</noparse></color>");
         }
 
         string markup = _statusBuilder.ToString();
@@ -1209,13 +1209,13 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
     {
         switch (status)
         {
-            case BmState.Idle: return "No media loaded";
-            case BmState.Opening: return "Connecting";
-            case BmState.Buffering: return "Buffering";
-            case BmState.Playing: return "Playing";
-            case BmState.Paused: return "Paused";
-            case BmState.Ended: return "Ended";
-            case BmState.Error: return "Error";
+            case BmState.Idle: return BasisLocalization.Get("mediaPlayer.status.idle");
+            case BmState.Opening: return BasisLocalization.Get("mediaPlayer.status.opening");
+            case BmState.Buffering: return BasisLocalization.Get("mediaPlayer.status.buffering");
+            case BmState.Playing: return BasisLocalization.Get("mediaPlayer.status.playing");
+            case BmState.Paused: return BasisLocalization.Get("mediaPlayer.status.paused");
+            case BmState.Ended: return BasisLocalization.Get("mediaPlayer.status.ended");
+            case BmState.Error: return BasisLocalization.Get("mediaPlayer.status.error");
             default: return status.ToString();
         }
     }

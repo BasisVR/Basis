@@ -274,6 +274,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "Отключить вид от третьего лица"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "Порт должен быть от 1 до 65535"
     }
   ]
 }

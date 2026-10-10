@@ -4,13 +4,13 @@ This package contains third-party software components governed by their own lice
 
 ## LiteNetLib
 
-- **Path:** `LiteNetLib/`
 - **Author:** Ruslan Pyrch (RevenantX)
 - **License:** MIT
 - **Source:** https://github.com/RevenantX/LiteNetLib
 - **Copyright:** Copyright (c) 2020 Ruslan Pyrch
 
-Additionally, the following files in `BasisNetworkCore/` are derived from LiteNetLib:
+The LiteNetLib library itself ships in the `com.basis.transport.litenetlib` package. The following
+files in `BasisNetworkCore/` are derived from LiteNetLib:
 - `NetDataReader.cs` (from LiteNetLib/Utils/NetDataReader.cs)
 - `NetDataWriter.cs` (from LiteNetLib/Utils/NetDataWriter.cs)
 

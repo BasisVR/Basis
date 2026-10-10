@@ -48,13 +48,12 @@ namespace Basis.ImagePickup
             component.CanvasScaler = scaler;
             component.GraphicUIRayCaster = rayCaster;
 
-            bool localUnknown = pickup.IsOwner && (string.IsNullOrEmpty(pickup.OwnerName) || pickup.OwnerName == "Unknown");
-            string spawnerLabel = localUnknown ? "Spawned locally" : $"Spawned by {pickup.OwnerName}";
-            CreateLabel(canvasRect, uiLayer, spawnerLabel, new Vector2(0f, 150f), new Vector2(PanelPixels - 20f, 80f), 30f);
+            pickup.SpawnerLabel = CreateLabel(canvasRect, uiLayer, string.Empty, new Vector2(0f, 150f), new Vector2(PanelPixels - 20f, 80f), 30f);
 
-            pickup.HideLabel = CreateButton(canvasRect, uiLayer, pickup.IsHidden ? "Show" : "Hide", new Vector2(-130f, -120f), pickup.OnHidePressed);
-            CreateButton(canvasRect, uiLayer, "Save", new Vector2(0f, -120f), pickup.OnSavePressed);
-            pickup.DeleteLabel = CreateButton(canvasRect, uiLayer, "Delete", new Vector2(130f, -120f), pickup.OnDeletePressed);
+            pickup.HideLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(-130f, -120f), pickup.OnHidePressed);
+            pickup.SaveLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(0f, -120f), pickup.OnSavePressed);
+            pickup.DeleteLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(130f, -120f), pickup.OnDeletePressed);
+            pickup.RefreshPanelLabels();
 
             canvasObject.SetActive(true);
             return canvasObject;

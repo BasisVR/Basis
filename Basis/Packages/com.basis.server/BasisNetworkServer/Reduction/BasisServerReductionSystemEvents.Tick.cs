@@ -126,7 +126,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             //Phase 4: Network I/O
             BasisNetworkPIPCamera.UpdatePIPPositions(now);
-            NetworkServer.Server?.LiteNetLibManager()?.TriggerUpdate();
+            NetworkServer.Server?.Flush();
             if (profiling)
             {
                 BSRProfiler.triggerTicks += Stopwatch.GetTimestamp() - phaseTick;

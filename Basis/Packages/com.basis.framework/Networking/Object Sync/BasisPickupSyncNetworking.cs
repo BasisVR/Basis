@@ -364,7 +364,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
     {
         handId = HandNone;
         frame = default;
-        if (!AttachToHandOnGrab || !_attachId.IsValid || !IsOwnedLocallyOnClient || BasisPickupInteractable == null) return false;
+        if (!AttachToHandOnGrab || !_attachId.IsValid || !IsOwnedLocallyOnClient || BasisPickupInteractable == null || !BasisPickupInteractable.HoldFollowsHand) return false;
 
         BasisInputSources inputs = BasisPickupInteractable.Inputs;
         BasisBoneTrackedRole role;
@@ -717,9 +717,9 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
 
         if (IsOwnedLocallyOnClient)
         {
-            // Held with KinematicWhileInteracting - preserve kinematic state
+            // Held by a pickup that controls the kinematic state while held - preserve it
             bool heldKinematic = BasisPickupInteractable != null
-                && BasisPickupInteractable.KinematicWhileInteracting
+                && BasisPickupInteractable.HoldControlsKinematic
                 && BasisPickupInteractable.RequiresUpdateLoop;
             if (pendingStealRequest != null)
             {
@@ -729,7 +729,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
                 }
                 if (BasisPickupInteractable != null)
                 {
-                    if (BasisPickupInteractable.KinematicWhileInteracting)
+                    if (BasisPickupInteractable.HoldControlsKinematic)
                     {
                         BasisPickupInteractable._previousKinematicValue = _authoredKinematic;
                     }

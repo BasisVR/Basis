@@ -148,6 +148,49 @@ public partial class BasisHandHeldCameraUI
         UpdateResolutionSprites();
         SetCapture360State(HHC != null && HHC.capture360Enabled);
         RefreshAllToggleIndicators();
+        BindLocalizedLabels(HHC.transform);
+    }
+
+    private readonly List<(TMP_Text label, string key, bool upper, string prefix)> localizedLabels = new List<(TMP_Text, string, bool, string)>();
+
+    private void BindLocalizedLabels(Transform root)
+    {
+        localizedLabels.Clear();
+        foreach (TMP_Text label in root.GetComponentsInChildren<TMP_Text>(true))
+        {
+            string text = label.text ?? string.Empty;
+            string trimmed = text.Trim();
+            string key = trimmed switch
+            {
+                "Capture Photo" => "camera.ui.capturePhoto",
+                "Camera Settings" => "menu.provider.cameraSettings",
+                "FOCUS DISTANCE" => "camera.focusDistance",
+                "APERTURE" => "camera.aperture",
+                "FOV" => "camera.ui.fov",
+                _ => null
+            };
+            if (key == null) continue;
+            localizedLabels.Add((label, key, trimmed == trimmed.ToUpperInvariant(), text.Substring(0, text.Length - text.TrimStart().Length)));
+        }
+        ApplyLocalizedLabels();
+        BasisLocalization.OnLanguageChanged -= ApplyLocalizedLabels;
+        BasisLocalization.OnLanguageChanged += ApplyLocalizedLabels;
+    }
+
+    private void ApplyLocalizedLabels()
+    {
+        foreach ((TMP_Text label, string key, bool upper, string prefix) in localizedLabels)
+        {
+            if (label == null) continue;
+            string value = BasisLocalization.Get(key);
+            label.text = prefix + (upper ? value.ToUpperInvariant() : value);
+        }
+    }
+
+    public void ReleaseLocalizedLabels()
+    {
+        BasisLocalization.OnLanguageChanged -= ApplyLocalizedLabels;
+        localizedLabels.Clear();
     }
 
     private void CachePostProcessingReferences()

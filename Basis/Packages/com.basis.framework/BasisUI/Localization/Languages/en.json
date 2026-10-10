@@ -3243,6 +3243,10 @@
       "value": "Only show a player's nameplate while you are pointing at them."
     },
     {
+      "key": "settings.nameplates.selectDistance.tooltip",
+      "value": "Maximum distance at which you can select other players' nameplates."
+    },
+    {
       "key": "settings.nameplates.size.tooltip",
       "value": "Scale of other players' nameplates, from half to double size."
     },
@@ -6301,6 +6305,10 @@
     {
       "key": "library.embedded.handHeldCamera",
       "value": "Hand Held Camera"
+    },
+    {
+      "key": "library.embedded.personalMirror",
+      "value": "Personal Mirror"
     },
     {
       "key": "library.noDescription",
@@ -11289,6 +11297,10 @@
     {
       "key": "settings.nameplates.hoverMenuOnly",
       "value": "Only Allow Hover When Menu Open"
+    },
+    {
+      "key": "settings.nameplates.selectDistance",
+      "value": "Selection Distance"
     },
     {
       "key": "settings.nameplates.size",
@@ -19702,19 +19714,19 @@
     },
     {
       "key": "settings.media.description",
-      "value": "How this machine plays video. These describe your computer rather than the world you are in, so they apply everywhere and are not saved into anything you build."
+      "value": "How media players on this machine decode video. These are per-machine settings; they are not part of any world."
     },
     {
       "key": "settings.media.decode",
-      "value": "Decoding"
+      "value": "Decode preference"
     },
     {
       "key": "settings.media.decode.tooltip",
-      "value": "Whether video is decoded by the graphics hardware or the processor. Hardware is faster and far cheaper on battery; the software path exists for machines whose decoder is missing or misbehaving. A route this machine does not have is refused rather than silently swapped."
+      "value": "Which decode route a media player may take. Takes effect the next time a source is opened."
     },
     {
       "key": "settings.media.decode.hardwareFallback",
-      "value": "Hardware, falling back to software"
+      "value": "Hardware, fall back to software"
     },
     {
       "key": "settings.media.decode.hardwareOnly",
@@ -19726,23 +19738,23 @@
     },
     {
       "key": "settings.media.maxActive",
-      "value": "Players decoding at once"
+      "value": "Media players at once"
     },
     {
       "key": "settings.media.maxActive.tooltip",
-      "value": "How many media players may hold a session at the same time. Anyone can spawn more, and each one costs bandwidth, memory and decoding whether you are watching it or not — so the nearest few keep playing and the rest wait, resuming where they would have been when you come back. 0 removes the limit."
+      "value": "How many media players may play at once. The furthest ones stop and start again when you go back to them. 0 removes the limit, which on a headset will cost you bandwidth and frame rate."
     },
     {
       "key": "settings.media.engine.title",
-      "value": "This machine"
+      "value": "Engine"
     },
     {
       "key": "settings.media.engine.available",
-      "value": "{0} — {1} codecs on the graphics hardware, {2} in software."
+      "value": "{0} • {1} hardware video routes, {2} software"
     },
     {
       "key": "settings.media.engine.unavailable",
-      "value": "The media engine has not reported yet."
+      "value": "Engine unavailable on this platform."
     },
     {
       "key": "settings.graphics.renderer.dx12Warning.title",
@@ -19899,6 +19911,1098 @@
     {
       "key": "trackerLinking.deviceOverrides.status.override",
       "value": "override"
+    },
+    {
+      "key": "settings.controls.keyboard.movementWasd",
+      "value": "Movement (WASD)"
+    },
+    {
+      "key": "settings.controls.keyboard.movementWasd.description",
+      "value": "Primary movement keys."
+    },
+    {
+      "key": "settings.controls.keyboard.movementArrows",
+      "value": "Movement (Arrow Keys)"
+    },
+    {
+      "key": "settings.controls.keyboard.movementArrows.description",
+      "value": "Alternative movement keys."
+    },
+    {
+      "key": "settings.controls.keyboard.camera",
+      "value": "Camera"
+    },
+    {
+      "key": "settings.controls.keyboard.camera.description",
+      "value": "Keyboard camera controls."
+    },
+    {
+      "key": "settings.controls.keyboard.verticalMovement",
+      "value": "Vertical Movement"
+    },
+    {
+      "key": "settings.controls.keyboard.verticalMovement.description",
+      "value": "Fly up and down."
+    },
+    {
+      "key": "settings.controls.keyboard.actions",
+      "value": "Actions"
+    },
+    {
+      "key": "settings.controls.keyboard.actions.description",
+      "value": "Common gameplay actions."
+    },
+    {
+      "key": "settings.controls.keyboard.menu",
+      "value": "Menu"
+    },
+    {
+      "key": "settings.controls.keyboard.menu.description",
+      "value": "Menu and UI shortcuts."
+    },
+    {
+      "key": "settings.controls.keyboard.modeSwitching",
+      "value": "Mode Switching"
+    },
+    {
+      "key": "settings.controls.keyboard.modeSwitching.description",
+      "value": "Switch input mode."
+    },
+    {
+      "key": "settings.controls.keyboard.move.forward",
+      "value": "Forward"
+    },
+    {
+      "key": "settings.controls.keyboard.move.backward",
+      "value": "Backward"
+    },
+    {
+      "key": "settings.controls.keyboard.move.left",
+      "value": "Left"
+    },
+    {
+      "key": "settings.controls.keyboard.move.right",
+      "value": "Right"
+    },
+    {
+      "key": "settings.controls.keyboard.action.look",
+      "value": "Look"
+    },
+    {
+      "key": "settings.controls.keyboard.action.look.up",
+      "value": "Look Up"
+    },
+    {
+      "key": "settings.controls.keyboard.action.look.down",
+      "value": "Look Down"
+    },
+    {
+      "key": "settings.controls.keyboard.action.look.left",
+      "value": "Look Left"
+    },
+    {
+      "key": "settings.controls.keyboard.action.look.right",
+      "value": "Look Right"
+    },
+    {
+      "key": "settings.controls.keyboard.action.fly",
+      "value": "Fly"
+    },
+    {
+      "key": "settings.controls.keyboard.action.fly.up",
+      "value": "Fly Up"
+    },
+    {
+      "key": "settings.controls.keyboard.action.fly.down",
+      "value": "Fly Down"
+    },
+    {
+      "key": "settings.controls.keyboard.action.fly.left",
+      "value": "Fly Left"
+    },
+    {
+      "key": "settings.controls.keyboard.action.fly.right",
+      "value": "Fly Right"
+    },
+    {
+      "key": "settings.controls.keyboard.action.jump",
+      "value": "Jump"
+    },
+    {
+      "key": "settings.controls.keyboard.action.sprint",
+      "value": "Sprint"
+    },
+    {
+      "key": "settings.controls.keyboard.action.crouch",
+      "value": "Crouch"
+    },
+    {
+      "key": "settings.controls.keyboard.action.prone",
+      "value": "Prone"
+    },
+    {
+      "key": "settings.controls.keyboard.action.microphoneInput",
+      "value": "Microphone Input"
+    },
+    {
+      "key": "settings.controls.keyboard.action.freeCursor",
+      "value": "Free Cursor"
+    },
+    {
+      "key": "settings.controls.keyboard.action.openChat",
+      "value": "Open Chat"
+    },
+    {
+      "key": "settings.controls.keyboard.action.desktopMode",
+      "value": "Desktop Mode"
+    },
+    {
+      "key": "settings.controls.keyboard.action.xrMode",
+      "value": "XR Mode"
+    },
+    {
+      "key": "settings.controls.keyboard.action.vrMode",
+      "value": "VR Mode"
+    },
+    {
+      "key": "settings.controls.keyboard.alt",
+      "value": "{0} (Alt)"
+    },
+    {
+      "key": "settings.controls.keyboard.defaultKey",
+      "value": "(default {0})"
+    },
+    {
+      "key": "settings.controls.keyboard.pressKey",
+      "value": "Press a key..."
+    },
+    {
+      "key": "ui.bodyRole.centerEye",
+      "value": "Center Eye"
+    },
+    {
+      "key": "ui.bodyRole.head",
+      "value": "Head"
+    },
+    {
+      "key": "ui.bodyRole.neck",
+      "value": "Neck"
+    },
+    {
+      "key": "ui.bodyRole.chest",
+      "value": "Chest"
+    },
+    {
+      "key": "ui.bodyRole.hips",
+      "value": "Hips"
+    },
+    {
+      "key": "ui.bodyRole.spine",
+      "value": "Spine"
+    },
+    {
+      "key": "ui.bodyRole.leftUpperLeg",
+      "value": "Left Upper Leg"
+    },
+    {
+      "key": "ui.bodyRole.rightUpperLeg",
+      "value": "Right Upper Leg"
+    },
+    {
+      "key": "ui.bodyRole.leftLowerLeg",
+      "value": "Left Lower Leg"
+    },
+    {
+      "key": "ui.bodyRole.rightLowerLeg",
+      "value": "Right Lower Leg"
+    },
+    {
+      "key": "ui.bodyRole.leftFoot",
+      "value": "Left Foot"
+    },
+    {
+      "key": "ui.bodyRole.rightFoot",
+      "value": "Right Foot"
+    },
+    {
+      "key": "ui.bodyRole.leftShoulder",
+      "value": "Left Shoulder"
+    },
+    {
+      "key": "ui.bodyRole.rightShoulder",
+      "value": "Right Shoulder"
+    },
+    {
+      "key": "ui.bodyRole.leftUpperArm",
+      "value": "Left Upper Arm"
+    },
+    {
+      "key": "ui.bodyRole.rightUpperArm",
+      "value": "Right Upper Arm"
+    },
+    {
+      "key": "ui.bodyRole.leftLowerArm",
+      "value": "Left Lower Arm"
+    },
+    {
+      "key": "ui.bodyRole.rightLowerArm",
+      "value": "Right Lower Arm"
+    },
+    {
+      "key": "ui.bodyRole.leftHand",
+      "value": "Left Hand"
+    },
+    {
+      "key": "ui.bodyRole.rightHand",
+      "value": "Right Hand"
+    },
+    {
+      "key": "ui.bodyRole.leftToes",
+      "value": "Left Toes"
+    },
+    {
+      "key": "ui.bodyRole.rightToes",
+      "value": "Right Toes"
+    },
+    {
+      "key": "ui.bodyRole.mouth",
+      "value": "Mouth"
+    },
+    {
+      "key": "ui.bodyRole.leftToe",
+      "value": "Left Toe"
+    },
+    {
+      "key": "ui.bodyRole.rightToe",
+      "value": "Right Toe"
+    },
+    {
+      "key": "settings.controls.actionId.setMovementSpeedMultiplierFromPrimary2DAxis",
+      "value": "Set Movement Speed Multiplier From Primary2D Axis"
+    },
+    {
+      "key": "settings.controls.actionId.setMovementVectorFromPrimary2DAxis",
+      "value": "Set Movement Vector From Primary2D Axis"
+    },
+    {
+      "key": "settings.controls.actionId.tickMovementSpeed",
+      "value": "Tick Movement Speed"
+    },
+    {
+      "key": "settings.controls.actionId.toggleHamburgerOnSecondaryRelease",
+      "value": "Toggle Hamburger On Secondary Release"
+    },
+    {
+      "key": "settings.controls.actionId.toggleMicOnPrimaryReleaseIfNoHover",
+      "value": "Toggle Mic On Primary Release If No Hover"
+    },
+    {
+      "key": "settings.controls.actionId.rotateFromPrimary2DAxis",
+      "value": "Rotate From Primary2D Axis"
+    },
+    {
+      "key": "settings.controls.actionId.jumpOnPrimaryButton",
+      "value": "Jump On Primary Button"
+    },
+    {
+      "key": "settings.controls.actionId.descendOnGripButton",
+      "value": "Descend On Grip Button"
+    },
+    {
+      "key": "calibration.report.trackers",
+      "value": "Trackers {0}/{1}"
+    },
+    {
+      "key": "calibration.report.stale",
+      "value": "stale: {0}"
+    },
+    {
+      "key": "calibration.report.marginal",
+      "value": "marginal: {0}"
+    },
+    {
+      "key": "calibration.report.eye",
+      "value": "eye {0}m"
+    },
+    {
+      "key": "calibration.report.staleWarning",
+      "value": "A stale tracker was bound — re-seat it and re-calibrate."
+    },
+    {
+      "key": "calibration.report.unavailable",
+      "value": "Calibration report unavailable."
+    },
+    {
+      "key": "settings.bodyTracking.ikMode.disabledArmToHeight",
+      "value": "Disabled while Arm To Height Ratio is enabled."
+    },
+    {
+      "key": "settings.platform.activeTag",
+      "value": "ACTIVE"
+    },
+    {
+      "key": "settings.platform.swapMode.shutdown",
+      "value": "Shutdown Runtime"
+    },
+    {
+      "key": "settings.platform.swapMode.autoSwap",
+      "value": "Auto Swap"
+    },
+    {
+      "key": "settings.platform.mode.desktop.description",
+      "value": "Desktop mode (no VR). Shortcut: F9"
+    },
+    {
+      "key": "settings.platform.mode.openvr.description",
+      "value": "SteamVR / OpenVR runtime. Shortcut: F11"
+    },
+    {
+      "key": "settings.platform.mode.openxr.description",
+      "value": "OpenXR runtime. Shortcut: F10"
+    },
+    {
+      "key": "settings.mediapipe.faceEyes",
+      "value": "Face & Eyes"
+    },
+    {
+      "key": "settings.mediapipe.faceEyes.description",
+      "value": "Track facial expressions, blink and gaze."
+    },
+    {
+      "key": "settings.mediapipe.handsFingers",
+      "value": "Hands & Fingers"
+    },
+    {
+      "key": "settings.mediapipe.handsFingers.description",
+      "value": "Track finger curl and splay."
+    },
+    {
+      "key": "settings.mediapipe.headRotation",
+      "value": "Head Rotation"
+    },
+    {
+      "key": "settings.mediapipe.headRotation.description",
+      "value": "Your avatar's head turns, nods and tilts to follow your real head. The camera stays on the mouse."
+    },
+    {
+      "key": "settings.mediapipe.headPosition",
+      "value": "Head Position"
+    },
+    {
+      "key": "settings.mediapipe.headPosition.description",
+      "value": "Your avatar's head shifts to follow your real head movement."
+    },
+    {
+      "key": "settings.mediapipe.armTrackingExperimental",
+      "value": "Arm Tracking (experimental)"
+    },
+    {
+      "key": "settings.mediapipe.armTrackingExperimental.description",
+      "value": "Move your avatar's arms to match your real arms, retargeted from the pose skeleton (turns on the pose model; extra CPU)."
+    },
+    {
+      "key": "settings.mediapipe.bodyLeanTwist",
+      "value": "Body Lean/Twist"
+    },
+    {
+      "key": "settings.mediapipe.bodyLeanTwist.description",
+      "value": "Your avatar's chest leans, twists, sways and shifts with your torso. Uses the pose model (extra CPU). Set the amount with Chest Motion below."
+    },
+    {
+      "key": "settings.mediapipe.mirrorCamera",
+      "value": "Mirror Camera"
+    },
+    {
+      "key": "settings.mediapipe.mirrorCamera.description",
+      "value": "Flip the camera horizontally (selfie view)."
+    },
+    {
+      "key": "settings.mediapipe.swapHands",
+      "value": "Swap Hands"
+    },
+    {
+      "key": "settings.mediapipe.swapHands.description",
+      "value": "Fix left/right hands if they are reversed."
+    },
+    {
+      "key": "settings.mediapipe.diagnostics.notRunning",
+      "value": "Not running."
+    },
+    {
+      "key": "settings.mediapipe.diagnostics.notStarted",
+      "value": "Not started."
+    },
+    {
+      "key": "settings.slimevr.status.disabled",
+      "value": "Disabled."
+    },
+    {
+      "key": "settings.slimevr.status.searching",
+      "value": "Looking for a SlimeVR server..."
+    },
+    {
+      "key": "settings.slimevr.status.connected",
+      "value": "Connected."
+    },
+    {
+      "key": "settings.slimevr.status.bodyMetrics",
+      "value": "Eye height {0}m, full height {1}m, arm span {2}m."
+    },
+    {
+      "key": "settings.slimevr.status.trackers",
+      "value": "{0} trackers."
+    },
+    {
+      "key": "settings.slimevr.status.trackersBattery",
+      "value": "{0} trackers, lowest battery {1}%."
+    },
+    {
+      "key": "settings.slimevr.status.mountingChanged",
+      "value": "Tracker mounting changed ({0}°) — refreshing full-body offsets."
+    },
+    {
+      "key": "settings.metabody.status.unsupported",
+      "value": "This runtime does not offer OpenXR body tracking."
+    },
+    {
+      "key": "settings.metabody.status.fullBody",
+      "value": "Tracking upper body and legs."
+    },
+    {
+      "key": "settings.metabody.status.upperBody",
+      "value": "Tracking upper body only (this headset solves no legs)."
+    },
+    {
+      "key": "settings.metabody.status.notRunning",
+      "value": "Body tracker not running."
+    },
+    {
+      "key": "settings.metabody.status.turnedOff",
+      "value": "Turned off in settings."
+    },
+    {
+      "key": "settings.metabody.status.locateFailed",
+      "value": "Locating joints failed with {0}."
+    },
+    {
+      "key": "settings.metabody.status.bodyVisible",
+      "value": "Body visible, confidence {0}."
+    },
+    {
+      "key": "settings.metabody.status.noBody",
+      "value": "No body pose right now."
+    },
+    {
+      "key": "settings.metabody.status.trackersDriven",
+      "value": "{0} trackers driven from the headset."
+    },
+    {
+      "key": "settings.metabody.status.noFidelity",
+      "value": "No fidelity control on this runtime."
+    },
+    {
+      "key": "settings.metabody.status.noHeightOverride",
+      "value": "No height override on this runtime."
+    },
+    {
+      "key": "camera.debugGizmos.frustum",
+      "value": "Frustum"
+    },
+    {
+      "key": "camera.debugGizmos.frustum.description",
+      "value": "The capture frustum from the real projection: near and far planes, the optical axis, and a world-level guide line to read roll against."
+    },
+    {
+      "key": "camera.debugGizmos.focusPlanes",
+      "value": "Focus Planes"
+    },
+    {
+      "key": "camera.debugGizmos.focusPlanes.description",
+      "value": "The plane of sharp focus, and in Bokeh mode the near and far limits of acceptable sharpness derived from aperture, focal length and sensor size."
+    },
+    {
+      "key": "camera.debugGizmos.followRig",
+      "value": "Follow Rig"
+    },
+    {
+      "key": "camera.debugGizmos.followRig.description",
+      "value": "How auto follow places the shot: the subject anchor, the offset broken into its X, Y and Z legs in yaw space, the aim line, and the snap radius. Shown as a preview when follow is off."
+    },
+    {
+      "key": "camera.debugGizmos.pinModes",
+      "value": "Pin & Modes"
+    },
+    {
+      "key": "camera.debugGizmos.pinModes.description",
+      "value": "What the camera is pinned to and which modes are live, with the link back to the pin source and a plumb line to the floor."
+    },
+    {
+      "key": "camera.debugGizmos.readouts",
+      "value": "Readouts"
+    },
+    {
+      "key": "camera.debugGizmos.readouts.description",
+      "value": "Floating numbers for each layer above — angles, distances and the derived optics. Off draws the geometry alone."
+    },
+    {
+      "key": "camera.anchorTarget.player",
+      "value": "Player {0}"
+    },
+    {
+      "key": "camera.timer",
+      "value": "Timer"
+    },
+    {
+      "key": "camera.timer.cancel",
+      "value": "Cancel ({0})"
+    },
+    {
+      "key": "camera.videoOutput.tooltip",
+      "value": "Publish this camera as a live video source. {0}"
+    },
+    {
+      "key": "camera.videoOutput.serving",
+      "value": "Serving at {0} — add that as a Browser source in OBS, or open it in a browser."
+    },
+    {
+      "key": "camera.videoOutput.requirement.web",
+      "value": "Needs nothing installed — add the address to OBS as a Browser source, or open it in a browser."
+    },
+    {
+      "key": "camera.videoOutput.requirement.spout",
+      "value": "Publishes as \"Basis Camera\". Needs the Spout2 plugin installed in OBS — stock OBS has no Spout source."
+    },
+    {
+      "key": "camera.videoOutput.requirement.syphon",
+      "value": "Publishes as \"Basis Camera\". Needs a Syphon-capable receiver, such as OBS with the Syphon plugin."
+    },
+    {
+      "key": "camera.videoOutput.requirement.v4l2",
+      "value": "Appears as a webcam. Needs the loopback module loaded: sudo modprobe v4l2loopback exclusive_caps=1"
+    },
+    {
+      "key": "camera.videoOutput.requirement.unsupported",
+      "value": "Not supported on this platform."
+    },
+    {
+      "key": "camera.ui.capturePhoto",
+      "value": "Capture Photo"
+    },
+    {
+      "key": "camera.ui.fov",
+      "value": "FOV"
+    },
+    {
+      "key": "ui.close",
+      "value": "Close"
+    },
+    {
+      "key": "ui.textField.placeholder",
+      "value": "Type Here..."
+    },
+    {
+      "key": "ui.passwordField.placeholder",
+      "value": "Password"
+    },
+    {
+      "key": "settings.admin.notice.announceOn",
+      "value": "{0} enabled announce mode for you - your voice is now broadcast to everyone."
+    },
+    {
+      "key": "settings.admin.notice.announceOff",
+      "value": "{0} disabled announce mode for you - your voice is back to normal."
+    },
+    {
+      "key": "settings.admin.notice.shoutOn",
+      "value": "{0} put you in shout mode - your voice now carries twice as far."
+    },
+    {
+      "key": "settings.admin.notice.shoutOff",
+      "value": "{0} took you out of shout mode - your voice is back to normal."
+    },
+    {
+      "key": "settings.admin.notice.voiceMuted",
+      "value": "A moderator muted your voice - other players cannot hear you until you are unmuted."
+    },
+    {
+      "key": "settings.admin.notice.voiceUnmuted",
+      "value": "A moderator unmuted your voice - other players can hear you again."
+    },
+    {
+      "key": "settings.admin.notice.textMuted",
+      "value": "A moderator muted your text chat - your messages will not be delivered until you are unmuted."
+    },
+    {
+      "key": "settings.admin.notice.textUnmuted",
+      "value": "A moderator unmuted your text chat - your messages are delivered again."
+    },
+    {
+      "key": "settings.admin.notice.renamed",
+      "value": "{0} renamed you to {1}."
+    },
+    {
+      "key": "settings.admin.notice.unknownAdmin",
+      "value": "An admin"
+    },
+    {
+      "key": "settings.admin.logs.downloading",
+      "value": "Downloading server logs"
+    },
+    {
+      "key": "settings.admin.logs.extracting",
+      "value": "Extracting server logs"
+    },
+    {
+      "key": "settings.admin.logs.serverFailed",
+      "value": "Server failed to send logs."
+    },
+    {
+      "key": "settings.admin.logs.incomplete",
+      "value": "Log transfer was incomplete; please try again."
+    },
+    {
+      "key": "settings.admin.logs.saved",
+      "value": "Server logs saved to:\n{0}"
+    },
+    {
+      "key": "settings.admin.logs.saveFailed",
+      "value": "Failed to save server logs: {0}"
+    },
+    {
+      "key": "settings.admin.confirm.resetAllLogs.body",
+      "value": "Permanently delete the server's logs and crash reports? This cannot be undone."
+    },
+    {
+      "key": "settings.perm.groupsOnServer",
+      "value": "{0} group(s) on server."
+    },
+    {
+      "key": "settings.perm.usersWithEntries",
+      "value": "{0} user(s) with explicit entries."
+    },
+    {
+      "key": "settings.perm.none",
+      "value": "(none)"
+    },
+    {
+      "key": "settings.perm.default",
+      "value": "(default)"
+    },
+    {
+      "key": "settings.perm.groupEntry",
+      "value": "Nodes: {0}\nInherits: {1}"
+    },
+    {
+      "key": "settings.perm.userEntry",
+      "value": "Groups: {0}\nNodes: {1}"
+    },
+    {
+      "key": "settings.avatarStats.unknownDevice",
+      "value": "Unknown Device"
+    },
+    {
+      "key": "settings.avatarStats.unassigned",
+      "value": "Unassigned"
+    },
+    {
+      "key": "settings.avatarStats.rolesBound",
+      "value": "{0} of {1} roles currently bound."
+    },
+    {
+      "key": "settings.myAvatar.stat.downloadSize",
+      "value": "Download Size"
+    },
+    {
+      "key": "settings.myAvatar.stat.unknown",
+      "value": "Unknown"
+    },
+    {
+      "key": "settings.myAvatar.stat.avatar",
+      "value": "Avatar"
+    },
+    {
+      "key": "settings.myAvatar.stat.type",
+      "value": "Type"
+    },
+    {
+      "key": "settings.myAvatar.stat.type.fallback",
+      "value": "Fallback"
+    },
+    {
+      "key": "settings.myAvatar.stat.type.custom",
+      "value": "Custom"
+    },
+    {
+      "key": "settings.myAvatar.stat.triangles",
+      "value": "Triangles"
+    },
+    {
+      "key": "settings.myAvatar.stat.materials",
+      "value": "Materials"
+    },
+    {
+      "key": "settings.myAvatar.stat.bones",
+      "value": "Bones"
+    },
+    {
+      "key": "settings.myAvatar.stat.totalTextureVram",
+      "value": "Total Texture VRAM"
+    },
+    {
+      "key": "settings.myAvatar.stat.nonStreamingVram",
+      "value": "Non-Streaming VRAM"
+    },
+    {
+      "key": "settings.myAvatar.stat.potentialVramSavings",
+      "value": "Potential VRAM Savings"
+    },
+    {
+      "key": "settings.myAvatar.stat.totalTextures",
+      "value": "Total Textures"
+    },
+    {
+      "key": "settings.myAvatar.stat.streaming",
+      "value": "Streaming"
+    },
+    {
+      "key": "settings.myAvatar.stat.notStreaming",
+      "value": "Not Streaming"
+    },
+    {
+      "key": "settings.myAvatar.stat.rating",
+      "value": "Rating"
+    },
+    {
+      "key": "settings.myAvatar.stat.impact",
+      "value": "Impact"
+    },
+    {
+      "key": "settings.myAvatar.stat.costToOthers",
+      "value": "Cost To Others"
+    },
+    {
+      "key": "settings.myAvatar.uniqueTextures",
+      "value": "{0} unique textures found."
+    },
+    {
+      "key": "settings.myAvatar.tag.streaming",
+      "value": "[STREAMING]"
+    },
+    {
+      "key": "settings.myAvatar.tag.notStreaming",
+      "value": "[NOT STREAMING]"
+    },
+    {
+      "key": "settings.myAvatar.textureFallbackName",
+      "value": "Texture {0}"
+    },
+    {
+      "key": "settings.myAvatar.mips",
+      "value": "{0} mips"
+    },
+    {
+      "key": "settings.myAvatar.cost.download",
+      "value": "{0} download per player who sees you"
+    },
+    {
+      "key": "settings.myAvatar.cost.gpuMemory",
+      "value": "{0} GPU memory per instance"
+    },
+    {
+      "key": "settings.myAvatar.cost.wastedVram",
+      "value": "~{0} wasted VRAM from missing streaming mipmaps"
+    },
+    {
+      "key": "settings.myAvatar.rating.noTextures",
+      "value": "No Textures"
+    },
+    {
+      "key": "settings.myAvatar.rating.excellent",
+      "value": "Excellent - All textures streaming"
+    },
+    {
+      "key": "settings.myAvatar.rating.good",
+      "value": "Good - Most textures streaming"
+    },
+    {
+      "key": "settings.myAvatar.rating.poor",
+      "value": "Poor - Many textures not streaming"
+    },
+    {
+      "key": "settings.myAvatar.rating.bad",
+      "value": "Bad - Few or no textures streaming"
+    },
+    {
+      "key": "settings.myAvatar.impact.none",
+      "value": "No impact - all textures use streaming mipmaps."
+    },
+    {
+      "key": "settings.myAvatar.impact.severe",
+      "value": "Severe - {0} textures without streaming waste ~{1} VRAM. This causes excessive GPU memory pressure, stalls, and frame drops especially in crowded instances."
+    },
+    {
+      "key": "settings.myAvatar.impact.high",
+      "value": "High - {0} textures without streaming waste ~{1} VRAM. Other players may experience hitches when your avatar loads."
+    },
+    {
+      "key": "settings.myAvatar.impact.moderate",
+      "value": "Moderate - {0} textures without streaming waste ~{1} VRAM. Noticeable on lower-end hardware."
+    },
+    {
+      "key": "settings.myAvatar.impact.low",
+      "value": "Low - {0} textures without streaming use {1} total. Minimal impact."
+    },
+    {
+      "key": "content.share.sharedByUnknown",
+      "value": "Shared by an unknown player"
+    },
+    {
+      "key": "content.share.addServer",
+      "value": "Add {0} to your saved server list?"
+    },
+    {
+      "key": "content.share.save.dollyTrack",
+      "value": "Save {0} to your saved dolly tracks?"
+    },
+    {
+      "key": "content.share.save.dollyTrack.unnamed",
+      "value": "Save dolly track to your saved dolly tracks?"
+    },
+    {
+      "key": "content.share.save.payload",
+      "value": "Save {0} to your saved {1}s?"
+    },
+    {
+      "key": "content.share.save.avatar",
+      "value": "Save this shared avatar to your library?"
+    },
+    {
+      "key": "content.share.save.prop",
+      "value": "Save this shared prop to your library?"
+    },
+    {
+      "key": "content.share.save.world",
+      "value": "Save this shared world to your library?"
+    },
+    {
+      "key": "content.share.save.item",
+      "value": "Save this shared {0} to your library?"
+    },
+    {
+      "key": "content.share.type.avatar",
+      "value": "Avatar"
+    },
+    {
+      "key": "content.share.type.prop",
+      "value": "Prop"
+    },
+    {
+      "key": "content.share.type.world",
+      "value": "World"
+    },
+    {
+      "key": "content.share.type.server",
+      "value": "Server"
+    },
+    {
+      "key": "content.share.type.unknown",
+      "value": "Unknown"
+    },
+    {
+      "key": "ui.save",
+      "value": "Save"
+    },
+    {
+      "key": "mediaPlayer.subtitles.embedded",
+      "value": "CC (embedded)"
+    },
+    {
+      "key": "mediaPlayer.subtitles.track",
+      "value": "Track {0}"
+    },
+    {
+      "key": "mediaPlayer.status.dormant",
+      "value": "Dormant"
+    },
+    {
+      "key": "mediaPlayer.status.dormant.description",
+      "value": "Beyond the limit of {0} playing at once. Select it to start it."
+    },
+    {
+      "key": "mediaPlayer.status.errorCode",
+      "value": "Error {0}"
+    },
+    {
+      "key": "mediaPlayer.status.issue",
+      "value": "Issue:"
+    },
+    {
+      "key": "mediaPlayer.status.idle",
+      "value": "No media loaded"
+    },
+    {
+      "key": "mediaPlayer.status.opening",
+      "value": "Connecting"
+    },
+    {
+      "key": "mediaPlayer.status.buffering",
+      "value": "Buffering"
+    },
+    {
+      "key": "mediaPlayer.status.playing",
+      "value": "Playing"
+    },
+    {
+      "key": "mediaPlayer.status.paused",
+      "value": "Paused"
+    },
+    {
+      "key": "mediaPlayer.status.ended",
+      "value": "Ended"
+    },
+    {
+      "key": "mediaPlayer.status.error",
+      "value": "Error"
+    },
+    {
+      "key": "settings.remoteAudio.hrtfProfile.default",
+      "value": "Default"
+    },
+    {
+      "key": "settings.main.buildInfo.version",
+      "value": "Version"
+    },
+    {
+      "key": "settings.main.buildInfo.unity",
+      "value": "Unity"
+    },
+    {
+      "key": "settings.main.buildInfo.platform",
+      "value": "Platform"
+    },
+    {
+      "key": "settings.main.buildInfo.mode",
+      "value": "Mode"
+    },
+    {
+      "key": "settings.main.buildInfo.buildGuid",
+      "value": "Build GUID"
+    },
+    {
+      "key": "settings.main.buildInfo.logPath",
+      "value": "Log Path"
+    },
+    {
+      "key": "settings.main.buildInfo.dataPath",
+      "value": "Data Path"
+    },
+    {
+      "key": "trackerLinking.trackerFallback",
+      "value": "Tracker"
+    },
+    {
+      "key": "settings.faceTracking.noRelay",
+      "value": "No relay found"
+    },
+    {
+      "key": "settings.faceTracking.oscActive",
+      "value": "Active"
+    },
+    {
+      "key": "settings.faceTracking.oscDisabled",
+      "value": "DISABLED"
+    },
+    {
+      "key": "library.dialog.legacy.contentType.avatar",
+      "value": "Avatar"
+    },
+    {
+      "key": "library.dialog.legacy.contentType.world",
+      "value": "World"
+    },
+    {
+      "key": "library.dialog.legacy.contentType.prop",
+      "value": "Prop"
+    },
+    {
+      "key": "settings.media.bufferDepth",
+      "value": "Default buffer depth (ms)"
+    },
+    {
+      "key": "settings.media.bufferDepth.tooltip",
+      "value": "How much media is held back before playing, to ride out a patchy connection. Applies to every media player you have not tuned individually from the Media Players panel. 0 is Auto, which works it out from the connection and is the right answer for almost everyone. Raising it makes playback steadier and slower to start."
+    },
+    {
+      "key": "settings.media.captions",
+      "value": "Captions on by default"
+    },
+    {
+      "key": "settings.media.captions.tooltip",
+      "value": "Whether captions are drawn on a media player you have not decided individually. Any one player can be switched on or off from the Media Players panel without changing this."
+    },
+    {
+      "key": "settings.media.captionTextOpacity",
+      "value": "Default caption text opacity"
+    },
+    {
+      "key": "settings.media.captionBackgroundOpacity",
+      "value": "Default caption background opacity"
+    },
+    {
+      "key": "ui.layer.default",
+      "value": "Default"
+    },
+    {
+      "key": "ui.layer.transparentFX",
+      "value": "Transparent FX"
+    },
+    {
+      "key": "ui.layer.ignoreRaycast",
+      "value": "Ignore Raycast"
+    },
+    {
+      "key": "ui.layer.player",
+      "value": "Player"
+    },
+    {
+      "key": "ui.layer.water",
+      "value": "Water"
+    },
+    {
+      "key": "ui.layer.ui",
+      "value": "UI"
+    },
+    {
+      "key": "ui.layer.localPlayerAvatar",
+      "value": "Local Player Avatar"
+    },
+    {
+      "key": "ui.layer.remotePlayerAvatar",
+      "value": "Remote Player Avatar"
+    },
+    {
+      "key": "ui.layer.interactable",
+      "value": "Interactable"
+    },
+    {
+      "key": "ui.layer.ignoredByInteractable",
+      "value": "Ignored By Interactable"
+    },
+    {
+      "key": "ui.layer.handHeldCameraUI",
+      "value": "Handheld Camera UI"
+    },
+    {
+      "key": "ui.layer.billiardsModule",
+      "value": "Billiards Module"
+    },
+    {
+      "key": "settings.header.time",
+      "value": "Time:"
+    },
+    {
+      "key": "ui.layer.overlayUI",
+      "value": "Overlay UI"
     }
   ]
 }

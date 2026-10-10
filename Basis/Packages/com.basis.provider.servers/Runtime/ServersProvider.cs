@@ -772,7 +772,7 @@ namespace Basis.BasisUI
             }
             else if (!ushort.TryParse(_editPort.Value, out port) || port == 0)
             {
-                BasisConnectionService.ReportConnectionError("Port must be 1-65535");
+                BasisConnectionService.ReportConnectionError(BasisLocalization.Get("menu.servers.portInvalid"));
                 return false;
             }
             if (string.IsNullOrEmpty(address))

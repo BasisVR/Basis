@@ -24,7 +24,6 @@
     <ProjectReference Include="..\BasisNetworkCompute\BasisNetworkCompute.csproj" />
     <ProjectReference Include="..\Contrib\Auth\Did\Did.csproj" />
     <ProjectReference Include="..\Contrib\Crypto\Crypto.csproj" />
-    <ProjectReference Include="..\LiteNetLib\LiteNetLib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

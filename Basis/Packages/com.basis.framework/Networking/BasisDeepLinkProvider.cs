@@ -126,7 +126,7 @@ namespace Basis.Scripts.Networking
             string addr = entry.Target?.Get(ConnectionTarget.Keys.Address) ?? string.Empty;
             if (string.IsNullOrEmpty(addr)) return string.Empty;
             string portStr = entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty;
-            ushort port = ushort.TryParse(portStr, out ushort p) ? p : LNLConnectionTargetParser.DefaultPort;
+            ushort port = ushort.TryParse(portStr, out ushort p) ? p : HostPortConnectionTargetParser.DefaultPort;
             return FormatDeepLink(addr, port, !string.IsNullOrEmpty(entry.Password) ? entry.Password : null);
         }
 
@@ -241,7 +241,7 @@ namespace Basis.Scripts.Networking
                 password = ParsePasswordFromQuery(rest.Substring(queryIdx + 1));
             }
 
-            if (!LNLConnectionTargetParser.TryParseConnectionString(
+            if (!HostPortConnectionTargetParser.TryParseConnectionString(
                     connectionPart, out string addr, out ushort port, out _, out _))
                 return false;
 

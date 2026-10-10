@@ -13,6 +13,7 @@ for both the Unity client and the server.
 | `packages-lock.props` | yes | Generated from the manifest. Pins each git package to a commit and tells MSBuild which folders compile into which assembly. |
 | `packages-local.props` | no | This machine's folder links (`server-link`). |
 | `<id>/` | no | The package clones. |
+| `com.basis.transport.litenetlib/` | yes | The UDP transport Basis installs by default (see below). |
 
 The Basis Package Manager writes all of these: the Server tab, or `basispm server-install`,
 `server-update`, `server-remove`, `server-restore`, `server-link` and `server-unlink`. After editing
@@ -39,6 +40,23 @@ building the server without it.
 `#ref` is a branch, tag or commit and `?path=` is the package's folder inside the repository.
 `file:` paths are relative to this folder; a `file:` package outside `Basis Server` is not part of
 the Docker build context, so an image that needs a package installs it from git.
+
+## The default transport
+
+Basis installs one package by default: `com.basis.transport.litenetlib`, the UDP transport (the
+`litenetlib` network stack, the UDP server-list probe and NAT-punched direct connections between
+players). It is in both halves of the repository, so each works on its own:
+
+- the server's copy is this folder's `com.basis.transport.litenetlib/`, installed through
+  `manifest.json` (`file:com.basis.transport.litenetlib`), so a fresh checkout, CI and the Docker
+  build have it;
+- the Unity project's copy is the embedded package `Basis/Packages/com.basis.transport.litenetlib`,
+  so a checkout without `Basis Server` still has it.
+
+The server's copy is the one to edit. `ExportSourceFiles.ps1` mirrors it into `Basis/Packages`
+(everything but its `Server~` tests), the same way it mirrors the server into `com.basis.server`.
+Basis code does not reference the package: remove both copies (and this manifest's entry) and Basis
+builds and runs without it, with no network stack until another transport package is installed.
 
 ## Writing a package
 
@@ -76,6 +94,33 @@ Inside a module, folders with their own `.asmdef` or `.asmref`, and folders whos
 or start with `.`, are left out, matching Unity. Shared code has to build as C# 9 for Unity and for
 both netstandard2.1 and net10.0 on the server.
 
+## Prebuilt libraries
+
+A package can also bring prebuilt assemblies and native libraries:
+
+```json
+"basisServer": {
+  "references": [
+    { "path": "Server~/Plugins/Example.Win64.dll", "assembly": "BasisNetworkCore", "platforms": ["win"] },
+    { "path": "Server~/Plugins/Example.Posix.dll", "assembly": "BasisNetworkCore", "platforms": ["linux", "osx"] }
+  ],
+  "natives": [
+    { "path": "Plugins/win64/example.dll", "assembly": "BasisNetworkCore", "platforms": "win-x64" },
+    { "path": "Plugins/linux64/libexample.so", "assembly": "BasisNetworkCore", "platforms": "linux-x64" }
+  ]
+}
+```
+
+`references` are compiled against by that assembly and copied to its output. `natives` are copied
+next to the server, in build and publish output, by every project that uses that assembly. Keep
+server-only libraries in a `~` folder so Unity does not import them. `platforms` takes `win`,
+`linux` and `osx`, optionally with an architecture (`win-x64`, `linux-arm64`); leave it out for
+every platform.
+
+The platform is the build's `RuntimeIdentifier`, or this machine's when there is none. Library
+projects build without one, so publishing for another operating system than the one you build on
+needs it passed through: `dotnet publish -r linux-x64 -p:BasisServerPackageRid=linux-x64`.
+
 ## Entry point
 
 ```csharp
@@ -111,9 +156,10 @@ A failing entry is logged and the rest still run. `/packages` in the server cons
 ## Transport packages
 
 A network transport is a `NetManager` (with its `NetPeer` and `ConnectionRequest`) whose code
-compiles into `BasisNetworkCore`. The WebSocket transport, `com.basis.transport.websocket`, is a
-complete example: it is a separate package, and Basis does not name it anywhere. Its entry point
-registers the transport with these hooks:
+compiles into `BasisNetworkCore`. The default UDP transport, `com.basis.transport.litenetlib`, and
+the WebSocket transport, `com.basis.transport.websocket`, are complete examples: each is a separate
+package, and Basis code does not depend on either. An entry point registers a transport with these
+hooks:
 
 | Hook | What it is for |
 |---|---|
@@ -122,7 +168,8 @@ registers the transport with these hooks:
 | `RegisterProbe(id, probe)` | The server-list ping (name, player count, round trip) over this transport. |
 | `RegisterAddressMatcher(id, matcher)` | Claims addresses this transport owns (for example `wss://...`), so the Servers panel and web join links pick it without the player choosing a stack. |
 | `RegisterPump(action)` / `RegisterTick(id, action)` | Work the client runs every frame, for transports that poll on the main thread. |
-| `RegisterIntroducerFactory(id, factory)` | Peer-to-peer introduction, for transports that support direct connections. |
+| `RegisterIntroducerFactory(id, factory)` | The server side of direct connections: introduces two players to each other (NAT punch-through). |
+| `RegisterP2PSocketFactory(id, factory)` | The client side of direct connections: the socket a player punches and connects through, used when the player is connected over this stack. |
 | `ReplaceFactory(id, factory)` | Stands in for another stack, for example on a platform where that stack cannot run. |
 | `BasisTransportConfigStore.RegisterType(id, type)` | The transport's settings file, `config/transports/<id>.xml`. |
 | `BasisConfigXmlDocs.Register(type, header, fields)` | The comments written into that file. |
@@ -134,6 +181,10 @@ And these interfaces, which the server and client check for:
 | `IBasisSharedPeerIds` | the `NetManager` | Takes player ids from the shared allocator, so a server running several transports never gives two players the same id. |
 | `IBasisTransportHealth` | the `NetManager` | Extra fields for this transport's entry under `transports` on `/health`. |
 | `IBasisTransportTimeouts` | the config type | The disconnect timeout the client's connection watchdog uses. |
+| `IBasisTransportScaling` | the `NetManager` | Lets the server's load control size the transport's worker pool, add send sockets under pressure, and report its queue bounds on `/health`. |
+
+`NetManager.Flush()` is called after every server tick, so a transport that batches sends can put
+them on the wire straight away; transports without a send loop leave the default, which does nothing.
 
 `NetPeer.StackId` names the peer's transport and `NetPeer.SupportsDirectConnect` says whether it can
 take part in peer-to-peer sessions. Unity-only code (for example a browser channel and its `.jslib`)

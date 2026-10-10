@@ -16,27 +16,27 @@ public static partial class BasisCameraVideoPlatform
     private static readonly HashSet<int> ClaimedWebPorts = new HashSet<int>();
 #if BASIS_VIDEO_OUTPUT_SPOUT
     public const string BackendName = "Spout";
-    public const string Requirement = "Publishes as \"Basis Camera\". Needs the Spout2 plugin installed in OBS — stock OBS has no Spout source.";
+    public const string RequirementKey = "camera.videoOutput.requirement.spout";
     public static bool Supported => true;
     public static bool FlipsRows => false;
     public static RenderTextureFormat FrameFormat => RenderTextureFormat.ARGB32;
     public static IBasisVideoOutputSink CreateSink() => new BasisSpoutVideoOutputSink();
 #elif BASIS_VIDEO_OUTPUT_SYPHON
     public const string BackendName = "Syphon";
-    public const string Requirement = "Publishes as \"Basis Camera\". Needs a Syphon-capable receiver, such as OBS with the Syphon plugin.";
+    public const string RequirementKey = "camera.videoOutput.requirement.syphon";
     public static bool Supported => true;
     public static bool FlipsRows => false;
     public static RenderTextureFormat FrameFormat => RenderTextureFormat.ARGB32;
     public static IBasisVideoOutputSink CreateSink() => new BasisSyphonVideoOutputSink();
 #elif BASIS_VIDEO_OUTPUT_V4L2
     public const string BackendName = "Virtual Camera";
-    public const string Requirement = "Appears as a webcam. Needs the loopback module loaded: sudo modprobe v4l2loopback exclusive_caps=1";
+    public const string RequirementKey = "camera.videoOutput.requirement.v4l2";
     public static bool Supported => true;
     public static bool FlipsRows => true;
     public static RenderTextureFormat FrameFormat => SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.BGRA32) ? RenderTextureFormat.BGRA32 : RenderTextureFormat.ARGB32;
     public static IBasisVideoOutputSink CreateSink() => new BasisV4L2VideoOutputSink();
 #else
-    public const string BackendName = "Video", Requirement = "Not supported on this platform.";
+    public const string BackendName = "Video", RequirementKey = "camera.videoOutput.requirement.unsupported";
     public static bool Supported => false;
     public static bool FlipsRows => false;
     public static RenderTextureFormat FrameFormat => RenderTextureFormat.ARGB32;
@@ -50,7 +50,7 @@ public static partial class BasisCameraVideoPlatform
         return transports;
     }
     public static string TransportName(BasisVideoTransport transport) => transport == BasisVideoTransport.Web ? "Web Stream (MJPEG)" : BackendName;
-    public static string TransportRequirement(BasisVideoTransport transport) => transport == BasisVideoTransport.Web ? "Needs nothing installed — add the address to OBS as a Browser source, or open it in a browser." : Requirement;
+    public static string TransportRequirement(BasisVideoTransport transport) => Basis.BasisUI.BasisLocalization.Get(transport == BasisVideoTransport.Web ? "camera.videoOutput.requirement.web" : RequirementKey);
     public static bool IsAvailable(BasisVideoTransport transport) => transport == BasisVideoTransport.Web || (transport == BasisVideoTransport.Platform && Supported);
     public static string ClaimSenderName(string requested)
     {

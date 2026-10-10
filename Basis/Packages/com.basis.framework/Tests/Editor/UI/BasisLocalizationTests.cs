@@ -1,7 +1,11 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Basis.BasisUI;
+using Basis.Localization;
+using Basis.Scripts.TransformBinders.BoneControl;
+using Basis.Scripts.UI.UI_Panels;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -235,6 +239,110 @@ namespace Basis.Tests.UI
             BasisLocalization.LoadLanguage(language);
             Assert.That(BasisLocalization.Get("settings.admin.confirm.addDefaultLibrary.body"), Does.Contain("{0}"));
             Assert.That(BasisLocalization.Get("settings.admin.confirm.removeDefaultLibrary.body"), Does.Contain("{0}"));
+        }
+
+        private const string EmbeddedItemsCatalogPath = "Packages/com.basis.sdk/Settings/EmbeddedItemsCatalog.asset";
+        private const string FrameworkLanguagesFolder = "Packages/com.basis.framework/BasisUI/Localization/Languages";
+
+        [Test]
+        public void EmbeddedItemDisplayNames_ExistInEveryLanguageFile()
+        {
+            EmbeddedItemsCatalogAsset catalog = AssetDatabase.LoadAssetAtPath<EmbeddedItemsCatalogAsset>(EmbeddedItemsCatalogPath);
+            Assert.That(catalog, Is.Not.Null, $"catalog not found: {EmbeddedItemsCatalogPath}");
+            foreach ((string path, HashSet<string> keys) in FrameworkLanguageKeySets())
+            {
+                foreach (EmbeddedItemDefinition definition in catalog.Entries)
+                {
+                    if (!definition.Key.EmbeddedSettings.IsEmbedded) continue;
+                    Assert.That(definition.HasCustomDisplayName && !string.IsNullOrEmpty(definition.DisplayNameKey), Is.True,
+                        $"'{definition.Key.Url}' has no display name, so the library and the hotbar show its address in every language");
+                    Assert.That(keys, Does.Contain(definition.DisplayNameKey), $"'{definition.DisplayNameKey}' is missing from {path}");
+                }
+            }
+        }
+
+        [Test]
+        public void LabelKeysBuiltFromEnums_ExistInEveryLanguageFile()
+        {
+            List<string> expected = new List<string>();
+            foreach (BasisBoneTrackedRole role in System.Enum.GetValues(typeof(BasisBoneTrackedRole)))
+            {
+                expected.Add("ui.bodyRole." + LowerFirst(role.ToString()));
+            }
+            foreach (BasisActionDriver.ActionId action in System.Enum.GetValues(typeof(BasisActionDriver.ActionId)))
+            {
+                if (action != BasisActionDriver.ActionId.Count) expected.Add("settings.controls.actionId." + LowerFirst(action.ToString()));
+            }
+            foreach ((string path, HashSet<string> keys) in FrameworkLanguageKeySets())
+            {
+                foreach (string key in expected)
+                {
+                    Assert.That(keys, Does.Contain(key), $"'{key}' is missing from {path}, so that label shows its raw key");
+                }
+            }
+        }
+
+        private static List<(string path, HashSet<string> keys)> FrameworkLanguageKeySets()
+        {
+            string[] languageFiles = AssetDatabase.FindAssets("t:TextAsset", new[] { FrameworkLanguagesFolder });
+            Assert.That(languageFiles, Is.Not.Empty);
+            List<(string path, HashSet<string> keys)> sets = new List<(string path, HashSet<string> keys)>();
+            foreach (string guid in languageFiles)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                BasisLanguageTable table = JsonUtility.FromJson<BasisLanguageTable>(AssetDatabase.LoadAssetAtPath<TextAsset>(path).text);
+                HashSet<string> keys = new HashSet<string>();
+                foreach (BasisLanguageEntry entry in table.entries)
+                {
+                    if (!string.IsNullOrEmpty(entry.value)) keys.Add(entry.key);
+                }
+                sets.Add((path, keys));
+            }
+            return sets;
+        }
+
+        private static string LowerFirst(string value) => char.ToLowerInvariant(value[0]) + value.Substring(1);
+
+        [Test]
+        public void CachedEmbeddedItemAndItsPinnedButton_FollowALanguageSwitch()
+        {
+            BasisDataStoreItemKeys.ItemKey item = null;
+            EmbeddedItemDefinition definition = null;
+            foreach (BasisDataStoreItemKeys.ItemKey candidate in EmbeddedItems.HardcodedKeys)
+            {
+                if (EmbeddedItems.TryGetDefinition(candidate, out definition) && definition.HasCustomDisplayName)
+                {
+                    item = candidate;
+                    break;
+                }
+            }
+            Assert.That(item, Is.Not.Null, "no embedded item has a display name to follow");
+
+            CachedMetaData.TryGetMeta(item.Url, out CachedMetaData.CachedContent previous);
+            CachedMetaData.CachedContent meta = new CachedMetaData.CachedContent
+            {
+                BasisBundleConnector = new BasisBundleConnector { BasisBundleDescription = new BasisBundleDescription() }
+            };
+            try
+            {
+                CachedMetaData.SetMetaData(item.Url, meta);
+                BasisLocalization.LoadLanguage("en");
+                Assert.That(meta.Name, Is.EqualTo(BasisLocalization.Get(definition.DisplayNameKey)), "the cached name did not follow a language switch");
+                PinnedItemProvider pinned = new PinnedItemProvider(item, meta);
+                foreach (string language in SpotCheckLanguages)
+                {
+                    BasisLocalization.LoadLanguage(language);
+                    string expected = BasisLocalization.Get(definition.DisplayNameKey);
+                    Assert.That(meta.Name, Is.EqualTo(expected), $"the cached name stayed in the previous language under '{language}'");
+                    Assert.That(meta.BasisBundleConnector.BasisBundleDescription.AssetBundleDescription, Is.EqualTo(BasisLocalization.Get("library.embeddedItem")));
+                    Assert.That(pinned.Title, Is.EqualTo(LibraryProviderStrUtil.TitleToCase(expected)), $"the pinned hotbar button stayed in the previous language under '{language}'");
+                }
+            }
+            finally
+            {
+                if (previous != null) CachedMetaData.SetMetaData(item.Url, previous);
+                else CachedMetaData.RemoveMetaData(item.Url);
+            }
         }
     }
 }

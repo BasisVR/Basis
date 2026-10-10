@@ -122,52 +122,52 @@ namespace Basis.Integration.MetaBodyTracking
         {
             if (!BasisMetaBodyTrackingFeature.IsSupported)
             {
-                return "This runtime does not offer OpenXR body tracking.";
+                return BasisLocalization.Get("settings.metabody.status.unsupported");
             }
 
             var text = new StringBuilder();
             switch (BasisMetaBodyTrackingFeature.ActiveJointSet)
             {
                 case BasisMetaBodyJointSet.FullBody:
-                    text.Append("Tracking upper body and legs.");
+                    text.Append(BasisLocalization.Get("settings.metabody.status.fullBody"));
                     break;
                 case BasisMetaBodyJointSet.UpperBody:
-                    text.Append("Tracking upper body only (this headset solves no legs).");
+                    text.Append(BasisLocalization.Get("settings.metabody.status.upperBody"));
                     break;
                 default:
-                    text.Append("Body tracker not running.");
+                    text.Append(BasisLocalization.Get("settings.metabody.status.notRunning"));
                     break;
             }
 
             if (!BasisMetaBodyTrackerSource.WantsPoseFeed())
             {
-                text.Append(" Turned off in settings.");
+                text.Append(' ').Append(BasisLocalization.Get("settings.metabody.status.turnedOff"));
                 return text.ToString();
             }
 
             if (BasisMetaBodyTrackingFeature.LastLocateResult != 0)
             {
-                text.Append($" Locating joints failed with {BasisMetaBodyTrackingFeature.LastLocateResult}.");
+                text.Append(' ').Append(BasisLocalization.Get("settings.metabody.status.locateFailed", BasisMetaBodyTrackingFeature.LastLocateResult));
             }
             else
             {
-                text.Append(BasisMetaBodyTrackingFeature.IsBodyActive
-                    ? $" Body visible, confidence {BasisMetaBodyTrackingFeature.BodyConfidence:P0}."
-                    : " No body pose right now.");
+                text.Append(' ').Append(BasisMetaBodyTrackingFeature.IsBodyActive
+                    ? BasisLocalization.Get("settings.metabody.status.bodyVisible", BasisMetaBodyTrackingFeature.BodyConfidence.ToString("P0"))
+                    : BasisLocalization.Get("settings.metabody.status.noBody"));
             }
 
             if (BasisMetaBodyTrackerSource.IsSourcing)
             {
-                text.Append($" {BasisMetaBodyTrackerSource.SourcedCount} trackers driven from the headset.");
+                text.Append(' ').Append(BasisLocalization.Get("settings.metabody.status.trackersDriven", BasisMetaBodyTrackerSource.SourcedCount));
             }
 
             if (!BasisMetaBodyTrackingFeature.SupportsFidelity)
             {
-                text.Append(" No fidelity control on this runtime.");
+                text.Append(' ').Append(BasisLocalization.Get("settings.metabody.status.noFidelity"));
             }
             if (!BasisMetaBodyTrackingFeature.SupportsCalibration)
             {
-                text.Append(" No height override on this runtime.");
+                text.Append(' ').Append(BasisLocalization.Get("settings.metabody.status.noHeightOverride"));
             }
             return text.ToString();
         }

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using TMPro;
@@ -28,6 +29,9 @@ namespace Basis.ImagePickup
 
         public TextMeshProUGUI HideLabel;
         public TextMeshProUGUI DeleteLabel;
+        public TextMeshProUGUI SpawnerLabel;
+        public TextMeshProUGUI SaveLabel;
+        private bool _languageHooked;
 
         private Texture2D _posterTexture;
         private byte[] _cleanPng;
@@ -302,7 +306,7 @@ namespace Basis.ImagePickup
         {
             _hidden = !_hidden;
             if (_frontRenderer != null) _frontRenderer.enabled = !_hidden;
-            if (HideLabel != null) HideLabel.text = _hidden ? "Show" : "Hide";
+            if (HideLabel != null) HideLabel.text = BasisLocalization.Get(_hidden ? "imagePickup.panel.show" : "imagePickup.panel.hide");
         }
 
         /// <summary>
@@ -543,7 +547,7 @@ namespace Basis.ImagePickup
             if (!_deleteArmed)
             {
                 _deleteArmed = true;
-                if (DeleteLabel != null) DeleteLabel.text = "Confirm?";
+                if (DeleteLabel != null) DeleteLabel.text = BasisLocalization.Get("imagePickup.panel.confirmDelete");
                 CancelInvoke(nameof(DisarmDelete));
                 Invoke(nameof(DisarmDelete), 3f);
                 return;
@@ -557,7 +561,7 @@ namespace Basis.ImagePickup
         private void DisarmDelete()
         {
             _deleteArmed = false;
-            if (DeleteLabel != null) DeleteLabel.text = "Delete";
+            if (DeleteLabel != null) DeleteLabel.text = BasisLocalization.Get("imagePickup.panel.delete");
         }
 
         private static string SaveFolder()
@@ -694,8 +698,29 @@ namespace Basis.ImagePickup
 
         private static string ShortId(Guid id) => id.ToString("N").Substring(0, 8);
 
+        public void RefreshPanelLabels()
+        {
+            if (!_languageHooked)
+            {
+                _languageHooked = true;
+                BasisLocalization.OnLanguageChanged += RefreshPanelLabels;
+            }
+            bool localUnknown = IsOwner && (string.IsNullOrEmpty(OwnerName) || OwnerName == "Unknown");
+            if (SpawnerLabel != null) SpawnerLabel.text = localUnknown
+                ? BasisLocalization.Get("imagePickup.panel.spawnedLocally")
+                : BasisLocalization.Get("imagePickup.panel.spawnedBy", OwnerName == "Unknown" ? BasisLocalization.Get("imagePickup.panel.unknownOwner") : OwnerName);
+            if (HideLabel != null) HideLabel.text = BasisLocalization.Get(_hidden ? "imagePickup.panel.show" : "imagePickup.panel.hide");
+            if (SaveLabel != null) SaveLabel.text = BasisLocalization.Get("imagePickup.panel.save");
+            if (DeleteLabel != null) DeleteLabel.text = BasisLocalization.Get(_deleteArmed ? "imagePickup.panel.confirmDelete" : "imagePickup.panel.delete");
+        }
+
         private void OnDestroy()
         {
+            if (_languageHooked)
+            {
+                _languageHooked = false;
+                BasisLocalization.OnLanguageChanged -= RefreshPanelLabels;
+            }
             if (_managed)
             {
                 _managed = false;

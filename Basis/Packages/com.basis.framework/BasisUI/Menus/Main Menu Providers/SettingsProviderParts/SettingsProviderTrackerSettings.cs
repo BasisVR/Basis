@@ -794,14 +794,14 @@ namespace Basis.BasisUI
 
         internal static string BuildTrackerLabel(BasisInput input)
         {
-            if (input == null) return "Tracker";
+            if (input == null) return BasisLocalization.Get("trackerLinking.trackerFallback");
 
             string name = input.CommonDeviceIdentifier;
             if (string.IsNullOrEmpty(name)) name = input.ClassName;
             if (string.IsNullOrEmpty(name) && input.gameObject != null) name = input.gameObject.name;
 
             string id = input.UniqueDeviceIdentifier;
-            if (string.IsNullOrEmpty(name)) name = string.IsNullOrEmpty(id) ? "Tracker" : id;
+            if (string.IsNullOrEmpty(name)) name = string.IsNullOrEmpty(id) ? BasisLocalization.Get("trackerLinking.trackerFallback") : id;
 
             if (!string.IsNullOrEmpty(id) && !string.Equals(name, id))
             {

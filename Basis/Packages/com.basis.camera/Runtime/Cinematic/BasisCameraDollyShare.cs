@@ -35,6 +35,7 @@ namespace Basis.Cinematics
             {
                 Type = ContentShareType.DollyTrack,
                 Name = "Dolly Track",
+                NameKey = "camera.modifier.dollyTrack",
                 Color = OrbColor,
                 ShareableKind = BasisShareableKind.DollyTrack,
                 Describe = Describe,

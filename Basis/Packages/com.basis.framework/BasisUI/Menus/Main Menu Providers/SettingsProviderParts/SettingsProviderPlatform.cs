@@ -75,7 +75,7 @@ public static class SettingsProviderPlatform
                 string capturedMode = mode;
                 string displayName = GetModeDisplayName(capturedMode);
                 bool isActive = string.Equals(currentMode, capturedMode, System.StringComparison.Ordinal);
-                string suffix = isActive ? " <color=green>[ACTIVE]</color>" : "";
+                string suffix = isActive ? $" <color=green>[{BasisLocalization.Get("settings.platform.activeTag")}]</color>" : "";
 
                 PanelButton modeButton = PanelButton.CreateNew(infoGroup.ContentParent);
                 modeButton.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.switchTo", displayName) + suffix);
@@ -118,14 +118,14 @@ public static class SettingsProviderPlatform
         PanelDropdown dropdownSwapMode = PanelDropdown.CreateNewEntry(autoSwapGroup);
         dropdownSwapMode.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.swapMode.title"));
         dropdownSwapMode.Descriptor.SetTooltip(BasisLocalization.Get("settings.platform.swapMode.title.tooltip"));
-        dropdownSwapMode.AssignEntries(new System.Collections.Generic.List<string>
+        dropdownSwapMode.AssignLocalizedEntries(new System.Collections.Generic.List<string>
         {
             BasisSettingsDefaults.SwapMode_Shutdown,
             BasisSettingsDefaults.SwapMode_AutoSwap
-        }, null, new System.Collections.Generic.List<string>
+        }, new System.Collections.Generic.List<string>
         {
-            BasisLocalization.Get("settings.platform.swapMode.shutdown.tooltip"),
-            BasisLocalization.Get("settings.platform.swapMode.autoSwap.tooltip")
+            "settings.platform.swapMode.shutdown",
+            "settings.platform.swapMode.autoSwap"
         });
         dropdownSwapMode.AssignBinding(BasisSettingsDefaults.SwapMode);
 #endif
@@ -135,9 +135,9 @@ public static class SettingsProviderPlatform
 
     private static string GetModeDescription(string mode)
     {
-        if (mode == BasisConstants.Desktop) return "Desktop mode (no VR). Shortcut: F9";
-        if (mode == BasisConstants.OpenVRLoader) return "SteamVR / OpenVR runtime. Shortcut: F11";
-        if (mode == BasisConstants.OpenXRLoader) return "OpenXR runtime. Shortcut: F10";
+        if (mode == BasisConstants.Desktop) return BasisLocalization.Get("settings.platform.mode.desktop.description");
+        if (mode == BasisConstants.OpenVRLoader) return BasisLocalization.Get("settings.platform.mode.openvr.description");
+        if (mode == BasisConstants.OpenXRLoader) return BasisLocalization.Get("settings.platform.mode.openxr.description");
         return mode;
     }
 }

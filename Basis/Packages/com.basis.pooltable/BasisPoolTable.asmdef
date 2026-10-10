@@ -7,7 +7,6 @@
         "BasisNetworkCore",
         "BasisSDK",
         "Unity.InputSystem",
-        "LiteNetLib",
         "BasisCommon",
         "BasisDebug"
     ],

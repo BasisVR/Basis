@@ -182,6 +182,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             Self = this.transform;
             Self.localScale = Vector3.one * BasisRemoteNamePlateDriver.PlateWorldScale();
+            InteractRange = BasisRemoteNamePlateDriver.NamePlateSelectDistance;
 
             // Global path renders the name through the shared merged mesh; the per-plate
             // renderer stays off (the BoxCollider still drives interaction independently).
@@ -942,6 +943,14 @@ namespace Basis.Scripts.UI.NamePlate
         {
             BasisUIRaycast raycast = input.BasisUIRaycast;
             return raycast != null && (raycast.HadRaycastUITarget || raycast.HadUISurface);
+        }
+        public override float RayReach(float defaultReach)
+        {
+            return BasisPlayerInteract.AvatarScaledRange(InteractRange);
+        }
+        public override bool IsWithinRange(Vector3 source, float interactRange)
+        {
+            return base.IsWithinRange(source, BasisPlayerInteract.AvatarScaledRange(interactRange));
         }
         public override bool CanHover(BasisInput input)
         {

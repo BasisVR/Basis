@@ -78,13 +78,13 @@ namespace HVR.Basis.Comms
             FaceTrackingActivityRelay relay = avatar != null
                 ? avatar.GetComponentInChildren<FaceTrackingActivityRelay>(true)
                 : null;
-            ftActive.SetDescription(relay != null ? relay.IsTrackingActive.ToString() : "No relay found");
+            ftActive.SetDescription(relay != null ? YesNo(relay.IsTrackingActive) : BasisLocalization.Get("settings.faceTracking.noRelay"));
 
             OSCAcquisition oscAcq = avatar != null
                 ? avatar.GetComponentInChildren<OSCAcquisition>(true)
                 : null;
             if (oscAcq != null)
-                oscAcquisition.SetDescription(oscAcq.isActiveAndEnabled ? "Active" : "DISABLED");
+                oscAcquisition.SetDescription(BasisLocalization.Get(oscAcq.isActiveAndEnabled ? "settings.faceTracking.oscActive" : "settings.faceTracking.oscDisabled"));
             else
                 oscAcquisition.SetDescription(BasisLocalization.Get("settings.faceTracking.noComponent"));
 
@@ -93,7 +93,7 @@ namespace HVR.Basis.Comms
                 : null;
             if (blendshape != null)
             {
-                blendshapeActive.SetDescription(blendshape.IsTrackingActive.ToString());
+                blendshapeActive.SetDescription(YesNo(blendshape.IsTrackingActive));
                 int addressCount = blendshape.debugAddresses != null ? blendshape.debugAddresses.Length : 0;
                 actuatedAddresses.SetDescription(addressCount.ToString());
             }
@@ -115,15 +115,15 @@ namespace HVR.Basis.Comms
             BasisLocalPlayer localPlayer = BasisLocalPlayer.Instance;
             var avatar = localPlayer != null ? localPlayer.BasisAvatar : null;
 
-            eyeOverride.SetDescription(BasisLocalEyeDriver.Override.ToString());
-            eyeDriverEnabled.SetDescription(BasisLocalEyeDriver.IsEnabled.ToString());
+            eyeOverride.SetDescription(YesNo(BasisLocalEyeDriver.Override));
+            eyeDriverEnabled.SetDescription(YesNo(BasisLocalEyeDriver.IsEnabled));
 
             EyeTrackingBoneActuation eyeActuation = avatar != null
                 ? avatar.GetComponentInChildren<EyeTrackingBoneActuation>(true)
                 : null;
             if (eyeActuation != null)
             {
-                eyeParamsActive.SetDescription(eyeActuation.IsEyeTrackingParametersActive.ToString());
+                eyeParamsActive.SetDescription(YesNo(eyeActuation.IsEyeTrackingParametersActive));
                 eyeLeftX.SetDescription(eyeActuation._fEyeLeftX.ToString("F3"));
                 eyeRightX.SetDescription(eyeActuation._fEyeRightX.ToString("F3"));
                 eyeY.SetDescription(eyeActuation._fEyeY.ToString("F3"));
@@ -136,6 +136,8 @@ namespace HVR.Basis.Comms
                 eyeY.SetDescription("--");
             }
         }
+
+        static string YesNo(bool value) => BasisLocalization.Get(value ? "ui.yes" : "ui.no");
 
         static PanelElementDescriptor CreateInfoField(RectTransform parent, string title, string initialValue)
         {

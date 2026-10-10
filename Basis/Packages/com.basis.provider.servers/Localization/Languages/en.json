@@ -277,6 +277,10 @@
     {
       "key": "menu.servers.list.remove.protected",
       "value": "This server can't be removed."
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "Port must be 1-65535"
     }
   ]
 }

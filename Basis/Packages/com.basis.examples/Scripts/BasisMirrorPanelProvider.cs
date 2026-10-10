@@ -466,7 +466,7 @@ namespace Basis.BasisUI.Mirrors
 
                 int captured = Layer;
                 PanelToggle toggle = PanelToggle.CreateNewEntry(content);
-                toggle.Descriptor.SetTitle(layerName);
+                toggle.Descriptor.SetTitle(BasisLocalization.GetLayerName(Layer));
                 toggle.OnValueChanged = v =>
                 {
                     if (_activeMirror == null) return;

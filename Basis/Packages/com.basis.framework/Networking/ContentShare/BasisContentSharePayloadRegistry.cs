@@ -15,6 +15,7 @@ public sealed class BasisContentSharePayloadKind
 
     /// <summary>Shown on the orb and in the dialogue title, e.g. "Dolly Track".</summary>
     public string Name;
+    public string NameKey;
 
     public Color Color;
     public BasisShareableKind ShareableKind;

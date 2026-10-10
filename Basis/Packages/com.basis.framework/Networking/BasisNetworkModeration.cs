@@ -564,8 +564,8 @@ public static partial class BasisNetworkModeration
             {
                 string initiatorName = ResolveDisplayName(initiatorPlayerId);
                 DisplayMessage(enabled
-                    ? $"{initiatorName} enabled announce mode for you - your voice is now broadcast to everyone."
-                    : $"{initiatorName} disabled announce mode for you - your voice is back to normal.");
+                    ? BasisLocalization.Get("settings.admin.notice.announceOn", initiatorName)
+                    : BasisLocalization.Get("settings.admin.notice.announceOff", initiatorName));
             }
         }
         else
@@ -637,8 +637,8 @@ public static partial class BasisNetworkModeration
             {
                 string initiatorName = ResolveDisplayName(initiatorPlayerId);
                 DisplayMessage(enabled
-                    ? $"{initiatorName} put you in shout mode - your voice now carries twice as far."
-                    : $"{initiatorName} took you out of shout mode - your voice is back to normal.");
+                    ? BasisLocalization.Get("settings.admin.notice.shoutOn", initiatorName)
+                    : BasisLocalization.Get("settings.admin.notice.shoutOff", initiatorName));
             }
         }
         else if (BasisNetworkPlayers.RemotePlayers.TryGetValue(targetPlayerId, out BasisRemotePlayer remote) && remote != null)
@@ -693,7 +693,7 @@ public static partial class BasisNetworkModeration
             string name = player.SafeDisplayName;
             if (!string.IsNullOrEmpty(name)) return name;
         }
-        return "An admin";
+        return BasisLocalization.Get("settings.admin.notice.unknownAdmin");
     }
 
     /// <summary>
@@ -808,14 +808,14 @@ public static partial class BasisNetworkModeration
         if (voiceChanged)
         {
             DisplayMessage(voiceMuted
-                ? "A moderator muted your voice - other players cannot hear you until you are unmuted."
-                : "A moderator unmuted your voice - other players can hear you again.");
+                ? BasisLocalization.Get("settings.admin.notice.voiceMuted")
+                : BasisLocalization.Get("settings.admin.notice.voiceUnmuted"));
         }
         if (textChanged)
         {
             DisplayMessage(textMuted
-                ? "A moderator muted your text chat - your messages will not be delivered until you are unmuted."
-                : "A moderator unmuted your text chat - your messages are delivered again.");
+                ? BasisLocalization.Get("settings.admin.notice.textMuted")
+                : BasisLocalization.Get("settings.admin.notice.textUnmuted"));
         }
     }
 
@@ -851,7 +851,7 @@ public static partial class BasisNetworkModeration
             }
             if (initiatorPlayerId != targetPlayerId)
             {
-                DisplayMessage($"{ResolveDisplayName(initiatorPlayerId)} renamed you to {BasisRemotePlayer.BuildSafeDisplayName(newName)}.");
+                DisplayMessage(BasisLocalization.Get("settings.admin.notice.renamed", ResolveDisplayName(initiatorPlayerId), BasisRemotePlayer.BuildSafeDisplayName(newName)));
             }
         }
         else if (BasisNetworkPlayers.RemotePlayers.TryGetValue(targetPlayerId, out BasisRemotePlayer remote) && remote != null)

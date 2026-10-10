@@ -317,6 +317,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.transport.litenetlib": {
+      "version": "file:com.basis.transport.litenetlib",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.vehicles": {
       "version": "file:com.basis.vehicles",
       "depth": 0,

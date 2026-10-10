@@ -171,9 +171,16 @@ namespace Basis.BasisUI
             else
             {
                 if (!_iconSet) SetIcon(DefaultIcon);
-                if (!_titleSet) SetTitle(DefaultTitle);
-                if (!_descriptionSet) SetDescription(DefaultDescription);
+                if (!_titleSet) SetTitle(LocalizedDefault(DefaultTitle, TitleLabel));
+                if (!_descriptionSet) SetDescription(LocalizedDefault(DefaultDescription, DescriptionLabel));
             }
+        }
+
+        private static string LocalizedDefault(string value, TMP_Text label)
+        {
+            if (string.IsNullOrEmpty(value) || value.IndexOf(' ') >= 0 || value.IndexOf('.') <= 0) return value;
+            if (BasisLocalization.TryGet(value, out string localized)) return localized;
+            return label != null ? label.text : value;
         }
 
         public override void OnReleaseEvent()

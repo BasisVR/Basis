@@ -145,7 +145,7 @@ namespace Basis.BasisUI.HandHeldCamera
         private PanelButton _resetTopButton;
         private PanelButton _timerButton;
         private int _lastCountdownShown = -1;
-        private const string TimerIdleLabel = "Timer";
+        private static string TimerIdleLabel => BasisLocalization.Get("camera.timer");
         private readonly List<PanelButton> _topButtons = new List<PanelButton>();
         private RectTransform _topActionRow;
         private RawImage _previewImage;
@@ -1905,7 +1905,7 @@ namespace Basis.BasisUI.HandHeldCamera
             var labels = new List<string>(MsaaSampleCounts.Length);
             for (int Index = 0; Index < MsaaSampleCounts.Length; Index++)
             {
-                labels.Add(MsaaSampleCounts[Index] <= 1 ? "Off" : $"{MsaaSampleCounts[Index]}x");
+                labels.Add(MsaaSampleCounts[Index] <= 1 ? BasisLocalization.Get("ui.option.off") : $"{MsaaSampleCounts[Index]}x");
             }
             return labels;
         }
@@ -2852,7 +2852,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
                 int captured = Layer;
                 PanelToggle toggle = PanelToggle.CreateNewEntry(content);
-                toggle.Descriptor.SetTitle(LayerMask.LayerToName(captured));
+                toggle.Descriptor.SetTitle(BasisLocalization.GetLayerName(captured));
                 toggle.OnValueChanged = v => _activeCamera?.SetCaptureLayerEnabled(captured, v);
                 _layerToggles.Add(captured, toggle);
             }
@@ -2949,27 +2949,18 @@ namespace Basis.BasisUI.HandHeldCamera
 
             _gizmoToggles.Clear();
 
-            AddGizmoToggle(content, BasisCameraGizmoLayers.Frustum, "Frustum",
-                "The capture frustum from the real projection: near and far planes, the optical axis, and a world-level guide line to read roll against.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.DepthOfField, "Focus Planes",
-                "The plane of sharp focus, and in Bokeh mode the near and far limits of acceptable sharpness derived from aperture, focal length and sensor size.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.Follow, "Follow Rig",
-                "How auto follow places the shot: the subject anchor, the offset broken into its X, Y and Z legs in yaw space, the aim line, and the snap radius. Shown as a preview when follow is off.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.PinState, "Pin & Modes",
-                "What the camera is pinned to and which modes are live, with the link back to the pin source and a plumb line to the floor.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.Readouts, "Readouts",
-                "Floating numbers for each layer above — angles, distances and the derived optics. Off draws the geometry alone.");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.Frustum, "camera.debugGizmos.frustum");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.DepthOfField, "camera.debugGizmos.focusPlanes");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.Follow, "camera.debugGizmos.followRig");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.PinState, "camera.debugGizmos.pinModes");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.Readouts, "camera.debugGizmos.readouts");
         }
 
-        private void AddGizmoToggle(RectTransform parent, BasisCameraGizmoLayers layer, string title, string description)
+        private void AddGizmoToggle(RectTransform parent, BasisCameraGizmoLayers layer, string key)
         {
             PanelToggle toggle = PanelToggle.CreateNewEntry(parent);
-            toggle.Descriptor.SetTitle(title);
-            toggle.Descriptor.SetTooltip(description);
+            toggle.Descriptor.SetTitle(BasisLocalization.Get(key));
+            toggle.Descriptor.SetTooltip(BasisLocalization.Get(key + ".description"));
             toggle.OnValueChanged = v => _activeCamera?.DebugGizmos.SetLayerEnabled(layer, v);
             _gizmoToggles.Add(layer, toggle);
         }
@@ -3576,11 +3567,11 @@ namespace Basis.BasisUI.HandHeldCamera
             // A refusal springs the toggle back on its own, so without this the only thing the
             // operator is told is that the control does not work.
             _videoOutputToggle.Descriptor.SetTooltip(
-                $"Publish this camera as a live video source. {BasisCameraVideoPlatform.TransportRequirement(_activeCamera.VideoTransport)}");
+                BasisLocalization.Get("camera.videoOutput.tooltip", BasisCameraVideoPlatform.TransportRequirement(_activeCamera.VideoTransport)));
             string description = !string.IsNullOrEmpty(_activeCamera.LiveOutputFailure)
                 ? _activeCamera.LiveOutputFailure
                 : _activeCamera.IsWebStreamActive
-                    ? $"Serving at {_activeCamera.WebStreamUrl} — add that as a Browser source in OBS, or open it in a browser."
+                    ? BasisLocalization.Get("camera.videoOutput.serving", _activeCamera.WebStreamUrl)
                     : string.Empty;
             if (_lastWebStreamDescription == description) return;
 
@@ -3949,7 +3940,7 @@ namespace Basis.BasisUI.HandHeldCamera
             // would both resolve to the first match and follow the wrong player. "Me" is keyed
             // "local" rather than "0" because 0 is the net id of the first player to join.
             var keys = new List<string> { "local" };
-            var labels = new List<string> { "Me" };
+            var labels = new List<string> { BasisLocalization.Get("camera.anchorTarget.local") };
 
             foreach (var pair in remotes)
             {
@@ -3968,7 +3959,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 keys.Add(id.ToString());
                 labels.Add(remotes.TryGetValue(id, out var remote) && !string.IsNullOrEmpty(remote.SafeDisplayName)
                     ? remote.SafeDisplayName
-                    : $"Player {id}");
+                    : BasisLocalization.Get("camera.anchorTarget.player", id));
             }
 
             _followTargetDropdown.AssignEntries(keys, labels);
@@ -4016,7 +4007,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             // Stays interactable while counting — pressing it cancels — so the label reads
             // "Cancel (n)" rather than a disabled countdown.
-            _timerButton.Descriptor.SetTitle(remaining > 0 ? $"Cancel ({remaining})" : TimerIdleLabel);
+            _timerButton.Descriptor.SetTitle(remaining > 0 ? BasisLocalization.Get("camera.timer.cancel", remaining) : TimerIdleLabel);
             _timerButton.SetInteractable(true);
         }
 

@@ -191,12 +191,12 @@ namespace Basis.Network.Server
                         // unreadable — you cannot tell a server that is genuinely past capacity from
                         // one whose queue is simply sized too small, which is exactly the confusion
                         // that let a fixed 256 shed half of all avatar updates unnoticed.
-                        $"\"queuePerPeer\":{NetworkServer.Server.LiteNetLibManager()?.EffectiveUnreliableQueuePerPeer ?? 0}," +
+                        $"\"queuePerPeer\":{NetworkServer.Server.FindCapability<IBasisTransportScaling>()?.UnreliableQueuePerPeer ?? 0}," +
                         // The voice queue's own bound. Reported separately because it is sized on a
                         // different budget and is expected to be the DEEPER of the two — reading a
                         // voice drop against the bulk bound would make a correctly-tuned server look
                         // misconfigured.
-                        $"\"voiceQueuePerPeer\":{NetworkServer.Server.LiteNetLibManager()?.EffectivePriorityUnreliableQueuePerPeer ?? 0}," +
+                        $"\"voiceQueuePerPeer\":{NetworkServer.Server.FindCapability<IBasisTransportScaling>()?.PriorityUnreliableQueuePerPeer ?? 0}," +
                         $"\"currentTime\":\"{nowUtc:O}\"," +
                         $"\"startTime\":\"{startTimeUtc:O}\"," +
                         $"\"version\":\"{BasisNetworkVersion.ServerVersion}\"" +

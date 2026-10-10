@@ -372,7 +372,11 @@ namespace Basis.BasisUI
                 dropdownHrtfProfile = PanelDropdown.CreateNewEntry(container);
                 dropdownHrtfProfile.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.hrtfProfile"));
                 dropdownHrtfProfile.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.hrtfProfile.tooltip"));
-                dropdownHrtfProfile.AssignEntries(GetHrtfProfileEntries());
+                List<string> hrtfProfiles = GetHrtfProfileEntries();
+                List<string> hrtfLabels = new List<string>(hrtfProfiles.Count);
+                foreach (string profile in hrtfProfiles)
+                    hrtfLabels.Add(profile == "Default" ? BasisLocalization.Get("settings.remoteAudio.hrtfProfile.default") : profile);
+                dropdownHrtfProfile.AssignEntries(hrtfProfiles, hrtfLabels);
                 dropdownHrtfProfile.AssignBinding(BasisSettingsDefaults.RAHrtfProfile);
 
                 // HRTF sub-settings only visible when Direct Binaural is enabled

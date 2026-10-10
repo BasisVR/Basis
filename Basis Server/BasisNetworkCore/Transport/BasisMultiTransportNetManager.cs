@@ -153,6 +153,14 @@ namespace Basis.Network.Core
             }
         }
 
+        public void Flush()
+        {
+            foreach (NetManager transport in _transports)
+            {
+                transport.Flush();
+            }
+        }
+
         public void Stop()
         {
             foreach (NetManager transport in _transports)
@@ -287,9 +295,13 @@ namespace Basis.Network.Core
             return new[] { manager };
         }
 
-        public static LiteNetLib.NetManager LiteNetLibManager(this NetManager manager)
+        public static T FindCapability<T>(this NetManager manager) where T : class
         {
-            return manager.FindTransport<LNLNetManager>()?.manager;
+            foreach (NetManager transport in manager.Transports())
+            {
+                if (transport is T capability) return capability;
+            }
+            return null;
         }
     }
 }

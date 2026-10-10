@@ -1,6 +1,7 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Text;
+using Basis.BasisUI;
 using UnityEngine;
 
 namespace Basis.Scripts.Avatar
@@ -94,18 +95,18 @@ namespace Basis.Scripts.Avatar
             return "F";
         }
 
-        static string BuildSummary()
+        public static string BuildSummary()
         {
             var sb = new StringBuilder(256);
-            sb.Append("Trackers ").Append(TrackersAssigned).Append('/').Append(TrackersExpected);
-            if (TrackersStale > 0) sb.Append("   stale: ").Append(TrackersStale);
-            if (TrackersMarginal > 0) sb.Append("   marginal: ").Append(TrackersMarginal);
-            if (EyeHeight > 0f) sb.Append("   eye ").Append(EyeHeight.ToString("0.00")).Append('m');
+            sb.Append(BasisLocalization.Get("calibration.report.trackers", TrackersAssigned, TrackersExpected));
+            if (TrackersStale > 0) sb.Append("   ").Append(BasisLocalization.Get("calibration.report.stale", TrackersStale));
+            if (TrackersMarginal > 0) sb.Append("   ").Append(BasisLocalization.Get("calibration.report.marginal", TrackersMarginal));
+            if (EyeHeight > 0f) sb.Append("   ").Append(BasisLocalization.Get("calibration.report.eye", EyeHeight.ToString("0.00")));
             sb.Append('\n');
 
             if (TrackersStale > 0)
             {
-                sb.Append("A stale tracker was bound — re-seat it and re-calibrate.");
+                sb.Append(BasisLocalization.Get("calibration.report.staleWarning"));
             }
             return sb.ToString().TrimEnd();
         }

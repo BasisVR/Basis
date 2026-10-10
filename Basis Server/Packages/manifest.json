@@ -1,3 +1,5 @@
 {
-  "dependencies": {}
+  "dependencies": {
+    "com.basis.transport.litenetlib": "file:com.basis.transport.litenetlib"
+  }
 }

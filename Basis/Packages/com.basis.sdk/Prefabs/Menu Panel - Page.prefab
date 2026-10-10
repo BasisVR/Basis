@@ -631,7 +631,7 @@ PrefabInstance:
       objectReference: {fileID: 21300000, guid: b3e9a844ba8886842907b6b1c9bf175d, type: 3}
     - target: {fileID: 5067617763252449152, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
       propertyPath: <DefaultTitle>k__BackingField
-      value: Close
+      value: ui.close
       objectReference: {fileID: 0}
     - target: {fileID: 5935215519941622069, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
       propertyPath: m_SizeDelta.x

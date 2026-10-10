@@ -4,7 +4,6 @@ using System.Net;
 using System.Threading;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static SerializableBasis;
-using LiteNatPunchListener = LiteNetLib.EventBasedNatPunchListener;
 
 namespace BasisNetworkServer
 {
@@ -64,35 +63,39 @@ namespace BasisNetworkServer
             return _offloadedPairs.ContainsKey(PackPair(a, b));
         }
 
-        private static LiteNatPunchListener _natListener;
+        private static IPeerIntroducer _introducer;
 
         public static void Initialize()
         {
-            if (_natListener != null) return;
+            if (_introducer != null) return;
 
-            var manager = NetworkServer.Server?.LiteNetLibManager();
-            if (manager == null)
+            NetManager server = NetworkServer.Server;
+            if (server == null)
             {
-                BNL.LogError("[P2P] NetManager not initialised or active stack is not LiteNetLib, cannot start P2P broker.");
+                BNL.LogError("[P2P] NetManager not initialised, cannot start P2P broker.");
                 return;
             }
 
-            if (!manager.NatPunchEnabled)
+            foreach (NetManager transport in server.Transports())
             {
-                BNL.LogWarning("[P2P] NatPunchEnabled=false in server config — direct peer connections will not work. Set NatPunchEnabled=true to enable.");
+                IPeerIntroducer introducer = BasisNetworkStackRegistry.CreateIntroducer(transport.StackId, transport);
+                if (introducer == null) continue;
+                if (!introducer.Initialize(OnNatIntroductionRequest))
+                {
+                    introducer.Shutdown();
+                    continue;
+                }
+                _introducer = introducer;
+                BNL.Log($"[P2P] Broker initialised on the '{transport.StackId}' transport.");
+                return;
             }
-
-            _natListener = new LiteNatPunchListener();
-            _natListener.NatIntroductionRequest += OnNatIntroductionRequest;
-            manager.NatPunchModule.Init(_natListener);
-            manager.NatPunchModule.UnsyncedEvents = true;
-
-            BNL.Log("[P2P] Broker initialised.");
+            BNL.Log("[P2P] No installed transport can introduce peers, so direct peer connections are off.");
         }
 
         public static void Reset()
         {
-            _natListener = null;
+            _introducer?.Shutdown();
+            _introducer = null;
             _sessions.Clear();
             _peerSessions.Clear();
             _offloadedPairs.Clear();
@@ -137,7 +140,7 @@ namespace BasisNetworkServer
 
         // Core LinkUp handling, keyed by peer id (the NetPeer entry point only ever needs
         // sender.Id). Exposed to tests so the offload lifecycle can be exercised without
-        // constructing LiteNetLib peers.
+        // constructing transport peers.
         internal static void ApplyLinkUp(int senderId, string sessionToken)
         {
             if (!_sessions.TryGetValue(sessionToken, out Session s)) return;
@@ -336,7 +339,7 @@ namespace BasisNetworkServer
                     // Spray predicted ports on both sides (A/B are arrival-ordered, not
                     // mapped to a specific peer), except on a same-network pair where the
                     // internal punch already handles it.
-                    int spray = (firstFire && !sameNat) ? GetPredictionRange() : 0;
+                    bool predictPorts = firstFire && !sameNat;
 
                     // Two clients on the SAME host advertise the SAME internal (LAN) IP.
                     // Punching/connecting to a machine's own external-facing LAN IP is often
@@ -357,16 +360,15 @@ namespace BasisNetworkServer
                         BNL.Log($"[P2P] SAME-HOST pair for token {Preview(token)} — rewriting internal endpoints to loopback so the local punch lands.");
                     }
 
-                    BNL.Log($"[P2P] Both NAT endpoints collected for token {Preview(token)}. Firing NatIntroduce (spray={spray}).{lanTag}");
-                    LiteNetLib.NetManager lnlManager = NetworkServer.Server?.LiteNetLibManager();
-                    if (lnlManager == null) return;
-                    lnlManager.NatPunchModule.NatIntroduce(
+                    BNL.Log($"[P2P] Both NAT endpoints collected for token {Preview(token)}. Firing NatIntroduce (port prediction {(predictPorts ? "on" : "off")}).{lanTag}");
+                    IPeerIntroducer introducer = _introducer;
+                    if (introducer == null) return;
+                    introducer.Introduce(
                         aInternal,
                         s.EndpointA_External,
-                        spray,
                         bInternal,
                         s.EndpointB_External,
-                        spray,
+                        predictPorts,
                         token);
                     s.State = SessionState.Punched;
                 }
@@ -377,19 +379,6 @@ namespace BasisNetworkServer
         {
             if (string.IsNullOrEmpty(token)) return "(empty)";
             return token.Length <= 8 ? token : token.Substring(0, 8);
-        }
-
-        private static int GetPredictionRange()
-        {
-            try
-            {
-                var cfg = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
-                return cfg != null ? cfg.NatPortPredictionRange : 0;
-            }
-            catch
-            {
-                return 0;
-            }
         }
 
         public static void RemovePeer(int peerId)

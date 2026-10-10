@@ -35,6 +35,7 @@ namespace Basis.BasisUI
         }
 
         private static readonly Dictionary<string, CachedContent> _metaCache = new();
+        private static bool _languageHooked;
 
         public static bool TryGetMeta(string url, out CachedContent meta)
         {
@@ -45,6 +46,35 @@ namespace Basis.BasisUI
         {
             if (string.IsNullOrEmpty(url) || meta == null) return;
             _metaCache[url] = meta;
+            EnsureLanguageHook();
+        }
+
+        private static void EnsureLanguageHook()
+        {
+            if (_languageHooked) return;
+            _languageHooked = true;
+            BasisLocalization.OnLanguageChanged += RelocalizeEmbeddedItems;
+        }
+
+        private static void RelocalizeEmbeddedItems()
+        {
+            foreach (BasisDataStoreItemKeys.ItemKey item in EmbeddedItems.HardcodedKeys)
+            {
+                if (_metaCache.TryGetValue(item.Url, out CachedContent meta) && meta?.BasisBundleConnector?.BasisBundleDescription != null)
+                {
+                    LocalizeEmbeddedItem(item, meta);
+                }
+            }
+        }
+
+        private static void LocalizeEmbeddedItem(BasisDataStoreItemKeys.ItemKey item, CachedContent meta)
+        {
+            string displayName = EmbeddedItems.GetDisplayNameForEmbeddedItem(item);
+            string description = BasisLocalization.Get("library.embeddedItem");
+            meta.Name = displayName;
+            meta.AssetBundleDescription = description;
+            meta.BasisBundleConnector.BasisBundleDescription.AssetBundleName = displayName;
+            meta.BasisBundleConnector.BasisBundleDescription.AssetBundleDescription = description;
         }
 
         public static bool ContainsMetaData(string url)
@@ -275,24 +305,18 @@ namespace Basis.BasisUI
                     {
                         case BundledContentHolder.Mode.Avatar:
                         case BundledContentHolder.Mode.Prop:
-                            string displayName = EmbeddedItems.GetDisplayNameForEmbeddedItem(item);
                             cached = new CachedContent
                             {
-                                Name = displayName,
-                                AssetBundleDescription = "Embedded Item",
                                 CachedSprite = EmbeddedItems.GetSpriteForEmbeddedItem(item),
                                 DateOfCreation = string.Empty,
                                 UniqueVersion = string.Empty,
                                 BasisBundleConnector = new BasisBundleConnector()
                                 {
                                     BasisBundleDescription = new BasisBundleDescription()
-                                    {
-                                        AssetBundleName = displayName,
-                                        AssetBundleDescription = "Embedded Item"
-                                    }
                                 },
                                 BasisLoadableBundle = null,
                             };
+                            LocalizeEmbeddedItem(item, cached);
                             break;
                         case BundledContentHolder.Mode.World:
                             BasisDebug.LogWarning($"CachedMetaData cannot determine {item.Url} with item.Mode = {item.Mode}");

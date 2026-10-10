@@ -299,6 +299,7 @@ namespace Basis.BasisUI
             TextMeshProUGUI TitleLabel = panel.Descriptor.TitleLabel;
             BasisFrameRateVisualization FRV = TitleLabel.gameObject.AddComponent<BasisFrameRateVisualization>();
             FRV.Title = Title;
+            FRV.TimeLabel = BasisLocalization.Get("settings.header.time");
             FRV.fpsText = TitleLabel;
 
             BoundButton?.BindActiveStateToAddressablesInstance(panel);
@@ -1987,9 +1988,10 @@ namespace Basis.BasisUI
             PanelDropdown dropdownMemoryAllocation = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
             dropdownMemoryAllocation.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.memoryAllocation"));
             dropdownMemoryAllocation.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.memoryAllocation.tooltip"));
-            dropdownMemoryAllocation.AssignLocalizedEntries(
+            dropdownMemoryAllocation.AssignEntries(
                 new List<string> { "Dynamic", "256", "512", "1024", "2048", "4096", "8192" },
-                new List<string> { "settings.graphics.memoryAllocation.dynamic", "256", "512", "1024", "2048", "4096", "8192" });
+                new List<string> { BasisLocalization.Get("settings.graphics.memoryAllocation.dynamic"), "256", "512", "1024", "2048", "4096", "8192" },
+                new List<string> { BasisLocalization.Get("settings.graphics.memoryAllocation.dynamic.tooltip") });
             dropdownMemoryAllocation.AssignBinding(BasisSettingsDefaults.MemoryAllocation);
 
             dropdownResolution = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
@@ -4632,7 +4634,8 @@ namespace Basis.BasisUI
             dropdownLogTagFilter.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.logTagFilter.tooltip"));
             List<string> tagEntries = new List<string> { BasisSettingsDefaults.DebugLogFilterAll };
             tagEntries.AddRange(Enum.GetNames(typeof(BasisDebug.LogTag)));
-            dropdownLogTagFilter.AssignEntries(tagEntries);
+            List<string> tagLabels = new List<string>(tagEntries) { [0] = BasisLocalization.Get("settings.developer.logLevel.all") };
+            dropdownLogTagFilter.AssignEntries(tagEntries, tagLabels);
             dropdownLogTagFilter.AssignBinding(BasisSettingsDefaults.DebugLogTagFilter);
 
             PanelDropdown dropdownLogLevelFilter = PanelDropdown.CreateNewEntry(container);
@@ -5031,13 +5034,13 @@ namespace Basis.BasisUI
                 BasisDebug.Log("Copied build info to clipboard.");
             };
 
-            AddInfoRow(parent, "Version", Application.version);
-            AddInfoRow(parent, "Unity", Application.unityVersion);
-            AddInfoRow(parent, "Platform", Application.platform.ToString());
-            AddInfoRow(parent, "Mode", BasisDeviceManagement.StaticCurrentMode.ToString());
-            AddInfoRow(parent, "Build GUID", Application.buildGUID);
-            AddInfoRow(parent, "Log Path", Application.consoleLogPath, false);
-            AddInfoRow(parent, "Data Path", Application.dataPath, false);
+            AddInfoRow(parent, BasisLocalization.Get("settings.main.buildInfo.version"), Application.version);
+            AddInfoRow(parent, BasisLocalization.Get("settings.main.buildInfo.unity"), Application.unityVersion);
+            AddInfoRow(parent, BasisLocalization.Get("settings.main.buildInfo.platform"), Application.platform.ToString());
+            AddInfoRow(parent, BasisLocalization.Get("settings.main.buildInfo.mode"), BasisDeviceManagement.StaticCurrentMode.ToString());
+            AddInfoRow(parent, BasisLocalization.Get("settings.main.buildInfo.buildGuid"), Application.buildGUID);
+            AddInfoRow(parent, BasisLocalization.Get("settings.main.buildInfo.logPath"), Application.consoleLogPath, false);
+            AddInfoRow(parent, BasisLocalization.Get("settings.main.buildInfo.dataPath"), Application.dataPath, false);
         }
 
         private static PanelPasswordField AddInfoRow(RectTransform parent, string title, string value, bool ShownByDefault = true)

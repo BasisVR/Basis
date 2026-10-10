@@ -9,7 +9,6 @@
         "BasisSDK",
         "Unity.ResourceManager",
         "BasisSerializer.OdinSerializer",
-        "LiteNetLib",
         "BasisNetworkCore",
         "Unity.Mathematics",
         "Unity.Collections",

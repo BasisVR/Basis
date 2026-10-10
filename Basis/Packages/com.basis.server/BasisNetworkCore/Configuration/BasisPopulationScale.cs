@@ -213,6 +213,8 @@ namespace Basis.Network.Core
         /// whether those packets are retained for reuse or abandoned. It is a retention ceiling,
         /// never a preallocation — the pool still only ever holds what was actually allocated.
         /// </summary>
+        public const int DefaultPacketPoolPerPeer = 48;
+
         public static int PacketPoolMax(int configured, int peers, int perPeer)
         {
             if (configured > 0) return configured;
