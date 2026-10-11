@@ -262,10 +262,14 @@ namespace Basis.BasisUI
             opusBitrateSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.opusBitrate.tooltip"));
             opusBitrateSlider.SetValueWithoutNotify(BasisNetworkModeration.GlobalOpusBitrate > 0 ? BasisNetworkModeration.GlobalOpusBitrate : DefaultOpusBitrate);
             opusBitrateSlider.Descriptor.SetActive(BasisNetworkModeration.GlobalOpusBitrate > 0);
+            void RebuildAudioLimitRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(opusBitrateSlider.transform.parent as RectTransform, container);
+            }
             opusBitrateOverrideToggle.OnValueChanged += on =>
             {
                 opusBitrateSlider.Descriptor.SetActive(on);
-                descriptor.ForceRebuild();
+                RebuildAudioLimitRows();
             };
 
             // Only 20 and 40 ms are valid on the wire; a dropdown makes that explicit where a
@@ -309,7 +313,7 @@ namespace Basis.BasisUI
                     {
                         opusBitrateSlider.Descriptor.SetActive(opusBitrateOverrideToggle.Value);
                     }
-                    descriptor.ForceRebuild();
+                    RebuildAudioLimitRows();
                 });
 
             audioDirty.Attach(audioToggle, audioBox);
@@ -431,11 +435,15 @@ namespace Basis.BasisUI
                 policyGravitySlider.Descriptor.SetActive(policyGravityToggle.Value);
             }
 
+            void RebuildLocomotionRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(policyJumpSlider.transform.parent as RectTransform, container);
+            }
             ApplyPolicySliderVisibility();
-            policyJumpToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
-            policyWalkToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
-            policyRunToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
-            policyGravityToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
+            policyJumpToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
+            policyWalkToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
+            policyRunToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
+            policyGravityToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
 
             void ApplyLocomotionPolicy()
             {
@@ -457,7 +465,7 @@ namespace Basis.BasisUI
                     // Expanding re-activates every hidden child, so the per-field visibility has to
                     // be re-applied or a cleared field comes back with its slider showing.
                     if (visible) ApplyPolicySliderVisibility();
-                    descriptor.ForceRebuild();
+                    RebuildLocomotionRows();
                 });
 
             locomotionDirty.Attach(locomotionToggle, locomotionBox);

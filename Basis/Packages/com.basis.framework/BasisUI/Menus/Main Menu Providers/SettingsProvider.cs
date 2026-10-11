@@ -594,6 +594,10 @@ namespace Basis.BasisUI
             //   Microphone Range                                 → Microphone
 
             PanelSlider sliderMenuTeleportDistance = null;
+            void RebuildInteractionRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(sliderMenuTeleportDistance != null ? sliderMenuTeleportDistance.transform.parent as RectTransform : null, container);
+            }
             PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                 BasisLocalization.Get("settings.general.interactions.title"), () =>
             {
@@ -617,7 +621,7 @@ namespace Basis.BasisUI
                 toggleMenuTeleport.OnValueChanged += val =>
                 {
                     sliderMenuTeleportDistance.Descriptor.SetActive(val);
-                    descriptor.ForceRebuild();
+                    RebuildInteractionRows();
                 };
 
                 PanelToggle toggleDisableSeats = PanelToggle.CreateNewEntry(container);
@@ -655,7 +659,7 @@ namespace Basis.BasisUI
                 {
                     sliderMenuTeleportDistance.Descriptor.SetActive(BasisSettingsDefaults.MenuTeleport.RawValue);
                 }
-                descriptor.ForceRebuild();
+                RebuildInteractionRows();
             });
 
             // HUD overlays — heads-up display elements rendered over the scene.
@@ -798,6 +802,10 @@ namespace Basis.BasisUI
             if (BasisDeviceManagement.IsUserInDesktop())
             {
                 PanelToggle toggleAudioFromHead = null;
+                void RebuildCameraRows()
+                {
+                    PanelElementDescriptor.RebuildLayoutChain(toggleAudioFromHead != null ? toggleAudioFromHead.transform.parent as RectTransform : null, container);
+                }
                 PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                     BasisLocalization.Get("settings.general.camera.title"), () =>
                 {
@@ -816,7 +824,7 @@ namespace Basis.BasisUI
                     toggleThirdPerson.OnValueChanged += val =>
                     {
                         toggleAudioFromHead.Descriptor.SetActive(val);
-                        descriptor.ForceRebuild();
+                        RebuildCameraRows();
                     };
                 }, false, visible =>
                 {
@@ -824,7 +832,7 @@ namespace Basis.BasisUI
                     {
                         toggleAudioFromHead.Descriptor.SetActive(BasisSettingsDefaults.EnableThirdPersonCamera.RawValue);
                     }
-                    descriptor.ForceRebuild();
+                    RebuildCameraRows();
                 });
             }
 
@@ -3892,6 +3900,10 @@ namespace Basis.BasisUI
             PanelTextField chatTextField = null;
             PanelSlider sliderChatSize = null;
             PanelSlider sliderChatDuration = null;
+            void RebuildChatRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(chatTextField != null ? chatTextField.transform.parent as RectTransform : null, container);
+            }
             PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                 BasisLocalization.Get("settings.tab.chat"), () =>
             {
@@ -3946,7 +3958,7 @@ namespace Basis.BasisUI
                     }
                     sliderChatSize.Descriptor.SetActive(enabled);
                     sliderChatDuration.Descriptor.SetActive(enabled);
-                    descriptor.ForceRebuild();
+                    RebuildChatRows();
                 };
             }, false, visible =>
             {
@@ -3958,7 +3970,7 @@ namespace Basis.BasisUI
                     sliderChatSize.Descriptor.SetActive(chatOn);
                     sliderChatDuration.Descriptor.SetActive(chatOn);
                 }
-                descriptor.ForceRebuild();
+                RebuildChatRows();
             });
 
             void OnEndEndit(string message)
@@ -4578,11 +4590,15 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.NetworkJitterBufferDepth);
             sliderJitterBuffer.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.networking.jitterBuffer.tooltip"));
 
+            void RebuildNetworkRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(sliderJitterBuffer.transform.parent as RectTransform, container);
+            }
             sliderJitterBuffer.Descriptor.SetActive(toggleJitterBufferOverride.Value);
             toggleJitterBufferOverride.OnValueChanged += (val) =>
             {
                 sliderJitterBuffer.Descriptor.SetActive(val);
-                descriptor.ForceRebuild();
+                RebuildNetworkRows();
             };
 
             PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(networkToggle, container, networkStart, false, visible =>
@@ -4591,7 +4607,7 @@ namespace Basis.BasisUI
                 {
                     sliderJitterBuffer.Descriptor.SetActive(toggleJitterBufferOverride.Value);
                 }
-                descriptor.ForceRebuild();
+                RebuildNetworkRows();
             });
 
             // ---- Logging & Notifications (log filters, stat feeds, diagnostic popups) ----
@@ -4622,11 +4638,15 @@ namespace Basis.BasisUI
                 streamingMetaPortInput.characterLimit = 5;
             }
 
+            void RebuildLoggingRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(streamingMetaPortField.transform.parent as RectTransform, container);
+            }
             streamingMetaPortField.Descriptor.SetActive(toggleStreamingMeta.Value);
             toggleStreamingMeta.OnValueChanged += enabled =>
             {
                 streamingMetaPortField.Descriptor.SetActive(enabled);
-                descriptor.ForceRebuild();
+                RebuildLoggingRows();
             };
 
             PanelToggle toggleDisableLogging = PanelToggle.CreateNewEntry(container);
@@ -4677,7 +4697,7 @@ namespace Basis.BasisUI
                 {
                     streamingMetaPortField.Descriptor.SetActive(toggleStreamingMeta.Value);
                 }
-                descriptor.ForceRebuild();
+                RebuildLoggingRows();
             });
 
             SettingsProviderSpawnAnchors.Build(container, descriptor);
@@ -4719,15 +4739,22 @@ namespace Basis.BasisUI
             // the pointer can't select it. See the recorder note above for the hit-test detail.
             voiceRangeStatusField.IsolateAsCanvas();
 
+            void RebuildRemoteDebugRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(voiceRangeToggle.transform.parent as RectTransform, container);
+            }
             void RefreshVoiceRangeVisibility(bool on)
             {
                 voiceRangeStatusField.SetActive(on);
                 if (on) BasisVoiceRangePanelUpdater.Attach(voiceRangeStatusField);
                 else BasisVoiceRangePanelUpdater.Detach();
-                descriptor.ForceRebuild();
             }
             RefreshVoiceRangeVisibility(voiceRangeToggle.Value);
-            voiceRangeToggle.OnValueChanged += RefreshVoiceRangeVisibility;
+            voiceRangeToggle.OnValueChanged += on =>
+            {
+                RefreshVoiceRangeVisibility(on);
+                RebuildRemoteDebugRows();
+            };
 
             PanelToggle toggleAudioDebug = PanelToggle.CreateNewEntry(container);
             toggleAudioDebug.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.audioDebug.enable"));
@@ -4775,10 +4802,13 @@ namespace Basis.BasisUI
                 toggleJitter.Descriptor.SetActive(masterOn);
                 toggleSilence.Descriptor.SetActive(masterOn);
                 toggleViseme.Descriptor.SetActive(masterOn);
-                descriptor.ForceRebuild();
             }
             RefreshAudioDebugSubVisibility(toggleAudioDebug.Value);
-            toggleAudioDebug.OnValueChanged += RefreshAudioDebugSubVisibility;
+            toggleAudioDebug.OnValueChanged += masterOn =>
+            {
+                RefreshAudioDebugSubVisibility(masterOn);
+                RebuildRemoteDebugRows();
+            };
 
             PanelToggle toggleAvatarDataDebug = PanelToggle.CreateNewEntry(container);
             toggleAvatarDataDebug.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.avatarDataDebug.enable"));
@@ -4811,10 +4841,13 @@ namespace Basis.BasisUI
                 toggleAvatarStaging.Descriptor.SetActive(masterOn);
                 toggleAvatarInterp.Descriptor.SetActive(masterOn);
                 toggleAvatarMeta.Descriptor.SetActive(masterOn);
-                descriptor.ForceRebuild();
             }
             RefreshAvatarDataDebugSubVisibility(toggleAvatarDataDebug.Value);
-            toggleAvatarDataDebug.OnValueChanged += RefreshAvatarDataDebugSubVisibility;
+            toggleAvatarDataDebug.OnValueChanged += masterOn =>
+            {
+                RefreshAvatarDataDebugSubVisibility(masterOn);
+                RebuildRemoteDebugRows();
+            };
 
             PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(remoteDebugToggle, container, remoteDebugStart, false, visible =>
             {
@@ -4824,7 +4857,7 @@ namespace Basis.BasisUI
                     RefreshAudioDebugSubVisibility(toggleAudioDebug.Value);
                     RefreshAvatarDataDebugSubVisibility(toggleAvatarDataDebug.Value);
                 }
-                descriptor.ForceRebuild();
+                RebuildRemoteDebugRows();
             });
 
             // ---- Tracking Diagnostics (face/eye tracking readouts + tracker role bindings) ----
