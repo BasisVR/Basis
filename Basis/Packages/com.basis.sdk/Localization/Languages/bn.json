@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "আগে ঘোষক টাইপটি অনুমোদন করুন।" },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "এই টাইপের মেথড সীমাবদ্ধ। {0} ট্যাবে মেথড সীমাবদ্ধতার নিচে নামটি যোগ করুন।" },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "ক্লাসটিতে [Cilboxable] অ্যাট্রিবিউট নেই, তাই বিল্ডে রূপান্তরিত হবে না এবং ContentPolice অনুমোদন না করলে লোডের সময় মুছে যাবে।" },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "ক্লাসটি নেটওয়ার্ক behaviour থেকে উত্তরাধিকার নেয়। এর জায়গা নেওয়া প্রক্সি সেটি নয়, তাই ওই ওভাররাইড কখনো চলে না — নেটওয়ার্ক shim যুক্ত করুন।" },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "এমন Unity বার্তা ঘোষণা করা আছে যা প্রক্সি কখনো এগিয়ে দেয় না, তাই সেগুলো চলবে না: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "IEnumerator ফেরত দেয়, কিন্তু স্যান্ডবক্সে কোরুটিন নেই: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "OnEnable ঘোষণা করা আছে। প্রথমটি হারিয়ে যায়, তাই একবারের প্রস্তুতি Start-এ রাখুন।" }

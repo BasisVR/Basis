@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "पहले घोषक टाइप की अनुमति दें।" },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "इस टाइप के मेथड सीमित हैं। {0} टैब में मेथड पाबंदियों के तहत यह नाम जोड़ें।" },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "क्लास पर [Cilboxable] विशेषता नहीं है, इसलिए बिल्ड पर वह परिवर्तित नहीं होगी और ContentPolice की स्वीकृति के बिना लोड होते ही हटा दी जाएगी।" },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "क्लास नेटवर्क behaviour से विरासत लेती है। इसकी जगह लेने वाली प्रॉक्सी वह नहीं है, इसलिए वे ओवरराइड कभी नहीं चलते — नेटवर्क shim लगाएँ।" },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "ऐसे Unity संदेश परिभाषित हैं जिन्हें प्रॉक्सी कभी आगे नहीं भेजती, इसलिए वे कभी नहीं चलेंगे: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "IEnumerator लौटाता है, पर सैंडबॉक्स में कोरूटीन नहीं हैं: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "OnEnable परिभाषित है। पहला खो जाता है, इसलिए एक बार की तैयारी Start में रखें।" }

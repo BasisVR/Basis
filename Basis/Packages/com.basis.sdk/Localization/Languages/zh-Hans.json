@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "请先允许其声明类型。" },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "该类型的方法受限。请在{0}标签页的方法限制中添加这个名称。" },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "该类没有 [Cilboxable] 特性，因此构建时不会被转换，除非 ContentPolice 批准，否则加载时会被销毁。" },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "该类继承了网络 behaviour。替换它的代理并不是，因此那些重写永远不会触发——请改用网络 shim。" },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "定义了代理从不转发的 Unity 消息，因此它们永远不会运行：{0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "返回了 IEnumerator，但沙箱中没有协程：{0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "定义了 OnEnable。第一次会丢失，因此一次性初始化应放在 Start。" }

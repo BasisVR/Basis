@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "Autorisez d'abord le type déclarant." },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "Les méthodes de ce type sont restreintes. Ajoutez le nom sous Restrictions de méthodes dans l'onglet {0}." },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "La classe n'a pas d'attribut [Cilboxable] : elle ne sera pas convertie au build et sera détruite au chargement, sauf approbation dans ContentPolice." },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "La classe hérite d'un behaviour réseau. Le proxy qui la remplace n'en est pas un, les overrides ne se déclenchent donc jamais — attachez plutôt le shim réseau." },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "Définit des messages Unity que le proxy ne relaie jamais, ils ne s'exécuteront donc pas : {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "Renvoie IEnumerator, mais le bac à sable n'a pas de coroutines : {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "Définit OnEnable. Le premier est perdu, l'initialisation unique appartient donc à Start." }

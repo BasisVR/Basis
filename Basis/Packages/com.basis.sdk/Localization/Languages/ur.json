@@ -873,7 +873,6 @@
     { "key": "sdk.cilbox.scan.needsType", "value": "پہلے اعلان کرنے والی قسم کی اجازت دیں۔" },
     { "key": "sdk.cilbox.scan.methodPinned", "value": "اس قسم کے طریقے محدود ہیں۔ {0} ٹیب میں طریقوں کی پابندیوں کے تحت یہ نام شامل کریں۔" },
     { "key": "sdk.cilbox.scan.issue.notCilboxable", "value": "کلاس پر [Cilboxable] خصوصیت نہیں، اس لیے بلڈ پر تبدیل نہیں ہوگی اور ContentPolice کی منظوری کے بغیر لوڈ ہوتے ہی ہٹا دی جائے گی۔" },
-    { "key": "sdk.cilbox.scan.issue.networkBehaviour", "value": "کلاس نیٹ ورک behaviour سے وراثت لیتی ہے۔ اس کی جگہ لینے والی پراکسی وہ نہیں، اس لیے وہ اوور رائیڈ کبھی نہیں چلتے — نیٹ ورک shim لگائیں۔" },
     { "key": "sdk.cilbox.scan.issue.unforwarded", "value": "ایسے Unity پیغامات بیان کیے گئے ہیں جو پراکسی کبھی آگے نہیں بھیجتی، اس لیے وہ کبھی نہیں چلیں گے: {0}" },
     { "key": "sdk.cilbox.scan.issue.coroutine", "value": "IEnumerator واپس کرتا ہے، مگر سینڈباکس میں کوروٹین نہیں: {0}" },
     { "key": "sdk.cilbox.scan.issue.onEnable", "value": "OnEnable بیان کیا گیا ہے۔ پہلا ضائع ہو جاتا ہے، اس لیے ایک بار کی تیاری Start میں رکھیں۔" }
