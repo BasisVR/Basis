@@ -629,10 +629,6 @@ namespace Basis.IK
             hip.Append(' ');
             hip.Append(d.FemurTwistDeg);
             gizmos.Label(stage, pos + Vector3.up * (step * 2f), hip, color);
-
-            FixedString64Bytes trust = "distrust ";
-            trust.Append(d.HintDistrust);
-            gizmos.Label(stage, pos + Vector3.up * (step * 3f), trust, color);
         }
         void RecordSkeletonGizmos()
         {

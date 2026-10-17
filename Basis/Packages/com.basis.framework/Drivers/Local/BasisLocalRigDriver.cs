@@ -153,12 +153,6 @@ namespace Basis.Scripts.Drivers
         public static Quaternion sRotRightLowerLeg, sRotLeftHand, sRotRightHand, sRotLeftLowerArm, sRotRightLowerArm;
         public static Quaternion sRotLeftToe, sRotRightToe, sRotLeftShoulder, sRotRightShoulder;
         public static bool hasFallbackState;
-        private static Vector3 smoothedLeftButterflyHint, smoothedRightButterflyHint;
-        private static float smoothedLeftButterflyWeight, smoothedRightButterflyWeight;
-        private const float ButterflyKneeSmoothRate = 8f;
-        private static Vector3 smoothedLeftKneeFwdHint, smoothedRightKneeFwdHint;
-        private static float smoothedLeftKneeFwdWeight, smoothedRightKneeFwdWeight;
-        private const float KneeForwardSmoothRate = 10f;
         private static float footIKBlendWeightLeft = 0f, footIKBlendWeightRight = 0f;
         private static float footIKBlendWeight = 0f;
         private static float stationaryTimer = 0f;
@@ -197,8 +191,6 @@ namespace Basis.Scripts.Drivers
             ikPublishPending = false;
             PoseSkeleton.Build(animator.transform, CollectIKBones(basisTransformMapping));
             PoseSkeleton.SetTranslationFree(basisTransformMapping.Hips);
-            leftHipJointRestLocal = basisTransformMapping.Hips != null && basisTransformMapping.LeftUpperLeg != null ? basisTransformMapping.Hips.InverseTransformPoint(basisTransformMapping.LeftUpperLeg.position) : Vector3.zero;
-            rightHipJointRestLocal = basisTransformMapping.Hips != null && basisTransformMapping.RightUpperLeg != null ? basisTransformMapping.Hips.InverseTransformPoint(basisTransformMapping.RightUpperLeg.position) : Vector3.zero;
             BasisEerieMovementSetup.Create(ref IKJob, PoseSkeleton, basisTransformMapping);
             IKJobCreated = true;
             ResetSmoothingState();
@@ -489,10 +481,6 @@ namespace Basis.Scripts.Drivers
                 for (int i = 0; i < SlotCount; i++) fallbackPosStates[i] = float3.zero;
             }
 
-            smoothedLeftButterflyHint = smoothedRightButterflyHint = Vector3.zero;
-            smoothedLeftButterflyWeight = smoothedRightButterflyWeight = 0f;
-            smoothedLeftKneeFwdHint = smoothedRightKneeFwdHint = Vector3.zero;
-            smoothedLeftKneeFwdWeight = smoothedRightKneeFwdWeight = 0f;
             footIKBlendWeightLeft = footIKBlendWeightRight = footIKBlendWeight = 0f;
             stationaryTimer = 0f;
         }
@@ -690,8 +678,6 @@ namespace Basis.Scripts.Drivers
             data.upperArmTwistFraction = Basis.BasisUI.BasisSettingsDefaults.FBIKUpperArmTwistFraction.RawValue;
             data.spineAnatomicalRom = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineAnatomicalRom.RawValue;
             data.legSwivelSmoothing = Basis.BasisUI.BasisSettingsDefaults.FBIKLegSwivelSmoothing.RawValue;
-            data.kneeFootPoleHold = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFootPoleHold.RawValue;
-            data.kneeFootPoleConditioning = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFootPoleConditioning.RawValue;
 
             float collisionScale = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
 
@@ -763,82 +749,6 @@ namespace Basis.Scripts.Drivers
             float w = control.RigLayerWeight;
             return w > 0f ? (w < 1f ? w : 1f) : 0f;
         }
-        private static bool TryComputeButterflyKnee( bool isLeft, Quaternion hipsRot, Vector3 playerUp, float maxOpenDeg, float supineFloor, float dt, Vector3 defaultBendDir, bool haveLeg, Vector3 hipPos, float upperLength, float lowerLength, Vector3 footPos, Quaternion footRot, Vector3 playspacePos, Quaternion playspaceRot, ref Vector3 smoothedHint, ref float smoothedWeight, out Vector3 hintPos, out float weight)
-        {
-            hintPos = default;
-            weight = 0f;
-            if (!haveLeg)
-            {
-                smoothedWeight = 0f;
-                return false;
-            }
-            Vector3 hipsRight = hipsRot * Vector3.right, hipsForward = hipsRot * Vector3.forward;
-            BasisButterflyKneeInput input;
-            input.HipPosition = hipPos;
-            input.FootPosition = footPos;
-            input.FootInstepDir = footRot * Vector3.up;
-            input.OutwardDir = isLeft ? -hipsRight : hipsRight;
-            input.DefaultBendDir = defaultBendDir.sqrMagnitude > 1e-6f ? defaultBendDir : hipsForward;
-            input.PlayerUp = playerUp;
-            input.TorsoFacingDir = hipsForward;
-            input.UpperLength = upperLength;
-            input.LowerLength = lowerLength;
-            input.MaxOpenDeg = maxOpenDeg;
-            input.Strength = 1f;
-            input.SupineFloor = supineFloor;
-            BasisButterflyKneeCore.Solve(input, out BasisButterflyKneeResult result);
-
-            float alpha = 1f - Mathf.Exp(-ButterflyKneeSmoothRate * dt);
-            Vector3 localHint = Quaternion.Inverse(playspaceRot) * (result.KneeHint - playspacePos);
-            if (smoothedWeight <= 0.0001f && result.HintWeight <= 0.0001f)
-            {
-
-                smoothedHint = localHint;
-                smoothedWeight = 0f;
-                return false;
-            }
-            smoothedHint = Vector3.Lerp(smoothedHint, localHint, alpha);
-            smoothedWeight = Mathf.Lerp(smoothedWeight, result.HintWeight, alpha);
-            if (smoothedWeight <= 0.001f)
-            {
-                return false;
-            }
-            hintPos = playspacePos + playspaceRot * smoothedHint;
-            weight = smoothedWeight;
-            return true;
-        }
-        private static bool TryComputeKneeForward( Quaternion hipsRot, float coupling, float smoothRate, Vector3 playerUp, float dt, bool haveLeg, Vector3 hipPos, float upperLength, Vector3 footPos, Quaternion footRot, Quaternion playspaceRot, ref Vector3 smoothedBendDir, ref float smoothedWeight, out Vector3 hintPos, out float weight, out Vector3 bendDir)
-        {
-            hintPos = default;
-            weight = 0f;
-            bendDir = hipsRot * Vector3.forward;
-            if (!haveLeg)
-            {
-                smoothedWeight = 0f;
-                return false;
-            }
-            BasisKneeForwardInput input;
-            input.HipPosition = hipPos;
-            input.FootPosition = footPos;
-            input.FootForwardDir = footRot * Vector3.forward;
-            input.BodyForwardDir = hipsRot * Vector3.forward;
-            input.PlayerUp = playerUp;
-            input.UpperLength = upperLength;
-            input.Coupling = coupling;
-            input.Strength = 1f;
-            BasisKneeForwardCore.Solve(input, out BasisKneeForwardResult result);
-            float alpha = 1f - Mathf.Exp(-smoothRate * dt);
-            Vector3 localBend = Quaternion.Inverse(playspaceRot) * result.BendDir;
-            if (smoothedBendDir.sqrMagnitude < 1e-6f) smoothedBendDir = localBend;
-            else smoothedBendDir = Vector3.Slerp(smoothedBendDir.normalized, localBend, alpha);
-            smoothedWeight = Mathf.Lerp(smoothedWeight, result.HintWeight, alpha);
-            bendDir = smoothedBendDir.sqrMagnitude > 1e-6f ? playspaceRot * smoothedBendDir.normalized : result.BendDir;
-            Vector3 mid = (hipPos + footPos) * 0.5f;
-            float radius = input.UpperLength > 1e-5f ? input.UpperLength : 0.4f;
-            hintPos = mid + bendDir * radius;
-            weight = smoothedWeight;
-            return weight > 0.001f;
-        }
         static List<Transform> CollectIKBones(BasisTransformMapping d) => new List<Transform>
         {
             d.Hips, d.spine, d.chest, d.Upperchest, d.neck, d.head, d.leftShoulder, d.RightShoulder, d.leftUpperArm, d.leftLowerArm, d.leftHand, d.RightUpperArm, d.RightLowerArm, d.rightHand, d.leftUpperArmTwist, d.leftLowerArmTwist, d.RightUpperArmTwist, d.RightLowerArmTwist, d.LeftUpperLeg, d.LeftLowerLeg, d.leftFoot, d.RightUpperLeg, d.RightLowerLeg, d.rightFoot, d.leftToe, d.rightToe,
@@ -869,9 +779,8 @@ namespace Basis.Scripts.Drivers
         }
         bool frameFootSimScheduled, frameFootReengage, trackersDisabled;
         BasisEerieFrameFacts frameFacts;
-        Quaternion frameHipsRotation, frameLeftSimFootRotation, frameRightSimFootRotation, frameLeftElbowToBone, frameRightElbowToBone, frameLeftKneeToBone, frameRightKneeToBone, framePlayspaceRotation;
-        Vector3 framePlayerUpDirection, framePlayspacePosition, frameLeftKneeAssistHint, frameRightKneeAssistHint, frameLeftKneeBendAxis, frameRightKneeBendAxis;
-        Vector3 leftHipJointRestLocal, rightHipJointRestLocal;
+        Quaternion frameHipsRotation, frameLeftSimFootRotation, frameRightSimFootRotation, frameLeftElbowToBone, frameRightElbowToBone, frameLeftKneeToBone, frameRightKneeToBone;
+        Vector3 framePlayerUpDirection, frameLeftKneeBendAxis, frameRightKneeBendAxis;
         float framePlayerUpScale;
         public void ScheduleLocomotionPose(BasisLocalPlayer player, float deltaTime)
         {
@@ -1059,8 +968,6 @@ namespace Basis.Scripts.Drivers
             BasisLocalFootDriver footDriver = localPlayer.BasisLocalFootDriver;
             Matrix4x4 playspace = BasisLocalPlayer.localToWorldMatrix;
             Vector3 playerUpScaled = playspace.MultiplyVector(Vector3.up);
-            framePlayspacePosition = playspace.GetPosition();
-            framePlayspaceRotation = playspace.rotation;
             framePlayerUpScale = playerUpScaled.magnitude;
             framePlayerUpDirection = framePlayerUpScale > 1e-6f ? playerUpScaled / framePlayerUpScale : Vector3.up;
             if (trackersDisabled)
@@ -1083,52 +990,9 @@ namespace Basis.Scripts.Drivers
                 float3* pOut = (float3*)posOutputs.GetUnsafeReadOnlyPtr();
                 quaternion* rOut = (quaternion*)rotOutputs.GetUnsafeReadOnlyPtr();
                 frameHipsRotation = rOut[sHips];
-                facts.leftKneeAssist = BasisEeriePlanner.KneeAssistWanted(in facts, true) ? ComputeKneeAssist(true, pOut[sHips], pOut[sLeftFoot], rOut[sLeftFoot], deltaTime, out frameLeftKneeAssistHint) : 0f;
-                facts.rightKneeAssist = BasisEeriePlanner.KneeAssistWanted(in facts, false) ? ComputeKneeAssist(false, pOut[sHips], pOut[sRightFoot], rOut[sRightFoot], deltaTime, out frameRightKneeAssistHint) : 0f;
             }
             BasisEeriePlanner.Frame(ref data, in facts);
             BasisLocalPlayerMarkers.IKDestBuildIKTargets.End();
-        }
-        void LegPose(bool isLeft, Vector3 hipsPos, Quaternion hipsRot, out bool valid, out Vector3 hipPos, out float upperLength, out float lowerLength)
-        {
-            BasisLocalBoneControl upper = isLeft ? BasisLocalBoneDriver.LeftUpperLegControl : BasisLocalBoneDriver.RightUpperLegControl, lower = isLeft ? BasisLocalBoneDriver.LeftLowerLegControl : BasisLocalBoneDriver.RightLowerLegControl, foot = isLeft ? BasisLocalBoneDriver.LeftFootControl : BasisLocalBoneDriver.RightFootControl;
-            Transform hipsBone = basisTransformMapping != null ? basisTransformMapping.Hips : null;
-            valid = hipsBone != null && upper != null && lower != null && foot != null && upper.HasIKWorldData && lower.HasIKWorldData && foot.HasIKWorldData;
-            if (!valid)
-            {
-                hipPos = Vector3.zero;
-                upperLength = lowerLength = 0f;
-                return;
-            }
-            Vector3 hipJoint = upper.IKWorldData.position, knee = lower.IKWorldData.position;
-            upperLength = Vector3.Distance(hipJoint, knee);
-            lowerLength = Vector3.Distance(knee, foot.IKWorldData.position);
-            hipPos = hipsPos + hipsRot * IKJob.offsetRotationHips * Vector3.Scale(isLeft ? leftHipJointRestLocal : rightHipJointRestLocal, hipsBone.lossyScale);
-        }
-        float ComputeKneeAssist(bool isLeft, Vector3 hipsPos, Vector3 footPos, Quaternion footRot, float deltaTime, out Vector3 hint)
-        {
-            bool butterflyEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKButterflyKnees.RawValue, kneeFollowsFoot = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFollowsFoot.RawValue;
-            float butterflyMaxOpenDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKButterflyKneeMaxOpenDeg.RawValue, butterflySupineFloor = 1f, kneeFootCoupling = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFootFollowUpright.RawValue, kneeFwdWeight = 0f;
-            Quaternion hipsRot = frameHipsRotation;
-            Vector3 playerUpDir = framePlayerUpDirection, bendDir = hipsRot * Vector3.forward, kneeFwdHint = default;
-            LegPose(isLeft, hipsPos, hipsRot, out bool haveLeg, out Vector3 hipPos, out float upperLength, out float lowerLength);
-            ref Vector3 smoothedKneeFwdHint = ref (isLeft ? ref smoothedLeftKneeFwdHint : ref smoothedRightKneeFwdHint);
-            ref float smoothedKneeFwdWeight = ref (isLeft ? ref smoothedLeftKneeFwdWeight : ref smoothedRightKneeFwdWeight);
-            ref Vector3 smoothedButterflyHint = ref (isLeft ? ref smoothedLeftButterflyHint : ref smoothedRightButterflyHint);
-            ref float smoothedButterflyWeight = ref (isLeft ? ref smoothedLeftButterflyWeight : ref smoothedRightButterflyWeight);
-            bool haveKneeFwd = kneeFollowsFoot && TryComputeKneeForward(hipsRot, kneeFootCoupling, KneeForwardSmoothRate, playerUpDir, deltaTime, haveLeg, hipPos, upperLength, footPos, footRot, framePlayspaceRotation, ref smoothedKneeFwdHint, ref smoothedKneeFwdWeight, out kneeFwdHint, out kneeFwdWeight, out bendDir);
-            if (butterflyEnabled && TryComputeButterflyKnee(isLeft, hipsRot, playerUpDir, butterflyMaxOpenDeg, butterflySupineFloor, deltaTime, bendDir, haveLeg, hipPos, upperLength, lowerLength, footPos, footRot, framePlayspacePosition, framePlayspaceRotation, ref smoothedButterflyHint, ref smoothedButterflyWeight, out Vector3 butterflyHint, out float butterflyWeight))
-            {
-                hint = butterflyHint;
-                return butterflyWeight;
-            }
-            if (haveKneeFwd && kneeFwdWeight > 0.001f)
-            {
-                hint = kneeFwdHint;
-                return kneeFwdWeight;
-            }
-            hint = default;
-            return 0f;
         }
         void Step08FillTorsoTargets()
         {
@@ -1228,18 +1092,9 @@ namespace Basis.Scripts.Drivers
             {
                 float3* pOut = (float3*)posOutputs.GetUnsafeReadOnlyPtr();
                 quaternion* rOut = (quaternion*)rotOutputs.GetUnsafeReadOnlyPtr();
-                switch (data.plan.leftLeg.hint)
-                {
-                    case BasisEerieSource.Tracker: data.hintPositionLeftLowerLeg = ApplyHintBias(BasisBoneTrackedRole.LeftLowerLeg, pOut[sLeftLowerLeg], rOut[sLeftLowerLeg]); break;
-                    case BasisEerieSource.Sim: data.hintPositionLeftLowerLeg = footDriver.LeftKneeHint; break;
-                    case BasisEerieSource.Assist: data.hintPositionLeftLowerLeg = frameLeftKneeAssistHint; break;
-                }
-                switch (data.plan.rightLeg.hint)
-                {
-                    case BasisEerieSource.Tracker: data.hintPositionRightLowerLeg = ApplyHintBias(BasisBoneTrackedRole.RightLowerLeg, pOut[sRightLowerLeg], rOut[sRightLowerLeg]); break;
-                    case BasisEerieSource.Sim: data.hintPositionRightLowerLeg = footDriver.RightKneeHint; break;
-                    case BasisEerieSource.Assist: data.hintPositionRightLowerLeg = frameRightKneeAssistHint; break;
-                }
+                // Only knee trackers feed a hint. Without one the leg solve builds its own.
+                if (data.plan.leftLeg.kneeTracked) data.hintPositionLeftLowerLeg = ApplyHintBias(BasisBoneTrackedRole.LeftLowerLeg, pOut[sLeftLowerLeg], rOut[sLeftLowerLeg]);
+                if (data.plan.rightLeg.kneeTracked) data.hintPositionRightLowerLeg = ApplyHintBias(BasisBoneTrackedRole.RightLowerLeg, pOut[sRightLowerLeg], rOut[sRightLowerLeg]);
                 if (BasisLegCrouchDebug.Enabled)
                 {
                     if (BasisLocalBoneDriver.LeftUpperLegControl.HasIKWorldData && BasisLocalBoneDriver.LeftLowerLegControl.HasIKWorldData && BasisLocalBoneDriver.LeftFootControl.HasIKWorldData)

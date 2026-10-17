@@ -59,10 +59,9 @@ namespace Basis.IK
             BasisBoneHandle tip = isLeft ? handleLeftFoot : handleRightFoot;
             Vector3 hint = isLeft ? hintPositionLeftLowerLeg : hintPositionRightLowerLeg;
             Quaternion hintRot = isLeft ? hintRotationLeftLowerLeg : hintRotationRightLowerLeg;
-            float hintW = leg.hintWeight;
             Quaternion targetOffset = isLeft ? offsetRotationLeftFoot : offsetRotationRightFoot;
             Vector3 bendNormal = isLeft ? kneeBendPrefLeft : kneeBendPrefRight;
-            bool hintIsTracker = leg.kneeTracked, footIsTracker = leg.tracked;
+            bool hintIsTracker = leg.kneeTracked;
             Quaternion origRootRot = poseStream.GetRotation(root), origMidRot = poseStream.GetRotation(mid);
             Quaternion origTipRot = poseStream.GetRotation(tip);
             ResetToRest(root, mid, tip);
@@ -70,24 +69,10 @@ namespace Basis.IK
             bool preserveTip = leg.preserveTip;
             if (preserveTip) tRot = origTipRot;
 
-            Vector3 targetPos = isLeft ? targetPositionLeftLowerLeg : targetPositionRightLowerLeg, modelHint = default;
-            float hintDistrust = 0f, conf = 0f;
+            Vector3 targetPos = isLeft ? targetPositionLeftLowerLeg : targetPositionRightLowerLeg;
 
             // If no knee tracker, then we build our own knee hint from the hips frame
             BasisSwivelFrame bodyFrame = hintIsTracker ? default : BuildLegBodyFrame();
-            bool bodyHint = bodyFrame.Valid;
-            bool usedModelHint = !bodyHint && leg.modelHint && BasisLegHintCore.Solve(BuildLegFrame(), poseStream.GetPosition(root), poseStream.GetPosition(mid), poseStream.GetPosition(tip), targetPos, isLeft, out modelHint, out conf, out hintDistrust);
-            if (usedModelHint)
-            {
-                hint = modelHint;
-                hintW = 1f;
-                if (plan.hasLegDiagnostics)
-                {
-                    ref BasisLegDiagnostics d = ref Ref(legDiagnostics, legSlot);
-                    d.ModelHintUsed = 1f;
-                    d.ModelConfidence = conf;
-                }
-            }
 
             BasisLegSolveInput input = default;
             poseStream.GetPositionAndRotation(root, out Vector3 rootPos, out Quaternion rootRot);
@@ -100,15 +85,14 @@ namespace Basis.IK
             input.TargetPosition = targetPos;
             input.TargetRotation = tRot;
             input.HintPosition = hint;
-            input.HintWeight = hintW;
-            input.HintDistrust = hintDistrust;
+            input.HintWeight = hintIsTracker ? 1f : 0f;
             input.TargetOffset = targetOffset;
             input.BendNormal = bendNormal;
             input.AnteriorNormal = kneeAnteriorRef;
             input.HintRotation = hintRot;
             input.HasHintRotation = leg.hintRoll;
             input.HintIsTracker = hintIsTracker;
-            input.HasBodyFrame = bodyHint;
+            input.HasBodyFrame = bodyFrame.Valid;
             input.HipsForward = bodyFrame.Forward;
             input.FootForward = (isLeft ? targetRotationLeftLowerLeg : targetRotationRightLowerLeg) * Vector3.forward; // Foot target's control rotation, before any preserveTip swap
             input.Up = playerUp;
@@ -122,7 +106,6 @@ namespace Basis.IK
                 d.KneeAngleDeg = result.KneeAngleDeg;
                 d.AxisSource = result.AxisSource;
                 d.HintApplied = result.HintApplied ? 1f : 0f;
-                d.HintDistrust = hintDistrust;
                 d.ShinRollDeg = result.ShinRollDeg;
             }
 
@@ -151,8 +134,7 @@ namespace Basis.IK
             {
                 if (leg.swivelTracked)
                 {
-                    bool footDerivedPole = !hintIsTracker && footIsTracker && !usedModelHint && !bodyHint;
-                    SmoothKneeSwivel(root, mid, tip, legSlot, trackedKneeSwivelMinCutoffHz, trackedKneeSwivelBeta, trackedKneeSwivelDerivCutoffHz, conditionOnPole: !hintIsTracker && (!footDerivedPole || kneeFootPoleConditioning), holdWhenSingular: !footDerivedPole || kneeFootPoleHold);
+                    SmoothKneeSwivel(root, mid, tip, legSlot, trackedKneeSwivelMinCutoffHz, trackedKneeSwivelBeta, trackedKneeSwivelDerivCutoffHz, conditionOnPole: !hintIsTracker, holdWhenSingular: true);
                 }
                 else
                 {

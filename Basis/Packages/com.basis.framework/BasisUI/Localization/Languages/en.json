@@ -10603,22 +10603,6 @@
       "value": "Disable Animations in FBT"
     },
     {
-      "key": "settings.bodyTracking.butterflyKnees",
-      "value": "Butterfly Knees"
-    },
-    {
-      "key": "settings.bodyTracking.butterflyKnees.tooltip",
-      "value": "With foot trackers (and no knee trackers), tilt your feet outward and pull them in to let your knees fall open — both laying on your back and sitting upright (cross-legged). Default: On"
-    },
-    {
-      "key": "settings.bodyTracking.butterflyKneeMaxOpen.title",
-      "value": "Butterfly Knee Max Open (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.butterflyKneeMaxOpen.title.tooltip",
-      "value": "How far the knees may fall open in the butterfly pose, clamped to the hip's natural range. Default: 60"
-    },
-    {
       "key": "settings.bodyTracking.playspaceMover.title",
       "value": "Playspace Mover"
     },
@@ -10951,14 +10935,6 @@
       "value": "Pre-solve that elevates and protracts shoulders based on hand reach."
     },
     {
-      "key": "settings.bodyTracking.section.spineReach.title",
-      "value": "Spine: Reach Limits"
-    },
-    {
-      "key": "settings.bodyTracking.section.spineReach.description",
-      "value": "Caps on hip-to-head bend, struggle blending, and per-frame chest / hip rotation deltas."
-    },
-    {
       "key": "settings.bodyTracking.section.spineBend.title",
       "value": "Spine: Bend Distribution"
     },
@@ -11065,22 +11041,6 @@
     {
       "key": "settings.bodyTracking.anat.legSwivelSmoothing.description",
       "value": "Damps the leg's roll about the hip-to-foot axis so a still, near-straight standing leg doesn't twist with tracking jitter. Real turning still tracks without lag."
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleHold.title",
-      "value": "Foot-Pole Knee Hold"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleHold.description",
-      "value": "Extends the knee-swivel freeze to knees aimed by a foot tracker alone. A knee tracker always gets it; this widens it to the guessed pole, which stops a near-straight standing leg rolling with sway at the cost of a slower release out of the pose. Needs Leg Swivel Smoothing on."
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleConditioning.title",
-      "value": "Foot-Pole Knee Low-Pass"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleConditioning.description",
-      "value": "Runs the knee-swivel low-pass on knees aimed by a foot tracker alone. Quieter near a straight leg, but adds lag to real shin motion. Needs Leg Swivel Smoothing on."
     },
     {
       "key": "settings.bodyTracking.anat.trackerBendNormal.title",
@@ -15539,14 +15499,6 @@
       "value": "Run locomotion on a worker thread. Keeps movement smooth when the main thread is busy."
     },
     {
-      "key": "settings.bodyTracking.kneeFollowsFoot",
-      "value": "Knees Follow Feet"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFollowsFoot.tooltip",
-      "value": "Aim each knee along its foot's facing instead of straight ahead, so turned feet don't twist the leg."
-    },
-    {
       "key": "settings.bodyTracking.shoulderShrug.title",
       "value": "Shoulder Shrug"
     },
@@ -15593,14 +15545,6 @@
     {
       "key": "library.instantiated.unbindTracker.tooltip",
       "value": "Release this item from its tracker"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootFollow.title",
-      "value": "Knee Follows Foot (Upright)"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootFollow.title.tooltip",
-      "value": "How strongly the knee tracks its foot while you are standing upright."
     },
     {
       "key": "settings.bodyTracking.vspineGazeSwingRemoval.title",
