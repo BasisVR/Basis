@@ -315,7 +315,7 @@ public partial class SMModuleCalibration : BasisSettingsBase
                 break;
 
             case var s when s == K_FBIK_SMOOTHING_STRENGTH:
-                if (SliderReadOption(optionValue, out var f5)) BasisLocalRigDriver.SmoothingStrength = Mathf.Max(1f, f5);
+                if (SliderReadOption(optionValue, out var f5)) BasisLocalRigDriver.SmoothingStrength = Mathf.Max(0f, f5);
                 break;
 
             // ---------- HIPS ----------

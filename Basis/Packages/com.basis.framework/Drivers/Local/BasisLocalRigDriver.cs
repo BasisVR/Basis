@@ -25,6 +25,7 @@ namespace Basis.Scripts.Drivers
     public partial class BasisLocalRigDriver
     {
         public static float MinCutoff = 5.5f, Beta = 3.25f, DerivativeCutoff = 3f, SmoothingStrength = 1f;
+        const float MinSmoothingStrength = 0.001f;
         [System.NonSerialized] public PlayableGraph PlayableGraph;
         [System.NonSerialized] public readonly BasisPoseSkeleton PoseSkeleton = new BasisPoseSkeleton();
         [System.NonSerialized] public readonly BasisLocomotionPoseSystem LocomotionPose = new BasisLocomotionPoseSystem();
@@ -423,7 +424,7 @@ namespace Basis.Scripts.Drivers
                 if (BasisSmoothingProfiles.IsCustom(preset))
                 {
                     profile = new BasisSmoothingProfile( bindings.MinCutoff.RawValue, bindings.Beta.RawValue, DerivativeCutoff, bindings.PositionHz.RawValue, bindings.RotationHz.RawValue);
-                    strength = Mathf.Max(1f, bindings.Strength.RawValue);
+                    strength = Mathf.Max(0f, bindings.Strength.RawValue);
                 }
                 else
                 {
@@ -431,7 +432,13 @@ namespace Basis.Scripts.Drivers
                     {
                         profile = new BasisSmoothingProfile(MinCutoff, Beta, DerivativeCutoff, PositionSmoothingHz, RotationSmoothingHz);
                     }
-                    strength = Mathf.Max(1f, SmoothingStrength);
+                    strength = Mathf.Max(0f, SmoothingStrength);
+                }
+                // Strength 0 turns smoothing off for the group; between 0 and 1 the cutoffs rise and it fades toward pass-through.
+                if (strength <= MinSmoothingStrength)
+                {
+                    groupOff[Index] = true;
+                    strength = 1f;
                 }
                 float minCutoff = profile.MinCutoff / strength, dCutoff = profile.DerivativeCutoff / strength;
                 groupPosTuning[Index] = new float4(minCutoff, profile.Beta, dCutoff, ExpAlpha(profile.PositionHz / strength, deltaTime));

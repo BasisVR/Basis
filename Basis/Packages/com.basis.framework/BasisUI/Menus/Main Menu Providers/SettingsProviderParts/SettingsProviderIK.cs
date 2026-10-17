@@ -688,7 +688,7 @@ public static partial class SettingsProviderIK
         {
             var smoothingStrength = PanelSlider.CreateAndBind(
                 smoothingParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.smoothingStrength.title"), 1f, 100f, false, 1, ValueDisplayMode.Raw),
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.smoothingStrength.title"), 0f, 100f, false, 1, ValueDisplayMode.Raw),
                 BasisSettingsDefaults.FBIKSmoothingStrength);
             if (smoothingStrength != null)
             {
@@ -1419,7 +1419,7 @@ public static partial class SettingsProviderIK
         var sliders = new List<PanelSlider>(5);
         AddSmoothingGroupSlider(sliders, parent, groupName, "settings.bodyTracking.minCutoff.title", 0.1f, 10f, group.MinCutoff);
         AddSmoothingGroupSlider(sliders, parent, groupName, "settings.bodyTracking.beta.title", 0f, 10f, group.Beta);
-        AddSmoothingGroupSlider(sliders, parent, groupName, "settings.bodyTracking.smoothingStrength.title", 1f, 100f, group.Strength);
+        AddSmoothingGroupSlider(sliders, parent, groupName, "settings.bodyTracking.smoothingStrength.title", 0f, 100f, group.Strength);
         AddSmoothingGroupSlider(sliders, parent, groupName, "settings.bodyTracking.posSmoothingHz.title", 0.01f, 60f, group.PositionHz);
         AddSmoothingGroupSlider(sliders, parent, groupName, "settings.bodyTracking.rotSmoothingHz.title", 0.01f, 60f, group.RotationHz);
 
