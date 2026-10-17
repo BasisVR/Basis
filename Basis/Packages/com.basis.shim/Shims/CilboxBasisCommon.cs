@@ -847,6 +847,8 @@ namespace Cilbox
 			"Basis.Scripts.Networking.BasisServerRequests",
 			"Basis.Scripts.Networking.BasisDeepLinkProvider",
 			"Basis.Scripts.Networking.BasisServerStorageClient",
+			"Basis.BasisUI.BasisCilboxPermissions",
+			"Basis.Scripts.Settings.BasisSettingsSystem",
 		};
 
 		public override bool CheckTypeAllowed(Type t)
@@ -879,7 +881,7 @@ namespace Cilbox
 			{
 				if (MatchesWildcard(allowedType, sType)) return true;
 			}
-			return Beyond(CilboxItems.TypePrefix + sType, false);
+			return Beyond(CilboxItems.TypePrefix + sType, sType.StartsWith("Cilbox.", StringComparison.Ordinal));
 		}
 
 		public bool CheckFieldAllowed(string sType, string sFieldName)
@@ -887,6 +889,7 @@ namespace Cilbox
 			if (!CheckTypeAllowed(sType)) return false;
 			string fullField = sType + "." + sFieldName;
 			if (sType == typeof(Basis.Scripts.Networking.BasisNetworkConnection).FullName) return Beyond(CilboxItems.FieldPrefix + fullField, true);
+			if (sType == typeof(Basis.BasisUI.BasisSettingsDefaults).FullName && sFieldName == nameof(Basis.BasisUI.BasisSettingsDefaults.AllowUntrustedScriptPermissions)) return Beyond(CilboxItems.FieldPrefix + fullField, true);
 			if (commonWhiteListFields.Contains(fullField)) return true;
 			if (ExtraWhiteListFields.Contains(fullField)) return true;
 			foreach (var allowedField in commonWhiteListFields)

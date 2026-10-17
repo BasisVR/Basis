@@ -38,7 +38,7 @@ public class Configuration
     // 15: ServerUUID added - the stable application-level identity sent to clients when they join.
     // 16: ContentSphereLeaveTimeoutSeconds and ContentSphereDeletionTimerSeconds added - how long shared orbs outlive their sharer, and an optional lifetime.
     // 17: player storage (StorageEnabled, StorageBackend, StorageMaxBytesPerPlayer, StorageMaxTotalMegabytes, StorageConnectionString, StorageSqlTable) added.
-    public const int CurrentConfigVersion = 17;
+    public const int CurrentConfigVersion = 18;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
@@ -461,6 +461,10 @@ public class Configuration
     public int StorageMaxTotalMegabytes = 256;
     public string StorageConnectionString = "";
     public string StorageSqlTable = "basis_storage";
+    public int StorageNewOwnersPerAddress = 4;
+    public int StorageNewOwnerWindowMinutes = 60;
+    public int StorageNewOwnersPerHour = 60;
+    public int StorageExpiryDays = 365;
 
     // ── REST API ──────────────────────────────────────────────────────────────
     /// <summary>Set to true to enable the REST management API.</summary>

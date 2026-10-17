@@ -563,6 +563,13 @@ namespace Basis.Shims.Editor
                 "sdk.cilbox.deny.networkConnection"),
             ("BasisNetworkLifeCycle, Basis.Scripts.Networking.BasisNetworkManagement, Basis.Scripts.Networking.BasisConnectionService, Basis.Scripts.Networking.BasisServerRequests, Basis.Scripts.Networking.BasisDeepLinkProvider",
                 Loc("sdk.cilbox.deny.wholeType"), "sdk.cilbox.deny.connectionControl"),
+            ("Basis.Scripts.Networking.BasisServerStorageClient",
+                Loc("sdk.cilbox.deny.wholeType"), "sdk.cilbox.deny.serverStorageClient"),
+            ("Cilbox.*",
+                LocFormat("sdk.cilbox.deny.allExcept", "Cilbox.CilboxPublicUtils"), "sdk.cilbox.deny.permissionControl"),
+            ("Basis.BasisUI.BasisCilboxPermissions, Basis.Scripts.Settings.BasisSettingsSystem",
+                Loc("sdk.cilbox.deny.wholeType"), "sdk.cilbox.deny.permissionControl"),
+            ("Basis.BasisUI.BasisSettingsDefaults", "AllowUntrustedScriptPermissions", "sdk.cilbox.deny.permissionControl"),
         };
 
         /// <summary>

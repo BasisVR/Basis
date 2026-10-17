@@ -221,6 +221,41 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void ConsentCannotUnlockCilboxInternalsOrThePermissionStore()
+        {
+            string[] denied = { "Cilbox.CilboxBasisConsent", "Cilbox.CilboxServerStorage", "Cilbox.CilboxPlatform", typeof(CilboxProxy).FullName, typeof(BasisCilboxPermissions).FullName, typeof(BasisSettingsSystem).FullName };
+            string settings = typeof(BasisSettingsDefaults).FullName, untrusted = nameof(BasisSettingsDefaults.AllowUntrustedScriptPermissions), other = nameof(BasisSettingsDefaults.UIHaptics);
+            foreach (Type boxType in Boxes)
+            {
+                CilboxBasisCommon box = AddBox(boxType);
+                List<string> items = denied.Select(t => BasisCilboxPermissionText.TypePrefix + t).ToList();
+                items.Add(BasisCilboxPermissionText.TypePrefix + settings);
+                items.Add(BasisCilboxPermissionText.FieldPrefix + settings + "." + untrusted);
+                items.Add(BasisCilboxPermissionText.FieldPrefix + settings + "." + other);
+                FieldInfo state = Field("consentState");
+                state.SetValue(box, Enum.Parse(state.FieldType, "Allowed"));
+                Field("consentGranted").SetValue(box, new HashSet<string>(items, StringComparer.Ordinal));
+                Assert.IsTrue(box.CheckFieldAllowed(settings, other), boxType.Name + ": the grant itself did not take, so the refusals below would prove nothing.");
+                Assert.IsTrue(box.CheckTypeAllowed("Cilbox.CilboxPublicUtils"), boxType.Name + ": the interpreter's own public helpers stay open");
+                foreach (string type in denied) Assert.IsFalse(box.CheckTypeAllowed(type), boxType.Name + ": " + type);
+                Assert.IsFalse(box.CheckFieldAllowed(settings, untrusted), boxType.Name + ": the untrusted-scripts switch would unlock every other script");
+
+                FieldInfo scanField = Field("consentScan");
+                object scan = Activator.CreateInstance(scanField.FieldType, true);
+                scanField.SetValue(box, scan);
+                try
+                {
+                    foreach (string type in denied) Assert.IsTrue(box.CheckTypeAllowed(type), "the dry run keeps going");
+                }
+                finally
+                {
+                    scanField.SetValue(box, null);
+                }
+                CollectionAssert.AreEquivalent(denied.Select(t => BasisCilboxPermissionText.TypePrefix + t), (SortedSet<string>)scan.GetType().GetField("Blocked", Internal).GetValue(scan), boxType.Name + ": listed as never allowed, not as something to ask for");
+            }
+        }
+
+        [Test]
         public void WithConsent_ButNoServer_TheAnswerIsNotConnected()
         {
             foreach (Type boxType in Boxes)

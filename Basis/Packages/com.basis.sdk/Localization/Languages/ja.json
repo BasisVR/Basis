@@ -689,6 +689,8 @@
     { "key": "sdk.cilbox.deny.globalBuffer", "value": "グローバルなバッファーのバインドは、設定したコンテンツがなくなった後も残り、Basis 自身のシェーダーにも届きます。そのためコンテンツはマテリアルかコンピュートシェーダーにバッファーをバインドします。" },
     { "key": "sdk.cilbox.deny.networkConnection", "value": "使えるのは接続状態の読み取りだけです。プレイヤーを別のサーバーへ移動させたり切断したりするには、代わりに BasisConnectionShim で確認します。" },
     { "key": "sdk.cilbox.deny.connectionControl", "value": "これらはリクエストの確認を通さずにプレイヤーを接続または切断します。コンテンツは代わりに BasisConnectionShim でプレイヤーに確認するため、コンテンツの権限確認でもこれらは解除できません。" },
+    { "key": "sdk.cilbox.deny.serverStorageClient", "value": "サーバーストレージの直接呼び出しは、スクリプトが誰のデータに触れてよいかを確かめるシムの検査を迂回します。コンテンツは代わりに BasisServerStorageShim を使うため、コンテンツの権限確認でもこれは解除できません。" },
+    { "key": "sdk.cilbox.deny.permissionControl", "value": "これらはサンドボックス自体の仕組み（権限ストア、信頼されていないスクリプトを許可するスイッチ、生の設定ストア）です。これらに到達できると、スクリプトはプレイヤーが一度も承認していない権限を自分自身や他のどのコンテンツにも付与できてしまうため、コンテンツの権限確認でもこれらは解除できません。" },
     { "key": "sdk.cilbox.deny.gameObject", "value": "AddComponent とメッセージのブロードキャストは名前で behaviour に到達し、あらゆる検査を迂回します。" },
     { "key": "sdk.cilbox.deny.component", "value": "メッセージのブロードキャストは名前で behaviour に到達し、あらゆる検査を迂回します。" },
     { "key": "sdk.cilbox.deny.animator", "value": "ステートマシンの behaviour は、サンドボックスが一度も検証していない普通のスクリプトです。" },

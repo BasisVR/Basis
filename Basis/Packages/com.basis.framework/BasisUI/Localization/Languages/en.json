@@ -5479,10 +5479,6 @@
       "value": "Allow grabbing and pulling jiggle physics between you and this player, in both directions. Turning this off immediately releases any grab they have on you. Blocking a player always prevents grabbing."
     },
     {
-      "key": "menu.individualPlayer.enableInteractions",
-      "value": "Enable Interactions"
-    },
-    {
       "key": "menu.individualPlayer.disableInteractions",
       "value": "Disable Interactions"
     },
@@ -5561,10 +5557,6 @@
     {
       "key": "menu.individualPlayer.directConnection.request",
       "value": "Request Direct Connection"
-    },
-    {
-      "key": "menu.individualPlayer.directConnection.cancel",
-      "value": "Cancel Direct Connection"
     },
     {
       "key": "menu.individualPlayer.directConnection.requesting",
@@ -5701,10 +5693,6 @@
     {
       "key": "menu.individualPlayer.chat.description",
       "value": "Control chat message visibility for this player."
-    },
-    {
-      "key": "menu.individualPlayer.showChat",
-      "value": "Show Chat"
     },
     {
       "key": "menu.individualPlayer.hideChat",
@@ -16497,16 +16485,8 @@
       "value": "Record this player's voice on your machine. They are asked first and can revoke it at any time."
     },
     {
-      "key": "menu.individualPlayer.voiceRecording.start",
-      "value": "Start Recording"
-    },
-    {
       "key": "menu.individualPlayer.voiceRecording.start.description",
       "value": "Ask this player for permission to record their voice."
-    },
-    {
-      "key": "menu.individualPlayer.voiceRecording.stop",
-      "value": "Stop Recording"
     },
     {
       "key": "menu.individualPlayer.voiceRecording.requesting",

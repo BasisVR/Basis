@@ -21,12 +21,13 @@ namespace BasisNetworkServer.Storage
         public static readonly BasisStorageSqlDialect MySql = new BasisStorageSqlDialect("mysql", "CREATE TABLE IF NOT EXISTS {0} (owner_key VARCHAR(96) NOT NULL PRIMARY KEY, record MEDIUMBLOB NOT NULL, record_size INT NOT NULL, revision BIGINT NOT NULL, updated_at BIGINT NOT NULL)");
         public static readonly BasisStorageSqlDialect SqlServer = new BasisStorageSqlDialect("sqlserver", "IF OBJECT_ID(N'{0}', N'U') IS NULL CREATE TABLE {0} (owner_key VARCHAR(96) NOT NULL PRIMARY KEY, record VARBINARY(MAX) NOT NULL, record_size INT NOT NULL, revision BIGINT NOT NULL, updated_at BIGINT NOT NULL)");
     }
-    public sealed class BasisSqlStorageBackend : IBasisStorageBackend
+    public sealed class BasisSqlStorageBackend : IBasisStorageBackend, IBasisStorageCatalog, IBasisSharedStorageBackend
     {
         private const int CommandTimeoutSeconds = 15;
+        private const string QuarantineMarker = "-corrupt-";
         private readonly DbProviderFactory provider;
         private readonly BasisStorageSqlDialect dialect;
-        private readonly string connectionString, table, load, update, insert, delete, exists, move, measure;
+        private readonly string connectionString, table, load, update, insert, delete, exists, move, measure, touch, list, idle, expire, probe;
         public string Name { get; }
         public BasisSqlStorageBackend(string name, DbProviderFactory provider, BasisStorageSqlDialect dialect, string connectionString, string table)
         {
@@ -37,13 +38,18 @@ namespace BasisNetworkServer.Storage
             this.dialect = dialect ?? throw new ArgumentNullException(nameof(dialect));
             this.connectionString = connectionString;
             this.table = table;
-            load = $"SELECT record FROM {table} WHERE owner_key = @owner";
+            load = $"SELECT record, updated_at FROM {table} WHERE owner_key = @owner";
             update = $"UPDATE {table} SET record = @record, record_size = @size, revision = @revision, updated_at = @updated WHERE owner_key = @owner AND revision = @expected";
             insert = $"INSERT INTO {table} (owner_key, record, record_size, revision, updated_at) VALUES (@owner, @record, @size, @revision, @updated)";
             delete = $"DELETE FROM {table} WHERE owner_key = @owner AND revision = @expected";
             exists = $"SELECT COUNT(*) FROM {table} WHERE owner_key = @owner";
             move = $"UPDATE {table} SET owner_key = @moved WHERE owner_key = @owner";
-            measure = $"SELECT COUNT(*), SUM(record_size) FROM {table}";
+            measure = $"SELECT COUNT(*), SUM(record_size) FROM {table} WHERE owner_key NOT LIKE '%{QuarantineMarker}%'";
+            touch = $"UPDATE {table} SET updated_at = @updated WHERE owner_key = @owner AND updated_at < @updated";
+            list = $"SELECT owner_key, record_size, updated_at FROM {table} WHERE updated_at < @before";
+            idle = $"SELECT record_size, revision FROM {table} WHERE owner_key = @owner AND updated_at < @before";
+            expire = $"DELETE FROM {table} WHERE owner_key = @owner AND revision = @expected AND updated_at < @before";
+            probe = $"SELECT revision FROM {table} WHERE owner_key = @owner";
         }
         public static bool IsValidTableName(string table)
         {
@@ -62,18 +68,23 @@ namespace BasisNetworkServer.Storage
                 foreach (string statement in dialect.SetupStatements) Execute(connection, statement);
             }
         }
-        public bool TryLoad(string ownerKey, out byte[] blob)
+        public bool TryLoad(string ownerKey, out byte[] blob) => TryLoad(ownerKey, out blob, out _);
+        public bool TryLoad(string ownerKey, out byte[] blob, out long lastUsed)
         {
             blob = null;
+            lastUsed = 0;
             using (DbConnection connection = Connect())
             using (DbCommand command = Command(connection, load))
             {
                 Add(command, "@owner", DbType.String, Checked(ownerKey));
-                object value = command.ExecuteScalar();
-                if (value == null || value is DBNull) return false;
-                if (!(value is byte[] bytes) || bytes.Length > BasisStorageRecord.MaxBlobBytes) throw new InvalidDataException($"Storage record {ownerKey} in {table} is not a record blob within the size ceiling.");
-                blob = bytes;
-                return true;
+                using (DbDataReader reader = command.ExecuteReader())
+                {
+                    if (!reader.Read() || reader.IsDBNull(0)) return false;
+                    if (!(reader.GetValue(0) is byte[] bytes) || bytes.Length > BasisStorageRecord.MaxBlobBytes) throw new InvalidDataException($"Storage record {ownerKey} in {table} is not a record blob within the size ceiling.");
+                    blob = bytes;
+                    lastUsed = reader.IsDBNull(1) ? 0 : Convert.ToInt64(reader.GetValue(1), CultureInfo.InvariantCulture);
+                    return true;
+                }
             }
         }
         public bool TrySave(string ownerKey, byte[] blob, long expectedRevision, long revision)
@@ -123,7 +134,7 @@ namespace BasisNetworkServer.Storage
             using (DbCommand command = Command(connection, move))
             {
                 Add(command, "@owner", DbType.String, Checked(ownerKey));
-                Add(command, "@moved", DbType.String, ownerKey + "-corrupt-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture));
+                Add(command, "@moved", DbType.String, ownerKey + QuarantineMarker + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture));
                 command.ExecuteNonQuery();
             }
         }
@@ -138,6 +149,80 @@ namespace BasisNetworkServer.Storage
                 if (!reader.Read()) return;
                 records = reader.IsDBNull(0) ? 0 : Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture);
                 bytes = reader.IsDBNull(1) ? 0 : Convert.ToInt64(reader.GetValue(1), CultureInfo.InvariantCulture);
+            }
+        }
+        public void Touch(string ownerKey, long lastUsed)
+        {
+            using (DbConnection connection = Connect())
+            using (DbCommand command = Command(connection, touch))
+            {
+                Add(command, "@owner", DbType.String, Checked(ownerKey));
+                Add(command, "@updated", DbType.Int64, lastUsed);
+                command.ExecuteNonQuery();
+            }
+        }
+        public void List(long usedBefore, Func<BasisStorageRecordInfo, bool> visit)
+        {
+            using (DbConnection connection = Connect())
+            using (DbCommand command = Command(connection, list))
+            {
+                Add(command, "@before", DbType.Int64, usedBefore);
+                using (DbDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        string ownerKey = reader.IsDBNull(0) ? null : Convert.ToString(reader.GetValue(0), CultureInfo.InvariantCulture);
+                        if (!BasisStorageRecord.IsOwnerKey(ownerKey)) continue;
+                        BasisStorageRecordInfo info = new BasisStorageRecordInfo
+                        {
+                            OwnerKey = ownerKey,
+                            Bytes = reader.IsDBNull(1) ? 0 : Convert.ToInt64(reader.GetValue(1), CultureInfo.InvariantCulture),
+                            LastUsed = reader.IsDBNull(2) ? 0 : Convert.ToInt64(reader.GetValue(2), CultureInfo.InvariantCulture),
+                        };
+                        if (!visit(info)) return;
+                    }
+                }
+            }
+        }
+        public bool TryExpire(string ownerKey, long usedBefore, out long bytes)
+        {
+            bytes = 0;
+            long size, expected;
+            using (DbConnection connection = Connect())
+            {
+                using (DbCommand command = Command(connection, idle))
+                {
+                    Add(command, "@owner", DbType.String, Checked(ownerKey));
+                    Add(command, "@before", DbType.Int64, usedBefore);
+                    using (DbDataReader reader = command.ExecuteReader())
+                    {
+                        if (!reader.Read() || reader.IsDBNull(1)) return false;
+                        size = reader.IsDBNull(0) ? 0 : Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture);
+                        expected = Convert.ToInt64(reader.GetValue(1), CultureInfo.InvariantCulture);
+                    }
+                }
+                using (DbCommand command = Command(connection, expire))
+                {
+                    Add(command, "@owner", DbType.String, Checked(ownerKey));
+                    Add(command, "@expected", DbType.Int64, expected);
+                    Add(command, "@before", DbType.Int64, usedBefore);
+                    if (command.ExecuteNonQuery() != 1) return false;
+                }
+            }
+            bytes = size;
+            return true;
+        }
+        public bool TryReadRevision(string ownerKey, out long revision)
+        {
+            revision = 0;
+            using (DbConnection connection = Connect())
+            using (DbCommand command = Command(connection, probe))
+            {
+                Add(command, "@owner", DbType.String, Checked(ownerKey));
+                object value = command.ExecuteScalar();
+                if (value == null || value is DBNull) return false;
+                revision = Convert.ToInt64(value, CultureInfo.InvariantCulture);
+                return true;
             }
         }
         public void Dispose()

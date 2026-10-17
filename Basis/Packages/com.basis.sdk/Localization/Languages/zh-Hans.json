@@ -689,6 +689,8 @@
     { "key": "sdk.cilbox.deny.globalBuffer", "value": "全局缓冲区绑定会在设置它的内容消失后继续存在，并影响 Basis 自己的着色器，因此内容应把缓冲区绑定到材质或计算着色器上。" },
     { "key": "sdk.cilbox.deny.networkConnection", "value": "只开放连接状态的读取。要转移或断开玩家，内容改为通过 BasisConnectionShim 询问。" },
     { "key": "sdk.cilbox.deny.connectionControl", "value": "这些类型会绕过请求确认来连接或断开玩家。内容改为通过 BasisConnectionShim 询问玩家，因此即使是内容权限确认也无法解锁它们。" },
+    { "key": "sdk.cilbox.deny.serverStorageClient", "value": "直接调用服务器存储会跳过 shim 对脚本可访问谁的数据所做的检查。内容改为使用 BasisServerStorageShim，因此即使是内容权限确认也无法解锁它。" },
+    { "key": "sdk.cilbox.deny.permissionControl", "value": "这些是沙箱自身的机制：权限存储、允许不受信任脚本的开关，以及原始设置存储。触及它们会让脚本能够给自己或任何其他内容授予玩家从未批准的权限，因此即使是内容权限确认也无法解锁它们。" },
     { "key": "sdk.cilbox.deny.gameObject", "value": "AddComponent 和消息广播按名称触及 behaviour，绕开了所有检查。" },
     { "key": "sdk.cilbox.deny.component", "value": "消息广播按名称触及 behaviour，绕开了所有检查。" },
     { "key": "sdk.cilbox.deny.animator", "value": "状态机 behaviour 是沙箱从未校验过的普通脚本。" },

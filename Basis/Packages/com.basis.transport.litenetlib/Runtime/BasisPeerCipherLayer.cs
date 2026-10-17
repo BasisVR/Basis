@@ -23,6 +23,7 @@ namespace Basis.Network.Core
 		public const int ReplayWindowSize = BasisReplayWindow.Size;
 		private const byte PropertyMask = 0x1F;
 		private const byte PropShutdownOk = 13;
+		private const byte PropPeerNotFound = 14;
 
 		private readonly BasisReplayWindow _window = new BasisReplayWindow();
 		private volatile BasisAeadCipher? _cipher;
@@ -47,14 +48,18 @@ namespace Basis.Network.Core
 			_cipher = new BasisAeadCipher(key);
 		}
 
-		public override int ExtraSizeFor(byte property) => _cipher == null ? 0 : BasisCryptoLayer.Overhead;
+		public override int ExtraSizeFor(byte property) => _cipher == null || IsPeerNotFound(property) ? 0 : BasisCryptoLayer.Overhead;
+
+		public override int InboundExtraSizeFor(byte property) => _proven && !IsPeerNotFound(property) ? BasisCryptoLayer.Overhead : 0;
 
 		public override bool AllowsEndPointChange => _proven;
+
+		private static bool IsPeerNotFound(byte header) => (header & PropertyMask) == PropPeerNotFound;
 
 		public override void ProcessOutBoundPacket(ref IPEndPoint endPoint, ref byte[] data, ref int offset, ref int length)
 		{
 			BasisAeadCipher? cipher = _cipher;
-			if (cipher == null || length < 1) return;
+			if (cipher == null || length < 1 || IsPeerNotFound(data[offset])) return;
 			BasisCryptoLayer.Seal(cipher, ref _sendCounter, data, offset, ref length);
 		}
 

@@ -693,6 +693,8 @@
     { "key": "sdk.cilbox.deny.globalBuffer", "value": "A global buffer binding outlives the content that set it and reaches Basis's own shaders, so content binds buffers on a material or a compute shader instead." },
     { "key": "sdk.cilbox.deny.networkConnection", "value": "Only the connection reads are open. To move or disconnect the player, content asks through BasisConnectionShim instead." },
     { "key": "sdk.cilbox.deny.connectionControl", "value": "These connect or disconnect the player outside the request prompt. Content asks through BasisConnectionShim instead, so not even the content permission prompt can unlock them." },
+    { "key": "sdk.cilbox.deny.serverStorageClient", "value": "Direct server storage calls skip the shim's checks on whose data a script may touch. Content uses BasisServerStorageShim instead, so not even the content permission prompt can unlock them." },
+    { "key": "sdk.cilbox.deny.permissionControl", "value": "These are the sandbox's own machinery: the permission store, the switch that allows untrusted scripts, and the raw settings store. Reaching them would let a script grant itself, or any other content, permissions the player never approved, so not even the content permission prompt can unlock them." },
     { "key": "sdk.cilbox.deny.gameObject", "value": "AddComponent and the message broadcasts reach behaviours by name, stepping around every check." },
     { "key": "sdk.cilbox.deny.component", "value": "The message broadcasts reach behaviours by name, stepping around every check." },
     { "key": "sdk.cilbox.deny.animator", "value": "State machine behaviours are ordinary scripts the sandbox never validated." },

@@ -689,6 +689,8 @@
     { "key": "sdk.cilbox.deny.globalBuffer", "value": "全域緩衝區繫結會在設定它的內容消失後繼續存在，並影響 Basis 自己的著色器，因此內容應把緩衝區繫結到材質或計算著色器上。" },
     { "key": "sdk.cilbox.deny.networkConnection", "value": "只開放連線狀態的讀取。要轉移或中斷玩家的連線，內容改為透過 BasisConnectionShim 詢問。" },
     { "key": "sdk.cilbox.deny.connectionControl", "value": "這些類型會繞過請求確認來連線或中斷玩家。內容改為透過 BasisConnectionShim 詢問玩家，因此即使是內容權限確認也無法解鎖它們。" },
+    { "key": "sdk.cilbox.deny.serverStorageClient", "value": "直接呼叫伺服器儲存會跳過 shim 的檢查，而這些檢查負責判斷腳本可以存取誰的資料。內容改為使用 BasisServerStorageShim，因此即使是內容權限確認也無法解鎖它。" },
+    { "key": "sdk.cilbox.deny.permissionControl", "value": "這些是沙箱本身的運作機制：權限儲存區、允許不受信任腳本的開關，以及原始設定儲存區。若能存取它們，腳本就能為自己或任何其他內容授予玩家從未核准的權限，因此即使是內容權限確認也無法解鎖它們。" },
     { "key": "sdk.cilbox.deny.gameObject", "value": "AddComponent 與訊息廣播會以名稱觸及 behaviour，繞開所有檢查。" },
     { "key": "sdk.cilbox.deny.component", "value": "訊息廣播會以名稱觸及 behaviour，繞開所有檢查。" },
     { "key": "sdk.cilbox.deny.animator", "value": "狀態機 behaviour 是沙箱從未驗證過的一般腳本。" },
