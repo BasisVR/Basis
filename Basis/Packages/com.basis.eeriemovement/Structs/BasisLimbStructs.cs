@@ -103,9 +103,13 @@ namespace Basis.IK
         public Vector3 BendNormal, AnteriorNormal;
         public Quaternion HintRotation;
         public bool HintIsTracker, HasHintRotation;
+        public Vector3 FootForward, Up, HipsForward;
+        public bool HasBodyFrame;
     }
     public struct BasisLegSolveResult
     {
+        public Vector3 HintPosition;
+        public Vector3 PoleDir;
         public Quaternion MidDelta, RootDelta, HintDelta, MidPostRoll, TipRotation;
         public bool HintApplied;
         public float ShinRollDeg;

@@ -19,6 +19,7 @@ namespace Basis.IK
     {
         public BasisSwivelFilterState Swivel;
         public bool SwivelSeeded;
+        public Vector3 KneeDir, PoleDir, ConstrainedHintPosition;
     }
     public struct BasisChestSpringState
     {

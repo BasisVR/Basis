@@ -44,8 +44,8 @@ namespace Basis.IK
             RecordHandTarget(stage, plan.leftArm.weight, targetPositionLeftHand, targetRotationLeftHand * offsetRotationLeftHand, hintPositionLeftHand, plan.leftArm.trackerHint, true);
             RecordHandTarget(stage, plan.rightArm.weight, targetPositionRightHand, targetRotationRightHand * offsetRotationRightHand, hintPositionRightHand, plan.rightArm.trackerHint, false);
 
-            RecordFootTarget(stage, plan.leftLeg.weight, targetPositionLeftLowerLeg, targetRotationLeftLowerLeg * offsetRotationLeftFoot, hintPositionLeftLowerLeg, plan.leftLeg.hintWeight, kneeBendPrefLeft, true);
-            RecordFootTarget(stage, plan.rightLeg.weight, targetPositionRightLowerLeg, targetRotationRightLowerLeg * offsetRotationRightFoot, hintPositionRightLowerLeg, plan.rightLeg.hintWeight, kneeBendPrefRight, false);
+            RecordFootTarget(stage, plan.leftLeg.weight, targetPositionLeftLowerLeg, targetRotationLeftLowerLeg * offsetRotationLeftFoot, hintPositionLeftLowerLeg, plan.leftLeg.kneeTracked, true);
+            RecordFootTarget(stage, plan.rightLeg.weight, targetPositionRightLowerLeg, targetRotationRightLowerLeg * offsetRotationRightFoot, hintPositionRightLowerLeg, plan.rightLeg.kneeTracked, false);
         }
         void RecordHandTarget(BasisIKGizmoStage stage, float enabled, Vector3 target, Quaternion rotation, Vector3 hint, bool hasHint, bool isLeft)
         {
@@ -80,7 +80,7 @@ namespace Basis.IK
                 gizmos.Label(stage, hint, "R elbow hint", gizmoHint);
             }
         }
-        void RecordFootTarget(BasisIKGizmoStage stage, float enabled, Vector3 target, Quaternion rotation, Vector3 hint, float hintWeight, Vector3 bendPref, bool isLeft)
+        void RecordFootTarget(BasisIKGizmoStage stage, float enabled, Vector3 target, Quaternion rotation, Vector3 hint, bool hasHint, bool isLeft)
         {
             if (!(enabled > 0f))
             {
@@ -98,7 +98,7 @@ namespace Basis.IK
                 gizmos.Label(stage, target, "R foot target");
             }
 
-            if (!(hintWeight > 0f))
+            if (!hasHint)
             {
                 return;
             }
@@ -111,10 +111,6 @@ namespace Basis.IK
             else
             {
                 gizmos.Label(stage, hint, "R knee hint", gizmoHint);
-            }
-            if (bendPref.sqrMagnitude > sqrEpsilon)
-            {
-                gizmos.Normal(stage, hint, bendPref.normalized, gizmos.AxisLength, BasisIKGizmoPalette.Magenta);
             }
         }
         void RecordSpineGizmos()
@@ -193,15 +189,15 @@ namespace Basis.IK
                 return;
             }
 
-            RecordLeg(stage, handleLeftUpperLeg, handleLeftLowerLeg, handleLeftFoot, plan.leftLeg, targetPositionLeftLowerLeg, hintPositionLeftLowerLeg, true);
-            RecordLeg(stage, handleRightUpperLeg, handleRightLowerLeg, handleRightFoot, plan.rightLeg, targetPositionRightLowerLeg, hintPositionRightLowerLeg, false);
+            RecordLeg(stage, handleLeftUpperLeg, handleLeftLowerLeg, handleLeftFoot, plan.leftLeg, targetPositionLeftLowerLeg, hintPositionLeftLowerLeg, 0, true);
+            RecordLeg(stage, handleRightUpperLeg, handleRightLowerLeg, handleRightFoot, plan.rightLeg, targetPositionRightLowerLeg, hintPositionRightLowerLeg, 1, false);
 
             if (kneeAnteriorRef.sqrMagnitude > sqrEpsilon && plan.hasHips)
             {
                 gizmos.Normal(stage, poseStream.GetPosition(handleHips), kneeAnteriorRef.normalized, gizmos.AxisLength, BasisIKGizmoPalette.Magenta);
             }
         }
-        void RecordLeg(BasisIKGizmoStage stage, BasisBoneHandle root, BasisBoneHandle mid, BasisBoneHandle tip, in BasisEerieLegPlan leg, Vector3 target, Vector3 hint, bool isLeft)
+        void RecordLeg(BasisIKGizmoStage stage, BasisBoneHandle root, BasisBoneHandle mid, BasisBoneHandle tip, in BasisEerieLegPlan leg, Vector3 target, Vector3 hint, int slot, bool isLeft)
         {
             if (!leg.has || !(leg.weight > 0f))
             {
@@ -215,26 +211,32 @@ namespace Basis.IK
             gizmos.Bone(stage, hipPos, kneePos, color);
             gizmos.Bone(stage, kneePos, footPos, color);
             gizmos.Point(stage, footPos, color);
+            gizmos.BoneAxes(stage, ref poseStream, root, gizmos.AxisLength);
+            gizmos.BoneAxes(stage, ref poseStream, mid, gizmos.AxisLength);
             gizmos.BoneAxes(stage, ref poseStream, tip, gizmos.AxisLength);
             gizmos.Line(stage, footPos, target, gizmoResidual);
 
-            Vector3 limbAxis = footPos - hipPos, bendPlane = Vector3.Cross(kneePos - hipPos, footPos - kneePos);
-            if (bendPlane.sqrMagnitude > sqrEpsilon)
-            {
-                gizmos.Normal(stage, kneePos, bendPlane.normalized, gizmos.AxisLength * 0.6f, BasisIKGizmoPalette.Cyan);
-            }
-            if (limbAxis.sqrMagnitude > sqrEpsilon && bendPlane.sqrMagnitude > sqrEpsilon)
-            {
-                Vector3 pole = Vector3.Cross(limbAxis.normalized, bendPlane.normalized);
-                if (pole.sqrMagnitude > sqrEpsilon)
-                {
-                    gizmos.Direction(stage, kneePos, pole.normalized, gizmos.AxisLength * 1.5f, BasisIKGizmoPalette.Cyan);
-                }
-            }
-
-            if (leg.hintWeight > 0f)
+            if (leg.kneeTracked)
             {
                 gizmos.Line(stage, kneePos, hint, gizmoHint);
+            }
+
+            float legLength = (footPos - hipPos).magnitude;
+            float hintLength = legLength > minMag ? legLength * 0.5f : gizmos.AxisLength * 2f;
+
+            if (plan.hasLegState)
+            {
+                BasisLegSlotState legSlot = legState[slot];
+                if (legSlot.PoleDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, hipPos, legSlot.PoleDir, hintLength, BasisIKGizmoPalette.Magenta); // Where the solver wanted the knee
+                if (legSlot.KneeDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, hipPos, legSlot.KneeDir, hintLength, BasisIKGizmoPalette.Yellow); // Where the knee ended up after smoothing
+                if (legSlot.SwivelSeeded)
+                {
+                    FixedString64Bytes text = "swivel ";
+                    text.Append(legSlot.Swivel.Smooth);
+                    gizmos.Label(stage, kneePos + playerUp * gizmos.PointSize * 4f, text, BasisIKGizmoPalette.Yellow);
+                }
+
+                gizmos.Point(stage, legSlot.ConstrainedHintPosition, BasisIKGizmoPalette.Green);
             }
 
             if (isLeft)
@@ -276,10 +278,10 @@ namespace Basis.IK
             gizmos.BoneAxes(stage, ref poseStream, tip, gizmos.AxisLength);
             gizmos.Line(stage, handPos, target, gizmoResidual);
 
-            if (reach > 0f)
-            {
-                gizmos.Circle(stage, shoulderPos, playerUp, reach, gizmoReach);
-            }
+            //if (reach > 0f)
+            //{
+            //    gizmos.Circle(stage, shoulderPos, playerUp, reach, gizmoReach);
+            //}
 
             if (arm.trackerHint)
             {
@@ -302,7 +304,6 @@ namespace Basis.IK
                     gizmos.Label(stage, elbowPos + playerUp * gizmos.PointSize * 4f, text, BasisIKGizmoPalette.Yellow);
                 }
 
-                gizmos.Point(stage, armSlot.HintPosition, BasisIKGizmoPalette.Yellow);
                 gizmos.Point(stage, armSlot.ConstrainedHintPosition, BasisIKGizmoPalette.Green);
             }
 
