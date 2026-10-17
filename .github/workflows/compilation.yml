@@ -47,7 +47,7 @@ jobs:
 
   build-client:
     name: Build client for ${{ matrix.targetPlatform }}
-    timeout-minutes: 100
+    timeout-minutes: 180
     runs-on: ubuntu-latest
     permissions:
       actions: write # to allow us to manage cache
@@ -107,7 +107,33 @@ jobs:
           projectPath: ${{ env.projectPath }}
           modules: ${{ matrix.unityModules }}
       - name: "Build Unity project"
+        id: unity-build
         timeout-minutes: 100
+        continue-on-error: true
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          customImage: ${{ steps.unity-image.outputs.image }}
+          dockerShmSize: 2g
+          buildName: ${{ env.buildName }}
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: ${{ matrix.targetPlatform }}
+          customParameters: ${{ startsWith(matrix.targetPlatform, 'Standalone') && '-standaloneBuildSubtarget Player' || '' }}
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
+          linux64RemoveExecutableExtension: false
+      - name: "Clear Library for a cold retry"
+        if: steps.unity-build.outcome == 'failure'
+        shell: bash
+        run: |
+          sudo dmesg -T | grep -i -E 'invoked oom-killer|oom-kill:|killed process|memory: usage|swap: usage|out of memory' || echo "No OOM kill in the kernel log"
+          sudo rm -rf "${projectPath}/Library" "build/${{ matrix.targetPlatform }}"
+      - name: "Build Unity project (cold retry)"
+        if: steps.unity-build.outcome == 'failure'
+        timeout-minutes: 120
         uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -125,12 +151,12 @@ jobs:
           linux64RemoveExecutableExtension: false
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         with:
           path: ${{ env.projectPath }}/Library
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: "Only retain latest cache"
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -262,12 +288,12 @@ jobs:
           linux64RemoveExecutableExtension: false
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         with:
           path: ${{ env.projectPath }}/Library
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: "Only retain latest cache"
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -353,6 +379,31 @@ jobs:
           projectPath: ${{ env.projectPath }}
           modules: webgl
       - name: "Build Unity project"
+        id: unity-build
+        timeout-minutes: 180
+        continue-on-error: true
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          customImage: ${{ steps.unity-image.outputs.image }}
+          dockerShmSize: 2g
+          buildName: ${{ env.buildName }}
+          buildMethod: BasisWebBuild.BuildWeb
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: WebGL
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
+      - name: "Clear Library for a cold retry"
+        if: steps.unity-build.outcome == 'failure'
+        shell: bash
+        run: |
+          sudo dmesg -T | grep -i -E 'invoked oom-killer|oom-kill:|killed process|memory: usage|swap: usage|out of memory' || echo "No OOM kill in the kernel log"
+          sudo rm -rf "${projectPath}/Library" build/WebGL
+      - name: "Build Unity project (cold retry)"
+        if: steps.unity-build.outcome == 'failure'
         timeout-minutes: 180
         uses: BasisVR/unity-builder@main
         env:
@@ -373,12 +424,12 @@ jobs:
         run: node .github/scripts/check_web_build.mjs "build/WebGL/${buildName}" "${webMaximumMemoryMegabytes}"
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         with:
           path: ${{ env.projectPath }}/Library
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: "Only retain latest cache"
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

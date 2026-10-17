@@ -40,6 +40,7 @@ public static class BasisWebBuild
         string version = GetArgument("buildVersion");
         if (!string.IsNullOrWhiteSpace(version) && version != "none") PlayerSettings.bundleVersion = version;
         Build(buildPath, Array.IndexOf(Environment.GetCommandLineArgs(), "-webStackTraces") >= 0);
+        Console.WriteLine("Build succeeded!");
     }
 
     public static void CheckWebScripts()
