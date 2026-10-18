@@ -4,6 +4,7 @@
     "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#3.1.2",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.addressables": "4.1.0",
+    "com.unity.ai.navigation": "2.0.16",
     "com.unity.animation.rigging": "6.7.0",
     "com.unity.cloud.gltfast": "6.20.0",
     "com.unity.device-simulator.devices": "1.0.1",
