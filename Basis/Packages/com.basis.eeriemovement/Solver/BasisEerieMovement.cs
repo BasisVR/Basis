@@ -65,8 +65,6 @@ namespace Basis.IK
         public float shoulderElevationFactor, shoulderProtractionFactor, shoulderMaxDeg, shoulderTrackerBlendTime, lowerArmTwistFraction, upperArmTwistFraction;
         public bool protectElbow, collideTrackedElbow;
         public float armSwivelSmoothTime, armSwivelMaxRateDeg;
-        public bool legSwivelSmoothing;
-        public float trackedKneeSwivelMinCutoffHz, trackedKneeSwivelBeta, trackedKneeSwivelDerivCutoffHz;
         public bool collisionsEnabled;
         public float chestRadius, collisionSkin, handRadius, handSkin;
         public NativeArray<BasisChestSpringState> chestSpring;

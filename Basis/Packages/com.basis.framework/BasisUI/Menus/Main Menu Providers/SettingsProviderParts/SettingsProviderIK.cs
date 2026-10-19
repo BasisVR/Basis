@@ -449,9 +449,6 @@ public static partial class SettingsProviderIK
             AddAnatomyToggle(anatomyParent, BasisSettingsDefaults.FBIKSpineAnatomicalRom,
                 "settings.bodyTracking.anat.spineRom.title",
                 "settings.bodyTracking.anat.spineRom.description");
-            AddAnatomyToggle(anatomyParent, BasisSettingsDefaults.FBIKLegSwivelSmoothing,
-                "settings.bodyTracking.anat.legSwivelSmoothing.title",
-                "settings.bodyTracking.anat.legSwivelSmoothing.description");
             AddAnatomyToggle(anatomyParent, BasisSettingsDefaults.FBIKTrackerBendNormal,
                 "settings.bodyTracking.anat.trackerBendNormal.title",
                 "settings.bodyTracking.anat.trackerBendNormal.description");
@@ -521,23 +518,6 @@ public static partial class SettingsProviderIK
                 moveBodyBack.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.moveBodyBackWhenCrouching.title.tooltip"));
             }
 
-            var trackedKneeMinCutoff = PanelSlider.CreateAndBind(
-                dynamicsParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.trackedKneeMinCutoff.title"), 0.1f, 10f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKTrackedKneeSwivelMinCutoffHz);
-            trackedKneeMinCutoff?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.trackedKneeMinCutoff.title.tooltip"));
-
-            var trackedKneeBeta = PanelSlider.CreateAndBind(
-                dynamicsParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.trackedKneeBeta.title"), 0f, 2f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKTrackedKneeSwivelBeta);
-            trackedKneeBeta?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.trackedKneeBeta.title.tooltip"));
-
-            var trackedKneeDerivCutoff = PanelSlider.CreateAndBind(
-                dynamicsParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.trackedKneeDerivCutoff.title"), 0.1f, 10f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKTrackedKneeSwivelDerivCutoffHz);
-            trackedKneeDerivCutoff?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.trackedKneeDerivCutoff.title.tooltip"));
         });
 
         // ============== Virtual Spine (no torso tracker) ==============
@@ -1181,9 +1161,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKShoulderTrackerBlend.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelSmoothTime.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelMaxRate.ResetToDefault();
-        BasisSettingsDefaults.FBIKTrackedKneeSwivelMinCutoffHz.ResetToDefault();
-        BasisSettingsDefaults.FBIKTrackedKneeSwivelBeta.ResetToDefault();
-        BasisSettingsDefaults.FBIKTrackedKneeSwivelDerivCutoffHz.ResetToDefault();
         BasisSettingsDefaults.FBIKArmHeightRatioEnabled.ResetToDefault();
         BasisSettingsDefaults.FBIKArmHeightRatio.ResetToDefault();
         BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.ResetToDefault();
@@ -1208,7 +1185,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKLowerArmTwistFraction.ResetToDefault();
         BasisSettingsDefaults.FBIKUpperArmTwistFraction.ResetToDefault();
         BasisSettingsDefaults.FBIKSpineAnatomicalRom.ResetToDefault();
-        BasisSettingsDefaults.FBIKLegSwivelSmoothing.ResetToDefault();
         BasisSettingsDefaults.FBIKTrackerBendNormal.ResetToDefault();
         BasisSettingsDefaults.FBIKBodyFit.ResetToDefault();
         BasisSettingsDefaults.FBIKBodyFitMaxDeviation.ResetToDefault();

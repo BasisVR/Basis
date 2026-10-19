@@ -1842,11 +1842,6 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> FBIKNeckFlexionDamp = new("fbikneckflexiondamp", new BasisPlatformDefault<float>(0.5f));
         // Spine relax: crouch counterweight (hips shift back as the head drops)
         public static BasisSettingsBinding<float> FBIKMoveBodyBackWhenCrouching = new("fbikmovebodybackwhencrouching", new BasisPlatformDefault<float>(1f));
-        // One Euro parameters for a knee whose pole comes from a tracker: a higher floor than the standing path,
-        // and 4x the beta so real shin motion isn't lagged.
-        public static BasisSettingsBinding<float> FBIKTrackedKneeSwivelMinCutoffHz = new("fbiktrackedkneeswivelmincutoffhz", new BasisPlatformDefault<float>(1.5f));
-        public static BasisSettingsBinding<float> FBIKTrackedKneeSwivelBeta = new("fbiktrackedkneeswivelbeta", new BasisPlatformDefault<float>(0.20f));
-        public static BasisSettingsBinding<float> FBIKTrackedKneeSwivelDerivCutoffHz = new("fbiktrackedkneeswivelderivcutoffhz", new BasisPlatformDefault<float>(1.0f));
         // Arm twist DISTRIBUTION STRENGTH (1 = fully even: each twist bone takes a share equal to its position
         // along the bone -> linear roll gradient; 0 = no twist bone, roll piles up at the wrist). Key bumped to
         // _v2 because the meaning changed from a raw roll fraction (old 0.5/0.3) to a position-scaled strength.
@@ -1861,7 +1856,6 @@ namespace Basis.BasisUI
         // disable, so every install that ran that build has false pinned on disk and a value-only change
         // would not reach them.
         public static BasisSettingsBinding<bool> FBIKSpineAnatomicalRom = new("fbikspineanatomicalrom_v3", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<bool> FBIKLegSwivelSmoothing = new("fbiklegswivelsmoothing", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> FBIKTrackerBendNormal = new("fbiktrackerbendnormal", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKBodyFit = new("fbikbodyfit", new BasisPlatformDefault<bool>(true));
@@ -2841,9 +2835,6 @@ namespace Basis.BasisUI
             FBIKShoulderShrug.LoadBindingValue();
             FBIKShoulderElevation.LoadBindingValue();
             FBIKShoulderProtraction.LoadBindingValue();
-            FBIKTrackedKneeSwivelMinCutoffHz.LoadBindingValue();
-            FBIKTrackedKneeSwivelBeta.LoadBindingValue();
-            FBIKTrackedKneeSwivelDerivCutoffHz.LoadBindingValue();
             FBIKShoulderMaxDeg.LoadBindingValue();
             FBIKShoulderTrackerBlend.LoadBindingValue();
             FBIKArmSwivelSmoothTime.LoadBindingValue();
@@ -2861,7 +2852,6 @@ namespace Basis.BasisUI
             FBIKArmHeightRatio.LoadBindingValue();
             DesktopHeadSwingEnabled.LoadBindingValue();
             DesktopHeadSwingStrength.LoadBindingValue();
-            FBIKLegSwivelSmoothing.LoadBindingValue();
             FBIKTrackerBendNormal.LoadBindingValue();
             VSpineChestPitchFrac.LoadBindingValue();
             VSpineChestRollFrac.LoadBindingValue();

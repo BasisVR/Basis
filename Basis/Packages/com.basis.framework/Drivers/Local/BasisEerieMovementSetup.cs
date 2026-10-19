@@ -56,9 +56,6 @@ namespace Basis.Scripts.Drivers
             job.shoulderTrackerBlendTime = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderTrackerBlend.RawValue;
             job.armSwivelSmoothTime = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSmoothTime.RawValue;
             job.armSwivelMaxRateDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelMaxRate.RawValue;
-            job.trackedKneeSwivelMinCutoffHz = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelMinCutoffHz.RawValue;
-            job.trackedKneeSwivelBeta = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelBeta.RawValue;
-            job.trackedKneeSwivelDerivCutoffHz = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelDerivCutoffHz.RawValue;
 
             job.moveBodyBackWhenCrouching = Basis.BasisUI.BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.RawValue;
             job.crouchDepth = 0f;
@@ -67,7 +64,6 @@ namespace Basis.Scripts.Drivers
             job.upperArmTwistFraction = Basis.BasisUI.BasisSettingsDefaults.FBIKUpperArmTwistFraction.RawValue;
 
             job.spineAnatomicalRom = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineAnatomicalRom.RawValue;
-            job.legSwivelSmoothing = Basis.BasisUI.BasisSettingsDefaults.FBIKLegSwivelSmoothing.RawValue;
 
             job.slotPositions.Length = BasisEerieMovement.Count;
             job.slotRotations.Length = BasisEerieMovement.Count;

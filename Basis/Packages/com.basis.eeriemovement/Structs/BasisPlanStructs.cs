@@ -16,7 +16,7 @@ namespace Basis.IK
     }
     public struct BasisEerieLegPlan
     {
-        public bool has, solve, tracked, kneeTracked, preserveTip, hintRoll, trackerBendNormal, swivel, swivelTracked;
+        public bool has, solve, tracked, kneeTracked, preserveTip, hintRoll, trackerBendNormal;
         public float weight;
         public BasisEerieSource target;
     }

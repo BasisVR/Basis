@@ -39,37 +39,10 @@ namespace Basis.IK
         public bool Accepted;
         public float FitQuality, PitchRangeDeg, PivotSpreadMeters, VerticalRangeMeters;
     }
-    public struct BasisSwivelFilterState
-    {
-        public float Raw, Vel, Smooth;
-    }
     public struct BasisSwivelFrame
     {
         public Vector3 Right, Up, Forward;
         public bool Valid;
-    }
-    public struct BasisSwivelSmootherInput
-    {
-        public Vector3 Root, Mid, Tip;
-        public Quaternion BodyRotation;
-        public Vector3 ReferenceLocal, FallbackLocal, TransportHomeLocal;
-        public float Dt, MinCutoffHz, Beta, DerivCutoffHz;
-        public BasisSwivelFilterState State;
-        public bool Seeded, ConditionOnPole;
-        public float SingularMinCutoffHz;
-        public bool GuardAnteriorHalfSpace;
-        public float AnteriorSoftDeg, AnteriorHardDeg;
-        public bool HoldWhenSingular;
-        public float HoldCondLo, HoldCondHi;
-    }
-    public struct BasisSwivelSmootherResult
-    {
-        public bool Valid, WriteState, Seeded;
-        public BasisSwivelFilterState State;
-        public Vector3 DesiredMid;
-        public float RawSwivelDeg, SmoothSwivelDeg, Conditioning;
-        public bool AnteriorGuardApplied;
-        public float HoldGate;
     }
 }
 namespace Basis.Scripts.Drivers

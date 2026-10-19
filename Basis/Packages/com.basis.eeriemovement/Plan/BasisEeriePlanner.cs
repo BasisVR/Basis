@@ -143,8 +143,6 @@ namespace Basis.IK
             leg.preserveTip = leg.target == BasisEerieSource.Sim && !simRotation;
             leg.hintRoll = kneeTracked && roll;
             leg.trackerBendNormal = facts.trackerBendNormal && kneeTracked && bendNormal;
-            leg.swivel = job.legSwivelSmoothing && job.plan.hasLegState && job.plan.hasHips;
-            leg.swivelTracked = kneeTracked || tracked;
         }
         static Quaternion Unit(Quaternion q) => q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w > BasisEerieMovement.sqrEpsilon ? q : Quaternion.identity;
         static Vector3 Up(Vector3 up)

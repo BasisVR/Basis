@@ -228,13 +228,7 @@ namespace Basis.IK
             {
                 BasisLegSlotState legSlot = legState[slot];
                 if (legSlot.PoleDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, hipPos, legSlot.PoleDir, hintLength, BasisIKGizmoPalette.Magenta); // Where the solver wanted the knee
-                if (legSlot.KneeDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, hipPos, legSlot.KneeDir, hintLength, BasisIKGizmoPalette.Yellow); // Where the knee ended up after smoothing
-                if (legSlot.SwivelSeeded)
-                {
-                    FixedString64Bytes text = "swivel ";
-                    text.Append(legSlot.Swivel.Smooth);
-                    gizmos.Label(stage, kneePos + playerUp * gizmos.PointSize * 4f, text, BasisIKGizmoPalette.Yellow);
-                }
+                if (legSlot.KneeDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, hipPos, legSlot.KneeDir, hintLength, BasisIKGizmoPalette.Yellow); // Where the knee ended up
 
                 gizmos.Point(stage, legSlot.ConstrainedHintPosition, BasisIKGizmoPalette.Green);
             }
@@ -615,12 +609,6 @@ namespace Basis.IK
             reach.Append(' ');
             reach.Append(d.KneeAngleDeg);
             gizmos.Label(stage, pos, reach, color);
-
-            FixedString64Bytes swivel = "swivel ";
-            swivel.Append(d.RawSwivelDeg);
-            swivel.Append(' ');
-            swivel.Append(d.SmoothSwivelDeg);
-            gizmos.Label(stage, pos + Vector3.up * step, swivel, color);
 
             FixedString64Bytes hip = "hip ";
             hip.Append(d.HipFlexionDeg);
