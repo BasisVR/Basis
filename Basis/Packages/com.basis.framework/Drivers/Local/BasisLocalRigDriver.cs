@@ -1024,7 +1024,7 @@ namespace Basis.Scripts.Drivers
                 Vector3 chestPos = pOut[sChest];
                 Quaternion chestRot = rOut[sChest];
                 data.targetPositionChestRaw = chestPos;
-                data.targetPositionChest = ApplyHintBias(BasisBoneTrackedRole.Chest, chestPos, chestRot);
+                data.targetPositionChest = chestPos;
                 data.targetRotationChest = chestRot;
             }
             BasisLocalPlayerMarkers.IKDestBuildIKTargets.End();

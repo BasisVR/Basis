@@ -1278,10 +1278,9 @@ namespace Basis.Scripts.Avatar
             //    We store offsets in tracker-local space so they rotate with the tracker at runtime.
             //    Then BasisLocalRigDriver applies: hintPos = rawPos + rawRot * localOffset;
 
-            // Reference rotations of the T-posed chest/hips: derived from the head anchor + the
+            // Reference rotation of the T-posed hips: derived from the head anchor + the
             // load-time bind snapshot (pose-independent), falling back to the live bones — which are
             // only valid when the avatar is physically T-posed (the legacy no-snapshot path).
-            Quaternion chestRefRot = Quaternion.identity;
             Quaternion hipsRefRot = Quaternion.identity;
 
             BasisLocalBoneControl headAnchorControl = BasisLocalBoneDriver.HeadControl;
@@ -1289,10 +1288,6 @@ namespace Basis.Scripts.Avatar
             {
                 var headWorld = headAnchorControl.OutgoingWorldData;
                 BasisCalibrationMath.ComputeTposeAnchor(headWorld.position, headWorld.rotation, headAnchorControl.TposeLocalScaled.position, out _, out Quaternion anchorRot);
-                if (BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(BasisBoneTrackedRole.Chest, out var chestBind))
-                {
-                    chestRefRot = anchorRot * chestBind.rotation;
-                }
                 if (BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(BasisBoneTrackedRole.Hips, out var hipsBind))
                 {
                     hipsRefRot = anchorRot * hipsBind.rotation;
@@ -1300,11 +1295,6 @@ namespace Basis.Scripts.Avatar
             }
             else
             {
-                if (storedRoleTransforms.TryGetValue(BasisBoneTrackedRole.Chest, out var chestT) && chestT != null)
-                {
-                    chestRefRot = chestT.rotation;
-                }
-
                 if (storedRoleTransforms.TryGetValue(BasisBoneTrackedRole.Hips, out var hipsT) && hipsT != null)
                 {
                     hipsRefRot = hipsT.rotation;
@@ -1319,22 +1309,12 @@ namespace Basis.Scripts.Avatar
                 ? 1f
                 : renderedEyeHeight / BasisHeightDriver.FallbackHeightInMeters;
             float kneePush = 0.10f * hs;
-            float headPush = 0.08f * hs;
 
             // Optional clamp so calibration can never store insane offsets
             float maxPush = 0.25f * hs;
-            // Chest-as-head-hint bias (push "up" in chest frame)
-            {
-                var chestCtrl = BasisLocalBoneDriver.ChestControl;
-                Quaternion trackerRot = chestCtrl.OutgoingWorldData.rotation;
-
-                Vector3 worldUp = chestRefRot * Vector3.up;
-                Vector3 localUp = Quaternion.Inverse(trackerRot) * worldUp;
-                Vector3 localOffset = (localUp.sqrMagnitude < 1e-8f ? Vector3.up : localUp.normalized) * headPush;
-                localOffset = Vector3.ClampMagnitude(localOffset, maxPush);
-
-                BasisHintBiasStore.Set(BasisBoneTrackedRole.Chest, localOffset);
-            }
+            // No chest bias: the chest tracker is a position target for the spine solve, not a hint.
+            // A baked "up" push lifted the target off the calibrated chest while hips and head stayed
+            // pinned, so the spine bowed (usually backward) to keep its bone lengths.
             // Knee hints (lower legs) — often better with a touch of forward
             {
                 var lll = BasisLocalBoneDriver.LeftLowerLegControl;
